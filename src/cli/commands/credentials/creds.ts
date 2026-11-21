@@ -5,7 +5,7 @@ import {
 } from '@/credentials/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
-export type CredsOptions = CredentialsCommandOptions;
+type CredsOptions = CredentialsCommandOptions;
 
 /** Attach the credentials command and pass raw Commander input to the core schema boundary. */
 export const registerCredsCommand = (program: Command): void => {

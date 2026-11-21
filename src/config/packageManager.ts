@@ -2,7 +2,7 @@ import { FileSystem, Path } from '@effect/platform';
 import type * as PlatformError from '@effect/platform/Error';
 import { Effect, Option, Schema } from 'effect';
 /** The package managers Launch recognizes. */
-export type PackageManagerName = 'npm' | 'yarn' | 'pnpm' | 'bun';
+type PackageManagerName = 'npm' | 'yarn' | 'pnpm' | 'bun';
 /** The canonical lockfile each manager writes (bun also accepts the newer text `bun.lock`). */
 const LOCKFILES: Record<PackageManagerName, string> = {
   npm: 'package-lock.json',
@@ -15,7 +15,7 @@ const LOCKFILES: Record<PackageManagerName, string> = {
  * doctor readout and the footgun checks. `version`/`corepackPinned` come only from a `packageManager`
  * field; `source` records which signal won so the reasoning is legible.
  */
-export type PackageManagerInfo = {
+type PackageManagerInfo = {
   name: PackageManagerName;
   version?: string;
   source: 'packageManager' | 'lockfile' | 'yarnrc' | 'default';
@@ -72,7 +72,7 @@ export const detectFromLockfiles = (present: ReadonlySet<string>): PackageManage
   return null;
 };
 /** Inputs for {@link packageManagerWarnings} - all the facts a footgun check needs, no I/O. */
-export type PackageManagerWarningInput = {
+type PackageManagerWarningInput = {
   info: PackageManagerInfo;
   lockfile: string | null;
   corepackAvailable: boolean;

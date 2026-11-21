@@ -13,13 +13,13 @@ import type {
 export const READINESS_EXIT = { ok: 0, error: 1, blocker: 2 } as const;
 
 /** Counts that determine a readiness process exit code. */
-export type ReadinessExitInputs = Readonly<{
+type ReadinessExitInputs = Readonly<{
   errorCount: number;
   blockerCount: number;
 }>;
 
 /** Per-status tallies over visible probe reports (omitted probes already dropped). */
-export type ProbeReportTallies = Readonly<{
+type ProbeReportTallies = Readonly<{
   okCount: number;
   warnCount: number;
   blockerCount: number;

@@ -32,9 +32,7 @@ const AvailabilityCommandFailureSchema = Schema.Struct({
   cause: Schema.Unknown,
 });
 
-export type AvailabilityCommandFailure = Schema.Schema.Type<
-  typeof AvailabilityCommandFailureSchema
->;
+type AvailabilityCommandFailure = Schema.Schema.Type<typeof AvailabilityCommandFailureSchema>;
 const makeAvailabilityCommandFailure = Data.tagged<AvailabilityCommandFailure>(
   'AvailabilityCommandFailure',
 );

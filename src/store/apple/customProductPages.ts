@@ -101,7 +101,7 @@ export type AscCustomPagesApi = {
   ): Effect.Effect<void, unknown>;
 };
 /** Inputs to reconcile one app's custom product pages. */
-export type CustomPagesReconcileInput = {
+type CustomPagesReconcileInput = {
   bundleId: string;
   config: CustomProductPagesConfig;
   dryRun: boolean;

@@ -69,9 +69,7 @@ const ReleaseTrainCommandFailureSchema = Schema.Struct({
   cause: Schema.Unknown,
 });
 
-export type ReleaseTrainCommandFailure = Schema.Schema.Type<
-  typeof ReleaseTrainCommandFailureSchema
->;
+type ReleaseTrainCommandFailure = Schema.Schema.Type<typeof ReleaseTrainCommandFailureSchema>;
 
 const makeReleaseTrainCommandFailure = Data.tagged<ReleaseTrainCommandFailure>(
   'ReleaseTrainCommandFailure',

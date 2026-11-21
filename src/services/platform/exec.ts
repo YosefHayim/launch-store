@@ -30,7 +30,7 @@ export type CommandExecutionOptions = Readonly<{
   readonly envExclude?: readonly string[] | undefined;
 }>;
 /** Output handling for a quiet command program. */
-export type QuietCommandExecutionOptions = CommandExecutionOptions &
+type QuietCommandExecutionOptions = CommandExecutionOptions &
   Readonly<{
     readonly onLine?: (line: string) => void;
     readonly logFilePath?: string;

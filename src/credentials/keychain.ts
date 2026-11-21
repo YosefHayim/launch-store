@@ -7,14 +7,14 @@ const KEYCHAIN_SERVICE_NAME = 'launch';
 const LEGACY_APPLE_PRIVATE_KEY_ACCOUNT = 'asc-p8';
 const LEGACY_PLAY_SERVICE_ACCOUNT = 'play-service-account';
 
-export interface SavedAccount {
+interface SavedAccount {
   keyId: string;
   issuerId: string;
   teamId: string | null;
   label: string | null;
 }
 
-export interface SavedAccounts {
+interface SavedAccounts {
   activeKeyId: string | null;
   accounts: readonly SavedAccount[];
 }

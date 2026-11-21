@@ -19,7 +19,7 @@ import {
 } from '../shared/selectStoreApp.js';
 
 /** Loading the Play service account or creating its transport client failed. */
-export type ActiveGoogleStoreFailure = Readonly<{
+type ActiveGoogleStoreFailure = Readonly<{
   readonly _tag: 'ActiveGoogleStoreFailure';
   readonly message: string;
   readonly cause: unknown;
@@ -93,7 +93,7 @@ export const resolveGoogleStoreApp = (
   });
 
 /** A Google Play command confirmation failed or was unavailable. */
-export type GoogleStoreConfirmationFailure = Readonly<{
+type GoogleStoreConfirmationFailure = Readonly<{
   readonly _tag: 'GoogleStoreConfirmationFailure';
   readonly message: string;
   readonly cause: unknown;

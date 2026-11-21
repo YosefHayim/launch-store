@@ -74,7 +74,7 @@ export type AscOffersApi = {
 const DEFAULT_TERRITORY = 'USA';
 
 /** Inputs to reconcile one app's offers. */
-export type ReconcileOffersInput = {
+type ReconcileOffersInput = {
   bundleId: string;
   products: AppProducts;
   dryRun: boolean;

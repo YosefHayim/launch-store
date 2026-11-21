@@ -32,7 +32,7 @@ export type OtaCarSpec = Readonly<{
 }>;
 
 /** Inputs used to create and submit a release train. */
-export type StartTrainInput = Readonly<{
+type StartTrainInput = Readonly<{
   id: string;
   app: string;
   hold: boolean;
@@ -42,7 +42,7 @@ export type StartTrainInput = Readonly<{
 }>;
 
 /** Inputs controlling one release-train reconciliation. */
-export type AdvanceOptions = Readonly<{
+type AdvanceOptions = Readonly<{
   now: string;
   force?: boolean;
   onWarn?: (message: string) => void;

@@ -93,15 +93,12 @@ export type PlaySubscriptionsApi = {
 };
 
 /** Inputs to reconcile one app's Play subscriptions. */
-export type PlaySubscriptionsReconcileInput = {
+type PlaySubscriptionsReconcileInput = {
   packageName: string;
   serviceAccountEmail?: string;
   subscriptions: SubscriptionConfig[];
   dryRun: boolean;
 };
-
-export const PLAY_SUBSCRIPTIONS_SETUP_GUIDANCE =
-  'Setup: in Play Console Users and permissions, give the configured service account app access and "Manage store presence" (or "Admin (all permissions)"). The Google Play Billing API permissions "View financial data" and "Manage orders and subscriptions" manage purchases/orders; they do not replace the catalog-write permission. Paid subscriptions also require Setup > Payments profile.';
 
 /** Add setup instructions only to the two Play subscription failures with known operator fixes. */
 /** @public Imported from the built dist by e2e/playSubscriptions.e2e.ts. */
@@ -223,7 +220,7 @@ const resendableBasePlan = (basePlan: BasePlan): BasePlan => {
  * offer's region set is the intersection of its phases'. Failures are tagged configuration errors -
  * surfaced as a per-offer failure, never aborting the run.
  */
-export type PlayOfferConfigFailure = Readonly<{
+type PlayOfferConfigFailure = Readonly<{
   readonly _tag: 'PlayOfferConfigFailure';
   readonly message: string;
 }>;

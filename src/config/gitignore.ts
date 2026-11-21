@@ -28,7 +28,7 @@ const alreadyIgnored = (root: string, dir: string): Effect.Effect<boolean> =>
     Effect.as(true),
     Effect.catchAll(() => Effect.succeed(false)),
   );
-export type GitignoreFailure = Readonly<{
+type GitignoreFailure = Readonly<{
   readonly _tag: 'GitignoreFailure';
   readonly path: string;
   readonly cause: unknown;

@@ -20,9 +20,9 @@ export const RolloutCommandInputSchema = Schema.Struct({
 });
 
 type RolloutCommandInput = Schema.Schema.Type<typeof RolloutCommandInputSchema>;
-export type RolloutAction = RolloutCommandInput['action'];
+type RolloutAction = RolloutCommandInput['action'];
 
-export type RolloutCommandFailure = Readonly<{
+type RolloutCommandFailure = Readonly<{
   readonly _tag: 'RolloutCommandFailure';
   readonly operation: string;
   readonly message: string;

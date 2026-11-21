@@ -32,7 +32,7 @@ const WalletCommandInputSchema = Schema.Union(
 
 type WalletCommandInput = Schema.Schema.Type<typeof WalletCommandInputSchema>;
 
-export type WalletCommandFailure = Readonly<{
+type WalletCommandFailure = Readonly<{
   readonly _tag: 'WalletCommandFailure';
   readonly operation: WalletCommandInput['operation'];
   readonly message: string;

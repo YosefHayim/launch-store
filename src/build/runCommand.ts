@@ -19,7 +19,7 @@ const RunCommandInputSchema = Schema.Struct({
   device: Schema.optionalWith(Schema.String, { exact: true }),
 });
 
-export type RunCommandFailure = Readonly<{
+type RunCommandFailure = Readonly<{
   readonly _tag: 'RunCommandFailure';
   readonly operation: string;
   readonly message: string;

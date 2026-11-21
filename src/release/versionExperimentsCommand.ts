@@ -41,7 +41,7 @@ export type VersionExperimentsCommandInput = Schema.Schema.Type<
 >;
 
 /** A version experiments command step failed. */
-export type VersionExperimentsCommandFailure = Readonly<{
+type VersionExperimentsCommandFailure = Readonly<{
   readonly _tag: 'VersionExperimentsCommandFailure';
   readonly operation: string;
   readonly message: string;

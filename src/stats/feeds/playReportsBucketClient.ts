@@ -18,12 +18,12 @@ const makePlayReportsBucketFailure = Data.tagged<PlayReportsBucketFailure>(
   'PlayReportsBucketFailure',
 );
 
-export type BucketObjectReply =
+type BucketObjectReply =
   | { readonly status: 'found'; readonly bytes: Uint8Array }
   | { readonly status: 'missing' }
   | { readonly status: 'forbidden' };
 
-export type BucketListReply =
+type BucketListReply =
   | { readonly status: 'listed'; readonly objectNames: readonly string[] }
   | { readonly status: 'forbidden' };
 

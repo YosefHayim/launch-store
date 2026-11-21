@@ -11,14 +11,14 @@ const McpServerEntrySchema = Schema.Struct({
 
 export type McpClient = 'claude-code' | 'cursor' | 'claude-desktop';
 
-export type McpServerEntry = Readonly<{
+type McpServerEntry = Readonly<{
   readonly command: string;
   readonly args: string[];
 }>;
 
 export const LAUNCH_SERVER_ENTRY: McpServerEntry = { command: 'launch', args: ['mcp'] };
 
-export type MergeResult = Readonly<{
+type MergeResult = Readonly<{
   readonly config: Record<string, unknown>;
   readonly changed: boolean;
 }>;

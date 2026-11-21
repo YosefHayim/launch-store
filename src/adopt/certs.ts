@@ -10,7 +10,7 @@ type LocalSigningView = Readonly<{
   bundleIds: readonly string[];
 }>;
 
-export type CertPlanInput = Readonly<{
+type CertPlanInput = Readonly<{
   certificates: readonly CertificateResource[];
   profiles: readonly ProfileResource[];
   local: LocalSigningView;

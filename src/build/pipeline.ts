@@ -25,7 +25,7 @@ import { runIosBuild } from './pipelineIos.js';
 import { runAndroidBuild } from './pipelineAndroid.js';
 import { hasMessage } from '../services/platform/errorMessage.js';
 /** App configuration failed the pre-build footgun check. */
-export type BuildPreparationFailure = Readonly<{
+type BuildPreparationFailure = Readonly<{
   readonly _tag: 'BuildPreparationFailure';
   readonly appName: string;
   readonly message: string;

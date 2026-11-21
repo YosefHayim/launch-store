@@ -110,7 +110,7 @@ export const SnapshotCommandInputSchema = Schema.Union(
 );
 
 /** One decoded operation in the snapshot command family. */
-export type SnapshotCommandInput = Schema.Schema.Type<typeof SnapshotCommandInputSchema>;
+type SnapshotCommandInput = Schema.Schema.Type<typeof SnapshotCommandInputSchema>;
 
 type PruneOptions = Schema.Schema.Type<typeof PruneOptionsSchema>;
 

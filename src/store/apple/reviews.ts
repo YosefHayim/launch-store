@@ -23,7 +23,7 @@ export type AscReviewsApi = Readonly<{
 }>;
 
 /** A customer-review validation or App Store request failed. */
-export type ReviewFailure = Readonly<{
+type ReviewFailure = Readonly<{
   readonly _tag: 'ReviewFailure';
   readonly operation: string;
   readonly message: string;
@@ -32,14 +32,14 @@ export type ReviewFailure = Readonly<{
 const makeReviewFailure = Data.tagged<ReviewFailure>('ReviewFailure');
 
 /** Optional filters for App Store customer reviews. */
-export type ReviewFilters = Readonly<{
+type ReviewFilters = Readonly<{
   rating?: number | undefined;
   territory?: string | undefined;
   unansweredOnly?: boolean | undefined;
 }>;
 
 /** The stored developer reply and whether it replaced existing copy. */
-export type ReplyResult = Readonly<{
+type ReplyResult = Readonly<{
   reviewReply: CustomerReviewResponseResource;
   replaced: boolean;
 }>;

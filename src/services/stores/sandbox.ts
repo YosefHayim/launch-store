@@ -11,12 +11,12 @@ type SandboxRequestFailure = Readonly<{
 }>;
 const makeSandboxRequestFailure = Data.tagged<SandboxRequestFailure>('SandboxRequestFailure');
 /** What to clear: a set of tester emails, or every tester when `all` is true. */
-export type ClearRequest = {
+type ClearRequest = {
   emails: string[];
   all: boolean;
 };
 /** Outcome of {@link clearPurchaseHistory}: which testers were cleared, and which emails matched none. */
-export type ClearResult = {
+type ClearResult = {
   cleared: SandboxTesterResource[];
   notFound: string[];
 };

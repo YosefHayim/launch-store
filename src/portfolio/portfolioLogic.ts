@@ -71,7 +71,7 @@ export const findAppsByAccount = <FoundApp extends DiscoveredApp>(
   return apps.filter((app) => app.accountLabel.toLowerCase() === wantedLabel);
 };
 
-export interface PortfolioFilter {
+interface PortfolioFilter {
   readonly platform: PortfolioPlatform | null;
   readonly owner: AppOwner | null;
 }

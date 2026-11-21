@@ -104,7 +104,7 @@ export const runCliProgram = <Success, Failure>(
 ) => runWithTerminalServices(program, LaunchLoggerLive, LaunchPromptLive);
 
 /** The fixed fields of a `--json` run's final result line. */
-export type JsonRunSummary = Readonly<{
+type JsonRunSummary = Readonly<{
   command: 'build' | 'release';
   platform: string;
   dryRun: boolean;

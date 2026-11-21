@@ -39,7 +39,7 @@ type StatsAppNotFoundFailure = Readonly<{
 
 const makeStatsAppNotFoundFailure = Data.tagged<StatsAppNotFoundFailure>('StatsAppNotFoundFailure');
 
-export type StatsSyncFailure =
+type StatsSyncFailure =
   | InvalidAppKeyFailure
   | DocumentFileFailure
   | StatsAppNotFoundFailure

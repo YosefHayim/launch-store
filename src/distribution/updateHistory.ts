@@ -196,7 +196,7 @@ const writeActiveManifest = (
     );
   });
 
-export type ActivateUpdateInput = Readonly<{
+type ActivateUpdateInput = Readonly<{
   readonly storage: StorageProvider;
   readonly channel: string;
   readonly platform: string;
@@ -229,7 +229,7 @@ export const activateUpdate = (
     return historyEntry;
   });
 
-export type RepublishUpdateInput = Readonly<{
+type RepublishUpdateInput = Readonly<{
   readonly storage: StorageProvider;
   readonly channel: string;
   readonly platform: string;
@@ -240,7 +240,7 @@ export type RepublishUpdateInput = Readonly<{
 }>;
 
 /** Outcome of republishing an immutable snapshot as the active update. */
-export type RepublishedUpdate = Readonly<{
+type RepublishedUpdate = Readonly<{
   readonly manifest: UpdateManifest;
   readonly entry: UpdateHistoryEntry;
 }>;
@@ -287,7 +287,7 @@ export const republishUpdate = (
     return { manifest: updateManifest, entry: historyEntry };
   });
 
-export type SetRollbackToEmbeddedInput = Readonly<{
+type SetRollbackToEmbeddedInput = Readonly<{
   readonly storage: StorageProvider;
   readonly channel: string;
   readonly platform: string;

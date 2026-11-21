@@ -30,7 +30,7 @@ export const AppClipsCommandInputSchema = Schema.Struct({
 export type AppClipsCommandInput = Schema.Schema.Type<typeof AppClipsCommandInputSchema>;
 
 /** An App Clips command step failed. */
-export type AppClipsCommandFailure = Readonly<{
+type AppClipsCommandFailure = Readonly<{
   readonly _tag: 'AppClipsCommandFailure';
   readonly operation: string;
   readonly message: string;

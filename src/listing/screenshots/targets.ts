@@ -6,7 +6,7 @@ type AppleScreenshotDimensions = {
   readonly orientation: ScreenshotOrientation;
 };
 /** One Apple device target shared by screenshot validation and preview labeling. */
-export type AppleAssetTarget = {
+type AppleAssetTarget = {
   readonly key: string;
   readonly label: string;
   readonly screenshotDisplayType: string;

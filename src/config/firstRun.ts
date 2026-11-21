@@ -6,7 +6,7 @@ import {
   type LaunchPathsService,
 } from '../services/platform/paths.js';
 
-export type FirstRunState = {
+type FirstRunState = {
   ccacheOfferDeclinedAt?: string;
 };
 

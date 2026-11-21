@@ -29,7 +29,7 @@ export type DoctorRuntimeRequirements =
   | Path.Path;
 
 /** Doctor context construction failed before any inspection section could run. */
-export type DoctorContextFailure = Readonly<{
+type DoctorContextFailure = Readonly<{
   readonly _tag: 'DoctorContextFailure';
   readonly operation: string;
   readonly message: string;

@@ -39,14 +39,14 @@ export type LocalizeEventCommandInput = Readonly<{
 }>;
 
 /** One in-app-events operation selected by Commander. */
-export type EventsCommandInput =
+type EventsCommandInput =
   | Readonly<{ operation: 'list'; app?: string | undefined; json: boolean }>
   | CreateEventCommandInput
   | LocalizeEventCommandInput
   | Readonly<{ operation: 'delete'; eventId: string; yes: boolean }>;
 
 /** An in-app-events command failed before it could complete. */
-export type EventsCommandFailure = Readonly<{
+type EventsCommandFailure = Readonly<{
   readonly _tag: 'EventsCommandFailure';
   readonly operation: EventsCommandInput['operation'];
   readonly message: string;

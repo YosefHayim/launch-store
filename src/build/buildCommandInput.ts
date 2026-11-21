@@ -31,7 +31,7 @@ export type BuildCommandOptions = {
   readonly ccache: boolean;
 };
 /** A bad `launch build` command-line value that failed before the pipeline started. */
-export type BuildCommandInputError = Readonly<{
+type BuildCommandInputError = Readonly<{
   readonly _tag: 'BuildCommandInputError';
   readonly field: string;
   readonly rejectedInput: unknown;

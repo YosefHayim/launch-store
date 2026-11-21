@@ -25,12 +25,3 @@ export type PrivacySurface = Readonly<{
   trackingDomains: readonly string[];
   androidPermissions: readonly string[];
 }>;
-/**
- * The full result of a scan: every finding across the scanned apps plus the resolved process exit code
- * (0 clear - 2 blockers - 1 unreadable, per the shared readiness contract). This is the `--json` payload.
- */
-export type PrivacyReport = Readonly<{
-  findings: readonly PrivacyFinding[];
-  scanned: readonly string[];
-  exitCode: number;
-}>;

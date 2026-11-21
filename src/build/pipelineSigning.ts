@@ -71,7 +71,7 @@ export const resolveIosAccount = (options: Pick<BuildRunOptions, 'account'>, log
 export const interactiveConfirm = (launchPrompt: LaunchPromptService, message: string) =>
   launchPrompt.confirm(message);
 
-export type SigningResolutionFailure = Readonly<{
+type SigningResolutionFailure = Readonly<{
   readonly _tag: 'SigningResolutionFailure';
   readonly message: string;
 }>;

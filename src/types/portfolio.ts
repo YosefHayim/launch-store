@@ -1,8 +1,6 @@
 export type PortfolioPlatform = 'ios' | 'android';
 export type AppOwner = 'mine' | 'client';
 
-export const APP_KEY_PATTERN = /^(ios|android)-[A-Za-z0-9._]+$/;
-
 export interface DiscoveredApp {
   readonly key: string;
   readonly platform: PortfolioPlatform;
@@ -36,13 +34,6 @@ export interface PortfolioFile {
 export interface DiscoveryWarning {
   readonly accountLabel: string;
   readonly message: string;
-}
-
-export interface DiscoveryReport {
-  readonly apps: readonly DiscoveredApp[];
-  readonly warnings: readonly DiscoveryWarning[];
-  readonly attemptedAccountCount: number;
-  readonly failedAccountLabels: readonly string[];
 }
 
 export interface PortfolioLoad {

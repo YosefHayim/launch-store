@@ -86,7 +86,7 @@ export const TestflightCommandInputSchema = Schema.Union(
 
 type TestflightCommandInput = Schema.Schema.Type<typeof TestflightCommandInputSchema>;
 
-export type TestflightCommandFailure = Readonly<{
+type TestflightCommandFailure = Readonly<{
   readonly _tag: 'TestflightCommandFailure';
   readonly operation: string;
   readonly message: string;

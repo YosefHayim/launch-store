@@ -22,7 +22,7 @@ export const MigrateCommandInputSchema = Schema.Struct({
 
 type MigrateCommandInput = Schema.Schema.Type<typeof MigrateCommandInputSchema>;
 
-export type MigrateCommandFailure = Readonly<{
+type MigrateCommandFailure = Readonly<{
   readonly _tag: 'MigrateCommandFailure';
   readonly operation: string;
   readonly message: string;

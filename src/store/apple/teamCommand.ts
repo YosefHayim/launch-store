@@ -34,13 +34,13 @@ export const TeamCommandInputSchema = Schema.Union(
   TeamRemoveInputSchema,
 );
 
-export type TeamCommandInput = Schema.Schema.Type<typeof TeamCommandInputSchema>;
+type TeamCommandInput = Schema.Schema.Type<typeof TeamCommandInputSchema>;
 export type TeamListInput = Schema.Schema.Type<typeof TeamListInputSchema>;
 export type TeamInviteInput = Schema.Schema.Type<typeof TeamInviteInputSchema>;
 export type TeamRemoveInput = Schema.Schema.Type<typeof TeamRemoveInputSchema>;
 
 /** A team command step failed. */
-export type TeamCommandFailure = Readonly<{
+type TeamCommandFailure = Readonly<{
   readonly _tag: 'TeamCommandFailure';
   readonly operation: TeamCommandInput['operation'];
   readonly message: string;

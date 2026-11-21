@@ -205,7 +205,7 @@ const realIo = (logger: Logger, prompt: LaunchPromptService): ToolchainIo => {
   };
 };
 /** Options for {@link ensureToolchain}. */
-export type EnsureToolchainOptions = {
+type EnsureToolchainOptions = {
   assumeYes?: boolean;
   io?: ToolchainIo;
   platform?: NodeJS.Platform;
@@ -284,11 +284,7 @@ const configureCcache = (io: ToolchainIo): Effect.Effect<void, unknown> =>
     yield* io.run('ccache', ['--set-config', `sloppiness=${CCACHE_SLOPPINESS}`]);
   });
 /** The outcome of the inline ccache offer, so a build can log it and persist a decline correctly. */
-export type CcacheOfferResult =
-  | 'installed'
-  | 'declined'
-  | 'skipped-no-brew'
-  | 'skipped-noninteractive';
+type CcacheOfferResult = 'installed' | 'declined' | 'skipped-no-brew' | 'skipped-noninteractive';
 /**
  * Offer to install + configure ccache inline during a build when it's missing - the convenience twin of
  * `launch doctor --fix`, reusing {@link configureCcache} so the cache is tuned identically (no second

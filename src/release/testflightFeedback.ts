@@ -30,7 +30,7 @@ export type FeedbackFilters = Readonly<{
   readonly kind?: BetaFeedbackKind;
 }>;
 
-export type DownloadedAttachment = Readonly<{
+type DownloadedAttachment = Readonly<{
   readonly path: string;
   readonly url: string;
 }>;

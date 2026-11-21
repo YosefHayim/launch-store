@@ -12,7 +12,7 @@ import type { PlannedAction } from '../types/reconcile.js';
 export const PLAN_EXIT = { inSync: 0, error: 1, drift: 2 } as const;
 
 /** Surfaces that produced output; omitted (nothing declared) are dropped upstream. */
-export type RenderableSurface = Exclude<
+type RenderableSurface = Exclude<
   SurfacePlan,
   {
     state: 'omitted';
@@ -20,7 +20,7 @@ export type RenderableSurface = Exclude<
 >;
 
 /** Options for one plan run. `check` selects drift-gate exit semantics. */
-export type PlanRunOptions = Readonly<{
+type PlanRunOptions = Readonly<{
   check?: boolean;
 }>;
 
@@ -38,7 +38,7 @@ export type PlanOutcome = Readonly<{
 }>;
 
 /** Inputs for {@link planExitCode}, extracted so the contract is unit-tested pure. */
-export type ExitCodeInputs = Readonly<{
+type ExitCodeInputs = Readonly<{
   check: boolean;
   changeCount: number;
   appErrorCount: number;
@@ -46,7 +46,7 @@ export type ExitCodeInputs = Readonly<{
 }>;
 
 /** Drift and failure tallies over renderable surfaces. */
-export type PlanSurfaceTallies = Readonly<{
+type PlanSurfaceTallies = Readonly<{
   changeCount: number;
   appErrorCount: number;
   skippedSurfaceCount: number;

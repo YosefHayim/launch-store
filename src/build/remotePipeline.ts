@@ -45,12 +45,11 @@ const hostFor = (remote: RemoteTarget) => {
 };
 
 /** Remote build setup or orchestration failed before a valid artifact was produced. */
-export type RemotePipelineFailure = Readonly<{
+type RemotePipelineFailure = Readonly<{
   readonly _tag: 'RemotePipelineFailure';
   readonly message: string;
 }>;
-export const makeRemotePipelineFailure =
-  Data.tagged<RemotePipelineFailure>('RemotePipelineFailure');
+const makeRemotePipelineFailure = Data.tagged<RemotePipelineFailure>('RemotePipelineFailure');
 
 /** Reuse the live paid-window host (if one of this provider is still up) or allocate a fresh one. */
 const acquireHost = (

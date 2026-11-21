@@ -1,7 +1,6 @@
 import { Effect, Schema } from 'effect';
 import {
   ACCESSIBILITY_SUPPORT_KEYS,
-  DEVICE_FAMILIES,
   type AccessibilityDeclarationResource,
   type AccessibilitySupport,
   type DeviceFamily,
@@ -15,6 +14,16 @@ import {
   loadStoreSurfaceConfig,
   type StoreSurfaceConfigFailure,
 } from '../shared/surfaceConfig.js';
+
+/** The ordered list of `DeviceFamily` values, for validating config and iterating. */
+const DEVICE_FAMILIES: readonly DeviceFamily[] = [
+  'IPHONE',
+  'IPAD',
+  'APPLE_TV',
+  'APPLE_WATCH',
+  'MAC',
+  'VISION',
+];
 
 const AccessibilitySupportSchema = Schema.mutable(
   Schema.Struct({
@@ -109,7 +118,7 @@ export type AscAccessibilityApi = {
   ): Effect.Effect<void, unknown>;
 };
 /** Inputs to reconcile one app's accessibility declarations. */
-export type AccessibilityReconcileInput = {
+type AccessibilityReconcileInput = {
   bundleId: string;
   config: AccessibilityConfig;
   dryRun: boolean;

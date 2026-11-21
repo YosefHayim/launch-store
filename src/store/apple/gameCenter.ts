@@ -158,7 +158,7 @@ export type AscGameCenterApi = {
 };
 
 /** Inputs to reconcile one app's Game Center config. */
-export type GameCenterReconcileInput = {
+type GameCenterReconcileInput = {
   bundleId: string;
   config: GameCenterConfig;
   dryRun: boolean;

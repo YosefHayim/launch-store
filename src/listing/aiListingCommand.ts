@@ -92,7 +92,7 @@ const ResolvedDisplayNameSchema = Schema.Struct({
 });
 
 /** Listing drafting, preview, or persistence failed. */
-export type AiListingFailure = Readonly<{
+type AiListingFailure = Readonly<{
   readonly _tag: 'AiListingFailure';
   readonly operation: string;
   readonly message: string;

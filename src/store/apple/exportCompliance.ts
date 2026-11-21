@@ -26,7 +26,7 @@ export type ExportComplianceApi = {
   linkBuildToDeclaration(declarationId: string, buildId: string): Effect.Effect<void, unknown>;
 };
 /** One app's export-compliance reconcile inputs. */
-export type ExportComplianceInput = {
+type ExportComplianceInput = {
   bundleId: string;
   buildNumber: number;
   usesNonExemptEncryption: boolean | undefined;
@@ -67,7 +67,7 @@ export type ExportComplianceResult =
     };
 
 /** Export-compliance reconciliation failed. */
-export type ExportComplianceFailure = Readonly<{
+type ExportComplianceFailure = Readonly<{
   readonly _tag: 'ExportComplianceFailure';
   readonly operation: string;
   readonly message: string;
@@ -130,7 +130,7 @@ export const reconcileExportCompliance = (
     ),
   );
 /** A doctor/preflight verdict derived from the app's Expo config alone - no network. */
-export type ExportComplianceConfigStatus = {
+type ExportComplianceConfigStatus = {
   ok: boolean;
   message: string;
 };

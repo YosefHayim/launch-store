@@ -27,7 +27,7 @@ export const DoctorCommandInputSchema = Schema.Struct({
 export type DoctorCommandInput = Schema.Schema.Type<typeof DoctorCommandInputSchema>;
 
 /** A doctor command step failed. */
-export type DoctorCommandFailure = Readonly<{
+type DoctorCommandFailure = Readonly<{
   readonly _tag: 'DoctorCommandFailure';
   readonly operation: string;
   readonly message: string;

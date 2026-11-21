@@ -23,7 +23,7 @@ export type CaptureResult = {
   exitCode: number;
 };
 /** Metadata the command supplies for the record being built (the label and capture time). */
-export type CaptureMeta = {
+type CaptureMeta = {
   name: string;
   capturedAt: string;
 };

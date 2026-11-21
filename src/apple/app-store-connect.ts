@@ -19,7 +19,7 @@ interface ApplePage {
   data?: readonly AppleResource[];
 }
 
-export interface BuildUploadRequest {
+interface BuildUploadRequest {
   appId: string;
   version: string;
   buildNumber: number;

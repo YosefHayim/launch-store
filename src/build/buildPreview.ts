@@ -20,7 +20,7 @@ type AppBuildPlan = Readonly<{
 }>;
 
 /** Resolved build decisions for every selected app. */
-export type BuildPreview = Readonly<{
+type BuildPreview = Readonly<{
   readonly platform: Platform;
   readonly profile: string;
   readonly distribution: string;

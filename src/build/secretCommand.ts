@@ -43,7 +43,7 @@ export const SecretCommandInputSchema = Schema.Union(
 
 type SecretCommandInput = Schema.Schema.Type<typeof SecretCommandInputSchema>;
 
-export type SecretCommandFailure = Readonly<{
+type SecretCommandFailure = Readonly<{
   readonly _tag: 'SecretCommandFailure';
   readonly action: string;
   readonly message: string;

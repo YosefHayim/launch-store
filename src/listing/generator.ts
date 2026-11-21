@@ -40,7 +40,7 @@ const AnthropicRequestSchema = Schema.Struct({
 });
 
 /** Anthropic listing generation or decoding failed. */
-export type ListingGenerationFailure = Readonly<{
+type ListingGenerationFailure = Readonly<{
   readonly _tag: 'ListingGenerationFailure';
   readonly operation: string;
   readonly message: string;

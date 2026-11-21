@@ -4,7 +4,7 @@ import { setVerboseOutput } from '../services/platform/progress.js';
 import { type BuildCommandOptions, parseBuildCommandInput } from './buildCommandInput.js';
 import { hasMessage } from '../services/platform/errorMessage.js';
 /** The build pipeline failed while executing a decoded build command. */
-export type BuildCommandExecutionError = Readonly<{
+type BuildCommandExecutionError = Readonly<{
   readonly _tag: 'BuildCommandExecutionError';
   readonly message: string;
   readonly cause: unknown;

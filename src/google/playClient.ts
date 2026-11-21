@@ -23,7 +23,6 @@ import type {
   PlayRelease,
   PlayReplyResult,
   PlayReview,
-  PlayTrackInfo,
   RegionalBasePlanConfig,
   RegionalSubscriptionOfferConfig,
   SubscriptionListing,
@@ -36,6 +35,9 @@ import type {
   ConvertedRegionPrice,
   PlayMoneyUnits,
 } from '../types/playPricing.js';
+
+type PlayTrackInfo = Readonly<{ track: string; releases: readonly PlayRelease[] }>;
+
 const OAUTH_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
 /**
  * Region snapshot the subscriptions monetization API pins prices against - a required query parameter on
@@ -61,7 +63,7 @@ export type PlayAppNotFoundError = Readonly<{
 }>;
 const makePlayAppNotFoundError = Data.tagged<PlayAppNotFoundError>('PlayAppNotFoundError');
 /** A service-account key could not be decoded into the fields Google auth requires. */
-export type ServiceAccountParseError = Readonly<{
+type ServiceAccountParseError = Readonly<{
   readonly _tag: 'ServiceAccountParseError';
   readonly message: string;
   readonly cause: unknown;

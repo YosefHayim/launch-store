@@ -126,7 +126,7 @@ export const resolveProfileTeamId = (
 };
 
 /** Inputs for {@link ensureRegisteredBundleId} - one App ID ensure step. */
-export type EnsureRegisteredBundleIdOptions = {
+type EnsureRegisteredBundleIdOptions = {
   client: AppleCredentialsClient;
   platform: Platform;
   bundleId: string;
@@ -225,7 +225,7 @@ export const staleCachedSigningTargets = (
   });
 
 /** Inputs for {@link ensureAppStoreProfileForBundle} - one bundle's App ID + App Store profile step. */
-export type EnsureProfileForBundleOptions = {
+type EnsureProfileForBundleOptions = {
   client: AppleCredentialsClient;
   keyId: string;
   index: CredentialsIndex;

@@ -6,7 +6,7 @@ import { listingAdopter } from './listing.js';
 import type { ProfileEntitlementRequirements } from './profileEntitlements.js';
 import { productsAdopter } from './products.js';
 
-export type AdopterRequirements = ProfileEntitlementRequirements | LaunchPathsService;
+type AdopterRequirements = ProfileEntitlementRequirements | LaunchPathsService;
 
 /** Registered adopters keyed by domain; re-registering one replaces it. */
 const ADOPTERS = new Map<string, Adopter<AdopterRequirements>>();

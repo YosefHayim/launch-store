@@ -13,7 +13,7 @@ import type {
  * How one per-app App Store surface plans itself.
  * @typeParam TConfig - the surface's desired-state config shape (e.g. `ReleaseAttributesConfig`).
  */
-export type AppStoreSurfaceSpec<TConfig> = {
+type AppStoreSurfaceSpec<TConfig> = {
   surface: string;
   direction: PlanDirection;
   configFor: (
@@ -104,7 +104,7 @@ export const planAppStoreSurface = <TConfig>(
  * against the team and the diff is returned as a `scope: "team"` plan.
  * @typeParam TConfig - the surface's desired-state config shape (e.g. `WalletConfig`).
  */
-export type TeamSurfaceSpec<TConfig> = {
+type TeamSurfaceSpec<TConfig> = {
   surface: string;
   direction: PlanDirection;
   config: () =>

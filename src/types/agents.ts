@@ -1,12 +1,3 @@
-export type AgentTarget =
-  | 'claude'
-  | 'cursor'
-  | 'codex'
-  | 'windsurf'
-  | 'copilot'
-  | 'kiro'
-  | 'cline'
-  | 'amazonq';
 /**
  * One command in a skill's recipe, split so the validator can tell a real (sub)command from its
  * arguments. `path` is the exact command words after `launch` that MUST resolve in the live program

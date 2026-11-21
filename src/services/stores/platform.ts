@@ -7,7 +7,7 @@ type AscBundleIdPlatform = 'IOS' | 'MAC_OS';
 /** App Store Connect signing-profile type (e.g. `IOS_APP_STORE`, `TVOS_APP_STORE`, `MAC_APP_STORE`). */
 type AscAppStoreProfileType = 'IOS_APP_STORE' | 'TVOS_APP_STORE' | 'MAC_APP_STORE';
 type AscAdHocProfileType = 'IOS_APP_ADHOC' | 'TVOS_APP_ADHOC';
-export type PlatformMappingFailure = Readonly<{
+type PlatformMappingFailure = Readonly<{
   readonly _tag: 'PlatformMappingFailure';
   readonly operation: string;
   readonly platform: string;

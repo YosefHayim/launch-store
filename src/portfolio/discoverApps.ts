@@ -8,9 +8,16 @@ import { errorMessage } from '../services/platform/errorMessage.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 import { StatsCredentials } from '../stats/statsCredentials.js';
 import type { AccountRecord } from '../types/credentials.js';
-import type { DiscoveredApp, DiscoveryReport, DiscoveryWarning } from '../types/portfolio.js';
+import type { DiscoveredApp, DiscoveryWarning } from '../types/portfolio.js';
 import type { StatsCredentialsShape } from '../types/stats.js';
 import { createAndroidAppKey, createIosAppKey, mergeDiscoveredApps } from './portfolioLogic.js';
+
+interface DiscoveryReport {
+  readonly apps: readonly DiscoveredApp[];
+  readonly warnings: readonly DiscoveryWarning[];
+  readonly attemptedAccountCount: number;
+  readonly failedAccountLabels: readonly string[];
+}
 
 const PLAY_ACCOUNT_LABEL = 'google-play';
 

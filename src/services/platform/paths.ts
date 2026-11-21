@@ -3,8 +3,9 @@ import * as FileSystem from '@effect/platform/FileSystem';
 import type * as PlatformError from '@effect/platform/Error';
 import * as Path from '@effect/platform/Path';
 import { Context, Data, Effect, Layer } from 'effect';
-import { APP_KEY_PATTERN } from '../../types/portfolio.js';
 import { homedir } from 'node:os';
+
+const APP_KEY_PATTERN = /^(ios|android)-[A-Za-z0-9._]+$/;
 
 export type LaunchPathsService = Readonly<{
   readonly homeDirectory: string;

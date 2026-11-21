@@ -71,21 +71,7 @@ export type EasJson = Readonly<{
   build: Record<string, EasBuildProfile>;
   submit: Record<string, EasSubmitProfile>;
 }>;
-/**
- * A non-secret summary of an EAS `credentials.json` (present when `eas.json` sets
- * `credentialsSource: "local"`). Only paths and the keystore alias are surfaced; the certificate/keystore
- * Password fields are discarded by the boundary schema and never enter this shape.
- */
-export type CredentialsSummary = Readonly<{
-  ios?: Readonly<{
-    distributionCertificatePath?: string;
-    provisioningProfilePath?: string;
-  }>;
-  android?: Readonly<{
-    keystorePath?: string;
-    keyAlias?: string;
-  }>;
-}>;
+
 /** The `Appfile` - the app/account identifiers fastlane shares across actions. */
 export type AppfileData = Readonly<{
   appIdentifier?: string;
@@ -120,18 +106,4 @@ export type FastlaneLane = Readonly<{
   name: string;
   platform?: string;
   actions: readonly string[];
-}>;
-/**
- * A parsed fastlane setup, narrowed to what Launch reads from the standard files. Lanes and recognized
- * actions drive the report (Launch's pipeline replaces lanes); the per-file blocks are present only when
- * that file existed. Mirrors {@link EasJson} as the file-based input to a migration source.
- */
-export type FastlaneSetup = Readonly<{
-  appfile?: AppfileData;
-  matchfile?: MatchfileData;
-  supply?: SupplyfileData;
-  lanes: readonly FastlaneLane[];
-  actions: readonly string[];
-  hasDeliverfile: boolean;
-  envKeys: readonly string[];
 }>;

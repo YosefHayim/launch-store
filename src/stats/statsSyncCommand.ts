@@ -13,7 +13,7 @@ import type { DocumentFileFailure } from '../services/platform/atomicDocumentFil
 import type { InvalidAppKeyFailure } from '../services/platform/paths.js';
 import type { SyncLockFailure } from './syncLock.js';
 
-export interface StatsSyncCommandRequest {
+interface StatsSyncCommandRequest {
   readonly app: string | undefined;
   readonly days: string | undefined;
   readonly isJson: boolean;

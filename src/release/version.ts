@@ -1,4 +1,4 @@
-export type VersionBump = 'major' | 'minor' | 'patch';
+type VersionBump = 'major' | 'minor' | 'patch';
 /**
  * A user-facing version-bump choice: a semver {@link VersionBump} or `"keep"` (reuse the current version).
  * This is the rememberable set - the kind persisted as a build's last pick (see `core/lastRun.ts`) and the
@@ -7,7 +7,7 @@ export type VersionBump = 'major' | 'minor' | 'patch';
  */
 export type BumpKind = VersionBump | 'keep';
 /** A parsed marketing version. Pre-release / build metadata is dropped - only the numeric core is kept. */
-export type SemVer = {
+type SemVer = {
   major: number;
   minor: number;
   patch: number;

@@ -87,7 +87,7 @@ export type AscReleaseApi = {
   createAppStoreVersionReleaseRequest(versionId: string): Effect.Effect<void, unknown>;
 };
 
-export type AppStoreReleaseFailure = Readonly<{
+type AppStoreReleaseFailure = Readonly<{
   readonly _tag: 'AppStoreReleaseFailure';
   readonly operation: string;
   readonly message: string;
@@ -118,7 +118,7 @@ export const IOS_PLATFORM = 'IOS';
  * - `live`: exact version is public - must bump
  * - `blocked`: unknown/removed state we will not mutate
  */
-export type ReleasePhase = 'editable' | 'submitted' | 'pending-release' | 'live' | 'blocked';
+type ReleasePhase = 'editable' | 'submitted' | 'pending-release' | 'live' | 'blocked';
 
 /** Classify a version's `appStoreState` into the action the release flow may take. Pure. */
 export const nextReleaseAction = (appStoreState: string): ReleasePhase => {
@@ -922,7 +922,7 @@ export const pickCurrentVersion = (
 };
 
 /** Options for {@link waitForValidBuild}: injectable sleep keeps the poll loop unit-testable. */
-export type WaitOptions = {
+type WaitOptions = {
   intervalMs?: number;
   timeoutMs?: number;
   sleep?: (milliseconds: number) => Effect.Effect<void>;

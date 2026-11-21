@@ -3,9 +3,9 @@ import { Data, Effect } from 'effect';
 const RELEASE_CONFIRMATION_REQUIRED_MESSAGE =
   'Refusing to submit a public release without confirmation. Re-run with --yes after the operator approves this release.';
 /** The command may either skip the prompt because `--yes` was passed, or show an interactive prompt. */
-export type ReleaseConfirmationMode = 'confirmed' | 'prompt';
+type ReleaseConfirmationMode = 'confirmed' | 'prompt';
 /** Inputs used to decide whether the release command may proceed. */
-export type ResolveReleaseConfirmationInput = {
+type ResolveReleaseConfirmationInput = {
   readonly yes: boolean;
   readonly canPrompt: boolean;
 };

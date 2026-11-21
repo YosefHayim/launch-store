@@ -12,13 +12,13 @@ import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from './rec
 import { hasMessage } from '../services/platform/errorMessage.js';
 
 /** Options accepted by the privacy scan command program. */
-export type PrivacyCommandOptions = {
+type PrivacyCommandOptions = {
   app?: string;
   json?: boolean;
 };
 
 /** Loading the app configuration or its resolved Expo surface failed. */
-export type PrivacyCommandFailure = Readonly<{
+type PrivacyCommandFailure = Readonly<{
   readonly _tag: 'PrivacyCommandFailure';
   readonly operation: string;
   readonly message: string;
@@ -28,7 +28,7 @@ export type PrivacyCommandFailure = Readonly<{
 const makePrivacyCommandFailure = Data.tagged<PrivacyCommandFailure>('PrivacyCommandFailure');
 
 /** Runtime dependencies for privacy discovery, output, and exit status. */
-export type PrivacyCommandDependencies = {
+type PrivacyCommandDependencies = {
   readonly loadConfiguration: Effect.Effect<LoadedConfig, PrivacyCommandFailure>;
   readonly inspectPrivacySurface: (
     appDescriptor: AppDescriptor,
@@ -37,9 +37,9 @@ export type PrivacyCommandDependencies = {
 };
 
 /** Injectable command boundary for privacy discovery and reporting. */
-export const PrivacyCommandService =
+const PrivacyCommandService =
   Context.GenericTag<PrivacyCommandDependencies>('PrivacyCommandService');
-export type PrivacyCommandService = PrivacyCommandDependencies;
+type PrivacyCommandService = PrivacyCommandDependencies;
 
 /** Directories excluded from bounded privacy manifest discovery. */
 const SKIPPED_DIRECTORIES = new Set(['node_modules', 'Pods', 'build', 'DerivedData', 'dist']);

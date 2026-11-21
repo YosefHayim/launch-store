@@ -27,7 +27,7 @@ const AppRuntimeVersionSchema = Schema.Struct({
 });
 
 /** Inputs resolved from the OTA update command flags. */
-export type UpdateCommandInput = Readonly<{
+type UpdateCommandInput = Readonly<{
   channel: string;
   platform: string;
   app?: string;
@@ -41,7 +41,7 @@ export type UpdateCommandInput = Readonly<{
 }>;
 
 /** OTA export, signing, or publishing failed. */
-export type UpdateCommandFailure = Readonly<{
+type UpdateCommandFailure = Readonly<{
   readonly _tag: 'UpdateCommandFailure';
   readonly operation: string;
   readonly message: string;

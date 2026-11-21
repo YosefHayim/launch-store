@@ -10,7 +10,7 @@ import {
 import type { BuildArtifact, PruneOptions, PruneResult } from '../../types/artifacts.js';
 
 /** Artifact-index persistence and retention operations used by storage providers. */
-export type ArtifactRetentionService = Readonly<{
+type ArtifactRetentionService = Readonly<{
   readonly readIndex: (
     indexPath: string,
   ) => Effect.Effect<readonly BuildArtifact[], PlatformError | ParseError>;

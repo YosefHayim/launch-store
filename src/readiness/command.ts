@@ -39,7 +39,7 @@ const ReadinessCommandInputSchema = Schema.Struct({
 });
 
 /** A configuration or store-client read failed before the probes could report readiness. */
-export type ReadinessCommandFailure = Readonly<{
+type ReadinessCommandFailure = Readonly<{
   readonly _tag: 'ReadinessCommandFailure';
   readonly operation: string;
   readonly message: string;

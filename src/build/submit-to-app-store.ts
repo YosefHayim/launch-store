@@ -1,6 +1,6 @@
 import type { AppStoreConnect } from '@/apple/app-store-connect.js';
 
-export interface SignedAppUpload {
+interface SignedAppUpload {
   path: string;
   bundleId: string;
 }

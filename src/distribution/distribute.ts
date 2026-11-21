@@ -8,7 +8,7 @@ import type { LaunchConfig } from '../types/config.js';
 import { isCloudStorage, resolveStorageProvider } from './storage.js';
 import { installLandingPage, iosInstallManifestPlist, itmsServicesUrl } from './installManifest.js';
 
-export type DistributeOptions = Readonly<{
+type DistributeOptions = Readonly<{
   readonly config: LaunchConfig;
   readonly app: AppDescriptor;
   readonly platform: Platform;

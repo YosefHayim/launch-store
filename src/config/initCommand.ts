@@ -21,7 +21,7 @@ export const InitCommandInputSchema = Schema.Struct({
 });
 
 /** An init command step failed. */
-export type InitCommandFailure = Readonly<{
+type InitCommandFailure = Readonly<{
   readonly _tag: 'InitCommandFailure';
   readonly operation: string;
   readonly message: string;

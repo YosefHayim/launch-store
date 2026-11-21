@@ -47,7 +47,7 @@ const UpdateManifestSchema = Schema.Struct({
 export type UpdateRow = UpdateHistoryEntry & Readonly<{ platform: Platform }>;
 
 /** One operation in the `updates` command family. */
-export type UpdatesCommandInput =
+type UpdatesCommandInput =
   | Readonly<{
       operation: 'list';
       channel: string;
@@ -77,7 +77,7 @@ export type UpdatesCommandFailure = Readonly<{
 const makeUpdatesCommandFailure = Data.tagged<UpdatesCommandFailure>('UpdatesCommandFailure');
 
 /** Injectable terminal, clock, and identifier boundary for update history. */
-export type UpdatesCommandService = Readonly<{
+type UpdatesCommandService = Readonly<{
   logger: Logger;
   terminalIsInteractive: boolean;
   createUpdateId: () => string;
@@ -85,8 +85,7 @@ export type UpdatesCommandService = Readonly<{
   confirmRollback: (message: string) => Effect.Effect<boolean, UpdatesCommandFailure>;
   cancelRollback: () => Effect.Effect<void>;
 }>;
-export const UpdatesCommandService =
-  Context.GenericTag<UpdatesCommandService>('UpdatesCommandService');
+const UpdatesCommandService = Context.GenericTag<UpdatesCommandService>('UpdatesCommandService');
 
 /** Convert an unknown failure to the update command's tagged channel. */
 const updatesFailure = (

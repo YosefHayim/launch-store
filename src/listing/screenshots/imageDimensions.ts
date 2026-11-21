@@ -1,7 +1,7 @@
 import { FileSystem } from '@effect/platform';
 import { Effect } from 'effect';
 
-export type ImageDimensions = {
+type ImageDimensions = {
   readonly width: number;
   readonly height: number;
 };

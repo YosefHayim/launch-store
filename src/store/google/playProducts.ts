@@ -23,7 +23,7 @@ export type PlayProductsApi = {
   ): Effect.Effect<void, unknown>;
 };
 /** Inputs to reconcile one app's Play in-app products. */
-export type PlayProductsReconcileInput = {
+type PlayProductsReconcileInput = {
   packageName: string;
   products: InAppPurchaseConfig[];
   dryRun: boolean;
@@ -38,7 +38,7 @@ const toMoney = (price: PlayPriceConfig): PlayMoney => {
  * title, description -> description); pricing comes from the `play` override. Throws when the product has
  * no localization, since Play requires a default language Launch derives from the first one.
  */
-export type PlayProductConfigFailure = Readonly<{
+type PlayProductConfigFailure = Readonly<{
   readonly _tag: 'PlayProductConfigFailure';
   readonly message: string;
 }>;

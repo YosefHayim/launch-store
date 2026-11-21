@@ -5,7 +5,7 @@ import { AppleListing } from '@/store/apple/listing.js';
 import { PlayProducts } from '@/store/google/products.js';
 import { planStore, type StoreChange, type StoreSnapshot } from '@/store/plan-store.js';
 
-export interface SyncRequest {
+interface SyncRequest {
   desired: StoreSnapshot;
   live: StoreSnapshot;
   hasYes: boolean;

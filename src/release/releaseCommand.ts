@@ -88,7 +88,7 @@ export const ReleaseCommandService =
   Context.GenericTag<ReleaseCommandService>('ReleaseCommandService');
 
 /** How an operator selected which App Store build to promote. */
-export type AppStoreBuildSelector =
+type AppStoreBuildSelector =
   | Readonly<{ kind: 'latest' }>
   | Readonly<{ kind: 'number'; buildNumber: number }>
   | Readonly<{ kind: 'invalid'; selector: string }>;

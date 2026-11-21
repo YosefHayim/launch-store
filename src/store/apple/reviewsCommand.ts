@@ -31,13 +31,13 @@ export type ReviewReplyCommandInput = Readonly<{
 }>;
 
 /** One customer-reviews operation selected by Commander. */
-export type ReviewsCommandInput =
+type ReviewsCommandInput =
   | ReviewsListCommandInput
   | ReviewReplyCommandInput
   | Readonly<{ operation: 'delete'; reviewId: string; yes: boolean }>;
 
 /** A customer-reviews command failed before it could complete. */
-export type ReviewsCommandFailure = Readonly<{
+type ReviewsCommandFailure = Readonly<{
   readonly _tag: 'ReviewsCommandFailure';
   readonly operation: ReviewsCommandInput['operation'];
   readonly message: string;

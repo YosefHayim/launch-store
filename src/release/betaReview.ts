@@ -23,9 +23,9 @@ const BetaReviewConfigSchema = Schema.Struct({
   whatToTest: WhatToTestSchema,
 });
 
-export type BetaReviewConfig = Schema.Schema.Type<typeof BetaReviewConfigSchema>;
+type BetaReviewConfig = Schema.Schema.Type<typeof BetaReviewConfigSchema>;
 
-export type BetaReviewFailure = Readonly<{
+type BetaReviewFailure = Readonly<{
   readonly _tag: 'BetaReviewFailure';
   readonly operation: string;
   readonly message: string;
@@ -62,7 +62,7 @@ export type BetaReviewReconcileInput = Readonly<{
   readonly dryRun: boolean;
 }>;
 
-export type BetaReviewReport = Readonly<{
+type BetaReviewReport = Readonly<{
   readonly buildVersion: string;
   readonly actions: PlannedAction[];
 }>;

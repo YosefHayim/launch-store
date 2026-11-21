@@ -635,15 +635,7 @@ export type AgeRatingDeclarationResource = Readonly<{
 }>;
 /** The device families an accessibility declaration can target - Apple's `DeviceFamily` enum, restated for public signatures. */
 export type DeviceFamily = 'IPHONE' | 'IPAD' | 'APPLE_TV' | 'APPLE_WATCH' | 'MAC' | 'VISION';
-/** The ordered list of `DeviceFamily` values, for validating config and iterating. */
-export const DEVICE_FAMILIES: readonly DeviceFamily[] = [
-  'IPHONE',
-  'IPAD',
-  'APPLE_TV',
-  'APPLE_WATCH',
-  'MAC',
-  'VISION',
-];
+
 /**
  * The accessibility-support flags an accessibility declaration carries - the answers behind Apple's 2025
  * "Accessibility Nutrition Labels". Unlike the age-rating declaration's open map, Apple's accessibility

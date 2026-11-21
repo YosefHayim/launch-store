@@ -843,7 +843,7 @@ const StorageConfigEffectSchema = Schema.Struct({
 /**
  * Effect Schema source of truth for the authoring shape and decoded runtime config.
  */
-export const LaunchConfigEffectSchema = Schema.Struct({
+const LaunchConfigEffectSchema = Schema.Struct({
   profiles: described(
     Schema.Record({ key: Schema.String, value: BuildProfileEffectSchema }),
     'Build profiles keyed by name.',
@@ -993,7 +993,7 @@ This is the home for *backend-only* values that sit in the app's \`.env\` for lo
   description:
     'The fully-resolved configuration for one `launch` invocation. Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here (`storage`, `credentials`, `buildEngine`) are looked up in the provider registry at runtime.',
 });
-export type ParsedLaunchConfig = Schema.Schema.Type<typeof LaunchConfigEffectSchema>;
+type ParsedLaunchConfig = Schema.Schema.Type<typeof LaunchConfigEffectSchema>;
 
 /** Dotted path used in {@link SchemaViolation} reports (`profiles.production.sizeBudgetMB`, `items[0]`). */
 const formatSchemaPath = (pathKeys: readonly PropertyKey[]): string => {

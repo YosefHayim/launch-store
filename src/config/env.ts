@@ -130,7 +130,7 @@ export type ResolvedEnv = {
  * (off by default to avoid surprise local env). `envFile` renames the base file (default `.env`).
  * `envExclude` names are dropped after all layers merge - see {@link resolveEnv}.
  */
-export type ResolveEnvInput = {
+type ResolveEnvInput = {
   appDir: string;
   profileName: string;
   profileEnv?: Record<string, string> | undefined;
@@ -207,7 +207,7 @@ export const resolveEnv = (input: ResolveEnvInput) =>
  * `=` (e.g. a DSN or base64). Throws on a pair with no `=` or an empty key so a typo fails loudly
  * rather than silently dropping an override.
  */
-export type CliEnvironmentFailure = Readonly<{
+type CliEnvironmentFailure = Readonly<{
   readonly _tag: 'CliEnvironmentFailure';
   readonly message: string;
 }>;

@@ -22,7 +22,7 @@ import {
 const IOS_SUBMITTER = 'app-store-connect';
 const ANDROID_SUBMITTER = 'google-play';
 
-export type BuildTransportFailure = Readonly<{
+type BuildTransportFailure = Readonly<{
   readonly _tag: 'BuildTransportFailure';
   readonly message: string;
 }>;

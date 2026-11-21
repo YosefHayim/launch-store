@@ -1,4 +1,4 @@
-export type BuildDiagnosis = {
+type BuildDiagnosis = {
   title: string;
   cause: string;
   fix: string;

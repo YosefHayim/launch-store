@@ -44,7 +44,7 @@ export const androidCarState = (releases: readonly PlayRelease[]): NativeCarStat
 };
 
 /** Native legs plus OTA followers a train coordinates. */
-export type TrainCarPlan = Readonly<{
+type TrainCarPlan = Readonly<{
   platforms: readonly TrainPlatform[];
   ota: readonly OtaCarSpec[];
 }>;

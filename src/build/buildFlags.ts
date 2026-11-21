@@ -27,7 +27,7 @@ export type ArchiveArgsInput = {
   buildDestination: string;
 };
 /** Inputs to the `xcodebuild -exportArchive` invocation. */
-export type ExportArgsInput = {
+type ExportArgsInput = {
   archivePath: string;
   exportOptionsPath: string;
   exportPath: string;

@@ -18,7 +18,7 @@ export const PlayPricingCommandInputSchema = Schema.Struct({
 export type PlayPricingCommandInput = Schema.Schema.Type<typeof PlayPricingCommandInputSchema>;
 
 /** Invalid price input supplied at the command boundary. */
-export type PlayPricingInputError = Readonly<{
+type PlayPricingInputError = Readonly<{
   readonly _tag: 'PlayPricingInputError';
   readonly field: 'amount' | 'currency';
   readonly receivedValue: string;
@@ -27,7 +27,7 @@ export type PlayPricingInputError = Readonly<{
 const makePlayPricingInputError = Data.tagged<PlayPricingInputError>('PlayPricingInputError');
 
 /** Configuration, credentials, conversion, or output failed. */
-export type PlayPricingExecutionError = Readonly<{
+type PlayPricingExecutionError = Readonly<{
   readonly _tag: 'PlayPricingExecutionError';
   readonly stage: 'decode' | 'app' | 'credentials' | 'conversion' | 'output';
   readonly message: string;

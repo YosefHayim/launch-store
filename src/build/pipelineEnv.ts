@@ -25,7 +25,7 @@ export type AppSelectionFailure = Readonly<{
 const makeAppSelectionFailure = Data.tagged<AppSelectionFailure>('AppSelectionFailure');
 
 /** Build environment resolution or validation failed before artifact creation. */
-export type BuildEnvironmentFailure = Readonly<{
+type BuildEnvironmentFailure = Readonly<{
   readonly _tag: 'BuildEnvironmentFailure';
   readonly stage: 'secrets' | 'validation';
   readonly message: string;

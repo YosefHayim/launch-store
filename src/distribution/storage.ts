@@ -10,7 +10,7 @@ import type { BuildArtifact } from '../types/artifacts.js';
 import type { LaunchConfig } from '../types/config.js';
 import { makeProviderInputFailure, type StorageProvider } from '../types/providers.js';
 
-export type ArtifactDirectoryFailure = Readonly<{
+type ArtifactDirectoryFailure = Readonly<{
   readonly _tag: 'ArtifactDirectoryFailure';
   readonly message: string;
 }>;
@@ -19,7 +19,7 @@ const makeArtifactDirectoryFailure = Data.tagged<ArtifactDirectoryFailure>(
   'ArtifactDirectoryFailure',
 );
 
-export type ArtifactUnavailableFailure = Readonly<{
+type ArtifactUnavailableFailure = Readonly<{
   readonly _tag: 'ArtifactUnavailableFailure';
   readonly message: string;
   readonly artifactPath: string;

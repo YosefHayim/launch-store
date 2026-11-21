@@ -25,7 +25,7 @@ export const ConfigCommandInputSchema = Schema.Union(
 
 type ConfigCommandInput = Schema.Schema.Type<typeof ConfigCommandInputSchema>;
 
-export type ConfigCommandFailure = Readonly<{
+type ConfigCommandFailure = Readonly<{
   readonly _tag: 'ConfigCommandFailure';
   readonly operation: string;
   readonly message: string;

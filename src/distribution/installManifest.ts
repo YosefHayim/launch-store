@@ -11,7 +11,7 @@ const escapeXml = (xmlText: string): string =>
     .replace(/'/g, '&apos;');
 
 /** Inputs for the iOS install manifest plist. */
-export type IosManifestOptions = Readonly<{
+type IosManifestOptions = Readonly<{
   readonly ipaUrl: string;
   readonly bundleId: string;
   readonly version: string;
@@ -49,7 +49,7 @@ export const itmsServicesUrl = (manifestUrl: string): string =>
   `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
 
 /** Inputs for the install landing page. */
-export type LandingPageOptions = Readonly<{
+type LandingPageOptions = Readonly<{
   readonly title: string;
   readonly version: string;
   readonly buildNumber: number;

@@ -1,7 +1,7 @@
 import { HttpClient, HttpClientResponse } from '@effect/platform';
 import { Effect, Layer } from 'effect';
 
-export interface HttpClientSequenceReply {
+interface HttpClientSequenceReply {
   readonly status: number;
   readonly document: unknown;
 }
@@ -19,7 +19,7 @@ export interface HttpClientSentRequest {
   readonly sentDocument: string | null;
 }
 
-export interface HttpClientSequenceTest {
+interface HttpClientSequenceTest {
   readonly layer: Layer.Layer<HttpClient.HttpClient>;
   readonly sentRequests: HttpClientSentRequest[];
 }

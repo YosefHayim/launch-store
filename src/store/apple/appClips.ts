@@ -117,7 +117,7 @@ export type AscAppClipsApi = {
   ): Effect.Effect<void, unknown>;
 };
 /** Inputs to reconcile one app's App Clip cards. */
-export type AppClipsReconcileInput = {
+type AppClipsReconcileInput = {
   bundleId: string;
   config: AppClipsConfig;
   platform?: string;

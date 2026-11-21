@@ -5,7 +5,7 @@ import { createLogger, type Logger } from '../services/platform/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
-import type { AgentTarget, ConsumerSkill, GeneratedAgentFile } from '../types/agents.js';
+import type { ConsumerSkill, GeneratedAgentFile } from '../types/agents.js';
 import { CONSUMER_SKILLS } from './registry.js';
 import {
   MANAGED_END,
@@ -27,6 +27,16 @@ import {
 } from './render.js';
 import { findUnknownCommands, type RegisteredCommand } from './validate.js';
 import { hasMessage } from '../services/platform/errorMessage.js';
+
+type AgentTarget =
+  | 'claude'
+  | 'cursor'
+  | 'codex'
+  | 'windsurf'
+  | 'copilot'
+  | 'kiro'
+  | 'cline'
+  | 'amazonq';
 
 /** The coding-agent targets supported by `launch agents`, in display order. */
 const AGENT_TARGETS: readonly AgentTarget[] = [
@@ -64,7 +74,7 @@ export type AgentsCommandOptions = {
 };
 
 /** Input selecting which agents subcommand the shared program runs. */
-export type AgentsCommandInput = Readonly<{
+type AgentsCommandInput = Readonly<{
   readonly mode: 'init' | 'check';
   readonly launchVersion: string | undefined;
   readonly registeredCli: RegisteredCommand;

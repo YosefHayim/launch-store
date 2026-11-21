@@ -12,7 +12,7 @@ import type { LaunchEnvironmentService } from '../../services/platform/environme
 import type { LaunchSecretStoreService } from '../../services/credentials/secretStore.js';
 
 /** Loading the active Apple account or creating its transport client failed. */
-export type ActiveAppleStoreFailure = Readonly<{
+type ActiveAppleStoreFailure = Readonly<{
   readonly _tag: 'ActiveAppleStoreFailure';
   readonly message: string;
   readonly cause: unknown;

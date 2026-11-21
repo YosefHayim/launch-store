@@ -4,7 +4,7 @@ import type { JsonValue, SnapshotAscApi } from '../../types/snapshot.js';
 import type { AppleLocaleInfo, AppleStoreConfig } from '../shared/storeConfig.js';
 
 /** The App Store Connect reads needed to assemble one app's live listing. */
-export type AppleListingReadApi = Pick<
+type AppleListingReadApi = Pick<
   SnapshotAscApi,
   | 'getCurrentAppInfoId'
   | 'getCurrentVersionId'
@@ -13,7 +13,7 @@ export type AppleListingReadApi = Pick<
 >;
 
 /** One locale's merged App Store field map, keyed by Apple's field names. */
-export type AppleLocaleFields = Readonly<{
+type AppleLocaleFields = Readonly<{
   locale: string;
   fields: Record<string, string>;
 }>;

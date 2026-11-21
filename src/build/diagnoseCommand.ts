@@ -9,7 +9,7 @@ export const DiagnoseCommandInputSchema = Schema.Struct({
   logfile: Schema.optional(Schema.String),
 });
 
-export type DiagnoseCommandFailure = Readonly<{
+type DiagnoseCommandFailure = Readonly<{
   readonly _tag: 'DiagnoseCommandFailure';
   readonly operation: string;
   readonly message: string;

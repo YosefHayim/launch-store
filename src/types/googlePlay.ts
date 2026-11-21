@@ -7,7 +7,7 @@ export type PlayRelease = Readonly<{
   userFraction?: number;
   releaseNotes?: Readonly<{ language: string; text: string }>[];
 }>;
-export type PlayTrackInfo = Readonly<{ track: string; releases: readonly PlayRelease[] }>;
+
 export type PlayListing = Readonly<{
   language: string;
   title?: string;

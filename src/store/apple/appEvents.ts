@@ -32,7 +32,7 @@ export type AscAppEventsApi = Readonly<{
 }>;
 
 /** An in-app-event request or validation step failed. */
-export type AppEventFailure = Readonly<{
+type AppEventFailure = Readonly<{
   readonly _tag: 'AppEventFailure';
   readonly operation: string;
   readonly message: string;
@@ -69,7 +69,7 @@ export type AppEventWithLocalizations = Readonly<{
 }>;
 
 /** Input for creating a draft in-app event. */
-export type CreateEventRequest = Readonly<{
+type CreateEventRequest = Readonly<{
   referenceName: string;
   badge?: string | undefined;
   primaryLocale?: string | undefined;
@@ -79,7 +79,7 @@ export type CreateEventRequest = Readonly<{
 }>;
 
 /** Input for creating or updating one event localization. */
-export type LocalizeEventRequest = Readonly<{
+type LocalizeEventRequest = Readonly<{
   locale: string;
   name?: string | undefined;
   shortDescription?: string | undefined;
@@ -87,7 +87,7 @@ export type LocalizeEventRequest = Readonly<{
 }>;
 
 /** The stored localization and whether existing copy was replaced. */
-export type LocalizeResult = Readonly<{
+type LocalizeResult = Readonly<{
   localization: AppEventLocalizationResource;
   replaced: boolean;
 }>;

@@ -9,7 +9,7 @@ import {
   type Ga4Session,
 } from './ga4Client.js';
 
-export interface Ga4AppStream {
+interface Ga4AppStream {
   readonly propertyId: string;
   readonly streamId: string;
   readonly bundleId: string | null;

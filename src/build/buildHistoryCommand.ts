@@ -24,7 +24,7 @@ import { hasMessage } from '../services/platform/errorMessage.js';
 import { alignTableColumns, type Column } from '../terminal/table.js';
 
 /** Stable presentation shape emitted by `builds list --json`. */
-export type BuildRow = Readonly<{
+type BuildRow = Readonly<{
   id: string;
   app: string;
   version: string;
@@ -72,7 +72,7 @@ export const makeBuildHistoryCommandFailure = Data.tagged<BuildHistoryCommandFai
 );
 
 /** Injectable terminal, clock, and local I/O boundary for build history. */
-export type BuildHistoryCommandService = Readonly<{
+type BuildHistoryCommandService = Readonly<{
   logger: Logger;
   currentTime: () => number;
   terminalIsInteractive: boolean;
@@ -84,7 +84,7 @@ export type BuildHistoryCommandService = Readonly<{
     logPath: string,
   ) => Effect.Effect<void, BuildHistoryCommandFailure, PlatformCommandExecutor.CommandExecutor>;
 }>;
-export const BuildHistoryCommandService = Context.GenericTag<BuildHistoryCommandService>(
+const BuildHistoryCommandService = Context.GenericTag<BuildHistoryCommandService>(
   'BuildHistoryCommandService',
 );
 

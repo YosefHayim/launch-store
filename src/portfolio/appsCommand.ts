@@ -26,7 +26,7 @@ import {
 } from './portfolioLogic.js';
 import { saveAppTags } from './tagApps.js';
 
-export interface AppsListRequest {
+interface AppsListRequest {
   readonly platform: string | undefined;
   readonly owner: string | undefined;
   readonly isJson: boolean;

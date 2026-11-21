@@ -85,7 +85,7 @@ const DEFAULT_CONFIG: LaunchConfig = {
 };
 const SKIP_DIRS = new Set(['node_modules', '.git', 'ios', 'android', 'dist', '.expo', '.launch']);
 /** A located Launch config: the resolved `launch.config.{ts,mjs,js}` path and the config it exports. */
-export type FoundConfig = Readonly<{
+type FoundConfig = Readonly<{
   path: string;
   config: LaunchConfig;
 }>;
@@ -94,7 +94,7 @@ type AppConfigDocument = Readonly<{
   rawConfig: Record<string, unknown>;
   path: string;
 }>;
-export type ConfigLoadFailure = Readonly<{
+type ConfigLoadFailure = Readonly<{
   readonly _tag: 'ConfigLoadFailure';
   readonly path: string;
   readonly message: string;

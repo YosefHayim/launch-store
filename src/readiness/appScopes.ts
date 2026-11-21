@@ -1,6 +1,6 @@
 import type { AppDescriptor } from '../types/app.js';
 /** An app scoped to one store, with the relevant identifier guaranteed present. */
-export type ScopedApp = {
+type ScopedApp = {
   name: string;
   identifier: string;
 };

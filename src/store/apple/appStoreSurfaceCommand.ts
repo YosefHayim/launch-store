@@ -5,7 +5,7 @@ import type { PlannedAction } from '../../types/reconcile.js';
 import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** Reading a sidecar or confirming an App Store surface write failed. */
-export type AppStoreSurfaceCommandFailure = Readonly<{
+type AppStoreSurfaceCommandFailure = Readonly<{
   readonly _tag: 'AppStoreSurfaceCommandFailure';
   readonly operation: string;
   readonly message: string;

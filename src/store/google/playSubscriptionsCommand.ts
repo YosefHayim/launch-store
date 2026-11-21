@@ -28,7 +28,7 @@ export type PlaySubscriptionsCommandInput = Schema.Schema.Type<
 >;
 
 /** A Play subscriptions command step failed. */
-export type PlaySubscriptionsCommandFailure = Readonly<{
+type PlaySubscriptionsCommandFailure = Readonly<{
   readonly _tag: 'PlaySubscriptionsCommandFailure';
   readonly operation: string;
   readonly message: string;

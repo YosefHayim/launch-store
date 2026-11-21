@@ -29,7 +29,7 @@ const SOURCE_EXCLUDES = [
   '.env.*',
 ];
 /** A live remote-build session: the persistent per-app work tree plus a per-run ephemeral secrets dir. */
-export type RemoteSession = {
+type RemoteSession = {
   target: SshTarget;
   workDirectory: string;
   credentialsDirectory: string;

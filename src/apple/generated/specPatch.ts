@@ -11,7 +11,7 @@ const ASC_SPEC_FILENAME = /^openapi\.oas(?: \(\d+\))?\.json$/;
  * The slice of an OpenAPI document the vendoring step reads or rewrites. Deliberately minimal — typing
  * only these fields keeps this module independent of the code generator's full document type.
  */
-export interface AscSpecMeta {
+interface AscSpecMeta {
   /** OpenAPI format version, e.g. `"3.0.1"`. */
   openapi: string;
   /** Apple's spec revision, e.g. `"4.4"` — the snapshot identifier stamped into the generated file. */

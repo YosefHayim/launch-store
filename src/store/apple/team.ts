@@ -37,7 +37,7 @@ export type Team = Readonly<{
   invitations: UserInvitationResource[];
 }>;
 
-export type InviteRequest = Readonly<{
+type InviteRequest = Readonly<{
   email: string;
   firstName: string;
   lastName: string;
@@ -46,13 +46,13 @@ export type InviteRequest = Readonly<{
   provisioningAllowed?: boolean;
 }>;
 
-export type RemoveOutcome =
+type RemoveOutcome =
   | Readonly<{ kind: 'member'; user: UserResource }>
   | Readonly<{ kind: 'invitation'; invitation: UserInvitationResource }>
   | Readonly<{ kind: 'none' }>;
 
 /** A team validation or App Store Connect operation failed. */
-export type TeamFailure = Readonly<{
+type TeamFailure = Readonly<{
   readonly _tag: 'TeamFailure';
   readonly operation: 'list' | 'invite' | 'remove';
   readonly message: string;

@@ -3,7 +3,7 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AppleSigningIdentity } from '@/credentials/apple-signing.js';
 
-export interface ArchiveRequest {
+interface ArchiveRequest {
   directory: string;
   signing: AppleSigningIdentity;
   scheme: string | null;

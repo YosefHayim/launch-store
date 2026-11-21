@@ -20,7 +20,7 @@ import {
 } from './completion.js';
 
 /** One shell-completion operation selected by Commander. */
-export type CompletionCommandInput =
+type CompletionCommandInput =
   | Readonly<{ operation: 'install'; shell: string | undefined }>
   | Readonly<{ operation: 'script'; shell: string | undefined }>
   | Readonly<{ operation: 'complete'; words: readonly string[]; commandTree: Command }>;

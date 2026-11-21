@@ -19,7 +19,7 @@ const SYNC_CONCURRENCY = 4;
  * (rather than the concrete `AppStoreConnectClient`) so callers can hand it a test fake, and so this module
  * never depends on the full client class - the concrete client structurally satisfies it.
  */
-export type SyncCatalogClient = AscCatalogApi & ScreenshotsApi & PreviewsApi;
+type SyncCatalogClient = AscCatalogApi & ScreenshotsApi & PreviewsApi;
 /**
  * One app's reconcile outcome, carrying its own job so we never index a parallel array. A precondition
  * failure (e.g. no ASC app record) lands in `error`; otherwise `report` holds the planned/applied actions.
@@ -50,7 +50,7 @@ type SyncAppReport = {
  * per-app breakdown plus a roll-up across all apps, so an agent can both see what changed on each app and
  * gate on the totals (any `failed` or `planErrors` means the run needs attention).
  */
-export type SyncRunReport = {
+type SyncRunReport = {
   apps: SyncAppReport[];
   summary: {
     apps: number;

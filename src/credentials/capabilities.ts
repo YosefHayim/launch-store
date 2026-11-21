@@ -135,7 +135,7 @@ export const entitlementForCapability = (capabilityType: string): string | undef
   return CAPABILITY_TO_ENTITLEMENT_LOOKUP.get(capabilityType);
 };
 /** The outcome of mapping entitlements: capabilities to enable, plus keys we didn't recognize. */
-export type CapabilityMapping = {
+type CapabilityMapping = {
   enable: CapabilityType[];
   unmapped: string[];
 };

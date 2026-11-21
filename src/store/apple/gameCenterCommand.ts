@@ -30,7 +30,7 @@ export const GameCenterCommandInputSchema = Schema.Struct({
 export type GameCenterCommandInput = Schema.Schema.Type<typeof GameCenterCommandInputSchema>;
 
 /** A Game Center command step failed. */
-export type GameCenterCommandFailure = Readonly<{
+type GameCenterCommandFailure = Readonly<{
   readonly _tag: 'GameCenterCommandFailure';
   readonly operation: string;
   readonly message: string;

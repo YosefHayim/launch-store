@@ -25,7 +25,7 @@ const PlayReportsCommandInputSchema = Schema.Struct({
   json: Schema.Boolean,
 });
 
-export type PlayReportsCommandFailure = Readonly<{
+type PlayReportsCommandFailure = Readonly<{
   readonly _tag: 'PlayReportsCommandFailure';
   readonly message: string;
   readonly cause?: unknown;

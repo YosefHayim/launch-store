@@ -13,7 +13,7 @@ export interface Ga4Session {
   readonly projectId: string | null;
 }
 
-export interface Ga4Call {
+interface Ga4Call {
   readonly url: string;
   readonly requestDocument: unknown;
   readonly propertyId: string | null;

@@ -36,12 +36,12 @@ export const PlayReviewsCommandInputSchema = Schema.Union(
   PlayReviewsReplyInputSchema,
 );
 
-export type PlayReviewsCommandInput = Schema.Schema.Type<typeof PlayReviewsCommandInputSchema>;
+type PlayReviewsCommandInput = Schema.Schema.Type<typeof PlayReviewsCommandInputSchema>;
 export type PlayReviewsListInput = Schema.Schema.Type<typeof PlayReviewsListInputSchema>;
 export type PlayReviewsReplyInput = Schema.Schema.Type<typeof PlayReviewsReplyInputSchema>;
 
 /** A Play reviews command step failed. */
-export type PlayReviewsCommandFailure = Readonly<{
+type PlayReviewsCommandFailure = Readonly<{
   readonly _tag: 'PlayReviewsCommandFailure';
   readonly operation: PlayReviewsCommandInput['operation'];
   readonly message: string;

@@ -44,7 +44,7 @@ export { p12PasswordAccount };
 export { profileStaleAgainstCapabilities, staleCachedSigningTargets };
 
 /** Inputs for {@link ensureSigningCredentials}. */
-export type EnsureSigningOptions = {
+type EnsureSigningOptions = {
   platform: Platform;
   bundleId: string;
   appName: string;

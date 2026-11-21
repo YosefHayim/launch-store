@@ -1,4 +1,4 @@
-export type AppleTransportRetryPolicy = {
+type AppleTransportRetryPolicy = {
   readonly attempts?: number;
   readonly baseDelayMs?: number;
   readonly maximumDelayMs?: number;

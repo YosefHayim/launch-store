@@ -2,7 +2,7 @@ import { PlayReportingClient } from '@google/playReporting.js';
 import { parseServiceAccount } from '@google/playClient.js';
 import { Context, Data, Effect, Layer } from 'effect';
 
-export type GoogleReportingClientFailure = Readonly<{
+type GoogleReportingClientFailure = Readonly<{
   readonly _tag: 'GoogleReportingClientFailure';
   readonly message: string;
   readonly cause: unknown;

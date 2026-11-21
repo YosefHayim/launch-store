@@ -24,7 +24,7 @@ export type StoreAppSelectionRequirements =
   | Terminal.Terminal;
 
 /** Loaded Launch configuration paired with the selected app. */
-export type StoreAppContext = Readonly<{
+type StoreAppContext = Readonly<{
   config: LaunchConfig;
   app: AppDescriptor;
 }>;

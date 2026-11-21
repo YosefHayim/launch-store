@@ -57,7 +57,7 @@ export type OffersListInput = Schema.Schema.Type<typeof OffersListInputSchema>;
 export type OffersDeactivateInput = Schema.Schema.Type<typeof OffersDeactivateInputSchema>;
 
 /** An offers command step failed. */
-export type OffersCommandFailure = Readonly<{
+type OffersCommandFailure = Readonly<{
   readonly _tag: 'OffersCommandFailure';
   readonly operation: string;
   readonly message: string;

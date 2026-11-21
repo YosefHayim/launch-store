@@ -13,7 +13,7 @@ import type { AppDescriptor } from '../types/app.js';
 import type { DoctorCheck } from '../types/doctor.js';
 import { Effect } from 'effect';
 /** The read-only App Store Connect surface the signing preflight needs. */
-export type SigningPreflightAscApi = {
+type SigningPreflightAscApi = {
   findBundleId(identifier: string): Effect.Effect<
     {
       id: string;

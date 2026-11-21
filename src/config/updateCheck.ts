@@ -348,7 +348,7 @@ const resolveRunningInstaller = (
     isRunningGlobalInstall(installer, realScriptPath, homeDirectory),
   ).pipe(Effect.map(Option.getOrNull));
 
-export type AutoUpgradeRuntime = Readonly<{
+type AutoUpgradeRuntime = Readonly<{
   readonly executablePath: string;
   readonly commandArguments: readonly string[];
   readonly terminalIsInteractive: boolean;

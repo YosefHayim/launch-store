@@ -9,13 +9,13 @@ import {
 
 export const NEEDS_VALUE = 'NEEDS_VALUE';
 
-export type PlannedEntitlement = Readonly<{
+type PlannedEntitlement = Readonly<{
   key: string;
   value: EntitlementValue;
   note?: string;
 }>;
 
-export type CapabilityPlanInput = Readonly<{
+type CapabilityPlanInput = Readonly<{
   enabledTypes: readonly string[];
   settingsByType: Readonly<Record<string, readonly CapabilitySetting[]>>;
   profileEntitlements: Readonly<Record<string, EntitlementValue>> | null;

@@ -27,10 +27,10 @@ import {
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;
-export const TOKEN_TTL_SECONDS = 19 * 60;
-export const TOKEN_REUSE_SECONDS = 15 * 60;
-export const mintedTokens = new Map<string, Readonly<{ token: string; issuedAt: number }>>();
-export const ASSET_UPLOAD_CONCURRENCY = 4;
+const TOKEN_TTL_SECONDS = 19 * 60;
+const TOKEN_REUSE_SECONDS = 15 * 60;
+const mintedTokens = new Map<string, Readonly<{ token: string; issuedAt: number }>>();
+const ASSET_UPLOAD_CONCURRENCY = 4;
 
 export const DISTRIBUTION_CERT_TYPE = 'DISTRIBUTION';
 
@@ -77,7 +77,7 @@ export const VERSION_LISTING_FIELDS = [
   'marketingUrl',
 ] as const;
 
-export type AscError = {
+type AscError = {
   status?: string;
   code?: string;
   title?: string;
@@ -146,7 +146,7 @@ export const pickNewestVersion = (versions: ProductVersion[]): ProductVersion | 
   return newestVersion;
 };
 
-export const AscErrorSchema: Schema.Schema<AscError> = Schema.suspend(() =>
+const AscErrorSchema: Schema.Schema<AscError> = Schema.suspend(() =>
   Schema.Struct({
     status: Schema.optionalWith(Schema.String, { exact: true }),
     code: Schema.optionalWith(Schema.String, { exact: true }),
@@ -170,7 +170,7 @@ export const AscErrorSchema: Schema.Schema<AscError> = Schema.suspend(() =>
     ),
   }),
 );
-export const AscErrorsDocumentSchema = Schema.parseJson(
+const AscErrorsDocumentSchema = Schema.parseJson(
   Schema.Struct({ errors: Schema.optionalWith(Schema.Array(AscErrorSchema), { exact: true }) }),
 );
 
@@ -318,11 +318,7 @@ export const readTransportSize = (filePath: string): Promise<number> =>
     const fileInfo = yield* fileSystem.stat(filePath);
     return Number(fileInfo.size);
   }).pipe(Effect.provide(NodeContext.layer), Effect.runPromise);
-export const readTransportRange = (
-  filePath: string,
-  offset: number,
-  byteCount: number,
-): Promise<Buffer> =>
+const readTransportRange = (filePath: string, offset: number, byteCount: number): Promise<Buffer> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const rangeStream = fileSystem.stream(filePath, { offset, bytesToRead: byteCount });
@@ -426,7 +422,7 @@ export const createMarketingVersionFilter = (marketingVersion: string | undefine
   if (!isMarketingVersionGiven) return '';
   return `&filter[preReleaseVersion.version]=${marketingVersion}`;
 };
-export type BuildPageIncluded = {
+type BuildPageIncluded = {
   type: string;
   id: string;
   attributes?: {
@@ -545,7 +541,7 @@ export const EDITABLE_METADATA_STATES = new Set<string>([
   'INVALID_BINARY',
 ]);
 
-export const mintToken = async (key: AscKey, issuedAt: number): Promise<string> => {
+const mintToken = async (key: AscKey, issuedAt: number): Promise<string> => {
   const privateKey = await importPKCS8(key.p8, 'ES256');
   return new SignJWT({})
     .setProtectedHeader({ alg: 'ES256', kid: key.keyId, typ: 'JWT' })
@@ -556,7 +552,7 @@ export const mintToken = async (key: AscKey, issuedAt: number): Promise<string> 
     .sign(privateKey);
 };
 
-export const tokenCacheKey = (key: AscKey): string => `${key.issuerId}:${key.keyId}`;
+const tokenCacheKey = (key: AscKey): string => `${key.issuerId}:${key.keyId}`;
 
 export const forgetToken = (key: AscKey): void => {
   const tokenKey = tokenCacheKey(key);
@@ -579,7 +575,7 @@ export const reusableToken = async (key: AscKey): Promise<string> => {
   return token;
 };
 
-export const putAssetChunk = async (
+const putAssetChunk = async (
   operation: UploadOperation,
   filePath: string,
   fileByteLength: number,
@@ -647,13 +643,13 @@ export const putAssetFile = async (
   }
 };
 
-export interface AppleAppSummary {
+interface AppleAppSummary {
   id: string;
   name: string;
   bundleId: string | null;
 }
 
-export const readNonEmptyAttribute = (attribute: string | undefined): string | null => {
+const readNonEmptyAttribute = (attribute: string | undefined): string | null => {
   const isAttributePresent = typeof attribute === 'string' && attribute.length > 0;
   if (isAttributePresent) return attribute;
   return null;
@@ -670,7 +666,7 @@ export const summarizeAppleApp = (appleResource: {
   return { id: appleResource.id, name, bundleId };
 };
 
-export const toBuildResource = (
+const toBuildResource = (
   entry: BuildPage['data'][number],
   preReleaseVersions: readonly BuildPageIncluded[],
 ): BuildResource => {
@@ -925,7 +921,7 @@ export const describeErrors = (responseText: string): string => {
   if (responseText.length > 0) return responseText;
   return 'no response body';
 };
-export const describeAscError = (error: AscError): string => {
+const describeAscError = (error: AscError): string => {
   let message = error.detail;
   if (message === undefined) message = error.title;
   if (message === undefined) message = error.code;
@@ -934,7 +930,7 @@ export const describeAscError = (error: AscError): string => {
   if (associated.length > 0) return `${message}; ${associated.join('; ')}`;
   return message;
 };
-export const describeAssociatedErrors = (
+const describeAssociatedErrors = (
   associatedErrors: Record<string, readonly AscError[]> | undefined,
 ): string[] => {
   if (!associatedErrors) return [];

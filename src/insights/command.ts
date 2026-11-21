@@ -22,13 +22,13 @@ import type { MutableDeep } from '../types/mutable.js';
 import { hasMessage } from '../services/platform/errorMessage.js';
 
 /** Options accepted by the cross-store insights command. */
-export type InsightsCommandOptions = Readonly<{
+type InsightsCommandOptions = Readonly<{
   app?: string | undefined;
   json: boolean;
 }>;
 
 /** Loading or rendering cross-store review insights failed. */
-export type InsightsCommandFailure = Readonly<{
+type InsightsCommandFailure = Readonly<{
   readonly _tag: 'InsightsCommandFailure';
   readonly operation: string;
   readonly message: string;

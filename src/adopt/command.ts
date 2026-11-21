@@ -36,7 +36,7 @@ export const AdoptCommandInputSchema = Schema.Struct({
 export type AdoptCommandInput = Schema.Schema.Type<typeof AdoptCommandInputSchema>;
 
 /** The adopt command could not read or apply existing App Store state. */
-export type AdoptCommandFailure = Readonly<{
+type AdoptCommandFailure = Readonly<{
   _tag: 'AdoptCommandFailure';
   operation: string;
   message: string;
@@ -131,7 +131,7 @@ export const adoptFidelityMarker = (fidelity: Fidelity): string => {
 };
 
 /** Minimal path ops used to detect a shared monorepo app root. */
-export type SharedAppRootPath = Readonly<{
+type SharedAppRootPath = Readonly<{
   relative: (from: string, to: string) => string;
   sep: string;
 }>;

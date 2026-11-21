@@ -3,13 +3,13 @@ import type { PlatformError } from '@effect/platform/Error';
 import { Effect } from 'effect';
 import type { MigrationResult } from '../types/migrate.js';
 
-export type WriteOptions = Readonly<{
+type WriteOptions = Readonly<{
   readonly outDir: string;
   readonly force?: boolean;
   readonly dryRun?: boolean;
 }>;
 
-export type WriteOutcome = Readonly<{
+type WriteOutcome = Readonly<{
   readonly written: string[];
   readonly skipped: string[];
 }>;

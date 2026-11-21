@@ -15,7 +15,7 @@ type FindingSeverity = 'error' | 'warn';
  * key + fix": `file`/`key` locate it, `message` says what's wrong, and `fix` is the concrete remedy
  * in the `--explain` teaching voice.
  */
-export type ConfigFinding = {
+type ConfigFinding = {
   severity: FindingSeverity;
   file: string;
   key: string;

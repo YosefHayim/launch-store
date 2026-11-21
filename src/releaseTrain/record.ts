@@ -45,7 +45,7 @@ const TrainRecordSchema: Schema.Schema<TrainRecord> = Schema.Struct({
 });
 
 /** A persisted release-train record could not be read or written. */
-export type TrainRecordFailure = Readonly<{
+type TrainRecordFailure = Readonly<{
   readonly _tag: 'TrainRecordFailure';
   readonly operation: string;
   readonly message: string;

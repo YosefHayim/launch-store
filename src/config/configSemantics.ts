@@ -3,7 +3,7 @@ import type { LaunchConfig } from '../types/config.js';
  * One semantic finding: the dotted config path it concerns (matching the schema validator's path style,
  * so the two streams read uniformly) and a one-line explanation that names the invariant and the fix.
  */
-export type SemanticIssue = {
+type SemanticIssue = {
   path: string;
   message: string;
 };

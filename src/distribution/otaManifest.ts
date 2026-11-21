@@ -50,7 +50,7 @@ export const contentTypeFor = (filePath: string): Effect.Effect<string, never, P
   });
 
 /** Inputs for {@link assembleManifest}. */
-export type AssembleManifestInput = {
+type AssembleManifestInput = {
   id: string;
   createdAt: string;
   runtimeVersion: string;
@@ -113,7 +113,7 @@ export type UpdateHistoryEntry = {
 };
 
 /** Expo Updates protocol-v1 `rollBackToEmbedded` directive. */
-export type RollbackDirective = {
+type RollbackDirective = {
   type: 'rollBackToEmbedded';
   parameters: {
     commitTime: string;
@@ -204,7 +204,7 @@ export const updatesWorkerScript = (publicBaseUrl: string): string => {
 };
 
 /** Inputs for {@link updatesAppConfigSnippet}. */
-export type AppConfigSnippetInput = {
+type AppConfigSnippetInput = {
   updateUrl: string;
   runtimeVersion: string;
   signed: boolean;

@@ -26,7 +26,7 @@ const McpCommandInputSchema = Schema.Union(
 
 type McpCommandInput = Schema.Schema.Type<typeof McpCommandInputSchema>;
 
-export type McpCommandFailure = Readonly<{
+type McpCommandFailure = Readonly<{
   readonly _tag: 'McpCommandFailure';
   readonly operation: string;
   readonly message: string;

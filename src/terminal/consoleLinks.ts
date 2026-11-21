@@ -21,13 +21,13 @@ export const OPEN_TARGETS: readonly OpenTarget[] = [
   'app-record',
 ];
 
-export type OpenUrlOptions = Readonly<{
+type OpenUrlOptions = Readonly<{
   platform?: string;
   app?: string;
 }>;
 
 /** Resolving or opening a store-console link failed. */
-export type ConsoleLinkFailure = Readonly<{
+type ConsoleLinkFailure = Readonly<{
   readonly _tag: 'ConsoleLinkFailure';
   readonly operation: string;
   readonly message: string;

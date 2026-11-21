@@ -69,7 +69,7 @@ export type KeystoreImport = {
   keyPassword: string;
 };
 
-export type EnsureKeystoreOptions = {
+type EnsureKeystoreOptions = {
   appName: string;
   packageName: string;
   log: Logger;

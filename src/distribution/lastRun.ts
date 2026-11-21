@@ -7,7 +7,7 @@ type AppMemory = {
   bump?: BumpKind;
 };
 
-export type LastRunState = {
+type LastRunState = {
   lastApp?: string;
   apps: Record<string, AppMemory>;
 };

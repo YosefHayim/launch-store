@@ -16,11 +16,11 @@ const DeviceListInputSchema = Schema.Struct({
 
 export const DeviceCommandInputSchema = Schema.Union(DeviceAddInputSchema, DeviceListInputSchema);
 
-export type DeviceCommandInput = Schema.Schema.Type<typeof DeviceCommandInputSchema>;
+type DeviceCommandInput = Schema.Schema.Type<typeof DeviceCommandInputSchema>;
 export type DeviceAddInput = Schema.Schema.Type<typeof DeviceAddInputSchema>;
 
 /** A device command step failed. */
-export type DeviceCommandFailure = Readonly<{
+type DeviceCommandFailure = Readonly<{
   readonly _tag: 'DeviceCommandFailure';
   readonly operation: DeviceCommandInput['operation'];
   readonly message: string;

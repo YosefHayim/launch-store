@@ -84,7 +84,7 @@ export type ProvisioningReport = Readonly<{
   devices: ProvisioningDevice[];
 }>;
 
-export type SetupCommandFailure = Readonly<{
+type SetupCommandFailure = Readonly<{
   readonly _tag: 'SetupCommandFailure';
   readonly operation: SetupCommandInput['operation'];
   readonly message: string;

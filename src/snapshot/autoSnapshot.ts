@@ -12,7 +12,7 @@ export const AUTO_SNAPSHOT_PREFIX = 'pre-sync-';
 export const autoSnapshotName = (capturedAt: string): string =>
   `${AUTO_SNAPSHOT_PREFIX}${capturedAt.replace(/[:.]/g, '-')}`;
 
-export type AutoSnapshotResult = Readonly<{
+type AutoSnapshotResult = Readonly<{
   readonly name: string;
   readonly file: string;
   readonly entityCount: number;
@@ -20,7 +20,7 @@ export type AutoSnapshotResult = Readonly<{
   readonly pruned: readonly string[];
 }>;
 
-export type CaptureAutoSnapshotOptions = Readonly<{
+type CaptureAutoSnapshotOptions = Readonly<{
   readonly capturedAt: string;
   readonly keep?: number;
   readonly dir?: string;

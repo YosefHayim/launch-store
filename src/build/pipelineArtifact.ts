@@ -363,7 +363,7 @@ type UploadSizeGrowth = {
   readonly buildNumber: number;
 };
 
-export type UploadSizeReadout = {
+type UploadSizeReadout = {
   readonly lines: string[];
   readonly grew: UploadSizeGrowth | null;
 };

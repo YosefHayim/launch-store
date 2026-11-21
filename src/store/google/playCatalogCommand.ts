@@ -4,7 +4,7 @@ import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/
 import type { PlannedAction } from '../../types/reconcile.js';
 
 /** Confirmation for a Google Play catalog write failed or was unavailable. */
-export type PlayCatalogConfirmationFailure = Readonly<{
+type PlayCatalogConfirmationFailure = Readonly<{
   readonly _tag: 'PlayCatalogConfirmationFailure';
   readonly message: string;
   readonly cause: unknown;

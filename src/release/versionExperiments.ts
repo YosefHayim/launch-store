@@ -92,7 +92,7 @@ const VersionExperimentsConfigSchema = Schema.mutable(
 export type VersionExperimentsConfig = Schema.Schema.Type<typeof VersionExperimentsConfigSchema>;
 
 /** Experiments decoding or reconciliation failed. */
-export type VersionExperimentsFailure = Readonly<{
+type VersionExperimentsFailure = Readonly<{
   readonly _tag: 'VersionExperimentsFailure';
   readonly operation: string;
   readonly message: string;

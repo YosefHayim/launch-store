@@ -28,7 +28,7 @@ export type PlayReviewFilters = Readonly<{
 }>;
 
 /** The stored reply and whether it replaced an earlier developer reply. */
-export type PlayReplyOutcome = Readonly<{
+type PlayReplyOutcome = Readonly<{
   readonly reply: PlayReplyResult;
   readonly replaced: boolean;
 }>;

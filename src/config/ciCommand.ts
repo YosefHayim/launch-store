@@ -12,7 +12,7 @@ const CiCommandInputSchema = Schema.Struct({
   force: Schema.Boolean,
 });
 
-export type CiCommandFailure = Readonly<{
+type CiCommandFailure = Readonly<{
   readonly _tag: 'CiCommandFailure';
   readonly operation: string;
   readonly message: string;

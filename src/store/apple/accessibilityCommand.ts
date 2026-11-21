@@ -22,7 +22,7 @@ import {
 import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** Inputs accepted by the accessibility command. */
-export type AccessibilityCommandInput = Readonly<{
+type AccessibilityCommandInput = Readonly<{
   app?: string;
   configPath: string;
   dryRun: boolean;
@@ -30,7 +30,7 @@ export type AccessibilityCommandInput = Readonly<{
 }>;
 
 /** Accessibility configuration or reconciliation failed. */
-export type AccessibilityCommandFailure = Readonly<{
+type AccessibilityCommandFailure = Readonly<{
   readonly _tag: 'AccessibilityCommandFailure';
   readonly operation: string;
   readonly message: string;

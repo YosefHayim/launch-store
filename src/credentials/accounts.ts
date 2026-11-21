@@ -25,7 +25,7 @@ const LEGACY_KEY_ID = 'asc-key-id';
 const LEGACY_ISSUER_ID = 'asc-issuer-id';
 const LEGACY_P8 = 'asc-p8';
 const LEGACY_P12_PASSWORD = 'dist-cert-p12-password';
-export type AccountFailure = Readonly<{
+type AccountFailure = Readonly<{
   readonly _tag: 'AccountFailure';
   readonly message: string;
 }>;
@@ -153,7 +153,7 @@ export const matchAccount = (
 /** Max app names shown inline in {@link formatAccountSummary} before the remainder collapses to `+N`. */
 const ACCOUNT_SUMMARY_APP_LIMIT = 3;
 /** Options for {@link formatAccountSummary}. */
-export type AccountSummaryOptions = {
+type AccountSummaryOptions = {
   includeLabel?: boolean;
 };
 /**
@@ -186,7 +186,7 @@ export const formatAccountSummary = (
   return segments.join(' - ');
 };
 /** Inputs to {@link addAccount}: the key material plus any team/apps already resolved from Apple. */
-export type AddAccountInput = {
+type AddAccountInput = {
   keyId: string;
   issuerId: string;
   label: string;
@@ -386,7 +386,7 @@ export const loadAscKeyForAccount = (
  * testable without the filesystem: an explicit selector wins (error if it matches nothing), else the
  * active account, else the sole account when there's exactly one, else a signal to prompt.
  */
-export type BuildAccountDecision =
+type BuildAccountDecision =
   | {
       kind: 'use';
       record: AccountRecord;
@@ -422,7 +422,7 @@ export const decideBuildAccount = (file: AccountsFile, selector?: string): Build
   return { kind: 'pick' };
 };
 /** Options for {@link resolveBuildAccount}. */
-export type ResolveBuildAccountOptions = {
+type ResolveBuildAccountOptions = {
   selector?: string | undefined;
   interactive: boolean;
   pick: (accounts: readonly AccountRecord[]) => Effect.Effect<AccountRecord, unknown>;

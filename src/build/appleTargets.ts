@@ -1,6 +1,23 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
-import type { DiscoveredTarget } from '../types/artifacts.js';
+
+/**
+ * One build target discovered in a generated Xcode project's `project.pbxproj` - a target name paired
+ * with its authoritative `PRODUCT_BUNDLE_IDENTIFIER`.
+ *
+ * The pbxproj is the source of truth for what a multi-target app actually signs: `@bacons/apple-targets`
+ * derives an extension's bundle id from the target FOLDER name (`targets/widget/` => `...​.widget`), NOT
+ * the `name:` field, so neither the config nor the target name can be trusted to reconstruct it - only
+ * the `PRODUCT_BUNDLE_IDENTIFIER` Xcode wrote into the project is. Used by signing preflight + discovery
+ * to feed every embedded extension's bundle id into provisioning. `productType` distinguishes the main
+ * app (`com.apple.product-type.application`) from its app-extension targets.
+ */
+type DiscoveredTarget = Readonly<{
+  name: string;
+  bundleId: string;
+  productType: string;
+}>;
+
 /**
  * One target's signing readiness, as established by the build preflight before the long archive: is its
  * App ID registered, and which required capabilities (if any) is that App ID missing. Pure input to
@@ -224,7 +241,7 @@ export const multiTargetSigningWarnings = (
  * extension). Mirrors the {@link import("../services/providerSupport/appleArtifact.js").exportOptionsPlist} profile map so
  * the archive and the export agree on which profile signs which bundle.
  */
-export type ManualSigningTargets = {
+type ManualSigningTargets = {
   teamId: string;
   profileByBundleId: Record<string, string>;
 };

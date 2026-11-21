@@ -29,12 +29,12 @@ type DetectedApp = Readonly<{
   signal: string;
 }>;
 
-export type Detection = Readonly<{
+type Detection = Readonly<{
   detected: readonly DetectedApp[];
   skipped: readonly SkippedApp[];
 }>;
 
-export type DetectContext = Readonly<{
+type DetectContext = Readonly<{
   keyId: string;
   cwd: string;
   hasLaunchConfig: boolean;

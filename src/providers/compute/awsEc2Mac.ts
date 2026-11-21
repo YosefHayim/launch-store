@@ -64,7 +64,7 @@ export const macosArchitectureFor = (instanceType: string): string => {
 export const isDedicatedHostQuotaFailure = (failureMessage: string): boolean =>
   /quota|limit|exceeded|insufficient/i.test(failureMessage);
 
-export type DatedAmiImage = Readonly<{
+type DatedAmiImage = Readonly<{
   readonly id: string;
   readonly date: string;
 }>;

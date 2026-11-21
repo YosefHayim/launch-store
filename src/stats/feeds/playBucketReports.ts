@@ -68,7 +68,7 @@ interface BucketReportsRequest {
   readonly range: DateRange;
 }
 
-export type BucketReportsReply =
+type BucketReportsReply =
   | { readonly status: 'forbidden' }
   | {
       readonly status: 'read';

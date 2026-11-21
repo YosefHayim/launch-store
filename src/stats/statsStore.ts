@@ -10,8 +10,15 @@ import {
   type InvalidAppKeyFailure,
   type LaunchPathsService,
 } from '../services/platform/paths.js';
-import type { DailyStat, StatsMonthFile } from '../types/stats.js';
+import type { DailyStat } from '../types/stats.js';
 import { groupStatsByMonth, mergeStats } from './statsLogic.js';
+
+interface StatsMonthFile {
+  readonly version: 1;
+  readonly appKey: string;
+  readonly month: string;
+  readonly stats: readonly DailyStat[];
+}
 
 const DailyStatSchema = Schema.Struct({
   date: Schema.String,

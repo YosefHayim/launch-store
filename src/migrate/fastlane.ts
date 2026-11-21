@@ -12,7 +12,6 @@ import type { AppDescriptor } from '../types/app.js';
 import type {
   AppfileData,
   FastlaneLane,
-  FastlaneSetup,
   MatchfileData,
   MigrationArtifact,
   MigrationNote,
@@ -22,6 +21,21 @@ import type {
 } from '../types/migrate.js';
 import type { MutableDeep } from '../types/mutable.js';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
+
+/**
+ * A parsed fastlane setup, narrowed to what Launch reads from the standard files. Lanes and recognized
+ * actions drive the report (Launch's pipeline replaces lanes); the per-file blocks are present only when
+ * that file existed. Mirrors {@link EasJson} as the file-based input to a migration source.
+ */
+type FastlaneSetup = Readonly<{
+  appfile?: AppfileData;
+  matchfile?: MatchfileData;
+  supply?: SupplyfileData;
+  lanes: readonly FastlaneLane[];
+  actions: readonly string[];
+  hasDeliverfile: boolean;
+  envKeys: readonly string[];
+}>;
 
 export type FastlaneMigrationFailure = Readonly<{
   readonly _tag: 'FastlaneMigrationFailure';

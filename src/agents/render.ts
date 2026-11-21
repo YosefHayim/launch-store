@@ -1,4 +1,4 @@
-import { BASE_CONTEXT, CONSUMER_SKILLS, CONTRIBUTOR_SKILLS } from './registry.js';
+import { BASE_CONTEXT, CONSUMER_SKILLS } from './registry.js';
 import type {
   BaseContext,
   ConsumerSkill,
@@ -299,11 +299,6 @@ export const renderContributorSkill = (skill: ContributorSkill): GeneratedAgentF
     ]),
   };
 };
-
-/** Every committed contributor skill. */
-export const renderContributorSkills = (
-  skills: readonly ContributorSkill[] = CONTRIBUTOR_SKILLS,
-): GeneratedAgentFile[] => skills.map(renderContributorSkill);
 
 /** Windsurf base rule: `trigger: always`. */
 export const renderWindsurfBaseRule = (

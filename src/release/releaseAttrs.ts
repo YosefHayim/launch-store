@@ -97,7 +97,7 @@ const ReleaseAttributesConfigSchema = Schema.mutable(
 );
 
 /** Release-attribute decoding or reconciliation failed. */
-export type ReleaseAttributesFailure = Readonly<{
+type ReleaseAttributesFailure = Readonly<{
   readonly _tag: 'ReleaseAttributesFailure';
   readonly operation: string;
   readonly message: string;
@@ -152,7 +152,7 @@ export type AscReleaseApi = Readonly<{
 }>;
 
 /** Inputs for one app's release-attribute reconciliation. */
-export type ReleaseReconcileInput = Readonly<{
+type ReleaseReconcileInput = Readonly<{
   bundleId: string;
   config: ReleaseAttributesConfig;
   platform?: string;

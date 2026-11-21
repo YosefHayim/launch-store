@@ -58,13 +58,6 @@ export interface DailyStat {
   readonly currency: string | null;
 }
 
-export interface StatsMonthFile {
-  readonly version: 1;
-  readonly appKey: string;
-  readonly month: string;
-  readonly stats: readonly DailyStat[];
-}
-
 export interface DateRange {
   readonly from: string;
   readonly to: string;

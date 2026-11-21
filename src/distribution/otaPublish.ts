@@ -90,7 +90,7 @@ export const readExportMetadata = (
   });
 
 /** Inputs required to publish one platform update. */
-export type OtaPublishInput = Readonly<{
+type OtaPublishInput = Readonly<{
   readonly storage: StorageProvider;
   readonly distDir: string;
   readonly metadata: ExportMetadata;
@@ -101,7 +101,7 @@ export type OtaPublishInput = Readonly<{
 }>;
 
 /** Details produced by one platform publish. */
-export type OtaPublishDetails = Readonly<{
+type OtaPublishDetails = Readonly<{
   readonly published: boolean;
   readonly manifestId?: string;
   readonly createdAt?: string;

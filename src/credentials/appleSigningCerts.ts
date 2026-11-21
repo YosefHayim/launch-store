@@ -191,7 +191,7 @@ const reusableCertificate = (
   });
 
 /** Inputs for {@link ensureDistributionCertificate} - one shared cert step for local/ad-hoc/remote. */
-export type EnsureDistributionCertificateOptions = {
+type EnsureDistributionCertificateOptions = {
   client: AppleCredentialsClient;
   keyId: string;
   index: CredentialsIndex;
@@ -205,7 +205,7 @@ export type EnsureDistributionCertificateOptions = {
   createConfirmMessage: string;
 };
 
-export type EnsuredDistributionCertificate = {
+type EnsuredDistributionCertificate = {
   cert: CertRecord;
   freshCert: boolean;
   password: string;

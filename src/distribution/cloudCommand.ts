@@ -18,7 +18,7 @@ export const CloudCommandInputSchema = Schema.Struct({
 
 type CloudCommandInput = Schema.Schema.Type<typeof CloudCommandInputSchema>;
 
-export type CloudCommandFailure = Readonly<{
+type CloudCommandFailure = Readonly<{
   readonly _tag: 'CloudCommandFailure';
   readonly operation: CloudCommandInput['operation'];
   readonly message: string;

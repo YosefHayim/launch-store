@@ -26,7 +26,7 @@ export const PlayProductsCommandInputSchema = Schema.Struct({
 export type PlayProductsCommandInput = Schema.Schema.Type<typeof PlayProductsCommandInputSchema>;
 
 /** A Play products command step failed. */
-export type PlayProductsCommandFailure = Readonly<{
+type PlayProductsCommandFailure = Readonly<{
   readonly _tag: 'PlayProductsCommandFailure';
   readonly operation: string;
   readonly message: string;

@@ -44,8 +44,8 @@ import {
   missingRequiredTools,
 } from './toolchain.js';
 
-export type ReadinessStatus = 'ok' | 'todo' | 'info';
-export type ReadinessRow = Readonly<{
+type ReadinessStatus = 'ok' | 'todo' | 'info';
+type ReadinessRow = Readonly<{
   label: string;
   status: ReadinessStatus;
   detail?: string;

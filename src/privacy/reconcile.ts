@@ -1,5 +1,15 @@
 import { READINESS_EXIT } from '../readiness/orchestrator.js';
-import type { PrivacyFinding, PrivacyReport, PrivacySurface } from '../types/privacy.js';
+import type { PrivacyFinding, PrivacySurface } from '../types/privacy.js';
+/**
+ * The full result of a scan: every finding across the scanned apps plus the resolved process exit code
+ * (0 clear - 2 blockers - 1 unreadable, per the shared readiness contract). This is the `--json` payload.
+ */
+type PrivacyReport = Readonly<{
+  findings: readonly PrivacyFinding[];
+  scanned: readonly string[];
+  exitCode: number;
+}>;
+
 /**
  * iOS permission usage-description key -> the privacy-manifest `NSPrivacyCollectedDataType` it implies.
  * Only the unambiguous mappings live here; keys without a clean data-type twin (calendars, motion, ...)

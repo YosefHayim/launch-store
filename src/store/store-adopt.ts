@@ -11,7 +11,7 @@ import { AppleVersion } from '@/store/apple/version.js';
 import { PlayListing } from '@/store/google/listing.js';
 import { PlayTracks } from '@/store/google/tracks.js';
 
-export interface AdoptRequest {
+interface AdoptRequest {
   directory: string;
   hasYes: boolean;
   isDryRun: boolean;

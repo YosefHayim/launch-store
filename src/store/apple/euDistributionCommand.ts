@@ -33,7 +33,7 @@ const EuDistributionCommandInputSchema = Schema.Union(
 
 type EuDistributionCommandInput = Schema.Schema.Type<typeof EuDistributionCommandInputSchema>;
 
-export type EuDistributionCommandFailure = Readonly<{
+type EuDistributionCommandFailure = Readonly<{
   readonly _tag: 'EuDistributionCommandFailure';
   readonly operation: EuDistributionCommandInput['operation'];
   readonly message: string;

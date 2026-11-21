@@ -28,10 +28,10 @@ const AvailabilityConfigSchema = Schema.mutable(
   }),
 );
 
-export type AvailabilityConfig = Schema.Schema.Type<typeof AvailabilityConfigSchema>;
+type AvailabilityConfig = Schema.Schema.Type<typeof AvailabilityConfigSchema>;
 
 /** Reading or decoding availability.config.json failed. */
-export type AvailabilityConfigFailure = Readonly<{
+type AvailabilityConfigFailure = Readonly<{
   readonly _tag: 'AvailabilityConfigFailure';
   readonly path: string;
   readonly message: string;
@@ -62,7 +62,7 @@ export type AscAvailabilityApi = {
   ): Effect.Effect<void, unknown>;
 };
 /** Inputs to reconcile one app's store availability. */
-export type AvailabilityReconcileInput = {
+type AvailabilityReconcileInput = {
   bundleId: string;
   config: AvailabilityConfig;
   dryRun: boolean;

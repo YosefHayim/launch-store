@@ -34,7 +34,7 @@ export type CustomProductPagesCommandInput = Schema.Schema.Type<
 >;
 
 /** A custom product pages command step failed. */
-export type CustomProductPagesCommandFailure = Readonly<{
+type CustomProductPagesCommandFailure = Readonly<{
   readonly _tag: 'CustomProductPagesCommandFailure';
   readonly operation: string;
   readonly message: string;

@@ -8,7 +8,7 @@ import type { NotifyEvent } from '../services/platform/notify.js';
  * `lastPhasedState` is each key's last seen phased-release state, so a change between polls reads as a
  * rollout advance.
  */
-export type TransitionTracker = {
+type TransitionTracker = {
   reviewed: Set<string>;
   lastPhasedState: Map<string, string>;
 };

@@ -3,15 +3,12 @@ import { Effect } from 'effect';
 import { vi } from 'vitest';
 import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
 
-export interface FakeAnalyticsInstance {
+interface FakeAnalyticsInstance {
   readonly processingDate: string;
   readonly segmentTsvs: readonly string[];
 }
 
-export type FakeFailureMethod =
-  | 'getSalesReport'
-  | 'listAnalyticsReportRequests'
-  | 'listCustomerReviews';
+type FakeFailureMethod = 'getSalesReport' | 'listAnalyticsReportRequests' | 'listCustomerReviews';
 
 export interface FakeAppStoreStatsScenario {
   /** Sales Report TSV by report date; a date that is not listed answers 404 like Apple does. */
@@ -22,7 +19,7 @@ export interface FakeAppStoreStatsScenario {
   readonly failure: { readonly method: FakeFailureMethod; readonly status: number } | null;
 }
 
-export const gzipTsv = (tsv: string): Buffer => gzipSync(Buffer.from(tsv));
+const gzipTsv = (tsv: string): Buffer => gzipSync(Buffer.from(tsv));
 
 /** A tab-separated report from a header line and its lines, as Apple writes them. */
 export const createTsv = (

@@ -6,7 +6,7 @@ const ExplainCommandInputSchema = Schema.Struct({
   topic: Schema.optionalWith(Schema.String, { exact: true }),
 });
 
-export type ExplainCommandFailure = Readonly<{
+type ExplainCommandFailure = Readonly<{
   readonly _tag: 'ExplainCommandFailure';
   readonly message: string;
   readonly cause: unknown;

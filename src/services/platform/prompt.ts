@@ -12,7 +12,7 @@ import {
 import { Context, Data, Effect, Layer } from 'effect';
 import { createLogger, type Logger } from './logger.js';
 
-export type PromptSelectionFailure = Readonly<{
+type PromptSelectionFailure = Readonly<{
   readonly _tag: 'PromptSelectionFailure';
   readonly message: string;
   readonly cause?: unknown;
@@ -68,7 +68,7 @@ export type LaunchPromptService = Readonly<{
   readonly cancel: (message: string) => Effect.Effect<void>;
 }>;
 
-export type LaunchPromptTestAnswers = Readonly<{
+type LaunchPromptTestAnswers = Readonly<{
   readonly confirmation?: boolean;
   readonly text?: string;
   readonly secret?: string;

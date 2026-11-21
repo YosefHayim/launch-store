@@ -9,7 +9,7 @@ import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './apple
 import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** One sandbox-tester operation selected by Commander. */
-export type SandboxCommandInput =
+type SandboxCommandInput =
   | Readonly<{ operation: 'list'; json: boolean }>
   | Readonly<{
       operation: 'clear';
@@ -19,7 +19,7 @@ export type SandboxCommandInput =
     }>;
 
 /** A sandbox command could not load credentials, call Apple, prompt, or render output. */
-export type SandboxCommandFailure = Readonly<{
+type SandboxCommandFailure = Readonly<{
   readonly _tag: 'SandboxCommandFailure';
   readonly operation: SandboxCommandInput['operation'];
   readonly message: string;

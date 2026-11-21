@@ -85,7 +85,7 @@ const makeLogger = (display: (text: string) => LogWrite, explain: boolean): Logg
 };
 
 /** One NDJSON event of the `--json` stream. */
-export type JsonEvent = Readonly<Record<string, unknown>>;
+type JsonEvent = Readonly<Record<string, unknown>>;
 
 /** Serialize one event as a single newline-terminated NDJSON line. */
 export const jsonLine = (event: JsonEvent): string => `${JSON.stringify(event)}\n`;

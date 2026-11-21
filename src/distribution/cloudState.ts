@@ -7,7 +7,7 @@ import {
   type LaunchPathsService,
 } from '../services/platform/paths.js';
 
-export type CloudState = {
+type CloudState = {
   host?: HostHandle;
   amiId?: string;
 };

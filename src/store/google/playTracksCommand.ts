@@ -54,13 +54,13 @@ export const PlayTracksCommandInputSchema = Schema.Union(
   PlayTracksTestersInputSchema,
 );
 
-export type PlayTracksCommandInput = Schema.Schema.Type<typeof PlayTracksCommandInputSchema>;
+type PlayTracksCommandInput = Schema.Schema.Type<typeof PlayTracksCommandInputSchema>;
 export type PlayTracksStatusInput = Schema.Schema.Type<typeof PlayTracksStatusInputSchema>;
 export type PlayTracksPromoteInput = Schema.Schema.Type<typeof PlayTracksPromoteInputSchema>;
 export type PlayTracksTestersInput = Schema.Schema.Type<typeof PlayTracksTestersInputSchema>;
 
 /** A Play tracks command step failed. */
-export type PlayTracksCommandFailure = Readonly<{
+type PlayTracksCommandFailure = Readonly<{
   readonly _tag: 'PlayTracksCommandFailure';
   readonly operation: PlayTracksCommandInput['operation'];
   readonly message: string;

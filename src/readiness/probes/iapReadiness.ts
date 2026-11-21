@@ -38,7 +38,7 @@ export const declaredAppleProductIds = (products: AppProducts | undefined): stri
  */
 const MISSING_METADATA = 'MISSING_METADATA';
 /** A `checked` finding's status + copy, without the per-app fields the probe stamps on. */
-export type ProductGrade = {
+type ProductGrade = {
   status: 'ok' | 'blocker';
   detail: string;
   hint?: string;

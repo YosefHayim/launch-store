@@ -65,7 +65,7 @@ const ReportsCommandInputSchema = Schema.Union(
 
 type ReportsCommandInput = Schema.Schema.Type<typeof ReportsCommandInputSchema>;
 
-export type ReportsCommandFailure = Readonly<{
+type ReportsCommandFailure = Readonly<{
   readonly _tag: 'ReportsCommandFailure';
   readonly operation: ReportsCommandInput['operation'];
   readonly message: string;

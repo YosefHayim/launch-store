@@ -20,7 +20,7 @@ import { parseReleaseConfig, reconcileRelease } from './releaseAttrs.js';
 import { hasMessage } from '../services/platform/errorMessage.js';
 
 /** Inputs resolved from Commander for App Store release-attribute reconciliation. */
-export type ReleaseConfigCommandInput = Readonly<{
+type ReleaseConfigCommandInput = Readonly<{
   app?: string;
   configPath: string;
   explicitConfigPath: boolean;
@@ -29,7 +29,7 @@ export type ReleaseConfigCommandInput = Readonly<{
 }>;
 
 /** Release-attribute configuration or transport work failed. */
-export type ReleaseConfigCommandFailure = Readonly<{
+type ReleaseConfigCommandFailure = Readonly<{
   readonly _tag: 'ReleaseConfigCommandFailure';
   readonly operation: string;
   readonly message: string;

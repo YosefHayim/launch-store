@@ -11,7 +11,7 @@ const STORE_CONFIG_SKELETON: StoreConfig = {
   apple: { info: { 'en-US': { title: '', subtitle: '', description: '', keywords: [] } } },
 };
 
-export type StoreScaffoldDecision = Readonly<{
+type StoreScaffoldDecision = Readonly<{
   artifact: MigrationArtifact | null;
   note: MigrationNote;
 }>;

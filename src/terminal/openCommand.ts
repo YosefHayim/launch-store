@@ -11,7 +11,7 @@ export const OpenCommandInputSchema = Schema.Struct({
 
 export type OpenCommandInput = Schema.Schema.Type<typeof OpenCommandInputSchema>;
 
-export type OpenCommandFailure = Readonly<{
+type OpenCommandFailure = Readonly<{
   readonly _tag: 'OpenCommandFailure';
   readonly message: string;
   readonly cause: unknown;

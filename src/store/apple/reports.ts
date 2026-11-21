@@ -40,7 +40,7 @@ export const parseTsv = (text: string): ParsedReport => {
 /** Milliseconds in a day - the step for {@link eachDate}'s UTC walk. */
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type ReportDateFailure = Readonly<{
+type ReportDateFailure = Readonly<{
   readonly _tag: 'ReportDateFailure';
   readonly message: string;
 }>;
@@ -144,7 +144,7 @@ export type AscReportsApi = {
   ): Effect.Effect<AnalyticsReportSegmentResource[], unknown>;
 };
 /** Result of {@link ensureAnalyticsRequest}: the request to use and whether this call created it. */
-export type EnsuredRequest = {
+type EnsuredRequest = {
   request: AnalyticsReportRequestResource;
   created: boolean;
 };
@@ -186,7 +186,7 @@ type SegmentDownload = {
   checksum?: string;
 };
 /** The outcome of {@link collectAnalyticsSegments}: the segment descriptors plus first-run context. */
-export type AnalyticsCollection = {
+type AnalyticsCollection = {
   requestCreated: boolean;
   reportCount: number;
   downloads: SegmentDownload[];

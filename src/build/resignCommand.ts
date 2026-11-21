@@ -44,7 +44,7 @@ export type ResignCommandFailure = Readonly<{
 
 export const makeResignCommandFailure = Data.tagged<ResignCommandFailure>('ResignCommandFailure');
 
-export type AndroidResignSpec = Readonly<{
+type AndroidResignSpec = Readonly<{
   readonly command: string;
   readonly arguments: readonly string[];
   readonly environment: Readonly<Record<string, string>>;

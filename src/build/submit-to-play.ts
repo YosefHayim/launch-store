@@ -1,6 +1,6 @@
 import type { GooglePlay } from '@/google-play.js';
 
-export interface PlayBundleUpload {
+interface PlayBundleUpload {
   path: string;
   packageName: string;
   track: string;

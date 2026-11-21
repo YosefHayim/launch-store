@@ -25,7 +25,7 @@ const PLAY_FORM_FACTOR_DIMENSIONS: Readonly<Record<PlayFormFactor, readonly [num
   tenInchTablet: [1600, 2560],
 };
 
-export type DimensionVerdict =
+type DimensionVerdict =
   | {
       readonly ok: true;
     }
@@ -34,7 +34,7 @@ export type DimensionVerdict =
       readonly reason: string;
     };
 
-export type FileDimensionCheck =
+type FileDimensionCheck =
   | {
       readonly measured: false;
     }

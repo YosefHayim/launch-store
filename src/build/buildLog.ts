@@ -7,7 +7,7 @@ import { redactText } from '../services/platform/redact.js';
 import type { Platform } from '../types/app.js';
 
 /** Natural-key fields that identify one build log. */
-export type BuildLogKey = Readonly<{
+type BuildLogKey = Readonly<{
   appName: string;
   version: string;
   buildNumber: number;

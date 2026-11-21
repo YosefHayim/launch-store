@@ -27,7 +27,7 @@ export type ReleaseInput = Readonly<{
 }>;
 
 /** Invalid Play track release input. */
-export type PlayReleaseInputFailure = Readonly<{
+type PlayReleaseInputFailure = Readonly<{
   readonly _tag: 'PlayReleaseInputFailure';
   readonly message: string;
   readonly cause: unknown;

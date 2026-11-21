@@ -34,7 +34,7 @@ const FingerprintCommandFailureSchema = Schema.Struct({
   cause: Schema.Unknown,
 });
 
-export type FingerprintCommandFailure = Schema.Schema.Type<typeof FingerprintCommandFailureSchema>;
+type FingerprintCommandFailure = Schema.Schema.Type<typeof FingerprintCommandFailureSchema>;
 
 const makeFingerprintCommandFailure = Data.tagged<FingerprintCommandFailure>(
   'FingerprintCommandFailure',

@@ -5,7 +5,6 @@ import { readResolvedConfig } from '../config/config.js';
 import { configTemplate, detectAppRoot } from '../config/configScaffold.js';
 import type { AppDescriptor, BuildProfile, PlayTrack } from '../types/app.js';
 import type {
-  CredentialsSummary,
   EasBuildProfile,
   EasJson,
   EasSubmitProfile,
@@ -15,6 +14,22 @@ import type {
 } from '../types/migrate.js';
 import type { MutableDeep } from '../types/mutable.js';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
+
+/**
+ * A non-secret summary of an EAS `credentials.json` (present when `eas.json` sets
+ * `credentialsSource: "local"`). Only paths and the keystore alias are surfaced; the certificate/keystore
+ * Password fields are discarded by the boundary schema and never enter this shape.
+ */
+type CredentialsSummary = Readonly<{
+  ios?: Readonly<{
+    distributionCertificatePath?: string;
+    provisioningProfilePath?: string;
+  }>;
+  android?: Readonly<{
+    keystorePath?: string;
+    keyAlias?: string;
+  }>;
+}>;
 
 export type EasMigrationFailure = Readonly<{
   readonly _tag: 'EasMigrationFailure';

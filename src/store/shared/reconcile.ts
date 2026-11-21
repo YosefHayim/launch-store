@@ -10,7 +10,7 @@ export type ReconcileContext = {
 };
 
 /** Missing App Store Connect app record. */
-export type AppRecordFailure = Readonly<{
+type AppRecordFailure = Readonly<{
   readonly _tag: 'AppRecordFailure';
   readonly bundleId: string;
   readonly message: string;
