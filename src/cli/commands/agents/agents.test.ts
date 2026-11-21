@@ -4,7 +4,6 @@ import { CONSUMER_SKILLS } from '@core/agents/registry.js';
 import { findUnknownCommands } from '@core/agents/validate.js';
 import { expectArrayElement } from '@testkit/assertions.testkit.js';
 import { buildProgram } from '@cli/program.js';
-import * as agentsModule from './agents.js';
 import { registerAgentsCommand, registeredCommandTree } from './agents.js';
 
 const agentsCommand = () => {
@@ -18,14 +17,7 @@ const agentsCommand = () => {
   return agents;
 };
 
-describe('registerAgentsCommand - thin CLI boundary', () => {
-  it('exports registration and the registered-command tree adapter', () => {
-    expect(Object.keys(agentsModule).sort()).toEqual([
-      'registerAgentsCommand',
-      'registeredCommandTree',
-    ]);
-  });
-
+describe('registerAgentsCommand', () => {
   it('wires init and check with a shared --agent option', () => {
     const agents = agentsCommand();
     const subcommandNames = agents.commands.map((command) => command.name());
@@ -69,39 +61,6 @@ describe('registerAgentsCommand - thin CLI boundary', () => {
 describe('the agent skill registry stays in sync with the CLI', () => {
   it('names only commands that exist in the live program', () => {
     expect(findUnknownCommands(registeredCommandTree(buildProgram()))).toEqual([]);
-  });
-  it('ships the task skills, in pipeline order, with unique ids', () => {
-    const skillIds = CONSUMER_SKILLS.map((skill) => skill.id);
-    expect(skillIds).toEqual([
-      'launch-ship',
-      'launch-release',
-      'launch-store-config',
-      'launch-ota',
-      'launch-ci',
-      'launch-doctor',
-      'launch-verify',
-      'launch-plan',
-      'launch-snapshot',
-      'launch-migrate',
-      'launch-insights',
-      'launch-ai-listing',
-      'launch-ai-screenshots',
-      'launch-agent-access',
-    ]);
-    expect(new Set(skillIds).size).toBe(skillIds.length);
-  });
-  it('gives every skill a triggering description, triggers, and at least one step', () => {
-    for (const skill of CONSUMER_SKILLS) {
-      expect(skill.description.length, `${skill.id} description`).toBeGreaterThan(0);
-      expect(skill.triggers.length, `${skill.id} triggers`).toBeGreaterThan(0);
-      expect(skill.steps.length, `${skill.id} steps`).toBeGreaterThan(0);
-    }
-  });
-  it('bundles a reference only for the large store-config skill (progressive disclosure)', () => {
-    const withReference = CONSUMER_SKILLS.filter((skill) => skill.reference).map(
-      (skill) => skill.id,
-    );
-    expect(withReference).toEqual(['launch-store-config']);
   });
   it('flags a renamed or removed command instead of silently passing', () => {
     const staleRegistry = [

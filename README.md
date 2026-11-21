@@ -8,7 +8,7 @@
   <a href="https://www.npmjs.com/package/launch-store"><img src="https://img.shields.io/npm/v/launch-store?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://www.npmjs.com/package/launch-store"><img src="https://img.shields.io/npm/dm/launch-store?logo=npm&color=cb3837" alt="npm downloads" /></a>
   <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/YosefHayim/launch-store/ci.yml?branch=main&logo=github&label=CI" alt="CI status" /></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/launch-store?color=blue" alt="MIT license" /></a>
+  <a href="https://www.npmjs.com/package/launch-store"><img src="https://img.shields.io/npm/l/launch-store?color=blue" alt="MIT license" /></a>
   <img src="https://img.shields.io/node/v/launch-store?logo=node.js&color=339933" alt="Node version" />
   <img src="https://img.shields.io/badge/types-included-3178c6?logo=typescript&logoColor=white" alt="TypeScript types included" />
 </p>

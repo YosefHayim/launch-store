@@ -50,8 +50,8 @@ beforeAll(() => {
       },
     }),
   );
-  // Valid but for one unknown top-level key - the root is `additionalProperties: false`, so this is the
-  // #197 unknown-key rejection, phrased to survive the #274 zod switch (which reports the key name too).
+  // Valid but for one unknown top-level key. The root schema sets additionalProperties to false,
+  // so this is the #197 unknown-key rejection.
   writeFileSync(
     join(workdir, 'bad.json'),
     JSON.stringify({ profiles: { production: { name: 'production' } }, totallyBogusKey: true }),

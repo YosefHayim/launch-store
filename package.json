@@ -91,8 +91,7 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^8.3.5",
-    "vitest": "^4.1.12",
-    "zod": "^4.6.7"
+    "vitest": "^4.1.12"
   },
   "optionalDependencies": {
     "@aws-sdk/client-ec2": "^3.1153.0",

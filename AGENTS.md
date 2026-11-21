@@ -79,7 +79,8 @@ Do not create flat `src/core/*.ts` files. Pick the purpose folder that owns the 
 
 - Usage and product direction: [README.md](./README.md).
 - Domain language: runtime teaching text in `src/core/terminal/glossary.ts`.
-- Config schema: Effect Schema in `src/core/config/` is the source. zod is migration debt. `schema/launch.config.schema.json` is the published copy.
+- Config schema: Effect Schema in `src/core/config/` is the source. `schema/launch.config.schema.json` is the published copy.
+- Root files: there is no `LICENSE` file and no `.env.example`. `package.json` keeps `"license": "MIT"`. `launch init` still writes a starter `.env.example` into the app being set up.
 
 ### Imports Follow Ownership
 
@@ -111,13 +112,13 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 - **New modules use function declarations.** An arrow only when a method is passed elsewhere and must keep `this`. Do not add `&&` or `||`. `??` and `?.` are allowed. Name each condition.
 - **Effect commands stay services.** Expected failures are readonly tagged data. Use Effect FileSystem, Path, CommandExecutor, and Terminal there, and hand `*Test` layers in tests. Do not apply that shape to the ship path.
 - **Registration is thin.** `src/cli/program.ts` registers the ship-path classes and the later commands. Prompts require a TTY or `--yes`. `--json` emits one object. Only the entry sets exit codes.
-- **Effect Schema is the config source.** zod is migration debt. Do not delete `schema/`.
+- **Effect Schema is the config source.** Do not delete `schema/`.
 - **Purpose-grouped core.** Later-command code goes under `src/core/<job>/`. No new flat `src/core/*.ts` files.
 - **One public barrel.** `src/index.ts` is the package entrypoint. Internal modules import the owning file.
 - **Prose naming.** Generic bindings such as `data`, `result`, and `value` are banned. `build` is reserved for the real build domain.
 - **Comments explain hidden intent.** No narrated headers or TSDoc that restates types.
 - **ASCII output.** Effect logging uses `[RUN]`, `[OK]`, `[WARN]`, `[ERROR]`, and `[SKIP]`. JSON stays machine-clean.
-- **Tests are colocated.** Vitest, no snapshots, hand fakes, shared testkit in `src/testkit/`.
+- **Tests are colocated.** Vitest, no snapshots, hand fakes, shared testkit in `src/testkit/`. A test covers the contract a caller sees: inputs, outputs, errors, and side effects ([Vitest: testing in practice](https://vitest.dev/guide/learn/testing-in-practice.html)). Do not add a test that only copies a catalog, checks README prose, or asserts which names a module exports.
 
 ## Style Is Enforced, Not Re-Explained
 

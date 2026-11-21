@@ -24,7 +24,7 @@ export type McpToolResult = Readonly<{
  * The raw input schema a tool advertises. It is the draft-07 object subset the protocol requires
  * (`{ type: "object", properties?, required? }`) expressed as our own {@link JsonSchema}, so the SAME
  * value both advertises the tool (via `tools/list`) and validates incoming arguments through the
- * hand-rolled {@link import("../config/jsonSchema.js").validate} - one schema, no zod, no second validator.
+ * hand-rolled {@link import("../config/jsonSchema.js").validate} - one schema, no second validator.
  */
 type McpInputSchema = JsonSchema &
   Readonly<{
