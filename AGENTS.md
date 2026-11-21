@@ -2,7 +2,7 @@
 
 Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md) (keep agent rules out of it).
 
-> This is the only agent instructions file. Claude Code and Codex load it natively.
+This is the only agent instructions file. [Claude Code](https://code.claude.com/docs/en/memory) reads it when the repo has no `CLAUDE.md`. [Codex](https://learn.chatgpt.com/docs/agent-configuration/agents-md) reads it from the repo root. Do not add `CLAUDE.md`, `GEMINI.md`, or a second copy of these rules.
 
 ## Branching And PRs
 
@@ -23,6 +23,8 @@ One TypeScript / Node ESM package plus its Claude Code mod. Top-level ownership:
 
 | Path | Owns |
 | --- | --- |
+| `schema/` | Published `launch.config.schema.json`. `pnpm docs:gen` writes it. `launch config` and the MCP tools read it. It ships in the npm package. Do not delete it. |
+| `src/build`, `src/credentials`, `src/launch-file`, `src/store` | Ship-path classes for build, creds, init, plan, drift, sync, and adopt. Plain TypeScript. |
 | `src/cli` | Thin Commander wiring: command names, flags, help text, `runCliProgram(...)`. No domain orchestration. |
 | `src/core` | Domain programs, Effect services, config/schema, build/release/store/readiness logic, generated docs, and type homes. |
 | `src/providers` | Swappable backend implementations for build, storage, credentials, submit, and compute providers. |
@@ -78,7 +80,7 @@ Do not create flat `src/core/*.ts` files. Pick the purpose folder that owns the 
 
 - Usage and product direction: [README.md](./README.md).
 - Domain language: runtime teaching text in `src/core/terminal/glossary.ts`.
-- Config schema: Effect Schema in `src/core/config/`; zod is migration debt.
+- Config schema: Effect Schema in `src/core/config/` is the source. zod is migration debt. `schema/launch.config.schema.json` is the published copy.
 
 ### Imports Follow Ownership
 
@@ -106,22 +108,17 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 
 ### Rules Digest
 
-- **Ship path is plain TypeScript.** `init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` are classes under `src/` and do not use Effect. Imports inside that path use `@/`. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. Later commands still return `Effect`.
-- **Tagged failure values.** Expected failures are readonly tagged data in the Effect channel; no raw production throws or error classes.
-- **Official platform services.** Use Effect FileSystem, Path, CommandExecutor, and Terminal; Launch services own domain policy only.
-- **Services, not classes.** Use readonly service types with `Context.GenericTag` and `Layer`; tests provide hand `*Test` layers.
-- **Prompting and I/O behind services.** No direct `@clack/prompts`, `fetch`, `fs`, `spawn`, `console.*`, or `process.env` outside live layers/entrypoints/tests/scripts.
-- **CLI is thin.** Commander files parse names/flags and call a core Effect program; both interactive and non-interactive paths share that program.
-- **Non-TTY never hangs.** Prompts require TTY or explicit flags/`--yes`; `--json` emits machine-clean output.
-- **Effect Schema is config SSOT.** zod is temporary migration debt.
-- **Purpose-grouped core.** New code goes under `src/core/<job>/`; no new flat-core files.
-- **One public barrel.** `src/index.ts` is the package entrypoint; internal code imports owning modules directly.
-- **Prose naming.** Generic bindings such as `data`, `result`, and `value` are banned; `build` is reserved for the real build domain.
-- **Comments explain hidden intent.** No narrated headers, change history, caller lists, or TSDoc that restates types.
-- **Explicit control flow.** No ternary, `??`, or `||`; use guards, exhaustive switches, and named lookups.
-- **Arrow module functions.** Authored module functions are const arrows declared before first use.
-- **ASCII output.** Effect logging uses `[RUN]`, `[OK]`, `[WARN]`, `[ERROR]`, and `[SKIP]`; JSON stays machine-clean.
-- **Tests are colocated.** Vitest, no snapshots, hand fakes, Effect `*Test` layers, shared testkit in `src/testkit/`.
+- **Ship path is plain TypeScript.** `init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` do not use Effect. Imports inside that path use `@/`. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `src/release-command.ts` and `src/app-release.ts` stay in `src/`. Later commands still return `Effect`.
+- **New modules use function declarations.** An arrow only when a method is passed elsewhere and must keep `this`. Do not add `&&` or `||`. `??` and `?.` are allowed. Name each condition.
+- **Effect commands stay services.** Expected failures are readonly tagged data. Use Effect FileSystem, Path, CommandExecutor, and Terminal there, and hand `*Test` layers in tests. Do not apply that shape to the ship path.
+- **Registration is thin.** `src/cli/program.ts` registers the ship-path classes and the later commands. Prompts require a TTY or `--yes`. `--json` emits one object. Only the entry sets exit codes.
+- **Effect Schema is the config source.** zod is migration debt. Do not delete `schema/`.
+- **Purpose-grouped core.** Later-command code goes under `src/core/<job>/`. No new flat `src/core/*.ts` files.
+- **One public barrel.** `src/index.ts` is the package entrypoint. Internal modules import the owning file.
+- **Prose naming.** Generic bindings such as `data`, `result`, and `value` are banned. `build` is reserved for the real build domain.
+- **Comments explain hidden intent.** No narrated headers or TSDoc that restates types.
+- **ASCII output.** Effect logging uses `[RUN]`, `[OK]`, `[WARN]`, `[ERROR]`, and `[SKIP]`. JSON stays machine-clean.
+- **Tests are colocated.** Vitest, no snapshots, hand fakes, shared testkit in `src/testkit/`.
 
 ## Style Is Enforced, Not Re-Explained
 
