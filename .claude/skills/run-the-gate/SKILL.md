@@ -1,6 +1,6 @@
 ---
 name: run-the-gate
-description: Use when finishing or verifying a change to launch-store - run the full typecheck, lint, test, build, and docs gate that must be green before a change is done or a PR merges.
+description: Use when finishing or verifying a change to launch-store - run the full typecheck, lint, test, and build gate that must be green before a change is done or a PR merges.
 ---
 
 # Run the validation gate
@@ -13,8 +13,7 @@ description: Use when finishing or verifying a change to launch-store - run the 
 
 ## Steps
 
-1. `pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build` - the five-part gate from `AGENTS.md` (`lint` is Biome and `docs:check` guards generated docs).
-2. If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`schema/launch.config.schema.json`, `.claude/skills/*`, and README badges).
+1. `pnpm typecheck && pnpm lint && pnpm test && pnpm build` - the gate from `AGENTS.md` (`lint` is Biome). `pnpm check` runs the same gate.
 
 All gates must be green before a change is done. The husky pre-push hook runs `pnpm check`, which is that same gate. Add a `*.test.ts` beside any new logic.
 

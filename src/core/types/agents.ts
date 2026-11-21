@@ -73,8 +73,7 @@ export type BaseContext = Readonly<{
 }>;
 /**
  * A contributor-facing, task-scoped skill for working ON the launch-store codebase.
- * Rendered to `.claude/skills/<id>/SKILL.md`
- * by `npm run docs:gen` and gated by `docs:check`, so a committed recipe can't drift from the registry.
+ * The committed copy lives at `.claude/skills/<id>/SKILL.md`.
  *
  * Unlike a {@link ConsumerSkill}, the `steps` are free-form markdown (npm scripts, file edits, prose) - a
  * contributor recipe describes the repo's own workflow, not the `launch` CLI surface, so there is no live
@@ -93,9 +92,8 @@ export type ContributorSkill = Readonly<{
 }>;
 /**
  * A rendered artifact: a path relative to the repo it is written into, plus the full file contents.
- * Consumer files are written into a user's repo by `launch agents init`; contributor files are written
- * here under `.cursor/rules/` (Cursor) and `.claude/skills/` (Claude) by `npm run docs:gen` and gated by
- * `docs:check`.
+ * Consumer files are written into a user's repo by `launch agents init`. Contributor files live
+ * under `.claude/skills/`.
  */
 export type GeneratedAgentFile = Readonly<{
   path: string;

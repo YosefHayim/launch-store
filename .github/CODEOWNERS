@@ -8,7 +8,6 @@
 /biome.json @YosefHayim
 /tsconfig.json @YosefHayim
 /package.json @YosefHayim
-/pnpm-lock.yaml @YosefHayim
 /.github/ @YosefHayim
 /scripts/ @YosefHayim
 /src/core/services/ @YosefHayim

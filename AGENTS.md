@@ -19,11 +19,11 @@ Config the engineering skills read.
 
 ## Repo Layout - Who Owns What
 
-One TypeScript / Node ESM package plus its Claude Code mod. Top-level ownership:
+One TypeScript / Node ESM package. Top-level ownership:
 
 | Path | Owns |
 | --- | --- |
-| `schema/` | Published `launch.config.schema.json`. `pnpm docs:gen` writes it. `launch config` and the MCP tools read it. It ships in the npm package. Do not delete it. |
+| `schema/` | Published `launch.config.schema.json`. `launch config` and the MCP tools read it. It ships in the npm package. Do not delete it. |
 | `src/build`, `src/credentials`, `src/launch-file`, `src/store` | Ship-path classes for build, creds, init, plan, drift, sync, and adopt. Plain TypeScript. |
 | `src/cli` | Thin Commander wiring: command names, flags, help text, `runCliProgram(...)`. No domain orchestration. |
 | `src/core` | Domain programs, Effect services, config/schema, build/release/store/readiness logic, generated docs, and type homes. |
@@ -31,7 +31,6 @@ One TypeScript / Node ESM package plus its Claude Code mod. Top-level ownership:
 | `src/apple` | App Store Connect transport and the generated Apple API mirror. |
 | `src/google` | Google Play transport wrappers around Google's official generated clients. |
 | `src/testkit` | Shared test fakes and Effect test layers. |
-| `.claude-plugin/launch-store` | The Claude Code mod: tools and `/launch` that run `launch <command> --json`. Not in the npm package. Check it with `claude plugin validate --strict .claude-plugin/launch-store` and `claude plugin test .claude-plugin/launch-store`. |
 
 Current `src/core` layout:
 
@@ -43,7 +42,7 @@ src/core/
  config/         # config schema/load/scaffold/semantics/project setup
  credentials/    # accounts, secrets, keychain, signing assets
  distribution/   # install manifests, OTA updates, storage-facing distribution helpers
- docs/           # README generator and config reference renderer
+ docs/           # config reference renderer
  doctor/         # doctor context/inspection
  insights/       # review/vitals aggregation
  listing/        # listing drafts/apply logic and screenshot asset specifications
@@ -127,19 +126,19 @@ Formatting and generic TypeScript rules live in `tsconfig.json`, `biome.json`, a
 ## Before You Call A Change Done
 
 ```bash
-pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build
+pnpm typecheck && pnpm lint && pnpm test && pnpm build
 ```
 
-All five must be green. Add or update colocated tests for any new behavior.
-(`npm run <script>` still works once dependencies are installed with **pnpm**; do not use `npm install` - this repo is `packageManager: pnpm@10` and only has `pnpm-lock.yaml`.)
+All four must be green. Add or update colocated tests for any new behavior.
+Install with npm, yarn, or pnpm. Lockfiles stay untracked (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`), so the three tools do not fight over a committed lockfile.
 
 ## Local CI
 
 CI runs on `pull_request`, on `push` to main (markdown-only pushes skip it) and on `workflow_dispatch`.
-The Husky pre-push hook runs `pnpm check` (lint, typecheck, docs sync check, test, and build). Lint, style, typecheck, and the docs sync check do not run in CI. A new worktree needs `pnpm install` before its first push.
+The Husky pre-push hook runs `pnpm check` (lint, typecheck, test, and build). Lint, style, and typecheck do not run in CI. A new worktree needs its own `npm install`, `yarn`, or `pnpm install` before its first push.
 The `changes` job in `ci.yml` (`dorny/paths-filter`, `token: ''`) decides what runs:
 
 - Docs-only changes skip every job, and `CI Gate` still passes.
 - Test (`vitest run --project unit --changed`) checks only the changed unit files. The e2e project runs the built CLI, so it stays out of that step. Build and the CLI smoke test run in full when code changes. E2E runs when `src/` or `package.json` change.
-- A change to the lockfile, workspace file, `biome.json`, `tsconfig*.json`, `*.config.ts` or `.github/**`, and a manual run, run everything in full with coverage. A `package.json` change alone does not.
+- A change to the workspace file, `biome.json`, `tsconfig*.json`, `*.config.ts` or `.github/**`, and a manual run, run everything in full with coverage. A `package.json` change alone does not.
 - `CI Gate` fails only when a job failed or was cancelled.

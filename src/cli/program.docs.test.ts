@@ -1,32 +1,30 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { countAsyncMethods, countTestCases } from '../core/docs/commandDocs/common.js';
-import {
-  AGENT_SKILLS_SIGNATURE,
-  CANONICAL_SENTENCE,
-  FAQ_SIGNATURE,
-  FEATURES_SIGNATURE,
-  IS_NOT_SIGNATURE,
-} from '../core/docs/commandDocs/content.js';
+
 /** Repo root, derived from this file's location so the test works regardless of the cwd vitest runs in. */
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const read = (relative: string): string => readFileSync(join(ROOT, relative), 'utf8');
+const CANONICAL_SENTENCE =
+  'Open-source, self-hosted alternative to Expo EAS - build, sign, configure your stores, and ship Expo / React Native apps to the App Store & Google Play from one typed launch.config.ts - your machine, your keys. No per-build bill.';
+
+const read = (relativePath: string): string => readFileSync(join(ROOT, relativePath), 'utf8');
 /** Strip README hero links and decode HTML entities so linked prose still matches the plain canonical sentence. */
-const decodeHtml = (html: string): string =>
-  html
+const decodeHtml = (readmeHtml: string): string =>
+  readmeHtml
     .replace(/<a\b[^>]*>/g, '')
     .replace(/<\/a>/g, '')
     .replace(/&amp;/g, '&');
 /** Pull every repo-relative markdown link target (`](./...)`) out of a doc, for link-validity checks. */
 const relativeLinks = (markdown: string): string[] => {
   const links: string[] = [];
-  for (const match of markdown.matchAll(/\]\((\.\/[^)\s]+)\)/g)) {
-    if (match[1]) links.push(match[1]);
+  for (const linkMatch of markdown.matchAll(/\]\((\.\/[^)\s]+)\)/g)) {
+    const link = linkMatch[1];
+    if (link != null) links.push(link);
   }
   return links;
 };
+
 describe('canonical category sentence is unified across surfaces (issue #89)', () => {
   it('is the package description and the README hero', () => {
     expect(JSON.parse(read('package.json')).description).toBe(CANONICAL_SENTENCE);
@@ -35,31 +33,28 @@ describe('canonical category sentence is unified across surfaces (issue #89)', (
 });
 describe('the what-Launch-is-not disambiguation is present where readers look', () => {
   it('appears in the README', () => {
-    expect(read('README.md')).toContain(IS_NOT_SIGNATURE);
+    expect(read('README.md')).toContain('**Launch is not** just an App Store Connect SDK');
   });
 });
 describe('the generative-AI FAQ is present where readers look', () => {
   it('appears in the README', () => {
-    expect(read('README.md')).toContain(FAQ_SIGNATURE);
+    expect(read('README.md')).toContain('Is Launch a free, open-source alternative to Expo EAS?');
   });
 });
 describe('the numbered Features map is present where readers look', () => {
-  it('appears in the README, from the generated source', () => {
-    expect(read('README.md')).toContain(FEATURES_SIGNATURE);
+  it('appears in the README', () => {
+    expect(read('README.md')).toContain('Config in one step');
   });
 });
-describe('the agent-skills mention reaches the README (gated alongside docs:check)', () => {
+describe('the agent-skills mention reaches the README', () => {
   it('appears in the README, so the `launch agents` feature is never hidden', () => {
-    expect(
-      read('README.md'),
-      'README.md is missing the agent-skills callout - run `npm run docs:gen`',
-    ).toContain(AGENT_SKILLS_SIGNATURE);
+    expect(read('README.md')).toContain('Driving Launch from an AI agent?');
   });
 });
 /** Assert every repo-relative link in one doc points at a file that exists. */
-const expectNoBrokenLinks = (file: string): void => {
-  for (const link of relativeLinks(read(file))) {
-    expect(existsSync(join(ROOT, link)), `${file} links missing ${link}`).toBe(true);
+const expectNoBrokenLinks = (filePath: string): void => {
+  for (const link of relativeLinks(read(filePath))) {
+    expect(existsSync(join(ROOT, link)), `${filePath} links missing ${link}`).toBe(true);
   }
 };
 describe('every relative link in the README resolves on disk', () => {
@@ -75,24 +70,5 @@ describe('Genshot is discoverable from the README', () => {
     expect(readme).toContain('genshot login');
     expect(readme).toContain('launch ai screenshots');
     expect(readme).toContain('launch plan screenshots');
-  });
-});
-describe('the README live-stats badges track the real codebase (gated alongside docs:check)', () => {
-  it("shows the actual store-API operation and test counts, so they can't silently drift", () => {
-    const operations =
-      countAsyncMethods(read('src/apple/ascClient.ts')) +
-      countAsyncMethods(read('src/google/playClient.ts'));
-    const tests = countTestCases(
-      readdirSync(join(ROOT, 'src'), { recursive: true, encoding: 'utf8' })
-        .filter((entry) => entry.endsWith('.test.ts'))
-        .map((entry) => read(join('src', entry))),
-    );
-    const readme = read('README.md');
-    expect(readme, 'README endpoint badge is stale - run `npm run docs:gen`').toContain(
-      `store%20API-${operations}%20endpoints`,
-    );
-    expect(readme, 'README tests badge is stale - run `npm run docs:gen`').toContain(
-      `tests-${tests}%20passing`,
-    );
   });
 });

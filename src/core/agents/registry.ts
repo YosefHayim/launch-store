@@ -617,25 +617,23 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
   },
 ];
 /**
- * Claude Skills for working ON launch-store - each is a repeatable contributor workflow that today lives only
- * as `AGENTS.md` prose; rendered to `.claude/skills/<id>/SKILL.md` by `pnpm docs:gen` and gated by
- * `docs:check`. The relative links resolve from a skill file's directory (`.claude/skills/<id>/`), so they
- * climb three levels to the repo root. Steps are guidance only - nothing here auto-executes.
+ * Claude Skills for working ON launch-store. The copies under `.claude/skills/<id>/SKILL.md` are the
+ * contributor recipes. The relative links resolve from a skill file's directory (`.claude/skills/<id>/`),
+ * so they climb three levels to the repo root. Steps are guidance only - nothing here auto-executes.
  */
 export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
   {
     id: 'run-the-gate',
     title: 'Run the validation gate',
     description:
-      'Use when finishing or verifying a change to launch-store - run the full typecheck, lint, test, build, and docs gate that must be green before a change is done or a PR merges.',
+      'Use when finishing or verifying a change to launch-store - run the full typecheck, lint, test, and build gate that must be green before a change is done or a PR merges.',
     triggers: [
       "you finished a change and need to confirm it's green before calling it done",
       'CI failed and you want to reproduce the gate locally',
       'before opening or squash-merging a PR',
     ],
     steps: [
-      '`pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build` - the five-part gate from `AGENTS.md` (`lint` is Biome and `docs:check` guards generated docs).',
-      'If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`schema/launch.config.schema.json`, `.claude/skills/*`, and README badges).',
+      '`pnpm typecheck && pnpm lint && pnpm test && pnpm build` - the gate from `AGENTS.md` (`lint` is Biome). `pnpm check` runs the same gate.',
     ],
     body: markdownBody([
       'All gates must be green before a change is done. The husky pre-push hook runs `pnpm check`, which is that same gate. Add a `*.test.ts` beside any new logic.',
@@ -673,19 +671,14 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     id: 'add-a-command',
     title: 'Add a launch CLI command',
     description:
-      'Use when adding a new top-level `launch` command or subcommand - wire it as thin commander code and regenerate the docs the CLI surface drives.',
-    triggers: [
-      'adding a new `launch <command>` or subcommand',
-      'a `docs:check` failure after changing the CLI surface',
-    ],
+      'Use when adding a new top-level `launch` command or subcommand - wire it as thin commander code and add a test.',
+    triggers: ['adding a new `launch <command>` or subcommand'],
     steps: [
       "Add the command as thin commander wiring in the job folder under `src/cli/commands/` (setup, build, release, store/apple...) and register its `register*Command` in `src/cli/program.ts`'s `buildProgram()`. Keep domain logic in `src/core`, not the CLI layer.",
-      'Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates the config JSON schema, the README stats badges, and the committed `.claude/skills`.',
-      'Commit the regenerated files; `pnpm docs:check` (CI) fails if they drift.',
       'Add a `*.test.ts` beside the new logic, then run the gate.',
     ],
     body: markdownBody([
-      'The docs are generated from the live `buildProgram()` in `src/cli/program.ts`, so a new command surfaces in the reference automatically once you run `docs:gen` - never hand-edit the generated files.',
+      'Keep the command thin. Domain logic stays in `src/core`.',
       '',
       'See [AGENTS.md](../../../AGENTS.md).',
     ]),

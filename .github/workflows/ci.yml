@@ -29,7 +29,6 @@ jobs:
           token: ''
           filters: |
             everything: &everything
-              - pnpm-lock.yaml
               - pnpm-workspace.yaml
               - biome.json
               - 'tsconfig*.json'

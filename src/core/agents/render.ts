@@ -300,7 +300,7 @@ export const renderContributorSkill = (skill: ContributorSkill): GeneratedAgentF
   };
 };
 
-/** Every committed contributor skill (`pnpm docs:gen` / `docs:check`). */
+/** Every committed contributor skill. */
 export const renderContributorSkills = (
   skills: readonly ContributorSkill[] = CONTRIBUTOR_SKILLS,
 ): GeneratedAgentFile[] => skills.map(renderContributorSkill);
