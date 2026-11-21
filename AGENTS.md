@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md) (keep agent rules out of it). Branch and PR workflow lives in [BRANCHING.md](./BRANCHING.md).
+Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md) (keep agent rules out of it).
 
 > This is the only agent instructions file. Claude Code and Codex load it natively.
 
@@ -8,7 +8,6 @@ Working rules for AI agents and contributors editing **Launch**. This file holds
 
 - **Do not commit to `main`.** Branch as `feat|fix|refactor|chore|docs/<domain>/<slug>`, open a PR, label `domain:<domain>`, keep the gate green, delete the branch after merge.
 - Domains: `foundation`, `config`, `credentials`, `build`, `apple`, `google`, `store`, `release`, `testflight`, `readiness`, `agents`, `cli`, `docs`.
-- Full rules, CODEOWNERS path map, and the optional `experiment/layered-history` lab: [BRANCHING.md](./BRANCHING.md).
 
 ## Agent Skills
 
@@ -16,7 +15,7 @@ Config the engineering skills read.
 
 - **Issue tracker:** GitHub issues on `YosefHayim/launch-store`, via the `gh` CLI.
 - **Triage labels:** the five canonical triage roles, mapped to their default label strings.
-- **Domain docs:** single-context - `CONTEXT.md` + `LANGUAGE.md` + `TECH.md` at the repo root.
+- **Domain language:** `src/core/terminal/glossary.ts`.
 
 ## Repo Layout - Who Owns What
 
@@ -42,7 +41,7 @@ src/core/
  config/         # config schema/load/scaffold/semantics/project setup
  credentials/    # accounts, secrets, keychain, signing assets
  distribution/   # install manifests, OTA updates, storage-facing distribution helpers
- docs/           # README and llms.txt generators, config reference renderer
+ docs/           # README generator and config reference renderer
  doctor/         # doctor context/inspection
  insights/       # review/vitals aggregation
  listing/        # listing drafts/apply logic and screenshot asset specifications
@@ -77,10 +76,8 @@ Do not create flat `src/core/*.ts` files. Pick the purpose folder that owns the 
 
 ### Source Of Truth Files
 
-- Product direction: [PROJECT.md](./PROJECT.md).
-- Architecture orientation: [CONTEXT.md](./CONTEXT.md).
-- Domain language: [LANGUAGE.md](./LANGUAGE.md) and runtime teaching text in `src/core/terminal/glossary.ts`.
-- Technical ecosystem language: [TECH.md](./TECH.md).
+- Usage and product direction: [README.md](./README.md).
+- Domain language: runtime teaching text in `src/core/terminal/glossary.ts`.
 - Config schema: Effect Schema in `src/core/config/`; zod is migration debt.
 
 ### Imports Follow Ownership
@@ -142,10 +139,10 @@ All five must be green. Add or update colocated tests for any new behavior.
 ## Local CI
 
 CI runs on `pull_request`, on `push` to main (markdown-only pushes skip it) and on `workflow_dispatch`.
-The Husky pre-push hook runs `pnpm check` (lint, typecheck, docs sync check, test, build through Turborepo); lint, style, typecheck and the docs sync check do not run in CI. A new worktree needs `pnpm install` before its first push.
+The Husky pre-push hook runs `pnpm check` (lint, typecheck, docs sync check, test, and build). Lint, style, typecheck, and the docs sync check do not run in CI. A new worktree needs `pnpm install` before its first push.
 The `changes` job in `ci.yml` (`dorny/paths-filter`, `token: ''`) decides what runs:
 
 - Docs-only changes skip every job, and `CI Gate` still passes.
-- Test (`vitest run --changed`) checks only the changed files; build and the CLI smoke test run in full when code changes. E2E runs when `src/` or `package.json` change.
+- Test (`vitest run --project unit --changed`) checks only the changed unit files. The e2e project runs the built CLI, so it stays out of that step. Build and the CLI smoke test run in full when code changes. E2E runs when `src/` or `package.json` change.
 - A change to the lockfile, workspace file, `biome.json`, `tsconfig*.json`, `*.config.ts` or `.github/**`, and a manual run, run everything in full with coverage. A `package.json` change alone does not.
 - `CI Gate` fails only when a job failed or was cancelled.

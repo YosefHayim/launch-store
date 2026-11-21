@@ -10,8 +10,8 @@ const recipeStep = (path: string[], note: string, args?: string[]): SkillStep =>
 };
 
 /**
- * The always-on context every agent gets in a Launch repo. Derived from `AGENTS.md`, the README, and
- * `llms.txt` (kept faithful - no inflation). The {@link BaseContext.guardrail} encodes Launch's own
+ * The always-on context every agent gets in a Launch repo. Derived from `AGENTS.md` and the README.
+ * The {@link BaseContext.guardrail} encodes Launch's own
  * plan -> confirm -> apply ethos so an agent with `--yes` can't publish to production on its own.
  */
 export const BASE_CONTEXT: BaseContext = {
@@ -635,10 +635,10 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     ],
     steps: [
       '`pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build` - the five-part gate from `AGENTS.md` (`lint` is Biome and `docs:check` guards generated docs).',
-      'If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`llms.txt`, `llms-full.txt`, `schema/launch.config.schema.json`, `.claude/skills/*`, and README badges).',
+      'If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`schema/launch.config.schema.json`, `.claude/skills/*`, and README badges).',
     ],
     body: markdownBody([
-      'All gates must be green before a change is done. The husky pre-commit hook runs lint + format + typecheck but **not** the tests and **can** be bypassed, so run the full line yourself. Add a `*.test.ts` beside any new logic.',
+      'All gates must be green before a change is done. The husky pre-push hook runs `pnpm check`, which is that same gate. Add a `*.test.ts` beside any new logic.',
       '',
       'See [AGENTS.md](../../../AGENTS.md) -> “Before you call a change done”.',
     ]),
@@ -680,7 +680,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     ],
     steps: [
       "Add the command as thin commander wiring in the job folder under `src/cli/commands/` (setup, build, release, store/apple...) and register its `register*Command` in `src/cli/program.ts`'s `buildProgram()`. Keep domain logic in `src/core`, not the CLI layer.",
-      'Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates `llms.txt`, `llms-full.txt`, the config JSON schema, the README stats badges, and the committed `.claude/skills`.',
+      'Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates the config JSON schema, the README stats badges, and the committed `.claude/skills`.',
       'Commit the regenerated files; `pnpm docs:check` (CI) fails if they drift.',
       'Add a `*.test.ts` beside the new logic, then run the gate.',
     ],

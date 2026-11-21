@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-205%20endpoints-8957e5?logo=apple&logoColor=white" alt="205 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2854%20passing-3fb950?logo=vitest&logoColor=white" alt="2854 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2845%20passing-3fb950?logo=vitest&logoColor=white" alt="2845 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -321,9 +321,7 @@ launch stats --app "cal friend" --json              # one app, one JSON object
 **Read next:**
 
 - [`examples/hello-world`](./examples/hello-world) - a worked Expo / React Native app config.
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) - local development, tests, CI, and provider contribution flow.
 - [`AGENTS.md`](./AGENTS.md) - rules for coding agents and contributors editing this repo.
-- [`PROJECT.md`](./PROJECT.md), [`CONTEXT.md`](./CONTEXT.md), and [`LANGUAGE.md`](./LANGUAGE.md) - product direction, architecture context, and domain language.
 
 ## Configuration
 
@@ -538,7 +536,7 @@ Install with `npm install --global launch-store` (or `--save-dev` per project). 
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for dev setup, the quality gate, and how to add a backend.
+See [`AGENTS.md`](./AGENTS.md) for dev setup, the quality gate, and how to add a backend.
 
 ## Contributors
 

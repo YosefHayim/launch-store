@@ -104,7 +104,7 @@ export const spliceReadmeBadges = (
 /**
  * One question/answer pair parsed out of {@link GENERATIVE_AI_FAQ}: the bold question (without its `**`
  * markers) and the answer prose that follows it. The intermediate shape {@link renderCollapsibleFaq}
- * renders into the README's `<details>` groups; the flat string stays the one source for `llms.txt`.
+ * renders into the README's `<details>` groups.
  */
 type FaqEntry = {
   question: string;
@@ -146,10 +146,6 @@ const parseFaqEntries = (): Effect.Effect<FaqEntry[], FaqEntryInvalid> => {
  * default-collapsed `<details>` whose `<summary>` is the bold question and whose body is the answer. The
  * blank lines around the answer are required for GitHub to render the answer's markdown (the inline
  * `code` spans) inside the `<details>`.
- *
- * README-only, exactly like {@link renderCollapsibleFeatures}: `llms.txt` keeps the flat
- * {@link GENERATIVE_AI_FAQ} string, where `<details>` markup would be noise a model has to strip - so the
- * human-facing README collapses while the AI-facing surface stays plain, both from this one source.
  */
 export const renderCollapsibleFaq = (): Effect.Effect<string, FaqEntryInvalid> => {
   return Effect.map(parseFaqEntries(), (faqEntries) =>
@@ -170,8 +166,7 @@ export const renderCollapsibleFaq = (): Effect.Effect<string, FaqEntryInvalid> =
 /**
  * Render the English README's FAQ region from {@link renderCollapsibleFaq}, fenced by
  * {@link FAQ_REGION_START}/{@link FAQ_REGION_END} so {@link spliceReadmeFaq} can swap the whole block.
- * The FAQ has one source ({@link GENERATIVE_AI_FAQ}) shared with the flat `## FAQ` section
- * {@link renderLlmsTxt} emits, so the README and `llms.txt` can't drift question-for-question.
+ * The FAQ has one source, {@link GENERATIVE_AI_FAQ}.
  */
 export const renderFaqRegion = (): Effect.Effect<string, FaqEntryInvalid> => {
   return Effect.map(renderCollapsibleFaq(), (faqMarkdown) =>
@@ -193,7 +188,7 @@ export const spliceReadmeFaq = (
  * Render the numbered capability map from {@link FEATURE_SECTIONS}: each section as a bold label (and its
  * optional lead line) followed by its features as a markdown ordered list, numbered **continuously**
  * across sections (1..N) so the whole feature surface reads as one ordered list. Pure and arg-free - the
- * same output is spliced into the README and inlined into `llms.txt`, so the two can't drift. The
+ * same output is the flat numbered list. The
  * continuing ordinal is emitted explicitly per section, which prettier preserves when it reformats.
  */
 export const renderFeaturesList = (): string => {
@@ -221,9 +216,8 @@ const escapeHtml = (text: string): string => {
  * a markdown ordered list (restarting at 1 per group, so each collapsed group reads as its own list). The
  * blank lines around the list are required for GitHub to render markdown inside the `<details>`.
  *
- * README-only. {@link renderFeaturesList} stays a single flat numbered list for `llms.txt`, where the
- * `<details>` markup would be noise a model has to strip - so the human-facing README collapses while the
- * AI-facing surface stays plain, both from this one {@link FEATURE_SECTIONS} source.
+ * Each group restarts its own list. {@link renderFeaturesList} is the flat list from the same
+ * {@link FEATURE_SECTIONS} source.
  */
 export const renderCollapsibleFeatures = (): string => {
   return FEATURE_SECTIONS.map((section) => {

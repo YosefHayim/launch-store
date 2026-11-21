@@ -10,7 +10,6 @@ import {
   FEATURES_SIGNATURE,
   IS_NOT_SIGNATURE,
 } from '../core/docs/commandDocs/content.js';
-import { buildProgram } from './program.js';
 /** Repo root, derived from this file's location so the test works regardless of the cwd vitest runs in. */
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const read = (relative: string): string => readFileSync(join(ROOT, relative), 'utf8');
@@ -29,28 +28,24 @@ const relativeLinks = (markdown: string): string[] => {
   return links;
 };
 describe('canonical category sentence is unified across surfaces (issue #89)', () => {
-  it('is byte-identical in package.json, llms.txt, and the README hero', () => {
+  it('is the package description and the README hero', () => {
     expect(JSON.parse(read('package.json')).description).toBe(CANONICAL_SENTENCE);
-    expect(read('llms.txt')).toContain(`> ${CANONICAL_SENTENCE}`);
     expect(decodeHtml(read('README.md'))).toContain(CANONICAL_SENTENCE);
   });
 });
-describe('the what-Launch-is-not disambiguation is present where AI engines read it', () => {
-  it('appears in both the README and llms.txt', () => {
+describe('the what-Launch-is-not disambiguation is present where readers look', () => {
+  it('appears in the README', () => {
     expect(read('README.md')).toContain(IS_NOT_SIGNATURE);
-    expect(read('llms.txt')).toContain(IS_NOT_SIGNATURE);
   });
 });
-describe('the generative-AI FAQ is present where AI engines read it', () => {
-  it('appears in both the README and llms.txt', () => {
+describe('the generative-AI FAQ is present where readers look', () => {
+  it('appears in the README', () => {
     expect(read('README.md')).toContain(FAQ_SIGNATURE);
-    expect(read('llms.txt')).toContain(FAQ_SIGNATURE);
   });
 });
-describe('the numbered Features map is present where readers and AI engines look', () => {
-  it('appears in both the README and llms.txt, from one generated source', () => {
+describe('the numbered Features map is present where readers look', () => {
+  it('appears in the README, from the generated source', () => {
     expect(read('README.md')).toContain(FEATURES_SIGNATURE);
-    expect(read('llms.txt')).toContain(FEATURES_SIGNATURE);
   });
 });
 describe('the agent-skills mention reaches the README (gated alongside docs:check)', () => {
@@ -67,22 +62,19 @@ const expectNoBrokenLinks = (file: string): void => {
     expect(existsSync(join(ROOT, link)), `${file} links missing ${link}`).toBe(true);
   }
 };
-describe('every relative link in the AI-facing documents resolves on disk', () => {
-  it('llms.txt and llms-full.txt have no broken links', () => {
-    expectNoBrokenLinks('llms.txt');
-    expectNoBrokenLinks('llms-full.txt');
+describe('every relative link in the README resolves on disk', () => {
+  it('README.md has no broken links', () => {
+    expectNoBrokenLinks('README.md');
   });
 });
 
-describe('Genshot is discoverable from every primary documentation surface', () => {
-  it('documents setup and the screenshot command in README, llms.txt, and llms-full.txt', () => {
-    for (const documentationFile of ['README.md', 'llms.txt', 'llms-full.txt']) {
-      const documentationText = read(documentationFile);
-      expect(documentationText, documentationFile).toContain('@genshot/cli');
-      expect(documentationText, documentationFile).toContain('genshot login');
-      expect(documentationText, documentationFile).toContain('launch ai screenshots');
-      expect(documentationText, documentationFile).toContain('launch plan screenshots');
-    }
+describe('Genshot is discoverable from the README', () => {
+  it('documents setup and the screenshot command', () => {
+    const readme = read('README.md');
+    expect(readme).toContain('@genshot/cli');
+    expect(readme).toContain('genshot login');
+    expect(readme).toContain('launch ai screenshots');
+    expect(readme).toContain('launch plan screenshots');
   });
 });
 describe('the README live-stats badges track the real codebase (gated alongside docs:check)', () => {
@@ -102,15 +94,5 @@ describe('the README live-stats badges track the real codebase (gated alongside 
     expect(readme, 'README tests badge is stale - run `npm run docs:gen`').toContain(
       `tests-${tests}%20passing`,
     );
-  });
-});
-describe('the generated llms.txt command list covers every command', () => {
-  it('lists each top-level launch command from the live program', () => {
-    const llmsText = read('llms.txt');
-    for (const command of buildProgram().commands) {
-      expect(llmsText, `llms.txt is missing \`launch ${command.name()}\``).toContain(
-        `- \`launch ${command.name()}`,
-      );
-    }
   });
 });

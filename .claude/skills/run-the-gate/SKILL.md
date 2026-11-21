@@ -14,8 +14,8 @@ description: Use when finishing or verifying a change to launch-store - run the 
 ## Steps
 
 1. `pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build` - the five-part gate from `AGENTS.md` (`lint` is Biome and `docs:check` guards generated docs).
-2. If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`llms.txt`, `llms-full.txt`, `schema/launch.config.schema.json`, `.claude/skills/*`, and README badges).
+2. If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`schema/launch.config.schema.json`, `.claude/skills/*`, and README badges).
 
-All gates must be green before a change is done. The husky pre-commit hook runs lint + format + typecheck but **not** the tests and **can** be bypassed, so run the full line yourself. Add a `*.test.ts` beside any new logic.
+All gates must be green before a change is done. The husky pre-push hook runs `pnpm check`, which is that same gate. Add a `*.test.ts` beside any new logic.
 
 See [AGENTS.md](../../../AGENTS.md) -> “Before you call a change done”.

@@ -32,8 +32,8 @@ export type GeneratedDoc = Readonly<{
 /**
  * One titled group in the {@link FEATURE_SECTIONS} capability map: a bold section label, an optional
  * one-line lead, and the single-line capability statements under it. Kept as data (not prose) so
- * {@link renderFeaturesList} can number every item continuously (1..N) across sections and the README +
- * `llms.txt` feature lists render from one source instead of two hand-maintained copies.
+ * {@link renderFeaturesList} can number every item continuously (1..N) across sections, so the README
+ * feature list renders from one source.
  */
 export type FeatureSection = Readonly<{
   title: string;

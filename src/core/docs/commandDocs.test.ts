@@ -5,7 +5,6 @@ import {
   AGENT_SKILLS_END,
   AGENT_SKILLS_SIGNATURE,
   AGENT_SKILLS_START,
-  CANONICAL_SENTENCE,
   FAQ_REGION_END,
   FAQ_REGION_START,
   FAQ_SIGNATURE,
@@ -14,12 +13,10 @@ import {
   FEATURES_REGION_START,
   FEATURES_SIGNATURE,
   GENERATIVE_AI_FAQ,
-  IS_NOT_SIGNATURE,
   STATS_BADGES_END,
   STATS_BADGES_START,
 } from './commandDocs/content.js';
 import { countAsyncMethods, countTestCases } from './commandDocs/common.js';
-import { renderLlmsFullTxt, renderLlmsTxt } from './commandDocs/llmsTxt.js';
 import {
   renderAgentSkillsRegion,
   renderCollapsibleFaq,
@@ -33,75 +30,8 @@ import {
   spliceReadmeFaq,
   spliceReadmeFeatures,
 } from './commandDocs/readme.js';
-import type { CommandSpec, DocStats } from '../types/commandDocs.js';
+import type { DocStats } from '../types/commandDocs.js';
 const STATS: DocStats = { commands: 2, operations: 203, tests: 920 };
-/** A tiny two-command tree: one leaf with flags, one parent with a subcommand - covers every render branch. */
-const SAMPLE: CommandSpec[] = [
-  {
-    path: 'build',
-    args: '<platform>',
-    description: 'run the full pipeline',
-    options: [
-      { flags: '-p, --profile <name>', description: 'build profile' },
-      { flags: '--bump <kind>', description: 'version bump: patch|minor|major' },
-    ],
-    subcommands: [],
-  },
-  {
-    path: 'metadata',
-    args: '',
-    description: 'sync the store listing',
-    options: [],
-    subcommands: [
-      {
-        path: 'metadata pull',
-        args: '',
-        description: 'download the live listing',
-        options: [],
-        subcommands: [],
-      },
-    ],
-  },
-];
-describe('AI-facing llms documents', () => {
-  const txt = renderLlmsTxt(SAMPLE, STATS);
-  it('leads with the canonical sentence as the llmstxt.org summary blockquote', () => {
-    expect(txt).toContain(`> ${CANONICAL_SENTENCE}`);
-  });
-  it('carries the what-Launch-is-not disambiguation for AI engines', () => {
-    expect(txt).toContain(IS_NOT_SIGNATURE);
-  });
-  it('carries the generative-AI FAQ so engines can lift the EAS-alternative answers', () => {
-    expect(txt).toContain('## FAQ');
-    expect(txt).toContain(FAQ_SIGNATURE);
-  });
-  it('inlines the numbered feature map so one fetch ingests every capability', () => {
-    expect(txt).toContain('## Features');
-    expect(txt).toContain(FEATURES_SIGNATURE);
-  });
-  it('inlines every command, nesting subcommands under their parent', () => {
-    expect(txt).toContain('- `launch build <platform>` - run the full pipeline');
-    expect(txt).toContain('- `launch metadata` - sync the store listing');
-    expect(txt).toContain('  - `launch metadata pull` - download the live listing');
-  });
-  it('states the live command count', () => {
-    expect(txt).toContain('All 2 `launch` commands');
-  });
-  it('documents Genshot setup, OAuth, source layout, credit consent, and review', () => {
-    expect(txt).toContain('## Genshot screenshot generation');
-    expect(txt).toContain('npm install --save-dev @genshot/cli');
-    expect(txt).toContain('npx genshot login');
-    expect(txt).toContain('<app>/screenshots/<locale>/<DISPLAY_TYPE>/');
-    expect(txt).toContain('Generation spends Genshot Credits');
-    expect(txt).toContain('launch plan screenshots');
-  });
-  it('renders llms-full.txt from the same complete source', () => {
-    const fullText = renderLlmsFullTxt(SAMPLE, STATS);
-    expect(fullText).toContain('Launch - full context for AI agents');
-    expect(fullText).toContain('## Genshot screenshot generation');
-    expect(fullText).toContain('- `launch metadata` - sync the store listing');
-  });
-});
 describe('renderStatsBadges', () => {
   const block = renderStatsBadges(STATS);
   it('is fenced by the markers so docs:gen can splice it back in', () => {

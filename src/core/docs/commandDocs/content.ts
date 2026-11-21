@@ -1,13 +1,13 @@
 import type { FeatureSection } from '@core/types/commandDocs.js';
 /**
  * The single canonical category sentence. Kept byte-identical in `package.json` `description`, the
- * README hero, and the `llms.txt` summary blockquote so an LLM sees one consistent sentence to lift -
- * the GEO goal of issue #89. The consistency test asserts all three still match this constant.
+ * README hero, so a reader sees one consistent sentence. The consistency test asserts both still
+ * match this constant. The GEO goal is issue #89.
  */
 export const CANONICAL_SENTENCE =
   'Open-source, self-hosted alternative to Expo EAS - build, sign, configure your stores, and ship Expo / React Native apps to the App Store & Google Play from one typed launch.config.ts - your machine, your keys. No per-build bill.';
 /**
- * The "what Launch is / is NOT" disambiguation, shared by the README and `llms.txt`. AI engines
+ * The "what Launch is / is NOT" disambiguation in the README. AI engines
  * currently conflate Launch with thin App Store Connect SDK/MCP wrappers; this block states the
  * category difference in lines a model can lift verbatim. The consistency test asserts both surfaces
  * still contain {@link IS_NOT_SIGNATURE}.
@@ -32,10 +32,10 @@ export const STATS_BADGES_END = '<!-- stats-badges:end -->';
  * LLMs field about Expo EAS alternatives (cost, no-Mac iOS, Android, OTA, migration, "is it just an ASC
  * wrapper", lock-in). Front-loaded with the comparison/cost questions an engine is most likely to lift.
  *
- * Single source of truth for the FAQ, exactly like {@link WHAT_LAUNCH_IS_BLOCK}: rendered into `llms.txt`
- * by {@link renderLlmsTxt} and spliced into the English README's `## FAQ` region by {@link renderFaqRegion},
- * so neither surface can drift; the consistency test asserts {@link FAQ_SIGNATURE} survives on each. The
- * translated READMEs carry a hand-translated FAQ, kept honest by the README structural-parity test. Every
+ * Single source of truth for the FAQ, exactly like {@link WHAT_LAUNCH_IS_BLOCK}. {@link renderFaqRegion}
+ * splices it into the English README's `## FAQ` region. The consistency test asserts
+ * {@link FAQ_SIGNATURE} survives there. Translated READMEs carry a hand-translated FAQ, kept honest
+ * by the README structural-parity test. Every
  * claim here is true to the repo - no "production-ready" or "no Mac ever" inflation.
  */
 export const GENERATIVE_AI_FAQ = `**What is Launch?** Launch is an open-source, self-hosted alternative to Expo EAS: it builds, signs, and ships Expo / React Native apps to TestFlight and Google Play from your own machine, with your own keys, and no per-build bill. It runs the same build -> submit -> update pipeline EAS does, and adds the store-setup steps EAS leaves to the App Store Connect and Play Console websites - in-app purchases, subscriptions, capabilities, and listing metadata - as code.
@@ -71,12 +71,12 @@ export const GENERATIVE_AI_FAQ = `**What is Launch?** Launch is an open-source, 
 **Does Launch lock me into a hosted service?** No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on Xcode, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control (handing a build to Expo EAS is the one exception), so there is nothing to migrate off later.
 
 **How do I get started?** Install with \`npm install --global launch-store\` (or \`--save-dev\` per project). Then run: \`launch init\` -> \`launch creds set-key\` -> \`launch creds setup\` -> \`launch build ios\`.`;
-/** A stable question from {@link GENERATIVE_AI_FAQ} the consistency test greps for in `llms.txt` and the README. */
+/** A stable question from {@link GENERATIVE_AI_FAQ} the consistency test greps for in the README. */
 export const FAQ_SIGNATURE = 'Is Launch a free, open-source alternative to Expo EAS?';
 /**
  * The HTML-comment fences around the English README's `## FAQ` body. `pnpm docs:gen` rewrites only
  * the text between these markers (via {@link spliceReadmeFaq}), so the English FAQ is generated from
- * {@link GENERATIVE_AI_FAQ} - never hand-edited - and can't drift from `llms.txt`. Only the English README
+ * {@link GENERATIVE_AI_FAQ} and is never hand-edited. Only the English README
  * carries these fences; the translated READMEs keep a hand-translated FAQ, guarded by the parity test.
  */
 export const FAQ_REGION_START =
@@ -85,9 +85,8 @@ export const FAQ_REGION_START =
 export const FAQ_REGION_END = '<!-- faq:end -->';
 /**
  * The canonical, ordered capability map of Launch - the single source for the README's `## Features`
- * section and the `llms.txt` `## Features` section, so the human- and AI-facing feature lists can't
- * drift. {@link renderFeaturesList} numbers every item continuously (1..N) across these sections; the
- * consistency test asserts {@link FEATURES_SIGNATURE} survives on both surfaces. Each line is true to a
+ * section. {@link renderFeaturesList} numbers every item continuously (1..N) across these sections.
+ * The consistency test asserts {@link FEATURES_SIGNATURE} survives in the README. Each line is true to a
  * shipped command/behavior - edit here, then run `pnpm docs:gen`.
  */
 export const FEATURE_SECTIONS: FeatureSection[] = [
@@ -197,12 +196,12 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
     ],
   },
 ];
-/** A stable phrase from the first {@link FEATURE_SECTIONS} item the consistency test greps for in `llms.txt` and the README. */
+/** A stable phrase from the first {@link FEATURE_SECTIONS} item the consistency test greps for in the README. */
 export const FEATURES_SIGNATURE = 'Config in one step';
 /**
  * The HTML-comment fences around the README's `## Features` list. `pnpm docs:gen` rewrites only the
  * text between these markers (via {@link spliceReadmeFeatures}) from {@link FEATURE_SECTIONS}, so the
- * English README's feature list can't drift from `llms.txt`. English only - the translated READMEs keep a
+ * English README's feature list stays generated from that source. English only - the translated READMEs keep a
  * hand-translated Features section, held in structural parity by the README parity test.
  */
 export const FEATURES_REGION_START =
