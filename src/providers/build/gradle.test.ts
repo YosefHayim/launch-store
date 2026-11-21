@@ -1,11 +1,11 @@
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { ResolvedBuildContext } from '@core/types/config.js';
-import type { BuildCredentials } from '@core/types/credentials.js';
-import { LaunchEnvironmentTest } from '@core/services/platform/environment.js';
-import { makeLaunchLoggerTest } from '@core/services/platform/logger.js';
-import { makeLaunchPathsTest } from '@core/services/platform/paths.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { BuildCredentials } from '@/types/credentials.js';
+import { LaunchEnvironmentTest } from '@/services/platform/environment.js';
+import { makeLaunchLoggerTest } from '@/services/platform/logger.js';
+import { makeLaunchPathsTest } from '@/services/platform/paths.js';
 import { gradleBuildArguments, makeGradleBuildEngine, parseBundletoolSize } from './gradle.js';
 describe('gradleBuildArguments - signed release build', () => {
   const keystore = {

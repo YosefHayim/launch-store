@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { migrateCommandProgram } from '@core/migrate/command.js';
+import { migrateCommandProgram } from '@/migrate/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type MigrateOptions = Readonly<{

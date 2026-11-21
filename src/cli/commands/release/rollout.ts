@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { rolloutCommandProgram } from '@core/release/rolloutCommand.js';
+import { rolloutCommandProgram } from '@/release/rolloutCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type RolloutCommandOptions = Readonly<{ app?: string }>;

@@ -1,20 +1,20 @@
 import { Effect, Layer } from 'effect';
 import { NodeContext } from '@effect/platform-node';
-import { makeLaunchPathsTest } from '@core/services/platform/paths.js';
-import { LaunchEnvironmentTest } from '@core/services/platform/environment.js';
-import { makeLaunchSecretStoreTest } from '@core/services/credentials/secretStore.js';
+import { makeLaunchPathsTest } from '@/services/platform/paths.js';
+import { LaunchEnvironmentTest } from '@/services/platform/environment.js';
+import { makeLaunchSecretStoreTest } from '@/services/credentials/secretStore.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   type AppleCredentialAccountStatus,
   LocalCredentialsStore,
   LocalCredentialsStoreLive,
   type LocalCredentialsStoreService,
-} from '@core/services/credentials/localCredentialsStore.js';
-import type { ResolvedBuildContext } from '@core/types/config.js';
-import type { AscKey } from '@core/types/credentials.js';
-import type { CredentialsProvider } from '@core/types/providers.js';
+} from '@/services/credentials/localCredentialsStore.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { AscKey } from '@/types/credentials.js';
+import type { CredentialsProvider } from '@/types/providers.js';
 import { makeLocalCredentialsProvider } from './local.js';
-import type { MutableDeep } from '@core/types/mutable.js';
+import type { MutableDeep } from '@/types/mutable.js';
 
 type LocalCredentialsTestState = {
   appleKeys: Map<string, AscKey>;

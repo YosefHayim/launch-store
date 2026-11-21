@@ -1,4 +1,4 @@
-import type { LaunchConfig } from '@/core/types/config.js';
+import type { LaunchConfig } from '@/types/config.js';
 import type { ExpoApp } from '@/expo-app.js';
 import { readExpoApp } from '@/expo-app.js';
 import { AppStoreConnect } from '@/apple/app-store-connect.js';

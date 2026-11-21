@@ -1,15 +1,15 @@
 import { FileSystem, HttpClient, HttpClientResponse, Path } from '@effect/platform';
 import { NodeContext, NodeHttpClient } from '@effect/platform-node';
 import { Effect, Schema } from 'effect';
-import type { SizeReport } from '@core/types/artifacts.js';
-import type { ResolvedBuildContext } from '@core/types/config.js';
-import { makeProviderInputFailure, type HostedBuildProvider } from '@core/types/providers.js';
+import type { SizeReport } from '@/types/artifacts.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import { makeProviderInputFailure, type HostedBuildProvider } from '@/types/providers.js';
 import {
   captureCommandOutput,
   checkCommandExists,
   executeCommand,
   provideNodeCommandServices,
-} from '@core/services/platform/exec.js';
+} from '@/services/platform/exec.js';
 /** Where the `eas` binary comes from: the global install if present, else `npx eas-cli`. */
 const easCommand = (): Effect.Effect<{
   cmd: string;

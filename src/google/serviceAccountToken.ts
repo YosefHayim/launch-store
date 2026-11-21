@@ -1,5 +1,5 @@
 import { auth as googleAuthentication } from '@googleapis/playdeveloperreporting';
-import type { ServiceAccount } from '../core/types/credentials.js';
+import type { ServiceAccount } from '../types/credentials.js';
 import { serviceAccountJwtOptions } from './playClient.js';
 
 export const createServiceAccountAccessToken = async (

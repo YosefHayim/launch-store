@@ -6,10 +6,10 @@ import {
   registerStorageProvider,
   registerStorageProviderResolver,
   registerSubmitter,
-} from '../core/services/providerSupport/registry.js';
+} from '../services/providerSupport/registry.js';
 import { Effect } from 'effect';
-import { ArtifactRetentionLive } from '../core/services/providerSupport/artifactRetention.js';
-import { LocalCredentialsStoreLive } from '../core/services/credentials/localCredentialsStore.js';
+import { ArtifactRetentionLive } from '../services/providerSupport/artifactRetention.js';
+import { LocalCredentialsStoreLive } from '../services/credentials/localCredentialsStore.js';
 import { makeLocalCredentialsProvider } from './credentials/local.js';
 import { makeLocalStorageProviderResolver } from './storage/local.js';
 import { makeS3StorageProviderResolver } from './storage/s3.js';

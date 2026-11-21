@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import {
   DEFAULT_VITALS_DAYS,
   playReportsCommandProgram,
-} from '@core/store/google/playReportsCommand.js';
+} from '@/store/google/playReportsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type VitalsOptions = Readonly<{

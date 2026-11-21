@@ -5,8 +5,8 @@ import {
 } from '@googleapis/androidpublisher';
 import type { Readable } from 'node:stream';
 import { Data, Effect, Option, Schema } from 'effect';
-import type { ServiceAccount } from '../core/types/credentials.js';
-import type { MutableDeep } from '../core/types/mutable.js';
+import type { ServiceAccount } from '../types/credentials.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 /** Deep-clone a Launch boundary value into a mutable plain object for Google's generated client. */
 const mutableGoogleRequest = <GoogleRequest>(requestShape: unknown): GoogleRequest => {
@@ -30,12 +30,12 @@ import type {
   SubscriptionOfferPhase,
   SubscriptionOfferResource,
   SubscriptionResource,
-} from '../core/types/googlePlay.js';
+} from '../types/googlePlay.js';
 import type {
   ConvertedPrices,
   ConvertedRegionPrice,
   PlayMoneyUnits,
-} from '../core/types/playPricing.js';
+} from '../types/playPricing.js';
 const OAUTH_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
 /**
  * Region snapshot the subscriptions monetization API pins prices against - a required query parameter on

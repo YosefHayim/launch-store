@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 import { Effect } from 'effect';
-import { UpdatesCommandServiceLive, updatesCommandProgram } from '@core/config/updatesCommand.js';
+import { UpdatesCommandServiceLive, updatesCommandProgram } from '@/config/updatesCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type ListOptions = Readonly<{

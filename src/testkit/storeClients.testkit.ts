@@ -1,6 +1,6 @@
 import type { PlayReportingApp, PlayReportingClient } from '@google/playReporting.js';
 import { Effect } from 'effect';
-import type { EffectAppStoreConnectClient } from '../core/services/stores/appleStoreClient.js';
+import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
 
 export interface FakeAscApp {
   readonly id: string;

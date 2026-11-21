@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { ciCommandProgram } from '@core/config/ciCommand.js';
+import { ciCommandProgram } from '@/config/ciCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type CiOptions = Readonly<{

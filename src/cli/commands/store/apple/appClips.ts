@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import {
   type AppClipsCommandInput,
   appClipsCommandProgram,
-} from '@core/store/apple/appClipsCommand.js';
+} from '@/store/apple/appClipsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type AppClipsOptions = Readonly<{

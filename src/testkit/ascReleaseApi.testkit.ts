@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { vi } from 'vitest';
-import type { AscReleaseApi } from '../core/release/appStoreRelease.js';
+import type { AscReleaseApi } from '../release/appStoreRelease.js';
 
 export const LIVE_VERSION = {
   id: 'v-live',

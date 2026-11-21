@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { type StatusCommandFlags, statusCommandProgram } from '@core/release/statusCommand.js';
+import { type StatusCommandFlags, statusCommandProgram } from '@/release/statusCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Attach the App Store status command. */

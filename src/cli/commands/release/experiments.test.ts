@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderStoreSurfaceAction } from '@core/store/apple/appStoreSurfaceCommand.js';
+import { renderStoreSurfaceAction } from '@/store/apple/appStoreSurfaceCommand.js';
 describe('renderAction', () => {
   it('marks a change with +, a skip with -', () => {
     expect(

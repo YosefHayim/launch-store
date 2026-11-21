@@ -7,8 +7,8 @@ const programCalls = vi.hoisted(() => ({
   sync: vi.fn(() => 'sync-program'),
 }));
 
-vi.mock('@core/stats/statsCommand.js', () => ({ statsReportProgram: programCalls.report }));
-vi.mock('@core/stats/statsSyncCommand.js', () => ({ statsSyncProgram: programCalls.sync }));
+vi.mock('@/stats/statsCommand.js', () => ({ statsReportProgram: programCalls.report }));
+vi.mock('@/stats/statsSyncCommand.js', () => ({ statsSyncProgram: programCalls.sync }));
 vi.mock('@cli/runCliProgram.js', () => ({ runCliProgram: vi.fn(async () => undefined) }));
 
 const parseStats = async (cliArguments: readonly string[]) => {

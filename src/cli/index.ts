@@ -3,10 +3,10 @@ import { FileSystem } from '@effect/platform';
 import { Cause, Effect, Option, Runtime, Schema } from 'effect';
 import { fileURLToPath } from 'node:url';
 import { registerBuiltins } from '../providers/index.js';
-import { migrateLegacyAccounts } from '../core/credentials/accounts.js';
-import { runAutoUpgrade } from '../core/config/updateCheck.js';
-import { CommandExitSchema } from '../core/terminal/commandExit.js';
-import { createLogger } from '../core/services/platform/logger.js';
+import { migrateLegacyAccounts } from '../credentials/accounts.js';
+import { runAutoUpgrade } from '../config/updateCheck.js';
+import { CommandExitSchema } from '../terminal/commandExit.js';
+import { createLogger } from '../services/platform/logger.js';
 import { Cli } from '../cli.js';
 import { runCliProgram } from './runCliProgram.js';
 

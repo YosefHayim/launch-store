@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 import { Effect } from 'effect';
-import { PrivacyCommandServiceLive, privacyCommandProgram } from '@core/privacy/command.js';
+import { PrivacyCommandServiceLive, privacyCommandProgram } from '@/privacy/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** CLI options for `launch privacy scan`. */

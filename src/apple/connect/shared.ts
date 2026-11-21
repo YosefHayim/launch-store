@@ -1,12 +1,12 @@
-import type { AscKey } from '@/core/types/credentials.js';
-import type { MutableDeep } from '@/core/types/mutable.js';
+import type { AscKey } from '@/types/credentials.js';
+import type { MutableDeep } from '@/types/mutable.js';
 import type { components } from '@/apple/generated/schema.js';
 import { Chunk, Data, Effect, Option, Schema, Stream } from 'effect';
 import { FileSystem } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { SignJWT, importPKCS8 } from 'jose';
 import { createHash } from 'node:crypto';
-import { makeStoreUploadFailure } from '@/core/types/providers.js';
+import { makeStoreUploadFailure } from '@/types/providers.js';
 import { retryAppleTransportRequest } from '@/apple/transportHelpers.js';
 import {
   type AccessibilityDeclarationResource,
@@ -23,7 +23,7 @@ import {
   type PhasedReleaseResource,
   type PricePointResource,
   ACCESSIBILITY_SUPPORT_KEYS,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;

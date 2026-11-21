@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
-import { buildCommandProgram } from '@core/build/buildCommandProgram.js';
-import type { BuildCommandOptions } from '@core/build/buildCommandInput.js';
+import { buildCommandProgram } from '@/build/buildCommandProgram.js';
+import type { BuildCommandOptions } from '@/build/buildCommandInput.js';
 import { addEnvFlags } from '@cli/options.js';
 import { runCliProgram, runJsonCliProgram } from '@cli/runCliProgram.js';
 const addAppleBuildOptions = (command: Command): Command =>

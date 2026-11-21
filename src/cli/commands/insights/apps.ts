@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { appsListProgram, appsTagProgram } from '@core/portfolio/appsCommand.js';
+import { appsListProgram, appsTagProgram } from '@/portfolio/appsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 export const registerAppsCommand = (program: Command): void => {

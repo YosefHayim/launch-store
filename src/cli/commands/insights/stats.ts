@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
-import { statsReportProgram } from '@core/stats/statsCommand.js';
-import { statsSyncProgram } from '@core/stats/statsSyncCommand.js';
+import { statsReportProgram } from '@/stats/statsCommand.js';
+import { statsSyncProgram } from '@/stats/statsSyncCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 export const registerStatsCommand = (program: Command): void => {

@@ -6,7 +6,7 @@ import type {
   GameCenterLeaderboardCreate,
   GameCenterLeaderboardResource,
   LeaderboardFormatter,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { ResourceSingle } from './shared.js';
 import type { components } from '@/apple/generated/schema.js';
 

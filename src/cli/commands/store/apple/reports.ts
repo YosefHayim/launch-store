@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { reportsCommandProgram } from '@core/store/apple/reportsCommand.js';
+import { reportsCommandProgram } from '@/store/apple/reportsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type SalesCommandOptions = Readonly<{

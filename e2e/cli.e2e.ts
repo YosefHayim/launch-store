@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Effect } from 'effect';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { captureCommandOutput, provideNodeCommandServices } from '@/core/services/platform/exec.js';
+import { captureCommandOutput, provideNodeCommandServices } from '@/services/platform/exec.js';
 /** Absolute path to the built CLI this suite exercises - `<root>/dist/cli/index.js`. */
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'cli', 'index.js');
 /** Run the built binary with an explicit argv and return its trimmed stdout (rejects on a non-zero exit). */

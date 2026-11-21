@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { vi } from 'vitest';
-import type { AscCatalogApi } from '../core/store/apple/ascSync.js';
+import type { AscCatalogApi } from '../store/apple/ascSync.js';
 
 const effectMethods = <Api extends object>(api: Api): Api => {
   const wrappedMethods = new Map<PropertyKey, unknown>();

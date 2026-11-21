@@ -1,7 +1,7 @@
 import { gzipSync } from 'node:zlib';
 import { Effect } from 'effect';
 import { vi } from 'vitest';
-import type { EffectAppStoreConnectClient } from '../core/services/stores/appleStoreClient.js';
+import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
 
 export interface FakeAnalyticsInstance {
   readonly processingDate: string;

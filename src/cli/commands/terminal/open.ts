@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
-import { OPEN_TARGETS } from '@core/terminal/consoleLinks.js';
-import { type OpenCommandInput, openCommandProgram } from '@core/terminal/openCommand.js';
+import { OPEN_TARGETS } from '@/terminal/consoleLinks.js';
+import { type OpenCommandInput, openCommandProgram } from '@/terminal/openCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type OpenCommandOptions = Readonly<{ platform?: string; app?: string }>;

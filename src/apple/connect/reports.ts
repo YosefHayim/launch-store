@@ -5,7 +5,7 @@ import type {
   AnalyticsReportSegmentResource,
   FinanceReportQuery,
   SalesReportQuery,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { AscHost } from './host.js';
 import {
   BASE_URL,

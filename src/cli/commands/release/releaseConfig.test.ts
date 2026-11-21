@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderAction } from '@core/release/releaseConfigCommand.js';
+import { renderAction } from '@/release/releaseConfigCommand.js';
 describe('renderAction', () => {
   it('marks a change with + and a skipped area with -', () => {
     expect(

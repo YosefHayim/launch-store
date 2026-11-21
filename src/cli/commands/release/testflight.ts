@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { testflightCommandProgram } from '@core/release/testflightCommand.js';
+import { testflightCommandProgram } from '@/release/testflightCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type AppOption = Readonly<{ app?: string }>;

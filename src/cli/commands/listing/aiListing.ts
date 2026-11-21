@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { aiListingCommandProgram, type AiListingInput } from '@core/listing/aiListingCommand.js';
+import { aiListingCommandProgram, type AiListingInput } from '@/listing/aiListingCommand.js';
 import { aiGroup } from './ai.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 

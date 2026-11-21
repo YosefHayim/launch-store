@@ -9,7 +9,7 @@ import type {
   BetaGroupResource,
   BetaReviewState,
   BetaTesterResource,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { BetaFeedbackPage, BetaFeedbackRow } from './shared.js';
 import { AscRequestError, isRetryableIdempotentFailure, toFeedbackScreenshots } from './shared.js';
 import { retryAppleTransportRequest } from '@/apple/transportHelpers.js';

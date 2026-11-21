@@ -5,7 +5,7 @@ import {
   buildHistoryCommandProgram,
   type BuildHistoryCommandInput,
   type PruneCommandOptions,
-} from '@core/build/buildHistoryCommand.js';
+} from '@/build/buildHistoryCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Provide the live build-history boundary and execute one command operation. */

@@ -1,4 +1,4 @@
-import type { LaunchConfig } from '@/core/types/config.js';
+import type { LaunchConfig } from '@/types/config.js';
 
 export interface StoreProduct {
   productId: string;

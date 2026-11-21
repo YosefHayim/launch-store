@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { makeProviderInputFailure, type ComputeHost } from '@core/types/providers.js';
-import type { AllocateRequest, HostHandle, HostStatus, SshTarget } from '@core/types/remote.js';
+import { makeProviderInputFailure, type ComputeHost } from '@/types/providers.js';
+import type { AllocateRequest, HostHandle, HostStatus, SshTarget } from '@/types/remote.js';
 /**
  * Parse a `user@host[:port]` (or bare `host`) connection string into an {@link SshTarget}.
  * Exported so the CLI can validate `--remote <ssh>` before doing any work.

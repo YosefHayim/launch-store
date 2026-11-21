@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { snapshotCommandProgram } from '@core/snapshot/snapshotCommand.js';
+import { snapshotCommandProgram } from '@/snapshot/snapshotCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 const LIVE_SNAPSHOT = 'live';

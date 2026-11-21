@@ -10,25 +10,25 @@
 /package.json @YosefHayim
 /.github/ @YosefHayim
 /scripts/ @YosefHayim
-/src/core/services/ @YosefHayim
-/src/core/types/ @YosefHayim
-/src/core/terminal/ @YosefHayim
-/src/core/docs/ @YosefHayim
+/src/services/ @YosefHayim
+/src/types/ @YosefHayim
+/src/terminal/ @YosefHayim
+/src/docs/ @YosefHayim
 /src/testkit/ @YosefHayim
 
 # config
-/src/core/config/ @YosefHayim
+/src/config/ @YosefHayim
 /schema/ @YosefHayim
 /launch.config.ts @YosefHayim
 /launch.config.example.ts @YosefHayim
 
 # credentials
-/src/core/credentials/ @YosefHayim
+/src/credentials/ @YosefHayim
 /src/providers/credentials/ @YosefHayim
 
 # build + distribution
-/src/core/build/ @YosefHayim
-/src/core/distribution/ @YosefHayim
+/src/build/ @YosefHayim
+/src/distribution/ @YosefHayim
 /src/providers/build/ @YosefHayim
 /src/providers/compute/ @YosefHayim
 /src/providers/storage/ @YosefHayim
@@ -38,27 +38,27 @@
 /src/google/ @YosefHayim
 
 # store surfaces
-/src/core/store/ @YosefHayim
-/src/core/listing/ @YosefHayim
-/src/core/privacy/ @YosefHayim
+/src/store/ @YosefHayim
+/src/listing/ @YosefHayim
+/src/privacy/ @YosefHayim
 /src/providers/submit/ @YosefHayim
 
 # release + testflight
-/src/core/release/ @YosefHayim
-/src/core/releaseTrain/ @YosefHayim
+/src/release/ @YosefHayim
+/src/releaseTrain/ @YosefHayim
 
 # readiness / plan / adopt
-/src/core/plan/ @YosefHayim
-/src/core/readiness/ @YosefHayim
-/src/core/doctor/ @YosefHayim
-/src/core/snapshot/ @YosefHayim
-/src/core/adopt/ @YosefHayim
-/src/core/migrate/ @YosefHayim
+/src/plan/ @YosefHayim
+/src/readiness/ @YosefHayim
+/src/doctor/ @YosefHayim
+/src/snapshot/ @YosefHayim
+/src/adopt/ @YosefHayim
+/src/migrate/ @YosefHayim
 
 # agents
-/src/core/agents/ @YosefHayim
-/src/core/mcp/ @YosefHayim
-/src/core/insights/ @YosefHayim
+/src/agents/ @YosefHayim
+/src/mcp/ @YosefHayim
+/src/insights/ @YosefHayim
 
 # cli surface
 /src/cli/ @YosefHayim

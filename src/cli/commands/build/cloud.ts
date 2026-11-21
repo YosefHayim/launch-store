@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { cloudCommandProgram } from '@core/distribution/cloudCommand.js';
+import { cloudCommandProgram } from '@/distribution/cloudCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type CloudOptions = Readonly<{ yes: boolean }>;

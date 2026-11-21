@@ -1,5 +1,5 @@
 import { importPKCS8, SignJWT } from 'jose';
-import type { AscKey } from '@/core/types/credentials.js';
+import type { AscKey } from '@/types/credentials.js';
 import {
   Keychain,
   LEGACY_APPLE_PRIVATE_KEY_ACCOUNT,

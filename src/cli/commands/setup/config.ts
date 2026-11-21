@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { configCommandProgram } from '@core/config/configCommand.js';
+import { configCommandProgram } from '@/config/configCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type SchemaOptions = Readonly<{ out?: string }>;

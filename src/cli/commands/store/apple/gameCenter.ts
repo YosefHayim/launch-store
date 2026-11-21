@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import {
   type GameCenterCommandInput,
   gameCenterCommandProgram,
-} from '@core/store/apple/gameCenterCommand.js';
+} from '@/store/apple/gameCenterCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type GameCenterOptions = Readonly<{

@@ -3,7 +3,7 @@ import type {
   AlternativeDistributionKeyResource,
   MerchantIdResource,
   PassTypeIdResource,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { AscHost } from './host.js';
 import type { ResourceSingle } from './shared.js';
 import type { components } from '@/apple/generated/schema.js';

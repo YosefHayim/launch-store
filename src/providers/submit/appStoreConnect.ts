@@ -1,22 +1,22 @@
 import { Path } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { Clock, Duration, Effect } from 'effect';
-import type { BuildUploadProblem } from '@core/types/appleCatalog.js';
-import type { ResolvedBuildContext } from '@core/types/config.js';
-import type { BuildCredentials } from '@core/types/credentials.js';
+import type { BuildUploadProblem } from '@/types/appleCatalog.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { BuildCredentials } from '@/types/credentials.js';
 import {
   makeProviderInputFailure,
   makeStoreUploadFailure,
   type SubmitArtifact,
   type Submitter,
-} from '@core/types/providers.js';
+} from '@/types/providers.js';
 import {
   AppleStoreClientLive,
   AppleStoreClientService,
   appRecordMissingMessage,
   type EffectAppStoreConnectClient,
-} from '@core/services/stores/appleStoreClient.js';
-import { toAscPlatform } from '@core/services/stores/platform.js';
+} from '@/services/stores/appleStoreClient.js';
+import { toAscPlatform } from '@/services/stores/platform.js';
 
 const PROVIDER = 'app-store-connect';
 /** How long Apple may take to accept a delivered binary before the submit gives up waiting. */

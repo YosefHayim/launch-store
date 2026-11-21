@@ -5,7 +5,7 @@ import {
   ReleaseCommandServiceLive,
   shouldNudgeRelease,
   type ReleaseCommandOptions,
-} from '@core/release/releaseCommand.js';
+} from '@/release/releaseCommand.js';
 import { addEnvFlags } from '@cli/options.js';
 import { runCliProgram, runJsonCliProgram } from '@cli/runCliProgram.js';
 

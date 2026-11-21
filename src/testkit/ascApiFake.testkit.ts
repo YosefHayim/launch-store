@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { vi } from 'vitest';
-import type { AscSurfacesApi } from '../core/types/plan.js';
+import type { AscSurfacesApi } from '../types/plan.js';
 
 const effectMethods = <Api extends object>(api: Api): Api => {
   const wrappedMethods = new Map<PropertyKey, unknown>();

@@ -3,7 +3,7 @@ import type {
   BuildResource,
   BuildUploadStatus,
   EncryptionDeclarationResource,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { ResourceList, BuildPage } from './shared.js';
 import type { components } from '@/apple/generated/schema.js';
 import { highestAppleMarketingVersion } from '@/apple/transportHelpers.js';

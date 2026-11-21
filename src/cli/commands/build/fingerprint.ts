@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { fingerprintCommandProgram } from '@core/build/fingerprintCommand.js';
+import { fingerprintCommandProgram } from '@/build/fingerprintCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Attach the fingerprint command to the program. */

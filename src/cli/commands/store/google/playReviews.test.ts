@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { parsePlayReviewRating } from '@core/store/google/playReviewsCommand.js';
+import { parsePlayReviewRating } from '@/store/google/playReviewsCommand.js';
 describe('parseRating', () => {
   it('returns undefined when the flag is absent', () => {
     expect(Effect.runSync(parsePlayReviewRating(undefined))).toBeUndefined();

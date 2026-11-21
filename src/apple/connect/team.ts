@@ -3,7 +3,7 @@ import type {
   NewUserInvitation,
   UserInvitationResource,
   UserResource,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 
 export class ConnectTeam {
   constructor(private readonly client: AscHost) {}

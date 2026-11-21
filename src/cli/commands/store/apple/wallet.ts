@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { walletCommandProgram } from '@core/store/apple/walletCommand.js';
+import { walletCommandProgram } from '@/store/apple/walletCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type WalletOptions = Readonly<{

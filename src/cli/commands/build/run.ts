@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { runCommandProgram } from '@core/build/runCommand.js';
+import { runCommandProgram } from '@/build/runCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type RunOptions = Readonly<{ device?: string }>;

@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { releaseTrainCommandProgram } from '@core/releaseTrain/command.js';
+import { releaseTrainCommandProgram } from '@/releaseTrain/command.js';
 import { addEnvFlags, type EnvFlags } from '@cli/options.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 

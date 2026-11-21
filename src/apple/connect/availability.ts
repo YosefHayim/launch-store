@@ -1,4 +1,4 @@
-import type { AppAvailabilityResource } from '@/core/types/appleCatalog.js';
+import type { AppAvailabilityResource } from '@/types/appleCatalog.js';
 import type { AscHost } from './host.js';
 import type { TerritoryAvailabilityRow, TerritoryAvailabilityPage } from './shared.js';
 import type { components } from '@/apple/generated/schema.js';

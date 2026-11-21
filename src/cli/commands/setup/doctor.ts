@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { type DoctorCommandInput, doctorCommandProgram } from '@core/doctor/command.js';
+import { type DoctorCommandInput, doctorCommandProgram } from '@/doctor/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type DoctorOptions = Readonly<{

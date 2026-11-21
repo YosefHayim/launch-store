@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { updateCommandProgram } from '@core/config/updateCommand.js';
+import { updateCommandProgram } from '@/config/updateCommand.js';
 import { addEnvFlags, type EnvFlags } from '@cli/options.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 

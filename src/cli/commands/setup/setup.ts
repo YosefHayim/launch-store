@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { setupCommandProgram } from '@core/config/setupCommand.js';
+import { setupCommandProgram } from '@/config/setupCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type SetupOptions = Readonly<{

@@ -4,9 +4,9 @@ import { buffer } from 'node:stream/consumers';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Effect } from 'effect';
-import type { ResolvedBuildContext } from '@core/types/config.js';
-import type { BuildCredentials } from '@core/types/credentials.js';
-import type { PlayRelease } from '@core/types/googlePlay.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { BuildCredentials } from '@/types/credentials.js';
+import type { PlayRelease } from '@/types/googlePlay.js';
 // Stand in for the Android Publisher API so the submitter's upload runs without the network.
 const uploadBundleToTrack = vi.hoisted(() =>
   vi.fn<

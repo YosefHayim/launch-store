@@ -1,9 +1,9 @@
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Duration, Effect } from 'effect';
-import type { BuildUploadStatus } from '@core/types/appleCatalog.js';
-import type { ResolvedBuildContext } from '@core/types/config.js';
-import type { BuildCredentials } from '@core/types/credentials.js';
+import type { BuildUploadStatus } from '@/types/appleCatalog.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { BuildCredentials } from '@/types/credentials.js';
 // Stand in for App Store Connect so the submitter's upload flow runs without the network.
 const ascFake = vi.hoisted(() => ({
   getAppId: vi.fn<(bundleId: string) => Promise<string | null>>(),

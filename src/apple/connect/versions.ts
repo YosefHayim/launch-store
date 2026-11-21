@@ -5,7 +5,7 @@ import type {
   ListingLocalization,
   PhasedReleaseResource,
   ReviewSubmissionResource,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { AscHost } from './host.js';
 import type { ResourceList, VersionStates, ResourceSingle, AppStoreVersionPage } from './shared.js';
 import {

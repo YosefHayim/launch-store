@@ -14,7 +14,6 @@ export default defineConfig({
       { find: /^@\//, replacement: sourceRoot },
       { find: '@apple', replacement: sourceFolder('apple') },
       { find: '@cli', replacement: sourceFolder('cli') },
-      { find: '@core', replacement: sourceFolder('core') },
       { find: '@google', replacement: sourceFolder('google') },
       { find: '@providers', replacement: sourceFolder('providers') },
       { find: '@testkit', replacement: sourceFolder('testkit') },

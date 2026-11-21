@@ -1,19 +1,19 @@
 import { FileSystem } from '@effect/platform';
 import { NodeContext, NodeStream } from '@effect/platform-node';
 import { Effect } from 'effect';
-import type { AndroidReleaseNote, PlayTrack } from '@core/types/app.js';
-import type { ResolvedBuildContext } from '@core/types/config.js';
-import type { BuildCredentials } from '@core/types/credentials.js';
-import type { PlayRelease } from '@core/types/googlePlay.js';
+import type { AndroidReleaseNote, PlayTrack } from '@/types/app.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { BuildCredentials } from '@/types/credentials.js';
+import type { PlayRelease } from '@/types/googlePlay.js';
 import {
   makeProviderInputFailure,
   type SubmitArtifact,
   type Submitter,
-} from '@core/types/providers.js';
+} from '@/types/providers.js';
 import {
   GoogleStoreClientLive,
   GoogleStoreClientService,
-} from '@core/services/stores/googleStoreClient.js';
+} from '@/services/stores/googleStoreClient.js';
 
 /**
  * The release a Play upload lands as: a partial rollout is a staged (`inProgress`) release at that

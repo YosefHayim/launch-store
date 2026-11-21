@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { type PlanCommandInput, planCommandProgram } from '@core/plan/command.js';
+import { type PlanCommandInput, planCommandProgram } from '@/plan/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type PlanOptions = Readonly<{

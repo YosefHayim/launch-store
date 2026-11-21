@@ -2,12 +2,12 @@ import { isAbsolute } from 'node:path';
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { SigningAssets } from '@core/types/credentials.js';
+import type { SigningAssets } from '@/types/credentials.js';
 import {
   assertDeviceArtifact,
   exportOptionsPlist,
   parseThinningReport,
-} from '@core/services/providerSupport/appleArtifact.js';
+} from '@/services/providerSupport/appleArtifact.js';
 import { xcodebuildEnv, resolveNativeDir } from './xcode.js';
 const MB = 1024 ** 2;
 const resolveTestNativeDir = (

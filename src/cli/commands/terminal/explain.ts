@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { explainCommandProgram } from '@core/terminal/explainCommand.js';
+import { explainCommandProgram } from '@/terminal/explainCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Attach the `explain` command to the program. */

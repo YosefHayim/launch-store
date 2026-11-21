@@ -4,11 +4,11 @@ import { Data, Effect } from 'effect';
 import {
   type AppleCredentialAccountStatus,
   LocalCredentialsStore,
-} from '@core/services/credentials/localCredentialsStore.js';
-import { isApplePlatform } from '@core/services/stores/platform.js';
-import type { ResolvedBuildContext } from '@core/types/config.js';
-import type { BuildCredentials } from '@core/types/credentials.js';
-import type { CredentialsProvider } from '@core/types/providers.js';
+} from '@/services/credentials/localCredentialsStore.js';
+import { isApplePlatform } from '@/services/stores/platform.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { BuildCredentials } from '@/types/credentials.js';
+import type { CredentialsProvider } from '@/types/providers.js';
 
 type MissingCredentialsFailure = Readonly<{
   readonly _tag: 'MissingCredentialsFailure';

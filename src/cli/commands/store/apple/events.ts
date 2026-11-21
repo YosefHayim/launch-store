@@ -3,7 +3,7 @@ import {
   eventsCommandProgram,
   type CreateEventCommandInput,
   type LocalizeEventCommandInput,
-} from '@core/store/apple/eventsCommand.js';
+} from '@/store/apple/eventsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Attach the `events` command group to the program. */

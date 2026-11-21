@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { insightsCommandProgram } from '@core/insights/command.js';
+import { insightsCommandProgram } from '@/insights/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** CLI options for `launch insights`. */

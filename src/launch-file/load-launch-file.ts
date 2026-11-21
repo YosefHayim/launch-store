@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createJiti } from 'jiti';
-import type { LaunchConfig } from '@/core/types/config.js';
+import type { LaunchConfig } from '@/types/config.js';
 import { CheckLaunchFile } from '@/launch-file/check-launch-file.js';
 import { pathExists } from '@/path-exists.js';
 

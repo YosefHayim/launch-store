@@ -2,19 +2,15 @@
 
 import { FileSystem, HttpClient, HttpClientRequest, Path } from '@effect/platform';
 import { Effect, Redacted, Schema } from 'effect';
-import { LaunchEnvironment } from '@core/services/platform/environment.js';
-import { LaunchSecretStore } from '@core/services/credentials/secretStore.js';
-import {
-  ArtifactIndexSchema,
-  type BuildArtifact,
-  type StoredArtifact,
-} from '@core/types/artifacts.js';
-import type { StorageConfig } from '@core/types/config.js';
+import { LaunchEnvironment } from '@/services/platform/environment.js';
+import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
+import { ArtifactIndexSchema, type BuildArtifact, type StoredArtifact } from '@/types/artifacts.js';
+import type { StorageConfig } from '@/types/config.js';
 import {
   makeProviderInputFailure,
   type StorageProvider,
   type StorageProviderResolver,
-} from '@core/types/providers.js';
+} from '@/types/providers.js';
 
 const INDEX_OBJECT_KEY = 'artifacts/index.json';
 

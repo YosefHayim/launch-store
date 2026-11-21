@@ -5,56 +5,56 @@ import { homedir } from 'node:os';
 import {
   LaunchEnvironmentLive,
   type LaunchEnvironmentService,
-} from '../core/services/platform/environment.js';
+} from '../services/platform/environment.js';
 import {
   AppleStoreClientLive,
   type AppleStoreClientService,
-} from '../core/services/stores/appleStoreClient.js';
+} from '../services/stores/appleStoreClient.js';
 import {
   AppleCredentialsClientLive,
   type AppleCredentialsClientFactory,
-} from '../core/services/stores/appleCredentialsClient.js';
+} from '../services/stores/appleCredentialsClient.js';
 import {
   AppStoreIdentityLive,
   type AppStoreIdentityService,
-} from '../core/services/stores/appStoreIdentity.js';
+} from '../services/stores/appStoreIdentity.js';
 import {
   GoogleStoreClientLive,
   type GoogleStoreClientService,
-} from '../core/services/stores/googleStoreClient.js';
+} from '../services/stores/googleStoreClient.js';
 import {
   GoogleReportingClientLive,
   type GoogleReportingClientService,
-} from '../core/services/stores/googleReportingClient.js';
+} from '../services/stores/googleReportingClient.js';
 import {
   GoogleAccessTokenLive,
   type GoogleAccessTokenService,
-} from '../core/services/stores/googleAccessToken.js';
-import { StatsCredentialsLive } from '../core/stats/statsCredentials.js';
-import type { StatsCredentialsShape } from '../core/types/stats.js';
+} from '../services/stores/googleAccessToken.js';
+import { StatsCredentialsLive } from '../stats/statsCredentials.js';
+import type { StatsCredentialsShape } from '../types/stats.js';
 import {
   jsonLine,
   makeLaunchLoggerJson,
   LaunchLoggerLive,
   type Logger,
-} from '../core/services/platform/logger.js';
-import { errorMessage } from '../core/services/platform/errorMessage.js';
-import { setJsonOutput } from '../core/services/platform/jsonOutputMode.js';
-import { CommandExitSchema, completeCommand } from '../core/terminal/commandExit.js';
-import { type LaunchPathsService, makeLaunchPathsLive } from '../core/services/platform/paths.js';
+} from '../services/platform/logger.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { setJsonOutput } from '../services/platform/jsonOutputMode.js';
+import { CommandExitSchema, completeCommand } from '../terminal/commandExit.js';
+import { type LaunchPathsService, makeLaunchPathsLive } from '../services/platform/paths.js';
 import {
   LaunchPromptJson,
   LaunchPromptLive,
   type LaunchPromptService,
-} from '../core/services/platform/prompt.js';
+} from '../services/platform/prompt.js';
 import {
   LaunchSecretStoreLive,
   type LaunchSecretStoreService,
-} from '../core/services/credentials/secretStore.js';
+} from '../services/credentials/secretStore.js';
 import {
   SetupStoreReadinessLive,
   type SetupStoreReadinessService,
-} from '../core/services/stores/setupStoreReadiness.js';
+} from '../services/stores/setupStoreReadiness.js';
 
 type CliRequirements =
   | HttpClient.HttpClient

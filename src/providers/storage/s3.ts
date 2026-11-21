@@ -2,21 +2,17 @@
 
 import { FileSystem, Path } from '@effect/platform';
 import { Cause, Effect, Redacted, Schema } from 'effect';
-import { LaunchEnvironment } from '@core/services/platform/environment.js';
-import { errorMessage } from '@core/services/platform/errorMessage.js';
-import { requireOptional } from '@core/services/platform/optionalDep.js';
-import { LaunchSecretStore } from '@core/services/credentials/secretStore.js';
-import {
-  ArtifactIndexSchema,
-  type BuildArtifact,
-  type StoredArtifact,
-} from '@core/types/artifacts.js';
-import type { StorageConfig } from '@core/types/config.js';
+import { LaunchEnvironment } from '@/services/platform/environment.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { requireOptional } from '@/services/platform/optionalDep.js';
+import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
+import { ArtifactIndexSchema, type BuildArtifact, type StoredArtifact } from '@/types/artifacts.js';
+import type { StorageConfig } from '@/types/config.js';
 import {
   makeProviderInputFailure,
   type StorageProvider,
   type StorageProviderResolver,
-} from '@core/types/providers.js';
+} from '@/types/providers.js';
 
 type S3Module = typeof import('@aws-sdk/client-s3');
 type S3Client = InstanceType<S3Module['S3Client']>;

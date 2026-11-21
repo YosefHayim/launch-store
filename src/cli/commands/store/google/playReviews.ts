@@ -3,7 +3,7 @@ import {
   type PlayReviewsListInput,
   playReviewsCommandProgram,
   type PlayReviewsReplyInput,
-} from '@core/store/google/playReviewsCommand.js';
+} from '@/store/google/playReviewsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type PlayReviewsListOptions = Readonly<{

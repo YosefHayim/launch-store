@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
-import { COMPLETE_SUBCOMMAND, SHELLS } from '@core/terminal/completion.js';
-import { completionCommandProgram } from '@core/terminal/completionCommand.js';
+import { COMPLETE_SUBCOMMAND, SHELLS } from '@/terminal/completion.js';
+import { completionCommandProgram } from '@/terminal/completionCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Attach the `completion` command group (print, install, and the hidden `__complete` callback) to the program. */

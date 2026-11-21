@@ -8,7 +8,7 @@ import type {
   AppEventLocalizationResource,
   AppEventResource,
   NewAppEvent,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { AscHost } from './host.js';
 import { toAppEvent, toAppEventLocalization } from './shared.js';
 

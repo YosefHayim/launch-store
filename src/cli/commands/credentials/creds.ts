@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import {
   credentialsCommandProgram,
   type CredentialsCommandOptions,
-} from '@core/credentials/command.js';
+} from '@/credentials/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 export type CredsOptions = CredentialsCommandOptions;

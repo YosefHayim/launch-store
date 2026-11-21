@@ -3,7 +3,7 @@ import type {
   AccessibilityDeclarationResource,
   AccessibilitySupport,
   DeviceFamily,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { AscHost } from './host.js';
 import { pickAccessibilitySupport } from './shared.js';
 

@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { releaseConfigCommandProgram } from '@core/release/releaseConfigCommand.js';
+import { releaseConfigCommandProgram } from '@/release/releaseConfigCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type ReleaseConfigOptions = Readonly<{

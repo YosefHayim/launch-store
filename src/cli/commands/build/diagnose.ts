@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { diagnoseCommandProgram } from '@core/build/diagnoseCommand.js';
+import { diagnoseCommandProgram } from '@/build/diagnoseCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Attach the native-build log diagnosis command to Commander. */

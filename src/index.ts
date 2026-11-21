@@ -1,6 +1,6 @@
-export { defineConfig } from './core/config/config.js';
-export type { LaunchConfigInput } from './core/config/config.js';
-export type { BuildProfile, PlayTrack } from './core/types/app.js';
+export { defineConfig } from './config/config.js';
+export type { LaunchConfigInput } from './config/config.js';
+export type { BuildProfile, PlayTrack } from './types/app.js';
 export type {
   AppProducts,
   GroupLocalization,
@@ -15,8 +15,8 @@ export type {
   SubscriptionConfig,
   SubscriptionGroupConfig,
   SubscriptionPeriod,
-} from './core/types/catalog.js';
-export type { LaunchConfig } from './core/types/config.js';
+} from './types/catalog.js';
+export type { LaunchConfig } from './types/config.js';
 export type {
   AchievementConfig,
   AppClipConfig,
@@ -34,4 +34,4 @@ export type {
   ReviewDetailsConfig,
   WalletConfig,
   WalletIdConfig,
-} from './core/types/storeSurface.js';
+} from './types/storeSurface.js';

@@ -3,14 +3,14 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Effect, Option } from 'effect';
 import { pathToFileURL } from 'node:url';
-import { ArtifactRetention } from '@core/services/providerSupport/artifactRetention.js';
-import { resolveArtifactsDirectory } from '@core/services/platform/paths.js';
-import type { BuildArtifact, PruneOptions } from '@core/types/artifacts.js';
+import { ArtifactRetention } from '@/services/providerSupport/artifactRetention.js';
+import { resolveArtifactsDirectory } from '@/services/platform/paths.js';
+import type { BuildArtifact, PruneOptions } from '@/types/artifacts.js';
 import {
   makeProviderInputFailure,
   type StorageProvider,
   type StorageProviderResolver,
-} from '@core/types/providers.js';
+} from '@/types/providers.js';
 
 /** Acquire filesystem services once and return a leaf-like local storage provider. */
 const makeLocalStorageProvider = (directoryOverride?: string) =>

@@ -3,7 +3,7 @@ import type {
   AgeRatingValue,
   AppInfoResource,
   ListingLocalization,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { AscHost } from './host.js';
 import type { ResourceList, AppInfoStates } from './shared.js';
 import {

@@ -1,8 +1,8 @@
 import type { Command } from 'commander';
 import { Effect } from 'effect';
-import { agentsCommandProgram, type AgentsCommandOptions } from '@core/agents/command.js';
-import { AgentsCommandServiceLive } from '@core/agents/commandLive.js';
-import type { RegisteredCommand } from '@core/agents/validate.js';
+import { agentsCommandProgram, type AgentsCommandOptions } from '@/agents/command.js';
+import { AgentsCommandServiceLive } from '@/agents/commandLive.js';
+import type { RegisteredCommand } from '@/agents/validate.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 const AGENT_OPTION_HELP =

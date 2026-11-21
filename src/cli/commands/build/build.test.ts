@@ -5,7 +5,7 @@ import {
   type BuildCommandOptions,
   parseBuildCommandInput,
   parseSizeBudget,
-} from '@core/build/buildCommandInput.js';
+} from '@/build/buildCommandInput.js';
 import { registerBuildCommand } from './build.js';
 const BASE_OPTIONS: BuildCommandOptions = {
   profile: 'production',

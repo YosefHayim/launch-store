@@ -1,18 +1,18 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
-import type { Platform } from '@core/types/app.js';
-import type { SizeReportEntry } from '@core/types/artifacts.js';
-import type { ResolvedBuildContext } from '@core/types/config.js';
-import type { BuildCredentials, SigningAssets } from '@core/types/credentials.js';
-import { makeProviderInputFailure, type BuildEngine } from '@core/types/providers.js';
+import type { Platform } from '@/types/app.js';
+import type { SizeReportEntry } from '@/types/artifacts.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { BuildCredentials, SigningAssets } from '@/types/credentials.js';
+import { makeProviderInputFailure, type BuildEngine } from '@/types/providers.js';
 import {
   assertDeviceArtifact,
   exportOptionsPlist,
   parseThinningReport,
-} from '@core/services/providerSupport/appleArtifact.js';
-import { runWithProgress, xcodeProgressStep } from '@core/services/platform/progress.js';
-import { checkCommandExists, provideNodeCommandServices } from '@core/services/platform/exec.js';
-import { readHostResources } from '@core/services/platform/os.js';
+} from '@/services/providerSupport/appleArtifact.js';
+import { runWithProgress, xcodeProgressStep } from '@/services/platform/progress.js';
+import { checkCommandExists, provideNodeCommandServices } from '@/services/platform/exec.js';
+import { readHostResources } from '@/services/platform/os.js';
 import {
   assembleArchiveArguments,
   assembleExportArguments,
@@ -25,14 +25,14 @@ import {
   updateEstimate,
   writeBuildState,
   writeManualSigningToProject,
-} from '@core/services/providerSupport/buildEngineSupport.js';
+} from '@/services/providerSupport/buildEngineSupport.js';
 import {
   appleArtifactExtension,
   archiveDestination,
   isApplePlatform,
   nativeProjectDirName,
   platformLabel,
-} from '@core/services/stores/platform.js';
+} from '@/services/stores/platform.js';
 /**
  * Resolve an app's native Xcode project directory to an ABSOLUTE path, for the given Apple platform
  * ({@link nativeProjectDirName} - `ios` for iOS/tvOS, `macos`, `visionos`).

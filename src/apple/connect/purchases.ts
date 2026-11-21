@@ -15,7 +15,7 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type {
   VersionedLocalizationResources,
   ProductVersion,

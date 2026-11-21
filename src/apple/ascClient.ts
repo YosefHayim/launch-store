@@ -83,8 +83,8 @@ import type {
   VersionExperimentResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '@/core/types/appleCatalog.js';
-import type { AscKey } from '@/core/types/credentials.js';
+} from '@/types/appleCatalog.js';
+import type { AscKey } from '@/types/credentials.js';
 import type { components } from '@/apple/generated/schema.js';
 import { Schema, unsafeCoerce } from 'effect';
 import { platform as detectOperatingSystem } from 'node:os';

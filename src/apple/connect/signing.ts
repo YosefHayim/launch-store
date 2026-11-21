@@ -6,7 +6,7 @@ import type {
   CertificateResource,
   DeviceResource,
   ProfileResource,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { ProvisioningProfileType, ResourceList } from './shared.js';
 import type { components } from '@/apple/generated/schema.js';
 import {

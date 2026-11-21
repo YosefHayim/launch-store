@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { mcpCommandProgram } from '@core/mcp/command.js';
+import { mcpCommandProgram } from '@/mcp/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type McpInstallOptions = Readonly<{ client?: string }>;

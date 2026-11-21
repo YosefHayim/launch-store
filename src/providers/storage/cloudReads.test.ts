@@ -4,8 +4,8 @@ import { FetchHttpClient } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { makeLaunchEnvironmentTest } from '@core/services/platform/environment.js';
-import { LaunchSecretStoreTest } from '@core/services/credentials/secretStore.js';
+import { makeLaunchEnvironmentTest } from '@/services/platform/environment.js';
+import { LaunchSecretStoreTest } from '@/services/credentials/secretStore.js';
 import { makeS3StorageProvider } from './s3.js';
 import { makeSupabaseStorageProvider } from './supabase.js';
 

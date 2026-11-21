@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { resignCommandProgram, type ResignCommandInput } from '@core/build/resignCommand.js';
+import { resignCommandProgram, type ResignCommandInput } from '@/build/resignCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Attach the stored-build re-sign command to Commander. */

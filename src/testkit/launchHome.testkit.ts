@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { NodeContext } from '@effect/platform-node';
 import { Layer } from 'effect';
-import { makeLaunchPathsTest, type LaunchPathsService } from '../core/services/platform/paths.js';
+import { makeLaunchPathsTest, type LaunchPathsService } from '../services/platform/paths.js';
 
 export const createTemporaryHomeDirectory = (): string =>
   mkdtempSync(join(tmpdir(), 'launch-store-test-'));

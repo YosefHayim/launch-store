@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { readinessCommandProgram } from '@core/readiness/command.js';
+import { readinessCommandProgram } from '@/readiness/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** CLI options for `launch iap doctor`. */

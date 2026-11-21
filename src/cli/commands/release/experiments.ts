@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import {
   type VersionExperimentsCommandInput,
   versionExperimentsCommandProgram,
-} from '@core/release/versionExperimentsCommand.js';
+} from '@/release/versionExperimentsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type ExperimentsOptions = Readonly<{

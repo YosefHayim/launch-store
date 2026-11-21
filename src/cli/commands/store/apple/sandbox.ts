@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { sandboxCommandProgram } from '@core/store/apple/sandboxCommand.js';
+import { sandboxCommandProgram } from '@/store/apple/sandboxCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Attach the `sandbox` command (with `list` / `clear` subcommands) to the program. */

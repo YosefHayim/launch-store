@@ -3,7 +3,7 @@ import type { CustomerReviewPage } from './shared.js';
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import { toReviewResponse } from './shared.js';
 
 export class ConnectReviews {

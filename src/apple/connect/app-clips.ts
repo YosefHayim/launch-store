@@ -3,9 +3,9 @@ import type {
   AppClipDefaultExperienceResource,
   AppClipLocalizationResource,
   AppClipResource,
-} from '@/core/types/appleCatalog.js';
+} from '@/types/appleCatalog.js';
 import type { AscHost } from './host.js';
-import type { MutableDeep } from '@/core/types/mutable.js';
+import type { MutableDeep } from '@/types/mutable.js';
 import type { ResourceSingle, AppClipExperiencePage } from './shared.js';
 import type { components } from '@/apple/generated/schema.js';
 

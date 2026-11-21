@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { describe, expect, it } from 'vitest';
-import { CONSUMER_SKILLS } from '@core/agents/registry.js';
-import { findUnknownCommands } from '@core/agents/validate.js';
+import { CONSUMER_SKILLS } from '@/agents/registry.js';
+import { findUnknownCommands } from '@/agents/validate.js';
 import { expectArrayElement } from '@testkit/assertions.testkit.js';
 import { buildProgram } from '@cli/program.js';
 import { registerAgentsCommand, registeredCommandTree } from './agents.js';

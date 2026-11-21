@@ -1,26 +1,26 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
-import type { SizeReportEntry } from '@core/types/artifacts.js';
-import type { ResolvedBuildContext } from '@core/types/config.js';
-import type { BuildCredentials, KeystoreAssets } from '@core/types/credentials.js';
-import { makeProviderInputFailure, type BuildEngine } from '@core/types/providers.js';
+import type { SizeReportEntry } from '@/types/artifacts.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { BuildCredentials, KeystoreAssets } from '@/types/credentials.js';
+import { makeProviderInputFailure, type BuildEngine } from '@/types/providers.js';
 import {
   captureCommandOutput,
   executeCommand,
   provideNodeCommandServices,
-} from '@core/services/platform/exec.js';
+} from '@/services/platform/exec.js';
 import {
   runWithProgress,
   gradleProgressStep,
   type ProgressRunOptions,
-} from '@core/services/platform/progress.js';
-import { detectHostOperatingSystem } from '@core/services/platform/os.js';
+} from '@/services/platform/progress.js';
+import { detectHostOperatingSystem } from '@/services/platform/os.js';
 import {
   estimateFor,
   readBuildState,
   updateEstimate,
   writeBuildState,
-} from '@core/services/providerSupport/buildEngineSupport.js';
+} from '@/services/providerSupport/buildEngineSupport.js';
 /**
  * The single ETA baseline key for Android. Unlike iOS there's no clean/incremental split - Gradle tracks
  * its own task inputs/outputs, so every build learns one "default" estimate (see {@link BuildEstimate}).

@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { secretCommandProgram } from '@core/build/secretCommand.js';
+import { secretCommandProgram } from '@/build/secretCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type SecretOptions = Readonly<{

@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { adoptCommandProgram, type AdoptCommandInput } from '@core/adopt/command.js';
+import { adoptCommandProgram, type AdoptCommandInput } from '@/adopt/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Attach the `adopt` command to Commander. */
