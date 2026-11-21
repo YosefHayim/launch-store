@@ -1,19 +1,18 @@
 import { Command } from 'commander';
-import { registerInitCommand } from './commands/setup/init.js';
-import { registerAdoptCommand } from './commands/setup/adopt.js';
+import { SetupCommand } from '@/launch-file/setup-command.js';
+import { StoreCommand } from '@/store/store-command.js';
 import { registerMigrateCommand } from './commands/setup/migrate.js';
 import { registerConfigCommand } from './commands/setup/config.js';
-import { registerBuildCommand } from './commands/build/build.js';
-import { registerReleaseCommand } from './commands/release/release.js';
+import { BuildCommand } from '@/build/build-command.js';
+import { ReleaseCommand } from '@/release-command.js';
 import { registerStatusCommand } from './commands/release/status.js';
 import { registerOpenCommand } from './commands/terminal/open.js';
 import { registerReleaseTrainCommand } from './commands/release/releaseTrain.js';
 import { registerRolloutCommand } from './commands/release/rollout.js';
-import { registerCredsCommand } from './commands/credentials/creds.js';
+import { CredentialsCommand } from '@/credentials/credentials-command.js';
 import { registerSecretCommand } from './commands/credentials/secret.js';
 import { registerMetadataCommand } from './commands/listing/metadata.js';
-import { registerSyncCommand } from './commands/store/sync.js';
-import { registerPlanCommand } from './commands/store/plan.js';
+
 import { registerOffersCommand } from './commands/store/apple/offers.js';
 import { registerAiListingCommand } from './commands/listing/aiListing.js';
 import { registerAiScreenshotsCommand } from './commands/listing/aiScreenshots.js';
@@ -75,21 +74,20 @@ export const buildProgram = (launchVersion = '0.0.0'): Command => {
       'Build and ship your iOS/Android apps to the stores from your own machine - no Expo bill.',
     )
     .version(launchVersion);
-  registerInitCommand(program);
-  registerAdoptCommand(program);
+  new SetupCommand().register(program);
+  new StoreCommand().register(program);
   registerMigrateCommand(program);
   registerConfigCommand(program);
-  registerBuildCommand(program);
-  registerReleaseCommand(program);
+  new BuildCommand().register(program);
+  new ReleaseCommand().register(program);
   registerStatusCommand(program);
   registerOpenCommand(program);
   registerReleaseTrainCommand(program);
   registerRolloutCommand(program);
-  registerCredsCommand(program);
+  new CredentialsCommand().register(program);
   registerSecretCommand(program);
   registerMetadataCommand(program);
-  registerSyncCommand(program);
-  registerPlanCommand(program);
+
   registerOffersCommand(program);
   registerAiListingCommand(program);
   registerAiScreenshotsCommand(program);

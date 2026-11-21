@@ -143,10 +143,13 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 63 `launch` commands (205 store-API operations underneath, 2851 tests):
+All 63 `launch` commands (205 store-API operations underneath, 2854 tests):
 
-- `launch init` - scaffold launch.config.ts (and .env.example) into the current repo
-- `launch adopt` - onboard an app that already ships: import its App Store Connect setup into config
+- `launch init` - scaffold launch.config.ts into the current directory
+- `launch plan [surface]` - diff launch.config against the live store and change nothing
+- `launch drift [surface]` - fail when the live store has drifted (alias of launch plan --check)
+- `launch sync` - apply the store diff
+- `launch adopt` - read the live store back into the project
 - `launch migrate` - import an existing EAS or fastlane setup into a Launch config
   - `launch migrate eas` - read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report
   - `launch migrate fastlane` - read fastlane config (Appfile/Fastfile/Matchfile...) and emit launch.config.ts, .env.example, store.config.json + a report
@@ -156,21 +159,18 @@ All 63 `launch` commands (205 store-API operations underneath, 2851 tests):
   - `launch config validate [file]` - validate a config and report each problem with its field path
   - `launch config docs` - print the launch.config.ts field reference
   - `launch config help [command]` - display help for command
-- `launch build <platform>` - run the full pipeline and upload to the testing track (--no-submit to build only)
-- `launch release <platform>` - submit the latest build to the store's PUBLIC production track (with confirmation)
+- `launch build <platform>` - build locally and upload to the testing track (--no-submit to build only)
+- `launch release <platform>` - publish the tested build to the public store
 - `launch status` - show each app's App Store version, build, review, and phased-rollout state
 - `launch open [target]` - deep-link the app's App Store Connect / Play Console page in your browser
 - `launch release-train [action] [id]` - coordinate an app's iOS + Android + OTA release as one resumable record
 - `launch rollout <action>` - steer an iOS phased release: pause | resume | complete
-- `launch creds [action] [firstArgument] [secondArgument]` - inspect credentials, onboard Apple accounts, provision signing assets, or adopt legacy Android credentials
+- `launch creds [action]` - show whether the App Store Connect key is in the keychain
 - `launch secret [action] [name]` - manage keychain-backed build secrets (set/list/rm) instead of plaintext .env
 - `launch metadata` - sync the store listing (name, description, keywords) via store.config.json
   - `launch metadata pull` - download the live store listing into store.config.json
   - `launch metadata push` - upload store.config.json to the store listing (metadata only; no binary)
   - `launch metadata help [command]` - display help for command
-- `launch sync` - reconcile App Store Connect products, listing copy, screenshots, and previews from config
-- `launch plan [surface]` - diff launch.config against live store state (read-only): capabilities, IAPs, subscriptions, pricing
-- `launch drift [surface]` - fail when live store state has drifted from launch.config (alias for `launch plan --check`)
 - `launch offers` - reconcile subscription offers (codes, promo/intro/win-back) and promoted-purchase order from config
   - `launch offers generate-codes <productId> <offerName>` - generate redeemable codes under an existing offer-code campaign
   - `launch offers list <productId>` - list a subscription's offer-code campaigns and their states
