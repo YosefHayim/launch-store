@@ -47,7 +47,7 @@ The dry run prints `Dry run` and changes nothing. A real iOS run leaves the sign
 | `launch plan` | Show what `sync` would change. `launch drift --check` exits 2 when the store has drifted. |
 | `launch doctor` | Check that the local toolchain and store account are ready. |
 
-`launch --help` lists every command. Each name is filled in, with a comment, in the root [`launch.config.ts`](./launch.config.ts).
+`launch --help` lists every command. Every field is set in the root [`launch.config.ts`](./launch.config.ts). Hover a name to read what it does.
 
 `launch agents init` writes [Claude Code](https://code.claude.com/docs/en/overview) skills, [Cursor rules](https://cursor.com/docs/rules), and a Launch section in `AGENTS.md` for [Codex](https://developers.openai.com/codex/guides/agents-md). `launch agents check` keeps them in sync. `claude mcp add --scope user launch -- launch mcp` registers the MCP server.
 
