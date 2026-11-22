@@ -1,4 +1,5 @@
 import { hasMessage } from './error-message.ts';
+import { isFailureTag } from './tagged-failure.ts';
 
 type OptionalDependencyMissing = Readonly<{
   _tag: 'OptionalDependencyMissing';
@@ -15,22 +16,6 @@ function makeOptionalDependencyMissing(fields: {
   return { _tag: 'OptionalDependencyMissing', ...fields };
 }
 
-function isOptionalDependencyMissing(cause: unknown): cause is OptionalDependencyMissing {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'OptionalDependencyMissing';
-}
-
 export async function requireOptional<LoadedCapability>(
   feature: string,
   installHint: string,
@@ -39,7 +24,7 @@ export async function requireOptional<LoadedCapability>(
   try {
     return await load();
   } catch (cause) {
-    if (isOptionalDependencyMissing(cause)) {
+    if (isFailureTag(cause, 'OptionalDependencyMissing')) {
       throw cause;
     }
 

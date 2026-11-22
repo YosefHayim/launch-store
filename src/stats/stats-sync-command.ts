@@ -4,6 +4,7 @@ import { makeUsageFailure, type UsageFailure } from '../terminal/usage-failure.t
 import type { AppFeedSyncReport } from '../types/stats.ts';
 import { DEFAULT_SYNC_DAYS, MAX_SYNC_DAYS } from './date-range.ts';
 import { syncStats } from './sync-stats.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 interface StatsSyncCommandRequest {
   readonly app: string | undefined;
@@ -12,19 +13,7 @@ interface StatsSyncCommandRequest {
 }
 
 function isUsageFailure(cause: unknown): cause is UsageFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'UsageFailure';
+  return isFailureTag(cause, 'UsageFailure');
 }
 
 function isStatsAppNotFound(

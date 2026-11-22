@@ -12,6 +12,7 @@ import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import { IOS_PLATFORM, pickCurrentVersion } from './app-store-release.ts';
 import { selectIosApps } from './status-command.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type RolloutAction = 'pause' | 'resume' | 'complete';
 
@@ -38,22 +39,6 @@ function makeRolloutCommandFailure(fields: {
     message: fields.message,
     cause: fields.cause,
   };
-}
-
-function isRolloutCommandFailure(cause: unknown): cause is RolloutCommandFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'RolloutCommandFailure';
 }
 
 function rolloutFailure(
@@ -267,7 +252,7 @@ export async function rolloutCommandProgram(rawCommandInput: unknown): Promise<v
       throw cause;
     }
 
-    if (isRolloutCommandFailure(cause)) {
+    if (isFailureTag(cause, 'RolloutCommandFailure')) {
       throw cause;
     }
 

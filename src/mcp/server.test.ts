@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { expectArrayElement } from '../testkit/assertions.testkit.ts';
+import { expectArrayElement } from '../testkit/assertions-testkit.ts';
 import type { McpTool } from '../types/mcp.ts';
 import { dispatch, pickServedTools } from './server.ts';
 import { STATS_TOOLS } from './stats-tools.ts';

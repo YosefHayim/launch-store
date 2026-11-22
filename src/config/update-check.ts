@@ -14,6 +14,7 @@ import { mergeChildEnv } from '../terminal/locale.ts';
 import { isCommandExit, makeCommandExit } from '../terminal/command-exit.ts';
 import { readFile, writeFile } from 'node:fs/promises';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 const PACKAGE_NAME = 'launch-store';
 const checkIntervalMs = 24 * 60 * 60 * 1000;
@@ -327,19 +328,7 @@ function registryVersion(registryMetadata: Record<string, unknown>): string | nu
 }
 
 function isCommandFailed(cause: unknown): cause is CommandFailed {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'CommandFailed';
+  return isFailureTag(cause, 'CommandFailed');
 }
 
 function permissionDenied(cause: unknown): boolean {

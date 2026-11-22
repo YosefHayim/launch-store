@@ -1,3 +1,4 @@
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 export type CommandExit = Readonly<{
   _tag: 'CommandExit';
   exitCode: number;
@@ -13,19 +14,7 @@ export function makeCommandExit(fields: { exitCode: number; message?: string }):
 }
 
 export function isCommandExit(cause: unknown): cause is CommandExit {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'CommandExit';
+  return isFailureTag(cause, 'CommandExit');
 }
 
 export function completeCommand(exitCode: number, message?: string): void {

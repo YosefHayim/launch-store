@@ -3,7 +3,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { AscKey } from '../types/credentials.ts';
-import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.ts';
+import { expectArrayElement, expectDefined } from '../testkit/assertions-testkit.ts';
 import { AppStoreConnectClient } from './asc-client.ts';
 import { clockSkewHint, describeErrors, parseErrorCodes } from './connect/shared.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';

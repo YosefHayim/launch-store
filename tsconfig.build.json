@@ -2,5 +2,5 @@
   "extends": "./tsconfig.json",
   "compilerOptions": { "sourceMap": false, "rootDir": "src" },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.testkit.ts", "src/**/*.e2e.ts"]
+  "exclude": ["src/**/*.test.ts", "src/**/*-testkit.ts", "src/**/*-e2e.ts"]
 }

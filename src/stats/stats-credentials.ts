@@ -24,6 +24,7 @@ import type { PortfolioApp } from '../types/portfolio.ts';
 import type { StatsCredentialsFailure } from '../types/stats.ts';
 import type { PlayVitalsMetric, VitalsTimeline } from '../types/vitals.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 export interface AppStoreStatsClient {
   getSalesReport(query: SalesReportQuery): Promise<Buffer>;
@@ -88,22 +89,6 @@ function createCredentialsFailure(operation: string, cause: unknown): StatsCrede
   });
 }
 
-function isStatsCredentialsFailure(cause: unknown): cause is StatsCredentialsFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'StatsCredentialsFailure';
-}
-
 function decodeStoredServiceAccount(storedKey: string): string {
   const decodedKey = Buffer.from(storedKey, 'base64').toString('utf8');
   const isJson = decodedKey.trimStart().startsWith('{');
@@ -149,7 +134,7 @@ async function ascClientForAccount(accountKeyId: string): Promise<AppStoreStatsC
 
     return AppleStoreClientService.createClient(ascKey);
   } catch (cause) {
-    if (isStatsCredentialsFailure(cause)) {
+    if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;
     }
 
@@ -177,7 +162,7 @@ async function vendorNumberForAccount(accountKeyId: string): Promise<string | nu
 
     return readEnvironmentVendorNumber();
   } catch (cause) {
-    if (isStatsCredentialsFailure(cause)) {
+    if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;
     }
 
@@ -317,7 +302,7 @@ async function googlePackageForApp(app: PortfolioApp): Promise<string | null> {
 
     return pickUniquePackageName(configuredApps, app.bundleId);
   } catch (cause) {
-    if (isStatsCredentialsFailure(cause)) {
+    if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;
     }
 
@@ -339,7 +324,7 @@ async function playServiceAccount(packageName: string | null): Promise<ServiceAc
 
     return GoogleAccessToken.readServiceAccount(savedServiceAccountKey);
   } catch (cause) {
-    if (isStatsCredentialsFailure(cause)) {
+    if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;
     }
 
@@ -361,7 +346,7 @@ async function playReportingClient(packageName: string | null): Promise<PlayVita
 
     return GoogleReportingClientService.createClient(savedServiceAccountKey);
   } catch (cause) {
-    if (isStatsCredentialsFailure(cause)) {
+    if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;
     }
 
@@ -395,7 +380,7 @@ async function playReportsBucket(): Promise<string | null> {
   try {
     return await readDocumentFile(locatePortfolioFilePath(), decodePlayReportsBucket);
   } catch (cause) {
-    if (isStatsCredentialsFailure(cause)) {
+    if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;
     }
 
@@ -416,7 +401,7 @@ async function googleAccessToken(
 
     return await GoogleAccessToken.createAccessToken(serviceAccount, scopes);
   } catch (cause) {
-    if (isStatsCredentialsFailure(cause)) {
+    if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;
     }
 

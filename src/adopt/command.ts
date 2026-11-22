@@ -21,6 +21,7 @@ import {
 } from './orchestrator.ts';
 import { listAdopters, registerBuiltinAdopters } from './registry.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 export type AdoptCommandInput = {
   all: boolean;
@@ -106,22 +107,6 @@ function makeAdoptCommandFailure(fields: {
   cause: unknown;
 }): AdoptCommandFailure {
   return { _tag: 'AdoptCommandFailure', ...fields };
-}
-
-function isAdoptCommandFailure(cause: unknown): cause is AdoptCommandFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'AdoptCommandFailure';
 }
 
 /** Normalize one adopt failure into the command error channel. */
@@ -464,7 +449,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       throw cause;
     }
 
-    if (isAdoptCommandFailure(cause)) {
+    if (isFailureTag(cause, 'AdoptCommandFailure')) {
       throw cause;
     }
 

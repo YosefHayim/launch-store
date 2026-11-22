@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createVerify, generateKeyPairSync } from 'node:crypto';
-import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.ts';
+import { expectArrayElement, expectDefined } from '../testkit/assertions-testkit.ts';
 import { signatureHeader } from './code-sign.ts';
 describe('signatureHeader', () => {
   it('produces an expo-signature header whose RSA-SHA256 signature verifies against the public key', () => {

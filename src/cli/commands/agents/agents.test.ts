@@ -2,7 +2,7 @@ import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
 import { CONSUMER_SKILLS } from '../../../agents/registry.ts';
 import { findUnknownCommands } from '../../../agents/validate.ts';
-import { expectArrayElement } from '../../../testkit/assertions.testkit.ts';
+import { expectArrayElement } from '../../../testkit/assertions-testkit.ts';
 import { buildProgram } from '../../program.ts';
 import { registerAgentsCommand, registeredCommandTree } from './agents.ts';
 

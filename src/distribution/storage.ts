@@ -9,6 +9,7 @@ import type { Platform } from '../types/app.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
 import type { LaunchConfig } from '../types/config.ts';
 import { makeProviderInputFailure, type StorageProvider } from '../types/providers.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type ArtifactDirectoryFailure = Readonly<{
   readonly _tag: 'ArtifactDirectoryFailure';
@@ -34,22 +35,6 @@ function makeArtifactUnavailableFailure(fields: {
     message: fields.message,
     artifactPath: fields.artifactPath,
   };
-}
-
-function isProviderNotRegistered(cause: unknown): boolean {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'ProviderNotRegistered';
 }
 
 /**
@@ -105,7 +90,7 @@ export async function resolveStorageProvider(
   try {
     providerResolver = getStorageProviderResolver(config.storage);
   } catch (cause) {
-    if (isProviderNotRegistered(cause)) {
+    if (isFailureTag(cause, 'ProviderNotRegistered')) {
       providerResolver = undefined;
     } else {
       throw cause;

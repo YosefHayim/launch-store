@@ -11,7 +11,7 @@ import {
 } from './config.ts';
 import { validateConfig } from './config-schema.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.ts';
+import { expectArrayElement, expectDefined } from '../testkit/assertions-testkit.ts';
 const tempDirs: string[] = [];
 async function runConfigEffect<Success>(configWork: Promise<Success>): Promise<Success> {
   return configWork;

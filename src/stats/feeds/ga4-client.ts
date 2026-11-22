@@ -1,6 +1,7 @@
 import { errorMessage } from '../../services/platform/error-message.ts';
 import type { StatsFeedFailure } from '../../types/stats.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { isFailureTag } from '../../services/platform/tagged-failure.ts';
 
 export const ANALYTICS_ADMIN_URL = 'https://analyticsadmin.googleapis.com/v1beta';
 export const ANALYTICS_DATA_URL = 'https://analyticsdata.googleapis.com/v1beta';
@@ -62,19 +63,7 @@ export function createGa4Failure(
 }
 
 export function isGa4SkipSignal(cause: unknown): cause is Ga4SkipSignal {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'Ga4SkipSignal';
+  return isFailureTag(cause, 'Ga4SkipSignal');
 }
 
 function readGoogleMessage(googleMessage: string, fallbackMessage: string): string {

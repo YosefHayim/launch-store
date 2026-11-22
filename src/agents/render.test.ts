@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONSUMER_SKILLS, CONTRIBUTOR_SKILLS } from './registry.ts';
-import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.ts';
+import { expectArrayElement, expectDefined } from '../testkit/assertions-testkit.ts';
 import {
   MANAGED_END,
   MANAGED_START,

@@ -11,6 +11,7 @@ import {
 } from '../../../../store/apple/availability.ts';
 import { resolveStoreBundleId } from '../../../../store/shared/select-store-app.ts';
 import { readPlainObject } from '../../../../services/platform/plain-object.ts';
+import { isFailureTag } from '../../../../services/platform/tagged-failure.ts';
 
 export type AvailabilityCommandInput = {
   app?: string;
@@ -96,22 +97,6 @@ function commandFailure(
   }
 
   return makeAvailabilityCommandFailure({ operation, message, cause });
-}
-
-function isAvailabilityCommandFailure(cause: unknown): cause is AvailabilityCommandFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'AvailabilityCommandFailure';
 }
 
 export function renderAvailabilityAction(plannedAction: PlannedAction): string {
@@ -249,7 +234,7 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
       throw cause;
     }
 
-    if (isAvailabilityCommandFailure(cause)) {
+    if (isFailureTag(cause, 'AvailabilityCommandFailure')) {
       throw cause;
     }
 

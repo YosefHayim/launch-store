@@ -5,6 +5,7 @@ import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 const WORKFLOW_PATH = '.github/workflows/launch.yml';
 
@@ -43,22 +44,6 @@ function readCiCommandInput(rawCommandInput: Record<string, unknown>): CiCommand
   }
 
   return { android, force };
-}
-
-function isCiCommandFailure(cause: unknown): cause is CiCommandFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'CiCommandFailure';
 }
 
 function workflowHeader(includeAndroid: boolean): string {
@@ -208,7 +193,7 @@ export async function ciCommandProgram(rawCommandInput: unknown): Promise<void> 
 
     logger.line('\nThen push a v* tag or use Run workflow to build and ship.');
   } catch (cause) {
-    if (isCiCommandFailure(cause)) {
+    if (isFailureTag(cause, 'CiCommandFailure')) {
       throw cause;
     }
 

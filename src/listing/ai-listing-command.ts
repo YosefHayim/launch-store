@@ -4,6 +4,7 @@ import { loadConfig, readResolvedConfig } from '../config/config.ts';
 import { pathExists } from '../path-exists.ts';
 import { readLastApp } from '../distribution/last-run.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
@@ -53,16 +54,6 @@ interface PromptChoice {
   selection: AppDescriptor;
   label: string;
   hint?: string;
-}
-
-function isAiListingFailure(cause: unknown): cause is AiListingFailure {
-  const causeObject = readPlainObject(cause);
-
-  if (causeObject == null) {
-    return false;
-  }
-
-  return causeObject['_tag'] == 'AiListingFailure';
 }
 
 /** Normalize one listing command failure. */
@@ -901,7 +892,7 @@ export async function runAiListing(
       'Review with `launch plan`, then apply with `launch sync` or `launch metadata push`.',
     );
   } catch (cause) {
-    if (isAiListingFailure(cause)) {
+    if (isFailureTag(cause, 'AiListingFailure')) {
       throw cause;
     }
 
@@ -923,7 +914,7 @@ export async function aiListingCommandProgram(rawCommandInput: unknown): Promise
 
     await runAiListing(commandInput, listingGenerator);
   } catch (cause) {
-    if (isAiListingFailure(cause)) {
+    if (isFailureTag(cause, 'AiListingFailure')) {
       throw cause;
     }
 

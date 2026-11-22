@@ -4,6 +4,7 @@ import type { DraftListing, ListingBrief } from '../types/listing.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import { APPLE_LIMITS, serializeKeywords } from './apply.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 /** Anthropic listing generation or decoding failed. */
 interface ListingGenerationFailure {
@@ -24,16 +25,6 @@ interface GeneratedListing {
 interface ListingCopyGenerator {
   readonly name: string;
   generate(brief: ListingBrief): Promise<DraftListing>;
-}
-
-function isListingGenerationFailure(cause: unknown): cause is ListingGenerationFailure {
-  const causeObject = readPlainObject(cause);
-
-  if (causeObject == null) {
-    return false;
-  }
-
-  return causeObject['_tag'] == 'ListingGenerationFailure';
 }
 
 /** Normalize a generator dependency failure. */
@@ -366,7 +357,7 @@ async function failAnthropicStatus(anthropicReply: Response): Promise<never> {
       `Anthropic API error ${anthropicReply.status}: ${failureDetail}`,
     );
   } catch (cause) {
-    if (isListingGenerationFailure(cause)) {
+    if (isFailureTag(cause, 'ListingGenerationFailure')) {
       throw cause;
     }
 
@@ -458,7 +449,7 @@ export function createAnthropicListingGenerator(
 
       return await requestAnthropicListing(apiKey, model, listingBrief);
     } catch (cause) {
-      if (isListingGenerationFailure(cause)) {
+      if (isFailureTag(cause, 'ListingGenerationFailure')) {
         throw cause;
       }
 

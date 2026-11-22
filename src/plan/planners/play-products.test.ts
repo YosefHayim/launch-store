@@ -1,4 +1,4 @@
-import { runPlanner } from './planner.testkit.ts';
+import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { playProductsPlanner } from './play-products.ts';
 import type { AppDescriptor } from '../../types/app.ts';

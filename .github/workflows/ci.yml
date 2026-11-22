@@ -1,21 +1,26 @@
 name: CI
-'on':
-  pull_request: null
+
+on:
+  pull_request:
   push:
     branches:
       - main
     paths-ignore:
       - '**/*.md'
-  workflow_dispatch: null
+  workflow_dispatch:
+
 permissions:
   contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     name: Changes
     runs-on: ubuntu-slim
+    timeout-minutes: 5
     outputs:
       since: ${{ steps.filter.outputs.everything != 'true' && github.event.pull_request.base.sha || '' }}
       code: ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' }}
@@ -28,20 +33,28 @@ jobs:
         with:
           token: ''
           filters: |
-            everything: &everything
+            everything:
               - pnpm-workspace.yaml
               - biome.json
               - 'tsconfig*.json'
               - '*.config.ts'
               - '.github/**'
             code:
-              - *everything
+              - pnpm-workspace.yaml
+              - biome.json
+              - 'tsconfig*.json'
+              - '*.config.ts'
+              - '.github/**'
               - '**/*.{ts,tsx,css,json,mjs}'
             cli:
-              - *everything
+              - pnpm-workspace.yaml
+              - biome.json
+              - 'tsconfig*.json'
+              - '*.config.ts'
+              - '.github/**'
               - 'src/**'
               - package.json
-    timeout-minutes: 5
+
   test:
     name: Test
     needs: changes
@@ -53,13 +66,13 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup workspace
-        uses: ./.github/actions/setup
+        uses: $/.github/actions/setup
       - name: Test changed files
         if: needs.changes.outputs.since != ''
         env:
           SINCE: ${{ needs.changes.outputs.since }}
         run: pnpm exec vitest run --project unit --changed "$SINCE"
-      - name: Test (with coverage)
+      - name: Test with coverage
         if: needs.changes.outputs.since == ''
         run: pnpm test:coverage | tee coverage.txt
       - name: Coverage summary
@@ -71,15 +84,17 @@ jobs:
             tail -n 20 coverage.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      - run: pnpm build
+      - name: Build
+        run: pnpm build
       - name: Smoke-test the built CLI
         run: |
           node dist/cli/index.js --version
           node dist/cli/index.js --help
           node dist/cli/index.js explain csr
-      - name: Run E2E tests
+      - name: Run end-to-end tests
         if: needs.changes.outputs.cli == 'true'
         run: pnpm test:e2e
+
   gate:
     name: CI Gate
     needs:
@@ -89,6 +104,6 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
-      - name: Fail when any job failed or was cancelled
+      - name: Fail when a job failed or was cancelled
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1

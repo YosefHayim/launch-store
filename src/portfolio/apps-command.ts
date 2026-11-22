@@ -16,6 +16,7 @@ import {
   findAppsByName,
 } from './portfolio-logic.ts';
 import { saveAppTags } from './tag-apps.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 interface AppsListRequest {
   readonly platform: string | undefined;
@@ -32,19 +33,7 @@ export interface AppsTagRequest {
 }
 
 function isUsageFailure(cause: unknown): cause is UsageFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'UsageFailure';
+  return isFailureTag(cause, 'UsageFailure');
 }
 
 function finishUsageFailure(usageFailure: UsageFailure, isJson: boolean): never {

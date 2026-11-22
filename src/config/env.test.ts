@@ -14,7 +14,7 @@ import {
   resolveEnv,
   secretLookingKeys,
 } from './env.ts';
-import { expectDefined } from '../testkit/assertions.testkit.ts';
+import { expectDefined } from '../testkit/assertions-testkit.ts';
 const tempDirs: string[] = [];
 async function runEnvEffect<Success>(envWork: Promise<Success>): Promise<Success> {
   return envWork;

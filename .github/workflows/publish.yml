@@ -1,25 +1,32 @@
 name: Publish
-'on':
+
+on:
   release:
     types:
       - published
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to (re)publish, e.g. v0.2.0. Defaults to main HEAD.
+        description: Existing release tag to publish again, for example v0.2.0. Empty publishes main.
         required: false
         default: ''
+
 permissions:
-  id-token: write
   contents: read
+
 concurrency:
   group: publish-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: Resolve ref to publish
+      - name: Resolve the ref to publish
         id: ref
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
@@ -36,38 +43,33 @@ jobs:
         with:
           ref: ${{ steps.ref.outputs.ref }}
           fetch-depth: 0
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Setup workspace
+        uses: $/.github/actions/setup
         with:
-          node-version: 24
-          package-manager-cache: false
           registry-url: https://registry.npmjs.org
-      - name: Set up pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: 10.33.2
-      - name: Install dependencies
-        run: pnpm install
-      - name: Verify npm supports OIDC trusted publishing
+      - name: Verify npm supports trusted publishing
         run: |
           test "$(printf '%s\n' "11.5.1" "$(npm -v)" | sort -V | head -1)" = "11.5.1" || {
             echo "::error::npm $(npm -v) is below 11.5.1; trusted publishing is not supported"
             exit 1
           }
-      - name: Verify the release tag matches package.json version
+      - name: Verify the release tag matches package.json
         if: github.event_name == 'release'
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           PKG_VERSION="$(node -p "require('./package.json').version")"
           if [ "$RELEASE_TAG" != "v${PKG_VERSION}" ]; then
-            echo "::error::release tag ${RELEASE_TAG} != package.json v${PKG_VERSION}. Run 'npm version' before cutting the release."
+            echo "::error::release tag ${RELEASE_TAG} does not match package.json v${PKG_VERSION}"
             exit 1
           fi
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
-      - run: pnpm build
-      - name: Publish to npm (OIDC trusted publishing + provenance)
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+      - name: Publish to npm
         run: npm publish --access public --provenance
-    timeout-minutes: 15

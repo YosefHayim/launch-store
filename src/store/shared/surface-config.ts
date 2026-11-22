@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { pathExists } from '../../path-exists.ts';
 import { errorMessage } from '../../services/platform/error-message.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { isFailureTag } from '../../services/platform/tagged-failure.ts';
 
 /** A store-surface JSON document could not be read or decoded. */
 export type StoreSurfaceConfigFailure = Readonly<{
@@ -40,22 +41,6 @@ function surfaceConfigFailure(
   return makeStoreSurfaceConfigFailure({ operation, message, cause });
 }
 
-function isStoreSurfaceConfigFailure(cause: unknown): cause is StoreSurfaceConfigFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'StoreSurfaceConfigFailure';
-}
-
 /** Decode one untrusted store-surface document with its domain checker. */
 export function decodeStoreSurfaceConfig<Config>(
   rawDocument: unknown,
@@ -74,7 +59,7 @@ export function decodeStoreSurfaceConfig<Config>(
   try {
     return configSpec.decodeDocument(rawDocumentObject);
   } catch (cause) {
-    if (isStoreSurfaceConfigFailure(cause)) {
+    if (isFailureTag(cause, 'StoreSurfaceConfigFailure')) {
       throw cause;
     }
 

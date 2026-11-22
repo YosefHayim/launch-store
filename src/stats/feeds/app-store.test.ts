@@ -1,6 +1,6 @@
 import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { createTsv } from '../../testkit/app-store-stats-client.testkit.ts';
+import { createTsv } from '../../testkit/app-store-stats-client-testkit.ts';
 import type { PortfolioApp } from '../../types/portfolio.ts';
 import type { DailyStat, DateRange, FeedFetchReply } from '../../types/stats.ts';
 import type { AppStoreStatsClient } from '../stats-credentials.ts';

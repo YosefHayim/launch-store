@@ -21,6 +21,7 @@ import {
   writeTrainRecord,
 } from './record.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type ReleaseTrainCommandOptions = {
   app?: string;
@@ -74,22 +75,6 @@ function trainFailure(
   }
 
   return { _tag: 'ReleaseTrainCommandFailure', operation, message, cause };
-}
-
-function isReleaseTrainCommandFailure(cause: unknown): cause is ReleaseTrainCommandFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'ReleaseTrainCommandFailure';
 }
 
 function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
@@ -763,7 +748,7 @@ export async function releaseTrainCommandProgram(rawCommandInput: unknown): Prom
       throw cause;
     }
 
-    if (isReleaseTrainCommandFailure(cause)) {
+    if (isFailureTag(cause, 'ReleaseTrainCommandFailure')) {
       throw cause;
     }
 

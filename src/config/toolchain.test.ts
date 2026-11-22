@@ -9,7 +9,7 @@ import {
   remoteToolchainPreflight,
   type ToolchainIo,
 } from './toolchain.ts';
-import { expectDefined } from '../testkit/assertions.testkit.ts';
+import { expectDefined } from '../testkit/assertions-testkit.ts';
 /** Map each brew formula back to the command it provides, so the fake can mark it present after install. */
 const formulaToCommand = new Map(
   REQUIRED_TOOLS.flatMap((tool) => {

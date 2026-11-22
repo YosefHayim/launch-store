@@ -1,10 +1,10 @@
-import { runPlanner } from './planner.testkit.ts';
+import { runPlanner } from './planner-testkit.ts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { availabilityPlanner } from './availability.ts';
-import { makeAscApiFake } from '../../testkit/asc-api-fake.testkit.ts';
+import { makeAscApiFake } from '../../testkit/asc-api-fake-testkit.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';

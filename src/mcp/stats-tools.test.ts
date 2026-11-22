@@ -4,12 +4,12 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '../testkit/launch-home.testkit.ts';
+} from '../testkit/launch-home-testkit.ts';
 import {
   readDateDaysAgo,
   STATS_PORTFOLIO_FILE,
   writeStatsMonthFiles,
-} from '../testkit/stats-home.testkit.ts';
+} from '../testkit/stats-home-testkit.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { makeStatsCredentialsTest, useStatsCredentials } from '../stats/stats-credentials.ts';
 import type { McpToolResult } from '../types/mcp.ts';

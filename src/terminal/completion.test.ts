@@ -21,7 +21,7 @@ import {
   spliceManagedBlock,
   zshCompletionScript,
 } from './completion.ts';
-import { expectDefined } from '../testkit/assertions.testkit.ts';
+import { expectDefined } from '../testkit/assertions-testkit.ts';
 const tempDirs: string[] = [];
 async function runInstallCompletion(installOptions: InstallOptions): Promise<InstallResult> {
   useLaunchEnvironment({});

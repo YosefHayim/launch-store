@@ -8,6 +8,7 @@ import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { StorageProvider } from '../types/providers.ts';
 import { assembleManifest, contentTypeFor, type ManifestAsset } from './ota-manifest.ts';
 import { activateUpdate } from './update-history.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 /** The part of Expo export metadata required to publish bundles and assets. */
 export type ExportMetadata = {
@@ -132,28 +133,12 @@ export async function readExportMetadata(exportDirectory: string): Promise<Expor
 
     return decodeExportMetadata(metadataText, metadataFilePath);
   } catch (cause) {
-    if (isOtaPublishFailure(cause)) {
+    if (isFailureTag(cause, 'OtaPublishFailure')) {
       throw cause;
     }
 
     throw makeOtaPublishFailure(`Could not read ${metadataFilePath}.`);
   }
-}
-
-function isOtaPublishFailure(cause: unknown): cause is OtaPublishFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'OtaPublishFailure';
 }
 
 type OtaPublishInput = Readonly<{

@@ -5,7 +5,7 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '../testkit/launch-home.testkit.ts';
+} from '../testkit/launch-home-testkit.ts';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';

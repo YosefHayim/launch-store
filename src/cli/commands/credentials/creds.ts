@@ -1,8 +1,6 @@
 import type { Command } from '../../command.ts';
-import {
-  credentialsCommandProgram,
-  type CredentialsCommandOptions,
-} from '../../../credentials/command.ts';
+import { credentialsCommandProgram } from '../../../credentials/command.ts';
+import type { CredentialsCommandOptions } from '../../../credentials/credentials-command-options.ts';
 import { runCliProgram } from '../../run-cli-program.ts';
 
 type CredsOptions = CredentialsCommandOptions;

@@ -6,6 +6,7 @@ import type { AppStatsReport, StatsReport } from '../types/stats-report.ts';
 import { parseDaysFlag } from './stats-sync-command.ts';
 import { createStatsReport } from './stats-report.ts';
 import { describeAppStats } from './stats-report-text.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 export interface StatsCommandRequest {
   readonly platform: string | undefined;
@@ -16,19 +17,7 @@ export interface StatsCommandRequest {
 }
 
 function isUsageFailure(cause: unknown): cause is UsageFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'UsageFailure';
+  return isFailureTag(cause, 'UsageFailure');
 }
 
 function isAppNotFound(cause: unknown): cause is { message: string } {

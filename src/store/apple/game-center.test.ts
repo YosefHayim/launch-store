@@ -12,7 +12,7 @@ import {
   reconcileGameCenter,
 } from './game-center.ts';
 import type { GameCenterConfig } from '../../types/store-surface.ts';
-import { expectArrayElement, expectDefined } from '../../testkit/assertions.testkit.ts';
+import { expectArrayElement, expectDefined } from '../../testkit/assertions-testkit.ts';
 
 /** Records every write the reconciler makes, so a test can assert what was (and wasn't) sent. */
 type RecordedWrites = {

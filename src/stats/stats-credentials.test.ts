@@ -6,8 +6,8 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '../testkit/launch-home.testkit.ts';
-import { makeFakeAscClient } from '../testkit/store-clients.testkit.ts';
+} from '../testkit/launch-home-testkit.ts';
+import { makeFakeAscClient } from '../testkit/store-clients-testkit.ts';
 import { PlayReportingClient } from '../google/play-reporting.ts';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';

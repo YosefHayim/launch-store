@@ -16,6 +16,7 @@ import {
 } from '../distribution/update-history.ts';
 import { Prompts } from '../prompts.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { LaunchPrompt, pickOne } from '../services/platform/prompt.ts';
 import type { Platform } from '../types/app.ts';
@@ -76,16 +77,6 @@ type UpdateColumn = Readonly<{
   cell: (updateRow: UpdateRow) => string;
 }>;
 
-function isUpdatesCommandFailure(cause: unknown): cause is UpdatesCommandFailure {
-  const causeObject = readPlainObject(cause);
-
-  if (causeObject != null) {
-    return causeObject['_tag'] == 'UpdatesCommandFailure';
-  }
-
-  return false;
-}
-
 function failureText(cause: unknown, operation: string, fallbackMessage?: string): string {
   if (fallbackMessage != null) {
     return fallbackMessage;
@@ -112,7 +103,7 @@ function updatesFailure(
 }
 
 function wrapUpdatesFailure(operation: string, cause: unknown, fallbackMessage?: string): never {
-  if (isUpdatesCommandFailure(cause)) {
+  if (isFailureTag(cause, 'UpdatesCommandFailure')) {
     throw cause;
   }
 

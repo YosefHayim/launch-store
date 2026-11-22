@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expectDefined } from '../testkit/assertions.testkit.ts';
+import { expectDefined } from '../testkit/assertions-testkit.ts';
 import type { CodeSigner } from '../credentials/code-sign.ts';
 import type { StorageProvider } from '../types/providers.ts';
 import {

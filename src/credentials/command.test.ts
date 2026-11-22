@@ -5,32 +5,17 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '../testkit/launch-home.testkit.ts';
+} from '../testkit/launch-home-testkit.ts';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
-import {
-  CredentialsCommandInputSchema,
-  credentialSearchDirectories,
-  credentialsCommandProgram,
-  isCredentialDiscoveryFile,
-  type CredentialsCommandFailure,
-} from './command.ts';
+import { CredentialsCommandInputSchema, credentialsCommandProgram } from './command.ts';
+import { credentialSearchDirectories, isCredentialDiscoveryFile } from './credential-discovery.ts';
+import type { CredentialsCommandFailure } from './credentials-failure.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 function isCredentialsFailure(cause: unknown): cause is CredentialsCommandFailure {
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if (cause == null) {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'CredentialsCommandFailure';
+  return isFailureTag(cause, 'CredentialsCommandFailure');
 }
 
 function discoveryMatches(filePath: string): boolean {

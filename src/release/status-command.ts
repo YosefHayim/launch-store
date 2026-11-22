@@ -20,6 +20,7 @@ import {
 } from './app-store-release.ts';
 import { createTransitionTracker, planTransitionNotifications } from './release-notify.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 const NO_IOS_APPS_MESSAGE =
   'No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.';
@@ -71,19 +72,7 @@ function makeStatusCommandFailure(fields: {
 }
 
 function isStatusCommandFailure(cause: unknown): cause is StatusCommandFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'StatusCommandFailure';
+  return isFailureTag(cause, 'StatusCommandFailure');
 }
 
 function createStatusFailure(operation: string, cause: unknown): StatusCommandFailure {

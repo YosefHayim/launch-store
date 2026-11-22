@@ -29,6 +29,7 @@ import type {
   PlayMoneyUnits,
 } from '../types/play-pricing.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 /** Deep-clone a Launch boundary value into a mutable plain object for Google's generated client. */
 const mutableGoogleRequest = <GoogleRequest>(requestShape: unknown): GoogleRequest => {
@@ -497,35 +498,11 @@ function readServiceAccountField(record: Record<string, unknown>, key: string): 
 }
 
 function isGooglePlayApiError(cause: unknown): cause is GooglePlayApiError {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'GooglePlayApiError';
+  return isFailureTag(cause, 'GooglePlayApiError');
 }
 
 function isServiceAccountParseError(cause: unknown): cause is ServiceAccountParseError {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'ServiceAccountParseError';
+  return isFailureTag(cause, 'ServiceAccountParseError');
 }
 
 export function readServiceAccount(serviceAccountJson: string): ServiceAccount {

@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { pathExists } from '../../path-exists.ts';
 import { errorMessage } from './error-message.ts';
+import { isFailureTag } from './tagged-failure.ts';
 
 export type DocumentFileFailure = Readonly<{
   _tag: 'DocumentFileFailure';
@@ -17,22 +18,6 @@ function makeDocumentFileFailure(fields: {
   cause: unknown;
 }): DocumentFileFailure {
   return { _tag: 'DocumentFileFailure', ...fields };
-}
-
-function isDocumentFileFailure(cause: unknown): cause is DocumentFileFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'DocumentFileFailure';
 }
 
 export async function readDocumentFile<Document>(
@@ -50,7 +35,7 @@ export async function readDocumentFile<Document>(
 
     return decodeDocument(fileAsString);
   } catch (cause) {
-    if (isDocumentFileFailure(cause)) {
+    if (isFailureTag(cause, 'DocumentFileFailure')) {
       throw cause;
     }
 

@@ -4,12 +4,12 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '../testkit/launch-home.testkit.ts';
+} from '../testkit/launch-home-testkit.ts';
 import {
   readDateDaysAgo,
   STATS_PORTFOLIO_FILE,
   writeStatsMonthFiles,
-} from '../testkit/stats-home.testkit.ts';
+} from '../testkit/stats-home-testkit.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import type { StatsReportRequest } from '../types/stats-report.ts';
 import { createStatsReport } from './stats-report.ts';

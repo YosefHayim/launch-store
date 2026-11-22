@@ -23,6 +23,7 @@ import {
   ACCESSIBILITY_SUPPORT_KEYS,
 } from '../../types/apple-catalog.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { isFailureTag } from '../../services/platform/tagged-failure.ts';
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;
@@ -350,13 +351,7 @@ async function closeTransportFile(fileHandle: FileHandle): Promise<void> {
 }
 
 function isStoreUploadFailure(error: unknown): error is StoreUploadFailure {
-  if (typeof error != 'object') return false;
-
-  if (error == null) return false;
-
-  if ('_tag' in error == false) return false;
-
-  return error._tag == 'StoreUploadFailure';
+  return isFailureTag(error, 'StoreUploadFailure');
 }
 
 export const pickListingFields = (

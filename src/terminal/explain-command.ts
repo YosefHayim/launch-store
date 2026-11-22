@@ -1,6 +1,7 @@
 import { createLogger } from '../services/platform/logger.ts';
 import { explainTopic, isGlossaryTopic, listTopics } from './glossary.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type ExplainCommandFailure = Readonly<{
   readonly _tag: 'ExplainCommandFailure';
@@ -13,22 +14,6 @@ function makeExplainCommandFailure(fields: {
   cause: unknown;
 }): ExplainCommandFailure {
   return { _tag: 'ExplainCommandFailure', message: fields.message, cause: fields.cause };
-}
-
-function isExplainCommandFailure(cause: unknown): cause is ExplainCommandFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'ExplainCommandFailure';
 }
 
 function readExplainTopic(rawCommandInput: unknown): string | null {
@@ -73,7 +58,7 @@ export function explainCommandProgram(rawCommandInput: unknown): void {
       cause: topic,
     });
   } catch (cause) {
-    if (isExplainCommandFailure(cause)) {
+    if (isFailureTag(cause, 'ExplainCommandFailure')) {
       throw cause;
     }
 

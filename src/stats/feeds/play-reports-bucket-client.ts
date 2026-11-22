@@ -1,5 +1,6 @@
 import { errorMessage } from '../../services/platform/error-message.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { isFailureTag } from '../../services/platform/tagged-failure.ts';
 
 export const STORAGE_READ_ONLY_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_only';
 
@@ -40,22 +41,6 @@ export function failBucketRead(operation: string, cause: unknown): PlayReportsBu
     message: `Could not ${operation}: ${errorMessage(cause)}`,
     cause,
   });
-}
-
-function isPlayReportsBucketFailure(cause: unknown): cause is PlayReportsBucketFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'PlayReportsBucketFailure';
 }
 
 async function fetchBucket(
@@ -108,7 +93,7 @@ export async function downloadBucketObject(
   try {
     return await readBucketObject(bucket, objectName, accessToken);
   } catch (cause) {
-    if (isPlayReportsBucketFailure(cause)) {
+    if (isFailureTag(cause, 'PlayReportsBucketFailure')) {
       throw cause;
     }
 
@@ -224,7 +209,7 @@ export async function listBucketObjectNames(
   try {
     return await listBucketPage(bucket, prefix, accessToken, null);
   } catch (cause) {
-    if (isPlayReportsBucketFailure(cause)) {
+    if (isFailureTag(cause, 'PlayReportsBucketFailure')) {
       throw cause;
     }
 

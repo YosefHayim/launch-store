@@ -5,7 +5,7 @@ import { appleListingSource } from './apple-listing.ts';
 import { appleCapabilitiesSource } from './apple-capabilities.ts';
 import { playProductsSource } from './play-products.ts';
 import { playSubscriptionsSource } from './play-subscriptions.ts';
-import { makeAscCatalogApiFake } from '../../testkit/asc-catalog-api.testkit.ts';
+import { makeAscCatalogApiFake } from '../../testkit/asc-catalog-api-testkit.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { PlayCatalogApi } from '../../types/plan.ts';

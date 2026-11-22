@@ -14,6 +14,7 @@ import type { PlannedAction } from '../types/reconcile.ts';
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from './orchestrator.ts';
 import { listSurfacePlanners, registerBuiltinPlanners } from './registry.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 export type PlanCommandInput = Readonly<{
   operation: 'plan' | 'drift';
@@ -46,19 +47,7 @@ function commandFailure(operation: string, cause: unknown): PlanCommandFailure {
 }
 
 export function isPlanCommandFailure(cause: unknown): cause is PlanCommandFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'PlanCommandFailure';
+  return isFailureTag(cause, 'PlanCommandFailure');
 }
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {

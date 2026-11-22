@@ -6,6 +6,7 @@ import { resolveLogsDirectory } from '../services/platform/paths.ts';
 import { pathExists } from '../path-exists.ts';
 import { diagnoseBuildLog, formatDiagnoses } from './build-diagnostics.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type DiagnoseCommandInput = Readonly<{
   logfile?: string;
@@ -72,25 +73,7 @@ export function decodeDiagnoseCommandInput(rawCommandInput: unknown): DiagnoseCo
 }
 
 function isDiagnoseCommandFailure(cause: unknown): cause is DiagnoseCommandFailure {
-  const isObject = typeof cause == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  const isNull = cause == null;
-
-  if (isNull) {
-    return false;
-  }
-
-  const hasTag = '_tag' in cause;
-
-  if (hasTag == false) {
-    return false;
-  }
-
-  return cause._tag == 'DiagnoseCommandFailure';
+  return isFailureTag(cause, 'DiagnoseCommandFailure');
 }
 
 type NewestLog = Readonly<{ path: string; modifiedAt: number }>;

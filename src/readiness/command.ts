@@ -18,6 +18,7 @@ import type {
 import { READINESS_EXIT, runProbes } from './orchestrator.ts';
 import { registerBuiltinProbes, selectReadinessProbes } from './registry.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type ReadinessCategory = 'account' | 'iap' | 'listing' | 'privacy' | 'signing' | 'submit';
 
@@ -70,22 +71,6 @@ function commandFailure(operation: string, cause: unknown): ReadinessCommandFail
     message: errorMessage(cause),
     cause,
   });
-}
-
-function isReadinessCommandFailure(cause: unknown): cause is ReadinessCommandFailure {
-  if (cause == null) {
-    return false;
-  }
-
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  return cause._tag == 'ReadinessCommandFailure';
 }
 
 function isReadinessCategory(candidate: unknown): candidate is ReadinessCategory {
@@ -346,7 +331,7 @@ export async function readinessCommandProgram(rawCommandInput: unknown): Promise
       throw cause;
     }
 
-    if (isReadinessCommandFailure(cause)) {
+    if (isFailureTag(cause, 'ReadinessCommandFailure')) {
       throw cause;
     }
 

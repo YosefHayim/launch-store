@@ -1,7 +1,7 @@
-import { runPlanner } from './planner.testkit.ts';
+import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { gameCenterPlanner } from './game-center.ts';
-import { makeAscApiFake } from '../../testkit/asc-api-fake.testkit.ts';
+import { makeAscApiFake } from '../../testkit/asc-api-fake-testkit.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';

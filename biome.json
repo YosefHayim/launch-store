@@ -96,7 +96,7 @@
       "linter": { "rules": { "style": { "noDefaultExport": "off" } } }
     },
     {
-      "includes": ["**/*.test.ts", "**/*.e2e.ts"],
+      "includes": ["**/*.test.ts", "**/*-e2e.ts"],
       "linter": { "rules": { "suspicious": { "noFocusedTests": "error" } } }
     }
   ]

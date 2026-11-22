@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
-} from '../testkit/launch-home.testkit.ts';
+} from '../testkit/launch-home-testkit.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import type { DailyStat } from '../types/stats.ts';
 import { saveDailyStats } from './stats-store.ts';

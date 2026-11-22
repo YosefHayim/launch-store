@@ -18,6 +18,7 @@ import type { KeystoreAssets, SigningAssets } from '../types/credentials.ts';
 import type { StorageProvider } from '../types/providers.ts';
 import { findBuild } from './build-history-command.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 const STORE_PASSWORD_VARIABLE = 'LAUNCH_KS_STOREPASS';
 const KEY_PASSWORD_VARIABLE = 'LAUNCH_KS_KEYPASS';
@@ -73,26 +74,6 @@ type ResignWorkspace = Readonly<{
 }>;
 
 type OptionalResignKey = 'id' | 'app' | 'account' | 'output';
-
-function isResignCommandFailure(cause: unknown): cause is ResignCommandFailure {
-  const isObject = typeof cause == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  if (cause == null) {
-    return false;
-  }
-
-  const hasTag = '_tag' in cause;
-
-  if (hasTag == false) {
-    return false;
-  }
-
-  return cause._tag == 'ResignCommandFailure';
-}
 
 function resignFailure(operation: string, cause: unknown): ResignCommandFailure {
   return makeResignCommandFailure({ operation, message: errorMessage(cause), cause });
@@ -668,7 +649,7 @@ export async function resignCommandProgram(rawCommandInput: unknown): Promise<vo
 
     logger.ok(`Re-signed artifact written to ${outputPath}.`);
   } catch (error) {
-    if (isResignCommandFailure(error)) {
+    if (isFailureTag(error, 'ResignCommandFailure')) {
       throw error;
     }
 

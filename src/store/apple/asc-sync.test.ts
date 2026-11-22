@@ -12,7 +12,7 @@ import type {
   InAppPurchaseConfig,
   SubscriptionGroupConfig,
 } from '../../types/catalog.ts';
-import { expectArrayElement } from '../../testkit/assertions.testkit.ts';
+import { expectArrayElement } from '../../testkit/assertions-testkit.ts';
 
 /** Promise fake of {@link AscCatalogApi}. Reads default to "nothing exists yet"; writes resolve to a created resource. */
 const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {

@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import {
-  parseFeedbackType,
-  parseTestersCsv,
-  renderBetaAction,
-  renderFeedback,
-  TestflightCommandInputSchema,
-} from './testflight-command.ts';
+import { parseTestersCsv } from './testflight-add-testers.ts';
+import { TestflightCommandInputSchema } from './testflight-command.ts';
+import { renderBetaAction } from './testflight-release.ts';
+import { parseFeedbackType, renderFeedback } from './testflight-show-feedback.ts';
 
 describe('parseTestersCsv', () => {
   it('parses and trims named tester rows', () => {
