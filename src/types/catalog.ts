@@ -1,3 +1,5 @@
+import type { components } from '@/apple-api-types.js';
+
 export type SubscriptionPeriod =
   | 'ONE_WEEK'
   | 'ONE_MONTH'
@@ -6,23 +8,15 @@ export type SubscriptionPeriod =
   | 'SIX_MONTHS'
   | 'ONE_YEAR';
 /** Kind of one-off in-app purchase (`inAppPurchasesV2`). */
-export type InAppPurchaseType = 'CONSUMABLE' | 'NON_CONSUMABLE' | 'NON_RENEWING_SUBSCRIPTION';
+export type InAppPurchaseType = components['schemas']['InAppPurchaseType'];
 /** Who an offer may target (`customerEligibilities`). */
-export type OfferCustomerEligibility = 'NEW' | 'EXISTING' | 'EXPIRED';
+export type OfferCustomerEligibility = components['schemas']['SubscriptionCustomerEligibility'];
 /** Whether an offer stacks with or replaces the intro offer. */
-export type OfferEligibility = 'STACK_WITH_INTRO_OFFERS' | 'REPLACE_INTRO_OFFERS';
+export type OfferEligibility = components['schemas']['SubscriptionOfferEligibility'];
 /** One offer billing unit (`SubscriptionOfferDuration`). */
-export type OfferDuration =
-  | 'THREE_DAYS'
-  | 'ONE_WEEK'
-  | 'TWO_WEEKS'
-  | 'ONE_MONTH'
-  | 'TWO_MONTHS'
-  | 'THREE_MONTHS'
-  | 'SIX_MONTHS'
-  | 'ONE_YEAR';
+export type OfferDuration = components['schemas']['SubscriptionOfferDuration'];
 /** How an offer discounts (`SubscriptionOfferMode`). */
-export type OfferMode = 'PAY_AS_YOU_GO' | 'PAY_UP_FRONT' | 'FREE_TRIAL';
+export type OfferMode = components['schemas']['SubscriptionOfferMode'];
 /** One locale's customer-facing copy for a subscription or IAP. */
 export type ProductLocalization = Readonly<{
   locale: string;

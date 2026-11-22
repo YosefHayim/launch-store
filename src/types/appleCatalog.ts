@@ -1,3 +1,5 @@
+import type { components } from '@/apple-api-types.js';
+
 import type {
   OfferCustomerEligibility,
   OfferDuration,
@@ -433,7 +435,7 @@ export type BetaBuildLocalizationResource = Readonly<{
   whatsNew?: string;
 }>;
 /** Apple's Beta App Review verdict for a build's submission. */
-export type BetaReviewState = 'WAITING_FOR_REVIEW' | 'IN_REVIEW' | 'REJECTED' | 'APPROVED';
+export type BetaReviewState = components['schemas']['BetaReviewState'];
 /**
  * A build's Beta App Review submission (`betaAppReviewSubmissions`) - the request that lets *external*
  * TestFlight testers install it. One per build; `state` is Apple's verdict. Absent until the build is
@@ -633,8 +635,8 @@ export type AgeRatingDeclarationResource = Readonly<{
   id: string;
   attributes: Record<string, AgeRatingValue>;
 }>;
-/** The device families an accessibility declaration can target - Apple's `DeviceFamily` enum, restated for public signatures. */
-export type DeviceFamily = 'IPHONE' | 'IPAD' | 'APPLE_TV' | 'APPLE_WATCH' | 'MAC' | 'VISION';
+/** The device families an accessibility declaration can target. */
+export type DeviceFamily = components['schemas']['DeviceFamily'];
 
 /**
  * The accessibility-support flags an accessibility declaration carries - the answers behind Apple's 2025
@@ -737,9 +739,13 @@ export type AppStoreReviewDetailResource = Readonly<{
  * config schemas (`AppClipConfig.action` in `core/types`) reuse it without duplicating
  * Apple's list; `satisfies` keeps it in lockstep with the generated OpenAPI enum (drift fails the build).
  */
-export const APP_CLIP_ACTIONS = ['OPEN', 'VIEW', 'PLAY'] as const;
-/** The App Clip card's call-to-action button - one of {@link APP_CLIP_ACTIONS}. */
-export type AppClipActionValue = (typeof APP_CLIP_ACTIONS)[number];
+export const APP_CLIP_ACTIONS = [
+  'OPEN',
+  'VIEW',
+  'PLAY',
+] as const satisfies readonly components['schemas']['AppClipAction'][];
+/** The App Clip card's call-to-action button. */
+export type AppClipActionValue = components['schemas']['AppClipAction'];
 /**
  * An app's App Clip - the install-free slice launched from a link / NFC / App Clip Code. Created by
  * uploading a build with an App Clip target (Apple has no API to create one), so this is read-only; the
@@ -825,9 +831,9 @@ export const LEADERBOARD_FORMATTERS = [
   'MONEY_KRONER_DECIMAL',
   'MONEY_KRONER',
   'MONEY_YEN',
-] as const;
+] as const satisfies readonly components['schemas']['GameCenterLeaderboardFormatter'][];
 /** One of Apple's leaderboard score formatters. */
-export type LeaderboardFormatter = (typeof LEADERBOARD_FORMATTERS)[number];
+export type LeaderboardFormatter = components['schemas']['GameCenterLeaderboardFormatter'];
 /**
  * How a leaderboard score is aggregated and sorted - Apple's two closed enums (inline in the OpenAPI, so
  * there's no named component to `satisfies` against). Array-first (SSOT) so the config schema
