@@ -30,9 +30,10 @@ describe('holdSyncLock', () => {
 
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
       homeDirectory,
-      workingDirectory: join(homeDirectory, 'work'),
+      workingDirectory: workPath,
     });
   });
 
@@ -57,7 +58,8 @@ describe('holdSyncLock', () => {
     const wasLockedDuring = await runLocked(wasLocked);
 
     expect(wasLockedDuring).toBe(true);
-    expect(existsSync(lockPath())).toBe(false);
+    const pathExists = existsSync(lockPath());
+    expect(pathExists).toBe(false);
   });
 
   test('removes the lock when the program fails', async () => {
@@ -65,29 +67,35 @@ describe('holdSyncLock', () => {
       throw new Error('boom');
     }
 
-    await expect(runLocked(failProgram)).rejects.toThrow('boom');
+    const locked = runLocked(failProgram);
+    await expect(locked).rejects.toThrow('boom');
 
-    expect(existsSync(lockPath())).toBe(false);
+    const pathExists = existsSync(lockPath());
+    expect(pathExists).toBe(false);
   });
 
   test('refuses to start while a fresh lock exists', async () => {
-    writeLaunchHomeFile(homeDirectory, join('stats', 'sync.lock'), new Date().toISOString());
+    const syncPath = join('stats', 'sync.lock');
+    writeLaunchHomeFile(homeDirectory, syncPath, new Date().toISOString());
 
     async function unusedWork(): Promise<void> {
       return undefined;
     }
 
-    await expect(runLocked(unusedWork)).rejects.toMatchObject({
+    const locked = runLocked(unusedWork);
+    await expect(locked).rejects.toMatchObject({
       _tag: 'SyncLockFailure',
       message: expect.stringContaining('Another stats sync is running'),
     });
 
-    expect(existsSync(lockPath())).toBe(true);
+    const pathExists = existsSync(lockPath());
+    expect(pathExists).toBe(true);
   });
 
   test('takes over a stale lock and removes it after', async () => {
     const staleLockStamp = '2020-01-01T00:00:00.000Z';
-    writeLaunchHomeFile(homeDirectory, join('stats', 'sync.lock'), staleLockStamp);
+    const syncPath = join('stats', 'sync.lock');
+    writeLaunchHomeFile(homeDirectory, syncPath, staleLockStamp);
 
     async function readLockStamp(): Promise<string> {
       return readFileSync(lockPath(), 'utf8');
@@ -96,6 +104,7 @@ describe('holdSyncLock', () => {
     const lockStampDuringSync = await runLocked(readLockStamp);
 
     expect(lockStampDuringSync).not.toBe(staleLockStamp);
-    expect(existsSync(lockPath())).toBe(false);
+    const pathExists = existsSync(lockPath());
+    expect(pathExists).toBe(false);
   });
 });

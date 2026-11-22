@@ -124,7 +124,8 @@ describe('localCredentialsProvider.resolveBuildCredentials (iOS account selectio
 
   it("loads the active account's key when the context names none", async () => {
     const provider = makeLocalCredentialsProvider();
-    const buildCredentials = await provider.resolveBuildCredentials(iosContext());
+    const ios = iosContext();
+    const buildCredentials = await provider.resolveBuildCredentials(ios);
 
     expect(buildCredentials.platform).toBe('ios');
 
@@ -135,7 +136,8 @@ describe('localCredentialsProvider.resolveBuildCredentials (iOS account selectio
 
   it("loads the context's named account, overriding the active one", async () => {
     const provider = makeLocalCredentialsProvider();
-    const buildCredentials = await provider.resolveBuildCredentials(iosContext('BBBB2222'));
+    const ios = iosContext('BBBB2222');
+    const buildCredentials = await provider.resolveBuildCredentials(ios);
 
     if (buildCredentials.platform == 'ios') {
       expect(buildCredentials.ascKey).toEqual(KEY_B);
@@ -146,7 +148,8 @@ describe('localCredentialsProvider.resolveBuildCredentials (iOS account selectio
     credentialState.activeAppleKeyId = null;
     const provider = makeLocalCredentialsProvider();
 
-    await expect(provider.resolveBuildCredentials(iosContext())).rejects.toMatchObject({
+    const ios = iosContext();
+    await expect(provider.resolveBuildCredentials(ios)).rejects.toMatchObject({
       _tag: 'MissingCredentialsFailure',
       platform: 'apple',
       message: 'No App Store Connect API key found. Import one with: launch creds set-key',
@@ -245,13 +248,17 @@ describe('legacy Android build guidance', () => {
   let homeDirectory: string;
 
   beforeEach(() => {
-    homeDirectory = mkdtempSync(join(tmpdir(), 'launch-legacy-guidance-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchLegacyGuidancePath = join(systemTemporaryDirectory, 'launch-legacy-guidance-');
+    homeDirectory = mkdtempSync(launchLegacyGuidancePath);
     useCredentialsReader(null);
     useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
     useLaunchEnvironment({});
-    const legacyAccount = Buffer.from(
-      JSON.stringify({ client_email: 'robot@example.invalid', private_key: 'dummy' }),
-    ).toString('base64');
+    const serialized = JSON.stringify({
+      client_email: 'robot@example.invalid',
+      private_key: 'dummy',
+    });
+    const legacyAccount = Buffer.from(serialized).toString('base64');
     useSecretStore(new Map([['play-service-account', legacyAccount]]));
   });
 

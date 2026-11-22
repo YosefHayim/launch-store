@@ -27,7 +27,8 @@ describe('mergeServerEntry', () => {
       mcpServers: { other: { command: 'other-bin', args: [] } },
     };
 
-    expect(mergeServerEntry(existingConfig, 'launch', LAUNCH_SERVER_ENTRY).config).toEqual({
+    const mergeServer = mergeServerEntry(existingConfig, 'launch', LAUNCH_SERVER_ENTRY);
+    expect(mergeServer.config).toEqual({
       theme: 'dark',
       mcpServers: {
         other: { command: 'other-bin', args: [] },
@@ -47,7 +48,8 @@ describe('mergeServerEntry', () => {
   });
 
   it('replaces a malformed mcpServers field', () => {
-    expect(mergeServerEntry({ mcpServers: 'broken' }, 'launch', LAUNCH_SERVER_ENTRY)).toEqual({
+    const mergeServer = mergeServerEntry({ mcpServers: 'broken' }, 'launch', LAUNCH_SERVER_ENTRY);
+    expect(mergeServer).toEqual({
       changed: true,
       config: { mcpServers: { launch: { command: 'launch', args: ['mcp'] } } },
     });
@@ -56,18 +58,23 @@ describe('mergeServerEntry', () => {
 
 describe('clientConfigPath', () => {
   it('uses project-local paths for Claude Code and Cursor', () => {
-    expect(clientConfigPath('claude-code', '/repo', '/home/me', 'macos')).toBe(
-      join('/repo', '.mcp.json'),
-    );
-    expect(clientConfigPath('cursor', '/repo', '/home/me', 'macos')).toBe(
-      join('/repo', '.cursor', 'mcp.json'),
-    );
+    const clientPath = clientConfigPath('claude-code', '/repo', '/home/me', 'macos');
+    const joinedPath = join('/repo', '.mcp.json');
+    expect(clientPath).toBe(joinedPath);
+    const mcpPath = join('/repo', '.cursor', 'mcp.json');
+    expect(clientConfigPath('cursor', '/repo', '/home/me', 'macos')).toBe(mcpPath);
   });
 
   it('uses the operating-system application config for Claude Desktop', () => {
-    expect(clientConfigPath('claude-desktop', '/repo', '/home/me', 'macos')).toBe(
-      join('/home/me', 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
+    const clientPath = clientConfigPath('claude-desktop', '/repo', '/home/me', 'macos');
+    const joinedPath = join(
+      '/home/me',
+      'Library',
+      'Application Support',
+      'Claude',
+      'claude_desktop_config.json',
     );
+    expect(clientPath).toBe(joinedPath);
     expect(clientConfigPath('claude-desktop', '/repo', '/home/me', 'windows')).toBe(
       join('/home/me', 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json'),
     );
@@ -78,7 +85,9 @@ describe('installServer', () => {
   let workingDirectory: string;
 
   beforeEach(() => {
-    workingDirectory = mkdtempSync(join(tmpdir(), 'launch-mcp-install-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchMcpInstallPath = join(systemTemporaryDirectory, 'launch-mcp-install-');
+    workingDirectory = mkdtempSync(launchMcpInstallPath);
   });
 
   afterEach(() => {
@@ -93,9 +102,11 @@ describe('installServer', () => {
     const installedServer = await runInstall('claude-code');
 
     expect(installedServer.changed).toBe(true);
-    expect(installedServer.path).toBe(join(workingDirectory, '.mcp.json'));
+    const joinedPath = join(workingDirectory, '.mcp.json');
+    expect(installedServer.path).toBe(joinedPath);
 
-    const configDocument: unknown = JSON.parse(readFileSync(installedServer.path, 'utf8'));
+    const loadedFile = readFileSync(installedServer.path, 'utf8');
+    const configDocument: unknown = JSON.parse(loadedFile);
 
     expect(configDocument).toEqual({
       mcpServers: { launch: { command: 'launch', args: ['mcp'] } },
@@ -105,19 +116,18 @@ describe('installServer', () => {
   it('is idempotent once configured', async () => {
     await runInstall('claude-code');
 
-    await expect(runInstall('claude-code')).resolves.toMatchObject({ changed: false });
+    const install = runInstall('claude-code');
+    await expect(install).resolves.toMatchObject({ changed: false });
   });
 
   it('preserves other configured servers', async () => {
-    writeFileSync(
-      join(workingDirectory, '.mcp.json'),
-      JSON.stringify({ mcpServers: { other: { command: 'x', args: [] } } }),
-    );
+    const joinedPath = join(workingDirectory, '.mcp.json');
+    const serialized = JSON.stringify({ mcpServers: { other: { command: 'x', args: [] } } });
+    writeFileSync(joinedPath, serialized);
     await runInstall('claude-code');
 
-    const configDocument: unknown = JSON.parse(
-      readFileSync(join(workingDirectory, '.mcp.json'), 'utf8'),
-    );
+    const loadedFile = readFileSync(join(workingDirectory, '.mcp.json'), 'utf8');
+    const configDocument: unknown = JSON.parse(loadedFile);
 
     expect(configDocument).toMatchObject({
       mcpServers: {

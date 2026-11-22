@@ -171,7 +171,8 @@ async function appleStatus(credentialStore: CredentialsReader): Promise<string> 
   const accountLines: string[] = [];
 
   for (const accountStatus of accountStatuses) {
-    accountLines.push(formatAppleAccountStatus(accountStatus));
+    const appleAccountStatus = formatAppleAccountStatus(accountStatus);
+    accountLines.push(appleAccountStatus);
   }
 
   return [`iOS accounts (${accountStatuses.length}):`, ...accountLines].join('\n');
@@ -243,7 +244,8 @@ export function makeLocalCredentialsProvider(): CredentialsProvider {
       return resolveAndroidCredentials(credentialStore, buildContext);
     },
     status(packageNames) {
-      return statusReport(readCredentials(), packageNames);
+      const credentials = readCredentials();
+      return statusReport(credentials, packageNames);
     },
   };
 }

@@ -40,7 +40,9 @@ export const registerDoctorCommand = (program: Command): void => {
     )
     .option('--yes', 'skip prompts and proceed with installs (CI/agents)', false)
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((commandOptions: DoctorOptions) =>
-      runCliProgram(doctorCommandProgram(toDoctorCommandInput(commandOptions))),
-    );
+    .action((commandOptions: DoctorOptions) => {
+      const doctorCommand = toDoctorCommandInput(commandOptions);
+      const doctorProgram = doctorCommandProgram(doctorCommand);
+      return runCliProgram(doctorProgram);
+    });
 };

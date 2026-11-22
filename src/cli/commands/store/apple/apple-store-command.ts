@@ -25,8 +25,9 @@ export async function loadActiveAppleStore(): Promise<AppStoreConnectClient> {
   try {
     ascKey = await loadActiveAscKey();
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw makeActiveAppleStoreFailure({
-      message: `Could not load the active Apple account: ${errorMessage(cause)}`,
+      message: `Could not load the active Apple account: ${failureMessage}`,
       cause,
     });
   }

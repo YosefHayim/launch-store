@@ -32,13 +32,16 @@ afterEach(() => {
 });
 
 function makeCredentialSandbox() {
-  const directory = mkdtempSync(join(tmpdir(), 'launch-android-isolation-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchAndroidIsolationPath = join(systemTemporaryDirectory, 'launch-android-isolation-');
+  const directory = mkdtempSync(launchAndroidIsolationPath);
   const secrets = new Map<string, string>();
 
   temporaryRoots.push(directory);
+  const projectPath = join(directory, 'project');
   useLaunchDirectories({
     homeDirectory: directory,
-    workingDirectory: join(directory, 'project'),
+    workingDirectory: projectPath,
   });
   useSecretStore(secrets);
 
@@ -73,7 +76,8 @@ describe('Android package credential isolation', () => {
     expect(await loadServiceAccount('com.example.alpha')).toBe(serviceAccount('alpha'));
     expect(await loadServiceAccount('com.example.beta')).toBeNull();
     expect(sandbox.secrets.has('play-service-account')).toBe(true);
-    expect(await listStoredAndroidPackages()).toEqual(['com.example.alpha']);
+    const storedAndroidPackages = await listStoredAndroidPackages();
+    expect(storedAndroidPackages).toEqual(['com.example.alpha']);
   });
 
   it('imports different app keys concurrently and honors an explicit replacement before the cache', async () => {
@@ -85,10 +89,11 @@ describe('Android package credential isolation', () => {
     writeFileSync(betaInput, 'dummy beta key');
 
     async function importForPackage(packageName: string, inputPath: string, password: string) {
+      const logger = createLogger(false);
       return ensureUploadKeystore({
         appName: 'same-display-name',
         packageName,
-        log: createLogger(false),
+        log: logger,
         dryRun: false,
         confirmCreate: refuseCreate,
         confirmReplace: allowReplace,
@@ -107,8 +112,10 @@ describe('Android package credential isolation', () => {
     ]);
 
     expect(alpha.path).not.toBe(beta.path);
-    expect(readFileSync(alpha.path, 'utf8')).toBe('dummy alpha key');
-    expect(readFileSync(beta.path, 'utf8')).toBe('dummy beta key');
+    const loadedFile = readFileSync(alpha.path, 'utf8');
+    expect(loadedFile).toBe('dummy alpha key');
+    const fileSync = readFileSync(beta.path, 'utf8');
+    expect(fileSync).toBe('dummy beta key');
 
     const verificationCalls = vi.mocked(captureCommandOutput).mock.calls.slice(0, 2);
     const firstPassword =
@@ -120,7 +127,8 @@ describe('Android package credential isolation', () => {
     expect(secondPassword).toMatch(/^[a-f0-9]{64}$/);
     expect(firstPassword).not.toBe(secondPassword);
     expect(verificationCalls[0]?.[1].join(' ')).not.toContain(firstPassword);
-    expect((await loadCachedKeystore('com.example.alpha'))?.storePassword).toBe('alpha-password');
+    const cachedKeystore = await loadCachedKeystore('com.example.alpha');
+    expect(cachedKeystore?.storePassword).toBe('alpha-password');
     expect((await loadCachedKeystore('com.example.beta'))?.storePassword).toBe('beta-password');
     expect(await loadCachedKeystore('com.example.gamma')).toBeNull();
 
@@ -184,10 +192,11 @@ describe('Android package credential isolation', () => {
     writeFileSync(replacement, 'replacement key');
 
     function provision(path: string, confirmReplace: () => Promise<boolean>) {
+      const logger = createLogger(false);
       return ensureUploadKeystore({
         appName: 'demo',
         packageName: 'com.example.app',
-        log: createLogger(false),
+        log: logger,
         dryRun: false,
         confirmCreate: function declineCreate() {
           return Promise.resolve(false);
@@ -208,7 +217,8 @@ describe('Android package credential isolation', () => {
     ).rejects.toMatchObject({
       message: expect.stringMatching(/not replaced/),
     });
-    expect(readFileSync(original.path, 'utf8')).toBe('first key');
+    const loadedFile = readFileSync(original.path, 'utf8');
+    expect(loadedFile).toBe('first key');
   });
 
   it('never reuses or regenerates when only a legacy keystore exists', async () => {
@@ -220,33 +230,34 @@ describe('Android package credential isolation', () => {
     const legacyPath = join(legacyDirectory, 'upload.keystore');
 
     writeFileSync(legacyPath, 'legacy key');
-    writeFileSync(
-      join(legacyDirectory, 'android.json'),
-      JSON.stringify({ keystore: { path: legacyPath, alias: 'upload' } }),
-    );
+    const androidPath = join(legacyDirectory, 'android.json');
+    const serialized = JSON.stringify({ keystore: { path: legacyPath, alias: 'upload' } });
+    writeFileSync(androidPath, serialized);
     sandbox.secrets.set('android-keystore-store-password', 'store-password');
     sandbox.secrets.set('android-keystore-key-password', 'key-password');
 
-    expect(await loadCachedKeystore('com.example.app')).toBeNull();
+    const cachedKeystore = await loadCachedKeystore('com.example.app');
+    expect(cachedKeystore).toBeNull();
 
     let offered = false;
 
-    await expect(
-      ensureUploadKeystore({
-        appName: 'demo',
-        packageName: 'com.example.app',
-        log: createLogger(false),
-        dryRun: false,
-        confirmCreate: function noteOffer() {
-          offered = true;
+    const logger = createLogger(false);
+    const uploadKeystore = ensureUploadKeystore({
+      appName: 'demo',
+      packageName: 'com.example.app',
+      log: logger,
+      dryRun: false,
+      confirmCreate: function noteOffer() {
+        offered = true;
 
-          return Promise.resolve(false);
-        },
-      }),
-    ).rejects.toMatchObject({
+        return Promise.resolve(false);
+      },
+    });
+    await expect(uploadKeystore).rejects.toMatchObject({
       message: expect.stringMatching(/launch creds adopt --platform android --app 'demo'/),
     });
     expect(offered).toBe(false);
-    expect(readFileSync(legacyPath, 'utf8')).toBe('legacy key');
+    const loadedFile = readFileSync(legacyPath, 'utf8');
+    expect(loadedFile).toBe('legacy key');
   });
 });

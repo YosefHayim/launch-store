@@ -97,9 +97,8 @@ describe('parseCustomProductPagesConfig', () => {
 describe('reconcileCustomProductPages', () => {
   it('throws when the app has no App Store Connect record', async () => {
     const { api } = makeApi({ appId: null });
-    await expect(
-      runReconcile(api, { bundleId: 'com.acme.app', config: CONFIG, dryRun: true }),
-    ).rejects.toThrow(/No App Store Connect app record/);
+    const reconcile = runReconcile(api, { bundleId: 'com.acme.app', config: CONFIG, dryRun: true });
+    await expect(reconcile).rejects.toThrow(/No App Store Connect app record/);
   });
   it('creates a missing page and sets its promotional text (apply)', async () => {
     const { api, calls } = makeApi({});
@@ -112,7 +111,8 @@ describe('reconcileCustomProductPages', () => {
     expect(calls.createdLocs).toEqual([
       { versionId: 'ver-1', locale: 'en-US', promotionalText: '50% off this week!' },
     ]);
-    expect(summarizeCustomPages(report.actions)).toEqual({ applied: 2, failed: 0, skipped: 0 });
+    const customPages = summarizeCustomPages(report.actions);
+    expect(customPages).toEqual({ applied: 2, failed: 0, skipped: 0 });
   });
   it('updates promotional text on an existing page when it differs, and skips an identical one', async () => {
     const { api, calls } = makeApi({
@@ -149,7 +149,8 @@ describe('reconcileCustomProductPages', () => {
       dryRun: false,
     });
     expect(calls.createdLocs).toHaveLength(0);
-    expect(summarizeCustomPages(report.actions)).toEqual({ applied: 0, failed: 0, skipped: 1 });
+    const customPages = summarizeCustomPages(report.actions);
+    expect(customPages).toEqual({ applied: 0, failed: 0, skipped: 1 });
   });
   it('plans but performs nothing on a dry-run (new page)', async () => {
     const { api, calls } = makeApi({});

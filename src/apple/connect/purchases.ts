@@ -232,12 +232,11 @@ export class ConnectPurchases {
     territory: string,
     customerPrice: number,
   ): Promise<PricePointResource | null> {
+    const uRIComponent = encodeURIComponent(territory);
     const points = await this.client.requestAll<{
       customerPrice?: string;
       territory?: string;
-    }>(
-      `/subscriptions/${subscriptionId}/pricePoints?filter[territory]=${encodeURIComponent(territory)}&limit=8000`,
-    );
+    }>(`/subscriptions/${subscriptionId}/pricePoints?filter[territory]=${uRIComponent}&limit=8000`);
     return matchPricePoint(points, territory, customerPrice);
   }
 
@@ -639,12 +638,13 @@ export class ConnectPurchases {
     territory: string,
     customerPrice: number,
   ): Promise<PricePointResource | null> {
+    const uRIComponent = encodeURIComponent(territory);
     const points = await this.client.requestAll<{
       customerPrice?: string;
       territory?: string;
     }>(
       this.client.v2(
-        `/inAppPurchases/${iapId}/pricePoints?filter[territory]=${encodeURIComponent(territory)}&limit=8000`,
+        `/inAppPurchases/${iapId}/pricePoints?filter[territory]=${uRIComponent}&limit=8000`,
       ),
     );
     return matchPricePoint(points, territory, customerPrice);

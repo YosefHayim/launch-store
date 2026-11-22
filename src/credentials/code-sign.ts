@@ -50,7 +50,9 @@ export async function ensureCodeSigner(dryRun: boolean, logger: Logger): Promise
     return { certPath: publicCertificatePath, sign: signWithStoredKey };
   }
 
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'launch-codesign-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchCodesignPath = join(systemTemporaryDirectory, 'launch-codesign-');
+  const temporaryDirectory = await mkdtemp(launchCodesignPath);
 
   try {
     const privateKeyPath = join(temporaryDirectory, 'key.pem');

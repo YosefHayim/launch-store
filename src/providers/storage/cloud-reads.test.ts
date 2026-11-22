@@ -96,15 +96,15 @@ for (const createProvider of storageProviders) {
 
     it('rejects denied index reads', async () => {
       await withStorageReply(403, '<Error><Code>AccessDenied</Code></Error>', async (endpoint) => {
-        await expect(readStorage(endpoint)).rejects.toThrow(
-          /read of artifacts\/index\.json failed/,
-        );
+        const storage = readStorage(endpoint);
+        await expect(storage).rejects.toThrow(/read of artifacts\/index\.json failed/);
       });
     });
 
     it('rejects malformed index contents as a parse failure, not a failed read', async () => {
       await withStorageReply(200, '{broken', async (endpoint) => {
-        await expect(readStorage(endpoint)).rejects.toMatchObject({ _tag: 'ParseError' });
+        const storage = readStorage(endpoint);
+        await expect(storage).rejects.toMatchObject({ _tag: 'ParseError' });
       });
     });
 
@@ -116,7 +116,8 @@ for (const createProvider of storageProviders) {
     });
 
     it('decodes a valid index', async () => {
-      await withStorageReply(200, JSON.stringify([storedArtifact]), async (endpoint) => {
+      const serialized = JSON.stringify([storedArtifact]);
+      await withStorageReply(200, serialized, async (endpoint) => {
         const artifacts = await readStorage(endpoint);
         expect(artifacts).toEqual([storedArtifact]);
       });
@@ -124,9 +125,8 @@ for (const createProvider of storageProviders) {
 
     it('does not disguise denied object reads as absent objects', async () => {
       await withStorageReply(403, '<Error><Code>AccessDenied</Code></Error>', async (endpoint) => {
-        await expect(readStorage(endpoint, 'manifest.json')).rejects.toThrow(
-          /read of manifest\.json failed/,
-        );
+        const storage = readStorage(endpoint, 'manifest.json');
+        await expect(storage).rejects.toThrow(/read of manifest\.json failed/);
       });
     });
   });

@@ -30,7 +30,8 @@ interface AccountsDocument {
 }
 
 function accountsFilePath(): string {
-  return join(homedir(), '.launch', 'accounts.json');
+  const homeDirectory = homedir();
+  return join(homeDirectory, '.launch', 'accounts.json');
 }
 
 export function applePrivateKeyAccount(keyId: string): string {

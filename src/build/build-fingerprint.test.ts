@@ -23,19 +23,17 @@ const FINGERPRINT_PARTS: FingerprintParts = {
 
 describe('computeBuildFingerprint', () => {
   it('is deterministic for identical inputs', () => {
-    expect(computeBuildFingerprint(FINGERPRINT_PARTS)).toBe(
-      computeBuildFingerprint({ ...FINGERPRINT_PARTS }),
-    );
+    const buildFingerprint = computeBuildFingerprint(FINGERPRINT_PARTS);
+    expect(buildFingerprint).toBe(computeBuildFingerprint({ ...FINGERPRINT_PARTS }));
   });
 
   it('changes when any native input changes', () => {
     const baseFingerprint = computeBuildFingerprint(FINGERPRINT_PARTS);
-    expect(
-      computeBuildFingerprint({
-        ...FINGERPRINT_PARTS,
-        podfileLock: `${FINGERPRINT_PARTS.podfileLock} `,
-      }),
-    ).not.toBe(baseFingerprint);
+    const buildFingerprint = computeBuildFingerprint({
+      ...FINGERPRINT_PARTS,
+      podfileLock: `${FINGERPRINT_PARTS.podfileLock} `,
+    });
+    expect(buildFingerprint).not.toBe(baseFingerprint);
     expect(computeBuildFingerprint({ ...FINGERPRINT_PARTS, podfileProperties: '{}' })).not.toBe(
       baseFingerprint,
     );
@@ -64,17 +62,17 @@ describe('computeBuildFingerprint', () => {
 
 describe('extractNativeConfigSlice', () => {
   it('reads native fields through the Expo wrapper', () => {
-    const nativeSlice = extractNativeConfigSlice(
-      JSON.stringify({
-        expo: {
-          name: 'Demo',
-          plugins: ['expo-router'],
-          newArchEnabled: true,
-          ios: { deploymentTarget: '15.1' },
-        },
-      }),
-    );
-    expect(JSON.parse(nativeSlice)).toEqual({
+    const serialized = JSON.stringify({
+      expo: {
+        name: 'Demo',
+        plugins: ['expo-router'],
+        newArchEnabled: true,
+        ios: { deploymentTarget: '15.1' },
+      },
+    });
+    const nativeSlice = extractNativeConfigSlice(serialized);
+    const parsed = JSON.parse(nativeSlice);
+    expect(parsed).toEqual({
       plugins: ['expo-router'],
       newArchEnabled: true,
       iosDeploymentTarget: '15.1',
@@ -82,9 +80,8 @@ describe('extractNativeConfigSlice', () => {
   });
 
   it('ignores fields that do not affect the native graph', () => {
-    const beforeSlice = extractNativeConfigSlice(
-      JSON.stringify({ expo: { name: 'Before', plugins: ['x'] } }),
-    );
+    const serialized = JSON.stringify({ expo: { name: 'Before', plugins: ['x'] } });
+    const beforeSlice = extractNativeConfigSlice(serialized);
     const afterSlice = extractNativeConfigSlice(
       JSON.stringify({ expo: { name: 'After', plugins: ['x'] } }),
     );
@@ -92,10 +89,10 @@ describe('extractNativeConfigSlice', () => {
   });
 
   it('supports a flat config shape', () => {
-    const nativeSlice = extractNativeConfigSlice(
-      JSON.stringify({ plugins: ['a'], newArchEnabled: false }),
-    );
-    expect(JSON.parse(nativeSlice)).toEqual({
+    const serialized = JSON.stringify({ plugins: ['a'], newArchEnabled: false });
+    const nativeSlice = extractNativeConfigSlice(serialized);
+    const parsed = JSON.parse(nativeSlice);
+    expect(parsed).toEqual({
       plugins: ['a'],
       newArchEnabled: false,
       iosDeploymentTarget: null,
@@ -104,7 +101,8 @@ describe('extractNativeConfigSlice', () => {
 
   it('keeps dynamic config text so edits invalidate the fingerprint', () => {
     const dynamicConfig = "export default ({ config }) => ({ ...config, plugins: ['x'] });";
-    expect(extractNativeConfigSlice(dynamicConfig)).toBe(dynamicConfig);
+    const extractNativeSlice = extractNativeConfigSlice(dynamicConfig);
+    expect(extractNativeSlice).toBe(dynamicConfig);
   });
 });
 
@@ -116,7 +114,8 @@ describe('resolveClean', () => {
   };
 
   it('forces a clean when requested', () => {
-    expect(resolveClean(true, storedBuild, 'abc')).toMatchObject({
+    const clean = resolveClean(true, storedBuild, 'abc');
+    expect(clean).toMatchObject({
       clean: true,
       nativeChanged: false,
     });
@@ -127,7 +126,8 @@ describe('resolveClean', () => {
   });
 
   it('cleans on the first build or a changed fingerprint', () => {
-    expect(resolveClean(false, null, 'abc')).toMatchObject({ clean: true, nativeChanged: true });
+    const clean = resolveClean(false, null, 'abc');
+    expect(clean).toMatchObject({ clean: true, nativeChanged: true });
     expect(resolveClean(false, storedBuild, 'xyz')).toMatchObject({
       clean: true,
       nativeChanged: true,
@@ -135,7 +135,8 @@ describe('resolveClean', () => {
   });
 
   it('reuses caches when the fingerprint matches', () => {
-    expect(resolveClean(false, storedBuild, 'abc')).toMatchObject({
+    const clean = resolveClean(false, storedBuild, 'abc');
+    expect(clean).toMatchObject({
       clean: false,
       nativeChanged: false,
     });
@@ -146,7 +147,9 @@ describe('build state storage', () => {
   let temporaryDirectory: string;
 
   beforeEach(() => {
-    temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-fp-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchFpPath = join(systemTemporaryDirectory, 'launch-fp-');
+    temporaryDirectory = mkdtempSync(launchFpPath);
   });
 
   afterEach(() => {
@@ -169,14 +172,16 @@ describe('build state storage', () => {
       },
     };
     await writeBuildState('demo', 'ios', buildState, temporaryDirectory);
-    expect(await readBuildState('demo', 'ios', temporaryDirectory)).toEqual(buildState);
+    const readBuild = await readBuildState('demo', 'ios', temporaryDirectory);
+    expect(readBuild).toEqual(buildState);
     expect(await readBuildState('demo', 'android', temporaryDirectory)).toBeNull();
   });
 });
 
 describe('build estimates', () => {
   it('adopts the first sample and smooths later samples', () => {
-    expect(updateEstimate(undefined, { ms: 41000, steps: 28 })).toEqual({
+    const estimate = updateEstimate(undefined, { ms: 41000, steps: 28 });
+    expect(estimate).toEqual({
       ms: 41000,
       steps: 28,
     });
@@ -187,7 +192,8 @@ describe('build estimates', () => {
   });
 
   it('uses a custom smoothing weight', () => {
-    expect(updateEstimate({ ms: 100, steps: 10 }, { ms: 200, steps: 20 }, 0.25)).toEqual({
+    const estimate = updateEstimate({ ms: 100, steps: 10 }, { ms: 200, steps: 20 }, 0.25);
+    expect(estimate).toEqual({
       ms: 125,
       steps: 13,
     });

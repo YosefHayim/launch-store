@@ -8,23 +8,20 @@ import {
 
 describe('adbInstallArgs', () => {
   it('reinstalls without a serial when none is given', () => {
-    expect(adbInstallArgs('/b/app.apk')).toEqual(['install', '-r', '/b/app.apk']);
+    const adbInstall = adbInstallArgs('/b/app.apk');
+    expect(adbInstall).toEqual(['install', '-r', '/b/app.apk']);
   });
 
   it('scopes installation to one device serial', () => {
-    expect(adbInstallArgs('/b/app.apk', 'emulator-5554')).toEqual([
-      '-s',
-      'emulator-5554',
-      'install',
-      '-r',
-      '/b/app.apk',
-    ]);
+    const adbInstall = adbInstallArgs('/b/app.apk', 'emulator-5554');
+    expect(adbInstall).toEqual(['-s', 'emulator-5554', 'install', '-r', '/b/app.apk']);
   });
 });
 
 describe('bundletool arguments', () => {
   it('creates a universal APK set', () => {
-    expect(bundletoolBuildApksArgs('/b/app.aab', '/tmp/app.apks')).toEqual([
+    const bundletoolBuildApks = bundletoolBuildApksArgs('/b/app.aab', '/tmp/app.apks');
+    expect(bundletoolBuildApks).toEqual([
       'build-apks',
       '--bundle=/b/app.aab',
       '--output=/tmp/app.apks',
@@ -34,10 +31,8 @@ describe('bundletool arguments', () => {
   });
 
   it('installs an APK set with an optional device serial', () => {
-    expect(bundletoolInstallApksArgs('/tmp/app.apks')).toEqual([
-      'install-apks',
-      '--apks=/tmp/app.apks',
-    ]);
+    const bundletoolInstallApks = bundletoolInstallApksArgs('/tmp/app.apks');
+    expect(bundletoolInstallApks).toEqual(['install-apks', '--apks=/tmp/app.apks']);
     expect(bundletoolInstallApksArgs('/tmp/app.apks', 'emulator-5554')).toEqual([
       'install-apks',
       '--apks=/tmp/app.apks',
@@ -48,7 +43,8 @@ describe('bundletool arguments', () => {
 
 describe('devicectlInstallArgs', () => {
   it('installs an application bundle with an optional device identifier', () => {
-    expect(devicectlInstallArgs('/tmp/Payload/Demo.app')).toEqual([
+    const devicectlInstall = devicectlInstallArgs('/tmp/Payload/Demo.app');
+    expect(devicectlInstall).toEqual([
       'devicectl',
       'device',
       'install',

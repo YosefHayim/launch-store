@@ -85,9 +85,11 @@ describe('parseEasJson', () => {
     expect(eas).toEqual({ build: {}, submit: {} });
   });
   it('drops non-string env values and empty halves', () => {
-    const eas = parseEasJson(
-      JSON.stringify({ build: { p: { env: { A: '1', B: 2 } } }, submit: { p: { ios: {} } } }),
-    );
+    const serialized = JSON.stringify({
+      build: { p: { env: { A: '1', B: 2 } } },
+      submit: { p: { ios: {} } },
+    });
+    const eas = parseEasJson(serialized);
     expect(eas.build['p']?.env).toEqual({ A: '1' });
     expect(eas.submit['p']?.ios).toBeUndefined();
   });
@@ -125,7 +127,8 @@ describe('launchProfilesFromEas', () => {
 
   it('falls back to a single production profile when eas.json declares none', () => {
     const launchProfiles = launchProfilesFromEas({ build: {}, submit: {} });
-    expect(Object.keys(launchProfiles)).toEqual(['production']);
+    const ownKeys = Object.keys(launchProfiles);
+    expect(ownKeys).toEqual(['production']);
     expect(launchProfiles['production']).toEqual({ name: 'production', sizeBudgetMB: 200 });
   });
 
@@ -140,11 +143,13 @@ describe('launchProfilesFromEas', () => {
 
 describe('collectEnvironmentKeys', () => {
   it('unions profile env keys and sorts them', () => {
-    expect(collectEnvironmentKeys(sampleEasConfiguration())).toEqual(['API_URL', 'SENTRY_DSN']);
+    const environmentKeys = collectEnvironmentKeys(sampleEasConfiguration());
+    expect(environmentKeys).toEqual(['API_URL', 'SENTRY_DSN']);
   });
 
   it('returns an empty list when no profile declares env', () => {
-    expect(collectEnvironmentKeys({ build: { production: {} }, submit: {} })).toEqual([]);
+    const environmentKeys = collectEnvironmentKeys({ build: { production: {} }, submit: {} });
+    expect(environmentKeys).toEqual([]);
   });
 });
 
@@ -185,22 +190,21 @@ describe('notesFromEasConfiguration', () => {
 
 describe('credentialsSummaryFromJson / notesFromCredentialsSummary', () => {
   it('keeps path and alias facts while dropping password fields', () => {
-    const credentialsSummary = credentialsSummaryFromJson(
-      JSON.stringify({
-        ios: {
-          provisioningProfilePath: 'ios/certs/profile.mobileprovision',
-          distributionCertificate: { path: 'ios/certs/dist.p12', password: 'SUPER_SECRET_PW' },
+    const serialized = JSON.stringify({
+      ios: {
+        provisioningProfilePath: 'ios/certs/profile.mobileprovision',
+        distributionCertificate: { path: 'ios/certs/dist.p12', password: 'SUPER_SECRET_PW' },
+      },
+      android: {
+        keystore: {
+          keystorePath: 'android/release.keystore',
+          keyAlias: 'upload',
+          keystorePassword: 'KS_SECRET',
+          keyPassword: 'KEY_SECRET',
         },
-        android: {
-          keystore: {
-            keystorePath: 'android/release.keystore',
-            keyAlias: 'upload',
-            keystorePassword: 'KS_SECRET',
-            keyPassword: 'KEY_SECRET',
-          },
-        },
-      }),
-    );
+      },
+    });
+    const credentialsSummary = credentialsSummaryFromJson(serialized);
     expect(credentialsSummary).toEqual({
       ios: {
         distributionCertificatePath: 'ios/certs/dist.p12',
@@ -218,9 +222,11 @@ describe('credentialsSummaryFromJson / notesFromCredentialsSummary', () => {
   });
 
   it('returns null for empty or unusable credentials documents', () => {
-    expect(credentialsSummaryFromJson('{}')).toBeNull();
+    const credentialsSummaryFrom = credentialsSummaryFromJson('{}');
+    expect(credentialsSummaryFrom).toBeNull();
     expect(credentialsSummaryFromJson('{ not json')).toBeNull();
-    expect(credentialsSummaryFromJson(JSON.stringify({ ios: {} }))).toBeNull();
+    const serialized = JSON.stringify({ ios: {} });
+    expect(credentialsSummaryFromJson(serialized)).toBeNull();
   });
 
   it('emits manual creds follow-ups that point at launch creds for path facts only', () => {
@@ -232,7 +238,8 @@ describe('credentialsSummaryFromJson / notesFromCredentialsSummary', () => {
     expect(messages.some((message) => message.includes('ios/certs/dist.p12'))).toBe(true);
     expect(messages.some((message) => message.includes('android/release.keystore'))).toBe(true);
     expect(messages.some((message) => message.includes('"upload"'))).toBe(true);
-    expect(JSON.stringify(notes)).not.toContain('SUPER_SECRET');
+    const serialized = JSON.stringify(notes);
+    expect(serialized).not.toContain('SUPER_SECRET');
   });
 });
 
@@ -276,8 +283,11 @@ describe('expoFactsFromResolvedConfig / notesFromExpoFacts', () => {
 describe('migrateEas', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'launch-migrate-'));
-    writeFileSync(join(dir, 'eas.json'), SAMPLE_EAS);
+    const systemTemporaryDirectory = tmpdir();
+    const launchMigratePath = join(systemTemporaryDirectory, 'launch-migrate-');
+    dir = mkdtempSync(launchMigratePath);
+    const easPath = join(dir, 'eas.json');
+    writeFileSync(easPath, SAMPLE_EAS);
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -286,7 +296,8 @@ describe('migrateEas', () => {
     return migrateEas(workingDirectory, apps);
   }
   it('returns a tagged failure when there is no eas.json', async () => {
-    rmSync(join(dir, 'eas.json'));
+    const easPath = join(dir, 'eas.json');
+    rmSync(easPath);
     await expect(migrateEas(dir, [app()])).rejects.toMatchObject({
       _tag: 'EasMigrationFailure',
       reason: 'MissingEasConfig',
@@ -334,7 +345,8 @@ describe('migrateEas', () => {
     expect(manual.some((message) => message.includes('store.config.json'))).toBe(true);
   });
   it('skips store.config.json when one already exists', async () => {
-    writeFileSync(join(dir, 'store.config.json'), '{}');
+    const storePath = join(dir, 'store.config.json');
+    writeFileSync(storePath, '{}');
     const migration = await runMigrateEas(dir, [app()]);
     expect(migration.artifacts.map((migrationArtifact) => migrationArtifact.path)).not.toContain(
       'store.config.json',
@@ -355,23 +367,22 @@ describe('migrateEas', () => {
     expect(manual.some((message) => message.includes('Play service account'))).toBe(true);
   });
   it('imports local credentials.json as manual notes without ever surfacing a password', async () => {
-    writeFileSync(
-      join(dir, 'credentials.json'),
-      JSON.stringify({
-        ios: {
-          provisioningProfilePath: 'ios/certs/profile.mobileprovision',
-          distributionCertificate: { path: 'ios/certs/dist.p12', password: 'SUPER_SECRET_PW' },
+    const credentialsPath = join(dir, 'credentials.json');
+    const serialized = JSON.stringify({
+      ios: {
+        provisioningProfilePath: 'ios/certs/profile.mobileprovision',
+        distributionCertificate: { path: 'ios/certs/dist.p12', password: 'SUPER_SECRET_PW' },
+      },
+      android: {
+        keystore: {
+          keystorePath: 'android/release.keystore',
+          keyAlias: 'upload',
+          keystorePassword: 'KS_SECRET',
+          keyPassword: 'KEY_SECRET',
         },
-        android: {
-          keystore: {
-            keystorePath: 'android/release.keystore',
-            keyAlias: 'upload',
-            keystorePassword: 'KS_SECRET',
-            keyPassword: 'KEY_SECRET',
-          },
-        },
-      }),
-    );
+      },
+    });
+    writeFileSync(credentialsPath, serialized);
     const migration = await runMigrateEas(dir, [app()]);
     const manual = notesAt(migration.notes, 'manual').map((note) => note.message);
     expect(
@@ -407,25 +418,26 @@ describe('migrateEas', () => {
     ).toBe(true);
   });
   it('surfaces EAS app facts (projectId, owner, runtimeVersion, updates) from app.json as info notes', async () => {
-    const appDir = mkdtempSync(join(tmpdir(), 'launch-migrate-app-'));
-    writeFileSync(join(appDir, 'eas.json'), SAMPLE_EAS);
-    writeFileSync(
-      join(appDir, 'app.json'),
-      JSON.stringify({
-        expo: {
-          name: 'alpha',
-          slug: 'alpha',
-          owner: 'acme-org',
-          runtimeVersion: { policy: 'sdkVersion' },
-          updates: { url: 'https://u.expo.dev/abc' },
-          extra: { eas: { projectId: '11111111-2222-3333-4444-555555555555' } },
-        },
-      }),
-    );
+    const systemTemporaryDirectory = tmpdir();
+    const launchMigrateAppPath = join(systemTemporaryDirectory, 'launch-migrate-app-');
+    const appDir = mkdtempSync(launchMigrateAppPath);
+    const easPath = join(appDir, 'eas.json');
+    writeFileSync(easPath, SAMPLE_EAS);
+    const appPath = join(appDir, 'app.json');
+    const serialized = JSON.stringify({
+      expo: {
+        name: 'alpha',
+        slug: 'alpha',
+        owner: 'acme-org',
+        runtimeVersion: { policy: 'sdkVersion' },
+        updates: { url: 'https://u.expo.dev/abc' },
+        extra: { eas: { projectId: '11111111-2222-3333-4444-555555555555' } },
+      },
+    });
+    writeFileSync(appPath, serialized);
     try {
-      const migration = await runMigrateEas(appDir, [
-        app({ dir: appDir, configPath: join(appDir, 'app.json') }),
-      ]);
+      const appPath = join(appDir, 'app.json');
+      const migration = await runMigrateEas(appDir, [app({ dir: appDir, configPath: appPath })]);
       const informationalNotes = notesAt(migration.notes, 'info').map((note) => note.message);
       expect(
         informationalNotes.some((message) =>
@@ -440,7 +452,9 @@ describe('migrateEas', () => {
     }
   });
   it('falls back to a single production profile when eas.json declares none', async () => {
-    writeFileSync(join(dir, 'eas.json'), JSON.stringify({ submit: {} }));
+    const easPath = join(dir, 'eas.json');
+    const serialized = JSON.stringify({ submit: {} });
+    writeFileSync(easPath, serialized);
     const config = artifact(
       (await runMigrateEas(dir, [app()])).artifacts,
       'launch.config.ts',

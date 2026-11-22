@@ -39,7 +39,8 @@ function makeMemoryStorage(): MemoryStorage {
         return Promise.resolve(null);
       }
 
-      return Promise.resolve(Buffer.from(storedText));
+      const bufferBytes = Buffer.from(storedText);
+      return Promise.resolve(bufferBytes);
     },
     publicUrl: (objectKey) => `https://cdn/${objectKey}`,
   };
@@ -67,9 +68,13 @@ describe('publishOtaPlatform', () => {
   let exportMetadata: ExportMetadata;
 
   beforeEach(() => {
-    exportDirectory = mkdtempSync(join(tmpdir(), 'launch-ota-'));
-    writeFileSync(join(exportDirectory, 'bundle.js'), "console.log('bundle')");
-    writeFileSync(join(exportDirectory, 'logo.png'), 'PNGDATA');
+    const systemTemporaryDirectory = tmpdir();
+    const launchOtaPath = join(systemTemporaryDirectory, 'launch-ota-');
+    exportDirectory = mkdtempSync(launchOtaPath);
+    const bundlePath = join(exportDirectory, 'bundle.js');
+    writeFileSync(bundlePath, "console.log('bundle')");
+    const logoPath = join(exportDirectory, 'logo.png');
+    writeFileSync(logoPath, 'PNGDATA');
     exportMetadata = {
       fileMetadata: {
         ios: {
@@ -167,10 +172,13 @@ describe('publishOtaPlatform', () => {
 
 describe('readExportMetadata', () => {
   it('fails with an actionable error when metadata.json is missing', async () => {
-    const exportDirectory = mkdtempSync(join(tmpdir(), 'launch-ota-empty-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchOtaEmptyPath = join(systemTemporaryDirectory, 'launch-ota-empty-');
+    const exportDirectory = mkdtempSync(launchOtaEmptyPath);
 
     try {
-      await expect(readExportMetadata(exportDirectory)).rejects.toMatchObject({
+      const exportMetadata = readExportMetadata(exportDirectory);
+      await expect(exportMetadata).rejects.toMatchObject({
         _tag: 'OtaPublishFailure',
       });
     } finally {
@@ -179,14 +187,19 @@ describe('readExportMetadata', () => {
   });
 
   it('decodes valid Expo export metadata', async () => {
-    const exportDirectory = mkdtempSync(join(tmpdir(), 'launch-ota-meta-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchOtaMetaPath = join(systemTemporaryDirectory, 'launch-ota-meta-');
+    const exportDirectory = mkdtempSync(launchOtaMetaPath);
     const expectedMetadata: ExportMetadata = {
       fileMetadata: { ios: { bundle: 'bundle.js', assets: [] } },
     };
 
     try {
-      writeFileSync(join(exportDirectory, 'metadata.json'), JSON.stringify(expectedMetadata));
-      await expect(readExportMetadata(exportDirectory)).resolves.toEqual(expectedMetadata);
+      const metadataPath = join(exportDirectory, 'metadata.json');
+      const serialized = JSON.stringify(expectedMetadata);
+      writeFileSync(metadataPath, serialized);
+      const exportMetadata = readExportMetadata(exportDirectory);
+      await expect(exportMetadata).resolves.toEqual(expectedMetadata);
     } finally {
       rmSync(exportDirectory, { recursive: true, force: true });
     }

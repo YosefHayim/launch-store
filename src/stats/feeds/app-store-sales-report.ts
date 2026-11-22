@@ -34,7 +34,10 @@ export const findAppSkus = (
 
 const isLineOfApp = (line: ReportLine, kind: SalesReportKind, day: SalesDay): boolean => {
   const isInAppPurchase = kind == 'in-app-purchase';
-  if (isInAppPurchase) return day.appSkus.has(readCell(line, 'Parent Identifier'));
+  if (isInAppPurchase) {
+    const cell = readCell(line, 'Parent Identifier');
+    return day.appSkus.has(cell);
+  }
   return readCell(line, APPLE_IDENTIFIER_COLUMN) == day.storeId;
 };
 
@@ -46,12 +49,14 @@ export const summarizeSalesLines = (
   const unitsByKind = new Map<SalesReportKind, number>();
   const proceedsByCurrency = new Map<string, number>();
   for (const line of reportLines) {
-    const kind = findSalesReportKind(readCell(line, 'Product Type Identifier'));
+    const cell = readCell(line, 'Product Type Identifier');
+    const kind = findSalesReportKind(cell);
     if (kind == null) continue;
     const isLineAboutApp = isLineOfApp(line, kind, day);
     if (!isLineAboutApp) continue;
     const units = readNumberCell(line, 'Units');
-    unitsByKind.set(kind, readTotal(unitsByKind, kind) + units);
+    const total = readTotal(unitsByKind, kind);
+    unitsByKind.set(kind, total + units);
     const currency = readCell(line, 'Currency of Proceeds');
     const lineProceeds = readNumberCell(line, 'Developer Proceeds') * units;
     proceedsByCurrency.set(currency, readTotal(proceedsByCurrency, currency) + lineProceeds);

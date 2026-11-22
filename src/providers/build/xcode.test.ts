@@ -19,9 +19,8 @@ describe("resolveNativeDir - absolute native-project path so gym can't double th
   });
 
   it('leaves an already-absolute app dir untouched', () => {
-    expect(resolveNativeDir('/Users/x/acme/apps/sampleapp', 'ios')).toBe(
-      '/Users/x/acme/apps/sampleapp/ios',
-    );
+    const nativeDir = resolveNativeDir('/Users/x/acme/apps/sampleapp', 'ios');
+    expect(nativeDir).toBe('/Users/x/acme/apps/sampleapp/ios');
   });
 
   it('maps each Apple platform to its native-project directory (tvOS shares ios/)', () => {
@@ -75,7 +74,8 @@ iPhone14,6
   });
 
   it('degrades to an empty array rather than throwing on unrecognized text', () => {
-    expect(parseThinningReport('totally unrelated output')).toEqual([]);
+    const thinningReport = parseThinningReport('totally unrelated output');
+    expect(thinningReport).toEqual([]);
   });
 });
 
@@ -182,6 +182,7 @@ describe("xcodebuildEnv - forwards Launch's resolved env to the bundle step; cca
 
   it('adds no App Store Connect key variables, which only fastlane read', () => {
     const buildEnvironment = xcodebuildEnv({ EXPO_PUBLIC_FLAG: 'on' }, {});
-    expect(Object.keys(buildEnvironment)).toEqual(['EXPO_PUBLIC_FLAG']);
+    const ownKeys = Object.keys(buildEnvironment);
+    expect(ownKeys).toEqual(['EXPO_PUBLIC_FLAG']);
   });
 });

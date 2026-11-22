@@ -8,7 +8,9 @@ import { readFirstRunState } from './first-run.ts';
 let temporaryHome: string;
 
 beforeEach(() => {
-  temporaryHome = mkdtempSync(join(tmpdir(), 'launch-first-run-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchFirstRunPath = join(systemTemporaryDirectory, 'launch-first-run-');
+  temporaryHome = mkdtempSync(launchFirstRunPath);
   useLaunchDirectories({ homeDirectory: temporaryHome, workingDirectory: temporaryHome });
 });
 
@@ -19,7 +21,8 @@ afterEach(() => {
 
 describe('first-run state', () => {
   it('reads as unseen when the state file does not exist', async () => {
-    await expect(readFirstRunState()).resolves.toEqual({});
+    const readFirstRun = readFirstRunState();
+    await expect(readFirstRun).resolves.toEqual({});
   });
 
   it('treats malformed state as unseen', async () => {
@@ -27,6 +30,7 @@ describe('first-run state', () => {
     const stateFile = join(launchHome, 'state.json');
     mkdirSync(launchHome, { recursive: true });
     writeFileSync(stateFile, '{ not json');
-    await expect(readFirstRunState()).resolves.toEqual({});
+    const readFirstRun = readFirstRunState();
+    await expect(readFirstRun).resolves.toEqual({});
   });
 });

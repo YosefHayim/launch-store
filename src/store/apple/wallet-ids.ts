@@ -58,7 +58,8 @@ function readWalletFamily(
   const identifiers: WalletIdConfig[] = [];
 
   for (const entry of family) {
-    identifiers.push(readWalletIdentifier(entry));
+    const walletIdentifier = readWalletIdentifier(entry);
+    identifiers.push(walletIdentifier);
   }
 
   return identifiers;

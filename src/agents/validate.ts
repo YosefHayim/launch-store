@@ -59,7 +59,8 @@ export const findUnknownCommands = (
   for (const skill of skills) {
     for (const skillCommand of skillReferencedCommands(skill)) {
       if (commandPathIsRegistered(registeredCli, skillCommand.path)) continue;
-      unknownCommands.push(formatUnknownSkillCommand(skill.id, skillCommand.path));
+      const unknownSkillCommand = formatUnknownSkillCommand(skill.id, skillCommand.path);
+      unknownCommands.push(unknownSkillCommand);
     }
   }
   return unknownCommands;

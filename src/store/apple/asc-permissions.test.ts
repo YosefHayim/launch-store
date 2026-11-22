@@ -36,14 +36,17 @@ const transportFailure = (message: string, status?: number) => {
 
 describe('probeKeyPermissions', () => {
   it('marks every feature available when all probes succeed', async () => {
-    const permissions = await probeKeyPermissions(makePermissionClient(), 'app1');
+    const permissionClient = makePermissionClient();
+    const permissions = await probeKeyPermissions(permissionClient, 'app1');
     expect(permissions).toHaveLength(6);
     expect(permissions.every((permission) => permission.status == 'available')).toBe(true);
   });
 
   it('flags a 403 as forbidden for just that feature', async () => {
     const permissionClient = makePermissionClient({
-      listCustomerReviews: vi.fn(() => Promise.reject(transportFailure('Forbidden', 403))),
+      listCustomerReviews: vi.fn(() => {
+        return Promise.reject(transportFailure('Forbidden', 403));
+      }),
     });
     const permissions = await probeKeyPermissions(permissionClient, 'app1');
     expect(permissionFor(permissions, 'customer-reviews').status).toBe('forbidden');
@@ -52,7 +55,9 @@ describe('probeKeyPermissions', () => {
 
   it('maps a 401 to unauthorized', async () => {
     const permissionClient = makePermissionClient({
-      listBetaGroups: vi.fn(() => Promise.reject(transportFailure('Unauthorized', 401))),
+      listBetaGroups: vi.fn(() => {
+        return Promise.reject(transportFailure('Unauthorized', 401));
+      }),
     });
     const permissions = await probeKeyPermissions(permissionClient, 'app1');
     expect(permissionFor(permissions, 'testflight').status).toBe('unauthorized');
@@ -60,7 +65,9 @@ describe('probeKeyPermissions', () => {
 
   it('maps a transport failure to inconclusive and keeps its message', async () => {
     const permissionClient = makePermissionClient({
-      listAppStoreVersions: vi.fn(() => Promise.reject(transportFailure('network down'))),
+      listAppStoreVersions: vi.fn(() => {
+        return Promise.reject(transportFailure('network down'));
+      }),
     });
     const permissions = await probeKeyPermissions(permissionClient, 'app1');
     const releasePermission = permissionFor(permissions, 'app-store-release');
@@ -87,34 +94,33 @@ describe('formatPermissionLine', () => {
   } as const;
 
   it('renders available with ASCII text', () => {
-    expect(formatPermissionLine({ ...permissionBase, status: 'available' })).toBe('OK Feature X');
+    const permissionLine = formatPermissionLine({ ...permissionBase, status: 'available' });
+    expect(permissionLine).toBe('OK Feature X');
   });
 
   it('renders forbidden with the role hint', () => {
-    expect(formatPermissionLine({ ...permissionBase, status: 'forbidden' })).toBe(
+    const permissionLine = formatPermissionLine({ ...permissionBase, status: 'forbidden' });
+    expect(permissionLine).toBe(
       'x Feature X - key lacks the role (needs one of: Admin, App Manager)',
     );
   });
 
   it('renders unauthorized', () => {
-    expect(formatPermissionLine({ ...permissionBase, status: 'unauthorized' })).toContain(
-      'unauthorized (401)',
-    );
+    const permissionLine = formatPermissionLine({ ...permissionBase, status: 'unauthorized' });
+    expect(permissionLine).toContain('unauthorized (401)');
   });
 
   it('renders inconclusive with the detail', () => {
-    expect(
-      formatPermissionLine({
-        ...permissionBase,
-        status: 'inconclusive',
-        detail: 'no app record to probe',
-      }),
-    ).toBe("- Feature X - couldn't determine (no app record to probe)");
+    const permissionLine = formatPermissionLine({
+      ...permissionBase,
+      status: 'inconclusive',
+      detail: 'no app record to probe',
+    });
+    expect(permissionLine).toBe("- Feature X - couldn't determine (no app record to probe)");
   });
 
   it('renders inconclusive without a detail', () => {
-    expect(formatPermissionLine({ ...permissionBase, status: 'inconclusive' })).toBe(
-      "- Feature X - couldn't determine",
-    );
+    const permissionLine = formatPermissionLine({ ...permissionBase, status: 'inconclusive' });
+    expect(permissionLine).toBe("- Feature X - couldn't determine");
   });
 });

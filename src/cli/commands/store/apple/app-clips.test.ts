@@ -2,13 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { renderStoreSurfaceAction } from './app-store-surface-command.ts';
 describe('renderAction', () => {
   it('marks a change with + and a skipped clip with -', () => {
-    expect(
-      renderStoreSurfaceAction({
-        description: 'set com.acme.app.Clip card action = OPEN',
-        destructive: false,
-        status: 'planned',
-      }),
-    ).toBe('+ set com.acme.app.Clip card action = OPEN');
+    const storeSurfaceAction = renderStoreSurfaceAction({
+      description: 'set com.acme.app.Clip card action = OPEN',
+      destructive: false,
+      status: 'planned',
+    });
+    expect(storeSurfaceAction).toBe('+ set com.acme.app.Clip card action = OPEN');
     expect(
       renderStoreSurfaceAction({
         description: 'set com.acme.app.Clip card subtitle (en-US)',
@@ -25,14 +24,13 @@ describe('renderAction', () => {
     ).toBe('- App Clip com.acme.app.Clip: no clip record yet');
   });
   it("renders a failed action with x and Apple's error detail", () => {
-    expect(
-      renderStoreSurfaceAction({
-        description: 'create com.acme.app.Clip App Clip default experience (action=OPEN)',
-        destructive: false,
-        status: 'failed',
-        error: 'appClip is in an invalid state',
-      }),
-    ).toBe(
+    const storeSurfaceAction = renderStoreSurfaceAction({
+      description: 'create com.acme.app.Clip App Clip default experience (action=OPEN)',
+      destructive: false,
+      status: 'failed',
+      error: 'appClip is in an invalid state',
+    });
+    expect(storeSurfaceAction).toBe(
       'x create com.acme.app.Clip App Clip default experience (action=OPEN) - appClip is in an invalid state',
     );
   });

@@ -12,9 +12,11 @@ export const registerSandboxCommand = (program: Command): void => {
     .description("list the account's sandbox testers")
     .option('--json', 'output machine-readable JSON', false)
     .action((options: { json?: boolean }) => {
-      return runCliProgram(
-        sandboxCommandProgram({ operation: 'list', json: options.json == true }),
-      );
+      const sandboxProgram = sandboxCommandProgram({
+        operation: 'list',
+        json: options.json == true,
+      });
+      return runCliProgram(sandboxProgram);
     });
   sandbox
     .command('clear')
@@ -30,14 +32,13 @@ export const registerSandboxCommand = (program: Command): void => {
           yes?: boolean;
         },
       ) => {
-        return runCliProgram(
-          sandboxCommandProgram({
-            operation: 'clear',
-            emails,
-            all: options.all == true,
-            yes: options.yes == true,
-          }),
-        );
+        const sandboxProgram = sandboxCommandProgram({
+          operation: 'clear',
+          emails,
+          all: options.all == true,
+          yes: options.yes == true,
+        });
+        return runCliProgram(sandboxProgram);
       },
     );
 };

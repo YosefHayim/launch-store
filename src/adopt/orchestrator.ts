@@ -187,9 +187,10 @@ export async function planTargets(
         const adopterWrites = await adopter.read(appleCatalog, detectedApp.target);
         plannedWrites.push(...adopterWrites);
       } catch (cause) {
+        const failureMessage = errorMessage(cause);
         adopterErrors.push({
           domain: adopter.domain,
-          message: errorMessage(cause),
+          message: failureMessage,
         });
       }
     }
@@ -295,7 +296,8 @@ async function applyProductCatalog(
   }
 
   const configPath = join(applyContext.cwd, 'launch.config.ts');
-  await writeFile(configPath, buildAdoptedConfig(applyContext.appRoot, productsByBundleId));
+  const buildAdopted = buildAdoptedConfig(applyContext.appRoot, productsByBundleId);
+  await writeFile(configPath, buildAdopted);
 
   return { configWritten: configPath };
 }
@@ -340,10 +342,11 @@ async function applyEntitlementWrites(
       continue;
     }
 
+    const entitlementsBlock = renderEntitlementsBlock(entitlements);
     appJsonBlocks.push({
       app: app.name,
       configPath: app.configPath,
-      block: renderEntitlementsBlock(entitlements),
+      block: entitlementsBlock,
     });
   }
 
@@ -368,9 +371,10 @@ async function applyListingPulls(
         await pullListing(plannedWrite.change.bundleId, plannedWrite.change.configPath);
         listingsPulled.push(plannedWrite.change.appName);
       } catch (cause) {
+        const failureMessage = errorMessage(cause);
         listingErrors.push({
           app: plannedWrite.change.appName,
-          message: errorMessage(cause),
+          message: failureMessage,
         });
       }
     }

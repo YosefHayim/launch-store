@@ -21,7 +21,9 @@ import { renderCursorBaseRule, renderCursorTaskRule } from './render.ts';
 let temporaryRepositoryPath: string;
 
 beforeEach(() => {
-  temporaryRepositoryPath = mkdtempSync(join(tmpdir(), 'launch-agents-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchAgentsPath = join(systemTemporaryDirectory, 'launch-agents-');
+  temporaryRepositoryPath = mkdtempSync(launchAgentsPath);
 });
 
 afterEach(() => {
@@ -30,7 +32,8 @@ afterEach(() => {
 
 describe('parseAgentFlag', () => {
   it('expands `all` and dedupes an explicit subset', () => {
-    expect(parseAgentFlag('all')).toEqual([
+    const agentFlag = parseAgentFlag('all');
+    expect(agentFlag).toEqual([
       'claude',
       'cursor',
       'codex',
@@ -44,7 +47,8 @@ describe('parseAgentFlag', () => {
   });
 
   it('parses the multi-target agents correctly', () => {
-    expect(parseAgentFlag('windsurf,copilot,kiro')).toEqual(['windsurf', 'copilot', 'kiro']);
+    const agentFlag = parseAgentFlag('windsurf,copilot,kiro');
+    expect(agentFlag).toEqual(['windsurf', 'copilot', 'kiro']);
     expect(parseAgentFlag('cline,amazonq')).toEqual(['cline', 'amazonq']);
   });
 
@@ -68,7 +72,8 @@ describe('parseAgentFlag', () => {
 
 describe('normalizeLaunchVersion / mcpClientsForTargets / formatAgentsWriteSummary', () => {
   it('defaults missing or empty Commander versions to 0.0.0', () => {
-    expect(normalizeLaunchVersion(undefined)).toBe('0.0.0');
+    const launchVersion = normalizeLaunchVersion(undefined);
+    expect(launchVersion).toBe('0.0.0');
     expect(normalizeLaunchVersion('')).toBe('0.0.0');
     expect(normalizeLaunchVersion('1.2.3')).toBe('1.2.3');
   });
@@ -79,7 +84,8 @@ describe('normalizeLaunchVersion / mcpClientsForTargets / formatAgentsWriteSumma
   });
 
   it('uses singular file noun for a single artifact', () => {
-    expect(formatAgentsWriteSummary(1, ['codex'])).toBe('Wrote 1 file for codex.');
+    const agentsWriteSummary = formatAgentsWriteSummary(1, ['codex']);
+    expect(agentsWriteSummary).toBe('Wrote 1 file for codex.');
     expect(formatAgentsWriteSummary(2, ['claude', 'cursor'])).toBe(
       'Wrote 2 files for claude, cursor.',
     );
@@ -116,49 +122,66 @@ describe('ownedAgentArtifact / planBaseAndTaskArtifacts', () => {
 
 describe('detectAgentTargets', () => {
   it('finds nothing in an empty repo', async () => {
-    expect(await detectAgentTargets(temporaryRepositoryPath)).toEqual([]);
+    const agentTargets = await detectAgentTargets(temporaryRepositoryPath);
+    expect(agentTargets).toEqual([]);
   });
 
   it("maps each agent's footprint to its target", async () => {
-    writeFileSync(join(temporaryRepositoryPath, 'CLAUDE.md'), '# notes\n');
-    mkdirSync(join(temporaryRepositoryPath, '.cursor'));
-    writeFileSync(join(temporaryRepositoryPath, 'AGENTS.md'), '# rules\n');
-    expect(await detectAgentTargets(temporaryRepositoryPath)).toEqual([
-      'claude',
-      'cursor',
-      'codex',
-    ]);
+    const claudePath = join(temporaryRepositoryPath, 'CLAUDE.md');
+    writeFileSync(claudePath, '# notes\n');
+    const joinedPath = join(temporaryRepositoryPath, '.cursor');
+    mkdirSync(joinedPath);
+    const agentsPath = join(temporaryRepositoryPath, 'AGENTS.md');
+    writeFileSync(agentsPath, '# rules\n');
+    const agentTargets = await detectAgentTargets(temporaryRepositoryPath);
+    expect(agentTargets).toEqual(['claude', 'cursor', 'codex']);
   });
 
   it('detects windsurf from .windsurf directory', async () => {
-    mkdirSync(join(temporaryRepositoryPath, '.windsurf'));
-    expect(await detectAgentTargets(temporaryRepositoryPath)).toContain('windsurf');
+    const joinedPath = join(temporaryRepositoryPath, '.windsurf');
+    mkdirSync(joinedPath);
+    const agentTargets = await detectAgentTargets(temporaryRepositoryPath);
+    expect(agentTargets).toContain('windsurf');
   });
 
   it('detects copilot from .github/copilot-instructions.md', async () => {
-    mkdirSync(join(temporaryRepositoryPath, '.github'));
-    writeFileSync(join(temporaryRepositoryPath, '.github/copilot-instructions.md'), '# copilot\n');
-    expect(await detectAgentTargets(temporaryRepositoryPath)).toContain('copilot');
+    const joinedPath = join(temporaryRepositoryPath, '.github');
+    mkdirSync(joinedPath);
+    const copilotInstructionsPath = join(
+      temporaryRepositoryPath,
+      '.github/copilot-instructions.md',
+    );
+    writeFileSync(copilotInstructionsPath, '# copilot\n');
+    const agentTargets = await detectAgentTargets(temporaryRepositoryPath);
+    expect(agentTargets).toContain('copilot');
   });
 
   it('detects kiro from .kiro directory', async () => {
-    mkdirSync(join(temporaryRepositoryPath, '.kiro'));
-    expect(await detectAgentTargets(temporaryRepositoryPath)).toContain('kiro');
+    const joinedPath = join(temporaryRepositoryPath, '.kiro');
+    mkdirSync(joinedPath);
+    const agentTargets = await detectAgentTargets(temporaryRepositoryPath);
+    expect(agentTargets).toContain('kiro');
   });
 
   it('detects cline from .cline directory', async () => {
-    mkdirSync(join(temporaryRepositoryPath, '.cline'));
-    expect(await detectAgentTargets(temporaryRepositoryPath)).toContain('cline');
+    const joinedPath = join(temporaryRepositoryPath, '.cline');
+    mkdirSync(joinedPath);
+    const agentTargets = await detectAgentTargets(temporaryRepositoryPath);
+    expect(agentTargets).toContain('cline');
   });
 
   it('detects cline from .clinerules file', async () => {
-    writeFileSync(join(temporaryRepositoryPath, '.clinerules'), '# rules\n');
-    expect(await detectAgentTargets(temporaryRepositoryPath)).toContain('cline');
+    const joinedPath = join(temporaryRepositoryPath, '.clinerules');
+    writeFileSync(joinedPath, '# rules\n');
+    const agentTargets = await detectAgentTargets(temporaryRepositoryPath);
+    expect(agentTargets).toContain('cline');
   });
 
   it('detects amazonq from .amazonq directory', async () => {
-    mkdirSync(join(temporaryRepositoryPath, '.amazonq'));
-    expect(await detectAgentTargets(temporaryRepositoryPath)).toContain('amazonq');
+    const joinedPath = join(temporaryRepositoryPath, '.amazonq');
+    mkdirSync(joinedPath);
+    const agentTargets = await detectAgentTargets(temporaryRepositoryPath);
+    expect(agentTargets).toContain('amazonq');
   });
 });
 
@@ -173,7 +196,8 @@ describe('planAgentArtifacts', () => {
   });
 
   it('writes only the AGENTS.md block for the codex target', () => {
-    expect(planAgentArtifacts(['codex'], '1.0.0')).toEqual([
+    const agentArtifacts = planAgentArtifacts(['codex'], '1.0.0');
+    expect(agentArtifacts).toEqual([
       { kind: 'spliced', path: 'AGENTS.md', block: expect.any(String) },
     ]);
   });
@@ -241,9 +265,14 @@ describe('write to check round-trip', () => {
   it('reports no drift right after writing, drift after an edit, and clean again after rewriting', async () => {
     const plannedArtifacts = planAgentArtifacts(['claude', 'cursor'], '1.0.0');
     await writeAgentArtifacts(temporaryRepositoryPath, plannedArtifacts);
-    expect(await findStaleAgentArtifacts(temporaryRepositoryPath, plannedArtifacts)).toEqual([]);
+    const staleAgentArtifacts = await findStaleAgentArtifacts(
+      temporaryRepositoryPath,
+      plannedArtifacts,
+    );
+    expect(staleAgentArtifacts).toEqual([]);
 
-    writeFileSync(join(temporaryRepositoryPath, '.cursor/rules/launch-ship.mdc'), 'tampered\n');
+    const launchShipPath = join(temporaryRepositoryPath, '.cursor/rules/launch-ship.mdc');
+    writeFileSync(launchShipPath, 'tampered\n');
     expect(await findStaleAgentArtifacts(temporaryRepositoryPath, plannedArtifacts)).toContain(
       '.cursor/rules/launch-ship.mdc',
     );
@@ -253,7 +282,8 @@ describe('write to check round-trip', () => {
   });
 
   it('flags drift when the installed version moved past what scaffolded the files', async () => {
-    await writeAgentArtifacts(temporaryRepositoryPath, planAgentArtifacts(['codex'], '1.0.0'));
+    const agentArtifacts = planAgentArtifacts(['codex'], '1.0.0');
+    await writeAgentArtifacts(temporaryRepositoryPath, agentArtifacts);
     const staleArtifactPaths = await findStaleAgentArtifacts(
       temporaryRepositoryPath,
       planAgentArtifacts(['codex'], '2.0.0'),
@@ -264,17 +294,20 @@ describe('write to check round-trip', () => {
 
 describe('managed-block splicing into an existing AGENTS.md', () => {
   it("preserves the user's own AGENTS.md content and adds the Launch block", async () => {
-    writeFileSync(
-      join(temporaryRepositoryPath, 'AGENTS.md'),
-      "# My app rules\n\nDon't break the build.\n",
-    );
+    const agentsPath = join(temporaryRepositoryPath, 'AGENTS.md');
+    writeFileSync(agentsPath, "# My app rules\n\nDon't break the build.\n");
     const plannedArtifacts = planAgentArtifacts(['codex'], '1.0.0');
     await writeAgentArtifacts(temporaryRepositoryPath, plannedArtifacts);
 
-    const agentsInstructions = readFileSync(join(temporaryRepositoryPath, 'AGENTS.md'), 'utf8');
+    const joinedPath = join(temporaryRepositoryPath, 'AGENTS.md');
+    const agentsInstructions = readFileSync(joinedPath, 'utf8');
     expect(agentsInstructions).toContain('# My app rules');
     expect(agentsInstructions).toContain("Don't break the build.");
     expect(agentsInstructions).toContain('Shipping this app with Launch');
-    expect(await findStaleAgentArtifacts(temporaryRepositoryPath, plannedArtifacts)).toEqual([]);
+    const staleAgentArtifacts = await findStaleAgentArtifacts(
+      temporaryRepositoryPath,
+      plannedArtifacts,
+    );
+    expect(staleAgentArtifacts).toEqual([]);
   });
 });

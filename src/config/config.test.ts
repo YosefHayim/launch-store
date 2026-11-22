@@ -17,7 +17,9 @@ async function runConfigEffect<Success>(configWork: Promise<Success>): Promise<S
   return configWork;
 }
 const makeRepo = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'launch-config-'));
+  const systemTemporaryDirectory = tmpdir();
+  const joinedPath = join(systemTemporaryDirectory, 'launch-config-');
+  const dir = mkdtempSync(joinedPath);
   tempDirs.push(dir);
   return dir;
 };
@@ -25,7 +27,9 @@ const makeRepo = (): string => {
 const writeApp = (repo: string, relDir: string, expo: Record<string, unknown>): void => {
   const dir = join(repo, relDir);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'app.json'), JSON.stringify({ expo }));
+  const appPath = join(dir, 'app.json');
+  const serialized = JSON.stringify({ expo });
+  writeFileSync(appPath, serialized);
 };
 /** Write an arbitrary config file (e.g. app.config.ts) into a (possibly nested) app directory. */
 const writeConfigFile = (
@@ -36,7 +40,8 @@ const writeConfigFile = (
 ): void => {
   const dir = join(repo, relDir);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, filename), contents);
+  const joinedPath = join(dir, filename);
+  writeFileSync(joinedPath, contents);
 };
 afterEach(() => {
   while (tempDirs.length > 0) {
@@ -108,7 +113,8 @@ describe('defineConfig', () => {
     // `profiles:` reaches `defineConfig` as an extra key. It must survive onto the resolved object -
     // not be silently dropped - for `launch config validate` to catch it on the `.ts` path.
     const input = { profiles: { production: { name: 'production' } }, profile: 'oops' };
-    const violations = validateConfig(defineConfig(input));
+    const define = defineConfig(input);
+    const violations = validateConfig(define);
     expect(
       violations.some(
         (violation) =>
@@ -120,63 +126,62 @@ describe('defineConfig', () => {
 describe('resolveSidecarConfig - typed field vs JSON sidecar precedence (issue #101)', () => {
   /** A loader that reads + JSON-parses the sidecar, like the real `load*Config` helpers. */
   async function readJson(path: string): Promise<{ source: string }> {
-    return JSON.parse(readFileSync(path, 'utf8')) as { source: string };
+    const loadedFile = readFileSync(path, 'utf8');
+    return JSON.parse(loadedFile) as { source: string };
   }
   it('uses the typed field when present and --config was left at its default', async () => {
-    const resolvedSidecar = await runConfigEffect(
-      resolveSidecarConfig({
-        typed: { source: 'typed' },
-        configPath: '/nonexistent.config.json',
-        explicitPath: false,
-        load: async () => ({ source: 'sidecar' }),
-      }),
-    );
+    const resolveSidecar = resolveSidecarConfig({
+      typed: { source: 'typed' },
+      configPath: '/nonexistent.config.json',
+      explicitPath: false,
+      load: async () => ({ source: 'sidecar' }),
+    });
+    const resolvedSidecar = await runConfigEffect(resolveSidecar);
     expect(resolvedSidecar).toEqual({ source: 'typed' });
   });
   it('falls back to the default-path sidecar when there is no typed field', async () => {
-    const path = join(makeRepo(), 'x.config.json');
-    writeFileSync(path, JSON.stringify({ source: 'sidecar' }));
-    expect(
-      await runConfigEffect(
-        resolveSidecarConfig({
-          typed: undefined,
-          configPath: path,
-          explicitPath: false,
-          load: readJson,
-        }),
-      ),
-    ).toEqual({
+    const repo = makeRepo();
+    const path = join(repo, 'x.config.json');
+    const serialized = JSON.stringify({ source: 'sidecar' });
+    writeFileSync(path, serialized);
+    const resolveSidecar = resolveSidecarConfig({
+      typed: undefined,
+      configPath: path,
+      explicitPath: false,
+      load: readJson,
+    });
+    const runEffect = await runConfigEffect(resolveSidecar);
+    expect(runEffect).toEqual({
       source: 'sidecar',
     });
   });
   it('returns undefined when neither a typed field nor a default-path sidecar exists', async () => {
-    const path = join(makeRepo(), 'missing.config.json');
-    expect(
-      await runConfigEffect(
-        resolveSidecarConfig({
-          typed: undefined,
-          configPath: path,
-          explicitPath: false,
-          load: async () => {
-            throw new Error('should not be called');
-          },
-        }),
-      ),
-    ).toBeUndefined();
+    const repo = makeRepo();
+    const path = join(repo, 'missing.config.json');
+    const resolveSidecar = resolveSidecarConfig({
+      typed: undefined,
+      configPath: path,
+      explicitPath: false,
+      load: async () => {
+        throw new Error('should not be called');
+      },
+    });
+    const runEffect = await runConfigEffect(resolveSidecar);
+    expect(runEffect).toBeUndefined();
   });
   it('an explicitly-passed --config wins even when a typed field is present', async () => {
-    const path = join(makeRepo(), 'explicit.config.json');
-    writeFileSync(path, JSON.stringify({ source: 'sidecar' }));
-    expect(
-      await runConfigEffect(
-        resolveSidecarConfig({
-          typed: { source: 'typed' },
-          configPath: path,
-          explicitPath: true,
-          load: readJson,
-        }),
-      ),
-    ).toEqual({
+    const repo = makeRepo();
+    const path = join(repo, 'explicit.config.json');
+    const serialized = JSON.stringify({ source: 'sidecar' });
+    writeFileSync(path, serialized);
+    const resolveSidecar = resolveSidecarConfig({
+      typed: { source: 'typed' },
+      configPath: path,
+      explicitPath: true,
+      load: readJson,
+    });
+    const runEffect = await runConfigEffect(resolveSidecar);
+    expect(runEffect).toEqual({
       source: 'sidecar',
     });
   });
@@ -238,7 +243,9 @@ describe('loadConfig - auto-discovers apps, app.json stays the source of truth',
     const repo = makeRepo();
     const dir = join(repo, 'flat');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'app.json'), JSON.stringify({ name: 'Flat App' }));
+    const appPath = join(dir, 'app.json');
+    const serialized = JSON.stringify({ name: 'Flat App' });
+    writeFileSync(appPath, serialized);
     const { apps } = await runConfigEffect(loadConfig(repo));
     expect(apps).toHaveLength(1);
     expect(apps[0]?.name).toBe('flat app');
@@ -248,7 +255,9 @@ describe('loadConfig - auto-discovers apps, app.json stays the source of truth',
     const repo = makeRepo();
     const dir = join(repo, 'broken');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'app.json'), JSON.stringify({ expo: { version: '1.0.0' } }));
+    const appPath = join(dir, 'app.json');
+    const serialized = JSON.stringify({ expo: { version: '1.0.0' } });
+    writeFileSync(appPath, serialized);
     const { apps } = await runConfigEffect(loadConfig(repo));
     expect(apps).toHaveLength(0);
   });
@@ -288,10 +297,9 @@ describe('loadConfig - reads dynamic Expo config (app.config.{ts,js}) and bare R
     const repo = makeRepo();
     const dir = join(repo, 'bare');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(
-      join(dir, 'app.json'),
-      JSON.stringify({ name: 'BareRN', displayName: 'Bare RN' }),
-    );
+    const appPath = join(dir, 'app.json');
+    const serialized = JSON.stringify({ name: 'BareRN', displayName: 'Bare RN' });
+    writeFileSync(appPath, serialized);
     const { apps } = await runConfigEffect(loadConfig(repo));
     expect(apps).toHaveLength(1);
     expect(apps[0]?.name).toBe('barern');
@@ -311,8 +319,9 @@ describe('loadConfig - resolves the launch-store import without a local dependen
     const repo = makeRepo();
     // This temp repo has no node_modules, so `import "launch-store"` can only resolve via the loader's
     // self-alias. Before the alias a globally-installed CLI threw "Cannot find package 'launch-store'".
+    const launchPath = join(repo, 'launch.config.ts');
     writeFileSync(
-      join(repo, 'launch.config.ts'),
+      launchPath,
       `import { defineConfig } from "launch-store";\n` +
         `export default defineConfig({ profiles: { staging: { name: "staging", sizeBudgetMB: 123 } } });\n`,
     );
@@ -338,25 +347,33 @@ describe('writeAppVersion - persist the bump back to a static app.json', () => {
     });
     const loadedConfig = await runConfigEffect(loadConfig(repo));
     const app = expectArrayElement(loadedConfig.apps, 0, 'apps');
-    expect(await runConfigEffect(writeAppVersion(app, '1.0.1'))).toBe(true);
-    const written = JSON.parse(readFileSync(join(repo, 'app.json'), 'utf8'));
+    const appVersion = writeAppVersion(app, '1.0.1');
+    const runEffect = await runConfigEffect(appVersion);
+    expect(runEffect).toBe(true);
+    const appPath = join(repo, 'app.json');
+    const loadedFile = readFileSync(appPath, 'utf8');
+    const written = JSON.parse(loadedFile);
     expect(written.expo.version).toBe('1.0.1');
     expect(written.expo.ios.bundleIdentifier).toBe('com.x');
   });
   it("writes a flat version when there's no expo wrapper", async () => {
     const repo = makeRepo();
-    writeFileSync(
-      join(repo, 'app.json'),
-      JSON.stringify({ name: 'Bare', slug: 'bare', version: '0.1.0' }),
-    );
+    const appPath = join(repo, 'app.json');
+    const serialized = JSON.stringify({ name: 'Bare', slug: 'bare', version: '0.1.0' });
+    writeFileSync(appPath, serialized);
     const app: AppDescriptor = {
       name: 'bare',
       dir: repo,
       configPath: join(repo, 'app.json'),
       version: '0.1.0',
     };
-    expect(await runConfigEffect(writeAppVersion(app, '0.2.0'))).toBe(true);
-    expect(JSON.parse(readFileSync(join(repo, 'app.json'), 'utf8')).version).toBe('0.2.0');
+    const appVersion = writeAppVersion(app, '0.2.0');
+    const runEffect = await runConfigEffect(appVersion);
+    expect(runEffect).toBe(true);
+    const joinedPath = join(repo, 'app.json');
+    const loadedFile = readFileSync(joinedPath, 'utf8');
+    const parsed = JSON.parse(loadedFile);
+    expect(parsed.version).toBe('0.2.0');
   });
   it('refuses a dynamic config (app.config.ts) - the caller stamps the native project instead', async () => {
     const app: AppDescriptor = {
@@ -365,7 +382,9 @@ describe('writeAppVersion - persist the bump back to a static app.json', () => {
       configPath: '/tmp/does-not-matter/app.config.ts',
       version: '1.0.0',
     };
-    expect(await runConfigEffect(writeAppVersion(app, '1.1.0'))).toBe(false);
+    const appVersion = writeAppVersion(app, '1.1.0');
+    const runEffect = await runConfigEffect(appVersion);
+    expect(runEffect).toBe(false);
   });
 });
 describe('writeAppEntitlements', () => {
@@ -386,7 +405,8 @@ describe('writeAppEntitlements', () => {
       'com.apple.developer.healthkit': true,
     });
     expect(added.sort()).toEqual(['aps-environment', 'com.apple.developer.healthkit']);
-    const raw = JSON.parse(readFileSync(app.configPath, 'utf8'));
+    const loadedFile = readFileSync(app.configPath, 'utf8');
+    const raw = JSON.parse(loadedFile);
     expect(raw.expo.ios.entitlements).toEqual({
       'aps-environment': 'production',
       'com.apple.developer.healthkit': true,
@@ -399,7 +419,8 @@ describe('writeAppEntitlements', () => {
       'com.apple.security.application-groups': ['group.x'],
     });
     expect(added).toEqual(['com.apple.security.application-groups']);
-    const raw = JSON.parse(readFileSync(app.configPath, 'utf8'));
+    const loadedFile = readFileSync(app.configPath, 'utf8');
+    const raw = JSON.parse(loadedFile);
     expect(raw.expo.ios.entitlements['aps-environment']).toBe('development');
   });
   it('returns [] without writing for a dynamic config', async () => {

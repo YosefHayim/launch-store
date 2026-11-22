@@ -29,20 +29,26 @@ import { byoSshComputeHost } from './compute/byo-ssh.ts';
  * all registered; the pipeline selects the right pair per platform (see `resolveBuildEngineName`).
  */
 export async function registerBuiltins(): Promise<void> {
-  registerCredentialsProvider(makeLocalCredentialsProvider());
+  const localCredentialsProvider = makeLocalCredentialsProvider();
+  registerCredentialsProvider(localCredentialsProvider);
 
   const localStorageResolver = makeLocalStorageProviderResolver();
   registerStorageProviderResolver(localStorageResolver);
   const localStorage = await localStorageResolver.resolveStorageProvider({});
   registerStorageProvider(localStorage);
-  registerStorageProviderResolver(makeS3StorageProviderResolver());
-  registerStorageProviderResolver(makeSupabaseStorageProviderResolver());
-  registerBuildEngine(makeXcodeBuildEngine());
-  registerBuildEngine(makeGradleBuildEngine());
+  const s3StorageProviderResolver = makeS3StorageProviderResolver();
+  registerStorageProviderResolver(s3StorageProviderResolver);
+  const supabaseStorageProviderResolver = makeSupabaseStorageProviderResolver();
+  registerStorageProviderResolver(supabaseStorageProviderResolver);
+  const xcodeBuildEngine = makeXcodeBuildEngine();
+  registerBuildEngine(xcodeBuildEngine);
+  const gradleBuildEngine = makeGradleBuildEngine();
+  registerBuildEngine(gradleBuildEngine);
   registerHostedBuildProvider(easHostedBuildProvider);
   registerSubmitter(appStoreConnectSubmitter);
   registerSubmitter(googlePlaySubmitter);
   registerSubmitter(easSubmitter);
-  registerComputeHost(makeAwsEc2MacComputeHost());
+  const awsEc2MacComputeHost = makeAwsEc2MacComputeHost();
+  registerComputeHost(awsEc2MacComputeHost);
   registerComputeHost(byoSshComputeHost);
 }

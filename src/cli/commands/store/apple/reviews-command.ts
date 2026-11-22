@@ -236,7 +236,8 @@ async function listReviewsProgram(commandInput: ReviewsListCommandInput): Promis
     const wantsJson = commandInput.json == true;
 
     if (wantsJson) {
-      logger.line(JSON.stringify(customerReviews, null, 2));
+      const serialized = JSON.stringify(customerReviews, null, 2);
+      logger.line(serialized);
       return;
     }
 

@@ -60,7 +60,8 @@ describe('registerAgentsCommand', () => {
 
 describe('the agent skill registry stays in sync with the CLI', () => {
   it('names only commands that exist in the live program', () => {
-    expect(findUnknownCommands(registeredCommandTree(buildProgram()))).toEqual([]);
+    const unknownCommands = findUnknownCommands(registeredCommandTree(buildProgram()));
+    expect(unknownCommands).toEqual([]);
   });
   it('flags a renamed or removed command instead of silently passing', () => {
     const staleRegistry = [
@@ -69,8 +70,10 @@ describe('the agent skill registry stays in sync with the CLI', () => {
         steps: [{ path: ['not-a-real-command'], note: 'x' }],
       },
     ];
-    expect(findUnknownCommands(registeredCommandTree(buildProgram()), staleRegistry)).toHaveLength(
-      1,
+    const unknownCommands = findUnknownCommands(
+      registeredCommandTree(buildProgram()),
+      staleRegistry,
     );
+    expect(unknownCommands).toHaveLength(1);
   });
 });

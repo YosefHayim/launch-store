@@ -283,8 +283,9 @@ async function publishReadyOta(
     const hasWarning = warn != null;
 
     if (hasWarning) {
+      const failureMessage = errorMessage(cause);
       warn(
-        `OTA ${otaCar.platform} (${otaCar.channel}/${otaCar.runtimeVersion}) publish failed: ${errorMessage(cause)}`,
+        `OTA ${otaCar.platform} (${otaCar.channel}/${otaCar.runtimeVersion}) publish failed: ${failureMessage}`,
       );
     }
 

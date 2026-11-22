@@ -82,7 +82,8 @@ export class StoreCommand {
     const isDryRun = flags.dryRun;
 
     if (isDryRun) {
-      this.printChanges(planStore(loaded.desired, loaded.live), false);
+      const store = planStore(loaded.desired, loaded.live);
+      this.printChanges(store, false);
       return;
     }
 
@@ -129,7 +130,8 @@ export class StoreCommand {
 
   private printChanges(changes: ReturnType<typeof planStore>, hasJson: boolean): void {
     if (hasJson) {
-      console.log(JSON.stringify({ changes }));
+      const serialized = JSON.stringify({ changes });
+      console.log(serialized);
       return;
     }
 

@@ -78,7 +78,8 @@ export function assembleArchiveArguments(archiveInput: ArchiveArgsInput): string
   const hasParallelJobLimit = archiveInput.parallelJobLimit != null;
 
   if (hasParallelJobLimit) {
-    archiveArguments.push('-jobs', String(archiveInput.parallelJobLimit));
+    const asString = String(archiveInput.parallelJobLimit);
+    archiveArguments.push('-jobs', asString);
   }
 
   const shouldCleanBuild = archiveInput.shouldCleanBuild == true;

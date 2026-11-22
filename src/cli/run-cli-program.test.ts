@@ -11,7 +11,8 @@ const SUMMARY = { command: 'build', platform: 'ios', dryRun: true, profile: 'pro
 const captureStdoutLines = () => {
   const writtenText: string[] = [];
   vi.spyOn(process.stdout, 'write').mockImplementation((chunk, ...writeArguments) => {
-    writtenText.push(String(chunk));
+    const asString = String(chunk);
+    writtenText.push(asString);
     const writeDone = writeArguments.find((writeArgument) => typeof writeArgument == 'function');
     writeDone?.();
     return true;
@@ -39,7 +40,8 @@ describe('runJsonCliProgram - the final result line', () => {
     }
 
     await runJsonCliProgram(SUMMARY, sampleStep);
-    expect(readEvents()).toEqual([
+    const events = readEvents();
+    expect(events).toEqual([
       { event: 'step', step: 'config', detail: 'sampleapp' },
       { event: 'result', ok: true, ...SUMMARY },
     ]);
@@ -56,7 +58,8 @@ describe('runJsonCliProgram - the final result line', () => {
 
     const failedRun = runJsonCliProgram(SUMMARY, failBuild);
     await expect(failedRun).rejects.toThrow();
-    expect(readEvents()).toEqual([
+    const events = readEvents();
+    expect(events).toEqual([
       {
         event: 'result',
         ok: false,
@@ -72,8 +75,10 @@ describe('runJsonCliProgram - the final result line', () => {
     }
 
     const readEvents = captureStdoutLines();
-    await expect(runJsonCliProgram(SUMMARY, exitWithoutReason)).rejects.toThrow();
-    expect(readEvents()).toEqual([
+    const runCliProgram = runJsonCliProgram(SUMMARY, exitWithoutReason);
+    await expect(runCliProgram).rejects.toThrow();
+    const events = readEvents();
+    expect(events).toEqual([
       { event: 'result', ok: false, ...SUMMARY, message: 'The command ended with exit code 3.' },
     ]);
   });
@@ -84,8 +89,10 @@ describe('runJsonCliProgram - the final result line', () => {
     }
 
     const readEvents = captureStdoutLines();
-    await expect(runJsonCliProgram(SUMMARY, exitWithReason)).rejects.toThrow();
-    expect(readEvents()).toEqual([
+    const runCliProgram = runJsonCliProgram(SUMMARY, exitWithReason);
+    await expect(runCliProgram).rejects.toThrow();
+    const events = readEvents();
+    expect(events).toEqual([
       { event: 'result', ok: false, ...SUMMARY, message: 'No App Store Connect app record yet.' },
     ]);
   });
@@ -96,7 +103,8 @@ describe('runJsonCliProgram - the final result line', () => {
       return LaunchPrompt.confirm('Upload?');
     }
 
-    await expect(runJsonCliProgram(SUMMARY, confirmUpload)).rejects.toThrow();
+    const runCliProgram = runJsonCliProgram(SUMMARY, confirmUpload);
+    await expect(runCliProgram).rejects.toThrow();
     const [resultEvent] = readEvents();
     expect(resultEvent.ok).toBe(false);
     expect(resultEvent.message).toContain('--yes');

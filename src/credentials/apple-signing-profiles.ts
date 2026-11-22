@@ -112,7 +112,8 @@ export async function installProfile(
   const credentialsDirectory = resolveAccountCredentialsDirectory(keyId);
   await mkdir(credentialsDirectory, { recursive: true });
   const backupPath = join(credentialsDirectory, `${backupName}.mobileprovision`);
-  await writeFile(backupPath, Buffer.from(profileContent, 'base64'));
+  const bufferBytes = Buffer.from(profileContent, 'base64');
+  await writeFile(backupPath, bufferBytes);
   const profileMetadata = await readProfileMetadata(backupPath);
   const provisioningProfilesDirectory = resolveProvisioningProfilesDirectory();
   await mkdir(provisioningProfilesDirectory, { recursive: true });

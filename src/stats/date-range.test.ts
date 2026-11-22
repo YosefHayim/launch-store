@@ -25,17 +25,20 @@ describe('shiftDate', () => {
 
 describe('readMonthOfDate', () => {
   test('keeps the year and month', () => {
-    expect(readMonthOfDate('2026-10-29')).toBe('2026-10');
+    const monthOfDate = readMonthOfDate('2026-10-29');
+    expect(monthOfDate).toBe('2026-10');
   });
 });
 
 describe('createLastDaysRange', () => {
   test('one day is the last date only', () => {
-    expect(createLastDaysRange('2026-10-28', 1)).toEqual({ from: '2026-10-28', to: '2026-10-28' });
+    const lastDaysRange = createLastDaysRange('2026-10-28', 1);
+    expect(lastDaysRange).toEqual({ from: '2026-10-28', to: '2026-10-28' });
   });
 
   test('many days end at the last date', () => {
-    expect(createLastDaysRange('2026-10-28', 30)).toEqual({ from: '2026-09-29', to: '2026-10-28' });
+    const lastDaysRange = createLastDaysRange('2026-10-28', 30);
+    expect(lastDaysRange).toEqual({ from: '2026-09-29', to: '2026-10-28' });
   });
 });
 
@@ -65,14 +68,16 @@ describe('isSyncedAtStale', () => {
 
 describe('pickEarlierDate', () => {
   test('returns the earlier of two dates in either order', () => {
-    expect(pickEarlierDate('2026-10-01', '2026-10-05')).toBe('2026-10-01');
+    const earlierDate = pickEarlierDate('2026-10-01', '2026-10-05');
+    expect(earlierDate).toBe('2026-10-01');
     expect(pickEarlierDate('2026-10-05', '2026-10-01')).toBe('2026-10-01');
   });
 });
 
 describe('pickLaterDate', () => {
   test('returns the later of two dates in either order', () => {
-    expect(pickLaterDate('2026-10-01', '2026-10-05')).toBe('2026-10-05');
+    const laterDate = pickLaterDate('2026-10-01', '2026-10-05');
+    expect(laterDate).toBe('2026-10-05');
     expect(pickLaterDate('2026-10-05', '2026-10-01')).toBe('2026-10-05');
   });
 });

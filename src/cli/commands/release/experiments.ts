@@ -46,7 +46,9 @@ export const registerExperimentsCommand = (program: Command): void => {
     .option('--start', 'start each experiment Apple has approved', false)
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: ExperimentsOptions) =>
-      runCliProgram(versionExperimentsCommandProgram(toVersionExperimentsInput(commandOptions))),
-    );
+    .action((commandOptions: ExperimentsOptions) => {
+      const versionExperiments = toVersionExperimentsInput(commandOptions);
+      const versionExperimentsProgram = versionExperimentsCommandProgram(versionExperiments);
+      return runCliProgram(versionExperimentsProgram);
+    });
 };

@@ -80,14 +80,17 @@ describe('STATS_TOOLS', () => {
 
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
       homeDirectory,
-      workingDirectory: join(homeDirectory, 'work'),
+      workingDirectory: workPath,
     });
-    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(STATS_PORTFOLIO_FILE));
+    const serialized = JSON.stringify(STATS_PORTFOLIO_FILE);
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
+    const dateDaysAgo = readDateDaysAgo(1);
     writeStatsMonthFiles(homeDirectory, 'ios-1', [
       {
-        date: readDateDaysAgo(1),
+        date: dateDaysAgo,
         feed: 'app-store',
         metric: 'downloads',
         value: 12,

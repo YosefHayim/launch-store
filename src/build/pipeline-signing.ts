@@ -77,7 +77,8 @@ export async function resolveIosAccount(
   });
 
   await setActiveKeyId(account.keyId);
-  log.step('account', formatAccountSummary(account));
+  const accountSummary = formatAccountSummary(account);
+  log.step('account', accountSummary);
 
   return account;
 }

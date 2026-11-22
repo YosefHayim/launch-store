@@ -182,7 +182,9 @@ function aliasUrlFor(specifier: string): string | null {
 
     const relativePath = specifier.slice(prefix.length);
 
-    return pathToFileURL(existingSourceFile(join(folder, relativePath))).href;
+    const joinedPath = join(folder, relativePath);
+    const existingFile = existingSourceFile(joinedPath);
+    return pathToFileURL(existingFile).href;
   }
 
   return null;
@@ -204,7 +206,8 @@ function typescriptSiblingUrl(specifier: string, parentURL: string | undefined):
   }
 
   const parentPath = fileURLToPath(parentURL);
-  const resolvedPath = join(dirname(parentPath), specifier);
+  const parentDirectory = dirname(parentPath);
+  const resolvedPath = join(parentDirectory, specifier);
   const existingPath = existingSourceFile(resolvedPath);
   const changed = existingPath != resolvedPath;
 

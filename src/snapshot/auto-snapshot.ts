@@ -32,7 +32,8 @@ export async function captureAutoSnapshot(
 ): Promise<AutoSnapshotResult> {
   registerBuiltinSources();
   const snapshotName = autoSnapshotName(options.capturedAt);
-  const capturedSnapshot = await captureSnapshot(snapshotContext, listSnapshotSources(), {
+  const snapshotSources = listSnapshotSources();
+  const capturedSnapshot = await captureSnapshot(snapshotContext, snapshotSources, {
     name: snapshotName,
     capturedAt: options.capturedAt,
   });

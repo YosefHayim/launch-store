@@ -27,7 +27,9 @@ describe('cloud state', () => {
   let testHomeDirectory = '';
 
   beforeEach(() => {
-    testHomeDirectory = mkdtempSync(join(tmpdir(), 'launch-cloud-state-'));
+    const systemTemporaryDirectory = tmpdir();
+    const joinedPath = join(systemTemporaryDirectory, 'launch-cloud-state-');
+    testHomeDirectory = mkdtempSync(joinedPath);
     useLaunchDirectories({
       homeDirectory: testHomeDirectory,
       workingDirectory: testHomeDirectory,
@@ -40,16 +42,21 @@ describe('cloud state', () => {
   });
 
   it('is empty when the file does not exist', async () => {
-    expect(await readCloudState()).toEqual({});
-    expect(await getLiveHost()).toBeNull();
-    expect(await getAmiId()).toBeNull();
+    const readCloud = await readCloudState();
+    expect(readCloud).toEqual({});
+    const liveHost = await getLiveHost();
+    expect(liveHost).toBeNull();
+    const amiId = await getAmiId();
+    expect(amiId).toBeNull();
   });
 
   it('round-trips the live host and clears it without losing the AMI id', async () => {
     await setAmiId('ami-abc');
     await setLiveHost(hostHandle);
-    expect(await getLiveHost()).toEqual(hostHandle);
-    expect(await getAmiId()).toBe('ami-abc');
+    const liveHost = await getLiveHost();
+    expect(liveHost).toEqual(hostHandle);
+    const amiId = await getAmiId();
+    expect(amiId).toBe('ami-abc');
     await clearLiveHost();
     expect(await getLiveHost()).toBeNull();
     expect(await getAmiId()).toBe('ami-abc');
@@ -58,7 +65,9 @@ describe('cloud state', () => {
   it('tolerates a malformed file by returning empty state', async () => {
     const launchDirectory = join(testHomeDirectory, '.launch');
     await setAmiId('ami-before-corruption');
-    writeFileSync(join(launchDirectory, 'cloud.json'), '{ not json');
-    expect(await readCloudState()).toEqual({});
+    const cloudPath = join(launchDirectory, 'cloud.json');
+    writeFileSync(cloudPath, '{ not json');
+    const readCloud = await readCloudState();
+    expect(readCloud).toEqual({});
   });
 });

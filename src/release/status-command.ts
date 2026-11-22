@@ -76,7 +76,8 @@ function isStatusCommandFailure(cause: unknown): cause is StatusCommandFailure {
 }
 
 function createStatusFailure(operation: string, cause: unknown): StatusCommandFailure {
-  return makeStatusCommandFailure({ operation, message: errorMessage(cause), cause });
+  const failureMessage = errorMessage(cause);
+  return makeStatusCommandFailure({ operation, message: failureMessage, cause });
 }
 
 function readOptionalText(record: Record<string, unknown>, fieldName: string): string | undefined {
@@ -185,7 +186,8 @@ function failUsage(message: string, isJson: boolean): never {
   const logger = createLogger(false);
 
   if (isJson) {
-    logger.line(JSON.stringify({ ok: false, error: message }));
+    const serialized = JSON.stringify({ ok: false, error: message });
+    logger.line(serialized);
   }
 
   if (isJson == false) {
@@ -294,7 +296,8 @@ function describeReleaseStatus(releaseStatus: ReleaseStatus): string {
   const statusParts = [versionPart, releaseStatus.verdict.label];
 
   if (isVersionPresent) {
-    statusParts.push(describeAttachedBuild(releaseStatus));
+    const buildProgram = describeAttachedBuild(releaseStatus);
+    statusParts.push(buildProgram);
   }
 
   const isPhasedReleaseKnown = releaseStatus.phasedReleaseState != null;
@@ -578,7 +581,8 @@ function reportValidBuild(buildWatchRequest: BuildWatchRequest, storeBuild: Buil
       buildNumber: buildWatchRequest.buildNumber,
       processingState: storeBuild.processingState,
     };
-    logger.line(JSON.stringify(validBuildReport, null, 2));
+    const serialized = JSON.stringify(validBuildReport, null, 2);
+    logger.line(serialized);
     return;
   }
 
@@ -602,7 +606,8 @@ function reportFailedBuildWatch(
     buildNumber: buildWatchRequest.buildNumber,
     error: watchFailure.message,
   };
-  buildWatchRequest.logger.line(JSON.stringify(failedBuildReport, null, 2));
+  const serialized = JSON.stringify(failedBuildReport, null, 2);
+  buildWatchRequest.logger.line(serialized);
 }
 
 function buildWithoutWatch(statusFlags: StatusFlags): boolean {
@@ -757,7 +762,8 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
 
     if (statusFlags.json) {
       const jsonRows = appStatuses.map(createStatusJsonRow);
-      logger.line(JSON.stringify(jsonRows, null, 2));
+      const serialized = JSON.stringify(jsonRows, null, 2);
+      logger.line(serialized);
     }
 
     if (statusFlags.json == false) {

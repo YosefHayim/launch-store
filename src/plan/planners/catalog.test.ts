@@ -49,9 +49,10 @@ const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
     inAppPurchaseHasPrice: vi.fn().mockResolvedValue(false),
     findInAppPurchasePricePoint: vi
       .fn()
-      .mockImplementation((_i: string, territory: string, price: number) =>
-        Promise.resolve({ id: 'ipp', customerPrice: String(price), territory }),
-      ),
+      .mockImplementation((_i: string, territory: string, price: number) => {
+        const asString = String(price);
+        return Promise.resolve({ id: 'ipp', customerPrice: asString, territory });
+      }),
     createInAppPurchasePriceSchedule: vi.fn().mockResolvedValue(undefined),
     listSubscriptionGroups: vi.fn().mockResolvedValue([]),
     createSubscriptionGroup: vi
@@ -124,14 +125,16 @@ const makeCtx = (
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
     resolveAscApi: () => {
       if (api == null) return Promise.resolve(null);
-      return Promise.resolve(makeAscApiFake(api));
+      const ascApiFake = makeAscApiFake(api);
+      return Promise.resolve(ascApiFake);
     },
     resolvePlayApi: () => Promise.resolve(null),
   };
 };
 describe('catalogPlanner', () => {
   it('omits itself when no app declares a catalog', async () => {
-    const plan = await runPlanner(catalogPlanner, makeCtx(makeApi(), {}));
+    const api = makeApi();
+    const plan = await runPlanner(catalogPlanner, makeCtx(api, {}));
     expect(plan.state).toBe('omitted');
   });
   it('skips with an actionable hint when no Apple account is active', async () => {
@@ -142,10 +145,8 @@ describe('catalogPlanner', () => {
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports the per-app diff a fresh catalog would create', async () => {
-    const plan = await runPlanner(
-      catalogPlanner,
-      makeCtx(makeApi(), { 'com.acme.alpha': PRODUCTS }),
-    );
+    const api = makeApi();
+    const plan = await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;

@@ -40,15 +40,18 @@ function toolName(mcpTool: McpTool): string {
 
 describe('enabledCapabilities', () => {
   it('defaults to read-only when mcp config is absent', () => {
-    expect(enabledCapabilities(sampleLaunchConfig())).toEqual(['read']);
+    const sampleLaunch = sampleLaunchConfig();
+    expect(enabledCapabilities(sampleLaunch)).toEqual(['read']);
   });
 
   it('treats a declared empty list as unset and falls back to read-only', () => {
-    expect(enabledCapabilities(sampleLaunchConfig([]))).toEqual(['read']);
+    const sampleLaunch = sampleLaunchConfig([]);
+    expect(enabledCapabilities(sampleLaunch)).toEqual(['read']);
   });
 
   it('returns the declared tiers verbatim when non-empty', () => {
-    expect(enabledCapabilities(sampleLaunchConfig(['read', 'write']))).toEqual(['read', 'write']);
+    const sampleLaunch = sampleLaunchConfig(['read', 'write']);
+    expect(enabledCapabilities(sampleLaunch)).toEqual(['read', 'write']);
   });
 });
 
@@ -56,17 +59,17 @@ describe('gateTools', () => {
   const tools = [tool('read_a', 'read'), tool('write_b', 'write'), tool('danger_c', 'dangerous')];
 
   it('exposes only read tools by default', () => {
-    expect(gateTools(tools, sampleLaunchConfig()).map(toolName)).toEqual(['read_a']);
+    const sampleLaunch = sampleLaunchConfig();
+    expect(gateTools(tools, sampleLaunch).map(toolName)).toEqual(['read_a']);
   });
 
   it('filters to the enabled tiers and preserves registry order', () => {
-    expect(gateTools(tools, sampleLaunchConfig(['dangerous', 'read'])).map(toolName)).toEqual([
-      'read_a',
-      'danger_c',
-    ]);
+    const sampleLaunch = sampleLaunchConfig(['dangerous', 'read']);
+    expect(gateTools(tools, sampleLaunch).map(toolName)).toEqual(['read_a', 'danger_c']);
   });
 
   it('returns nothing when no tool matches an enabled tier', () => {
-    expect(gateTools([tool('write_b', 'write')], sampleLaunchConfig())).toEqual([]);
+    const sampleLaunch = sampleLaunchConfig();
+    expect(gateTools([tool('write_b', 'write')], sampleLaunch)).toEqual([]);
   });
 });

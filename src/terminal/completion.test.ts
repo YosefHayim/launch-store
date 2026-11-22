@@ -47,7 +47,9 @@ async function runCompletionResolution(words: string[], program: Command): Promi
 }
 /** A throwaway directory cleaned up after each test. */
 const makeDir = (prefix: string): string => {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const systemTemporaryDirectory = tmpdir();
+  const joinedPath = join(systemTemporaryDirectory, prefix);
+  const dir = mkdtempSync(joinedPath);
   tempDirs.push(dir);
   return dir;
 };
@@ -74,12 +76,14 @@ describe('parseShell', () => {
 });
 describe('detectShell', () => {
   it('reads the shell basename out of $SHELL', () => {
-    expect(detectShell({ SHELL: '/bin/zsh' })).toBe('zsh');
+    const shell = detectShell({ SHELL: '/bin/zsh' });
+    expect(shell).toBe('zsh');
     expect(detectShell({ SHELL: '/usr/local/bin/fish' })).toBe('fish');
     expect(detectShell({ SHELL: '/bin/bash' })).toBe('bash');
   });
   it('returns undefined when $SHELL is unset or unrecognized', () => {
-    expect(detectShell({})).toBeUndefined();
+    const shell = detectShell({});
+    expect(shell).toBeUndefined();
     expect(detectShell({ SHELL: '/bin/csh' })).toBeUndefined();
   });
 });
@@ -147,14 +151,14 @@ describe('installCompletion', () => {
     expect(installOutcome.status).toBe('installed');
     if (installOutcome.status != 'installed') throw new Error('expected installed');
     expect(installOutcome.updated).toBe(false);
-    expect(readFileSync(installOutcome.rcFile, 'utf8')).toContain(
-      'source <(launch completion zsh)',
-    );
+    const loadedFile = readFileSync(installOutcome.rcFile, 'utf8');
+    expect(loadedFile).toContain('source <(launch completion zsh)');
   });
   it('is idempotent - re-running yields the identical rc file with no duplicate line', async () => {
     const home = makeDir('launch-completion-home-');
     await runInstallCompletion({ shell: 'bash', home });
-    const first = readFileSync(join(home, '.bashrc'), 'utf8');
+    const joinedPath = join(home, '.bashrc');
+    const first = readFileSync(joinedPath, 'utf8');
     const second = await runInstallCompletion({ shell: 'bash', home });
     expect(second.status).toBe('installed');
     if (second.status != 'installed') throw new Error('expected installed');
@@ -165,7 +169,8 @@ describe('installCompletion', () => {
   });
   it('preserves existing rc-file content when adding the block', async () => {
     const home = makeDir('launch-completion-home-');
-    writeFileSync(join(home, '.zshrc'), "alias ll='ls -la'\n");
+    const joinedPath = join(home, '.zshrc');
+    writeFileSync(joinedPath, "alias ll='ls -la'\n");
     await runInstallCompletion({ shell: 'zsh', home });
     const after = readFileSync(join(home, '.zshrc'), 'utf8');
     expect(after).toContain("alias ll='ls -la'");
@@ -180,13 +185,13 @@ describe('installCompletion', () => {
   });
   it('installs fish when its config directory already exists', async () => {
     const home = makeDir('launch-completion-home-');
-    mkdirSync(join(home, '.config', 'fish'), { recursive: true });
+    const fishPath = join(home, '.config', 'fish');
+    mkdirSync(fishPath, { recursive: true });
     const installOutcome = await runInstallCompletion({ shell: 'fish', home });
     expect(installOutcome.status).toBe('installed');
     if (installOutcome.status != 'installed') throw new Error('expected installed');
-    expect(readFileSync(installOutcome.rcFile, 'utf8')).toContain(
-      'launch completion fish | source',
-    );
+    const loadedFile = readFileSync(installOutcome.rcFile, 'utf8');
+    expect(loadedFile).toContain('launch completion fish | source');
   });
   it('throws when no shell is given and none can be detected', async () => {
     const home = makeDir('launch-completion-home-');
@@ -225,8 +230,9 @@ describe('resolveCompletions (the __complete callback)', () => {
   });
   it('resolves -p/--profile values from the loaded config', async () => {
     const repo = makeDir('launch-completion-repo-');
+    const launchPath = join(repo, 'launch.config.ts');
     writeFileSync(
-      join(repo, 'launch.config.ts'),
+      launchPath,
       `import { defineConfig } from "launch-store";\nexport default defineConfig({ profiles: { production: { name: "production" }, preview: { name: "preview" } } });\n`,
     );
     const saved = process.cwd();
@@ -240,15 +246,16 @@ describe('resolveCompletions (the __complete callback)', () => {
   });
   it('resolves -a/--app values from discovered apps', async () => {
     const repo = makeDir('launch-completion-repo-');
+    const launchPath = join(repo, 'launch.config.ts');
     writeFileSync(
-      join(repo, 'launch.config.ts'),
+      launchPath,
       `import { defineConfig } from "launch-store";\nexport default defineConfig({ profiles: { production: { name: "production" } } });\n`,
     );
-    mkdirSync(join(repo, 'apps', 'atlas'), { recursive: true });
-    writeFileSync(
-      join(repo, 'apps', 'atlas', 'app.json'),
-      JSON.stringify({ expo: { slug: 'atlas' } }),
-    );
+    const atlasPath = join(repo, 'apps', 'atlas');
+    mkdirSync(atlasPath, { recursive: true });
+    const appPath = join(repo, 'apps', 'atlas', 'app.json');
+    const serialized = JSON.stringify({ expo: { slug: 'atlas' } });
+    writeFileSync(appPath, serialized);
     const saved = process.cwd();
     process.chdir(repo);
     try {

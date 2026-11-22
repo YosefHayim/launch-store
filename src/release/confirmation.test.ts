@@ -3,11 +3,13 @@ import { makeReleaseConfirmationRequired, resolveReleaseConfirmationMode } from 
 
 describe('resolveReleaseConfirmationMode', () => {
   it('confirms immediately when --yes was passed', () => {
-    expect(resolveReleaseConfirmationMode({ yes: true, canPrompt: false })).toBe('confirmed');
+    const releaseConfirmationMode = resolveReleaseConfirmationMode({ yes: true, canPrompt: false });
+    expect(releaseConfirmationMode).toBe('confirmed');
   });
 
   it('allows the CLI to prompt when a TTY is available', () => {
-    expect(resolveReleaseConfirmationMode({ yes: false, canPrompt: true })).toBe('prompt');
+    const releaseConfirmationMode = resolveReleaseConfirmationMode({ yes: false, canPrompt: true });
+    expect(releaseConfirmationMode).toBe('prompt');
   });
 
   it('fails clearly when a non-interactive release has no --yes', () => {

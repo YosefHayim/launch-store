@@ -55,7 +55,9 @@ function captured(count: number): SourceCapture {
 describe('captureSnapshot', () => {
   it('assembles the record with version, name, and capture time', async () => {
     const captureResult = await runCapture([
-      source('a', 'appstore', () => Promise.resolve(captured(2))),
+      source('a', 'appstore', () => {
+        return Promise.resolve(captured(2));
+      }),
     ]);
     expect(captureResult.snapshot.version).toBe(SNAPSHOT_VERSION);
     expect(captureResult.snapshot.name).toBe('before-sync');
@@ -64,8 +66,12 @@ describe('captureSnapshot', () => {
 
   it('tallies captured entities across sources and exits ok', async () => {
     const captureResult = await runCapture([
-      source('a', 'appstore', () => Promise.resolve(captured(2))),
-      source('b', 'play', () => Promise.resolve(captured(3))),
+      source('a', 'appstore', () => {
+        return Promise.resolve(captured(2));
+      }),
+      source('b', 'play', () => {
+        return Promise.resolve(captured(3));
+      }),
     ]);
     expect(captureResult.entityCount).toBe(5);
     expect(captureResult.exitCode).toBe(SNAPSHOT_EXIT.ok);
@@ -73,7 +79,9 @@ describe('captureSnapshot', () => {
 
   it('drops omitted surfaces from the persisted record', async () => {
     const captureResult = await runCapture([
-      source('a', 'appstore', () => Promise.resolve(captured(1))),
+      source('a', 'appstore', () => {
+        return Promise.resolve(captured(1));
+      }),
       source('b', 'play', () => Promise.resolve({ state: 'omitted' })),
     ]);
     expect(captureResult.snapshot.reports.map((report) => report.id)).toEqual(['a']);
@@ -92,7 +100,9 @@ describe('captureSnapshot', () => {
 
   it('converts a thrown source into an errored report and exits 1', async () => {
     const captureResult = await runCapture([
-      source('ok', 'appstore', () => Promise.resolve(captured(1))),
+      source('ok', 'appstore', () => {
+        return Promise.resolve(captured(1));
+      }),
       source('boom', 'play', () => Promise.reject(new Error('network down'))),
     ]);
     const errored = captureResult.snapshot.reports.find((report) => report.id == 'boom');

@@ -30,7 +30,8 @@ function keyIdentifiersConflict(
 
 /** Read an uppercase Apple Key ID from an `AuthKey_<KEYID>.p8` filename. */
 export function extractKeyId(p8Path: string): string | null {
-  const capturedKeyId = AUTH_KEY_FILENAME.exec(basename(p8Path))?.[1];
+  const fileName = basename(p8Path);
+  const capturedKeyId = AUTH_KEY_FILENAME.exec(fileName)?.[1];
 
   if (capturedKeyId == null) {
     return null;

@@ -341,7 +341,8 @@ export function mergeOutcomes(
     }),
   );
 
-  return plans.map(appliedOutcomeFor(byJob));
+  const appliedFor = appliedOutcomeFor(byJob);
+  return plans.map(appliedFor);
 }
 
 /**
@@ -372,5 +373,6 @@ export async function runSyncBatch(
 
   const applied = await mapWithConcurrency(jobsToApply, SYNC_CONCURRENCY, applyJob);
 
-  return summarizeRun(mergeOutcomes(plans, applied));
+  const outcomes = mergeOutcomes(plans, applied);
+  return summarizeRun(outcomes);
 }

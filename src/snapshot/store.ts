@@ -299,7 +299,8 @@ export async function saveSnapshot(
   const filePath = snapshotFilePath(snapshot.name, directoryOverride);
 
   await mkdir(directoryPath, { recursive: true });
-  await writeFile(filePath, JSON.stringify(snapshot, null, 2));
+  const serialized = JSON.stringify(snapshot, null, 2);
+  await writeFile(filePath, serialized);
 
   return filePath;
 }
@@ -360,7 +361,8 @@ export async function listSnapshots(directoryOverride?: string): Promise<readonl
 
   const snapshotCandidates = await Promise.all(
     jsonNames.map(function readSnapshotFile(entryName) {
-      return readStoredSnapshot(join(directoryPath, entryName));
+      const joinedPath = join(directoryPath, entryName);
+      return readStoredSnapshot(joinedPath);
     }),
   );
 

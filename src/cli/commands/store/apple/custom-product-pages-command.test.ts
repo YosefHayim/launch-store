@@ -3,13 +3,12 @@ import { CustomProductPagesCommandInputSchema } from './custom-product-pages-com
 
 describe('CustomProductPagesCommandInputSchema', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {
-    expect(
-      CustomProductPagesCommandInputSchema({
-        config: 'custom-pages.config.json',
-        dryRun: true,
-        yes: false,
-      }),
-    ).toEqual({
+    const customProductPagesCommandSchema = CustomProductPagesCommandInputSchema({
+      config: 'custom-pages.config.json',
+      dryRun: true,
+      yes: false,
+    });
+    expect(customProductPagesCommandSchema).toEqual({
       config: 'custom-pages.config.json',
       dryRun: true,
       yes: false,

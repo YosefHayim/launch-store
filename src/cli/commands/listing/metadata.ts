@@ -42,26 +42,24 @@ export const registerMetadataCommand = (program: Command): void => {
   const metadataCommand = program
     .command('metadata')
     .description('sync the store listing (name, description, keywords) via store.config.json');
-  attachMetadataSelectionOptions(
-    metadataCommand
-      .command('pull')
-      .description('download the live store listing into store.config.json'),
-  )
+  const pullCommand = metadataCommand
+    .command('pull')
+    .description('download the live store listing into store.config.json');
+  attachMetadataSelectionOptions(pullCommand)
     .option('--dry-run', 'read the store and report what would be written, write nothing', false)
     .action((commandOptions: MetadataOptions) => {
-      return runCliProgram(
-        metadataCommandProgram(metadataInputFromOptions('pull', commandOptions)),
-      );
+      const metadataFrom = metadataInputFromOptions('pull', commandOptions);
+      const metadataProgram = metadataCommandProgram(metadataFrom);
+      return runCliProgram(metadataProgram);
     });
-  attachMetadataSelectionOptions(
-    metadataCommand
-      .command('push')
-      .description('upload store.config.json to the store listing (metadata only; no binary)'),
-  )
+  const pushCommand = metadataCommand
+    .command('push')
+    .description('upload store.config.json to the store listing (metadata only; no binary)');
+  attachMetadataSelectionOptions(pushCommand)
     .option('--dry-run', 'rehearse: print the planned changes, write nothing to the store', false)
     .action((commandOptions: MetadataOptions) => {
-      return runCliProgram(
-        metadataCommandProgram(metadataInputFromOptions('push', commandOptions)),
-      );
+      const metadataFrom = metadataInputFromOptions('push', commandOptions);
+      const metadataProgram = metadataCommandProgram(metadataFrom);
+      return runCliProgram(metadataProgram);
     });
 };

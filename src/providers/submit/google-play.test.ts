@@ -93,20 +93,19 @@ afterEach(() => {
 
 describe('google-play submitter - package_name (EAS #3563 regression)', () => {
   it('uploads to android.package, NOT the iOS bundle identifier', async () => {
-    await googlePlaySubmitter.submit(artifact, credentials, androidContext());
+    const android = androidContext();
+    await googlePlaySubmitter.submit(artifact, credentials, android);
     const [packageName, bundleBytes, track, release] = uploadCall();
     expect(packageName).toBe('com.example.hello.android');
-    expect(bundleBytes.equals(readFileSync(aabPath))).toBe(true);
+    const loadedFile = readFileSync(aabPath);
+    expect(bundleBytes.equals(loadedFile)).toBe(true);
     expect(track).toBe('internal');
     expect(release).toEqual({ status: 'completed' });
   });
 
   it('stages a partial rollout as an in-progress release at that fraction', async () => {
-    await googlePlaySubmitter.submit(
-      artifact,
-      credentials,
-      androidContext({ track: 'production', rollout: 0.1 }),
-    );
+    const android = androidContext({ track: 'production', rollout: 0.1 });
+    await googlePlaySubmitter.submit(artifact, credentials, android);
     const [, , track, release] = uploadCall();
     expect(track).toBe('production');
     expect(release).toEqual({ status: 'inProgress', userFraction: 0.1 });
@@ -114,9 +113,10 @@ describe('google-play submitter - package_name (EAS #3563 regression)', () => {
 
   it('closes the bundle file when Google Play fails before reading it', async () => {
     playUpload.isRejected = true;
-    await expect(
-      googlePlaySubmitter.submit(artifact, credentials, androidContext()),
-    ).rejects.toThrow(/rejected the edit/);
+    const android = androidContext();
+    await expect(googlePlaySubmitter.submit(artifact, credentials, android)).rejects.toThrow(
+      /rejected the edit/,
+    );
     const [bundleStream] = playUpload.bundleStreams;
     expect(bundleStream?.destroyed).toBe(true);
   });
@@ -126,27 +126,25 @@ describe('google-play submitter - package_name (EAS #3563 regression)', () => {
       platform: 'ios',
       ascKey: { keyId: 'K', issuerId: 'I', p8: 'PEM' },
     };
-    await expect(
-      googlePlaySubmitter.submit(artifact, iosCredentials, androidContext()),
-    ).rejects.toThrow(/Android only/);
+    const android = androidContext();
+    await expect(googlePlaySubmitter.submit(artifact, iosCredentials, android)).rejects.toThrow(
+      /Android only/,
+    );
     expect(uploadBundleToTrack).not.toHaveBeenCalled();
   });
 });
 
 describe('google-play submitter - release notes (issue #309)', () => {
   it('sends the configured release notes per locale with the release', async () => {
-    await googlePlaySubmitter.submit(
-      artifact,
-      credentials,
-      androidContext({
-        track: 'internal',
-        rollout: 1,
-        releaseNotes: [
-          { language: 'en-US', text: 'Bug fixes and speed' },
-          { language: 'iw-IL', text: 'תיקוני באגים' },
-        ],
-      }),
-    );
+    const android = androidContext({
+      track: 'internal',
+      rollout: 1,
+      releaseNotes: [
+        { language: 'en-US', text: 'Bug fixes and speed' },
+        { language: 'iw-IL', text: 'תיקוני באגים' },
+      ],
+    });
+    await googlePlaySubmitter.submit(artifact, credentials, android);
     const [, , , release] = uploadCall();
     expect(release).toEqual({
       status: 'completed',

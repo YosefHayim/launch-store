@@ -297,7 +297,8 @@ export async function runWithProgress(
 export function checkTerminalIsInteractive(): boolean {
   const terminalIsInteractive = stdout.isTTY == true;
 
-  return isInteractiveTerminal(terminalIsInteractive, readLaunchEnvironment().rawVariables);
+  const launchEnvironment = readLaunchEnvironment();
+  return isInteractiveTerminal(terminalIsInteractive, launchEnvironment.rawVariables);
 }
 export const isInteractiveTerminal = (
   isTTY: boolean,

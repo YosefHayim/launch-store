@@ -68,8 +68,9 @@ async function importApnsKey(
   commandOptions: CredentialsCommandOptions,
 ): Promise<void> {
   const canPrompt = commandCanPrompt(commandOptions);
+  const firstDefined = firstDefinedText(pathArgument, commandOptions.p8);
   const enteredPath = await requireText(
-    firstDefinedText(pathArgument, commandOptions.p8),
+    firstDefined,
     'Path to the APNs .p8 key',
     'Pass the APNs .p8 path.',
     canPrompt,

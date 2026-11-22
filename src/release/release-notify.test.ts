@@ -26,19 +26,24 @@ const status = (over: Partial<ReleaseStatus> = {}): ReleaseStatus => {
 };
 describe('reviewStatusForVerdict', () => {
   it('notifies rejected on a rejection', () => {
-    expect(reviewStatusForVerdict(classifyVerdict('REJECTED'))).toBe('rejected');
+    const verdict = classifyVerdict('REJECTED');
+    expect(reviewStatusForVerdict(verdict)).toBe('rejected');
   });
   it('notifies approved on a released verdict', () => {
-    expect(reviewStatusForVerdict(classifyVerdict('READY_FOR_SALE'))).toBe('approved');
+    const verdict = classifyVerdict('READY_FOR_SALE');
+    expect(reviewStatusForVerdict(verdict)).toBe('approved');
   });
   it('notifies approved on a pending-release verdict', () => {
-    expect(reviewStatusForVerdict(classifyVerdict('PENDING_DEVELOPER_RELEASE'))).toBe('approved');
+    const verdict = classifyVerdict('PENDING_DEVELOPER_RELEASE');
+    expect(reviewStatusForVerdict(verdict)).toBe('approved');
   });
   it('stays silent while in review', () => {
-    expect(reviewStatusForVerdict(classifyVerdict('IN_REVIEW'))).toBeNull();
+    const verdict = classifyVerdict('IN_REVIEW');
+    expect(reviewStatusForVerdict(verdict)).toBeNull();
   });
   it('stays silent on a preparing (not-yet-submitted) verdict', () => {
-    expect(reviewStatusForVerdict(classifyVerdict('PREPARE_FOR_SUBMISSION'))).toBeNull();
+    const verdict = classifyVerdict('PREPARE_FOR_SUBMISSION');
+    expect(reviewStatusForVerdict(verdict)).toBeNull();
   });
 });
 describe('planTransitionNotifications - review', () => {
@@ -46,13 +51,12 @@ describe('planTransitionNotifications - review', () => {
     const tracker = createTransitionTracker();
     // `PREPARE_FOR_SUBMISSION` is terminal (`verdict.done`) but not a review outcome, so it must stay
     // silent AND must not mark the app reviewed - otherwise a later approved/rejected ping is suppressed.
-    expect(
-      planTransitionNotifications(
-        'alpha',
-        status({ appStoreState: 'PREPARE_FOR_SUBMISSION' }),
-        tracker,
-      ),
-    ).toEqual([]);
+    const transitionNotifications = planTransitionNotifications(
+      'alpha',
+      status({ appStoreState: 'PREPARE_FOR_SUBMISSION' }),
+      tracker,
+    );
+    expect(transitionNotifications).toEqual([]);
     expect(tracker.reviewed.size).toBe(0);
     const events = planTransitionNotifications(
       'alpha',
@@ -72,26 +76,39 @@ describe('planTransitionNotifications - review', () => {
   });
   it('fires an approved review once, then stays silent on repeat polls', () => {
     const tracker = createTransitionTracker();
-    expect(
-      planTransitionNotifications('alpha', status({ appStoreState: 'READY_FOR_SALE' }), tracker),
-    ).toEqual([expect.objectContaining({ event: 'review', status: 'approved', app: 'alpha' })]);
+    const transitionNotifications = planTransitionNotifications(
+      'alpha',
+      status({ appStoreState: 'READY_FOR_SALE' }),
+      tracker,
+    );
+    expect(transitionNotifications).toEqual([
+      expect.objectContaining({ event: 'review', status: 'approved', app: 'alpha' }),
+    ]);
     expect(
       planTransitionNotifications('alpha', status({ appStoreState: 'READY_FOR_SALE' }), tracker),
     ).toEqual([]);
   });
   it('stays silent while the verdict is still in progress', () => {
     const tracker = createTransitionTracker();
-    expect(
-      planTransitionNotifications('alpha', status({ appStoreState: 'IN_REVIEW' }), tracker),
-    ).toEqual([]);
+    const transitionNotifications = planTransitionNotifications(
+      'alpha',
+      status({ appStoreState: 'IN_REVIEW' }),
+      tracker,
+    );
+    expect(transitionNotifications).toEqual([]);
     expect(tracker.reviewed.size).toBe(0);
   });
   it('notifies again for a new version of the same app in one session', () => {
     const tracker = createTransitionTracker();
     // v1.2.0 is rejected and notified.
-    expect(
-      planTransitionNotifications('alpha', status({ appStoreState: 'REJECTED' }), tracker),
-    ).toEqual([expect.objectContaining({ event: 'review', status: 'rejected', version: '1.2.0' })]);
+    const transitionNotifications = planTransitionNotifications(
+      'alpha',
+      status({ appStoreState: 'REJECTED' }),
+      tracker,
+    );
+    expect(transitionNotifications).toEqual([
+      expect.objectContaining({ event: 'review', status: 'rejected', version: '1.2.0' }),
+    ]);
     // A resubmitted v1.2.1 of the same app must still notify on its own verdict - the prior version's
     // state must not leak across the version change.
     const events = planTransitionNotifications(
@@ -108,9 +125,12 @@ describe('planTransitionNotifications - rollout', () => {
   it('treats the first phased state as a silent baseline, then notifies each change once', () => {
     const tracker = createTransitionTracker();
     // Held at IN_REVIEW (not terminal) so the rollout transition is exercised without a review ping.
-    expect(
-      planTransitionNotifications('alpha', status({ phasedReleaseState: 'INACTIVE' }), tracker),
-    ).toEqual([]);
+    const transitionNotifications = planTransitionNotifications(
+      'alpha',
+      status({ phasedReleaseState: 'INACTIVE' }),
+      tracker,
+    );
+    expect(transitionNotifications).toEqual([]);
     const advanced = planTransitionNotifications(
       'alpha',
       status({ phasedReleaseState: 'ACTIVE' }),
@@ -132,8 +152,11 @@ describe('planTransitionNotifications - rollout', () => {
     const tracker = createTransitionTracker();
     planTransitionNotifications('alpha', status({ phasedReleaseState: 'ACTIVE' }), tracker);
     // beta's first observation is its own baseline, regardless of alpha's state.
-    expect(
-      planTransitionNotifications('beta', status({ phasedReleaseState: 'ACTIVE' }), tracker),
-    ).toEqual([]);
+    const transitionNotifications = planTransitionNotifications(
+      'beta',
+      status({ phasedReleaseState: 'ACTIVE' }),
+      tracker,
+    );
+    expect(transitionNotifications).toEqual([]);
   });
 });

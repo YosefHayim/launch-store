@@ -158,9 +158,8 @@ async function updateAppRollout(
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
-    logger.error(
-      `${selectedApp.name}: ${appRecordMissingMessage(selectedApp.bundleId, 'launch rollout')}`,
-    );
+    const appMissingMessage = appRecordMissingMessage(selectedApp.bundleId, 'launch rollout');
+    logger.error(`${selectedApp.name}: ${appMissingMessage}`);
     return true;
   }
 

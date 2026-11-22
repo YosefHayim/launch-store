@@ -60,12 +60,16 @@ describe('readinessMark', () => {
 });
 describe('formatPendingTodoLine', () => {
   it('joins label and detail when a detail is present', () => {
-    expect(
-      formatPendingTodoLine({ label: 'Xcode', status: 'todo', detail: 'Install Xcode.' }),
-    ).toBe('Xcode - Install Xcode.');
+    const pendingTodoLine = formatPendingTodoLine({
+      label: 'Xcode',
+      status: 'todo',
+      detail: 'Install Xcode.',
+    });
+    expect(pendingTodoLine).toBe('Xcode - Install Xcode.');
   });
   it('returns the bare label when no detail is set', () => {
-    expect(formatPendingTodoLine({ label: 'Apps', status: 'todo' })).toBe('Apps');
+    const pendingTodoLine = formatPendingTodoLine({ label: 'Apps', status: 'todo' });
+    expect(pendingTodoLine).toBe('Apps');
   });
 });
 describe('mayInstallToolchain', () => {

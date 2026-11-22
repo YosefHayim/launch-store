@@ -123,7 +123,8 @@ function readAction(candidate: unknown): CredentialsAction {
     }
   }
 
-  throw new Error(`Unknown credentials action "${String(candidate)}".`);
+  const asString = String(candidate);
+  throw new Error(`Unknown credentials action "${asString}".`);
 }
 
 function readCommandOptions(record: Record<string, unknown>): CredentialsCommandOptions {
@@ -191,8 +192,9 @@ async function setGoogleKey(
 ): Promise<void> {
   const environment = readLaunchEnvironment();
   const canPrompt = commandCanPrompt(commandOptions);
+  const firstDefined = firstDefinedText(pathArgument, environment.values.playServiceAccountPath);
   const enteredPath = await requireText(
-    firstDefinedText(pathArgument, environment.values.playServiceAccountPath),
+    firstDefined,
     'Path to the Play service-account JSON',
     'Pass the service-account JSON path or set PLAY_SERVICE_ACCOUNT.',
     canPrompt,

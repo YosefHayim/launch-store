@@ -83,10 +83,11 @@ export const LocalCredentialsStore = {
 
     for (const appleAccount of appleAccounts) {
       const storedCredentials = await describeStoredCredentials(appleAccount.keyId);
+      const accountSummary = formatAccountSummary(appleAccount, { includeLabel: false });
       statuses.push({
         keyId: appleAccount.keyId,
         label: appleAccount.label,
-        summary: formatAccountSummary(appleAccount, { includeLabel: false }),
+        summary: accountSummary,
         active: appleAccount.keyId == activeKeyId,
         unresolved: accountIsUnresolved(appleAccount.teamId, countApps(appleAccount.apps)),
         certificateSerial: storedCredentials.certSerial,

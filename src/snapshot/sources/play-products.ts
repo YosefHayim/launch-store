@@ -253,10 +253,7 @@ async function reconcileProductActions(
 
     return [...reconciliation.actions];
   } catch (reconciliationFailure) {
-    return [
-      skippedAction(
-        `Google Play products ${packageName}: ${restoreErrorMessage(reconciliationFailure)}`,
-      ),
-    ];
+    const errorMessage = restoreErrorMessage(reconciliationFailure);
+    return [skippedAction(`Google Play products ${packageName}: ${errorMessage}`)];
   }
 }

@@ -61,14 +61,18 @@ const sampleSnapshot = (snapshotFields: Partial<Snapshot> = {}): Snapshot => ({
 
 describe('SnapshotCommandInputSchema', () => {
   it('decodes capture and diff operations', () => {
-    expect(
-      SnapshotCommandInputSchema({
-        operation: 'create',
-        name: 'before-release',
-        app: 'demo',
-        json: true,
-      }),
-    ).toEqual({ operation: 'create', name: 'before-release', app: 'demo', json: true });
+    const snapshotCommandSchema = SnapshotCommandInputSchema({
+      operation: 'create',
+      name: 'before-release',
+      app: 'demo',
+      json: true,
+    });
+    expect(snapshotCommandSchema).toEqual({
+      operation: 'create',
+      name: 'before-release',
+      app: 'demo',
+      json: true,
+    });
     expect(
       SnapshotCommandInputSchema({
         operation: 'diff',
@@ -85,12 +89,14 @@ describe('SnapshotCommandInputSchema', () => {
   });
 
   it('decodes prune and restore options without generic records', () => {
-    expect(
-      SnapshotCommandInputSchema({
-        operation: 'prune',
-        options: { keep: '3', yes: false, json: true },
-      }),
-    ).toEqual({ operation: 'prune', options: { keep: '3', yes: false, json: true } });
+    const snapshotCommandSchema = SnapshotCommandInputSchema({
+      operation: 'prune',
+      options: { keep: '3', yes: false, json: true },
+    });
+    expect(snapshotCommandSchema).toEqual({
+      operation: 'prune',
+      options: { keep: '3', yes: false, json: true },
+    });
     expect(
       SnapshotCommandInputSchema({
         operation: 'restore',
@@ -129,30 +135,31 @@ describe('defaultSnapshotName', () => {
 
 describe('countEntities', () => {
   it('sums only captured surface entities and ignores skipped surfaces', () => {
-    expect(countEntities(sampleSnapshot())).toBe(4);
+    const entities = countEntities(sampleSnapshot());
+    expect(entities).toBe(4);
   });
 
   it('returns zero when nothing was captured', () => {
-    expect(
-      countEntities(
-        sampleSnapshot({
-          reports: [
-            {
-              id: 'apple-listing',
-              title: 'App Store listing',
-              store: 'appstore',
-              outcome: { state: 'skipped', reason: 'no credentials' },
-            },
-          ],
-        }),
-      ),
-    ).toBe(0);
+    const entities = countEntities(
+      sampleSnapshot({
+        reports: [
+          {
+            id: 'apple-listing',
+            title: 'App Store listing',
+            store: 'appstore',
+            outcome: { state: 'skipped', reason: 'no credentials' },
+          },
+        ],
+      }),
+    );
+    expect(entities).toBe(0);
   });
 });
 
 describe('parsePruneCount', () => {
   it('accepts non-negative integers', () => {
-    expect(parsePruneCount('0', '--keep')).toBe(0);
+    const pruneCount = parsePruneCount('0', '--keep');
+    expect(pruneCount).toBe(0);
     expect(parsePruneCount('12', '--older-than')).toBe(12);
   });
 

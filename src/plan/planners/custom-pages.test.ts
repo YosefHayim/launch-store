@@ -20,10 +20,13 @@ afterEach(() => {
 });
 /** Write a sidecar config to a fresh temp file and return its path. */
 const writeConfig = (json: unknown): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'launch-pages-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchPagesPath = join(systemTemporaryDirectory, 'launch-pages-');
+  const dir = mkdtempSync(launchPagesPath);
   tmpDirs.push(dir);
   const path = join(dir, 'custom-pages.config.json');
-  writeFileSync(path, JSON.stringify(json));
+  const serialized = JSON.stringify(json);
+  writeFileSync(path, serialized);
   return path;
 };
 const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext => {
@@ -45,9 +48,10 @@ const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext =>
 const DECLARED = { pages: [{ name: 'page1' }] };
 describe('customPagesPlanner', () => {
   it('omits itself when no custom-pages sidecar is present', async () => {
+    const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(
       customPagesPlanner,
-      makeCtx(makeAscApiFake(), '/no/such/custom-pages.config.json'),
+      makeCtx(ascApiFake, '/no/such/custom-pages.config.json'),
     );
     expect(plan.state).toBe('omitted');
   });
@@ -58,10 +62,8 @@ describe('customPagesPlanner', () => {
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports the page a fresh config would create (two-way)', async () => {
-    const plan = await runPlanner(
-      customPagesPlanner,
-      makeCtx(makeAscApiFake(), writeConfig(DECLARED)),
-    );
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(customPagesPlanner, makeCtx(ascApiFake, writeConfig(DECLARED)));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;

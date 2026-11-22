@@ -22,11 +22,12 @@ export class ConnectApps {
   constructor(private readonly client: AscHost) {}
 
   async getAppId(bundleId: string): Promise<string | null> {
+    const uRIComponent = encodeURIComponent(bundleId);
     const { data: appleResources } = await this.client.request<
       ResourceList<{
         bundleId: string;
       }>
-    >('GET', `/apps?filter[bundleId]=${encodeURIComponent(bundleId)}&limit=1`);
+    >('GET', `/apps?filter[bundleId]=${uRIComponent}&limit=1`);
     const appResource = appleResources[0];
     if (appResource == null) return null;
     return appResource.id;

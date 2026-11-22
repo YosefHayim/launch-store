@@ -101,7 +101,8 @@ describe('countAdoptMutations', () => {
 
 describe('adoptFidelityMarker', () => {
   it('maps each fidelity tier to its plan marker', () => {
-    expect(adoptFidelityMarker('importable')).toBe('+');
+    const fidelityMarker = adoptFidelityMarker('importable');
+    expect(fidelityMarker).toBe('+');
     expect(adoptFidelityMarker('advisory')).toBe('~');
     expect(adoptFidelityMarker('detect')).toBe('-');
   });

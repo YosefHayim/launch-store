@@ -193,7 +193,9 @@ async function estimateDownload(
   aabPath: string,
   keystore: KeystoreAssets,
 ): Promise<SizeReportEntry[]> {
-  const workingDirectory = await mkdtemp(join(tmpdir(), 'launch-aab-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchAabPath = join(systemTemporaryDirectory, 'launch-aab-');
+  const workingDirectory = await mkdtemp(launchAabPath);
 
   try {
     const apksPath = join(workingDirectory, 'app.apks');

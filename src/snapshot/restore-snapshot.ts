@@ -298,11 +298,12 @@ export async function restoreSnapshot(command: RestoreCommand): Promise<void> {
       return savedEntitiesFor(savedSnapshot, snapshotSource.id, command.app).length > 0;
     });
   const storeSession = await loadSnapshotStoreSession(command.app);
-  const liveCapture = await captureSnapshot(
-    captureContextFromSession(storeSession),
-    listSnapshotSources(),
-    { name: LIVE_SNAPSHOT, capturedAt: currentIsoTime() },
-  );
+  const captureFromSession = captureContextFromSession(storeSession);
+  const snapshotSources = listSnapshotSources();
+  const liveCapture = await captureSnapshot(captureFromSession, snapshotSources, {
+    name: LIVE_SNAPSHOT,
+    capturedAt: currentIsoTime(),
+  });
   const preview = diffSnapshots(savedSnapshot, liveCapture.snapshot);
   const dryRun = command.yes != true;
   const restoreContext = restoreContextFromSession(storeSession);
@@ -320,7 +321,8 @@ export async function restoreSnapshot(command: RestoreCommand): Promise<void> {
   }
 
   if (command.json == true) {
-    logger.line(JSON.stringify({ preview, restored: sourceRestores, dryRun }, null, 2));
+    const serialized = JSON.stringify({ preview, restored: sourceRestores, dryRun }, null, 2);
+    logger.line(serialized);
   }
 
   if (command.json != true) {

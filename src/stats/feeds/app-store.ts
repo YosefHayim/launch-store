@@ -244,7 +244,8 @@ async function loadSalesStats(
   const appSkus = findAppSkus(allLines, app.storeId);
 
   return dailyReports.flatMap(function readDayStats(datedReport: DatedReport) {
-    return summarizeSalesLines(readReportLines(datedReport.report), {
+    const reportLines = readReportLines(datedReport.report);
+    return summarizeSalesLines(reportLines, {
       date: datedReport.date,
       storeId: app.storeId,
       appSkus,

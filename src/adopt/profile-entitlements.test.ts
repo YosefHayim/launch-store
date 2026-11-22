@@ -27,26 +27,28 @@ beforeEach(() => {
 
 describe('extractProfileEntitlements', () => {
   it("returns null for content that isn't a decodable provisioning profile (or off-Mac)", async () => {
-    captureMock.mockRejectedValueOnce(
-      makeCommandFailed({
-        command: 'security',
-        exitCode: 1,
-        stderr: 'security cms failed',
-      }),
-    );
-    expect(await extractProfileEntitlements('bm90LWEtcHJvZmlsZQ==')).toBeNull();
+    const commandFailed = makeCommandFailed({
+      command: 'security',
+      exitCode: 1,
+      stderr: 'security cms failed',
+    });
+    captureMock.mockRejectedValueOnce(commandFailed);
+    const profileEntitlements = await extractProfileEntitlements('bm90LWEtcHJvZmlsZQ==');
+    expect(profileEntitlements).toBeNull();
   });
 
   it('extracts Entitlements as xml1 before converting the sub-plist to JSON', async () => {
+    const serialized = JSON.stringify({
+      'com.apple.security.application-groups': ['group.com.acme.app'],
+    });
     captureMock
       .mockResolvedValueOnce(
         '<plist><dict><key>DeveloperCertificates</key><data>abc</data></dict></plist>',
       )
       .mockResolvedValueOnce('')
-      .mockResolvedValueOnce(
-        JSON.stringify({ 'com.apple.security.application-groups': ['group.com.acme.app'] }),
-      );
-    await expect(extractProfileEntitlements('cHJvZmlsZQ==')).resolves.toEqual({
+      .mockResolvedValueOnce(serialized);
+    const profileEntitlements = extractProfileEntitlements('cHJvZmlsZQ==');
+    await expect(profileEntitlements).resolves.toEqual({
       'com.apple.security.application-groups': ['group.com.acme.app'],
     });
     const securityCall = readCaptureCall(0);

@@ -77,7 +77,8 @@ export function findAppStream(
 
 function createPageUrl(listUrl: string, pageSize: number, pageToken: string | null): string {
   const pageUrl = new URL(listUrl);
-  pageUrl.searchParams.set('pageSize', String(pageSize));
+  const asString = String(pageSize);
+  pageUrl.searchParams.set('pageSize', asString);
 
   if (pageToken != null) {
     pageUrl.searchParams.set('pageToken', pageToken);
@@ -238,8 +239,9 @@ async function listPages(
   pagedList: PagedList,
   pageToken: string | null,
 ): Promise<readonly unknown[]> {
+  const pageUrl = createPageUrl(pagedList.url, pagedList.pageSize, pageToken);
   const pageDocument = await requestGa4Document(session, {
-    url: createPageUrl(pagedList.url, pagedList.pageSize, pageToken),
+    url: pageUrl,
     requestDocument: null,
     propertyId: pagedList.propertyId,
   });
@@ -314,7 +316,8 @@ export async function listAppStreams(
     }
 
     for (const dataStream of decodedStreams) {
-      streams.push(...streamFromDataStream(propertyId, dataStream));
+      const streamFromStream = streamFromDataStream(propertyId, dataStream);
+      streams.push(...streamFromStream);
     }
   }
 

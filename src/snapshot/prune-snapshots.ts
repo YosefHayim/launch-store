@@ -71,18 +71,17 @@ export async function pruneUserSnapshots(pruneOptions: PruneOptions): Promise<vo
   }
 
   if (pruneOptions.json == true) {
-    logger.line(
-      JSON.stringify(
-        {
-          pruned: snapshotsToPrune.map(function snapshotName(savedSnapshot) {
-            return savedSnapshot.name;
-          }),
-          dryRun,
-        },
-        null,
-        2,
-      ),
+    const serialized = JSON.stringify(
+      {
+        pruned: snapshotsToPrune.map(function snapshotName(savedSnapshot) {
+          return savedSnapshot.name;
+        }),
+        dryRun,
+      },
+      null,
+      2,
     );
+    logger.line(serialized);
 
     return;
   }

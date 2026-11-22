@@ -68,10 +68,9 @@ const generatedReportingFake = (): PlayReportingTransport => {
 let client: PlayReportingClient;
 beforeEach(() => {
   vi.clearAllMocks();
-  client = new PlayReportingClient(
-    parseServiceAccount(makeServiceAccountJson()),
-    generatedReportingFake(),
-  );
+  const makeServiceAccount = makeServiceAccountJson();
+  const serviceAccount = parseServiceAccount(makeServiceAccount);
+  client = new PlayReportingClient(serviceAccount, generatedReportingFake());
 });
 describe('vitalsWindowFromLatestDate', () => {
   it('spans the default inclusive window ending at freshness', () => {
@@ -101,12 +100,10 @@ describe('vitalsWindowFromLatestDate', () => {
 });
 describe('PlayReportingClient generated metrics', () => {
   it('queries and normalizes crash-rate entries in date order', async () => {
+    const crashMetric = crashMetricEntry('2026-06-02', '0.0123', '0.0099', '5000');
     queryCrashRate.mockResolvedValue({
       data: {
-        rows: [
-          crashMetricEntry('2026-06-02', '0.0123', '0.0099', '5000'),
-          crashMetricEntry('2026-06-01', '0.02', '0.015', '4800'),
-        ],
+        rows: [crashMetric, crashMetricEntry('2026-06-01', '0.02', '0.015', '4800')],
       },
     });
     const entries = await client.queryCrashRate('com.example.app', {
@@ -142,10 +139,11 @@ describe('PlayReportingClient generated metrics', () => {
     ]);
   });
   it('pages through the generated nextPageToken', async () => {
+    const crashMetric = crashMetricEntry('2026-06-01', '0.02', '0.01', '10');
     queryCrashRate
       .mockResolvedValueOnce({
         data: {
-          rows: [crashMetricEntry('2026-06-01', '0.02', '0.01', '10')],
+          rows: [crashMetric],
           nextPageToken: 'second-page',
         },
       })
@@ -213,8 +211,9 @@ describe('PlayReportingClient generated metrics', () => {
   });
   it('bounds the timeline query by generated freshness', async () => {
     getCrashFreshness.mockResolvedValue({ data: dailyFreshness('2026-06-20') });
+    const crashMetric = crashMetricEntry('2026-06-20', '0.01', '0.008', '1000');
     queryCrashRate.mockResolvedValue({
-      data: { rows: [crashMetricEntry('2026-06-20', '0.01', '0.008', '1000')] },
+      data: { rows: [crashMetric] },
     });
     const timeline = await client.vitalsTimeline('com.example.app', 'crash', 7);
     expect(timeline.window).toEqual({ startDate: '2026-06-14', endDate: '2026-06-20' });

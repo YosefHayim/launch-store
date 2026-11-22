@@ -69,7 +69,8 @@ async function patchFirstRunState(statePatch: Partial<FirstRunState>): Promise<v
   const currentState = await readFirstRunState();
 
   await ensureDirectoryExists(launchHomeDirectory);
-  await writeFile(stateFilePath, JSON.stringify({ ...currentState, ...statePatch }, null, 2));
+  const serialized = JSON.stringify({ ...currentState, ...statePatch }, null, 2);
+  await writeFile(stateFilePath, serialized);
 }
 
 /** Reports whether the inline ccache offer was declined. */

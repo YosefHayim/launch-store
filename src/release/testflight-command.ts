@@ -347,7 +347,8 @@ async function listGroups(commandInput: GroupsCommandInput): Promise<void> {
 
   for (const betaGroup of betaGroups) {
     const testers = await appleStore.listBetaTestersInGroup(betaGroup.id);
-    logger.line(formatGroupLine(betaGroup, testers.length));
+    const groupLine = formatGroupLine(betaGroup, testers.length);
+    logger.line(groupLine);
   }
 
   logger.line(`\n${betaGroups.length} group(s) for ${selectedApp.name}.`);
@@ -416,7 +417,8 @@ async function listTesters(commandInput: TestersCommandInput): Promise<void> {
   }
 
   for (const betaTester of betaTesters) {
-    logger.line(formatTesterLine(betaTester));
+    const testerLine = formatTesterLine(betaTester);
+    logger.line(testerLine);
   }
 
   logger.line(`\n${betaTesters.length} tester(s) in "${betaGroup.name}".`);
@@ -446,6 +448,7 @@ export async function testflightCommandProgram(rawCommandInput: unknown): Promis
     const commandInput = TestflightCommandInputSchema(rawCommandInput);
     await runTestflightOperation(commandInput);
   } catch (cause) {
-    throw testflightFailure('run TestFlight command', errorMessage(cause), cause);
+    const failureMessage = errorMessage(cause);
+    throw testflightFailure('run TestFlight command', failureMessage, cause);
   }
 }

@@ -27,6 +27,7 @@ export const registerPlayProductsCommand = (program: Command): void => {
       if (commandOptions.app != null) {
         playProductsInput = { ...playProductsInput, app: commandOptions.app };
       }
-      return runCliProgram(playProductsCommandProgram(playProductsInput));
+      const playProductsProgram = playProductsCommandProgram(playProductsInput);
+      return runCliProgram(playProductsProgram);
     });
 };

@@ -107,9 +107,9 @@ describe('toPlayProduct', () => {
   });
 
   it('throws when the product has no localization to derive a default language from', () => {
-    expect(() => toPlayProduct(product({ localizations: [] }))).toThrow(
-      /at least one localization/,
-    );
+    expect(() => {
+      return toPlayProduct(product({ localizations: [] }));
+    }).toThrow(/at least one localization/);
   });
 });
 

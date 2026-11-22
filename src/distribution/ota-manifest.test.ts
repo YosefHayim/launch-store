@@ -14,7 +14,8 @@ import {
 
 describe('contentTypeFor', () => {
   it('maps known extensions and defaults unknown ones to octet-stream', () => {
-    expect(contentTypeFor('_expo/static/js/ios/index-abc.hbc')).toBe('application/javascript');
+    const typeFor = contentTypeFor('_expo/static/js/ios/index-abc.hbc');
+    expect(typeFor).toBe('application/javascript');
     expect(contentTypeFor('assets/logo.png')).toBe('image/png');
     expect(contentTypeFor('fonts/Inter.ttf')).toBe('font/ttf');
     expect(contentTypeFor('weird.xyz')).toBe('application/octet-stream');

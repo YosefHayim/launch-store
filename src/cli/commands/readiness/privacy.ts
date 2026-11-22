@@ -20,7 +20,8 @@ export const registerPrivacyCommand = (program: Command): void => {
     )
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((commandOptions: PrivacyScanOptions) =>
-      runCliProgram(privacyCommandProgram(commandOptions)),
-    );
+    .action((commandOptions: PrivacyScanOptions) => {
+      const privacyProgram = privacyCommandProgram(commandOptions);
+      return runCliProgram(privacyProgram);
+    });
 };

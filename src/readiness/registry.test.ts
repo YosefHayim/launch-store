@@ -11,7 +11,8 @@ describe('readiness registry', () => {
     registerBuiltinProbes();
     const first = listReadinessProbes().length;
     registerBuiltinProbes();
-    expect(listReadinessProbes().length).toBe(first);
+    const readinessProbes = listReadinessProbes();
+    expect(readinessProbes.length).toBe(first);
     expect(listReadinessProbes().map((probe) => probe.id)).toContain('apple-app-record');
     expect(listReadinessProbes().map((probe) => probe.id)).toContain('play-first-upload');
   });

@@ -82,7 +82,8 @@ describe('readInstallStats', () => {
   test('gives nothing for a file without a date column', () => {
     const table = readPlayCsvTable('Daily Device Installs\n5\n');
 
-    expect(readInstallStats(table, OCTOBER)).toEqual([]);
+    const installStats = readInstallStats(table, OCTOBER);
+    expect(installStats).toEqual([]);
   });
 });
 
@@ -131,13 +132,15 @@ describe('findLatestCsvDate', () => {
       'Date,Daily Crashes\n2026-10-02,1\n2026-10-09,1\n2026-10-05,1\n',
     );
 
-    expect(findLatestCsvDate(table)).toBe('2026-10-09');
+    const latestCsvDate = findLatestCsvDate(table);
+    expect(latestCsvDate).toBe('2026-10-09');
   });
 
   test('returns null for a file with no readable date', () => {
     const table = readPlayCsvTable('Date,Daily Crashes\nsoon,1\n');
 
-    expect(findLatestCsvDate(table)).toBeNull();
+    const latestCsvDate = findLatestCsvDate(table);
+    expect(latestCsvDate).toBeNull();
   });
 });
 
@@ -190,19 +193,22 @@ describe('readEarningsStats', () => {
       ].join('\n'),
     );
 
-    expect(readEarningsStats(table, 'com.fit', OCTOBER)).toEqual([]);
+    const earningsStats = readEarningsStats(table, 'com.fit', OCTOBER);
+    expect(earningsStats).toEqual([]);
   });
 
   test('gives nothing when the file lacks the earnings columns', () => {
     const table = readPlayCsvTable('Date,Daily Crashes\n2026-10-01,1\n');
 
-    expect(readEarningsStats(table, 'com.fit', OCTOBER)).toEqual([]);
+    const earningsStats = readEarningsStats(table, 'com.fit', OCTOBER);
+    expect(earningsStats).toEqual([]);
   });
 });
 
 describe('listReportMonths', () => {
   test('lists one month for a range inside a month', () => {
-    expect(listReportMonths(OCTOBER)).toEqual(['202610']);
+    const reportMonths = listReportMonths(OCTOBER);
+    expect(reportMonths).toEqual(['202610']);
   });
 
   test('lists every month a range touches across a year end', () => {
@@ -214,7 +220,8 @@ describe('listReportMonths', () => {
 
 describe('findLastDayOfReportMonth', () => {
   test('returns the last day of short, long and leap-year months', () => {
-    expect(findLastDayOfReportMonth('202609')).toBe('2026-09-30');
+    const lastDayOfReportMonth = findLastDayOfReportMonth('202609');
+    expect(lastDayOfReportMonth).toBe('2026-09-30');
     expect(findLastDayOfReportMonth('202610')).toBe('2026-10-31');
     expect(findLastDayOfReportMonth('202402')).toBe('2024-02-29');
   });
@@ -222,7 +229,8 @@ describe('findLastDayOfReportMonth', () => {
 
 describe('pickLaterKnownDate', () => {
   test('returns the later of two dates and takes the second when there is no first', () => {
-    expect(pickLaterKnownDate(null, '2026-10-01')).toBe('2026-10-01');
+    const laterKnownDate = pickLaterKnownDate(null, '2026-10-01');
+    expect(laterKnownDate).toBe('2026-10-01');
     expect(pickLaterKnownDate('2026-10-05', '2026-10-01')).toBe('2026-10-05');
     expect(pickLaterKnownDate('2026-10-01', '2026-10-05')).toBe('2026-10-05');
   });

@@ -95,7 +95,8 @@ export function parseAvailabilityConfig(rawConfig: unknown): AvailabilityConfig 
   const territories: string[] = [];
 
   for (const entry of territoriesField) {
-    territories.push(readTerritoryCode(entry));
+    const territoryCode = readTerritoryCode(entry);
+    territories.push(territoryCode);
   }
 
   const availabilityConfig: AvailabilityConfig = { territories };
@@ -154,9 +155,10 @@ export async function readAvailabilityConfig(configPath: string): Promise<Availa
     const rawConfig: unknown = JSON.parse(configSource);
     return parseAvailabilityConfig(rawConfig);
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw makeAvailabilityConfigFailure({
       path: configPath,
-      message: `Invalid availability config at ${configPath}: ${errorMessage(cause)}`,
+      message: `Invalid availability config at ${configPath}: ${failureMessage}`,
       cause,
     });
   }

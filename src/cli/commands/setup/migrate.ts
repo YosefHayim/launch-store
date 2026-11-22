@@ -23,16 +23,15 @@ export const registerMigrateCommand = (program: Command): void => {
       '--out <dir>',
       'write the migrated files to this directory (default: current directory)',
     )
-    .action((commandOptions: MigrateOptions) =>
-      runCliProgram(
-        migrateCommandProgram({
-          source: 'eas',
-          force: commandOptions.force,
-          dryRun: commandOptions.dryRun,
-          out: commandOptions.out,
-        }),
-      ),
-    );
+    .action((commandOptions: MigrateOptions) => {
+      const migrateProgram = migrateCommandProgram({
+        source: 'eas',
+        force: commandOptions.force,
+        dryRun: commandOptions.dryRun,
+        out: commandOptions.out,
+      });
+      return runCliProgram(migrateProgram);
+    });
   migrateCommand
     .command('fastlane')
     .description(
@@ -44,14 +43,13 @@ export const registerMigrateCommand = (program: Command): void => {
       '--out <dir>',
       'write the migrated files to this directory (default: current directory)',
     )
-    .action((commandOptions: MigrateOptions) =>
-      runCliProgram(
-        migrateCommandProgram({
-          source: 'fastlane',
-          force: commandOptions.force,
-          dryRun: commandOptions.dryRun,
-          out: commandOptions.out,
-        }),
-      ),
-    );
+    .action((commandOptions: MigrateOptions) => {
+      const migrateProgram = migrateCommandProgram({
+        source: 'fastlane',
+        force: commandOptions.force,
+        dryRun: commandOptions.dryRun,
+        out: commandOptions.out,
+      });
+      return runCliProgram(migrateProgram);
+    });
 };

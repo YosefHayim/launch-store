@@ -91,7 +91,8 @@ async function packageP12(
   const cerPath = join(workDirectory, 'dist.cer');
   const certPemPath = join(workDirectory, 'dist.crt.pem');
 
-  await writeFile(cerPath, Buffer.from(certBase64, 'base64'));
+  const bufferBytes = Buffer.from(certBase64, 'base64');
+  await writeFile(cerPath, bufferBytes);
   await captureCommandOutput('openssl', [
     'x509',
     '-inform',
@@ -124,7 +125,8 @@ async function packageP12(
 
 // security(1) says the item is already in the login keychain.
 function describesExistingKeychainItem(cause: unknown): boolean {
-  const mentionsMessage = /already exists/i.test(errorMessage(cause));
+  const failureMessage = errorMessage(cause);
+  const mentionsMessage = /already exists/i.test(failureMessage);
 
   if (mentionsMessage) {
     return true;
@@ -183,7 +185,9 @@ async function createCertificateForUpload(
   password: string,
   keyId: string,
 ): Promise<CertRecord> {
-  const workDirectory = await mkdtemp(join(tmpdir(), 'launch-cert-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchCertPath = join(systemTemporaryDirectory, 'launch-cert-');
+  const workDirectory = await mkdtemp(launchCertPath);
 
   try {
     const generated = await generateKeypairAndCsr(workDirectory);

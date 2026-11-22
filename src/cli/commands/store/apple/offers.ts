@@ -97,7 +97,9 @@ export const registerOffersCommand = (program: Command): void => {
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((commandOptions: OffersOptions) => {
-      return runCliProgram(offersCommandProgram(toOffersReconcileInput(commandOptions)));
+      const offersReconcile = toOffersReconcileInput(commandOptions);
+      const offersProgram = offersCommandProgram(offersReconcile);
+      return runCliProgram(offersProgram);
     });
   offersCommand
     .command('generate-codes <productId> <offerName>')
@@ -110,24 +112,26 @@ export const registerOffersCommand = (program: Command): void => {
       'create one shareable custom code with this value instead of one-time-use codes',
     )
     .action((productId: string, offerName: string, commandOptions: GenerateCodesOptions) => {
-      return runCliProgram(
-        offersCommandProgram(toGenerateCodesInput(productId, offerName, commandOptions)),
-      );
+      const generateCodes = toGenerateCodesInput(productId, offerName, commandOptions);
+      const offersProgram = offersCommandProgram(generateCodes);
+      return runCliProgram(offersProgram);
     });
   offersCommand
     .command('list <productId>')
     .description("list a subscription's offer-code campaigns and their states")
     .option('-a, --app <name>', 'app handle (default: the only app)')
     .action((productId: string, commandOptions: AppScopedOptions) => {
-      return runCliProgram(offersCommandProgram(toOffersListInput(productId, commandOptions)));
+      const offersList = toOffersListInput(productId, commandOptions);
+      const offersProgram = offersCommandProgram(offersList);
+      return runCliProgram(offersProgram);
     });
   offersCommand
     .command('deactivate <productId> <offerName>')
     .description("deactivate an offer-code campaign (its terms can't be edited, only switched off)")
     .option('-a, --app <name>', 'app handle (default: the only app)')
     .action((productId: string, offerName: string, commandOptions: AppScopedOptions) => {
-      return runCliProgram(
-        offersCommandProgram(toOffersDeactivateInput(productId, offerName, commandOptions)),
-      );
+      const offersDeactivate = toOffersDeactivateInput(productId, offerName, commandOptions);
+      const offersProgram = offersCommandProgram(offersDeactivate);
+      return runCliProgram(offersProgram);
     });
 };

@@ -78,7 +78,8 @@ const WHAT_TO_TEST = { 'en-US': 'Bug fixes.' };
 
 describe('parseBetaReviewConfig', () => {
   it('decodes a non-empty localized note map', () => {
-    expect(parseBetaReviewConfig({ whatToTest: WHAT_TO_TEST })).toEqual({
+    const parseBetaReview = parseBetaReviewConfig({ whatToTest: WHAT_TO_TEST });
+    expect(parseBetaReview).toEqual({
       whatToTest: WHAT_TO_TEST,
     });
   });
@@ -109,7 +110,8 @@ describe('reconcileBetaReview', () => {
       { buildId: 'build-1', locale: 'en-US', whatsNew: 'Bug fixes.' },
     ]);
     expect(calls.submitted).toEqual(['build-1']);
-    expect(summarizeBetaReview(report.actions)).toEqual({ applied: 2, failed: 0, skipped: 0 });
+    const betaReview = summarizeBetaReview(report.actions);
+    expect(betaReview).toEqual({ applied: 2, failed: 0, skipped: 0 });
   });
 
   it('updates changed notes and leaves identical notes alone', async () => {
@@ -149,7 +151,8 @@ describe('reconcileBetaReview', () => {
       dryRun: false,
     });
     expect(calls.submitted).toHaveLength(0);
-    expect(summarizeBetaReview(report.actions)).toEqual({ applied: 0, failed: 0, skipped: 1 });
+    const betaReview = summarizeBetaReview(report.actions);
+    expect(betaReview).toEqual({ applied: 0, failed: 0, skipped: 1 });
     expect(report.actions[0]?.description).toContain('in review');
   });
 
@@ -243,7 +246,8 @@ describe('reconcileBetaReview', () => {
       submitForReview: true,
       dryRun: false,
     });
-    expect(summarizeBetaReview(report.actions)).toEqual({ applied: 1, failed: 1, skipped: 0 });
+    const betaReview = summarizeBetaReview(report.actions);
+    expect(betaReview).toEqual({ applied: 1, failed: 1, skipped: 0 });
     expect(report.actions.find((action) => action.status == 'failed')?.error).toBe(
       'build is still processing',
     );

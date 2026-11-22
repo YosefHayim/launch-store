@@ -91,7 +91,8 @@ export function renderFeedback(feedbackEntry: BetaFeedback): string {
   }
 
   if (feedbackEntry.email != null) {
-    metadataParts.push(cleanTerminalText(feedbackEntry.email));
+    const cleanTerminal = cleanTerminalText(feedbackEntry.email);
+    metadataParts.push(cleanTerminal);
   }
 
   if (feedbackEntry.createdDate != null) {
@@ -104,13 +105,15 @@ export function renderFeedback(feedbackEntry: BetaFeedback): string {
   const feedbackLines = [`${feedbackEntry.id}  ${feedbackMarker}`, `  ${metadataParts.join('  ')}`];
 
   if (feedbackEntry.comment != null) {
-    feedbackLines.push(`  "${cleanTerminalText(feedbackEntry.comment)}"`);
+    const cleanTerminal = cleanTerminalText(feedbackEntry.comment);
+    feedbackLines.push(`  "${cleanTerminal}"`);
   }
 
   const screenshots = feedbackEntry.screenshots ?? [];
 
   for (const screenshot of screenshots) {
-    feedbackLines.push(`  ${cleanTerminalText(screenshot.url)}`);
+    const cleanTerminal = cleanTerminalText(screenshot.url);
+    feedbackLines.push(`  ${cleanTerminal}`);
   }
 
   return feedbackLines.join('\n');
@@ -156,9 +159,8 @@ async function downloadRequestedAttachments(
     return;
   }
 
-  logger.ok(
-    `Downloaded ${countLabel(downloadedAttachments.length, 'screenshot')} to ${outputDirectory}.`,
-  );
+  const label = countLabel(downloadedAttachments.length, 'screenshot');
+  logger.ok(`Downloaded ${label} to ${outputDirectory}.`);
 }
 
 export async function showFeedback(commandInput: FeedbackCommandInput): Promise<void> {
@@ -178,7 +180,8 @@ export async function showFeedback(commandInput: FeedbackCommandInput): Promise<
   );
 
   if (wantsJson) {
-    logger.line(JSON.stringify(feedbackEntries, null, 2));
+    const serialized = JSON.stringify(feedbackEntries, null, 2);
+    logger.line(serialized);
     return;
   }
 
@@ -191,5 +194,6 @@ export async function showFeedback(commandInput: FeedbackCommandInput): Promise<
 
   const feedbackBlocks = feedbackEntries.map(renderFeedback);
   logger.line(feedbackBlocks.join('\n\n'));
-  logger.line(`\n${countLabel(feedbackEntries.length, 'feedback item')}.`);
+  const label = countLabel(feedbackEntries.length, 'feedback item');
+  logger.line(`\n${label}.`);
 }

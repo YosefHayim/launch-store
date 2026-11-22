@@ -48,7 +48,8 @@ function makeFingerprintCommandFailure(fields: {
 }
 
 function fingerprintFailure(operation: string, cause: unknown): FingerprintCommandFailure {
-  return makeFingerprintCommandFailure({ operation, message: errorMessage(cause), cause });
+  const failureMessage = errorMessage(cause);
+  return makeFingerprintCommandFailure({ operation, message: failureMessage, cause });
 }
 
 /** Decode `launch fingerprint` input. Omitted optionals stay absent. */

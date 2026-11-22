@@ -42,20 +42,24 @@ describe('paths - one canonical layout for ~/.launch', () => {
     expect(CREDENTIALS_INDEX.startsWith(CREDENTIALS_DIR)).toBe(true);
   });
   it('points the profile install dir at where Xcode looks', () => {
-    expect(PROVISIONING_PROFILES_DIR).toContain(
-      join('Library', 'MobileDevice', 'Provisioning Profiles'),
-    );
+    const provisioningProfilesPath = join('Library', 'MobileDevice', 'Provisioning Profiles');
+    expect(PROVISIONING_PROFILES_DIR).toContain(provisioningProfilesPath);
   });
   it('creates directories through the file system', async () => {
-    const rootDirectory = mkdtempSync(join(tmpdir(), 'launch-effect-paths-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchEffectPathsPath = join(systemTemporaryDirectory, 'launch-effect-paths-');
+    const rootDirectory = mkdtempSync(launchEffectPathsPath);
     tempDirs.push(rootDirectory);
     const nestedDirectory = join(rootDirectory, 'a', 'b', 'c');
-    await expect(ensureDirectoryExists(nestedDirectory)).resolves.toBe(nestedDirectory);
+    const directoryExists = ensureDirectoryExists(nestedDirectory);
+    await expect(directoryExists).resolves.toBe(nestedDirectory);
     expect(statSync(nestedDirectory).isDirectory()).toBe(true);
   });
   it('builds account paths from the home directory', () => {
     const accountDirectory = resolveAccountCredentialsDirectory('KEY/42');
-    expect(accountDirectory).toBe(join(homedir(), '.launch', 'credentials', 'KEY42'));
+    const homeDirectory = homedir();
+    const key42Path = join(homeDirectory, '.launch', 'credentials', 'KEY42');
+    expect(accountDirectory).toBe(key42Path);
   });
 });
 
@@ -68,15 +72,19 @@ describe('stats paths', () => {
 
   it('puts the stats folder and portfolio file under ~/.launch', () => {
     useTestHome();
-    expect(locateStatsDirectory()).toBe(join(homeDirectory, '.launch', 'stats'));
-    expect(locatePortfolioFilePath()).toBe(join(homeDirectory, '.launch', 'portfolio.json'));
+    const statsDirectory = locateStatsDirectory();
+    const statsPath = join(homeDirectory, '.launch', 'stats');
+    expect(statsDirectory).toBe(statsPath);
+    const portfolioFilePath = locatePortfolioFilePath();
+    const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
+    expect(portfolioFilePath).toBe(portfolioPath);
   });
 
   it('puts the stats of one app in its own folder', () => {
     useTestHome();
-    expect(locateAppStatsDirectory('android-com.acme.app')).toBe(
-      join(homeDirectory, '.launch', 'stats', 'android-com.acme.app'),
-    );
+    const appStatsDirectory = locateAppStatsDirectory('android-com.acme.app');
+    const androidComPath = join(homeDirectory, '.launch', 'stats', 'android-com.acme.app');
+    expect(appStatsDirectory).toBe(androidComPath);
   });
 
   it('refuses an app key that could leave the stats folder', () => {

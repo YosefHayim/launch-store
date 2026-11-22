@@ -48,6 +48,7 @@ describe('renderConfigDocs', () => {
     expect(docs).not.toContain('### `Record<string,BuildProfile>`');
   });
   it('strips {@link} tags from rendered descriptions', () => {
-    expect(renderConfigDocs(schema)).not.toContain('@link');
+    const renderDocs = renderConfigDocs(schema);
+    expect(renderDocs).not.toContain('@link');
   });
 });

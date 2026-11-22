@@ -20,7 +20,8 @@ function readDaysArgument(argumentsRecord: Record<string, unknown>): string | un
 async function readPortfolioRequest(
   argumentsRecord: Record<string, unknown>,
 ): Promise<StatsReportRequest> {
-  const platform = await parsePlatformFlag(optionalString(argumentsRecord, 'platform'));
+  const optionalSetting = optionalString(argumentsRecord, 'platform');
+  const platform = await parsePlatformFlag(optionalSetting);
   const owner = await parseOwnerFlag(optionalString(argumentsRecord, 'owner'));
   const daysArgument = readDaysArgument(argumentsRecord);
   const days = parseDaysFlag(daysArgument);

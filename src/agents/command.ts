@@ -273,18 +273,20 @@ export function planAgentArtifacts(
   }
 
   if (needsAgentsMarkdown) {
+    const agentsBlock = renderAgentsBlock(launchVersion);
     plannedArtifacts.push({
       kind: 'spliced',
       path: 'AGENTS.md',
-      block: renderAgentsBlock(launchVersion),
+      block: agentsBlock,
     });
   }
 
   if (wantsClaude) {
+    const claudeMemoryBlock = renderClaudeMemoryBlock(launchVersion);
     plannedArtifacts.push({
       kind: 'spliced',
       path: 'CLAUDE.md',
-      block: renderClaudeMemoryBlock(launchVersion),
+      block: claudeMemoryBlock,
     });
 
     for (const consumerSkill of CONSUMER_SKILLS) {
@@ -315,10 +317,11 @@ export function planAgentArtifacts(
   }
 
   if (wantsCopilot) {
+    const copilotBlock = renderCopilotBlock(launchVersion);
     plannedArtifacts.push({
       kind: 'spliced',
       path: '.github/copilot-instructions.md',
-      block: renderCopilotBlock(launchVersion),
+      block: copilotBlock,
     });
   }
 
@@ -644,9 +647,10 @@ async function askAgentTargets(): Promise<AgentTarget[] | null> {
 
     return [...selectedTargets];
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw makeAgentsCommandFailure({
       operation: 'select coding agents',
-      message: errorMessage(cause),
+      message: failureMessage,
       cause,
     });
   }
@@ -745,9 +749,10 @@ async function confirmAgentWrites(): Promise<boolean> {
   try {
     return await LaunchPrompt.confirm('Write these files?');
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw makeAgentsCommandFailure({
       operation: 'confirm agent files',
-      message: errorMessage(cause),
+      message: failureMessage,
       cause,
     });
   }

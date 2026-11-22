@@ -18,6 +18,7 @@ describe('snapshot source registry', () => {
   it('is idempotent - re-registering keyed by id does not duplicate', () => {
     registerBuiltinSources();
     registerBuiltinSources();
-    expect(listSnapshotSources()).toHaveLength(6);
+    const snapshotSources = listSnapshotSources();
+    expect(snapshotSources).toHaveLength(6);
   });
 });

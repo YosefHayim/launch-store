@@ -187,8 +187,9 @@ async function verifyAppleKey(ascKey: AscKey): Promise<AppStoreIdentity> {
       );
     }
 
+    const failureMessage = errorMessage(cause);
     logger.warn(
-      `Could not verify the key with Apple (${errorMessage(cause)}). Saving it unresolved; run \`launch creds refresh\` later.`,
+      `Could not verify the key with Apple (${failureMessage}). Saving it unresolved; run \`launch creds refresh\` later.`,
     );
 
     return { teamId: null, apps: [] };
@@ -212,8 +213,9 @@ export async function importAppleKey(
     canPrompt,
   );
 
+  const firstDefined = firstDefinedText(commandOptions.issuerId, environment.values.appleIssuerId);
   const issuerId = await requireText(
-    firstDefinedText(commandOptions.issuerId, environment.values.appleIssuerId),
+    firstDefined,
     'App Store Connect Issuer ID',
     'Pass --issuer-id <id> or set ASC_ISSUER_ID.',
     canPrompt,

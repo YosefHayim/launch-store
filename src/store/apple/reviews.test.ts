@@ -90,7 +90,8 @@ const makeReviewsStore = (fixtures: {
 describe('listReviews', () => {
   it('returns an actionable failure when the app record is missing', async () => {
     const reviewsStore = makeReviewsStore({ appIds: {} });
-    const missingApp = await captureThrown(listReviews(reviewsStore, 'com.x.missing'));
+    const reviews = listReviews(reviewsStore, 'com.x.missing');
+    const missingApp = await captureThrown(reviews);
     expect(missingApp.message).toContain('No App Store Connect app record');
   });
 
@@ -150,7 +151,8 @@ describe('replyToReview', () => {
 describe('deleteReviewResponse', () => {
   it('returns false when no reply exists', async () => {
     const reviewsStore = makeReviewsStore({ existingReply: null });
-    expect(await deleteReviewResponse(reviewsStore, 'r1')).toBe(false);
+    const deleteReview = await deleteReviewResponse(reviewsStore, 'r1');
+    expect(deleteReview).toBe(false);
     expect(reviewsStore.deleteCustomerReviewResponse).not.toHaveBeenCalled();
   });
 
@@ -158,7 +160,8 @@ describe('deleteReviewResponse', () => {
     const reviewsStore = makeReviewsStore({
       existingReply: { id: 'resp-1', responseBody: 'hi' },
     });
-    expect(await deleteReviewResponse(reviewsStore, 'r1')).toBe(true);
+    const deleteReview = await deleteReviewResponse(reviewsStore, 'r1');
+    expect(deleteReview).toBe(true);
     expect(reviewsStore.deleteCustomerReviewResponse).toHaveBeenCalledWith('resp-1');
   });
 });

@@ -11,18 +11,18 @@ afterEach(() => {
 
 describe('InitCommandInputSchema', () => {
   it('decodes the standalone boundary using the injected working directory', () => {
-    expect(InitCommandInputSchema({ framed: true })).toEqual({
+    const initCommandSchema = InitCommandInputSchema({ framed: true });
+    expect(initCommandSchema).toEqual({
       framed: true,
     });
   });
 
   it('decodes the guided setup boundary with an explicit directory', () => {
-    expect(
-      InitCommandInputSchema({
-        workingDirectory: '/workspace',
-        framed: false,
-      }),
-    ).toEqual({ workingDirectory: '/workspace', framed: false });
+    const initCommandSchema = InitCommandInputSchema({
+      workingDirectory: '/workspace',
+      framed: false,
+    });
+    expect(initCommandSchema).toEqual({ workingDirectory: '/workspace', framed: false });
   });
 
   it('rejects an explicit undefined exact optional directory', () => {
@@ -35,13 +35,16 @@ describe('InitCommandInputSchema', () => {
   });
 
   it('refuses non-interactive scaffolding before writing files', async () => {
-    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-init-command-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchInitCommandPath = join(systemTemporaryDirectory, 'launch-init-command-');
+    const temporaryDirectory = mkdtempSync(launchInitCommandPath);
     useLaunchDirectories({
       homeDirectory: temporaryDirectory,
       workingDirectory: temporaryDirectory,
     });
     try {
-      await expect(runInitProgram({ framed: false })).rejects.toThrow(/interactive terminal/);
+      const initProgram = runInitProgram({ framed: false });
+      await expect(initProgram).rejects.toThrow(/interactive terminal/);
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true });
     }

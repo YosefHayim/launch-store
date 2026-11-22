@@ -218,7 +218,8 @@ async function discoverAppleAccounts(
   const workers: Promise<void>[] = [];
 
   for (let workerNumber = 0; workerNumber < workerCount; workerNumber += 1) {
-    workers.push(discoverNextAccount());
+    const nextAccount = discoverNextAccount();
+    workers.push(nextAccount);
   }
 
   await Promise.all(workers);

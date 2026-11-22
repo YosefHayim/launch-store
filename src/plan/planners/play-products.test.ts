@@ -61,9 +61,10 @@ const makeCtx = (
 };
 describe('playProductsPlanner', () => {
   it('omits itself when no app declares a Play-overridden product', async () => {
+    const playApi = makePlayApi();
     const plan = await runPlanner(
       playProductsPlanner,
-      makeCtx(makePlayApi(), {
+      makeCtx(playApi, {
         'com.acme.alpha': {
           inAppPurchases: [
             {
@@ -85,9 +86,10 @@ describe('playProductsPlanner', () => {
       configPath: '/no/such/dir/alpha/app.json',
       bundleId: 'com.acme.alpha',
     };
+    const playApi = makePlayApi();
     const plan = await runPlanner(
       playProductsPlanner,
-      makeCtx(makePlayApi(), { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }, [noPackage]),
+      makeCtx(playApi, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }, [noPackage]),
     );
     expect(plan.state).toBe('omitted');
   });
@@ -102,9 +104,10 @@ describe('playProductsPlanner', () => {
     expect(plan.hint).toMatch(/android/);
   });
   it('reports the per-app diff a fresh Play product would create', async () => {
+    const playApi = makePlayApi();
     const plan = await runPlanner(
       playProductsPlanner,
-      makeCtx(makePlayApi(), { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
+      makeCtx(playApi, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
     );
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;

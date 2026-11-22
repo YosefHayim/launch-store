@@ -290,7 +290,8 @@ export async function resolveCompletions(words: string[], program: Command): Pro
     return optionFlags(descended.command);
   }
 
-  const flagCandidates = await readFlagCandidates(readEarlierWord(words));
+  const earlierWord = readEarlierWord(words);
+  const flagCandidates = await readFlagCandidates(earlierWord);
 
   if (flagCandidates != null) {
     return flagCandidates;
@@ -302,11 +303,8 @@ export async function resolveCompletions(words: string[], program: Command): Pro
     return listStaticCompletionCandidates(descended.command);
   }
 
-  const positionalIsFilled = hasPositional(
-    words,
-    descended.commandPath.length,
-    valueTakingFlags(descended.command),
-  );
+  const takingFlags = valueTakingFlags(descended.command);
+  const positionalIsFilled = hasPositional(words, descended.commandPath.length, takingFlags);
 
   if (positionalIsFilled) {
     return listStaticCompletionCandidates(descended.command);

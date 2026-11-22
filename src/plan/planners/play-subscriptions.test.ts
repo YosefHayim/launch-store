@@ -73,10 +73,11 @@ const makeCtx = (
 };
 describe('playSubscriptionsPlanner', () => {
   it('omits itself when no app declares a Play-overridden subscription', async () => {
+    const playApi = makePlayApi();
     const plan = await runPlanner(
       playSubscriptionsPlanner,
       makeCtx(
-        makePlayApi(),
+        playApi,
         productsWith([
           {
             productId: 'com.acme.pro.yearly',
@@ -96,9 +97,10 @@ describe('playSubscriptionsPlanner', () => {
       configPath: '/no/such/dir/alpha/app.json',
       bundleId: 'com.acme.alpha',
     };
+    const playApi = makePlayApi();
     const plan = await runPlanner(
       playSubscriptionsPlanner,
-      makeCtx(makePlayApi(), productsWith([PLAY_SUB]), [noPackage]),
+      makeCtx(playApi, productsWith([PLAY_SUB]), [noPackage]),
     );
     expect(plan.state).toBe('omitted');
   });
@@ -113,9 +115,10 @@ describe('playSubscriptionsPlanner', () => {
     expect(plan.hint).toMatch(/android/);
   });
   it('reports the per-app diff a fresh Play subscription would create', async () => {
+    const playApi = makePlayApi();
     const plan = await runPlanner(
       playSubscriptionsPlanner,
-      makeCtx(makePlayApi(), productsWith([PLAY_SUB])),
+      makeCtx(playApi, productsWith([PLAY_SUB])),
     );
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;

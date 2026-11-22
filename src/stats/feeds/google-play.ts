@@ -103,7 +103,8 @@ async function readVitals(
   const stats = [crashTimeline, anrTimeline].flatMap(function readTimelineStats(
     timeline: VitalsTimeline,
   ) {
-    return timeline.rows.flatMap(readVitalsDay(range, timeline));
+    const vitalsDay = readVitalsDay(range, timeline);
+    return timeline.rows.flatMap(vitalsDay);
   });
 
   return {

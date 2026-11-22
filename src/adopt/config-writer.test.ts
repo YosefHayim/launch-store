@@ -31,7 +31,8 @@ describe('aggregateProductPieces', () => {
       { type: 'iap', iap: IAP },
       { type: 'subscriptionGroup', group: GROUP },
     ];
-    expect(aggregateProductPieces(pieces)).toEqual({
+    const productPieces = aggregateProductPieces(pieces);
+    expect(productPieces).toEqual({
       inAppPurchases: [IAP],
       subscriptionGroups: [GROUP],
     });
@@ -60,7 +61,9 @@ describe('buildAdoptedConfig', () => {
 });
 describe('renderEntitlementsBlock', () => {
   it('wraps entitlements under ios for pasting into a dynamic config', () => {
-    expect(JSON.parse(renderEntitlementsBlock({ 'aps-environment': 'production' }))).toEqual({
+    const entitlementsBlock = renderEntitlementsBlock({ 'aps-environment': 'production' });
+    const parsed = JSON.parse(entitlementsBlock);
+    expect(parsed).toEqual({
       ios: { entitlements: { 'aps-environment': 'production' } },
     });
   });

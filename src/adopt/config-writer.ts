@@ -48,7 +48,10 @@ export const serializeProductsSection = (
 export const buildAdoptedConfig = (
   appRoot: string | null,
   productsByBundleId: Readonly<Record<string, AppProducts>>,
-): string => configTemplate(appRoot, serializeProductsSection(productsByBundleId));
+): string => {
+  const productsSection = serializeProductsSection(productsByBundleId);
+  return configTemplate(appRoot, productsSection);
+};
 
 /** Render an ios.entitlements block for pasting into a dynamic app.config. */
 export const renderEntitlementsBlock = (

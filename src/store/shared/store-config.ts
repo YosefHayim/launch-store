@@ -311,12 +311,14 @@ function storeConfigSpec(): StoreSurfaceConfigSpec<StoreConfig> {
 
 /** Decode an untrusted store.config.json document. */
 export function parseStoreConfig(rawDocument: unknown): StoreConfig {
-  return decodeStoreSurfaceConfig(rawDocument, storeConfigSpec());
+  const storeSpec = storeConfigSpec();
+  return decodeStoreSurfaceConfig(rawDocument, storeSpec);
 }
 
 /** Read and decode store.config.json. */
 export function loadStoreConfig(configPath: string): Promise<StoreConfig> {
-  return loadStoreSurfaceConfig(configPath, storeConfigSpec());
+  const storeSpec = storeConfigSpec();
+  return loadStoreSurfaceConfig(configPath, storeSpec);
 }
 
 /** Read a single metadata `.txt` file, returning undefined when it's absent or blank. */

@@ -77,9 +77,12 @@ export async function extractProfileEntitlements(
   let workspacePath: string | null = null;
 
   try {
-    workspacePath = await mkdtemp(join(tmpdir(), 'launch-adopt-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchAdoptPath = join(systemTemporaryDirectory, 'launch-adopt-');
+    workspacePath = await mkdtemp(launchAdoptPath);
     const profilePath = join(workspacePath, 'profile.mobileprovision');
-    await writeFile(profilePath, Buffer.from(profileContent, 'base64'));
+    const bufferBytes = Buffer.from(profileContent, 'base64');
+    await writeFile(profilePath, bufferBytes);
     const decodedPlist = await captureCommandOutput('security', ['cms', '-D', '-i', profilePath]);
     const plistPath = join(workspacePath, 'decoded.plist');
     await writeFile(plistPath, decodedPlist);

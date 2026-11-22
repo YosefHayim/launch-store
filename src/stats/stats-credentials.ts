@@ -83,8 +83,9 @@ function makeStatsCredentialsFailure(fields: {
 }
 
 function createCredentialsFailure(operation: string, cause: unknown): StatsCredentialsFailure {
+  const failureMessage = errorMessage(cause);
   return makeStatsCredentialsFailure({
-    message: `Could not ${operation}: ${errorMessage(cause)}`,
+    message: `Could not ${operation}: ${failureMessage}`,
     cause,
   });
 }
@@ -217,7 +218,8 @@ async function readAppsFromWorkingDirectory(
   }
 
   const appText = await readFile(appFilePath, 'utf8');
-  const configuredApp = readConfiguredApp(JSON.parse(appText));
+  const parsed = JSON.parse(appText);
+  const configuredApp = readConfiguredApp(parsed);
 
   if (configuredApp == null) {
     return [];
@@ -378,7 +380,8 @@ function decodePlayReportsBucket(documentText: string): string | null {
 
 async function playReportsBucket(): Promise<string | null> {
   try {
-    return await readDocumentFile(locatePortfolioFilePath(), decodePlayReportsBucket);
+    const portfolioFilePath = locatePortfolioFilePath();
+    return await readDocumentFile(portfolioFilePath, decodePlayReportsBucket);
   } catch (cause) {
     if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;

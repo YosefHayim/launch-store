@@ -95,22 +95,26 @@ describe('buildPrivacyReport', () => {
       'app',
       surface({ usageDescriptions: { NSCameraUsageDescription: '' } }),
     );
-    expect(buildPrivacyReport(findings, ['app']).exitCode).toBe(2);
+    const privacyReport = buildPrivacyReport(findings, ['app']);
+    expect(privacyReport.exitCode).toBe(2);
   });
   it('exits 0 when only warnings/info are present', () => {
     const findings = reconcilePrivacy(
       'app',
       surface({ androidPermissions: ['android.permission.CAMERA'] }),
     );
-    expect(buildPrivacyReport(findings, ['app']).exitCode).toBe(0);
+    const privacyReport = buildPrivacyReport(findings, ['app']);
+    expect(privacyReport.exitCode).toBe(0);
   });
   it('exits 1 when nothing was scanned', () => {
-    expect(buildPrivacyReport([], []).exitCode).toBe(1);
+    const privacyReport = buildPrivacyReport([], []);
+    expect(privacyReport.exitCode).toBe(1);
   });
 });
 describe('renderPrivacyReport', () => {
   it('reports a clean surface', () => {
-    expect(renderPrivacyReport(buildPrivacyReport([], ['app']))).toContain('clean');
+    const privacyReport = buildPrivacyReport([], ['app']);
+    expect(renderPrivacyReport(privacyReport)).toContain('clean');
   });
   it('lists findings per app with a tally', () => {
     // A tracking mismatch is exactly one blocker, with no incidental findings.
@@ -118,7 +122,8 @@ describe('renderPrivacyReport', () => {
       'app',
       surface({ usageDescriptions: { NSUserTrackingUsageDescription: 'Ads' }, tracking: false }),
     );
-    const rendered = renderPrivacyReport(buildPrivacyReport(findings, ['app']));
+    const privacyReport = buildPrivacyReport(findings, ['app']);
+    const rendered = renderPrivacyReport(privacyReport);
     expect(rendered).toContain('app');
     expect(rendered).toContain('1 blocker(s)');
   });

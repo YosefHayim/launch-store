@@ -24,9 +24,10 @@ export const registerTeamCommand = (program: Command): void => {
     .command('list')
     .description('list team members and pending invitations')
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: Omit<TeamListInput, 'operation'>) =>
-      runCliProgram(teamCommandProgram({ operation: 'list', json: commandOptions.json })),
-    );
+    .action((commandOptions: Omit<TeamListInput, 'operation'>) => {
+      const teamProgram = teamCommandProgram({ operation: 'list', json: commandOptions.json });
+      return runCliProgram(teamProgram);
+    });
   teamCommand
     .command('invite')
     .description('invite a new team member by email')
@@ -46,7 +47,8 @@ export const registerTeamCommand = (program: Command): void => {
         provisioning: commandOptions.provisioning,
         yes: commandOptions.yes,
       };
-      return runCliProgram(teamCommandProgram(commandInput));
+      const teamProgram = teamCommandProgram(commandInput);
+      return runCliProgram(teamProgram);
     });
   teamCommand
     .command('remove')
@@ -59,6 +61,7 @@ export const registerTeamCommand = (program: Command): void => {
         email,
         yes: commandOptions.yes,
       };
-      return runCliProgram(teamCommandProgram(commandInput));
+      const teamProgram = teamCommandProgram(commandInput);
+      return runCliProgram(teamProgram);
     });
 };

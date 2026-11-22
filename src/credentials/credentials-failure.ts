@@ -29,7 +29,8 @@ function makeCredentialsCommandFailure(fields: {
 }
 
 export function commandFailure(operation: string, cause: unknown): CredentialsCommandFailure {
-  return makeCredentialsCommandFailure({ operation, message: errorMessage(cause), cause });
+  const failureMessage = errorMessage(cause);
+  return makeCredentialsCommandFailure({ operation, message: failureMessage, cause });
 }
 
 export function failCommand(operation: string, message: string): never {

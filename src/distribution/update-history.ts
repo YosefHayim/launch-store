@@ -283,11 +283,8 @@ async function writeHistory(
   platform: string,
   entries: readonly UpdateHistoryEntry[],
 ): Promise<void> {
-  await storage.putObject(
-    historyIndexKey(channel, platform),
-    JSON.stringify(entries, null, 2),
-    'application/json',
-  );
+  const serialized = JSON.stringify(entries, null, 2);
+  await storage.putObject(historyIndexKey(channel, platform), serialized, 'application/json');
 }
 
 async function writePublishedHistory(
@@ -333,11 +330,8 @@ export async function clearRollbackDirective(
   if (storedDirective == null) {
     const clearedDirective: StoredRollbackDirective = { active: false, body: '' };
 
-    await storage.putObject(
-      directiveKey,
-      JSON.stringify(clearedDirective, null, 2),
-      'application/json',
-    );
+    const serialized = JSON.stringify(clearedDirective, null, 2);
+    await storage.putObject(directiveKey, serialized, 'application/json');
 
     return;
   }
@@ -348,11 +342,8 @@ export async function clearRollbackDirective(
 
   const clearedDirective: StoredRollbackDirective = { active: false, body: '' };
 
-  await storage.putObject(
-    directiveKey,
-    JSON.stringify(clearedDirective, null, 2),
-    'application/json',
-  );
+  const serialized = JSON.stringify(clearedDirective, null, 2);
+  await storage.putObject(directiveKey, serialized, 'application/json');
 }
 
 async function writeActiveManifest(
@@ -503,9 +494,10 @@ export async function setRollbackToEmbedded(input: SetRollbackToEmbeddedInput): 
     };
   }
 
+  const serialized = JSON.stringify(storedDirective, null, 2);
   await storage.putObject(
     rollbackDirectiveKey(channel, platform, runtimeVersion),
-    JSON.stringify(storedDirective, null, 2),
+    serialized,
     'application/json',
   );
 }

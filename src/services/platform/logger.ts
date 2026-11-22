@@ -34,15 +34,39 @@ function statusText(status: 'RUN' | 'OK' | 'WARN' | 'ERROR' | 'SKIP', message: s
 function makeLogger(display: LogWrite, explain: boolean): Logger {
   const logger: Logger = {
     withExplanation: (enabled) => makeLogger(display, enabled),
-    run: (message) => display(statusText('RUN', message)),
-    ok: (message) => display(statusText('OK', message)),
-    warn: (message) => display(statusText('WARN', message)),
-    error: (message) => display(statusText('ERROR', message)),
-    skip: (message) => display(statusText('SKIP', message)),
-    progressStart: (label) => display(statusText('RUN', label)),
-    progressDone: (label, elapsedMs) =>
-      display(statusText('OK', `${label} - ${formatElapsed(elapsedMs)}`)),
-    progressFail: (_label, failureText) => display(statusText('ERROR', failureText)),
+    run: (message) => {
+      const statusLine = statusText('RUN', message);
+      return display(statusLine);
+    },
+    ok: (message) => {
+      const statusLine = statusText('OK', message);
+      return display(statusLine);
+    },
+    warn: (message) => {
+      const statusLine = statusText('WARN', message);
+      return display(statusLine);
+    },
+    error: (message) => {
+      const statusLine = statusText('ERROR', message);
+      return display(statusLine);
+    },
+    skip: (message) => {
+      const statusLine = statusText('SKIP', message);
+      return display(statusLine);
+    },
+    progressStart: (label) => {
+      const statusLine = statusText('RUN', label);
+      return display(statusLine);
+    },
+    progressDone: (label, elapsedMs) => {
+      const elapsedLabel = formatElapsed(elapsedMs);
+      const statusLine = statusText('OK', `${label} - ${elapsedLabel}`);
+      return display(statusLine);
+    },
+    progressFail: (_label, failureText) => {
+      const statusLine = statusText('ERROR', failureText);
+      return display(statusLine);
+    },
     step: (label, detail, topic) => {
       let detailText = '';
 
@@ -50,7 +74,8 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
         detailText = ` - ${detail}`;
       }
 
-      display(statusText('RUN', `${label}${detailText}`));
+      const statusLine = statusText('RUN', `${label}${detailText}`);
+      display(statusLine);
 
       if (explain == false) {
         return;
@@ -65,19 +90,28 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
       }
     },
     chip: (chipText) => chipText,
-    note: (message) => display(statusText('RUN', message)),
-    tip: (message) => display(statusText('RUN', `Tip: ${message}`)),
+    note: (message) => {
+      const statusLine = statusText('RUN', message);
+      return display(statusLine);
+    },
+    tip: (message) => {
+      const statusLine = statusText('RUN', `Tip: ${message}`);
+      return display(statusLine);
+    },
     notice: (lead, ...details) => {
       const detailLines = details.map((detail) => `  ${detail}\n`).join('');
-      display(`${statusText('RUN', lead)}${detailLines}`);
+      const statusLine = statusText('RUN', lead);
+      display(`${statusLine}${detailLines}`);
     },
     box: (title, receiptLines) => {
       const receipt = receiptLines.map((receiptLine) => `  ${receiptLine}\n`).join('');
-      display(`${statusText('OK', title)}${receipt}`);
+      const statusLine = statusText('OK', title);
+      display(`${statusLine}${receipt}`);
     },
     shipped: (receiptLines) => {
       const receipt = receiptLines.map((receiptLine) => `  ${receiptLine}\n`).join('');
-      display(`${statusText('OK', 'Shipped')}${receipt}`);
+      const statusLine = statusText('OK', 'Shipped');
+      display(`${statusLine}${receipt}`);
     },
     line: (message) => display(`${message}\n`),
     gap: () => display('\n'),
@@ -141,7 +175,8 @@ export function resetLogger(): void {
 
 function createJsonLogger(writeHuman: LogWrite): Logger {
   return makeJsonLogger((event) => {
-    writeText(jsonLine(event));
+    const machineLine = jsonLine(event);
+    writeText(machineLine);
   }, writeHuman);
 }
 

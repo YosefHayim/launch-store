@@ -161,8 +161,9 @@ export function extractNativeConfigSlice(configText: string): string {
     return configText;
   }
 
+  const nullableField = nullableConfigField(nativeSlice.plugins);
   return JSON.stringify({
-    plugins: nullableConfigField(nativeSlice.plugins),
+    plugins: nullableField,
     newArchEnabled: nullableConfigField(nativeSlice.newArchEnabled),
     iosDeploymentTarget: nullableConfigField(nativeSlice.iosDeploymentTarget),
   });
@@ -218,7 +219,8 @@ function buildStateDirectory(directoryOverride: string | undefined): string {
     return directoryOverride;
   }
 
-  return join(resolveLaunchHomeDirectory(), 'build-state');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'build-state');
 }
 
 function buildStatePath(appName: string, platform: Platform, directoryOverride?: string): string {
@@ -350,7 +352,8 @@ export async function writeBuildState(
   const filePath = buildStatePath(appName, platform, directoryOverride);
 
   await ensureDirectoryExists(directoryPath);
-  await writeFile(filePath, JSON.stringify(buildState, null, 2));
+  const serialized = JSON.stringify(buildState, null, 2);
+  await writeFile(filePath, serialized);
 }
 
 async function readFingerprintInput(filePath: string): Promise<string> {
@@ -378,10 +381,10 @@ export async function gatherIosFingerprint(
   iosDirectory: string,
   configPath: string,
 ): Promise<string> {
-  const podfileLock = await readFingerprintInput(join(iosDirectory, 'Podfile.lock'));
-  const podfileProperties = await readFingerprintInput(
-    join(iosDirectory, 'Podfile.properties.json'),
-  );
+  const podfilePath = join(iosDirectory, 'Podfile.lock');
+  const podfileLock = await readFingerprintInput(podfilePath);
+  const joinedPath = join(iosDirectory, 'Podfile.properties.json');
+  const podfileProperties = await readFingerprintInput(joinedPath);
   const appConfigText = await readFingerprintInput(configPath);
   let toolchainVersion = '';
 

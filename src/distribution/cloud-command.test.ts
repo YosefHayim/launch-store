@@ -5,7 +5,8 @@ describe('CloudCommandInputSchema', () => {
   it.each(['setup', 'status', 'teardown', 'doctor'] as const)(
     'decodes the %s operation',
     (operation) => {
-      expect(CloudCommandInputSchema({ operation, yes: false })).toEqual({ operation, yes: false });
+      const cloudCommandSchema = CloudCommandInputSchema({ operation, yes: false });
+      expect(cloudCommandSchema).toEqual({ operation, yes: false });
     },
   );
 

@@ -131,7 +131,8 @@ async function listEventsProgram(
     const wantsJson = commandInput.json == true;
 
     if (wantsJson) {
-      logger.line(JSON.stringify(appEvents, null, 2));
+      const serialized = JSON.stringify(appEvents, null, 2);
+      logger.line(serialized);
       return;
     }
 

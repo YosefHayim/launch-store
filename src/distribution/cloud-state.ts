@@ -238,7 +238,8 @@ async function writeCloudState(cloudState: CloudState): Promise<void> {
   const launchHomeDirectory = resolveLaunchHomeDirectory();
   const cloudStateFilePath = resolveCloudStateFilePath();
   await mkdir(launchHomeDirectory, { recursive: true });
-  await writeFile(cloudStateFilePath, `${JSON.stringify(cloudState, null, 2)}\n`);
+  const serialized = JSON.stringify(cloudState, null, 2);
+  await writeFile(cloudStateFilePath, `${serialized}\n`);
   await chmod(cloudStateFilePath, 0o600);
 }
 
@@ -261,7 +262,8 @@ export async function clearLiveHost(): Promise<void> {
   const cloudState = await readCloudState();
 
   if (cloudState.amiId == null) {
-    await writeCloudState(emptyCloudState());
+    const emptyCloud = emptyCloudState();
+    await writeCloudState(emptyCloud);
     return;
   }
 

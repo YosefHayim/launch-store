@@ -48,7 +48,8 @@ function finishUsageFailure(usageFailure: UsageFailure, isJson: boolean): never 
   const logger = createLogger(false);
 
   if (isJson) {
-    logger.line(JSON.stringify({ ok: false, error: usageFailure.message }));
+    const serialized = JSON.stringify({ ok: false, error: usageFailure.message });
+    logger.line(serialized);
   }
 
   const isHumanOutput = isJson == false;
@@ -133,22 +134,25 @@ export async function statsReportProgram(request: StatsCommandRequest): Promise<
     const platform = readPlatformFlag(request.platform);
     const owner = readOwnerFlag(request.owner);
     const days = parseDaysFlag(request.days);
+    const appName = readAppName(request.app);
     const report = await createStatsReport({
       platform,
       owner,
-      appName: readAppName(request.app),
+      appName: appName,
       days,
     });
 
     if (request.json) {
-      logger.line(JSON.stringify({ ok: true, ...report }));
+      const serialized = JSON.stringify({ ok: true, ...report });
+      logger.line(serialized);
       return;
     }
 
     showReport(report);
   } catch (cause) {
     if (isAppNotFound(cause)) {
-      throw finishUsageFailure(makeUsageFailure({ message: cause.message }), request.json);
+      const usageFailure = makeUsageFailure({ message: cause.message });
+      throw finishUsageFailure(usageFailure, request.json);
     }
 
     if (isUsageFailure(cause)) {

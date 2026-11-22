@@ -27,7 +27,8 @@ describe('endWithUsageFailure', () => {
 
     expect(commandExit).toMatchObject({ _tag: 'CommandExit', exitCode: 2 });
     expect(lines).toHaveLength(1);
-    expect(JSON.parse(lines[0] ?? '')).toEqual({ ok: false, error: '--days is wrong.' });
+    const parsed = JSON.parse(lines[0] ?? '');
+    expect(parsed).toEqual({ ok: false, error: '--days is wrong.' });
   });
 
   test('prints the message as an error line and exits 2 without --json', () => {

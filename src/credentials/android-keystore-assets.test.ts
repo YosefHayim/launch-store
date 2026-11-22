@@ -16,7 +16,11 @@ import {
 } from './android-keystore-assets.ts';
 
 const secrets = new Map<string, string>();
-const homeDirectory = join(tmpdir(), `launch-android-credentials-test-${process.pid}`);
+const systemTemporaryDirectory = tmpdir();
+const homeDirectory = join(
+  systemTemporaryDirectory,
+  `launch-android-credentials-test-${process.pid}`,
+);
 
 const SERVICE_ACCOUNT = JSON.stringify({
   type: 'service_account',
@@ -53,26 +57,28 @@ describe('storeServiceAccount / loadServiceAccount', () => {
   it('round-trips a multi-line key through store -> load unchanged', async () => {
     await storeServiceAccount(SERVICE_ACCOUNT, 'com.example.app');
 
-    expect(await loadServiceAccount('com.example.app')).toBe(SERVICE_ACCOUNT);
+    const serviceAccount = await loadServiceAccount('com.example.app');
+    expect(serviceAccount).toBe(SERVICE_ACCOUNT);
   });
 
   it('validates the key shape before storing anything', async () => {
-    await expect(
-      storeServiceAccount(JSON.stringify({ type: 'authorized_user' }), 'com.example.app'),
-    ).rejects.toMatchObject({
+    const serialized = JSON.stringify({ type: 'authorized_user' });
+    await expect(storeServiceAccount(serialized, 'com.example.app')).rejects.toMatchObject({
       message: expect.stringMatching(/client_email.*private_key/),
     });
     expect(secrets.size).toBe(0);
   });
 
   it('returns null when no service account has been imported', async () => {
-    expect(await loadServiceAccount('com.example.app')).toBeNull();
+    const serviceAccount = await loadServiceAccount('com.example.app');
+    expect(serviceAccount).toBeNull();
   });
 });
 
 describe('describeStoredAndroidCredentials', () => {
   it('reports nothing cached on a fresh machine', async () => {
-    expect(await describeStoredAndroidCredentials('com.example.app')).toEqual({
+    const storedAndroidCredentials = await describeStoredAndroidCredentials('com.example.app');
+    expect(storedAndroidCredentials).toEqual({
       keystoreAlias: null,
       hasServiceAccount: false,
     });
@@ -91,10 +97,12 @@ describe('describeStoredAndroidCredentials', () => {
   it('fails instead of reading a corrupt credentials index as empty', async () => {
     const indexPath = resolveAndroidCredentialsIndexPath('com.example.app');
 
-    mkdirSync(dirname(indexPath), { recursive: true });
+    const parentDirectory = dirname(indexPath);
+    mkdirSync(parentDirectory, { recursive: true });
     writeFileSync(indexPath, '{ "keystore": ');
 
-    await expect(describeStoredAndroidCredentials('com.example.app')).rejects.toMatchObject({
+    const storedAndroidCredentials = describeStoredAndroidCredentials('com.example.app');
+    await expect(storedAndroidCredentials).rejects.toMatchObject({
       _tag: 'AndroidCredentialFailure',
       message: expect.stringContaining('is corrupt'),
     });

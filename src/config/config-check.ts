@@ -276,7 +276,8 @@ export async function checkApp(app: AppDescriptor, platform: Platform): Promise<
     return [];
   }
 
-  return checkAppConfig(raw, basename(app.configPath), platform);
+  const fileName = basename(app.configPath);
+  return checkAppConfig(raw, fileName, platform);
 }
 
 export function formatFinding(finding: ConfigFinding): string {

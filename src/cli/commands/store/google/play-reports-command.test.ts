@@ -8,11 +8,13 @@ import {
 
 describe('parseVitalsMetrics', () => {
   it('shows both vitals when no metric flag is given', () => {
-    expect(parseVitalsMetrics(undefined)).toEqual(['crash', 'anr']);
+    const vitalsMetrics = parseVitalsMetrics(undefined);
+    expect(vitalsMetrics).toEqual(['crash', 'anr']);
   });
 
   it('narrows to a single vital case-insensitively', () => {
-    expect(parseVitalsMetrics('crash')).toEqual(['crash']);
+    const vitalsMetrics = parseVitalsMetrics('crash');
+    expect(vitalsMetrics).toEqual(['crash']);
     expect(parseVitalsMetrics(' ANR ')).toEqual(['anr']);
   });
 
@@ -24,11 +26,13 @@ describe('parseVitalsMetrics', () => {
 
 describe('parseVitalsDays', () => {
   it('defaults to the standard window when absent', () => {
-    expect(parseVitalsDays(undefined)).toBe(DEFAULT_VITALS_DAYS);
+    const vitalsDays = parseVitalsDays(undefined);
+    expect(vitalsDays).toBe(DEFAULT_VITALS_DAYS);
   });
 
   it('accepts a positive whole number', () => {
-    expect(parseVitalsDays('7')).toBe(7);
+    const vitalsDays = parseVitalsDays('7');
+    expect(vitalsDays).toBe(7);
     expect(parseVitalsDays(' 90 ')).toBe(90);
   });
 
@@ -40,8 +44,13 @@ describe('parseVitalsDays', () => {
   });
 
   it('accepts the maximum but rejects anything past it', () => {
-    expect(parseVitalsDays(String(MAX_VITALS_DAYS))).toBe(MAX_VITALS_DAYS);
-    expect(() => parseVitalsDays(String(MAX_VITALS_DAYS + 1))).toThrow(/cannot exceed/);
+    const asString = String(MAX_VITALS_DAYS);
+    const vitalsDays = parseVitalsDays(asString);
+    expect(vitalsDays).toBe(MAX_VITALS_DAYS);
+    expect(() => {
+      const asString = String(MAX_VITALS_DAYS + 1);
+      return parseVitalsDays(asString);
+    }).toThrow(/cannot exceed/);
     expect(() => parseVitalsDays('999999999999999999999')).toThrow(/cannot exceed/);
   });
 });

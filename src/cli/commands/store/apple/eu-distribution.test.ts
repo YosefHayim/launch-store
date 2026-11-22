@@ -2,13 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { renderStoreSurfaceAction } from './app-store-surface-command.ts';
 describe('renderAction', () => {
   it('marks a planned/applied authorization with +', () => {
-    expect(
-      renderStoreSurfaceAction({
-        description: 'authorize distribution domain cdn.acme.com (Acme CDN)',
-        destructive: false,
-        status: 'planned',
-      }),
-    ).toBe('+ authorize distribution domain cdn.acme.com (Acme CDN)');
+    const storeSurfaceAction = renderStoreSurfaceAction({
+      description: 'authorize distribution domain cdn.acme.com (Acme CDN)',
+      destructive: false,
+      status: 'planned',
+    });
+    expect(storeSurfaceAction).toBe('+ authorize distribution domain cdn.acme.com (Acme CDN)');
     expect(
       renderStoreSurfaceAction({
         description: 'authorize distribution domain cdn.acme.com (Acme CDN)',
@@ -18,13 +17,14 @@ describe('renderAction', () => {
     ).toBe('+ authorize distribution domain cdn.acme.com (Acme CDN)');
   });
   it("renders a failed authorization with x and Apple's error detail", () => {
-    expect(
-      renderStoreSurfaceAction({
-        description: 'authorize distribution domain bad..com (Bad)',
-        destructive: false,
-        status: 'failed',
-        error: 'is not a valid domain',
-      }),
-    ).toBe('x authorize distribution domain bad..com (Bad) - is not a valid domain');
+    const storeSurfaceAction = renderStoreSurfaceAction({
+      description: 'authorize distribution domain bad..com (Bad)',
+      destructive: false,
+      status: 'failed',
+      error: 'is not a valid domain',
+    });
+    expect(storeSurfaceAction).toBe(
+      'x authorize distribution domain bad..com (Bad) - is not a valid domain',
+    );
   });
 });

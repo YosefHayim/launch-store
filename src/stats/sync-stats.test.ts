@@ -107,12 +107,14 @@ describe('syncStats', () => {
 
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
       homeDirectory,
-      workingDirectory: join(homeDirectory, 'work'),
+      workingDirectory: workPath,
     });
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
-    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(PORTFOLIO_FILE));
+    const serialized = JSON.stringify(PORTFOLIO_FILE);
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
     fakeFeed.reply = FETCHED_REPLY;
     fakeFeed.askedRanges = [];
   });
@@ -133,10 +135,11 @@ describe('syncStats', () => {
     return syncStats({ appName, days });
   };
 
-  const readCoverage = (appKey: string): AppCoverage =>
-    JSON.parse(
-      readFileSync(join(homeDirectory, '.launch', 'stats', appKey, 'coverage.json'), 'utf8'),
-    );
+  const readCoverage = (appKey: string): AppCoverage => {
+    const coveragePath = join(homeDirectory, '.launch', 'stats', appKey, 'coverage.json');
+    const loadedFile = readFileSync(coveragePath, 'utf8');
+    return JSON.parse(loadedFile);
+  };
 
   test('writes the fetched days and records the coverage', async () => {
     const report = await sync('cal friend', 30);
@@ -144,11 +147,12 @@ describe('syncStats', () => {
     expect(report.appFeeds).toEqual([
       { appKey: 'ios-1', feed: 'app-store', status: 'synced', statsWritten: 1, message: null },
     ]);
-    const monthFile = JSON.parse(
-      readFileSync(join(homeDirectory, '.launch', 'stats', 'ios-1', '2026-10.json'), 'utf8'),
-    );
+    const joinedPath = join(homeDirectory, '.launch', 'stats', 'ios-1', '2026-10.json');
+    const loadedFile = readFileSync(joinedPath, 'utf8');
+    const monthFile = JSON.parse(loadedFile);
     expect(monthFile.stats).toHaveLength(1);
-    expect(readCoverage('ios-1').feeds['app-store']).toMatchObject({
+    const coverage = readCoverage('ios-1');
+    expect(coverage.feeds['app-store']).toMatchObject({
       coveredThrough: '2026-10-28',
       lastError: null,
       lastSyncedAt: report.syncedAt,
@@ -171,16 +175,16 @@ describe('syncStats', () => {
     const report = await sync('cal friend', 30);
 
     expect(report.appFeeds[0]?.message).toBe('month 2026-09 missing; currency mixed');
-    expect(readCoverage('ios-1').feeds['app-store']?.lastNote).toBe(
-      'month 2026-09 missing; currency mixed',
-    );
+    const coverage = readCoverage('ios-1');
+    expect(coverage.feeds['app-store']?.lastNote).toBe('month 2026-09 missing; currency mixed');
   });
 
   test('records a skipped feed as checked so the next read does not sync again', async () => {
     const report = await sync('fit', 5);
 
     expect(report.appFeeds[0]?.status).toBe('skipped');
-    expect(readCoverage('android-com.fit').feeds['google-play']).toMatchObject({
+    const coverage = readCoverage('android-com.fit');
+    expect(coverage.feeds['google-play']).toMatchObject({
       lastSyncedAt: report.syncedAt,
       lastError: null,
       lastNote: 'not built yet',
@@ -211,7 +215,8 @@ describe('syncStats', () => {
         },
       },
     };
-    writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', JSON.stringify(coverage));
+    const serialized = JSON.stringify(coverage);
+    writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', serialized);
 
     const report = await sync('cal friend', 3);
 
@@ -232,15 +237,13 @@ describe('syncStats', () => {
 
     expect(report.appFeeds.map((appFeed) => appFeed.status)).toEqual(['failed', 'skipped']);
     expect(report.appFeeds[0]?.message).toBe('report not ready');
-    expect(readCoverage('ios-1').feeds['app-store']?.lastError).toBe('report not ready');
+    const coverage = readCoverage('ios-1');
+    expect(coverage.feeds['app-store']?.lastError).toBe('report not ready');
   });
 
   test('finds an app that is not in the saved portfolio by discovering again', async () => {
-    writeLaunchHomeFile(
-      homeDirectory,
-      'portfolio.json',
-      JSON.stringify({ ...PORTFOLIO_FILE, apps: [] }),
-    );
+    const serialized = JSON.stringify({ ...PORTFOLIO_FILE, apps: [] });
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     const report = await sync('fresh', 5, {
       async ascClientForAccount() {

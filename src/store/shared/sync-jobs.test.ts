@@ -98,12 +98,12 @@ describe('buildJobs', () => {
   });
 
   it('skips an app with no iOS bundle id', async () => {
-    expect(await buildJobs([app('beta')], config({ 'com.acme.beta': IAP }))).toHaveLength(0);
+    const jobs = await buildJobs([app('beta')], config({ 'com.acme.beta': IAP }));
+    expect(jobs).toHaveLength(0);
   });
 
   it('skips an app with nothing to sync (no capabilities, products, listing, or assets)', async () => {
-    expect(await buildJobs([app('alpha', { bundleId: 'com.acme.alpha' })], config())).toHaveLength(
-      0,
-    );
+    const jobs = await buildJobs([app('alpha', { bundleId: 'com.acme.alpha' })], config());
+    expect(jobs).toHaveLength(0);
   });
 });

@@ -251,7 +251,8 @@ describe('ALL_TOOLS registry', () => {
   });
 
   it('gates the write and dangerous tools behind their own tiers', () => {
-    const readNames = gateTools(ALL_TOOLS, sampleLaunchConfig(['read'])).map(toolName);
+    const sampleLaunch = sampleLaunchConfig(['read']);
+    const readNames = gateTools(ALL_TOOLS, sampleLaunch).map(toolName);
     const writeNames = gateTools(ALL_TOOLS, sampleLaunchConfig(['read', 'write'])).map(toolName);
     const dangerousNames = gateTools(
       ALL_TOOLS,
@@ -269,7 +270,8 @@ describe('ALL_TOOLS registry', () => {
 
 describe('argument helpers', () => {
   it('optionalString returns only string values', () => {
-    expect(optionalString({ app: 'ios' }, 'app')).toBe('ios');
+    const optionalSetting = optionalString({ app: 'ios' }, 'app');
+    expect(optionalSetting).toBe('ios');
     expect(optionalString({ app: 1 }, 'app')).toBeUndefined();
     expect(optionalString({}, 'app')).toBeUndefined();
   });

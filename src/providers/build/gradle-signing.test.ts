@@ -12,11 +12,15 @@ vi.mock('../../services/platform/progress.ts', async (importOriginal) => ({
 
 describe('Gradle signing transport', () => {
   it('puts signing passwords in the environment, not arguments', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'launch-gradle-signing-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchGradleSigningPath = join(systemTemporaryDirectory, 'launch-gradle-signing-');
+    const directory = mkdtempSync(launchGradleSigningPath);
 
     try {
-      mkdirSync(join(directory, 'android'));
-      writeFileSync(join(directory, 'android', 'gradlew'), '');
+      const androidPath = join(directory, 'android');
+      mkdirSync(androidPath);
+      const gradlewPath = join(directory, 'android', 'gradlew');
+      writeFileSync(gradlewPath, '');
       const buildContext = {
         platform: 'android' as const,
         app: {

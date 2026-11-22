@@ -38,16 +38,19 @@ describe('Android signing command secret transport', () => {
   });
 
   it('passes keytool password variable names, not the generated secret, in argv', async () => {
-    const home = mkdtempSync(join(tmpdir(), 'launch-keytool-test-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchKeytoolTestPath = join(systemTemporaryDirectory, 'launch-keytool-test-');
+    const home = mkdtempSync(launchKeytoolTestPath);
 
     temporaryDirectories.push(home);
     useLaunchDirectories({ homeDirectory: home, workingDirectory: home });
     useSecretStore(new Map());
 
+    const logger = createLogger(false);
     await ensureUploadKeystore({
       appName: 'Demo',
       packageName: 'com.example.demo',
-      log: createLogger(false),
+      log: logger,
       dryRun: false,
       confirmCreate: function confirmCreate() {
         return Promise.resolve(true);

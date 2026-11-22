@@ -170,7 +170,8 @@ export function decodeCredentialsIndex(candidate: unknown): CredentialsIndex | n
 
 /** Absolute path to one account's signing index. */
 function indexPath(keyId: string): string {
-  return join(resolveAccountCredentialsDirectory(keyId), 'index.json');
+  const accountCredentialsDirectory = resolveAccountCredentialsDirectory(keyId);
+  return join(accountCredentialsDirectory, 'index.json');
 }
 
 /** Read an account's credentials index, tolerating a missing or malformed file. */

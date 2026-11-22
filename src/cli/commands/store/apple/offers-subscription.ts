@@ -34,7 +34,8 @@ export function offersFailure(
     return makeOffersCommandFailure({ operation, message: explicitMessage, cause });
   }
 
-  return makeOffersCommandFailure({ operation, message: errorMessage(cause), cause });
+  const failureMessage = errorMessage(cause);
+  return makeOffersCommandFailure({ operation, message: failureMessage, cause });
 }
 
 type ResolvedSubscription = Readonly<{

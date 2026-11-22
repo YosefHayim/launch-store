@@ -19,9 +19,10 @@ let homeDirectory: string;
 
 beforeEach(function setPortfolioHome() {
   homeDirectory = createTemporaryHomeDirectory();
+  const workPath = join(homeDirectory, 'work');
   useLaunchDirectories({
     homeDirectory,
-    workingDirectory: join(homeDirectory, 'work'),
+    workingDirectory: workPath,
   });
 });
 
@@ -51,7 +52,8 @@ const savedFile: PortfolioFile = {
 
 describe('createEmptyPortfolioFile', () => {
   test('has no apps, no tags and no discovery time', () => {
-    expect(createEmptyPortfolioFile()).toEqual({
+    const emptyPortfolioFile = createEmptyPortfolioFile();
+    expect(emptyPortfolioFile).toEqual({
       version: 1,
       discoveredAt: null,
       apps: [],
@@ -83,7 +85,8 @@ describe('loadPortfolioFile', () => {
   test('fails when portfolio.json is broken', async () => {
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', '{"version":2}');
 
-    await expect(loadPortfolioFile()).rejects.toMatchObject({ _tag: 'DocumentFileFailure' });
+    const portfolioFile = loadPortfolioFile();
+    await expect(portfolioFile).rejects.toMatchObject({ _tag: 'DocumentFileFailure' });
   });
 });
 
@@ -93,19 +96,24 @@ describe('savePortfolioFile', () => {
     const loaded = await loadPortfolioFile();
 
     expect(loaded).toEqual(savedFile);
-    const savedFileText = readFileSync(join(homeDirectory, '.launch', 'portfolio.json'), 'utf8');
-    expect(JSON.parse(savedFileText)).toEqual(savedFile);
+    const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
+    const savedFileText = readFileSync(portfolioPath, 'utf8');
+    const parsed = JSON.parse(savedFileText);
+    expect(parsed).toEqual(savedFile);
   });
 });
 
 describe('pickSavedPortfolioFile', () => {
   test('returns an empty portfolio when nothing was saved', () => {
-    expect(pickSavedPortfolioFile(null)).toEqual(createEmptyPortfolioFile());
+    const savedPortfolioFile = pickSavedPortfolioFile(null);
+    const emptyPortfolioFile = createEmptyPortfolioFile();
+    expect(savedPortfolioFile).toEqual(emptyPortfolioFile);
   });
 
   test('returns the saved portfolio as it is', () => {
     const cachedFile = { ...createEmptyPortfolioFile(), discoveredAt: '2026-10-29T10:00:00.000Z' };
 
-    expect(pickSavedPortfolioFile(cachedFile)).toBe(cachedFile);
+    const savedPortfolioFile = pickSavedPortfolioFile(cachedFile);
+    expect(savedPortfolioFile).toBe(cachedFile);
   });
 });

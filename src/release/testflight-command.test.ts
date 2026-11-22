@@ -6,27 +6,26 @@ import { parseFeedbackType, renderFeedback } from './testflight-show-feedback.ts
 
 describe('parseTestersCsv', () => {
   it('parses and trims named tester rows', () => {
-    expect(parseTestersCsv('a@x.com, Dana , Lee\nb@x.com,Sam,Ng')).toEqual([
+    const testersCsv = parseTestersCsv('a@x.com, Dana , Lee\nb@x.com,Sam,Ng');
+    expect(testersCsv).toEqual([
       { email: 'a@x.com', firstName: 'Dana', lastName: 'Lee' },
       { email: 'b@x.com', firstName: 'Sam', lastName: 'Ng' },
     ]);
   });
 
   it('skips headers, blank lines, and malformed rows', () => {
-    expect(parseTestersCsv('email,first,last\n\nnot-an-email\na@x.com,Dana\n')).toEqual([
-      { email: 'a@x.com', firstName: 'Dana' },
-    ]);
+    const testersCsv = parseTestersCsv('email,first,last\n\nnot-an-email\na@x.com,Dana\n');
+    expect(testersCsv).toEqual([{ email: 'a@x.com', firstName: 'Dana' }]);
   });
 
   it('accepts bare emails and CRLF input', () => {
-    expect(parseTestersCsv('a@x.com\r\nb@x.com,Sam\r\n')).toEqual([
-      { email: 'a@x.com' },
-      { email: 'b@x.com', firstName: 'Sam' },
-    ]);
+    const testersCsv = parseTestersCsv('a@x.com\r\nb@x.com,Sam\r\n');
+    expect(testersCsv).toEqual([{ email: 'a@x.com' }, { email: 'b@x.com', firstName: 'Sam' }]);
   });
 
   it('keeps last-name-only rows and drops blank name cells', () => {
-    expect(parseTestersCsv('a@x.com,,Ng\nb@x.com, ,Lee')).toEqual([
+    const testersCsv = parseTestersCsv('a@x.com,,Ng\nb@x.com, ,Lee');
+    expect(testersCsv).toEqual([
       { email: 'a@x.com', lastName: 'Ng' },
       { email: 'b@x.com', lastName: 'Lee' },
     ]);
@@ -35,13 +34,12 @@ describe('parseTestersCsv', () => {
 
 describe('renderBetaAction', () => {
   it('uses ASCII markers for planned, applied, skipped, and failed actions', () => {
-    expect(
-      renderBetaAction({
-        description: 'set "What to Test" (en-US)',
-        destructive: false,
-        status: 'planned',
-      }),
-    ).toBe('+ set "What to Test" (en-US)');
+    const betaAction = renderBetaAction({
+      description: 'set "What to Test" (en-US)',
+      destructive: false,
+      status: 'planned',
+    });
+    expect(betaAction).toBe('+ set "What to Test" (en-US)');
     expect(
       renderBetaAction({
         description: 'set "What to Test" (en-US)',
@@ -76,13 +74,15 @@ describe('renderBetaAction', () => {
 
 describe('parseFeedbackType', () => {
   it('accepts an omitted or case-insensitive supported type', async () => {
-    await expect(parseFeedbackType(undefined)).resolves.toBeUndefined();
+    const feedbackType = parseFeedbackType(undefined);
+    await expect(feedbackType).resolves.toBeUndefined();
     await expect(parseFeedbackType('  CRASH  ')).resolves.toBe('crash');
     await expect(parseFeedbackType('SCREENSHOT')).resolves.toBe('screenshot');
   });
 
   it('rejects an unknown feedback type', async () => {
-    await expect(parseFeedbackType('video')).rejects.toMatchObject({
+    const feedbackType = parseFeedbackType('video');
+    await expect(feedbackType).rejects.toMatchObject({
       message: expect.stringMatching(/--type must be one of/),
     });
   });
@@ -138,14 +138,13 @@ describe('renderFeedback', () => {
 
 describe('TestflightCommandInputSchema', () => {
   it('decodes a complete add-testers boundary', () => {
-    expect(
-      TestflightCommandInputSchema({
-        operation: 'add',
-        emails: ['tester@example.com'],
-        dryRun: true,
-        yes: false,
-      }),
-    ).toEqual({
+    const testflightCommandSchema = TestflightCommandInputSchema({
+      operation: 'add',
+      emails: ['tester@example.com'],
+      dryRun: true,
+      yes: false,
+    });
+    expect(testflightCommandSchema).toEqual({
       operation: 'add',
       emails: ['tester@example.com'],
       dryRun: true,
@@ -154,16 +153,19 @@ describe('TestflightCommandInputSchema', () => {
   });
 
   it('decodes release, remove, and feedback boundaries', () => {
-    expect(
-      TestflightCommandInputSchema({
-        operation: 'release',
-        locale: 'en-US',
-        config: 'testflight.config.json',
-        review: true,
-        dryRun: false,
-        yes: true,
-      }),
-    ).toMatchObject({ operation: 'release', review: true, yes: true });
+    const testflightCommandSchema = TestflightCommandInputSchema({
+      operation: 'release',
+      locale: 'en-US',
+      config: 'testflight.config.json',
+      review: true,
+      dryRun: false,
+      yes: true,
+    });
+    expect(testflightCommandSchema).toMatchObject({
+      operation: 'release',
+      review: true,
+      yes: true,
+    });
     expect(
       TestflightCommandInputSchema({
         operation: 'remove',

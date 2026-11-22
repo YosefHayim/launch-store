@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 export function createTemporaryHomeDirectory(): string {
-  return mkdtempSync(join(tmpdir(), 'launch-store-test-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchStoreTestPath = join(systemTemporaryDirectory, 'launch-store-test-');
+  return mkdtempSync(launchStoreTestPath);
 }
 
 export function removeTemporaryHomeDirectory(homeDirectory: string): void {
@@ -17,6 +19,7 @@ export function writeLaunchHomeFile(
 ): void {
   const filePath = join(homeDirectory, '.launch', relativePath);
 
-  mkdirSync(dirname(filePath), { recursive: true });
+  const parentDirectory = dirname(filePath);
+  mkdirSync(parentDirectory, { recursive: true });
   writeFileSync(filePath, fileText);
 }

@@ -49,12 +49,14 @@ describe('parsePrivacyManifest', () => {
     expect(manifest.trackingDomains).toEqual(['ads.example.com']);
   });
   it('defaults tracking to false when the key is absent', () => {
-    expect(parsePrivacyManifest('<dict></dict>').tracking).toBe(false);
+    const privacyManifest = parsePrivacyManifest('<dict></dict>');
+    expect(privacyManifest.tracking).toBe(false);
   });
 });
 describe('parseAndroidPermissions', () => {
   it('extracts and de-duplicates permission names', () => {
-    expect(parseAndroidPermissions(ANDROID_MANIFEST)).toEqual([
+    const androidPermissions = parseAndroidPermissions(ANDROID_MANIFEST);
+    expect(androidPermissions).toEqual([
       'android.permission.CAMERA',
       'android.permission.ACCESS_FINE_LOCATION',
     ]);
@@ -69,7 +71,8 @@ describe('surfaceFromNative', () => {
     });
     expect(surface.hasManifest).toBe(true);
     expect(surface.tracking).toBe(true);
-    expect(Object.keys(surface.usageDescriptions)).toContain('NSCameraUsageDescription');
+    const ownKeys = Object.keys(surface.usageDescriptions);
+    expect(ownKeys).toContain('NSCameraUsageDescription');
     expect(surface.androidPermissions).toContain('android.permission.CAMERA');
   });
   it('reports no manifest when no .xcprivacy was parsed', () => {

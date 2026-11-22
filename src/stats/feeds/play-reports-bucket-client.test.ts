@@ -60,7 +60,8 @@ function installFetch(routes: readonly HttpRoute[]): void {
         throw new Error(`No test route for ${method} ${requestUrl}`);
       }
 
-      return new Response(createReplyBody(matchedRoute.body), { status: matchedRoute.status });
+      const createReply = createReplyBody(matchedRoute.body);
+      return new Response(createReply, { status: matchedRoute.status });
     },
   );
 }

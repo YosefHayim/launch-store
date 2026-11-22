@@ -32,7 +32,9 @@ export const registerOpenCommand = (program: Command): void => {
       'ios/tvos/macos/visionos (App Store Connect) or android (Play Console)',
     )
     .option('-a, --app <name>', 'app handle to open (default: the first app for the platform)')
-    .action((target: string | undefined, commandOptions: OpenCommandOptions) =>
-      runCliProgram(openCommandProgram(toOpenCommandInput(target, commandOptions))),
-    );
+    .action((target: string | undefined, commandOptions: OpenCommandOptions) => {
+      const openCommand = toOpenCommandInput(target, commandOptions);
+      const openProgram = openCommandProgram(openCommand);
+      return runCliProgram(openProgram);
+    });
 };

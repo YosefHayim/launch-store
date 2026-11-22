@@ -3,14 +3,13 @@ import { AppClipsCommandInputSchema } from './app-clips-command.ts';
 
 describe('AppClipsCommandInputSchema', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {
-    expect(
-      AppClipsCommandInputSchema({
-        config: 'appclips.config.json',
-        explicitConfig: false,
-        dryRun: true,
-        yes: false,
-      }),
-    ).toEqual({
+    const appClipsCommandSchema = AppClipsCommandInputSchema({
+      config: 'appclips.config.json',
+      explicitConfig: false,
+      dryRun: true,
+      yes: false,
+    });
+    expect(appClipsCommandSchema).toEqual({
       config: 'appclips.config.json',
       explicitConfig: false,
       dryRun: true,

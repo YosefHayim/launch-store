@@ -76,7 +76,8 @@ type ResignWorkspace = Readonly<{
 type OptionalResignKey = 'id' | 'app' | 'account' | 'output';
 
 function resignFailure(operation: string, cause: unknown): ResignCommandFailure {
-  return makeResignCommandFailure({ operation, message: errorMessage(cause), cause });
+  const failureMessage = errorMessage(cause);
+  return makeResignCommandFailure({ operation, message: failureMessage, cause });
 }
 
 function readOptionalString(record: Record<string, unknown>, key: string): string | null {
@@ -137,16 +138,10 @@ function decodeResignCommandInput(rawCommandInput: unknown): ResignCommandInput 
   }
 
   let commandInput: ResignCommandInput = { dryRun };
-  commandInput = withOptionalString(
-    commandInput,
-    'id',
-    readOptionalString(rawCommandInputObject, 'id'),
-  );
-  commandInput = withOptionalString(
-    commandInput,
-    'app',
-    readOptionalString(rawCommandInputObject, 'app'),
-  );
+  const optionalSetting = readOptionalString(rawCommandInputObject, 'id');
+  commandInput = withOptionalString(commandInput, 'id', optionalSetting);
+  const optionalString = readOptionalString(rawCommandInputObject, 'app');
+  commandInput = withOptionalString(commandInput, 'app', optionalString);
   commandInput = withOptionalString(
     commandInput,
     'account',
@@ -355,10 +350,13 @@ async function resignAppleArtifact(
   signingAssets: SigningAssets,
   outputPath: string,
 ): Promise<void> {
-  const temporaryDirectory = await mkdtemp(path.join(tmpdir(), 'launch-resign-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchResignPath = path.join(systemTemporaryDirectory, 'launch-resign-');
+  const temporaryDirectory = await mkdtemp(launchResignPath);
 
   try {
-    await executeCommand('unzip', unzipArgs(artifact.path, temporaryDirectory));
+    const unzip = unzipArgs(artifact.path, temporaryDirectory);
+    await executeCommand('unzip', unzip);
     const applicationDirectory = path.join(temporaryDirectory, 'Payload');
     const applicationNames = await readdir(applicationDirectory);
     const applicationName = applicationNames.find(isApplicationBundle);
@@ -376,24 +374,21 @@ async function resignAppleArtifact(
     await copyFile(signingAssets.profilePath, embeddedProfile);
 
     const profilePlistPath = path.join(temporaryDirectory, 'profile.plist');
-    const profilePlist = await captureCommandOutput(
-      'security',
-      securityCmsArgs(signingAssets.profilePath),
-    );
+    const securityCms = securityCmsArgs(signingAssets.profilePath);
+    const profilePlist = await captureCommandOutput('security', securityCms);
 
     await writeFile(profilePlistPath, profilePlist);
 
     const entitlementsPath = path.join(temporaryDirectory, 'entitlements.plist');
+    const plistBuddyEntitlements = plistBuddyEntitlementsArgs(profilePlistPath);
     const entitlements = await captureCommandOutput(
       '/usr/libexec/PlistBuddy',
-      plistBuddyEntitlementsArgs(profilePlistPath),
+      plistBuddyEntitlements,
     );
 
     await writeFile(entitlementsPath, entitlements);
-    await executeCommand(
-      'codesign',
-      iosCodesignArgs(applicationPath, signingAssets.certName, entitlementsPath),
-    );
+    const iosCodesign = iosCodesignArgs(applicationPath, signingAssets.certName, entitlementsPath);
+    await executeCommand('codesign', iosCodesign);
 
     const outputExists = await pathExists(outputPath);
 
@@ -401,7 +396,8 @@ async function resignAppleArtifact(
       await rm(outputPath);
     }
 
-    await executeCommand('zip', zipArgs(outputPath), { workingDirectory: temporaryDirectory });
+    const zip = zipArgs(outputPath);
+    await executeCommand('zip', zip, { workingDirectory: temporaryDirectory });
   } finally {
     await removeTemporaryDirectory(temporaryDirectory);
   }
@@ -430,7 +426,8 @@ function printApplePlan(
 ): void {
   const logger = createLogger(false);
 
-  logger.line(`Would re-sign ${path.basename(artifact.path)} with Apple signing:`);
+  const fileName = path.basename(artifact.path);
+  logger.line(`Would re-sign ${fileName} with Apple signing:`);
   logger.line(`  identity: ${signingAssets.certName} (team ${signingAssets.teamId})`);
   logger.line(`  profile: ${signingAssets.profileName}`);
   logger.line(`  output: ${outputPath}`);
@@ -444,7 +441,8 @@ function printAndroidPlan(
   const logger = createLogger(false);
   const resignSpec = androidResignSpec(outputPath, keystore);
 
-  logger.line(`Would re-sign ${path.basename(artifact.path)} with Android signing:`);
+  const fileName = path.basename(artifact.path);
+  logger.line(`Would re-sign ${fileName} with Android signing:`);
   logger.line(`  keystore: ${keystore.path} (alias ${keystore.alias})`);
   logger.line(`  tool: ${resignSpec.command} (passwords supplied through environment)`);
   logger.line(`  output: ${outputPath}`);

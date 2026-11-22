@@ -50,7 +50,8 @@ export class StoreAdopt {
       return;
     }
 
-    await writeFile(launchFilePath, createLaunchFileScaffold());
+    const launchFileScaffold = createLaunchFileScaffold();
+    await writeFile(launchFilePath, launchFileScaffold);
     console.log('Wrote launch.config.ts');
   }
 
@@ -74,7 +75,8 @@ export class StoreAdopt {
       const productIds = await products.list(appId);
       const appInfo = await privacy.list(appId);
 
-      console.log(JSON.stringify({ versionNames, productIds, appInfo }));
+      const serialized = JSON.stringify({ versionNames, productIds, appInfo });
+      console.log(serialized);
     }
 
     const packageName = adoptRequest.packageName;
@@ -89,7 +91,8 @@ export class StoreAdopt {
     const languages = await listing.list(packageName);
     const trackNames = await tracks.list(packageName);
 
-    console.log(JSON.stringify({ languages, trackNames }));
+    const serialized = JSON.stringify({ languages, trackNames });
+    console.log(serialized);
   }
 
   private async allow(hasYes: boolean): Promise<boolean> {

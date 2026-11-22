@@ -136,13 +136,14 @@ export class GooglePlay {
     const publisher = await this.connect(packageName);
 
     try {
+      const asString = String(versionCode);
       await publisher.edits.tracks.update({
         packageName,
         editId,
         track,
         requestBody: {
           track,
-          releases: [{ status: 'completed', versionCodes: [String(versionCode)] }],
+          releases: [{ status: 'completed', versionCodes: [asString] }],
         },
       });
     } catch (error) {

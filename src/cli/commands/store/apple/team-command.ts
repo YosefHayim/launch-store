@@ -195,7 +195,8 @@ export function renderTeam(currentTeam: Team): string {
     teamLines.push('', 'Pending invitations:');
 
     for (const pendingInvitation of currentTeam.invitations) {
-      teamLines.push(`  ${renderTeamInvitation(pendingInvitation)}`);
+      const teamInvitation = renderTeamInvitation(pendingInvitation);
+      teamLines.push(`  ${teamInvitation}`);
     }
   }
 
@@ -247,11 +248,13 @@ async function listTeam(commandInput: TeamListInput): Promise<void> {
     const wantsJson = commandInput.json == true;
 
     if (wantsJson) {
-      logger.line(JSON.stringify(currentTeam, null, 2));
+      const serialized = JSON.stringify(currentTeam, null, 2);
+      logger.line(serialized);
       return;
     }
 
-    logger.line(renderTeam(currentTeam));
+    const team = renderTeam(currentTeam);
+    logger.line(team);
   } catch (cause) {
     throw teamCommandFailure('list', cause);
   }

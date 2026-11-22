@@ -320,7 +320,8 @@ async function listRecentPlayReviews(commandInput: PlayReviewsListInput): Promis
   const logger = createLogger(false);
 
   if (commandInput.json) {
-    logger.line(JSON.stringify(matchingReviews, null, 2));
+    const serialized = JSON.stringify(matchingReviews, null, 2);
+    logger.line(serialized);
     return;
   }
 

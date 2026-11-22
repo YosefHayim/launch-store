@@ -289,5 +289,6 @@ export async function previewEnv(buildOptions: BuildRunOptions): Promise<void> {
   });
   const logger = createLogger(false);
 
-  logger.line(formatEnvTable(resolved));
+  const formatTable = formatEnvTable(resolved);
+  logger.line(formatTable);
 }

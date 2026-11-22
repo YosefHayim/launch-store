@@ -20,12 +20,13 @@ export class ConnectSigning {
   constructor(private readonly client: AscHost) {}
 
   async findBundleId(identifier: string): Promise<BundleIdResource | null> {
+    const uRIComponent = encodeURIComponent(identifier);
     const { data: appleResources } = await this.client.request<
       ResourceList<{
         identifier: string;
         seedId?: string;
       }>
-    >('GET', `/bundleIds?filter[identifier]=${encodeURIComponent(identifier)}&limit=200`);
+    >('GET', `/bundleIds?filter[identifier]=${uRIComponent}&limit=200`);
     const exact = appleResources.find((entry) => entry.attributes.identifier == identifier);
     if (!exact) return null;
     return {
@@ -86,13 +87,14 @@ export class ConnectSigning {
   }
 
   async findProfileByName(name: string): Promise<ProfileResource | null> {
+    const uRIComponent = encodeURIComponent(name);
     const { data: appleResources } = await this.client.request<
       ResourceList<{
         name: string;
         uuid: string;
         profileContent: string;
       }>
-    >('GET', `/profiles?filter[name]=${encodeURIComponent(name)}&limit=1`);
+    >('GET', `/profiles?filter[name]=${uRIComponent}&limit=1`);
     const first = appleResources[0];
     if (!first) return null;
     return {

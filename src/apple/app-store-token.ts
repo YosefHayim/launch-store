@@ -54,7 +54,8 @@ export function signAppStoreConnectToken(key: AscKey, issuedAt: number): string 
     throw new Error('Could not read the App Store Connect key', { cause: error });
   }
 
-  const headerSegment = base64Url(JSON.stringify({ alg: 'ES256', kid: key.keyId, typ: 'JWT' }));
+  const serialized = JSON.stringify({ alg: 'ES256', kid: key.keyId, typ: 'JWT' });
+  const headerSegment = base64Url(serialized);
   const claimSegment = base64Url(
     JSON.stringify({
       iss: key.issuerId,
@@ -66,7 +67,8 @@ export function signAppStoreConnectToken(key: AscKey, issuedAt: number): string 
   const signingInput = `${headerSegment}.${claimSegment}`;
 
   try {
-    var signature = sign('sha256', Buffer.from(signingInput), {
+    const bufferBytes = Buffer.from(signingInput);
+    var signature = sign('sha256', bufferBytes, {
       key: privateKey,
       dsaEncoding: 'ieee-p1363',
     });

@@ -17,7 +17,8 @@ const keys = (config: Record<string, unknown>, platform: 'ios' | 'android'): str
   checkAppConfig(config, 'app.json', platform).map((finding) => finding.key);
 describe('checkAppConfig', () => {
   it('passes a clean config on both platforms', () => {
-    expect(checkAppConfig(clean, 'app.json', 'ios')).toEqual([]);
+    const checkApp = checkAppConfig(clean, 'app.json', 'ios');
+    expect(checkApp).toEqual([]);
     expect(checkAppConfig(clean, 'app.json', 'android')).toEqual([]);
   });
   it('flags an invalid iOS bundle id as an error, only on iOS', () => {
@@ -26,12 +27,15 @@ describe('checkAppConfig', () => {
     expect(ios).toHaveLength(1);
     expect(ios[0]).toMatchObject({ severity: 'error', key: 'ios.bundleIdentifier' });
     // The bundle-id rule is iOS-only; the Android pass doesn't flag it.
-    expect(keys(config, 'android')).not.toContain('ios.bundleIdentifier');
+    const ownKeys = keys(config, 'android');
+    expect(ownKeys).not.toContain('ios.bundleIdentifier');
   });
   it('flags an invalid Android package (hyphen / digit-led segment) as an error', () => {
-    expect(
-      keys({ expo: { ...clean.expo, android: { package: 'com.acme-app' } } }, 'android'),
-    ).toContain('android.package');
+    const ownKeys = keys(
+      { expo: { ...clean.expo, android: { package: 'com.acme-app' } } },
+      'android',
+    );
+    expect(ownKeys).toContain('android.package');
     expect(
       keys({ expo: { ...clean.expo, android: { package: 'com.1acme.app' } } }, 'android'),
     ).toContain('android.package');
@@ -43,12 +47,15 @@ describe('checkAppConfig', () => {
     const config = { expo: { ...clean.expo, splash: { image: './assets/splash.png' } } };
     const android = checkAppConfig(config, 'app.json', 'android');
     expect(android.some((f) => f.key == 'splash' && f.severity == 'error')).toBe(true);
-    expect(keys(config, 'ios')).not.toContain('splash');
+    const ownKeys = keys(config, 'ios');
+    expect(ownKeys).not.toContain('splash');
   });
   it('accepts a splash that has a backgroundColor (incl. an android-level override)', () => {
-    expect(
-      keys({ expo: { ...clean.expo, splash: { image: 'x', backgroundColor: '#fff' } } }, 'android'),
-    ).not.toContain('splash');
+    const ownKeys = keys(
+      { expo: { ...clean.expo, splash: { image: 'x', backgroundColor: '#fff' } } },
+      'android',
+    );
+    expect(ownKeys).not.toContain('splash');
     expect(
       keys(
         {
@@ -64,7 +71,8 @@ describe('checkAppConfig', () => {
   });
   it('warns when no app icon is set', () => {
     const { icon: _icon, ...noIcon } = clean.expo;
-    expect(keys({ expo: noIcon }, 'ios')).toContain('icon');
+    const ownKeys = keys({ expo: noIcon }, 'ios');
+    expect(ownKeys).toContain('icon');
     // An adaptive icon alone satisfies the check.
     expect(
       keys(
@@ -80,10 +88,12 @@ describe('checkAppConfig', () => {
   });
   it('warns when no URL scheme is set', () => {
     const { scheme: _scheme, ...noScheme } = clean.expo;
-    expect(keys({ expo: noScheme }, 'ios')).toContain('scheme');
+    const ownKeys = keys({ expo: noScheme }, 'ios');
+    expect(ownKeys).toContain('scheme');
   });
   it('warns on a non-numeric marketing version', () => {
-    expect(keys({ expo: { ...clean.expo, version: 'v1' } }, 'ios')).toContain('version');
+    const ownKeys = keys({ expo: { ...clean.expo, version: 'v1' } }, 'ios');
+    expect(ownKeys).toContain('version');
     expect(keys({ expo: { ...clean.expo, version: '1.0.0-beta' } }, 'ios')).toContain('version');
   });
   it('tolerates a flat (unwrapped) config shape', () => {
@@ -94,6 +104,7 @@ describe('checkAppConfig', () => {
       icon: 'x',
       ios: { bundleIdentifier: 'com.acme.app' },
     };
-    expect(checkAppConfig(flat, 'app.json', 'ios')).toEqual([]);
+    const checkApp = checkAppConfig(flat, 'app.json', 'ios');
+    expect(checkApp).toEqual([]);
   });
 });

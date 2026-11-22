@@ -148,7 +148,8 @@ function isPortfolioFile(candidate: unknown): candidate is PortfolioFile {
 }
 
 async function readPortfolioDocument(): Promise<PortfolioFile | null> {
-  return readDocumentFile(locatePortfolioFilePath(), function decodePortfolio(documentText) {
+  const portfolioFilePath = locatePortfolioFilePath();
+  return readDocumentFile(portfolioFilePath, function decodePortfolio(documentText) {
     const parsed: unknown = JSON.parse(documentText);
 
     if (isPortfolioFile(parsed)) {
@@ -181,7 +182,8 @@ export async function setPlayReportsBucket(
   const savedFile = await readPortfolioDocument();
   const portfolioFile = pickSavedPortfolioFile(savedFile);
 
-  await writeDocumentFileAtomically(locatePortfolioFilePath(), {
+  const portfolioFilePath = locatePortfolioFilePath();
+  await writeDocumentFileAtomically(portfolioFilePath, {
     ...portfolioFile,
     playReportsBucket: bucketName,
   });

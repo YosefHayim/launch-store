@@ -58,12 +58,11 @@ describe('credential discovery directories', () => {
 
 describe('CredentialsCommandInputSchema', () => {
   it('decodes the Commander boundary into a known credential action', () => {
-    expect(
-      CredentialsCommandInputSchema({
-        action: 'setup',
-        options: { platform: 'android', yes: true },
-      }),
-    ).toEqual({
+    const credentialsCommandSchema = CredentialsCommandInputSchema({
+      action: 'setup',
+      options: { platform: 'android', yes: true },
+    });
+    expect(credentialsCommandSchema).toEqual({
       action: 'setup',
       options: { platform: 'android', yes: true },
     });
@@ -79,13 +78,12 @@ describe('CredentialsCommandInputSchema', () => {
   });
 
   it('accepts logout as a remove alias at the schema boundary', () => {
-    expect(
-      CredentialsCommandInputSchema({
-        action: 'logout',
-        firstArgument: 'acme',
-        options: { yes: true },
-      }),
-    ).toEqual({
+    const credentialsCommandSchema = CredentialsCommandInputSchema({
+      action: 'logout',
+      firstArgument: 'acme',
+      options: { yes: true },
+    });
+    expect(credentialsCommandSchema).toEqual({
       action: 'logout',
       firstArgument: 'acme',
       options: { yes: true },
@@ -153,9 +151,10 @@ describe('credentialsCommandProgram validation', () => {
 });
 
 function useCommandHome(homeDirectory: string, lines: string[]): void {
+  const workPath = join(homeDirectory, 'work');
   useLaunchDirectories({
     homeDirectory,
-    workingDirectory: join(homeDirectory, 'work'),
+    workingDirectory: workPath,
   });
   useSecretStore(new Map());
   useLoggerSink(function keepLine(text: string) {
@@ -168,14 +167,11 @@ describe('set-vendor-number action', () => {
 
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
-    writeLaunchHomeFile(
-      homeDirectory,
-      'accounts.json',
-      JSON.stringify({
-        active: 'KEYA',
-        accounts: [{ keyId: 'KEYA', issuerId: 'issuer-a', label: 'alpha', addedAt: 't' }],
-      }),
-    );
+    const serialized = JSON.stringify({
+      active: 'KEYA',
+      accounts: [{ keyId: 'KEYA', issuerId: 'issuer-a', label: 'alpha', addedAt: 't' }],
+    });
+    writeLaunchHomeFile(homeDirectory, 'accounts.json', serialized);
   });
 
   afterEach(() => {
@@ -208,9 +204,9 @@ describe('set-vendor-number action', () => {
     expect(failed).toBeNull();
     expect(lines.some((line) => line.includes('alpha'))).toBe(true);
 
-    const savedFile = JSON.parse(
-      readFileSync(join(homeDirectory, '.launch', 'accounts.json'), 'utf8'),
-    );
+    const accountsPath = join(homeDirectory, '.launch', 'accounts.json');
+    const loadedFile = readFileSync(accountsPath, 'utf8');
+    const savedFile = JSON.parse(loadedFile);
 
     expect(savedFile.accounts[0].vendorNumber).toBe('12345678');
   });
@@ -262,7 +258,9 @@ describe('set-play-reports-bucket action', () => {
   }
 
   function readSavedPortfolio() {
-    return JSON.parse(readFileSync(join(homeDirectory, '.launch', 'portfolio.json'), 'utf8'));
+    const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
+    const loadedFile = readFileSync(portfolioPath, 'utf8');
+    return JSON.parse(loadedFile);
   }
 
   it('saves the bucket name from a copied gs:// URI into portfolio.json', async () => {
@@ -272,20 +270,18 @@ describe('set-play-reports-bucket action', () => {
 
     expect(failed).toBeNull();
     expect(lines.some((line) => line.includes('pubsite_prod_rev_123'))).toBe(true);
-    expect(readSavedPortfolio().playReportsBucket).toBe('pubsite_prod_rev_123');
+    const savedPortfolio = readSavedPortfolio();
+    expect(savedPortfolio.playReportsBucket).toBe('pubsite_prod_rev_123');
   });
 
   it('keeps the tags already saved in portfolio.json', async () => {
-    writeLaunchHomeFile(
-      homeDirectory,
-      'portfolio.json',
-      JSON.stringify({
-        version: 1,
-        discoveredAt: '2026-10-01T00:00:00.000Z',
-        apps: [],
-        tags: [{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: null }],
-      }),
-    );
+    const serialized = JSON.stringify({
+      version: 1,
+      discoveredAt: '2026-10-01T00:00:00.000Z',
+      apps: [],
+      tags: [{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: null }],
+    });
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     await runInTemporaryHome({ playReportsBucket: 'pubsite_prod_123' });
 
@@ -321,12 +317,15 @@ describe('Android credential status', () => {
       const work = join(homeDirectory, 'work');
 
       mkdirSync(work, { recursive: true });
-      writeFileSync(join(work, 'launch.config.js'), 'throw new Error("broken config fixture")');
+      const launchPath = join(work, 'launch.config.js');
+      writeFileSync(launchPath, 'throw new Error("broken config fixture")');
       useCommandHome(homeDirectory, []);
 
-      await expect(
-        credentialsCommandProgram({ action: 'status', options: { yes: true } }),
-      ).rejects.toMatchObject({
+      const credentialsProgram = credentialsCommandProgram({
+        action: 'status',
+        options: { yes: true },
+      });
+      await expect(credentialsProgram).rejects.toMatchObject({
         message: expect.stringContaining('Could not load launch.config.js'),
       });
     } finally {
@@ -342,10 +341,11 @@ describe('Android credential status', () => {
         const directory = join(homeDirectory, 'work', 'apps', name);
 
         mkdirSync(directory, { recursive: true });
-        writeFileSync(
-          join(directory, 'app.json'),
-          JSON.stringify({ expo: { slug: name, android: { package: `com.example.${name}` } } }),
-        );
+        const appPath = join(directory, 'app.json');
+        const serialized = JSON.stringify({
+          expo: { slug: name, android: { package: `com.example.${name}` } },
+        });
+        writeFileSync(appPath, serialized);
       }
 
       const lines: string[] = [];

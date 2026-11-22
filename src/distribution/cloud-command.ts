@@ -124,8 +124,9 @@ async function showCloudStatus(): Promise<void> {
   }
 
   if (hostHandle.provider == 'byo-ssh') {
+    const age = formatAge(hostStatus.ageMs);
     logger.line(
-      `Connected to your Mac at ${hostHandle.ssh.user}@${hostHandle.ssh.host} (up ${formatAge(hostStatus.ageMs)}; not billed by Launch).`,
+      `Connected to your Mac at ${hostHandle.ssh.user}@${hostHandle.ssh.host} (up ${age}; not billed by Launch).`,
     );
 
     return;
@@ -171,9 +172,10 @@ async function confirmCloudTeardown(hostHandle: HostHandle, confirmed: boolean):
   try {
     shouldTearDown = await LaunchPrompt.confirm(`Tear down ${hostLabel(hostHandle)}?`);
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw makeCloudCommandFailure({
       operation: 'teardown',
-      message: errorMessage(cause),
+      message: failureMessage,
       cause,
     });
   }
@@ -356,9 +358,11 @@ export async function cloudCommandProgram(rawCommandInput: unknown): Promise<voi
       throw cause;
     }
 
+    const knownOperation = readKnownOperation(rawCommandInput);
+    const failureMessage = errorMessage(cause);
     throw makeCloudCommandFailure({
-      operation: readKnownOperation(rawCommandInput),
-      message: errorMessage(cause),
+      operation: knownOperation,
+      message: failureMessage,
       cause,
     });
   }

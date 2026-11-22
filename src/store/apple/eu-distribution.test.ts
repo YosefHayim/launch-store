@@ -42,7 +42,8 @@ const CONFIG: EuDistributionConfig = {
 const decodeEuDistributionConfig = (rawDocument: unknown) => parseEuDistributionConfig(rawDocument);
 describe('parseEuDistributionConfig', () => {
   it('parses an array of domains', () => {
-    expect(decodeEuDistributionConfig(CONFIG)).toEqual(CONFIG);
+    const decodeEuDistribution = decodeEuDistributionConfig(CONFIG);
+    expect(decodeEuDistribution).toEqual(CONFIG);
   });
   it('rejects a non-object document, an array, and a missing/empty domains list', () => {
     expect(() => decodeEuDistributionConfig('nope')).toThrow(/must be a JSON object/);

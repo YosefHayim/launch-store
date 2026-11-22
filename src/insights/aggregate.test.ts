@@ -22,7 +22,8 @@ describe('sentimentOf', () => {
 });
 describe('summarizeRatings', () => {
   it('returns an all-zero summary for an empty set without dividing by zero', () => {
-    expect(summarizeRatings([])).toEqual({
+    const ratings = summarizeRatings([]);
+    expect(ratings).toEqual({
       total: 0,
       average: 0,
       distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
@@ -47,10 +48,12 @@ describe('summarizeRatings', () => {
     expect(summary.sentiment).toEqual({ positive: 3, neutral: 1, negative: 1 });
   });
   it('rounds the average to one decimal', () => {
-    expect(
-      summarizeRatings([review({ rating: 5 }), review({ rating: 4 }), review({ rating: 4 })])
-        .average,
-    ).toBe(4.3);
+    const ratings = summarizeRatings([
+      review({ rating: 5 }),
+      review({ rating: 4 }),
+      review({ rating: 4 }),
+    ]);
+    expect(ratings.average).toBe(4.3);
   });
 });
 describe('monthlyTrend', () => {

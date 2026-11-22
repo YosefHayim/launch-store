@@ -284,7 +284,8 @@ describe('version experiments schema', () => {
   });
 
   it('rejects malformed documents and duplicate names', async () => {
-    await expect(parseVersionExperimentsConfig('nope')).rejects.toMatchObject({
+    const parseVersionExperiments = parseVersionExperimentsConfig('nope');
+    await expect(parseVersionExperiments).rejects.toMatchObject({
       message: expect.stringMatching(/must be a JSON object/),
     });
     await expect(parseVersionExperimentsConfig({ experiments: [] })).rejects.toMatchObject({
@@ -310,7 +311,9 @@ describe('version experiments schema', () => {
   });
 
   it('reads treatment screenshot folders relative to the config file', async () => {
-    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-experiments-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchExperimentsPath = join(systemTemporaryDirectory, 'launch-experiments-');
+    const temporaryDirectory = mkdtempSync(launchExperimentsPath);
     const configPath = join(temporaryDirectory, 'store', 'experiments.config.json');
     const displayTypeDirectory = join(
       temporaryDirectory,
@@ -321,7 +324,8 @@ describe('version experiments schema', () => {
     );
     try {
       mkdirSync(displayTypeDirectory, { recursive: true });
-      writeFileSync(join(displayTypeDirectory, '01.png'), 'png');
+      const joinedPath = join(displayTypeDirectory, '01.png');
+      writeFileSync(joinedPath, 'png');
       const discoveredScreenshots = await discoverTreatmentScreenshots(configPath, mediaConfig);
       expect(
         discoveredScreenshots
@@ -344,10 +348,13 @@ describe('version experiments schema', () => {
   });
 
   it('reads and decodes a sidecar', async () => {
-    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-experiments-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchExperimentsPath = join(systemTemporaryDirectory, 'launch-experiments-');
+    const temporaryDirectory = mkdtempSync(launchExperimentsPath);
     const configPath = join(temporaryDirectory, 'experiments.config.json');
     try {
-      writeFileSync(configPath, JSON.stringify(experimentConfig));
+      const serialized = JSON.stringify(experimentConfig);
+      writeFileSync(configPath, serialized);
       const loadedConfig = await loadVersionExperimentsConfig(configPath);
       expect(loadedConfig).toEqual(experimentConfig);
     } finally {
@@ -374,7 +381,8 @@ describe('version experiment reconciliation', () => {
       { experimentId: 'exp-new', name: 'Variant A' },
       { experimentId: 'exp-new', name: 'Variant B' },
     ]);
-    expect(summarizeExperiments(reconciliationReport.actions)).toEqual({
+    const experiments = summarizeExperiments(reconciliationReport.actions);
+    expect(experiments).toEqual({
       applied: 3,
       failed: 0,
       skipped: 0,
@@ -414,7 +422,8 @@ describe('version experiment reconciliation', () => {
       },
     );
     const reconciliationReport = await reconcileExperiments(appleExperimentsApi, false);
-    expect(summarizeExperiments(reconciliationReport.actions)).toEqual({
+    const experiments = summarizeExperiments(reconciliationReport.actions);
+    expect(experiments).toEqual({
       applied: 0,
       failed: 1,
       skipped: 2,
@@ -445,7 +454,8 @@ describe('version experiment treatment screenshots', () => {
       { setId: 'set-loc-en-US', fileName: '02.png' },
       { setId: 'set-loc-he', fileName: '01.png' },
     ]);
-    expect(summarizeExperiments(reconciliationReport.actions)).toEqual({
+    const experiments = summarizeExperiments(reconciliationReport.actions);
+    expect(experiments).toEqual({
       applied: 7,
       failed: 0,
       skipped: 0,

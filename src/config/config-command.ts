@@ -167,7 +167,8 @@ async function showSchema(commandInput: SchemaCommandInput): Promise<void> {
 
 async function validateConfiguration(commandInput: ValidateCommandInput): Promise<void> {
   if (commandInput.file == null) {
-    const foundConfig = await findLaunchConfig(readLaunchDirectories().workingDirectory);
+    const launchDirectories = readLaunchDirectories();
+    const foundConfig = await findLaunchConfig(launchDirectories.workingDirectory);
 
     if (foundConfig == null) {
       throw {
@@ -205,7 +206,8 @@ async function validateConfiguration(commandInput: ValidateCommandInput): Promis
 
   const configText = await readFile(commandInput.file, 'utf8');
   const parsedConfig: unknown = JSON.parse(configText);
-  const configIsValid = reportViolations(validateConfig(parsedConfig), commandInput.file);
+  const validate = validateConfig(parsedConfig);
+  const configIsValid = reportViolations(validate, commandInput.file);
 
   if (configIsValid == false) {
     completeCommand(1);
@@ -232,9 +234,11 @@ export async function configCommandProgram(rawCommandInput: unknown): Promise<vo
       case 'validate':
         await validateConfiguration(commandInput);
         return;
-      case 'docs':
-        createLogger(false).line(renderConfigDocs(loadConfigSchema()).trimEnd());
+      case 'docs': {
+        const loadSchema = loadConfigSchema();
+        createLogger(false).line(renderConfigDocs(loadSchema).trimEnd());
         return;
+      }
     }
   } catch (cause) {
     if (isCommandExit(cause)) {

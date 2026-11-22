@@ -71,11 +71,12 @@ async function readComparisonSnapshot(
   if (command.against == LIVE_SNAPSHOT) {
     registerBuiltinSources();
     const storeSession = await loadSnapshotStoreSession(command.app);
-    const liveCapture = await captureSnapshot(
-      captureContextFromSession(storeSession),
-      listSnapshotSources(),
-      { name: LIVE_SNAPSHOT, capturedAt: currentIsoTime() },
-    );
+    const captureFromSession = captureContextFromSession(storeSession);
+    const snapshotSources = listSnapshotSources();
+    const liveCapture = await captureSnapshot(captureFromSession, snapshotSources, {
+      name: LIVE_SNAPSHOT,
+      capturedAt: currentIsoTime(),
+    });
 
     return liveCapture.snapshot;
   }
@@ -110,7 +111,8 @@ export async function diffSnapshot(command: DiffCommand): Promise<void> {
   const snapshotDiff = diffSnapshots(baselineSnapshot, againstSnapshot);
 
   if (command.json == true) {
-    logger.line(JSON.stringify(snapshotDiff, null, 2));
+    const serialized = JSON.stringify(snapshotDiff, null, 2);
+    logger.line(serialized);
 
     return;
   }

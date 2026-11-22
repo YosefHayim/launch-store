@@ -71,6 +71,7 @@ describe('formatProvisioningReport', () => {
   });
 
   it('omits the extensions section when none are declared', () => {
-    expect(formatProvisioningReport(readyReport)).not.toContain('extensions:');
+    const provisioningReport = formatProvisioningReport(readyReport);
+    expect(provisioningReport).not.toContain('extensions:');
   });
 });

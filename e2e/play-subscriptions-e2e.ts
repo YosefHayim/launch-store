@@ -4,7 +4,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { captureCommandOutput } from '../src/services/platform/exec.ts';
 
-const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'cli', 'index.js');
+const fileUrltoPath = fileURLToPath(import.meta.url);
+const parentDirectory = dirname(fileUrltoPath);
+const CLI = join(parentDirectory, '..', 'dist', 'cli', 'index.js');
 const PLAY_SUBSCRIPTIONS = join(
   dirname(fileURLToPath(import.meta.url)),
   '..',

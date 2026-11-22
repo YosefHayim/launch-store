@@ -88,20 +88,20 @@ describe('readinessStoreLabel', () => {
 
 describe('formatReadinessSummaryDetail', () => {
   it('returns all clear when every tally is zero', () => {
-    expect(formatReadinessSummaryDetail(emptyOutcome())).toBe('all clear');
+    const empty = emptyOutcome();
+    const readinessSummaryDetail = formatReadinessSummaryDetail(empty);
+    expect(readinessSummaryDetail).toBe('all clear');
   });
   it('joins blocker, unreadable, warning, and skipped tallies in priority order', () => {
-    expect(
-      formatReadinessSummaryDetail(
-        emptyOutcome({
-          blockerCount: 2,
-          errorCount: 1,
-          warnCount: 3,
-          skippedCount: 4,
-          exitCode: READINESS_EXIT.error,
-        }),
-      ),
-    ).toBe('2 blocker(s) - 1 unreadable - 3 warning(s) - 4 skipped');
+    const empty = emptyOutcome({
+      blockerCount: 2,
+      errorCount: 1,
+      warnCount: 3,
+      skippedCount: 4,
+      exitCode: READINESS_EXIT.error,
+    });
+    const readinessSummaryDetail = formatReadinessSummaryDetail(empty);
+    expect(readinessSummaryDetail).toBe('2 blocker(s) - 1 unreadable - 3 warning(s) - 4 skipped');
   });
 });
 

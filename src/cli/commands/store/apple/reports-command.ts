@@ -158,8 +158,10 @@ function decodeSalesReportsCommand(record: Record<string, unknown>): SalesReport
     out: readRequiredString(record, 'out'),
     json: readRequiredBoolean(record, 'json'),
   };
-  assignOptionalString(salesCommand, 'vendorNumber', readOptionalString(record, 'vendorNumber'));
-  assignOptionalString(salesCommand, 'date', readOptionalString(record, 'date'));
+  const optionalSetting = readOptionalString(record, 'vendorNumber');
+  assignOptionalString(salesCommand, 'vendorNumber', optionalSetting);
+  const optionalString = readOptionalString(record, 'date');
+  assignOptionalString(salesCommand, 'date', optionalString);
   assignOptionalString(salesCommand, 'from', readOptionalString(record, 'from'));
   assignOptionalString(salesCommand, 'to', readOptionalString(record, 'to'));
   assignOptionalString(salesCommand, 'version', readOptionalString(record, 'version'));
@@ -174,8 +176,10 @@ function decodeFinanceReportsCommand(record: Record<string, unknown>): FinanceRe
     out: readRequiredString(record, 'out'),
     json: readRequiredBoolean(record, 'json'),
   };
-  assignOptionalString(financeCommand, 'vendorNumber', readOptionalString(record, 'vendorNumber'));
-  assignOptionalString(financeCommand, 'date', readOptionalString(record, 'date'));
+  const optionalSetting = readOptionalString(record, 'vendorNumber');
+  assignOptionalString(financeCommand, 'vendorNumber', optionalSetting);
+  const optionalString = readOptionalString(record, 'date');
+  assignOptionalString(financeCommand, 'date', optionalString);
   return financeCommand;
 }
 
@@ -188,8 +192,10 @@ function decodeAnalyticsReportsCommand(
     granularity: readRequiredString(record, 'granularity'),
     out: readRequiredString(record, 'out'),
   };
-  assignOptionalString(analyticsCommand, 'app', readOptionalString(record, 'app'));
-  assignOptionalString(analyticsCommand, 'category', readOptionalString(record, 'category'));
+  const optionalSetting = readOptionalString(record, 'app');
+  assignOptionalString(analyticsCommand, 'app', optionalSetting);
+  const optionalString = readOptionalString(record, 'category');
+  assignOptionalString(analyticsCommand, 'category', optionalString);
   assignOptionalString(analyticsCommand, 'name', readOptionalString(record, 'name'));
   assignOptionalString(analyticsCommand, 'date', readOptionalString(record, 'date'));
   return analyticsCommand;
@@ -291,7 +297,8 @@ async function writeReport(
 
   if (shouldWriteJson) {
     const reportPath = path.join(outputDirectory, `${fileStem}.json`);
-    await writeFile(reportPath, `${JSON.stringify(parsedReport.rows, null, 2)}\n`);
+    const serialized = JSON.stringify(parsedReport.rows, null, 2);
+    await writeFile(reportPath, `${serialized}\n`);
     return { reportPath, reportEntryCount: parsedReport.rows.length };
   }
 
@@ -401,9 +408,10 @@ function selectSalesDates(commandInput: SalesReportsCommandInput): string[] {
     try {
       return eachDate(firstReportDate, lastReportDate);
     } catch (cause) {
+      const failureMessage = errorMessage(cause);
       throw makeReportsCommandFailure({
         operation: 'sales',
-        message: errorMessage(cause),
+        message: failureMessage,
         cause,
       });
     }
@@ -617,9 +625,10 @@ export async function reportsCommandProgram(rawCommandInput: unknown): Promise<v
       operation = decodedOperation;
     }
 
+    const failureMessage = errorMessage(cause);
     throw makeReportsCommandFailure({
       operation,
-      message: errorMessage(cause),
+      message: failureMessage,
       cause,
     });
   }

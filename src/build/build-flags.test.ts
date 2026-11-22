@@ -25,30 +25,36 @@ afterEach(() => {
 
 describe('computeParallelJobLimit - RAM-aware parallelism cap', () => {
   it('returns undefined (no cap) when floor(GB/2) meets or exceeds the core count', () => {
-    expect(computeParallelJobLimit(8, 16 * GB)).toBeUndefined(); // floor(8) == 8 cores
+    const parallelJobLimit = computeParallelJobLimit(8, 16 * GB);
+    expect(parallelJobLimit).toBeUndefined(); // floor(8) == 8 cores
     expect(computeParallelJobLimit(10, 32 * GB)).toBeUndefined(); // floor(16) clamps to 10
     expect(computeParallelJobLimit(2, 64 * GB)).toBeUndefined();
   });
   it('caps below the core count on RAM-constrained machines', () => {
-    expect(computeParallelJobLimit(8, 8 * GB)).toBe(4); // floor(4) < 8
+    const parallelJobLimit = computeParallelJobLimit(8, 8 * GB);
+    expect(parallelJobLimit).toBe(4); // floor(4) < 8
     expect(computeParallelJobLimit(8, 4 * GB)).toBe(2); // floor(2) < 8
   });
   it('never drops below 2 even on tiny RAM', () => {
-    expect(computeParallelJobLimit(4, 3 * GB)).toBe(2); // floor(1.5)=1 -> floored to 2
+    const parallelJobLimit = computeParallelJobLimit(4, 3 * GB);
+    expect(parallelJobLimit).toBe(2); // floor(1.5)=1 -> floored to 2
   });
 });
 describe('resolveCcacheEnvironment - wires the compiler cache on', () => {
   it('sets only USE_CCACHE (ccache uses its own default cache dir)', () => {
     useLaunchEnvironment({});
-    expect(resolveCcacheEnvironment()).toEqual({ USE_CCACHE: '1' });
+    const ccacheEnvironment = resolveCcacheEnvironment();
+    expect(ccacheEnvironment).toEqual({ USE_CCACHE: '1' });
   });
   it('returns empty when explicitly disabled via parameter', () => {
     useLaunchEnvironment({ USE_CCACHE: '0' });
-    expect(resolveCcacheEnvironment(true)).toEqual({});
+    const ccacheEnvironment = resolveCcacheEnvironment(true);
+    expect(ccacheEnvironment).toEqual({});
   });
   it('returns empty when USE_CCACHE=0 is set in the environment', () => {
     useLaunchEnvironment({ USE_CCACHE: '0' });
-    expect(resolveCcacheEnvironment()).toEqual({});
+    const ccacheEnvironment = resolveCcacheEnvironment();
+    expect(ccacheEnvironment).toEqual({});
   });
 });
 describe('assembleArchiveArguments - the xcodebuild archive argv', () => {

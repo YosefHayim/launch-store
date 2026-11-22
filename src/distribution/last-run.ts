@@ -161,8 +161,10 @@ export async function readLastBump(
 }
 
 async function writeLastRun(memoryFilePath: string, memory: LastRunState): Promise<void> {
-  await mkdir(dirname(memoryFilePath), { recursive: true });
-  await writeFile(memoryFilePath, JSON.stringify(memory, null, 2));
+  const parentDirectory = dirname(memoryFilePath);
+  await mkdir(parentDirectory, { recursive: true });
+  const serialized = JSON.stringify(memory, null, 2);
+  await writeFile(memoryFilePath, serialized);
 }
 
 /** Records one successful build's app and optional version bump. */

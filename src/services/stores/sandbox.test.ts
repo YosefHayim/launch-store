@@ -18,7 +18,8 @@ const tester = (overrides: Partial<SandboxTesterResource> = {}): SandboxTesterRe
 describe('listSandboxTesters', () => {
   it("returns the account's testers", async () => {
     const api = makeApi([tester(), tester({ id: 't2', acAccountName: 'tester2@sandbox.com' })]);
-    expect(await listSandboxTesters(api)).toHaveLength(2);
+    const sandboxTesters = await listSandboxTesters(api);
+    expect(sandboxTesters).toHaveLength(2);
   });
 });
 describe('clearPurchaseHistory', () => {
@@ -71,9 +72,8 @@ describe('clearPurchaseHistory', () => {
     expect(api.clearSandboxTesterPurchaseHistory).not.toHaveBeenCalled();
   });
   it('throws when neither emails nor all are given', async () => {
-    await expect(
-      clearPurchaseHistory(makeApi(), { emails: ['  '], all: false }),
-    ).rejects.toMatchObject({
+    const api = makeApi();
+    await expect(clearPurchaseHistory(api, { emails: ['  '], all: false })).rejects.toMatchObject({
       _tag: 'SandboxRequestFailure',
       message: 'Provide at least one sandbox tester email, or pass --all.',
     });

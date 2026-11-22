@@ -10,7 +10,8 @@ describe('stats types', () => {
   });
 
   test('every metric has a known way to add up days', () => {
-    const aggregations = new Set(Object.values(METRIC_AGGREGATION));
+    const ownValues = Object.values(METRIC_AGGREGATION);
+    const aggregations = new Set(ownValues);
 
     expect([...aggregations].sort()).toEqual(['average', 'latest', 'sum']);
   });

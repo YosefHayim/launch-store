@@ -97,9 +97,11 @@ export const registerPlayTracksCommand = (program: Command): void => {
     .description("show each track's releases and country availability")
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: StatusOptions) =>
-      runCliProgram(playTracksCommandProgram(toTrackStatusInput(commandOptions))),
-    );
+    .action((commandOptions: StatusOptions) => {
+      const trackStatus = toTrackStatusInput(commandOptions);
+      const playTracksProgram = playTracksCommandProgram(trackStatus);
+      return runCliProgram(playTracksProgram);
+    });
   tracksCommand
     .command('promote')
     .description('ship a build to a track at a chosen status / rollout, with release notes')
@@ -120,9 +122,11 @@ export const registerPlayTracksCommand = (program: Command): void => {
     .option('--notes <path>', 'path to a JSON file mapping language codes to release-note text')
     .option('--name <name>', 'release name (Play derives one from the version when omitted)')
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: PromoteOptions) =>
-      runCliProgram(playTracksCommandProgram(toTrackPromoteInput(commandOptions))),
-    );
+    .action((commandOptions: PromoteOptions) => {
+      const trackPromote = toTrackPromoteInput(commandOptions);
+      const playTracksProgram = playTracksCommandProgram(trackPromote);
+      return runCliProgram(playTracksProgram);
+    });
   tracksCommand
     .command('testers')
     .description('read or set the Google Groups allowed to test a track')
@@ -130,7 +134,9 @@ export const registerPlayTracksCommand = (program: Command): void => {
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('--groups <emails>', 'comma-separated Google Group emails to set (omit to just read)')
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: TestersOptions) =>
-      runCliProgram(playTracksCommandProgram(toTrackTestersInput(commandOptions))),
-    );
+    .action((commandOptions: TestersOptions) => {
+      const trackTesters = toTrackTestersInput(commandOptions);
+      const playTracksProgram = playTracksCommandProgram(trackTesters);
+      return runCliProgram(playTracksProgram);
+    });
 };

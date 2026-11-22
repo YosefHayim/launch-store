@@ -23,31 +23,36 @@ function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
 
 describe('resolveExtensionBundleIdsForApp', () => {
   it('returns configured extensions when ios/ has not been generated yet', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'launch-preflight-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchPreflightPath = join(systemTemporaryDirectory, 'launch-preflight-');
+    const root = mkdtempSync(launchPreflightPath);
 
     try {
-      await expect(
-        resolveExtensionBundleIdsForApp(
-          app({
-            dir: join(root, 'app'),
-            iosExtensions: ['com.example.sampleapp.widget'],
-          }),
-        ),
-      ).resolves.toEqual(['com.example.sampleapp.widget']);
+      const appPath = join(root, 'app');
+      const extensionBundleIdsForApp = resolveExtensionBundleIdsForApp(
+        app({
+          dir: appPath,
+          iosExtensions: ['com.example.sampleapp.widget'],
+        }),
+      );
+      await expect(extensionBundleIdsForApp).resolves.toEqual(['com.example.sampleapp.widget']);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
   it('discovers widget extensions from a generated ios/ project', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'launch-preflight-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchPreflightPath = join(systemTemporaryDirectory, 'launch-preflight-');
+    const root = mkdtempSync(launchPreflightPath);
 
     try {
       const appDir = join(root, 'app');
       const projectDir = join(appDir, 'ios', 'SampleApp.xcodeproj');
       mkdirSync(projectDir, { recursive: true });
+      const projectPath = join(projectDir, 'project.pbxproj');
       writeFileSync(
-        join(projectDir, 'project.pbxproj'),
+        projectPath,
         `// !$*UTF8*$!
 {
 	objects = {
@@ -110,9 +115,8 @@ describe('resolveExtensionBundleIdsForApp', () => {
 `,
       );
 
-      await expect(resolveExtensionBundleIdsForApp(app({ dir: appDir }))).resolves.toEqual([
-        'com.example.sampleapp.widget',
-      ]);
+      const extensionBundleIdsForApp = resolveExtensionBundleIdsForApp(app({ dir: appDir }));
+      await expect(extensionBundleIdsForApp).resolves.toEqual(['com.example.sampleapp.widget']);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

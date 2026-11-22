@@ -147,7 +147,8 @@ export async function missingKeys(
   environment: Record<string, string>,
   excludedPatterns: readonly string[] = [],
 ): Promise<string[]> {
-  const exampleEnvironment = await loadDotenvFile(join(appDirectory, '.env.example'));
+  const joinedPath = join(appDirectory, '.env.example');
+  const exampleEnvironment = await loadDotenvFile(joinedPath);
 
   function isExampleKeyMissing(environmentName: string): boolean {
     const isExcluded = isEnvExcluded(environmentName, excludedPatterns);
@@ -271,8 +272,9 @@ export async function resolveEnv(input: ResolveEnvInput): Promise<ResolvedEnv> {
     baseFile = input.envFile;
   }
 
+  const joinedPath = join(input.appDir, baseFile);
   const layers: EnvLayer[] = [
-    { source: baseFile, vars: await loadDotenvFile(join(input.appDir, baseFile)) },
+    { source: baseFile, vars: await loadDotenvFile(joinedPath) },
     {
       source: `.env.${input.profileName}`,
       vars: await loadDotenvFile(join(input.appDir, `.env.${input.profileName}`)),
@@ -280,9 +282,11 @@ export async function resolveEnv(input: ResolveEnvInput): Promise<ResolvedEnv> {
   ];
 
   if (input.includeLocal) {
+    const joinedPath = join(input.appDir, '.env.local');
+    const dotenvFile = await loadDotenvFile(joinedPath);
     layers.push({
       source: ENV_SOURCE.local,
-      vars: await loadDotenvFile(join(input.appDir, '.env.local')),
+      vars: dotenvFile,
     });
   }
 

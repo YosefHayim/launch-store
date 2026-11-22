@@ -8,7 +8,9 @@ const review = (over: Partial<ReviewDatum> = {}): ReviewDatum => {
 };
 describe('renderInsights', () => {
   it('explains the empty case instead of rendering a blank block', () => {
-    expect(renderInsights(buildInsightsReport([]))).toContain('No review data');
+    const insightsReport = buildInsightsReport([]);
+    const insights = renderInsights(insightsReport);
+    expect(insights).toContain('No review data');
   });
   it('renders a headline, distribution bars, sentiment, and trend', () => {
     const report = buildInsightsReport([
@@ -29,9 +31,10 @@ describe('renderInsights', () => {
     expect(out).toContain('trend: 2026-05 4.5 (2) - 2026-06 1.0 (1)');
   });
   it('adds a per-store breakdown only when an app spans both stores', () => {
-    const oneStore = renderInsights(
-      buildInsightsReport([{ app: 'ios', reviews: [review({ store: 'appstore', rating: 5 })] }]),
-    );
+    const insightsReport = buildInsightsReport([
+      { app: 'ios', reviews: [review({ store: 'appstore', rating: 5 })] },
+    ]);
+    const oneStore = renderInsights(insightsReport);
     expect(oneStore).not.toContain('App Store:');
     const bothStores = renderInsights(
       buildInsightsReport([

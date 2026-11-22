@@ -86,15 +86,14 @@ describe('datedMacImages / newestImageId', () => {
 
 describe('countLiveDedicatedHosts', () => {
   it('counts only hosts that are present and not released*', () => {
-    expect(
-      countLiveDedicatedHosts([
-        { State: 'available' },
-        { State: 'pending' },
-        { State: 'released' },
-        { State: 'released-permanent-failure' },
-        {},
-      ]),
-    ).toBe(2);
+    const liveDedicatedHosts = countLiveDedicatedHosts([
+      { State: 'available' },
+      { State: 'pending' },
+      { State: 'released' },
+      { State: 'released-permanent-failure' },
+      {},
+    ]);
+    expect(liveDedicatedHosts).toBe(2);
   });
 });
 

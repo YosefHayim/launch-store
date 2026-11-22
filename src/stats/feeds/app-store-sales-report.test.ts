@@ -109,6 +109,7 @@ describe('summarizeSalesLines', () => {
   });
 
   test('is empty for no lines', () => {
-    expect(summarizeSalesLines([], day)).toEqual([]);
+    const salesLines = summarizeSalesLines([], day);
+    expect(salesLines).toEqual([]);
   });
 });

@@ -27,7 +27,8 @@ const makeCtx = (api: AscSurfacesApi | null, wallet?: WalletConfig): PlanContext
 };
 describe('walletPlanner', () => {
   it('omits itself when no wallet ids are declared', async () => {
-    const plan = await runPlanner(walletPlanner, makeCtx(makeAscApiFake()));
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(walletPlanner, makeCtx(ascApiFake));
     expect(plan.state).toBe('omitted');
   });
   it('skips with a creds hint when no Apple account is active', async () => {
@@ -37,7 +38,8 @@ describe('walletPlanner', () => {
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports a team-scoped additive plan for a fresh merchant id', async () => {
-    const plan = await runPlanner(walletPlanner, makeCtx(makeAscApiFake(), DECLARED));
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(walletPlanner, makeCtx(ascApiFake, DECLARED));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'team') return;

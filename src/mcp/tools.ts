@@ -197,10 +197,9 @@ async function runPlanTool(
   check: boolean,
 ): Promise<McpToolResult> {
   registerBuiltinPlanners();
-  const selectedPlanners = chooseSurfacePlanners(
-    listSurfacePlanners(),
-    optionalString(argumentsRecord, 'surface'),
-  );
+  const surfacePlanners = listSurfacePlanners();
+  const optionalSetting = optionalString(argumentsRecord, 'surface');
+  const selectedPlanners = chooseSurfacePlanners(surfacePlanners, optionalSetting);
   const storeContext = await loadStoreContext(optionalString(argumentsRecord, 'app'));
   const planOutcome = await runPlanners(storeContext, selectedPlanners, { check });
 
@@ -213,8 +212,10 @@ async function runReadinessTool(
   category: ReadinessCategory,
 ): Promise<McpToolResult> {
   registerBuiltinProbes();
-  const storeContext = await loadStoreContext(optionalString(argumentsRecord, 'app'));
-  const readinessOutcome = await runProbes(storeContext, selectReadinessProbes(category));
+  const optionalSetting = optionalString(argumentsRecord, 'app');
+  const storeContext = await loadStoreContext(optionalSetting);
+  const readinessProbes = selectReadinessProbes(category);
+  const readinessOutcome = await runProbes(storeContext, readinessProbes);
 
   return jsonToolOutput(readinessOutcome);
 }
@@ -226,7 +227,8 @@ async function captureLiveSnapshot(appSelector: string | undefined): Promise<Cap
   const epochMilliseconds = Date.now();
   const capturedAt = new Date(epochMilliseconds).toISOString();
 
-  return captureSnapshot(storeContext, listSnapshotSources(), {
+  const snapshotSources = listSnapshotSources();
+  return captureSnapshot(storeContext, snapshotSources, {
     name: LIVE_SNAPSHOT_NAME,
     capturedAt,
   });
@@ -235,7 +237,8 @@ async function captureLiveSnapshot(appSelector: string | undefined): Promise<Cap
 /** Run the local doctor tool. */
 async function runDoctorTool(argumentsRecord: Record<string, unknown>): Promise<McpToolResult> {
   const platform = requestedPlatform(argumentsRecord);
-  const doctorContext = await buildDoctorContext(platform, optionalString(argumentsRecord, 'app'));
+  const optionalSetting = optionalString(argumentsRecord, 'app');
+  const doctorContext = await buildDoctorContext(platform, optionalSetting);
   const doctorReport = await inspectDoctor(doctorContext);
 
   return jsonToolOutput(doctorReport);
@@ -246,10 +249,8 @@ async function runBuildPlanTool(argumentsRecord: Record<string, unknown>): Promi
   const platform = requestedPlatform(argumentsRecord);
   const launchDirectories = readLaunchDirectories();
   const loadedConfiguration = await loadConfig(launchDirectories.workingDirectory);
-  const selectedApps = await selectApps(
-    loadedConfiguration.apps,
-    optionalString(argumentsRecord, 'app'),
-  );
+  const optionalSetting = optionalString(argumentsRecord, 'app');
+  const selectedApps = await selectApps(loadedConfiguration.apps, optionalSetting);
   const profile = optionalString(argumentsRecord, 'profile');
   const distribution = optionalString(argumentsRecord, 'distribution');
   let previewInput: BuildPreviewInput = {
@@ -276,7 +277,8 @@ async function runSyncTool(
   argumentsRecord: Record<string, unknown>,
   allowDestructive: boolean,
 ): Promise<McpToolResult> {
-  const storeContext = await loadStoreContext(optionalString(argumentsRecord, 'app'));
+  const optionalSetting = optionalString(argumentsRecord, 'app');
+  const storeContext = await loadStoreContext(optionalSetting);
   const syncJobs = await buildJobs(storeContext.apps, storeContext.config);
   const hasNoJobs = syncJobs.length == 0;
 
@@ -315,7 +317,8 @@ async function diffSnapshotTool(argumentsRecord: Record<string, unknown>): Promi
   const isLiveComparison = comparisonName == LIVE_SNAPSHOT_NAME;
 
   if (isLiveComparison) {
-    const liveCapture = await captureLiveSnapshot(optionalString(argumentsRecord, 'app'));
+    const optionalSetting = optionalString(argumentsRecord, 'app');
+    const liveCapture = await captureLiveSnapshot(optionalSetting);
 
     return jsonToolOutput(diffSnapshots(baselineSnapshot, liveCapture.snapshot));
   }
@@ -333,7 +336,8 @@ async function exportSnapshotTool(
   const shouldCapture = argumentsRecord['capture'] == true;
 
   if (shouldCapture) {
-    const liveCapture = await captureLiveSnapshot(optionalString(argumentsRecord, 'app'));
+    const optionalSetting = optionalString(argumentsRecord, 'app');
+    const liveCapture = await captureLiveSnapshot(optionalSetting);
     const namedSnapshot = { ...liveCapture.snapshot, name: snapshotName };
     const snapshotFilePath = await saveSnapshot(namedSnapshot);
 

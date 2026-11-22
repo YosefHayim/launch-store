@@ -116,9 +116,8 @@ describe('parseAccessibilityConfig', () => {
 describe('reconcileAccessibility', () => {
   it('throws when the app has no App Store Connect record', async () => {
     const { api } = makeApi({ appId: null });
-    await expect(
-      runReconcile(api, { bundleId: 'com.acme.app', config: CONFIG, dryRun: true }),
-    ).rejects.toThrow(/No App Store Connect app record/);
+    const reconcile = runReconcile(api, { bundleId: 'com.acme.app', config: CONFIG, dryRun: true });
+    await expect(reconcile).rejects.toThrow(/No App Store Connect app record/);
   });
   it('creates a declaration with the full nine-flag payload when the family has none (apply)', async () => {
     const { api, calls } = makeApi({});
@@ -129,7 +128,8 @@ describe('reconcileAccessibility', () => {
     });
     expect(calls.created).toEqual([{ deviceFamily: 'IPHONE', support: FULL_IPHONE }]);
     expect(calls.updated).toHaveLength(0); // no publish requested
-    expect(summarizeAccessibility(report.actions)).toEqual({ applied: 1, failed: 0, skipped: 0 });
+    const accessibility = summarizeAccessibility(report.actions);
+    expect(accessibility).toEqual({ applied: 1, failed: 0, skipped: 0 });
   });
   it('publishes a freshly-created draft in a follow-up call when publish:true', async () => {
     const { api, calls } = makeApi({});
@@ -140,7 +140,8 @@ describe('reconcileAccessibility', () => {
     });
     expect(calls.created).toHaveLength(1);
     expect(calls.updated).toEqual([{ id: 'decl-new', changes: { publish: true } }]);
-    expect(summarizeAccessibility(report.actions)).toEqual({ applied: 2, failed: 0, skipped: 0 });
+    const accessibility = summarizeAccessibility(report.actions);
+    expect(accessibility).toEqual({ applied: 2, failed: 0, skipped: 0 });
   });
   it('updates an existing declaration whose flags differ (no publish key when publish is off)', async () => {
     const { api, calls } = makeApi({

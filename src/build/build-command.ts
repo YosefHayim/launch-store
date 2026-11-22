@@ -43,7 +43,8 @@ export class BuildCommand {
     const hasJson = flags.json == true;
 
     if (hasJson) {
-      console.log(JSON.stringify({ binaryPath }));
+      const serialized = JSON.stringify({ binaryPath });
+      console.log(serialized);
       return;
     }
 
@@ -52,7 +53,8 @@ export class BuildCommand {
 
   private printDryRun(hasJson: boolean): void {
     if (hasJson) {
-      console.log(JSON.stringify({ binaryPath: null }));
+      const serialized = JSON.stringify({ binaryPath: null });
+      console.log(serialized);
       return;
     }
 

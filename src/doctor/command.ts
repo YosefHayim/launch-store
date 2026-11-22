@@ -325,7 +325,8 @@ async function showDoctorJson(doctorContext: DoctorContext): Promise<boolean> {
   const doctorReport = await inspectDoctor(doctorContext);
   const logger = createLogger(false);
   const jsonIndent = 2;
-  logger.line(JSON.stringify(doctorReport, null, jsonIndent));
+  const serialized = JSON.stringify(doctorReport, null, jsonIndent);
+  logger.line(serialized);
 
   return doctorReport.ok;
 }

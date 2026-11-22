@@ -221,7 +221,8 @@ export async function loadStatsPortfolio(mode: PortfolioLoadMode): Promise<Portf
     return loadDiscoveredPortfolio(mode);
   }
 
-  const savedFile = await readDocumentFile(locatePortfolioFilePath(), decodePortfolioFile);
+  const portfolioFilePath = locatePortfolioFilePath();
+  const savedFile = await readDocumentFile(portfolioFilePath, decodePortfolioFile);
 
   if (savedFile == null) {
     return loadDiscoveredPortfolio(mode);

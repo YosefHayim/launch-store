@@ -113,9 +113,8 @@ describe('previewBuild', () => {
     }
   });
   it('falls back to production, then the first profile, when no profile is given', () => {
-    expect(previewBuild({ config: config(), apps: [app()], platform: 'ios' }).profile).toBe(
-      'production',
-    );
+    const buildProgram = previewBuild({ config: config(), apps: [app()], platform: 'ios' });
+    expect(buildProgram.profile).toBe('production');
     const noProd = config({ profiles: { staging: { name: 'staging' } } });
     expect(previewBuild({ config: noProd, apps: [app()], platform: 'ios' }).profile).toBe(
       'staging',

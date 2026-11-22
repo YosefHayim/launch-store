@@ -30,7 +30,8 @@ const makeCtx = (
 };
 describe('euDistributionPlanner', () => {
   it('omits itself when no distribution domains are declared', async () => {
-    const plan = await runPlanner(euDistributionPlanner, makeCtx(makeAscApiFake()));
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(euDistributionPlanner, makeCtx(ascApiFake));
     expect(plan.state).toBe('omitted');
   });
   it('skips with a creds hint when no Apple account is active', async () => {
@@ -40,7 +41,8 @@ describe('euDistributionPlanner', () => {
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports a team-scoped additive plan for a fresh domain', async () => {
-    const plan = await runPlanner(euDistributionPlanner, makeCtx(makeAscApiFake(), DECLARED));
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(euDistributionPlanner, makeCtx(ascApiFake, DECLARED));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'team') return;

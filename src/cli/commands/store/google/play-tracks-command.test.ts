@@ -3,12 +3,11 @@ import { describePlayRelease, PlayTracksCommandInputSchema } from './play-tracks
 
 describe('PlayTracksCommandInputSchema', () => {
   it('decodes each Commander operation without unset option fields', () => {
-    expect(
-      PlayTracksCommandInputSchema({
-        operation: 'status',
-        json: false,
-      }),
-    ).toEqual({ operation: 'status', json: false });
+    const playTracksCommandSchema = PlayTracksCommandInputSchema({
+      operation: 'status',
+      json: false,
+    });
+    expect(playTracksCommandSchema).toEqual({ operation: 'status', json: false });
     expect(
       PlayTracksCommandInputSchema({
         operation: 'promote',
@@ -54,13 +53,12 @@ describe('PlayTracksCommandInputSchema', () => {
 
 describe('describePlayRelease', () => {
   it('renders status, builds, rollout, and notes with ASCII text', () => {
-    expect(
-      describePlayRelease({
-        status: 'inProgress',
-        versionCodes: ['42'],
-        userFraction: 0.25,
-        releaseNotes: [{ language: 'en-US', text: 'Faster startup' }],
-      }),
-    ).toBe('inProgress  v42  25% rollout  1 note(s)');
+    const playRelease = describePlayRelease({
+      status: 'inProgress',
+      versionCodes: ['42'],
+      userFraction: 0.25,
+      releaseNotes: [{ language: 'en-US', text: 'Faster startup' }],
+    });
+    expect(playRelease).toBe('inProgress  v42  25% rollout  1 note(s)');
   });
 });

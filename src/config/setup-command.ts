@@ -299,9 +299,8 @@ export function formatProvisioningReport(provisioningReport: ProvisioningReport)
     reportLines.push(`  extensions:   ${provisioningReport.extensions.length} declared`);
 
     for (const provisioningExtension of provisioningReport.extensions) {
-      reportLines.push(
-        `                  - ${provisioningExtension.bundleId} - ${extensionText(provisioningExtension.provisioned)}`,
-      );
+      const extension = extensionText(provisioningExtension.provisioned);
+      reportLines.push(`                  - ${provisioningExtension.bundleId} - ${extension}`);
     }
   }
 
@@ -518,7 +517,8 @@ async function setupIosProgram(commandInput: IosSetupInput): Promise<void> {
   };
 
   if (commandInput.json) {
-    logger.line(JSON.stringify(provisioningReport, null, 2));
+    const serialized = JSON.stringify(provisioningReport, null, 2);
+    logger.line(serialized);
 
     return;
   }
@@ -535,7 +535,8 @@ function requestedPlatformText(platform: string | undefined): string {
 }
 
 async function runAutoSetup(commandInput: AutoSetupInput): Promise<void> {
-  const platform = parsePlatform(requestedPlatformText(commandInput.platform));
+  const requestedPlatform = requestedPlatformText(commandInput.platform);
+  const platform = parsePlatform(requestedPlatform);
 
   await runSetup({
     platform,
@@ -561,12 +562,14 @@ export async function setupCommandProgram(rawCommandInput: unknown): Promise<voi
   try {
     var commandInput = decodeSetupCommandInput(rawCommandInput);
   } catch (cause) {
-    throw setupFailureWithCause('auto', errorMessage(cause), cause);
+    const failureMessage = errorMessage(cause);
+    throw setupFailureWithCause('auto', failureMessage, cause);
   }
 
   try {
     await runDecodedSetupCommand(commandInput);
   } catch (cause) {
-    throw setupFailureWithCause(commandInput.operation, errorMessage(cause), cause);
+    const failureMessage = errorMessage(cause);
+    throw setupFailureWithCause(commandInput.operation, failureMessage, cause);
   }
 }

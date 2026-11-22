@@ -188,7 +188,8 @@ async function persistMigration(
   });
   const reportMarkdown = renderReport(migration);
 
-  await writeFile(join(outputDirectory, REPORT_FILE), reportMarkdown);
+  const joinedPath = join(outputDirectory, REPORT_FILE);
+  await writeFile(joinedPath, reportMarkdown);
 
   const receiptLines = [
     ...writeOutcome.written.map(wroteLine),
@@ -234,9 +235,10 @@ export async function migrateCommandProgram(rawCommandInput: unknown): Promise<v
 
     await persistMigration(logger, migration, outputDirectory, commandInput.force);
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw makeMigrateCommandFailure({
       operation: 'migrate project configuration',
-      message: errorMessage(cause),
+      message: failureMessage,
       cause,
     });
   }

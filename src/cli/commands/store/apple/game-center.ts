@@ -37,8 +37,8 @@ export const registerGameCenterCommand = (program: Command): void => {
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((commandOptions: GameCenterOptions, registeredCommand: Command) => {
       const explicitConfig = registeredCommand.getOptionValueSource('config') == 'cli';
-      return runCliProgram(
-        gameCenterCommandProgram(gameCenterInputFromOptions(commandOptions, explicitConfig)),
-      );
+      const gameCenterFrom = gameCenterInputFromOptions(commandOptions, explicitConfig);
+      const gameCenterProgram = gameCenterCommandProgram(gameCenterFrom);
+      return runCliProgram(gameCenterProgram);
     });
 };

@@ -43,7 +43,8 @@ export const GoogleAccessToken = {
     try {
       return readServiceAccount(savedServiceAccountKey);
     } catch (cause) {
-      throw makeGoogleAccessTokenFailure({ message: errorMessage(cause), cause });
+      const failureMessage = errorMessage(cause);
+      throw makeGoogleAccessTokenFailure({ message: failureMessage, cause });
     }
   },
   async createAccessToken(account: ServiceAccount, scopes: readonly string[]): Promise<string> {
@@ -54,8 +55,9 @@ export const GoogleAccessToken = {
     try {
       return await createServiceAccountAccessToken(account, scopes);
     } catch (cause) {
+      const failureMessage = errorMessage(cause);
       throw makeGoogleAccessTokenFailure({
-        message: `Could not get a Google access token: ${errorMessage(cause)}`,
+        message: `Could not get a Google access token: ${failureMessage}`,
         cause,
       });
     }

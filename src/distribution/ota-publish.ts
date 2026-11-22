@@ -166,7 +166,8 @@ async function uploadExportFile(
 ): Promise<ManifestAsset> {
   const objectPrefix = `updates/${publishInput.channel}/${publishInput.platform}/${publishInput.runtimeVersion}`;
   const objectKey = `${objectPrefix}/${relativeFilePath}`;
-  const assetBytes = await readFile(join(publishInput.distDir, relativeFilePath));
+  const joinedPath = join(publishInput.distDir, relativeFilePath);
+  const assetBytes = await readFile(joinedPath);
   const contentType = contentTypeFor(relativeFilePath);
 
   await publishInput.storage.putObject(objectKey, assetBytes, contentType);

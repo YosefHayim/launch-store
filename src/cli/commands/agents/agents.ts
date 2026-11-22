@@ -18,14 +18,13 @@ function runAgentsSubcommand(
   mode: 'init' | 'check',
   commandOptions: AgentsCommandOptions,
 ): Promise<void> {
-  return runCliProgram(
-    agentsCommandProgram({
-      mode,
-      launchVersion: program.version(),
-      registeredCli: registeredCommandTree(program),
-      options: commandOptions,
-    }),
-  );
+  const agentsProgram = agentsCommandProgram({
+    mode,
+    launchVersion: program.version(),
+    registeredCli: registeredCommandTree(program),
+    options: commandOptions,
+  });
+  return runCliProgram(agentsProgram);
 }
 
 /** Attach the agents command family and its init/check subcommands. */

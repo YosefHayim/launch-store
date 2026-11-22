@@ -3,22 +3,20 @@ import { PlaySubscriptionsCommandInputSchema } from './play-subscriptions-comman
 
 describe('PlaySubscriptionsCommandInputSchema', () => {
   it('decodes the Commander boundary', () => {
-    expect(
-      PlaySubscriptionsCommandInputSchema({
-        app: 'mobile',
-        dryRun: false,
-        yes: true,
-      }),
-    ).toEqual({ app: 'mobile', dryRun: false, yes: true });
+    const playSubscriptionsCommandSchema = PlaySubscriptionsCommandInputSchema({
+      app: 'mobile',
+      dryRun: false,
+      yes: true,
+    });
+    expect(playSubscriptionsCommandSchema).toEqual({ app: 'mobile', dryRun: false, yes: true });
   });
 
   it('accepts an omitted app selector', () => {
-    expect(
-      PlaySubscriptionsCommandInputSchema({
-        dryRun: true,
-        yes: false,
-      }),
-    ).toEqual({ dryRun: true, yes: false });
+    const playSubscriptionsCommandSchema = PlaySubscriptionsCommandInputSchema({
+      dryRun: true,
+      yes: false,
+    });
+    expect(playSubscriptionsCommandSchema).toEqual({ dryRun: true, yes: false });
   });
 
   it('rejects an undefined exact optional app', () => {

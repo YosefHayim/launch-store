@@ -80,6 +80,7 @@ describe('mergeOutcomes', () => {
   it('keeps the plan outcome for an already-in-sync app with no apply entry', () => {
     const job = makeJob('alpha', 'com.acme.alpha');
     const plan: JobOutcome = { job, report: { bundleId: 'com.acme.alpha', actions: [] } };
-    expect(mergeOutcomes([plan], [])).toEqual([plan]);
+    const outcomes = mergeOutcomes([plan], []);
+    expect(outcomes).toEqual([plan]);
   });
 });

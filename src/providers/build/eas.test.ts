@@ -12,18 +12,22 @@ const easJson = `Building...
 ]`;
 describe('EAS adapter - parsing `eas build --json` output', () => {
   it('extracts the downloadable artifact URL despite leading log lines', () => {
-    expect(parseArtifactUrl(easJson)).toBe('https://expo.dev/artifacts/abc/app.ipa');
+    const artifactUrl = parseArtifactUrl(easJson);
+    expect(artifactUrl).toBe('https://expo.dev/artifacts/abc/app.ipa');
   });
   it('falls back to buildUrl when applicationArchiveUrl is absent', () => {
     const json = '[{"artifacts":{"buildUrl":"https://expo.dev/b/x.ipa"}}]';
-    expect(parseArtifactUrl(json)).toBe('https://expo.dev/b/x.ipa');
+    const artifactUrl = parseArtifactUrl(json);
+    expect(artifactUrl).toBe('https://expo.dev/b/x.ipa');
   });
   it('returns null when no artifact URL is present (CLI shape drift)', () => {
-    expect(parseArtifactUrl('[{"status":"ERRORED"}]')).toBeNull();
+    const artifactUrl = parseArtifactUrl('[{"status":"ERRORED"}]');
+    expect(artifactUrl).toBeNull();
     expect(parseArtifactUrl('not json at all')).toBeNull();
   });
   it("reads the build number, defaulting to 0 when EAS doesn't report one", () => {
-    expect(parseBuildNumber(easJson)).toBe(42);
+    const buildNumber = parseBuildNumber(easJson);
+    expect(buildNumber).toBe(42);
     expect(parseBuildNumber('[{"buildNumber":7}]')).toBe(7);
     expect(parseBuildNumber('[{}]')).toBe(0);
     expect(parseBuildNumber('garbage')).toBe(0);

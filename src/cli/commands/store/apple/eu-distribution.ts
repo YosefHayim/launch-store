@@ -21,29 +21,32 @@ export const registerEuDistributionCommand = (program: Command): void => {
     )
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: EuDistributionOptions, command: Command) =>
-      runCliProgram(
-        euDistributionCommandProgram({
-          operation: 'reconcile',
-          configPath: commandOptions.config,
-          explicitConfig: command.getOptionValueSource('config') == 'cli',
-          dryRun: commandOptions.dryRun,
-          yes: commandOptions.yes,
-        }),
-      ),
-    );
+    .action((commandOptions: EuDistributionOptions, command: Command) => {
+      const euDistributionProgram = euDistributionCommandProgram({
+        operation: 'reconcile',
+        configPath: commandOptions.config,
+        explicitConfig: command.getOptionValueSource('config') == 'cli',
+        dryRun: commandOptions.dryRun,
+        yes: commandOptions.yes,
+      });
+      return runCliProgram(euDistributionProgram);
+    });
 
   euDistributionCommand
     .command('set-key <pemPath>')
     .description(
       "register the team's package-signing public key (the public half - a plain .pem file)",
     )
-    .action((pemPath: string) =>
-      runCliProgram(euDistributionCommandProgram({ operation: 'set-key', pemPath })),
-    );
+    .action((pemPath: string) => {
+      const euDistributionProgram = euDistributionCommandProgram({ operation: 'set-key', pemPath });
+      return runCliProgram(euDistributionProgram);
+    });
 
   euDistributionCommand
     .command('list')
     .description("show the team's authorized distribution domains and whether a key is registered")
-    .action(() => runCliProgram(euDistributionCommandProgram({ operation: 'list' })));
+    .action(() => {
+      const euDistributionProgram = euDistributionCommandProgram({ operation: 'list' });
+      return runCliProgram(euDistributionProgram);
+    });
 };

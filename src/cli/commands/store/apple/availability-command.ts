@@ -222,7 +222,8 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
       const writeFailed = appliedAction.status == 'failed';
 
       if (writeFailed) {
-        logger.box('Failed', [renderAvailabilityAction(appliedAction)]);
+        const availabilityAction = renderAvailabilityAction(appliedAction);
+        logger.box('Failed', [availabilityAction]);
         completeCommand(1);
         return;
       }

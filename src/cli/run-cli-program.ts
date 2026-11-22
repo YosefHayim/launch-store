@@ -54,10 +54,12 @@ export async function runJsonCliProgram<Success>(
 
   try {
     await startProgram();
-    writeStdout(jsonLine({ event: 'result', ok: true, ...summary }));
+    const machineLine = jsonLine({ event: 'result', ok: true, ...summary });
+    writeStdout(machineLine);
   } catch (cause) {
     const message = jsonFailureMessage(cause);
-    writeStdout(jsonLine({ event: 'result', ok: false, ...summary, message }));
+    const machineLine = jsonLine({ event: 'result', ok: false, ...summary, message });
+    writeStdout(machineLine);
     throw new Error(message, { cause });
   } finally {
     setJsonOutput(false);

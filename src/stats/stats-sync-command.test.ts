@@ -72,11 +72,13 @@ function readDaysFailure(daysFlag: string): unknown {
 
 describe('parseDaysFlag', () => {
   test('uses 30 days when the flag is absent', () => {
-    expect(parseDaysFlag(undefined)).toBe(30);
+    const daysFlag = parseDaysFlag(undefined);
+    expect(daysFlag).toBe(30);
   });
 
   test('accepts whole numbers from 1 to 365', () => {
-    expect(parseDaysFlag('1')).toBe(1);
+    const daysFlag = parseDaysFlag('1');
+    expect(daysFlag).toBe(1);
     expect(parseDaysFlag('365')).toBe(365);
   });
 
@@ -95,11 +97,13 @@ describe('statsSyncProgram', () => {
 
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
       homeDirectory,
-      workingDirectory: join(homeDirectory, 'work'),
+      workingDirectory: workPath,
     });
-    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(portfolioFile));
+    const serialized = JSON.stringify(portfolioFile);
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
     makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
   });
@@ -170,7 +174,8 @@ describe('statsSyncProgram', () => {
     const { outcome, lines } = await run({ app: undefined, days: '0', isJson: true });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
-    expect(JSON.parse(lines[0] ?? '')).toEqual({
+    const parsed = JSON.parse(lines[0] ?? '');
+    expect(parsed).toEqual({
       ok: false,
       error: '--days must be a whole number from 1 to 365.',
     });

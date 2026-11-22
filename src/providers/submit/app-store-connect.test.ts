@@ -70,7 +70,8 @@ describe('app-store-connect submitter - build upload API', () => {
       .mockResolvedValueOnce(uploadStatus('AWAITING_UPLOAD'))
       .mockResolvedValueOnce(uploadStatus('PROCESSING'))
       .mockResolvedValueOnce(uploadStatus('COMPLETE'));
-    await submitter.submit(artifact, IOS_CREDENTIALS, iosContext());
+    const ios = iosContext();
+    await submitter.submit(artifact, IOS_CREDENTIALS, ios);
     expect(ascFake.getAppId).toHaveBeenCalledWith('com.example.hello');
     expect(ascFake.createBuildUpload).toHaveBeenCalledWith('app-1', '1.4.0', 42, 'IOS');
     expect(ascFake.uploadBuildFile).toHaveBeenCalledWith(
@@ -84,7 +85,8 @@ describe('app-store-connect submitter - build upload API', () => {
   it('uploads a tvOS build for the TV_OS platform', async () => {
     acceptUploads();
     ascFake.getBuildUploadStatus.mockResolvedValue(uploadStatus('COMPLETE'));
-    await submitter.submit(artifact, IOS_CREDENTIALS, iosContext('tvos'));
+    const ios = iosContext('tvos');
+    await submitter.submit(artifact, IOS_CREDENTIALS, ios);
     expect(ascFake.createBuildUpload).toHaveBeenCalledWith('app-1', '1.4.0', 42, 'TV_OS');
   });
 
@@ -93,7 +95,8 @@ describe('app-store-connect submitter - build upload API', () => {
     ascFake.getBuildUploadStatus.mockResolvedValue(
       uploadStatus('FAILED', [{ code: '90186', description: 'Invalid Pre-Release Train.' }]),
     );
-    await expect(submitter.submit(artifact, IOS_CREDENTIALS, iosContext())).rejects.toThrow(
+    const ios = iosContext();
+    await expect(submitter.submit(artifact, IOS_CREDENTIALS, ios)).rejects.toThrow(
       /no longer takes builds for version 1\.4\.0\. Bump the app version/,
     );
   });
@@ -106,7 +109,8 @@ describe('app-store-connect submitter - build upload API', () => {
         { code: '90087', description: 'Unsupported Architectures.' },
       ]),
     );
-    await expect(submitter.submit(artifact, IOS_CREDENTIALS, iosContext())).rejects.toThrow(
+    const ios = iosContext();
+    await expect(submitter.submit(artifact, IOS_CREDENTIALS, ios)).rejects.toThrow(
       /Bump the app version[\s\S]*Unsupported Architectures\. \(90087\)/,
     );
   });
@@ -120,7 +124,8 @@ describe('app-store-connect submitter - build upload API', () => {
       return uploadStatus('PROCESSING');
     });
     const shortWait = makeAppStoreConnectSubmitter(1, 100);
-    await expect(shortWait.submit(artifact, IOS_CREDENTIALS, iosContext())).rejects.toThrow(
+    const ios = iosContext();
+    await expect(shortWait.submit(artifact, IOS_CREDENTIALS, ios)).rejects.toThrow(
       /still processing build upload upload-1/,
     );
     expect(ascFake.getBuildUploadStatus.mock.calls.length).toBeLessThan(10);
@@ -133,7 +138,8 @@ describe('app-store-connect submitter - build upload API', () => {
       fileState: 'FAILED',
       errors: [{ code: '90087', description: 'Unsupported Architectures.' }],
     });
-    await expect(submitter.submit(artifact, IOS_CREDENTIALS, iosContext())).rejects.toMatchObject({
+    const ios = iosContext();
+    await expect(submitter.submit(artifact, IOS_CREDENTIALS, ios)).rejects.toMatchObject({
       _tag: 'StoreUploadFailure',
       provider: 'app-store-connect',
       message: 'App Store Connect rejected the build upload:\n- Unsupported Architectures. (90087)',
@@ -142,7 +148,8 @@ describe('app-store-connect submitter - build upload API', () => {
 
   it('fails before uploading when the app record does not exist', async () => {
     ascFake.getAppId.mockResolvedValue(null);
-    await expect(submitter.submit(artifact, IOS_CREDENTIALS, iosContext())).rejects.toThrow(
+    const ios = iosContext();
+    await expect(submitter.submit(artifact, IOS_CREDENTIALS, ios)).rejects.toThrow(
       /com\.example\.hello/,
     );
     expect(ascFake.createBuildUpload).not.toHaveBeenCalled();
@@ -150,7 +157,8 @@ describe('app-store-connect submitter - build upload API', () => {
 
   it('rejects a non-Apple credential', async () => {
     const androidCredentials: BuildCredentials = { platform: 'android', serviceAccountJson: '{}' };
-    await expect(submitter.submit(artifact, androidCredentials, iosContext())).rejects.toThrow(
+    const ios = iosContext();
+    await expect(submitter.submit(artifact, androidCredentials, ios)).rejects.toThrow(
       /Apple platforms only/,
     );
   });

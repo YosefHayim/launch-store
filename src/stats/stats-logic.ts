@@ -9,8 +9,14 @@ export const mergeStats = (
   newStats: readonly DailyStat[],
 ): DailyStat[] => {
   const statsByIdentity = new Map<string, DailyStat>();
-  for (const stat of savedStats) statsByIdentity.set(createStatIdentity(stat), stat);
-  for (const stat of newStats) statsByIdentity.set(createStatIdentity(stat), stat);
+  for (const stat of savedStats) {
+    const statIdentity = createStatIdentity(stat);
+    statsByIdentity.set(statIdentity, stat);
+  }
+  for (const stat of newStats) {
+    const statIdentity = createStatIdentity(stat);
+    statsByIdentity.set(statIdentity, stat);
+  }
   return [...statsByIdentity.entries()]
     .sort(([firstIdentity], [secondIdentity]) => firstIdentity.localeCompare(secondIdentity))
     .map(([, stat]) => stat);

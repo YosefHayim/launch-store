@@ -50,7 +50,8 @@ export const bumpVersion = (version: SemVer, bump: VersionBump): SemVer => {
 export const nextVersion = (current: string, bump: VersionBump): string => {
   let parsed = parseVersion(current);
   if (parsed == null) parsed = ZERO_VERSION;
-  return formatVersion(bumpVersion(parsed, bump));
+  const version = bumpVersion(parsed, bump);
+  return formatVersion(version);
 };
 /**
  * Compare two versions by numeric core: `-1` if `a < b`, `1` if `a > b`, `0` if equal. Unparseable

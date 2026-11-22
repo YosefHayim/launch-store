@@ -38,7 +38,9 @@ describe('ai listing command', () => {
   let configPath: string;
 
   beforeEach(() => {
-    workingDirectory = mkdtempSync(join(tmpdir(), 'launch-ai-listing-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchAiListingPath = join(systemTemporaryDirectory, 'launch-ai-listing-');
+    workingDirectory = mkdtempSync(launchAiListingPath);
     configPath = join(workingDirectory, 'store.config.json');
     useLoggerSink(function discardLine() {});
     selectedApp = {
@@ -65,7 +67,8 @@ describe('ai listing command', () => {
   }
 
   it('decodes stable command defaults', () => {
-    expect(readAiListingInput({})).toEqual({ platform: 'ios', dryRun: false, yes: false });
+    const readAiListing = readAiListingInput({});
+    expect(readAiListing).toEqual({ platform: 'ios', dryRun: false, yes: false });
   });
 
   it('writes generated Google Play copy when Android is selected', async () => {
@@ -81,7 +84,8 @@ describe('ai listing command', () => {
       listingGenerator,
     );
 
-    const writtenStoreConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+    const loadedFile = readFileSync(configPath, 'utf8');
+    const writtenStoreConfig = JSON.parse(loadedFile);
     expect(writtenStoreConfig.android.info['en-US']).toEqual({
       title: 'Focus App',
       shortDescription: 'Stay focused',
@@ -100,7 +104,8 @@ describe('ai listing command', () => {
       },
       listingGenerator,
     );
-    expect(existsSync(configPath)).toBe(false);
+    const pathExists = existsSync(configPath);
+    expect(pathExists).toBe(false);
   });
 
   it('rejects unknown platform selectors', async () => {
@@ -115,7 +120,8 @@ describe('ai listing command', () => {
   });
 
   it('uses explicit locales and rejects an empty locale selector', async () => {
-    expect(resolveListingLocales('en-US, fr-FR', {})).toEqual(['en-US', 'fr-FR']);
+    const listingLocales = resolveListingLocales('en-US, fr-FR', {});
+    expect(listingLocales).toEqual(['en-US', 'fr-FR']);
 
     async function rejectEmptyLocales(): Promise<void> {
       resolveListingLocales(' , ', {});

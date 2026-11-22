@@ -105,13 +105,15 @@ async function runProgram(startProgram: () => Promise<void>): Promise<{
 
 describe('parsePlatformFlag', () => {
   test('accepts ios, android and no flag', async () => {
-    expect(await parsePlatformFlag('ios')).toBe('ios');
+    const platformFlag = await parsePlatformFlag('ios');
+    expect(platformFlag).toBe('ios');
     expect(await parsePlatformFlag('android')).toBe('android');
     expect(await parsePlatformFlag(undefined)).toBeNull();
   });
 
   test('rejects another platform', async () => {
-    await expect(parsePlatformFlag('web')).rejects.toMatchObject({
+    const platformFlag = parsePlatformFlag('web');
+    await expect(platformFlag).rejects.toMatchObject({
       message: '--platform must be ios or android.',
     });
   });
@@ -119,13 +121,15 @@ describe('parsePlatformFlag', () => {
 
 describe('parseOwnerFlag', () => {
   test('accepts mine, client and no flag', async () => {
-    expect(await parseOwnerFlag('mine')).toBe('mine');
+    const ownerFlag = await parseOwnerFlag('mine');
+    expect(ownerFlag).toBe('mine');
     expect(await parseOwnerFlag('client')).toBe('client');
     expect(await parseOwnerFlag(undefined)).toBeNull();
   });
 
   test('rejects another owner', async () => {
-    await expect(parseOwnerFlag('me')).rejects.toMatchObject({
+    const ownerFlag = parseOwnerFlag('me');
+    await expect(ownerFlag).rejects.toMatchObject({
       message: '--owner must be mine or client.',
     });
   });
@@ -135,7 +139,8 @@ describe('parseTagRequest', () => {
   test('needs one of --app or --account', async () => {
     const expected = 'Pass exactly one of --app <name> or --account <label>.';
 
-    await expect(parseTagRequest({ ...TAG_BASE, app: undefined })).rejects.toMatchObject({
+    const tagRequest = parseTagRequest({ ...TAG_BASE, app: undefined });
+    await expect(tagRequest).rejects.toMatchObject({
       message: expected,
     });
     await expect(parseTagRequest({ ...TAG_BASE, account: 'alpha' })).rejects.toMatchObject({
@@ -144,19 +149,22 @@ describe('parseTagRequest', () => {
   });
 
   test('needs at least one change', async () => {
-    await expect(parseTagRequest({ ...TAG_BASE, owner: undefined })).rejects.toMatchObject({
+    const tagRequest = parseTagRequest({ ...TAG_BASE, owner: undefined });
+    await expect(tagRequest).rejects.toMatchObject({
       message: 'Pass --owner mine|client and/or --ga4-property <id>.',
     });
   });
 
   test('rejects a GA4 property that is not a number', async () => {
-    await expect(parseTagRequest({ ...TAG_BASE, ga4Property: 'abc' })).rejects.toMatchObject({
+    const tagRequest = parseTagRequest({ ...TAG_BASE, ga4Property: 'abc' });
+    await expect(tagRequest).rejects.toMatchObject({
       message: '--ga4-property must be the numeric GA4 property id.',
     });
   });
 
   test('rejects an unknown owner', async () => {
-    await expect(parseTagRequest({ ...TAG_BASE, owner: 'boss' })).rejects.toMatchObject({
+    const tagRequest = parseTagRequest({ ...TAG_BASE, owner: 'boss' });
+    await expect(tagRequest).rejects.toMatchObject({
       message: '--owner must be mine or client.',
     });
   });
@@ -183,10 +191,11 @@ describe('appsListProgram and appsTagProgram', () => {
     homeDirectory = createTemporaryHomeDirectory();
     const project = join(homeDirectory, 'work');
     mkdirSync(project, { recursive: true });
-    writeFileSync(
-      join(project, 'app.json'),
-      JSON.stringify({ expo: { slug: 'fit', android: { package: 'com.jts.fit' } } }),
-    );
+    const appPath = join(project, 'app.json');
+    const serialized = JSON.stringify({
+      expo: { slug: 'fit', android: { package: 'com.jts.fit' } },
+    });
+    writeFileSync(appPath, serialized);
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
     useLaunchDirectories({ homeDirectory, workingDirectory: project });
 
@@ -251,7 +260,8 @@ describe('appsListProgram and appsTagProgram', () => {
     });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { _tag: 'CommandExit', exitCode: 2 } });
-    expect(JSON.parse(lines[0] ?? '')).toEqual({
+    const parsed = JSON.parse(lines[0] ?? '');
+    expect(parsed).toEqual({
       ok: false,
       error: '--platform must be ios or android.',
     });
@@ -263,14 +273,15 @@ describe('appsListProgram and appsTagProgram', () => {
     });
 
     expect(tagged.lines.some((line) => line.includes('Tagged Cal Friend AI'))).toBe(true);
-    const savedFile = JSON.parse(
-      readFileSync(join(homeDirectory, '.launch', 'portfolio.json'), 'utf8'),
-    );
+    const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
+    const loadedFile = readFileSync(portfolioPath, 'utf8');
+    const savedFile = JSON.parse(loadedFile);
     expect(savedFile.tags).toEqual([{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: null }]);
     const listed = await runProgram(function startList() {
       return appsListProgram({ platform: undefined, owner: 'mine', isJson: true });
     });
-    expect(JSON.parse(listed.lines[0] ?? '').apps).toHaveLength(1);
+    const parsed = JSON.parse(listed.lines[0] ?? '');
+    expect(parsed.apps).toHaveLength(1);
   });
 
   test('apps tag --account tags every app of that account and prints JSON with --json', async () => {
@@ -298,7 +309,8 @@ describe('appsListProgram and appsTagProgram', () => {
       return appsTagProgram({ ...TAG_BASE, owner: undefined, ga4Property: '555', isJson: true });
     });
 
-    expect(JSON.parse(lines[0] ?? '').tagged[0]).toMatchObject({
+    const parsed = JSON.parse(lines[0] ?? '');
+    expect(parsed.tagged[0]).toMatchObject({
       owner: 'mine',
       ga4PropertyId: '555',
     });

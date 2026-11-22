@@ -28,7 +28,9 @@ describe('captureAutoSnapshot', () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'launch-auto-snap-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchAutoSnapPath = join(systemTemporaryDirectory, 'launch-auto-snap-');
+    dir = mkdtempSync(launchAutoSnapPath);
   });
 
   afterEach(() => {
@@ -37,7 +39,8 @@ describe('captureAutoSnapshot', () => {
 
   it('saves a reserved-prefix baseline even when no store is configured', async () => {
     const capturedAt = '2026-06-17T08:00:00.000Z';
-    const savedSnapshot = await captureAutoSnapshot(snapshotContext(), { capturedAt, dir });
+    const snapshot = snapshotContext();
+    const savedSnapshot = await captureAutoSnapshot(snapshot, { capturedAt, dir });
     expect(savedSnapshot.name).toBe(autoSnapshotName(capturedAt));
     expect(savedSnapshot.name.startsWith(AUTO_SNAPSHOT_PREFIX)).toBe(true);
     expect(savedSnapshot.pruned).toEqual([]);
@@ -45,7 +48,8 @@ describe('captureAutoSnapshot', () => {
   });
 
   it('prunes older baselines beyond the retention window', async () => {
-    await captureAutoSnapshot(snapshotContext(), {
+    const snapshot = snapshotContext();
+    await captureAutoSnapshot(snapshot, {
       capturedAt: '2026-06-15T00:00:00.000Z',
       keep: 1,
       dir,

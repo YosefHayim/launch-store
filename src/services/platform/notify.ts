@@ -144,10 +144,11 @@ function hasNotifyText(text: string | undefined): text is string {
 /** POST one notification document and reduce every delivery failure to a warning. */
 async function postWebhook(url: string, event: NotifyEvent, logger: Logger): Promise<void> {
   try {
+    const serialized = JSON.stringify(notificationDocument(event));
     const webhookReply = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(notificationDocument(event)),
+      body: serialized,
     });
     const delivered = isSuccessfulStatus(webhookReply.status);
 
@@ -157,7 +158,8 @@ async function postWebhook(url: string, event: NotifyEvent, logger: Logger): Pro
 
     logger.warn(`Notification webhook returned ${webhookReply.status}.`);
   } catch (error) {
-    logger.warn(`Notification webhook failed: ${errorMessage(error)}`);
+    const failureMessage = errorMessage(error);
+    logger.warn(`Notification webhook failed: ${failureMessage}`);
   }
 }
 
@@ -172,7 +174,8 @@ async function runHook(command: string, event: NotifyEvent, logger: Logger): Pro
       environmentOverrides: notifyEnv(event),
     });
   } catch (error) {
-    logger.warn(`Notification command failed: ${errorMessage(error)}`);
+    const failureMessage = errorMessage(error);
+    logger.warn(`Notification command failed: ${failureMessage}`);
   }
 }
 
@@ -215,7 +218,8 @@ export async function notify(launchConfig: LaunchConfig, event: NotifyEvent): Pr
   }
 
   if (hasNotifyText(command)) {
-    sends.push(runHook(command, event, logger));
+    const hook = runHook(command, event, logger);
+    sends.push(hook);
   }
 
   await Promise.all(sends);

@@ -17,12 +17,15 @@ const listMonthsFrom = (month: string, lastMonth: string): string[] => {
   const safeDayToReachNextMonth = 4;
   const lastSafeDayOfAnyMonth = 28;
   const dayInNextMonth = shiftDate(`${month}-${lastSafeDayOfAnyMonth}`, safeDayToReachNextMonth);
-  return [month, ...listMonthsFrom(readMonthOfDate(dayInNextMonth), lastMonth)];
+  const monthOfDate = readMonthOfDate(dayInNextMonth);
+  return [month, ...listMonthsFrom(monthOfDate, lastMonth)];
 };
 
 /** Every `YYYY-MM` month a date range touches, oldest first. */
-export const listMonthsInRange = (range: DateRange): string[] =>
-  listMonthsFrom(readMonthOfDate(range.from), readMonthOfDate(range.to));
+export const listMonthsInRange = (range: DateRange): string[] => {
+  const monthOfDate = readMonthOfDate(range.from);
+  return listMonthsFrom(monthOfDate, readMonthOfDate(range.to));
+};
 
 /** Keep the stats whose day is inside the range, both ends included. */
 export const keepStatsInRange = (stats: readonly DailyStat[], range: DateRange): DailyStat[] =>

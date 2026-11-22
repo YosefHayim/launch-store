@@ -158,7 +158,8 @@ export async function runAndroidBuild(
   const isDryRun = buildOptions.dryRun == true;
   const appVersion = marketingVersion(app);
   const packageName = requirePackageName(app);
-  const buildEngine = getBuildEngine(resolveBuildEngineName(launchConfig, 'android'));
+  const buildEngineName = resolveBuildEngineName(launchConfig, 'android');
+  const buildEngine = getBuildEngine(buildEngineName);
 
   await ensureAndroidProject(buildContext, log, launchConfig.prebuild);
 
@@ -358,9 +359,10 @@ async function submitAndroidWhenRequested(
 
   const priorBuild = await previousBuild(prepared.config, prepared.app, 'android', versionCode);
 
+  const sizeBudgetMB = resolveSizeBudgetMB(buildOptions, prepared.profile);
   await confirmUpload({
     report: sizeReport,
-    budgetMB: resolveSizeBudgetMB(buildOptions, prepared.profile),
+    budgetMB: sizeBudgetMB,
     destination: `Google Play (${track} track)`,
     app: prepared.app,
     version: appVersion,

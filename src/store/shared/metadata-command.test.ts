@@ -95,7 +95,8 @@ function installStoreFakes(): void {
 
 describe('MetadataCommandInputSchema', () => {
   it('decodes a pull with omitted optional selectors', () => {
-    expect(MetadataCommandInputSchema({ operation: 'pull', dryRun: true })).toEqual({
+    const metadataCommandSchema = MetadataCommandInputSchema({ operation: 'pull', dryRun: true });
+    expect(metadataCommandSchema).toEqual({
       operation: 'pull',
       dryRun: true,
     });
@@ -134,11 +135,13 @@ describe('metadataCommandProgram', () => {
   let terminalWrites: string[] = [];
 
   function writeStoreConfig(storeConfig: unknown): void {
-    writeFileSync(configPath, `${JSON.stringify(storeConfig, null, 2)}\n`);
+    const serialized = JSON.stringify(storeConfig, null, 2);
+    writeFileSync(configPath, `${serialized}\n`);
   }
 
   function readStoreConfig(): unknown {
-    return JSON.parse(readFileSync(configPath, 'utf8'));
+    const loadedFile = readFileSync(configPath, 'utf8');
+    return JSON.parse(loadedFile);
   }
 
   function runCommand(operation: 'pull' | 'push', platform: 'ios' | 'android', dryRun: boolean) {
@@ -170,7 +173,9 @@ describe('metadataCommandProgram', () => {
   }
 
   beforeEach(() => {
-    workspaceDirectory = mkdtempSync(join(tmpdir(), 'launch-metadata-cmd-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchMetadataCmdPath = join(systemTemporaryDirectory, 'launch-metadata-cmd-');
+    workspaceDirectory = mkdtempSync(launchMetadataCmdPath);
     appDirectory = join(workspaceDirectory, 'apps', 'demo');
     mkdirSync(appDirectory, { recursive: true });
     configPath = join(appDirectory, 'store.config.json');
@@ -317,7 +322,8 @@ describe('metadataCommandProgram', () => {
       writeStoreConfig({ android: { info: { 'en-US': { title: 'Droid' } } } });
       await runCommand('pull', 'ios', false);
       expect(createEffectAppleClient).toHaveBeenCalledWith(ascKey);
-      expect(readStoreConfig()).toEqual({
+      const readStore = readStoreConfig();
+      expect(readStore).toEqual({
         android: { info: { 'en-US': { title: 'Droid' } } },
         apple: {
           info: {
@@ -337,14 +343,16 @@ describe('metadataCommandProgram', () => {
     it('keeps the configured App Store categories, which a pull does not read', async () => {
       writeStoreConfig({ apple: { info: { 'en-US': { title: 'Old' } }, categories: ['GAMES'] } });
       await runCommand('pull', 'ios', false);
-      expect(readStoreConfig()).toMatchObject({
+      const readStore = readStoreConfig();
+      expect(readStore).toMatchObject({
         apple: { info: { 'en-US': { title: 'Demo' } }, categories: ['GAMES'] },
       });
     });
 
     it('dry-run reads the store and reports locales without writing the config', async () => {
       await runCommand('pull', 'ios', true);
-      expect(existsSync(configPath)).toBe(false);
+      const pathExists = existsSync(configPath);
+      expect(pathExists).toBe(false);
       expect(terminalWrites.join('')).toMatch(/would write 1 App Store locale\(s\)/);
     });
 
@@ -354,12 +362,14 @@ describe('metadataCommandProgram', () => {
       expect(commandFailure).toMatchObject({
         message: expect.stringMatching(/No App Store Connect app for com\.demo\.app/),
       });
-      expect(existsSync(configPath)).toBe(false);
+      const pathExists = existsSync(configPath);
+      expect(pathExists).toBe(false);
     });
 
     it('is callable for adopt-style pulls', async () => {
       await pullAppleListing('com.demo.app', configPath, false);
-      expect(existsSync(configPath)).toBe(true);
+      const pathExists = existsSync(configPath);
+      expect(pathExists).toBe(true);
     });
   });
 
@@ -424,7 +434,8 @@ describe('metadataCommandProgram', () => {
       await runCommand('pull', 'android', false);
       expect(createEffectPlayClient).toHaveBeenCalledWith(serviceAccountJson);
       expect(playClientFake.listListings).toHaveBeenCalledWith('com.demo.app');
-      expect(readStoreConfig()).toEqual({
+      const readStore = readStoreConfig();
+      expect(readStore).toEqual({
         apple: { info: { 'en-US': { title: 'Demo' } } },
         android: {
           info: { 'en-US': { title: 'Demo', shortDescription: 'short', fullDescription: 'full' } },
@@ -434,7 +445,8 @@ describe('metadataCommandProgram', () => {
 
     it('dry-run reads the store and reports locales without writing the config', async () => {
       await runCommand('pull', 'android', true);
-      expect(existsSync(configPath)).toBe(false);
+      const pathExists = existsSync(configPath);
+      expect(pathExists).toBe(false);
       expect(terminalWrites.join('')).toMatch(/would write 1 Play locale\(s\)/);
     });
   });

@@ -483,7 +483,8 @@ export async function ensureRemoteSigningAssets(
   const credentialsDirectory = resolveAccountCredentialsDirectory(keyId);
   await mkdir(credentialsDirectory, { recursive: true });
   const profilePath = join(credentialsDirectory, `${signingOptions.bundleId}.mobileprovision`);
-  await writeFile(profilePath, Buffer.from(profile.profileContent, 'base64'));
+  const bufferBytes = Buffer.from(profile.profileContent, 'base64');
+  await writeFile(profilePath, bufferBytes);
   let teamId = '';
 
   if (bundle.seedId != null) {
@@ -616,7 +617,8 @@ export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
       return sourcePath;
     }
 
-    const destinationPath = join(destinationDirectory, basename(sourcePath));
+    const fileName = basename(sourcePath);
+    const destinationPath = join(destinationDirectory, fileName);
 
     try {
       await rename(sourcePath, destinationPath);
@@ -649,7 +651,9 @@ export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
     }
   }
 
-  await writeFile(join(destinationDirectory, 'index.json'), JSON.stringify(index, null, 2));
+  const indexPath = join(destinationDirectory, 'index.json');
+  const serialized = JSON.stringify(index, null, 2);
+  await writeFile(indexPath, serialized);
 
   try {
     await rm(legacyIndexPath, { force: true });

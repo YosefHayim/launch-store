@@ -17,7 +17,8 @@ export const registerRunCommand = (program: Command): void => {
       'latest',
     )
     .option('-d, --device <id>', 'Android serial or Apple devicectl device identifier')
-    .action((reference: string, commandOptions: RunOptions) =>
-      runCliProgram(runCommandProgram({ reference, device: commandOptions.device })),
-    );
+    .action((reference: string, commandOptions: RunOptions) => {
+      const runProgram = runCommandProgram({ reference, device: commandOptions.device });
+      return runCliProgram(runProgram);
+    });
 };

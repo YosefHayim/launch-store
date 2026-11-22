@@ -198,13 +198,14 @@ async function fetchGa4Post(
   accessToken: string,
   requestDocument: unknown,
 ): Promise<FetchReply> {
+  const serialized = JSON.stringify(requestDocument);
   const httpReply = await fetch(url, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${accessToken}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify(requestDocument),
+    body: serialized,
   });
   const documentText = await httpReply.text();
 
@@ -225,9 +226,10 @@ function readJsonDocument(session: Ga4Session, reply: FetchReply): unknown {
   try {
     return JSON.parse(reply.documentText);
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw createGa4Failure(
       session,
-      `Google Analytics reply (HTTP ${reply.status}) was not JSON: ${errorMessage(cause)}`,
+      `Google Analytics reply (HTTP ${reply.status}) was not JSON: ${failureMessage}`,
       cause,
     );
   }
@@ -240,11 +242,8 @@ export async function requestGa4Document(session: Ga4Session, call: Ga4Call): Pr
   try {
     analyticsReply = await fetchGa4(call, session.accessToken);
   } catch (cause) {
-    throw createGa4Failure(
-      session,
-      `Google Analytics request failed: ${errorMessage(cause)}`,
-      cause,
-    );
+    const failureMessage = errorMessage(cause);
+    throw createGa4Failure(session, `Google Analytics request failed: ${failureMessage}`, cause);
   }
 
   const analyticsDocument = readJsonDocument(session, analyticsReply);
@@ -257,11 +256,13 @@ export async function requestGa4Document(session: Ga4Session, call: Ga4Call): Pr
   const errorReading = readGa4Error(analyticsReply.status, analyticsDocument);
 
   if (errorReading.kind == 'permission-denied') {
-    throw makeGa4SkipSignal(createPermissionReason(call.propertyId));
+    const permissionReason = createPermissionReason(call.propertyId);
+    throw makeGa4SkipSignal(permissionReason);
   }
 
   if (errorReading.kind == 'service-disabled') {
-    throw makeGa4SkipSignal(createServiceDisabledReason(call.url, session.projectId));
+    const serviceDisabledReason = createServiceDisabledReason(call.url, session.projectId);
+    throw makeGa4SkipSignal(serviceDisabledReason);
   }
 
   throw createGa4Failure(

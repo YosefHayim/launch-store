@@ -12,9 +12,10 @@ import { createEmptyAppCoverage, loadAppCoverage, saveAppCoverage } from './cove
 let homeDirectory: string;
 
 function useTemporaryLaunchHome(): void {
+  const workPath = join(homeDirectory, 'work');
   useLaunchDirectories({
     homeDirectory,
-    workingDirectory: join(homeDirectory, 'work'),
+    workingDirectory: workPath,
   });
 }
 
@@ -44,7 +45,8 @@ const coverage: AppCoverage = {
 
 describe('createEmptyAppCoverage', () => {
   test('has no feeds', () => {
-    expect(createEmptyAppCoverage('ios-1')).toEqual({ version: 1, appKey: 'ios-1', feeds: {} });
+    const emptyAppCoverage = createEmptyAppCoverage('ios-1');
+    expect(emptyAppCoverage).toEqual({ version: 1, appKey: 'ios-1', feeds: {} });
   });
 });
 
@@ -52,11 +54,13 @@ describe('loadAppCoverage', () => {
   test('returns an empty coverage when the app was never synced', async () => {
     const loaded = await loadAppCoverage('ios-1');
 
-    expect(loaded).toEqual(createEmptyAppCoverage('ios-1'));
+    const emptyAppCoverage = createEmptyAppCoverage('ios-1');
+    expect(loaded).toEqual(emptyAppCoverage);
   });
 
   test('fails for an app key that is not valid', async () => {
-    await expect(loadAppCoverage('../x')).rejects.toMatchObject({ _tag: 'InvalidAppKeyFailure' });
+    const appCoverage = loadAppCoverage('../x');
+    await expect(appCoverage).rejects.toMatchObject({ _tag: 'InvalidAppKeyFailure' });
   });
 });
 
@@ -74,7 +78,8 @@ describe('loadAppCoverage with a file saved before lastNote existed', () => {
         },
       },
     };
-    writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', JSON.stringify(oldFile));
+    const serialized = JSON.stringify(oldFile);
+    writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', serialized);
 
     const loaded = await loadAppCoverage('ios-1');
 

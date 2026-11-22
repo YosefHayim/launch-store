@@ -269,8 +269,10 @@ async function readStoredState(stateFilePath: string): Promise<UpdateState | nul
 
 async function writeStoredState(stateFilePath: string, state: UpdateState): Promise<void> {
   try {
-    await ensureDirectoryExists(dirname(stateFilePath));
-    await writeFile(stateFilePath, JSON.stringify(state));
+    const parentDirectory = dirname(stateFilePath);
+    await ensureDirectoryExists(parentDirectory);
+    const serialized = JSON.stringify(state);
+    await writeFile(stateFilePath, serialized);
   } catch (error) {
     const isUnwritable = error != null;
 
@@ -381,7 +383,8 @@ function reexecLaunch(
     });
 
     child.on('error', () => {
-      reject(makeCommandExit({ exitCode: 1 }));
+      const commandExit = makeCommandExit({ exitCode: 1 });
+      reject(commandExit);
     });
 
     child.on('exit', (exitCode) => {
@@ -391,7 +394,8 @@ function reexecLaunch(
         code = exitCode;
       }
 
-      reject(makeCommandExit({ exitCode: code }));
+      const commandExit = makeCommandExit({ exitCode: code });
+      reject(commandExit);
     });
   });
 }

@@ -194,9 +194,10 @@ export async function diagnoseCommandProgram(rawCommandInput: unknown): Promise<
       throw cause;
     }
 
+    const failureMessage = errorMessage(cause);
     throw makeDiagnoseCommandFailure({
       operation: 'diagnose build log',
-      message: errorMessage(cause),
+      message: failureMessage,
       cause,
     });
   }

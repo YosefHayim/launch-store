@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { captureCommandOutput, type CommandFailed } from '../src/services/platform/exec.ts';
 /** Absolute path to the built CLI this suite exercises - `<root>/dist/cli/index.js`. */
-const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'cli', 'index.js');
+const fileUrltoPath = fileURLToPath(import.meta.url);
+const parentDirectory = dirname(fileUrltoPath);
+const CLI = join(parentDirectory, '..', 'dist', 'cli', 'index.js');
 /** Run the built binary with an explicit argv and return its trimmed stdout (rejects on a non-zero exit). */
 function launch(...args: string[]): Promise<string> {
   return captureCommandOutput('node', [CLI, ...args]);
@@ -31,48 +33,51 @@ function isCommandFailed(caught: unknown): caught is CommandFailed {
 /** Hermetic scratch dir holding the fixture configs the `config validate` cases point at. */
 let workdir: string;
 beforeAll(() => {
-  workdir = mkdtempSync(join(tmpdir(), 'launch-e2e-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchE2ePath = join(systemTemporaryDirectory, 'launch-e2e-');
+  workdir = mkdtempSync(launchE2ePath);
   // A minimal schema-valid config (mirrors the built-in DEFAULT_CONFIG's profile shape).
-  writeFileSync(
-    join(workdir, 'good.json'),
-    JSON.stringify({
-      profiles: { production: { name: 'production', sizeBudgetMB: 200 } },
-      products: {
-        'com.acme-app': {
-          inAppPurchases: [
-            {
-              productId: 'com.acme.coins_100',
-              referenceName: 'Coins',
-              type: 'CONSUMABLE',
-              localizations: [{ locale: 'en-US', name: 'Coins' }],
-            },
-          ],
-          subscriptionGroups: [
-            {
-              referenceName: 'Pro',
-              localizations: [{ locale: 'en-US', name: 'Pro' }],
-              subscriptions: [
-                {
-                  productId: 'com.acme.pro.monthly2',
-                  referenceName: 'Monthly',
-                  subscriptionPeriod: 'ONE_MONTH',
-                  localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
-                },
-              ],
-            },
-          ],
-        },
+  const goodPath = join(workdir, 'good.json');
+  const serialized = JSON.stringify({
+    profiles: { production: { name: 'production', sizeBudgetMB: 200 } },
+    products: {
+      'com.acme-app': {
+        inAppPurchases: [
+          {
+            productId: 'com.acme.coins_100',
+            referenceName: 'Coins',
+            type: 'CONSUMABLE',
+            localizations: [{ locale: 'en-US', name: 'Coins' }],
+          },
+        ],
+        subscriptionGroups: [
+          {
+            referenceName: 'Pro',
+            localizations: [{ locale: 'en-US', name: 'Pro' }],
+            subscriptions: [
+              {
+                productId: 'com.acme.pro.monthly2',
+                referenceName: 'Monthly',
+                subscriptionPeriod: 'ONE_MONTH',
+                localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
+              },
+            ],
+          },
+        ],
       },
-    }),
-  );
+    },
+  });
+  writeFileSync(goodPath, serialized);
   // Valid but for one unknown top-level key. The root schema sets additionalProperties to false,
   // so this is the #197 unknown-key rejection.
+  const badPath = join(workdir, 'bad.json');
   writeFileSync(
-    join(workdir, 'bad.json'),
+    badPath,
     JSON.stringify({ profiles: { production: { name: 'production' } }, totallyBogusKey: true }),
   );
+  const badProductIdPath = join(workdir, 'bad-product-id.json');
   writeFileSync(
-    join(workdir, 'bad-product-id.json'),
+    badProductIdPath,
     JSON.stringify({
       profiles: { production: { name: 'production' } },
       products: {
@@ -128,19 +133,18 @@ describe('launch CLI - offline surface (compiled dist)', () => {
     expect((await launch('config', 'docs')).length).toBeGreaterThan(0);
   });
   it('validates a good config with exit 0', async () => {
-    expect(await launch('config', 'validate', join(workdir, 'good.json'))).toContain(
-      'Config valid',
-    );
+    const goodPath = join(workdir, 'good.json');
+    expect(await launch('config', 'validate', goodPath)).toContain('Config valid');
   });
   it('rejects a bad config with a non-zero exit that names the offending key', async () => {
-    await expect(launch('config', 'validate', join(workdir, 'bad.json'))).rejects.toMatchObject({
+    const badPath = join(workdir, 'bad.json');
+    await expect(launch('config', 'validate', badPath)).rejects.toMatchObject({
       stderr: expect.stringMatching(/totallyBogusKey|unknown|unrecognized/i),
     });
   });
   it('rejects invalid Apple product IDs and explains the allowed characters', async () => {
-    await expect(
-      launch('config', 'validate', join(workdir, 'bad-product-id.json')),
-    ).rejects.toMatchObject({
+    const badProductIdPath = join(workdir, 'bad-product-id.json');
+    await expect(launch('config', 'validate', badProductIdPath)).rejects.toMatchObject({
       stderr: expect.stringMatching(/productId.*only letters, digits, underscores, and periods/i),
     });
   });

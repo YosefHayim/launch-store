@@ -8,7 +8,8 @@ export function expandHomePath(enteredPath: string): string {
     return enteredPath;
   }
 
-  return join(readLaunchDirectories().homeDirectory, enteredPath.slice(1));
+  const launchDirectories = readLaunchDirectories();
+  return join(launchDirectories.homeDirectory, enteredPath.slice(1));
 }
 
 export function displayPath(absolutePath: string): string {

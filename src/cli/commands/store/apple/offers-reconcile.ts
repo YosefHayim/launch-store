@@ -253,7 +253,8 @@ async function mapWithConcurrency<Member, Mapped>(
   const workers: Promise<void>[] = [];
 
   for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
-    workers.push(runWorker());
+    const worker = runWorker();
+    workers.push(worker);
   }
 
   await Promise.all(workers);
@@ -342,7 +343,8 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
       const actionLines: string[] = [];
 
       for (const plannedAction of plannedActions) {
-        actionLines.push(renderOfferAction(plannedAction));
+        const offerAction = renderOfferAction(plannedAction);
+        actionLines.push(offerAction);
       }
 
       logger.notice(`${planOutcome.job.app.name} (${planOutcome.job.bundleId})`, ...actionLines);

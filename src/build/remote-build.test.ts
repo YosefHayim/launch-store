@@ -76,7 +76,8 @@ describe('remote credential transport', () => {
           return;
         }
 
-        environmentDocuments.push(readFileSync(localPath, 'utf8'));
+        const loadedFile = readFileSync(localPath, 'utf8');
+        environmentDocuments.push(loadedFile);
         expect(statSync(localPath).mode & 0o077).toBe(0);
       },
     );

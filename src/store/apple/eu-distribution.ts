@@ -65,7 +65,8 @@ function decodeEuDistributionDocument(rawDocument: unknown): EuDistributionConfi
   const domains: EuDistributionDomainConfig[] = [];
 
   for (const entry of domainsField) {
-    domains.push(readDomain(entry));
+    const domain = readDomain(entry);
+    domains.push(domain);
   }
 
   return { domains };

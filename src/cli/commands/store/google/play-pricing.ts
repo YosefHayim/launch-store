@@ -38,7 +38,9 @@ export const registerPlayPricingCommand = (program: Command): void => {
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('-c, --currency <code>', 'ISO-4217 currency of <amount>', 'USD')
     .option('--json', 'output machine-readable JSON', false)
-    .action((amount: string, commandOptions: PlayPricingOptions) =>
-      runCliProgram(playPricingCommandProgram(toPlayPricingInput(amount, commandOptions))),
-    );
+    .action((amount: string, commandOptions: PlayPricingOptions) => {
+      const playPricing = toPlayPricingInput(amount, commandOptions);
+      const playPricingProgram = playPricingCommandProgram(playPricing);
+      return runCliProgram(playPricingProgram);
+    });
 };

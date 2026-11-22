@@ -14,7 +14,9 @@ afterEach(() => {
 });
 /** Write a minimal valid PNG of the given pixel size to disk and return its path. */
 const writePng = (width: number, height: number): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'launch-specs-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchSpecsPath = join(systemTemporaryDirectory, 'launch-specs-');
+  const dir = mkdtempSync(launchSpecsPath);
   tmpDirs.push(dir);
   const head = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const ihdr = Buffer.alloc(16);
@@ -23,18 +25,22 @@ const writePng = (width: number, height: number): string => {
   ihdr.writeUInt32BE(width, 8);
   ihdr.writeUInt32BE(height, 12);
   const path = join(dir, 'shot.png');
-  writeFileSync(path, Buffer.concat([head, ihdr]));
+  const concatenated = Buffer.concat([head, ihdr]);
+  writeFileSync(path, concatenated);
   return path;
 };
 describe('validateAppleDimensions', () => {
   it('accepts the canonical portrait size for a known slot', () => {
-    expect(validateAppleDimensions('APP_IPHONE_67', 1290, 2796)).toEqual({ ok: true });
+    const appleDimensions = validateAppleDimensions('APP_IPHONE_67', 1290, 2796);
+    expect(appleDimensions).toEqual({ ok: true });
   });
   it('accepts a non-canonical-but-listed resolution for the slot', () => {
-    expect(validateAppleDimensions('APP_IPHONE_67', 1284, 2778)).toEqual({ ok: true });
+    const appleDimensions = validateAppleDimensions('APP_IPHONE_67', 1284, 2778);
+    expect(appleDimensions).toEqual({ ok: true });
   });
   it('accepts the landscape swap for an orientation-both slot', () => {
-    expect(validateAppleDimensions('APP_IPHONE_67', 2796, 1290)).toEqual({ ok: true });
+    const appleDimensions = validateAppleDimensions('APP_IPHONE_67', 2796, 1290);
+    expect(appleDimensions).toEqual({ ok: true });
   });
   it('rejects an off-spec size with the accepted list in the reason', () => {
     const verdict = validateAppleDimensions('APP_IPHONE_67', 1080, 1920);
@@ -43,22 +49,27 @@ describe('validateAppleDimensions', () => {
     expect(verdict.reason).toContain('1290x2796');
   });
   it('does NOT swap orientation for a fixed slot (Mac is landscape-only)', () => {
-    expect(validateAppleDimensions('APP_DESKTOP', 1280, 800).ok).toBe(true);
+    const appleDimensions = validateAppleDimensions('APP_DESKTOP', 1280, 800);
+    expect(appleDimensions.ok).toBe(true);
     expect(validateAppleDimensions('APP_DESKTOP', 800, 1280).ok).toBe(false);
   });
   it("passes an unknown slot (Apple's enum lags new hardware - never reject what we can't check)", () => {
-    expect(validateAppleDimensions('APP_IPHONE_69_FUTURE', 9999, 9999)).toEqual({ ok: true });
+    const appleDimensions = validateAppleDimensions('APP_IPHONE_69_FUTURE', 9999, 9999);
+    expect(appleDimensions).toEqual({ ok: true });
   });
 });
 describe('validatePlayDimensions', () => {
   it('accepts a 9:16 phone screenshot', () => {
-    expect(validatePlayDimensions(1080, 1920)).toEqual({ ok: true });
+    const playDimensions = validatePlayDimensions(1080, 1920);
+    expect(playDimensions).toEqual({ ok: true });
   });
   it('rejects a side below the 320px floor', () => {
-    expect(validatePlayDimensions(200, 400).ok).toBe(false);
+    const playDimensions = validatePlayDimensions(200, 400);
+    expect(playDimensions.ok).toBe(false);
   });
   it('rejects a side above the 3840px ceiling', () => {
-    expect(validatePlayDimensions(4000, 2000).ok).toBe(false);
+    const playDimensions = validatePlayDimensions(4000, 2000);
+    expect(playDimensions.ok).toBe(false);
   });
   it('rejects an over-elongated image (longest side > 2x shortest)', () => {
     const verdict = validatePlayDimensions(500, 1200);
@@ -87,30 +98,37 @@ describe('canonicalDimensions', () => {
 });
 describe('checkScreenshotFile', () => {
   it('measures and passes an in-spec iOS screenshot', async () => {
-    const check = await checkScreenshotFile('ios', 'APP_IPHONE_67', writePng(1290, 2796));
+    const png = writePng(1290, 2796);
+    const check = await checkScreenshotFile('ios', 'APP_IPHONE_67', png);
     expect(check).toEqual({ measured: true, width: 1290, height: 2796, verdict: { ok: true } });
   });
   it('measures and flags an off-spec iOS screenshot', async () => {
-    const check = await checkScreenshotFile('ios', 'APP_IPHONE_67', writePng(1080, 1920));
+    const png = writePng(1080, 1920);
+    const check = await checkScreenshotFile('ios', 'APP_IPHONE_67', png);
     expect(check.measured).toBe(true);
     if (!check.measured) return;
     expect(check.verdict.ok).toBe(false);
   });
   it("validates an Android screenshot against Play's constraint", async () => {
-    const check = await checkScreenshotFile('android', 'phone', writePng(1080, 1920));
+    const png = writePng(1080, 1920);
+    const check = await checkScreenshotFile('android', 'phone', png);
     expect(check.measured && check.verdict.ok).toBe(true);
   });
   it("reports measured:false for a file whose pixels can't be read", async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'launch-specs-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchSpecsPath = join(systemTemporaryDirectory, 'launch-specs-');
+    const dir = mkdtempSync(launchSpecsPath);
     tmpDirs.push(dir);
     const path = join(dir, 'not-an-image.png');
     writeFileSync(path, 'just some text, not a PNG');
-    expect(await checkScreenshotFile('ios', 'APP_IPHONE_67', path)).toEqual({
+    const screenshotFile = await checkScreenshotFile('ios', 'APP_IPHONE_67', path);
+    expect(screenshotFile).toEqual({
       measured: false,
     });
   });
   it('validates a tvOS screenshot against the Apple Apple-TV spec (not Play)', async () => {
-    const check = await checkScreenshotFile('tvos', 'APP_APPLE_TV', writePng(1920, 1080));
+    const png = writePng(1920, 1080);
+    const check = await checkScreenshotFile('tvos', 'APP_APPLE_TV', png);
     expect(check.measured && check.verdict.ok).toBe(true);
   });
 });

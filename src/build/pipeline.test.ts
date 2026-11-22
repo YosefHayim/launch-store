@@ -102,8 +102,12 @@ afterEach(() => {
 });
 /** Create a one-app repo (no launch.config.ts, so loadConfig uses defaults - no jiti, fully hermetic). */
 const writeRepo = (expo: Record<string, unknown>): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'launch-pipeline-'));
-  writeFileSync(join(dir, 'app.json'), JSON.stringify({ expo }));
+  const systemTemporaryDirectory = tmpdir();
+  const launchPipelinePath = join(systemTemporaryDirectory, 'launch-pipeline-');
+  const dir = mkdtempSync(launchPipelinePath);
+  const appPath = join(dir, 'app.json');
+  const serialized = JSON.stringify({ expo });
+  writeFileSync(appPath, serialized);
   return dir;
 };
 describe('runBuild --dry-run (the end-to-end spine)', () => {
@@ -114,18 +118,17 @@ describe('runBuild --dry-run (the end-to-end spine)', () => {
       ios: { bundleIdentifier: 'com.example.hello' },
     });
     process.chdir(tempRepo);
-    await expect(
-      runBuildCoreTest(() =>
-        runBuild({
-          platform: 'ios',
-          profileName: 'production',
-          appName: undefined,
-          explain: false,
-          submit: true,
-          dryRun: true,
-        }),
-      ),
-    ).resolves.toBeUndefined();
+    const buildCoreTest = runBuildCoreTest(() =>
+      runBuild({
+        platform: 'ios',
+        profileName: 'production',
+        appName: undefined,
+        explain: false,
+        submit: true,
+        dryRun: true,
+      }),
+    );
+    await expect(buildCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   });
   it('rehearses every Android step with no network and no spawned process', async () => {
@@ -135,18 +138,17 @@ describe('runBuild --dry-run (the end-to-end spine)', () => {
       android: { package: 'com.example.hello', versionCode: 3 },
     });
     process.chdir(tempRepo);
-    await expect(
-      runBuildCoreTest(() =>
-        runBuild({
-          platform: 'android',
-          profileName: 'production',
-          appName: undefined,
-          explain: false,
-          submit: true,
-          dryRun: true,
-        }),
-      ),
-    ).resolves.toBeUndefined();
+    const buildCoreTest = runBuildCoreTest(() =>
+      runBuild({
+        platform: 'android',
+        profileName: 'production',
+        appName: undefined,
+        explain: false,
+        submit: true,
+        dryRun: true,
+      }),
+    );
+    await expect(buildCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   });
   it('rejects an unregistered build engine before any native work', async () => {
@@ -155,8 +157,9 @@ describe('runBuild --dry-run (the end-to-end spine)', () => {
       version: '1.0.0',
       ios: { bundleIdentifier: 'com.example.hello' },
     });
+    const launchPath = join(tempRepo, 'launch.config.mjs');
     writeFileSync(
-      join(tempRepo, 'launch.config.mjs'),
+      launchPath,
       "export default { buildEngine: 'missing-engine', profiles: { production: { name: 'production' } } };",
     );
     process.chdir(tempRepo);
@@ -187,19 +190,22 @@ describe('selectApp', () => {
     return { ...descriptor, bundleId };
   };
   it('fails when no apps were discovered', async () => {
-    await expect(runBuildCoreTest(() => selectApp([], undefined))).rejects.toMatchObject({
+    const buildCoreTest = runBuildCoreTest(() => selectApp([], undefined));
+    await expect(buildCoreTest).rejects.toMatchObject({
       _tag: 'AppSelectionFailure',
       message: expect.stringMatching(/No apps found/),
     });
   });
   it('returns the sole app without prompting', async () => {
     const only = app('solo', 'com.example.solo');
-    expect(await runBuildCoreTest(() => selectApp([only], undefined))).toBe(only);
+    const buildCoreTest = await runBuildCoreTest(() => selectApp([only], undefined));
+    expect(buildCoreTest).toBe(only);
   });
   it('resolves an explicit --app and errors on a miss', async () => {
     const alpha = app('alpha');
     const beta = app('beta');
-    expect(await runBuildCoreTest(() => selectApp([alpha, beta], 'beta'))).toBe(beta);
+    const buildCoreTest = await runBuildCoreTest(() => selectApp([alpha, beta], 'beta'));
+    expect(buildCoreTest).toBe(beta);
     await expect(runBuildCoreTest(() => selectApp([alpha, beta], 'gamma'))).rejects.toMatchObject({
       _tag: 'AppSelectionFailure',
       message: expect.stringMatching(/App "gamma" not found/),
@@ -207,9 +213,10 @@ describe('selectApp', () => {
   });
   it('refuses to guess with multiple apps and no TTY, pointing at --app', async () => {
     // The vitest process has no TTY, so the picker must not hang - it throws an actionable error.
-    await expect(
-      runBuildCoreTest(() => selectApp([app('alpha'), app('beta')], undefined)),
-    ).rejects.toMatchObject({ message: expect.stringMatching(/--app/) });
+    const buildCoreTest = runBuildCoreTest(() => {
+      return selectApp([app('alpha'), app('beta')], undefined);
+    });
+    await expect(buildCoreTest).rejects.toMatchObject({ message: expect.stringMatching(/--app/) });
   });
 });
 describe('size helpers - the both-numbers headline (F2)', () => {
@@ -284,14 +291,17 @@ describe('resolveBuildTransport - which fork a run takes', () => {
   ) => resolveBuildTransport(platform, buildEngine, remoteTarget);
 
   it('always builds Android locally - no off-Mac fork applies, even with a stray --remote', () => {
-    expect(resolveTransport('android', 'gradle', undefined)).toEqual({ kind: 'local' });
+    const transport = resolveTransport('android', 'gradle', undefined);
+    expect(transport).toEqual({ kind: 'local' });
     expect(resolveTransport('android', 'gradle', { kind: 'aws' })).toEqual({ kind: 'local' });
   });
   it('builds iOS locally by default', () => {
-    expect(resolveTransport('ios', 'xcode', undefined)).toEqual({ kind: 'local' });
+    const transport = resolveTransport('ios', 'xcode', undefined);
+    expect(transport).toEqual({ kind: 'local' });
   });
   it('routes iOS to the remote pipeline on --remote, carrying the target', () => {
-    expect(resolveTransport('ios', 'xcode', { kind: 'aws' })).toEqual({
+    const transport = resolveTransport('ios', 'xcode', { kind: 'aws' });
+    expect(transport).toEqual({
       kind: 'remote',
       remote: { kind: 'aws' },
     });
@@ -301,16 +311,19 @@ describe('resolveBuildTransport - which fork a run takes', () => {
     });
   });
   it("defaults a buildEngine: 'remote-mac' config to an AWS remote when no --remote is passed", () => {
-    expect(resolveTransport('ios', 'remote-mac', undefined)).toEqual({
+    const transport = resolveTransport('ios', 'remote-mac', undefined);
+    expect(transport).toEqual({
       kind: 'remote',
       remote: { kind: 'aws' },
     });
   });
   it("hands iOS off to EAS when buildEngine is 'eas'", () => {
-    expect(resolveTransport('ios', 'eas', undefined)).toEqual({ kind: 'eas' });
+    const transport = resolveTransport('ios', 'eas', undefined);
+    expect(transport).toEqual({ kind: 'eas' });
   });
   it('lets --remote win over an eas / remote-mac config (the flag is the override)', () => {
-    expect(resolveTransport('ios', 'eas', { kind: 'aws' })).toEqual({
+    const transport = resolveTransport('ios', 'eas', { kind: 'aws' });
+    expect(transport).toEqual({
       kind: 'remote',
       remote: { kind: 'aws' },
     });
@@ -320,7 +333,8 @@ describe('resolveBuildTransport - which fork a run takes', () => {
     });
   });
   it('builds tvOS/macOS/visionOS locally (off-Mac forks are iOS-only in v1)', () => {
-    expect(resolveTransport('tvos', 'xcode', undefined)).toEqual({ kind: 'local' });
+    const transport = resolveTransport('tvos', 'xcode', undefined);
+    expect(transport).toEqual({ kind: 'local' });
     expect(resolveTransport('macos', 'xcode', undefined)).toEqual({ kind: 'local' });
     expect(resolveTransport('visionos', 'xcode', undefined)).toEqual({ kind: 'local' });
   });
@@ -352,7 +366,8 @@ describe('resolveBuildTransport - which fork a run takes', () => {
 });
 describe('resolveBumpKind - flag > remembered > prompt precedence', () => {
   it('applies an explicit --bump kind, even non-interactively (scriptable in CI)', () => {
-    expect(resolveBumpKind({ flag: 'minor', remembered: 'patch', canPrompt: true })).toEqual({
+    const bumpKind = resolveBumpKind({ flag: 'minor', remembered: 'patch', canPrompt: true });
+    expect(bumpKind).toEqual({
       mode: 'apply',
       kind: 'minor',
       source: 'flag',
@@ -364,24 +379,28 @@ describe('resolveBumpKind - flag > remembered > prompt precedence', () => {
     });
   });
   it('forces the prompt on --bump ask, ignoring a remembered pick', () => {
-    expect(resolveBumpKind({ flag: 'ask', remembered: 'patch', canPrompt: true })).toEqual({
+    const bumpKind = resolveBumpKind({ flag: 'ask', remembered: 'patch', canPrompt: true });
+    expect(bumpKind).toEqual({
       mode: 'prompt',
     });
   });
   it('auto-applies a remembered pick when no flag is given and we can prompt', () => {
-    expect(resolveBumpKind({ flag: undefined, remembered: 'patch', canPrompt: true })).toEqual({
+    const bumpKind = resolveBumpKind({ flag: undefined, remembered: 'patch', canPrompt: true });
+    expect(bumpKind).toEqual({
       mode: 'apply',
       kind: 'patch',
       source: 'remembered',
     });
   });
   it('prompts on a first run (no flag, nothing remembered)', () => {
-    expect(resolveBumpKind({ flag: undefined, remembered: undefined, canPrompt: true })).toEqual({
+    const bumpKind = resolveBumpKind({ flag: undefined, remembered: undefined, canPrompt: true });
+    expect(bumpKind).toEqual({
       mode: 'prompt',
     });
   });
   it('leaves the config version untouched under --yes/CI with no flag', () => {
-    expect(resolveBumpKind({ flag: undefined, remembered: 'patch', canPrompt: false })).toEqual({
+    const bumpKind = resolveBumpKind({ flag: undefined, remembered: 'patch', canPrompt: false });
+    expect(bumpKind).toEqual({
       mode: 'leave',
     });
   });
@@ -392,13 +411,16 @@ describe('resolveSizeBudgetMB - per-run override > profile > default precedence'
     return { sizeBudgetMB };
   };
   it('uses the per-run override over both the profile and the default', () => {
-    expect(resolveSizeBudgetMB({ sizeBudgetMB: 250 }, profile(150))).toBe(250);
+    const resolveSizeBudgetMb = resolveSizeBudgetMB({ sizeBudgetMB: 250 }, profile(150));
+    expect(resolveSizeBudgetMb).toBe(250);
   });
   it('falls back to the profile budget when no per-run override is given', () => {
-    expect(resolveSizeBudgetMB({}, profile(150))).toBe(150);
+    const sizeBudgetMB = resolveSizeBudgetMB({}, profile(150));
+    expect(sizeBudgetMB).toBe(150);
   });
   it('falls back to the default when neither the run nor the profile sets one', () => {
-    expect(resolveSizeBudgetMB({}, profile())).toBe(DEFAULT_SIZE_BUDGET_MB);
+    const sizeBudgetMB = resolveSizeBudgetMB({}, profile());
+    expect(sizeBudgetMB).toBe(DEFAULT_SIZE_BUDGET_MB);
   });
 });
 describe('resolveSubmitters - the platformstore seam', () => {
@@ -410,15 +432,17 @@ describe('resolveSubmitters - the platformstore seam', () => {
     submit,
   });
   it('string form yields one store, mapping the iOS default to Play on Android', () => {
-    expect(resolveSubmitters(launchConfig('app-store-connect'), 'ios')).toEqual([
-      'app-store-connect',
-    ]);
+    const launch = launchConfig('app-store-connect');
+    const submitters = resolveSubmitters(launch, 'ios');
+    expect(submitters).toEqual(['app-store-connect']);
     expect(resolveSubmitters(launchConfig('app-store-connect'), 'android')).toEqual([
       'google-play',
     ]);
   });
   it('a non-default string (e.g. eas) is used as-is on both platforms', () => {
-    expect(resolveSubmitters(launchConfig('eas'), 'ios')).toEqual(['eas']);
+    const launch = launchConfig('eas');
+    const submitters = resolveSubmitters(launch, 'ios');
+    expect(submitters).toEqual(['eas']);
     expect(resolveSubmitters(launchConfig('eas'), 'android')).toEqual(['eas']);
   });
   it('map form returns the configured store list per platform', () => {
@@ -426,13 +450,14 @@ describe('resolveSubmitters - the platformstore seam', () => {
       ios: ['app-store-connect'],
       android: ['google-play', 'amazon-appstore'],
     });
-    expect(resolveSubmitters(config, 'android')).toEqual(['google-play', 'amazon-appstore']);
+    const submitters = resolveSubmitters(config, 'android');
+    expect(submitters).toEqual(['google-play', 'amazon-appstore']);
     expect(resolveSubmitters(config, 'ios')).toEqual(['app-store-connect']);
   });
   it("map form defaults to the platform's standard store when it's omitted or empty", () => {
-    expect(resolveSubmitters(launchConfig({ android: ['amazon-appstore'] }), 'ios')).toEqual([
-      'app-store-connect',
-    ]);
+    const launch = launchConfig({ android: ['amazon-appstore'] });
+    const submitters = resolveSubmitters(launch, 'ios');
+    expect(submitters).toEqual(['app-store-connect']);
     expect(resolveSubmitters(launchConfig({ ios: [] }), 'ios')).toEqual(['app-store-connect']);
     expect(resolveSubmitters(launchConfig({ ios: ['app-store-connect'] }), 'android')).toEqual([
       'google-play',
@@ -440,9 +465,9 @@ describe('resolveSubmitters - the platformstore seam', () => {
   });
   it('tvOS/macOS/visionOS default to App Store Connect with no config change', () => {
     for (const platform of ['tvos', 'macos', 'visionos'] as const) {
-      expect(resolveSubmitters(launchConfig('app-store-connect'), platform)).toEqual([
-        'app-store-connect',
-      ]);
+      const launch = launchConfig('app-store-connect');
+      const submitters = resolveSubmitters(launch, platform);
+      expect(submitters).toEqual(['app-store-connect']);
       expect(resolveSubmitters(launchConfig({ android: ['google-play'] }), platform)).toEqual([
         'app-store-connect',
       ]);
@@ -453,7 +478,8 @@ describe('resolveSubmitters - the platformstore seam', () => {
       tvos: ['app-store-connect'],
       macos: ['app-store-connect'],
     });
-    expect(resolveSubmitters(config, 'tvos')).toEqual(['app-store-connect']);
+    const submitters = resolveSubmitters(config, 'tvos');
+    expect(submitters).toEqual(['app-store-connect']);
     expect(resolveSubmitters(config, 'macos')).toEqual(['app-store-connect']);
   });
 });
@@ -509,9 +535,12 @@ describe('android release notes for submit (issue #309)', () => {
     ]);
   });
   it('reads --notes JSON when provided', async () => {
-    const notesDirectory = mkdtempSync(join(tmpdir(), 'launch-notes-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchNotesPath = join(systemTemporaryDirectory, 'launch-notes-');
+    const notesDirectory = mkdtempSync(launchNotesPath);
     const notesPath = join(notesDirectory, 'notes.json');
-    writeFileSync(notesPath, JSON.stringify({ 'en-US': 'From CLI notes file' }));
+    const serialized = JSON.stringify({ 'en-US': 'From CLI notes file' });
+    writeFileSync(notesPath, serialized);
     try {
       const releaseNotes = await resolveAndroidSubmitReleaseNotes(
         {
@@ -530,7 +559,9 @@ describe('android release notes for submit (issue #309)', () => {
     }
   });
   it('falls back to release.releaseNotes from launch config when no --notes path', async () => {
-    const appDirectory = mkdtempSync(join(tmpdir(), 'launch-app-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchAppPath = join(systemTemporaryDirectory, 'launch-app-');
+    const appDirectory = mkdtempSync(launchAppPath);
     try {
       const releaseNotes = await resolveAndroidSubmitReleaseNotes(
         {

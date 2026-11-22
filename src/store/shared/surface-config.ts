@@ -63,11 +63,8 @@ export function decodeStoreSurfaceConfig<Config>(
       throw cause;
     }
 
-    throw surfaceConfigFailure(
-      `decode ${configSpec.displayName} fields`,
-      cause,
-      errorMessage(cause),
-    );
+    const failureMessage = errorMessage(cause);
+    throw surfaceConfigFailure(`decode ${configSpec.displayName} fields`, cause, failureMessage);
   }
 }
 

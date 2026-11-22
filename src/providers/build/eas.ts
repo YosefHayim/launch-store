@@ -279,9 +279,10 @@ async function downloadFile(artifactUrl: string, destinationPath: string): Promi
   try {
     artifactReply = await fetch(artifactUrl);
   } catch (cause) {
+    const asString = String(cause);
     throw makeProviderInputFailure({
       provider: 'eas',
-      message: `Could not download the EAS artifact: ${String(cause)}`,
+      message: `Could not download the EAS artifact: ${asString}`,
     });
   }
 
@@ -299,9 +300,10 @@ async function downloadFile(artifactUrl: string, destinationPath: string): Promi
   try {
     artifactBytes = await artifactReply.arrayBuffer();
   } catch (cause) {
+    const asString = String(cause);
     throw makeProviderInputFailure({
       provider: 'eas',
-      message: `Could not read the EAS artifact: ${String(cause)}`,
+      message: `Could not read the EAS artifact: ${asString}`,
     });
   }
 
@@ -338,7 +340,9 @@ async function easBuildToIpa(
     });
   }
 
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'launch-eas-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchEasPath = join(systemTemporaryDirectory, 'launch-eas-');
+  const temporaryDirectory = await mkdtemp(launchEasPath);
   const ipaPath = join(temporaryDirectory, `${buildContext.app.name}.ipa`);
   await downloadFile(artifactUrl, ipaPath);
   const ipaStat = await stat(ipaPath);

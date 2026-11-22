@@ -242,10 +242,12 @@ export class AppStoreConnectClient implements AscHost {
           nowMs: Date.now(),
           platform: this.operatingSystem,
         });
+      const errors = describeErrors(responseText);
+      const errorCodes = parseErrorCodes(responseText);
       throw new AscRequestError(
-        `App Store Connect ${method} ${pathOrUrl} failed (${appleResponse.status}): ${describeErrors(responseText)}${clockHint}`,
+        `App Store Connect ${method} ${pathOrUrl} failed (${appleResponse.status}): ${errors}${clockHint}`,
         appleResponse.status,
-        parseErrorCodes(responseText),
+        errorCodes,
       );
     }
     const responseDocument: unknown = JSON.parse(responseText);

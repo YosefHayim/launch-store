@@ -49,15 +49,18 @@ const availability = (partial: Partial<AppAvailabilityResource>): AppAvailabilit
 };
 describe('parseAvailabilityConfig', () => {
   it('parses and uppercases territory codes, with the optional flag', () => {
-    expect(
-      parseAvailabilityConfig({ availableInNewTerritories: true, territories: ['usa', 'gbr'] }),
-    ).toEqual({
+    const parseAvailability = parseAvailabilityConfig({
+      availableInNewTerritories: true,
+      territories: ['usa', 'gbr'],
+    });
+    expect(parseAvailability).toEqual({
       availableInNewTerritories: true,
       territories: ['USA', 'GBR'],
     });
   });
   it('accepts an empty territory list as the explicit remove-from-all-storefronts state', () => {
-    expect(parseAvailabilityConfig({ territories: [] })).toEqual({ territories: [] });
+    const parseAvailability = parseAvailabilityConfig({ territories: [] });
+    expect(parseAvailability).toEqual({ territories: [] });
   });
   it('rejects a non-object, a missing list, a non-string code, and a non-boolean flag', () => {
     expect(() => parseAvailabilityConfig('nope')).toThrow();
@@ -72,9 +75,8 @@ describe('reconcileAvailability', () => {
   const config = { territories: ['USA', 'GBR', 'CAN'] };
   it('throws when the app has no App Store Connect record', async () => {
     const { api } = makeApi(null, null);
-    await expect(
-      runReconcile(api, { bundleId: 'com.acme.app', config, dryRun: true }),
-    ).rejects.toThrow(/No App Store Connect app record/);
+    const reconcile = runReconcile(api, { bundleId: 'com.acme.app', config, dryRun: true });
+    await expect(reconcile).rejects.toThrow(/No App Store Connect app record/);
   });
   it('sets the full territory list the first time (no current availability)', async () => {
     const { api, calls } = makeApi(null);

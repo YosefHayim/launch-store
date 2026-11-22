@@ -16,9 +16,10 @@ export const registerConfigCommand = (program: Command): void => {
     .command('schema')
     .description('print the JSON Schema for launch.config.ts')
     .option('--out <file>', 'write the schema to this file instead of stdout')
-    .action((commandOptions: SchemaOptions) =>
-      runCliProgram(configCommandProgram({ operation: 'schema', out: commandOptions.out })),
-    );
+    .action((commandOptions: SchemaOptions) => {
+      const commandProgram = configCommandProgram({ operation: 'schema', out: commandOptions.out });
+      return runCliProgram(commandProgram);
+    });
 
   configCommand
     .command('validate')
@@ -27,12 +28,16 @@ export const registerConfigCommand = (program: Command): void => {
       'a .json config to validate (default: launch.config.ts in the current directory)',
     )
     .description('validate a config and report each problem with its field path')
-    .action((file: string | undefined) =>
-      runCliProgram(configCommandProgram({ operation: 'validate', file })),
-    );
+    .action((file: string | undefined) => {
+      const commandProgram = configCommandProgram({ operation: 'validate', file });
+      return runCliProgram(commandProgram);
+    });
 
   configCommand
     .command('docs')
     .description('print the launch.config.ts field reference')
-    .action(() => runCliProgram(configCommandProgram({ operation: 'docs' })));
+    .action(() => {
+      const commandProgram = configCommandProgram({ operation: 'docs' });
+      return runCliProgram(commandProgram);
+    });
 };

@@ -26,35 +26,44 @@ const jpegBytes = (width: number, height: number, includeAppSegment = true): Buf
 
 describe('readImageDimensions', () => {
   it('reads PNG dimensions', () => {
-    expect(readImageDimensions(pngBytes(1290, 2796))).toEqual({ width: 1290, height: 2796 });
+    const imageDimensions = readImageDimensions(pngBytes(1290, 2796));
+    expect(imageDimensions).toEqual({ width: 1290, height: 2796 });
   });
 
   it('reads JPEG dimensions after an application segment', () => {
-    expect(readImageDimensions(jpegBytes(1080, 1920))).toEqual({ width: 1080, height: 1920 });
+    const imageDimensions = readImageDimensions(jpegBytes(1080, 1920));
+    expect(imageDimensions).toEqual({ width: 1080, height: 1920 });
   });
 
   it('reads a JPEG whose first segment contains the frame', () => {
-    expect(readImageDimensions(jpegBytes(2048, 2732, false))).toEqual({
+    const imageDimensions = readImageDimensions(jpegBytes(2048, 2732, false));
+    expect(imageDimensions).toEqual({
       width: 2048,
       height: 2732,
     });
   });
 
   it('rejects unsupported bytes', () => {
-    expect(readImageDimensions(Buffer.from('not an image'))).toBeNull();
+    const bufferBytes = Buffer.from('not an image');
+    const imageDimensions = readImageDimensions(bufferBytes);
+    expect(imageDimensions).toBeNull();
   });
 
   it('rejects a truncated PNG', () => {
-    expect(readImageDimensions(Buffer.from([0x89, 0x50, 0x4e]))).toBeNull();
+    const bufferBytes = Buffer.from([0x89, 0x50, 0x4e]);
+    const imageDimensions = readImageDimensions(bufferBytes);
+    expect(imageDimensions).toBeNull();
   });
 
   it('rejects a JPEG without a frame', () => {
-    expect(
-      readImageDimensions(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00])),
-    ).toBeNull();
+    const bufferBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00]);
+    const imageDimensions = readImageDimensions(bufferBytes);
+    expect(imageDimensions).toBeNull();
   });
 
   it('rejects a JPEG truncated at a segment length', () => {
-    expect(readImageDimensions(Buffer.from([0xff, 0xd8, 0xff, 0xc0]))).toBeNull();
+    const bufferBytes = Buffer.from([0xff, 0xd8, 0xff, 0xc0]);
+    const imageDimensions = readImageDimensions(bufferBytes);
+    expect(imageDimensions).toBeNull();
   });
 });

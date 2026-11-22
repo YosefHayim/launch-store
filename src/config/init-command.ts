@@ -258,10 +258,8 @@ export async function runInitProgram(rawCommandInput: unknown): Promise<boolean>
     const detectedAppRoot = detectAppRoot(loadedConfiguration.apps, workingDirectory);
     const initialConfig = configTemplate(detectedAppRoot, undefined, undefined, artifactDirectory);
     await writeFile(configPath, initialConfig);
-    const environmentExampleWritten = await writeFileIfAbsent(
-      join(workingDirectory, '.env.example'),
-      ENV_EXAMPLE_TEMPLATE,
-    );
+    const joinedPath = join(workingDirectory, '.env.example');
+    const environmentExampleWritten = await writeFileIfAbsent(joinedPath, ENV_EXAMPLE_TEMPLATE);
     const resolvedArtifactDirectory = resolveInitArtifactDirectory(
       artifactDirectory,
       workingDirectory,

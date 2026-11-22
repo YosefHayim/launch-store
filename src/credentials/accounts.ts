@@ -311,7 +311,8 @@ async function writeAccounts(accountsFile: AccountsFile): Promise<void> {
     const launchHomeDirectory = resolveLaunchHomeDirectory();
     await mkdir(launchHomeDirectory, { recursive: true });
     const accountsFilePath = resolveAccountsFilePath();
-    await writeFile(accountsFilePath, JSON.stringify(accountsFile, null, 2));
+    const serialized = JSON.stringify(accountsFile, null, 2);
+    await writeFile(accountsFilePath, serialized);
   } catch (error) {
     const isWriteFailure = error != null;
 

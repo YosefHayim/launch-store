@@ -10,12 +10,11 @@ export class ConnectPricing {
     territory: string,
     customerPrice: number,
   ): Promise<PricePointResource | null> {
+    const uRIComponent = encodeURIComponent(territory);
     const points = await this.client.requestAll<{
       customerPrice?: string;
       territory?: string;
-    }>(
-      `/apps/${appId}/appPricePoints?filter[territory]=${encodeURIComponent(territory)}&limit=8000`,
-    );
+    }>(`/apps/${appId}/appPricePoints?filter[territory]=${uRIComponent}&limit=8000`);
     return matchPricePoint(points, territory, customerPrice);
   }
 

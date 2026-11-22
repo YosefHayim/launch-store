@@ -102,17 +102,20 @@ const renderTaskSkillMarkdown = (
   skill: ConsumerSkill,
   version: string,
   leadingSections: readonly string[] = [],
-): string =>
-  joinSections([
+): string => {
+  const recipe = renderRecipe(skill.steps);
+  const inlineReference = renderInlineReference(skill);
+  return joinSections([
     ...leadingSections,
     `# ${skill.title}`,
     stamp(version),
     renderTriggers(skill.triggers),
-    renderRecipe(skill.steps),
+    recipe,
     skill.body,
-    renderInlineReference(skill),
+    inlineReference,
     renderCautions(skill.cautions),
   ]);
+};
 
 /** Shared always-on base rule (optional frontmatter + Launch base sections). */
 const renderBaseRuleMarkdown = (
@@ -123,7 +126,8 @@ const renderBaseRuleMarkdown = (
 ): string => {
   const sections: string[] = [];
   if (frontmatter != null) sections.push(frontmatter);
-  sections.push('# Launch', stamp(version), ...renderBaseSections(base, headingLevel));
+  const baseSections = renderBaseSections(base, headingLevel);
+  sections.push('# Launch', stamp(version), ...baseSections);
   return joinSections(sections);
 };
 
@@ -143,12 +147,13 @@ export const renderClaudeSkillFiles = (
     referencePointer =
       'See [`reference.md`](./reference.md) for the full command surface across both stores.';
   }
+  const recipe = renderRecipe(skill.steps);
   const skillMarkdown = joinSections([
     frontmatter,
     `# ${skill.title}`,
     stamp(version),
     renderTriggers(skill.triggers),
-    renderRecipe(skill.steps),
+    recipe,
     skill.body,
     referencePointer,
     renderCautions(skill.cautions),
@@ -157,11 +162,12 @@ export const renderClaudeSkillFiles = (
     { path: `.claude/skills/${skill.id}/SKILL.md`, body: skillMarkdown },
   ];
   if (skill.reference != null) {
+    const referenceTable = renderReferenceTable(skill.reference.commands);
     const referenceMarkdown = joinSections([
       `# ${skill.title} - command reference`,
       stamp(version),
       skill.reference.intro,
-      renderReferenceTable(skill.reference.commands),
+      referenceTable,
     ]);
     generatedFiles.push({
       path: `.claude/skills/${skill.id}/reference.md`,
@@ -214,10 +220,8 @@ const renderSkillSection = (skill: ConsumerSkill): string => {
     skill.body,
   ];
   if (skill.reference != null) {
-    parts.push(
-      `**Command reference.** ${skill.reference.intro}`,
-      renderReferenceTable(skill.reference.commands),
-    );
+    const referenceTable = renderReferenceTable(skill.reference.commands);
+    parts.push(`**Command reference.** ${skill.reference.intro}`, referenceTable);
   }
   if (skill.cautions != null && skill.cautions.length > 0) {
     parts.push(`**Cautions:**\n${skill.cautions.map((caution) => `- ${caution}`).join('\n')}`);
@@ -233,14 +237,16 @@ export const renderAgentsBlock = (
   version: string,
   base: BaseContext = BASE_CONTEXT,
   skills: readonly ConsumerSkill[] = CONSUMER_SKILLS,
-): string =>
-  wrapManagedBlock([
+): string => {
+  const baseSections = renderBaseSections(base, 3);
+  return wrapManagedBlock([
     '## Shipping this app with Launch',
     stamp(version),
-    ...renderBaseSections(base, 3),
+    ...baseSections,
     '### Common tasks',
     skills.map(renderSkillSection).join('\n\n'),
   ]);
+};
 
 /**
  * Managed Launch section for consumer `CLAUDE.md`: import shared `AGENTS.md` and point at Skills.
@@ -336,10 +342,11 @@ export const renderCopilotBlock = (
   const skillSummaries = skills
     .map((skill) => `- **${skill.title}**: ${skill.description}`)
     .join('\n');
+  const baseSections = renderBaseSections(base, 3);
   return wrapManagedBlock([
     '## Shipping this app with Launch',
     stamp(version),
-    ...renderBaseSections(base, 3),
+    ...baseSections,
     '### Available workflows',
     skillSummaries,
     ...skills.map(renderSkillSection),
@@ -351,16 +358,19 @@ export const renderKiroSteering = (
   version: string,
   base: BaseContext = BASE_CONTEXT,
   skills: readonly ConsumerSkill[] = CONSUMER_SKILLS,
-): GeneratedAgentFile => ({
-  path: '.kiro/steering/launch.md',
-  body: joinSections([
-    '# Launch - build, sign & ship to the App Store / Play',
-    stamp(version),
-    ...renderBaseSections(base, 2),
-    '## Common tasks',
-    skills.map(renderSkillSection).join('\n\n'),
-  ]),
-});
+): GeneratedAgentFile => {
+  const baseSections = renderBaseSections(base, 2);
+  return {
+    path: '.kiro/steering/launch.md',
+    body: joinSections([
+      '# Launch - build, sign & ship to the App Store / Play',
+      stamp(version),
+      ...baseSections,
+      '## Common tasks',
+      skills.map(renderSkillSection).join('\n\n'),
+    ]),
+  };
+};
 
 /** Cline base rule: plain markdown, always loaded. */
 export const renderClineBaseRule = (

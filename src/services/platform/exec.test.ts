@@ -87,14 +87,17 @@ describe('command execution', () => {
   });
 
   it('checks PATH through which', async () => {
-    await expect(checkCommandExists('node')).resolves.toBe(true);
+    const commandExists = checkCommandExists('node');
+    await expect(commandExists).resolves.toBe(true);
     await expect(checkCommandExists('launch-command-that-does-not-exist')).resolves.toBe(false);
   });
 });
 
 describe('redaction before log persistence', () => {
   it('never persists a private-key body or a JSON password', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'launch-log-redaction-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchLogRedactionPath = join(systemTemporaryDirectory, 'launch-log-redaction-');
+    const directory = mkdtempSync(launchLogRedactionPath);
 
     try {
       const logFilePath = join(directory, 'build.log');
@@ -138,7 +141,8 @@ describe('child environment exclusions', () => {
           envExclude: ['LAUNCH_AUDIT_*'],
         },
       );
-      expect(JSON.parse(standardOutput)).toEqual([null, 'safe']);
+      const parsed = JSON.parse(standardOutput);
+      expect(parsed).toEqual([null, 'safe']);
     } finally {
       if (previous == null) {
         delete process.env['LAUNCH_AUDIT_TOKEN'];

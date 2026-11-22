@@ -22,7 +22,8 @@ export function isCredentialDiscoveryFile(
   filePath: string,
   searchDirectories: readonly string[],
 ): boolean {
-  const containingDirectory = resolve(dirname(filePath));
+  const parentDirectory = dirname(filePath);
+  const containingDirectory = resolve(parentDirectory);
 
   for (const searchDirectory of searchDirectories) {
     const isSameDirectory = resolve(searchDirectory) == containingDirectory;

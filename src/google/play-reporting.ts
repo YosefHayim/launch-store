@@ -148,7 +148,8 @@ const listReadableApps = (
     const packageName = googleApp.packageName;
     const hasPackageName = typeof packageName == 'string';
     if (!hasPackageName) continue;
-    readableApps.push({ packageName, displayName: readDisplayName(googleApp, packageName) });
+    const displayName = readDisplayName(googleApp, packageName);
+    readableApps.push({ packageName, displayName: displayName });
   }
   return readableApps;
 };
@@ -178,9 +179,10 @@ export class PlayReportingClient {
       this.reporting = generatedReporting;
       return;
     }
-    const googleAuthentication = new playReportingAuth.JWT(
-      serviceAccountJwtOptions(account, ['https://www.googleapis.com/auth/playdeveloperreporting']),
-    );
+    const serviceAccountJwt = serviceAccountJwtOptions(account, [
+      'https://www.googleapis.com/auth/playdeveloperreporting',
+    ]);
+    const googleAuthentication = new playReportingAuth.JWT(serviceAccountJwt);
     this.reporting = playdeveloperreporting({
       version: 'v1beta1',
       auth: googleAuthentication,
@@ -204,9 +206,10 @@ export class PlayReportingClient {
         failureText = cause.message;
       }
 
+      const playErrors = describePlayErrors(failureText);
       throw makePlayReportingApiError({
         operation,
-        message: `Play Developer Reporting ${operation} failed: ${describePlayErrors(failureText)}`,
+        message: `Play Developer Reporting ${operation} failed: ${playErrors}`,
         cause,
       });
     }
@@ -224,7 +227,8 @@ export class PlayReportingClient {
       const hasGoogleApps = Array.isArray(googleApps);
 
       if (hasGoogleApps) {
-        apps.push(...listReadableApps(googleApps));
+        const readableApps = listReadableApps(googleApps);
+        apps.push(...readableApps);
       }
 
       pageToken = nonEmptyPageToken(appsPage.nextPageToken);

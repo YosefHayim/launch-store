@@ -115,7 +115,8 @@ describe('describeExportComplianceConfig', () => {
 });
 describe('summarizeExportComplianceResult', () => {
   it('renders a distinct line per outcome', () => {
-    expect(summarizeExportComplianceResult({ status: 'undeclared' })).toContain('left as-is');
+    const summarizeExportCompliance = summarizeExportComplianceResult({ status: 'undeclared' });
+    expect(summarizeExportCompliance).toContain('left as-is');
     expect(
       summarizeExportComplianceResult({ status: 'build-not-found', buildNumber: 7 }),
     ).toContain('7');

@@ -66,7 +66,8 @@ function thrownDateMessage(from: string, to: string): string {
 describe('decompressReport + parseTsv', () => {
   it('decompresses a gzipped TSV and parses it into header-keyed rows', () => {
     const tsv = 'Provider\tUnits\tProceeds\nAPPLE\t10\t6.99\nAPPLE\t3\t2.10\n';
-    const text = decompressReport(gzipSync(Buffer.from(tsv, 'utf8')));
+    const bufferBytes = Buffer.from(tsv, 'utf8');
+    const text = decompressReport(gzipSync(bufferBytes));
     const parsed = parseTsv(text);
     expect(parsed.headers).toEqual(['Provider', 'Units', 'Proceeds']);
     expect(parsed.rows).toEqual([
@@ -79,7 +80,8 @@ describe('decompressReport + parseTsv', () => {
     expect(parsed.rows).toEqual([{ A: '1', B: '2', C: '' }]);
   });
   it('returns empty for an empty report', () => {
-    expect(parseTsv('')).toEqual({ headers: [], rows: [] });
+    const tsv = parseTsv('');
+    expect(tsv).toEqual({ headers: [], rows: [] });
   });
 });
 describe('eachDate', () => {
@@ -139,15 +141,15 @@ const makeApi = (fixtures: ReportsApiFixtures): AscReportsApi => {
     createAnalyticsReportRequest: vi.fn((_appId: string, accessType: string) =>
       Promise.resolve({ id: 'new-req', accessType }),
     ),
-    listAnalyticsReports: vi.fn((requestId: string) =>
-      Promise.resolve(fixtureEntries(fixtures.reports, requestId)),
-    ),
-    listAnalyticsReportInstances: vi.fn((reportId: string) =>
-      Promise.resolve(fixtureEntries(fixtures.instances, reportId)),
-    ),
-    listAnalyticsReportSegments: vi.fn((instanceId: string) =>
-      Promise.resolve(fixtureEntries(fixtures.segments, instanceId)),
-    ),
+    listAnalyticsReports: vi.fn((requestId: string) => {
+      return Promise.resolve(fixtureEntries(fixtures.reports, requestId));
+    }),
+    listAnalyticsReportInstances: vi.fn((reportId: string) => {
+      return Promise.resolve(fixtureEntries(fixtures.instances, reportId));
+    }),
+    listAnalyticsReportSegments: vi.fn((instanceId: string) => {
+      return Promise.resolve(fixtureEntries(fixtures.segments, instanceId));
+    }),
   };
 };
 describe('ensureAnalyticsRequest', () => {
@@ -170,13 +172,12 @@ describe('ensureAnalyticsRequest', () => {
 describe('collectAnalyticsSegments', () => {
   it('throws an actionable error when the app record is missing', async () => {
     const api = makeApi({ appId: {} });
-    await expect(
-      collectAnalyticsSegments(api, {
-        bundleId: 'com.x.missing',
-        accessType: 'ONGOING',
-        granularity: 'DAILY',
-      }),
-    ).rejects.toThrow(/No App Store Connect app record/);
+    const analyticsSegments = collectAnalyticsSegments(api, {
+      bundleId: 'com.x.missing',
+      accessType: 'ONGOING',
+      granularity: 'DAILY',
+    });
+    await expect(analyticsSegments).rejects.toThrow(/No App Store Connect app record/);
   });
   it('signals a freshly-created request with no data yet', async () => {
     const api = makeApi({ appId: { 'com.x': 'app1' }, requests: [] });

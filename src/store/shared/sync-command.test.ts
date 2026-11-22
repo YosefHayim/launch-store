@@ -3,15 +3,14 @@ import { SyncCommandInputSchema } from './sync-command.ts';
 
 describe('SyncCommandInputSchema', () => {
   it('decodes the complete Commander boundary', () => {
-    expect(
-      SyncCommandInputSchema({
-        app: 'ios,android',
-        dryRun: true,
-        allowDestructive: false,
-        yes: true,
-        snapshot: false,
-      }),
-    ).toEqual({
+    const syncCommandSchema = SyncCommandInputSchema({
+      app: 'ios,android',
+      dryRun: true,
+      allowDestructive: false,
+      yes: true,
+      snapshot: false,
+    });
+    expect(syncCommandSchema).toEqual({
       app: 'ios,android',
       dryRun: true,
       allowDestructive: false,

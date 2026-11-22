@@ -16,31 +16,41 @@ afterEach(() => {
 
 describe('extractKeyId', () => {
   it('reads and normalizes the Apple key filename', () => {
-    expect(extractKeyId('AuthKey_keyabc1234.p8')).toBe('KEYABC1234');
+    const keyId = extractKeyId('AuthKey_keyabc1234.p8');
+    expect(keyId).toBe('KEYABC1234');
   });
 
   it('rejects unrelated and undersized filenames', () => {
-    expect(extractKeyId('other.p8')).toBeNull();
+    const keyId = extractKeyId('other.p8');
+    expect(keyId).toBeNull();
     expect(extractKeyId('AuthKey_short.p8')).toBeNull();
   });
 });
 
 describe('findAuthKeyFiles', () => {
   it('returns only matching keys in stable reverse-name order', async () => {
-    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-key-files-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchKeyFilesPath = join(systemTemporaryDirectory, 'launch-key-files-');
+    const temporaryDirectory = mkdtempSync(launchKeyFilesPath);
     temporaryDirectories.push(temporaryDirectory);
-    writeFileSync(join(temporaryDirectory, 'AuthKey_AAAAAAAA.p8'), 'first');
-    writeFileSync(join(temporaryDirectory, 'AuthKey_ZZZZZZZZ.p8'), 'second');
-    writeFileSync(join(temporaryDirectory, 'notes.txt'), 'ignore');
+    const authkeyAaaaaaaaPath = join(temporaryDirectory, 'AuthKey_AAAAAAAA.p8');
+    writeFileSync(authkeyAaaaaaaaPath, 'first');
+    const authkeyZzzzzzzzPath = join(temporaryDirectory, 'AuthKey_ZZZZZZZZ.p8');
+    writeFileSync(authkeyZzzzzzzzPath, 'second');
+    const notesPath = join(temporaryDirectory, 'notes.txt');
+    writeFileSync(notesPath, 'ignore');
 
-    await expect(findAuthKeyFiles(temporaryDirectory)).resolves.toEqual([
-      join(temporaryDirectory, 'AuthKey_ZZZZZZZZ.p8'),
+    const authKeyFiles = findAuthKeyFiles(temporaryDirectory);
+    const joinedPath = join(temporaryDirectory, 'AuthKey_ZZZZZZZZ.p8');
+    await expect(authKeyFiles).resolves.toEqual([
+      joinedPath,
       join(temporaryDirectory, 'AuthKey_AAAAAAAA.p8'),
     ]);
   });
 
   it('returns an empty list for a missing directory', async () => {
-    await expect(findAuthKeyFiles('/missing/launch-key-files')).resolves.toEqual([]);
+    const authKeyFiles = findAuthKeyFiles('/missing/launch-key-files');
+    await expect(authKeyFiles).resolves.toEqual([]);
   });
 });
 

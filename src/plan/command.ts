@@ -43,7 +43,8 @@ function makePlanCommandFailure(fields: {
 }
 
 function commandFailure(operation: string, cause: unknown): PlanCommandFailure {
-  return makePlanCommandFailure({ operation, message: errorMessage(cause), cause });
+  const failureMessage = errorMessage(cause);
+  return makePlanCommandFailure({ operation, message: failureMessage, cause });
 }
 
 export function isPlanCommandFailure(cause: unknown): cause is PlanCommandFailure {
@@ -370,7 +371,8 @@ export async function planCommandProgram(rawCommandInput: unknown): Promise<void
       throw commandFailure('select plan apps', cause);
     }
 
-    const selectedPlanners = selectPlanPlanners(listSurfacePlanners(), commandInput.surface);
+    const surfacePlanners = listSurfacePlanners();
+    const selectedPlanners = selectPlanPlanners(surfacePlanners, commandInput.surface);
     let check = commandInput.check;
     const isDrift = commandInput.operation == 'drift';
 
@@ -393,7 +395,8 @@ export async function planCommandProgram(rawCommandInput: unknown): Promise<void
     const isJson = commandInput.json == true;
 
     if (isJson) {
-      logger.line(JSON.stringify(planOutcome, null, 2));
+      const serialized = JSON.stringify(planOutcome, null, 2);
+      logger.line(serialized);
     } else {
       renderPlanOutcome(logger, planOutcome);
     }

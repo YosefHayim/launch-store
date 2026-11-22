@@ -92,9 +92,10 @@ async function stampManualSigning(nativeDirectory: string, signing: SigningAsset
       },
     });
   } catch (cause) {
+    const asString = String(cause);
     throw makeProviderInputFailure({
       provider: 'xcode',
-      message: `Could not configure manual signing in ${nativeDirectory}: ${String(cause)}`,
+      message: `Could not configure manual signing in ${nativeDirectory}: ${asString}`,
     });
   }
 }
@@ -217,7 +218,9 @@ async function buildAppleArtifact(
     hostResources.cores,
     hostResources.memoryBytes,
   );
-  const outputDirectory = await mkdtemp(join(tmpdir(), 'launch-build-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchBuildPath = join(systemTemporaryDirectory, 'launch-build-');
+  const outputDirectory = await mkdtemp(launchBuildPath);
   const plistPath = join(outputDirectory, 'ExportOptions.plist');
   let exportMethod: 'app-store' | 'ad-hoc' = 'app-store';
   const isInternalDistribution = buildContext.distribution == 'internal';
@@ -226,7 +229,8 @@ async function buildAppleArtifact(
     exportMethod = 'ad-hoc';
   }
 
-  await writeFile(plistPath, exportOptionsPlist(signing, exportMethod));
+  const exportPlist = exportOptionsPlist(signing, exportMethod);
+  await writeFile(plistPath, exportPlist);
   const archiveExtension = appleArtifactExtension(buildContext.platform);
   const buildDestination = archiveDestination(buildContext.platform);
   const archivePath = join(outputDirectory, `${buildContext.app.name}.xcarchive`);

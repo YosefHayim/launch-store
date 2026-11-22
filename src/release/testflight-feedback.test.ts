@@ -58,7 +58,8 @@ function makeAppleStore(options: AppleStoreOptions): AscFeedbackApi {
     }),
     downloadBetaFeedbackScreenshot: vi.fn(function readScreenshotBytes() {
       if (options.screenshotBytes == null) {
-        return Promise.resolve(Buffer.from('png'));
+        const bufferBytes = Buffer.from('png');
+        return Promise.resolve(bufferBytes);
       }
 
       return Promise.resolve(options.screenshotBytes);
@@ -70,7 +71,8 @@ describe('listBetaFeedback', () => {
   it('fails clearly when the app record is missing', async () => {
     const appleStore = makeAppleStore({ appIds: {} });
 
-    await expect(listBetaFeedback(appleStore, 'com.x.missing')).rejects.toMatchObject({
+    const betaFeedback = listBetaFeedback(appleStore, 'com.x.missing');
+    await expect(betaFeedback).rejects.toMatchObject({
       _tag: 'TestflightFeedbackFailure',
       message: expect.stringContaining('No App Store Connect app record'),
     });
@@ -160,7 +162,8 @@ describe('listBetaFeedback', () => {
   it('rejects missing and non-numeric builds', async () => {
     const appleStore = makeAppleStore({ appIds: { 'com.x': 'app1' }, builds: {} });
 
-    await expect(listBetaFeedback(appleStore, 'com.x', { build: '99' })).rejects.toMatchObject({
+    const betaFeedback = listBetaFeedback(appleStore, 'com.x', { build: '99' });
+    await expect(betaFeedback).rejects.toMatchObject({
       message: expect.stringContaining('No build 99'),
     });
     await expect(listBetaFeedback(appleStore, 'com.x', { build: '1.2.0' })).rejects.toMatchObject({
@@ -191,7 +194,8 @@ describe('listBetaFeedback', () => {
 
 describe('downloadFeedbackAttachments', () => {
   it('writes one file per screenshot and skips crash feedback', async () => {
-    const appleStore = makeAppleStore({ screenshotBytes: Buffer.from('imgbytes') });
+    const bufferBytes = Buffer.from('imgbytes');
+    const appleStore = makeAppleStore({ screenshotBytes: bufferBytes });
     const feedbackEntries: BetaFeedback[] = [
       { id: 'c1', kind: 'crash' },
       {
@@ -200,7 +204,9 @@ describe('downloadFeedbackAttachments', () => {
         screenshots: [{ url: 'https://a/1.png' }, { url: 'https://a/2.png' }],
       },
     ];
-    const outputDirectory = mkdtempSync(join(tmpdir(), 'launch-feedback-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchFeedbackPath = join(systemTemporaryDirectory, 'launch-feedback-');
+    const outputDirectory = mkdtempSync(launchFeedbackPath);
 
     const downloadedAttachments = await downloadFeedbackAttachments(
       appleStore,
@@ -208,23 +214,29 @@ describe('downloadFeedbackAttachments', () => {
       outputDirectory,
     );
 
+    const s11Path = join(outputDirectory, 's1-1.png');
+    const s12Path = join(outputDirectory, 's1-2.png');
     expect(
       downloadedAttachments.map(function attachmentPath(attachment) {
         return attachment.path;
       }),
-    ).toEqual([join(outputDirectory, 's1-1.png'), join(outputDirectory, 's1-2.png')]);
+    ).toEqual([s11Path, s12Path]);
     expect(readdirSync(outputDirectory).sort()).toEqual(['s1-1.png', 's1-2.png']);
-    expect(readFileSync(join(outputDirectory, 's1-1.png')).toString()).toBe('imgbytes');
+    const joinedPath = join(outputDirectory, 's1-1.png');
+    expect(readFileSync(joinedPath).toString()).toBe('imgbytes');
     expect(appleStore.downloadBetaFeedbackScreenshot).toHaveBeenCalledTimes(2);
   });
 
   it('encodes unsafe feedback ids into distinct child paths', async () => {
-    const appleStore = makeAppleStore({ screenshotBytes: Buffer.from('x') });
+    const bufferBytes = Buffer.from('x');
+    const appleStore = makeAppleStore({ screenshotBytes: bufferBytes });
     const feedbackEntries: BetaFeedback[] = [
       { id: '../a', kind: 'screenshot', screenshots: [{ url: 'https://a/1.png' }] },
       { id: 'a/..', kind: 'screenshot', screenshots: [{ url: 'https://a/2.png' }] },
     ];
-    const outputDirectory = mkdtempSync(join(tmpdir(), 'launch-feedback-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchFeedbackPath = join(systemTemporaryDirectory, 'launch-feedback-');
+    const outputDirectory = mkdtempSync(launchFeedbackPath);
 
     const downloadedAttachments = await downloadFeedbackAttachments(
       appleStore,

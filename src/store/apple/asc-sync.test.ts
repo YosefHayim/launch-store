@@ -56,9 +56,10 @@ const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
     inAppPurchaseHasPrice: vi.fn(() => Promise.resolve(false)),
     findInAppPurchasePricePoint: vi
       .fn()
-      .mockImplementation((_iapId: string, territory: string, price: number) =>
-        Promise.resolve({ id: 'ipp', customerPrice: String(price), territory }),
-      ),
+      .mockImplementation((_iapId: string, territory: string, price: number) => {
+        const asString = String(price);
+        return Promise.resolve({ id: 'ipp', customerPrice: asString, territory });
+      }),
     createInAppPurchasePriceSchedule: vi.fn(() => Promise.resolve()),
     listSubscriptionGroups: vi.fn(() => Promise.resolve([])),
     createSubscriptionGroup: vi
@@ -104,9 +105,10 @@ const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
     subscriptionHasPrice: vi.fn(() => Promise.resolve(false)),
     findSubscriptionPricePoint: vi
       .fn()
-      .mockImplementation((_subscriptionId: string, territory: string, price: number) =>
-        Promise.resolve({ id: 'spp', customerPrice: String(price), territory }),
-      ),
+      .mockImplementation((_subscriptionId: string, territory: string, price: number) => {
+        const asString = String(price);
+        return Promise.resolve({ id: 'spp', customerPrice: asString, territory });
+      }),
     createSubscriptionPrice: vi.fn(() => Promise.resolve()),
     getEditableAppInfoId: vi.fn(() => Promise.resolve('appinfo1')),
     listAppInfoLocalizations: vi.fn(() => Promise.resolve([])),
@@ -279,9 +281,8 @@ describe('reconcileApp', () => {
 
   it('throws an actionable error when the app has no App Store Connect record', async () => {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
-    await expect(runReconcile(api, input())).rejects.toThrow(
-      /No App Store Connect app record.*Apple has no API/s,
-    );
+    const reconcile = runReconcile(api, input());
+    await expect(reconcile).rejects.toThrow(/No App Store Connect app record.*Apple has no API/s);
   });
 
   it("skips capabilities (without failing) when the bundle id isn't registered yet", async () => {
@@ -289,9 +290,8 @@ describe('reconcileApp', () => {
     const report = await runReconcile(api, input({ products: {} }));
     expect(report.actions).toHaveLength(1);
     expect(report.actions[0]).toMatchObject({ status: 'skipped' });
-    expect(expectArrayElement(report.actions, 0, 'report.actions').description).toContain(
-      'not registered yet',
-    );
+    const arrayElement = expectArrayElement(report.actions, 0, 'report.actions');
+    expect(arrayElement.description).toContain('not registered yet');
     expect(api.enableCapability).not.toHaveBeenCalled();
   });
 
@@ -569,12 +569,13 @@ describe('reconcileAppListing', () => {
 
   it('fails with the same missing-app-record precondition as full reconcile', async () => {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
-    await expect(
-      runListingReconcile(api, {
-        bundleId: 'com.acme.app',
-        listing: { info: { 'en-US': { title: 'Acme' } } },
-        dryRun: true,
-      }),
-    ).rejects.toThrow(/No App Store Connect app record.*Apple has no API/s);
+    const listingReconcile = runListingReconcile(api, {
+      bundleId: 'com.acme.app',
+      listing: { info: { 'en-US': { title: 'Acme' } } },
+      dryRun: true,
+    });
+    await expect(listingReconcile).rejects.toThrow(
+      /No App Store Connect app record.*Apple has no API/s,
+    );
   });
 });

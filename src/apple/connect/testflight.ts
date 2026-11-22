@@ -65,8 +65,9 @@ export class ConnectTestflight {
 
   async findBetaTesterByEmail(email: string): Promise<BetaTesterResource | null> {
     const wanted = email.toLowerCase();
+    const uRIComponent = encodeURIComponent(email);
     const appleResources = await this.betaTestersFrom(
-      `/betaTesters?filter[email]=${encodeURIComponent(email)}&limit=1&fields[betaTesters]=email,firstName,lastName,state`,
+      `/betaTesters?filter[email]=${uRIComponent}&limit=1&fields[betaTesters]=email,firstName,lastName,state`,
     );
     const matchingTester = appleResources.find((tester) => tester.email.toLowerCase() == wanted);
     if (matchingTester != null) return matchingTester;

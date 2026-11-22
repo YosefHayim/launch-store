@@ -169,7 +169,8 @@ function makeLocalStorageProvider(directoryOverride?: string): StorageProvider {
   }
 
   async function locateArtifact(artifactId: string): Promise<string> {
-    const artifactPath = join(baseDirectory, basename(artifactId));
+    const fileName = basename(artifactId);
+    const artifactPath = join(baseDirectory, fileName);
     const artifactExists = await pathExists(artifactPath);
 
     if (artifactExists) {
@@ -188,7 +189,8 @@ function makeLocalStorageProvider(directoryOverride?: string): StorageProvider {
     _contentType: string,
   ) {
     const destination = await checkObjectPath(objectKey);
-    await mkdir(dirname(destination), { recursive: true });
+    const parentDirectory = dirname(destination);
+    await mkdir(parentDirectory, { recursive: true });
     await writeFile(destination, objectContents);
 
     return { id: objectKey, location: pathToFileURL(destination).href };
@@ -250,7 +252,8 @@ export function makeLocalStorageProviderResolver(): StorageProviderResolver {
   return {
     name: 'local',
     resolveStorageProvider(providerOptions: StorageProviderOptions) {
-      return Promise.resolve(makeLocalStorageProvider(providerOptions.artifactDirectory));
+      const localStorageProvider = makeLocalStorageProvider(providerOptions.artifactDirectory);
+      return Promise.resolve(localStorageProvider);
     },
   };
 }

@@ -12,7 +12,8 @@ afterEach(function resetEnvironment() {
 describe('readLaunchEnvironment', () => {
   it('provides an empty environment', () => {
     useLaunchEnvironment({});
-    expect(readLaunchEnvironment().values).toEqual({});
+    const launchEnvironment = readLaunchEnvironment();
+    expect(launchEnvironment.values).toEqual({});
   });
 
   it('reads a secret as a string and returns null when it is missing', () => {

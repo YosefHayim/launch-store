@@ -6,7 +6,8 @@ export const createServiceAccountAccessToken = async (
   account: ServiceAccount,
   scopes: readonly string[],
 ): Promise<string> => {
-  const jwtClient = new googleAuthentication.JWT(serviceAccountJwtOptions(account, scopes));
+  const serviceAccountJwt = serviceAccountJwtOptions(account, scopes);
+  const jwtClient = new googleAuthentication.JWT(serviceAccountJwt);
   const tokenReply = await jwtClient.getAccessToken();
   const accessToken = tokenReply.token;
   if (typeof accessToken != 'string') {

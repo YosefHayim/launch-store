@@ -18,16 +18,15 @@ export const registerIapCommand = (program: Command): void => {
     )
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((commandOptions: IapDoctorOptions) =>
-      runCliProgram(
-        readinessCommandProgram({
-          category: 'iap',
-          labels: {
-            summary: 'IAP readiness',
-            empty: 'No IAP checks ran - no apps declare in-app purchases or subscriptions.',
-          },
-          ...commandOptions,
-        }),
-      ),
-    );
+    .action((commandOptions: IapDoctorOptions) => {
+      const readinessProgram = readinessCommandProgram({
+        category: 'iap',
+        labels: {
+          summary: 'IAP readiness',
+          empty: 'No IAP checks ran - no apps declare in-app purchases or subscriptions.',
+        },
+        ...commandOptions,
+      });
+      return runCliProgram(readinessProgram);
+    });
 };

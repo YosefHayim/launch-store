@@ -51,25 +51,30 @@ export function resolveLaunchHomeDirectory(): string {
 }
 
 export function resolveAccountsFilePath(): string {
-  return join(resolveLaunchHomeDirectory(), 'accounts.json');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'accounts.json');
 }
 
 export function resolveCredentialsDirectory(): string {
-  return join(resolveLaunchHomeDirectory(), 'credentials');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'credentials');
 }
 
 export function resolveAndroidCredentialsDirectory(packageName: string): string {
   const packageDigest = createHash('sha256').update(packageName).digest('hex');
 
-  return join(resolveCredentialsDirectory(), 'android', packageDigest);
+  const credentialsDirectory = resolveCredentialsDirectory();
+  return join(credentialsDirectory, 'android', packageDigest);
 }
 
 export function resolveAndroidCredentialsIndexPath(packageName: string): string {
-  return join(resolveAndroidCredentialsDirectory(packageName), 'android.json');
+  const androidCredentialsDirectory = resolveAndroidCredentialsDirectory(packageName);
+  return join(androidCredentialsDirectory, 'android.json');
 }
 
 export function resolveLegacyAndroidCredentialsIndexPath(): string {
-  return join(resolveCredentialsDirectory(), 'android.json');
+  const credentialsDirectory = resolveCredentialsDirectory();
+  return join(credentialsDirectory, 'android.json');
 }
 
 export function resolveProvisioningProfilesDirectory(): string {
@@ -77,63 +82,78 @@ export function resolveProvisioningProfilesDirectory(): string {
 }
 
 export function resolvePushKeysFilePath(): string {
-  return join(resolveLaunchHomeDirectory(), 'push-keys.json');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'push-keys.json');
 }
 
 export function resolveStateFilePath(): string {
-  return join(resolveLaunchHomeDirectory(), 'state.json');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'state.json');
 }
 
 export function resolveCloudStateFilePath(): string {
-  return join(resolveLaunchHomeDirectory(), 'cloud.json');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'cloud.json');
 }
 
 export function resolveLastRunFilePath(): string {
-  return join(resolveLaunchHomeDirectory(), 'last-run.json');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'last-run.json');
 }
 
 export function resolveLogsDirectory(): string {
-  return join(resolveLaunchHomeDirectory(), 'logs');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'logs');
 }
 
 export function resolveSecretsFilePath(): string {
-  return join(resolveLaunchHomeDirectory(), 'secrets.json');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'secrets.json');
 }
 
 export function resolveArtifactsDirectory(): string {
-  return join(resolveLaunchHomeDirectory(), 'artifacts');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'artifacts');
 }
 
 export function resolveArtifactIndexFilePath(): string {
-  return join(resolveArtifactsDirectory(), 'index.json');
+  const artifactsDirectory = resolveArtifactsDirectory();
+  return join(artifactsDirectory, 'index.json');
 }
 
 export function resolveReleaseTrainsDirectory(): string {
-  return join(resolveLaunchHomeDirectory(), 'release-trains');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'release-trains');
 }
 
 export function resolveSnapshotsDirectory(): string {
-  return join(resolveLaunchHomeDirectory(), 'snapshots');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'snapshots');
 }
 
 export function resolveUpdateStateFilePath(): string {
-  return join(resolveLaunchHomeDirectory(), 'update.json');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'update.json');
 }
 
 export function resolveAccountCredentialsDirectory(keyId: string): string {
-  return join(resolveCredentialsDirectory(), sanitizePathIdentifier(keyId, 'default'));
+  const credentialsDirectory = resolveCredentialsDirectory();
+  const pathIdentifier = sanitizePathIdentifier(keyId, 'default');
+  return join(credentialsDirectory, pathIdentifier);
 }
 
 export function resolveReleaseTrainFilePath(trainId: string): string {
   const safeTrainId = sanitizePathIdentifier(trainId, 'train');
 
-  return join(resolveReleaseTrainsDirectory(), `${safeTrainId}.json`);
+  const releaseTrainsDirectory = resolveReleaseTrainsDirectory();
+  return join(releaseTrainsDirectory, `${safeTrainId}.json`);
 }
 
 export function resolveSnapshotFilePath(snapshotName: string): string {
   const safeSnapshotName = sanitizePathIdentifier(snapshotName, 'snapshot');
 
-  return join(resolveSnapshotsDirectory(), `${safeSnapshotName}.json`);
+  const snapshotsDirectory = resolveSnapshotsDirectory();
+  return join(snapshotsDirectory, `${safeSnapshotName}.json`);
 }
 
 export async function ensureDirectoryExists(directoryPath: string): Promise<string> {
@@ -152,7 +172,8 @@ function makeInvalidAppKeyFailure(message: string): InvalidAppKeyFailure {
 }
 
 export function locateStatsDirectory(): string {
-  return join(resolveLaunchHomeDirectory(), 'stats');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'stats');
 }
 
 export function locateAppStatsDirectory(appKey: string): string {
@@ -162,9 +183,11 @@ export function locateAppStatsDirectory(appKey: string): string {
     throw makeInvalidAppKeyFailure(`"${appKey}" is not a valid app key.`);
   }
 
-  return join(locateStatsDirectory(), appKey);
+  const statsDirectory = locateStatsDirectory();
+  return join(statsDirectory, appKey);
 }
 
 export function locatePortfolioFilePath(): string {
-  return join(resolveLaunchHomeDirectory(), 'portfolio.json');
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  return join(launchHomeDirectory, 'portfolio.json');
 }

@@ -64,11 +64,8 @@ export const buildListingPrompt = (listingBrief: ListingBrief): string => {
   if (listingBrief.keywords != null && listingBrief.keywords.length > 0)
     promptLines.push('', `Themes to weave in: ${serializeKeywords(listingBrief.keywords)}`);
   if (listingBrief.current != null && Object.keys(listingBrief.current).length > 0) {
-    promptLines.push(
-      '',
-      'Improve on the current listing (do not copy it verbatim):',
-      JSON.stringify(listingBrief.current, null, 2),
-    );
+    const serialized = JSON.stringify(listingBrief.current, null, 2);
+    promptLines.push('', 'Improve on the current listing (do not copy it verbatim):', serialized);
   }
   return promptLines.join('\n');
 };
@@ -235,7 +232,8 @@ export function parseDraftListing(completionText: string): DraftListing {
   let parsed: unknown;
 
   try {
-    parsed = JSON.parse(stripJsonFence(completionText));
+    const stripFence = stripJsonFence(completionText);
+    parsed = JSON.parse(stripFence);
   } catch (cause) {
     throw invalidListingCopy(cause);
   }
@@ -380,6 +378,7 @@ async function requestAnthropicListing(
   let anthropicReply: Response;
 
   try {
+    const serialized = JSON.stringify(requestDocument);
     anthropicReply = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -387,7 +386,7 @@ async function requestAnthropicListing(
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify(requestDocument),
+      body: serialized,
     });
   } catch (cause) {
     throw generationFailure('generate Anthropic listing', cause);

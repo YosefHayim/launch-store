@@ -21,7 +21,9 @@ import {
 } from './targets.ts';
 const tmpDirs: string[] = [];
 const workDir = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'screenshot-assets-test-'));
+  const systemTemporaryDirectory = tmpdir();
+  const screenshotAssetsTestPath = join(systemTemporaryDirectory, 'screenshot-assets-test-');
+  const dir = mkdtempSync(screenshotAssetsTestPath);
   tmpDirs.push(dir);
   return dir;
 };
@@ -31,11 +33,15 @@ afterEach(() => {
 /** Write a file under `appDir`, creating parent folders, and return its absolute path. */
 const writeFile = (appDir: string, relPath: string, contents: string): string => {
   const path = join(appDir, relPath);
-  mkdirSync(join(path, '..'), { recursive: true });
+  const joinedPath = join(path, '..');
+  mkdirSync(joinedPath, { recursive: true });
   writeFileSync(path, contents);
   return path;
 };
-const md5 = (text: string): string => createHash('md5').update(Buffer.from(text)).digest('hex');
+const md5 = (text: string): string => {
+  const bufferBytes = Buffer.from(text);
+  return createHash('md5').update(bufferBytes).digest('hex');
+};
 describe('hashFile', () => {
   it('returns the MD5 hex and byte length of a file', async () => {
     const appDir = workDir();
@@ -55,8 +61,10 @@ describe('displayTypeLabel', () => {
 describe('Apple asset targets', () => {
   it('resolves the same target through its key, screenshot type, and preview type', () => {
     const target = findAppleAssetTarget('iphone67');
-    expect(target).toBe(findAppleScreenshotTarget('APP_IPHONE_67'));
-    expect(target).toBe(findApplePreviewTarget('IPHONE_67'));
+    const appleScreenshotTarget = findAppleScreenshotTarget('APP_IPHONE_67');
+    expect(target).toBe(appleScreenshotTarget);
+    const applePreviewTarget = findApplePreviewTarget('IPHONE_67');
+    expect(target).toBe(applePreviewTarget);
   });
   it('declares each screenshot and preview enum once', () => {
     expect(new Set(APPLE_ASSET_TARGETS.map((target) => target.screenshotDisplayType)).size).toBe(
@@ -71,7 +79,8 @@ describe('Apple asset targets', () => {
 });
 describe('discoverScreenshots', () => {
   it('returns [] when the convention folder is absent', async () => {
-    expect(await discoverScreenshots(workDir())).toEqual([]);
+    const screenshots = await discoverScreenshots(workDir());
+    expect(screenshots).toEqual([]);
   });
   it('walks locale/displayType folders, fingerprints images, and sorts deterministically', async () => {
     const appDir = workDir();
@@ -116,7 +125,8 @@ describe('previewTypeLabel', () => {
 });
 describe('discoverPreviews', () => {
   it('returns [] when the convention folder is absent', async () => {
-    expect(await discoverPreviews(workDir())).toEqual([]);
+    const previews = await discoverPreviews(workDir());
+    expect(previews).toEqual([]);
   });
   it('walks locale/previewType folders, fingerprints videos, and sorts deterministically', async () => {
     const appDir = workDir();
@@ -150,8 +160,9 @@ describe('fingerprintAsset', () => {
     const appDir = workDir();
     writeFile(appDir, 'store/review.png', 'review');
     const asset = await fingerprintAsset(appDir, 'store/review.png');
+    const reviewPath = join(appDir, 'store/review.png');
     expect(asset).toEqual({
-      path: join(appDir, 'store/review.png'),
+      path: reviewPath,
       fileName: 'review.png',
       checksum: md5('review'),
       size: 6,
@@ -162,7 +173,8 @@ describe('fingerprintAsset', () => {
   });
   it('returns null when the path is a directory, not a file', async () => {
     const appDir = workDir();
-    mkdirSync(join(appDir, 'store'), { recursive: true });
+    const storePath = join(appDir, 'store');
+    mkdirSync(storePath, { recursive: true });
     expect(await fingerprintAsset(appDir, 'store')).toBeNull();
   });
 });

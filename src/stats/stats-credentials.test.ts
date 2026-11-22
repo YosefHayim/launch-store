@@ -89,9 +89,10 @@ describe('StatsCredentialsLive', () => {
 
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
       homeDirectory,
-      workingDirectory: join(homeDirectory, 'work'),
+      workingDirectory: workPath,
     });
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
     useStatsCredentials(null);
@@ -158,9 +159,8 @@ describe('StatsCredentialsLive', () => {
   });
 
   test('reads the Play account, builds the reporting client and gets a token when one is saved', async () => {
-    installLiveFixtures(
-      new Map([['play-service-account:com.example.app', createServiceAccountJson()]]),
-    );
+    const createServiceAccount = createServiceAccountJson();
+    installLiveFixtures(new Map([['play-service-account:com.example.app', createServiceAccount]]));
 
     expect(await StatsCredentialsLive.playServiceAccount('com.example.app')).toEqual(
       SERVICE_ACCOUNT,
@@ -174,9 +174,10 @@ describe('StatsCredentialsLive', () => {
   });
 
   test('uses only the requested app slot and ignores an unscoped key', async () => {
+    const serialized = JSON.stringify(SERVICE_ACCOUNT);
     installLiveFixtures(
       new Map([
-        ['play-service-account:com.example.app', JSON.stringify(SERVICE_ACCOUNT)],
+        ['play-service-account:com.example.app', serialized],
         ['play-service-account', JSON.stringify(SERVICE_ACCOUNT)],
       ]),
     );
@@ -192,16 +193,15 @@ describe('StatsCredentialsLive', () => {
     installLiveFixtures(new Map());
     const project = join(homeDirectory, 'work');
     mkdirSync(project, { recursive: true });
-    writeFileSync(
-      join(project, 'app.json'),
-      JSON.stringify({
-        expo: {
-          slug: 'demo',
-          ios: { bundleIdentifier: 'com.example.ios' },
-          android: { package: 'com.example.android' },
-        },
-      }),
-    );
+    const appPath = join(project, 'app.json');
+    const serialized = JSON.stringify({
+      expo: {
+        slug: 'demo',
+        ios: { bundleIdentifier: 'com.example.ios' },
+        android: { package: 'com.example.android' },
+      },
+    });
+    writeFileSync(appPath, serialized);
     const app = {
       key: 'ios-1',
       platform: 'ios' as const,
@@ -224,17 +224,14 @@ describe('StatsCredentialsLive', () => {
   test('reads the Play reports bucket from portfolio.json, or null when none is saved', async () => {
     installLiveFixtures(new Map());
     const bucketBefore = await StatsCredentialsLive.playReportsBucket();
-    writeLaunchHomeFile(
-      homeDirectory,
-      'portfolio.json',
-      JSON.stringify({
-        version: 1,
-        discoveredAt: null,
-        apps: [],
-        tags: [],
-        playReportsBucket: 'pubsite_prod_rev_123',
-      }),
-    );
+    const serialized = JSON.stringify({
+      version: 1,
+      discoveredAt: null,
+      apps: [],
+      tags: [],
+      playReportsBucket: 'pubsite_prod_rev_123',
+    });
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     const bucketAfter = await StatsCredentialsLive.playReportsBucket();
 

@@ -106,27 +106,21 @@ const playApi: SnapshotPlayApi = {
 };
 describe('appleProductsSource', () => {
   it('omits when no iOS apps are in scope', async () => {
-    const capture = await captureSource(
-      appleProductsSource,
-      snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] }),
-    );
+    const snapshot = snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] });
+    const capture = await captureSource(appleProductsSource, snapshot);
     expect(capture).toEqual({ state: 'omitted' });
   });
   it('skips when no Apple account is active', async () => {
-    const capture = await captureSource(
-      appleProductsSource,
-      snapshotContext({ apps: [app({ bundleId: 'com.acme.alpha' })] }),
-    );
+    const snapshot = snapshotContext({ apps: [app({ bundleId: 'com.acme.alpha' })] });
+    const capture = await captureSource(appleProductsSource, snapshot);
     expect(capture.state).toBe('skipped');
   });
   it('captures each in-app purchase keyed by product id', async () => {
-    const capture = await captureSource(
-      appleProductsSource,
-      snapshotContext({
-        apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve(ascApi),
-      }),
-    );
+    const snapshot = snapshotContext({
+      apps: [app({ bundleId: 'com.acme.alpha' })],
+      resolveAscApi: () => Promise.resolve(ascApi),
+    });
+    const capture = await captureSource(appleProductsSource, snapshot);
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       {
@@ -137,26 +131,22 @@ describe('appleProductsSource', () => {
     ]);
   });
   it('drops an app with no App Store Connect record yet', async () => {
-    const capture = await captureSource(
-      appleProductsSource,
-      snapshotContext({
-        apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
-      }),
-    );
+    const snapshot = snapshotContext({
+      apps: [app({ bundleId: 'com.acme.alpha' })],
+      resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
+    });
+    const capture = await captureSource(appleProductsSource, snapshot);
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps).toEqual([]);
   });
 });
 describe('appleSubscriptionsSource', () => {
   it('flattens subscriptions across groups, keyed by product id with the group recorded', async () => {
-    const capture = await captureSource(
-      appleSubscriptionsSource,
-      snapshotContext({
-        apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve(ascApi),
-      }),
-    );
+    const snapshot = snapshotContext({
+      apps: [app({ bundleId: 'com.acme.alpha' })],
+      resolveAscApi: () => Promise.resolve(ascApi),
+    });
+    const capture = await captureSource(appleSubscriptionsSource, snapshot);
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       {
@@ -169,13 +159,11 @@ describe('appleSubscriptionsSource', () => {
 });
 describe('appleListingSource', () => {
   it('merges app-info and version listing fields into one entity per locale', async () => {
-    const capture = await captureSource(
-      appleListingSource,
-      snapshotContext({
-        apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve(ascApi),
-      }),
-    );
+    const snapshot = snapshotContext({
+      apps: [app({ bundleId: 'com.acme.alpha' })],
+      resolveAscApi: () => Promise.resolve(ascApi),
+    });
+    const capture = await captureSource(appleListingSource, snapshot);
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       {
@@ -194,49 +182,41 @@ describe('appleListingSource', () => {
     ]);
   });
   it('captures an empty listing when the app has no listing yet', async () => {
-    const capture = await captureSource(
-      appleListingSource,
-      snapshotContext({
-        apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () =>
-          Promise.resolve({
-            ...ascApi,
-            getCurrentAppInfoId: () => Promise.resolve(null),
-            getCurrentVersionId: () => Promise.resolve(null),
-          }),
-      }),
-    );
+    const snapshot = snapshotContext({
+      apps: [app({ bundleId: 'com.acme.alpha' })],
+      resolveAscApi: () =>
+        Promise.resolve({
+          ...ascApi,
+          getCurrentAppInfoId: () => Promise.resolve(null),
+          getCurrentVersionId: () => Promise.resolve(null),
+        }),
+    });
+    const capture = await captureSource(appleListingSource, snapshot);
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([]);
   });
   it('drops an app with no App Store Connect record yet', async () => {
-    const capture = await captureSource(
-      appleListingSource,
-      snapshotContext({
-        apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
-      }),
-    );
+    const snapshot = snapshotContext({
+      apps: [app({ bundleId: 'com.acme.alpha' })],
+      resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
+    });
+    const capture = await captureSource(appleListingSource, snapshot);
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps).toEqual([]);
   });
 });
 describe('playProductsSource', () => {
   it('skips when no Play service account is configured', async () => {
-    const capture = await captureSource(
-      playProductsSource,
-      snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] }),
-    );
+    const snapshot = snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] });
+    const capture = await captureSource(playProductsSource, snapshot);
     expect(capture.state).toBe('skipped');
   });
   it('captures managed products keyed by SKU, dropping the fanned-out region prices', async () => {
-    const capture = await captureSource(
-      playProductsSource,
-      snapshotContext({
-        apps: [app({ packageName: 'com.acme.alpha' })],
-        resolvePlayApi: () => Promise.resolve(playApi),
-      }),
-    );
+    const snapshot = snapshotContext({
+      apps: [app({ packageName: 'com.acme.alpha' })],
+      resolvePlayApi: () => Promise.resolve(playApi),
+    });
+    const capture = await captureSource(playProductsSource, snapshot);
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       {
@@ -255,13 +235,11 @@ describe('playProductsSource', () => {
 });
 describe('playSubscriptionsSource', () => {
   it('captures subscriptions with base plans and listings, keyed by product id', async () => {
-    const capture = await captureSource(
-      playSubscriptionsSource,
-      snapshotContext({
-        apps: [app({ packageName: 'com.acme.alpha' })],
-        resolvePlayApi: () => Promise.resolve(playApi),
-      }),
-    );
+    const snapshot = snapshotContext({
+      apps: [app({ packageName: 'com.acme.alpha' })],
+      resolvePlayApi: () => Promise.resolve(playApi),
+    });
+    const capture = await captureSource(playSubscriptionsSource, snapshot);
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       {
@@ -285,27 +263,21 @@ describe('playSubscriptionsSource', () => {
 });
 describe('appleCapabilitiesSource', () => {
   it('omits when no iOS apps are in scope', async () => {
-    const capture = await captureSource(
-      appleCapabilitiesSource,
-      snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] }),
-    );
+    const snapshot = snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] });
+    const capture = await captureSource(appleCapabilitiesSource, snapshot);
     expect(capture).toEqual({ state: 'omitted' });
   });
   it('skips when no Apple account is active', async () => {
-    const capture = await captureSource(
-      appleCapabilitiesSource,
-      snapshotContext({ apps: [app({ bundleId: 'com.acme.alpha' })] }),
-    );
+    const snapshot = snapshotContext({ apps: [app({ bundleId: 'com.acme.alpha' })] });
+    const capture = await captureSource(appleCapabilitiesSource, snapshot);
     expect(capture.state).toBe('skipped');
   });
   it('captures enabled capabilities keyed and sorted by capability type', async () => {
-    const capture = await captureSource(
-      appleCapabilitiesSource,
-      snapshotContext({
-        apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve(ascApi),
-      }),
-    );
+    const snapshot = snapshotContext({
+      apps: [app({ bundleId: 'com.acme.alpha' })],
+      resolveAscApi: () => Promise.resolve(ascApi),
+    });
+    const capture = await captureSource(appleCapabilitiesSource, snapshot);
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       { key: 'ICLOUD', summary: 'capability ICLOUD', data: { capabilityType: 'ICLOUD' } },
@@ -317,14 +289,12 @@ describe('appleCapabilitiesSource', () => {
     ]);
   });
   it("captures an empty list when the App ID isn't registered yet", async () => {
-    const capture = await captureSource(
-      appleCapabilitiesSource,
-      snapshotContext({
-        apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () =>
-          Promise.resolve({ ...ascApi, findBundleId: () => Promise.resolve(null) }),
-      }),
-    );
+    const snapshot = snapshotContext({
+      apps: [app({ bundleId: 'com.acme.alpha' })],
+      resolveAscApi: () =>
+        Promise.resolve({ ...ascApi, findBundleId: () => Promise.resolve(null) }),
+    });
+    const capture = await captureSource(appleCapabilitiesSource, snapshot);
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([]);
   });
@@ -508,10 +478,8 @@ describe('playProductsSource.restore', () => {
   });
   it('plans a create in a dry-run without inserting', async () => {
     const api = makePlayApi();
-    const report = await runRestore(
-      restoreOf(),
-      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }) }),
-    );
+    const restore = restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) });
+    const report = await runRestore(restoreOf(), input({ ctx: restore }));
     expect(report.actions).toEqual([
       { description: 'create Play product coins', destructive: false, status: 'planned' },
     ]);
@@ -519,11 +487,12 @@ describe('playProductsSource.restore', () => {
   });
   it('applies a create, inverting the captured listing and default price', async () => {
     const api = makePlayApi();
+    const restore = restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) });
     const report = await runRestore(
       restoreOf(),
       input({
         dryRun: false,
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
+        ctx: restore,
       }),
     );
     expect(api.insertInAppProduct).toHaveBeenCalledWith(
@@ -538,10 +507,11 @@ describe('playProductsSource.restore', () => {
   });
   it('skips a product with no captured listing', async () => {
     const api = makePlayApi();
+    const restore = restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) });
     const report = await runRestore(
       restoreOf(),
       input({
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
+        ctx: restore,
         saved: [
           {
             app: 'alpha',
@@ -608,10 +578,8 @@ describe('playSubscriptionsSource.restore', () => {
   });
   it('plans the create + base-plan activation in a dry-run without writing', async () => {
     const api = makePlayApi();
-    const report = await runRestore(
-      restoreOf(),
-      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }) }),
-    );
+    const restore = restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) });
+    const report = await runRestore(restoreOf(), input({ ctx: restore }));
     const descriptions = report.actions.map((action) => action.description);
     expect(descriptions).toEqual([
       'create Play subscription sub.pro',
@@ -622,11 +590,12 @@ describe('playSubscriptionsSource.restore', () => {
   });
   it("applies the create, inverting the base plan's period and prices", async () => {
     const api = makePlayApi();
+    const restore = restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) });
     await runRestore(
       restoreOf(),
       input({
         dryRun: false,
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
+        ctx: restore,
       }),
     );
     expect(api.createSubscription).toHaveBeenCalledWith(
@@ -637,10 +606,11 @@ describe('playSubscriptionsSource.restore', () => {
   });
   it('skips a subscription whose base plan has no known period or prices', async () => {
     const api = makePlayApi();
+    const restore = restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) });
     const report = await runRestore(
       restoreOf(),
       input({
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
+        ctx: restore,
         saved: [
           {
             app: 'alpha',
@@ -671,17 +641,15 @@ describe('playSubscriptionsSource.restore', () => {
 describe('mixed Android snapshot capture', () => {
   for (const source of [playProductsSource, playSubscriptionsSource]) {
     it(`${source.id} retains the reachable app and records the missing one`, async () => {
-      const capture = await captureSource(
-        source,
-        snapshotContext({
-          apps: [
-            app({ name: 'alpha', packageName: 'com.acme.alpha' }),
-            app({ name: 'beta', packageName: 'com.acme.beta' }),
-          ],
-          resolvePlayApi: (packageName) =>
-            Promise.resolve(packageName == 'com.acme.alpha' ? playApi : null),
-        }),
-      );
+      const snapshot = snapshotContext({
+        apps: [
+          app({ name: 'alpha', packageName: 'com.acme.alpha' }),
+          app({ name: 'beta', packageName: 'com.acme.beta' }),
+        ],
+        resolvePlayApi: (packageName) =>
+          Promise.resolve(packageName == 'com.acme.alpha' ? playApi : null),
+      });
+      const capture = await captureSource(source, snapshot);
       if (capture.state != 'captured')
         throw new Error(`Expected partial capture: ${capture.state}`);
       expect(capture.apps.map((item) => item.app)).toEqual(['alpha']);

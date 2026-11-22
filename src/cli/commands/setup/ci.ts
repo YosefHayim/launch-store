@@ -16,5 +16,8 @@ export const registerCiCommand = (program: Command): void => {
     .description('write a GitHub Actions workflow that builds and ships on a hosted runner')
     .option('--android', 'also emit an Android job (Ubuntu runner)', false)
     .option('--force', 'overwrite an existing .github/workflows/launch.yml', false)
-    .action((commandOptions: CiOptions) => runCliProgram(ciCommandProgram(commandOptions)));
+    .action((commandOptions: CiOptions) => {
+      const ciProgram = ciCommandProgram(commandOptions);
+      return runCliProgram(ciProgram);
+    });
 };

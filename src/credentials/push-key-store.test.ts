@@ -11,7 +11,9 @@ import {
 import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './push-key-store.ts';
 
 const secrets = new Map<string, string>();
-const homeDirectory = mkdtempSync(join(tmpdir(), 'launch-pushkeys-'));
+const systemTemporaryDirectory = tmpdir();
+const launchPushkeysPath = join(systemTemporaryDirectory, 'launch-pushkeys-');
+const homeDirectory = mkdtempSync(launchPushkeysPath);
 
 /** A realistic multi-line PKCS#8 PEM so the base64 round-trip exercises the real decode path. */
 const PEM = [
@@ -24,7 +26,8 @@ beforeEach(() => {
   secrets.clear();
   useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
   useSecretStore(secrets);
-  rmSync(resolvePushKeysFilePath(), { force: true });
+  const pushKeysFilePath = resolvePushKeysFilePath();
+  rmSync(pushKeysFilePath, { force: true });
 });
 
 afterAll(() => {
@@ -39,8 +42,10 @@ describe('push-key vault', () => {
 
     expect(secrets.get('apns-p8:ABC123DEFG')).toBeDefined();
     expect(secrets.get('apns-p8:ABC123DEFG')).not.toContain('\n');
-    expect(await loadPushKey('ABC123DEFG')).toBe(PEM);
-    expect((await listPushKeys())[0]).toMatchObject({
+    const pushKey = await loadPushKey('ABC123DEFG');
+    expect(pushKey).toBe(PEM);
+    const pushKeys = await listPushKeys();
+    expect(pushKeys[0]).toMatchObject({
       keyId: 'ABC123DEFG',
       teamId: 'TEAM1',
       label: 'Prod push',
@@ -52,7 +57,8 @@ describe('push-key vault', () => {
     const first = await importPushKey({ keyId: 'ABC123DEFG', p8: PEM, label: 'Old' });
     const second = await importPushKey({ keyId: 'ABC123DEFG', p8: PEM, label: 'New' });
 
-    expect(await listPushKeys()).toHaveLength(1);
+    const pushKeys = await listPushKeys();
+    expect(pushKeys).toHaveLength(1);
     expect((await listPushKeys())[0]?.label).toBe('New');
     expect(second.importedAt).toBe(first.importedAt);
   });
@@ -60,7 +66,8 @@ describe('push-key vault', () => {
   it('finds a vaulted key case-insensitively and returns null for a missing secret', async () => {
     await importPushKey({ keyId: 'ABC123DEFG', p8: PEM });
 
-    expect((await findPushKey('abc123defg'))?.keyId).toBe('ABC123DEFG');
+    const pushKey = await findPushKey('abc123defg');
+    expect(pushKey?.keyId).toBe('ABC123DEFG');
     expect(await findPushKey('NOPE')).toBeUndefined();
     expect(await loadPushKey('NOPE')).toBeNull();
   });

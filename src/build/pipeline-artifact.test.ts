@@ -139,25 +139,23 @@ describe('uploadSizeReadout', () => {
 
 describe('receiptDestination', () => {
   it('reports not uploaded when submit is off', () => {
-    expect(receiptDestination('ios', buildRunOptions({ submit: false }))).toBe(
-      'built - not uploaded',
-    );
+    const buildRun = buildRunOptions({ submit: false });
+    expect(receiptDestination('ios', buildRun)).toBe('built - not uploaded');
   });
 
   it('names TestFlight for uploaded Apple builds', () => {
-    expect(receiptDestination('ios', buildRunOptions())).toBe('TestFlight');
+    const buildRun = buildRunOptions();
+    expect(receiptDestination('ios', buildRun)).toBe('TestFlight');
   });
 
   it('defaults Android track to internal', () => {
-    expect(receiptDestination('android', buildRunOptions({ platform: 'android' }))).toBe(
-      'Play - internal track',
-    );
+    const buildRun = buildRunOptions({ platform: 'android' });
+    expect(receiptDestination('android', buildRun)).toBe('Play - internal track');
   });
 
   it('uses the named Android track when provided', () => {
-    expect(
-      receiptDestination('android', buildRunOptions({ platform: 'android' }), 'production'),
-    ).toBe('Play - production track');
+    const buildRun = buildRunOptions({ platform: 'android' });
+    expect(receiptDestination('android', buildRun, 'production')).toBe('Play - production track');
   });
 });
 
@@ -217,7 +215,9 @@ async function nativeProjectLog(nativeCase: NativeProjectCase): Promise<string> 
   useLoggerSink(function keepLine(text: string): void {
     lines.push(text);
   });
-  nativeAppDirectory = mkdtempSync(join(tmpdir(), 'launch-native-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchNativePath = join(systemTemporaryDirectory, 'launch-native-');
+  nativeAppDirectory = mkdtempSync(launchNativePath);
 
   try {
     const dryRun = nativeCase.dryRun != false;
@@ -225,7 +225,8 @@ async function nativeProjectLog(nativeCase: NativeProjectCase): Promise<string> 
     const log = createLogger(false);
 
     if (nativeCase.nativeDirExists) {
-      mkdirSync(join(nativeAppDirectory, committedNativeDirectory(nativeCase.platform)), {
+      const joinedPath = join(nativeAppDirectory, committedNativeDirectory(nativeCase.platform));
+      mkdirSync(joinedPath, {
         recursive: true,
       });
     }

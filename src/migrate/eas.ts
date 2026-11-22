@@ -453,7 +453,8 @@ function decodeEasDocument(rawDocument: unknown): EasJson {
     easConfiguration.cli = cli;
   }
 
-  const buildProfiles = decodeBuildProfiles(readDefaultSection(rawDocumentObject, 'build'));
+  const defaultSection = readDefaultSection(rawDocumentObject, 'build');
+  const buildProfiles = decodeBuildProfiles(defaultSection);
 
   if (buildProfiles == null) {
     throw new Error('build must be an object.');
@@ -595,9 +596,10 @@ function profileEnvironmentArtifactsFromEas(easConfiguration: EasJson): Migratio
       continue;
     }
 
+    const buildExample = buildEnvExample(Object.keys(buildProfile.env).sort());
     environmentArtifacts.push({
       path: `.env.${profileName}`,
-      contents: buildEnvExample(Object.keys(buildProfile.env).sort()),
+      contents: buildExample,
     });
   }
 
@@ -1357,6 +1359,7 @@ export async function migrateEas(
   const easConfiguration = parseEasJson(easJsonSource);
   const profileSection = serializeProfilesSection(launchProfilesFromEas(easConfiguration));
   const appRoot = detectAppRoot(apps, workingDirectory);
+  const environmentKeys = collectEnvironmentKeys(easConfiguration);
   const migrationArtifacts: MigrationArtifact[] = [
     {
       path: 'launch.config.ts',
@@ -1364,7 +1367,7 @@ export async function migrateEas(
     },
     {
       path: '.env.example',
-      contents: buildEnvExample(collectEnvironmentKeys(easConfiguration)),
+      contents: buildEnvExample(environmentKeys),
     },
     ...profileEnvironmentArtifactsFromEas(easConfiguration),
   ];

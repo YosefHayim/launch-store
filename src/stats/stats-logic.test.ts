@@ -13,23 +13,23 @@ const createStat = (overrides: Partial<DailyStat>): DailyStat => ({
 
 describe('mergeStats', () => {
   test('replaces a saved number with the new number of the same identity', () => {
-    const merged = mergeStats([createStat({ value: 1 })], [createStat({ value: 5 })]);
+    const stat = createStat({ value: 1 });
+    const merged = mergeStats([stat], [createStat({ value: 5 })]);
 
     expect(merged).toEqual([createStat({ value: 5 })]);
   });
 
   test('keeps saved days that are not sent again, sorted by date', () => {
-    const merged = mergeStats(
-      [createStat({ date: '2026-10-03' })],
-      [createStat({ date: '2026-10-01' })],
-    );
+    const stat = createStat({ date: '2026-10-03' });
+    const merged = mergeStats([stat], [createStat({ date: '2026-10-01' })]);
 
     expect(merged.map((stat) => stat.date)).toEqual(['2026-10-01', '2026-10-03']);
   });
 
   test('treats another currency or metric as another identity', () => {
+    const stat = createStat({ metric: 'proceeds', currency: 'USD' });
     const merged = mergeStats(
-      [createStat({ metric: 'proceeds', currency: 'USD' })],
+      [stat],
       [createStat({ metric: 'proceeds', currency: 'ILS' }), createStat({ metric: 'downloads' })],
     );
 
@@ -37,14 +37,16 @@ describe('mergeStats', () => {
   });
 
   test('returns an empty list for empty inputs', () => {
-    expect(mergeStats([], [])).toEqual([]);
+    const stats = mergeStats([], []);
+    expect(stats).toEqual([]);
   });
 });
 
 describe('groupStatsByMonth', () => {
   test('groups stats of the same month together', () => {
+    const stat = createStat({ date: '2026-09-30' });
     const grouped = groupStatsByMonth([
-      createStat({ date: '2026-09-30' }),
+      stat,
       createStat({ date: '2026-10-01' }),
       createStat({ date: '2026-10-02' }),
     ]);

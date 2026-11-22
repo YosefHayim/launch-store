@@ -3,22 +3,20 @@ import { PlayProductsCommandInputSchema } from './play-products-command.ts';
 
 describe('PlayProductsCommandInputSchema', () => {
   it('decodes the Commander boundary', () => {
-    expect(
-      PlayProductsCommandInputSchema({
-        app: 'mobile',
-        dryRun: true,
-        yes: false,
-      }),
-    ).toEqual({ app: 'mobile', dryRun: true, yes: false });
+    const playProductsCommandSchema = PlayProductsCommandInputSchema({
+      app: 'mobile',
+      dryRun: true,
+      yes: false,
+    });
+    expect(playProductsCommandSchema).toEqual({ app: 'mobile', dryRun: true, yes: false });
   });
 
   it('accepts an omitted app selector', () => {
-    expect(
-      PlayProductsCommandInputSchema({
-        dryRun: false,
-        yes: false,
-      }),
-    ).toEqual({ dryRun: false, yes: false });
+    const playProductsCommandSchema = PlayProductsCommandInputSchema({
+      dryRun: false,
+      yes: false,
+    });
+    expect(playProductsCommandSchema).toEqual({ dryRun: false, yes: false });
   });
 
   it('rejects missing confirmation booleans', () => {

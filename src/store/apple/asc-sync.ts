@@ -1063,9 +1063,10 @@ async function updateLiveListing(
 
   const localizationId = liveLocalization.id;
   const liveFields = liveLocalization.fields;
+  const fieldChanges = describeFieldChanges(changed, liveFields);
   await act(
     catalogContext,
-    `update listing [${levelWork.locale}] ${listingLevelLabel(levelWork.level)}: ${describeFieldChanges(changed, liveFields)}`,
+    `update listing [${levelWork.locale}] ${listingLevelLabel(levelWork.level)}: ${fieldChanges}`,
     false,
     function updateLocalization() {
       return levelWork.updateLocalization(localizationId, changed);

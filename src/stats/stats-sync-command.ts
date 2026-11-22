@@ -47,7 +47,8 @@ function finishUsageFailure(usageFailure: UsageFailure, isJson: boolean): never 
   const isJsonOutput = isJson;
 
   if (isJsonOutput) {
-    logger.line(JSON.stringify({ ok: false, error: usageFailure.message }));
+    const serialized = JSON.stringify({ ok: false, error: usageFailure.message });
+    logger.line(serialized);
   }
 
   const isHumanOutput = isJsonOutput == false;
@@ -136,7 +137,8 @@ export async function statsSyncProgram(request: StatsSyncCommandRequest): Promis
     const isHumanOutput = request.isJson == false;
 
     if (request.isJson) {
-      logger.line(JSON.stringify({ ok: true, ...report }));
+      const serialized = JSON.stringify({ ok: true, ...report });
+      logger.line(serialized);
     }
 
     if (isHumanOutput) {
@@ -157,7 +159,8 @@ export async function statsSyncProgram(request: StatsSyncCommandRequest): Promis
     const notFoundMessage = readNotFoundMessage(cause);
 
     if (notFoundMessage != null) {
-      throw finishUsageFailure(makeUsageFailure({ message: notFoundMessage }), request.isJson);
+      const usageFailure = makeUsageFailure({ message: notFoundMessage });
+      throw finishUsageFailure(usageFailure, request.isJson);
     }
 
     if (isUsageFailure(cause)) {

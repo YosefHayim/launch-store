@@ -23,10 +23,12 @@ const BASE_OPTIONS: BuildCommandOptions = {
 const GREATER_THAN_ZERO_ERROR = /greater than 0/;
 describe('parseSizeBudget - the per-run size-budget CLI boundary', () => {
   it('returns undefined when the flag is omitted (-> profile, then default)', () => {
-    expect(parseSizeBudget(undefined)).toBeUndefined();
+    const sizeBudget = parseSizeBudget(undefined);
+    expect(sizeBudget).toBeUndefined();
   });
   it('parses a positive MB number, including fractional values', () => {
-    expect(parseSizeBudget('250')).toBe(250);
+    const sizeBudget = parseSizeBudget('250');
+    expect(sizeBudget).toBe(250);
     expect(parseSizeBudget('199.5')).toBe(199.5);
   });
   it('rejects zero and negative budgets with a clear message', () => {

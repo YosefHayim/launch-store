@@ -359,7 +359,8 @@ async function confirmPublicRelease(
       return true;
     }
   } catch (error) {
-    throw releaseFailure('confirm public release', error, errorMessage(error));
+    const failureMessage = errorMessage(error);
+    throw releaseFailure('confirm public release', error, failureMessage);
   }
 
   return commandService.confirmRelease(message);
@@ -677,16 +678,13 @@ async function resolveIosBuild(
       bundleId,
       buildSource.storeBuild,
     );
-    const confirmed = await confirmOrCancel(
-      commandService,
-      describePromotionQuestion({
-        appName: appDescriptor.name,
-        versionString,
-        buildLabel: buildSource.storeBuild.version,
-        attachOnly: commandOptions.attachOnly == true,
-      }),
-      commandOptions,
-    );
+    const promotionQuestion = describePromotionQuestion({
+      appName: appDescriptor.name,
+      versionString,
+      buildLabel: buildSource.storeBuild.version,
+      attachOnly: commandOptions.attachOnly == true,
+    });
+    const confirmed = await confirmOrCancel(commandService, promotionQuestion, commandOptions);
 
     if (confirmed == false) {
       return null;
@@ -768,12 +766,10 @@ async function resolveIosBuild(
   }
 
   logger.step('processing', 'waiting for App Store Connect to finish processing the build');
-  const storeBuild = await attemptRead(
-    'wait for App Store build processing',
-    waitForValidBuild(ascClient, appId, artifact.buildNumber, {
-      marketingVersion: artifact.version,
-    }),
-  );
+  const buildProgram = waitForValidBuild(ascClient, appId, artifact.buildNumber, {
+    marketingVersion: artifact.version,
+  });
+  const storeBuild = await attemptRead('wait for App Store build processing', buildProgram);
 
   return { storeBuild, versionString: artifact.version };
 }
@@ -1010,7 +1006,8 @@ async function releaseAppleBuild(
   if (hasFailedSteps) {
     const failureMessage = `${failureCount} release step(s) failed`;
 
-    await sendReleaseNotification(launchConfig, readFailedSubmitEvent(notifyEvent, failureMessage));
+    const failedSubmitEvent = readFailedSubmitEvent(notifyEvent, failureMessage);
+    await sendReleaseNotification(launchConfig, failedSubmitEvent);
     completeCommand(1, failureMessage);
 
     return;
@@ -1064,7 +1061,8 @@ function readAscPlatform(platform: Platform): string {
   try {
     return toAscPlatform(platform);
   } catch (error) {
-    throw releaseFailure('map App Store platform', error, errorMessage(error));
+    const failureMessage = errorMessage(error);
+    throw releaseFailure('map App Store platform', error, failureMessage);
   }
 }
 
@@ -1204,7 +1202,8 @@ async function submitAppleRelease(
     const submitFailure = releaseFailure('submit App Store release', error);
 
     try {
-      await notify(launchConfig, readFailedSubmitEvent(notifyEvent, submitFailure.message));
+      const failedSubmitEvent = readFailedSubmitEvent(notifyEvent, submitFailure.message);
+      await notify(launchConfig, failedSubmitEvent);
     } catch (notifyFailure) {
       throw releaseFailure('send release failure notification', notifyFailure);
     }
@@ -1308,7 +1307,8 @@ async function releaseAndroidBuild(
     const submitFailure = releaseFailure('submit Android release', error);
 
     try {
-      await notify(launchConfig, readFailedSubmitEvent(notifyEvent, submitFailure.message));
+      const failedSubmitEvent = readFailedSubmitEvent(notifyEvent, submitFailure.message);
+      await notify(launchConfig, failedSubmitEvent);
     } catch (notifyFailure) {
       throw releaseFailure('send release failure notification', notifyFailure);
     }
@@ -1326,7 +1326,8 @@ function readRolloutFlag(rollout: string | undefined): number | undefined {
   try {
     return parseBuildRollout(rollout);
   } catch (error) {
-    throw releaseFailure('parse --rollout', error, errorMessage(error));
+    const failureMessage = errorMessage(error);
+    throw releaseFailure('parse --rollout', error, failureMessage);
   }
 }
 
@@ -1404,7 +1405,8 @@ export async function releaseCommandProgram(
 
   if (commandOptions.printEnv) {
     const logger = createLogger(false);
-    logger.line(formatEnvTable(resolvedEnvironment));
+    const formatTable = formatEnvTable(resolvedEnvironment);
+    logger.line(formatTable);
 
     return;
   }
@@ -1437,7 +1439,8 @@ function readReleasePlatform(platformArgument: string): Platform {
   try {
     return parsePlatform(platformArgument);
   } catch (error) {
-    throw releaseFailure('parse release platform', error, errorMessage(error));
+    const failureMessage = errorMessage(error);
+    throw releaseFailure('parse release platform', error, failureMessage);
   }
 }
 
@@ -1453,7 +1456,8 @@ async function readSelectedApp(apps: readonly AppDescriptor[], appName: string |
   try {
     return await selectApp(apps, appName);
   } catch (error) {
-    throw releaseFailure('select app', error, errorMessage(error));
+    const failureMessage = errorMessage(error);
+    throw releaseFailure('select app', error, failureMessage);
   }
 }
 
@@ -1461,7 +1465,8 @@ function readEnvironmentOverrides(pairs: string[]): Record<string, string> {
   try {
     return parseCliEnv(pairs);
   } catch (error) {
-    throw releaseFailure('parse environment overrides', error, errorMessage(error));
+    const failureMessage = errorMessage(error);
+    throw releaseFailure('parse environment overrides', error, failureMessage);
   }
 }
 

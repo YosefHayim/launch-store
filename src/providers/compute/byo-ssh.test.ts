@@ -3,7 +3,8 @@ import { parseSshTarget } from './byo-ssh.ts';
 
 describe('parseSshTarget', () => {
   it('parses user@host with the default port', () => {
-    expect(parseSshTarget('ec2-user@1.2.3.4')).toEqual({
+    const sshTarget = parseSshTarget('ec2-user@1.2.3.4');
+    expect(sshTarget).toEqual({
       host: '1.2.3.4',
       user: 'ec2-user',
       port: 22,
@@ -11,7 +12,8 @@ describe('parseSshTarget', () => {
   });
 
   it('parses an explicit port', () => {
-    expect(parseSshTarget('admin@build.example.com:2222')).toEqual({
+    const sshTarget = parseSshTarget('admin@build.example.com:2222');
+    expect(sshTarget).toEqual({
       host: 'build.example.com',
       user: 'admin',
       port: 2222,
@@ -19,7 +21,8 @@ describe('parseSshTarget', () => {
   });
 
   it('defaults the user when only a host is given', () => {
-    expect(parseSshTarget('my-mac.local')).toEqual({
+    const sshTarget = parseSshTarget('my-mac.local');
+    expect(sshTarget).toEqual({
       host: 'my-mac.local',
       user: 'ec2-user',
       port: 22,

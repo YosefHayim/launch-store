@@ -134,7 +134,8 @@ async function listSandboxTestersProgram(json: boolean): Promise<void> {
     const wantsJson = json == true;
 
     if (wantsJson) {
-      logger.line(JSON.stringify(sandboxTesters, null, 2));
+      const serialized = JSON.stringify(sandboxTesters, null, 2);
+      logger.line(serialized);
       return;
     }
 

@@ -19,7 +19,8 @@ const INCREMENTAL_REPORT: FingerprintReport = {
 
 describe('FingerprintCommandInputSchema', () => {
   it('decodes the Commander input shape', () => {
-    expect(decodeFingerprintCommandInput({ json: false })).toEqual({
+    const decodeFingerprintCommand = decodeFingerprintCommandInput({ json: false });
+    expect(decodeFingerprintCommand).toEqual({
       json: false,
     });
     expect(decodeFingerprintCommandInput({ app: 'demo', json: true })).toEqual({

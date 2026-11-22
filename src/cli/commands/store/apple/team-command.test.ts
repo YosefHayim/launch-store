@@ -3,7 +3,8 @@ import { renderTeam, TeamCommandInputSchema } from './team-command.ts';
 
 describe('TeamCommandInputSchema', () => {
   it('decodes every Commander operation', () => {
-    expect(TeamCommandInputSchema({ operation: 'list', json: false })).toEqual({
+    const teamCommandSchema = TeamCommandInputSchema({ operation: 'list', json: false });
+    expect(teamCommandSchema).toEqual({
       operation: 'list',
       json: false,
     });
@@ -38,27 +39,26 @@ describe('TeamCommandInputSchema', () => {
 
 describe('renderTeam', () => {
   it('renders members and pending invitations as one ASCII block', () => {
-    expect(
-      renderTeam({
-        members: [
-          {
-            id: 'member-1',
-            username: 'member@acme.com',
-            firstName: 'Ada',
-            lastName: 'Lovelace',
-            roles: ['ADMIN'],
-          },
-        ],
-        invitations: [
-          {
-            id: 'invitation-1',
-            email: 'invitee@acme.com',
-            roles: ['DEVELOPER'],
-            expirationDate: '2026-08-20T00:00:00Z',
-          },
-        ],
-      }),
-    ).toBe(
+    const team = renderTeam({
+      members: [
+        {
+          id: 'member-1',
+          username: 'member@acme.com',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          roles: ['ADMIN'],
+        },
+      ],
+      invitations: [
+        {
+          id: 'invitation-1',
+          email: 'invitee@acme.com',
+          roles: ['DEVELOPER'],
+          expirationDate: '2026-08-20T00:00:00Z',
+        },
+      ],
+    });
+    expect(team).toBe(
       'Team - 1 member(s), 1 pending invitation(s)\n\nMembers:\n  member@acme.com  Ada Lovelace  [ADMIN]\n\nPending invitations:\n  invitee@acme.com  [DEVELOPER]  expires 2026-08-20',
     );
   });

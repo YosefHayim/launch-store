@@ -38,7 +38,9 @@ export const registerCustomPagesCommand = (program: Command): void => {
     .option('--config <path>', 'path to the custom pages config file', 'custom-pages.config.json')
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: CustomPagesOptions) =>
-      runCliProgram(customProductPagesCommandProgram(toCustomProductPagesInput(commandOptions))),
-    );
+    .action((commandOptions: CustomPagesOptions) => {
+      const customProductPages = toCustomProductPagesInput(commandOptions);
+      const customProductPagesProgram = customProductPagesCommandProgram(customProductPages);
+      return runCliProgram(customProductPagesProgram);
+    });
 };

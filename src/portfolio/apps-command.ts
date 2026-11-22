@@ -40,7 +40,8 @@ function finishUsageFailure(usageFailure: UsageFailure, isJson: boolean): never 
   const logger = createLogger(false);
 
   if (isJson) {
-    logger.line(JSON.stringify({ ok: false, error: usageFailure.message }));
+    const serialized = JSON.stringify({ ok: false, error: usageFailure.message });
+    logger.line(serialized);
   }
 
   const isHumanOutput = isJson == false;

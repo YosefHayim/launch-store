@@ -13,7 +13,8 @@ export const registerResignCommand = (program: Command): void => {
     .option('--account <keyId|label>', 'Apple account whose signing assets should be used')
     .option('-o, --output <path>', 'output file or directory')
     .option('--dry-run', 'print the re-sign plan and change nothing', false)
-    .action((commandOptions: ResignCommandInput) =>
-      runCliProgram(resignCommandProgram(commandOptions)),
-    );
+    .action((commandOptions: ResignCommandInput) => {
+      const resignProgram = resignCommandProgram(commandOptions);
+      return runCliProgram(resignProgram);
+    });
 };

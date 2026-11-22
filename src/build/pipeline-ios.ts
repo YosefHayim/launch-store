@@ -147,7 +147,8 @@ export async function runIosBuild(
   const buildContext = prepared.buildContext;
   const log = prepared.log;
   const isDryRun = buildOptions.dryRun == true;
-  const buildEngine = getBuildEngine(resolveBuildEngineName(launchConfig, 'ios'));
+  const buildEngineName = resolveBuildEngineName(launchConfig, 'ios');
+  const buildEngine = getBuildEngine(buildEngineName);
   const appVersion = marketingVersion(app);
 
   await ensureNativeProject(buildContext, log, launchConfig.prebuild);

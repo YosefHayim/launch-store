@@ -853,7 +853,8 @@ export async function runAiListing(
       listingGenerator,
     );
 
-    logger.line(renderDraftPreview(localeDrafts, listingTargets));
+    const draftPreview = renderDraftPreview(localeDrafts, listingTargets);
+    logger.line(draftPreview);
 
     if (commandInput.dryRun) {
       logger.note('Dry run - nothing written. Drop --dry-run to save into store.config.json.');

@@ -31,9 +31,9 @@ describe('STATS_FEED_PLUGINS', () => {
 
   test('applies each store feed to its own platform and ga4 to both', () => {
     const applicable = (platform: 'ios' | 'android') =>
-      STATS_FEED_PLUGINS.filter((plugin) => plugin.isApplicable(makeApp(platform))).map(
-        (plugin) => plugin.feed,
-      );
+      STATS_FEED_PLUGINS.filter((plugin) => {
+        return plugin.isApplicable(makeApp(platform));
+      }).map((plugin) => plugin.feed);
 
     expect(applicable('ios')).toEqual(['app-store', 'ga4']);
     expect(applicable('android')).toEqual(['google-play', 'ga4']);

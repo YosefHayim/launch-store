@@ -3,13 +3,12 @@ import { DeviceCommandInputSchema, renderRegisteredDevice } from './device-comma
 
 describe('DeviceCommandInputSchema', () => {
   it('decodes add and list inputs', () => {
-    expect(
-      DeviceCommandInputSchema({
-        operation: 'add',
-        udid: 'ABC123',
-        name: 'Test iPhone',
-      }),
-    ).toEqual({ operation: 'add', udid: 'ABC123', name: 'Test iPhone' });
+    const deviceCommandSchema = DeviceCommandInputSchema({
+      operation: 'add',
+      udid: 'ABC123',
+      name: 'Test iPhone',
+    });
+    expect(deviceCommandSchema).toEqual({ operation: 'add', udid: 'ABC123', name: 'Test iPhone' });
     expect(DeviceCommandInputSchema({ operation: 'list' })).toEqual({
       operation: 'list',
     });
@@ -28,13 +27,12 @@ describe('DeviceCommandInputSchema', () => {
 
 describe('renderRegisteredDevice', () => {
   it('marks disabled devices with inline ASCII text', () => {
-    expect(
-      renderRegisteredDevice({
-        id: 'device-1',
-        udid: 'ABC123',
-        name: 'Test iPhone',
-        status: 'DISABLED',
-      }),
-    ).toBe('- Test iPhone - ABC123 (disabled)');
+    const registeredDevice = renderRegisteredDevice({
+      id: 'device-1',
+      udid: 'ABC123',
+      name: 'Test iPhone',
+      status: 'DISABLED',
+    });
+    expect(registeredDevice).toBe('- Test iPhone - ABC123 (disabled)');
   });
 });

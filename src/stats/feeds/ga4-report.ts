@@ -151,7 +151,8 @@ function readRowStats(reportRow: ReportRow): DailyStat[] {
 
   const date = readReportDate(compactDate);
 
-  return GA4_METRICS.flatMap(readMetricStat(date, reportRow.metricValues));
+  const metricStat = readMetricStat(date, reportRow.metricValues);
+  return GA4_METRICS.flatMap(metricStat);
 }
 
 export function createStatsFromReport(reportReply: Ga4ReportReply): readonly DailyStat[] {
@@ -163,9 +164,10 @@ async function loadReportPages(
   report: Ga4Report,
   offset: number,
 ): Promise<readonly DailyStat[]> {
+  const reportQuery = createReportQuery(report, offset);
   const reportDocument = await requestGa4Document(session, {
     url: `${ANALYTICS_DATA_URL}/properties/${report.propertyId}:runReport`,
-    requestDocument: createReportQuery(report, offset),
+    requestDocument: reportQuery,
     propertyId: report.propertyId,
   });
 

@@ -59,13 +59,15 @@ const otaCar: OtaCar = {
 
 describe('createTrainRuntime pure helpers', () => {
   it('accepts only processed, non-expired App Store builds', () => {
-    expect(isUsableIosStoreBuild({ processingState: 'VALID', expired: false })).toBe(true);
+    const buildProgram = isUsableIosStoreBuild({ processingState: 'VALID', expired: false });
+    expect(buildProgram).toBe(true);
     expect(isUsableIosStoreBuild({ processingState: 'VALID', expired: true })).toBe(false);
     expect(isUsableIosStoreBuild({ processingState: 'PROCESSING', expired: false })).toBe(false);
   });
 
   it('matches stored Android builds by app name and platform', () => {
-    expect(isStoredAndroidBuild({ appName: 'Demo', platform: 'android' }, 'Demo')).toBe(true);
+    const buildProgram = isStoredAndroidBuild({ appName: 'Demo', platform: 'android' }, 'Demo');
+    expect(buildProgram).toBe(true);
     expect(isStoredAndroidBuild({ appName: 'Demo', platform: 'ios' }, 'Demo')).toBe(false);
     expect(isStoredAndroidBuild({ appName: 'Other', platform: 'android' }, 'Demo')).toBe(false);
   });

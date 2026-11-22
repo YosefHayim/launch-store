@@ -61,28 +61,28 @@ const addSharedBuildOptions = (command: Command): Command =>
       false,
     );
 export const registerBuildCommand = (program: Command): void => {
-  const command = addSharedBuildOptions(
-    addAndroidBuildOptions(
-      addAppleBuildOptions(
-        program
-          .command('build')
-          .description(
-            'run the full pipeline and upload to the testing track (--no-submit to build only)',
-          )
-          .argument('<platform>', 'ios, android, tvos, macos, or visionos')
-          .option('-p, --profile <name>', 'build profile', 'production')
-          .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
-          .option('--explain', 'expand each step into a plain-English teaching block', false)
-          .option('--no-submit', 'build only; do not upload'),
-      ),
-    ),
-  );
+  const buildCommand = program
+    .command('build')
+    .description(
+      'run the full pipeline and upload to the testing track (--no-submit to build only)',
+    )
+    .argument('<platform>', 'ios, android, tvos, macos, or visionos')
+    .option('-p, --profile <name>', 'build profile', 'production')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--explain', 'expand each step into a plain-English teaching block', false)
+    .option('--no-submit', 'build only; do not upload');
+  const appleBuildCommand = addAppleBuildOptions(buildCommand);
+  const androidBuildCommand = addAndroidBuildOptions(appleBuildCommand);
+  const command = addSharedBuildOptions(androidBuildCommand);
   addEnvFlags(command).action((platformArgument: string, commandOptions: BuildCommandOptions) => {
     function startBuild(): ReturnType<typeof buildCommandProgram> {
       return buildCommandProgram(platformArgument, commandOptions);
     }
 
-    if (!commandOptions.json) return runCliProgram(startBuild());
+    if (!commandOptions.json) {
+      const buildProgram = startBuild();
+      return runCliProgram(buildProgram);
+    }
 
     return runJsonCliProgram(
       {

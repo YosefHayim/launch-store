@@ -66,9 +66,10 @@ function makeReadinessCommandFailure(fields: {
 }
 
 function commandFailure(operation: string, cause: unknown): ReadinessCommandFailure {
+  const failureMessage = errorMessage(cause);
   return makeReadinessCommandFailure({
     operation,
-    message: errorMessage(cause),
+    message: failureMessage,
     cause,
   });
 }
@@ -313,14 +314,13 @@ export async function readinessCommandProgram(rawCommandInput: unknown): Promise
       },
       resolvePlayApi: resolvePlayClient,
     };
-    const readinessOutcome = await runProbes(
-      readinessContext,
-      selectReadinessProbes(commandInput.category),
-    );
+    const readinessProbes = selectReadinessProbes(commandInput.category);
+    const readinessOutcome = await runProbes(readinessContext, readinessProbes);
     const isJson = commandInput.json == true;
 
     if (isJson) {
-      logger.line(JSON.stringify(readinessOutcome, null, 2));
+      const serialized = JSON.stringify(readinessOutcome, null, 2);
+      logger.line(serialized);
     } else {
       renderReadinessOutcome(logger, readinessOutcome, commandInput.labels);
     }

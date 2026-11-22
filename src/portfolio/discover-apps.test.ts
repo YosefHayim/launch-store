@@ -69,10 +69,11 @@ describe('discoverApps', () => {
     homeDirectory = createTemporaryHomeDirectory();
     const project = join(homeDirectory, 'work');
     mkdirSync(project, { recursive: true });
-    writeFileSync(
-      join(project, 'app.json'),
-      JSON.stringify({ expo: { name: 'Play', slug: 'play', android: { package: 'com.play' } } }),
-    );
+    const appPath = join(project, 'app.json');
+    const serialized = JSON.stringify({
+      expo: { name: 'Play', slug: 'play', android: { package: 'com.play' } },
+    });
+    writeFileSync(appPath, serialized);
     useLaunchDirectories({ homeDirectory, workingDirectory: project });
   });
 

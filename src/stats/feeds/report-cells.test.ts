@@ -17,15 +17,18 @@ describe('readCell', () => {
 
 describe('readNumberCell', () => {
   test('reads a number', () => {
-    expect(readNumberCell({ Units: '12.5' }, 'Units')).toBe(12.5);
+    const numberCell = readNumberCell({ Units: '12.5' }, 'Units');
+    expect(numberCell).toBe(12.5);
   });
 
   test('counts a blank cell as 0', () => {
-    expect(readNumberCell({ Units: ' ' }, 'Units')).toBe(0);
+    const numberCell = readNumberCell({ Units: ' ' }, 'Units');
+    expect(numberCell).toBe(0);
   });
 
   test('counts a cell that is not a number as 0', () => {
-    expect(readNumberCell({ Units: 'n/a' }, 'Units')).toBe(0);
+    const numberCell = readNumberCell({ Units: 'n/a' }, 'Units');
+    expect(numberCell).toBe(0);
   });
 });
 
@@ -43,11 +46,13 @@ describe('sumColumn', () => {
 
 describe('readTotal', () => {
   test('returns the known total', () => {
-    expect(readTotal(new Map([['a', 7]]), 'a')).toBe(7);
+    const total = readTotal(new Map([['a', 7]]), 'a');
+    expect(total).toBe(7);
   });
 
   test('returns 0 for an unknown key', () => {
-    expect(readTotal(new Map<string, number>(), 'a')).toBe(0);
+    const total = readTotal(new Map<string, number>(), 'a');
+    expect(total).toBe(0);
   });
 });
 

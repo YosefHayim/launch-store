@@ -226,7 +226,8 @@ function readTreatments(field: unknown): TreatmentConfig[] {
     const treatments: TreatmentConfig[] = [];
 
     for (const rawTreatment of field) {
-      treatments.push(readTreatment(rawTreatment));
+      const treatment = readTreatment(rawTreatment);
+      treatments.push(treatment);
     }
 
     return treatments;
@@ -622,9 +623,8 @@ async function reconcileTreatments(
   const shouldListTreatments = canListExistingTreatments(ensuredExperiment);
 
   if (shouldListTreatments) {
-    const existingTreatments = await appleExperimentsApi.listExperimentTreatments(
-      readExperimentId(ensuredExperiment),
-    );
+    const experimentId = readExperimentId(ensuredExperiment);
+    const existingTreatments = await appleExperimentsApi.listExperimentTreatments(experimentId);
 
     for (const existingTreatment of existingTreatments) {
       treatmentIdsByName.set(existingTreatment.name, existingTreatment.id);

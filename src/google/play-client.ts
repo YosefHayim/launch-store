@@ -33,7 +33,8 @@ import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 /** Deep-clone a Launch boundary value into a mutable plain object for Google's generated client. */
 const mutableGoogleRequest = <GoogleRequest>(requestShape: unknown): GoogleRequest => {
-  const clonedRequest: GoogleRequest = JSON.parse(JSON.stringify(requestShape));
+  const serialized = JSON.stringify(requestShape);
+  const clonedRequest: GoogleRequest = JSON.parse(serialized);
   return clonedRequest;
 };
 
@@ -123,14 +124,16 @@ const googleFailureStatus = (cause: unknown): number | undefined => {
 /** Turn a generated-client failure into the actionable text Launch already exposes. */
 const googleFailureMessage = (cause: unknown): string => {
   if (cause instanceof Error) return describePlayErrors(cause.message);
-  return describePlayErrors(String(cause));
+  const asString = String(cause);
+  return describePlayErrors(asString);
 };
 /** Lift Google's epoch-seconds timestamp to ISO-8601, or undefined when absent. */
 const timestampToIso = (
   timestamp: androidpublisher_v3.Schema$Timestamp | undefined,
 ): string | undefined => {
   if (typeof timestamp?.seconds != 'string') return;
-  return new Date(Number(timestamp.seconds) * 1000).toISOString();
+  const number = Number(timestamp.seconds);
+  return new Date(number * 1000).toISOString();
 };
 /** Flatten the generated review DTO into the {@link PlayReview} slice Launch consumes. */
 const normalizeReview = (
@@ -239,7 +242,8 @@ const releasesFromGoogleTrack = (
   const releases: PlayRelease[] = [];
   if (!Array.isArray(googleReleases)) return releases;
   for (const googleRelease of googleReleases) {
-    releases.push(normalizeTrackRelease(googleRelease));
+    const trackRelease = normalizeTrackRelease(googleRelease);
+    releases.push(trackRelease);
   }
   return releases;
 };
@@ -631,9 +635,10 @@ export class GooglePlayClient {
       this.publisher = generatedPublisher;
       return;
     }
-    const googleAuthentication = new androidPublisherAuth.JWT(
-      serviceAccountJwtOptions(account, ['https://www.googleapis.com/auth/androidpublisher']),
-    );
+    const serviceAccountJwt = serviceAccountJwtOptions(account, [
+      'https://www.googleapis.com/auth/androidpublisher',
+    ]);
+    const googleAuthentication = new androidPublisherAuth.JWT(serviceAccountJwt);
     this.publisher = androidpublisher({ version: 'v3', auth: googleAuthentication });
   }
   /** Run one generated Android Publisher request and tag a failure. */
@@ -812,14 +817,14 @@ export class GooglePlayClient {
     releases: readonly PlayRelease[],
   ): Promise<void> {
     const writeTrackReleases = async (editId: string): Promise<void> => {
-      await this.executeGeneratedRequest('update track', () =>
-        this.publisher.edits.tracks.update({
+      await this.executeGeneratedRequest('update track', () => {
+        return this.publisher.edits.tracks.update({
           packageName,
           editId,
           track,
           requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Track>({ track, releases }),
-        }),
-      );
+        });
+      });
     };
 
     await this.withEdit(packageName, writeTrackReleases);
@@ -847,8 +852,8 @@ export class GooglePlayClient {
 
       if (hasVersionCode) {
         const trackRelease: PlayRelease = { ...release, versionCodes: [String(versionCode)] };
-        await this.executeGeneratedRequest('update track', () =>
-          this.publisher.edits.tracks.update({
+        await this.executeGeneratedRequest('update track', () => {
+          return this.publisher.edits.tracks.update({
             packageName,
             editId,
             track,
@@ -856,8 +861,8 @@ export class GooglePlayClient {
               track,
               releases: [trackRelease],
             }),
-          }),
-        );
+          });
+        });
         return versionCode;
       }
 
@@ -937,14 +942,14 @@ export class GooglePlayClient {
   async updateListings(packageName: string, listings: readonly PlayListing[]): Promise<void> {
     const writeListings = async (editId: string): Promise<void> => {
       for (const listing of listings) {
-        await this.executeGeneratedRequest('update listing', () =>
-          this.publisher.edits.listings.patch({
+        await this.executeGeneratedRequest('update listing', () => {
+          return this.publisher.edits.listings.patch({
             packageName,
             editId,
             language: listing.language,
             requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Listing>(listing),
-          }),
-        );
+          });
+        });
       }
     };
 
@@ -1106,9 +1111,10 @@ export class GooglePlayClient {
         const hasRegionCode = typeof regionCode == 'string';
 
         if (hasRegionCode) {
+          const money = normalizeMoney(googlePrice.price);
           regions.push({
             regionCode,
-            price: normalizeMoney(googlePrice.price),
+            price: money,
           });
         }
       }
@@ -1169,8 +1175,8 @@ export class GooglePlayClient {
    * `regionsVersion.version` is required; the product id is sent in the query and request document.
    */
   async createSubscription(packageName: string, subscription: SubscriptionResource): Promise<void> {
-    await this.executeGeneratedRequest('create subscription', () =>
-      this.publisher.monetization.subscriptions.create({
+    await this.executeGeneratedRequest('create subscription', () => {
+      return this.publisher.monetization.subscriptions.create({
         packageName,
         productId: subscription.productId,
         'regionsVersion.version': REGIONS_VERSION,
@@ -1178,8 +1184,8 @@ export class GooglePlayClient {
           ...subscription,
           packageName,
         }),
-      }),
-    );
+      });
+    });
   }
   /**
    * Patch a subscription's masked fields (PATCH with an `updateMask` - Play requires field-level updates).
@@ -1191,8 +1197,8 @@ export class GooglePlayClient {
     subscription: SubscriptionResource,
     updateMask: string,
   ): Promise<void> {
-    await this.executeGeneratedRequest('patch subscription', () =>
-      this.publisher.monetization.subscriptions.patch({
+    await this.executeGeneratedRequest('patch subscription', () => {
+      return this.publisher.monetization.subscriptions.patch({
         packageName,
         productId: subscription.productId,
         updateMask,
@@ -1201,8 +1207,8 @@ export class GooglePlayClient {
           ...subscription,
           packageName,
         }),
-      }),
-    );
+      });
+    });
   }
   /** Activate a base plan (DRAFT -> ACTIVE), making it purchasable. Idempotent on an already-active plan. */
   async activateBasePlan(
@@ -1271,8 +1277,8 @@ export class GooglePlayClient {
       basePlanId = offer.basePlanId;
     }
 
-    await this.executeGeneratedRequest('create subscription offer', () =>
-      this.publisher.monetization.subscriptions.basePlans.offers.create({
+    await this.executeGeneratedRequest('create subscription offer', () => {
+      return this.publisher.monetization.subscriptions.basePlans.offers.create({
         packageName,
         productId,
         basePlanId,
@@ -1282,8 +1288,8 @@ export class GooglePlayClient {
           ...offer,
           packageName,
         }),
-      }),
-    );
+      });
+    });
   }
   /** Activate a subscription offer (DRAFT -> ACTIVE), making it available. */
   async activateSubscriptionOffer(

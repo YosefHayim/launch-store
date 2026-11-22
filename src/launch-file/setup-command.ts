@@ -20,7 +20,8 @@ export class SetupCommand {
     const exists = await pathExists(launchFilePath);
 
     if (exists == false) {
-      await writeFile(launchFilePath, createLaunchFileScaffold());
+      const launchFileScaffold = createLaunchFileScaffold();
+      await writeFile(launchFilePath, launchFileScaffold);
       console.log('Wrote launch.config.ts');
       return;
     }
@@ -38,7 +39,8 @@ export class SetupCommand {
       return;
     }
 
-    await writeFile(launchFilePath, createLaunchFileScaffold());
+    const launchFileScaffold = createLaunchFileScaffold();
+    await writeFile(launchFilePath, launchFileScaffold);
     console.log('Wrote launch.config.ts');
   };
 }

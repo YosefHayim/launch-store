@@ -3,13 +3,15 @@ import { createStatsFromReport, readReportDate } from './ga4-report.ts';
 
 describe('readReportDate', () => {
   test('turns YYYYMMDD into YYYY-MM-DD', () => {
-    expect(readReportDate('20261029')).toBe('2026-10-29');
+    const reportDate = readReportDate('20261029');
+    expect(reportDate).toBe('2026-10-29');
   });
 });
 
 describe('createStatsFromReport', () => {
   test('returns nothing for a reply without rows', () => {
-    expect(createStatsFromReport({ rows: [], rowCount: 0 })).toEqual([]);
+    const statsFromReport = createStatsFromReport({ rows: [], rowCount: 0 });
+    expect(statsFromReport).toEqual([]);
   });
 
   test('skips a row without a date and a metric without a value', () => {

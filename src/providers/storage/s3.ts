@@ -226,7 +226,8 @@ export function decodeArtifactIndex(indexText: string): BuildArtifact[] {
   try {
     parsed = JSON.parse(indexText);
   } catch (cause) {
-    throw parseFailure(errorMessage(cause));
+    const failureMessage = errorMessage(cause);
+    throw parseFailure(failureMessage);
   }
 
   if (Array.isArray(parsed) == false) {
@@ -394,7 +395,8 @@ export async function makeS3StorageProvider(
     const artifactIndex = await readIndex();
 
     artifactIndex.unshift({ ...artifact, path: uploadedArtifact.location });
-    await upload(INDEX_OBJECT_KEY, JSON.stringify(artifactIndex, null, 2), 'application/json');
+    const serialized = JSON.stringify(artifactIndex, null, 2);
+    await upload(INDEX_OBJECT_KEY, serialized, 'application/json');
 
     return uploadedArtifact;
   }
@@ -454,13 +456,12 @@ export function makeS3StorageProviderResolver(): StorageProviderResolver {
     name: 's3',
     resolveStorageProvider(providerOptions) {
       if (providerOptions.storageConfig == null) {
-        return Promise.reject(
-          makeProviderInputFailure({
-            provider: 's3',
-            message:
-              'Storage "s3" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).',
-          }),
-        );
+        const makeProviderFailure = makeProviderInputFailure({
+          provider: 's3',
+          message:
+            'Storage "s3" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).',
+        });
+        return Promise.reject(makeProviderFailure);
       }
 
       return makeS3StorageProvider(providerOptions.storageConfig);

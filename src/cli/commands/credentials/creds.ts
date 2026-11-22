@@ -43,14 +43,14 @@ export const registerCredsCommand = (program: Command): void => {
         firstArgument: string | undefined,
         secondArgument: string | undefined,
         commandOptions: CredsOptions,
-      ) =>
-        runCliProgram(
-          credentialsCommandProgram({
-            action,
-            firstArgument,
-            secondArgument,
-            options: commandOptions,
-          }),
-        ),
+      ) => {
+        const credentialsProgram = credentialsCommandProgram({
+          action,
+          firstArgument,
+          secondArgument,
+          options: commandOptions,
+        });
+        return runCliProgram(credentialsProgram);
+      },
     );
 };

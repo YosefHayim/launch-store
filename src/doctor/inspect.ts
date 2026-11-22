@@ -174,7 +174,8 @@ async function androidToolchainChecks(doctorContext: DoctorContext): Promise<Doc
     doctorChecks.push(toolCheck);
   }
 
-  doctorChecks.push(readAndroidSdkCheck(doctorContext.androidSdk));
+  const androidSdkCheck = readAndroidSdkCheck(doctorContext.androidSdk);
+  doctorChecks.push(androidSdkCheck);
 
   for (const app of doctorContext.apps) {
     const wrapperCheck = await readGradleWrapperCheck(doctorContext, app);
@@ -402,8 +403,9 @@ async function readAppConfigChecks(
   const doctorChecks: DoctorCheck[] = [];
 
   for (const finding of configFindings) {
+    const findingStatus = readFindingStatus(finding.severity);
     doctorChecks.push({
-      status: readFindingStatus(finding.severity),
+      status: findingStatus,
       title: `${app.name}: ${formatFinding(finding)}`,
     });
   }
@@ -545,7 +547,8 @@ async function keyPermissionChecks(doctorContext: DoctorContext): Promise<Doctor
   const permissionLines: string[] = [];
 
   for (const permissionCheck of permissionChecks) {
-    permissionLines.push(`  ${formatPermissionLine(permissionCheck)}`);
+    const permissionLine = formatPermissionLine(permissionCheck);
+    permissionLines.push(`  ${permissionLine}`);
   }
 
   return [
@@ -564,10 +567,8 @@ async function readAndroidChecks(doctorContext: DoctorContext): Promise<DoctorCh
   );
   const credentialChecks = await readSectionChecks('Credentials', credentialsCheck(doctorContext));
   const playChecks = await readSectionChecks('Play account', playAccountChecks(doctorContext));
-  const appConfigChecks = await readSectionChecks(
-    'App config',
-    configChecks(doctorContext, 'android'),
-  );
+  const checks = configChecks(doctorContext, 'android');
+  const appConfigChecks = await readSectionChecks('App config', checks);
 
   return [...toolchainChecks, ...credentialChecks, ...playChecks, ...appConfigChecks];
 }
@@ -584,7 +585,8 @@ async function readIosChecks(doctorContext: DoctorContext): Promise<DoctorCheck[
     'Signing preflight',
     signingPreflightChecks(doctorContext),
   );
-  const appConfigChecks = await readSectionChecks('App config', configChecks(doctorContext, 'ios'));
+  const checks = configChecks(doctorContext, 'ios');
+  const appConfigChecks = await readSectionChecks('App config', checks);
   const complianceChecks = await readSectionChecks(
     'Export compliance',
     exportComplianceChecks(doctorContext),

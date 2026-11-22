@@ -64,7 +64,8 @@ describe('shouldNudgeRelease - second confirm only for incremental artifacts', (
 
 describe('isVerifiedStoreBuild / newestValidBuild', () => {
   it('accepts only processed, non-expired builds', () => {
-    expect(isVerifiedStoreBuild(storeBuild())).toBe(true);
+    const buildProgram = storeBuild();
+    expect(isVerifiedStoreBuild(buildProgram)).toBe(true);
     expect(isVerifiedStoreBuild(storeBuild({ processingState: 'PROCESSING' }))).toBe(false);
     expect(isVerifiedStoreBuild(storeBuild({ expired: true }))).toBe(false);
   });
@@ -76,23 +77,27 @@ describe('isVerifiedStoreBuild / newestValidBuild', () => {
       storeBuild({ id: 'valid', version: '42' }),
       storeBuild({ id: 'also-valid', version: '43' }),
     ];
-    expect(newestValidBuild(builds)?.id).toBe('valid');
+    const buildProgram = newestValidBuild(builds);
+    expect(buildProgram?.id).toBe('valid');
   });
 
   it('returns null when nothing is promotable', () => {
-    expect(newestValidBuild([storeBuild({ processingState: 'FAILED' })])).toBeNull();
+    const buildProgram = storeBuild({ processingState: 'FAILED' });
+    expect(newestValidBuild([buildProgram])).toBeNull();
     expect(newestValidBuild([])).toBeNull();
   });
 });
 
 describe('parseAppStoreBuildSelector', () => {
   it('parses latest and numeric selectors', () => {
-    expect(parseAppStoreBuildSelector('latest')).toEqual({ kind: 'latest' });
+    const appStoreBuildSelector = parseAppStoreBuildSelector('latest');
+    expect(appStoreBuildSelector).toEqual({ kind: 'latest' });
     expect(parseAppStoreBuildSelector('42')).toEqual({ kind: 'number', buildNumber: 42 });
   });
 
   it('rejects non-numeric selectors that are not latest', () => {
-    expect(parseAppStoreBuildSelector('main')).toEqual({ kind: 'invalid', selector: 'main' });
+    const appStoreBuildSelector = parseAppStoreBuildSelector('main');
+    expect(appStoreBuildSelector).toEqual({ kind: 'invalid', selector: 'main' });
     expect(parseAppStoreBuildSelector('')).toEqual({ kind: 'invalid', selector: '' });
   });
 });
@@ -121,11 +126,12 @@ describe('resolveVersionString', () => {
     expect(versionString).toBe('6.11.77');
   });
   it('falls back to app.json when the build has no marketing version', async () => {
+    const buildProgram = storeBuild();
     const versionString = await resolveVersionString(
       ascClient,
       appDescriptor,
       'com.acme.app',
-      storeBuild(),
+      buildProgram,
     );
     expect(versionString).toBe('6.11.78');
     expect(ascClient.getLatestMarketingVersion).not.toHaveBeenCalled();
@@ -134,15 +140,18 @@ describe('resolveVersionString', () => {
 
 describe('resolveAndroidRollout', () => {
   it('prefers the CLI flag over the profile default', () => {
-    expect(resolveAndroidRollout(0.25, 0.5)).toBe(0.5);
+    const androidRollout = resolveAndroidRollout(0.25, 0.5);
+    expect(androidRollout).toBe(0.5);
   });
 
   it('uses the profile fraction when no flag is passed', () => {
-    expect(resolveAndroidRollout(0.1, undefined)).toBe(0.1);
+    const androidRollout = resolveAndroidRollout(0.1, undefined);
+    expect(androidRollout).toBe(0.1);
   });
 
   it('defaults to a full production rollout', () => {
-    expect(resolveAndroidRollout(undefined, undefined)).toBe(1);
+    const androidRollout = resolveAndroidRollout(undefined, undefined);
+    expect(androidRollout).toBe(1);
   });
 });
 
@@ -169,31 +178,31 @@ describe('androidReleasePlanLines', () => {
 
 describe('formatReleaseActionLine / countFailedReleaseActions', () => {
   it('renders plan lines with skipped notes', () => {
-    expect(
-      formatReleaseActionLine(
-        releaseAction({ status: 'skipped', note: 'already attached' }),
-        'plan',
-      ),
-    ).toBe('- attach build 42 (already attached)');
+    const releaseActionLine = formatReleaseActionLine(
+      releaseAction({ status: 'skipped', note: 'already attached' }),
+      'plan',
+    );
+    expect(releaseActionLine).toBe('- attach build 42 (already attached)');
   });
 
   it('renders receipt failures with an error suffix', () => {
-    expect(
-      formatReleaseActionLine(releaseAction({ status: 'failed', error: 'ASC 409' }), 'receipt'),
-    ).toBe('x attach build 42 - ASC 409');
+    const releaseActionLine = formatReleaseActionLine(
+      releaseAction({ status: 'failed', error: 'ASC 409' }),
+      'receipt',
+    );
+    expect(releaseActionLine).toBe('x attach build 42 - ASC 409');
   });
 
   it('counts only failed steps for the exit code', () => {
-    expect(
-      countFailedReleaseActions(
-        releaseReport([
-          releaseAction({ status: 'applied' }),
-          releaseAction({ status: 'failed' }),
-          releaseAction({ status: 'skipped' }),
-          releaseAction({ status: 'failed' }),
-        ]),
-      ),
-    ).toBe(2);
+    const failedReleaseActions = countFailedReleaseActions(
+      releaseReport([
+        releaseAction({ status: 'applied' }),
+        releaseAction({ status: 'failed' }),
+        releaseAction({ status: 'skipped' }),
+        releaseAction({ status: 'failed' }),
+      ]),
+    );
+    expect(failedReleaseActions).toBe(2);
     expect(countFailedReleaseActions(releaseReport([]))).toBe(0);
   });
 });
@@ -269,13 +278,15 @@ function makeReleaseApiFake(methodOverrides: Partial<AscReleaseApi> = {}): AscRe
       return Promise.resolve(null);
     }),
     listBuilds: vi.fn(function readBuilds() {
-      return Promise.resolve([storeBuild()]);
+      const buildProgram = storeBuild();
+      return Promise.resolve([buildProgram]);
     }),
     findBuild: vi.fn(function readBuild() {
       return Promise.resolve({ id: 'b-1', usesNonExemptEncryption: false });
     }),
     findBuildByVersion: vi.fn(function readBuildByVersion() {
-      return Promise.resolve(storeBuild());
+      const buildProgram = storeBuild();
+      return Promise.resolve(buildProgram);
     }),
     setBuildUsesNonExemptEncryption: vi.fn(function setEncryption() {
       return Promise.resolve();
@@ -341,7 +352,8 @@ async function runInTemporaryHome<Result>(
   try {
     const workDirectory = join(homeDirectory, 'work');
     mkdirSync(workDirectory, { recursive: true });
-    writeFileSync(join(workDirectory, 'app.json'), appJsonText);
+    const appPath = join(workDirectory, 'app.json');
+    writeFileSync(appPath, appJsonText);
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFileText);
 
     return await runWithHome(homeDirectory);
@@ -363,9 +375,10 @@ async function runReleaseCommand(commandRun: CommandRun): Promise<CommandOutcome
     cancelRelease: function cancelRelease() {},
   };
 
+  const workPath = join(commandRun.homeDirectory, 'work');
   useLaunchDirectories({
     homeDirectory: commandRun.homeDirectory,
-    workingDirectory: join(commandRun.homeDirectory, 'work'),
+    workingDirectory: workPath,
   });
   useSecretStore(new Map([[`asc-p8:${ASC_KEY_ID}`, p8Secret]]));
   useLoggerSink(function writeLine(text: string) {
@@ -406,10 +419,11 @@ describe('releaseCommandProgram - attach-only', () => {
   it('fails on Android before any App Store call', async () => {
     const releaseApi = makeReleaseApiFake();
     const outcome = await runInTemporaryHome(function runAndroidAttach(homeDirectory) {
+      const commandFor = commandOptionsFor({ attachOnly: true });
       return runReleaseCommand({
         homeDirectory,
         platformArgument: 'android',
-        commandOptions: commandOptionsFor({ attachOnly: true }),
+        commandOptions: commandFor,
         releaseApi,
       });
     });
@@ -423,10 +437,11 @@ describe('releaseCommandProgram - attach-only', () => {
   it('attaches the build to the editable version and never submits it', async () => {
     const releaseApi = makeReleaseApiFake();
     const outcome = await runInTemporaryHome(function runAttach(homeDirectory) {
+      const commandFor = commandOptionsFor({ build: '42', attachOnly: true });
       return runReleaseCommand({
         homeDirectory,
         platformArgument: 'ios',
-        commandOptions: commandOptionsFor({ build: '42', attachOnly: true }),
+        commandOptions: commandFor,
         releaseApi,
       });
     });
@@ -446,10 +461,11 @@ describe('releaseCommandProgram - attach-only', () => {
       }),
     });
     const outcome = await runInTemporaryHome(function runFailedAttach(homeDirectory) {
+      const commandFor = commandOptionsFor({ build: '42', attachOnly: true });
       return runReleaseCommand({
         homeDirectory,
         platformArgument: 'ios',
-        commandOptions: commandOptionsFor({ build: '42', attachOnly: true }),
+        commandOptions: commandFor,
         releaseApi,
       });
     });
@@ -462,10 +478,11 @@ describe('releaseCommandProgram - attach-only', () => {
   it('asks to submit and submits for review when attach-only is off', async () => {
     const releaseApi = makeReleaseApiFake();
     const outcome = await runInTemporaryHome(function runSubmit(homeDirectory) {
+      const commandFor = commandOptionsFor({ build: '42' });
       return runReleaseCommand({
         homeDirectory,
         platformArgument: 'ios',
-        commandOptions: commandOptionsFor({ build: '42' }),
+        commandOptions: commandFor,
         releaseApi,
       });
     });

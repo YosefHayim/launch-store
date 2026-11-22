@@ -30,9 +30,11 @@ export const registerPlanCommand = (program: Command): void => {
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--check', 'exit 2 when drift is present (CI gate); same as `launch drift`', false)
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((surfaceName: string | undefined, commandOptions: PlanOptions) =>
-      runCliProgram(planCommandProgram(planCommandInput('plan', surfaceName, commandOptions))),
-    );
+    .action((surfaceName: string | undefined, commandOptions: PlanOptions) => {
+      const planCommand = planCommandInput('plan', surfaceName, commandOptions);
+      const planProgram = planCommandProgram(planCommand);
+      return runCliProgram(planProgram);
+    });
   program
     .command('drift [surface]')
     .description(
@@ -40,7 +42,9 @@ export const registerPlanCommand = (program: Command): void => {
     )
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((surfaceName: string | undefined, commandOptions: PlanOptions) =>
-      runCliProgram(planCommandProgram(planCommandInput('drift', surfaceName, commandOptions))),
-    );
+    .action((surfaceName: string | undefined, commandOptions: PlanOptions) => {
+      const planCommand = planCommandInput('drift', surfaceName, commandOptions);
+      const planProgram = planCommandProgram(planCommand);
+      return runCliProgram(planProgram);
+    });
 };

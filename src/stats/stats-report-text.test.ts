@@ -50,29 +50,36 @@ describe('describeProceeds', () => {
       total({ metric: 'proceeds', currency: 'USD', total: 56.2 }),
     ];
 
-    expect(describeProceeds(totals)).toBe('EUR 10.00, USD 56.20');
+    const proceeds = describeProceeds(totals);
+    expect(proceeds).toBe('EUR 10.00, USD 56.20');
   });
 
   test('shows a dash when there are no proceeds', () => {
-    expect(describeProceeds([total({})])).toBe('-');
+    const proceeds = describeProceeds([total({})]);
+    expect(proceeds).toBe('-');
   });
 });
 
 describe('describeCrashRate and describeRating', () => {
   test('shows a fraction as a percent and a rating with two decimals', () => {
-    expect(describeCrashRate(0.0042)).toBe('0.42%');
-    expect(describeRating(4.666)).toBe('4.67');
+    const crashRate = describeCrashRate(0.0042);
+    expect(crashRate).toBe('0.42%');
+    const rating = describeRating(4.666);
+    expect(rating).toBe('4.67');
   });
 
   test('shows a dash for no number', () => {
-    expect(describeCrashRate(null)).toBe('-');
-    expect(describeRating(null)).toBe('-');
+    const crashRate = describeCrashRate(null);
+    expect(crashRate).toBe('-');
+    const rating = describeRating(null);
+    expect(rating).toBe('-');
   });
 });
 
 describe('describeOwner', () => {
   test('shows the owner, or untagged when there is none', () => {
-    expect(describeOwner('mine')).toBe('mine');
+    const owner = describeOwner('mine');
+    expect(owner).toBe('mine');
     expect(describeOwner(null)).toBe('untagged');
   });
 });

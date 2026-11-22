@@ -42,7 +42,8 @@ describe('EC2 Mac cost model (verified AWS figures)', () => {
   });
   it('formats money and age for the banner', () => {
     expect(usd(15.6)).toBe('$15.60');
-    expect(formatAge(0)).toBe('0h 00m');
+    const age = formatAge(0);
+    expect(age).toBe('0h 00m');
     expect(formatAge(3 * HOUR_MS + 12 * 60 * 1000)).toBe('3h 12m');
   });
   it('states the floor, the stop!=free rule, and reuse in the consent text', () => {

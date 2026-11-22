@@ -65,9 +65,10 @@ export async function runEasBuild(
   const shouldSubmit = buildOptions.submit == true;
 
   if (shouldSubmit) {
+    const sizeBudgetMB = resolveSizeBudgetMB(buildOptions, profile);
     await confirmUpload({
       report: built.sizeReport,
-      budgetMB: resolveSizeBudgetMB(buildOptions, profile),
+      budgetMB: sizeBudgetMB,
       destination: 'TestFlight (via EAS)',
       app,
       version: appVersion,

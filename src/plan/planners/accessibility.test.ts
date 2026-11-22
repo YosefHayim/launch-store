@@ -20,10 +20,13 @@ afterEach(() => {
 });
 /** Write a sidecar config to a fresh temp file and return its path. */
 const writeConfig = (json: unknown): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'launch-a11y-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchA11yPath = join(systemTemporaryDirectory, 'launch-a11y-');
+  const dir = mkdtempSync(launchA11yPath);
   tmpDirs.push(dir);
   const path = join(dir, 'accessibility.config.json');
-  writeFileSync(path, JSON.stringify(json));
+  const serialized = JSON.stringify(json);
+  writeFileSync(path, serialized);
   return path;
 };
 const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext => {
@@ -61,9 +64,10 @@ const publishedIphone = {
 };
 describe('accessibilityPlanner', () => {
   it('omits itself when no accessibility sidecar is present', async () => {
+    const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(
       accessibilityPlanner,
-      makeCtx(makeAscApiFake(), '/no/such/accessibility.config.json'),
+      makeCtx(ascApiFake, '/no/such/accessibility.config.json'),
     );
     expect(plan.state).toBe('omitted');
   });
@@ -74,10 +78,8 @@ describe('accessibilityPlanner', () => {
     expect(plan.hint).toMatch(/creds/);
   });
   it("reports an additive plan when a declaration doesn't exist yet", async () => {
-    const plan = await runPlanner(
-      accessibilityPlanner,
-      makeCtx(makeAscApiFake(), writeConfig(DECLARED)),
-    );
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(accessibilityPlanner, makeCtx(ascApiFake, writeConfig(DECLARED)));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;

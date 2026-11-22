@@ -68,14 +68,13 @@ export async function runBuildStep(
     return dryOutput;
   }
 
-  beginBuildLog(
-    buildLogId({
-      appName: app.name,
-      version: artifactMarketingVersion(app),
-      buildNumber,
-      platform: buildContext.platform,
-    }),
-  );
+  const logId = buildLogId({
+    appName: app.name,
+    version: artifactMarketingVersion(app),
+    buildNumber,
+    platform: buildContext.platform,
+  });
+  beginBuildLog(logId);
 
   try {
     const compiled = await compileStep();
@@ -148,9 +147,10 @@ async function sweepStoredArtifacts(
     noun = 'build';
   }
 
+  const megabytes = mb(swept.freedBytes);
   log.step(
     'prune',
-    `removed ${swept.pruned.length} old ${noun} >${retentionDays}d - freed ${mb(swept.freedBytes)}`,
+    `removed ${swept.pruned.length} old ${noun} >${retentionDays}d - freed ${megabytes}`,
   );
 }
 
@@ -224,8 +224,9 @@ export async function nudgeIfNoCcache(log: Logger): Promise<void> {
     return;
   }
 
+  const terminalIsInteractive = checkTerminalIsInteractive();
   const installStatus = await ensureCcacheInstalled({
-    interactive: checkTerminalIsInteractive(),
+    interactive: terminalIsInteractive,
   });
 
   switch (installStatus) {
@@ -532,10 +533,12 @@ export function sizeSummary(
   const hasNoEntries = sizeReport.entries.length == 0;
 
   if (hasNoEntries) {
-    return `on disk ${wrapSize(mb(sizeReport.artifactBytes))} (no per-device estimate)`;
+    const megabytes = mb(sizeReport.artifactBytes);
+    return `on disk ${wrapSize(megabytes)} (no per-device estimate)`;
   }
 
-  return `download ${wrapSize(mb(worstDownloadBytes(sizeReport)))} - on disk ${wrapSize(mb(sizeReport.artifactBytes))}`;
+  const megabytes = mb(worstDownloadBytes(sizeReport));
+  return `download ${wrapSize(megabytes)} - on disk ${wrapSize(mb(sizeReport.artifactBytes))}`;
 }
 
 /** A build whose worst-case download grows beyond this fraction over the previous one earns a warning. */
@@ -635,9 +638,8 @@ export async function previousBuild(
 ): Promise<PreviousDownload | undefined> {
   const storageProvider = await resolveStorageProvider(launchConfig);
   const artifactHistory = await storageProvider.list();
-  const priorArtifact = artifactHistory.find(
-    isEarlierBuild(app.name, platform, currentBuildNumber),
-  );
+  const buildProgram = isEarlierBuild(app.name, platform, currentBuildNumber);
+  const priorArtifact = artifactHistory.find(buildProgram);
 
   if (priorArtifact == null) {
     return undefined;
@@ -658,11 +660,8 @@ export async function reportSize(
   const hasNoEntries = sizeReport.entries.length == 0;
 
   if (hasNoEntries) {
-    log.step(
-      'size',
-      `${log.chip(mb(sizeReport.artifactBytes))} on disk (no per-device report)`,
-      sizeTopic,
-    );
+    const megabytes = mb(sizeReport.artifactBytes);
+    log.step('size', `${log.chip(megabytes)} on disk (no per-device report)`, sizeTopic);
     return;
   }
 
@@ -674,9 +673,10 @@ export async function reportSize(
       installSuffix = ` - install ${mb(sizeEntry.installBytes)}`;
     }
 
+    const megabytes = mb(sizeEntry.downloadBytes);
     log.step(
       'size',
-      `${sizeEntry.device}: download ${log.chip(mb(sizeEntry.downloadBytes))}${installSuffix}`,
+      `${sizeEntry.device}: download ${log.chip(megabytes)}${installSuffix}`,
       sizeTopic,
     );
   }
@@ -720,9 +720,8 @@ export async function confirmUpload(uploadOptions: ConfirmUploadOptions): Promis
   }
 
   if (overBudget) {
-    log.warn(
-      `Worst-case download ${mb(worstDownloadBytes(report))} is over the ${budgetMB} MB budget.`,
-    );
+    const megabytes = mb(worstDownloadBytes(report));
+    log.warn(`Worst-case download ${megabytes} is over the ${budgetMB} MB budget.`);
   }
 
   if (yes) {
@@ -773,9 +772,10 @@ export async function uploadIosBuild(
     artifact.buildNumber,
   );
 
+  const sizeBudgetMB = resolveSizeBudgetMB(buildOptions, prepared.profile);
   await confirmUpload({
     report: sizeReport,
-    budgetMB: resolveSizeBudgetMB(buildOptions, prepared.profile),
+    budgetMB: sizeBudgetMB,
     destination: 'TestFlight',
     app,
     version: artifact.version,

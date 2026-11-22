@@ -222,12 +222,14 @@ export async function playReportsCommandProgram(rawCommandInput: unknown): Promi
         return timeline.rows;
       });
 
-      logger.line(JSON.stringify(timelineRows, null, 2));
+      const serialized = JSON.stringify(timelineRows, null, 2);
+      logger.line(serialized);
       return;
     }
 
     logger.line(timelines.map(timelineText).join('\n'));
   } catch (cause) {
-    throw makePlayReportsCommandFailure({ message: errorMessage(cause), cause });
+    const failureMessage = errorMessage(cause);
+    throw makePlayReportsCommandFailure({ message: failureMessage, cause });
   }
 }

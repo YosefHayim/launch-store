@@ -315,9 +315,10 @@ export async function euDistributionCommandProgram(rawCommandInput: unknown): Pr
       operation = decodedOperation;
     }
 
+    const failureMessage = errorMessage(cause);
     throw makeEuDistributionCommandFailure({
       operation,
-      message: errorMessage(cause),
+      message: failureMessage,
       cause,
     });
   }

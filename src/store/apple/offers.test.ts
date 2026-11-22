@@ -59,9 +59,10 @@ class FakeOffersApi implements AscOffersApi {
     customerPrice: number,
   ): Promise<PricePointResource | null> {
     if (customerPrice == 999) return Promise.resolve(null);
+    const asString = String(customerPrice);
     return Promise.resolve({
       id: `pp-${territory}-${customerPrice}`,
-      customerPrice: String(customerPrice),
+      customerPrice: asString,
       territory,
     });
   }
@@ -394,9 +395,12 @@ describe('reconcileOffers - preconditions', () => {
   it('throws when the app has no App Store Connect record', async () => {
     const api = new FakeOffersApi();
     api.appId = null;
-    await expect(
-      runReconcile(api, { bundleId: 'com.acme.app', dryRun: false, products: productsWith({}) }),
-    ).rejects.toThrow(/No App Store Connect app record/);
+    const reconcile = runReconcile(api, {
+      bundleId: 'com.acme.app',
+      dryRun: false,
+      products: productsWith({}),
+    });
+    await expect(reconcile).rejects.toThrow(/No App Store Connect app record/);
   });
   it('skips a non-FREE_TRIAL offer code with no prices', async () => {
     const api = new FakeOffersApi();

@@ -72,9 +72,12 @@ const plannedTeam = (surface: string, actions: PlannedAction[]): SurfacePlan => 
 
 describe('countPlannedActions', () => {
   it('counts only planned status actions', () => {
-    expect(
-      countPlannedActions([action(), action({ status: 'skipped' }), action({ status: 'planned' })]),
-    ).toBe(2);
+    const plannedActions = countPlannedActions([
+      action(),
+      action({ status: 'skipped' }),
+      action({ status: 'planned' }),
+    ]);
+    expect(plannedActions).toBe(2);
   });
 });
 
@@ -115,32 +118,52 @@ describe('tallyPlanSurfaces', () => {
 
 describe('planExitCode', () => {
   it('plain run is informational - exit 0 even with pending changes or skips', () => {
-    expect(
-      planExitCode({ check: false, changeCount: 5, appErrorCount: 0, skippedSurfaceCount: 2 }),
-    ).toBe(PLAN_EXIT.inSync);
+    const exitCode = planExitCode({
+      check: false,
+      changeCount: 5,
+      appErrorCount: 0,
+      skippedSurfaceCount: 2,
+    });
+    expect(exitCode).toBe(PLAN_EXIT.inSync);
   });
   it('plain run still fails on an app-level error', () => {
-    expect(
-      planExitCode({ check: false, changeCount: 0, appErrorCount: 1, skippedSurfaceCount: 0 }),
-    ).toBe(PLAN_EXIT.error);
+    const exitCode = planExitCode({
+      check: false,
+      changeCount: 0,
+      appErrorCount: 1,
+      skippedSurfaceCount: 0,
+    });
+    expect(exitCode).toBe(PLAN_EXIT.error);
   });
   it('check run grades drift (2), then in-sync (0)', () => {
-    expect(
-      planExitCode({ check: true, changeCount: 0, appErrorCount: 0, skippedSurfaceCount: 0 }),
-    ).toBe(PLAN_EXIT.inSync);
+    const exitCode = planExitCode({
+      check: true,
+      changeCount: 0,
+      appErrorCount: 0,
+      skippedSurfaceCount: 0,
+    });
+    expect(exitCode).toBe(PLAN_EXIT.inSync);
     expect(
       planExitCode({ check: true, changeCount: 3, appErrorCount: 0, skippedSurfaceCount: 0 }),
     ).toBe(PLAN_EXIT.drift);
   });
   it('check run treats an unreadable surface as an error', () => {
-    expect(
-      planExitCode({ check: true, changeCount: 0, appErrorCount: 0, skippedSurfaceCount: 1 }),
-    ).toBe(PLAN_EXIT.error);
+    const exitCode = planExitCode({
+      check: true,
+      changeCount: 0,
+      appErrorCount: 0,
+      skippedSurfaceCount: 1,
+    });
+    expect(exitCode).toBe(PLAN_EXIT.error);
   });
   it('error wins over drift in a check run', () => {
-    expect(
-      planExitCode({ check: true, changeCount: 3, appErrorCount: 1, skippedSurfaceCount: 0 }),
-    ).toBe(PLAN_EXIT.error);
+    const exitCode = planExitCode({
+      check: true,
+      changeCount: 3,
+      appErrorCount: 1,
+      skippedSurfaceCount: 0,
+    });
+    expect(exitCode).toBe(PLAN_EXIT.error);
   });
 });
 
@@ -199,7 +222,8 @@ describe('runPlanners', () => {
         planned('catalog', [appPlan({ actions: [], error: 'no App Store Connect app record' })]),
       ),
     ];
-    expect((await runPlannerSet(makeCtx(), planners, {})).exitCode).toBe(PLAN_EXIT.error);
+    const plannerSet = await runPlannerSet(makeCtx(), planners, {});
+    expect(plannerSet.exitCode).toBe(PLAN_EXIT.error);
     expect((await runPlannerSet(makeCtx(), planners, { check: true })).exitCode).toBe(
       PLAN_EXIT.error,
     );

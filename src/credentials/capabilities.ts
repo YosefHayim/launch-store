@@ -113,11 +113,11 @@ export const CAPABILITY_TO_ENTITLEMENT: Partial<Record<CapabilityType, string>> 
   // capability's settings, so adopt surfaces it as advisory detail rather than an app.json entitlement.
 };
 /** Reverse map as a string-keyed lookup, so a raw `capabilityType` string resolves without a cast. */
-const capabilityToEntitlementLookup = new Map<string, string>(
-  Object.entries(CAPABILITY_TO_ENTITLEMENT),
-);
+const ownEntries = Object.entries(CAPABILITY_TO_ENTITLEMENT);
+const capabilityToEntitlementLookup = new Map<string, string>(ownEntries);
 /** The full set of {@link CapabilityType}s Launch maps, for narrowing a raw `capabilityType` wire string. */
-const capabilityTypes = new Set<string>(Object.values(ENTITLEMENT_TO_CAPABILITY));
+const ownValues = Object.values(ENTITLEMENT_TO_CAPABILITY);
+const capabilityTypes = new Set<string>(ownValues);
 /** Narrow a raw App Store Connect `capabilityType` string to a {@link CapabilityType} Launch recognizes. */
 export const isCapabilityType = (capabilityText: string): capabilityText is CapabilityType => {
   return capabilityTypes.has(capabilityText);

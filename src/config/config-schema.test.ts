@@ -38,9 +38,10 @@ describe('loadConfigSchema', () => {
 
 describe('validateConfig', () => {
   it('accepts a minimal valid config (provider names default, so they may be omitted)', () => {
-    expect(
-      validateConfig({ profiles: { production: { name: 'production', sizeBudgetMB: 200 } } }),
-    ).toEqual([]);
+    const validate = validateConfig({
+      profiles: { production: { name: 'production', sizeBudgetMB: 200 } },
+    });
+    expect(validate).toEqual([]);
   });
 
   it('flags a missing `profiles` at its own path', () => {
@@ -74,37 +75,36 @@ describe('validateConfig', () => {
   });
 
   it('accepts shared offer-code base fields for promotional offers', () => {
-    expect(
-      validateConfig({
-        profiles: { production: { name: 'production' } },
-        products: {
-          'com.acme.app': {
-            subscriptionGroups: [
-              {
-                referenceName: 'Pro',
-                localizations: [{ locale: 'en-US', name: 'Pro' }],
-                subscriptions: [
-                  {
-                    productId: 'com.acme.pro.monthly',
-                    referenceName: 'Monthly',
-                    subscriptionPeriod: 'ONE_MONTH',
-                    localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
-                    promotionalOffers: [
-                      {
-                        name: 'promo',
-                        offerCode: 'PROMO',
-                        duration: 'ONE_WEEK',
-                        offerMode: 'FREE_TRIAL',
-                        numberOfPeriods: 1,
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
+    const validate = validateConfig({
+      profiles: { production: { name: 'production' } },
+      products: {
+        'com.acme.app': {
+          subscriptionGroups: [
+            {
+              referenceName: 'Pro',
+              localizations: [{ locale: 'en-US', name: 'Pro' }],
+              subscriptions: [
+                {
+                  productId: 'com.acme.pro.monthly',
+                  referenceName: 'Monthly',
+                  subscriptionPeriod: 'ONE_MONTH',
+                  localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
+                  promotionalOffers: [
+                    {
+                      name: 'promo',
+                      offerCode: 'PROMO',
+                      duration: 'ONE_WEEK',
+                      offerMode: 'FREE_TRIAL',
+                      numberOfPeriods: 1,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
         },
-      }),
-    ).toEqual([]);
+      },
+    });
+    expect(validate).toEqual([]);
   });
 });

@@ -47,7 +47,8 @@ function makeMemoryStorage(): MemoryStorage {
         return Promise.resolve(null);
       }
 
-      return Promise.resolve(Buffer.from(storedText));
+      const bufferBytes = Buffer.from(storedText);
+      return Promise.resolve(bufferBytes);
     },
     publicUrl: (objectKey) => `https://cdn/${objectKey}`,
   };
@@ -99,7 +100,8 @@ describe('history lookup', () => {
 
   it('resolves latest, exact, and short identifier references', () => {
     const historyEntries = [makeHistoryEntry({ id: 'abcdef' }), makeHistoryEntry({ id: '123456' })];
-    expect(findHistoryEntry(historyEntries, 'latest')?.id).toBe('abcdef');
+    const findHistory = findHistoryEntry(historyEntries, 'latest');
+    expect(findHistory?.id).toBe('abcdef');
     expect(findHistoryEntry(historyEntries, '123456')?.id).toBe('123456');
     expect(findHistoryEntry(historyEntries, 'abc')?.id).toBe('abcdef');
     expect(findHistoryEntry(historyEntries, 'missing')).toBeUndefined();
@@ -109,7 +111,8 @@ describe('history lookup', () => {
 describe('recordPublish', () => {
   it('prepends the publish and deactivates the previous matching runtime', async () => {
     const storage = makeMemoryStorage();
-    await recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'first' }));
+    const makeHistory = makeHistoryEntry({ id: 'first' });
+    await recordPublish(storage, 'production', 'ios', makeHistory);
     await recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'second' }));
     const historyEntries = await readHistory(storage, 'production', 'ios');
     expect(historyEntries.map((historyEntry) => historyEntry.id)).toEqual(['second', 'first']);
@@ -119,7 +122,8 @@ describe('recordPublish', () => {
 
   it('keeps active entries for other runtime versions', async () => {
     const storage = makeMemoryStorage();
-    await recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'runtime-one' }));
+    const makeHistory = makeHistoryEntry({ id: 'runtime-one' });
+    await recordPublish(storage, 'production', 'ios', makeHistory);
     await recordPublish(
       storage,
       'production',
@@ -133,7 +137,9 @@ describe('recordPublish', () => {
   it('preserves malformed history and refuses to overwrite it', async () => {
     const storage = makeMemoryStorage();
     storage.objects.set('updates/production/ios/history.json', '{broken');
-    await expect(recordPublish(storage, 'production', 'ios', makeHistoryEntry())).rejects.toThrow();
+    const makeHistory = makeHistoryEntry();
+    const publish = recordPublish(storage, 'production', 'ios', makeHistory);
+    await expect(publish).rejects.toThrow();
     expect(storage.objects.get('updates/production/ios/history.json')).toBe('{broken');
   });
 });
@@ -142,12 +148,13 @@ describe('activateUpdate', () => {
   it('leaves the active manifest untouched when history is malformed', async () => {
     const storage = makeMemoryStorage();
     storage.objects.set('updates/production/ios/history.json', '{broken');
+    const manifest = makeManifest('new-id');
     await expect(
       activateUpdate({
         storage,
         channel: 'production',
         platform: 'ios',
-        updateManifest: makeManifest('new-id'),
+        updateManifest: manifest,
         kind: 'publish',
         signer: null,
       }),
@@ -161,11 +168,11 @@ describe('republishUpdate', () => {
     const storage = makeMemoryStorage();
     const channel = 'production';
     const platform = 'ios';
-    storage.objects.set(
-      historySnapshotKey(channel, platform, '1.0.0', 'old-id'),
-      JSON.stringify(makeManifest('old-id')),
-    );
-    await recordPublish(storage, channel, platform, makeHistoryEntry({ id: 'old-id' }));
+    const manifest = makeManifest('old-id');
+    const serialized = JSON.stringify(manifest);
+    storage.objects.set(historySnapshotKey(channel, platform, '1.0.0', 'old-id'), serialized);
+    const makeHistory = makeHistoryEntry({ id: 'old-id' });
+    await recordPublish(storage, channel, platform, makeHistory);
     await recordPublish(storage, channel, platform, makeHistoryEntry({ id: 'bad-id' }));
 
     const republishedUpdate = await republishUpdate({
@@ -200,12 +207,13 @@ describe('republishUpdate', () => {
 
   it('fails with a typed error when the target snapshot is absent', async () => {
     const storage = makeMemoryStorage();
+    const makeHistory = makeHistoryEntry({ id: 'ghost' });
     await expect(
       republishUpdate({
         storage,
         channel: 'production',
         platform: 'ios',
-        target: makeHistoryEntry({ id: 'ghost' }),
+        target: makeHistory,
         newId: 'rollback-id',
         createdAt: '2026-06-14T12:00:00.000Z',
         signer: null,
@@ -236,7 +244,8 @@ describe('rollback directive', () => {
     };
     expect(storedDirective.active).toBe(true);
     expect(storedDirective.signature).toContain('sig="FAKE"');
-    expect(JSON.parse(storedDirective.body)).toEqual({
+    const parsed = JSON.parse(storedDirective.body);
+    expect(parsed).toEqual({
       type: 'rollBackToEmbedded',
       parameters: { commitTime: '2026-06-14T12:00:00.000Z' },
     });

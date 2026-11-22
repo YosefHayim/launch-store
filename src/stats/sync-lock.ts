@@ -90,8 +90,9 @@ async function acquireSyncLock(): Promise<string> {
   try {
     return await claimSyncLock();
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw makeSyncLockFailure({
-      message: `Could not lock the stats sync: ${errorMessage(cause)}`,
+      message: `Could not lock the stats sync: ${failureMessage}`,
       cause,
     });
   }

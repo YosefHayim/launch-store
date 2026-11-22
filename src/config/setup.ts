@@ -192,7 +192,8 @@ function workspaceSuffix(workspace: { kind: string } | null): string {
 async function environmentReadinessRows(): Promise<ReadinessRow[]> {
   const hostResources = readHostResources();
   const operatingSystemLabel = resolveHostOperatingSystemLabel();
-  const packageSetup = await inspectPackageSetup(readLaunchDirectories().workingDirectory);
+  const launchDirectories = readLaunchDirectories();
+  const packageSetup = await inspectPackageSetup(launchDirectories.workingDirectory);
 
   return [
     makeReadinessRow('Host', 'info', `${operatingSystemLabel} - ${hostResources.cores} cores`),
@@ -226,7 +227,8 @@ function detectedAppsRow(apps: readonly AppDescriptor[]): ReadinessRow {
 
 async function configReadinessRows(apps: readonly AppDescriptor[]): Promise<ReadinessRow[]> {
   const projectDirectory = readLaunchDirectories().workingDirectory;
-  const configExists = await pathExists(join(projectDirectory, 'launch.config.ts'));
+  const launchPath = join(projectDirectory, 'launch.config.ts');
+  const configExists = await pathExists(launchPath);
 
   return [configFileRow(configExists), detectedAppsRow(apps)];
 }
@@ -302,12 +304,9 @@ async function appleAccountReadinessRows(apps: readonly AppDescriptor[]): Promis
     ];
   }
 
+  const accountSummary = formatAccountSummary(activeAccount, { includeLabel: false });
   const readinessEntries: ReadinessRow[] = [
-    makeReadinessRow(
-      `Apple account: ${activeAccount.label}`,
-      'ok',
-      formatAccountSummary(activeAccount, { includeLabel: false }),
-    ),
+    makeReadinessRow(`Apple account: ${activeAccount.label}`, 'ok', accountSummary),
   ];
   const ascKey = await loadActiveAscKey();
 
@@ -318,18 +317,24 @@ async function appleAccountReadinessRows(apps: readonly AppDescriptor[]): Promis
   try {
     await SetupStoreReadiness.checkAppleAgreements(ascKey);
   } catch (cause) {
-    readinessEntries.push(makeReadinessRow('Apple agreements', 'todo', errorMessage(cause)));
+    const failureMessage = errorMessage(cause);
+    const makeReadiness = makeReadinessRow('Apple agreements', 'todo', failureMessage);
+    readinessEntries.push(makeReadiness);
 
     return readinessEntries;
   }
 
-  readinessEntries.push(
-    makeReadinessRow('Apple agreements', 'ok', 'accepted - API-key auth (no password, no 2FA)'),
+  const makeReadiness = makeReadinessRow(
+    'Apple agreements',
+    'ok',
+    'accepted - API-key auth (no password, no 2FA)',
   );
+  readinessEntries.push(makeReadiness);
+  const appleBundle = checkAppleBundle(ascKey);
   const storeRows = await collectStoreAppRows({
     apps,
     selectAppId: appleBundleId,
-    checkStoreApp: checkAppleBundle(ascKey),
+    checkStoreApp: appleBundle,
     requireTruthyPresence: true,
     okLabel: appleAppLabel,
     missingDetail: 'create it once at appstoreconnect.apple.com/apps',
@@ -387,10 +392,11 @@ async function playRowsForPackage(
     ];
   }
 
+  const playPackage = checkPlayPackage(serviceAccountJson);
   return collectStoreAppRows({
     apps: [app],
     selectAppId: playPackageName,
-    checkStoreApp: checkPlayPackage(serviceAccountJson),
+    checkStoreApp: playPackage,
     requireTruthyPresence: false,
     okLabel: playAppLabel,
     missingDetail: 'create + enroll in Play App Signing at play.google.com/console',
@@ -561,9 +567,10 @@ async function collectReadiness(
     readinessGroups.push(accountGroup);
   }
 
+  const appReadinessRows = await appConfigReadinessRows(apps, platform);
   readinessGroups.push({
     title: 'App config',
-    rows: await appConfigReadinessRows(apps, platform),
+    rows: appReadinessRows,
   });
 
   return { groups: readinessGroups };
@@ -604,7 +611,8 @@ function resolveSetupArtifactDirectory(
   projectDirectory: string,
 ): string {
   if (artifactDir == null) {
-    return join(readLaunchDirectories().homeDirectory, '.launch', 'artifacts');
+    const launchDirectories = readLaunchDirectories();
+    return join(launchDirectories.homeDirectory, '.launch', 'artifacts');
   }
 
   return resolveConfiguredArtifactDirectory(artifactDir, projectDirectory);
@@ -614,10 +622,9 @@ async function scaffoldConfig(apps: readonly AppDescriptor[]): Promise<void> {
   const projectDirectory = readLaunchDirectories().workingDirectory;
   const appRoot = detectAppRoot([...apps], projectDirectory);
 
-  await writeFile(
-    join(projectDirectory, 'launch.config.ts'),
-    configTemplate(appRoot, undefined, undefined, DEFAULT_IN_REPO_ARTIFACT_DIR),
-  );
+  const launchPath = join(projectDirectory, 'launch.config.ts');
+  const template = configTemplate(appRoot, undefined, undefined, DEFAULT_IN_REPO_ARTIFACT_DIR);
+  await writeFile(launchPath, template);
 
   const environmentExamplePath = join(projectDirectory, '.env.example');
   const exampleExists = await pathExists(environmentExamplePath);
@@ -626,10 +633,11 @@ async function scaffoldConfig(apps: readonly AppDescriptor[]): Promise<void> {
     await writeFile(environmentExamplePath, ENV_EXAMPLE_TEMPLATE);
   }
 
-  await ensureArtifactDirIgnored(
-    resolveSetupArtifactDirectory(DEFAULT_IN_REPO_ARTIFACT_DIR, projectDirectory),
+  const setupArtifactDirectory = resolveSetupArtifactDirectory(
+    DEFAULT_IN_REPO_ARTIFACT_DIR,
     projectDirectory,
   );
+  await ensureArtifactDirIgnored(setupArtifactDirectory, projectDirectory);
 }
 
 /** Whether setup may attempt toolchain installs under the current TTY/`--yes` policy. */
@@ -666,7 +674,8 @@ async function ensureLaunchConfig(
   logger: Logger,
 ): Promise<readonly AppDescriptor[]> {
   let loadedConfiguration = await loadConfig(projectDirectory);
-  const configExists = await pathExists(join(projectDirectory, 'launch.config.ts'));
+  const launchPath = join(projectDirectory, 'launch.config.ts');
+  const configExists = await pathExists(launchPath);
 
   if (configExists) {
     logger.step('config', 'launch.config.ts present');
@@ -709,7 +718,8 @@ async function rehearsePipeline(
       dryRun: true,
     });
   } catch (cause) {
-    logger.warn(`Rehearsal stopped early: ${errorMessage(cause)}`);
+    const failureMessage = errorMessage(cause);
+    logger.warn(`Rehearsal stopped early: ${failureMessage}`);
   }
 }
 
@@ -760,18 +770,20 @@ export async function runSetup(options: SetupOptions): Promise<void> {
   const apps = await ensureLaunchConfig(projectDirectory, logger);
   const terminalIsInteractive = new Prompts().isInteractive();
 
+  const isMacOperatingSystem = checkIsMacOperatingSystem();
   await installToolchainWhenAllowed({
     platform: options.platform,
     yes: options.yes,
     terminalIsInteractive,
-    isMacOperatingSystem: checkIsMacOperatingSystem(),
+    isMacOperatingSystem: isMacOperatingSystem,
     missingTools: await missingRequiredTools(),
   });
 
   const readiness = await collectReadiness(options.platform, apps);
 
   logger.gap();
-  logger.box('Launch setup', formatSetupBoard(readiness));
+  const setupBoard = formatSetupBoard(readiness);
+  logger.box('Launch setup', setupBoard);
   await rehearsePipeline(options, apps, logger);
   reportRemainingTodos({
     readiness,

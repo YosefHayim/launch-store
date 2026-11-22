@@ -99,7 +99,8 @@ describe('listEvents', () => {
   });
   it('throws an actionable error when the app has no App Store Connect record', async () => {
     const api = makeApi({ getAppId: vi.fn(() => Promise.resolve(null)) });
-    const missingApp = await captureThrown(listEvents(api, 'com.acme.app'));
+    const events = listEvents(api, 'com.acme.app');
+    const missingApp = await captureThrown(events);
     expect(missingApp.message).toContain('No App Store Connect app record');
   });
 });
@@ -124,37 +125,36 @@ describe('createEvent', () => {
     });
   });
   it('rejects an empty reference name', async () => {
-    const invalidEvent = await captureThrown(
-      createEvent(makeApi(), 'com.acme.app', { referenceName: '  ' }),
-    );
+    const api = makeApi();
+    const event = createEvent(api, 'com.acme.app', { referenceName: '  ' });
+    const invalidEvent = await captureThrown(event);
     expect(invalidEvent.message).toContain('reference name is required');
   });
   it('rejects an unknown badge with the valid list', async () => {
-    const invalidBadge = await captureThrown(
-      createEvent(makeApi(), 'com.acme.app', {
-        referenceName: 'X',
-        badge: 'MEGA_EVENT',
-      }),
-    );
+    const api = makeApi();
+    const event = createEvent(api, 'com.acme.app', {
+      referenceName: 'X',
+      badge: 'MEGA_EVENT',
+    });
+    const invalidBadge = await captureThrown(event);
     expect(invalidBadge.message).toContain('Invalid badge "MEGA_EVENT"');
   });
   it('rejects an unknown priority', async () => {
-    const invalidPriority = await captureThrown(
-      createEvent(makeApi(), 'com.acme.app', { referenceName: 'X', priority: 'URGENT' }),
-    );
+    const api = makeApi();
+    const event = createEvent(api, 'com.acme.app', { referenceName: 'X', priority: 'URGENT' });
+    const invalidPriority = await captureThrown(event);
     expect(invalidPriority.message).toContain('Invalid priority');
   });
   it('rejects an unknown purpose', async () => {
-    const invalidPurpose = await captureThrown(
-      createEvent(makeApi(), 'com.acme.app', { referenceName: 'X', purpose: 'FOR_FUN' }),
-    );
+    const api = makeApi();
+    const event = createEvent(api, 'com.acme.app', { referenceName: 'X', purpose: 'FOR_FUN' });
+    const invalidPurpose = await captureThrown(event);
     expect(invalidPurpose.message).toContain('Invalid purpose');
   });
   it('throws when the app has no record (after validation passes)', async () => {
     const api = makeApi({ getAppId: vi.fn(() => Promise.resolve(null)) });
-    const missingApp = await captureThrown(
-      createEvent(api, 'com.acme.app', { referenceName: 'X' }),
-    );
+    const event = createEvent(api, 'com.acme.app', { referenceName: 'X' });
+    const missingApp = await captureThrown(event);
     expect(missingApp.message).toContain('No App Store Connect app record');
     expect(api.createAppEvent).not.toHaveBeenCalled();
   });
@@ -180,13 +180,15 @@ describe('localizeEvent', () => {
     expect(api.createAppEventLocalization).not.toHaveBeenCalled();
   });
   it('rejects an empty locale', async () => {
+    const api = makeApi();
     const invalidLocale = await captureThrown(
-      localizeEvent(makeApi(), 'e1', { locale: '  ', name: 'x' }),
+      localizeEvent(api, 'e1', { locale: '  ', name: 'x' }),
     );
     expect(invalidLocale.message).toContain('locale is required');
   });
   it('rejects when no copy fields are provided', async () => {
-    const missingCopy = await captureThrown(localizeEvent(makeApi(), 'e1', { locale: 'en-US' }));
+    const api = makeApi();
+    const missingCopy = await captureThrown(localizeEvent(api, 'e1', { locale: 'en-US' }));
     expect(missingCopy.message).toContain('at least one of');
   });
 });

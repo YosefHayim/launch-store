@@ -91,7 +91,8 @@ function appDescriptor(
 
 describe('describeAdoptSignal', () => {
   it('joins live version and build count, with singular build label', () => {
-    expect(describeAdoptSignal('2.1', 12)).toBe('v2.1 live - 12 builds');
+    const adoptSignal = describeAdoptSignal('2.1', 12);
+    expect(adoptSignal).toBe('v2.1 live - 12 builds');
     expect(describeAdoptSignal('1.0', 1)).toBe('v1.0 live - 1 build');
     expect(describeAdoptSignal(null, 0)).toBe('registered, no builds yet');
     expect(describeAdoptSignal(null, 3)).toBe('3 builds');
@@ -242,7 +243,9 @@ describe('applyAdopt', () => {
   let workspaceDir: string;
 
   beforeEach(() => {
-    workspaceDir = mkdtempSync(join(tmpdir(), 'launch-adopt-test-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchAdoptTestPath = join(systemTemporaryDirectory, 'launch-adopt-test-');
+    workspaceDir = mkdtempSync(launchAdoptTestPath);
   });
 
   afterEach(() => {
@@ -286,6 +289,7 @@ describe('applyAdopt', () => {
       cwd: workspaceDir,
       hasLaunchConfig: false,
     };
+    const apply = applyContext(pullNothing);
     const adoptionSummary = await applyAdopt(
       [
         plan(target, [
@@ -300,10 +304,12 @@ describe('applyAdopt', () => {
           },
         ]),
       ],
-      applyContext(pullNothing),
+      apply,
     );
-    expect(adoptionSummary.configWritten).toBe(join(workspaceDir, 'launch.config.ts'));
-    const written = readFileSync(join(workspaceDir, 'launch.config.ts'), 'utf8');
+    const launchPath = join(workspaceDir, 'launch.config.ts');
+    expect(adoptionSummary.configWritten).toBe(launchPath);
+    const joinedPath = join(workspaceDir, 'launch.config.ts');
+    const written = readFileSync(joinedPath, 'utf8');
     expect(written).toContain('"com.acme.app"');
     expect(written).toContain('"com.acme.coins"');
   });
@@ -344,10 +350,12 @@ describe('applyAdopt', () => {
 
   it("patches a static app.json's entitlements and reports the added keys", async () => {
     const configPath = join(workspaceDir, 'app.json');
-    writeFileSync(
-      configPath,
-      JSON.stringify({ expo: { ios: { bundleIdentifier: 'com.acme.app' } } }, null, 2),
+    const serialized = JSON.stringify(
+      { expo: { ios: { bundleIdentifier: 'com.acme.app' } } },
+      null,
+      2,
     );
+    writeFileSync(configPath, serialized);
     const target: AdoptTarget = {
       app: appDescriptor('acme', 'com.acme.app', configPath),
       appId: 'a',
@@ -376,7 +384,8 @@ describe('applyAdopt', () => {
     expect(adoptionSummary.appJsonPatched).toEqual([
       { app: 'acme', configPath, added: ['aps-environment'] },
     ]);
-    const patchedDocument: unknown = JSON.parse(readFileSync(configPath, 'utf8'));
+    const loadedFile = readFileSync(configPath, 'utf8');
+    const patchedDocument: unknown = JSON.parse(loadedFile);
     expect(patchedDocument).toMatchObject({
       expo: { ios: { entitlements: { 'aps-environment': 'production' } } },
     });

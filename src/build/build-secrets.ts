@@ -145,8 +145,10 @@ async function readIndex(): Promise<SecretsIndex> {
 /** Persist the non-secret index, creating its parent directory first. */
 async function writeIndex(secretIndex: SecretsIndex): Promise<void> {
   const indexPath = resolveSecretsFilePath();
-  await mkdir(path.dirname(indexPath), { recursive: true });
-  await writeFile(indexPath, JSON.stringify(secretIndex, null, 2));
+  const parentDirectory = path.dirname(indexPath);
+  await mkdir(parentDirectory, { recursive: true });
+  const serialized = JSON.stringify(secretIndex, null, 2);
+  await writeFile(indexPath, serialized);
 }
 
 function belongsToApp(appName: string): (secretReference: SecretRef) => boolean {

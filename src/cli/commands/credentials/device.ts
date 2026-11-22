@@ -19,11 +19,16 @@ export const registerDeviceCommand = (program: Command): void => {
     .description('register a device UDID so internal builds can install on it')
     .argument('<udid>', 'the device UDID (Settings -> General -> About, or Xcode -> Devices)')
     .argument('[name]', 'a label for the device (default: the UDID)')
-    .action((udid: string, name: string | undefined) =>
-      runCliProgram(deviceCommandProgram(toDeviceAddInput(udid, name))),
-    );
+    .action((udid: string, name: string | undefined) => {
+      const deviceAdd = toDeviceAddInput(udid, name);
+      const deviceProgram = deviceCommandProgram(deviceAdd);
+      return runCliProgram(deviceProgram);
+    });
   deviceCommand
     .command('list')
     .description('list the devices registered for ad-hoc distribution')
-    .action(() => runCliProgram(deviceCommandProgram({ operation: 'list' })));
+    .action(() => {
+      const deviceProgram = deviceCommandProgram({ operation: 'list' });
+      return runCliProgram(deviceProgram);
+    });
 };

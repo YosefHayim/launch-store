@@ -9,20 +9,24 @@ import {
 } from './version.ts';
 describe('parseVersion - lenient in, canonical out', () => {
   it('parses a full MAJOR.MINOR.PATCH', () => {
-    expect(parseVersion('1.2.3')).toEqual({ major: 1, minor: 2, patch: 3 });
+    const version = parseVersion('1.2.3');
+    expect(version).toEqual({ major: 1, minor: 2, patch: 3 });
   });
   it('defaults missing minor/patch to 0', () => {
-    expect(parseVersion('2')).toEqual({ major: 2, minor: 0, patch: 0 });
+    const version = parseVersion('2');
+    expect(version).toEqual({ major: 2, minor: 0, patch: 0 });
     expect(parseVersion('2.5')).toEqual({ major: 2, minor: 5, patch: 0 });
   });
   it('tolerates a leading v, whitespace, and a prerelease/build suffix', () => {
-    expect(parseVersion('v1.2.3')).toEqual({ major: 1, minor: 2, patch: 3 });
+    const version = parseVersion('v1.2.3');
+    expect(version).toEqual({ major: 1, minor: 2, patch: 3 });
     expect(parseVersion('  1.2.3  ')).toEqual({ major: 1, minor: 2, patch: 3 });
     expect(parseVersion('1.2.3-beta.1')).toEqual({ major: 1, minor: 2, patch: 3 });
     expect(parseVersion('1.2.3+exp.42')).toEqual({ major: 1, minor: 2, patch: 3 });
   });
   it('rejects non-version strings and over-long cores', () => {
-    expect(parseVersion('')).toBeNull();
+    const version = parseVersion('');
+    expect(version).toBeNull();
     expect(parseVersion('latest')).toBeNull();
     expect(parseVersion('1.2.3.4')).toBeNull();
   });
@@ -30,7 +34,8 @@ describe('parseVersion - lenient in, canonical out', () => {
 describe('bumpVersion / nextVersion - advance one component, zero the rest', () => {
   it('bumps each component and resets the lower ones', () => {
     const v = { major: 1, minor: 4, patch: 2 };
-    expect(formatVersion(bumpVersion(v, 'major'))).toBe('2.0.0');
+    const version = bumpVersion(v, 'major');
+    expect(formatVersion(version)).toBe('2.0.0');
     expect(formatVersion(bumpVersion(v, 'minor'))).toBe('1.5.0');
     expect(formatVersion(bumpVersion(v, 'patch'))).toBe('1.4.3');
   });

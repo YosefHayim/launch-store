@@ -121,11 +121,12 @@ export async function createSnapshot(command: CreateCommand): Promise<void> {
   }
 
   const storeSession = await loadSnapshotStoreSession(command.app);
-  const captureOutcome = await captureSnapshot(
-    captureContextFromSession(storeSession),
-    listSnapshotSources(),
-    { name: snapshotName, capturedAt },
-  );
+  const captureFromSession = captureContextFromSession(storeSession);
+  const snapshotSources = listSnapshotSources();
+  const captureOutcome = await captureSnapshot(captureFromSession, snapshotSources, {
+    name: snapshotName,
+    capturedAt,
+  });
   let snapshotPath: string;
 
   try {
@@ -135,7 +136,8 @@ export async function createSnapshot(command: CreateCommand): Promise<void> {
   }
 
   if (command.json == true) {
-    logger.line(JSON.stringify({ ...captureOutcome, file: snapshotPath }, null, 2));
+    const serialized = JSON.stringify({ ...captureOutcome, file: snapshotPath }, null, 2);
+    logger.line(serialized);
   }
 
   if (command.json != true) {

@@ -90,7 +90,8 @@ const renderTypeSection = (name: string, definition: JsonSchema): string => {
   const description = cleanDescription(definition.description);
   const parts = [`### \`${name}\``, ''];
   if (description) parts.push(description, '');
-  parts.push(renderPropertiesTable(definition));
+  const propertiesTable = renderPropertiesTable(definition);
+  parts.push(propertiesTable);
   return parts.join('\n');
 };
 /**

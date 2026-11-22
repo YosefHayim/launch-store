@@ -97,14 +97,14 @@ const openReadEdit = (): void => {
 let client: GooglePlayClient;
 beforeEach(() => {
   vi.clearAllMocks();
-  client = new GooglePlayClient(
-    parseServiceAccount(makeServiceAccountJson()),
-    generatedPublisherFake(),
-  );
+  const makeServiceAccount = makeServiceAccountJson();
+  const serviceAccount = parseServiceAccount(makeServiceAccount);
+  client = new GooglePlayClient(serviceAccount, generatedPublisherFake());
 });
 describe('parseServiceAccount', () => {
   it('extracts the fields Launch needs from a valid key', () => {
-    const account = parseServiceAccount(makeServiceAccountJson());
+    const makeServiceAccount = makeServiceAccountJson();
+    const account = parseServiceAccount(makeServiceAccount);
     expect(account.clientEmail).toBe('launch@proj.iam.gserviceaccount.com');
     expect(account.privateKey).toContain('PRIVATE KEY');
     expect(account.tokenUri).toBe('https://oauth2.googleapis.com/token');
@@ -112,12 +112,11 @@ describe('parseServiceAccount', () => {
     expect(client.serviceAccountEmail).toBe('launch@proj.iam.gserviceaccount.com');
   });
   it('defaults the token endpoint when absent', () => {
-    const account = parseServiceAccount(
-      JSON.stringify({
-        client_email: 'a@b.iam',
-        private_key: '-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----',
-      }),
-    );
+    const serialized = JSON.stringify({
+      client_email: 'a@b.iam',
+      private_key: '-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----',
+    });
+    const account = parseServiceAccount(serialized);
     expect(account.tokenUri).toBe('https://oauth2.googleapis.com/token');
   });
   it('rejects non-JSON and the wrong key kind with actionable text', () => {
@@ -137,7 +136,8 @@ describe('parseServiceAccount', () => {
     let wrongKind: unknown;
 
     try {
-      parseServiceAccount(JSON.stringify({ type: 'authorized_user' }));
+      const serialized = JSON.stringify({ type: 'authorized_user' });
+      parseServiceAccount(serialized);
     } catch (error) {
       wrongKind = error;
     }
@@ -150,8 +150,10 @@ describe('parseServiceAccount', () => {
 });
 describe('serviceAccountJwtOptions / nonEmptyPageToken', () => {
   it('copies the key id when present and drops empty page tokens', () => {
-    const account = parseServiceAccount(makeServiceAccountJson());
-    expect(serviceAccountJwtOptions(account, ['scope-a'])).toEqual({
+    const makeServiceAccount = makeServiceAccountJson();
+    const account = parseServiceAccount(makeServiceAccount);
+    const serviceAccountJwt = serviceAccountJwtOptions(account, ['scope-a']);
+    expect(serviceAccountJwt).toEqual({
       email: 'launch@proj.iam.gserviceaccount.com',
       key: account.privateKey,
       keyId: 'kid-123',
@@ -164,15 +166,16 @@ describe('serviceAccountJwtOptions / nonEmptyPageToken', () => {
 });
 describe('describePlayErrors', () => {
   it("extracts Google's error message", () => {
-    expect(
-      describePlayErrors(JSON.stringify({ error: { message: 'The app was not found.' } })),
-    ).toBe('The app was not found.');
+    const serialized = JSON.stringify({ error: { message: 'The app was not found.' } });
+    const playErrors = describePlayErrors(serialized);
+    expect(playErrors).toBe('The app was not found.');
   });
   it('flags a sensitive-permission rejection with the fix', () => {
     const errorText = JSON.stringify({
       error: { message: 'Your app uses a sensitive permission.' },
     });
-    expect(describePlayErrors(errorText)).toMatch(/Permissions Declaration/);
+    const playErrors = describePlayErrors(errorText);
+    expect(playErrors).toMatch(/Permissions Declaration/);
     const genericPermissionErrorText = JSON.stringify({
       error: { message: 'The caller does not have permission' },
     });
@@ -181,7 +184,9 @@ describe('describePlayErrors', () => {
     );
   });
   it('falls back across string error, description, raw text, then empty placeholder', () => {
-    expect(describePlayErrors(JSON.stringify({ error: 'quota exceeded' }))).toBe('quota exceeded');
+    const serialized = JSON.stringify({ error: 'quota exceeded' });
+    const playErrors = describePlayErrors(serialized);
+    expect(playErrors).toBe('quota exceeded');
     expect(describePlayErrors(JSON.stringify({ error_description: 'invalid_grant' }))).toBe(
       'invalid_grant',
     );
@@ -327,7 +332,8 @@ describe('GooglePlayClient.withEdit', () => {
     commitEdit.mockResolvedValue({ data: {} });
     uploadBundle.mockResolvedValue({ data: { versionCode: 31 } });
     updateTrack.mockResolvedValue({ data: {} });
-    const bundleStream = Readable.from([Buffer.from([1, 2, 3])]);
+    const bufferBytes = Buffer.from([1, 2, 3]);
+    const bundleStream = Readable.from([bufferBytes]);
     const versionCode = await client.uploadBundleToTrack('com.example.app', bundleStream, 'beta', {
       status: 'inProgress',
       userFraction: 0.2,
@@ -353,8 +359,9 @@ describe('GooglePlayClient.withEdit', () => {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     deleteEdit.mockResolvedValue({ data: undefined });
     uploadBundle.mockResolvedValue({ data: {} });
+    const bufferBytes = Buffer.from([1]);
     await expect(
-      client.uploadBundleToTrack('com.example.app', Readable.from([Buffer.from([1])]), 'internal', {
+      client.uploadBundleToTrack('com.example.app', Readable.from([bufferBytes]), 'internal', {
         status: 'completed',
       }),
     ).rejects.toMatchObject({
@@ -779,8 +786,9 @@ describe('GooglePlayClient catalog + reviews', () => {
     });
   });
   it('tags generated failures with status and operation text', async () => {
+    const serialized = JSON.stringify({ error: { message: 'rate limited' } });
     listInAppProducts.mockRejectedValue(
-      Object.assign(new Error(JSON.stringify({ error: { message: 'rate limited' } })), {
+      Object.assign(new Error(serialized), {
         status: 429,
       }),
     );

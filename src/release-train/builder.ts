@@ -306,11 +306,8 @@ export function createTrainRuntime(
     const isAppMissing = appId == null;
 
     if (isAppMissing) {
-      throw trainRuntimeFailure(
-        'find App Store app',
-        bundleId,
-        appRecordMissingMessage(bundleId, 'launch release-train start'),
-      );
+      const appMissingMessage = appRecordMissingMessage(bundleId, 'launch release-train start');
+      throw trainRuntimeFailure('find App Store app', bundleId, appMissingMessage);
     }
 
     const storeBuilds = await runTrainStep('list App Store builds', ascClient.listBuilds(appId));
@@ -340,10 +337,8 @@ export function createTrainRuntime(
     const releaseTypeSettings = resolveReleaseType(launchConfiguration.release, {
       manual: holdReleases,
     });
-    const releaseNotes = await runTrainStep(
-      'read iOS release notes',
-      resolveWhatsNew(launchConfiguration.release, appDescriptor.dir),
-    );
+    const whatsNew = resolveWhatsNew(launchConfiguration.release, appDescriptor.dir);
+    const releaseNotes = await runTrainStep('read iOS release notes', whatsNew);
     let releaseInput: ReleaseInput = {
       bundleId,
       platform: IOS_PLATFORM,
@@ -418,16 +413,19 @@ export function createTrainRuntime(
       );
     }
 
-    await runTrainStep(
-      'verify stored Android build',
-      ensureArtifactPresent(latestBuild, appDescriptor.name, 'android'),
-    );
+    const artifactPresent = ensureArtifactPresent(latestBuild, appDescriptor.name, 'android');
+    await runTrainStep('verify stored Android build', artifactPresent);
 
     const rollout = readRolloutFraction(buildProfile.rollout);
     let androidRelease: AndroidReleaseOptions = { track: 'production', rollout };
+    const androidSubmitReleaseNotes = resolveAndroidSubmitReleaseNotes(
+      launchConfiguration,
+      appDescriptor.dir,
+      undefined,
+    );
     const releaseNotes = await runTrainStep(
       'read Android release notes',
-      resolveAndroidSubmitReleaseNotes(launchConfiguration, appDescriptor.dir, undefined),
+      androidSubmitReleaseNotes,
     );
     const hasReleaseNotes = releaseNotes.length > 0;
 
@@ -552,11 +550,8 @@ export function createTrainRuntime(
     const isAppMissing = appId == null;
 
     if (isAppMissing) {
-      throw trainRuntimeFailure(
-        'find App Store app',
-        bundleId,
-        appRecordMissingMessage(bundleId, 'launch release-train release'),
-      );
+      const appMissingMessage = appRecordMissingMessage(bundleId, 'launch release-train release');
+      throw trainRuntimeFailure('find App Store app', bundleId, appMissingMessage);
     }
 
     const storeVersions = await runTrainStep(
@@ -624,21 +619,19 @@ export function createTrainRuntime(
       readExportMetadata(distributionDirectory),
     );
     const codeSigner = await loadCodeSigner();
-    const publishedUpdate = await runTrainStep(
-      'publish OTA update',
-      publishOtaPlatform(
-        {
-          storage: storageProvider,
-          distDir: distributionDirectory,
-          metadata: exportMetadata,
-          platform: trainCar.platform,
-          channel: trainCar.channel,
-          runtimeVersion: trainCar.runtimeVersion,
-          signer: codeSigner,
-        },
-        logger,
-      ),
+    const otaPlatform = publishOtaPlatform(
+      {
+        storage: storageProvider,
+        distDir: distributionDirectory,
+        metadata: exportMetadata,
+        platform: trainCar.platform,
+        channel: trainCar.channel,
+        runtimeVersion: trainCar.runtimeVersion,
+        signer: codeSigner,
+      },
+      logger,
     );
+    const publishedUpdate = await runTrainStep('publish OTA update', otaPlatform);
     const publishedManifestId = publishedUpdate.manifestId;
     const hasManifestId = publishedManifestId != null;
 

@@ -141,9 +141,12 @@ describe('reconcileAppClips', () => {
   const clip: AppClipResource = { id: 'clip-1', bundleId: 'com.acme.app.Clip' };
   it('throws when the app has no App Store Connect record', async () => {
     const { api } = makeApi({ appId: null });
-    await expect(
-      runReconcile(api, { bundleId: 'com.acme.app', config: ONE_CLIP, dryRun: true }),
-    ).rejects.toThrow(/No App Store Connect app record/);
+    const reconcile = runReconcile(api, {
+      bundleId: 'com.acme.app',
+      config: ONE_CLIP,
+      dryRun: true,
+    });
+    await expect(reconcile).rejects.toThrow(/No App Store Connect app record/);
   });
   it("skips every clip when there's no editable App Store version", async () => {
     const { api, calls } = makeApi({ editableVersionId: null, clips: [clip] });

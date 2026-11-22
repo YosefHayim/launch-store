@@ -54,16 +54,19 @@ function makeStorageResolver(name: string) {
         publicBaseUrl = providerOptions.storageConfig.publicBaseUrl;
       }
 
-      return Promise.resolve(makeStorageProvider(name, publicBaseUrl));
+      const storageProvider = makeStorageProvider(name, publicBaseUrl);
+      return Promise.resolve(storageProvider);
     },
   };
 }
 
 beforeAll(() => {
-  registerStorageProviderResolver(makeStorageResolver('local'));
+  const storageResolver = makeStorageResolver('local');
+  registerStorageProviderResolver(storageResolver);
   registerStorageProviderResolver(makeStorageResolver('s3'));
   registerStorageProviderResolver(makeStorageResolver('supabase'));
-  registerStorageProvider(makeStorageProvider('local'));
+  const storageProvider = makeStorageProvider('local');
+  registerStorageProvider(storageProvider);
 });
 
 function configWith(storage: string, storageConfig?: StorageConfig): LaunchConfig {
@@ -111,15 +114,13 @@ describe('resolveStorageProvider', () => {
   });
 
   it('fails clearly when a cloud provider has no storageConfig block', async () => {
-    await expect(resolveStorageProvider(configWith('s3'))).rejects.toThrow(
-      /needs a storageConfig block/i,
-    );
+    const storageProvider = resolveStorageProvider(configWith('s3'));
+    await expect(storageProvider).rejects.toThrow(/needs a storageConfig block/i);
   });
 
   it('fails when supabase is selected without supabaseUrl', async () => {
-    await expect(resolveStorageProvider(configWith('supabase', r2Config))).rejects.toThrow(
-      /supabaseUrl/,
-    );
+    const storageProvider = resolveStorageProvider(configWith('supabase', r2Config));
+    await expect(storageProvider).rejects.toThrow(/supabaseUrl/);
   });
 
   it('resolves a cloud provider the registry cannot - the submit-path regression guard', async () => {
@@ -131,7 +132,8 @@ describe('resolveStorageProvider', () => {
 
 describe('resolveArtifactDir', () => {
   it('falls back to the global ~/.launch/artifacts when unset (back-compat)', () => {
-    expect(resolveArtifactDir(undefined)).toBe(ARTIFACTS_DIR);
+    const artifactDir = resolveArtifactDir(undefined);
+    expect(artifactDir).toBe(ARTIFACTS_DIR);
   });
 
   it('fails on an empty string - a likely config typo', () => {
@@ -139,21 +141,27 @@ describe('resolveArtifactDir', () => {
   });
 
   it('expands a lone ~ to the home directory', () => {
-    expect(resolveArtifactDir('~')).toBe(homedir());
+    const artifactDir = resolveArtifactDir('~');
+    const homeDirectory = homedir();
+    expect(artifactDir).toBe(homeDirectory);
   });
 
   it('expands a leading ~/ against the home directory', () => {
-    expect(resolveArtifactDir('~/builds/out')).toBe(resolve(homedir(), 'builds/out'));
+    const artifactDir = resolveArtifactDir('~/builds/out');
+    const homeDirectory = homedir();
+    const absolutePath = resolve(homeDirectory, 'builds/out');
+    expect(artifactDir).toBe(absolutePath);
   });
 
   it('keeps an absolute path as-is', () => {
-    expect(resolveArtifactDir('/var/launch/artifacts')).toBe('/var/launch/artifacts');
+    const artifactDir = resolveArtifactDir('/var/launch/artifacts');
+    expect(artifactDir).toBe('/var/launch/artifacts');
   });
 
   it('resolves a relative path against the project root', () => {
-    expect(resolveArtifactDir('./.launch/artifacts', '/repo')).toBe(
-      resolve('/repo', '.launch/artifacts'),
-    );
+    const artifactDir = resolveArtifactDir('./.launch/artifacts', '/repo');
+    const absolutePath = resolve('/repo', '.launch/artifacts');
+    expect(artifactDir).toBe(absolutePath);
   });
 });
 
@@ -191,22 +199,20 @@ describe('ensureArtifactPresent', () => {
   }
 
   it("passes when the artifact's binary is still on disk", async () => {
-    await expect(ensureArtifactPresent(storedBuild(), 'Hello', 'android')).resolves.toBeUndefined();
+    const buildProgram = storedBuild();
+    const artifactPresent = ensureArtifactPresent(buildProgram, 'Hello', 'android');
+    await expect(artifactPresent).resolves.toBeUndefined();
   });
 
   it('fails when the artifact was pruned to reclaim disk', async () => {
-    await expect(
-      ensureArtifactPresent(
-        storedBuild({ prunedAt: '2026-01-02T00:00:00.000Z' }),
-        'Hello',
-        'android',
-      ),
-    ).rejects.toThrow(/rebuild before releasing/);
+    const buildProgram = storedBuild({ prunedAt: '2026-01-02T00:00:00.000Z' });
+    const artifactPresent = ensureArtifactPresent(buildProgram, 'Hello', 'android');
+    await expect(artifactPresent).rejects.toThrow(/rebuild before releasing/);
   });
 
   it('fails when the recorded binary is missing from disk', async () => {
-    await expect(
-      ensureArtifactPresent(storedBuild({ path: '/no/such/build.aab' }), 'Hello', 'android'),
-    ).rejects.toThrow(/pruned to reclaim disk/);
+    const buildProgram = storedBuild({ path: '/no/such/build.aab' });
+    const artifactPresent = ensureArtifactPresent(buildProgram, 'Hello', 'android');
+    await expect(artifactPresent).rejects.toThrow(/pruned to reclaim disk/);
   });
 });

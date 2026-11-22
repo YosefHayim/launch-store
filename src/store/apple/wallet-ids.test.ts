@@ -48,10 +48,14 @@ const CONFIG: WalletConfig = {
 const decodeWalletConfig = (rawDocument: unknown) => parseWalletConfig(rawDocument);
 describe('parseWalletConfig', () => {
   it('parses both identifier families', () => {
-    expect(decodeWalletConfig(CONFIG)).toEqual(CONFIG);
+    const decodeWallet = decodeWalletConfig(CONFIG);
+    expect(decodeWallet).toEqual(CONFIG);
   });
   it('accepts a config with only one family', () => {
-    expect(decodeWalletConfig({ merchantIds: [{ identifier: 'merchant.x', name: 'X' }] })).toEqual({
+    const decodeWallet = decodeWalletConfig({
+      merchantIds: [{ identifier: 'merchant.x', name: 'X' }],
+    });
+    expect(decodeWallet).toEqual({
       merchantIds: [{ identifier: 'merchant.x', name: 'X' }],
     });
   });

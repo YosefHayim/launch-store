@@ -176,8 +176,10 @@ export async function writeArtifactIndex(
   indexPath?: string,
 ): Promise<void> {
   const artifactIndexPath = resolveArtifactIndexPath(indexPath);
-  await mkdir(path.dirname(artifactIndexPath), { recursive: true });
-  await writeFile(artifactIndexPath, JSON.stringify(artifactIndex, null, 2));
+  const parentDirectory = path.dirname(artifactIndexPath);
+  await mkdir(parentDirectory, { recursive: true });
+  const serialized = JSON.stringify(artifactIndex, null, 2);
+  await writeFile(artifactIndexPath, serialized);
 }
 
 /** Automatic post-store retention window from config (default 30; 0 disables). */
@@ -427,7 +429,8 @@ export async function runArtifactPrune(
 
   for (const buildArtifact of artifactsToPrune) {
     const artifactBytes = await readArtifactBytes(buildArtifact);
-    prunedEntries.push(prunedArtifactEntry(buildArtifact, artifactBytes));
+    const prunedArtifact = prunedArtifactEntry(buildArtifact, artifactBytes);
+    prunedEntries.push(prunedArtifact);
     freedBytes += artifactBytes;
 
     if (dryRun) {

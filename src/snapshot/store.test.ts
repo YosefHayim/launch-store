@@ -36,7 +36,9 @@ describe('snapshot store', () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'launch-snapshots-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchSnapshotsPath = join(systemTemporaryDirectory, 'launch-snapshots-');
+    dir = mkdtempSync(launchSnapshotsPath);
   });
 
   afterEach(() => {
@@ -73,19 +75,25 @@ describe('snapshot store', () => {
   it('overwrites a snapshot re-saved under the same name', async () => {
     await saveSnapshot(snap({ capturedAt: '2026-06-16T00:00:00.000Z' }), dir);
     await saveSnapshot(snap({ capturedAt: '2026-06-16T12:00:00.000Z' }), dir);
-    expect((await loadSnapshot('before-sync', dir))?.capturedAt).toBe('2026-06-16T12:00:00.000Z');
-    expect(await listSnapshots(dir)).toHaveLength(1);
+    const snapshot = await loadSnapshot('before-sync', dir);
+    expect(snapshot?.capturedAt).toBe('2026-06-16T12:00:00.000Z');
+    const snapshots = await listSnapshots(dir);
+    expect(snapshots).toHaveLength(1);
   });
 
   it('returns null for an unknown name', async () => {
-    expect(await loadSnapshot('nope', dir)).toBeNull();
+    const snapshot = await loadSnapshot('nope', dir);
+    expect(snapshot).toBeNull();
   });
 
   it('tolerates a corrupt record (reads as null, skips it in lists)', async () => {
-    writeFileSync(join(dir, 'broken.json'), '{ not json');
+    const brokenPath = join(dir, 'broken.json');
+    writeFileSync(brokenPath, '{ not json');
     await saveSnapshot(snap(), dir);
-    expect(await loadSnapshot('broken', dir)).toBeNull();
-    expect(await listSnapshots(dir)).toHaveLength(1);
+    const snapshot = await loadSnapshot('broken', dir);
+    expect(snapshot).toBeNull();
+    const snapshots = await listSnapshots(dir);
+    expect(snapshots).toHaveLength(1);
   });
 
   it('lists snapshots newest-first by capturedAt', async () => {
@@ -95,7 +103,9 @@ describe('snapshot store', () => {
   });
 
   it('returns an empty list when no snapshots directory exists', async () => {
-    expect(await listSnapshots(join(dir, 'missing'))).toEqual([]);
+    const missingPath = join(dir, 'missing');
+    const snapshots = await listSnapshots(missingPath);
+    expect(snapshots).toEqual([]);
   });
 
   it('prunes the oldest prefixed snapshots beyond the retention window', async () => {
@@ -123,7 +133,8 @@ describe('snapshot store', () => {
   it('deletes a snapshot by name, reporting whether a file was removed', async () => {
     await saveSnapshot(snap({ name: 'scratch' }), dir);
     expect(await deleteSnapshot('scratch', dir)).toBe(true);
-    expect(await loadSnapshot('scratch', dir)).toBeNull();
+    const snapshot = await loadSnapshot('scratch', dir);
+    expect(snapshot).toBeNull();
     expect(await deleteSnapshot('scratch', dir)).toBe(false);
   });
 });

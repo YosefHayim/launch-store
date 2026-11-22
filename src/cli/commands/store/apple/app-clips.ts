@@ -39,6 +39,8 @@ export const registerAppClipsCommand = (program: Command): void => {
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((commandOptions: AppClipsOptions, registeredCommand: Command) => {
       const explicitConfig = registeredCommand.getOptionValueSource('config') == 'cli';
-      return runCliProgram(appClipsCommandProgram(toAppClipsInput(commandOptions, explicitConfig)));
+      const appClips = toAppClipsInput(commandOptions, explicitConfig);
+      const appClipsProgram = appClipsCommandProgram(appClips);
+      return runCliProgram(appClipsProgram);
     });
 };

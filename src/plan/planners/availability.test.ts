@@ -20,10 +20,13 @@ afterEach(() => {
 });
 /** Write a sidecar config to a fresh temp file and return its path. */
 const writeConfig = (json: unknown): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'launch-avail-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchAvailPath = join(systemTemporaryDirectory, 'launch-avail-');
+  const dir = mkdtempSync(launchAvailPath);
   tmpDirs.push(dir);
   const path = join(dir, 'availability.config.json');
-  writeFileSync(path, JSON.stringify(json));
+  const serialized = JSON.stringify(json);
+  writeFileSync(path, serialized);
   return path;
 };
 const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext => {
@@ -44,9 +47,10 @@ const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext =>
 };
 describe('availabilityPlanner', () => {
   it('omits itself when no availability sidecar is present', async () => {
+    const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(
       availabilityPlanner,
-      makeCtx(makeAscApiFake(), '/no/such/availability.config.json'),
+      makeCtx(ascApiFake, '/no/such/availability.config.json'),
     );
     expect(plan.state).toBe('omitted');
   });
@@ -60,9 +64,10 @@ describe('availabilityPlanner', () => {
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports the territory change a fresh config would apply (two-way)', async () => {
+    const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(
       availabilityPlanner,
-      makeCtx(makeAscApiFake(), writeConfig({ territories: ['USA'] })),
+      makeCtx(ascApiFake, writeConfig({ territories: ['USA'] })),
     );
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;

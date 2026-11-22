@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import { decodePlayCsvBytes, readPlayCsvTable } from './play-csv-table.ts';
 
-const encodeUtf16LittleEndianWithBom = (csvDocument: string): Uint8Array =>
-  Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(csvDocument, 'utf16le')]);
+const encodeUtf16LittleEndianWithBom = (csvDocument: string): Uint8Array => {
+  const bufferBytes = Buffer.from([0xff, 0xfe]);
+  return Buffer.concat([bufferBytes, Buffer.from(csvDocument, 'utf16le')]);
+};
 
 describe('decodePlayCsvBytes', () => {
   test('decodes UTF-16LE and drops the byte order mark', () => {
@@ -22,7 +24,8 @@ describe('decodePlayCsvBytes', () => {
   });
 
   test('decodes an empty file as an empty document', () => {
-    expect(decodePlayCsvBytes(new Uint8Array())).toBe('');
+    const playCsvBytes = decodePlayCsvBytes(new Uint8Array());
+    expect(playCsvBytes).toBe('');
   });
 });
 
@@ -62,7 +65,8 @@ describe('readPlayCsvTable', () => {
   });
 
   test('gives no lines for an empty document or a header only', () => {
-    expect(readPlayCsvTable('').lines).toEqual([]);
+    const playCsvTable = readPlayCsvTable('');
+    expect(playCsvTable.lines).toEqual([]);
     expect(readPlayCsvTable('Date,Daily Crashes\n').lines).toEqual([]);
   });
 });

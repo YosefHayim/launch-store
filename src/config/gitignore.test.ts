@@ -20,7 +20,10 @@ import { ensureArtifactDirIgnored } from './gitignore.ts';
 describe('ensureArtifactDirIgnored', () => {
   let repo: string;
   beforeEach(async () => {
-    repo = realpathSync(mkdtempSync(join(tmpdir(), 'launch-gitignore-')));
+    const systemTemporaryDirectory = tmpdir();
+    const launchGitignorePath = join(systemTemporaryDirectory, 'launch-gitignore-');
+    const createdDirectory = mkdtempSync(launchGitignorePath);
+    repo = realpathSync(createdDirectory);
     await captureCommandOutput('env', [
       '-u',
       'GIT_DIR',
@@ -39,36 +42,52 @@ describe('ensureArtifactDirIgnored', () => {
     const artifacts = join(repo, '.launch', 'artifacts');
     const first = await ensureArtifactDirIgnored(artifacts, repo);
     expect(first).toEqual({ added: true, entry: '/.launch/artifacts' });
-    const gitignore = readFileSync(join(repo, '.gitignore'), 'utf8');
+    const joinedPath = join(repo, '.gitignore');
+    const gitignore = readFileSync(joinedPath, 'utf8');
     expect(gitignore).toContain('# launch build artifacts');
     expect(gitignore).toContain('/.launch/artifacts');
     // Idempotent even though the dir was never created - `check-ignore` matches the anchored entry anyway.
     const second = await ensureArtifactDirIgnored(artifacts, repo);
     expect(second).toEqual({ added: false });
     // Re-run appended nothing - the marker still appears exactly once.
-    expect(readFileSync(join(repo, '.gitignore'), 'utf8')).toBe(gitignore);
+    const loadedFile = readFileSync(join(repo, '.gitignore'), 'utf8');
+    expect(loadedFile).toBe(gitignore);
   });
   it('respects a pre-existing broader ignore pattern (no duplicate entry)', async () => {
-    writeFileSync(join(repo, '.gitignore'), '.launch/\n');
-    const ignoreOutcome = await ensureArtifactDirIgnored(join(repo, '.launch', 'artifacts'), repo);
+    const joinedPath = join(repo, '.gitignore');
+    writeFileSync(joinedPath, '.launch/\n');
+    const artifactsPath = join(repo, '.launch', 'artifacts');
+    const ignoreOutcome = await ensureArtifactDirIgnored(artifactsPath, repo);
     expect(ignoreOutcome).toEqual({ added: false });
   });
   it("no-ops for a dir outside the project's work tree", async () => {
-    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'launch-outside-')));
+    const systemTemporaryDirectory = tmpdir();
+    const launchOutsidePath = join(systemTemporaryDirectory, 'launch-outside-');
+    const createdDirectory = mkdtempSync(launchOutsidePath);
+    const outside = realpathSync(createdDirectory);
     try {
-      expect(await ensureArtifactDirIgnored(outside, repo)).toEqual({
+      const artifactDirIgnored = await ensureArtifactDirIgnored(outside, repo);
+      expect(artifactDirIgnored).toEqual({
         added: false,
       });
-      expect(existsSync(join(repo, '.gitignore'))).toBe(false);
+      const joinedPath = join(repo, '.gitignore');
+      const pathExists = existsSync(joinedPath);
+      expect(pathExists).toBe(false);
     } finally {
       rmSync(outside, { recursive: true, force: true });
     }
   });
   it("no-ops when the project dir isn't a git repo", async () => {
-    const plain = realpathSync(mkdtempSync(join(tmpdir(), 'launch-plain-')));
-    mkdirSync(join(plain, 'out'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchPlainPath = join(systemTemporaryDirectory, 'launch-plain-');
+    const createdDirectory = mkdtempSync(launchPlainPath);
+    const plain = realpathSync(createdDirectory);
+    const outPath = join(plain, 'out');
+    mkdirSync(outPath);
     try {
-      expect(await ensureArtifactDirIgnored(join(plain, 'out'), plain)).toEqual({ added: false });
+      const outPath = join(plain, 'out');
+      const artifactDirIgnored = await ensureArtifactDirIgnored(outPath, plain);
+      expect(artifactDirIgnored).toEqual({ added: false });
     } finally {
       rmSync(plain, { recursive: true, force: true });
     }

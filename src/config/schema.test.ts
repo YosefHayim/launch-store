@@ -65,37 +65,36 @@ describe('parseLaunchConfig', () => {
 
 describe('validateLaunchConfig', () => {
   it('accepts Apple product IDs with letters, digits, underscores, and periods', () => {
-    expect(
-      validateLaunchConfig({
-        profiles: {},
-        products: {
-          'com.acme-app': {
-            inAppPurchases: [
-              {
-                productId: 'com.acme.coins_100',
-                referenceName: 'Coins',
-                type: 'CONSUMABLE',
-                localizations: [{ locale: 'en-US', name: 'Coins' }],
-              },
-            ],
-            subscriptionGroups: [
-              {
-                referenceName: 'Pro',
-                localizations: [{ locale: 'en-US', name: 'Pro' }],
-                subscriptions: [
-                  {
-                    productId: 'com.acme.pro.monthly2',
-                    referenceName: 'Monthly',
-                    subscriptionPeriod: 'ONE_MONTH',
-                    localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
-                  },
-                ],
-              },
-            ],
-          },
+    const validateLaunch = validateLaunchConfig({
+      profiles: {},
+      products: {
+        'com.acme-app': {
+          inAppPurchases: [
+            {
+              productId: 'com.acme.coins_100',
+              referenceName: 'Coins',
+              type: 'CONSUMABLE',
+              localizations: [{ locale: 'en-US', name: 'Coins' }],
+            },
+          ],
+          subscriptionGroups: [
+            {
+              referenceName: 'Pro',
+              localizations: [{ locale: 'en-US', name: 'Pro' }],
+              subscriptions: [
+                {
+                  productId: 'com.acme.pro.monthly2',
+                  referenceName: 'Monthly',
+                  subscriptionPeriod: 'ONE_MONTH',
+                  localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
+                },
+              ],
+            },
+          ],
         },
-      }),
-    ).toEqual([]);
+      },
+    });
+    expect(validateLaunch).toEqual([]);
   });
 
   it('rejects hyphens in Apple subscription and in-app purchase productId fields', () => {
@@ -139,7 +138,8 @@ describe('validateLaunchConfig', () => {
   });
 
   it('rejects an unknown top-level key as an unknown property', () => {
-    expect(validateLaunchConfig({ profiles: {}, nope: true })).toContainEqual({
+    const validateLaunch = validateLaunchConfig({ profiles: {}, nope: true });
+    expect(validateLaunch).toContainEqual({
       path: 'nope',
       message: 'unknown property',
     });
@@ -171,12 +171,11 @@ describe('validateLaunchConfig', () => {
   });
 
   it('accepts a single-platform submit map and an empty submit map', () => {
-    expect(
-      validateLaunchConfig({
-        profiles: {},
-        submit: { ios: ['app-store-connect'] },
-      }),
-    ).toEqual([]);
+    const validateLaunch = validateLaunchConfig({
+      profiles: {},
+      submit: { ios: ['app-store-connect'] },
+    });
+    expect(validateLaunch).toEqual([]);
     expect(validateLaunchConfig({ profiles: {}, submit: {} })).toEqual([]);
   });
 

@@ -60,7 +60,8 @@ describe('assertResignablePlatform', () => {
 
 describe('resignOutputPath', () => {
   it('uses natural identifiers and the source extension', () => {
-    expect(resignOutputPath(ipa, '/out', '.ipa')).toBe('/out/sampleapp-1.2.0-42-resigned.ipa');
+    const resignPath = resignOutputPath(ipa, '/out', '.ipa');
+    expect(resignPath).toBe('/out/sampleapp-1.2.0-42-resigned.ipa');
   });
 });
 
@@ -91,21 +92,16 @@ describe('filterStoredArtifactsByApp', () => {
 
 describe('Apple signing arguments', () => {
   it('creates the expected unzip, zip, profile, and codesign arguments', () => {
-    expect(unzipArgs('/a.ipa', '/w')).toEqual(['-oq', '/a.ipa', '-d', '/w']);
-    expect(zipArgs('/out.ipa')).toEqual(['-qr', '/out.ipa', 'Payload']);
-    expect(securityCmsArgs('/p.mobileprovision')).toEqual([
-      'cms',
-      '-D',
-      '-i',
-      '/p.mobileprovision',
-    ]);
-    expect(plistBuddyEntitlementsArgs('/p.plist')).toEqual([
-      '-x',
-      '-c',
-      'Print :Entitlements',
-      '/p.plist',
-    ]);
-    expect(iosCodesignArgs('/w/Payload/App.app', 'Apple Distribution', '/w/ent.plist')).toEqual([
+    const unzip = unzipArgs('/a.ipa', '/w');
+    expect(unzip).toEqual(['-oq', '/a.ipa', '-d', '/w']);
+    const zip = zipArgs('/out.ipa');
+    expect(zip).toEqual(['-qr', '/out.ipa', 'Payload']);
+    const securityCms = securityCmsArgs('/p.mobileprovision');
+    expect(securityCms).toEqual(['cms', '-D', '-i', '/p.mobileprovision']);
+    const plistBuddyEntitlements = plistBuddyEntitlementsArgs('/p.plist');
+    expect(plistBuddyEntitlements).toEqual(['-x', '-c', 'Print :Entitlements', '/p.plist']);
+    const iosCodesign = iosCodesignArgs('/w/Payload/App.app', 'Apple Distribution', '/w/ent.plist');
+    expect(iosCodesign).toEqual([
       '-f',
       '-s',
       'Apple Distribution',

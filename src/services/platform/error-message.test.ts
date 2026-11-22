@@ -2,17 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { errorMessage, hasMessage } from './error-message.ts';
 describe('errorMessage', () => {
   it("returns an Error's message verbatim", () => {
-    expect(errorMessage(new Error('boom'))).toBe('boom');
+    const failureMessage = errorMessage(new Error('boom'));
+    expect(failureMessage).toBe('boom');
   });
   it('returns the message of an Error subclass', () => {
     class HttpError extends Error {}
-    expect(errorMessage(new HttpError('404 not found'))).toBe('404 not found');
+    const failureMessage = errorMessage(new HttpError('404 not found'));
+    expect(failureMessage).toBe('404 not found');
   });
   it('coerces a thrown string to itself', () => {
-    expect(errorMessage('plain string')).toBe('plain string');
+    const failureMessage = errorMessage('plain string');
+    expect(failureMessage).toBe('plain string');
   });
   it('coerces non-Error thrown values with String()', () => {
-    expect(errorMessage(42)).toBe('42');
+    const failureMessage = errorMessage(42);
+    expect(failureMessage).toBe('42');
     expect(errorMessage(null)).toBe('null');
     expect(errorMessage(undefined)).toBe('undefined');
     expect(errorMessage({ code: 'X' })).toBe('[object Object]');

@@ -605,7 +605,8 @@ async function listUpdates(
   const updateRows = rowsForRuntime(loadedRows, commandInput.runtimeVersion);
 
   if (commandInput.json) {
-    commandService.logger.line(JSON.stringify(updateRows, null, 2));
+    const serialized = JSON.stringify(updateRows, null, 2);
+    commandService.logger.line(serialized);
 
     return;
   }
@@ -618,10 +619,10 @@ async function listUpdates(
     return;
   }
 
-  commandService.logger.line(formatUpdatesTable(updateRows));
-  commandService.logger.line(
-    `\n${updateRows.length} ${updateNoun(updateRows.length)} on "${commandInput.channel}".`,
-  );
+  const updatesTable = formatUpdatesTable(updateRows);
+  commandService.logger.line(updatesTable);
+  const noun = updateNoun(updateRows.length);
+  commandService.logger.line(`\n${updateRows.length} ${noun} on "${commandInput.channel}".`);
 }
 
 function snapshotText(storedSnapshot: Buffer): string {
@@ -668,16 +669,19 @@ async function viewUpdate(
   let updateManifest: UpdateManifest | null = null;
 
   if (storedSnapshot != null) {
-    updateManifest = decodeManifestSnapshot(snapshotText(storedSnapshot));
+    const snapshot = snapshotText(storedSnapshot);
+    updateManifest = decodeManifestSnapshot(snapshot);
   }
 
   if (commandInput.json) {
-    commandService.logger.line(JSON.stringify({ ...updateRow, manifest: updateManifest }, null, 2));
+    const serialized = JSON.stringify({ ...updateRow, manifest: updateManifest }, null, 2);
+    commandService.logger.line(serialized);
 
     return;
   }
 
-  commandService.logger.line(formatUpdateDetail(updateRow, updateManifest));
+  const updateDetail = formatUpdateDetail(updateRow, updateManifest);
+  commandService.logger.line(updateDetail);
 }
 
 type EmbeddedRollback = Readonly<{

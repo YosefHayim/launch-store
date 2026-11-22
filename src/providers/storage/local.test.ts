@@ -10,11 +10,14 @@ const temporaryRoots: string[] = [];
 async function withStorage(
   check: (storage: StorageProvider, directory: string) => Promise<void>,
 ): Promise<void> {
-  const directory = mkdtempSync(join(tmpdir(), 'launch-storage-security-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchStorageSecurityPath = join(systemTemporaryDirectory, 'launch-storage-security-');
+  const directory = mkdtempSync(launchStorageSecurityPath);
   temporaryRoots.push(directory);
   const storageResolver = makeLocalStorageProviderResolver();
+  const storagePath = join(directory, 'storage');
   const storage = await storageResolver.resolveStorageProvider({
-    artifactDirectory: join(directory, 'storage'),
+    artifactDirectory: storagePath,
   });
   await check(storage, directory);
 }
@@ -66,13 +69,19 @@ describe('local storage containment', () => {
       const objects = join(directory, 'storage', 'objects');
       mkdirSync(outside);
       mkdirSync(objects, { recursive: true });
-      writeFileSync(join(outside, 'secret'), 'unchanged');
-      symlinkSync(outside, join(objects, 'linked'));
-      symlinkSync(join(outside, 'new-secret'), join(objects, 'dangling'));
+      const secretPath = join(outside, 'secret');
+      writeFileSync(secretPath, 'unchanged');
+      const linkedPath = join(objects, 'linked');
+      symlinkSync(outside, linkedPath);
+      const newSecretPath = join(outside, 'new-secret');
+      const danglingPath = join(objects, 'dangling');
+      symlinkSync(newSecretPath, danglingPath);
       await expect(storage.getObject('linked/secret')).rejects.toThrow();
       await expect(storage.putObject('linked/secret', 'unsafe', 'text/plain')).rejects.toThrow();
       await expect(storage.putObject('dangling', 'unsafe', 'text/plain')).rejects.toThrow();
-      expect(readFileSync(join(outside, 'secret'), 'utf8')).toBe('unchanged');
+      const joinedPath = join(outside, 'secret');
+      const loadedFile = readFileSync(joinedPath, 'utf8');
+      expect(loadedFile).toBe('unchanged');
     });
   });
 });

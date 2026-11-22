@@ -24,8 +24,10 @@ const ANDROID_APP: PortfolioApp = {
   ga4PropertyId: null,
 };
 
-const encodeUtf16 = (csvDocument: string): Uint8Array =>
-  Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(csvDocument, 'utf16le')]);
+const encodeUtf16 = (csvDocument: string): Uint8Array => {
+  const bufferBytes = Buffer.from([0xff, 0xfe]);
+  return Buffer.concat([bufferBytes, Buffer.from(csvDocument, 'utf16le')]);
+};
 
 const createVitalsTimeline = (
   metric: PlayVitalsMetric,
@@ -57,13 +59,14 @@ function createPlayClient(
   };
 }
 
+const vitalsTimeline = createVitalsTimeline('crash', '2026-10-19', {
+  '2026-09-30': 0.5,
+  '2026-10-01': 0.01,
+  '2026-10-02': undefined,
+  '2026-10-19': 0.02,
+});
 const defaultPlayClient = createPlayClient(
-  createVitalsTimeline('crash', '2026-10-19', {
-    '2026-09-30': 0.5,
-    '2026-10-01': 0.01,
-    '2026-10-02': undefined,
-    '2026-10-19': 0.02,
-  }),
+  vitalsTimeline,
   createVitalsTimeline('anr', '2026-10-18', { '2026-10-01': 0.003 }),
 );
 
@@ -119,7 +122,8 @@ function installFetch(routes: readonly HttpRoute[]): void {
         throw new Error(`No test route for ${method} ${requestUrl}`);
       }
 
-      return new Response(createReplyBody(matchedRoute.body), { status: matchedRoute.status });
+      const createReply = createReplyBody(matchedRoute.body);
+      return new Response(createReply, { status: matchedRoute.status });
     },
   );
 }
@@ -168,7 +172,8 @@ function createEarningsZip(earningsLines: readonly string[]): Uint8Array {
     ...earningsLines,
   ].join('\n');
 
-  return writeDeflatedZip({ 'earnings_202610.csv': Buffer.from(csvText, 'utf8') });
+  const bufferBytes = Buffer.from(csvText, 'utf8');
+  return writeDeflatedZip({ 'earnings_202610.csv': bufferBytes });
 }
 
 function writeDeflatedZip(files: Readonly<Record<string, Uint8Array>>): Uint8Array {
@@ -301,13 +306,14 @@ describe('googlePlayFeed.fetchDays', () => {
 
   test('returns vitals as fractions with a note when no reports bucket is set', async () => {
     const askedWindows: number[] = [];
+    const vitalsTimeline = createVitalsTimeline('crash', '2026-10-19', {
+      '2026-09-30': 0.5,
+      '2026-10-01': 0.01,
+      '2026-10-02': undefined,
+      '2026-10-19': 0.02,
+    });
     const playClient = createPlayClient(
-      createVitalsTimeline('crash', '2026-10-19', {
-        '2026-09-30': 0.5,
-        '2026-10-01': 0.01,
-        '2026-10-02': undefined,
-        '2026-10-19': 0.02,
-      }),
+      vitalsTimeline,
       createVitalsTimeline('anr', '2026-10-18', { '2026-10-01': 0.003 }),
       askedWindows,
     );
@@ -335,8 +341,9 @@ describe('googlePlayFeed.fetchDays', () => {
   });
 
   test('never covers days after the end of the asked range', async () => {
+    const vitalsTimeline = createVitalsTimeline('crash', '2026-10-25', {});
     const playClient = createPlayClient(
-      createVitalsTimeline('crash', '2026-10-25', {}),
+      vitalsTimeline,
       createVitalsTimeline('anr', '2026-10-25', {}),
     );
 
@@ -403,8 +410,9 @@ describe('googlePlayFeed.fetchDays', () => {
       }),
       createEarningsListRoute([]),
     ];
+    const vitalsTimeline = createVitalsTimeline('crash', '2026-10-19', {});
     const playClient = createPlayClient(
-      createVitalsTimeline('crash', '2026-10-19', {}),
+      vitalsTimeline,
       createVitalsTimeline('anr', '2026-10-19', {}),
     );
     const twoMonthRange = { from: '2026-09-29', to: '2026-10-20' };

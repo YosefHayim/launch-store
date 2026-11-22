@@ -326,19 +326,18 @@ async function listSavedSnapshots(json: boolean | undefined): Promise<void> {
   const savedSnapshots = await listSnapshots();
 
   if (json == true) {
-    logger.line(
-      JSON.stringify(
-        savedSnapshots.map(function listEntry(savedSnapshot) {
-          return {
-            name: savedSnapshot.name,
-            capturedAt: savedSnapshot.capturedAt,
-            entityCount: countEntities(savedSnapshot),
-          };
-        }),
-        null,
-        2,
-      ),
+    const serialized = JSON.stringify(
+      savedSnapshots.map(function listEntry(savedSnapshot) {
+        return {
+          name: savedSnapshot.name,
+          capturedAt: savedSnapshot.capturedAt,
+          entityCount: countEntities(savedSnapshot),
+        };
+      }),
+      null,
+      2,
     );
+    logger.line(serialized);
 
     return;
   }
@@ -350,9 +349,10 @@ async function listSavedSnapshots(json: boolean | undefined): Promise<void> {
   }
 
   for (const savedSnapshot of savedSnapshots) {
+    const entities = countEntities(savedSnapshot);
     logger.step(
       'snapshot',
-      `${savedSnapshot.name} - ${savedSnapshot.capturedAt} - ${countEntities(savedSnapshot)} item(s)`,
+      `${savedSnapshot.name} - ${savedSnapshot.capturedAt} - ${entities} item(s)`,
     );
   }
 }
@@ -370,7 +370,8 @@ async function removeSnapshot(command: DeleteCommand): Promise<void> {
   const deleted = await deleteSnapshot(command.name);
 
   if (command.json == true) {
-    logger.line(JSON.stringify({ deleted, name: command.name }, null, 2));
+    const serialized = JSON.stringify({ deleted, name: command.name }, null, 2);
+    logger.line(serialized);
 
     return;
   }

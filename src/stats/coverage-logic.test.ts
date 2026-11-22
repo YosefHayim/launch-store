@@ -132,8 +132,9 @@ describe('mergeFeedCoverage', () => {
   });
 
   test('keeps the wider old coverage when the new pull is smaller', () => {
+    const coverage = createCoverage({});
     const merged = mergeFeedCoverage(
-      createCoverage({}),
+      coverage,
       { from: '2026-10-05', to: '2026-10-10' },
       '2026-10-10',
       SYNCED_AT,
@@ -143,8 +144,9 @@ describe('mergeFeedCoverage', () => {
   });
 
   test('keeps the old days when the new pull reached nothing', () => {
+    const coverage = createCoverage({ lastError: 'boom' });
     const merged = mergeFeedCoverage(
-      createCoverage({ lastError: 'boom' }),
+      coverage,
       { from: '2026-10-25', to: '2026-10-26' },
       '2026-10-24',
       SYNCED_AT,
@@ -167,7 +169,8 @@ describe('markFeedCoverageFailed', () => {
   });
 
   test('keeps the covered days and the sync time', () => {
-    const failed = markFeedCoverageFailed(createCoverage({}), 'boom');
+    const coverage = createCoverage({});
+    const failed = markFeedCoverageFailed(coverage, 'boom');
 
     expect(failed).toEqual(createCoverage({ lastError: 'boom' }));
   });
@@ -191,7 +194,8 @@ describe('markFeedCoverageSkipped', () => {
 
     const skipped = markFeedCoverageSkipped(previous, SYNCED_AT, 'not ready');
 
-    expect(skipped).toEqual(createCoverage({ lastNote: 'not ready' }));
+    const coverage = createCoverage({ lastNote: 'not ready' });
+    expect(skipped).toEqual(coverage);
   });
 });
 
@@ -203,11 +207,14 @@ describe('findFeedCoverage', () => {
   };
 
   test('returns the saved coverage of a feed', () => {
-    expect(findFeedCoverage(appCoverage, 'app-store')).toEqual(createCoverage({}));
+    const feedCoverage = findFeedCoverage(appCoverage, 'app-store');
+    const coverage = createCoverage({});
+    expect(feedCoverage).toEqual(coverage);
   });
 
   test('returns null for a feed that was never synced', () => {
-    expect(findFeedCoverage(appCoverage, 'ga4')).toBeNull();
+    const feedCoverage = findFeedCoverage(appCoverage, 'ga4');
+    expect(feedCoverage).toBeNull();
   });
 });
 
@@ -219,26 +226,29 @@ describe('isFeedCoverageStale', () => {
   });
 
   test('is stale when the last sync failed', () => {
-    expect(isFeedCoverageStale(createCoverage({ lastError: 'boom' }), now)).toBe(true);
+    const coverage = createCoverage({ lastError: 'boom' });
+    expect(isFeedCoverageStale(coverage, now)).toBe(true);
   });
 
   test('is stale when old', () => {
-    expect(
-      isFeedCoverageStale(createCoverage({ lastSyncedAt: '2026-10-20T00:00:00.000Z' }), now),
-    ).toBe(true);
+    const coverage = createCoverage({ lastSyncedAt: '2026-10-20T00:00:00.000Z' });
+    expect(isFeedCoverageStale(coverage, now)).toBe(true);
   });
 
   test('is fresh when recent and without error', () => {
-    expect(isFeedCoverageStale(createCoverage({}), now)).toBe(false);
+    const coverage = createCoverage({});
+    expect(isFeedCoverageStale(coverage, now)).toBe(false);
   });
 });
 
 describe('createNotesMessage', () => {
   test('is null when there are no notes', () => {
-    expect(createNotesMessage([])).toBeNull();
+    const notesMessage = createNotesMessage([]);
+    expect(notesMessage).toBeNull();
   });
 
   test('joins the notes with a semicolon', () => {
-    expect(createNotesMessage(['first', 'second'])).toBe('first; second');
+    const notesMessage = createNotesMessage(['first', 'second']);
+    expect(notesMessage).toBe('first; second');
   });
 });

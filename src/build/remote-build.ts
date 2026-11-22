@@ -58,7 +58,9 @@ function shellQuote(shellText: string): string {
 async function withRemoteStaging<Staged>(
   useStaging: (stagingDirectory: string) => Promise<Staged>,
 ): Promise<Staged> {
-  const stagingDirectory = await mkdtemp(join(tmpdir(), 'launch-remote-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchRemotePath = join(systemTemporaryDirectory, 'launch-remote-');
+  const stagingDirectory = await mkdtemp(launchRemotePath);
 
   try {
     const staged = await useStaging(stagingDirectory);
@@ -114,7 +116,8 @@ export async function uploadSigningMaterial(
     const credentialsDirectory = session.credentialsDirectory;
     const plistLocal = join(stagingDirectory, 'ExportOptions.plist');
 
-    await writeFile(plistLocal, exportOptionsPlist(toSigningAssets(inputs.signing)));
+    const exportPlist = exportOptionsPlist(toSigningAssets(inputs.signing));
+    await writeFile(plistLocal, exportPlist);
     await scpUp(session.target, inputs.signing.p12Path, `${credentialsDirectory}/dist.p12`);
     await scpUp(
       session.target,

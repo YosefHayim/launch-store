@@ -263,7 +263,8 @@ export class Command {
   argument(spec: string, _description?: string, defaultValue?: unknown): this {
     const hasDefault = arguments.length >= 3;
 
-    this.registeredArguments.push(readArgumentSpec(spec, defaultValue, hasDefault));
+    const argumentSpec = readArgumentSpec(spec, defaultValue, hasDefault);
+    this.registeredArguments.push(argumentSpec);
 
     return this;
   }

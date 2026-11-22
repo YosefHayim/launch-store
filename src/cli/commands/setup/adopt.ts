@@ -16,7 +16,8 @@ export const registerAdoptCommand = (program: Command): void => {
     )
     .option('--dry-run', 'print the plan and exit, importing nothing', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: AdoptCommandInput) =>
-      runCliProgram(adoptCommandProgram(commandOptions)),
-    );
+    .action((commandOptions: AdoptCommandInput) => {
+      const adoptProgram = adoptCommandProgram(commandOptions);
+      return runCliProgram(adoptProgram);
+    });
 };

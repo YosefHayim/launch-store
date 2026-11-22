@@ -107,9 +107,10 @@ async function waitForBuildUpload(
     checkedAt = Date.now();
   }
 
+  const wait = describeWait(uploadWaitMilliseconds);
   throw makeStoreUploadFailure({
     provider: PROVIDER,
-    message: `App Store Connect is still processing build upload ${buildUploadId} after ${describeWait(uploadWaitMilliseconds)}. Check TestFlight before uploading again.`,
+    message: `App Store Connect is still processing build upload ${buildUploadId} after ${wait}. Check TestFlight before uploading again.`,
   });
 }
 
@@ -143,9 +144,13 @@ async function submitAppleBuild(
   const appId = await appStoreClient.getAppId(bundleId);
 
   if (appId == null) {
+    const appMissingMessage = appRecordMissingMessage(
+      bundleId,
+      `launch build ${buildContext.platform}`,
+    );
     throw makeProviderInputFailure({
       provider: PROVIDER,
-      message: appRecordMissingMessage(bundleId, `launch build ${buildContext.platform}`),
+      message: appMissingMessage,
     });
   }
 
@@ -155,7 +160,8 @@ async function submitAppleBuild(
     artifact.buildNumber,
     ascPlatform,
   );
-  await appStoreClient.uploadBuildFile(buildUploadId, basename(artifact.path), artifact.path);
+  const fileName = basename(artifact.path);
+  await appStoreClient.uploadBuildFile(buildUploadId, fileName, artifact.path);
   await waitForBuildUpload(
     appStoreClient,
     buildUploadId,

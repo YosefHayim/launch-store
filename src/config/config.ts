@@ -412,7 +412,8 @@ async function readDynamicConfig(
       }) => unknown;
 
       try {
-        evaluatedConfig = await Promise.resolve(evaluateConfig({ config: staticConfig }));
+        const evaluate = evaluateConfig({ config: staticConfig });
+        evaluatedConfig = await Promise.resolve(evaluate);
       } catch (error) {
         const failedToEvaluate = error != null;
 
@@ -561,7 +562,8 @@ async function writeStaticAppJson(
   configPath: string,
   rawConfig: Record<string, unknown>,
 ): Promise<void> {
-  await writeFile(configPath, `${JSON.stringify(rawConfig, null, 2)}\n`);
+  const serialized = JSON.stringify(rawConfig, null, 2);
+  await writeFile(configPath, `${serialized}\n`);
 }
 
 export async function writeAppVersion(app: AppDescriptor, version: string): Promise<boolean> {

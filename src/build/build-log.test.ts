@@ -14,9 +14,13 @@ afterEach(() => {
 
 describe('buildLogId', () => {
   it('joins the natural keys into the same id `builds list` shows', () => {
-    expect(buildLogId({ appName: 'demo', version: '1.2.0', buildNumber: 7, platform: 'ios' })).toBe(
-      'demo-1.2.0-7-ios',
-    );
+    const logId = buildLogId({
+      appName: 'demo',
+      version: '1.2.0',
+      buildNumber: 7,
+      platform: 'ios',
+    });
+    expect(logId).toBe('demo-1.2.0-7-ios');
   });
 });
 describe('buildLogPath', () => {

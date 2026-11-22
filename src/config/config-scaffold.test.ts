@@ -4,13 +4,16 @@ import type { AppDescriptor } from '../types/app.ts';
 const app = (dir: string): AppDescriptor => ({ name: 'x', dir, configPath: `${dir}/app.json` });
 describe('detectAppRoot', () => {
   it('returns the single shared subdir when every app lives under one', () => {
-    expect(detectAppRoot([app('/repo/apps/a'), app('/repo/apps/b')], '/repo')).toBe('./apps');
+    const appRoot = detectAppRoot([app('/repo/apps/a'), app('/repo/apps/b')], '/repo');
+    expect(appRoot).toBe('./apps');
   });
   it('returns null when an app sits at the repo root', () => {
-    expect(detectAppRoot([app('/repo')], '/repo')).toBeNull();
+    const appRoot = detectAppRoot([app('/repo')], '/repo');
+    expect(appRoot).toBeNull();
   });
   it('returns null when apps span more than one top-level subdir', () => {
-    expect(detectAppRoot([app('/repo/apps/a'), app('/repo/packages/b')], '/repo')).toBeNull();
+    const appRoot = detectAppRoot([app('/repo/apps/a'), app('/repo/packages/b')], '/repo');
+    expect(appRoot).toBeNull();
   });
 });
 describe('configTemplate', () => {
@@ -28,7 +31,8 @@ describe('configTemplate', () => {
     expect(template.indexOf('products: { foo: {} },')).toBeLessThan(template.lastIndexOf('});'));
   });
   it('emits an artifactDir line only when one is supplied', () => {
-    expect(configTemplate(null)).not.toContain('artifactDir:');
+    const template = configTemplate(null);
+    expect(template).not.toContain('artifactDir:');
     const withDir = configTemplate(null, undefined, undefined, './.launch/artifacts');
     expect(withDir).toContain('artifactDir: "./.launch/artifacts",');
   });

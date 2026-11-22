@@ -71,8 +71,9 @@ describe('platformsForUpdatesFilter', () => {
 
 describe('formatUpdatesTable', () => {
   it('renders a header and one row per update with the active marker', () => {
+    const makeUpdate = makeUpdateRow({ id: 'aaaaaaaa-1', active: true, kind: 'publish' });
     const table = formatUpdatesTable([
-      makeUpdateRow({ id: 'aaaaaaaa-1', active: true, kind: 'publish' }),
+      makeUpdate,
       makeUpdateRow({
         id: 'bbbbbbbb-2',
         platform: 'android',
@@ -95,7 +96,8 @@ describe('formatUpdatesTable', () => {
 
 describe('formatUpdateDetail', () => {
   it('includes the bundle URL, asset count, and active/signed labels when present', () => {
-    const detail = formatUpdateDetail(makeUpdateRow(), sampleManifest);
+    const makeUpdate = makeUpdateRow();
+    const detail = formatUpdateDetail(makeUpdate, sampleManifest);
     expect(detail).toContain('https://cdn/bundle.hbc');
     expect(detail).toContain('assets:  1');
     expect(detail).toContain('active');
@@ -103,7 +105,8 @@ describe('formatUpdateDetail', () => {
   });
 
   it('omits manifest lines and active label when the snapshot and active flag are absent', () => {
-    const detail = formatUpdateDetail(makeUpdateRow({ active: false, signed: false }), null);
+    const makeUpdate = makeUpdateRow({ active: false, signed: false });
+    const detail = formatUpdateDetail(makeUpdate, null);
     expect(detail).not.toContain('bundle:');
     expect(detail).toContain('runtime 1.0.0');
     expect(detail).toContain('signed:  no');
@@ -111,10 +114,8 @@ describe('formatUpdateDetail', () => {
   });
 
   it('labels prior rollback history rows without rewriting their kind', () => {
-    const detail = formatUpdateDetail(
-      makeUpdateRow({ active: false, kind: 'rollback' }),
-      sampleManifest,
-    );
+    const makeUpdate = makeUpdateRow({ active: false, kind: 'rollback' });
+    const detail = formatUpdateDetail(makeUpdate, sampleManifest);
     expect(detail).toContain('(rollback)');
     expect(detail).not.toContain(', active');
   });

@@ -68,11 +68,18 @@ export const registerReleaseTrainCommand = (program: Command): void => {
       if (commandOptions.watch != null) releaseTrainOptions.watch = commandOptions.watch;
       if (commandOptions.json != null) releaseTrainOptions.json = commandOptions.json;
       if (trainId == null) {
-        return runCliProgram(releaseTrainCommandProgram({ action, options: releaseTrainOptions }));
+        const releaseTrainProgram = releaseTrainCommandProgram({
+          action,
+          options: releaseTrainOptions,
+        });
+        return runCliProgram(releaseTrainProgram);
       }
-      return runCliProgram(
-        releaseTrainCommandProgram({ action, id: trainId, options: releaseTrainOptions }),
-      );
+      const releaseTrainProgram = releaseTrainCommandProgram({
+        action,
+        id: trainId,
+        options: releaseTrainOptions,
+      });
+      return runCliProgram(releaseTrainProgram);
     },
   );
 };

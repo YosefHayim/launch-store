@@ -99,7 +99,9 @@ function pickSpecEntry(entries: readonly string[]): string | null {
 }
 
 async function main(): Promise<void> {
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'asc-spec-'));
+  const systemTemporaryDirectory = tmpdir();
+  const ascSpecPath = join(systemTemporaryDirectory, 'asc-spec-');
+  const temporaryDirectory = await mkdtemp(ascSpecPath);
 
   try {
     process.stdout.write(`Downloading ${ASC_SPEC_URL}\n`);
@@ -128,7 +130,8 @@ async function main(): Promise<void> {
       throw new Error(`No spec file found in the archive at ${ASC_SPEC_URL}`);
     }
 
-    const specText = await readFile(join(extractedDirectory, specEntry), 'utf8');
+    const joinedPath = join(extractedDirectory, specEntry);
+    const specText = await readFile(joinedPath, 'utf8');
     const specVersion = readSpecVersion(specText);
     process.stdout.write(
       `Generating types from OpenAPI ${specVersion.openapi}, spec version ${specVersion.info.version}\n`,

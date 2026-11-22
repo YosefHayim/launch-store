@@ -170,10 +170,12 @@ export class ConnectReports {
     });
     if (!appleResponse.ok) {
       const text = await appleResponse.text();
+      const errors = describeErrors(text);
+      const errorCodes = parseErrorCodes(text);
       throw new AscRequestError(
-        `App Store Connect GET ${pathOrUrl} failed (${appleResponse.status}): ${describeErrors(text)}`,
+        `App Store Connect GET ${pathOrUrl} failed (${appleResponse.status}): ${errors}`,
         appleResponse.status,
-        parseErrorCodes(text),
+        errorCodes,
       );
     }
     return Buffer.from(await appleResponse.arrayBuffer());

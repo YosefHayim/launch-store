@@ -55,7 +55,8 @@ async function main(): Promise<void> {
   try {
     await migrateLegacyAccounts();
   } catch (cause) {
-    createLogger(false).warn(`Skipped the old account move. ${errorMessage(cause)}`);
+    const failureMessage = errorMessage(cause);
+    createLogger(false).warn(`Skipped the old account move. ${failureMessage}`);
   }
 
   await new Cli().start(launchVersion);
@@ -67,6 +68,7 @@ main().catch(function reportBootFailure(runtimeFailure: unknown): void {
     return;
   }
 
-  createLogger(false).error(errorMessage(runtimeFailure));
+  const failureMessage = errorMessage(runtimeFailure);
+  createLogger(false).error(failureMessage);
   process.exitCode = 1;
 });

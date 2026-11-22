@@ -92,11 +92,13 @@ const runMigrateFastlane = (workingDirectory: string, apps: AppDescriptor[]) =>
   migrateFastlane(workingDirectory, apps);
 describe('readRubyString', () => {
   it('reads bare and parenthesized string directives', () => {
-    expect(readRubyString('team_id "ABCD1234"', 'team_id')).toBe('ABCD1234');
+    const rubyString = readRubyString('team_id "ABCD1234"', 'team_id');
+    expect(rubyString).toBe('ABCD1234');
     expect(readRubyString('apple_id("you@example.com")', 'apple_id')).toBe('you@example.com');
   });
   it('treats missing and empty directives as absent', () => {
-    expect(readRubyString('team_id "ABCD"', 'apple_id')).toBeUndefined();
+    const rubyString = readRubyString('team_id "ABCD"', 'apple_id');
+    expect(rubyString).toBeUndefined();
     expect(readRubyString('team_id ""', 'team_id')).toBeUndefined();
   });
 });
@@ -110,15 +112,18 @@ describe('parseAppfile', () => {
     expect(appfile.packageName).toBe('com.acme.alpha');
   });
   it('returns only the directives present', () => {
-    expect(parseAppfile('apple_id("solo@example.com")')).toEqual({ appleId: 'solo@example.com' });
+    const appfile = parseAppfile('apple_id("solo@example.com")');
+    expect(appfile).toEqual({ appleId: 'solo@example.com' });
   });
   it('treats an empty value as absent', () => {
-    expect(parseAppfile('team_id ""')).toEqual({});
+    const appfile = parseAppfile('team_id ""');
+    expect(appfile).toEqual({});
   });
 });
 describe('parseMatchfile', () => {
   it('reads the signing strategy', () => {
-    expect(parseMatchfile(SAMPLE_MATCHFILE)).toEqual({
+    const matchfile = parseMatchfile(SAMPLE_MATCHFILE);
+    expect(matchfile).toEqual({
       gitUrl: 'https://github.com/acme/certs',
       type: 'appstore',
       storageMode: 'git',
@@ -127,7 +132,8 @@ describe('parseMatchfile', () => {
 });
 describe('parseSupplyfile', () => {
   it('reads the Play upload defaults', () => {
-    expect(parseSupplyfile(SAMPLE_SUPPLYFILE)).toEqual({
+    const supplyfile = parseSupplyfile(SAMPLE_SUPPLYFILE);
+    expect(supplyfile).toEqual({
       packageName: 'com.acme.alpha',
       jsonKey: './play-key.json',
       track: 'production',
@@ -174,11 +180,14 @@ describe('parseFastfile', () => {
 describe('migrationNotesFor', () => {
   it('maps lanes and surfaces signing as manual without filesystem access', () => {
     const parsedFastfile = parseFastfile(SAMPLE_FASTFILE);
+    const appfile = parseAppfile(SAMPLE_APPFILE);
+    const matchfile = parseMatchfile(SAMPLE_MATCHFILE);
+    const supplyfile = parseSupplyfile(SAMPLE_SUPPLYFILE);
     const migrationNotes = migrationNotesFor(
       {
-        appfile: parseAppfile(SAMPLE_APPFILE),
-        matchfile: parseMatchfile(SAMPLE_MATCHFILE),
-        supply: parseSupplyfile(SAMPLE_SUPPLYFILE),
+        appfile: appfile,
+        matchfile: matchfile,
+        supply: supplyfile,
         lanes: parsedFastfile.lanes,
         actions: parsedFastfile.actions,
         hasDeliverfile: true,
@@ -214,7 +223,9 @@ describe('migrationNotesFor', () => {
 describe('readFastlaneSetup', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'launch-fastlane-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchFastlanePath = join(systemTemporaryDirectory, 'launch-fastlane-');
+    dir = mkdtempSync(launchFastlanePath);
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -223,35 +234,48 @@ describe('readFastlaneSetup', () => {
     expect(await runReadFastlaneSetup(dir)).toBeNull();
   });
   it('reads files from the conventional fastlane/ subdirectory', async () => {
-    mkdirSync(join(dir, 'fastlane'));
-    writeFileSync(join(dir, 'fastlane', 'Appfile'), SAMPLE_APPFILE);
-    writeFileSync(join(dir, 'fastlane', 'Fastfile'), SAMPLE_FASTFILE);
+    const fastlanePath = join(dir, 'fastlane');
+    mkdirSync(fastlanePath);
+    const appfilePath = join(dir, 'fastlane', 'Appfile');
+    writeFileSync(appfilePath, SAMPLE_APPFILE);
+    const fastfilePath = join(dir, 'fastlane', 'Fastfile');
+    writeFileSync(fastfilePath, SAMPLE_FASTFILE);
     const fastlaneSetup = await runReadFastlaneSetup(dir);
     expect(fastlaneSetup?.appfile?.appIdentifier).toBe('com.acme.alpha');
     expect(fastlaneSetup?.lanes.map((lane) => lane.name)).toContain('beta');
     expect(fastlaneSetup?.hasDeliverfile).toBe(false);
   });
   it('reads files placed at the project root', async () => {
-    writeFileSync(join(dir, 'Appfile'), SAMPLE_APPFILE);
+    const appfilePath = join(dir, 'Appfile');
+    writeFileSync(appfilePath, SAMPLE_APPFILE);
     expect((await runReadFastlaneSetup(dir))?.appfile?.teamId).toBe('ABCD1234');
   });
 });
 describe('migrateFastlane', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'launch-fastlane-'));
-    mkdirSync(join(dir, 'fastlane'));
-    writeFileSync(join(dir, 'fastlane', 'Appfile'), SAMPLE_APPFILE);
-    writeFileSync(join(dir, 'fastlane', 'Fastfile'), SAMPLE_FASTFILE);
-    writeFileSync(join(dir, 'fastlane', 'Matchfile'), SAMPLE_MATCHFILE);
-    writeFileSync(join(dir, 'fastlane', 'Supplyfile'), SAMPLE_SUPPLYFILE);
-    writeFileSync(join(dir, 'fastlane', 'Deliverfile'), 'app_identifier("com.acme.alpha")');
+    const systemTemporaryDirectory = tmpdir();
+    const launchFastlanePath = join(systemTemporaryDirectory, 'launch-fastlane-');
+    dir = mkdtempSync(launchFastlanePath);
+    const fastlanePath = join(dir, 'fastlane');
+    mkdirSync(fastlanePath);
+    const appfilePath = join(dir, 'fastlane', 'Appfile');
+    writeFileSync(appfilePath, SAMPLE_APPFILE);
+    const fastfilePath = join(dir, 'fastlane', 'Fastfile');
+    writeFileSync(fastfilePath, SAMPLE_FASTFILE);
+    const matchfilePath = join(dir, 'fastlane', 'Matchfile');
+    writeFileSync(matchfilePath, SAMPLE_MATCHFILE);
+    const supplyfilePath = join(dir, 'fastlane', 'Supplyfile');
+    writeFileSync(supplyfilePath, SAMPLE_SUPPLYFILE);
+    const deliverfilePath = join(dir, 'fastlane', 'Deliverfile');
+    writeFileSync(deliverfilePath, 'app_identifier("com.acme.alpha")');
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
   it('returns a tagged failure when there is no fastlane setup', async () => {
-    rmSync(join(dir, 'fastlane'), { recursive: true, force: true });
+    const fastlanePath = join(dir, 'fastlane');
+    rmSync(fastlanePath, { recursive: true, force: true });
     await expect(migrateFastlane(dir, [app()])).rejects.toMatchObject({
       _tag: 'FastlaneMigrationFailure',
       reason: 'MissingFastlaneSetup',
@@ -275,7 +299,8 @@ describe('migrateFastlane', () => {
     expect(manual.some((message) => message.includes('match/cert/sigh'))).toBe(true);
   });
   it('reports a custom lane with no recognized actions as a manual follow-up', async () => {
-    writeFileSync(join(dir, 'fastlane', 'Fastfile'), "lane :smoke do\n  sh('echo hi')\nend\n");
+    const fastfilePath = join(dir, 'fastlane', 'Fastfile');
+    writeFileSync(fastfilePath, "lane :smoke do\n  sh('echo hi')\nend\n");
     const manual = notesAt((await runMigrateFastlane(dir, [app()])).notes, 'manual').map(
       (note) => note.message,
     );
@@ -306,7 +331,8 @@ describe('migrateFastlane', () => {
     expect(informationalNotes.some((message) => message.includes('package'))).toBe(true);
   });
   it('skips store.config.json when one already exists', async () => {
-    writeFileSync(join(dir, 'store.config.json'), '{}');
+    const storePath = join(dir, 'store.config.json');
+    writeFileSync(storePath, '{}');
     const migration = await runMigrateFastlane(dir, [app()]);
     expect(migration.artifacts.map((entry) => entry.path)).not.toContain('store.config.json');
     expect(
@@ -318,12 +344,16 @@ describe('migrateFastlane', () => {
   it('imports the fastlane/metadata folder into store.config.json and drops the Deliverfile follow-up', async () => {
     const appleLocale = join(dir, 'fastlane', 'metadata', 'en-US');
     mkdirSync(appleLocale, { recursive: true });
-    writeFileSync(join(appleLocale, 'name.txt'), 'Alpha');
-    writeFileSync(join(appleLocale, 'keywords.txt'), 'todo, tasks');
+    const namePath = join(appleLocale, 'name.txt');
+    writeFileSync(namePath, 'Alpha');
+    const keywordsPath = join(appleLocale, 'keywords.txt');
+    writeFileSync(keywordsPath, 'todo, tasks');
     const androidLocale = join(dir, 'fastlane', 'metadata', 'android', 'en-US');
     mkdirSync(androidLocale, { recursive: true });
-    writeFileSync(join(androidLocale, 'title.txt'), 'Alpha');
-    writeFileSync(join(androidLocale, 'full_description.txt'), 'The full description.');
+    const titlePath = join(androidLocale, 'title.txt');
+    writeFileSync(titlePath, 'Alpha');
+    const fullDescriptionPath = join(androidLocale, 'full_description.txt');
+    writeFileSync(fullDescriptionPath, 'The full description.');
     const migration = await runMigrateFastlane(dir, [app()]);
     const store = JSON.parse(artifact(migration.artifacts, 'store.config.json').contents) as {
       apple?: { info: Record<string, { title?: string; keywords?: string[] }> };
@@ -342,10 +372,8 @@ describe('migrateFastlane', () => {
     ).toBe(false);
   });
   it('seeds .env.example with KEYS discovered in fastlane dotenv files (values dropped)', async () => {
-    writeFileSync(
-      join(dir, 'fastlane', '.env.default'),
-      'APP_STORE_KEY=secret\nexport SLACK_URL=https://hooks\n',
-    );
+    const joinedPath = join(dir, 'fastlane', '.env.default');
+    writeFileSync(joinedPath, 'APP_STORE_KEY=secret\nexport SLACK_URL=https://hooks\n');
     const env = artifact(
       (await runMigrateFastlane(dir, [app()])).artifacts,
       '.env.example',
@@ -356,10 +384,8 @@ describe('migrateFastlane', () => {
     expect(env).not.toContain('https://hooks');
   });
   it('surfaces a non-git match storage backend in the signing note', async () => {
-    writeFileSync(
-      join(dir, 'fastlane', 'Matchfile'),
-      ['type("appstore")', 'storage_mode("google_cloud")'].join('\n'),
-    );
+    const matchfilePath = join(dir, 'fastlane', 'Matchfile');
+    writeFileSync(matchfilePath, ['type("appstore")', 'storage_mode("google_cloud")'].join('\n'));
     const informationalNotes = notesAt((await runMigrateFastlane(dir, [app()])).notes, 'info').map(
       (note) => note.message,
     );

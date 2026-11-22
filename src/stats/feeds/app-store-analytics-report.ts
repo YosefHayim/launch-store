@@ -228,7 +228,8 @@ export const summarizeAnalyticsBatches = (
   const linesByKind = new Map<AnalyticsReportKind, readonly ReportLine[]>();
   for (const kind of kinds) {
     const kindBatches = batches.filter((batch) => batch.kind == kind);
-    linesByKind.set(kind, pickLatestLines(kindBatches, request));
+    const latestLines = pickLatestLines(kindBatches, request);
+    linesByKind.set(kind, latestLines);
   }
   const stats = ANALYTICS_METRIC_RULES.flatMap((rule) => {
     const kindLines = linesByKind.get(rule.kind);

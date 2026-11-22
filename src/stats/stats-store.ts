@@ -165,10 +165,8 @@ export async function saveDailyStats(appKey: string, stats: readonly DailyStat[]
 /** Read the saved daily stats of one app and month; an empty list when nothing was saved yet. */
 export async function loadMonthStats(appKey: string, month: string): Promise<readonly DailyStat[]> {
   const appDirectory = locateAppStatsDirectory(appKey);
-  const monthFile = await readDocumentFile(
-    join(appDirectory, `${month}.json`),
-    decodeStatsMonthFile,
-  );
+  const joinedPath = join(appDirectory, `${month}.json`);
+  const monthFile = await readDocumentFile(joinedPath, decodeStatsMonthFile);
 
   if (monthFile == null) {
     return [];

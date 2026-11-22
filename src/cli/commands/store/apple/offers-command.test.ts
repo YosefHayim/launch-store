@@ -6,24 +6,22 @@ import { hasOffersWork, renderOfferAction } from './offers-reconcile.ts';
 
 describe('OffersCommandInputSchema', () => {
   it('decodes reconciliation with an omitted app selector', () => {
-    expect(
-      OffersCommandInputSchema({
-        operation: 'reconcile',
-        dryRun: true,
-        yes: false,
-      }),
-    ).toEqual({ operation: 'reconcile', dryRun: true, yes: false });
+    const offersCommandSchema = OffersCommandInputSchema({
+      operation: 'reconcile',
+      dryRun: true,
+      yes: false,
+    });
+    expect(offersCommandSchema).toEqual({ operation: 'reconcile', dryRun: true, yes: false });
   });
 
   it('decodes code generation and rejects explicit undefined optionals', () => {
-    expect(
-      OffersCommandInputSchema({
-        operation: 'generate-codes',
-        productId: 'com.acme.pro',
-        offerName: 'LAUNCH',
-        count: '100',
-      }),
-    ).toEqual({
+    const offersCommandSchema = OffersCommandInputSchema({
+      operation: 'generate-codes',
+      productId: 'com.acme.pro',
+      offerName: 'LAUNCH',
+      count: '100',
+    });
+    expect(offersCommandSchema).toEqual({
       operation: 'generate-codes',
       productId: 'com.acme.pro',
       offerName: 'LAUNCH',
@@ -41,14 +39,13 @@ describe('OffersCommandInputSchema', () => {
 
 describe('offers command renderers', () => {
   it('uses ASCII action and campaign markers', () => {
-    expect(
-      renderOfferAction({
-        description: 'create offer LAUNCH',
-        destructive: false,
-        status: 'failed',
-        error: 'Apple rejected it',
-      }),
-    ).toBe('x create offer LAUNCH - Apple rejected it');
+    const offerAction = renderOfferAction({
+      description: 'create offer LAUNCH',
+      destructive: false,
+      status: 'failed',
+      error: 'Apple rejected it',
+    });
+    expect(offerAction).toBe('x create offer LAUNCH - Apple rejected it');
     expect(
       renderOfferAction({
         description: 'create offer LAUNCH',
@@ -70,7 +67,8 @@ describe('offers command renderers', () => {
         status: 'applied',
       }),
     ).toBe('+ create offer LAUNCH');
-    expect(renderOfferCodeState({ name: 'LAUNCH', active: true })).toBe('[active] LAUNCH');
+    const renderOfferCode = renderOfferCodeState({ name: 'LAUNCH', active: true });
+    expect(renderOfferCode).toBe('[active] LAUNCH');
     expect(renderOfferCodeState({ name: 'OLD', active: false })).toBe('[inactive] OLD');
   });
 });

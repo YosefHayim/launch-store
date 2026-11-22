@@ -343,7 +343,8 @@ async function writeMergedStoreConfig(
   const mergedStoreConfig = mergeStoreConfig(currentStoreConfig, storeConfigPatch);
 
   try {
-    await writeFile(configPath, serializeStoreConfig(mergedStoreConfig));
+    const serializeStore = serializeStoreConfig(mergedStoreConfig);
+    await writeFile(configPath, serializeStore);
   } catch (cause) {
     throw metadataFailure('write store metadata config', cause);
   }

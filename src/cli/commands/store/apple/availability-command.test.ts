@@ -7,13 +7,16 @@ import {
 
 describe('AvailabilityCommandInputSchema', () => {
   it('decodes required defaults and rejects explicit undefined selectors', () => {
-    expect(
-      AvailabilityCommandInputSchema({
-        config: 'availability.config.json',
-        dryRun: true,
-        yes: false,
-      }),
-    ).toEqual({ config: 'availability.config.json', dryRun: true, yes: false });
+    const availabilityCommandSchema = AvailabilityCommandInputSchema({
+      config: 'availability.config.json',
+      dryRun: true,
+      yes: false,
+    });
+    expect(availabilityCommandSchema).toEqual({
+      config: 'availability.config.json',
+      dryRun: true,
+      yes: false,
+    });
     expect(() =>
       AvailabilityCommandInputSchema({
         app: undefined,
@@ -27,13 +30,12 @@ describe('AvailabilityCommandInputSchema', () => {
 
 describe('availability rendering', () => {
   it('uses ASCII markers for additive, destructive, and failed actions', () => {
-    expect(
-      renderAvailabilityAction({
-        description: 'set store availability -> 3 territories',
-        destructive: false,
-        status: 'planned',
-      }),
-    ).toBe('+ set store availability -> 3 territories');
+    const availabilityAction = renderAvailabilityAction({
+      description: 'set store availability -> 3 territories',
+      destructive: false,
+      status: 'planned',
+    });
+    expect(availabilityAction).toBe('+ set store availability -> 3 territories');
     expect(
       renderAvailabilityAction({
         description: 'set store availability -> 2 territories - -1 (FRA)',

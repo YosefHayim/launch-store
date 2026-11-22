@@ -10,7 +10,8 @@ export const registerCloudCommand = (program: Command): void => {
     .description('manage the remote AWS EC2 Mac build host (setup | status | teardown | doctor)')
     .argument('[action]', 'setup | status | teardown | doctor', 'status')
     .option('-y, --yes', 'confirm teardown without prompting', false)
-    .action((action: string, commandOptions: CloudOptions) =>
-      runCliProgram(cloudCommandProgram({ operation: action, yes: commandOptions.yes })),
-    );
+    .action((action: string, commandOptions: CloudOptions) => {
+      const cloudProgram = cloudCommandProgram({ operation: action, yes: commandOptions.yes });
+      return runCliProgram(cloudProgram);
+    });
 };

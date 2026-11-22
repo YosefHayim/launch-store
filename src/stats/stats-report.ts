@@ -110,7 +110,8 @@ async function readStatsReport(
   for (const app of selectedApps) {
     const stats = await loadRangeStats(app.key, range);
     const appCoverage = await loadAppCoverage(app.key);
-    appReports.push(createAppReport(app, stats, appCoverage, freshness));
+    const appReport = createAppReport(app, stats, appCoverage, freshness);
+    appReports.push(appReport);
   }
 
   return { range, days: request.days, isStale: freshness.isStale, apps: appReports };

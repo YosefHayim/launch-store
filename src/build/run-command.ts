@@ -161,17 +161,22 @@ async function installAndroidArtifact(
   const isApk = artifactPath.endsWith('.apk');
 
   if (isApk) {
-    await executeCommand('adb', adbInstallArgs(artifactPath, serial));
+    const adbInstall = adbInstallArgs(artifactPath, serial);
+    await executeCommand('adb', adbInstall);
     return;
   }
 
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'launch-run-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchRunPath = join(systemTemporaryDirectory, 'launch-run-');
+  const temporaryDirectory = await mkdtemp(launchRunPath);
 
   try {
     const apksPath = join(temporaryDirectory, 'app.apks');
 
-    await executeCommand('bundletool', bundletoolBuildApksArgs(artifactPath, apksPath));
-    await executeCommand('bundletool', bundletoolInstallApksArgs(apksPath, serial));
+    const bundletoolBuildApks = bundletoolBuildApksArgs(artifactPath, apksPath);
+    await executeCommand('bundletool', bundletoolBuildApks);
+    const bundletoolInstallApks = bundletoolInstallApksArgs(apksPath, serial);
+    await executeCommand('bundletool', bundletoolInstallApks);
   } finally {
     await removeTemporaryDirectory(temporaryDirectory);
   }
@@ -182,7 +187,9 @@ async function installAppleArtifact(
   artifactPath: string,
   device: string | undefined,
 ): Promise<void> {
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'launch-run-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchRunPath = join(systemTemporaryDirectory, 'launch-run-');
+  const temporaryDirectory = await mkdtemp(launchRunPath);
 
   try {
     await executeCommand('unzip', ['-oq', artifactPath, '-d', temporaryDirectory]);
@@ -206,7 +213,8 @@ async function installAppleArtifact(
 
     const applicationPath = join(applicationDirectory, applicationName);
 
-    await executeCommand('xcrun', devicectlInstallArgs(applicationPath, device));
+    const devicectlInstall = devicectlInstallArgs(applicationPath, device);
+    await executeCommand('xcrun', devicectlInstall);
   } finally {
     await removeTemporaryDirectory(temporaryDirectory);
   }
@@ -263,9 +271,10 @@ export async function runCommandProgram(commandInput: unknown): Promise<void> {
 
     logger.ok("Installed. Launch it from the device's home screen.");
   } catch (error) {
+    const failureMessage = errorMessage(error);
     throw makeRunCommandFailure({
       operation: 'install stored artifact',
-      message: errorMessage(error),
+      message: failureMessage,
       cause: error,
     });
   }

@@ -126,11 +126,12 @@ async function readMonthlyCsvReports(request: BucketReportsRequest): Promise<Buc
   });
 
   async function downloadReportFile(reportFile: ReportFile): Promise<CsvDownload> {
-    const reply = await downloadBucketObject(
-      bucket,
-      createMonthlyCsvObjectName(reportFile.report, packageName, reportFile.reportMonth),
-      accessToken,
+    const monthlyCsvObjectName = createMonthlyCsvObjectName(
+      reportFile.report,
+      packageName,
+      reportFile.reportMonth,
     );
+    const reply = await downloadBucketObject(bucket, monthlyCsvObjectName, accessToken);
 
     return { report: reportFile.report, reply };
   }
@@ -152,7 +153,8 @@ async function readMonthlyCsvReports(request: BucketReportsRequest): Promise<Buc
       return [];
     }
 
-    const table = readPlayCsvTable(decodePlayCsvBytes(download.reply.bytes));
+    const playCsvBytes = decodePlayCsvBytes(download.reply.bytes);
+    const table = readPlayCsvTable(playCsvBytes);
 
     return [{ report: download.report, table }];
   });
@@ -270,7 +272,8 @@ async function readEarningsReports(request: BucketReportsRequest): Promise<
     const zipStats = Object.values(zipEntries).flatMap(function readZipStats(
       csvBytes: Uint8Array,
     ): DailyStat[] {
-      const earningsTable = readPlayCsvTable(decodePlayCsvBytes(csvBytes));
+      const playCsvBytes = decodePlayCsvBytes(csvBytes);
+      const earningsTable = readPlayCsvTable(playCsvBytes);
 
       return readEarningsStats(earningsTable, packageName, range);
     });

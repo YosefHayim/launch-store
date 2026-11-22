@@ -75,9 +75,11 @@ export const registerPlayReviewsCommand = (program: Command): void => {
     .option('--unanswered', 'only show reviews without a developer reply', false)
     .option('--lang <bcp47>', 'machine-translate review text into this language (e.g. en-US)')
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: PlayReviewsListOptions) =>
-      runCliProgram(playReviewsCommandProgram(toPlayReviewsListInput(commandOptions))),
-    );
+    .action((commandOptions: PlayReviewsListOptions) => {
+      const playReviewsList = toPlayReviewsListInput(commandOptions);
+      const playReviewsProgram = playReviewsCommandProgram(playReviewsList);
+      return runCliProgram(playReviewsProgram);
+    });
   reviewsCommand
     .command('reply')
     .description('post (or replace) the developer reply to a review')
@@ -86,7 +88,9 @@ export const registerPlayReviewsCommand = (program: Command): void => {
     .option('-m, --message <text>', 'the reply text')
     .option('--file <path>', 'read the reply text from a file')
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((reviewId: string, commandOptions: ReplyOptions) =>
-      runCliProgram(playReviewsCommandProgram(toPlayReviewsReplyInput(reviewId, commandOptions))),
-    );
+    .action((reviewId: string, commandOptions: ReplyOptions) => {
+      const playReviewsReply = toPlayReviewsReplyInput(reviewId, commandOptions);
+      const playReviewsProgram = playReviewsCommandProgram(playReviewsReply);
+      return runCliProgram(playReviewsProgram);
+    });
 };

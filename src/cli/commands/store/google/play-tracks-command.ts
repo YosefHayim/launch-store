@@ -350,7 +350,8 @@ async function showTrackStatus(commandInput: PlayTracksStatusInput): Promise<voi
   const logger = createLogger(false);
 
   if (commandInput.json) {
-    logger.line(JSON.stringify(tracksWithCountries, null, 2));
+    const serialized = JSON.stringify(tracksWithCountries, null, 2);
+    logger.line(serialized);
     return;
   }
 

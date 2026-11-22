@@ -115,9 +115,8 @@ describe('skillReferencedCommands', () => {
 
 describe('formatUnknownSkillCommand', () => {
   it('formats the skill id and full launch path', () => {
-    expect(formatUnknownSkillCommand('launch-ship', ['metadata', 'pull'])).toBe(
-      'launch-ship: launch metadata pull',
-    );
+    const unknownSkillCommand = formatUnknownSkillCommand('launch-ship', ['metadata', 'pull']);
+    expect(unknownSkillCommand).toBe('launch-ship: launch metadata pull');
   });
 });
 
@@ -140,7 +139,8 @@ describe('findUnknownCommands', () => {
         },
       }),
     ];
-    expect(findUnknownCommands(sampleCli, skills)).toEqual([]);
+    const unknownCommands = findUnknownCommands(sampleCli, skills);
+    expect(unknownCommands).toEqual([]);
   });
 
   it('reports each unknown path with its skill id', () => {
@@ -161,7 +161,8 @@ describe('findUnknownCommands', () => {
         },
       }),
     ];
-    expect(findUnknownCommands(sampleCli, skills)).toEqual([
+    const unknownCommands = findUnknownCommands(sampleCli, skills);
+    expect(unknownCommands).toEqual([
       'launch-ship: launch not-real',
       'launch-store-config: launch metadata diff',
     ]);
@@ -174,6 +175,7 @@ describe('findUnknownCommands', () => {
         steps: [{ path: ['build'], args: ['ios'], note: 'platform is an arg' }],
       }),
     ];
-    expect(findUnknownCommands(sampleCli, skills)).toEqual([]);
+    const unknownCommands = findUnknownCommands(sampleCli, skills);
+    expect(unknownCommands).toEqual([]);
   });
 });

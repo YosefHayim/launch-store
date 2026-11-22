@@ -38,7 +38,8 @@ const makeCtx = (
 };
 describe('releaseConfigPlanner', () => {
   it('omits itself when no app declares release attributes', async () => {
-    const plan = await runPlanner(releaseConfigPlanner, makeCtx(makeAscApiFake()));
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(releaseConfigPlanner, makeCtx(ascApiFake));
     expect(plan.state).toBe('omitted');
   });
   it('skips with a creds hint when no Apple account is active', async () => {
@@ -48,7 +49,8 @@ describe('releaseConfigPlanner', () => {
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports the per-app price change a fresh config would apply (two-way)', async () => {
-    const plan = await runPlanner(releaseConfigPlanner, makeCtx(makeAscApiFake(), PRICED));
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(releaseConfigPlanner, makeCtx(ascApiFake, PRICED));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;

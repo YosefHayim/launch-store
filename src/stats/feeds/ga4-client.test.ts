@@ -43,19 +43,25 @@ describe('readGa4Error', () => {
 
 describe('readProjectIdFromClientEmail', () => {
   test('reads the project id of a service account email', () => {
-    expect(readProjectIdFromClientEmail('bot@my-project-1.iam.gserviceaccount.com')).toBe(
-      'my-project-1',
+    const projectIdFromClientEmail = readProjectIdFromClientEmail(
+      'bot@my-project-1.iam.gserviceaccount.com',
     );
+    expect(projectIdFromClientEmail).toBe('my-project-1');
   });
 
   test('returns null for an email that is not a service account', () => {
-    expect(readProjectIdFromClientEmail('person@example.com')).toBeNull();
+    const projectIdFromClientEmail = readProjectIdFromClientEmail('person@example.com');
+    expect(projectIdFromClientEmail).toBeNull();
   });
 });
 
 describe('createServiceDisabledReason', () => {
   test('names the API without a link when the project id is unknown', () => {
-    expect(createServiceDisabledReason('https://analyticsdata.googleapis.com/v1beta/x', null)).toBe(
+    const serviceDisabledReason = createServiceDisabledReason(
+      'https://analyticsdata.googleapis.com/v1beta/x',
+      null,
+    );
+    expect(serviceDisabledReason).toBe(
       'Enable the analyticsdata.googleapis.com API for the project of the launch Google service account',
     );
   });
@@ -63,7 +69,8 @@ describe('createServiceDisabledReason', () => {
 
 describe('createPermissionReason', () => {
   test('names the property when there is one', () => {
-    expect(createPermissionReason('42')).toBe(
+    const permissionReason = createPermissionReason('42');
+    expect(permissionReason).toBe(
       'Add the launch Google service account as a Viewer on GA4 property 42',
     );
   });

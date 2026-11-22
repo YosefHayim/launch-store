@@ -79,7 +79,8 @@ afterEach(function resetEnvironmentFixtures() {
 
 describe('release config schema', () => {
   it('rejects a non-object, an empty document, and array-shaped sections', async () => {
-    await expect(decodeReleaseDocument(42)).rejects.toMatchObject({
+    const releaseDocument = decodeReleaseDocument(42);
+    await expect(releaseDocument).rejects.toMatchObject({
       message: expect.stringMatching(/must be a JSON object/),
     });
     await expect(decodeReleaseDocument({})).rejects.toMatchObject({
@@ -114,7 +115,8 @@ describe('release config schema', () => {
   });
 
   it('rejects invalid prices and age-rating settings', async () => {
-    await expect(decodeReleaseDocument({ pricing: { customerPrice: -1 } })).rejects.toMatchObject({
+    const releaseDocument = decodeReleaseDocument({ pricing: { customerPrice: -1 } });
+    await expect(releaseDocument).rejects.toMatchObject({
       message: expect.stringMatching(/non-negative number/),
     });
     await expect(
@@ -130,9 +132,10 @@ describe('release config schema', () => {
   });
 
   it('rejects deprecated age-rating values and attributes with the replacement', async () => {
-    await expect(
-      decodeReleaseDocument({ ageRating: { violenceRealistic: 'INFREQUENT_OR_MILD' } }),
-    ).rejects.toMatchObject({
+    const releaseDocument = decodeReleaseDocument({
+      ageRating: { violenceRealistic: 'INFREQUENT_OR_MILD' },
+    });
+    await expect(releaseDocument).rejects.toMatchObject({
       message: expect.stringMatching(
         /violenceRealistic uses deprecated value INFREQUENT_OR_MILD: use INFREQUENT/,
       ),
@@ -157,10 +160,13 @@ describe('release config schema', () => {
   });
 
   it('reads and decodes a sidecar', async () => {
-    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-release-attrs-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchReleaseAttrsPath = join(systemTemporaryDirectory, 'launch-release-attrs-');
+    const temporaryDirectory = mkdtempSync(launchReleaseAttrsPath);
     const configPath = join(temporaryDirectory, 'release.config.json');
     try {
-      writeFileSync(configPath, JSON.stringify({ pricing: { customerPrice: 4.99 } }));
+      const serialized = JSON.stringify({ pricing: { customerPrice: 4.99 } });
+      writeFileSync(configPath, serialized);
       const releaseConfig = await loadReleaseConfig(configPath);
       expect(releaseConfig.pricing?.customerPrice).toBe(4.99);
     } finally {

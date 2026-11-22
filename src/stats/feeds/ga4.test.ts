@@ -112,11 +112,13 @@ function installSequenceFetch(routes: readonly SequenceRoute[], sentRequests: Se
       const method = init?.method ?? 'GET';
       const requestUrl = readRequestUrl(url);
       const routeKey = `${method} ${requestUrl}`;
+      const authorization = readAuthorization(init?.headers);
+      const sentDocument = readSentDocument(init?.body);
       sentRequests.push({
         method,
         url: requestUrl,
-        authorization: readAuthorization(init?.headers),
-        sentDocument: readSentDocument(init?.body),
+        authorization: authorization,
+        sentDocument: sentDocument,
       });
 
       function matchesRoute(route: SequenceRoute): boolean {
@@ -142,7 +144,8 @@ function installSequenceFetch(routes: readonly SequenceRoute[], sentRequests: Se
         throw new Error(`Route ${routeKey} has no replies`);
       }
 
-      return new Response(createReplyBody(reply.document), { status: reply.status });
+      const createReply = createReplyBody(reply.document);
+      return new Response(createReply, { status: reply.status });
     },
   );
 }
@@ -287,22 +290,26 @@ const readSkippedReason = (reply: FeedFetchReply): string => {
 
 describe('ga4Feed', () => {
   test('skips when no Google service account is saved', async () => {
+    const statsCredentialsTest = makeStatsCredentialsTest();
     const { reply, sentRequests } = await runFeed({
       app: IOS_APP,
       routes: [],
-      credentials: makeStatsCredentialsTest(),
+      credentials: statsCredentialsTest,
     });
 
     expect(reply.status).toBe('skipped');
-    expect(readSkippedReason(reply)).toContain('No Google service account saved');
+    const skippedReason = readSkippedReason(reply);
+    expect(skippedReason).toContain('No Google service account saved');
     expect(sentRequests).toHaveLength(0);
   });
 
   test('finds the property by iOS bundle id and filters the report by its stream', async () => {
+    const twoPropertySummaries = readTwoPropertySummaries();
+    const credentials = makeCredentials();
     const { reply, sentRequests } = await runFeed({
       app: IOS_APP,
       routes: [
-        readTwoPropertySummaries(),
+        twoPropertySummaries,
         streamsRoute('111', [IOS_STREAM]),
         streamsRoute('222', [ANDROID_STREAM, WEB_STREAM]),
         reportRoute('111', [
@@ -312,7 +319,7 @@ describe('ga4Feed', () => {
           },
         ]),
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
     const reportRequest = sentRequests.find((sent) => sent.url == RUN_REPORT_URL);
@@ -336,6 +343,8 @@ describe('ga4Feed', () => {
   });
 
   test('finds the property by Android package name', async () => {
+    const twoPropertySummaries = readTwoPropertySummaries();
+    const credentials = makeCredentials();
     const { reply, sentRequests } = await runFeed({
       app: {
         ...IOS_APP,
@@ -345,12 +354,12 @@ describe('ga4Feed', () => {
         packageName: 'com.example.calfriend',
       },
       routes: [
-        readTwoPropertySummaries(),
+        twoPropertySummaries,
         streamsRoute('111', [IOS_STREAM]),
         streamsRoute('222', [ANDROID_STREAM]),
         reportRoute('222', [{ status: 200, document: { rows: [], rowCount: 0 } }]),
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
     expect(reply).toEqual({
@@ -363,55 +372,63 @@ describe('ga4Feed', () => {
   });
 
   test('skips with a tag hint when no property has a stream for the app', async () => {
+    const twoPropertySummaries = readTwoPropertySummaries();
+    const credentials = makeCredentials();
     const { reply } = await runFeed({
       app: IOS_APP,
       routes: [
-        readTwoPropertySummaries(),
+        twoPropertySummaries,
         streamsRoute('111', [ANDROID_STREAM]),
         streamsRoute('222', [WEB_STREAM]),
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
-    expect(readSkippedReason(reply)).toBe(
+    const skippedReason = readSkippedReason(reply);
+    expect(skippedReason).toBe(
       'No GA4 property with a stream for com.example.calfriend; tag one with launch apps tag --app calfriend --ga4-property <id>',
     );
   });
 
   test('uses the tagged property and filters by stream when it has one', async () => {
+    const credentials = makeCredentials();
     const { reply, sentRequests } = await runFeed({
       app: { ...IOS_APP, ga4PropertyId: '111' },
       routes: [
         streamsRoute('111', [IOS_STREAM]),
         reportRoute('111', [{ status: 200, document: { rows: [], rowCount: 0 } }]),
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
     const reportRequest = sentRequests.find((sent) => sent.url == RUN_REPORT_URL);
     expect(reply.status).toBe('fetched');
     expect(sentRequests.some((sent) => sent.url == ACCOUNT_SUMMARIES_URL)).toBe(false);
-    expect(readSentQuery(reportRequest).dimensionFilter).toBeDefined();
+    const sentQuery = readSentQuery(reportRequest);
+    expect(sentQuery.dimensionFilter).toBeDefined();
   });
 
   test('reports the whole tagged property without a stream filter when it has no stream for the app', async () => {
+    const credentials = makeCredentials();
     const { reply, sentRequests } = await runFeed({
       app: { ...IOS_APP, ga4PropertyId: '111' },
       routes: [
         streamsRoute('111', [WEB_STREAM]),
         reportRoute('111', [{ status: 200, document: { rows: [], rowCount: 0 } }]),
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
     const reportRequest = sentRequests.find((sent) => sent.url == RUN_REPORT_URL);
     expect(reply.status == 'fetched' && reply.notes).toEqual([
       'GA4 property 111 has no stream for this app, so the numbers cover the whole property',
     ]);
-    expect(readSentQuery(reportRequest).dimensionFilter).toBeUndefined();
+    const sentQuery = readSentQuery(reportRequest);
+    expect(sentQuery.dimensionFilter).toBeUndefined();
   });
 
   test('pages the account summaries and data streams', async () => {
+    const credentials = makeCredentials();
     const { reply, sentRequests } = await runFeed({
       app: IOS_APP,
       routes: [
@@ -455,7 +472,7 @@ describe('ga4Feed', () => {
         },
         reportRoute('111', [{ status: 200, document: { rowCount: 0 } }]),
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
     expect(reply.status).toBe('fetched');
@@ -463,6 +480,7 @@ describe('ga4Feed', () => {
   });
 
   test('pages the report until the row count is reached', async () => {
+    const credentials = makeCredentials();
     const { reply, sentRequests } = await runFeed({
       app: { ...IOS_APP, ga4PropertyId: '111' },
       routes: [
@@ -472,17 +490,21 @@ describe('ga4Feed', () => {
           { status: 200, document: { rows: [reportRow('20261002', '3', '3', '3')], rowCount: 2 } },
         ]),
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
     const reportQueries = sentRequests
       .filter((sent) => sent.url == RUN_REPORT_URL)
-      .map((sent) => JSON.parse(String(sent.sentDocument)));
+      .map((sent) => {
+        const asString = String(sent.sentDocument);
+        return JSON.parse(asString);
+      });
     expect(reportQueries.map((reportQuery) => reportQuery.offset)).toEqual(['0', '1']);
     expect(reply.status == 'fetched' && reply.stats).toHaveLength(6);
   });
 
   test('skips with the Viewer hint when the report is permission denied', async () => {
+    const credentials = makeCredentials();
     const { reply } = await runFeed({
       app: { ...IOS_APP, ga4PropertyId: '111' },
       routes: [
@@ -494,15 +516,17 @@ describe('ga4Feed', () => {
           },
         ]),
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
-    expect(readSkippedReason(reply)).toBe(
+    const skippedReason = readSkippedReason(reply);
+    expect(skippedReason).toBe(
       'Add the launch Google service account as a Viewer on GA4 property 111',
     );
   });
 
   test('skips with the Viewer hint when the stream list is permission denied', async () => {
+    const credentials = makeCredentials();
     const { reply } = await runFeed({
       app: { ...IOS_APP, ga4PropertyId: '111' },
       routes: [
@@ -512,13 +536,15 @@ describe('ga4Feed', () => {
           replies: [{ status: 403, document: { error: { status: 'PERMISSION_DENIED' } } }],
         },
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
-    expect(readSkippedReason(reply)).toContain('Viewer on GA4 property 111');
+    const skippedReason = readSkippedReason(reply);
+    expect(skippedReason).toContain('Viewer on GA4 property 111');
   });
 
   test('skips with the enable link and no secrets when an API is disabled', async () => {
+    const credentials = makeCredentials();
     const { reply } = await runFeed({
       app: IOS_APP,
       routes: [
@@ -539,7 +565,7 @@ describe('ga4Feed', () => {
           ],
         },
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
     const reason = readSkippedReason(reply);
@@ -551,6 +577,7 @@ describe('ga4Feed', () => {
   });
 
   test('skips when permission is denied while listing properties', async () => {
+    const credentials = makeCredentials();
     const { reply } = await runFeed({
       app: IOS_APP,
       routes: [
@@ -560,13 +587,15 @@ describe('ga4Feed', () => {
           replies: [{ status: 403, document: { error: { status: 'PERMISSION_DENIED' } } }],
         },
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
-    expect(readSkippedReason(reply)).toContain('refused to list properties');
+    const skippedReason = readSkippedReason(reply);
+    expect(skippedReason).toContain('refused to list properties');
   });
 
   test('fails with the Google message on any other error', async () => {
+    const credentials = makeCredentials();
     const message = await readFailureMessage({
       app: { ...IOS_APP, ga4PropertyId: '111' },
       routes: [
@@ -575,7 +604,7 @@ describe('ga4Feed', () => {
           { status: 400, document: { error: { message: 'Invalid dimension' } } },
         ]),
       ],
-      credentials: makeCredentials(),
+      credentials: credentials,
     });
 
     expect(message).toBe('Google Analytics error: Invalid dimension');
@@ -589,7 +618,8 @@ describe('ga4Feed', () => {
     var failureMessage: string | null = null;
 
     try {
-      await ga4Feed.fetchDays({ app: IOS_APP, range: RANGE, credentials: makeCredentials() });
+      const credentials = makeCredentials();
+      await ga4Feed.fetchDays({ app: IOS_APP, range: RANGE, credentials: credentials });
     } catch (cause) {
       failureMessage = readThrownMessage(cause);
     }

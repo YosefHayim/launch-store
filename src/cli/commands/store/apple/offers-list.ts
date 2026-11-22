@@ -42,7 +42,8 @@ export async function executeListOfferCodes(commandInput: OffersListInput): Prom
     const offerLines: string[] = [];
 
     for (const offerCode of offerCodes) {
-      offerLines.push(renderOfferCodeState(offerCode));
+      const renderOfferCode = renderOfferCodeState(offerCode);
+      offerLines.push(renderOfferCode);
     }
 
     logger.notice(

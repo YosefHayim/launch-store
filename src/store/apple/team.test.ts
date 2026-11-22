@@ -8,8 +8,9 @@ import { getTeam, inviteTeamMember, removeTeamMember, type AscTeamApi } from './
 
 /** Build an empty Effect-native team client with optional method replacements. */
 const makeTeamClient = (methodOverrides: Partial<AscTeamApi> = {}): AscTeamApi => {
+  const fulfilled = Promise.resolve([]);
   const defaultClient: AscTeamApi = {
-    listUsers: vi.fn().mockReturnValue(Promise.resolve([])),
+    listUsers: vi.fn().mockReturnValue(fulfilled),
     listUserInvitations: vi.fn().mockReturnValue(Promise.resolve([])),
     inviteUser: vi.fn().mockImplementation((newInvitation: NewUserInvitation) =>
       Promise.resolve({
@@ -46,8 +47,9 @@ const pendingInvitation = (
 
 describe('getTeam', () => {
   it('returns members and pending invitations together', async () => {
+    const fulfilled = Promise.resolve([teamMember()]);
     const teamClient = makeTeamClient({
-      listUsers: vi.fn().mockReturnValue(Promise.resolve([teamMember()])),
+      listUsers: vi.fn().mockReturnValue(fulfilled),
       listUserInvitations: vi.fn().mockReturnValue(Promise.resolve([pendingInvitation()])),
     });
     const currentTeam = await getTeam(teamClient);
@@ -91,8 +93,9 @@ describe('inviteTeamMember', () => {
   });
 
   it('rejects an empty email', async () => {
+    const teamClient = makeTeamClient();
     await expect(
-      inviteTeamMember(makeTeamClient(), {
+      inviteTeamMember(teamClient, {
         email: '  ',
         firstName: 'Pat',
         lastName: 'Lee',
@@ -102,8 +105,9 @@ describe('inviteTeamMember', () => {
   });
 
   it('rejects when no roles are given', async () => {
+    const teamClient = makeTeamClient();
     await expect(
-      inviteTeamMember(makeTeamClient(), {
+      inviteTeamMember(teamClient, {
         email: 'new@acme.com',
         firstName: 'Pat',
         lastName: 'Lee',
@@ -113,8 +117,9 @@ describe('inviteTeamMember', () => {
   });
 
   it('rejects the deprecated ACCESS_TO_REPORTS permission and names the roles to use', async () => {
+    const teamClient = makeTeamClient();
     await expect(
-      inviteTeamMember(makeTeamClient(), {
+      inviteTeamMember(teamClient, {
         email: 'new@acme.com',
         firstName: 'Pat',
         lastName: 'Lee',
@@ -124,8 +129,9 @@ describe('inviteTeamMember', () => {
   });
 
   it('rejects an unknown role with the valid list', async () => {
+    const teamClient = makeTeamClient();
     await expect(
-      inviteTeamMember(makeTeamClient(), {
+      inviteTeamMember(teamClient, {
         email: 'new@acme.com',
         firstName: 'Pat',
         lastName: 'Lee',
@@ -135,10 +141,9 @@ describe('inviteTeamMember', () => {
   });
 
   it('rejects an existing member case-insensitively', async () => {
+    const fulfilled = Promise.resolve([teamMember({ username: 'Jane@Acme.com' })]);
     const teamClient = makeTeamClient({
-      listUsers: vi
-        .fn()
-        .mockReturnValue(Promise.resolve([teamMember({ username: 'Jane@Acme.com' })])),
+      listUsers: vi.fn().mockReturnValue(fulfilled),
     });
     await expect(
       inviteTeamMember(teamClient, {
@@ -152,10 +157,9 @@ describe('inviteTeamMember', () => {
   });
 
   it('rejects an existing pending invitation', async () => {
+    const fulfilled = Promise.resolve([pendingInvitation({ email: 'john@acme.com' })]);
     const teamClient = makeTeamClient({
-      listUserInvitations: vi
-        .fn()
-        .mockReturnValue(Promise.resolve([pendingInvitation({ email: 'john@acme.com' })])),
+      listUserInvitations: vi.fn().mockReturnValue(fulfilled),
     });
     await expect(
       inviteTeamMember(teamClient, {
@@ -171,10 +175,9 @@ describe('inviteTeamMember', () => {
 
 describe('removeTeamMember', () => {
   it('deletes an accepted member matched case-insensitively', async () => {
+    const fulfilled = Promise.resolve([teamMember({ id: 'u9', username: 'jane@acme.com' })]);
     const teamClient = makeTeamClient({
-      listUsers: vi
-        .fn()
-        .mockReturnValue(Promise.resolve([teamMember({ id: 'u9', username: 'jane@acme.com' })])),
+      listUsers: vi.fn().mockReturnValue(fulfilled),
     });
     const removeOutcome = await removeTeamMember(teamClient, 'JANE@acme.com');
     expect(removeOutcome).toEqual({
@@ -186,12 +189,9 @@ describe('removeTeamMember', () => {
   });
 
   it('cancels a pending invitation when no member matches', async () => {
+    const fulfilled = Promise.resolve([pendingInvitation({ id: 'i9', email: 'john@acme.com' })]);
     const teamClient = makeTeamClient({
-      listUserInvitations: vi
-        .fn()
-        .mockReturnValue(
-          Promise.resolve([pendingInvitation({ id: 'i9', email: 'john@acme.com' })]),
-        ),
+      listUserInvitations: vi.fn().mockReturnValue(fulfilled),
     });
     const removeOutcome = await removeTeamMember(teamClient, 'john@acme.com');
     expect(removeOutcome).toEqual({

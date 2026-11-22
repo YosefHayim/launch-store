@@ -2,13 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { renderStoreSurfaceAction } from './app-store-surface-command.ts';
 describe('renderAction', () => {
   it('marks a change with +, a skip with -', () => {
-    expect(
-      renderStoreSurfaceAction({
-        description: 'create custom product page "Spring Sale"',
-        destructive: false,
-        status: 'planned',
-      }),
-    ).toBe('+ create custom product page "Spring Sale"');
+    const storeSurfaceAction = renderStoreSurfaceAction({
+      description: 'create custom product page "Spring Sale"',
+      destructive: false,
+      status: 'planned',
+    });
+    expect(storeSurfaceAction).toBe('+ create custom product page "Spring Sale"');
     expect(
       renderStoreSurfaceAction({
         description: 'promotional text on "Spring Sale": skipped - no editable version',
@@ -18,13 +17,12 @@ describe('renderAction', () => {
     ).toBe('- promotional text on "Spring Sale": skipped - no editable version');
   });
   it("renders a failed action with x and Apple's error detail", () => {
-    expect(
-      renderStoreSurfaceAction({
-        description: 'create custom product page "Spring Sale"',
-        destructive: false,
-        status: 'failed',
-        error: 'page name taken',
-      }),
-    ).toBe('x create custom product page "Spring Sale" - page name taken');
+    const storeSurfaceAction = renderStoreSurfaceAction({
+      description: 'create custom product page "Spring Sale"',
+      destructive: false,
+      status: 'failed',
+      error: 'page name taken',
+    });
+    expect(storeSurfaceAction).toBe('x create custom product page "Spring Sale" - page name taken');
   });
 });

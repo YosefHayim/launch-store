@@ -11,7 +11,8 @@ import {
 
 describe('resolveReleaseType - CLI flags override the configured default', () => {
   it('defaults to AFTER_APPROVAL with no config and no overrides', () => {
-    expect(resolveReleaseType(undefined, {})).toEqual({ releaseType: 'AFTER_APPROVAL' });
+    const releaseType = resolveReleaseType(undefined, {});
+    expect(releaseType).toEqual({ releaseType: 'AFTER_APPROVAL' });
   });
 
   it('passes the configured releaseType and earliestReleaseDate through', () => {
@@ -27,7 +28,8 @@ describe('resolveReleaseType - CLI flags override the configured default', () =>
   });
 
   it('--scheduled forces SCHEDULED at the given instant', () => {
-    expect(resolveReleaseType(undefined, { scheduled: '2026-08-01T12:00:00Z' })).toEqual({
+    const releaseType = resolveReleaseType(undefined, { scheduled: '2026-08-01T12:00:00Z' });
+    expect(releaseType).toEqual({
       releaseType: 'SCHEDULED',
       earliestReleaseDate: '2026-08-01T12:00:00Z',
     });
@@ -40,9 +42,11 @@ describe('resolveReleaseType - CLI flags override the configured default', () =>
   });
 
   it('--scheduled beats --manual when both are set', () => {
-    expect(
-      resolveReleaseType(undefined, { scheduled: '2026-08-01T12:00:00Z', manual: true }),
-    ).toEqual({
+    const releaseType = resolveReleaseType(undefined, {
+      scheduled: '2026-08-01T12:00:00Z',
+      manual: true,
+    });
+    expect(releaseType).toEqual({
       releaseType: 'SCHEDULED',
       earliestReleaseDate: '2026-08-01T12:00:00Z',
     });
@@ -51,7 +55,8 @@ describe('resolveReleaseType - CLI flags override the configured default', () =>
 
 describe('resolveReleaseNotes - config notes -> per-locale map', () => {
   it('returns {} when no notes are configured', () => {
-    expect(resolveReleaseNotes(undefined, 'en-US')).toEqual({});
+    const releaseNotes = resolveReleaseNotes(undefined, 'en-US');
+    expect(releaseNotes).toEqual({});
   });
 
   it('targets the primary locale for a bare string', () => {
@@ -69,33 +74,41 @@ describe('resolveReleaseNotes - config notes -> per-locale map', () => {
 
 describe('readStoreReleaseNotes - per-locale releaseNotes from store.config.json', () => {
   it('returns {} when the app has no store.config.json', async () => {
-    const appDirectory = mkdtempSync(join(tmpdir(), 'launch-release-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
+    const appDirectory = mkdtempSync(launchReleasePath);
 
-    expect(await readStoreReleaseNotes(appDirectory)).toEqual({});
+    const storeReleaseNotes = await readStoreReleaseNotes(appDirectory);
+    expect(storeReleaseNotes).toEqual({});
   });
 
   it("reads each locale's releaseNotes and skips locales without them", async () => {
-    const appDirectory = mkdtempSync(join(tmpdir(), 'launch-release-'));
-    writeFileSync(
-      join(appDirectory, 'store.config.json'),
-      JSON.stringify({
-        apple: {
-          info: { 'en-US': { releaseNotes: 'Hello' }, 'de-DE': { title: 'no notes here' } },
-        },
-      }),
-    );
+    const systemTemporaryDirectory = tmpdir();
+    const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
+    const appDirectory = mkdtempSync(launchReleasePath);
+    const storePath = join(appDirectory, 'store.config.json');
+    const serialized = JSON.stringify({
+      apple: {
+        info: { 'en-US': { releaseNotes: 'Hello' }, 'de-DE': { title: 'no notes here' } },
+      },
+    });
+    writeFileSync(storePath, serialized);
 
-    expect(await readStoreReleaseNotes(appDirectory)).toEqual({ 'en-US': 'Hello' });
+    const storeReleaseNotes = await readStoreReleaseNotes(appDirectory);
+    expect(storeReleaseNotes).toEqual({ 'en-US': 'Hello' });
   });
 });
 
 describe('resolveWhatsNew - store.config.json overrides release.releaseNotes per locale', () => {
   it('merges both sources, store.config.json winning for a shared locale', async () => {
-    const appDirectory = mkdtempSync(join(tmpdir(), 'launch-release-'));
-    writeFileSync(
-      join(appDirectory, 'store.config.json'),
-      JSON.stringify({ apple: { info: { 'en-US': { releaseNotes: 'From the store config' } } } }),
-    );
+    const systemTemporaryDirectory = tmpdir();
+    const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
+    const appDirectory = mkdtempSync(launchReleasePath);
+    const storePath = join(appDirectory, 'store.config.json');
+    const serialized = JSON.stringify({
+      apple: { info: { 'en-US': { releaseNotes: 'From the store config' } } },
+    });
+    writeFileSync(storePath, serialized);
 
     const merged = await resolveWhatsNew(
       { releaseNotes: { 'en-US': 'From launch.config', 'fr-FR': 'Config only' } },
@@ -106,9 +119,12 @@ describe('resolveWhatsNew - store.config.json overrides release.releaseNotes per
   });
 
   it("falls back to release.releaseNotes when there's no store.config.json", async () => {
-    const appDirectory = mkdtempSync(join(tmpdir(), 'launch-release-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
+    const appDirectory = mkdtempSync(launchReleasePath);
 
-    expect(await resolveWhatsNew({ releaseNotes: 'Just the config.' }, appDirectory)).toEqual({
+    const whatsNew = await resolveWhatsNew({ releaseNotes: 'Just the config.' }, appDirectory);
+    expect(whatsNew).toEqual({
       'en-US': 'Just the config.',
     });
   });

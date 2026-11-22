@@ -114,11 +114,13 @@ function readNonEmptyText(record: Record<string, unknown>, key: string): string 
 }
 
 function resolveKeystoreBackupPath(packageName: string): string {
-  return join(resolveAndroidCredentialsDirectory(packageName), 'upload.keystore');
+  const androidCredentialsDirectory = resolveAndroidCredentialsDirectory(packageName);
+  return join(androidCredentialsDirectory, 'upload.keystore');
 }
 
 function resolveLegacyKeystoreBackupPath(): string {
-  return join(resolveCredentialsDirectory(), 'upload.keystore');
+  const credentialsDirectory = resolveCredentialsDirectory();
+  return join(credentialsDirectory, 'upload.keystore');
 }
 
 function corruptIndex(credentialsIndexPath: string, cause?: unknown): AndroidCredentialFailure {
@@ -219,11 +221,13 @@ async function readIndexAt(credentialsIndexPath: string): Promise<AndroidCredent
 }
 
 function readAndroidIndex(packageName: string): Promise<AndroidCredentialsIndex> {
-  return readIndexAt(resolveAndroidCredentialsIndexPath(packageName));
+  const androidCredentialsIndexPath = resolveAndroidCredentialsIndexPath(packageName);
+  return readIndexAt(androidCredentialsIndexPath);
 }
 
 function readLegacyAndroidIndex(): Promise<AndroidCredentialsIndex> {
-  return readIndexAt(resolveLegacyAndroidCredentialsIndexPath());
+  const legacyAndroidCredentialsIndexPath = resolveLegacyAndroidCredentialsIndexPath();
+  return readIndexAt(legacyAndroidCredentialsIndexPath);
 }
 
 async function writeAndroidIndex(
@@ -234,7 +238,8 @@ async function writeAndroidIndex(
   const credentialsIndexPath = resolveAndroidCredentialsIndexPath(packageName);
 
   await mkdir(credentialsDirectory, { recursive: true });
-  await writeFile(credentialsIndexPath, JSON.stringify(credentialsIndex, null, 2));
+  const serialized = JSON.stringify(credentialsIndex, null, 2);
+  await writeFile(credentialsIndexPath, serialized);
 }
 
 function validateServiceAccountJson(serviceAccountJson: string): void {
@@ -286,16 +291,19 @@ export async function storeServiceAccount(
   const directory = resolveAndroidCredentialsDirectory(packageName);
 
   await mkdir(directory, { recursive: true });
+  const encode = encodeJson(serviceAccountJson);
   await LaunchSecretStore.storeSecret(
     androidSecretAccount(SERVICE_ACCOUNT_SECRET, packageName),
-    encodeJson(serviceAccountJson),
+    encode,
   );
-  await writeFile(join(directory, 'package.txt'), packageName);
+  const packagePath = join(directory, 'package.txt');
+  await writeFile(packagePath, packageName);
 }
 
 /** List non-secret package identifiers saved alongside app-scoped Play credentials. */
 export async function listStoredAndroidPackages(): Promise<string[]> {
-  const directory = join(resolveCredentialsDirectory(), 'android');
+  const credentialsDirectory = resolveCredentialsDirectory();
+  const directory = join(credentialsDirectory, 'android');
   const directoryExists = await pathExists(directory);
 
   if (directoryExists == false) {
@@ -474,12 +482,15 @@ export async function describeMissingPlayServiceAccount(appName: string): Promis
 
 /** Verify the store and private-key passwords without writing secrets to arguments. */
 async function verifyKeystore(keystore: KeystoreImport): Promise<void> {
-  const directory = await mkdtemp(join(tmpdir(), 'launch-verify-key-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchVerifyKeyPath = join(systemTemporaryDirectory, 'launch-verify-key-');
+  const directory = await mkdtemp(launchVerifyKeyPath);
 
   try {
     const verificationPasswordBytes = 32;
     const verificationPassword = randomHexSecret(verificationPasswordBytes);
 
+    const verifiedPath = join(directory, 'verified.p12');
     await captureCommandOutput(
       'keytool',
       [
@@ -494,7 +505,7 @@ async function verifyKeystore(keystore: KeystoreImport): Promise<void> {
         '-srckeypass:env',
         'LAUNCH_VERIFY_KEY_PASSWORD',
         '-destkeystore',
-        join(directory, 'verified.p12'),
+        verifiedPath,
         '-deststoretype',
         'PKCS12',
         '-deststorepass:env',
@@ -656,8 +667,10 @@ export async function adoptLegacyAndroidCredentials(
   const legacyAccount = await readLegacyServiceAccount();
   const legacyIndex = await readLegacyAndroidIndex();
   const legacyKeystore = await readLegacyCachedKeystore();
-  const legacyBackupExists = await pathExists(resolveLegacyKeystoreBackupPath());
-  const legacyIndexExists = await pathExists(resolveLegacyAndroidCredentialsIndexPath());
+  const legacyKeystoreBackupPath = resolveLegacyKeystoreBackupPath();
+  const legacyBackupExists = await pathExists(legacyKeystoreBackupPath);
+  const legacyAndroidCredentialsIndexPath = resolveLegacyAndroidCredentialsIndexPath();
+  const legacyIndexExists = await pathExists(legacyAndroidCredentialsIndexPath);
   const hasLegacyFiles = hasKeystoreTrace(
     legacyIndex.keystore,
     legacyBackupExists,
@@ -682,7 +695,8 @@ export async function adoptLegacyAndroidCredentials(
   const destinationAccount = await loadServiceAccount(packageName);
   const destinationBackup = resolveKeystoreBackupPath(packageName);
   const destinationFileExists = await pathExists(destinationBackup);
-  const destinationIndexExists = await pathExists(resolveAndroidCredentialsIndexPath(packageName));
+  const androidCredentialsIndexPath = resolveAndroidCredentialsIndexPath(packageName);
+  const destinationIndexExists = await pathExists(androidCredentialsIndexPath);
   const destinationStorePassword = await LaunchSecretStore.readSecret(
     androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName),
   );
@@ -737,8 +751,9 @@ export async function adoptLegacyAndroidCredentials(
 }
 
 function dryRunKeystore(packageName: string): KeystoreAssets {
+  const androidCredentialsDirectory = resolveAndroidCredentialsDirectory(packageName);
   return {
-    path: join(resolveAndroidCredentialsDirectory(packageName), 'dry-run-upload.keystore'),
+    path: join(androidCredentialsDirectory, 'dry-run-upload.keystore'),
     alias: DEFAULT_ALIAS,
     storePassword: 'dry-run',
     keyPassword: 'dry-run',
@@ -799,8 +814,10 @@ export async function ensureUploadKeystore(
   }
 
   const index = await readAndroidIndex(options.packageName);
-  const backupExists = await pathExists(resolveKeystoreBackupPath(options.packageName));
-  const indexExists = await pathExists(resolveAndroidCredentialsIndexPath(options.packageName));
+  const keystoreBackupPath = resolveKeystoreBackupPath(options.packageName);
+  const backupExists = await pathExists(keystoreBackupPath);
+  const androidCredentialsIndexPath = resolveAndroidCredentialsIndexPath(options.packageName);
+  const indexExists = await pathExists(androidCredentialsIndexPath);
   const hasExistingKeystore = hasKeystoreTrace(index.keystore, backupExists, indexExists);
   const importedKeystore = await importWhenRequested(options, hasExistingKeystore);
 
@@ -828,8 +845,10 @@ export async function ensureUploadKeystore(
   }
 
   const legacyIndex = await readLegacyAndroidIndex();
-  const legacyBackupExists = await pathExists(resolveLegacyKeystoreBackupPath());
-  const legacyIndexExists = await pathExists(resolveLegacyAndroidCredentialsIndexPath());
+  const legacyKeystoreBackupPath = resolveLegacyKeystoreBackupPath();
+  const legacyBackupExists = await pathExists(legacyKeystoreBackupPath);
+  const legacyAndroidCredentialsIndexPath = resolveLegacyAndroidCredentialsIndexPath();
+  const legacyIndexExists = await pathExists(legacyAndroidCredentialsIndexPath);
   const hasLegacyKeystore = hasKeystoreTrace(
     legacyIndex.keystore,
     legacyBackupExists,

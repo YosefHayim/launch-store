@@ -39,18 +39,20 @@ export const registerUpdatesCommand = (program: Command): void => {
     .option('--platform <platform>', 'only show ios or android updates')
     .option('--runtime-version <v>', 'only show updates for this runtime version')
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: ListOptions) =>
-      runCliProgram(provideUpdatesCommand({ operation: 'list', ...commandOptions })),
-    );
+    .action((commandOptions: ListOptions) => {
+      return runCliProgram(provideUpdatesCommand({ operation: 'list', ...commandOptions }));
+    });
   updatesCommand
     .command('view')
     .description('show full detail for one published update')
     .argument('<id|latest>', 'an update id from `updates list`, a short id prefix, or `latest`')
     .option('--channel <name>', 'release channel to read', 'production')
     .option('--json', 'output machine-readable JSON', false)
-    .action((reference: string, commandOptions: ViewOptions) =>
-      runCliProgram(provideUpdatesCommand({ operation: 'view', reference, ...commandOptions })),
-    );
+    .action((reference: string, commandOptions: ViewOptions) => {
+      return runCliProgram(
+        provideUpdatesCommand({ operation: 'view', reference, ...commandOptions }),
+      );
+    });
   updatesCommand
     .command('rollback')
     .description('republish a prior update, or roll clients back to the embedded bundle')
@@ -64,7 +66,7 @@ export const registerUpdatesCommand = (program: Command): void => {
       'app handle (used to resolve the runtime version for --to-embedded)',
     )
     .option('-y, --yes', 'skip the confirmation prompt (for CI/agents)', false)
-    .action((commandOptions: RollbackOptions) =>
-      runCliProgram(provideUpdatesCommand({ operation: 'rollback', ...commandOptions })),
-    );
+    .action((commandOptions: RollbackOptions) => {
+      return runCliProgram(provideUpdatesCommand({ operation: 'rollback', ...commandOptions }));
+    });
 };

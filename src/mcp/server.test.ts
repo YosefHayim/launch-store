@@ -32,16 +32,16 @@ describe('dispatch', () => {
     const toolOutput = await dispatch(tool(), {});
 
     expect(toolOutput.isError).toBe(true);
-    expect(expectArrayElement(toolOutput.content, 0, 'toolOutput.content').text).toContain(
-      'Invalid arguments for sample',
-    );
+    const arrayElement = expectArrayElement(toolOutput.content, 0, 'toolOutput.content');
+    expect(arrayElement.text).toContain('Invalid arguments for sample');
   });
 
   it('runs the handler and returns its result for valid args', async () => {
     const toolOutput = await dispatch(tool(), { name: 'x' });
 
     expect(toolOutput.isError).toBeUndefined();
-    expect(expectArrayElement(toolOutput.content, 0, 'toolOutput.content').text).toBe('ok');
+    const arrayElement = expectArrayElement(toolOutput.content, 0, 'toolOutput.content');
+    expect(arrayElement.text).toBe('ok');
   });
 
   it('turns a thrown handler error into an isError result carrying the message', async () => {
@@ -53,7 +53,8 @@ describe('dispatch', () => {
     );
 
     expect(toolOutput.isError).toBe(true);
-    expect(expectArrayElement(toolOutput.content, 0, 'toolOutput.content').text).toBe('boom');
+    const arrayElement = expectArrayElement(toolOutput.content, 0, 'toolOutput.content');
+    expect(arrayElement.text).toBe('boom');
   });
 });
 
@@ -67,7 +68,9 @@ describe('pickServedTools', () => {
   });
 
   function createWorkingDirectory(): string {
-    const workingDirectory = mkdtempSync(join(tmpdir(), 'launch-mcp-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchMcpPath = join(systemTemporaryDirectory, 'launch-mcp-');
+    const workingDirectory = mkdtempSync(launchMcpPath);
     workingDirectories.push(workingDirectory);
 
     return workingDirectory;
@@ -87,8 +90,9 @@ describe('pickServedTools', () => {
   it('serves the gated tools plus the stats tools when a config exists', async () => {
     const workingDirectory = createWorkingDirectory();
 
+    const launchPath = join(workingDirectory, 'launch.config.mjs');
     writeFileSync(
-      join(workingDirectory, 'launch.config.mjs'),
+      launchPath,
       'export default { profiles: { production: { name: "production" } } };\n',
     );
 
@@ -103,10 +107,8 @@ describe('pickServedTools', () => {
   it('fails when a config exists but cannot load', async () => {
     const workingDirectory = createWorkingDirectory();
 
-    writeFileSync(
-      join(workingDirectory, 'launch.config.mjs'),
-      'throw new Error("broken config");\n',
-    );
+    const launchPath = join(workingDirectory, 'launch.config.mjs');
+    writeFileSync(launchPath, 'throw new Error("broken config");\n');
 
     let didFail = false;
 

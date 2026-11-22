@@ -430,7 +430,8 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
   try {
     selectedApp = await selectApp(loadedConfiguration.apps, commandFlags.app);
   } catch (cause) {
-    throw trainFailure('select app', cause, errorMessage(cause));
+    const failureMessage = errorMessage(cause);
+    throw trainFailure('select app', cause, failureMessage);
   }
 
   const buildProfile = readTrainProfile(loadedConfiguration.config.profiles, commandFlags.profile);
@@ -440,7 +441,8 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
   try {
     environmentOverrides = parseCliEnv([...commandFlags.env]);
   } catch (cause) {
-    throw trainFailure('parse environment overrides', cause, errorMessage(cause));
+    const failureMessage = errorMessage(cause);
+    throw trainFailure('parse environment overrides', cause, failureMessage);
   }
 
   let resolvedEnvironment: ResolvedEnv;
@@ -490,7 +492,8 @@ async function reportTrain(
   const isJson = commandFlags.json == true;
 
   if (isJson) {
-    logger.line(JSON.stringify(trainRecord, null, 2));
+    const serialized = JSON.stringify(trainRecord, null, 2);
+    logger.line(serialized);
   }
 
   if (isJson == false) {

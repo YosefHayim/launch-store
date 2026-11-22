@@ -178,36 +178,48 @@ describe('parseGameCenterConfig', () => {
   });
 
   it('rejects bad points and bad enum values', () => {
-    expect(() =>
-      decodeGameCenterConfig({
+    expect(() => {
+      const arrayElement = expectArrayElement(
+        expectDefined(SAMPLE_CONFIG.achievements, 'achievements'),
+        0,
+      );
+      return decodeGameCenterConfig({
         achievements: [
           {
-            ...expectArrayElement(expectDefined(SAMPLE_CONFIG.achievements, 'achievements'), 0),
+            ...arrayElement,
             points: -1,
           },
         ],
-      }),
-    ).toThrow(/points must be a non-negative integer/);
-    expect(() =>
-      decodeGameCenterConfig({
+      });
+    }).toThrow(/points must be a non-negative integer/);
+    expect(() => {
+      const arrayElement = expectArrayElement(
+        expectDefined(SAMPLE_CONFIG.leaderboards, 'leaderboards'),
+        0,
+      );
+      return decodeGameCenterConfig({
         leaderboards: [
           {
-            ...expectArrayElement(expectDefined(SAMPLE_CONFIG.leaderboards, 'leaderboards'), 0),
+            ...arrayElement,
             defaultFormatter: 'BOGUS',
           },
         ],
-      }),
-    ).toThrow(/defaultFormatter/);
-    expect(() =>
-      decodeGameCenterConfig({
+      });
+    }).toThrow(/defaultFormatter/);
+    expect(() => {
+      const arrayElement = expectArrayElement(
+        expectDefined(SAMPLE_CONFIG.leaderboards, 'leaderboards'),
+        0,
+      );
+      return decodeGameCenterConfig({
         leaderboards: [
           {
-            ...expectArrayElement(expectDefined(SAMPLE_CONFIG.leaderboards, 'leaderboards'), 0),
+            ...arrayElement,
             scoreSortType: 'SIDEWAYS',
           },
         ],
-      }),
-    ).toThrow(/scoreSortType/);
+      });
+    }).toThrow(/scoreSortType/);
   });
 
   it('rejects an achievement missing required localization text', () => {
@@ -225,9 +237,12 @@ describe('parseGameCenterConfig', () => {
 describe('reconcileGameCenter', () => {
   it('throws when the app has no App Store Connect record', async () => {
     const { api } = makeGameCenterApi({ appId: null });
-    await expect(
-      runReconcile(api, { bundleId: 'com.acme.app', config: SAMPLE_CONFIG, dryRun: true }),
-    ).rejects.toThrow(/No App Store Connect app record/);
+    const reconcile = runReconcile(api, {
+      bundleId: 'com.acme.app',
+      config: SAMPLE_CONFIG,
+      dryRun: true,
+    });
+    await expect(reconcile).rejects.toThrow(/No App Store Connect app record/);
   });
 
   it('enables Game Center, then creates each achievement & leaderboard with its localization (apply)', async () => {

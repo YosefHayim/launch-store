@@ -78,13 +78,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 const writeRepo = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'launch-remote-'));
-  writeFileSync(
-    join(dir, 'app.json'),
-    JSON.stringify({
-      expo: { slug: 'hello', version: '1.0.0', ios: { bundleIdentifier: 'com.example.hello' } },
-    }),
-  );
+  const systemTemporaryDirectory = tmpdir();
+  const launchRemotePath = join(systemTemporaryDirectory, 'launch-remote-');
+  const dir = mkdtempSync(launchRemotePath);
+  const appPath = join(dir, 'app.json');
+  const serialized = JSON.stringify({
+    expo: { slug: 'hello', version: '1.0.0', ios: { bundleIdentifier: 'com.example.hello' } },
+  });
+  writeFileSync(appPath, serialized);
   return dir;
 };
 const base = {
@@ -100,19 +101,17 @@ describe('remote build --dry-run rehearses with no SSH/AWS/network', () => {
   it('rehearses the AWS remote path', async () => {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
-    await expect(
-      runRemoteCoreTest(() => runBuild({ ...base, remote: { kind: 'aws' } })),
-    ).resolves.toBeUndefined();
+    const remoteCoreTest = runRemoteCoreTest(() => runBuild({ ...base, remote: { kind: 'aws' } }));
+    await expect(remoteCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   });
   it('rehearses the SSH (byo) remote path', async () => {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
-    await expect(
-      runRemoteCoreTest(() =>
-        runBuild({ ...base, remote: { kind: 'ssh', target: 'ec2-user@1.2.3.4' } }),
-      ),
-    ).resolves.toBeUndefined();
+    const remoteCoreTest = runRemoteCoreTest(() =>
+      runBuild({ ...base, remote: { kind: 'ssh', target: 'ec2-user@1.2.3.4' } }),
+    );
+    await expect(remoteCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   });
 });
@@ -120,13 +119,12 @@ describe('EAS handoff --dry-run rehearses with no eas-cli/network', () => {
   it('rehearses the EAS path', async () => {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
-    await expect(
-      runRemoteCoreTest(async function rehearseEasBuild() {
-        const preparedBuild = await prepareBuild(base);
+    const remoteCoreTest = runRemoteCoreTest(async function rehearseEasBuild() {
+      const preparedBuild = await prepareBuild(base);
 
-        await runEasBuild(preparedBuild, base);
-      }),
-    ).resolves.toBeUndefined();
+      await runEasBuild(preparedBuild, base);
+    });
+    await expect(remoteCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   });
 });

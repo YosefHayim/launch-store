@@ -44,7 +44,8 @@ let activeBuildLog: string | null = null;
 /** Begin a fresh per-build log and mark it as the active progress log. */
 export async function beginBuildLog(buildIdentifier: string): Promise<string> {
   const logPath = buildLogPath(buildIdentifier);
-  await mkdir(path.dirname(logPath), { recursive: true });
+  const parentDirectory = path.dirname(logPath);
+  await mkdir(parentDirectory, { recursive: true });
   await writeFile(logPath, '');
   activeBuildLog = logPath;
 

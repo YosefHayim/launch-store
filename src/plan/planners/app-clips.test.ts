@@ -38,7 +38,8 @@ const makeCtx = (
 };
 describe('appClipsPlanner', () => {
   it('omits itself when no app declares App Clips', async () => {
-    const plan = await runPlanner(appClipsPlanner, makeCtx(makeAscApiFake()));
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(appClipsPlanner, makeCtx(ascApiFake));
     expect(plan.state).toBe('omitted');
   });
   it('skips with a creds hint when no Apple account is active', async () => {
@@ -48,7 +49,8 @@ describe('appClipsPlanner', () => {
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports an additive plan for the declared clip', async () => {
-    const plan = await runPlanner(appClipsPlanner, makeCtx(makeAscApiFake(), DECLARED));
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(appClipsPlanner, makeCtx(ascApiFake, DECLARED));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;

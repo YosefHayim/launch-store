@@ -52,12 +52,13 @@ const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
 const tmpDirs: string[] = [];
 /** Create a temp app dir holding a `store.config.json` with the given en-US Apple listing, and return it. */
 const appDirWithListing = (localeListing: AppleLocaleInfo): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'plan-listing-test-'));
+  const systemTemporaryDirectory = tmpdir();
+  const planListingTestPath = join(systemTemporaryDirectory, 'plan-listing-test-');
+  const dir = mkdtempSync(planListingTestPath);
   tmpDirs.push(dir);
-  writeFileSync(
-    join(dir, 'store.config.json'),
-    JSON.stringify({ apple: { info: { 'en-US': localeListing } } }),
-  );
+  const storePath = join(dir, 'store.config.json');
+  const serialized = JSON.stringify({ apple: { info: { 'en-US': localeListing } } });
+  writeFileSync(storePath, serialized);
   return dir;
 };
 afterEach(() => {
@@ -84,14 +85,16 @@ const makeCtx = (api: AscCatalogApi | null, appDir: string): PlanContext => {
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
     resolveAscApi: () => {
       if (api == null) return Promise.resolve(null);
-      return Promise.resolve(makeAscApiFake(api));
+      const ascApiFake = makeAscApiFake(api);
+      return Promise.resolve(ascApiFake);
     },
     resolvePlayApi: () => Promise.resolve(null),
   };
 };
 describe('listingPlanner', () => {
   it('omits itself when no app declares a store listing', async () => {
-    const plan = await runPlanner(listingPlanner, makeCtx(makeApi(), '/no/such/dir/alpha'));
+    const api = makeApi();
+    const plan = await runPlanner(listingPlanner, makeCtx(api, '/no/such/dir/alpha'));
     expect(plan.state).toBe('omitted');
   });
   it('skips with an actionable hint when no Apple account is active', async () => {
@@ -106,7 +109,8 @@ describe('listingPlanner', () => {
   });
   it('reports the per-app diff a fresh listing would create', async () => {
     const dir = appDirWithListing({ title: 'Acme', description: 'The best acme app.' });
-    const plan = await runPlanner(listingPlanner, makeCtx(makeApi(), dir));
+    const api = makeApi();
+    const plan = await runPlanner(listingPlanner, makeCtx(api, dir));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;

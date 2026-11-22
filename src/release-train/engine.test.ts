@@ -11,7 +11,8 @@ const verdict = (state: ReleaseVerdict['state']): ReleaseVerdict => ({
 
 describe('iosCarState', () => {
   it('maps each verdict to a native car state, keeping the car put on unknown', () => {
-    expect(iosCarState(verdict('released'))).toBe('released');
+    const iosCar = iosCarState(verdict('released'));
+    expect(iosCar).toBe('released');
     expect(iosCarState(verdict('pending-release'))).toBe('approved');
     expect(iosCarState(verdict('in-review'))).toBe('in-review');
     expect(iosCarState(verdict('rejected'))).toBe('rejected');
@@ -22,14 +23,16 @@ describe('iosCarState', () => {
 
 describe('androidCarState', () => {
   it('treats a processed production release as live and a draft as submitted', () => {
-    expect(androidCarState([{ status: 'completed' }])).toBe('released');
+    const androidCar = androidCarState([{ status: 'completed' }]);
+    expect(androidCar).toBe('released');
     expect(androidCarState([{ status: 'inProgress', userFraction: 0.1 }])).toBe('released');
     expect(androidCarState([{ status: 'halted' }])).toBe('released');
     expect(androidCarState([{ status: 'draft' }])).toBe('submitted');
   });
 
   it('keeps the car put when the track is empty or in an unknown status', () => {
-    expect(androidCarState([])).toBeNull();
+    const androidCar = androidCarState([]);
+    expect(androidCar).toBeNull();
     expect(androidCarState([{ status: 'weird' }])).toBeNull();
   });
 });
@@ -52,15 +55,14 @@ describe('planTrainCars', () => {
   });
 
   it('drops OTA followers under --no-ota or with no cloud storage', () => {
-    expect(
-      planTrainCars({
-        ...base,
-        hasBundleId: true,
-        hasPackageName: false,
-        hasCloudStorage: true,
-        noOta: true,
-      }).ota,
-    ).toEqual([]);
+    const trainCars = planTrainCars({
+      ...base,
+      hasBundleId: true,
+      hasPackageName: false,
+      hasCloudStorage: true,
+      noOta: true,
+    });
+    expect(trainCars.ota).toEqual([]);
     expect(
       planTrainCars({
         ...base,

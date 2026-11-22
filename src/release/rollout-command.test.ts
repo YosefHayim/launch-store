@@ -7,7 +7,8 @@ import {
 
 describe('rollout action mapping', () => {
   it('maps every action to Apple and notification states', () => {
-    expect(phasedStateForAction('pause')).toBe('PAUSE');
+    const phasedForAction = phasedStateForAction('pause');
+    expect(phasedForAction).toBe('PAUSE');
     expect(phasedStateForAction('resume')).toBe('ACTIVE');
     expect(phasedStateForAction('complete')).toBe('COMPLETE');
     expect(rolloutNotifyStatus('pause')).toBe('paused');

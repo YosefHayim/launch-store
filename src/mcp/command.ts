@@ -188,7 +188,8 @@ async function installMcpServer(commandInput: {
   const requestedClient = commandInput.client;
 
   if (requestedClient != null) {
-    await installClients([parseClient(requestedClient)]);
+    const client = parseClient(requestedClient);
+    await installClients([client]);
 
     return;
   }
@@ -213,9 +214,10 @@ export async function mcpCommandProgram(rawCommandInput: unknown): Promise<void>
         return;
     }
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw makeMcpCommandFailure({
       operation: 'run MCP command',
-      message: errorMessage(cause),
+      message: failureMessage,
       cause,
     });
   }

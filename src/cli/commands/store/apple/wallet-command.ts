@@ -253,9 +253,10 @@ export async function walletCommandProgram(rawCommandInput: unknown): Promise<vo
       operation = decodedOperation;
     }
 
+    const failureMessage = errorMessage(cause);
     throw makeWalletCommandFailure({
       operation,
-      message: errorMessage(cause),
+      message: failureMessage,
       cause,
     });
   }

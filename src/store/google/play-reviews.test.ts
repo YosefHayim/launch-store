@@ -53,8 +53,9 @@ function reviewIdOf(playReview: PlayReview): string {
 
 describe('listPlayReviews', () => {
   it('filters by rating and unanswered status client-side', async () => {
+    const playReview = makePlayReview({ reviewId: 'a', rating: 5, answered: false });
     const { playReviewsApi } = makePlayReviewsApi([
-      makePlayReview({ reviewId: 'a', rating: 5, answered: false }),
+      playReview,
       makePlayReview({ reviewId: 'b', rating: 3, answered: false }),
       makePlayReview({ reviewId: 'c', rating: 5, answered: true }),
     ]);
@@ -68,7 +69,8 @@ describe('listPlayReviews', () => {
   });
 
   it('passes a translation language through and omits it otherwise', async () => {
-    const { playReviewsApi, calls } = makePlayReviewsApi([makePlayReview()]);
+    const playReview = makePlayReview();
+    const { playReviewsApi, calls } = makePlayReviewsApi([playReview]);
 
     await listPlayReviews(playReviewsApi, 'com.acme.app', { translationLanguage: 'en-US' });
     await listPlayReviews(playReviewsApi, 'com.acme.app', {});
@@ -79,9 +81,8 @@ describe('listPlayReviews', () => {
 
 describe('replyToPlayReview', () => {
   it('reports replaced=false when the review had no developer reply', async () => {
-    const { playReviewsApi, calls } = makePlayReviewsApi([
-      makePlayReview({ reviewId: 'r1', answered: false }),
-    ]);
+    const playReview = makePlayReview({ reviewId: 'r1', answered: false });
+    const { playReviewsApi, calls } = makePlayReviewsApi([playReview]);
     const replyOutcome = await replyToPlayReview(
       playReviewsApi,
       'com.acme.app',
@@ -96,9 +97,12 @@ describe('replyToPlayReview', () => {
   });
 
   it('reports replaced=true when a developer reply already existed', async () => {
-    const { playReviewsApi } = makePlayReviewsApi([
-      makePlayReview({ reviewId: 'r1', answered: true, developerReply: 'Old reply' }),
-    ]);
+    const playReview = makePlayReview({
+      reviewId: 'r1',
+      answered: true,
+      developerReply: 'Old reply',
+    });
+    const { playReviewsApi } = makePlayReviewsApi([playReview]);
     const replyOutcome = await replyToPlayReview(
       playReviewsApi,
       'com.acme.app',

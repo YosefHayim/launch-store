@@ -11,7 +11,8 @@ describe('isReleaseStatus', () => {
 
 describe('parseRollout', () => {
   it('accepts a fraction strictly between 0 and 1', () => {
-    expect(parseRollout('0.1')).toBe(0.1);
+    const rollout = parseRollout('0.1');
+    expect(rollout).toBe(0.1);
     expect(parseRollout('0.999')).toBe(0.999);
   });
 
@@ -25,7 +26,8 @@ describe('parseRollout', () => {
 
 describe('parseReleaseNotes', () => {
   it("turns a language-to-text object into the API's array shape", () => {
-    expect(parseReleaseNotes({ 'en-US': 'Bug fixes', 'de-DE': 'Fehlerbehebungen' })).toEqual([
+    const releaseNotes = parseReleaseNotes({ 'en-US': 'Bug fixes', 'de-DE': 'Fehlerbehebungen' });
+    expect(releaseNotes).toEqual([
       { language: 'en-US', text: 'Bug fixes' },
       { language: 'de-DE', text: 'Fehlerbehebungen' },
     ]);

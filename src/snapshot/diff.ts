@@ -74,11 +74,14 @@ const unavailableScopes = (snapshot: Snapshot) => {
   const apps = new Set<string>();
   for (const report of snapshot.reports) {
     if (report.outcome.state == 'skipped' || report.outcome.state == 'errored') {
-      sources.add(JSON.stringify([report.store, report.id]));
+      const serialized = JSON.stringify([report.store, report.id]);
+      sources.add(serialized);
     }
     if (report.outcome.state == 'captured' && report.outcome.skippedApps != null) {
-      for (const app of report.outcome.skippedApps)
-        apps.add(JSON.stringify([report.store, report.id, app.app]));
+      for (const app of report.outcome.skippedApps) {
+        const serialized = JSON.stringify([report.store, report.id, app.app]);
+        apps.add(serialized);
+      }
     }
   }
   return { sources, apps };

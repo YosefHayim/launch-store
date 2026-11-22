@@ -16,32 +16,41 @@ afterEach(function resetLoggerSink() {
 });
 describe('selectProgressMode - only a real interactive TTY gets the spinner', () => {
   it('uses the spinner on an interactive, non-CI TTY without --verbose', () => {
-    expect(selectProgressMode(true, {}, false)).toBe('spinner');
+    const progressMode = selectProgressMode(true, {}, false);
+    expect(progressMode).toBe('spinner');
   });
   it('streams raw output under --verbose so the full log is visible', () => {
-    expect(selectProgressMode(true, {}, true)).toBe('stream');
+    const progressMode = selectProgressMode(true, {}, true);
+    expect(progressMode).toBe('stream');
   });
   it('streams when not a TTY (piped output, log files, agents)', () => {
-    expect(selectProgressMode(false, {}, false)).toBe('stream');
+    const progressMode = selectProgressMode(false, {}, false);
+    expect(progressMode).toBe('stream');
   });
   it('streams in CI so transcripts keep the complete output', () => {
-    expect(selectProgressMode(true, { CI: 'true' }, false)).toBe('stream');
+    const progressMode = selectProgressMode(true, { CI: 'true' }, false);
+    expect(progressMode).toBe('stream');
   });
 });
 describe('selectProgressMode - --json never streams raw child output', () => {
   it('takes the quiet path even off a TTY or under --verbose', () => {
-    expect(selectProgressMode(false, {}, false, true)).toBe('spinner');
+    const progressMode = selectProgressMode(false, {}, false, true);
+    expect(progressMode).toBe('spinner');
     expect(selectProgressMode(true, { CI: 'true' }, true, true)).toBe('spinner');
   });
 });
 describe('formatElapsed - compact mm ss clock', () => {
   it('shows bare seconds under a minute', () => {
-    expect(formatElapsed(5000)).toBe('5s');
-    expect(formatElapsed(45000)).toBe('45s');
+    const elapsedLabel = formatElapsed(5000);
+    expect(elapsedLabel).toBe('5s');
+    const elapsed = formatElapsed(45000);
+    expect(elapsed).toBe('45s');
   });
   it('shows minutes with zero-padded seconds past a minute', () => {
-    expect(formatElapsed(72000)).toBe('1m 12s');
-    expect(formatElapsed(125000)).toBe('2m 05s');
+    const elapsedLabel = formatElapsed(72000);
+    expect(elapsedLabel).toBe('1m 12s');
+    const elapsed = formatElapsed(125000);
+    expect(elapsed).toBe('2m 05s');
   });
 });
 describe('xcodeProgressStep - surface the raw xcodebuild step', () => {
@@ -164,28 +173,30 @@ describe('renderBar - candy Aurora bar, clamped (plain off-TTY)', () => {
   // Under vitest stdout isn't a TTY, so the bar renders plain (no color): rounded caps ..., a heavy
   // fill, and a dim  track - exactly the captured-log path.
   it('renders empty, half, and full at width 14', () => {
-    expect(renderBar(0)).toBe('[--------------]');
+    const bar = renderBar(0);
+    expect(bar).toBe('[--------------]');
     expect(renderBar(0.5)).toBe('[#######-------]');
     expect(renderBar(1)).toBe('[##############]');
   });
   it('clamps out-of-range fractions instead of overflowing the line', () => {
-    expect(renderBar(1.7)).toBe('[##############]');
+    const bar = renderBar(1.7);
+    expect(bar).toBe('[##############]');
     expect(renderBar(-3)).toBe('[--------------]');
   });
   it('honors a custom width', () => {
-    expect(renderBar(0.5, 4)).toBe('[##--]');
+    const bar = renderBar(0.5, 4);
+    expect(bar).toBe('[##--]');
   });
 });
 describe('formatProgressLine - bar + step-count + elapsed/eta, degrading gracefully', () => {
   it("shows only the label, step, and elapsed clock when there's no estimate (first build of a kind)", () => {
-    expect(
-      formatProgressLine({
-        label: 'Building iOS - sampleapp',
-        step: 'Compiling X.m',
-        elapsedMs: 25000,
-        steps: 12,
-      }),
-    ).toBe('Building iOS - sampleapp - Compiling X.m   25s');
+    const progressLine = formatProgressLine({
+      label: 'Building iOS - sampleapp',
+      step: 'Compiling X.m',
+      elapsedMs: 25000,
+      steps: 12,
+    });
+    expect(progressLine).toBe('Building iOS - sampleapp - Compiling X.m   25s');
   });
   it('fills the bar by step-count and shows count/~total - elapsed / ~eta', () => {
     const line = formatProgressLine({

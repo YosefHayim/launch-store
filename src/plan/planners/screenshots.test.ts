@@ -14,12 +14,15 @@ afterEach(() => {
 });
 /** Make a fresh app dir, optionally seeding one en-US 6.7" iPhone screenshot, and return its descriptor. */
 const makeApp = (withScreenshot: boolean): AppDescriptor => {
-  const dir = mkdtempSync(join(tmpdir(), 'launch-shots-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchShotsPath = join(systemTemporaryDirectory, 'launch-shots-');
+  const dir = mkdtempSync(launchShotsPath);
   tmpDirs.push(dir);
   if (withScreenshot) {
     const shotDir = join(dir, 'screenshots', 'en-US', 'APP_IPHONE_67');
     mkdirSync(shotDir, { recursive: true });
-    writeFileSync(join(shotDir, 'home.png'), 'not-a-real-image-but-enough-to-hash');
+    const homePath = join(shotDir, 'home.png');
+    writeFileSync(homePath, 'not-a-real-image-but-enough-to-hash');
   }
   return { name: 'alpha', dir, configPath: join(dir, 'app.json'), bundleId: 'com.acme.alpha' };
 };
@@ -35,11 +38,14 @@ const pngBytes = (width: number, height: number): Buffer => {
 };
 /** Make an app dir seeding one en-US 6.7" iPhone screenshot of the given real pixel size. */
 const makeAppWithShot = (width: number, height: number): AppDescriptor => {
-  const dir = mkdtempSync(join(tmpdir(), 'launch-shots-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchShotsPath = join(systemTemporaryDirectory, 'launch-shots-');
+  const dir = mkdtempSync(launchShotsPath);
   tmpDirs.push(dir);
   const shotDir = join(dir, 'screenshots', 'en-US', 'APP_IPHONE_67');
   mkdirSync(shotDir, { recursive: true });
-  writeFileSync(join(shotDir, 'home.png'), pngBytes(width, height));
+  const homePath = join(shotDir, 'home.png');
+  writeFileSync(homePath, pngBytes(width, height));
   return { name: 'alpha', dir, configPath: join(dir, 'app.json'), bundleId: 'com.acme.alpha' };
 };
 const makeCtx = (api: AscSurfacesApi | null, app: AppDescriptor): PlanContext => {
@@ -95,10 +101,8 @@ describe('screenshotsPlanner', () => {
     expect(api.uploadPreview).toHaveBeenCalledTimes(0);
   });
   it('flags an off-spec screenshot whose pixels fall outside its display type', async () => {
-    const plan = await runPlanner(
-      screenshotsPlanner,
-      makeCtx(apiWithLocale(), makeAppWithShot(1080, 1920)),
-    );
+    const appWithShot = makeAppWithShot(1080, 1920);
+    const plan = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), appWithShot));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;
@@ -110,10 +114,8 @@ describe('screenshotsPlanner', () => {
     expect(advisory?.description).toContain('[en-US/APP_IPHONE_67]');
   });
   it('does not flag an in-spec screenshot, nor an unmeasurable (non-image) one', async () => {
-    const inSpec = await runPlanner(
-      screenshotsPlanner,
-      makeCtx(apiWithLocale(), makeAppWithShot(1290, 2796)),
-    );
+    const appWithShot = makeAppWithShot(1290, 2796);
+    const inSpec = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), appWithShot));
     const unmeasurable = await runPlanner(
       screenshotsPlanner,
       makeCtx(apiWithLocale(), makeApp(true)),

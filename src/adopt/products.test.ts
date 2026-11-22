@@ -99,7 +99,8 @@ describe('productsAdopter', () => {
         return ready([{ id: 'l1', locale: 'en-US', name: 'Coins', description: 'Buy coins' }]);
       },
     });
-    const writes = await productsAdopter.read(appleCatalog, adoptTarget());
+    const target = adoptTarget();
+    const writes = await productsAdopter.read(appleCatalog, target);
     expect(writes).toHaveLength(1);
     const firstWrite = writes[0];
     expect(firstWrite).toBeDefined();
@@ -143,7 +144,8 @@ describe('productsAdopter', () => {
         return ready(true);
       },
     });
-    const writes = await productsAdopter.read(appleCatalog, adoptTarget());
+    const target = adoptTarget();
+    const writes = await productsAdopter.read(appleCatalog, target);
     const firstWrite = writes[0];
     expect(firstWrite).toBeDefined();
 
@@ -162,7 +164,8 @@ describe('productsAdopter', () => {
         ]);
       },
     });
-    expect(await productsAdopter.read(appleCatalog, adoptTarget())).toEqual([]);
+    const target = adoptTarget();
+    expect(await productsAdopter.read(appleCatalog, target)).toEqual([]);
   });
 
   it('imports a subscription group with its levels and billing period', async () => {
@@ -187,7 +190,8 @@ describe('productsAdopter', () => {
         return ready([{ id: 'sl', locale: 'en-US', name: 'Pro' }]);
       },
     });
-    const writes = await productsAdopter.read(appleCatalog, adoptTarget());
+    const target = adoptTarget();
+    const writes = await productsAdopter.read(appleCatalog, target);
     const firstWrite = writes[0];
     expect(firstWrite).toBeDefined();
 
@@ -226,6 +230,7 @@ describe('productsAdopter', () => {
         return ready([{ id: 's1', productId: 'com.acme.pro', name: 'Pro' }]);
       },
     });
-    expect(await productsAdopter.read(appleCatalog, adoptTarget())).toEqual([]);
+    const target = adoptTarget();
+    expect(await productsAdopter.read(appleCatalog, target)).toEqual([]);
   });
 });

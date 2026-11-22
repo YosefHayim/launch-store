@@ -130,6 +130,7 @@ describe('notifyEnv', () => {
     expect(env['LAUNCH_DETAIL']).toBe('ACTIVE');
   });
   it('omits LAUNCH_DETAIL on a completion event', () => {
-    expect(notifyEnv(success)['LAUNCH_DETAIL']).toBeUndefined();
+    const notify = notifyEnv(success);
+    expect(notify['LAUNCH_DETAIL']).toBeUndefined();
   });
 });

@@ -20,17 +20,16 @@ const BASE_OPTIONS = {
 
 describe('ReleaseTrainCommandInputSchema', () => {
   it('decodes a start request with exact optional flags', () => {
-    expect(
-      ReleaseTrainCommandInputSchema({
-        action: 'start',
-        options: {
-          ...BASE_OPTIONS,
-          app: 'demo',
-          platform: 'ios',
-          hold: true,
-        },
-      }),
-    ).toEqual({
+    const releaseTrainCommandSchema = ReleaseTrainCommandInputSchema({
+      action: 'start',
+      options: {
+        ...BASE_OPTIONS,
+        app: 'demo',
+        platform: 'ios',
+        hold: true,
+      },
+    });
+    expect(releaseTrainCommandSchema).toEqual({
       action: 'start',
       options: {
         ...BASE_OPTIONS,
@@ -42,13 +41,12 @@ describe('ReleaseTrainCommandInputSchema', () => {
   });
 
   it('decodes a status request with a train id', () => {
-    expect(
-      ReleaseTrainCommandInputSchema({
-        action: 'status',
-        id: 'demo-ab12',
-        options: { ...BASE_OPTIONS, watch: true, json: false },
-      }),
-    ).toEqual({
+    const releaseTrainCommandSchema = ReleaseTrainCommandInputSchema({
+      action: 'status',
+      id: 'demo-ab12',
+      options: { ...BASE_OPTIONS, watch: true, json: false },
+    });
+    expect(releaseTrainCommandSchema).toEqual({
       action: 'status',
       id: 'demo-ab12',
       options: { ...BASE_OPTIONS, watch: true, json: false },

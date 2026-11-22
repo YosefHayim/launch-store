@@ -100,7 +100,8 @@ export const byoSshComputeHost: ComputeHost = {
   name: 'byo-ssh',
   allocate: allocateByoHost,
   status(handle) {
-    return Promise.resolve(readByoStatus(handle));
+    const byoStatus = readByoStatus(handle);
+    return Promise.resolve(byoStatus);
   },
   teardown: teardownByoHost,
 };

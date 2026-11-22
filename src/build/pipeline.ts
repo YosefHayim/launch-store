@@ -190,9 +190,10 @@ async function attachAndroidRelease(
       buildOptions.notesPath,
     );
   } catch (error) {
+    const failureDetail = readFailureDetail(error);
     throw makeBuildPreparationFailure({
       appName: preparedAppName,
-      message: `Could not resolve Android release notes for ${preparedAppName}: ${readFailureDetail(error)}`,
+      message: `Could not resolve Android release notes for ${preparedAppName}: ${failureDetail}`,
     });
   }
 
@@ -507,7 +508,8 @@ async function notifyBuildFailure(
     return;
   }
 
-  await notify(prepared.config, buildFailureEvent(prepared, buildOptions, error));
+  const failureEvent = buildFailureEvent(prepared, buildOptions, error);
+  await notify(prepared.config, failureEvent);
 }
 
 async function runLocalBuild(

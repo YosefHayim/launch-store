@@ -753,10 +753,11 @@ async function runCloudDoctor(awsConfiguration: AwsConfig): Promise<CloudDoctorR
       );
     });
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     cloudChecks.push({
       label: 'AWS credentials + region',
       ok: false,
-      detail: errorMessage(cause),
+      detail: failureMessage,
     });
 
     return { ok: false, checks: cloudChecks };
@@ -799,10 +800,11 @@ async function runCloudDoctor(awsConfiguration: AwsConfig): Promise<CloudDoctorR
       detail: offeringDetail,
     });
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     cloudChecks.push({
       label: `${instanceType} availability`,
       ok: false,
-      detail: errorMessage(cause),
+      detail: failureMessage,
     });
   }
 
@@ -831,10 +833,11 @@ async function runCloudDoctor(awsConfiguration: AwsConfig): Promise<CloudDoctorR
       detail: `${liveHostCount} ${instanceType} host(s) currently allocated. If AllocateHosts fails, request an increase in Service Quotas -> "Running Dedicated mac2 Hosts" (often not granted instantly).`,
     });
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     cloudChecks.push({
       label: 'Dedicated Host quota',
       ok: false,
-      detail: errorMessage(cause),
+      detail: failureMessage,
     });
   }
 

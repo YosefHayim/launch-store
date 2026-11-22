@@ -236,7 +236,8 @@ function readToolchainIo(options: { io?: ToolchainIo }): ToolchainIo {
     return options.io;
   }
 
-  return realIo(createLogger(false), LaunchPrompt);
+  const logger = createLogger(false);
+  return realIo(logger, LaunchPrompt);
 }
 
 export async function ensureToolchain(options: EnsureToolchainOptions = {}): Promise<boolean> {

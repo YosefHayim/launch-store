@@ -399,23 +399,22 @@ describe('release gate helpers', () => {
 
 describe('deriveTrainState / trainExitCode / isTrainSettled', () => {
   it('is done only when every car is terminal', () => {
-    expect(
-      deriveTrainState(
-        [
-          { kind: 'ios', state: 'released', updatedAt: NOW },
-          {
-            kind: 'ota',
-            platform: 'ios',
-            channel: 'c',
-            runtimeVersion: '1',
-            state: 'published',
-            updatedAt: NOW,
-          },
-        ],
-        false,
-        false,
-      ),
-    ).toBe('done');
+    const deriveTrain = deriveTrainState(
+      [
+        { kind: 'ios', state: 'released', updatedAt: NOW },
+        {
+          kind: 'ota',
+          platform: 'ios',
+          channel: 'c',
+          runtimeVersion: '1',
+          state: 'published',
+          updatedAt: NOW,
+        },
+      ],
+      false,
+      false,
+    );
+    expect(deriveTrain).toBe('done');
   });
 
   it('blocks a held train with a failure unless forced', () => {
@@ -423,7 +422,8 @@ describe('deriveTrainState / trainExitCode / isTrainSettled', () => {
       { kind: 'ios', state: 'failed', updatedAt: NOW },
       { kind: 'android', state: 'in-review', updatedAt: NOW },
     ];
-    expect(deriveTrainState(cars, true, false)).toBe('blocked');
+    const deriveTrain = deriveTrainState(cars, true, false);
+    expect(deriveTrain).toBe('blocked');
     expect(deriveTrainState(cars, true, true)).toBe('running');
     expect(deriveTrainState(cars, false, false)).toBe('running');
   });

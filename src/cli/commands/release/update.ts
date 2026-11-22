@@ -58,6 +58,7 @@ export const registerUpdateCommand = (program: Command): void => {
     if (commandOptions.runtimeVersion != null) {
       commandInput.runtimeVersion = commandOptions.runtimeVersion;
     }
-    return runCliProgram(updateCommandProgram(commandInput));
+    const updateProgram = updateCommandProgram(commandInput);
+    return runCliProgram(updateProgram);
   });
 };

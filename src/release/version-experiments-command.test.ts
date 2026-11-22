@@ -3,15 +3,14 @@ import { decodeVersionExperimentsCommandInput } from './version-experiments-comm
 
 describe('decodeVersionExperimentsCommandInput', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {
-    expect(
-      decodeVersionExperimentsCommandInput({
-        config: 'experiments.config.json',
-        submit: true,
-        start: false,
-        dryRun: true,
-        yes: false,
-      }),
-    ).toEqual({
+    const decodeVersionExperimentsCommand = decodeVersionExperimentsCommandInput({
+      config: 'experiments.config.json',
+      submit: true,
+      start: false,
+      dryRun: true,
+      yes: false,
+    });
+    expect(decodeVersionExperimentsCommand).toEqual({
       config: 'experiments.config.json',
       submit: true,
       start: false,

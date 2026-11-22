@@ -3,13 +3,12 @@ import { DoctorCommandInputSchema, renderDoctorCheckLines } from './command.ts';
 
 describe('DoctorCommandInputSchema', function describeDoctorCommandInput() {
   it('decodes the Commander boundary with omitted selectors', function decodesOmittedSelectors() {
-    expect(
-      DoctorCommandInputSchema({
-        fix: false,
-        yes: false,
-        json: true,
-      }),
-    ).toEqual({ fix: false, yes: false, json: true });
+    const doctorCommandSchema = DoctorCommandInputSchema({
+      fix: false,
+      yes: false,
+      json: true,
+    });
+    expect(doctorCommandSchema).toEqual({ fix: false, yes: false, json: true });
   });
 
   it('rejects explicit undefined exact optionals', function rejectsUndefinedPlatform() {
@@ -26,13 +25,16 @@ describe('DoctorCommandInputSchema', function describeDoctorCommandInput() {
 
 describe('renderDoctorCheckLines', function describeRenderedDoctorChecks() {
   it('renders a failed check, hint, and detail with ASCII markers', function rendersFailedCheck() {
-    expect(
-      renderDoctorCheckLines({
-        status: 'fail',
-        title: 'Xcode',
-        hint: 'Install Xcode.',
-        detail: 'missing xcodebuild\n  already indented',
-      }),
-    ).toEqual(['x Xcode  - Install Xcode.', '  missing xcodebuild', '  already indented']);
+    const doctorCheckLines = renderDoctorCheckLines({
+      status: 'fail',
+      title: 'Xcode',
+      hint: 'Install Xcode.',
+      detail: 'missing xcodebuild\n  already indented',
+    });
+    expect(doctorCheckLines).toEqual([
+      'x Xcode  - Install Xcode.',
+      '  missing xcodebuild',
+      '  already indented',
+    ]);
   });
 });

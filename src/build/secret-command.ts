@@ -205,7 +205,8 @@ export function decodeSecretCommandInput(rawCommandInput: unknown): SecretComman
     return removeInput;
   }
 
-  throw new Error(`Unknown secret action "${String(action)}".`);
+  const asString = String(action);
+  throw new Error(`Unknown secret action "${asString}".`);
 }
 
 /** Render a secret reference's app-wide or profile-specific scope. */
@@ -376,9 +377,10 @@ export async function secretCommandProgram(rawCommandInput: unknown): Promise<vo
         return;
     }
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw makeSecretCommandFailure({
       action: 'run',
-      message: errorMessage(cause),
+      message: failureMessage,
       cause,
     });
   }

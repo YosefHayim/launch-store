@@ -58,14 +58,17 @@ describe('statsReportProgram', () => {
 
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
       homeDirectory,
-      workingDirectory: join(homeDirectory, 'work'),
+      workingDirectory: workPath,
     });
-    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(STATS_PORTFOLIO_FILE));
+    const serialized = JSON.stringify(STATS_PORTFOLIO_FILE);
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
+    const dateDaysAgo = readDateDaysAgo(1);
     writeStatsMonthFiles(homeDirectory, 'ios-1', [
       {
-        date: readDateDaysAgo(1),
+        date: dateDaysAgo,
         feed: 'app-store',
         metric: 'downloads',
         value: 1200,
@@ -141,7 +144,8 @@ describe('statsReportProgram', () => {
     const { outcome, lines } = await run({ ...ALL_APPS_REQUEST, days: '0', json: true });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { _tag: 'CommandExit', exitCode: 2 } });
-    expect(JSON.parse(lines[0] ?? '').ok).toBe(false);
+    const parsed = JSON.parse(lines[0] ?? '');
+    expect(parsed.ok).toBe(false);
   });
 
   test('exits 2 when no app matches the name', async () => {

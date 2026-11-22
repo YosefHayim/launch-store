@@ -94,7 +94,8 @@ function makePromiseAppStoreClient(scenario: Partial<FakeAppStoreStatsScenario> 
       throwTransport('no sales', 404);
     }
 
-    return gzipSync(Buffer.from(tsv));
+    const bufferBytes = Buffer.from(tsv);
+    return gzipSync(bufferBytes);
   });
   const listAnalyticsReportRequests = vi.fn(async function listRequests(
     _appId: string,
@@ -179,7 +180,8 @@ function makePromiseAppStoreClient(scenario: Partial<FakeAppStoreStatsScenario> 
       throw new Error(`Unknown segment ${url}`);
     }
 
-    return gzipSync(Buffer.from(tsv));
+    const bufferBytes = Buffer.from(tsv);
+    return gzipSync(bufferBytes);
   });
   const listCustomerReviews = vi.fn(async function listReviews(_appId: string) {
     if (isFailing('listCustomerReviews')) {
@@ -270,11 +272,13 @@ const findStat = (stats: readonly DailyStat[], metric: string, date: string) =>
 
 describe('pickStatsPath', () => {
   test('picks sales reports when the account has a vendor number', () => {
-    expect(pickStatsPath('90000001')).toBe('sales');
+    const statsPath = pickStatsPath('90000001');
+    expect(statsPath).toBe('sales');
   });
 
   test('picks analytics reports when it has none', () => {
-    expect(pickStatsPath(null)).toBe('analytics');
+    const statsPath = pickStatsPath(null);
+    expect(statsPath).toBe('analytics');
   });
 });
 
@@ -290,11 +294,13 @@ describe('isHistoryNeeded', () => {
 
 describe('readHttpStatus', () => {
   test('reads the status of a transport failure', () => {
-    expect(readHttpStatus({ status: 403 })).toBe(403);
+    const httpStatus = readHttpStatus({ status: 403 });
+    expect(httpStatus).toBe(403);
   });
 
   test('is null for anything without a numeric status', () => {
-    expect(readHttpStatus(null)).toBeNull();
+    const httpStatus = readHttpStatus(null);
+    expect(httpStatus).toBeNull();
     expect(readHttpStatus('boom')).toBeNull();
     expect(readHttpStatus({ message: 'boom' })).toBeNull();
     expect(readHttpStatus({ status: '403' })).toBeNull();
@@ -425,18 +431,17 @@ describe('appStoreFeed', () => {
   });
 
   test('reads downloads, proceeds and discovery from analytics without a vendor number', async () => {
+    const tsv = createTsv(DISCOVERY_HEADERS, [
+      ['2026-10-09', APP_ID, 'Impression', '40', '30'],
+      ['2026-10-09', APP_ID, 'Page view', '7', '6'],
+    ]);
     const { reply, calls } = await fetchReply(
       {
         analyticsInstances: {
           [`ONGOING|${DISCOVERY_NAME}`]: [
             {
               processingDate: '2026-10-10',
-              segmentTsvs: [
-                createTsv(DISCOVERY_HEADERS, [
-                  ['2026-10-09', APP_ID, 'Impression', '40', '30'],
-                  ['2026-10-09', APP_ID, 'Page view', '7', '6'],
-                ]),
-              ],
+              segmentTsvs: [tsv],
             },
           ],
           [`ONGOING|App Downloads Standard`]: [
@@ -472,7 +477,8 @@ describe('appStoreFeed', () => {
 
     const fetched = readFetched(reply);
     expect(fetched.coveredThrough).toBe('2026-10-09');
-    expect(findStat(fetched.stats, 'impressions', '2026-10-09')?.value).toBe(40);
+    const stat = findStat(fetched.stats, 'impressions', '2026-10-09');
+    expect(stat?.value).toBe(40);
     expect(findStat(fetched.stats, 'productPageViews', '2026-10-09')?.value).toBe(7);
     expect(findStat(fetched.stats, 'downloads', '2026-10-09')?.value).toBe(3);
     expect(findStat(fetched.stats, 'updates', '2026-10-09')?.value).toBe(5);
@@ -487,23 +493,25 @@ describe('appStoreFeed', () => {
   });
 
   test('reads sales reports with a vendor number, treats a 404 day as no sales and ignores other apps', async () => {
+    const tsv = createTsv(SALES_HEADERS, [
+      [APP_ID, 'calfriend', '', '1', '4', '0', 'USD'],
+      [APP_ID, 'calfriend', '', '7', '9', '0', 'USD'],
+      ['111', 'other', '', '1', '50', '0', 'USD'],
+      ['111', 'other-iap', 'other', 'IA1', '2', '1', 'USD'],
+      [APP_ID, 'calfriend-pro', 'calfriend', 'IA1', '2', '1.5', 'ILS'],
+    ]);
     const { reply, calls } = await fetchReply(
       {
         salesTsvByDate: {
-          '2026-10-09': createTsv(SALES_HEADERS, [
-            [APP_ID, 'calfriend', '', '1', '4', '0', 'USD'],
-            [APP_ID, 'calfriend', '', '7', '9', '0', 'USD'],
-            ['111', 'other', '', '1', '50', '0', 'USD'],
-            ['111', 'other-iap', 'other', 'IA1', '2', '1', 'USD'],
-            [APP_ID, 'calfriend-pro', 'calfriend', 'IA1', '2', '1.5', 'ILS'],
-          ]),
+          '2026-10-09': tsv,
         },
       },
       '90000011',
     );
 
     const fetched = readFetched(reply);
-    expect(findStat(fetched.stats, 'downloads', '2026-10-09')?.value).toBe(4);
+    const stat = findStat(fetched.stats, 'downloads', '2026-10-09');
+    expect(stat?.value).toBe(4);
     expect(findStat(fetched.stats, 'updates', '2026-10-09')?.value).toBe(9);
     expect(findStat(fetched.stats, 'proceeds', '2026-10-09')).toMatchObject({
       value: 3,
@@ -532,16 +540,19 @@ describe('appStoreFeed', () => {
       makeApp({ storeId: '222' }),
     );
 
-    expect(findStat(readFetched(secondApp.reply).stats, 'downloads', '2026-10-09')?.value).toBe(6);
+    const fetched = readFetched(secondApp.reply);
+    const stat = findStat(fetched.stats, 'downloads', '2026-10-09');
+    expect(stat?.value).toBe(6);
     expect(firstApp.calls.getSalesReport).toHaveBeenCalledTimes(3);
     expect(secondApp.calls.getSalesReport).not.toHaveBeenCalled();
   });
 
   test('covers through the analytics date and keeps sales stats on the sales path', async () => {
+    const tsv = createTsv(SALES_HEADERS, [[APP_ID, 'calfriend', '', '1', '1', '0', 'USD']]);
     const { reply } = await fetchReply(
       {
         salesTsvByDate: {
-          '2026-10-10': createTsv(SALES_HEADERS, [[APP_ID, 'calfriend', '', '1', '1', '0', 'USD']]),
+          '2026-10-10': tsv,
         },
         analyticsInstances: {
           [`ONGOING|${DISCOVERY_NAME}`]: [
@@ -559,7 +570,8 @@ describe('appStoreFeed', () => {
 
     const fetched = readFetched(reply);
     expect(fetched.coveredThrough).toBe('2026-10-08');
-    expect(findStat(fetched.stats, 'downloads', '2026-10-10')?.value).toBe(1);
+    const stat = findStat(fetched.stats, 'downloads', '2026-10-10');
+    expect(stat?.value).toBe(1);
     expect(findStat(fetched.stats, 'impressions', '2026-10-08')?.value).toBe(5);
   });
 
@@ -588,9 +600,9 @@ describe('appStoreFeed', () => {
     const longRange = await fetchReply(scenario, null, { from: '2026-09-01', to: '2026-10-10' });
     const shortRange = await fetchReply(scenario, null);
 
-    expect(findStat(readFetched(longRange.reply).stats, 'impressions', '2026-09-02')?.value).toBe(
-      9,
-    );
+    const fetched = readFetched(longRange.reply);
+    const stat = findStat(fetched.stats, 'impressions', '2026-09-02');
+    expect(stat?.value).toBe(9);
     expect(
       findStat(readFetched(shortRange.reply).stats, 'impressions', '2026-09-02'),
     ).toBeUndefined();
@@ -628,15 +640,14 @@ describe('appStoreFeed', () => {
   });
 
   test('writes no rating stats when the app has no reviews', async () => {
+    const tsv = createTsv(DISCOVERY_HEADERS, [['2026-10-09', APP_ID, 'Impression', '1', '1']]);
     const { reply } = await fetchReply(
       {
         analyticsInstances: {
           [`ONGOING|${DISCOVERY_NAME}`]: [
             {
               processingDate: '2026-10-10',
-              segmentTsvs: [
-                createTsv(DISCOVERY_HEADERS, [['2026-10-09', APP_ID, 'Impression', '1', '1']]),
-              ],
+              segmentTsvs: [tsv],
             },
           ],
         },

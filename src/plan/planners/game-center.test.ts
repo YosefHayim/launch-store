@@ -36,7 +36,8 @@ const makeCtx = (
 };
 describe('gameCenterPlanner', () => {
   it('omits itself when no app declares Game Center', async () => {
-    const plan = await runPlanner(gameCenterPlanner, makeCtx(makeAscApiFake()));
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(gameCenterPlanner, makeCtx(ascApiFake));
     expect(plan.state).toBe('omitted');
   });
   it('skips with a creds hint when no Apple account is active', async () => {
@@ -46,7 +47,8 @@ describe('gameCenterPlanner', () => {
     expect(plan.hint).toMatch(/creds/);
   });
   it("reports an additive plan when Game Center isn't enabled yet", async () => {
-    const plan = await runPlanner(gameCenterPlanner, makeCtx(makeAscApiFake(), DECLARED));
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(gameCenterPlanner, makeCtx(ascApiFake, DECLARED));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;

@@ -168,7 +168,8 @@ async function writePushKeys(keys: readonly ApnsKeyRecord[]): Promise<void> {
   const launchHomeDirectory = resolveLaunchHomeDirectory();
   await mkdir(launchHomeDirectory, { recursive: true });
   const indexText = JSON.stringify({ keys }, null, 2);
-  await writeFile(resolvePushKeysFilePath(), indexText);
+  const pushKeysFilePath = resolvePushKeysFilePath();
+  await writeFile(pushKeysFilePath, indexText);
 }
 
 /** Find a vaulted key by Key ID, case-insensitively (Apple's Key IDs are upper-case). */

@@ -11,31 +11,39 @@ afterEach(() => {
 
 describe('findMostRecentBuildLog', () => {
   it('returns the newest log and ignores non-log files', async () => {
-    const homeDirectory = mkdtempSync(join(tmpdir(), 'launch-diagnose-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchDiagnosePath = join(systemTemporaryDirectory, 'launch-diagnose-');
+    const homeDirectory = mkdtempSync(launchDiagnosePath);
     const logsDirectory = join(homeDirectory, '.launch', 'logs');
     mkdirSync(logsDirectory, { recursive: true });
     const olderLog = join(logsDirectory, 'older.log');
     const newerLog = join(logsDirectory, 'newer.log');
     writeFileSync(olderLog, 'old');
     writeFileSync(newerLog, 'new');
-    writeFileSync(join(logsDirectory, 'ignore.txt'), 'ignore');
+    const ignorePath = join(logsDirectory, 'ignore.txt');
+    writeFileSync(ignorePath, 'ignore');
     utimesSync(olderLog, new Date(1_000), new Date(1_000));
     utimesSync(newerLog, new Date(2_000), new Date(2_000));
 
     useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
-    await expect(findMostRecentBuildLog()).resolves.toBe(newerLog);
+    const mostRecentBuildLog = findMostRecentBuildLog();
+    await expect(mostRecentBuildLog).resolves.toBe(newerLog);
   });
 
   it('returns null when the log directory does not exist', async () => {
-    const homeDirectory = mkdtempSync(join(tmpdir(), 'launch-diagnose-empty-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchDiagnoseEmptyPath = join(systemTemporaryDirectory, 'launch-diagnose-empty-');
+    const homeDirectory = mkdtempSync(launchDiagnoseEmptyPath);
     useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
-    await expect(findMostRecentBuildLog()).resolves.toBeNull();
+    const mostRecentBuildLog = findMostRecentBuildLog();
+    await expect(mostRecentBuildLog).resolves.toBeNull();
   });
 });
 
 describe('DiagnoseCommandInputSchema', () => {
   it('accepts an omitted or explicit log path', () => {
-    expect(decodeDiagnoseCommandInput({})).toEqual({});
+    const decodeDiagnoseCommand = decodeDiagnoseCommandInput({});
+    expect(decodeDiagnoseCommand).toEqual({});
     expect(decodeDiagnoseCommandInput({ logfile: '/tmp/build.log' })).toEqual({
       logfile: '/tmp/build.log',
     });

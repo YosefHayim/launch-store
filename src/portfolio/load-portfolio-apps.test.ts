@@ -96,9 +96,10 @@ describe('loadPortfolioApps', () => {
 
   beforeEach(function setPortfolioHome() {
     homeDirectory = createTemporaryHomeDirectory();
+    const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
       homeDirectory,
-      workingDirectory: join(homeDirectory, 'work'),
+      workingDirectory: workPath,
     });
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
   });
@@ -119,11 +120,14 @@ describe('loadPortfolioApps', () => {
   }
 
   function readSavedFile(): PortfolioFile {
-    return JSON.parse(readFileSync(join(homeDirectory, '.launch', 'portfolio.json'), 'utf8'));
+    const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
+    const loadedFile = readFileSync(portfolioPath, 'utf8');
+    return JSON.parse(loadedFile);
   }
 
   test('cache-first uses the saved file without asking the stores', async () => {
-    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(CACHED_FILE));
+    const serialized = JSON.stringify(CACHED_FILE);
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     const portfolioLoad = await load('cache-first', {});
 
@@ -140,7 +144,8 @@ describe('loadPortfolioApps', () => {
   });
 
   test('discover saves the fresh apps and keeps the tags', async () => {
-    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(CACHED_FILE));
+    const serialized = JSON.stringify(CACHED_FILE);
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     const portfolioLoad = await load('discover', answerWithFreshApps);
 
@@ -149,12 +154,14 @@ describe('loadPortfolioApps', () => {
       ['Fresh KEYA', 'mine'],
       ['Fresh KEYB', null],
     ]);
-    expect(readSavedFile().discoveredAt).not.toBe(CACHED_FILE.discoveredAt);
+    const savedFile = readSavedFile();
+    expect(savedFile.discoveredAt).not.toBe(CACHED_FILE.discoveredAt);
     expect(readSavedFile().tags).toEqual(CACHED_FILE.tags);
   });
 
   test('discover keeps the cached apps of an account that failed and warns', async () => {
-    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(CACHED_FILE));
+    const serialized = JSON.stringify(CACHED_FILE);
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     async function ascClientForAccount(keyId: string): Promise<AppStoreStatsClient | null> {
       if (keyId == 'KEYB') {
@@ -172,7 +179,8 @@ describe('loadPortfolioApps', () => {
   });
 
   test('discover answers from the saved file and does not overwrite it when every store fails', async () => {
-    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(CACHED_FILE));
+    const serialized = JSON.stringify(CACHED_FILE);
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     async function ascClientForAccount(): Promise<AppStoreStatsClient | null> {
       return makeAscClient(new Error('offline'));
@@ -183,7 +191,8 @@ describe('loadPortfolioApps', () => {
     expect(portfolioLoad.isFromCache).toBe(true);
     expect(portfolioLoad.warnings).toHaveLength(2);
     expect(portfolioLoad.apps.map((app) => app.name)).toEqual(['Cached One', 'Cached Two']);
-    expect(readSavedFile()).toEqual(CACHED_FILE);
+    const savedFile = readSavedFile();
+    expect(savedFile).toEqual(CACHED_FILE);
   });
 
   test('discover with every store failing and no saved file returns no apps', async () => {
@@ -194,15 +203,13 @@ describe('loadPortfolioApps', () => {
   });
 
   test('discover with no accounts at all saves an empty portfolio', async () => {
-    writeLaunchHomeFile(
-      homeDirectory,
-      'accounts.json',
-      JSON.stringify({ active: null, accounts: [] }),
-    );
+    const serialized = JSON.stringify({ active: null, accounts: [] });
+    writeLaunchHomeFile(homeDirectory, 'accounts.json', serialized);
 
     const portfolioLoad = await load('discover', {});
 
     expect(portfolioLoad).toMatchObject({ apps: [], warnings: [], isFromCache: false });
-    expect(readSavedFile().apps).toEqual([]);
+    const savedFile = readSavedFile();
+    expect(savedFile.apps).toEqual([]);
   });
 });

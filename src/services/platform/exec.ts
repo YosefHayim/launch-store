@@ -48,10 +48,12 @@ type QuietCommandExecutionOptions = CommandExecutionOptions &
   }>;
 
 function commandPlatformFailure(executable: string, cause: unknown): CommandFailed {
+  const asString = String(cause);
+  const redact = redactText(asString);
   return makeCommandFailed({
     command: executable,
     exitCode: null,
-    stderr: redactText(String(cause)),
+    stderr: redact,
     cause,
   });
 }
@@ -63,10 +65,11 @@ function checkExitCode(executable: string, exitCode: number | null, standardErro
     return;
   }
 
+  const redact = redactText(standardError);
   throw makeCommandFailed({
     command: executable,
     exitCode,
-    stderr: redactText(standardError),
+    stderr: redact,
   });
 }
 
@@ -123,7 +126,8 @@ type CapturedProcess = Readonly<{
 
 function appendChunk(chunks: Buffer[], chunk: Buffer | string): void {
   if (typeof chunk == 'string') {
-    chunks.push(Buffer.from(chunk));
+    const bufferBytes = Buffer.from(chunk);
+    chunks.push(bufferBytes);
     return;
   }
 

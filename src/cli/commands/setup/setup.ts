@@ -23,16 +23,15 @@ export const registerSetupCommand = (program: Command): void => {
     .option('--platform <p>', 'ios (default), android, tvos, macos, or visionos')
     .option('--yes', 'non-interactive: install missing tools without asking (CI/agents)', false)
     .option('--no-rehearse', 'skip the dry-run pipeline rehearsal at the end')
-    .action((commandOptions: SetupOptions) =>
-      runCliProgram(
-        setupCommandProgram({
-          operation: 'auto',
-          platform: commandOptions.platform,
-          yes: commandOptions.yes,
-          rehearse: commandOptions.rehearse,
-        }),
-      ),
-    );
+    .action((commandOptions: SetupOptions) => {
+      const setupProgram = setupCommandProgram({
+        operation: 'auto',
+        platform: commandOptions.platform,
+        yes: commandOptions.yes,
+        rehearse: commandOptions.rehearse,
+      });
+      return runCliProgram(setupProgram);
+    });
 
   setupCommand
     .command('ios')
@@ -52,16 +51,15 @@ export const registerSetupCommand = (program: Command): void => {
       'non-interactive: auto-confirm Apple resource creation under --provision',
       false,
     )
-    .action((commandOptions: SetupIosOptions) =>
-      runCliProgram(
-        setupCommandProgram({
-          operation: 'ios',
-          account: commandOptions.account,
-          app: commandOptions.app,
-          provision: commandOptions.provision,
-          json: commandOptions.json,
-          yes: commandOptions.yes,
-        }),
-      ),
-    );
+    .action((commandOptions: SetupIosOptions) => {
+      const setupProgram = setupCommandProgram({
+        operation: 'ios',
+        account: commandOptions.account,
+        app: commandOptions.app,
+        provision: commandOptions.provision,
+        json: commandOptions.json,
+        yes: commandOptions.yes,
+      });
+      return runCliProgram(setupProgram);
+    });
 };

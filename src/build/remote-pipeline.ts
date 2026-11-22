@@ -396,7 +396,8 @@ export async function runRemoteBuild(
 
     log.step('build', `${buildKind} - built on the host`, 'incremental-build');
 
-    pulled = await pullArtifact(session, app.name, resolveArtifactsDirectory());
+    const artifactsDirectory = resolveArtifactsDirectory();
+    pulled = await pullArtifact(session, app.name, artifactsDirectory);
     await reportSize(pulled.sizeReport, log);
 
     const artifact: BuildArtifact = {

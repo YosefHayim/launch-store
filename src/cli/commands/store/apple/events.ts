@@ -17,13 +17,12 @@ export const registerEventsCommand = (program: Command): void => {
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('--json', 'output machine-readable JSON', false)
     .action((options: { app?: string; json?: boolean }) => {
-      return runCliProgram(
-        eventsCommandProgram({
-          operation: 'list',
-          app: options.app,
-          json: options.json == true,
-        }),
-      );
+      const eventsProgram = eventsCommandProgram({
+        operation: 'list',
+        app: options.app,
+        json: options.json == true,
+      });
+      return runCliProgram(eventsProgram);
     });
   events
     .command('create')
@@ -40,9 +39,12 @@ export const registerEventsCommand = (program: Command): void => {
         referenceName: string,
         options: Omit<CreateEventCommandInput, 'operation' | 'referenceName'>,
       ) => {
-        return runCliProgram(
-          eventsCommandProgram({ operation: 'create', referenceName, ...options }),
-        );
+        const eventsProgram = eventsCommandProgram({
+          operation: 'create',
+          referenceName,
+          ...options,
+        });
+        return runCliProgram(eventsProgram);
       },
     );
   events
@@ -55,7 +57,8 @@ export const registerEventsCommand = (program: Command): void => {
     .option('--long <text>', 'the long description')
     .action(
       (eventId: string, options: Omit<LocalizeEventCommandInput, 'operation' | 'eventId'>) => {
-        return runCliProgram(eventsCommandProgram({ operation: 'localize', eventId, ...options }));
+        const eventsProgram = eventsCommandProgram({ operation: 'localize', eventId, ...options });
+        return runCliProgram(eventsProgram);
       },
     );
   events
@@ -64,8 +67,11 @@ export const registerEventsCommand = (program: Command): void => {
     .argument('<eventId>', 'the event id from `events list`')
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((eventId: string, options: { yes?: boolean }) => {
-      return runCliProgram(
-        eventsCommandProgram({ operation: 'delete', eventId, yes: options.yes == true }),
-      );
+      const eventsProgram = eventsCommandProgram({
+        operation: 'delete',
+        eventId,
+        yes: options.yes == true,
+      });
+      return runCliProgram(eventsProgram);
     });
 };

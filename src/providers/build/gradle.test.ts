@@ -32,7 +32,8 @@ describe('gradleBuildArguments - signed release build', () => {
 
 describe('parseBundletoolSize - honest worst-case download from get-size total', () => {
   it('reads MIN/MAX from a single-row total', () => {
-    expect(parseBundletoolSize('MIN,MAX\n1048576,2097152')).toEqual({
+    const bundletoolSize = parseBundletoolSize('MIN,MAX\n1048576,2097152');
+    expect(bundletoolSize).toEqual({
       minBytes: 1048576,
       maxBytes: 2097152,
     });
@@ -45,11 +46,13 @@ describe('parseBundletoolSize - honest worst-case download from get-size total',
       '21,arm64-v8a,XXHDPI,en,3500000,6000000',
       '29,arm64-v8a,XXHDPI,en,3200000,5500000',
     ].join('\n');
-    expect(parseBundletoolSize(csv)).toEqual({ minBytes: 3000000, maxBytes: 6000000 });
+    const bundletoolSize = parseBundletoolSize(csv);
+    expect(bundletoolSize).toEqual({ minBytes: 3000000, maxBytes: 6000000 });
   });
 
   it('degrades to zeros on unrecognized output rather than throwing', () => {
-    expect(parseBundletoolSize('totally unrelated')).toEqual({ minBytes: 0, maxBytes: 0 });
+    const bundletoolSize = parseBundletoolSize('totally unrelated');
+    expect(bundletoolSize).toEqual({ minBytes: 0, maxBytes: 0 });
     expect(parseBundletoolSize('')).toEqual({ minBytes: 0, maxBytes: 0 });
   });
 });

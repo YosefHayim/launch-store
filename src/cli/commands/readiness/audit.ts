@@ -17,16 +17,15 @@ export const registerAuditCommand = (program: Command): void => {
     )
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((commandOptions: AuditOptions) =>
-      runCliProgram(
-        readinessCommandProgram({
-          category: 'submit',
-          labels: {
-            summary: 'Pre-submit audit',
-            empty: 'No audit checks ran - no apps with a bundle id or package name were found.',
-          },
-          ...commandOptions,
-        }),
-      ),
-    );
+    .action((commandOptions: AuditOptions) => {
+      const readinessProgram = readinessCommandProgram({
+        category: 'submit',
+        labels: {
+          summary: 'Pre-submit audit',
+          empty: 'No audit checks ran - no apps with a bundle id or package name were found.',
+        },
+        ...commandOptions,
+      });
+      return runCliProgram(readinessProgram);
+    });
 };

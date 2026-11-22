@@ -189,7 +189,8 @@ describe('parsePbxprojTargets - read each target bundle id from the pbxproj', ()
     ]);
   });
   it('returns exactly the one main target for a single-target app', () => {
-    expect(parsePbxprojTargets(SINGLE_TARGET)).toEqual([
+    const pbxprojTargets = parsePbxprojTargets(SINGLE_TARGET);
+    expect(pbxprojTargets).toEqual([
       {
         name: 'SampleApp',
         bundleId: 'com.example.sampleapp',
@@ -207,18 +208,21 @@ describe('parsePbxprojTargets - read each target bundle id from the pbxproj', ()
     ]);
   });
   it('returns nothing for an empty or non-pbxproj string', () => {
-    expect(parsePbxprojTargets('')).toEqual([]);
+    const pbxprojTargets = parsePbxprojTargets('');
+    expect(pbxprojTargets).toEqual([]);
     expect(parsePbxprojTargets('not a project file')).toEqual([]);
   });
 });
 describe('splitMainAndExtensions - separate the app from its extensions', () => {
   it('picks the application product type as main and the rest as extensions', () => {
-    const { main, extensions } = splitMainAndExtensions(parsePbxprojTargets(APP_WITH_WIDGET));
+    const pbxprojTargets = parsePbxprojTargets(APP_WITH_WIDGET);
+    const { main, extensions } = splitMainAndExtensions(pbxprojTargets);
     expect(main).toBe('com.example.sampleapp');
     expect(extensions).toEqual(['com.example.sampleapp.widget']);
   });
   it('yields zero extensions for a single-target app (byte-identical to today)', () => {
-    const { main, extensions } = splitMainAndExtensions(parsePbxprojTargets(SINGLE_TARGET));
+    const pbxprojTargets = parsePbxprojTargets(SINGLE_TARGET);
+    const { main, extensions } = splitMainAndExtensions(pbxprojTargets);
     expect(main).toBe('com.example.sampleapp');
     expect(extensions).toEqual([]);
   });
@@ -241,38 +245,43 @@ describe('discoverExtensionBundleIds - locate and read the generated project', (
   function seedProject(nativeDir: string, projectName: string, pbxproj: string): void {
     const projectDir = join(nativeDir, `${projectName}.xcodeproj`);
     mkdirSync(projectDir, { recursive: true });
-    writeFileSync(join(projectDir, 'project.pbxproj'), pbxproj);
+    const projectPath = join(projectDir, 'project.pbxproj');
+    writeFileSync(projectPath, pbxproj);
   }
   it('discovers the widget extension from a generated ios/ project', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
+    const root = mkdtempSync(launchTargetsPath);
     try {
       const nativeDir = join(root, 'ios');
       seedProject(nativeDir, 'SampleApp', APP_WITH_WIDGET);
-      await expect(discoverExtensionBundleIds(nativeDir, 'com.example.sampleapp')).resolves.toEqual(
-        ['com.example.sampleapp.widget'],
-      );
+      const extensionBundleIds = discoverExtensionBundleIds(nativeDir, 'com.example.sampleapp');
+      await expect(extensionBundleIds).resolves.toEqual(['com.example.sampleapp.widget']);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
   it('returns [] for a single-target project (no extensions to provision)', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
+    const root = mkdtempSync(launchTargetsPath);
     try {
       const nativeDir = join(root, 'ios');
       seedProject(nativeDir, 'SampleApp', SINGLE_TARGET);
-      await expect(discoverExtensionBundleIds(nativeDir, 'com.example.sampleapp')).resolves.toEqual(
-        [],
-      );
+      const extensionBundleIds = discoverExtensionBundleIds(nativeDir, 'com.example.sampleapp');
+      await expect(extensionBundleIds).resolves.toEqual([]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
   it('returns [] when the native project has not been generated yet', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
+    const root = mkdtempSync(launchTargetsPath);
     try {
-      await expect(
-        discoverExtensionBundleIds(join(root, 'ios'), 'com.example.sampleapp'),
-      ).resolves.toEqual([]);
+      const iosPath = join(root, 'ios');
+      const extensionBundleIds = discoverExtensionBundleIds(iosPath, 'com.example.sampleapp');
+      await expect(extensionBundleIds).resolves.toEqual([]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -315,15 +324,19 @@ describe('multiTargetSigningWarnings - preflight before the long archive (#261)'
 });
 describe('findPbxproj - locate the project file in a native dir', () => {
   it('finds the .xcodeproj/project.pbxproj and returns null when absent', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
+    const root = mkdtempSync(launchTargetsPath);
     try {
-      await expect(findPbxproj(join(root, 'ios'))).resolves.toBeNull();
+      const iosPath = join(root, 'ios');
+      const pbxproj = findPbxproj(iosPath);
+      await expect(pbxproj).resolves.toBeNull();
       const projectDir = join(root, 'ios', 'SampleApp.xcodeproj');
       mkdirSync(projectDir, { recursive: true });
-      writeFileSync(join(projectDir, 'project.pbxproj'), SINGLE_TARGET);
-      await expect(findPbxproj(join(root, 'ios'))).resolves.toBe(
-        join(projectDir, 'project.pbxproj'),
-      );
+      const projectPath = join(projectDir, 'project.pbxproj');
+      writeFileSync(projectPath, SINGLE_TARGET);
+      const joinedPath = join(root, 'ios');
+      await expect(findPbxproj(joinedPath)).resolves.toBe(join(projectDir, 'project.pbxproj'));
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -355,7 +368,8 @@ describe('stampManualSigningIntoPbxproj - per-target manual signing for a multi-
   });
   it('leaves the target structure (bundle ids) intact after rewriting', () => {
     const stamped = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
-    expect(parsePbxprojTargets(stamped)).toEqual(parsePbxprojTargets(APP_WITH_WIDGET));
+    const pbxprojTargets = parsePbxprojTargets(stamped);
+    expect(pbxprojTargets).toEqual(parsePbxprojTargets(APP_WITH_WIDGET));
   });
   it('stamps just the main app Release config for a single-target app (#301)', () => {
     // The plain single-target archive path: the app's own profile lands in its Release config, so xcodebuild
@@ -369,7 +383,8 @@ describe('stampManualSigningIntoPbxproj - per-target manual signing for a multi-
     expect(stamped).toContain('DEVELOPMENT_TEAM = ABCDE12345;');
     // Exactly one config touched (Release) - the Debug config keeps automatic signing for dev-client runs.
     expect(occurrences(stamped, 'CODE_SIGN_STYLE = Manual;')).toBe(1);
-    expect(parsePbxprojTargets(stamped)).toEqual(parsePbxprojTargets(SINGLE_TARGET_WITH_RELEASE));
+    const pbxprojTargets = parsePbxprojTargets(stamped);
+    expect(pbxprojTargets).toEqual(parsePbxprojTargets(SINGLE_TARGET_WITH_RELEASE));
   });
   it('is idempotent - a second stamp changes nothing (managed keys replaced, not appended)', () => {
     const once = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
@@ -408,17 +423,19 @@ describe('stampManualSigningIntoPbxproj - per-target manual signing for a multi-
 });
 describe('writeManualSigningToProject - stamp the generated project on disk', () => {
   it('rewrites the pbxproj and reports the change, then no-ops on a second run', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
+    const root = mkdtempSync(launchTargetsPath);
     try {
       const nativeDir = join(root, 'ios');
       const projectDir = join(nativeDir, 'SampleApp.xcodeproj');
       mkdirSync(projectDir, { recursive: true });
       const pbxproj = join(projectDir, 'project.pbxproj');
       writeFileSync(pbxproj, APP_WITH_WIDGET);
-      await expect(writeManualSigningToProject(nativeDir, SIGNING)).resolves.toBe(true);
-      expect(readFileSync(pbxproj, 'utf8')).toContain(
-        `PROVISIONING_PROFILE_SPECIFIER = "${WIDGET_PROFILE}";`,
-      );
+      const manualSigningToProject = writeManualSigningToProject(nativeDir, SIGNING);
+      await expect(manualSigningToProject).resolves.toBe(true);
+      const loadedFile = readFileSync(pbxproj, 'utf8');
+      expect(loadedFile).toContain(`PROVISIONING_PROFILE_SPECIFIER = "${WIDGET_PROFILE}";`);
       // Idempotent on disk: the second run finds nothing to change.
       await expect(writeManualSigningToProject(nativeDir, SIGNING)).resolves.toBe(false);
     } finally {
@@ -426,9 +443,13 @@ describe('writeManualSigningToProject - stamp the generated project on disk', ()
     }
   });
   it('returns false when the native project has not been generated yet', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
+    const root = mkdtempSync(launchTargetsPath);
     try {
-      await expect(writeManualSigningToProject(join(root, 'ios'), SIGNING)).resolves.toBe(false);
+      const iosPath = join(root, 'ios');
+      const manualSigningToProject = writeManualSigningToProject(iosPath, SIGNING);
+      await expect(manualSigningToProject).resolves.toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

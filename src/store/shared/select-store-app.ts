@@ -126,7 +126,8 @@ export async function loadStoreAppContext(
 
     return { config: loadedConfiguration.config, app: selectedApp };
   } catch (cause) {
-    throw makeStoreAppSelectionFailure({ message: errorMessage(cause), cause });
+    const failureMessage = errorMessage(cause);
+    throw makeStoreAppSelectionFailure({ message: failureMessage, cause });
   }
 }
 

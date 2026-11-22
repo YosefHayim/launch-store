@@ -11,7 +11,8 @@ export const registerRolloutCommand = (program: Command): void => {
     .description('steer an iOS phased release: pause | resume | complete')
     .argument('<action>', 'pause | resume | complete')
     .option('-a, --app <names>', 'comma-separated app handles (default: all iOS apps)')
-    .action((action: string, commandOptions: RolloutCommandOptions) =>
-      runCliProgram(rolloutCommandProgram({ action, ...commandOptions })),
-    );
+    .action((action: string, commandOptions: RolloutCommandOptions) => {
+      const rolloutProgram = rolloutCommandProgram({ action, ...commandOptions });
+      return runCliProgram(rolloutProgram);
+    });
 };

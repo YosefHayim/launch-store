@@ -138,7 +138,8 @@ export async function makeSupabaseStorageProvider(
     const artifactIndex = await readIndex();
 
     artifactIndex.unshift({ ...artifact, path: uploadedArtifact.location });
-    await upload(INDEX_OBJECT_KEY, JSON.stringify(artifactIndex, null, 2), 'application/json');
+    const serialized = JSON.stringify(artifactIndex, null, 2);
+    await upload(INDEX_OBJECT_KEY, serialized, 'application/json');
 
     return uploadedArtifact;
   }
@@ -185,13 +186,12 @@ export function makeSupabaseStorageProviderResolver(): StorageProviderResolver {
     name: 'supabase',
     resolveStorageProvider(providerOptions) {
       if (providerOptions.storageConfig == null) {
-        return Promise.reject(
-          makeProviderInputFailure({
-            provider: 'supabase',
-            message:
-              'Storage "supabase" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).',
-          }),
-        );
+        const makeProviderFailure = makeProviderInputFailure({
+          provider: 'supabase',
+          message:
+            'Storage "supabase" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).',
+        });
+        return Promise.reject(makeProviderFailure);
       }
 
       return makeSupabaseStorageProvider(providerOptions.storageConfig);

@@ -39,13 +39,15 @@ const ANDROID_APP = createApp({
 
 describe('createIosAppKey', () => {
   test('prefixes the store id with ios', () => {
-    expect(createIosAppKey('42')).toBe('ios-42');
+    const iosAppKey = createIosAppKey('42');
+    expect(iosAppKey).toBe('ios-42');
   });
 });
 
 describe('createAndroidAppKey', () => {
   test('prefixes the package name with android', () => {
-    expect(createAndroidAppKey('com.a.b')).toBe('android-com.a.b');
+    const androidAppKey = createAndroidAppKey('com.a.b');
+    expect(androidAppKey).toBe('android-com.a.b');
   });
 });
 
@@ -59,7 +61,8 @@ describe('mergeDiscoveredApps', () => {
   });
 
   test('returns an empty list for no sources', () => {
-    expect(mergeDiscoveredApps([])).toEqual([]);
+    const discoveredApps = mergeDiscoveredApps([]);
+    expect(discoveredApps).toEqual([]);
   });
 });
 
@@ -99,33 +102,40 @@ describe('findAppsByName', () => {
   const apps = [IOS_APP, ANDROID_APP];
 
   test('matches the name without case', () => {
-    expect(findAppsByName(apps, 'cal FRIEND')).toEqual([IOS_APP]);
+    const appsByName = findAppsByName(apps, 'cal FRIEND');
+    expect(appsByName).toEqual([IOS_APP]);
   });
 
   test('matches the bundle id', () => {
-    expect(findAppsByName(apps, 'jts.calfriend')).toEqual([IOS_APP]);
+    const appsByName = findAppsByName(apps, 'jts.calfriend');
+    expect(appsByName).toEqual([IOS_APP]);
   });
 
   test('matches the package name', () => {
-    expect(findAppsByName(apps, 'jts.fit')).toEqual([ANDROID_APP]);
+    const appsByName = findAppsByName(apps, 'jts.fit');
+    expect(appsByName).toEqual([ANDROID_APP]);
   });
 
   test('returns nothing when the query is empty or blank', () => {
-    expect(findAppsByName(apps, '   ')).toEqual([]);
+    const appsByName = findAppsByName(apps, '   ');
+    expect(appsByName).toEqual([]);
   });
 
   test('returns nothing when no app matches', () => {
-    expect(findAppsByName(apps, 'zzz')).toEqual([]);
+    const appsByName = findAppsByName(apps, 'zzz');
+    expect(appsByName).toEqual([]);
   });
 
   test('returns many apps when many match', () => {
-    expect(findAppsByName(apps, 'jts')).toEqual(apps);
+    const appsByName = findAppsByName(apps, 'jts');
+    expect(appsByName).toEqual(apps);
   });
 });
 
 describe('findAppsByAccount', () => {
   test('matches the account label without case', () => {
-    expect(findAppsByAccount([IOS_APP, ANDROID_APP], ' Google-Play ')).toEqual([ANDROID_APP]);
+    const appsByAccount = findAppsByAccount([IOS_APP, ANDROID_APP], ' Google-Play ');
+    expect(appsByAccount).toEqual([ANDROID_APP]);
   });
 });
 

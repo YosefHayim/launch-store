@@ -464,11 +464,8 @@ export async function releaseApp(
   const isAppMissing = foundAppId == null;
 
   if (isAppMissing) {
-    throw releaseFailure(
-      'find App Store app',
-      releaseInput.bundleId,
-      appRecordMissingMessage(releaseInput.bundleId),
-    );
+    const appMissingMessage = appRecordMissingMessage(releaseInput.bundleId);
+    throw releaseFailure('find App Store app', releaseInput.bundleId, appMissingMessage);
   }
 
   const storeBuild = releaseInput.build;
@@ -737,10 +734,11 @@ async function applyExportCompliance(
       return;
     }
 
+    const failureMessage = errorMessage(cause);
     releaseContext.actions.push({
       description,
       status: 'failed',
-      error: errorMessage(cause),
+      error: failureMessage,
     });
   }
 }
@@ -1137,11 +1135,8 @@ export async function readAppStoreAppId(
   const isThereNoAppRecord = foundAppId == null;
 
   if (isThereNoAppRecord) {
-    throw releaseFailure(
-      'find App Store app',
-      bundleId,
-      appRecordMissingMessage(bundleId, 'launch status'),
-    );
+    const appMissingMessage = appRecordMissingMessage(bundleId, 'launch status');
+    throw releaseFailure('find App Store app', bundleId, appMissingMessage);
   }
 
   return foundAppId;

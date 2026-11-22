@@ -2,13 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { renderAction } from '../../../release/release-config-command.ts';
 describe('renderAction', () => {
   it('marks a change with + and a skipped area with -', () => {
-    expect(
-      renderAction({
-        description: 'set categories (primary=GAMES)',
-        destructive: false,
-        status: 'planned',
-      }),
-    ).toBe('+ set categories (primary=GAMES)');
+    const action = renderAction({
+      description: 'set categories (primary=GAMES)',
+      destructive: false,
+      status: 'planned',
+    });
+    expect(action).toBe('+ set categories (primary=GAMES)');
     expect(
       renderAction({
         description: 'set app price = 9.99 (USA)',
@@ -25,13 +24,12 @@ describe('renderAction', () => {
     ).toBe('- App Review details: no editable App Store version');
   });
   it("renders a failed action with x and Apple's error detail", () => {
-    expect(
-      renderAction({
-        description: 'set app price = 9.99 (USA)',
-        destructive: false,
-        status: 'failed',
-        error: 'No USA app price point matches 9.99.',
-      }),
-    ).toBe('x set app price = 9.99 (USA) - No USA app price point matches 9.99.');
+    const action = renderAction({
+      description: 'set app price = 9.99 (USA)',
+      destructive: false,
+      status: 'failed',
+      error: 'No USA app price point matches 9.99.',
+    });
+    expect(action).toBe('x set app price = 9.99 (USA) - No USA app price point matches 9.99.');
   });
 });

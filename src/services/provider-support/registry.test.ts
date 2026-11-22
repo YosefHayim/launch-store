@@ -27,7 +27,8 @@ describe('provider registry - the DI seam', () => {
   it('registers a provider and looks it up by name', () => {
     const provider = fakeStorage('memory');
     registerStorageProvider(provider);
-    expect(getStorageProvider('memory')).toBe(provider);
+    const storageProvider = getStorageProvider('memory');
+    expect(storageProvider).toBe(provider);
   });
   it('throws a clear error naming the available providers when one is missing', () => {
     registerStorageProvider(fakeStorage('local'));

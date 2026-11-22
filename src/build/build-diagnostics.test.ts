@@ -67,6 +67,7 @@ describe('formatDiagnoses', () => {
     expect(text).toContain('Likely causes:');
   });
   it('returns an empty string when there is nothing to report', () => {
-    expect(formatDiagnoses([])).toBe('');
+    const diagnoses = formatDiagnoses([]);
+    expect(diagnoses).toBe('');
   });
 });

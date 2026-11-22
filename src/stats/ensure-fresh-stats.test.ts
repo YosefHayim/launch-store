@@ -71,11 +71,13 @@ describe('ensureFreshStats', () => {
 
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
       homeDirectory,
-      workingDirectory: join(homeDirectory, 'work'),
+      workingDirectory: workPath,
     });
-    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(portfolioFile));
+    const serialized = JSON.stringify(portfolioFile);
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
     makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
   });
@@ -102,7 +104,8 @@ describe('ensureFreshStats', () => {
         },
       },
     };
-    writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', JSON.stringify(coverage));
+    const serialized = JSON.stringify(coverage);
+    writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', serialized);
   };
 
   test('does not sync when every feed was synced recently', async () => {

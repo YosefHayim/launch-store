@@ -3,12 +3,11 @@ import { ConfigCommandInputSchema } from './config-command.ts';
 
 describe('ConfigCommandInputSchema', () => {
   it('decodes schema and validation operations', () => {
-    expect(
-      ConfigCommandInputSchema({
-        operation: 'schema',
-        out: 'launch.schema.json',
-      }),
-    ).toEqual({ operation: 'schema', out: 'launch.schema.json' });
+    const commandSchema = ConfigCommandInputSchema({
+      operation: 'schema',
+      out: 'launch.schema.json',
+    });
+    expect(commandSchema).toEqual({ operation: 'schema', out: 'launch.schema.json' });
     expect(ConfigCommandInputSchema({ operation: 'validate' })).toEqual({
       operation: 'validate',
     });

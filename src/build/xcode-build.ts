@@ -44,7 +44,8 @@ export class XcodeBuild {
     const plistPath = join(iosDirectory, 'build', 'ExportOptions.plist');
 
     await mkdir(exportDirectory, { recursive: true });
-    await writeFile(plistPath, exportOptionsPlist(archiveRequest.signing.teamId));
+    const exportPlist = exportOptionsPlist(archiveRequest.signing.teamId);
+    await writeFile(plistPath, exportPlist);
     await this.runXcode(
       [
         '-exportArchive',

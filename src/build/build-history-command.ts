@@ -346,8 +346,9 @@ export function formatBuildDetail(artifact: BuildArtifact): string {
   detailLines.push('  per-device download / install:');
 
   for (const sizeEntry of artifact.sizeReport.entries) {
+    const megabytes = mb(sizeEntry.downloadBytes);
     detailLines.push(
-      `    ${sizeEntry.device}  download ${mb(sizeEntry.downloadBytes)}  install ${mb(sizeEntry.installBytes)}`,
+      `    ${sizeEntry.device}  download ${megabytes}  install ${mb(sizeEntry.installBytes)}`,
     );
   }
 
@@ -630,8 +631,9 @@ async function runPrune(commandOptions: PruneCommandOptions): Promise<void> {
   if (skipPrompt == false) {
     tools.logger.line(formatPrunePreview(prunePreview.pruned));
 
+    const megabytes = mb(prunePreview.freedBytes);
     const confirmed = await tools.confirmDeletion(
-      `Delete ${buildsLabel(prunePreview.pruned.length)}, freeing ${mb(prunePreview.freedBytes)}?`,
+      `Delete ${buildsLabel(prunePreview.pruned.length)}, freeing ${megabytes}?`,
     );
 
     if (confirmed == false) {
@@ -651,12 +653,14 @@ async function runPrune(commandOptions: PruneCommandOptions): Promise<void> {
   const wantsJson = commandOptions.json == true;
 
   if (wantsJson) {
-    tools.logger.line(JSON.stringify(pruneOutcome, null, 2));
+    const serialized = JSON.stringify(pruneOutcome, null, 2);
+    tools.logger.line(serialized);
     return;
   }
 
+  const megabytes = mb(pruneOutcome.freedBytes);
   tools.logger.line(
-    `Pruned ${buildsLabel(pruneOutcome.pruned.length)}, freed ${mb(pruneOutcome.freedBytes)}. History kept (shown as "pruned" in \`builds list\`).`,
+    `Pruned ${buildsLabel(pruneOutcome.pruned.length)}, freed ${megabytes}. History kept (shown as "pruned" in \`builds list\`).`,
   );
 }
 
@@ -669,7 +673,8 @@ function renderEmptyPrune(
   const wantsJson = commandOptions.json == true;
 
   if (wantsJson) {
-    logger.line(JSON.stringify(prunePreview, null, 2));
+    const serialized = JSON.stringify(prunePreview, null, 2);
+    logger.line(serialized);
     return;
   }
 
@@ -686,13 +691,15 @@ function renderDryRunPrune(
   const wantsJson = commandOptions.json == true;
 
   if (wantsJson) {
-    logger.line(JSON.stringify(prunePreview, null, 2));
+    const serialized = JSON.stringify(prunePreview, null, 2);
+    logger.line(serialized);
     return;
   }
 
   logger.line(formatPrunePreview(prunePreview.pruned));
+  const megabytes = mb(prunePreview.freedBytes);
   logger.line(
-    `\nDry run - would remove ${buildsLabel(prunePreview.pruned.length)}, freeing ${mb(prunePreview.freedBytes)}. Nothing deleted.`,
+    `\nDry run - would remove ${buildsLabel(prunePreview.pruned.length)}, freeing ${megabytes}. Nothing deleted.`,
   );
 }
 
@@ -716,7 +723,8 @@ async function listBuilds(
   const wantsJson = commandInput.json == true;
 
   if (wantsJson) {
-    tools.logger.line(JSON.stringify(buildRows, null, 2));
+    const serialized = JSON.stringify(buildRows, null, 2);
+    tools.logger.line(serialized);
     return;
   }
 
@@ -727,7 +735,8 @@ async function listBuilds(
     return;
   }
 
-  tools.logger.line(formatBuildsTable(buildRows));
+  const buildsTable = formatBuildsTable(buildRows);
+  tools.logger.line(buildsTable);
   tools.logger.line(`\n${buildsLabel(buildRows.length)}.`);
 }
 
@@ -739,11 +748,14 @@ async function viewBuild(
   const wantsJson = commandInput.json == true;
 
   if (wantsJson) {
-    tools.logger.line(JSON.stringify(toBuildRow(storedBuild), null, 2));
+    const toBuild = toBuildRow(storedBuild);
+    const serialized = JSON.stringify(toBuild, null, 2);
+    tools.logger.line(serialized);
     return;
   }
 
-  tools.logger.line(formatBuildDetail(storedBuild));
+  const buildDetail = formatBuildDetail(storedBuild);
+  tools.logger.line(buildDetail);
 }
 
 function hasLogBody(logText: string | null): logText is string {

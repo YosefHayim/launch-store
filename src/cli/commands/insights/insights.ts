@@ -16,11 +16,10 @@ export const registerInsightsCommand = (program: Command): void => {
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
     .action((commandOptions: InsightsOptions) => {
-      return runCliProgram(
-        insightsCommandProgram({
-          app: commandOptions.app,
-          json: commandOptions.json == true,
-        }),
-      );
+      const insightsProgram = insightsCommandProgram({
+        app: commandOptions.app,
+        json: commandOptions.json == true,
+      });
+      return runCliProgram(insightsProgram);
     });
 };

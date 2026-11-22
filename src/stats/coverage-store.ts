@@ -103,7 +103,8 @@ export function createEmptyAppCoverage(appKey: string): AppCoverage {
 }
 
 function locateCoverageFile(appKey: string): string {
-  return join(locateAppStatsDirectory(appKey), 'coverage.json');
+  const appStatsDirectory = locateAppStatsDirectory(appKey);
+  return join(appStatsDirectory, 'coverage.json');
 }
 
 export async function loadAppCoverage(appKey: string): Promise<AppCoverage> {

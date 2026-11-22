@@ -32,7 +32,9 @@ export const registerAvailabilityCommand = (program: Command): void => {
     .option('--config <path>', 'path to the availability config file', 'availability.config.json')
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: AvailabilityOptions) =>
-      runCliProgram(availabilityCommandProgram(toAvailabilityInput(commandOptions))),
-    );
+    .action((commandOptions: AvailabilityOptions) => {
+      const availability = toAvailabilityInput(commandOptions);
+      const availabilityProgram = availabilityCommandProgram(availability);
+      return runCliProgram(availabilityProgram);
+    });
 };

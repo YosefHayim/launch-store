@@ -82,6 +82,7 @@ export async function openCommandProgram(rawCommandInput: unknown): Promise<void
     logger.line(`Opening ${consoleUrl}`);
     await openUrl(consoleUrl);
   } catch (cause) {
-    throw makeOpenCommandFailure({ message: errorMessage(cause), cause });
+    const failureMessage = errorMessage(cause);
+    throw makeOpenCommandFailure({ message: failureMessage, cause });
   }
 }

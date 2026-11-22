@@ -19,7 +19,8 @@ export const registerStatusCommand = (program: Command): void => {
       'list each app recent builds: version, build, processing state, upload time',
     )
     .option('--json', 'machine-readable output for CI', false)
-    .action((commandFlags: StatusCommandFlags) =>
-      runCliProgram(statusCommandProgram(commandFlags)),
-    );
+    .action((commandFlags: StatusCommandFlags) => {
+      const statusProgram = statusCommandProgram(commandFlags);
+      return runCliProgram(statusProgram);
+    });
 };

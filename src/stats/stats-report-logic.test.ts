@@ -35,20 +35,18 @@ const total = (overrides: Partial<MetricTotal>): MetricTotal => ({
 
 describe('listMonthsInRange', () => {
   test('returns one month when the range stays inside it', () => {
-    expect(listMonthsInRange({ from: '2026-10-02', to: '2026-10-30' })).toEqual(['2026-10']);
+    const monthsInRange = listMonthsInRange({ from: '2026-10-02', to: '2026-10-30' });
+    expect(monthsInRange).toEqual(['2026-10']);
   });
 
   test('returns every month a range touches, across a year end', () => {
-    expect(listMonthsInRange({ from: '2026-11-30', to: '2027-02-01' })).toEqual([
-      '2026-11',
-      '2026-12',
-      '2027-01',
-      '2027-02',
-    ]);
+    const monthsInRange = listMonthsInRange({ from: '2026-11-30', to: '2027-02-01' });
+    expect(monthsInRange).toEqual(['2026-11', '2026-12', '2027-01', '2027-02']);
   });
 
   test('returns nothing when the range ends before it starts', () => {
-    expect(listMonthsInRange({ from: '2026-10-02', to: '2026-09-30' })).toEqual([]);
+    const monthsInRange = listMonthsInRange({ from: '2026-10-02', to: '2026-09-30' });
+    expect(monthsInRange).toEqual([]);
   });
 });
 
@@ -163,20 +161,25 @@ describe('pickHeadlineTotals and readHeadlineTotal', () => {
   ];
 
   test('uses the first preferred metric that has totals', () => {
-    expect(pickHeadlineTotals(totals, ['downloads', 'installs'])).toHaveLength(2);
+    const headlineTotals = pickHeadlineTotals(totals, ['downloads', 'installs']);
+    expect(headlineTotals).toHaveLength(2);
   });
 
   test('adds a sum metric over feeds', () => {
-    expect(readHeadlineTotal(totals, ['downloads', 'installs'])).toBe(12);
+    const headlineTotal = readHeadlineTotal(totals, ['downloads', 'installs']);
+    expect(headlineTotal).toBe(12);
   });
 
   test('takes the first feed for a metric that does not add up', () => {
-    expect(readHeadlineTotal(totals, ['ratingAverage'])).toBe(4.2);
+    const headlineTotal = readHeadlineTotal(totals, ['ratingAverage']);
+    expect(headlineTotal).toBe(4.2);
   });
 
   test('gives null and an empty list when no preferred metric exists', () => {
-    expect(readHeadlineTotal(totals, ['crashRate'])).toBeNull();
-    expect(pickHeadlineTotals(totals, ['crashRate'])).toEqual([]);
+    const headlineTotal = readHeadlineTotal(totals, ['crashRate']);
+    expect(headlineTotal).toBeNull();
+    const headlineTotals = pickHeadlineTotals(totals, ['crashRate']);
+    expect(headlineTotals).toEqual([]);
   });
 });
 
@@ -201,18 +204,21 @@ describe('mergeHeadlinePoints', () => {
   ];
 
   test('adds feeds per day and sorts by day', () => {
-    expect(mergeHeadlinePoints(series, ['downloads'])).toEqual([
+    const headlinePoints = mergeHeadlinePoints(series, ['downloads']);
+    expect(headlinePoints).toEqual([
       { date: '2026-10-01', amount: 1 },
       { date: '2026-10-02', amount: 7 },
     ]);
   });
 
   test('skips a metric whose series are empty and moves to the next', () => {
-    expect(mergeHeadlinePoints(series, ['sessions', 'downloads'])).toHaveLength(2);
+    const headlinePoints = mergeHeadlinePoints(series, ['sessions', 'downloads']);
+    expect(headlinePoints).toHaveLength(2);
   });
 
   test('gives an empty list when nothing matches', () => {
-    expect(mergeHeadlinePoints(series, ['crashRate'])).toEqual([]);
+    const headlinePoints = mergeHeadlinePoints(series, ['crashRate']);
+    expect(headlinePoints).toEqual([]);
   });
 });
 
@@ -270,13 +276,12 @@ describe('isAppStale and listAppMessages', () => {
       },
     };
 
-    expect(listAppMessages(appCoverage)).toEqual([
-      'app-store: Apple is preparing analytics',
-      'ga4: API disabled',
-    ]);
+    const appMessages = listAppMessages(appCoverage);
+    expect(appMessages).toEqual(['app-store: Apple is preparing analytics', 'ga4: API disabled']);
   });
 
   test('lists nothing for an app that was never synced', () => {
-    expect(listAppMessages({ version: 1, appKey: 'ios-1', feeds: {} })).toEqual([]);
+    const appMessages = listAppMessages({ version: 1, appKey: 'ios-1', feeds: {} });
+    expect(appMessages).toEqual([]);
   });
 });

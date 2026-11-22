@@ -18,7 +18,8 @@ const paths = (overrides: Partial<LaunchConfig> = {}): string[] => {
 };
 describe('checkConfigSemantics', () => {
   it('returns nothing for a sound config', () => {
-    expect(checkConfigSemantics(config())).toEqual([]);
+    const checkSemantics = checkConfigSemantics(config());
+    expect(checkSemantics).toEqual([]);
   });
   describe('storage', () => {
     it('flags a cloud provider with no storageConfig', () => {

@@ -59,7 +59,9 @@ describe('release-train record', () => {
   let directoryPath: string;
 
   beforeEach(() => {
-    directoryPath = mkdtempSync(join(tmpdir(), 'launch-trains-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchTrainsPath = join(systemTemporaryDirectory, 'launch-trains-');
+    directoryPath = mkdtempSync(launchTrainsPath);
   });
 
   afterEach(() => {
@@ -69,18 +71,23 @@ describe('release-train record', () => {
   it('round-trips a record through write -> read unchanged', async () => {
     const trainRecord = train();
     await writeTrainRecord(trainRecord, directoryPath);
-    expect(await readTrainRecord(trainRecord.id, directoryPath)).toEqual(trainRecord);
+    const readTrain = await readTrainRecord(trainRecord.id, directoryPath);
+    expect(readTrain).toEqual(trainRecord);
   });
 
   it('returns null for an unknown id', async () => {
-    expect(await readTrainRecord('nope', directoryPath)).toBeNull();
+    const readTrain = await readTrainRecord('nope', directoryPath);
+    expect(readTrain).toBeNull();
   });
 
   it('tolerates a corrupt record file (reads as null / skips it in lists)', async () => {
-    writeFileSync(join(directoryPath, 'broken.json'), '{ not json');
+    const brokenPath = join(directoryPath, 'broken.json');
+    writeFileSync(brokenPath, '{ not json');
     await writeTrainRecord(train(), directoryPath);
-    expect(await readTrainRecord('broken', directoryPath)).toBeNull();
-    expect(await listTrainRecords(directoryPath)).toHaveLength(1);
+    const readTrain = await readTrainRecord('broken', directoryPath);
+    expect(readTrain).toBeNull();
+    const trainRecords = await listTrainRecords(directoryPath);
+    expect(trainRecords).toHaveLength(1);
   });
 
   it('lists records newest-first by createdAt', async () => {
@@ -131,12 +138,14 @@ describe('release-train record', () => {
   });
 
   it('returns null from latestTrainRecord when no trains exist', async () => {
-    expect(await latestTrainRecord(directoryPath)).toBeNull();
+    const latestTrain = await latestTrainRecord(directoryPath);
+    expect(latestTrain).toBeNull();
   });
 
   it('removes a record', async () => {
     await writeTrainRecord(train(), directoryPath);
     await removeTrainRecord('helloworld-ab12', directoryPath);
-    expect(await readTrainRecord('helloworld-ab12', directoryPath)).toBeNull();
+    const readTrain = await readTrainRecord('helloworld-ab12', directoryPath);
+    expect(readTrain).toBeNull();
   });
 });

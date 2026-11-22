@@ -444,9 +444,10 @@ async function reconcileReviewDetails(
   const isReviewMissing = currentReviewDetails == null;
 
   if (isReviewMissing) {
+    const fieldNames = renderFieldNames(desiredAttributes);
     await performAction(
       reconcileContext,
-      `set App Review details (${renderFieldNames(desiredAttributes)})`,
+      `set App Review details (${fieldNames})`,
       async function createReviewDetails() {
         const resolvedAttributes = await resolveReviewWrite(desiredAttributes, resolveDemoSecret);
         await appleReleaseApi.createAppStoreReviewDetail(editableVersion.id, resolvedAttributes);
@@ -483,9 +484,10 @@ async function reconcileReviewDetails(
     changedAttributes[DEMO_PASSWORD_KEY] = passwordSetting;
   }
 
+  const fieldNames = renderFieldNames(changedAttributes);
   await performAction(
     reconcileContext,
-    `update App Review details (${renderFieldNames(changedAttributes)})`,
+    `update App Review details (${fieldNames})`,
     async function updateReviewDetails() {
       const resolvedAttributes = await resolveReviewWrite(changedAttributes, resolveDemoSecret);
       await appleReleaseApi.updateAppStoreReviewDetail(currentReviewDetails.id, resolvedAttributes);

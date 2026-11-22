@@ -219,41 +219,46 @@ export const validate = (
   if (schema.type) {
     const expectedTypes = typeNames(schema.type);
     if (!expectedTypes.some((typeName) => matchesType(candidateValue, typeName))) {
+      const typeOf = jsonTypeOf(candidateValue);
       violations.push({
         path,
-        message: `expected ${expectedTypes.join(' | ')}, got ${jsonTypeOf(candidateValue)}`,
+        message: `expected ${expectedTypes.join(' | ')}, got ${typeOf}`,
       });
       // A wrong base type makes every nested check noise.
       return violations;
     }
   }
   if (schema.enum && !schema.enum.some((allowed) => Object.is(allowed, candidateValue))) {
+    const expected = describeExpected(schema);
+    const serialized = JSON.stringify(candidateValue);
     violations.push({
       path,
-      message: `expected one of ${describeExpected(schema)}, got ${JSON.stringify(candidateValue)}`,
+      message: `expected one of ${expected}, got ${serialized}`,
     });
   }
   if ('const' in schema && Object.is(schema.const, candidateValue) == false) {
+    const serialized = JSON.stringify(schema.const);
     violations.push({
       path,
-      message: `expected ${JSON.stringify(schema.const)}, got ${JSON.stringify(candidateValue)}`,
+      message: `expected ${serialized}, got ${JSON.stringify(candidateValue)}`,
     });
   }
   if (schema.pattern != null && typeof candidateValue == 'string') {
     const stringPattern = new RegExp(schema.pattern);
     if (!stringPattern.test(candidateValue)) {
+      const serialized = JSON.stringify(candidateValue);
       violations.push({
         path,
-        message: `expected a string matching ${schema.pattern}, got ${JSON.stringify(candidateValue)}`,
+        message: `expected a string matching ${schema.pattern}, got ${serialized}`,
       });
     }
   }
   const candidateRecord = readPlainObject(candidateValue);
 
   if (candidateRecord != null) {
-    violations.push(
-      ...validateObject(Object.fromEntries(Object.entries(candidateRecord)), schema, root, path),
-    );
+    const ownEntries = Object.entries(candidateRecord);
+    const object = validateObject(Object.fromEntries(ownEntries), schema, root, path);
+    violations.push(...object);
   }
   const { items } = schema;
   if (items && Array.isArray(candidateValue)) {

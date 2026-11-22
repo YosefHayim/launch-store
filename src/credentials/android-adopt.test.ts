@@ -25,7 +25,9 @@ afterEach(() => {
 });
 
 function setup() {
-  const directory = mkdtempSync(join(tmpdir(), 'launch-adopt-test-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchAdoptTestPath = join(systemTemporaryDirectory, 'launch-adopt-test-');
+  const directory = mkdtempSync(launchAdoptTestPath);
 
   directories.push(directory);
 
@@ -61,10 +63,9 @@ function setup() {
     ],
     { stdio: 'ignore' },
   );
-  writeFileSync(
-    join(legacyDirectory, 'android.json'),
-    JSON.stringify({ keystore: { path, alias: 'upload' } }),
-  );
+  const androidPath = join(legacyDirectory, 'android.json');
+  const serialized = JSON.stringify({ keystore: { path, alias: 'upload' } });
+  writeFileSync(androidPath, serialized);
 
   const account = JSON.stringify({ client_email: 'test@example.invalid', private_key: 'dummy' });
   const secrets = new Map([
@@ -99,7 +100,8 @@ describe('legacy Android credential adoption', () => {
     );
 
     expect(calls).toEqual([sandbox.account, 'com.example.app']);
-    expect(await loadServiceAccount('com.example.app')).toBe(sandbox.account);
+    const serviceAccount = await loadServiceAccount('com.example.app');
+    expect(serviceAccount).toBe(sandbox.account);
 
     const adopted = await loadCachedKeystore('com.example.app');
 
@@ -109,11 +111,16 @@ describe('legacy Android credential adoption', () => {
       throw new Error('Expected an adopted keystore');
     }
 
-    expect(readFileSync(adopted.path)).toEqual(readFileSync(sandbox.path));
+    const loadedFile = readFileSync(adopted.path);
+    const fileSync = readFileSync(sandbox.path);
+    expect(loadedFile).toEqual(fileSync);
     expect(sandbox.secrets.has('play-service-account')).toBe(true);
-    await expect(
-      adoptLegacyAndroidCredentials('com.example.app', false, allowPlayAccess),
-    ).rejects.toMatchObject({
+    const legacyAndroidCredentials = adoptLegacyAndroidCredentials(
+      'com.example.app',
+      false,
+      allowPlayAccess,
+    );
+    await expect(legacyAndroidCredentials).rejects.toMatchObject({
       message: expect.stringMatching(/--yes/),
     });
   }, 30_000);
@@ -123,49 +130,60 @@ describe('legacy Android credential adoption', () => {
 
     sandbox.secrets.set('android-keystore-key-password', 'wrongpass');
 
-    await expect(
-      adoptLegacyAndroidCredentials('com.example.app', false, allowPlayAccess),
-    ).rejects.toMatchObject({
+    const legacyAndroidCredentials = adoptLegacyAndroidCredentials(
+      'com.example.app',
+      false,
+      allowPlayAccess,
+    );
+    await expect(legacyAndroidCredentials).rejects.toMatchObject({
       message: expect.stringMatching(/Could not open/),
     });
-    expect(await loadServiceAccount('com.example.app')).toBeNull();
-    expect(await loadCachedKeystore('com.example.app')).toBeNull();
+    const serviceAccount = await loadServiceAccount('com.example.app');
+    expect(serviceAccount).toBeNull();
+    const cachedKeystore = await loadCachedKeystore('com.example.app');
+    expect(cachedKeystore).toBeNull();
   }, 30_000);
 
   it('does not copy when the Play key cannot read the package', async () => {
     setup();
 
-    await expect(
-      adoptLegacyAndroidCredentials('com.example.app', false, function denyAccess() {
+    const legacyAndroidCredentials = adoptLegacyAndroidCredentials(
+      'com.example.app',
+      false,
+      function denyAccess() {
         return Promise.reject(new Error('denied'));
-      }),
-    ).rejects.toThrow(/denied/);
-    expect(await loadServiceAccount('com.example.app')).toBeNull();
-    expect(await loadCachedKeystore('com.example.app')).toBeNull();
+      },
+    );
+    await expect(legacyAndroidCredentials).rejects.toThrow(/denied/);
+    const serviceAccount = await loadServiceAccount('com.example.app');
+    expect(serviceAccount).toBeNull();
+    const cachedKeystore = await loadCachedKeystore('com.example.app');
+    expect(cachedKeystore).toBeNull();
   }, 30_000);
 
   it('rejects a wrong key password when importing a keystore', async () => {
     const sandbox = setup();
 
-    await expect(
-      ensureUploadKeystore({
-        appName: 'demo',
-        packageName: 'com.example.app',
-        log: createLogger(false),
-        dryRun: false,
-        confirmCreate: function declineCreate() {
-          return Promise.resolve(false);
-        },
-        import: {
-          path: sandbox.path,
-          alias: 'upload',
-          storePassword: 'storepass',
-          keyPassword: 'wrongpass',
-        },
-      }),
-    ).rejects.toMatchObject({
+    const logger = createLogger(false);
+    const uploadKeystore = ensureUploadKeystore({
+      appName: 'demo',
+      packageName: 'com.example.app',
+      log: logger,
+      dryRun: false,
+      confirmCreate: function declineCreate() {
+        return Promise.resolve(false);
+      },
+      import: {
+        path: sandbox.path,
+        alias: 'upload',
+        storePassword: 'storepass',
+        keyPassword: 'wrongpass',
+      },
+    });
+    await expect(uploadKeystore).rejects.toMatchObject({
       message: expect.stringMatching(/Could not open keystore/),
     });
-    expect(await loadCachedKeystore('com.example.app')).toBeNull();
+    const cachedKeystore = await loadCachedKeystore('com.example.app');
+    expect(cachedKeystore).toBeNull();
   }, 30_000);
 });

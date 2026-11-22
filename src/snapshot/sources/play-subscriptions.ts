@@ -312,10 +312,7 @@ async function reconcileSubscriptionActions(
 
     return [...reconciliation.actions];
   } catch (reconciliationFailure) {
-    return [
-      skippedAction(
-        `Google Play subscriptions ${packageName}: ${restoreErrorMessage(reconciliationFailure)}`,
-      ),
-    ];
+    const errorMessage = restoreErrorMessage(reconciliationFailure);
+    return [skippedAction(`Google Play subscriptions ${packageName}: ${errorMessage}`)];
   }
 }

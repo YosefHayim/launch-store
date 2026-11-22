@@ -125,7 +125,8 @@ async function mapWithConcurrency<Member, Mapped>(
   const workers: Promise<void>[] = [];
 
   for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
-    workers.push(runWorker());
+    const worker = runWorker();
+    workers.push(worker);
   }
 
   await Promise.all(workers);

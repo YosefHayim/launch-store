@@ -131,7 +131,8 @@ describe('createPlayClientResolver', () => {
 describe('per-package Play client resolution', () => {
   it('loads each package account independently instead of reusing the first app account', async () => {
     vi.mocked(loadServiceAccount).mockImplementation(function accountJson(packageName: string) {
-      return Promise.resolve(JSON.stringify({ packageName }));
+      const serialized = JSON.stringify({ packageName });
+      return Promise.resolve(serialized);
     });
     const createClient = vi
       .spyOn(GoogleStoreClientService, 'createEffectClient')
@@ -145,8 +146,10 @@ describe('per-package Play client resolution', () => {
     expect(loadServiceAccount).toHaveBeenCalledTimes(2);
     expect(loadServiceAccount).toHaveBeenCalledWith('com.example.alpha');
     expect(loadServiceAccount).toHaveBeenCalledWith('com.example.beta');
-    expect(createClient).toHaveBeenCalledWith(JSON.stringify({ packageName: 'com.example.alpha' }));
+    const serialized = JSON.stringify({ packageName: 'com.example.alpha' });
+    expect(createClient).toHaveBeenCalledWith(serialized);
     expect(createClient).toHaveBeenCalledWith(JSON.stringify({ packageName: 'com.example.beta' }));
-    expect(await resolvePackageClient()).toBeNull();
+    const packageClient = await resolvePackageClient();
+    expect(packageClient).toBeNull();
   });
 });

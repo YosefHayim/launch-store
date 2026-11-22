@@ -296,9 +296,11 @@ export async function playPricingCommandProgram(rawCommandInput: unknown): Promi
   const logger = createLogger(false);
 
   if (commandInput.json) {
-    logger.line(JSON.stringify(convertedPrices, null, 2));
+    const serialized = JSON.stringify(convertedPrices, null, 2);
+    logger.line(serialized);
     return;
   }
 
-  logger.line(renderRecommendedPrices(basePrice, convertedPrices));
+  const recommendedPrices = renderRecommendedPrices(basePrice, convertedPrices);
+  logger.line(recommendedPrices);
 }

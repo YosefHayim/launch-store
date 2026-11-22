@@ -9,7 +9,9 @@ describe('scaffoldStoreConfig', () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'launch-scaffold-'));
+    const systemTemporaryDirectory = tmpdir();
+    const launchScaffoldPath = join(systemTemporaryDirectory, 'launch-scaffold-');
+    dir = mkdtempSync(launchScaffoldPath);
   });
 
   afterEach(() => {
@@ -32,7 +34,8 @@ describe('scaffoldStoreConfig', () => {
   });
 
   it('emits no artifact and a skipped note when one is already present', async () => {
-    writeFileSync(join(dir, 'store.config.json'), '{}');
+    const storePath = join(dir, 'store.config.json');
+    writeFileSync(storePath, '{}');
     const { artifact, note } = await scaffoldStoreConfig(dir);
 
     expect(artifact).toBeNull();
@@ -42,7 +45,8 @@ describe('scaffoldStoreConfig', () => {
 
 describe('buildEnvExample', () => {
   it('returns the starter template when no keys were discovered', () => {
-    expect(buildEnvExample([])).toBe(ENV_EXAMPLE_TEMPLATE);
+    const buildExample = buildEnvExample([]);
+    expect(buildExample).toBe(ENV_EXAMPLE_TEMPLATE);
   });
 
   it('keeps only the template comment header and blank-valued keys', () => {

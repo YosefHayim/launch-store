@@ -37,8 +37,9 @@ function makePlayReportsBucketFailure(fields: {
 }
 
 export function failBucketRead(operation: string, cause: unknown): PlayReportsBucketFailure {
+  const failureMessage = errorMessage(cause);
   return makePlayReportsBucketFailure({
-    message: `Could not ${operation}: ${errorMessage(cause)}`,
+    message: `Could not ${operation}: ${failureMessage}`,
     cause,
   });
 }
@@ -168,7 +169,8 @@ async function listBucketPage(
   accessToken: string,
   pageToken: string | null,
 ): Promise<BucketListReply> {
-  const listReply = await fetchBucket(createListUrl(bucket, prefix, pageToken), accessToken);
+  const listUrl = createListUrl(bucket, prefix, pageToken);
+  const listReply = await fetchBucket(listUrl, accessToken);
   const isForbidden = listReply.status == HTTP_FORBIDDEN;
 
   if (isForbidden) {

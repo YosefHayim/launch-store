@@ -3,14 +3,13 @@ import { MigrateCommandInputSchema } from './command.ts';
 
 describe('MigrateCommandInputSchema', () => {
   it('accepts eas and fastlane with force, dryRun, and optional out', () => {
-    expect(
-      MigrateCommandInputSchema({
-        source: 'eas',
-        force: false,
-        dryRun: true,
-        out: '/tmp/out',
-      }),
-    ).toEqual({
+    const migrateCommandSchema = MigrateCommandInputSchema({
+      source: 'eas',
+      force: false,
+      dryRun: true,
+      out: '/tmp/out',
+    });
+    expect(migrateCommandSchema).toEqual({
       source: 'eas',
       force: false,
       dryRun: true,

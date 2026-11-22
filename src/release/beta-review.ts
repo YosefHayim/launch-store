@@ -254,10 +254,8 @@ async function reconcileSubmission(
   const isAlreadySubmitted = existingSubmission != null;
 
   if (isAlreadySubmitted) {
-    skip(
-      reconciliation,
-      `submit for Beta App Review: build already submitted (${describeState(existingSubmission.state)})`,
-    );
+    const describe = describeState(existingSubmission.state);
+    skip(reconciliation, `submit for Beta App Review: build already submitted (${describe})`);
     return;
   }
 

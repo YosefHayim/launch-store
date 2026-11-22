@@ -27,19 +27,25 @@ export const registerSnapshotCommand = (program: Command): void => {
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
     .action((name: string | undefined, commandOptions: CaptureOptions) => {
-      if (name == null)
-        return runCliProgram(snapshotCommandProgram({ operation: 'create', ...commandOptions }));
-      return runCliProgram(
-        snapshotCommandProgram({ operation: 'create', name, ...commandOptions }),
-      );
+      if (name == null) {
+        const snapshotProgram = snapshotCommandProgram({ operation: 'create', ...commandOptions });
+        return runCliProgram(snapshotProgram);
+      }
+      const snapshotProgram = snapshotCommandProgram({
+        operation: 'create',
+        name,
+        ...commandOptions,
+      });
+      return runCliProgram(snapshotProgram);
     });
   snapshotCommand
     .command('list')
     .description('list saved snapshots, newest first')
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((commandOptions: { json?: boolean }) =>
-      runCliProgram(snapshotCommandProgram({ operation: 'list', ...commandOptions })),
-    );
+    .action((commandOptions: { json?: boolean }) => {
+      const snapshotProgram = snapshotCommandProgram({ operation: 'list', ...commandOptions });
+      return runCliProgram(snapshotProgram);
+    });
   snapshotCommand
     .command('diff <baseline> [against]')
     .description(
@@ -50,29 +56,38 @@ export const registerSnapshotCommand = (program: Command): void => {
     .action((baseline: string, against: string | undefined, commandOptions: CaptureOptions) => {
       let comparisonName = against;
       if (comparisonName == null) comparisonName = 'live';
-      return runCliProgram(
-        snapshotCommandProgram({
-          operation: 'diff',
-          baseline,
-          against: comparisonName,
-          ...commandOptions,
-        }),
-      );
+      const snapshotProgram = snapshotCommandProgram({
+        operation: 'diff',
+        baseline,
+        against: comparisonName,
+        ...commandOptions,
+      });
+      return runCliProgram(snapshotProgram);
     });
   snapshotCommand
     .command('export <name>')
     .description('print a saved snapshot as JSON, or write it to a file with --out')
     .option('--out <file>', 'write the snapshot JSON to this file instead of stdout')
-    .action((name: string, commandOptions: { out?: string }) =>
-      runCliProgram(snapshotCommandProgram({ operation: 'export', name, ...commandOptions })),
-    );
+    .action((name: string, commandOptions: { out?: string }) => {
+      const snapshotProgram = snapshotCommandProgram({
+        operation: 'export',
+        name,
+        ...commandOptions,
+      });
+      return runCliProgram(snapshotProgram);
+    });
   snapshotCommand
     .command('delete <name>')
     .description('delete a saved snapshot by name')
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((name: string, commandOptions: { json?: boolean }) =>
-      runCliProgram(snapshotCommandProgram({ operation: 'delete', name, ...commandOptions })),
-    );
+    .action((name: string, commandOptions: { json?: boolean }) => {
+      const snapshotProgram = snapshotCommandProgram({
+        operation: 'delete',
+        name,
+        ...commandOptions,
+      });
+      return runCliProgram(snapshotProgram);
+    });
   snapshotCommand
     .command('prune')
     .description(
@@ -82,9 +97,13 @@ export const registerSnapshotCommand = (program: Command): void => {
     .option('--older-than <days>', 'delete snapshots older than N days')
     .option('--yes', 'actually delete (without it, a dry-run preview is shown)', false)
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((commandOptions: PruneOptions) =>
-      runCliProgram(snapshotCommandProgram({ operation: 'prune', options: commandOptions })),
-    );
+    .action((commandOptions: PruneOptions) => {
+      const snapshotProgram = snapshotCommandProgram({
+        operation: 'prune',
+        options: commandOptions,
+      });
+      return runCliProgram(snapshotProgram);
+    });
   snapshotCommand
     .command('restore <name>')
     .description(
@@ -94,7 +113,12 @@ export const registerSnapshotCommand = (program: Command): void => {
     .option('--source <id>', 'restore only this source (e.g. apple-listing)')
     .option('--yes', 'actually apply the restore (without it, a dry-run plan is shown)', false)
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((name: string, commandOptions: RestoreOptions) =>
-      runCliProgram(snapshotCommandProgram({ operation: 'restore', name, ...commandOptions })),
-    );
+    .action((name: string, commandOptions: RestoreOptions) => {
+      const snapshotProgram = snapshotCommandProgram({
+        operation: 'restore',
+        name,
+        ...commandOptions,
+      });
+      return runCliProgram(snapshotProgram);
+    });
 };

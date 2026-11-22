@@ -8,7 +8,8 @@ import {
 
 describe('parsePlayPrice', () => {
   it('normalizes decimal money to whole units and nanos', () => {
-    expect(parsePlayPrice('007.50', 'eur')).toEqual({
+    const playPrice = parsePlayPrice('007.50', 'eur');
+    expect(playPrice).toEqual({
       currencyCode: 'EUR',
       units: '7',
       nanos: 500000000,
@@ -16,7 +17,8 @@ describe('parsePlayPrice', () => {
   });
 
   it('accepts whole amounts and the full nine-decimal precision', () => {
-    expect(parsePlayPrice('600', 'JPY')).toEqual({
+    const playPrice = parsePlayPrice('600', 'JPY');
+    expect(playPrice).toEqual({
       currencyCode: 'JPY',
       units: '600',
       nanos: 0,
@@ -38,7 +40,8 @@ describe('parsePlayPrice', () => {
 
 describe('formatPlayMoney', () => {
   it('renders whole, two-decimal, and high-precision money', () => {
-    expect(formatPlayMoney({ currencyCode: 'JPY', units: '600', nanos: 0 })).toBe('JPY 600');
+    const playMoney = formatPlayMoney({ currencyCode: 'JPY', units: '600', nanos: 0 });
+    expect(playMoney).toBe('JPY 600');
     expect(formatPlayMoney({ currencyCode: 'USD', units: '4', nanos: 500000000 })).toBe('USD 4.50');
     expect(formatPlayMoney({ currencyCode: 'USD', units: '4', nanos: 123456789 })).toBe(
       'USD 4.123456789',
@@ -48,13 +51,12 @@ describe('formatPlayMoney', () => {
 
 describe('PlayPricingCommandInputSchema', () => {
   it('decodes the Commander boundary without an app selector', () => {
-    expect(
-      PlayPricingCommandInputSchema({
-        amount: '4.99',
-        currency: 'USD',
-        json: false,
-      }),
-    ).toEqual({ amount: '4.99', currency: 'USD', json: false });
+    const playPricingCommandSchema = PlayPricingCommandInputSchema({
+      amount: '4.99',
+      currency: 'USD',
+      json: false,
+    });
+    expect(playPricingCommandSchema).toEqual({ amount: '4.99', currency: 'USD', json: false });
   });
 
   it('rejects an explicit undefined exact optional app', () => {
@@ -71,22 +73,21 @@ describe('PlayPricingCommandInputSchema', () => {
 
 describe('renderRecommendedPrices', () => {
   it('renders regional and fallback prices', () => {
-    expect(
-      renderRecommendedPrices(
-        { currencyCode: 'USD', units: '4', nanos: 990000000 },
-        {
-          regions: [
-            {
-              regionCode: 'DE',
-              price: { currencyCode: 'EUR', units: '4', nanos: 490000000 },
-            },
-          ],
-          otherRegions: {
-            usdPrice: { currencyCode: 'USD', units: '4', nanos: 990000000 },
-            eurPrice: { currencyCode: 'EUR', units: '4', nanos: 490000000 },
+    const recommendedPrices = renderRecommendedPrices(
+      { currencyCode: 'USD', units: '4', nanos: 990000000 },
+      {
+        regions: [
+          {
+            regionCode: 'DE',
+            price: { currencyCode: 'EUR', units: '4', nanos: 490000000 },
           },
+        ],
+        otherRegions: {
+          usdPrice: { currencyCode: 'USD', units: '4', nanos: 990000000 },
+          eurPrice: { currencyCode: 'EUR', units: '4', nanos: 490000000 },
         },
-      ),
-    ).toContain('DE  EUR 4.49');
+      },
+    );
+    expect(recommendedPrices).toContain('DE  EUR 4.49');
   });
 });

@@ -254,7 +254,8 @@ function printTargetPlan(logger: Logger, targetPlan: TargetPlan): void {
   const planLines: string[] = [];
 
   for (const plannedWrite of targetPlan.writes) {
-    planLines.push(`${adoptFidelityMarker(plannedWrite.fidelity)} ${plannedWrite.description}`);
+    const fidelityMarker = adoptFidelityMarker(plannedWrite.fidelity);
+    planLines.push(`${fidelityMarker} ${plannedWrite.description}`);
 
     if (plannedWrite.note != null) {
       planLines.push(`    -> ${plannedWrite.note}`);
@@ -385,7 +386,8 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       return;
     }
 
-    const targetPlans = await planTargets(appleCatalog, detection, listAdopters());
+    const adopters = listAdopters();
+    const targetPlans = await planTargets(appleCatalog, detection, adopters);
     logger.gap();
 
     for (const targetPlan of targetPlans) {
@@ -429,10 +431,14 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       }
     }
 
+    const sharedAppRoot = detectSharedAppRoot(selectedApps, launchPaths.workingDirectory, {
+      relative,
+      sep,
+    });
     const adoptionSummary = await applyAdopt(targetPlans, {
       cwd: launchPaths.workingDirectory,
       hasLaunchConfig,
-      appRoot: detectSharedAppRoot(selectedApps, launchPaths.workingDirectory, { relative, sep }),
+      appRoot: sharedAppRoot,
       pullListing(bundleId, configPath) {
         return pullAppleListing(bundleId, configPath, false);
       },

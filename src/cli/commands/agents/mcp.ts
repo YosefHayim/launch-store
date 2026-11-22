@@ -11,7 +11,10 @@ export const registerMcpCommand = (program: Command): void => {
     .description(
       "serve Launch's read-only tools to AI agents over MCP (stdio); `install` wires it into a client",
     )
-    .action(() => runCliProgram(mcpCommandProgram({ operation: 'serve' })));
+    .action(() => {
+      const mcpProgram = mcpCommandProgram({ operation: 'serve' });
+      return runCliProgram(mcpProgram);
+    });
 
   mcpCommand
     .command('install')
@@ -19,7 +22,8 @@ export const registerMcpCommand = (program: Command): void => {
       "wire `launch mcp` into an AI client's config (default: auto-detect Claude Code / Cursor)",
     )
     .option('--client <name>', 'claude-code | cursor | claude-desktop (default: auto-detect)')
-    .action((commandOptions: McpInstallOptions) =>
-      runCliProgram(mcpCommandProgram({ operation: 'install', client: commandOptions.client })),
-    );
+    .action((commandOptions: McpInstallOptions) => {
+      const mcpProgram = mcpCommandProgram({ operation: 'install', client: commandOptions.client });
+      return runCliProgram(mcpProgram);
+    });
 };

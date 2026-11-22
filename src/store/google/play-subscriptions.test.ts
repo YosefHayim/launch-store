@@ -219,13 +219,12 @@ describe('offerFromConfig', () => {
 describe('reconcilePlaySubscriptions', () => {
   it('throws when the Play app record is unreachable', async () => {
     const { api } = makeApi([], { reachable: false });
-    await expect(
-      runReconcile(api, {
-        packageName: 'com.acme.app',
-        subscriptions: [sub()],
-        dryRun: true,
-      }),
-    ).rejects.toThrow(/No reachable Play app/);
+    const reconcile = runReconcile(api, {
+      packageName: 'com.acme.app',
+      subscriptions: [sub()],
+      dryRun: true,
+    });
+    await expect(reconcile).rejects.toThrow(/No reachable Play app/);
   });
 
   it('skips catalog subscriptions without a play override', async () => {
@@ -283,7 +282,8 @@ describe('reconcilePlaySubscriptions', () => {
     expect(calls.activatedOffers).toEqual([
       { productId: 'com.acme.pro.monthly', basePlanId: 'p1m', offerId: 'trial' },
     ]);
-    expect(summarizePlaySubscriptions(subscriptionsOutcome.actions).failed).toBe(0);
+    const playSubscriptions = summarizePlaySubscriptions(subscriptionsOutcome.actions);
+    expect(playSubscriptions.failed).toBe(0);
   });
 
   it('honors play.productId and play.basePlanId overrides', async () => {

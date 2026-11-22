@@ -26,14 +26,13 @@ export const registerReviewsCommand = (program: Command): void => {
           json?: boolean;
         },
       ) => {
-        return runCliProgram(
-          reviewsCommandProgram({
-            operation: 'list',
-            ...options,
-            unanswered: options.unanswered == true,
-            json: options.json == true,
-          }),
-        );
+        const reviewsProgram = reviewsCommandProgram({
+          operation: 'list',
+          ...options,
+          unanswered: options.unanswered == true,
+          json: options.json == true,
+        });
+        return runCliProgram(reviewsProgram);
       },
     );
   reviews
@@ -50,14 +49,13 @@ export const registerReviewsCommand = (program: Command): void => {
           yes?: boolean;
         },
       ) => {
-        return runCliProgram(
-          reviewsCommandProgram({
-            operation: 'reply',
-            reviewId,
-            ...options,
-            yes: options.yes == true,
-          }),
-        );
+        const reviewsProgram = reviewsCommandProgram({
+          operation: 'reply',
+          reviewId,
+          ...options,
+          yes: options.yes == true,
+        });
+        return runCliProgram(reviewsProgram);
       },
     );
   reviews
@@ -66,8 +64,11 @@ export const registerReviewsCommand = (program: Command): void => {
     .argument('<reviewId>', 'the review id from `reviews list`')
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((reviewId: string, options: { yes?: boolean }) => {
-      return runCliProgram(
-        reviewsCommandProgram({ operation: 'delete', reviewId, yes: options.yes == true }),
-      );
+      const reviewsProgram = reviewsCommandProgram({
+        operation: 'delete',
+        reviewId,
+        yes: options.yes == true,
+      });
+      return runCliProgram(reviewsProgram);
     });
 };

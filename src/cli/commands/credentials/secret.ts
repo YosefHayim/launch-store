@@ -26,24 +26,22 @@ export const registerSecretCommand = (program: Command): void => {
     .option('--yes', 'non-interactive: fail instead of prompting (CI, remote, agents)')
     .action((action: string, name: string | undefined, commandOptions: SecretOptions) => {
       if (action == 'set') {
-        return runCliProgram(
-          secretCommandProgram({
-            action,
-            name,
-            value: commandOptions.value,
-            app: commandOptions.app,
-            profile: commandOptions.profile,
-            yes: commandOptions.yes == true,
-          }),
-        );
-      }
-      return runCliProgram(
-        secretCommandProgram({
+        const secretProgram = secretCommandProgram({
           action,
           name,
+          value: commandOptions.value,
           app: commandOptions.app,
           profile: commandOptions.profile,
-        }),
-      );
+          yes: commandOptions.yes == true,
+        });
+        return runCliProgram(secretProgram);
+      }
+      const secretProgram = secretCommandProgram({
+        action,
+        name,
+        app: commandOptions.app,
+        profile: commandOptions.profile,
+      });
+      return runCliProgram(secretProgram);
     });
 };

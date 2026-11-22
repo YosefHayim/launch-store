@@ -28,7 +28,8 @@ const USAGE_TO_DATA_TYPE: Record<string, string> = {
   NSHealthUpdateUsageDescription: 'NSPrivacyCollectedDataTypeHealth',
 };
 /** The data types the reconcile can reason about - only these are eligible for the over-declaration check. */
-const reconcilableDataTypes = new Set(Object.values(USAGE_TO_DATA_TYPE));
+const ownValues = Object.values(USAGE_TO_DATA_TYPE);
+const reconcilableDataTypes = new Set(ownValues);
 /** Reconcile one app's surface into findings. Pure; the order is empty -> manifest -> collection -> tracking -> android. */
 export const reconcilePrivacy = (app: string, surface: PrivacySurface): PrivacyFinding[] => {
   const findings: PrivacyFinding[] = [];

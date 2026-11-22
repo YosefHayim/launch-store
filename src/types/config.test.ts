@@ -21,7 +21,8 @@ describe('LaunchConfig parse boundary', () => {
     expect(parsed.storage).toBe('s3');
   });
   it('rejects an unknown top-level key (strict root - the #197 gate)', () => {
-    expect(validateLaunchConfig({ profiles: {}, nope: 1 }).length).toBeGreaterThan(0);
+    const validateLaunch = validateLaunchConfig({ profiles: {}, nope: 1 });
+    expect(validateLaunch.length).toBeGreaterThan(0);
   });
   it('accepts the per-platform submit form for a subset of platforms', () => {
     const parsed = parseLaunchConfig({
@@ -33,12 +34,11 @@ describe('LaunchConfig parse boundary', () => {
 });
 describe('SubmitByPlatform validation via LaunchConfig schema', () => {
   it('accepts a single platform key and rejects unknown platform keys', () => {
-    expect(
-      validateLaunchConfig({
-        profiles: {},
-        submit: { ios: ['app-store-connect'] },
-      }),
-    ).toEqual([]);
+    const validateLaunch = validateLaunchConfig({
+      profiles: {},
+      submit: { ios: ['app-store-connect'] },
+    });
+    expect(validateLaunch).toEqual([]);
     expect(validateLaunchConfig({ profiles: {}, submit: {} })).toEqual([]);
     expect(
       validateLaunchConfig({

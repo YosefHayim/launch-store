@@ -20,10 +20,13 @@ afterEach(() => {
 });
 /** Write a sidecar config to a fresh temp file and return its path. */
 const writeConfig = (json: unknown): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'launch-exp-'));
+  const systemTemporaryDirectory = tmpdir();
+  const launchExpPath = join(systemTemporaryDirectory, 'launch-exp-');
+  const dir = mkdtempSync(launchExpPath);
   tmpDirs.push(dir);
   const path = join(dir, 'experiments.config.json');
-  writeFileSync(path, JSON.stringify(json));
+  const serialized = JSON.stringify(json);
+  writeFileSync(path, serialized);
   return path;
 };
 const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext => {
@@ -45,9 +48,10 @@ const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext =>
 const DECLARED = { experiments: [{ name: 'exp1', trafficProportion: 50 }] };
 describe('experimentsPlanner', () => {
   it('omits itself when no experiments sidecar is present', async () => {
+    const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(
       experimentsPlanner,
-      makeCtx(makeAscApiFake(), '/no/such/experiments.config.json'),
+      makeCtx(ascApiFake, '/no/such/experiments.config.json'),
     );
     expect(plan.state).toBe('omitted');
   });
@@ -58,10 +62,8 @@ describe('experimentsPlanner', () => {
     expect(plan.hint).toMatch(/creds/);
   });
   it("reports an additive plan when the experiment doesn't exist yet", async () => {
-    const plan = await runPlanner(
-      experimentsPlanner,
-      makeCtx(makeAscApiFake(), writeConfig(DECLARED)),
-    );
+    const ascApiFake = makeAscApiFake();
+    const plan = await runPlanner(experimentsPlanner, makeCtx(ascApiFake, writeConfig(DECLARED)));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;

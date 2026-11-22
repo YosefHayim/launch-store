@@ -25,7 +25,8 @@ export const registerAiListingCommand = (program: Command): void => {
     .option('--config <path>', 'path to store.config.json (default: <app>/store.config.json)')
     .option('--dry-run', 'generate and preview, but write nothing', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: AiListingInput) =>
-      runCliProgram(aiListingCommandProgram(commandOptions)),
-    );
+    .action((commandOptions: AiListingInput) => {
+      const aiListingProgram = aiListingCommandProgram(commandOptions);
+      return runCliProgram(aiListingProgram);
+    });
 };

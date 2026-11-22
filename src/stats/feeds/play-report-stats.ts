@@ -53,7 +53,8 @@ const readMappedStats = (
     if (date == null) return [];
     if (!isDateInRange(date, range)) return [];
     return mappings.flatMap((mapping) => {
-      const cellNumber = readNumber(readFirstColumn(line, mapping.columnNames));
+      const firstColumn = readFirstColumn(line, mapping.columnNames);
+      const cellNumber = readNumber(firstColumn);
       if (cellNumber == null) return [];
       return [
         {
@@ -104,12 +105,12 @@ export const readCrashStats = (table: PlayCsvTable, range: DateRange): DailyStat
   readMappedStats(table, range, [{ columnNames: ['daily crashes'], metric: 'crashes' }]);
 
 /** Store performance by country: listing visitors summed over countries per day. */
-export const readStorePerformanceStats = (table: PlayCsvTable, range: DateRange): DailyStat[] =>
-  sumStatsByIdentity(
-    readMappedStats(table, range, [
-      { columnNames: ['store listing visitors'], metric: 'productPageViews' },
-    ]),
-  );
+export const readStorePerformanceStats = (table: PlayCsvTable, range: DateRange): DailyStat[] => {
+  const mappedStats = readMappedStats(table, range, [
+    { columnNames: ['store listing visitors'], metric: 'productPageViews' },
+  ]);
+  return sumStatsByIdentity(mappedStats);
+};
 
 /** The newest day that has a line, whatever the range, so a half-published month is covered only as far as it goes. */
 export const findLatestCsvDate = (table: PlayCsvTable): string | null => {
@@ -193,7 +194,8 @@ export const readEarningsStats = (
 
 /** The `yyyyMM` months a range touches, the form Play puts in file names. */
 export const listReportMonths = (range: DateRange): string[] => {
-  const firstMonth = new Date(`${readMonthOfDate(range.from)}-01T00:00:00.000Z`);
+  const monthOfDate = readMonthOfDate(range.from);
+  const firstMonth = new Date(`${monthOfDate}-01T00:00:00.000Z`);
   const lastMonth = new Date(`${readMonthOfDate(range.to)}-01T00:00:00.000Z`);
   const monthsInYear = 12;
   const monthCount =

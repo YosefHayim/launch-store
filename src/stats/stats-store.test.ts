@@ -25,9 +25,10 @@ describe('saveDailyStats', () => {
 
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
       homeDirectory,
-      workingDirectory: join(homeDirectory, 'work'),
+      workingDirectory: workPath,
     });
   });
 
@@ -45,23 +46,24 @@ describe('saveDailyStats', () => {
   }
 
   test('writes one file per month', async () => {
-    await saveInHome([createStat({ date: '2026-09-30' }), createStat({ date: '2026-10-01' })]);
+    const stat = createStat({ date: '2026-09-30' });
+    await saveInHome([stat, createStat({ date: '2026-10-01' })]);
 
     expect(readdirSync(appFolder()).sort()).toEqual(['2026-09.json', '2026-10.json']);
   });
 
   test('merges with the days already saved in that month', async () => {
-    await saveInHome([
-      createStat({ date: '2026-10-01', value: 1 }),
-      createStat({ date: '2026-10-02', value: 2 }),
-    ]);
+    const stat = createStat({ date: '2026-10-01', value: 1 });
+    await saveInHome([stat, createStat({ date: '2026-10-02', value: 2 })]);
 
     await saveInHome([
       createStat({ date: '2026-10-02', value: 9 }),
       createStat({ date: '2026-10-03', value: 3 }),
     ]);
 
-    const monthFile = JSON.parse(readFileSync(join(appFolder(), '2026-10.json'), 'utf8'));
+    const joinedPath = join(appFolder(), '2026-10.json');
+    const loadedFile = readFileSync(joinedPath, 'utf8');
+    const monthFile = JSON.parse(loadedFile);
     expect(monthFile.stats.map((stat: DailyStat) => [stat.date, stat.value])).toEqual([
       ['2026-10-01', 1],
       ['2026-10-02', 9],
@@ -73,11 +75,14 @@ describe('saveDailyStats', () => {
   test('writes nothing for no stats', async () => {
     await saveInHome([]);
 
-    expect(() => readdirSync(appFolder())).toThrow();
+    expect(() => {
+      return readdirSync(appFolder());
+    }).toThrow();
   });
 
   test('fails for an app key that is not valid', async () => {
-    await expect(saveDailyStats('bad key', [createStat({})])).rejects.toMatchObject({
+    const stat = createStat({});
+    await expect(saveDailyStats('bad key', [stat])).rejects.toMatchObject({
       _tag: 'InvalidAppKeyFailure',
     });
   });

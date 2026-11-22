@@ -92,29 +92,35 @@ describe('findBuild', () => {
   const history = [newest, older];
 
   it('resolves `latest` to the newest build', () => {
-    expect(findBuild(history, 'latest')).toBe(newest);
+    const buildProgram = findBuild(history, 'latest');
+    expect(buildProgram).toBe(newest);
   });
 
   it('matches a full build id', () => {
-    expect(findBuild(history, 'demo-1.0.0-7-ios')).toBe(older);
+    const buildProgram = findBuild(history, 'demo-1.0.0-7-ios');
+    expect(buildProgram).toBe(older);
   });
 
   it('matches a bare build number', () => {
-    expect(findBuild(history, '9')).toBe(newest);
+    const buildProgram = findBuild(history, '9');
+    expect(buildProgram).toBe(newest);
   });
 
   it('returns undefined on a miss', () => {
-    expect(findBuild(history, 'nope')).toBeUndefined();
+    const buildProgram = findBuild(history, 'nope');
+    expect(buildProgram).toBeUndefined();
   });
 
   it('returns undefined for `latest` against an empty history', () => {
-    expect(findBuild([], 'latest')).toBeUndefined();
+    const buildProgram = findBuild([], 'latest');
+    expect(buildProgram).toBeUndefined();
   });
 });
 
 describe('buildKindLabel / buildsLabel', () => {
   it('labels pruned, clean, and incremental builds', () => {
-    expect(buildKindLabel({ clean: true, prunedAt: '2026-06-14T00:00:00.000Z' })).toBe('pruned');
+    const kindLabel = buildKindLabel({ clean: true, prunedAt: '2026-06-14T00:00:00.000Z' });
+    expect(kindLabel).toBe('pruned');
     expect(buildKindLabel({ clean: true })).toBe('clean');
     expect(buildKindLabel({ clean: false })).toBe('incremental');
   });
@@ -166,7 +172,8 @@ describe('formatBuildDetail', () => {
 
 describe('pruned builds - history survives, binary is marked gone', () => {
   it('carries prunedAt onto the row only when set', () => {
-    expect(toBuildRow(artifact()).prunedAt).toBeUndefined();
+    const toBuild = toBuildRow(artifact());
+    expect(toBuild.prunedAt).toBeUndefined();
     expect(toBuildRow(artifact({ prunedAt: '2026-06-14T00:00:00.000Z' })).prunedAt).toBe(
       '2026-06-14T00:00:00.000Z',
     );
@@ -232,7 +239,8 @@ function thrownPruneFailure(daysText: string): unknown {
 
 describe('parsePruneDays', () => {
   it('accepts positive whole numbers and absent overrides', () => {
-    expect(parsePruneDays(undefined)).toBeUndefined();
+    const pruneDays = parsePruneDays(undefined);
+    expect(pruneDays).toBeUndefined();
     expect(parsePruneDays('30')).toBe(30);
   });
 

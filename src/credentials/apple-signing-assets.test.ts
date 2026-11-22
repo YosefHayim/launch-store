@@ -19,7 +19,9 @@ import type { AscKey, SigningAssets } from '../types/credentials.ts';
 import type { BundleIdCapabilityResource, ProfileResource } from '../types/apple-catalog.ts';
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
 
-const home = { dir: mkdtempSync(join(tmpdir(), 'launch-credentials-test-')) };
+const systemTemporaryDirectory = tmpdir();
+const launchCredentialsTestPath = join(systemTemporaryDirectory, 'launch-credentials-test-');
+const home = { dir: mkdtempSync(launchCredentialsTestPath) };
 
 vi.mock('../adopt/profile-entitlements.ts', () => ({
   extractProfileEntitlements: vi.fn(),
@@ -51,24 +53,24 @@ function seedCredentials(
   const p12Path = join(dir, 'dist-SERIAL.p12');
 
   writeFileSync(p12Path, 'p12-bytes');
-  writeFileSync(
-    join(dir, 'index.json'),
-    JSON.stringify({
-      certificate: { id: 'cert-1', serial: 'SERIAL', p12Path },
-      profiles: Object.fromEntries(
-        Object.entries(profiles).map(function profileEntry([bundleId, { uuid }]) {
-          return [bundleId, profileRecord(bundleId, uuid)];
-        }),
-      ),
-    }),
-  );
+  const indexPath = join(dir, 'index.json');
+  const serialized = JSON.stringify({
+    certificate: { id: 'cert-1', serial: 'SERIAL', p12Path },
+    profiles: Object.fromEntries(
+      Object.entries(profiles).map(function profileEntry([bundleId, { uuid }]) {
+        return [bundleId, profileRecord(bundleId, uuid)];
+      }),
+    ),
+  });
+  writeFileSync(indexPath, serialized);
 
   const provisioningProfilesDirectory = resolveProvisioningProfilesDirectory();
 
   mkdirSync(provisioningProfilesDirectory, { recursive: true });
 
   for (const uuid of installedUuids) {
-    writeFileSync(join(provisioningProfilesDirectory, `${uuid}.mobileprovision`), 'profile-bytes');
+    const joinedPath = join(provisioningProfilesDirectory, `${uuid}.mobileprovision`);
+    writeFileSync(joinedPath, 'profile-bytes');
   }
 }
 
@@ -106,7 +108,8 @@ describe('loadCachedSigningAssets - multi-bundle (app + extensions) fast path (#
   it('returns null when a requested extension has no profile in the index', async () => {
     seedCredentials({ [MAIN]: { uuid: 'uuid-main' } }, ['uuid-main']);
 
-    expect(await loadCachedSigningAssets(KEY_ID, MAIN, [WIDGET])).toBeNull();
+    const cachedSigningAssets = await loadCachedSigningAssets(KEY_ID, MAIN, [WIDGET]);
+    expect(cachedSigningAssets).toBeNull();
   });
 
   it("returns null when an extension's profile is in the index but not installed on disk", async () => {
@@ -114,25 +117,26 @@ describe('loadCachedSigningAssets - multi-bundle (app + extensions) fast path (#
       'uuid-main',
     ]);
 
-    expect(await loadCachedSigningAssets(KEY_ID, MAIN, [WIDGET])).toBeNull();
+    const cachedSigningAssets = await loadCachedSigningAssets(KEY_ID, MAIN, [WIDGET]);
+    expect(cachedSigningAssets).toBeNull();
   });
 });
 
 describe('ensureAdHocSigningCredentials - macOS has no ad-hoc distribution', () => {
   it('rejects macOS up front (even in dry-run) before touching the network or keychain', async () => {
-    await expect(
-      ensureAdHocSigningCredentials({
-        platform: 'macos',
-        bundleId: MAIN,
-        appName: 'Mapleleaf',
-        ascKey: dummyKey,
-        log: createLogger(false),
-        dryRun: true,
-        confirmCreate: function confirmCreate() {
-          return Promise.resolve(true);
-        },
-      }),
-    ).rejects.toMatchObject({
+    const logger = createLogger(false);
+    const adHocSigningCredentials = ensureAdHocSigningCredentials({
+      platform: 'macos',
+      bundleId: MAIN,
+      appName: 'Mapleleaf',
+      ascKey: dummyKey,
+      log: logger,
+      dryRun: true,
+      confirmCreate: function confirmCreate() {
+        return Promise.resolve(true);
+      },
+    });
+    await expect(adHocSigningCredentials).rejects.toMatchObject({
       message: expect.stringMatching(/macOS has no ad-hoc/i),
     });
   });

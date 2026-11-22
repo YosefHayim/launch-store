@@ -29,13 +29,12 @@ const fakePlanner = (surfaceId: string): SurfacePlanner => ({
 
 describe('decodePlanCommandInput', () => {
   it('decodes plan and drift inputs with exact optional selectors', () => {
-    expect(
-      decodePlanCommandInput({
-        operation: 'plan',
-        check: false,
-        json: true,
-      }),
-    ).toEqual({ operation: 'plan', check: false, json: true });
+    const decodePlanCommand = decodePlanCommandInput({
+      operation: 'plan',
+      check: false,
+      json: true,
+    });
+    expect(decodePlanCommand).toEqual({ operation: 'plan', check: false, json: true });
     expect(() =>
       decodePlanCommandInput({
         operation: 'drift',
@@ -49,7 +48,8 @@ describe('decodePlanCommandInput', () => {
 
 describe('planGlyph', () => {
   it('uses ASCII markers for additions, updates, removals, and skips', () => {
-    expect(planGlyph(plannedAction())).toBe('+');
+    const glyph = planGlyph(plannedAction());
+    expect(glyph).toBe('+');
     expect(planGlyph(plannedAction({ description: 'update listing name none->Acme' }))).toBe('~');
     expect(planGlyph(plannedAction({ destructive: true }))).toBe('-');
     expect(planGlyph(plannedAction({ status: 'skipped' }))).toBe('-');

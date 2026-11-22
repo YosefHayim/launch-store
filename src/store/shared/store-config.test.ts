@@ -5,7 +5,9 @@ import { dirname, join } from 'node:path';
 import { parseStoreConfig, readAndroidMetadataDir, readAppleMetadataDir } from './store-config.ts';
 const tmpDirs: string[] = [];
 const workDir = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'storeconfig-test-'));
+  const systemTemporaryDirectory = tmpdir();
+  const storeconfigTestPath = join(systemTemporaryDirectory, 'storeconfig-test-');
+  const dir = mkdtempSync(storeconfigTestPath);
   tmpDirs.push(dir);
   return dir;
 };
@@ -46,23 +48,33 @@ describe('parseStoreConfig', () => {
 });
 const writeMetadataFiles = (dir: string, files: Record<string, string>): void => {
   for (const [relativePath, text] of Object.entries(files)) {
-    mkdirSync(dirname(join(dir, relativePath)), { recursive: true });
+    const joinedPath = join(dir, relativePath);
+    const parentDirectory = dirname(joinedPath);
+    mkdirSync(parentDirectory, { recursive: true });
     writeFileSync(join(dir, relativePath), text);
   }
 };
 describe('apple metadata folder read (deliver layout)', () => {
   it('reads deliver .txt files into the apple section', async () => {
     const dir = workDir();
+    const namePath = join('en-US', 'name.txt');
+    const subtitlePath = join('en-US', 'subtitle.txt');
+    const descriptionPath = join('en-US', 'description.txt');
+    const keywordsPath = join('en-US', 'keywords.txt');
+    const releaseNotesPath = join('en-US', 'release_notes.txt');
+    const privacyUrlPath = join('en-US', 'privacy_url.txt');
+    const supportUrlPath = join('en-US', 'support_url.txt');
     writeMetadataFiles(dir, {
-      [join('en-US', 'name.txt')]: 'Hello',
-      [join('en-US', 'subtitle.txt')]: 'Sub',
-      [join('en-US', 'description.txt')]: 'A great app',
-      [join('en-US', 'keywords.txt')]: 'fast, local',
-      [join('en-US', 'release_notes.txt')]: 'First release',
-      [join('en-US', 'privacy_url.txt')]: 'https://example.com/privacy',
-      [join('en-US', 'support_url.txt')]: '   ',
+      [namePath]: 'Hello',
+      [subtitlePath]: 'Sub',
+      [descriptionPath]: 'A great app',
+      [keywordsPath]: 'fast, local',
+      [releaseNotesPath]: 'First release',
+      [privacyUrlPath]: 'https://example.com/privacy',
+      [supportUrlPath]: '   ',
     });
-    expect(await readAppleMetadataDir(dir)).toEqual({
+    const appleMetadataDir = await readAppleMetadataDir(dir);
+    expect(appleMetadataDir).toEqual({
       info: {
         'en-US': {
           title: 'Hello',
@@ -79,12 +91,16 @@ describe('apple metadata folder read (deliver layout)', () => {
 describe('android metadata folder read (supply layout)', () => {
   it('reads supply .txt files into the android section', async () => {
     const dir = workDir();
+    const titlePath = join('en-US', 'title.txt');
+    const shortDescriptionPath = join('en-US', 'short_description.txt');
+    const fullDescriptionPath = join('en-US', 'full_description.txt');
     writeMetadataFiles(dir, {
-      [join('en-US', 'title.txt')]: 'Hello',
-      [join('en-US', 'short_description.txt')]: 'short',
-      [join('en-US', 'full_description.txt')]: 'the full thing',
+      [titlePath]: 'Hello',
+      [shortDescriptionPath]: 'short',
+      [fullDescriptionPath]: 'the full thing',
     });
-    expect(await readAndroidMetadataDir(dir)).toEqual({
+    const androidMetadataDir = await readAndroidMetadataDir(dir);
+    expect(androidMetadataDir).toEqual({
       info: {
         'en-US': { title: 'Hello', shortDescription: 'short', fullDescription: 'the full thing' },
       },

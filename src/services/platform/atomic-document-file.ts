@@ -39,9 +39,10 @@ export async function readDocumentFile<Document>(
       throw cause;
     }
 
+    const failureMessage = errorMessage(cause);
     throw makeDocumentFileFailure({
       filePath,
-      message: `Could not read ${filePath}: ${errorMessage(cause)}`,
+      message: `Could not read ${filePath}: ${failureMessage}`,
       cause,
     });
   }
@@ -59,9 +60,10 @@ export async function writeDocumentFileAtomically(
     await writeFile(draftFilePath, `${documentAsString}\n`);
     await rename(draftFilePath, filePath);
   } catch (cause) {
+    const failureMessage = errorMessage(cause);
     throw makeDocumentFileFailure({
       filePath,
-      message: `Could not write ${filePath}: ${errorMessage(cause)}`,
+      message: `Could not write ${filePath}: ${failureMessage}`,
       cause,
     });
   }

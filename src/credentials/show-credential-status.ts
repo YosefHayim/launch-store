@@ -58,7 +58,8 @@ export async function showCredentialStatus(
       activeMarker = ' (active)';
     }
 
-    logger.line(`Apple account: ${formatAccountSummary(account)}${activeMarker}`);
+    const accountSummary = formatAccountSummary(account);
+    logger.line(`Apple account: ${accountSummary}${activeMarker}`);
 
     if (storedSigning.certSerial != null) {
       logger.line(`  certificate: ${storedSigning.certSerial}`);

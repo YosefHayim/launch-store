@@ -15,7 +15,8 @@ const sshFlags = (target: SshTarget): string[] => {
     'ConnectTimeout=30',
   ];
   if (target.identityFile) flags.push('-i', target.identityFile);
-  flags.push('-p', String(target.port));
+  const asString = String(target.port);
+  flags.push('-p', asString);
   return flags;
 };
 /** scp shares the ssh options but spells the port `-P` (uppercase). */
@@ -29,7 +30,8 @@ const scpFlags = (target: SshTarget): string[] => {
     'ConnectTimeout=30',
   ];
   if (target.identityFile) flags.push('-i', target.identityFile);
-  flags.push('-P', String(target.port));
+  const asString = String(target.port);
+  flags.push('-P', asString);
   return flags;
 };
 /** Run a command on the remote host, streaming output. `remoteCommand` runs in the remote shell. */

@@ -27,10 +27,13 @@ export const registerAccessibilityCommand = (program: Command): void => {
         yes: commandOptions.yes == true,
       };
       if (commandOptions.app == null) {
-        return runCliProgram(accessibilityCommandProgram(requiredInput));
+        const accessibilityProgram = accessibilityCommandProgram(requiredInput);
+        return runCliProgram(accessibilityProgram);
       }
-      return runCliProgram(
-        accessibilityCommandProgram({ ...requiredInput, app: commandOptions.app }),
-      );
+      const accessibilityProgram = accessibilityCommandProgram({
+        ...requiredInput,
+        app: commandOptions.app,
+      });
+      return runCliProgram(accessibilityProgram);
     });
 };

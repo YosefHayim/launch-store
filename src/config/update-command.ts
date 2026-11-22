@@ -171,13 +171,12 @@ function renderAfterPublish(
   logger.note(`Worker source: ${workerUrl}`);
   logger.gap();
   logger.note('One-time app config (app.json):');
-  logger.line(
-    updatesAppConfigSnippet({
-      updateUrl: '<your-worker-route>',
-      runtimeVersion,
-      signed,
-    }),
-  );
+  const updatesAppSnippet = updatesAppConfigSnippet({
+    updateUrl: '<your-worker-route>',
+    runtimeVersion,
+    signed,
+  });
+  logger.line(updatesAppSnippet);
 }
 
 function readExportOptions(
@@ -253,7 +252,8 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
   }
 
   if (commandInput.printEnv) {
-    logger.line(formatEnvTable(resolvedEnvironment));
+    const formatTable = formatEnvTable(resolvedEnvironment);
+    logger.line(formatTable);
 
     return;
   }
