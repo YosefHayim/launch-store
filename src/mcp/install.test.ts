@@ -13,11 +13,11 @@ import {
 
 describe('mergeServerEntry', () => {
   it('adds Launch to an empty document', () => {
-    const mergedConfig = mergeServerEntry({}, 'launch', LAUNCH_SERVER_ENTRY);
+    const mergedConfig = mergeServerEntry({}, 'launch-store', LAUNCH_SERVER_ENTRY);
 
     expect(mergedConfig.changed).toBe(true);
     expect(mergedConfig.config).toEqual({
-      mcpServers: { launch: { command: 'launch', args: ['mcp'] } },
+      mcpServers: { 'launch-store': { command: 'launch-store', args: ['mcp'] } },
     });
   });
 
@@ -27,31 +27,35 @@ describe('mergeServerEntry', () => {
       mcpServers: { other: { command: 'other-bin', args: [] } },
     };
 
-    const mergeServer = mergeServerEntry(existingConfig, 'launch', LAUNCH_SERVER_ENTRY);
+    const mergeServer = mergeServerEntry(existingConfig, 'launch-store', LAUNCH_SERVER_ENTRY);
     expect(mergeServer.config).toEqual({
       theme: 'dark',
       mcpServers: {
         other: { command: 'other-bin', args: [] },
-        launch: { command: 'launch', args: ['mcp'] },
+        'launch-store': { command: 'launch-store', args: ['mcp'] },
       },
     });
   });
 
   it('does not rewrite an identical entry', () => {
     const existingConfig = {
-      mcpServers: { launch: { command: 'launch', args: ['mcp'] } },
+      mcpServers: { 'launch-store': { command: 'launch-store', args: ['mcp'] } },
     };
-    const mergedConfig = mergeServerEntry(existingConfig, 'launch', LAUNCH_SERVER_ENTRY);
+    const mergedConfig = mergeServerEntry(existingConfig, 'launch-store', LAUNCH_SERVER_ENTRY);
 
     expect(mergedConfig.changed).toBe(false);
     expect(mergedConfig.config).toBe(existingConfig);
   });
 
   it('replaces a malformed mcpServers field', () => {
-    const mergeServer = mergeServerEntry({ mcpServers: 'broken' }, 'launch', LAUNCH_SERVER_ENTRY);
+    const mergeServer = mergeServerEntry(
+      { mcpServers: 'broken' },
+      'launch-store',
+      LAUNCH_SERVER_ENTRY,
+    );
     expect(mergeServer).toEqual({
       changed: true,
-      config: { mcpServers: { launch: { command: 'launch', args: ['mcp'] } } },
+      config: { mcpServers: { 'launch-store': { command: 'launch-store', args: ['mcp'] } } },
     });
   });
 });
@@ -109,7 +113,7 @@ describe('installServer', () => {
     const configDocument: unknown = JSON.parse(loadedFile);
 
     expect(configDocument).toEqual({
-      mcpServers: { launch: { command: 'launch', args: ['mcp'] } },
+      mcpServers: { 'launch-store': { command: 'launch-store', args: ['mcp'] } },
     });
   });
 
@@ -132,7 +136,7 @@ describe('installServer', () => {
     expect(configDocument).toMatchObject({
       mcpServers: {
         other: { command: 'x', args: [] },
-        launch: { command: 'launch', args: ['mcp'] },
+        'launch-store': { command: 'launch-store', args: ['mcp'] },
       },
     });
   });

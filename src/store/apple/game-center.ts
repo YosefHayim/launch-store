@@ -350,7 +350,7 @@ function decodeGameCenterDocument(rawDocument: unknown): GameCenterConfig {
 }
 
 function missingGameCenterMessage(configPath: string): string {
-  return `No Game Center config at ${configPath}. Create one (see \`launch game-center --help\`) or pass --config.`;
+  return `No Game Center config at ${configPath}. Create one (see \`launch-store game-center --help\`) or pass --config.`;
 }
 
 const gameCenterConfigSpec = {

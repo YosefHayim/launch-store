@@ -126,7 +126,9 @@ async function addDevice(commandInput: DeviceAddInput): Promise<void> {
     const registeredDevice = await appleStore.registerDevice(commandInput.udid, deviceName);
     const logger = createLogger(false);
     logger.line(`OK Registered ${registeredDevice.name} (${registeredDevice.udid})`);
-    logger.line("- It'll be included on the next `launch build ios --distribution internal`.");
+    logger.line(
+      "- It'll be included on the next `launch-store build ios --distribution internal`.",
+    );
   } catch (cause) {
     throw deviceCommandFailure('add', cause);
   }
@@ -141,7 +143,7 @@ async function listDevices(): Promise<void> {
     const isDeviceListEmpty = registeredDevices.length == 0;
 
     if (isDeviceListEmpty) {
-      logger.line('No registered devices. Add one with `launch device add <udid> [name]`.');
+      logger.line('No registered devices. Add one with `launch-store device add <udid> [name]`.');
       return;
     }
 

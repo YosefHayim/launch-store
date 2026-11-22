@@ -10,7 +10,7 @@ type McpServerEntry = Readonly<{
   args: string[];
 }>;
 
-export const LAUNCH_SERVER_ENTRY: McpServerEntry = { command: 'launch', args: ['mcp'] };
+export const LAUNCH_SERVER_ENTRY: McpServerEntry = { command: 'launch-store', args: ['mcp'] };
 
 type MergeResult = Readonly<{
   config: Record<string, unknown>;
@@ -196,7 +196,7 @@ export async function installServer(
 ): Promise<InstalledMcpServer> {
   const configPath = clientConfigPath(client, workingDirectory, homeDirectory, operatingSystem);
   const existingConfig = await readClientConfig(configPath);
-  const mergedConfig = mergeServerEntry(existingConfig, 'launch', serverEntry);
+  const mergedConfig = mergeServerEntry(existingConfig, 'launch-store', serverEntry);
 
   if (mergedConfig.changed) {
     const directoryPath = dirname(configPath);

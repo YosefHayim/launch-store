@@ -28,7 +28,7 @@ async function readBundleRegistration(
       identifier: app.identifier,
       status: 'blocker',
       detail: 'Bundle ID not registered in the Developer portal',
-      hint: 'run `launch sync` to register the App ID before building for distribution',
+      hint: 'run `launch-store sync` to register the App ID before building for distribution',
     };
   }
 

@@ -175,7 +175,7 @@ export function findActiveAccount(saved: SavedAccounts): SavedAccount {
   const isNoneActive = activeKeyId == null;
 
   if (isNoneActive) {
-    throw new Error('No App Store Connect account is active. Run launch creds.');
+    throw new Error('No App Store Connect account is active. Run launch-store creds.');
   }
 
   function isActiveAccount(account: SavedAccount): boolean {

@@ -103,7 +103,7 @@ function requireNamedGroup(
 
   throw testflightFailure(
     'select beta group',
-    `No ${groupKind}beta group named "${requestedGroup}". Create one with \`launch testflight create-group "${requestedGroup}"\`.`,
+    `No ${groupKind}beta group named "${requestedGroup}". Create one with \`launch-store testflight create-group "${requestedGroup}"\`.`,
   );
 }
 
@@ -152,7 +152,7 @@ export async function selectBetaGroup(
   if (isEmpty) {
     throw testflightFailure(
       'select beta group',
-      `No ${groupKind}beta groups for this app. Create one with \`launch testflight create-group <name>\`.`,
+      `No ${groupKind}beta groups for this app. Create one with \`launch-store testflight create-group <name>\`.`,
     );
   }
 

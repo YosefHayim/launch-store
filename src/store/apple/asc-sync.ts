@@ -126,7 +126,7 @@ export type ReconcileInput = {
   allowDestructive: boolean;
 };
 
-/** Listing-only reconcile inputs (`launch plan listing` / snapshot listing source). */
+/** Listing-only reconcile inputs (`launch-store plan listing` / snapshot listing source). */
 export type ListingReconcileInput = {
   bundleId: string;
   listing: AppleStoreConfig;
@@ -376,7 +376,7 @@ export async function reconcileApp(
 }
 
 /**
- * Listing-only reconcile for `launch plan listing` / snapshot - never double-counts catalog
+ * Listing-only reconcile for `launch-store plan listing` / snapshot - never double-counts catalog
  * surfaces. Listing is create/patch only, so `allowDestructive` is always false.
  */
 export async function reconcileAppListing(
@@ -412,7 +412,7 @@ function noteUnregisteredBundle(
 
   skipAction(
     catalogContext,
-    `bundle id ${bundleId} is not registered yet - run a build (or \`launch creds\`) to register it before syncing ${desiredCapabilities.length} ${capabilityNoun(desiredCapabilities.length)}`,
+    `bundle id ${bundleId} is not registered yet - run a build (or \`launch-store creds\`) to register it before syncing ${desiredCapabilities.length} ${capabilityNoun(desiredCapabilities.length)}`,
   );
 }
 

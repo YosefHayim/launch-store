@@ -178,7 +178,7 @@ export function createTrainRuntime(
       throw trainRuntimeFailure(
         'load active Apple account',
         appDescriptor.name,
-        'No active Apple account. Run `launch creds set-key` first.',
+        'No active Apple account. Run `launch-store creds set-key` first.',
       );
     }
 
@@ -306,7 +306,10 @@ export function createTrainRuntime(
     const isAppMissing = appId == null;
 
     if (isAppMissing) {
-      const appMissingMessage = appRecordMissingMessage(bundleId, 'launch release-train start');
+      const appMissingMessage = appRecordMissingMessage(
+        bundleId,
+        'launch-store release-train start',
+      );
       throw trainRuntimeFailure('find App Store app', bundleId, appMissingMessage);
     }
 
@@ -318,7 +321,7 @@ export function createTrainRuntime(
       throw trainRuntimeFailure(
         'find processed iOS build',
         appDescriptor.name,
-        `No processed iOS build on App Store Connect for ${appDescriptor.name}. Run \`launch build ios\` and upload it (\`launch testflight\` or \`launch release ios --no-wait\`) before starting the train.`,
+        `No processed iOS build on App Store Connect for ${appDescriptor.name}. Run \`launch-store build ios\` and upload it (\`launch-store testflight\` or \`launch-store release ios --no-wait\`) before starting the train.`,
       );
     }
 
@@ -409,7 +412,7 @@ export function createTrainRuntime(
       throw trainRuntimeFailure(
         'find stored Android build',
         appDescriptor.name,
-        `No stored Android build for ${appDescriptor.name}. Run \`launch build android\` first.`,
+        `No stored Android build for ${appDescriptor.name}. Run \`launch-store build android\` first.`,
       );
     }
 
@@ -550,7 +553,10 @@ export function createTrainRuntime(
     const isAppMissing = appId == null;
 
     if (isAppMissing) {
-      const appMissingMessage = appRecordMissingMessage(bundleId, 'launch release-train release');
+      const appMissingMessage = appRecordMissingMessage(
+        bundleId,
+        'launch-store release-train release',
+      );
       throw trainRuntimeFailure('find App Store app', bundleId, appMissingMessage);
     }
 

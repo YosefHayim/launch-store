@@ -83,11 +83,11 @@ export async function renameAppleAccount(
   enteredLabel: string | undefined,
 ): Promise<void> {
   if (selector == null) {
-    failCommand('rename Apple account', 'Usage: launch creds rename <account> <new-label>.');
+    failCommand('rename Apple account', 'Usage: launch-store creds rename <account> <new-label>.');
   }
 
   if (enteredLabel == null) {
-    failCommand('rename Apple account', 'Usage: launch creds rename <account> <new-label>.');
+    failCommand('rename Apple account', 'Usage: launch-store creds rename <account> <new-label>.');
   }
 
   const accounts = await listAccounts();
@@ -102,7 +102,8 @@ export async function renameAppleAccount(
 export async function setAppleVendorNumber(
   commandOptions: CredentialsCommandOptions,
 ): Promise<void> {
-  const usage = 'Usage: launch creds set-vendor-number --account <label> --vendor-number <n>.';
+  const usage =
+    'Usage: launch-store creds set-vendor-number --account <label> --vendor-number <n>.';
   const selector = commandOptions.account;
   const vendorNumber = commandOptions.vendorNumber;
 
@@ -163,7 +164,8 @@ async function readPortfolioDocument(): Promise<PortfolioFile | null> {
 export async function setPlayReportsBucket(
   commandOptions: CredentialsCommandOptions,
 ): Promise<void> {
-  const usage = 'Usage: launch creds set-play-reports-bucket --play-reports-bucket <uri or name>.';
+  const usage =
+    'Usage: launch-store creds set-play-reports-bucket --play-reports-bucket <uri or name>.';
   const copiedBucket = commandOptions.playReportsBucket;
 
   if (copiedBucket == null) {
@@ -195,7 +197,7 @@ export async function removeAppleAccount(
   commandOptions: CredentialsCommandOptions,
 ): Promise<void> {
   if (selector == null) {
-    failCommand('remove Apple account', 'Usage: launch creds remove <account>.');
+    failCommand('remove Apple account', 'Usage: launch-store creds remove <account>.');
   }
 
   const accounts = await listAccounts();

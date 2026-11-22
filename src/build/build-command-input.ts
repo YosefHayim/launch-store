@@ -6,7 +6,7 @@ import type { Distribution, Platform, PlayTrack } from '../types/app.ts';
 import type { RemoteTarget } from '../types/remote.ts';
 import type { BumpKind } from '../release/version.ts';
 
-/** Raw `launch build` options as Commander hands them to the action callback. */
+/** Raw `launch-store build` options as Commander hands them to the action callback. */
 export type BuildCommandOptions = {
   readonly profile: string;
   readonly app?: string;
@@ -32,7 +32,7 @@ export type BuildCommandOptions = {
   readonly ccache: boolean;
 };
 
-/** A bad `launch build` command-line value that failed before the pipeline started. */
+/** A bad `launch-store build` command-line value that failed before the pipeline started. */
 type BuildCommandInputError = Readonly<{
   readonly _tag: 'BuildCommandInputError';
   readonly field: string;

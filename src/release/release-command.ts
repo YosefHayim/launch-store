@@ -201,7 +201,7 @@ export function androidReleasePlanLines(
 
   if (needsCleanBuild) {
     planLines.push(
-      'incremental build - run `launch build android --clean` first for a from-scratch artifact',
+      'incremental build - run `launch-store build android --clean` first for a from-scratch artifact',
     );
   }
 
@@ -701,7 +701,7 @@ async function resolveIosBuild(
     throw releaseFailure(
       'find local release build',
       buildContext.platform,
-      `No stored ${platformLabel(buildContext.platform)} build for ${appDescriptor.name}. Run \`launch build ${buildContext.platform}\` first, or promote one with --build.`,
+      `No stored ${platformLabel(buildContext.platform)} build for ${appDescriptor.name}. Run \`launch-store build ${buildContext.platform}\` first, or promote one with --build.`,
     );
   }
 
@@ -730,7 +730,7 @@ async function resolveIosBuild(
   const incrementalConfirmed = await confirmIncrementalArtifact(
     commandService,
     artifact,
-    `This build was incremental, not clean - promote anyway? (\`launch build ${buildContext.platform} --clean\` for a fresh one)`,
+    `This build was incremental, not clean - promote anyway? (\`launch-store build ${buildContext.platform} --clean\` for a fresh one)`,
     commandOptions,
   );
 
@@ -759,7 +759,7 @@ async function resolveIosBuild(
 
   if (commandOptions.wait == false) {
     logger.note(
-      `Uploaded build ${artifact.buildNumber}; Apple is processing it. Once \`launch status -a ${appDescriptor.name}\` shows it VALID, submit with \`launch release ${buildContext.platform} -a ${appDescriptor.name} --build ${artifact.buildNumber}\`.`,
+      `Uploaded build ${artifact.buildNumber}; Apple is processing it. Once \`launch-store status -a ${appDescriptor.name}\` shows it VALID, submit with \`launch-store release ${buildContext.platform} -a ${appDescriptor.name} --build ${artifact.buildNumber}\`.`,
     );
 
     return null;
@@ -1018,7 +1018,7 @@ async function releaseAppleBuild(
   }
 
   await sendReleaseNotification(launchConfig, notifyEvent);
-  logger.note(`Track the review with \`launch status -a ${appDescriptor.name} --watch\`.`);
+  logger.note(`Track the review with \`launch-store status -a ${appDescriptor.name} --watch\`.`);
 }
 
 async function readIosAccount(commandOptions: ReleaseCommandOptions, logger: Logger) {
@@ -1042,7 +1042,7 @@ async function readAscKey(keyId: string, accountLabel: string) {
     throw releaseFailure(
       'load App Store Connect key',
       keyId,
-      `No App Store Connect key stored for account ${accountLabel}. Run \`launch creds set-key\`.`,
+      `No App Store Connect key stored for account ${accountLabel}. Run \`launch-store creds set-key\`.`,
     );
   }
 
@@ -1241,7 +1241,7 @@ async function releaseAndroidBuild(
     throw releaseFailure(
       'find Android release build',
       appDescriptor.name,
-      `No stored android build for ${appDescriptor.name}. Run \`launch build android\` first.`,
+      `No stored android build for ${appDescriptor.name}. Run \`launch-store build android\` first.`,
     );
   }
 
@@ -1275,7 +1275,7 @@ async function releaseAndroidBuild(
   const incrementalConfirmed = await confirmIncrementalArtifact(
     commandService,
     latestBuild,
-    'This build was incremental, not clean - promote anyway? Run `launch build android --clean` first for a from-scratch artifact.',
+    'This build was incremental, not clean - promote anyway? Run `launch-store build android --clean` first for a from-scratch artifact.',
     commandOptions,
   );
 

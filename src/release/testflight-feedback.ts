@@ -87,7 +87,7 @@ async function buildIdForVersion(
   if (isBuildMissing) {
     throw makeTestflightFeedbackFailure({
       operation: 'find TestFlight build',
-      message: `No build ${buildVersion} for this app. Check the build number with \`launch status\`.`,
+      message: `No build ${buildVersion} for this app. Check the build number with \`launch-store status\`.`,
     });
   }
 

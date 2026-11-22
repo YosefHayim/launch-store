@@ -48,7 +48,7 @@ export class StoreCommand {
 
     program
       .command('drift [surface]')
-      .description('fail when the live store has drifted (alias of launch plan --check)')
+      .description('fail when the live store has drifted (alias of launch-store plan --check)')
       .option('--json', 'print one JSON object', false)
       .action(this.drift);
 

@@ -103,7 +103,7 @@ async function gradeOfferCodes(
         identifier: subscription.productId,
         status: 'warn',
         detail: `${subscription.productId}: offers not verified - subscription not on App Store Connect yet`,
-        hint: 'create the subscription first (run `launch sync`)',
+        hint: 'create the subscription first (run `launch-store sync`)',
       },
     ];
   }
@@ -142,7 +142,7 @@ async function gradeOfferCodes(
       ...subject,
       status: 'warn',
       detail: `${subscription.productId} - ${offer.name}: declared offer code missing`,
-      hint: 'run `launch offers` to create it',
+      hint: 'run `launch-store offers` to create it',
     };
   }
 

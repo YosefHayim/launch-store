@@ -122,11 +122,13 @@ function showReport(report: StatsReport): void {
   }
 
   if (report.isStale) {
-    logger.warn('Some numbers are old: a sync did not finish. Run `launch stats sync` to see why.');
+    logger.warn(
+      'Some numbers are old: a sync did not finish. Run `launch-store stats sync` to see why.',
+    );
   }
 }
 
-/** `launch stats`: read the saved numbers of the apps, after refreshing the old ones. */
+/** `launch-store stats`: read the saved numbers of the apps, after refreshing the old ones. */
 export async function statsReportProgram(request: StatsCommandRequest): Promise<void> {
   const logger = createLogger(false);
 

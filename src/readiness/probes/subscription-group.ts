@@ -66,7 +66,7 @@ async function readSubscriptionGroups(
     identifier: app.identifier,
     status: 'blocker',
     detail: `config declares ${declared} subscription group(s), none exist on App Store Connect`,
-    hint: 'run `launch sync` to create the declared subscription group(s)',
+    hint: 'run `launch-store sync` to create the declared subscription group(s)',
   };
 }
 

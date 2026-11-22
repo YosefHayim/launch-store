@@ -343,7 +343,7 @@ async function listSavedSnapshots(json: boolean | undefined): Promise<void> {
   }
 
   if (savedSnapshots.length == 0) {
-    logger.note('No snapshots yet. Capture one with `launch snapshot create`.');
+    logger.note('No snapshots yet. Capture one with `launch-store snapshot create`.');
 
     return;
   }

@@ -3,7 +3,7 @@ import { loadWalletConfig, reconcileWalletIds } from '../../store/apple/wallet-i
 import { planTeamSurface } from './app-store-surface.ts';
 import type { SurfacePlanner } from '../../types/plan.ts';
 import type { WalletConfig } from '../../types/store-surface.ts';
-/** Surface id - also the value users pass as `launch plan wallet`. */
+/** Surface id - also the value users pass as `launch-store plan wallet`. */
 const SURFACE = 'wallet';
 export const walletPlanner: SurfacePlanner = {
   id: SURFACE,

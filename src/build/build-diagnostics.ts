@@ -23,7 +23,7 @@ const signatures: DiagnosticSignature[] = [
     title: 'Code signing - no usable certificate or profile',
     cause:
       "Xcode couldn't find a distribution certificate and provisioning profile matching this app.",
-    fix: 'Run `launch creds setup` to provision (or reuse) the cert + profile, then rebuild.',
+    fix: 'Run `launch-store creds setup` to provision (or reuse) the cert + profile, then rebuild.',
     match: [
       /No profiles for '.*' were found/i,
       /doesn't include signing certificate/i,
@@ -35,13 +35,13 @@ const signatures: DiagnosticSignature[] = [
   {
     title: 'CocoaPods sandbox out of sync',
     cause: 'The installed Pods no longer match Podfile.lock, so Xcode refuses to build.',
-    fix: 'Re-resolve native deps: `launch build ios --clean` (forces `pod install` + a clean build).',
+    fix: 'Re-resolve native deps: `launch-store build ios --clean` (forces `pod install` + a clean build).',
     match: [/sandbox is not in sync with the Podfile\.lock/i],
   },
   {
     title: 'CocoaPods could not resolve dependencies',
     cause: "A pod spec can't be found or the local CocoaPods spec repo is stale.",
-    fix: 'Update the spec repo (`pod repo update`) then `launch build ios --clean`.',
+    fix: 'Update the spec repo (`pod repo update`) then `launch-store build ios --clean`.',
     match: [
       /CocoaPods could not find compatible versions/i,
       /Unable to find a specification for/i,
@@ -52,7 +52,7 @@ const signatures: DiagnosticSignature[] = [
     title: 'Native module not found',
     cause:
       "A native module isn't linked - usually Pods are stale after adding or upgrading a dependency.",
-    fix: 'Rebuild clean so Pods re-install and link: `launch build ios --clean`.',
+    fix: 'Rebuild clean so Pods re-install and link: `launch-store build ios --clean`.',
     match: [
       /error: no such module/i,
       /Could not build module/i,
@@ -77,7 +77,7 @@ const signatures: DiagnosticSignature[] = [
   {
     title: 'Android SDK location not found',
     cause: "Gradle can't find the Android SDK - ANDROID_HOME / ANDROID_SDK_ROOT isn't set.",
-    fix: 'Install the SDK (Android Studio or command-line tools) and export `ANDROID_HOME`. `launch doctor --platform android` checks this.',
+    fix: 'Install the SDK (Android Studio or command-line tools) and export `ANDROID_HOME`. `launch-store doctor --platform android` checks this.',
     match: [/SDK location not found/i, /ANDROID_HOME is not set/i, /ANDROID_SDK_ROOT/i],
   },
   {
@@ -93,7 +93,7 @@ const signatures: DiagnosticSignature[] = [
   {
     title: 'Android signing - keystore problem',
     cause: "Gradle couldn't read the upload keystore, or the keystore/key password is wrong.",
-    fix: 'Re-import the keystore: `launch creds setup --platform android --app <name>`, and check the keystore + key passwords.',
+    fix: 'Re-import the keystore: `launch-store creds setup --platform android --app <name>`, and check the keystore + key passwords.',
     match: [
       /Keystore file .* not found/i,
       /keystore password was incorrect/i,
@@ -134,7 +134,7 @@ const signatures: DiagnosticSignature[] = [
   {
     title: 'A required build tool is missing',
     cause: "A command the build depends on (CocoaPods, bundletool) isn't installed or on PATH.",
-    fix: 'Install the missing toolchain: `launch doctor --fix` (iOS) or `launch doctor --platform android`.',
+    fix: 'Install the missing toolchain: `launch-store doctor --fix` (iOS) or `launch-store doctor --platform android`.',
     match: [/command not found: (?:pod|bundletool)/i, /(?:pod|bundletool): command not found/i],
   },
 ];

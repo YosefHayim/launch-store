@@ -26,7 +26,7 @@ type CompletionEvent = NotifyEventBase & {
   error?: string;
 };
 /**
- * An App Store review reached a verdict. Fired from `launch status --watch` the first time an app
+ * An App Store review reached a verdict. Fired from `launch-store status --watch` the first time an app
  * settles to a terminal verdict, so a dev who walked away learns the outcome without babysitting the
  * poll loop.
  */
@@ -36,8 +36,8 @@ type ReviewEvent = NotifyEventBase & {
   detail?: string;
 };
 /**
- * A phased rollout changed state. Fired from `launch rollout` after a successful pause/resume/complete,
- * and from `launch status --watch` when Apple advances the ramp (`advanced`) between polls.
+ * A phased rollout changed state. Fired from `launch-store rollout` after a successful pause/resume/complete,
+ * and from `launch-store status --watch` when Apple advances the ramp (`advanced`) between polls.
  */
 type RolloutEvent = NotifyEventBase & {
   event: 'rollout';

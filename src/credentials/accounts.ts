@@ -395,7 +395,7 @@ type AccountSummaryRequest = {
 };
 
 /**
- * One human-recognizable line for an account, shared by the build step line, the `launch creds`
+ * One human-recognizable line for an account, shared by the build step line, the `launch-store creds`
  * listing, and the account picker hint so all three read identically.
  *
  * It leads with the cached app names the key can see - the thing a person actually recognizes - then
@@ -703,7 +703,7 @@ async function loadSelectedAscKey(selector: string): Promise<AscKey | null> {
 
   if (selected == null) {
     throw makeAccountFailure(
-      `No Apple account matching "${selector}". Run \`launch creds\` to list them.`,
+      `No Apple account matching "${selector}". Run \`launch-store creds\` to list them.`,
     );
   }
 
@@ -777,7 +777,7 @@ export function decideBuildAccount(
   if (hasNoAccounts) {
     return {
       kind: 'error',
-      message: 'No Apple account configured. Import one with: launch creds set-key',
+      message: 'No Apple account configured. Import one with: launch-store creds set-key',
     };
   }
 
@@ -790,7 +790,7 @@ export function decideBuildAccount(
 
     return {
       kind: 'error',
-      message: `No Apple account matching "${selector}". Run \`launch creds\` to list them.`,
+      message: `No Apple account matching "${selector}". Run \`launch-store creds\` to list them.`,
     };
   }
 
@@ -845,7 +845,7 @@ export async function resolveBuildAccount(
 
   if (accountRequest.interactive == false) {
     throw makeAccountFailure(
-      'No active Apple account. Pick one with: launch creds use  (or pass --account / set ASC_ACCOUNT).',
+      'No active Apple account. Pick one with: launch-store creds use  (or pass --account / set ASC_ACCOUNT).',
     );
   }
 

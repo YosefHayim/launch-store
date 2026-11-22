@@ -890,7 +890,7 @@ export async function runAiListing(
 
     logger.ok(`ai listing - wrote ${localeDrafts.length} locale draft(s) -> ${configPath}`);
     logger.note(
-      'Review with `launch plan`, then apply with `launch sync` or `launch metadata push`.',
+      'Review with `launch-store plan`, then apply with `launch-store sync` or `launch-store metadata push`.',
     );
   } catch (cause) {
     if (isFailureTag(cause, 'AiListingFailure')) {
@@ -901,7 +901,7 @@ export async function runAiListing(
   }
 }
 
-/** Run `launch ai listing` with the shared Anthropic generator. */
+/** Run `launch-store ai listing` with the shared Anthropic generator. */
 export async function aiListingCommandProgram(rawCommandInput: unknown): Promise<void> {
   try {
     const commandInput = readAiListingInput(rawCommandInput);

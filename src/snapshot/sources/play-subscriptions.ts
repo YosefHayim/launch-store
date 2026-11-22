@@ -170,7 +170,7 @@ export const playSubscriptionsSource: SnapshotSource = {
   capture: capturePlaySubscriptions,
   /**
    * Restore each app's captured subscriptions to Google Play via the same `reconcilePlaySubscriptions` the
-   * `launch sync` / `launch plan` Play-subscriptions surface uses. Additive: it creates a missing
+   * `launch-store sync` / `launch-store plan` Play-subscriptions surface uses. Additive: it creates a missing
    * subscription + base plan (and activates it), or patches drifted listings on an existing one, never
    * deleting or repricing a live base plan. Each app is isolated - an unreachable Play app record becomes a
    * skipped action - and a subscription that can't be faithfully rebuilt is skipped with a reason.

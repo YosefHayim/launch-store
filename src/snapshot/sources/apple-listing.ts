@@ -50,7 +50,7 @@ export const appleListingSource: SnapshotSource = {
   capture: captureAppleListing,
   /**
    * Restore each app's captured listing copy back to App Store Connect, reusing the same per-locale
-   * reconciler `launch sync` / `launch plan`'s listing surface uses. Additive: `reconcileAppListing`
+   * reconciler `launch-store sync` / `launch-store plan`'s listing surface uses. Additive: `reconcileAppListing`
    * creates/patches text and never removes it. Each app is isolated - a missing app-record precondition
    * is recorded as a skipped action rather than aborting the rest.
    */
@@ -90,7 +90,7 @@ async function captureAppleListing(snapshotContext: SnapshotContext) {
     return {
       state: 'skipped' as const,
       reason: 'no active Apple account',
-      hint: 'run `launch creds set-key`',
+      hint: 'run `launch-store creds set-key`',
     };
   }
 

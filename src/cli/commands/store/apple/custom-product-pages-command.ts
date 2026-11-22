@@ -165,7 +165,7 @@ async function resolveCustomPagesTarget(
   if (isConfigMissing) {
     throw makeCustomProductPagesCommandFailure({
       operation: 'resolve custom pages config',
-      message: `No custom-pages config at ${commandInput.config}. Create one (see \`launch custom-pages --help\`) or pass --config.`,
+      message: `No custom-pages config at ${commandInput.config}. Create one (see \`launch-store custom-pages --help\`) or pass --config.`,
       cause: commandInput.config,
     });
   }

@@ -48,14 +48,14 @@ export const gradeDeclaredProduct = (
     return {
       status: 'blocker',
       detail: `${productId}: declared but not on App Store Connect`,
-      hint: `run \`launch sync\` to create the ${kind}`,
+      hint: `run \`launch-store sync\` to create the ${kind}`,
     };
   }
   if (live.state == 'MISSING_METADATA') {
     return {
       status: 'blocker',
       detail: `${productId}: missing metadata (name, price, or localization)`,
-      hint: 'run `launch sync` to fill it in, or complete it in App Store Connect',
+      hint: 'run `launch-store sync` to fill it in, or complete it in App Store Connect',
     };
   }
   let productState = live.state;

@@ -30,7 +30,7 @@ export const redactLine = (line: string): string => {
 /**
  * Redact a whole log document: drop any PEM key/cert blocks first (they span lines, so they're only
  * visible with the full text), then apply {@link redactLine} to every remaining line. Used when reading
- * a persisted log back for `launch builds log` - a second pass over what was already scrubbed on write.
+ * a persisted log back for `launch-store builds log` - a second pass over what was already scrubbed on write.
  */
 export const redactText = (text: string): string => {
   return text

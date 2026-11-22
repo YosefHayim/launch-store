@@ -51,7 +51,7 @@
           "additionalProperties": {
             "$ref": "#/definitions/AppProducts"
           },
-          "description": "Declarative App Store Connect product catalog, keyed by iOS bundle id. Bundle identifiers may contain hyphens, but nested Apple subscription and in-app purchase `productId` values may contain only letters, digits, underscores, and periods. Drives `launch sync`, which reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match this. Absent for apps that sell nothing. See {@link AppProducts}."
+          "description": "Declarative App Store Connect product catalog, keyed by iOS bundle id. Bundle identifiers may contain hyphens, but nested Apple subscription and in-app purchase `productId` values may contain only letters, digits, underscores, and periods. Drives `launch-store sync`, which reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match this. Absent for apps that sell nothing. See {@link AppProducts}."
         },
         "notify": {
           "type": "object",
@@ -100,11 +100,11 @@
             },
             "copyright": {
               "type": "string",
-              "description": "The version's copyright line (Apple's `copyright`, e.g. `\"2026 Acme Inc.\"`), sent with the release type on each `launch release`. Apple won't add a version with an empty copyright to a review submission, so set it here unless you fill it in App Store Connect. Absent leaves the version's copyright as it is."
+              "description": "The version's copyright line (Apple's `copyright`, e.g. `\"2026 Acme Inc.\"`), sent with the release type on each `launch-store release`. Apple won't add a version with an empty copyright to a review submission, so set it here unless you fill it in App Store Connect. Absent leaves the version's copyright as it is."
             },
             "phasedRelease": {
               "type": "boolean",
-              "description": "Opt into Apple's 7-day phased release (a gradual percentage rollout) for an approved update. Defaults to `false` - an immediate 100% release. Overridable per-run with `--phased`, and steerable afterward with `launch rollout <pause|resume|complete>`. Ignored for a first version (Apple only phases updates)."
+              "description": "Opt into Apple's 7-day phased release (a gradual percentage rollout) for an approved update. Defaults to `false` - an immediate 100% release. Overridable per-run with `--phased`, and steerable afterward with `launch-store rollout <pause|resume|complete>`. Ignored for a first version (Apple only phases updates)."
             },
             "usesNonExemptEncryption": {
               "type": "boolean",
@@ -133,7 +133,7 @@
           },
           "required": [],
           "additionalProperties": false,
-          "description": "iOS public-release policy for `launch release` (release type, scheduled date, phased rollout, export compliance, release notes). Absent = the safe defaults (go live after approval, all at once). See {@link ReleaseConfig}."
+          "description": "iOS public-release policy for `launch-store release` (release type, scheduled date, phased rollout, export compliance, release notes). Absent = the safe defaults (go live after approval, all at once). See {@link ReleaseConfig}."
         },
         "gameCenter": {
           "type": "object",
@@ -142,7 +142,7 @@
           "additionalProperties": {
             "$ref": "#/definitions/GameCenterConfig"
           },
-          "description": "Game Center achievements & leaderboards, keyed by iOS bundle id. Drives `launch game-center`. The single-config form of `gamecenter.config.json` (still accepted for back-compat). See {@link GameCenterConfig}."
+          "description": "Game Center achievements & leaderboards, keyed by iOS bundle id. Drives `launch-store game-center`. The single-config form of `gamecenter.config.json` (still accepted for back-compat). See {@link GameCenterConfig}."
         },
         "appClips": {
           "type": "object",
@@ -151,7 +151,7 @@
           "additionalProperties": {
             "$ref": "#/definitions/AppClipsConfig"
           },
-          "description": "App Clip card metadata, keyed by the parent app's iOS bundle id. Drives `launch app-clips`. The single-config form of `appclips.config.json` (still accepted for back-compat). See {@link AppClipsConfig}."
+          "description": "App Clip card metadata, keyed by the parent app's iOS bundle id. Drives `launch-store app-clips`. The single-config form of `appclips.config.json` (still accepted for back-compat). See {@link AppClipsConfig}."
         },
         "releaseAttributes": {
           "type": "object",
@@ -160,7 +160,7 @@
           "additionalProperties": {
             "$ref": "#/definitions/ReleaseAttributesConfig"
           },
-          "description": "App Store release attributes (age rating, categories, price, review details), keyed by iOS bundle id. Drives `launch release-config`. The single-config form of `release.config.json` (still accepted for back-compat). Distinct from {@link LaunchConfig.release} (the release policy). See {@link ReleaseAttributesConfig}."
+          "description": "App Store release attributes (age rating, categories, price, review details), keyed by iOS bundle id. Drives `launch-store release-config`. The single-config form of `release.config.json` (still accepted for back-compat). Distinct from {@link LaunchConfig.release} (the release policy). See {@link ReleaseAttributesConfig}."
         },
         "wallet": {
           "type": "object",
@@ -182,7 +182,7 @@
           },
           "required": [],
           "additionalProperties": false,
-          "description": "Team-level Apple Pay merchant ids & Wallet pass type ids. Drives `launch wallet`. The single-config form of `wallet.config.json` (still accepted for back-compat). See {@link WalletConfig}."
+          "description": "Team-level Apple Pay merchant ids & Wallet pass type ids. Drives `launch-store wallet`. The single-config form of `wallet.config.json` (still accepted for back-compat). See {@link WalletConfig}."
         },
         "euDistribution": {
           "type": "object",
@@ -199,7 +199,7 @@
             "domains"
           ],
           "additionalProperties": false,
-          "description": "Team-level EU alternative-distribution domains (DMA). Drives `launch eu-distribution`. The single-config form of `eu-distribution.config.json` (still accepted for back-compat). See {@link EuDistributionConfig}."
+          "description": "Team-level EU alternative-distribution domains (DMA). Drives `launch-store eu-distribution`. The single-config form of `eu-distribution.config.json` (still accepted for back-compat). See {@link EuDistributionConfig}."
         },
         "configFiles": {
           "type": "object",
@@ -219,7 +219,7 @@
           },
           "required": [],
           "additionalProperties": false,
-          "description": "Optional non-default paths for the sidecar-only surfaces' `*.config.json` files (availability, accessibility, experiments, custom pages). Lets `launch plan` / `launch drift` find a sidecar that isn't at its default filename, since those surfaces have no typed field here. Omit to use defaults. See {@link SurfaceConfigFiles}."
+          "description": "Optional non-default paths for the sidecar-only surfaces' `*.config.json` files (availability, accessibility, experiments, custom pages). Lets `launch-store plan` / `launch-store drift` find a sidecar that isn't at its default filename, since those surfaces have no typed field here. Omit to use defaults. See {@link SurfaceConfigFiles}."
         },
         "aws": {
           "type": "object",
@@ -280,18 +280,18 @@
         },
         "artifactDir": {
           "type": "string",
-          "description": "Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default - existing projects are unaffected). `launch init` and the no-args wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. Only the `local` provider observes it - cloud stores key off {@link StorageConfig}. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land."
+          "description": "Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default - existing projects are unaffected). `launch-store init` and the no-args wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. Only the `local` provider observes it - cloud stores key off {@link StorageConfig}. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land."
         },
         "artifactRetentionDays": {
           "type": "number",
-          "description": "How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic sweep entirely (`launch builds prune` still works on demand). Only the `local` provider observes this - cloud stores manage retention through their own bucket lifecycle rules."
+          "description": "How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic sweep entirely (`launch-store builds prune` still works on demand). Only the `local` provider observes this - cloud stores manage retention through their own bucket lifecycle rules."
         },
         "envExclude": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Env var names that must NEVER be injected into a build - a hard denylist applied across every layer (`.env`, `.env.<profile>`, keychain, profile `env:`, even an explicit `--env`). A matched name is dropped outright, so it can't reach the build subprocess and therefore can't be baked into the shipped app even by an `app.config.js` that forwards environment variables.\n\nEach entry is either an exact, case-sensitive name or a `PREFIX*` wildcard: `OPENAI_*` drops every name starting with `OPENAI_` (e.g. `OPENAI_API_KEY`, `OPENAI_ORG_ID`), so a whole family of backend keys collapses to one line instead of being listed individually. Wildcards anchor at the START - there is no tail/`*_KEY` form, by design, since that would also snag a publishable `EXPO_PUBLIC_..._KEY`.\n\nThis is the home for *backend-only* values that sit in the app's `.env` for local tooling but must never ship (e.g. `OPENAI_API_KEY`, a server-side `SENTRY_AUTH_TOKEN`). It is distinct from `launch secret set`: a stored secret is still *injected* - the build needs it - it's just moved out of plaintext; `envExclude` means \"don't inject this at all\". A name matched here is exempt from the `.env.example` missing-key gate (even when no layer sets it). Omit (or `[]`) to exclude nothing."
+          "description": "Env var names that must NEVER be injected into a build - a hard denylist applied across every layer (`.env`, `.env.<profile>`, keychain, profile `env:`, even an explicit `--env`). A matched name is dropped outright, so it can't reach the build subprocess and therefore can't be baked into the shipped app even by an `app.config.js` that forwards environment variables.\n\nEach entry is either an exact, case-sensitive name or a `PREFIX*` wildcard: `OPENAI_*` drops every name starting with `OPENAI_` (e.g. `OPENAI_API_KEY`, `OPENAI_ORG_ID`), so a whole family of backend keys collapses to one line instead of being listed individually. Wildcards anchor at the START - there is no tail/`*_KEY` form, by design, since that would also snag a publishable `EXPO_PUBLIC_..._KEY`.\n\nThis is the home for *backend-only* values that sit in the app's `.env` for local tooling but must never ship (e.g. `OPENAI_API_KEY`, a server-side `SENTRY_AUTH_TOKEN`). It is distinct from `launch-store secret set`: a stored secret is still *injected* - the build needs it - it's just moved out of plaintext; `envExclude` means \"don't inject this at all\". A name matched here is exempt from the `.env.example` missing-key gate (even when no layer sets it). Omit (or `[]`) to exclude nothing."
         },
         "prebuild": {
           "type": "string",
@@ -320,14 +320,14 @@
           },
           "required": [],
           "additionalProperties": false,
-          "description": "How `launch mcp` exposes Launch to AI agents - chiefly which capability tiers it may offer. Absent = least privilege (read-only tools). See {@link McpConfig}."
+          "description": "How `launch-store mcp` exposes Launch to AI agents - chiefly which capability tiers it may offer. Absent = least privilege (read-only tools). See {@link McpConfig}."
         }
       },
       "required": [
         "profiles"
       ],
       "additionalProperties": false,
-      "description": "The fully-resolved configuration for one `launch` invocation. Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here (`storage`, `credentials`, `buildEngine`) are looked up in the provider registry at runtime."
+      "description": "The fully-resolved configuration for one `launch-store` invocation. Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here (`storage`, `credentials`, `buildEngine`) are looked up in the provider registry at runtime."
     },
     "BuildProfile": {
       "type": "object",
@@ -347,7 +347,7 @@
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Inline env vars for this profile, merged into the build/update/release environment. They sit above the dotenv files (`.env.local`, `.env.<profile>`, `.env`) but below keychain secrets and `--env` flags in the precedence ladder - see `core/env.ts` `resolveEnv`. Use for non-secret, committed config that should travel with the profile; keep real secrets in `launch secret`."
+          "description": "Inline env vars for this profile, merged into the build/update/release environment. They sit above the dotenv files (`.env.local`, `.env.<profile>`, `.env`) but below keychain secrets and `--env` flags in the precedence ladder - see `core/env.ts` `resolveEnv`. Use for non-secret, committed config that should travel with the profile; keep real secrets in `launch-store secret`."
         },
         "ssl": {
           "type": "boolean",
@@ -365,7 +365,7 @@
             "open",
             "production"
           ],
-          "description": "Android-only: default Play track for `launch build android` when `--track` is omitted. Defaults to `internal` (the only safe target for a fresh account). Ignored on iOS."
+          "description": "Android-only: default Play track for `launch-store build android` when `--track` is omitted. Defaults to `internal` (the only safe target for a fresh account). Ignored on iOS."
         },
         "rollout": {
           "type": "number",
@@ -437,12 +437,12 @@
           "items": {
             "$ref": "#/definitions/PromotedPurchaseConfig"
           },
-          "description": "Promoted purchases in product-page display order (`launch offers` reorders the live list to match)."
+          "description": "Promoted purchases in product-page display order (`launch-store offers` reorders the live list to match)."
         }
       },
       "required": [],
       "additionalProperties": false,
-      "description": "The declarative App Store Connect product catalog for ONE app, keyed by iOS bundle id under {@link LaunchConfig.products}. `launch sync` reconciles the live account to match this: it creates missing groups/subscriptions/IAPs, fills in localizations, and sets prices. `launch offers` reconciles the subscription offers nested under {@link SubscriptionGroupConfig} and the {@link AppProducts.promotedPurchases} ordering. All fields are optional so an app can sell only subscriptions, only one-off purchases, or (with none set) nothing."
+      "description": "The declarative App Store Connect product catalog for ONE app, keyed by iOS bundle id under {@link LaunchConfig.products}. `launch-store sync` reconciles the live account to match this: it creates missing groups/subscriptions/IAPs, fills in localizations, and sets prices. `launch-store offers` reconciles the subscription offers nested under {@link SubscriptionGroupConfig} and the {@link AppProducts.promotedPurchases} ordering. All fields are optional so an app can sell only subscriptions, only one-off purchases, or (with none set) nothing."
     },
     "SubscriptionGroupConfig": {
       "type": "object",
@@ -547,7 +547,7 @@
           "items": {
             "$ref": "#/definitions/OfferCodeConfig"
           },
-          "description": "Offer-code campaigns to ensure exist on this subscription (`launch offers`)."
+          "description": "Offer-code campaigns to ensure exist on this subscription (`launch-store offers`)."
         },
         "promotionalOffers": {
           "type": "array",
@@ -572,7 +572,7 @@
         },
         "reviewScreenshot": {
           "type": "string",
-          "description": "Path (relative to the app directory) to this subscription's App Review screenshot - the image Apple requires before a subscription can be submitted. `launch sync` uploads it via the reservation flow, idempotently: it's skipped when the live screenshot's MD5 already matches the local file. Omit to attach it by hand in App Store Connect. Reconciled in `core/store/apple/asc-screenshots.ts`, not here."
+          "description": "Path (relative to the app directory) to this subscription's App Review screenshot - the image Apple requires before a subscription can be submitted. `launch-store sync` uploads it via the reservation flow, idempotently: it's skipped when the live screenshot's MD5 already matches the local file. Omit to attach it by hand in App Store Connect. Reconciled in `core/store/apple/asc-screenshots.ts`, not here."
         },
         "play": {
           "type": "object",
@@ -712,7 +712,7 @@
         "offerEligibility"
       ],
       "additionalProperties": false,
-      "description": "A subscription offer-code campaign (Apple's `subscriptionOfferCodes`) - a redeemable promo that grants an introductory price. `name` is the reconciler's natural key (unique per subscription); offer-code terms are immutable once created, so the reconciler only ever creates a missing code, never edits one (deactivation is the explicit `launch offers deactivate` action). One-time-use and custom code batches are generated separately (the imperative `launch offers codes` subcommands), not declared here."
+      "description": "A subscription offer-code campaign (Apple's `subscriptionOfferCodes`) - a redeemable promo that grants an introductory price. `name` is the reconciler's natural key (unique per subscription); offer-code terms are immutable once created, so the reconciler only ever creates a missing code, never edits one (deactivation is the explicit `launch-store offers deactivate` action). One-time-use and custom code batches are generated separately (the imperative `launch-store offers codes` subcommands), not declared here."
     },
     "OfferPrice": {
       "type": "object",
@@ -1131,7 +1131,7 @@
         "productId"
       ],
       "additionalProperties": false,
-      "description": "One promoted purchase (Apple's `promotedPurchases`) - an IAP or subscription surfaced on the app's App Store product page. Declaration order in {@link AppProducts.promotedPurchases} is the display order Apple shows; `launch offers` reorders the live list to match. `productId` references an existing subscription or in-app purchase; the reconciler resolves it to the live resource."
+      "description": "One promoted purchase (Apple's `promotedPurchases`) - an IAP or subscription surfaced on the app's App Store product page. Declaration order in {@link AppProducts.promotedPurchases} is the display order Apple shows; `launch-store offers` reorders the live list to match. `productId` references an existing subscription or in-app purchase; the reconciler resolves it to the live resource."
     },
     "GameCenterConfig": {
       "type": "object",
@@ -1151,7 +1151,7 @@
       },
       "required": [],
       "additionalProperties": false,
-      "description": "An app's declared Game Center achievements and leaderboards - the `gamecenter.config.json` document, or one entry of {@link LaunchConfig.gameCenter} (keyed by iOS bundle id). Either list may be omitted. Reconciled additively by `launch game-center`."
+      "description": "An app's declared Game Center achievements and leaderboards - the `gamecenter.config.json` document, or one entry of {@link LaunchConfig.gameCenter} (keyed by iOS bundle id). Either list may be omitted. Reconciled additively by `launch-store game-center`."
     },
     "AchievementConfig": {
       "type": "object",
@@ -1289,7 +1289,7 @@
         "clips"
       ],
       "additionalProperties": false,
-      "description": "An app's declared App Clips - the `appclips.config.json` document, or one entry of {@link LaunchConfig.appClips} (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its own bundle id (e.g. `com.acme.app.Clip`), which is how a config entry is matched to the clip the build produced. Reconciled by `launch app-clips`."
+      "description": "An app's declared App Clips - the `appclips.config.json` document, or one entry of {@link LaunchConfig.appClips} (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its own bundle id (e.g. `com.acme.app.Clip`), which is how a config entry is matched to the clip the build produced. Reconciled by `launch-store app-clips`."
     },
     "AppClipConfig": {
       "type": "object",
@@ -1360,7 +1360,7 @@
       },
       "required": [],
       "additionalProperties": false,
-      "description": "An app's declared App Store *release attributes* - age rating, App Store categories, base price, and App Review details - the `release.config.json` document, or one entry of {@link LaunchConfig.releaseAttributes} (keyed by iOS bundle id). Every section is optional and reconciled independently by `launch release-config`, so a file may declare only the attribute(s) you manage as code (e.g. just `pricing`). Named to avoid colliding with {@link ReleaseConfig}, which is the distinct iOS *release policy* (when/how a version goes live)."
+      "description": "An app's declared App Store *release attributes* - age rating, App Store categories, base price, and App Review details - the `release.config.json` document, or one entry of {@link LaunchConfig.releaseAttributes} (keyed by iOS bundle id). Every section is optional and reconciled independently by `launch-store release-config`, so a file may declare only the attribute(s) you manage as code (e.g. just `pricing`). Named to avoid colliding with {@link ReleaseConfig}, which is the distinct iOS *release policy* (when/how a version goes live)."
     },
     "ReleaseCategories": {
       "type": "object",

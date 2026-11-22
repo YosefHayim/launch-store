@@ -254,7 +254,7 @@ describe('Android package credential isolation', () => {
       },
     });
     await expect(uploadKeystore).rejects.toMatchObject({
-      message: expect.stringMatching(/launch creds adopt --platform android --app 'demo'/),
+      message: expect.stringMatching(/launch-store creds adopt --platform android --app 'demo'/),
     });
     expect(offered).toBe(false);
     const loadedFile = readFileSync(legacyPath, 'utf8');

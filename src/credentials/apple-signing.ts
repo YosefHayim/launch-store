@@ -11,7 +11,7 @@ export class AppleSigning {
     const isMissing = saved == null;
 
     if (isMissing) {
-      throw new Error('No App Store Connect account is saved. Run launch creds.');
+      throw new Error('No App Store Connect account is saved. Run launch-store creds.');
     }
 
     const account = findActiveAccount(saved);
@@ -19,7 +19,7 @@ export class AppleSigning {
     const isTeamMissing = teamId == null;
 
     if (isTeamMissing) {
-      throw new Error('The active Apple account has no team id. Run launch creds.');
+      throw new Error('The active Apple account has no team id. Run launch-store creds.');
     }
 
     return { teamId, certificateName: 'Apple Distribution' };

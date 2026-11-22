@@ -121,7 +121,7 @@ async function acquireHost(
   if (isAwsMissingConfig(remote, launchConfig)) {
     throw makeRemotePipelineFailure({
       message:
-        'AWS remote builds need an `aws: { region: ... }` block in launch.config.ts. Run `launch cloud setup`.',
+        'AWS remote builds need an `aws: { region: ... }` block in launch.config.ts. Run `launch-store cloud setup`.',
     });
   }
 
@@ -242,7 +242,7 @@ async function loadLiveAscKey(
 
   if (loaded == null) {
     throw makeRemotePipelineFailure({
-      message: `Apple account "${account.label}" has no stored key. Re-import: launch creds set-key`,
+      message: `Apple account "${account.label}" has no stored key. Re-import: launch-store creds set-key`,
     });
   }
 
@@ -447,7 +447,7 @@ export async function runRemoteBuild(
 
   if (handle.provider == 'aws-ec2-mac') {
     log.note(
-      `Host kept alive for the paid window (run \`launch cloud teardown\` when done; ` +
+      `Host kept alive for the paid window (run \`launch-store cloud teardown\` when done; ` +
         `it auto-releases near ${new Date(autoReleaseAt(handle.allocatedAt)).toLocaleTimeString()}).`,
     );
   }

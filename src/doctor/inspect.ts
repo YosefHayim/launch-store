@@ -162,7 +162,7 @@ async function readGradleWrapperCheck(
   return {
     status: 'info',
     title: `No android/gradlew for ${app.name} yet`,
-    detail: '`launch build android` will run `expo prebuild` to generate it',
+    detail: '`launch-store build android` will run `expo prebuild` to generate it',
   };
 }
 
@@ -236,7 +236,7 @@ async function codesignCheck(doctorContext: DoctorContext): Promise<DoctorCheck[
     {
       status: 'info',
       title: 'No distribution identity in the login keychain yet',
-      hint: '`launch creds setup` imports one',
+      hint: '`launch-store creds setup` imports one',
     },
   ];
 }
@@ -282,7 +282,7 @@ async function appleAccountChecks(doctorContext: DoctorContext): Promise<DoctorC
       {
         status: 'info',
         title: 'No active Apple account - skipping Apple checks',
-        hint: '`launch creds set-key`',
+        hint: '`launch-store creds set-key`',
       },
     ];
   }
@@ -334,7 +334,7 @@ async function readPlayAppCheck(
     return {
       status: 'info',
       title: `No service account imported for ${app.packageName} - skipping Play checks`,
-      hint: 'launch creds set-key --platform android --app <name>',
+      hint: 'launch-store creds set-key --platform android --app <name>',
     };
   }
 

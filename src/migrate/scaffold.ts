@@ -52,7 +52,7 @@ export async function scaffoldStoreConfig(
     note: {
       level: 'manual',
       message:
-        'Scaffolded store.config.json - fill in your listing, or run `launch metadata pull` to import the live App Store listing.',
+        'Scaffolded store.config.json - fill in your listing, or run `launch-store metadata pull` to import the live App Store listing.',
     },
   };
 }

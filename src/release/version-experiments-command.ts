@@ -195,7 +195,7 @@ async function resolveExperimentsTarget(
   if (isConfigMissing) {
     throw makeVersionExperimentsCommandFailure({
       operation: 'resolve experiments config',
-      message: `No experiments config at ${commandInput.config}. Create one (see \`launch experiments --help\`) or pass --config.`,
+      message: `No experiments config at ${commandInput.config}. Create one (see \`launch-store experiments --help\`) or pass --config.`,
       cause: commandInput.config,
     });
   }

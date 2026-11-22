@@ -199,7 +199,7 @@ export function signingPreflightDoctorChecks(
       status: 'fail',
       title: `Signing preflight: ${targetLabel}`,
       detail: warning,
-      hint: 'Run `launch creds setup --app <name>` to register and provision each target',
+      hint: 'Run `launch-store creds setup --app <name>` to register and provision each target',
     });
   }
 

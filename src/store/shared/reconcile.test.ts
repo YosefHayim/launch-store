@@ -82,7 +82,7 @@ describe('appRecordMissing', () => {
     const appMissing = appRecordMissing('com.acme.app', 'accessibility');
     expect(appMissing.message).toBe(
       'No App Store Connect app record for com.acme.app. Create the app once in App Store Connect ' +
-        '(Apple has no API to create the app record), then re-run `launch accessibility`.',
+        '(Apple has no API to create the app record), then re-run `launch-store accessibility`.',
     );
   });
 });

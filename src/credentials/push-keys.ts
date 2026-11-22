@@ -133,7 +133,10 @@ async function exportApnsKey(
   commandOptions: CredentialsCommandOptions,
 ): Promise<void> {
   if (keyIdArgument == null) {
-    failCommand('export APNs key', 'Usage: launch creds push-key export <keyId> --out <path>.');
+    failCommand(
+      'export APNs key',
+      'Usage: launch-store creds push-key export <keyId> --out <path>.',
+    );
   }
 
   const keyRecord = await findPushKey(keyIdArgument);

@@ -19,7 +19,7 @@ export const registerMcpCommand = (program: Command): void => {
   mcpCommand
     .command('install')
     .description(
-      "wire `launch mcp` into an AI client's config (default: auto-detect Claude Code / Cursor)",
+      "wire `launch-store mcp` into an AI client's config (default: auto-detect Claude Code / Cursor)",
     )
     .option('--client <name>', 'claude-code | cursor | claude-desktop (default: auto-detect)')
     .action((commandOptions: McpInstallOptions) => {

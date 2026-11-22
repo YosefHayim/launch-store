@@ -35,7 +35,7 @@ export type SyncJob = {
 /**
  * Read an app's `store.config.json` `apple` listing, or undefined when absent. A malformed file is
  * swallowed here (returns undefined) so a broken listing never blocks product/capability sync - the
- * dedicated `launch metadata` command is where it's loudly validated.
+ * dedicated `launch-store metadata` command is where it's loudly validated.
  */
 async function loadListing(appDirectory: string): Promise<AppleStoreConfig | undefined> {
   try {

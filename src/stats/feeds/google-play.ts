@@ -124,7 +124,7 @@ async function fetchPlayStats(
   if (playClient == null) {
     return {
       status: 'skipped',
-      reason: `No Play service account saved: run launch creds set-key --platform android --app ${app.name} <key.json>`,
+      reason: `No Play service account saved: run launch-store creds set-key --platform android --app ${app.name} <key.json>`,
     };
   }
 
@@ -138,7 +138,7 @@ async function fetchPlayStats(
       stats: vitals.stats,
       coveredThrough: vitalsCoveredThrough,
       notes: [
-        'Play reports bucket not set: copy the Cloud Storage URI from Play Console > Download reports, then run launch creds set-play-reports-bucket --play-reports-bucket <uri>',
+        'Play reports bucket not set: copy the Cloud Storage URI from Play Console > Download reports, then run launch-store creds set-play-reports-bucket --play-reports-bucket <uri>',
       ],
     };
   }

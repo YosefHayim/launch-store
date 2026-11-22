@@ -265,7 +265,7 @@ export async function validateResolvedEnv(
     }
 
     log.warn(
-      `"${environmentName}" looks like a backend secret (from ${environmentSource}) - it would be bundled into the app. If the app needs it at build time, store it with \`launch secret set ${environmentName}\`; if it's backend-only, add it to \`envExclude\` in launch.config.ts.`,
+      `"${environmentName}" looks like a backend secret (from ${environmentSource}) - it would be bundled into the app. If the app needs it at build time, store it with \`launch-store secret set ${environmentName}\`; if it's backend-only, add it to \`envExclude\` in launch.config.ts.`,
     );
   }
 }

@@ -778,7 +778,7 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readTrackReleases);
   }
-  /** Read every track and its releases (for `launch play-tracks status`). */
+  /** Read every track and its releases (for `launch-store play-tracks status`). */
   async listTracks(packageName: string): Promise<PlayTrackInfo[]> {
     const readTracks = async (editId: string): Promise<PlayTrackInfo[]> => {
       const trackCatalog = await this.executeGeneratedRequest('list tracks', () =>
@@ -994,7 +994,7 @@ export class GooglePlayClient {
   }
   /**
    * Confirm the service account can reach the app's Play record, failing with {@link PlayAppNotFoundError}
-   * when it can't - the detect-and-deep-link probe for `launch doctor` (Play can't create the app).
+   * when it can't - the detect-and-deep-link probe for `launch-store doctor` (Play can't create the app).
    */
   async assertAppExists(packageName: string): Promise<void> {
     let editId: string;

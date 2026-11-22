@@ -2,8 +2,8 @@ import type { PlanContext, SurfacePlan, SurfacePlanner } from '../types/plan.ts'
 import type { PlannedAction } from '../types/reconcile.ts';
 
 /**
- * Exit codes mirror `launch status` (worst-wins, error first):
- * - `inSync` (0) - config matches live state, or plain `launch plan` with only drift/skips
+ * Exit codes mirror `launch-store status` (worst-wins, error first):
+ * - `inSync` (0) - config matches live state, or plain `launch-store plan` with only drift/skips
  * - `error` (1) - unreadable surface/app; a gate cannot certify state it failed to read
  * - `drift` (2) - `--check` only: pending planned actions
  */
@@ -109,7 +109,7 @@ export function tallyPlanSurfaces(surfaces: readonly RenderableSurface[]): PlanS
 }
 
 /**
- * Plain `launch plan` is informational (exit 0 with drift/skips); only app-level errors fail it.
+ * Plain `launch-store plan` is informational (exit 0 with drift/skips); only app-level errors fail it.
  * `--check` / `drift` is the gate: unreadable state wins (1), then drift (2), then in-sync (0).
  */
 export function planExitCode({

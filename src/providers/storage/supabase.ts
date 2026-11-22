@@ -40,7 +40,7 @@ async function resolveServiceKey(): Promise<string> {
     throw makeProviderInputFailure({
       provider: 'supabase-storage',
       message:
-        'No Supabase service key found. Set LAUNCH_SUPABASE_SERVICE_KEY or store account storage-supabase-service-key with `launch creds`.',
+        'No Supabase service key found. Set LAUNCH_SUPABASE_SERVICE_KEY or store account storage-supabase-service-key with `launch-store creds`.',
     });
   }
 
@@ -48,7 +48,7 @@ async function resolveServiceKey(): Promise<string> {
     throw makeProviderInputFailure({
       provider: 'supabase-storage',
       message:
-        'No Supabase service key found. Set LAUNCH_SUPABASE_SERVICE_KEY or store account storage-supabase-service-key with `launch creds`.',
+        'No Supabase service key found. Set LAUNCH_SUPABASE_SERVICE_KEY or store account storage-supabase-service-key with `launch-store creds`.',
     });
   }
 

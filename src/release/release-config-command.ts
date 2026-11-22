@@ -222,7 +222,7 @@ export async function releaseConfigCommandProgram(
     throw releaseConfigFailure(
       'load active Apple account',
       bundleId,
-      'No active Apple account. Run `launch creds set-key` first.',
+      'No active Apple account. Run `launch-store creds set-key` first.',
     );
   }
 

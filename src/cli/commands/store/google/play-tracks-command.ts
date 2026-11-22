@@ -357,7 +357,7 @@ async function showTrackStatus(commandInput: PlayTracksStatusInput): Promise<voi
 
   if (tracksWithCountries.length == 0) {
     logger.line(
-      'No tracks yet. Upload a build (`launch submit --platform android`) to populate a track.',
+      'No tracks yet. Upload a build (`launch-store submit --platform android`) to populate a track.',
     );
     return;
   }
@@ -418,7 +418,7 @@ async function promoteTrackRelease(commandInput: PlayTracksPromoteInput): Promis
       throw makePlayTracksCommandFailure({
         operation: 'promote',
         message:
-          'No uploaded build to promote. Run `launch submit --platform android` first, or pass --version-code.',
+          'No uploaded build to promote. Run `launch-store submit --platform android` first, or pass --version-code.',
         cause: 'missing-build',
       });
     }

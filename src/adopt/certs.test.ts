@@ -30,7 +30,7 @@ describe('planCertReports', () => {
     expect(firstWrite).toBeDefined();
     if (firstWrite == null) return;
     expect(firstWrite.description).toBe('certs: no distribution certificates on this account');
-    expect(firstWrite.note).toMatch(/launch creds setup/);
+    expect(firstWrite.note).toMatch(/launch-store creds setup/);
     expect(firstWrite.change).toEqual({ home: 'keychain' });
   });
 
@@ -91,6 +91,6 @@ describe('planCertReports', () => {
     expect(missingWrite).toBeDefined();
     if (missingWrite == null) return;
     expect(missingWrite.description).toContain('not installed locally');
-    expect(missingWrite.note).toMatch(/launch creds setup/);
+    expect(missingWrite.note).toMatch(/launch-store creds setup/);
   });
 });

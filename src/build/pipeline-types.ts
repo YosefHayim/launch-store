@@ -5,7 +5,7 @@ import type { MutableDeep } from '../types/mutable.ts';
 import type { RemoteTarget } from '../types/remote.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import type { BumpKind } from '../release/version.ts';
-/** Options for one `launch build` invocation. */
+/** Options for one `launch-store build` invocation. */
 export type BuildRunOptions = {
   platform: Platform;
   appName?: string | undefined;

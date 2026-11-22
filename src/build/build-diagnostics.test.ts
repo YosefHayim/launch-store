@@ -4,7 +4,7 @@ describe('diagnoseBuildLog - maps native errors to a cause + fix', () => {
   it('recognizes a missing signing profile', () => {
     const [diagnosis] = diagnoseBuildLog("error: No profiles for 'com.acme.app' were found");
     expect(diagnosis?.title).toContain('Code signing');
-    expect(diagnosis?.fix).toContain('launch creds setup');
+    expect(diagnosis?.fix).toContain('launch-store creds setup');
   });
   it('recognizes the Xcode 26 CocoaPods provisioning-profile archive failure (issue #301)', () => {
     const log = [

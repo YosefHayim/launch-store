@@ -25,7 +25,7 @@ const branch = (
 });
 
 /** Minimal CLI tree covering paths and aliases exercised by the pure validator. */
-const sampleCli: RegisteredCommand = branch('launch', [
+const sampleCli: RegisteredCommand = branch('launch-store', [
   leaf('build'),
   branch('metadata', [leaf('pull'), leaf('push')]),
   branch('creds', [leaf('status')], ['credentials']),
@@ -116,7 +116,7 @@ describe('skillReferencedCommands', () => {
 describe('formatUnknownSkillCommand', () => {
   it('formats the skill id and full launch path', () => {
     const unknownSkillCommand = formatUnknownSkillCommand('launch-ship', ['metadata', 'pull']);
-    expect(unknownSkillCommand).toBe('launch-ship: launch metadata pull');
+    expect(unknownSkillCommand).toBe('launch-ship: launch-store metadata pull');
   });
 });
 
@@ -163,8 +163,8 @@ describe('findUnknownCommands', () => {
     ];
     const unknownCommands = findUnknownCommands(sampleCli, skills);
     expect(unknownCommands).toEqual([
-      'launch-ship: launch not-real',
-      'launch-store-config: launch metadata diff',
+      'launch-ship: launch-store not-real',
+      'launch-store-config: launch-store metadata diff',
     ]);
   });
 

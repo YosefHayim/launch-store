@@ -81,7 +81,7 @@ function ignoreGap(existingText: string): string {
 /**
  * Ensure `resolvedDir` (an absolute artifact directory) is git-ignored when it lives inside the project's
  * repo. `projectDir` is where the repo is located from - defaults to the current directory (which is the
- * project root, since `launch` loads its config from there). Returns whether an entry was added.
+ * project root, since `launch-store` loads its config from there). Returns whether an entry was added.
  */
 export async function ensureArtifactDirIgnored(
   resolvedDir: string,
@@ -155,7 +155,7 @@ export async function ensureArtifactDirIgnored(
   const gap = ignoreGap(base);
 
   try {
-    await writeFile(gitignorePath, `${base}${gap}# launch build artifacts\n${entry}\n`);
+    await writeFile(gitignorePath, `${base}${gap}# launch-store build artifacts\n${entry}\n`);
   } catch (cause) {
     throw makeGitignoreFailure(gitignorePath, cause);
   }

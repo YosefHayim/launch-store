@@ -41,11 +41,11 @@ describe('registerAgentsCommand', () => {
   });
 
   it('flattens Commander names and aliases into the validator tree', () => {
-    const program = new Command().name('launch');
+    const program = new Command().name('launch-store');
     const nested = program.command('parent').alias('p');
     nested.command('child').alias('c');
     expect(registeredCommandTree(program)).toEqual({
-      name: 'launch',
+      name: 'launch-store',
       aliases: [],
       commands: [
         {

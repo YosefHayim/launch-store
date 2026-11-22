@@ -329,7 +329,7 @@ describe('releaseApp - submit an update over the API', () => {
 
     await expect(attempt).rejects.toMatchObject({
       message:
-        'Build 591 (version 1.1.0) cannot join a new App Store version: App Store version 1.1.0 is already live. Next step: create a worktree from tag ios/1.1.0-591, set a new marketing version there, run `launch build ios`, then release that build.',
+        'Build 591 (version 1.1.0) cannot join a new App Store version: App Store version 1.1.0 is already live. Next step: create a worktree from tag ios/1.1.0-591, set a new marketing version there, run `launch-store build ios`, then release that build.',
     });
     expect(api.updateAppStoreVersion).not.toHaveBeenCalled();
     expect(api.selectBuildForVersion).not.toHaveBeenCalled();
@@ -357,7 +357,7 @@ describe('releaseApp - submit an update over the API', () => {
       listAppStoreVersions: vi.fn().mockReturnValue(fulfilled),
     });
     await expect(runRelease(api, releaseInput())).rejects.toMatchObject({
-      message: expect.stringMatching(/launch will not change/),
+      message: expect.stringMatching(/launch-store will not change/),
     });
     expect(api.updateAppStoreVersion).not.toHaveBeenCalled();
   });

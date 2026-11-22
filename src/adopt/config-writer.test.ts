@@ -43,7 +43,7 @@ describe('aggregateProductPieces', () => {
 describe('serializeProductsSection', () => {
   it('renders a commented, paste-ready products block keyed by bundle id', () => {
     const section = serializeProductsSection({ 'com.acme.app': { inAppPurchases: [IAP] } });
-    expect(section).toContain('// Imported from App Store Connect by `launch adopt`');
+    expect(section).toContain('// Imported from App Store Connect by `launch-store adopt`');
     expect(section).toContain('products: {');
     expect(section).toContain('"com.acme.app"');
     expect(section).toContain('"productId": "com.acme.coins"');

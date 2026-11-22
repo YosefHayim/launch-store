@@ -15,7 +15,7 @@ type CertPlanInput = Readonly<{
 }>;
 
 const DELEGATE_HINT =
-  'Apple never returns the private key - run `launch creds setup` to issue or reuse a usable certificate and profile';
+  'Apple never returns the private key - run `launch-store creds setup` to issue or reuse a usable certificate and profile';
 
 /** Build one detect-only signing report. */
 function signingReport(description: string, note: string | undefined): PlannedWrite {

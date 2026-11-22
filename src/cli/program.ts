@@ -61,14 +61,14 @@ import { registerSandboxCommand } from './commands/store/apple/sandbox.ts';
 import { registerAppsCommand } from './commands/insights/apps.ts';
 import { registerStatsCommand } from './commands/insights/stats.ts';
 /**
- * Assemble the full `launch` command tree and return it unparsed. Pure - registering providers and
+ * Assemble the full `launch-store` command tree and return it unparsed. Pure - registering providers and
  * dispatching `argv` are the caller's job - so importing this module does nothing observable, which is
  * what lets both the runtime entry and the docs generator share one definition of the command surface.
  */
 export const buildProgram = (launchVersion = '0.0.0'): Command => {
   const program = new Command();
   program
-    .name('launch')
+    .name('launch-store')
     .description(
       'Build and ship your iOS/Android apps to the stores from your own machine - no Expo bill.',
     )

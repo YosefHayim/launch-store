@@ -128,7 +128,7 @@ export const playSubscriptionsPlanner: SurfacePlanner = {
         store: 'play',
         state: 'skipped',
         reason: 'no Play service account',
-        hint: 'run `launch creds set-key --platform android --app <name>`',
+        hint: 'run `launch-store creds set-key --platform android --app <name>`',
       };
     }
 

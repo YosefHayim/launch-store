@@ -97,7 +97,7 @@ export const screenshotsPlanner: SurfacePlanner = {
         store: 'appstore',
         state: 'skipped',
         reason: 'no active Apple account',
-        hint: 'run `launch creds set-key`',
+        hint: 'run `launch-store creds set-key`',
       };
     }
 

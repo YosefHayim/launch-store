@@ -194,7 +194,7 @@ type RestoreReport = Readonly<{
  * {@link restore} is the optional write counterpart to {@link capture}: it pushes a saved capture back to
  * the store. Only **config-complete** sources implement it - `apple-listing` (full per-locale listing) and
  * the Play catalog sources (`play-products` / `play-subscriptions`, which capture price + listings and
- * restore additively via the same reconcilers `launch sync` uses). The Apple catalog sources
+ * restore additively via the same reconcilers `launch-store sync` uses). The Apple catalog sources
  * (`apple-products` / `apple-subscriptions`) stay capture-only: App Store Connect exposes no reader for an
  * in-app purchase's current price/territory, so their capture is summary-grade and can't be faithfully
  * restored. A source without `restore` is preview-only in `snapshot restore`.

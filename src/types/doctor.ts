@@ -28,7 +28,7 @@ export type DoctorCheck = Readonly<{
 /**
  * The aggregate result of a doctor run, structured so the command renders it, `--json` serializes it, and
  * an MCP tool returns it. `ok` is the gate: `true` exactly when no check is `fail` (advisory `info` lines
- * never fail the run), which is what `launch doctor`'s exit code reads.
+ * never fail the run), which is what `launch-store doctor`'s exit code reads.
  */
 export type DoctorReport = Readonly<{
   platform: DoctorPlatform;
@@ -61,7 +61,7 @@ type DoctorPlayApi = Readonly<{
 /**
  * What {@link inspectDoctor} is handed. The pure config/apps plus every impure input injected as a
  * function, so the inspection itself performs no I/O it doesn't go through this seam - which is what lets
- * a test drive it with fakes and lets `launch mcp` reuse it unchanged. Each store resolver returns `null`
+ * a test drive it with fakes and lets `launch-store mcp` reuse it unchanged. Each store resolver returns `null`
  * when that account isn't configured, so the inspection records an advisory skip instead of throwing.
  */
 export type DoctorContext = {

@@ -186,7 +186,7 @@ function decodeAccessibilityDocument(rawDocument: unknown): AccessibilityConfig 
 }
 
 function missingAccessibilityMessage(configPath: string): string {
-  return `No accessibility config at ${configPath}. Create one (see \`launch accessibility --help\`) or pass --config.`;
+  return `No accessibility config at ${configPath}. Create one (see \`launch-store accessibility --help\`) or pass --config.`;
 }
 
 const accessibilityConfigSpec = {

@@ -134,7 +134,7 @@ export async function readAvailabilityConfig(configPath: string): Promise<Availa
   if (configExists == false) {
     throw makeAvailabilityConfigFailure({
       path: configPath,
-      message: `No availability config at ${configPath}. Create one with a "territories" list (see \`launch availability --help\`).`,
+      message: `No availability config at ${configPath}. Create one with a "territories" list (see \`launch-store availability --help\`).`,
       cause: 'missing-availability-config',
     });
   }

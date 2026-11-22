@@ -14,7 +14,7 @@ vi.mock('../../run-cli-program.ts', () => ({ runCliProgram: vi.fn(async () => un
 const parseStats = async (cliArguments: readonly string[]) => {
   const program = new Command();
   registerStatsCommand(program);
-  await program.parseAsync(['node', 'launch', 'stats', ...cliArguments]);
+  await program.parseAsync(['node', 'launch-store', 'stats', ...cliArguments]);
 };
 
 beforeEach(() => {

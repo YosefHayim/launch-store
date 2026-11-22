@@ -124,13 +124,13 @@ describe('pendingTodos', () => {
         },
         {
           title: 'Apple account',
-          rows: [{ label: 'Apple account', status: 'todo', detail: 'launch creds set-key' }],
+          rows: [{ label: 'Apple account', status: 'todo', detail: 'launch-store creds set-key' }],
         },
       ],
     };
     expect(pendingTodos(readiness)).toEqual([
       { label: 'Xcode', status: 'todo', detail: 'Install Xcode.' },
-      { label: 'Apple account', status: 'todo', detail: 'launch creds set-key' },
+      { label: 'Apple account', status: 'todo', detail: 'launch-store creds set-key' },
     ]);
   });
 });

@@ -42,7 +42,7 @@
     }
   },
   "bin": {
-    "launch": "dist/cli/index.js"
+    "launch-store": "dist/cli/index.js"
   },
   "files": [
     "dist",
@@ -63,7 +63,7 @@
     "test:watch": "vitest --project unit",
     "test:coverage": "vitest run --project unit --coverage",
     "test:e2e": "vitest run --project e2e",
-    "launch": "tsx src/cli/index.ts",
+    "launch-store": "tsx src/cli/index.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "prepare": "husky",
     "prepublishOnly": "pnpm build"

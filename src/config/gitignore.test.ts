@@ -44,7 +44,7 @@ describe('ensureArtifactDirIgnored', () => {
     expect(first).toEqual({ added: true, entry: '/.launch/artifacts' });
     const joinedPath = join(repo, '.gitignore');
     const gitignore = readFileSync(joinedPath, 'utf8');
-    expect(gitignore).toContain('# launch build artifacts');
+    expect(gitignore).toContain('# launch-store build artifacts');
     expect(gitignore).toContain('/.launch/artifacts');
     // Idempotent even though the dir was never created - `check-ignore` matches the anchored entry anyway.
     const second = await ensureArtifactDirIgnored(artifacts, repo);

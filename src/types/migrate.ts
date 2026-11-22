@@ -42,13 +42,13 @@ export type EasBuildProfile = Readonly<{
   autoIncrement?: boolean | string;
   developmentClient?: boolean;
 }>;
-/** The iOS half of a `submit.<profile>` block - Apple account details that map to `launch creds`, not config. */
+/** The iOS half of a `submit.<profile>` block - Apple account details that map to `launch-store creds`, not config. */
 type EasSubmitIos = Readonly<{
   appleId?: string;
   ascAppId?: string;
   appleTeamId?: string;
 }>;
-/** The Android half of a `submit.<profile>` block - the Play track maps to a profile; the key path to `launch creds`. */
+/** The Android half of a `submit.<profile>` block - the Play track maps to a profile; the key path to `launch-store creds`. */
 type EasSubmitAndroid = Readonly<{
   serviceAccountKeyPath?: string;
   track?: string;

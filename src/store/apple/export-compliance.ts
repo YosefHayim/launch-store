@@ -161,7 +161,7 @@ type ExportComplianceConfigStatus = {
 };
 /**
  * Describe export-compliance posture from `ios.config.usesNonExemptEncryption` alone, the network-free
- * check `launch doctor` shows per iOS app. Only the explicit `false` answer is "clean" (the binary
+ * check `launch-store doctor` shows per iOS app. Only the explicit `false` answer is "clean" (the binary
  * self-answers); `true` is declared-but-owes-a-declaration, and `undefined` means every upload re-prompts.
  */
 export const describeExportComplianceConfig = (
@@ -188,7 +188,7 @@ export const describeExportComplianceConfig = (
       };
   }
 };
-/** Render a {@link reconcileExportCompliance} outcome as one human line for `launch doctor --fix`. */
+/** Render a {@link reconcileExportCompliance} outcome as one human line for `launch-store doctor --fix`. */
 export const summarizeExportComplianceResult = (
   complianceOutcome: ExportComplianceResult,
 ): string => {

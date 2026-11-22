@@ -38,7 +38,7 @@ export type ProfileResource = Readonly<{
  * iCloud version or the data-protection permission level). The `key` is Apple's setting enum value
  * (`ICLOUD_VERSION`, `DATA_PROTECTION_PERMISSION_LEVEL`, ...) and `options` carries the chosen option
  * key(s). Toggles only: a capability's `settings` never carry the concrete identifier values (app
- * group ids, container ids) - those live in the provisioning profile, which is why `launch adopt`
+ * group ids, container ids) - those live in the provisioning profile, which is why `launch-store adopt`
  * reads capability *values* from the profile and uses these settings only as advisory detail.
  */
 export type CapabilitySetting = Readonly<{
@@ -64,7 +64,7 @@ export type InAppPurchaseResource = Readonly<{
 /**
  * One **sandbox tester** (`sandboxTesters`) - a fake Apple ID for StoreKit testing of purchases and
  * subscriptions, created in App Store Connect (Apple exposes no API to create one). `acAccountName` is the
- * tester's sandbox email - the key `launch sandbox clear` matches on. `subscriptionRenewalRate` is the
+ * tester's sandbox email - the key `launch-store sandbox clear` matches on. `subscriptionRenewalRate` is the
  * accelerated renewal interval Apple uses for sandbox subscriptions.
  */
 export type SandboxTesterResource = Readonly<{
@@ -190,7 +190,7 @@ export type PreviewResource = Readonly<{
  * A TestFlight beta group - a named tester bucket that belongs to exactly one app. External groups
  * invite testers by email (and can gate distribution on Beta App Review); the internal group holds
  * App Store Connect team users. A tester reaches an app's TestFlight by being in one of its groups,
- * which is why every `launch testflight` tester operation goes through a group.
+ * which is why every `launch-store testflight` tester operation goes through a group.
  */
 export type BetaGroupResource = Readonly<{
   id: string;
@@ -274,7 +274,7 @@ export type CustomerReviewResponseResource = Readonly<{
 }>;
 /**
  * One App Store Connect **team member** (`users`) - a person who has accepted access to the account.
- * `username` is their Apple ID email (the key `launch team remove` matches on); `roles` is Apple's
+ * `username` is their Apple ID email (the key `launch-store team remove` matches on); `roles` is Apple's
  * permission set (`ADMIN`, `APP_MANAGER`, `DEVELOPER`, ...). Contrast {@link UserInvitationResource}, which
  * is a member who's been invited but hasn't accepted yet.
  */
@@ -405,7 +405,7 @@ export type FinanceReportQuery = Readonly<{
 /* -------------------------------------------------------------------------- */
 /*  App Store release-lifecycle resources - consumed by core/app-store-release.ts  */
 /*  (the version -> build -> review -> rollout state machine). Untouched by the      */
-/*  build/sign path and the `launch sync` catalog reconciler.                     */
+/*  build/sign path and the `launch-store sync` catalog reconciler.                     */
 /* -------------------------------------------------------------------------- */
 /** A build (one uploaded binary) on App Store Connect, with the fields the release flow reads. */
 export type BuildResource = Readonly<{
@@ -447,7 +447,7 @@ export type BetaAppReviewSubmissionResource = Readonly<{
 }>;
 /**
  * An App Store version - the per-release container carrying lifecycle state, release type, and the
- * attached build. One per marketing version + platform; `launch release` reuses an editable one or
+ * attached build. One per marketing version + platform; `launch-store release` reuses an editable one or
  * creates the next.
  */
 export type AppStoreVersionResource = Readonly<{

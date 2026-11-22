@@ -191,7 +191,7 @@ export async function maybeAutoUpgrade(deps: UpdateCheckDeps): Promise<void> {
   const installer = await deps.resolveInstaller();
 
   if (installer == null) {
-    await deps.notify(`launch ${latest} is available - you have ${deps.currentVersion}`);
+    await deps.notify(`launch-store ${latest} is available - you have ${deps.currentVersion}`);
 
     return;
   }
@@ -205,11 +205,11 @@ export async function maybeAutoUpgrade(deps: UpdateCheckDeps): Promise<void> {
       return;
     case 'eacces':
       await deps.notify(
-        `launch ${latest} is available but the global install isn't writable - sudo ${installCommand}`,
+        `launch-store ${latest} is available but the global install isn't writable - sudo ${installCommand}`,
       );
       return;
     case 'failed':
-      await deps.notify(`launch ${latest} is available - ${installCommand}`);
+      await deps.notify(`launch-store ${latest} is available - ${installCommand}`);
       return;
   }
 }
@@ -348,17 +348,17 @@ async function performUpgrade(
   homeDirectory: string,
 ): Promise<UpgradeResult> {
   const logger = createLogger(false);
-  logger.line(`Upgrading launch ${current} -> ${latest}`);
+  logger.line(`Upgrading launch-store ${current} -> ${latest}`);
 
   try {
     await captureCommandOutput(installer, installArguments(installer, latest), {
       workingDirectory: homeDirectory,
     });
-    logger.line(`launch upgraded to ${latest} - relaunching`);
+    logger.line(`launch-store upgraded to ${latest} - relaunching`);
 
     return 'upgraded';
   } catch (cause) {
-    logger.warn(`launch ${latest} available - automatic upgrade failed`);
+    logger.warn(`launch-store ${latest} available - automatic upgrade failed`);
     const isPermissionDenied = permissionDenied(cause);
 
     if (isPermissionDenied) {
@@ -562,7 +562,7 @@ async function relaunchUpgradedLaunch(
   const logger = createLogger(false);
 
   if (relaunchScript == null) {
-    logger.warn('launch was upgraded - the new version runs from your next command');
+    logger.warn('launch-store was upgraded - the new version runs from your next command');
 
     return;
   }

@@ -1,6 +1,6 @@
 export type PlayVitalsMetric = 'crash' | 'anr';
 /**
- * One normalized day of an Android quality vital - the clean internal shape `launch play-reports vitals`
+ * One normalized day of an Android quality vital - the clean internal shape `launch-store play-reports vitals`
  * renders, lifted from the Play Developer Reporting API's nested `{ startTime, metrics[] }` row.
  *
  * Each row is a single DAILY data point with the API's metric names flattened to plain numbers (the API
@@ -29,7 +29,7 @@ export type VitalsWindow = Readonly<{
 /**
  * One vital's resolved timeline: the metric, the window actually queried (after freshness bounding),
  * and its normalized daily rows. The result of `PlayReportingClient.vitalsTimeline` - the unit the
- * `launch play-reports vitals` command renders.
+ * `launch-store play-reports vitals` command renders.
  */
 export type VitalsTimeline = Readonly<{
   metric: PlayVitalsMetric;

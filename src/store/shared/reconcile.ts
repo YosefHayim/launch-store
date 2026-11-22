@@ -69,7 +69,7 @@ export function appRecordMissing(bundleId: string, commandName: string): AppReco
     bundleId,
     message:
       `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
-      `(Apple has no API to create the app record), then re-run \`launch ${commandName}\`.`,
+      `(Apple has no API to create the app record), then re-run \`launch-store ${commandName}\`.`,
   });
 }
 

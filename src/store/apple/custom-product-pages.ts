@@ -169,7 +169,7 @@ function decodeCustomProductPagesDocument(rawDocument: unknown): CustomProductPa
 }
 
 function missingCustomPagesMessage(configPath: string): string {
-  return `No custom-pages config at ${configPath}. Create one (see \`launch custom-pages --help\`) or pass --config.`;
+  return `No custom-pages config at ${configPath}. Create one (see \`launch-store custom-pages --help\`) or pass --config.`;
 }
 
 const customProductPagesConfigSpec = {

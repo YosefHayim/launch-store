@@ -35,7 +35,7 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 | `src/types` | Shared domain shapes. |
 | `src/providers` | Swappable backends for build, storage, credentials, submit, and compute. |
 | `src/testkit` | Shared test fakes. |
-| `schema/` | Published `launch.config.schema.json`. `launch config` and the MCP tools read it. It ships in the npm package. Do not delete it. |
+| `schema/` | Published `launch.config.schema.json`. `launch-store config` and the MCP tools read it. It ships in the npm package. Do not delete it. |
 
 A file that performs one documented Apple or Google request belongs in `src/apple` or `src/google`. A file that decides something for Launch belongs in the job folder. Do not add `src/core` back.
 
@@ -50,7 +50,7 @@ A file that performs one documented Apple or Google request belongs in `src/appl
 - Usage and product direction: [README.md](./README.md).
 - Domain language: runtime teaching text in `src/terminal/glossary.ts`.
 - Config schema: `schema/launch.config.schema.json` is the published copy. `src/config/` loads and checks it. The root `launch.config.ts` is the full example of every field a developer can set.
-- Root files: there is no `LICENSE` file, no `.env.example`, and no `launch.config.example.ts`. The root sample is `launch.config.ts`. `package.json` keeps `"license": "MIT"`. `launch init` still writes a starter `.env.example` into the app being set up.
+- Root files: there is no `LICENSE` file, no `.env.example`, and no `launch.config.example.ts`. The root sample is `launch.config.ts`. `package.json` keeps `"license": "MIT"`. `launch-store init` still writes a starter `.env.example` into the app being set up.
 
 ### Imports Follow Ownership
 

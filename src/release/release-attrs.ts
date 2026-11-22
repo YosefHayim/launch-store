@@ -935,7 +935,7 @@ export async function loadReleaseConfig(configPath: string): Promise<ReleaseAttr
     throw releaseAttributesFailure(
       'read release config',
       configPath,
-      `No release config at ${configPath}. Create one (see \`launch release-config --help\`) or pass --config.`,
+      `No release config at ${configPath}. Create one (see \`launch-store release-config --help\`) or pass --config.`,
     );
   }
 

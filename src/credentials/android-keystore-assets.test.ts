@@ -116,7 +116,7 @@ describe('legacy Android recovery guidance', () => {
     const message = await describeMissingPlayServiceAccount('demo');
 
     expect(message).toContain('Legacy upload keystore passwords');
-    expect(message).toContain("launch creds adopt --platform android --app 'demo'");
+    expect(message).toContain("launch-store creds adopt --platform android --app 'demo'");
     expect(message).not.toContain('legacy Play service account');
   });
 

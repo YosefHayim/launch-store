@@ -80,7 +80,7 @@ describe('pickServedTools', () => {
     return servedTool.name;
   }
 
-  it('serves only the stats tools in a folder with no launch config', async () => {
+  it('serves only the stats tools in a folder with no launch-store config', async () => {
     const workingDirectory = createWorkingDirectory();
     const servedTools = await pickServedTools([tool({ name: 'build' })], workingDirectory);
 

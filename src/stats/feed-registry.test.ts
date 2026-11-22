@@ -57,7 +57,7 @@ describe('STATS_FEED_PLUGINS', () => {
       { status: 'skipped', reason: 'App has no package name' },
       {
         status: 'skipped',
-        reason: 'No Google service account saved; add one with launch credentials',
+        reason: 'No Google service account saved; add one with launch-store credentials',
       },
     ]);
   });

@@ -199,7 +199,7 @@ function decodeAppClipsDocument(rawDocument: unknown): AppClipsConfig {
 }
 
 function missingAppClipsMessage(configPath: string): string {
-  return `No App Clips config at ${configPath}. Create one (see \`launch app-clips --help\`) or pass --config.`;
+  return `No App Clips config at ${configPath}. Create one (see \`launch-store app-clips --help\`) or pass --config.`;
 }
 
 const appClipsConfigSpec = {

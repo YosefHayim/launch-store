@@ -3,7 +3,7 @@ import { loadGameCenterConfig, reconcileGameCenter } from '../../store/apple/gam
 import { planAppStoreSurface } from './app-store-surface.ts';
 import type { SurfacePlanner } from '../../types/plan.ts';
 import type { GameCenterConfig } from '../../types/store-surface.ts';
-/** Surface id - also the value users pass as `launch plan game-center`. */
+/** Surface id - also the value users pass as `launch-store plan game-center`. */
 const SURFACE = 'game-center';
 export const gameCenterPlanner: SurfacePlanner = {
   id: SURFACE,

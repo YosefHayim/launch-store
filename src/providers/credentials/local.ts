@@ -59,7 +59,7 @@ async function resolveAppleCredentials(
   if (ascKey == null) {
     throw makeMissingCredentialsFailure({
       platform: 'apple',
-      message: 'No App Store Connect API key found. Import one with: launch creds set-key',
+      message: 'No App Store Connect API key found. Import one with: launch-store creds set-key',
     });
   }
 
@@ -155,7 +155,7 @@ function formatAppleAccountStatus(accountStatus: AppleAccountStatus): string {
   let unresolved = '';
 
   if (accountStatus.unresolved) {
-    unresolved = ' - unresolved - run `launch creds refresh`';
+    unresolved = ' - unresolved - run `launch-store creds refresh`';
   }
 
   return `  - ${accountStatus.label}${marker} - ${accountStatus.summary}${unresolved} - ${certificate} - ${profiles}`;
@@ -165,7 +165,7 @@ async function appleStatus(credentialStore: CredentialsReader): Promise<string> 
   const accountStatuses = await credentialStore.listAppleAccountStatuses();
 
   if (accountStatuses.length == 0) {
-    return 'iOS: no Apple account imported (add one with `launch creds set-key`).';
+    return 'iOS: no Apple account imported (add one with `launch-store creds set-key`).';
   }
 
   const accountLines: string[] = [];

@@ -271,7 +271,7 @@ async function showCloudSetup(): Promise<void> {
   const awsConfiguration = loadedConfiguration.config.aws;
 
   if (awsConfiguration == null) {
-    logger.line('Add an AWS block to launch.config.ts, then run `launch cloud doctor`:');
+    logger.line('Add an AWS block to launch.config.ts, then run `launch-store cloud doctor`:');
     logger.line('  aws: {');
     logger.line('    region: "us-east-1",');
     logger.line('    // profile: "default",');

@@ -11,8 +11,8 @@ export type HostOs = 'macos' | 'windows' | 'linux';
  *
  * The three POSIX-family shells with the install-base to matter for a developer CLI: `bash` and `zsh`
  * (the macOS/Linux defaults) plus `fish`. PowerShell is intentionally out of scope - the iOS/Android
- * toolchains Launch drives are macOS/Linux-first. Drives both `launch completion <shell>` (which prints
- * the script) and `launch completion install` (which wires it into the shell's rc file); see
+ * toolchains Launch drives are macOS/Linux-first. Drives both `launch-store completion <shell>` (which prints
+ * the script) and `launch-store completion install` (which wires it into the shell's rc file); see
  * `core/completion.ts`.
  */
 export type Shell = 'bash' | 'zsh' | 'fish';
@@ -45,7 +45,7 @@ export type HostHandle = Readonly<{
   instanceType?: string;
 }>;
 /**
- * A live host's status, for `launch cloud status` and the per-command cost banner.
+ * A live host's status, for `launch-store cloud status` and the per-command cost banner.
  *
  * `estimatedCostUsd` is what has accrued so far under AWS's per-second billing; the real floor is
  * the 24h minimum (see `core/cost.ts`). `releasableAt` is when AWS first allows releasing the
@@ -64,7 +64,7 @@ export type HostStatus = Readonly<{
 export type AwsConfig = {
   /**
    * Region the Mac is started in, such as `us-east-1`.
-   * `launch cloud` and `launch build ios --remote aws` use this.
+   * `launch-store cloud` and `launch-store build ios --remote aws` use this.
    */
   readonly region: string;
   /**
@@ -84,7 +84,7 @@ export type AwsConfig = {
   readonly instanceType?: string;
 };
 
-/** One read-only AWS readiness probe shown by `launch cloud doctor`. */
+/** One read-only AWS readiness probe shown by `launch-store cloud doctor`. */
 export type CloudCheck = Readonly<{
   label: string;
   ok: boolean;

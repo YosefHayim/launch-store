@@ -299,7 +299,7 @@ describe('metadataCommandProgram', () => {
       message: expect.stringMatching(/No store\.config\.json/),
     });
     expect(commandFailure).toMatchObject({
-      message: expect.stringMatching(/launch metadata pull/),
+      message: expect.stringMatching(/launch-store metadata pull/),
     });
   });
 

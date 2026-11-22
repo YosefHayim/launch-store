@@ -303,7 +303,7 @@ function storeConfigSpec(): StoreSurfaceConfigSpec<StoreConfig> {
     documentName: 'store.config.json',
     displayName: 'store config',
     missingMessage(configPath: string) {
-      return `No store.config.json at ${configPath}. Run \`launch metadata pull\` to create one.`;
+      return `No store.config.json at ${configPath}. Run \`launch-store metadata pull\` to create one.`;
     },
     decodeDocument: decodeStoreConfigFields,
   };

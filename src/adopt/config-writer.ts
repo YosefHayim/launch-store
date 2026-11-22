@@ -39,7 +39,7 @@ export const serializeProductsSection = (
     })
     .join('\n');
   return [
-    '  // Imported from App Store Connect by `launch adopt` - review, then commit.',
+    '  // Imported from App Store Connect by `launch-store adopt` - review, then commit.',
     `  products: ${indented},`,
   ].join('\n');
 };

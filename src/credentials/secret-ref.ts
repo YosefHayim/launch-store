@@ -84,6 +84,6 @@ async function readKeychainSecret(secretReference: string, label: string): Promi
 function missingKeychainSecret(label: string, account: string): never {
   throw makeSecretReferenceFailure(
     `${label} references \`keychain:${account}\`, but no secret is stored under that account ` +
-      `(store one with \`launch creds\`).`,
+      `(store one with \`launch-store creds\`).`,
   );
 }

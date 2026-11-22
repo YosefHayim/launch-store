@@ -95,26 +95,26 @@ describe('completion scripts', () => {
   });
   it('each script calls back into the hidden __complete subcommand', () => {
     for (const shell of SHELLS) {
-      expect(completionScript(shell)).toContain(`launch completion ${COMPLETE_SUBCOMMAND}`);
+      expect(completionScript(shell)).toContain(`launch-store completion ${COMPLETE_SUBCOMMAND}`);
     }
   });
-  it('bash registers a completion function for launch and slices words to the cursor', () => {
+  it('bash registers a completion function for launch-store and slices words to the cursor', () => {
     const script = bashCompletionScript();
-    expect(script).toContain('complete -o default -F _launch_complete launch');
+    expect(script).toContain('complete -o default -F _launch_complete launch-store');
     expect(script).toContain('compgen -W');
     // slice to COMP_CWORD so mid-line completion resolves the word under the cursor, not the last word
     expect(script).toContain('COMP_WORDS[@]:1:COMP_CWORD');
   });
   it('zsh wires compdef and passes the words up to the cursor as separate arguments', () => {
     const script = zshCompletionScript();
-    expect(script).toContain('compdef _launch_complete launch');
+    expect(script).toContain('compdef _launch_complete launch-store');
     expect(script).toContain('compadd');
     // (@) keeps each token a separate arg (a joined string breaks nested-command descent); slice to CURRENT
     expect(script).toContain('(@)words[2,CURRENT]');
   });
   it('fish disables file completion and feeds candidates from the callback', () => {
     const script = fishCompletionScript();
-    expect(script).toContain('complete -c launch -f -a');
+    expect(script).toContain('complete -c launch-store -f -a');
     expect(script).toContain('commandline');
   });
 });
@@ -123,7 +123,7 @@ describe('spliceManagedBlock (idempotency)', () => {
     const { contents, updated } = spliceManagedBlock('export PATH=/x\n', managedBlock('zsh'));
     expect(updated).toBe(false);
     expect(contents).toContain('# launch-completion start');
-    expect(contents).toContain('source <(launch completion zsh)');
+    expect(contents).toContain('source <(launch-store completion zsh)');
     expect(contents.startsWith('export PATH=/x\n')).toBe(true);
   });
   it('replaces an existing block in place rather than duplicating it', () => {
@@ -141,7 +141,7 @@ describe('spliceManagedBlock (idempotency)', () => {
     expect(contents).toContain('alias g=git');
     expect(contents).toContain('export EDITOR=vim');
     expect(contents).not.toContain('OLD');
-    expect(contents).toContain('source <(launch completion bash)');
+    expect(contents).toContain('source <(launch-store completion bash)');
   });
 });
 describe('installCompletion', () => {
@@ -152,7 +152,7 @@ describe('installCompletion', () => {
     if (installOutcome.status != 'installed') throw new Error('expected installed');
     expect(installOutcome.updated).toBe(false);
     const loadedFile = readFileSync(installOutcome.rcFile, 'utf8');
-    expect(loadedFile).toContain('source <(launch completion zsh)');
+    expect(loadedFile).toContain('source <(launch-store completion zsh)');
   });
   it('is idempotent - re-running yields the identical rc file with no duplicate line', async () => {
     const home = makeDir('launch-completion-home-');
@@ -165,7 +165,7 @@ describe('installCompletion', () => {
     expect(second.updated).toBe(true);
     const after = readFileSync(second.rcFile, 'utf8');
     expect(after).toBe(first);
-    expect(after.match(/launch completion bash/g)?.length).toBe(1);
+    expect(after.match(/launch-store completion bash/g)?.length).toBe(1);
   });
   it('preserves existing rc-file content when adding the block', async () => {
     const home = makeDir('launch-completion-home-');
@@ -181,7 +181,7 @@ describe('installCompletion', () => {
     const installOutcome = await runInstallCompletion({ shell: 'fish', home });
     expect(installOutcome.status).toBe('manual');
     if (installOutcome.status != 'manual') throw new Error('expected manual');
-    expect(installOutcome.line).toBe('launch completion fish | source');
+    expect(installOutcome.line).toBe('launch-store completion fish | source');
   });
   it('installs fish when its config directory already exists', async () => {
     const home = makeDir('launch-completion-home-');
@@ -191,7 +191,7 @@ describe('installCompletion', () => {
     expect(installOutcome.status).toBe('installed');
     if (installOutcome.status != 'installed') throw new Error('expected installed');
     const loadedFile = readFileSync(installOutcome.rcFile, 'utf8');
-    expect(loadedFile).toContain('launch completion fish | source');
+    expect(loadedFile).toContain('launch-store completion fish | source');
   });
   it('throws when no shell is given and none can be detected', async () => {
     const home = makeDir('launch-completion-home-');

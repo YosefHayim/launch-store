@@ -2,7 +2,7 @@ import type { Command } from '../../command.ts';
 import { readinessCommandProgram } from '../../../readiness/command.ts';
 import { runCliProgram } from '../../run-cli-program.ts';
 
-/** CLI options for `launch iap doctor`. */
+/** CLI options for `launch-store iap doctor`. */
 type IapDoctorOptions = {
   app?: string;
   json?: boolean;

@@ -5,7 +5,7 @@ import type { ReleaseConfig, ReleaseType } from '../types/store-surface.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /**
- * The per-run CLI flags that override the configured release type for a single `launch release`.
+ * The per-run CLI flags that override the configured release type for a single `launch-store release`.
  * `--scheduled` and `--manual` are mutually exclusive overrides; absent, the configured default wins.
  */
 type ReleaseTypeOverrides = {
@@ -116,8 +116,8 @@ function readLocaleReleaseNotes(localeListings: unknown): Record<string, string>
 }
 
 /**
- * Per-locale `releaseNotes` from the app's `store.config.json` - the same listing file `launch sync`
- * and `launch metadata` read - or `{}` when the file is absent. A malformed file fails loudly, the
+ * Per-locale `releaseNotes` from the app's `store.config.json` - the same listing file `launch-store sync`
+ * and `launch-store metadata` read - or `{}` when the file is absent. A malformed file fails loudly, the
  * same way those commands do (the developer fixes the typo once).
  */
 export async function readStoreReleaseNotes(appDirectory: string): Promise<Record<string, string>> {

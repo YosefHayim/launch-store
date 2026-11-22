@@ -162,6 +162,6 @@ export async function ensureArtifactPresent(
 
   throw makeArtifactUnavailableFailure({
     artifactPath: artifact.path,
-    message: `The latest stored ${appName} ${platform} build was pruned to reclaim disk. Run \`launch build ${platform}\` to rebuild before releasing.`,
+    message: `The latest stored ${appName} ${platform} build was pruned to reclaim disk. Run \`launch-store build ${platform}\` to rebuild before releasing.`,
   });
 }

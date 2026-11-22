@@ -50,7 +50,7 @@ type EnsureSigningOptions = {
   extensions?: string[];
 };
 
-/** Summarize what signing material is cached locally for one account, for `launch creds status`. */
+/** Summarize what signing material is cached locally for one account, for `launch-store creds status`. */
 export async function describeStoredCredentials(keyId: string): Promise<{
   certSerial: string | null;
   bundleIds: string[];
@@ -301,7 +301,7 @@ function readAdHocProfileType(platform: Platform): 'IOS_APP_ADHOC' | 'TVOS_APP_A
  * profile scoped to every registered, enabled device (so the resulting `.ipa` installs over the air on
  * those devices). Because an ad-hoc profile is only valid for the exact device set it was minted with,
  * this recreates the profile on every run rather than reusing a stale one - the cheap, always-correct
- * choice. Throws with an actionable message when no devices are registered (`launch device add`).
+ * choice. Throws with an actionable message when no devices are registered (`launch-store device add`).
  */
 export async function ensureAdHocSigningCredentials(
   signingOptions: EnsureSigningOptions,
@@ -352,7 +352,7 @@ export async function ensureAdHocSigningCredentials(
   if (hasNoDevices) {
     throw makeAppleSigningFailure({
       message:
-        'No registered devices for an ad-hoc build. Add one with `launch device add <udid> [name]` and retry.',
+        'No registered devices for an ad-hoc build. Add one with `launch-store device add <udid> [name]` and retry.',
     });
   }
 

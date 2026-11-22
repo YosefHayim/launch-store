@@ -446,7 +446,7 @@ function quoteAppName(appName: string): string {
 }
 
 function androidAdoptionCommand(appName: string): string {
-  return `launch creds adopt --platform android --app ${quoteAppName(appName)}`;
+  return `launch-store creds adopt --platform android --app ${quoteAppName(appName)}`;
 }
 
 function hasLegacyPassword(storePassword: string | null, keyPassword: string | null): boolean {
@@ -477,7 +477,7 @@ export async function describeMissingPlayServiceAccount(appName: string): Promis
     return `Legacy upload keystore passwords exist. Run \`${adopt}\`.`;
   }
 
-  return `No Play service account. Import one with \`launch creds set-key --platform android --app ${appArgument} <key.json>\`.`;
+  return `No Play service account. Import one with \`launch-store creds set-key --platform android --app ${appArgument} <key.json>\`.`;
 }
 
 /** Verify the store and private-key passwords without writing secrets to arguments. */

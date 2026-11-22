@@ -388,7 +388,7 @@ async function readLatestTrain(): Promise<TrainRecord> {
   throw trainFailure(
     'find release train',
     undefined,
-    'No release train yet. Start one with `launch release-train start`.',
+    'No release train yet. Start one with `launch-store release-train start`.',
   );
 }
 
@@ -611,7 +611,7 @@ async function startReleaseTrain(commandFlags: ReleaseTrainCommandOptions): Prom
   );
   await persistTrain(trainRecord);
   preparedTrain.logger.note(
-    `Track it with \`launch release-train status ${trainRecord.id} --watch\`.`,
+    `Track it with \`launch-store release-train status ${trainRecord.id} --watch\`.`,
   );
   await reportTrain(trainRecord, commandFlags, preparedTrain.logger);
 }
@@ -712,7 +712,7 @@ async function abortReleaseTrain(
   };
   await persistTrain(abortedTrain);
   logger.note(
-    `Aborted ${abortedTrain.id}. Live cars are untouched - roll back explicitly with \`launch rollout pause\` or \`launch updates rollback\`.`,
+    `Aborted ${abortedTrain.id}. Live cars are untouched - roll back explicitly with \`launch-store rollout pause\` or \`launch-store updates rollback\`.`,
   );
   await reportTrain(abortedTrain, commandFlags, logger);
 }

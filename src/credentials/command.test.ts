@@ -100,7 +100,7 @@ describe('credentialsCommandProgram validation', () => {
 
     expect(failure._tag).toBe('CredentialsCommandFailure');
     expect(failure.operation).toBe('rename Apple account');
-    expect(failure.message).toContain('launch creds rename');
+    expect(failure.message).toContain('launch-store creds rename');
   });
 
   it('preserves the remove operation tag when the account selector is missing', async () => {
@@ -111,7 +111,7 @@ describe('credentialsCommandProgram validation', () => {
 
     expect(failure._tag).toBe('CredentialsCommandFailure');
     expect(failure.operation).toBe('remove Apple account');
-    expect(failure.message).toContain('launch creds remove');
+    expect(failure.message).toContain('launch-store creds remove');
   });
 
   it('requires an account selector for non-interactive use', async () => {

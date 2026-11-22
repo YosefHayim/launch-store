@@ -73,7 +73,7 @@ function decodeEuDistributionDocument(rawDocument: unknown): EuDistributionConfi
 }
 
 function missingEuDistributionMessage(configPath: string): string {
-  return `No EU distribution config at ${configPath}. Create one (see \`launch eu-distribution --help\`) or pass --config.`;
+  return `No EU distribution config at ${configPath}. Create one (see \`launch-store eu-distribution --help\`) or pass --config.`;
 }
 
 const euDistributionConfigSpec = {

@@ -950,7 +950,7 @@ export async function loadVersionExperimentsConfig(
     throw versionExperimentsFailure(
       'read experiments config',
       configPath,
-      `No experiments config at ${configPath}. Create one (see \`launch experiments --help\`) or pass --config.`,
+      `No experiments config at ${configPath}. Create one (see \`launch-store experiments --help\`) or pass --config.`,
     );
   }
 

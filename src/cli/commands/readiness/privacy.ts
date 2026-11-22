@@ -2,7 +2,7 @@ import type { Command } from '../../command.ts';
 import { privacyCommandProgram } from '../../../privacy/command.ts';
 import { runCliProgram } from '../../run-cli-program.ts';
 
-/** CLI options for `launch privacy scan`. */
+/** CLI options for `launch-store privacy scan`. */
 type PrivacyScanOptions = {
   app?: string;
   json?: boolean;

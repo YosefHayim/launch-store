@@ -57,7 +57,7 @@ export const REQUIRED_TOOLS: Tool[] = [
   },
 ];
 /**
- * The toolchain an Android build needs - the executables `launch doctor --platform android` probes.
+ * The toolchain an Android build needs - the executables `launch-store doctor --platform android` probes.
  * Unlike iOS, none of these are macOS-only (Android builds anywhere), and Xcode has no analog: the
  * JDK supplies `keytool`, gradle runs via the project's own wrapper (checked separately, not here),
  * and `bundletool` estimates the download. `ANDROID_HOME` (the SDK) is an
@@ -123,14 +123,14 @@ export async function missingRequiredTools(io?: Pick<ToolchainIo, 'exists'>): Pr
 }
 /**
  * Generate the bash toolchain preflight that runs ON the remote Mac before a build - the remote twin of
- * `launch doctor`, emitted from {@link REQUIRED_TOOLS} so the host and local checks never drift (issue #6).
+ * `launch-store doctor`, emitted from {@link REQUIRED_TOOLS} so the host and local checks never drift (issue #6).
  *
  * `mode` reflects who owns the host:
  * - `"install"` - the AWS EC2 Mac is ours, so a missing brew-able required tool is installed (and the
  *   recommended ccache best-effort), then re-checked; only an un-installable miss (Xcode) or a failed
  *   install fails the preflight.
  * - `"assert"` - a BYO-SSH host is the user's machine, so nothing is mutated: a missing required tool
- *   fails with the same `brew install ...` hint `launch doctor` prints; a missing ccache only warns.
+ *   fails with the same `brew install ...` hint `launch-store doctor` prints; a missing ccache only warns.
  *
  * Prints `LAUNCH_PREFLIGHT_OK` on success; on a missing required tool it lists each gap and exits
  * non-zero, so the SSH step fails fast with an actionable message instead of a cryptic mid-build error.
@@ -329,7 +329,7 @@ async function configureCcache(io: ToolchainIo): Promise<void> {
 type CcacheOfferResult = 'installed' | 'declined' | 'skipped-no-brew' | 'skipped-noninteractive';
 /**
  * Offer to install + configure ccache inline during a build when it's missing - the convenience twin of
- * `launch doctor --fix`, reusing {@link configureCcache} so the cache is tuned identically (no second
+ * `launch-store doctor --fix`, reusing {@link configureCcache} so the cache is tuned identically (no second
  * source of truth). The caller guarantees ccache is absent and owns the user-facing notices; this only
  * decides and acts:
  * - non-interactive (CI / piped / no TTY) -> `"skipped-noninteractive"` - never block a build on stdin;
@@ -395,7 +395,7 @@ async function installBrewTools(
   const homebrewReady = await ensureHomebrew(io, assumeYes);
 
   if (homebrewReady == false) {
-    await io.log("Homebrew isn't available - install it, then re-run `launch doctor --fix`:");
+    await io.log("Homebrew isn't available - install it, then re-run `launch-store doctor --fix`:");
 
     for (const tool of brewTools) {
       await io.log(`  ${fixHint(tool)}`);

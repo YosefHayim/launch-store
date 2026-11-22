@@ -28,7 +28,7 @@ export type PlayCatalogApi = PlayProductsApi & PlaySubscriptionsApi;
  * The full read surface of App Store Connect the App Store planners share - the union of every ASC
  * surface reconciler's API slice (mirrors how {@link PlayCatalogApi} unions the two Play interfaces). One
  * resolver hands this to every App Store planner; each planner passes it to its reconciler, which uses
- * only the slice it needs. `AppStoreConnectClient` satisfies the whole thing structurally - every `launch`
+ * only the slice it needs. `AppStoreConnectClient` satisfies the whole thing structurally - every `launch-store`
  * command already passes that client to these reconcilers individually - so no widening of the client is
  * required, only of the resolver's declared type. Grows by one `extends` as each surface is wired.
  */
@@ -72,8 +72,8 @@ export type PlanDirection = 'two-way' | 'additive';
  * surface, on `scope`):
  * - `omitted` - nothing declared for this surface (e.g. no products at all); dropped from output and
  *   exit codes, so an ASC-only project never sees empty Play noise.
- * - `skipped` - declared but unreadable (credentials missing). Benign for plain `launch plan` (a visible
- *   skip at exit 0); a hard error for `launch plan --check`, which cannot certify what it could not read.
+ * - `skipped` - declared but unreadable (credentials missing). Benign for plain `launch-store plan` (a visible
+ *   skip at exit 0); a hard error for `launch-store plan --check`, which cannot certify what it could not read.
  * - `planned` + `scope: "app"` - read successfully; `apps` carries the per-app diff (the usual case).
  * - `planned` + `scope: "team"` - a team-level surface with no bundle id (wallet / EU distribution);
  *   `actions` carries the diff directly, with no per-app grouping.
@@ -122,8 +122,8 @@ export type PlanContext = Readonly<{
 }>;
 /**
  * One config-as-code surface's planner. {@link plan} is **read-only**: it resolves live state and returns
- * the diff it *would* apply without performing any write, so the same call powers both `launch plan` and
- * the `launch drift` gate. Registered like a provider/adopter (see {@link import("../plan/registry.ts")}); the
+ * the diff it *would* apply without performing any write, so the same call powers both `launch-store plan` and
+ * the `launch-store drift` gate. Registered like a provider/adopter (see {@link import("../plan/registry.ts")}); the
  * orchestrator resolves every registered planner and never names a concrete one.
  */
 export type SurfacePlanner = Readonly<{

@@ -444,7 +444,7 @@ async function requireStoredBuild(reference: string): Promise<BuildArtifact> {
     throw buildHistoryFailure(
       'find stored build',
       reference,
-      `No build matches "${reference}". Run \`launch builds list\` to see what's available.`,
+      `No build matches "${reference}". Run \`launch-store builds list\` to see what's available.`,
     );
   }
 
@@ -731,7 +731,7 @@ async function listBuilds(
   const isEmpty = buildRows.length == 0;
 
   if (isEmpty) {
-    tools.logger.line('No builds yet. Run `launch build ios` (or android) to create one.');
+    tools.logger.line('No builds yet. Run `launch-store build ios` (or android) to create one.');
     return;
   }
 

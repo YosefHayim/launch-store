@@ -23,7 +23,7 @@ export class AppStoreToken {
     const isMissing = saved == null;
 
     if (isMissing) {
-      throw new Error('No App Store Connect account is saved. Run launch creds.');
+      throw new Error('No App Store Connect account is saved. Run launch-store creds.');
     }
 
     const account = findActiveAccount(saved);

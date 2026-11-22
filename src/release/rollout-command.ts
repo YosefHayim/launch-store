@@ -158,7 +158,7 @@ async function updateAppRollout(
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
-    const appMissingMessage = appRecordMissingMessage(selectedApp.bundleId, 'launch rollout');
+    const appMissingMessage = appRecordMissingMessage(selectedApp.bundleId, 'launch-store rollout');
     logger.error(`${selectedApp.name}: ${appMissingMessage}`);
     return true;
   }
@@ -220,7 +220,7 @@ export async function rolloutCommandProgram(rawCommandInput: unknown): Promise<v
       throw rolloutFailure(
         'load active Apple account',
         'missing-active-account',
-        'No active Apple account. Run `launch creds set-key` first.',
+        'No active Apple account. Run `launch-store creds set-key` first.',
       );
     }
 

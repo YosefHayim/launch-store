@@ -12,7 +12,7 @@ Launch is an end-to-end release tool: it owns the path from source to store for 
 
 ## Quick start
 
-**Node.js 24+** ([nodejs.org](https://nodejs.org/en)). **iOS needs a Mac** with [Xcode](https://developer.apple.com/xcode/), [CocoaPods](https://cocoapods.org/), an [Apple Developer Program](https://developer.apple.com/programs/enroll/) membership, and an [App Store Connect API key](https://appstoreconnect.apple.com/access/integrations/api). **Android** needs a [JDK](https://openjdk.org/), the [Android SDK](https://developer.android.com/studio) with `ANDROID_HOME` set, and a [Google Play Developer](https://play.google.com/console/signup) account. **iOS on another Mac** uses `launch build ios --remote aws` or `launch build ios --remote user@host`.
+**Node.js 24+** ([nodejs.org](https://nodejs.org/en)). **iOS needs a Mac** with [Xcode](https://developer.apple.com/xcode/), [CocoaPods](https://cocoapods.org/), an [Apple Developer Program](https://developer.apple.com/programs/enroll/) membership, and an [App Store Connect API key](https://appstoreconnect.apple.com/access/integrations/api). **Android** needs a [JDK](https://openjdk.org/), the [Android SDK](https://developer.android.com/studio) with `ANDROID_HOME` set, and a [Google Play Developer](https://play.google.com/console/signup) account. **iOS on another Mac** uses `launch-store build ios --remote aws` or `launch-store build ios --remote user@host`.
 
 Install from [npm](https://www.npmjs.com/package/launch-store):
 
@@ -23,14 +23,14 @@ npm install --save-dev launch-store
 Then, from the app:
 
 ```bash
-npx launch init
-npx launch creds set-key
-npx launch creds setup
-npx launch build ios --dry-run
-npx launch build ios
+npx launch-store init
+npx launch-store creds set-key
+npx launch-store creds setup
+npx launch-store build ios --dry-run
+npx launch-store build ios
 ```
 
-The dry run prints `Dry run` and changes nothing. A real iOS run leaves the signed archive on disk after it checks that the app exists. `npx launch build android` uploads the bundle unless you pass `--no-submit`.
+The dry run prints `Dry run` and changes nothing. A real iOS run leaves the signed archive on disk after it checks that the app exists. `npx launch-store build android` uploads the bundle unless you pass `--no-submit`.
 
 ## Usage
 
@@ -38,22 +38,22 @@ The dry run prints `Dry run` and changes nothing. A real iOS run leaves the sign
 
 | Command | What it does |
 | --- | --- |
-| `launch build <ios\|android>` | Prebuild and sign. Android uploads the bundle. iOS leaves the signed archive on disk. |
-| `launch release <ios\|android>` | Ship the latest build to the public store, with confirmation. |
-| `launch update` | Publish an over-the-air JS update ([Expo Updates](https://docs.expo.dev/versions/latest/sdk/updates/)) to your own bucket. |
-| `launch sync` | Reconcile App Store Connect products, pricing, and the listing from `launch.config.ts`. |
-| `launch adopt` | Import a live App Store Connect setup into `launch.config.ts`. |
-| `launch creds` | Inspect credentials, import the API key, and switch Apple accounts. |
-| `launch plan` | Show what `sync` would change. `launch drift --check` exits 2 when the store has drifted. |
-| `launch doctor` | Check that the local toolchain and store account are ready. |
+| `launch-store build <ios\|android>` | Prebuild and sign. Android uploads the bundle. iOS leaves the signed archive on disk. |
+| `launch-store release <ios\|android>` | Ship the latest build to the public store, with confirmation. |
+| `launch-store update` | Publish an over-the-air JS update ([Expo Updates](https://docs.expo.dev/versions/latest/sdk/updates/)) to your own bucket. |
+| `launch-store sync` | Reconcile App Store Connect products, pricing, and the listing from `launch.config.ts`. |
+| `launch-store adopt` | Import a live App Store Connect setup into `launch.config.ts`. |
+| `launch-store creds` | Inspect credentials, import the API key, and switch Apple accounts. |
+| `launch-store plan` | Show what `sync` would change. `launch-store drift --check` exits 2 when the store has drifted. |
+| `launch-store doctor` | Check that the local toolchain and store account are ready. |
 
-`launch --help` lists every command. Every field is set in the root [`launch.config.ts`](./launch.config.ts). Hover a name to read what it does.
+`launch-store --help` lists every command. Every field is set in the root [`launch.config.ts`](./launch.config.ts). Hover a name to read what it does.
 
-`launch agents init` writes [Claude Code](https://code.claude.com/docs/en/overview) skills, [Cursor rules](https://cursor.com/docs/rules), and a Launch section in `AGENTS.md` for [Codex](https://developers.openai.com/codex/guides/agents-md). `launch agents check` keeps them in sync. `claude mcp add --scope user launch -- launch mcp` registers the MCP server.
+`launch-store agents init` writes [Claude Code](https://code.claude.com/docs/en/overview) skills, [Cursor rules](https://cursor.com/docs/rules), and a Launch section in `AGENTS.md` for [Codex](https://developers.openai.com/codex/guides/agents-md). `launch-store agents check` keeps them in sync. `claude mcp add --scope user launch-store -- launch-store mcp` registers the MCP server.
 
 ### Configuration
 
-App facts (bundle id, version) are read from each app's Expo config, `app.json` or `app.config.{ts,js}`. `launch.config.ts` holds Launch settings. The root [`launch.config.ts`](./launch.config.ts) is a full example of every field: profiles, products, offers, Game Center, App Clips, release, wallet, EU distribution, storage, AWS, notify, and the sidecar paths. `defineConfig` is the public helper. The published [JSON Schema](https://json-schema.org/) is `schema/launch.config.schema.json`. `launch config schema` prints it, and `launch config schema --out launch.config.schema.json` writes a copy for your editor.
+App facts (bundle id, version) are read from each app's Expo config, `app.json` or `app.config.{ts,js}`. `launch.config.ts` holds Launch settings. The root [`launch.config.ts`](./launch.config.ts) is a full example of every field: profiles, products, offers, Game Center, App Clips, release, wallet, EU distribution, storage, AWS, notify, and the sidecar paths. `defineConfig` is the public helper. The published [JSON Schema](https://json-schema.org/) is `schema/launch.config.schema.json`. `launch-store config schema` prints it, and `launch-store config schema --out launch.config.schema.json` writes a copy for your editor.
 
 ```ts
 import { defineConfig } from 'launch-store';
@@ -69,7 +69,7 @@ export default defineConfig({
 });
 ```
 
-Unknown keys are kept so `launch config validate` can flag them.
+Unknown keys are kept so `launch-store config validate` can flag them.
 
 ### Credentials
 
@@ -80,17 +80,17 @@ Unknown keys are kept so `launch config validate` can flag them.
 
 ## How it works
 
-`launch.config.ts` is the desired state. `launch plan` diffs it against the live store and changes nothing. `launch sync` applies that diff after you confirm. `launch adopt` reads a live App Store Connect setup back into the file.
+`launch.config.ts` is the desired state. `launch-store plan` diffs it against the live store and changes nothing. `launch-store sync` applies that diff after you confirm. `launch-store adopt` reads a live App Store Connect setup back into the file.
 
-`launch build` accepts `ios`, `android`, `tvos`, `macos`, and `visionos`. Android upload goes through the Play API. The iOS path stops once the signed archive is on disk. `--remote aws` and `--remote user@host` run that iOS build on another Mac. `launch cloud` sets up the EC2 Mac. Android does not need a Mac.
+`launch-store build` accepts `ios`, `android`, `tvos`, `macos`, and `visionos`. Android upload goes through the Play API. The iOS path stops once the signed archive is on disk. `--remote aws` and `--remote user@host` run that iOS build on another Mac. `launch-store cloud` sets up the EC2 Mac. Android does not need a Mac.
 
-`launch update` publishes a code-signed JS update to your own bucket ([S3](https://aws.amazon.com/s3/), [R2](https://developers.cloudflare.com/r2/), or [Supabase](https://supabase.com/docs/guides/storage)). `launch release` is the confirmed public ship.
+`launch-store update` publishes a code-signed JS update to your own bucket ([S3](https://aws.amazon.com/s3/), [R2](https://developers.cloudflare.com/r2/), or [Supabase](https://supabase.com/docs/guides/storage)). `launch-store release` is the confirmed public ship.
 
 ## Status and scope
 
 Launch is active, MIT-licensed, and published as [`launch-store`](https://www.npmjs.com/package/launch-store).
 
-**`launch build` accepts `ios`, `android`, `tvos`, `macos`, and `visionos`.** `--remote`, `--clean`, `--no-ccache`, and `--distribution` are real flags. **iOS does not upload the IPA.** The command checks that the app exists and leaves the signed archive on disk. **Android uploads the bundle** unless you pass `--no-submit`.
+**`launch-store build` accepts `ios`, `android`, `tvos`, `macos`, and `visionos`.** `--remote`, `--clean`, `--no-ccache`, and `--distribution` are real flags. **iOS does not upload the IPA.** The command checks that the app exists and leaves the signed archive on disk. **Android uploads the bundle** unless you pass `--no-submit`.
 
 **`release`, `sync`, and `adopt` change the live store.** They refuse to run without a terminal unless you pass `--yes`.
 
@@ -98,7 +98,7 @@ Launch is active, MIT-licensed, and published as [`launch-store`](https://www.np
 
 ## Help
 
-`launch doctor` checks the toolchain and the store account. `launch --help` lists the commands. `launch explain <topic>` and `--explain` expand a step in plain English.
+`launch-store doctor` checks the toolchain and the store account. `launch-store --help` lists the commands. `launch-store explain <topic>` and `--explain` expand a step in plain English.
 
 Bugs and questions go to [GitHub issues](https://github.com/YosefHayim/launch-store/issues).
 

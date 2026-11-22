@@ -234,7 +234,7 @@ function appIdText(bundleIdRegistered: boolean): string {
     return 'registered';
   }
 
-  return "NOT registered - run 'launch setup ios --provision'";
+  return "NOT registered - run 'launch-store setup ios --provision'";
 }
 
 function capabilitiesText(capabilities: readonly string[]): string {
@@ -247,7 +247,7 @@ function capabilitiesText(capabilities: readonly string[]): string {
 
 function certificateText(certificateSerial: string | null): string {
   if (certificateSerial == null) {
-    return "none cached - run 'launch creds setup'";
+    return "none cached - run 'launch-store creds setup'";
   }
 
   return certificateSerial;
@@ -255,7 +255,7 @@ function certificateText(certificateSerial: string | null): string {
 
 function profileText(profileName: string | null): string {
   if (profileName == null) {
-    return "none cached - run 'launch creds setup'";
+    return "none cached - run 'launch-store creds setup'";
   }
 
   return profileName;
@@ -266,7 +266,7 @@ function extensionText(provisioned: boolean): string {
     return 'profile cached';
   }
 
-  return "not provisioned - run 'launch setup ios --provision'";
+  return "not provisioned - run 'launch-store setup ios --provision'";
 }
 
 function deviceSummary(devices: readonly ProvisioningDevice[]): string {
@@ -274,7 +274,7 @@ function deviceSummary(devices: readonly ProvisioningDevice[]): string {
     return `${devices.length} registered`;
   }
 
-  return "none (add with 'launch device add <udid>')";
+  return "none (add with 'launch-store device add <udid>')";
 }
 
 function disabledText(disabled: boolean): string {
@@ -342,13 +342,13 @@ async function loadSetupAccount(accountSelector: string | undefined): Promise<Se
   const accountRecord = await findSetupAccount(accountSelector);
 
   if (isMissingActiveAccount(accountRecord)) {
-    throw setupFailure('ios', 'No active Apple account. Import one: launch creds set-key');
+    throw setupFailure('ios', 'No active Apple account. Import one: launch-store creds set-key');
   }
 
   if (isUnmatchedAccount(accountRecord)) {
     throw setupFailure(
       'ios',
-      `No Apple account matching "${accountSelector}". See \`launch creds status\`.`,
+      `No Apple account matching "${accountSelector}". See \`launch-store creds status\`.`,
     );
   }
 
@@ -357,7 +357,7 @@ async function loadSetupAccount(accountSelector: string | undefined): Promise<Se
   if (ascKey == null) {
     throw setupFailure(
       'ios',
-      `Account "${accountRecord.label}" has no stored key. Re-import: launch creds set-key`,
+      `Account "${accountRecord.label}" has no stored key. Re-import: launch-store creds set-key`,
     );
   }
 

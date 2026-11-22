@@ -170,7 +170,7 @@ async function buildAppleArtifact(
   if (isSigningMissing) {
     throw makeProviderInputFailure({
       provider: 'xcode',
-      message: 'No signing assets resolved - run `launch creds setup` first.',
+      message: 'No signing assets resolved - run `launch-store creds setup` first.',
     });
   }
 

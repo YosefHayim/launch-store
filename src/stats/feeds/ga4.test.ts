@@ -386,7 +386,7 @@ describe('ga4Feed', () => {
 
     const skippedReason = readSkippedReason(reply);
     expect(skippedReason).toBe(
-      'No GA4 property with a stream for com.example.calfriend; tag one with launch apps tag --app calfriend --ga4-property <id>',
+      'No GA4 property with a stream for com.example.calfriend; tag one with launch-store apps tag --app calfriend --ga4-property <id>',
     );
   });
 

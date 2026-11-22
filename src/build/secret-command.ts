@@ -271,7 +271,8 @@ async function setSecretValue(commandInput: SecretSetInput): Promise<void> {
   if (nameIsMissing) {
     throw makeSecretCommandFailure({
       action: 'set',
-      message: 'Usage: launch secret set <NAME> [--value <v>] [--app <app>] [--profile <profile>].',
+      message:
+        'Usage: launch-store secret set <NAME> [--value <v>] [--app <app>] [--profile <profile>].',
     });
   }
 
@@ -305,7 +306,7 @@ async function removeSecretValue(commandInput: SecretRemoveInput): Promise<void>
   if (nameIsMissing) {
     throw makeSecretCommandFailure({
       action: commandInput.action,
-      message: 'Usage: launch secret rm <NAME> [--app <app>] [--profile <profile>].',
+      message: 'Usage: launch-store secret rm <NAME> [--app <app>] [--profile <profile>].',
     });
   }
 
@@ -350,12 +351,12 @@ async function listSecrets(commandInput: SecretListInput): Promise<void> {
 
   if (hasApp) {
     logger.skip(
-      `No build secrets for ${commandInput.app}. Add one with: launch secret set <NAME> --app ${commandInput.app}`,
+      `No build secrets for ${commandInput.app}. Add one with: launch-store secret set <NAME> --app ${commandInput.app}`,
     );
     return;
   }
 
-  logger.skip('No build secrets stored. Add one with: launch secret set <NAME>');
+  logger.skip('No build secrets stored. Add one with: launch-store secret set <NAME>');
 }
 
 /** Run one decoded build-secret command. */

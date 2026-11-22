@@ -289,7 +289,7 @@ async function runSyncTool(
   const appleClient = await storeContext.resolveAscApi();
 
   if (appleClient == null) {
-    throw makeMcpToolFailure('No active Apple account. Run `launch creds set-key` first.');
+    throw makeMcpToolFailure('No active Apple account. Run `launch-store creds set-key` first.');
   }
 
   const syncReport = await runSyncBatch(appleClient, syncJobs, allowDestructive);
@@ -355,7 +355,7 @@ async function validateConfigTool(): Promise<McpToolResult> {
   const foundConfig = await findLaunchConfig(launchDirectories.workingDirectory);
 
   if (foundConfig == null) {
-    throw makeMcpToolFailure('No launch.config file here. Run `launch init` first.');
+    throw makeMcpToolFailure('No launch.config file here. Run `launch-store init` first.');
   }
 
   const violations = validateConfig(foundConfig.config);

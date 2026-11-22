@@ -88,13 +88,13 @@ export type LaunchConfigInput = {
    * `local` (the default) writes them under ~/.launch/artifacts, or under `artifactDir` when you set one.
    * `s3` is any S3-compatible bucket, including Cloudflare R2, and needs `storageConfig`.
    * `supabase` is a Supabase Storage bucket and also needs `storageConfig`.
-   * `launch update` needs `s3` or `supabase`, because a phone has to download the update over the web.
+   * `launch-store update` needs `s3` or `supabase`, because a phone has to download the update over the web.
    */
   readonly storage?: string;
   /**
    * Who compiles the native app.
    * `xcode` builds Apple apps on this Mac. That is the default.
-   * `remote-mac` builds Apple apps on another Mac (`launch cloud`, or `launch build ios --remote`).
+   * `remote-mac` builds Apple apps on another Mac (`launch-store cloud`, or `launch-store build ios --remote`).
    * `eas` hands the compile to Expo. That is the migrate path, not the usual one.
    * An Android build uses Gradle even when this says `xcode`, `remote-mac`, or `eas`.
    */
@@ -105,19 +105,19 @@ export type LaunchConfigInput = {
    * swaps that default for `google-play`. `eas` hands the upload to Expo.
    * A per-platform object gives each platform its own list, in upload order,
    * for example `{ android: ["google-play"] }`. A platform you leave out uses its usual store.
-   * `launch build` on iOS still leaves the signed archive on disk. `launch release` is the public ship.
+   * `launch-store build` on iOS still leaves the signed archive on disk. `launch-store release` is the public ship.
    */
   readonly submit?: string | SubmitByPlatform;
   /**
    * Folders Launch searches for app.json or app.config.ts, relative to this file.
-   * `launch init` fills this in when every app lives under one folder, such as `./apps`.
+   * `launch-store init` fills this in when every app lives under one folder, such as `./apps`.
    * Leave it out to search from the folder that holds launch.config.ts.
    */
   readonly appRoots?: readonly string[];
   /**
    * In-app purchases and subscriptions, keyed by the iOS bundle id (`com.acme.app`).
-   * One entry is one app. `launch sync` writes the App Store side.
-   * A `play` block inside a product is what `launch play-products` and `launch play-subscriptions` write.
+   * One entry is one app. `launch-store sync` writes the App Store side.
+   * A `play` block inside a product is what `launch-store play-products` and `launch-store play-subscriptions` write.
    * Leave this out for an app that sells nothing.
    */
   readonly products?: Record<string, AppProducts>;
@@ -134,27 +134,27 @@ export type LaunchConfigInput = {
   readonly release?: ReleaseConfig;
   /**
    * Game Center achievements and leaderboards, keyed by the iOS bundle id.
-   * `launch game-center` creates anything listed here that the store does not have yet.
+   * `launch-store game-center` creates anything listed here that the store does not have yet.
    */
   readonly gameCenter?: Record<string, GameCenterConfig>;
   /**
    * App Clip cards, keyed by the parent app's bundle id.
-   * The clip itself is created by an Xcode build. `launch app-clips` only fills in the card.
+   * The clip itself is created by an Xcode build. `launch-store app-clips` only fills in the card.
    */
   readonly appClips?: Record<string, AppClipsConfig>;
   /**
    * Age rating, categories, price, and the App Review contact, keyed by the iOS bundle id.
-   * `launch release-config` writes them. This is separate from `release`, which only decides when a version goes live.
+   * `launch-store release-config` writes them. This is separate from `release`, which only decides when a version goes live.
    */
   readonly releaseAttributes?: Record<string, ReleaseAttributesConfig>;
   /**
    * Apple Pay merchant ids and Wallet pass type ids for the whole team, not for one app.
-   * `launch wallet` registers them.
+   * `launch-store wallet` registers them.
    */
   readonly wallet?: WalletConfig;
   /**
    * Domains allowed to distribute the app in the EU under the DMA, for the whole team.
-   * `launch eu-distribution` registers them.
+   * `launch-store eu-distribution` registers them.
    */
   readonly euDistribution?: EuDistributionConfig;
   /**
@@ -163,7 +163,7 @@ export type LaunchConfigInput = {
    */
   readonly configFiles?: SurfaceConfigFiles;
   /**
-   * AWS settings for an EC2 Mac, used by `launch cloud` and `launch build ios --remote aws`.
+   * AWS settings for an EC2 Mac, used by `launch-store cloud` and `launch-store build ios --remote aws`.
    * No AWS secret belongs here. The AWS SDK reads credentials from its usual chain.
    */
   readonly aws?: AwsConfig;
@@ -181,7 +181,7 @@ export type LaunchConfigInput = {
   /**
    * How many days a local build binary is kept.
    * The newest build of each app and platform is always kept. The default is 30.
-   * `0` keeps everything. `launch builds prune` can still delete on demand.
+   * `0` keeps everything. `launch-store builds prune` can still delete on demand.
    * Cloud buckets ignore this and use their own lifecycle rules.
    */
   readonly artifactRetentionDays?: number;
@@ -190,7 +190,7 @@ export type LaunchConfigInput = {
    * Each entry is an exact name, or a prefix ending in `*`, such as `OPENAI_*`.
    * The star only works at the end. A matched name is dropped from dotenv files, the keychain,
    * the profile `env` block, and even an explicit `--env` flag, so it cannot be baked into the app.
-   * This is different from `launch secret set`: a stored secret is still injected, because the build needs it.
+   * This is different from `launch-store secret set`: a stored secret is still injected, because the build needs it.
    * A name listed here is also skipped when Launch checks that `.env.example` is filled in.
    */
   readonly envExclude?: readonly string[];
@@ -202,7 +202,7 @@ export type LaunchConfigInput = {
    */
   readonly prebuild?: PrebuildMode;
   /**
-   * What `launch mcp` is allowed to do for an AI agent.
+   * What `launch-store mcp` is allowed to do for an AI agent.
    * Leave it out and the agent can only read.
    */
   readonly mcp?: McpConfig;
@@ -212,7 +212,7 @@ export type LaunchConfigInput = {
 const prebuildModes = ['missing', 'always'] as const;
 export type PrebuildMode = (typeof prebuildModes)[number];
 /**
- * The settings for one `launch` run, after `defineConfig` has filled the provider defaults.
+ * The settings for one `launch-store` run, after `defineConfig` has filled the provider defaults.
  */
 export type LaunchConfig = LaunchConfigInput & {
   readonly credentials: string;

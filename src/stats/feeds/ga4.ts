@@ -70,7 +70,7 @@ function readStoreIdentifier(app: PortfolioApp): string {
 }
 
 function createNoPropertyReason(app: PortfolioApp): string {
-  return `No GA4 property with a stream for ${readStoreIdentifier(app)}; tag one with launch apps tag --app ${app.name} --ga4-property <id>`;
+  return `No GA4 property with a stream for ${readStoreIdentifier(app)}; tag one with launch-store apps tag --app ${app.name} --ga4-property <id>`;
 }
 
 async function readPackageName(request: Ga4FetchRequest): Promise<string | null> {
@@ -178,7 +178,7 @@ async function fetchGa4Days(request: Ga4FetchRequest): Promise<FeedFetchReply> {
   if (accessToken == null) {
     return {
       status: 'skipped',
-      reason: 'No Google service account saved; add one with launch credentials',
+      reason: 'No Google service account saved; add one with launch-store credentials',
     };
   }
 

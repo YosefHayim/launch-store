@@ -229,7 +229,7 @@ describe('credentialsSummaryFromJson / notesFromCredentialsSummary', () => {
     expect(credentialsSummaryFromJson(serialized)).toBeNull();
   });
 
-  it('emits manual creds follow-ups that point at launch creds for path facts only', () => {
+  it('emits manual creds follow-ups that point at launch-store creds for path facts only', () => {
     const notes = notesFromCredentialsSummary({
       ios: { distributionCertificatePath: 'ios/certs/dist.p12' },
       android: { keystorePath: 'android/release.keystore', keyAlias: 'upload' },
@@ -387,7 +387,8 @@ describe('migrateEas', () => {
     const manual = notesAt(migration.notes, 'manual').map((note) => note.message);
     expect(
       manual.some(
-        (message) => message.includes('ios/certs/dist.p12') && message.includes('launch creds'),
+        (message) =>
+          message.includes('ios/certs/dist.p12') && message.includes('launch-store creds'),
       ),
     ).toBe(true);
     expect(

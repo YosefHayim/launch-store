@@ -250,7 +250,7 @@ async function allocateHost(
     if (isQuotaFailure) {
       const message =
         `AWS won't allocate a Mac Dedicated Host: ${failureMessage}\n` +
-        'Mac hosts almost always need a quota increase first - run `launch cloud doctor` for the request link.';
+        'Mac hosts almost always need a quota increase first - run `launch-store cloud doctor` for the request link.';
 
       throw awsFailure('allocate a Mac Dedicated Host', cause, message);
     }

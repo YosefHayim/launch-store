@@ -112,7 +112,7 @@ beforeAll(() => {
 afterAll(() => {
   rmSync(workdir, { recursive: true, force: true });
 });
-describe('launch CLI - offline surface (compiled dist)', () => {
+describe('launch-store CLI - offline surface (compiled dist)', () => {
   it('reports its semver version', async () => {
     expect(await launch('--version')).toMatch(/^\d+\.\d+\.\d+/);
   });

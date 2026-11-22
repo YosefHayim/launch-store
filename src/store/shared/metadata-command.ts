@@ -265,7 +265,7 @@ export function assertListingPlatform(platform: Platform): void {
   throw metadataFailure(
     'validate metadata platform',
     platform,
-    `\`launch metadata\` syncs the iOS and Android store listing only - ${platformLabel(platform)} isn't supported yet. Build and ship it with \`launch build ${platform}\` / \`launch release ${platform}\`, and manage its listing in App Store Connect for now.`,
+    `\`launch-store metadata\` syncs the iOS and Android store listing only - ${platformLabel(platform)} isn't supported yet. Build and ship it with \`launch-store build ${platform}\` / \`launch-store release ${platform}\`, and manage its listing in App Store Connect for now.`,
   );
 }
 
@@ -363,7 +363,7 @@ async function requireActiveAscKey(): Promise<AscKey> {
     throw metadataFailure(
       'load active Apple account',
       'missing-active-account',
-      'No active Apple account. Run `launch creds set-key` first.',
+      'No active Apple account. Run `launch-store creds set-key` first.',
     );
   }
 
@@ -429,7 +429,7 @@ async function requireAppId(
     throw metadataFailure(
       'look up App Store app',
       bundleId,
-      `No App Store Connect app for ${bundleId}. Create it first (launch setup).`,
+      `No App Store Connect app for ${bundleId}. Create it first (launch-store setup).`,
     );
   }
 

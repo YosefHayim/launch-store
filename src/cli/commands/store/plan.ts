@@ -28,7 +28,11 @@ export const registerPlanCommand = (program: Command): void => {
       'diff launch.config against live store state (read-only): capabilities, IAPs, subscriptions, pricing',
     )
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
-    .option('--check', 'exit 2 when drift is present (CI gate); same as `launch drift`', false)
+    .option(
+      '--check',
+      'exit 2 when drift is present (CI gate); same as `launch-store drift`',
+      false,
+    )
     .option('--json', 'machine-readable output for CI/agents', false)
     .action((surfaceName: string | undefined, commandOptions: PlanOptions) => {
       const planCommand = planCommandInput('plan', surfaceName, commandOptions);
@@ -38,7 +42,7 @@ export const registerPlanCommand = (program: Command): void => {
   program
     .command('drift [surface]')
     .description(
-      'fail when live store state has drifted from launch.config (alias for `launch plan --check`)',
+      'fail when live store state has drifted from launch.config (alias for `launch-store plan --check`)',
     )
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)

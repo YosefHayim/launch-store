@@ -566,7 +566,7 @@ function serializeProfilesSection(launchProfiles: Record<string, BuildProfile>):
   }
 
   return [
-    '  // Imported from eas.json by `launch migrate eas` - review, then commit.',
+    '  // Imported from eas.json by `launch-store migrate eas` - review, then commit.',
     `  profiles: ${indentedLines.join('\n')},`,
   ].join('\n');
 }
@@ -625,14 +625,14 @@ function notesFromBuildProfiles(easConfiguration: EasJson): MigrationNote[] {
     if (buildProfile.channel != null) {
       migrationNotes.push({
         level: 'manual',
-        message: `Profile "${profileName}" published to EAS Update channel "${buildProfile.channel}" - set up OTA with \`launch update --channel ${buildProfile.channel}\` (see \`launch explain ota-update\`).`,
+        message: `Profile "${profileName}" published to EAS Update channel "${buildProfile.channel}" - set up OTA with \`launch-store update --channel ${buildProfile.channel}\` (see \`launch-store explain ota-update\`).`,
       });
     }
 
     if (buildProfile.distribution == 'internal') {
       migrationNotes.push({
         level: 'manual',
-        message: `Profile "${profileName}" used internal (ad-hoc) distribution - register tester devices with \`launch device add\` (see \`launch explain ad-hoc-distribution\`).`,
+        message: `Profile "${profileName}" used internal (ad-hoc) distribution - register tester devices with \`launch-store device add\` (see \`launch-store explain ad-hoc-distribution\`).`,
       });
     }
 
@@ -662,7 +662,7 @@ function notesFromSubmitProfiles(easConfiguration: EasJson): MigrationNote[] {
     if (submitProfile.ios != null) {
       migrationNotes.push({
         level: 'manual',
-        message: `Submit profile "${profileName}" carried Apple account details (appleId/ascAppId/appleTeamId) - configure your Apple API key with \`launch creds set-key\`.`,
+        message: `Submit profile "${profileName}" carried Apple account details (appleId/ascAppId/appleTeamId) - configure your Apple API key with \`launch-store creds set-key\`.`,
       });
     }
 
@@ -675,7 +675,7 @@ function notesFromSubmitProfiles(easConfiguration: EasJson): MigrationNote[] {
     if (androidSubmission.serviceAccountKeyPath != null) {
       migrationNotes.push({
         level: 'manual',
-        message: `Submit profile "${profileName}" referenced a Play service account key (${androidSubmission.serviceAccountKeyPath}) - configure it with \`launch creds\`.`,
+        message: `Submit profile "${profileName}" referenced a Play service account key (${androidSubmission.serviceAccountKeyPath}) - configure it with \`launch-store creds\`.`,
       });
     }
 
@@ -744,7 +744,7 @@ export function notesFromEasConfiguration(
     {
       level: 'manual',
       message:
-        'EAS built in the cloud; Launch builds locally by default (`buildEngine: "xcode"`). No Mac? Set `buildEngine: "eas"` or run `launch build --remote` (see `launch explain eas-handoff`).',
+        'EAS built in the cloud; Launch builds locally by default (`buildEngine: "xcode"`). No Mac? Set `buildEngine: "eas"` or run `launch-store build --remote` (see `launch-store explain eas-handoff`).',
     },
     ...notesFromAppIdentifiers(apps),
   ];
@@ -1044,7 +1044,7 @@ export function notesFromCredentialsSummary(
 
     migrationNotes.push({
       level: 'manual',
-      message: `Local iOS signing material in credentials.json (${certificateLocation}) - import it with \`launch creds\`; Launch keeps certs in the OS keychain and never reads the password from credentials.json.`,
+      message: `Local iOS signing material in credentials.json (${certificateLocation}) - import it with \`launch-store creds\`; Launch keeps certs in the OS keychain and never reads the password from credentials.json.`,
     });
   }
 
@@ -1065,7 +1065,7 @@ export function notesFromCredentialsSummary(
 
     migrationNotes.push({
       level: 'manual',
-      message: `Local Android keystore in credentials.json (${keystoreLocation}${keyAliasLabel}) - register it with \`launch creds\`; the keystore/key passwords are never read from credentials.json.`,
+      message: `Local Android keystore in credentials.json (${keystoreLocation}${keyAliasLabel}) - register it with \`launch-store creds\`; the keystore/key passwords are never read from credentials.json.`,
     });
   }
 
@@ -1297,7 +1297,7 @@ export function notesFromExpoFacts(appName: string, expoFacts: ExpoFacts): Migra
     if (runtimeVersionLabel != null) {
       migrationNotes.push({
         level: 'info',
-        message: `"${appName}" set runtimeVersion ${runtimeVersionLabel} - relevant only for EAS Update; Launch ships store builds (see \`launch explain ota-update\`).`,
+        message: `"${appName}" set runtimeVersion ${runtimeVersionLabel} - relevant only for EAS Update; Launch ships store builds (see \`launch-store explain ota-update\`).`,
       });
     }
   }
@@ -1307,7 +1307,7 @@ export function notesFromExpoFacts(appName: string, expoFacts: ExpoFacts): Migra
   if (hasUpdates) {
     migrationNotes.push({
       level: 'info',
-      message: `"${appName}" configures expo.updates (EAS Update) - Launch ships store builds and doesn't run OTA by default (see \`launch explain ota-update\`).`,
+      message: `"${appName}" configures expo.updates (EAS Update) - Launch ships store builds and doesn't run OTA by default (see \`launch-store explain ota-update\`).`,
     });
   }
 

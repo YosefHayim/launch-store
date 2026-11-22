@@ -47,7 +47,7 @@ beforeAll(() => {
   }
 });
 
-describe('launch play-subscriptions setup guidance - compiled dist', () => {
+describe('launch-store play-subscriptions setup guidance - compiled dist', () => {
   it('ships the distinct catalog permission and payments-profile fixes', async () => {
     expect(await launch('play-subscriptions', '--help')).toContain('play-subscriptions');
     const diagnosticText = await renderBuiltDiagnostics();

@@ -52,7 +52,7 @@ function fingerprintFailure(operation: string, cause: unknown): FingerprintComma
   return makeFingerprintCommandFailure({ operation, message: failureMessage, cause });
 }
 
-/** Decode `launch fingerprint` input. Omitted optionals stay absent. */
+/** Decode `launch-store fingerprint` input. Omitted optionals stay absent. */
 export function decodeFingerprintCommandInput(rawCommandInput: unknown): FingerprintCommandInput {
   const rawCommandInputObject = readPlainObject(rawCommandInput);
 

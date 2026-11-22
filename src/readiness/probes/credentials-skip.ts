@@ -7,7 +7,7 @@ export const OMITTED_PROBE = { state: 'omitted' } as const satisfies ProbeResult
 export const SKIPPED_NO_APPLE_ACCOUNT = {
   state: 'skipped',
   reason: 'no active Apple account',
-  hint: 'run `launch creds set-key`',
+  hint: 'run `launch-store creds set-key`',
 } as const satisfies ProbeResult;
 
 /** Play probes share one skip when the service account is missing. */

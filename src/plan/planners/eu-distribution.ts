@@ -6,7 +6,7 @@ import {
 import { planTeamSurface } from './app-store-surface.ts';
 import type { SurfacePlanner } from '../../types/plan.ts';
 import type { EuDistributionConfig } from '../../types/store-surface.ts';
-/** Surface id - also the value users pass as `launch plan eu-distribution`. */
+/** Surface id - also the value users pass as `launch-store plan eu-distribution`. */
 const SURFACE = 'eu-distribution';
 export const euDistributionPlanner: SurfacePlanner = {
   id: SURFACE,

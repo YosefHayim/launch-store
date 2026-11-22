@@ -5,10 +5,10 @@ describe('workflowYaml', () => {
   it('targets macOS with the unattended iOS ship sequence', () => {
     const workflow = workflowYaml(false);
     expect(workflow).toContain('runs-on: macos-latest');
-    expect(workflow).toContain('launch creds set-key --yes');
-    expect(workflow).toContain('launch creds setup --yes');
-    expect(workflow).toContain('launch doctor --yes');
-    expect(workflow).toContain('launch build ios --yes');
+    expect(workflow).toContain('launch-store creds set-key --yes');
+    expect(workflow).toContain('launch-store creds setup --yes');
+    expect(workflow).toContain('launch-store doctor --yes');
+    expect(workflow).toContain('launch-store build ios --yes');
   });
 
   it('wires App Store Connect secrets into the expected environment variables', () => {
@@ -23,15 +23,15 @@ describe('workflowYaml', () => {
   it('omits Android unless requested', () => {
     const workflow = workflowYaml(false);
     expect(workflow).not.toContain('ubuntu-latest');
-    expect(workflow).not.toContain('launch build android');
+    expect(workflow).not.toContain('launch-store build android');
   });
 
   it('adds the Android job and secrets when requested', () => {
     const workflow = workflowYaml(true);
     expect(workflow).toContain('runs-on: ubuntu-latest');
-    expect(workflow).toContain('launch build android --app "$LAUNCH_APP_NAME" --yes');
+    expect(workflow).toContain('launch-store build android --app "$LAUNCH_APP_NAME" --yes');
     expect(workflow).toContain(
-      'launch creds set-key --platform android --app "$LAUNCH_APP_NAME" "$RUNNER_TEMP/launch/play.json" --yes',
+      'launch-store creds set-key --platform android --app "$LAUNCH_APP_NAME" "$RUNNER_TEMP/launch/play.json" --yes',
     );
     expect(workflow).toContain('PLAY_SERVICE_ACCOUNT: ${{ runner.temp }}/launch/play.json');
     expect(workflow).toContain('secrets.ANDROID_KEYSTORE_BASE64');

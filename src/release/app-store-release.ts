@@ -7,7 +7,7 @@ import type {
 } from '../types/apple-catalog.ts';
 import type { ReleaseType } from '../types/store-surface.ts';
 
-const BUILD_AND_RELEASE_STEP = 'run `launch build ios`, then release that build.';
+const BUILD_AND_RELEASE_STEP = 'run `launch-store build ios`, then release that build.';
 
 /**
  * Exact App Store Connect surface the release walk needs. Declared here so the state machine is
@@ -161,7 +161,7 @@ export function hasReleasedVersion(
   return storeVersions.some(isLiveVersion);
 }
 
-/** Terminal-or-transient read of where a submitted version stands (`launch status` / watch). */
+/** Terminal-or-transient read of where a submitted version stands (`launch-store status` / watch). */
 export type ReleaseVerdict = {
   label: string;
   state: 'released' | 'pending-release' | 'in-review' | 'preparing' | 'rejected' | 'unknown';
@@ -177,7 +177,7 @@ export function classifyVerdict(appStoreState: string): ReleaseVerdict {
       return { label: 'Live on the App Store', state: 'released', done: true, exitCode: 0 };
     case 'PENDING_DEVELOPER_RELEASE':
       return {
-        label: 'Approved - awaiting your release (`launch status`, or the portal)',
+        label: 'Approved - awaiting your release (`launch-store status`, or the portal)',
         state: 'pending-release',
         done: true,
         exitCode: 0,
@@ -347,7 +347,7 @@ function requireValidStoreBuild(storeBuild: BuildResource): void {
     throw releaseFailure(
       'validate App Store build',
       storeBuild,
-      `Build ${storeBuild.version} is ${processingState} on App Store Connect - wait for it to finish (\`launch status\`), then re-run.`,
+      `Build ${storeBuild.version} is ${processingState} on App Store Connect - wait for it to finish (\`launch-store status\`), then re-run.`,
     );
   }
 
@@ -857,7 +857,7 @@ function reuseMatchingVersion(
     throw releaseFailure(
       'select App Store version',
       matchingStoreVersion,
-      `Version ${releaseInput.versionString} is in state ${matchingStoreVersion.appStoreState}, which launch will not change. Resolve it in App Store Connect, then release again.`,
+      `Version ${releaseInput.versionString} is in state ${matchingStoreVersion.appStoreState}, which launch-store will not change. Resolve it in App Store Connect, then release again.`,
     );
   }
 
@@ -1095,7 +1095,7 @@ async function addReviewItem(
   }
 }
 
-/** Live read of where an app's current release stands - backs `launch status` and the watch loop. */
+/** Live read of where an app's current release stands - backs `launch-store status` and the watch loop. */
 export type ReleaseStatus = {
   bundleId: string;
   versionString: string | null;
@@ -1135,7 +1135,7 @@ export async function readAppStoreAppId(
   const isThereNoAppRecord = foundAppId == null;
 
   if (isThereNoAppRecord) {
-    const appMissingMessage = appRecordMissingMessage(bundleId, 'launch status');
+    const appMissingMessage = appRecordMissingMessage(bundleId, 'launch-store status');
     throw releaseFailure('find App Store app', bundleId, appMissingMessage);
   }
 
@@ -1348,7 +1348,7 @@ export async function waitForValidBuild(
       throw releaseFailure(
         'wait for App Store build',
         storeBuild,
-        `Build ${buildNumber} is still ${processingState} after ${timeoutMinutes} min. Re-run \`launch release ios --build ${buildNumber}\` once \`launch status\` shows it VALID.`,
+        `Build ${buildNumber} is still ${processingState} after ${timeoutMinutes} min. Re-run \`launch-store release ios --build ${buildNumber}\` once \`launch-store status\` shows it VALID.`,
       );
     }
 

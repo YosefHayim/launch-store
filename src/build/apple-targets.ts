@@ -236,7 +236,7 @@ export const multiTargetSigningWarnings = (
     if (!target.registered) {
       warnings.push(
         `Signing preflight: App ID "${target.bundleId}" is not registered yet - the archive will fail ` +
-          'to sign this target (exit 65). Run `launch creds setup --app <name>` to register and provision it first.',
+          'to sign this target (exit 65). Run `launch-store creds setup --app <name>` to register and provision it first.',
       );
       continue;
     }
@@ -244,7 +244,7 @@ export const multiTargetSigningWarnings = (
       warnings.push(
         `Signing preflight: App ID "${target.bundleId}" is missing the ${target.missingCapabilities.join(', ')} ` +
           `capability its entitlements require - its provisioning profile won't carry the entitlement and the ` +
-          'archive will fail (exit 65). Run `launch creds setup --app <name>` to enable it and regenerate the profile.',
+          'archive will fail (exit 65). Run `launch-store creds setup --app <name>` to enable it and regenerate the profile.',
       );
     }
   }

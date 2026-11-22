@@ -43,7 +43,7 @@ async function captureAppleCapabilities(snapshotContext: SnapshotContext): Promi
     return {
       state: 'skipped',
       reason: 'no active Apple account',
-      hint: 'run `launch creds set-key`',
+      hint: 'run `launch-store creds set-key`',
     };
   }
 

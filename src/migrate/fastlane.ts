@@ -112,30 +112,30 @@ type FastlaneActionGroup = Readonly<{
 const FASTLANE_ACTION_GROUPS: readonly FastlaneActionGroup[] = [
   {
     actions: ['build_app', 'gym'],
-    launchCommand: 'launch build',
+    launchCommand: 'launch-store build',
     noteLevel: 'mapped',
-    noteMessage: 'fastlane built with gym/build_app -> `launch build`.',
+    noteMessage: 'fastlane built with gym/build_app -> `launch-store build`.',
   },
   {
     actions: ['upload_to_testflight', 'pilot'],
-    launchCommand: 'launch release --track testing',
+    launchCommand: 'launch-store release --track testing',
     noteLevel: 'mapped',
     noteMessage:
-      'fastlane uploaded to TestFlight (pilot) -> `launch release` on the testing track.',
+      'fastlane uploaded to TestFlight (pilot) -> `launch-store release` on the testing track.',
   },
   {
     actions: ['upload_to_app_store', 'deliver'],
-    launchCommand: 'launch release',
+    launchCommand: 'launch-store release',
     noteLevel: 'mapped',
     noteMessage:
-      'fastlane released with deliver -> `launch release` plus `launch metadata` for the listing.',
+      'fastlane released with deliver -> `launch-store release` plus `launch-store metadata` for the listing.',
   },
   {
     actions: ['supply', 'upload_to_play_store'],
-    launchCommand: 'launch release (Android)',
+    launchCommand: 'launch-store release (Android)',
     noteLevel: 'mapped',
     noteMessage:
-      'fastlane uploaded to Play (supply) -> `launch release` (Android) plus `launch metadata`.',
+      'fastlane uploaded to Play (supply) -> `launch-store release` (Android) plus `launch-store metadata`.',
   },
   {
     actions: [
@@ -148,13 +148,13 @@ const FASTLANE_ACTION_GROUPS: readonly FastlaneActionGroup[] = [
     ],
     noteLevel: 'manual',
     noteMessage:
-      "fastlane managed signing (match/cert/sigh) -> Launch provisions and stores its own certificates in the OS keychain (see `launch explain code-signing`); you don't carry these over.",
+      "fastlane managed signing (match/cert/sigh) -> Launch provisions and stores its own certificates in the OS keychain (see `launch-store explain code-signing`); you don't carry these over.",
   },
   {
     actions: ['capture_screenshots', 'snapshot'],
     noteLevel: 'manual',
     noteMessage:
-      'fastlane captured screenshots - upload them with your listing via `launch metadata`.',
+      'fastlane captured screenshots - upload them with your listing via `launch-store metadata`.',
   },
 ];
 
@@ -424,7 +424,7 @@ const laneNotes = (fastlaneLanes: readonly FastlaneLane[]): MigrationNote[] => {
   if (customLaneNames.length > 0) {
     migrationNotes.push({
       level: 'manual',
-      message: `Custom lanes (${customLaneNames.join(', ')}) had no recognized actions - Launch replaces lanes with \`launch build\`, \`launch release\`, and \`launch metadata\`; recreate these by hand.`,
+      message: `Custom lanes (${customLaneNames.join(', ')}) had no recognized actions - Launch replaces lanes with \`launch-store build\`, \`launch-store release\`, and \`launch-store metadata\`; recreate these by hand.`,
     });
   }
   return migrationNotes;
@@ -460,7 +460,7 @@ const appfileNotes = (appfile: AppfileData): MigrationNote[] => {
     migrationNotes.push({
       level: 'manual',
       message:
-        'Appfile carried Apple account details (apple_id/team_id) - configure your Apple API key with `launch creds set-key`.',
+        'Appfile carried Apple account details (apple_id/team_id) - configure your Apple API key with `launch-store creds set-key`.',
     });
   }
   if (appfile.appIdentifier != null) {
@@ -477,7 +477,7 @@ const supplyNotes = (supplyfile: SupplyfileData): MigrationNote[] => {
   if (supplyfile.jsonKey != null) {
     migrationNotes.push({
       level: 'manual',
-      message: `Supplyfile referenced a Play service-account key (${supplyfile.jsonKey}) - configure it with \`launch creds\`.`,
+      message: `Supplyfile referenced a Play service-account key (${supplyfile.jsonKey}) - configure it with \`launch-store creds\`.`,
     });
   }
   if (supplyfile.track != null) {
@@ -535,7 +535,7 @@ export const migrationNotesFor = (
     migrationNotes.push({
       level: 'manual',
       message:
-        'Deliverfile configured App Store metadata - import your live listing with `launch metadata pull`.',
+        'Deliverfile configured App Store metadata - import your live listing with `launch-store metadata pull`.',
     });
   }
   migrationNotes.push(...appDescriptorNotes(apps));
@@ -588,7 +588,7 @@ async function importFastlaneMetadata(
     },
     note: {
       level: 'mapped',
-      message: `Imported your fastlane metadata (${importedListingLabels.join(', ')}) into store.config.json - review it, then push with \`launch metadata push\`.`,
+      message: `Imported your fastlane metadata (${importedListingLabels.join(', ')}) into store.config.json - review it, then push with \`launch-store metadata push\`.`,
     },
   };
 }

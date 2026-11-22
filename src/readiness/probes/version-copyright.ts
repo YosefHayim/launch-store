@@ -99,7 +99,7 @@ async function readVersionCopyright(
       identifier: app.identifier,
       status: 'blocker',
       detail: 'no copyright on the editable version',
-      hint: 'set `release.copyright` in launch.config.ts (sent by `launch release`), or fill Copyright in App Store Connect -> the version -> General',
+      hint: 'set `release.copyright` in launch.config.ts (sent by `launch-store release`), or fill Copyright in App Store Connect -> the version -> General',
     };
   }
 
@@ -107,7 +107,7 @@ async function readVersionCopyright(
     app: app.name,
     identifier: app.identifier,
     status: 'ok',
-    detail: `copyright empty on App Store Connect - \`launch release\` sets "${copyrightToSend}"`,
+    detail: `copyright empty on App Store Connect - \`launch-store release\` sets "${copyrightToSend}"`,
   };
 }
 

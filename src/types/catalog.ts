@@ -127,8 +127,8 @@ type OfferConfigBase = {
 };
 /**
  * A code a customer can redeem for a subscription discount.
- * `launch offers` creates a code that does not exist yet. Apple does not let you edit a code after it is created.
- * Generating the actual code strings is `launch offers codes`, not this block.
+ * `launch-store offers` creates a code that does not exist yet. Apple does not let you edit a code after it is created.
+ * Generating the actual code strings is `launch-store offers codes`, not this block.
  */
 export type OfferCodeConfig = OfferConfigBase & {
   /**
@@ -146,7 +146,7 @@ export type OfferCodeConfig = OfferConfigBase & {
 };
 /**
  * A discount your app offers in StoreKit to someone who already subscribed or who lapsed.
- * `launch offers` creates it. The app passes `offerCode` to StoreKit when it redeems.
+ * `launch-store offers` creates it. The app passes `offerCode` to StoreKit when it redeems.
  */
 export type PromotionalOfferConfig = OfferConfigBase & {
   /**
@@ -160,7 +160,7 @@ export type PromotionalOfferConfig = OfferConfigBase & {
 };
 /**
  * The automatic first-time discount on a subscription. Apple allows one per territory.
- * `launch offers` creates it. A free trial omits `price`.
+ * `launch-store offers` creates it. A free trial omits `price`.
  */
 export type IntroductoryOfferConfig = {
   /**
@@ -195,7 +195,7 @@ export type IntroductoryOfferConfig = {
 };
 /**
  * A discount Apple shows on the App Store to someone who used to subscribe and stopped.
- * `launch offers` creates it. `offerId` is what the app and Launch both match on.
+ * `launch-store offers` creates it. `offerId` is what the app and Launch both match on.
  */
 export type WinBackOfferConfig = OfferConfigBase & {
   /**
@@ -250,7 +250,7 @@ export type WinBackOfferConfig = OfferConfigBase & {
 };
 /**
  * A discount on a Google Play subscription base plan: a free trial, an introductory price, or both.
- * `launch play-subscriptions` creates an offer whose `offerId` is not on the plan yet.
+ * `launch-store play-subscriptions` creates an offer whose `offerId` is not on the plan yet.
  */
 export type PlaySubscriptionOfferConfig = {
   /**
@@ -274,7 +274,7 @@ export type PlaySubscriptionOfferConfig = {
 };
 /**
  * The Google Play copy of a subscription. Set this when the same subscription should also exist on Play.
- * `launch play-subscriptions` writes it. The App Store fields above are unchanged.
+ * `launch-store play-subscriptions` writes it. The App Store fields above are unchanged.
  */
 export type PlaySubscriptionOverride = {
   /**
@@ -298,7 +298,7 @@ export type PlaySubscriptionOverride = {
 };
 /**
  * One auto-renewable subscription inside a group, such as Pro Monthly.
- * `productId` is what the app asks StoreKit for. `launch sync` creates it on the App Store.
+ * `productId` is what the app asks StoreKit for. `launch-store sync` creates it on the App Store.
  * Add `play` to also publish it on Google Play.
  */
 export type SubscriptionConfig = {
@@ -325,24 +325,24 @@ export type SubscriptionConfig = {
    */
   readonly price?: ProductPrice;
   /**
-   * Redeemable offer-code campaigns. `launch offers` creates the ones that do not exist yet.
+   * Redeemable offer-code campaigns. `launch-store offers` creates the ones that do not exist yet.
    */
   readonly offerCodes?: readonly OfferCodeConfig[];
   /**
-   * Discounts the app presents in StoreKit. `launch offers` creates the ones that do not exist yet.
+   * Discounts the app presents in StoreKit. `launch-store offers` creates the ones that do not exist yet.
    */
   readonly promotionalOffers?: readonly PromotionalOfferConfig[];
   /**
-   * Automatic first-time discounts. At most one per territory. `launch offers` creates them.
+   * Automatic first-time discounts. At most one per territory. `launch-store offers` creates them.
    */
   readonly introductoryOffers?: readonly IntroductoryOfferConfig[];
   /**
-   * Discounts Apple shows to lapsed subscribers. `launch offers` creates them.
+   * Discounts Apple shows to lapsed subscribers. `launch-store offers` creates them.
    */
   readonly winBackOffers?: readonly WinBackOfferConfig[];
   /**
    * Path to the review screenshot Apple requires before this subscription can be submitted.
-   * Relative to the app folder. `launch sync` uploads it, and skips the upload when the file has not changed.
+   * Relative to the app folder. `launch-store sync` uploads it, and skips the upload when the file has not changed.
    * Leave it out to attach the screenshot yourself in App Store Connect.
    */
   readonly reviewScreenshot?: string;
@@ -353,7 +353,7 @@ export type SubscriptionConfig = {
 };
 /**
  * A set of subscriptions where the customer can hold only one at a time, such as Monthly and Yearly Pro.
- * `referenceName` is unique in the app. `launch sync` creates the group and the subscriptions inside it.
+ * `referenceName` is unique in the app. `launch-store sync` creates the group and the subscriptions inside it.
  */
 export type SubscriptionGroupConfig = {
   /**
@@ -371,7 +371,7 @@ export type SubscriptionGroupConfig = {
 };
 /**
  * The Google Play copy of a one-off in-app purchase.
- * Set this when the same product should also exist on Play. `launch play-products` writes it.
+ * Set this when the same product should also exist on Play. `launch-store play-products` writes it.
  */
 export type PlayProductOverride = {
   /**
@@ -389,7 +389,7 @@ export type PlayProductOverride = {
 };
 /**
  * A one-off in-app purchase: coins, a permanent unlock, or a subscription that does not renew.
- * `launch sync` creates it on the App Store. Add `play` to also publish it on Google Play.
+ * `launch-store sync` creates it on the App Store. Add `play` to also publish it on Google Play.
  */
 export type InAppPurchaseConfig = {
   /**
@@ -422,7 +422,7 @@ export type InAppPurchaseConfig = {
 };
 /**
  * A product featured on the App Store product page.
- * The order of this list is the order Apple shows. `launch offers` reorders the live list to match.
+ * The order of this list is the order Apple shows. `launch-store offers` reorders the live list to match.
  */
 type PromotedPurchaseConfig = {
   /**

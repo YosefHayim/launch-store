@@ -578,7 +578,7 @@ describe('reconcilePlaySubscriptions', () => {
       'https://play.google.com/console/developers/paymentssettings',
     );
     expect(paymentsFailureAction?.error).toContain(
-      'rerun your original `launch play-subscriptions` command',
+      'rerun your original `launch-store play-subscriptions` command',
     );
     expect(paymentsFailureAction?.error).not.toContain('--app com.acme.app');
   });

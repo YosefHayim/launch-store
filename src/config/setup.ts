@@ -210,7 +210,7 @@ function configFileRow(configExists: boolean): ReadinessRow {
     return makeReadinessRow('launch.config.ts', 'ok', 'present');
   }
 
-  return makeReadinessRow('launch.config.ts', 'todo', 'run: launch init');
+  return makeReadinessRow('launch.config.ts', 'todo', 'run: launch-store init');
 }
 
 function appName(app: AppDescriptor): string {
@@ -299,7 +299,7 @@ async function appleAccountReadinessRows(apps: readonly AppDescriptor[]): Promis
       makeReadinessRow(
         'Apple account',
         'todo',
-        'import your App Store Connect key: launch creds set-key',
+        'import your App Store Connect key: launch-store creds set-key',
       ),
     ];
   }
@@ -387,7 +387,7 @@ async function playRowsForPackage(
       makeReadinessRow(
         `Play service account - ${app.packageName}`,
         'todo',
-        `import it: launch creds set-key --platform android --app ${app.name}`,
+        `import it: launch-store creds set-key --platform android --app ${app.name}`,
       ),
     ];
   }
@@ -460,7 +460,7 @@ async function signingReadinessRows(): Promise<ReadinessRow[]> {
     makeReadinessRow(
       'Distribution identity',
       'info',
-      'none yet - the build provisions one, or run: launch creds setup',
+      'none yet - the build provisions one, or run: launch-store creds setup',
     ),
   ];
 }
@@ -742,7 +742,7 @@ function reportRemainingTodos(report: {
   report.logger.gap();
 
   if (remainingTodos.length == 0) {
-    report.logger.box("You're ready", [`Ship it now:  launch build ${report.platform}`]);
+    report.logger.box("You're ready", [`Ship it now:  launch-store build ${report.platform}`]);
 
     return;
   }
@@ -753,7 +753,9 @@ function reportRemainingTodos(report: {
   );
 
   if (report.terminalIsInteractive == false) {
-    report.logger.note('Re-run `launch setup` once those are done to confirm everything is green.');
+    report.logger.note(
+      'Re-run `launch-store setup` once those are done to confirm everything is green.',
+    );
   }
 }
 

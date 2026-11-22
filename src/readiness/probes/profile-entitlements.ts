@@ -75,7 +75,7 @@ async function readEntitlements(api: AscReadinessApi, app: EntitledApp): Promise
       identifier: app.identifier,
       status: 'warn',
       detail: "can't verify - App ID not registered",
-      hint: 'run `launch setup ios --provision` to register the App ID and its capabilities',
+      hint: 'run `launch-store setup ios --provision` to register the App ID and its capabilities',
     };
   }
 
@@ -108,7 +108,7 @@ async function readEntitlements(api: AscReadinessApi, app: EntitledApp): Promise
     identifier: app.identifier,
     status: 'blocker',
     detail: `App ID missing capabilities: ${missing.join(', ')}`,
-    hint: 'run `launch setup ios --provision` to enable them, then regenerate the profile',
+    hint: 'run `launch-store setup ios --provision` to enable them, then regenerate the profile',
   };
 }
 

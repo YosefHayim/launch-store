@@ -260,7 +260,7 @@ async function buildAndroidArtifact(
     throw makeProviderInputFailure({
       provider: 'gradle',
       message:
-        'No upload keystore resolved - run `launch creds setup --platform android --app <name>` first.',
+        'No upload keystore resolved - run `launch-store creds setup --platform android --app <name>` first.',
     });
   }
 

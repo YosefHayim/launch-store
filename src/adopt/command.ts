@@ -320,7 +320,7 @@ function printAdoptReceipt(
 
   if (adoptionSummary.configBlock != null) {
     logger.notice(
-      'launch.config.ts already exists - add this `products` block, then run `launch sync`:',
+      'launch.config.ts already exists - add this `products` block, then run `launch-store sync`:',
       adoptionSummary.configBlock,
     );
   }
@@ -348,7 +348,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
     const hasNoApps = selectedApps.length == 0;
 
     if (hasNoApps) {
-      logger.note('No apps discovered. Run `launch init` or check your appRoots first.');
+      logger.note('No apps discovered. Run `launch-store init` or check your appRoots first.');
       return;
     }
 
@@ -358,7 +358,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       throw adoptFailure(
         'load active Apple account',
         'missing-active-account',
-        'No active Apple account. Run `launch creds set-key` first.',
+        'No active Apple account. Run `launch-store creds set-key` first.',
       );
     }
 

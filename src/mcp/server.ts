@@ -38,7 +38,7 @@ async function loadMcpSdk(): Promise<McpSdk> {
 /** Lazily load the optional MCP transport SDK. */
 async function loadSdk(): Promise<McpSdk> {
   return requireOptional(
-    'launch mcp (the MCP server)',
+    'launch-store mcp (the MCP server)',
     'pnpm add @modelcontextprotocol/sdk',
     loadMcpSdk,
   );
@@ -169,7 +169,7 @@ export async function startMcpServer(tools: readonly McpTool[] = ALL_TOOLS): Pro
   const Server = loadedSdk.Server;
   const StdioServerTransport = loadedSdk.StdioServerTransport;
   const schemas = loadedSdk.schemas;
-  const server = new Server({ name: 'launch', version }, { capabilities: { tools: {} } });
+  const server = new Server({ name: 'launch-store', version }, { capabilities: { tools: {} } });
   const advertisedTools = {
     tools: enabledTools.map(advertiseTool),
   };

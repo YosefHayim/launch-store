@@ -54,7 +54,7 @@ function gradeCertificates(usableCount: number, certificateCount: number): AppRe
       ...TEAM_SUBJECT,
       status: 'blocker',
       detail: `${certificateCount} distribution certificate(s), all expired`,
-      hint: "create a fresh distribution certificate (`launch creds`) - distribution archives can't be signed with an expired one",
+      hint: "create a fresh distribution certificate (`launch-store creds`) - distribution archives can't be signed with an expired one",
     };
   }
 
@@ -62,7 +62,7 @@ function gradeCertificates(usableCount: number, certificateCount: number): AppRe
     ...TEAM_SUBJECT,
     status: 'blocker',
     detail: 'no distribution certificate on the account',
-    hint: 'create a distribution certificate (`launch creds`) before building for the App Store',
+    hint: 'create a distribution certificate (`launch-store creds`) before building for the App Store',
   };
 }
 

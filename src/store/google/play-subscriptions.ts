@@ -96,7 +96,7 @@ export function describePlaySubscriptionWriteFailure(
   const isPaymentsProfileFailure = /payments? profile/i.test(failureText);
 
   if (isPaymentsProfileFailure) {
-    return `${failureText}\nComplete Play Console Setup > Payments profile, then rerun your original \`launch play-subscriptions\` command: ${buildPlayPaymentsProfileUrl()}`;
+    return `${failureText}\nComplete Play Console Setup > Payments profile, then rerun your original \`launch-store play-subscriptions\` command: ${buildPlayPaymentsProfileUrl()}`;
   }
 
   const isSensitivePermissionFailure = /sensitive|high.?risk|permissions? declaration/i.test(
@@ -123,7 +123,7 @@ export function describePlaySubscriptionWriteFailure(
 
   return (
     `${failureText}\nFor ${packageName}, grant ${serviceAccountIdentity} app access and "Manage store presence" in Play Console Users and permissions: ${buildPlayUsersAndPermissionsUrl()}\n` +
-    '"Admin (all permissions)" is an alternative, not a requirement. The Google Play Billing API permissions "View financial data" and "Manage orders and subscriptions" cover purchase/order management; they do not replace the catalog-write permission. Then rerun `launch play-subscriptions`.'
+    '"Admin (all permissions)" is an alternative, not a requirement. The Google Play Billing API permissions "View financial data" and "Manage orders and subscriptions" cover purchase/order management; they do not replace the catalog-write permission. Then rerun `launch-store play-subscriptions`.'
   );
 }
 

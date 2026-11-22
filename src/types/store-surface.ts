@@ -11,7 +11,7 @@ import type {
  * `SCHEDULED` waits until `earliestReleaseDate`.
  */
 export type ReleaseType = 'AFTER_APPROVAL' | 'MANUAL' | 'SCHEDULED';
-/** How `launch release` publishes an approved iOS version. */
+/** How `launch-store release` publishes an approved iOS version. */
 export type ReleaseConfig = {
   /**
    * What happens after Apple approves the version.
@@ -35,7 +35,7 @@ export type ReleaseConfig = {
    * Turn on Apple's 7-day phased release, which grows the share of users each day.
    * Leave it out, or set false, to publish to everyone at once.
    * `--phased` overrides this for one run. Apple only phases updates, not a brand-new app.
-   * After release, `launch rollout` can pause, resume, or finish the ramp.
+   * After release, `launch-store rollout` can pause, resume, or finish the ramp.
    */
   readonly phasedRelease?: boolean;
   /**
@@ -80,7 +80,7 @@ export type NotifyConfig = {
    */
   readonly events?: Array<'build' | 'submit' | 'review' | 'rollout'>;
 };
-/** One Game Center achievement. `launch game-center` creates it if Apple does not have it yet. */
+/** One Game Center achievement. `launch-store game-center` creates it if Apple does not have it yet. */
 export type AchievementConfig = {
   /**
    * Stable id you choose, such as `first_win`.
@@ -122,7 +122,7 @@ export type AchievementConfig = {
    */
   readonly locale?: string;
 };
-/** One Game Center leaderboard. `launch game-center` creates it if Apple does not have it yet. */
+/** One Game Center leaderboard. `launch-store game-center` creates it if Apple does not have it yet. */
 export type LeaderboardConfig = {
   /**
    * Stable id you choose, such as `high_score`.
@@ -194,7 +194,7 @@ export type AppClipConfig = {
 export type AppClipsConfig = {
   /**
    * One card per clip, keyed by the clip bundle id, such as `com.acme.app.Clip`.
-   * `launch app-clips` matches that id to the clip the build already uploaded.
+   * `launch-store app-clips` matches that id to the clip the build already uploaded.
    */
   readonly clips: Record<string, AppClipConfig>;
 };
@@ -210,7 +210,7 @@ export type EuDistributionDomainConfig = {
    */
   readonly referenceName: string;
 };
-/** EU alternative-distribution domains for the whole Apple team. `launch eu-distribution` registers them. */
+/** EU alternative-distribution domains for the whole Apple team. `launch-store eu-distribution` registers them. */
 export type EuDistributionConfig = {
   /**
    * Domains to authorize. Launch adds any that the team does not have yet.
@@ -228,7 +228,7 @@ export type WalletIdConfig = {
    */
   readonly name: string;
 };
-/** Apple Pay and Wallet ids for the whole team. `launch wallet` registers them. */
+/** Apple Pay and Wallet ids for the whole team. `launch-store wallet` registers them. */
 export type WalletConfig = {
   /**
    * Apple Pay merchant ids. The payment certificate is a separate step in the developer portal.
@@ -305,7 +305,7 @@ export type ReviewDetailsConfig = {
 };
 /**
  * Age rating, categories, price, and review contact for one app.
- * The key under `releaseAttributes` is the iOS bundle id. `launch release-config` writes each section you set.
+ * The key under `releaseAttributes` is the iOS bundle id. `launch-store release-config` writes each section you set.
  * This is not `release`, which only decides when an approved version goes live.
  */
 export type ReleaseAttributesConfig = {
@@ -335,27 +335,27 @@ export type ReleaseAttributesConfig = {
 export type SurfaceConfigFiles = {
   /**
    * Territories the app is sold in. The default file name is `availability.config.json`.
-   * `launch availability` reads it.
+   * `launch-store availability` reads it.
    */
   readonly availability?: string;
   /**
    * Apple's accessibility nutrition labels. The default file name is `accessibility.config.json`.
-   * `launch accessibility` reads it.
+   * `launch-store accessibility` reads it.
    */
   readonly accessibility?: string;
   /**
    * Product-page A/B tests (icon, screenshots, or text). The default file name is `experiments.config.json`.
-   * `launch experiments` reads it.
+   * `launch-store experiments` reads it.
    */
   readonly experiments?: string;
   /**
    * Extra App Store product pages, each with its own link. The default file name is `custom-pages.config.json`.
-   * `launch custom-pages` reads it.
+   * `launch-store custom-pages` reads it.
    */
   readonly customPages?: string;
 };
 /**
- * What an agent using `launch mcp` is allowed to do.
+ * What an agent using `launch-store mcp` is allowed to do.
  * A higher tier does not include the ones below it. List every tier you want.
  */
 export type McpCapability = 'read' | 'dryRun' | 'write' | 'dangerous';

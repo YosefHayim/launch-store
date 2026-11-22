@@ -106,7 +106,7 @@ function decodeWalletDocument(rawDocument: unknown): WalletConfig {
 }
 
 function missingWalletMessage(configPath: string): string {
-  return `No wallet config at ${configPath}. Create one (see \`launch wallet --help\`) or pass --config.`;
+  return `No wallet config at ${configPath}. Create one (see \`launch-store wallet --help\`) or pass --config.`;
 }
 
 const walletConfigSpec = {

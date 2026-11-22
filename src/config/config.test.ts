@@ -111,7 +111,7 @@ describe('defineConfig', () => {
   it('passes an unknown top-level key through so the schema validator can flag it (issue #197)', () => {
     // A real config can't be statically typed (it's loaded un-compiled), so a typo like `profile:` for
     // `profiles:` reaches `defineConfig` as an extra key. It must survive onto the resolved object -
-    // not be silently dropped - for `launch config validate` to catch it on the `.ts` path.
+    // not be silently dropped - for `launch-store config validate` to catch it on the `.ts` path.
     const input = { profiles: { production: { name: 'production' } }, profile: 'oops' };
     const define = defineConfig(input);
     const violations = validateConfig(define);

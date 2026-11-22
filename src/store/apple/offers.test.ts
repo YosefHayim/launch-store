@@ -390,7 +390,7 @@ describe('reconcileOffers - preconditions', () => {
       }),
     });
     expect(report.actions[0]?.status).toBe('skipped');
-    expect(report.actions[0]?.description).toContain('launch sync');
+    expect(report.actions[0]?.description).toContain('launch-store sync');
   });
   it('throws when the app has no App Store Connect record', async () => {
     const api = new FakeOffersApi();

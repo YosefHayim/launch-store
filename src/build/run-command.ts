@@ -234,7 +234,7 @@ async function findRunnableArtifact(reference: string): Promise<BuildArtifact> {
   if (artifact == null) {
     throw makeRunCommandFailure({
       operation: 'find stored artifact',
-      message: `No build matches "${reference}". Run \`launch builds list\` first.`,
+      message: `No build matches "${reference}". Run \`launch-store builds list\` first.`,
     });
   }
 
@@ -250,7 +250,7 @@ async function findRunnableArtifact(reference: string): Promise<BuildArtifact> {
   });
 }
 
-/** Decode one `launch run` request and install its stored artifact. */
+/** Decode one `launch-store run` request and install its stored artifact. */
 export async function runCommandProgram(commandInput: unknown): Promise<void> {
   try {
     const decodedCommand = decodeRunCommandInput(commandInput);

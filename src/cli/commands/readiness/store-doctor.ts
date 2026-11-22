@@ -2,7 +2,7 @@ import type { Command } from '../../command.ts';
 import { readinessCommandProgram } from '../../../readiness/command.ts';
 import { runCliProgram } from '../../run-cli-program.ts';
 
-/** CLI options for `launch store doctor`. */
+/** CLI options for `launch-store store doctor`. */
 type StoreDoctorOptions = {
   app?: string;
   json?: boolean;

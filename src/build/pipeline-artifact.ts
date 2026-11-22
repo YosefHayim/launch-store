@@ -128,7 +128,9 @@ async function sweepStoredArtifacts(
   retentionDays: number,
   log: Logger,
 ): Promise<void> {
-  log.tip(`kept ~${retentionDays} days, then auto-pruned to save space (launch builds prune)`);
+  log.tip(
+    `kept ~${retentionDays} days, then auto-pruned to save space (launch-store builds prune)`,
+  );
 
   if (storageProvider.prune == null) {
     return;
@@ -203,7 +205,7 @@ export async function storeArtifact(
 
 function warnNoCcache(log: Logger): void {
   log.warn(
-    "ccache isn't installed - this build runs uncached. `launch doctor --fix` (or brew install ccache) speeds up repeat builds.",
+    "ccache isn't installed - this build runs uncached. `launch-store doctor --fix` (or brew install ccache) speeds up repeat builds.",
   );
 }
 
@@ -382,7 +384,7 @@ export async function ensureNativeProject(
     throw makeNativeProjectFailure({
       platform,
       message:
-        'tvOS native target not configured - no ios/ project found. Commit a react-native-tvos project (its tvOS target lives in ios/), then re-run `launch build tvos`.',
+        'tvOS native target not configured - no ios/ project found. Commit a react-native-tvos project (its tvOS target lives in ios/), then re-run `launch-store build tvos`.',
     });
   }
 

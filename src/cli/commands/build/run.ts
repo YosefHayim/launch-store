@@ -13,7 +13,7 @@ export const registerRunCommand = (program: Command): void => {
     )
     .argument(
       '[reference]',
-      'a build id from `launch builds list`, a build number, or `latest`',
+      'a build id from `launch-store builds list`, a build number, or `latest`',
       'latest',
     )
     .option('-d, --device <id>', 'Android serial or Apple devicectl device identifier')

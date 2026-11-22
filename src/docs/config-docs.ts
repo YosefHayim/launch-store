@@ -97,7 +97,7 @@ const renderTypeSection = (name: string, definition: JsonSchema): string => {
 /**
  * Render the full `launch.config.ts` field reference from its generated JSON Schema: the top-level fields
  * (the `LaunchConfigInput` root) as one table, then a `Types` section with a table per nested object
- * definition (sorted for stable output). Pure - `launch config docs` prints this markdown. Enum and
+ * definition (sorted for stable output). Pure - `launch-store config docs` prints this markdown. Enum and
  * `Record<...>` definitions render inline in the type columns rather than as their own sections.
  */
 export const renderConfigDocs = (schema: JsonSchema): string => {
@@ -107,11 +107,11 @@ export const renderConfigDocs = (schema: JsonSchema): string => {
   if (definitions == null) definitions = {};
   let root = definitions[rootName];
   if (root == null) root = schema;
-  const header = 'Field reference printed by `launch config docs`.';
+  const header = 'Field reference printed by `launch-store config docs`.';
   const intro = [
     'The config types live in `src/config/` and `src/types/config.ts`. The published copy is `schema/launch.config.schema.json`.',
-    'For editor autocomplete and validation, run `launch config schema --out launch.config.schema.json`, then point your config at it: a JSON config adds a `"$schema": "./launch.config.schema.json"` key, while a `.ts` config (which can\'t carry `$schema`) is wired through VS Code\'s `json.schemas` setting or your editor\'s equivalent.',
-    'Run `launch config validate` to check a config against this schema (it also reports cross-field semantic warnings, which never fail the command); pass a `.json` file to validate it verbatim, including unknown top-level keys.',
+    'For editor autocomplete and validation, run `launch-store config schema --out launch.config.schema.json`, then point your config at it: a JSON config adds a `"$schema": "./launch.config.schema.json"` key, while a `.ts` config (which can\'t carry `$schema`) is wired through VS Code\'s `json.schemas` setting or your editor\'s equivalent.',
+    'Run `launch-store config validate` to check a config against this schema (it also reports cross-field semantic warnings, which never fail the command); pass a `.json` file to validate it verbatim, including unknown top-level keys.',
   ].join(' ');
   const nestedTypes = Object.entries(definitions)
     .filter(([name, definition]) => name != rootName && definition.properties != null)

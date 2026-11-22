@@ -17,7 +17,7 @@ export const APP_PRIVACY_STEPS: readonly string[] = [
 ];
 /**
  * Render the App Privacy checklist as printable lines: a one-line UI-only verdict, the numbered steps,
- * and the help link. Used by `launch doctor` to emit the precise "do these in the UI" list the API
+ * and the help link. Used by `launch-store doctor` to emit the precise "do these in the UI" list the API
  * cannot perform - the first line is the headline, the rest are indented detail.
  */
 export const appPrivacyChecklist = (): string[] => {

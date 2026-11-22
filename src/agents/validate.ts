@@ -22,7 +22,7 @@ const matchRegisteredCommand = (
 
 /**
  * Whether every segment of a skill command path exists in the registered CLI tree.
- * Empty paths never match - a skill must name at least the top-level command after `launch`.
+ * Empty paths never match - a skill must name at least the top-level command after `launch-store`.
  */
 export const commandPathIsRegistered = (
   registeredCli: RegisteredCommand,
@@ -48,7 +48,7 @@ export const skillReferencedCommands = (skill: ConsumerSkill): readonly SkillSte
 export const formatUnknownSkillCommand = (
   skillId: string,
   commandPath: readonly string[],
-): string => `${skillId}: launch ${commandPath.join(' ')}`;
+): string => `${skillId}: launch-store ${commandPath.join(' ')}`;
 
 /** Return generated skill commands that no longer exist in the registered CLI. */
 export const findUnknownCommands = (

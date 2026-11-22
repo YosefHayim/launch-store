@@ -53,7 +53,7 @@ export function assertDeviceArtifact(
       provider: 'apple-artifact',
       message:
         `Build produced a simulator artifact (${artifactPath}). The store needs a device archive - ` +
-        `build for a generic ${platformLabel(platform)} device, not a simulator, then re-run \`launch build ${platform}\`.`,
+        `build for a generic ${platformLabel(platform)} device, not a simulator, then re-run \`launch-store build ${platform}\`.`,
     });
   }
 

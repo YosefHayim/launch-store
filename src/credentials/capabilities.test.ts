@@ -65,7 +65,7 @@ describe('mapEntitlementsToCapabilities', () => {
     expect(a.enable).toEqual(['HOMEKIT', 'PUSH_NOTIFICATIONS', 'SIRIKIT']);
   });
 });
-describe('entitlementForCapability (reverse map for `launch adopt`)', () => {
+describe('entitlementForCapability (reverse map for `launch-store adopt`)', () => {
   it('resolves a capability type to its canonical entitlement key', () => {
     expect(entitlementForCapability('APP_GROUPS')).toBe('com.apple.security.application-groups');
     expect(entitlementForCapability('PUSH_NOTIFICATIONS')).toBe('aps-environment');

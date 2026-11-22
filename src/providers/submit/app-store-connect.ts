@@ -146,7 +146,7 @@ async function submitAppleBuild(
   if (appId == null) {
     const appMissingMessage = appRecordMissingMessage(
       bundleId,
-      `launch build ${buildContext.platform}`,
+      `launch-store build ${buildContext.platform}`,
     );
     throw makeProviderInputFailure({
       provider: PROVIDER,

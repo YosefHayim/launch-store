@@ -42,7 +42,7 @@ function makeDiagnoseCommandFailure(fields: {
   };
 }
 
-/** Decode `launch diagnose` input. Omitted optionals stay absent. */
+/** Decode `launch-store diagnose` input. Omitted optionals stay absent. */
 export function decodeDiagnoseCommandInput(rawCommandInput: unknown): DiagnoseCommandInput {
   const rawCommandInputObject = readPlainObject(rawCommandInput);
 
@@ -161,7 +161,7 @@ export async function diagnoseCommandProgram(rawCommandInput: unknown): Promise<
 
     if (hasNoLog) {
       logger.skip(
-        'No build log found. Run a build first, or pass a log path: `launch diagnose <file>`.',
+        'No build log found. Run a build first, or pass a log path: `launch-store diagnose <file>`.',
       );
       return;
     }

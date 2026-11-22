@@ -175,7 +175,7 @@ async function validateConfiguration(commandInput: ValidateCommandInput): Promis
         _tag: 'ConfigCommandFailure',
         operation: 'find Launch config',
         message:
-          'No launch.config.{ts,mjs,js} in this directory. Pass a .json file, or run `launch init` first.',
+          'No launch.config.{ts,mjs,js} in this directory. Pass a .json file, or run `launch-store init` first.',
       } satisfies ConfigCommandFailure;
     }
 
@@ -200,7 +200,7 @@ async function validateConfiguration(commandInput: ValidateCommandInput): Promis
       _tag: 'ConfigCommandFailure',
       operation: 'validate Launch config',
       message:
-        '`launch config validate` takes a .json file, or no argument to validate launch.config.ts.',
+        '`launch-store config validate` takes a .json file, or no argument to validate launch.config.ts.',
     } satisfies ConfigCommandFailure;
   }
 

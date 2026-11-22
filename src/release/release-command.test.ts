@@ -171,7 +171,7 @@ describe('androidReleasePlanLines', () => {
       1,
     );
     expect(planLines).toContain(
-      'incremental build - run `launch build android --clean` first for a from-scratch artifact',
+      'incremental build - run `launch-store build android --clean` first for a from-scratch artifact',
     );
   });
 });

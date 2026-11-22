@@ -8,7 +8,7 @@ import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { listSnapshots } from '../snapshot/store.ts';
 import type { Shell } from '../types/remote.ts';
-/** The shells `launch completion` supports, in the order help lists them; the first is the default fallback. */
+/** The shells `launch-store completion` supports, in the order help lists them; the first is the default fallback. */
 export const SHELLS: readonly Shell[] = ['bash', 'zsh', 'fish'] as const;
 /**
  * The marker comments that fence Launch's managed block inside a shell rc file. {@link installCompletion}
@@ -72,55 +72,55 @@ export const detectShell = (
   return SHELLS.find((shell) => shellName == shell);
 };
 /**
- * The bash completion script. On `<Tab>` it forwards the words from after `launch` up to and including the
- * word under the cursor to `launch completion __complete`, and feeds the newline-separated candidates back
+ * The bash completion script. On `<Tab>` it forwards the words from after `launch-store` up to and including the
+ * word under the cursor to `launch-store completion __complete`, and feeds the newline-separated candidates back
  * through `compgen`, which filters them by the current prefix. The slice `[@]:1:COMP_CWORD` drops the
- * leading `launch` AND everything past the cursor, so {@link resolveCompletions} always sees the in-progress
+ * leading `launch-store` AND everything past the cursor, so {@link resolveCompletions} always sees the in-progress
  * word last - completing mid-line (not just at the end) resolves the correct token.
  */
 export const bashCompletionScript = (): string => {
-  return `# launch (bash) completion - eval with: source <(launch completion bash)
+  return `# launch-store (bash) completion - eval with: source <(launch-store completion bash)
 _launch_complete() {
   local words candidates
   words=("\${COMP_WORDS[@]:1:COMP_CWORD}")
-  candidates="$(launch completion ${COMPLETE_SUBCOMMAND} -- "\${words[@]}" 2>/dev/null)"
+  candidates="$(launch-store completion ${COMPLETE_SUBCOMMAND} -- "\${words[@]}" 2>/dev/null)"
   COMPREPLY=($(compgen -W "\${candidates}" -- "\${COMP_WORDS[COMP_CWORD]}"))
 }
-complete -o default -F _launch_complete launch
+complete -o default -F _launch_complete launch-store
 `;
 };
 /**
  * The zsh completion script. Uses zsh's native `compadd` over the same callback. `words[2,CURRENT]` drops
- * the leading `launch` and everything past the cursor; the `(@)` flag expands those words as SEPARATE
+ * the leading `launch-store` and everything past the cursor; the `(@)` flag expands those words as SEPARATE
  * arguments (a plain `"$words[2,-1]"` would join them into one space-delimited string and break command-tree
  * descent for nested commands like `snapshot diff`). `${(@f)...}` then splits the callback output on
  * newlines back into the candidate array.
  */
 export const zshCompletionScript = (): string => {
-  return `# launch (zsh) completion - eval with: source <(launch completion zsh)
+  return `# launch-store (zsh) completion - eval with: source <(launch-store completion zsh)
 _launch_complete() {
   local -a candidates
-  candidates=("\${(@f)$(launch completion ${COMPLETE_SUBCOMMAND} -- "\${(@)words[2,CURRENT]}" 2>/dev/null)}")
+  candidates=("\${(@f)$(launch-store completion ${COMPLETE_SUBCOMMAND} -- "\${(@)words[2,CURRENT]}" 2>/dev/null)}")
   compadd -- $candidates
 }
-compdef _launch_complete launch
+compdef _launch_complete launch-store
 `;
 };
 /**
  * The fish completion script. fish re-evaluates the function on every keypress, so it passes the current
- * commandline tokens (minus the leading `launch`) to the callback and emits each candidate on its own line,
+ * commandline tokens (minus the leading `launch-store`) to the callback and emits each candidate on its own line,
  * which fish offers directly. `-f` disables fish's default file completion so only Launch's candidates show.
  */
 export const fishCompletionScript = (): string => {
-  return `# launch (fish) completion - eval with: launch completion fish | source
+  return `# launch-store (fish) completion - eval with: launch-store completion fish | source
 function __launch_complete
   set -l tokens (commandline -opc) (commandline -ct)
-  launch completion ${COMPLETE_SUBCOMMAND} -- $tokens[2..-1] 2>/dev/null
+  launch-store completion ${COMPLETE_SUBCOMMAND} -- $tokens[2..-1] 2>/dev/null
 end
-complete -c launch -f -a '(__launch_complete)'
+complete -c launch-store -f -a '(__launch_complete)'
 `;
 };
-/** Map a shell to its script generator - the one place that fans `launch completion <shell>` out per shell. */
+/** Map a shell to its script generator - the one place that fans `launch-store completion <shell>` out per shell. */
 export const completionScript = (shell: Shell): string => {
   switch (shell) {
     case 'bash':
@@ -184,7 +184,7 @@ const flagSources: ReadonlyMap<string, CompletionCandidateSource> = new Map([
 ]);
 /**
  * Commands whose POSITIONAL argument has a dynamic candidate set, keyed by the command's full path after
- * `launch` (e.g. `plan`, `snapshot diff`). A second table beside {@link FLAG_SOURCES} so positional and
+ * `launch-store` (e.g. `plan`, `snapshot diff`). A second table beside {@link FLAG_SOURCES} so positional and
  * flag-value completion stay declarative and centralized.
  */
 const argumentSources: ReadonlyMap<string, CompletionCandidateSource> = new Map([
@@ -201,7 +201,7 @@ const optionFlags = (command: Command): string[] => {
 };
 /**
  * Descend the commander tree to the deepest subcommand named by `words`, returning that command plus the
- * words consumed reaching it (its full path after `launch`). Stops at the first word that isn't a known
+ * words consumed reaching it (its full path after `launch-store`). Stops at the first word that isn't a known
  * subcommand - that word and everything after it are arguments/flags of the resolved command.
  */
 const descendCommandTree = (
@@ -222,8 +222,8 @@ const descendCommandTree = (
   return { command, commandPath };
 };
 /**
- * Resolve the completion candidates for a partially-typed `launch` command line - the single operation the
- * hidden `__complete` callback runs on every `<Tab>`. `words` is the line after `launch` (including the
+ * Resolve the completion candidates for a partially-typed `launch-store` command line - the single operation the
+ * hidden `__complete` callback runs on every `<Tab>`. `words` is the line after `launch-store` (including the
  * word being typed, which the shell itself filters against, so this returns the unfiltered candidate set).
  *
  * Precedence:
@@ -369,8 +369,8 @@ async function readCompletionCandidates(source: CompletionCandidateSource): Prom
 }
 /** The single line, per shell, that sources Launch's completion script when the rc file loads. */
 const completionSourceLine = (shell: Shell): string => {
-  if (shell == 'fish') return 'launch completion fish | source';
-  return `source <(launch completion ${shell})`;
+  if (shell == 'fish') return 'launch-store completion fish | source';
+  return `source <(launch-store completion ${shell})`;
 };
 /**
  * The outcome of an {@link installCompletion} attempt. A discriminated union so the command can render the

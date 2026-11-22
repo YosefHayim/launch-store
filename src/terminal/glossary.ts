@@ -138,7 +138,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   metro: [
     "Metro: React Native's JavaScript bundler - it packs your TS/JS + assets into the one bundle that",
     'ships inside the app and that OTA updates replace. `expo export` runs Metro to produce the bundle',
-    '`launch update` publishes, so an over-the-air update ships new JS without recompiling native code.',
+    '`launch-store update` publishes, so an over-the-air update ships new JS without recompiling native code.',
   ].join('\n'),
   prebuild: [
     'expo prebuild: turns your app.json + config plugins into a real native iOS/Android',
@@ -149,7 +149,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'apple-developer-program': [
     'Apple Developer Program: the paid ($99/yr) membership that lets you create certificates, sign apps,',
     'and publish to the App Store. Everything Launch does on the Apple side needs an active membership;',
-    '`launch doctor` surfaces account problems (lapsed membership, unsigned agreements) before a build.',
+    '`launch-store doctor` surfaces account problems (lapsed membership, unsigned agreements) before a build.',
   ].join('\n'),
   'app-store-connect': [
     "App Store Connect (ASC): Apple's web portal + API for managing apps, builds, TestFlight, and your",
@@ -183,47 +183,47 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
   'team-role': [
     'Team & roles: the people with access to your App Store Connect account and what each is allowed to do',
-    "(the 'Users and Access' page) - account-wide, not app-scoped. `launch team list|invite|remove` reads",
+    "(the 'Users and Access' page) - account-wide, not app-scoped. `launch-store team list|invite|remove` reads",
     'members and pending invitations and manages access over the API, behind a confirm on the writes.',
   ].join('\n'),
   'store-readiness': [
     'Store readiness: the account-level prerequisites a store needs before it will accept a submission -',
     'an App Store Connect app record, a Play app the service account can reach, a first build uploaded to',
-    'Play. None involve the build itself, so a green build can still be unshippable. `launch store doctor`',
+    'Play. None involve the build itself, so a green build can still be unshippable. `launch-store store doctor`',
     'reads these live and grades them (exit 2 on a blocker) before you waste a release attempt on them.',
   ].join('\n'),
   'submission-readiness': [
     'Submission readiness: the full set of prerequisites a store checks at *submission* - a registered',
     'Bundle ID, a valid (unexpired) distribution certificate, a declared export-compliance answer, plus the',
     'account-level basics. A green build that passes `store doctor` can still bounce on one of these.',
-    '`launch audit` reads every submit blocker live and grades them (exit 2 on a blocker) as a pre-release gate.',
+    '`launch-store audit` reads every submit blocker live and grades them (exit 2 on a blocker) as a pre-release gate.',
   ].join('\n'),
   'iap-readiness': [
     'IAP readiness: whether the in-app purchases and subscriptions your config declares actually exist on',
     'App Store Connect and are submittable - not stuck in MISSING_METADATA (no name, price, or localization).',
     'IAP is the most error-prone surface: a green build says nothing about whether buying the thing works, and',
-    'a product the app references but never finished fails silently in production. `launch iap doctor` grades',
+    'a product the app references but never finished fails silently in production. `launch-store iap doctor` grades',
     'each declared product against its live state (exit 2 on a blocker) so you catch it before customers do.',
   ].join('\n'),
   'store-snapshot': [
     'Store snapshot: a read-only, point-in-time copy of your live App Store Connect + Google Play catalog -',
     "products, subscriptions, and their states - saved as a named record under ~/.launch/snapshots. It's the",
-    "trustworthy 'before' that makes destructive store automation reversible: capture one, run `launch sync`,",
-    'then `launch snapshot diff` to see exactly what moved. `launch snapshot` captures, diffs, and exports them.',
+    "trustworthy 'before' that makes destructive store automation reversible: capture one, run `launch-store sync`,",
+    'then `launch-store snapshot diff` to see exactly what moved. `launch-store snapshot` captures, diffs, and exports them.',
   ].join('\n'),
   //  In-app purchases - subscriptions & offers
   'subscription-group': [
     "Subscription group: Apple's container for mutually-exclusive subscription tiers - a customer holds at",
     'most one active subscription per group (e.g. Monthly vs Yearly of the same plan), and upgrades/downgrades',
     'move them between levels in the group. You declare groups and their subscriptions in launch.config.ts;',
-    "`launch sync` reconciles them onto App Store Connect by reference name, the group's natural key.",
+    "`launch-store sync` reconciles them onto App Store Connect by reference name, the group's natural key.",
   ].join('\n'),
   'subscription-offer': [
     'Subscription offer: a discounted or free entry price on a subscription. Three kinds - introductory (a',
     "new customer's first-time deal), promotional (a win-back/retention deal for lapsed or current users), and",
     'an offer code (a redeemable code, e.g. for press or partners). Apple makes offer terms immutable once',
-    'created, so Launch only ever adds missing offers - `launch offers` reconciles them from config, never',
-    "edits or deletes (deactivating a code is the explicit `launch offers deactivate`), so it's safe to re-run.",
+    'created, so Launch only ever adds missing offers - `launch-store offers` reconciles them from config, never',
+    "edits or deletes (deactivating a code is the explicit `launch-store offers deactivate`), so it's safe to re-run.",
   ].join('\n'),
   //  Apple - identity & code signing
   'asc-api-key': [
@@ -271,7 +271,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'apns-key': [
     'APNs auth key: a .p8 your backend uses to send push notifications to your app. Apple has NO API to',
     "create one - it's a download-once, portal-only key (Certificates, IDs & Profiles -> Keys), capped at",
-    "2 per account - so Launch can't mint it, only import and safeguard one. `launch creds push-key` vaults",
+    "2 per account - so Launch can't mint it, only import and safeguard one. `launch-store creds push-key` vaults",
     "it in your keychain and re-exports it on demand; Launch never sends push itself (that's your server).",
   ].join('\n'),
   'code-signing': [
@@ -280,13 +280,13 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
   resign: [
     'Re-signing: swapping the signing identity on an ALREADY-built artifact - a different cert/profile, or',
-    'another Apple account during a migration - without paying for a full rebuild. `launch build:resign`',
+    'another Apple account during a migration - without paying for a full rebuild. `launch-store build:resign`',
     'pulls a build from local history, re-signs it with the cached credentials, and writes a new .ipa/.aab.',
   ].join('\n'),
   udid: [
     'UDID: the unique hardware identifier of an iPhone/iPad. Ad-hoc (TestFlight-free) installs only run',
     'on devices whose UDID is listed on the provisioning profile, so you register each tester device',
-    'first with `launch device add`. The App Store and TestFlight need no UDIDs - only ad-hoc builds do.',
+    'first with `launch-store device add`. The App Store and TestFlight need no UDIDs - only ad-hoc builds do.',
   ].join('\n'),
   //  iOS - versioning & download size
   'build-number': [
@@ -308,28 +308,28 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   testflight: [
     "TestFlight: Apple's pre-release testing track. A build uploaded here goes to your testers,",
     "not the public App Store. It's the safe default and where you validate size and behavior;",
-    'public release is a separate, deliberate step (launch release --to-store).',
+    'public release is a separate, deliberate step (launch-store release --to-store).',
   ].join('\n'),
   'ad-hoc-distribution': [
     'Ad-hoc / internal distribution: an install link for your testers without TestFlight. iOS signs an',
-    'ad-hoc .ipa valid only for devices whose UDID is on the profile (register them with `launch device add`)',
+    'ad-hoc .ipa valid only for devices whose UDID is on the profile (register them with `launch-store device add`)',
     'and serves an itms-services manifest; Android serves the .apk directly. Both host on YOUR own bucket.',
   ].join('\n'),
   'sandbox-tester': [
     "Sandbox tester: a special Apple ID that buys your in-app purchases against StoreKit's TEST environment",
-    '- no real money - so you can verify the purchase flow before release. `launch sandbox` lists the',
+    '- no real money - so you can verify the purchase flow before release. `launch-store sandbox` lists the',
     "account's testers and clears their purchase history (the local 'Clear Purchase History' button).",
   ].join('\n'),
   //  App Store release lifecycle
   'app-store-version': [
     'App Store version: the per-release record on App Store Connect (one per marketing version) holding its',
-    "review state, the attached build, the release type, and the 'What's New' notes. `launch release` creates",
+    "review state, the attached build, the release type, and the 'What's New' notes. `launch-store release` creates",
     'or reuses the editable one, attaches your build, and submits it - the version is the unit Apple reviews',
     'and ships, separate from TestFlight.',
   ].join('\n'),
   'review-submission': [
     "Review submission: Apple's container for what you send to App Review. You add your App Store version to",
-    'it as an item, then submit the whole thing. `launch release` drives this over the API (create -> add',
+    'it as an item, then submit the whole thing. `launch-store release` drives this over the API (create -> add',
     "version -> submit), so you never click 'Submit for Review', and re-running resumes a submission already",
     'in progress instead of duplicating it.',
   ].join('\n'),
@@ -342,7 +342,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'phased-release': [
     "Phased release: Apple's optional 7-day staged rollout of an approved UPDATE - a growing percentage of",
     'users each day instead of everyone at once, so a regression reaches few people. Opt in with',
-    '`launch release --phased`, then pause/resume/finish it with `launch rollout`. It applies only to updates',
+    '`launch-store release --phased`, then pause/resume/finish it with `launch-store rollout`. It applies only to updates',
     '(a first version always ships to 100%).',
   ].join('\n'),
   'export-compliance': [
@@ -353,7 +353,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
   'release-train': [
     "Release train: one app's whole release coordinated across iOS, Android, and OTA as a single record -",
-    "each platform (and each OTA follower) is a 'car'. `launch release-train start` submits every car, then",
+    "each platform (and each OTA follower) is a 'car'. `launch-store release-train start` submits every car, then",
     '`status` reconciles it forward: each car releases on its own approval, and an OTA bundle publishes once',
     'its native platform is live. `--hold` waits until every car is approved, then releases them together.',
   ].join('\n'),
@@ -362,22 +362,22 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     'Reconcile: Launch treats launch.config.ts as the desired state and makes the live store match it -',
     "the GitOps loop, applied to App Store Connect and Google Play. It's declarative and additive: each",
     'object is matched on its natural key and created/updated only where it diverges, so a reconcile is',
-    'safe to re-run. `launch sync` reconciles the whole config; `offers` and others reconcile one surface.',
+    'safe to re-run. `launch-store sync` reconciles the whole config; `offers` and others reconcile one surface.',
   ].join('\n'),
   'plan-drift': [
-    'Plan / drift: the read-only half of the reconcile loop. `launch plan` diffs launch.config.ts (desired)',
+    'Plan / drift: the read-only half of the reconcile loop. `launch-store plan` diffs launch.config.ts (desired)',
     'against live store + signing state (actual) and prints what `sync` WOULD change, touching nothing.',
-    '`launch drift` is the same read graded for CI (`plan --check`): exit 0 in sync, 2 on drift, 1 on error.',
+    '`launch-store drift` is the same read graded for CI (`plan --check`): exit 0 in sync, 2 on drift, 1 on error.',
     "It's the GitOps preview fastlane and EAS don't offer - see what will move before you let anything move.",
   ].join('\n'),
   adopt: [
-    'Adopt: the reverse of reconcile - for an app that ALREADY ships. `launch adopt` reads your live App',
+    'Adopt: the reverse of reconcile - for an app that ALREADY ships. `launch-store adopt` reads your live App',
     'Store Connect setup (products, capabilities, signing, listing) and writes it back into a populated,',
     'reviewable launch.config.ts (+ app.json entitlements + store.config.json), so an app built by hand or',
     'via EAS comes under config-as-code in one command. From there you drive everything forward with `sync`.',
   ].join('\n'),
   migrate: [
-    'Migrate: the file-based onboarding path (vs. adopt, which reads a live account). `launch migrate` reads',
+    'Migrate: the file-based onboarding path (vs. adopt, which reads a live account). `launch-store migrate` reads',
     'an existing EAS (eas.json/app.json) or fastlane setup off disk and emits the equivalent Launch config',
     'plus a report of what to finish by hand. Read-only against both stores - it converts configuration, so',
     'you can try Launch against your current project without touching the App Store or Play.',
@@ -385,17 +385,17 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   //  Over-the-air updates
   'ota-update': [
     'OTA update: ship a JS/asset-only change to installed apps without a new store build, using the Expo',
-    'Updates protocol your app already embeds (expo-updates). `launch update` exports the bundle, writes a',
+    'Updates protocol your app already embeds (expo-updates). `launch-store update` exports the bundle, writes a',
     'signed manifest keyed by runtime version + channel to your bucket, and the app fetches it on launch.',
   ].join('\n'),
   'runtime-version': [
     'Runtime version: the contract between a native build and the OTA updates it can accept. An update',
     "only loads if its runtime version matches the installed app's, so a JS change that needs new native",
-    "code can't be shipped over the air by mistake. `launch update` keys each manifest by this value.",
+    "code can't be shipped over the air by mistake. `launch-store update` keys each manifest by this value.",
   ].join('\n'),
   'release-channel': [
     'Channel: a named stream of OTA updates (e.g. production, staging) that a build subscribes to, so you',
-    'can push JS to beta testers without touching production. `launch update` writes the manifest under',
+    'can push JS to beta testers without touching production. `launch-store update` writes the manifest under',
     'the channel + platform + runtime-version path, and the app fetches its own channel on each launch.',
   ].join('\n'),
   //  Store listing
@@ -406,14 +406,14 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
   'ai-store-assets': [
     'AI store assets: store listing material drafted by a model instead of by hand - listing copy today',
-    '(`launch ai listing`), with generated assets the concept extends to. It only fills the versioned files',
+    '(`launch-store ai listing`), with generated assets the concept extends to. It only fills the versioned files',
     '(store.config.json), so the existing plan->confirm->apply loop is the safety rail - it never touches a store.',
   ].join('\n'),
   //  App Store growth & merchandising
   'app-clip': [
     'App Clip: a tiny, install-free slice of your app that opens from a link, NFC tag, or QR code so a user',
     "can do one task (pay, park, order) without the full download. The 'App Clip card' is the sheet shown",
-    'first; `launch app-clips` reconciles its action + per-locale subtitle from appclips.config.json.',
+    'first; `launch-store app-clips` reconciles its action + per-locale subtitle from appclips.config.json.',
   ].join('\n'),
   'game-center': [
     "Game Center: Apple's gaming network - achievements, leaderboards, and multiplayer - layered onto your",
@@ -422,7 +422,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
   'in-app-event': [
     'In-app event: a timed, discoverable happening inside your app - a tournament, premiere, or live stream',
-    '- that Apple surfaces on your product page and in Search to pull users back. `launch events` reads and',
+    '- that Apple surfaces on your product page and in Search to pull users back. `launch-store events` reads and',
     'manages the event records and their localized copy; scheduling, media, and review stay on App Store Connect.',
   ].join('\n'),
   'custom-product-page': [
@@ -433,48 +433,48 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'product-page-optimization': [
     "Product page optimization (PPO): Apple's built-in A/B test of your listing - up to three treatment",
     'variants of icon/screenshots/text served to a slice of App Store traffic to see which converts best.',
-    "`launch experiments` reconciles the experiment and its treatment arms (Apple's v2 model) from config.",
+    "`launch-store experiments` reconciles the experiment and its treatment arms (Apple's v2 model) from config.",
   ].join('\n'),
   'wallet-pass': [
     'Wallet pass type id / Apple Pay merchant id: team-level identifiers that authorize signing Wallet passes',
     'and processing Apple Pay; they gate the payment/pass certificates and are otherwise hand-registered in',
-    'Certificates, Identifiers & Profiles. `launch wallet` reconciles them from wallet.config.json over the API.',
+    'Certificates, Identifiers & Profiles. `launch-store wallet` reconciles them from wallet.config.json over the API.',
   ].join('\n'),
   //  Privacy, compliance & accessibility
   'privacy-declarations': [
     "Privacy declarations: what your app says it collects and why - Apple's privacy manifest / App Privacy",
     "label and Play's Data Safety form. A mismatch with the permissions your code actually uses is a common,",
-    'opaque rejection; `launch privacy scan` reconciles the statically-readable surface against your manifest.',
+    'opaque rejection; `launch-store privacy scan` reconciles the statically-readable surface against your manifest.',
   ].join('\n'),
   'accessibility-label': [
     "Accessibility Nutrition Labels: Apple's 2025 declarations of which accessibility features your app",
-    'supports (VoiceOver, larger text, captions), shown on the product page. `launch accessibility`',
+    'supports (VoiceOver, larger text, captions), shown on the product page. `launch-store accessibility`',
     'reconciles them from accessibility.config.json over the API with the plan->confirm->apply flow.',
   ].join('\n'),
   'eu-distribution': [
     "EU alternative distribution: under the EU's Digital Markets Act, iOS apps may ship from your own web",
     'domains or alternative marketplaces, not only the App Store - which needs authorized domains plus a',
-    'registered signing key. `launch eu-distribution` reconciles the authorized domains from config over the API.',
+    'registered signing key. `launch-store eu-distribution` reconciles the authorized domains from config over the API.',
   ].join('\n'),
   'app-availability': [
-    'App availability: the complete set of App Store territories your app sells in. `launch availability`',
+    'App availability: the complete set of App Store territories your app sells in. `launch-store availability`',
     'compares that declared set with Apple and patches only the territory rows that differ, while presenting',
     'the complete result as one confirmed action. An empty list removes the app from every storefront.',
   ].join('\n'),
   //  Reviews, reports & insights
   'store-review': [
     "Store review: a customer's public rating and comment, plus the single developer reply you can post back.",
-    '`launch reviews` (App Store) and `launch play-reviews` (Play) read them and manage that reply over the',
+    '`launch-store reviews` (App Store) and `launch-store play-reviews` (Play) read them and manage that reply over the',
     "API - the local equivalent of the Ratings & Reviews / Reviews pages, which EAS doesn't touch at all.",
   ].join('\n'),
   'store-report': [
     'Store reports: the bulk data behind your dashboards - Sales & Trends, Finance (gzipped TSV), and the',
-    'multi-step Analytics reports. `launch reports sales|finance|analytics` downloads them from App Store',
+    'multi-step Analytics reports. `launch-store reports sales|finance|analytics` downloads them from App Store',
     'Connect with the API key alone, decompresses, and writes the files - the bulk side EAS never offered.',
   ].join('\n'),
   'review-insights': [
     'Review insights: the synthesis over raw reviews - average rating, per-star distribution, reply rate,',
-    'sentiment split, and a month-by-month ratings trend, across both stores at once. `launch insights`',
+    'sentiment split, and a month-by-month ratings trend, across both stores at once. `launch-store insights`',
     'aggregates what `reviews` / `play-reviews` already pull; no new data source, just the trends on top.',
   ].join('\n'),
   //  Build-time env
@@ -493,7 +493,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ccache: [
     'ccache: a compiler cache keyed by file content. The first build fills it; later builds reuse the',
     'cached object for any unchanged source - cutting a from-scratch iOS compile 50-70%. Launch wires it',
-    'in at `pod install` (USE_CCACHE) and turns it on by default; `launch doctor` installs and sizes it.',
+    'in at `pod install` (USE_CCACHE) and turns it on by default; `launch-store doctor` installs and sizes it.',
   ].join('\n'),
   'incremental-build': [
     'Incremental build: reusing the warm compiler caches and DerivedData from your last build instead of',
@@ -555,7 +555,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'play-track': [
     'Play track: where a release lands - internal, closed, or open testing, or production. A new personal',
     'account must run ~20 testers for 14 days on a testing track before production unlocks, so Launch',
-    'defaults to the internal track; production is the deliberate `launch release android`.',
+    'defaults to the internal track; production is the deliberate `launch-store release android`.',
   ].join('\n'),
   'version-code': [
     "versionCode: Android's integer build counter (separate from the human versionName). Every upload",
@@ -569,17 +569,17 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
   'play-billing': [
     "Play in-app products & subscriptions: Google Play's monetization catalog - one-off managed products and",
-    'auto-renewable subscriptions (product + base plan + offers). `launch play-products` / `play-subscriptions`',
+    'auto-renewable subscriptions (product + base plan + offers). `launch-store play-products` / `play-subscriptions`',
     'publish the entries carrying a `play` override from the shared launch.config.ts catalog, the Play twin of sync.',
   ].join('\n'),
   'price-localization': [
     "Price localization: turning one base price into a sensible local price for every market, from today's",
-    "exchange rate plus each country's pricing patterns. `launch play-pricing localize` computes Google's",
+    "exchange rate plus each country's pricing patterns. `launch-store play-pricing localize` computes Google's",
     'recommendation (convertRegionPrices) - advisory only; feed the numbers into play-products/subscriptions.',
   ].join('\n'),
   'android-vitals': [
     "Android vitals: Google Play's post-launch quality signals - crash rate and ANR (app-not-responding) rate",
-    '- that gate your Play ranking and can trigger warnings. `launch play-reports vitals` reads them from the',
+    '- that gate your Play ranking and can trigger warnings. `launch-store play-reports vitals` reads them from the',
     'Play Developer Reporting API, the Android counterpart to the iOS reports/insights observability.',
   ].join('\n'),
   //  Build-flow steps
@@ -612,7 +612,7 @@ export const explainTopic = (topic: GlossaryTopic): string => {
 export const isGlossaryTopic = (topicText: string): topicText is GlossaryTopic => {
   return topicText in GLOSSARY;
 };
-/** All known topic keys, for `launch explain` with no argument. */
+/** All known topic keys, for `launch-store explain` with no argument. */
 export const listTopics = (): GlossaryTopic[] => {
   return Object.keys(GLOSSARY).filter(isGlossaryTopic);
 };

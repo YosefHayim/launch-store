@@ -340,7 +340,7 @@ async function listGroups(commandInput: GroupsCommandInput): Promise<void> {
 
   if (isEmpty) {
     logger.line(
-      `No beta groups for ${selectedApp.name}. Create one with \`launch testflight create-group <name>\`.`,
+      `No beta groups for ${selectedApp.name}. Create one with \`launch-store testflight create-group <name>\`.`,
     );
     return;
   }
@@ -371,7 +371,7 @@ async function createGroup(commandInput: CreateGroupCommandInput): Promise<void>
   const createdGroup = await appleStore.createBetaGroup(selectedApp.appId, commandInput.groupName);
   logger.ok(`Created external beta group "${createdGroup.name}" for ${selectedApp.name}.`);
   logger.line(
-    `- Add testers with \`launch testflight add <email> --group "${createdGroup.name}"\`.`,
+    `- Add testers with \`launch-store testflight add <email> --group "${createdGroup.name}"\`.`,
   );
 }
 
@@ -411,7 +411,7 @@ async function listTesters(commandInput: TestersCommandInput): Promise<void> {
 
   if (isEmpty) {
     logger.line(
-      `No testers in "${betaGroup.name}". Add one with \`launch testflight add <email> --group "${betaGroup.name}"\`.`,
+      `No testers in "${betaGroup.name}". Add one with \`launch-store testflight add <email> --group "${betaGroup.name}"\`.`,
     );
     return;
   }

@@ -42,7 +42,7 @@ export const registerSetupCommand = (program: Command): void => {
     .option('-a, --app <name>', 'which app to inspect (default: the only app, or prompt)')
     .option(
       '--provision',
-      "also ensure the distribution cert + App Store profile (like 'launch creds setup')",
+      "also ensure the distribution cert + App Store profile (like 'launch-store creds setup')",
       false,
     )
     .option('--json', 'emit the report as JSON (for agents/scripts)', false)

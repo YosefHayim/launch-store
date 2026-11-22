@@ -105,7 +105,7 @@ async function gradePrice(
       identifier: declaration.productId,
       status: 'warn',
       detail: `${declaration.productId}: price not verified - not on App Store Connect yet`,
-      hint: 'create the product first (run `launch sync`)',
+      hint: 'create the product first (run `launch-store sync`)',
     };
   }
 
@@ -117,7 +117,7 @@ async function gradePrice(
       identifier: declaration.productId,
       status: 'blocker',
       detail: `${declaration.productId}: ${price.customerPrice} in ${territory} isn't an Apple price point`,
-      hint: 'pick a price that matches an Apple price point (`launch sync` lists the nearby points)',
+      hint: 'pick a price that matches an Apple price point (`launch-store sync` lists the nearby points)',
     };
   }
 

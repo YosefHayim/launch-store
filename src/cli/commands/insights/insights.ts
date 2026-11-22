@@ -2,7 +2,7 @@ import type { Command } from '../../command.ts';
 import { insightsCommandProgram } from '../../../insights/command.ts';
 import { runCliProgram } from '../../run-cli-program.ts';
 
-/** CLI options for `launch insights`. */
+/** CLI options for `launch-store insights`. */
 type InsightsOptions = {
   app?: string;
   json?: boolean;

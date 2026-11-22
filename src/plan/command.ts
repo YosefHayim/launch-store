@@ -241,7 +241,7 @@ function renderSummary(logger: Logger, planOutcome: PlanOutcome): void {
   const isCheck = planOutcome.check == true;
 
   if (isCheck == false) {
-    logger.note('Run `launch sync` to apply, or `launch drift` to gate this in CI.');
+    logger.note('Run `launch-store sync` to apply, or `launch-store drift` to gate this in CI.');
     return;
   }
 
@@ -257,7 +257,7 @@ function renderSummary(logger: Logger, planOutcome: PlanOutcome): void {
   const isDriftExit = planOutcome.exitCode == PLAN_EXIT.drift;
 
   if (isDriftExit) {
-    logger.note('Drift detected. Run `launch sync` to reconcile.');
+    logger.note('Drift detected. Run `launch-store sync` to reconcile.');
   }
 }
 

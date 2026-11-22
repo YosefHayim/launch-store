@@ -178,7 +178,9 @@ describe('maybeAutoUpgrade', () => {
     await maybeAutoUpgrade(deps);
     expect(usedInstallers).toEqual(['pnpm']);
     expect(calls.reexec).toBe(0);
-    expect(calls.notes).toEqual(['launch 0.2.0 is available - pnpm add -g launch-store@0.2.0']);
+    expect(calls.notes).toEqual([
+      'launch-store 0.2.0 is available - pnpm add -g launch-store@0.2.0',
+    ]);
   });
   it('only notifies for a project or npx install', async () => {
     const { deps, calls } = makeDeps({
@@ -189,7 +191,7 @@ describe('maybeAutoUpgrade', () => {
     await maybeAutoUpgrade(deps);
     expect(calls.upgrade).toBe(0);
     expect(calls.reexec).toBe(0);
-    expect(calls.notes).toEqual(['launch 0.2.0 is available - you have 0.1.0']);
+    expect(calls.notes).toEqual(['launch-store 0.2.0 is available - you have 0.1.0']);
   });
   it('records the check and stays quiet when offline (fetch returns null)', async () => {
     const { deps, calls } = makeDeps({

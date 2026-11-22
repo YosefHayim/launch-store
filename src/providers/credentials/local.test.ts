@@ -152,7 +152,7 @@ describe('localCredentialsProvider.resolveBuildCredentials (iOS account selectio
     await expect(provider.resolveBuildCredentials(ios)).rejects.toMatchObject({
       _tag: 'MissingCredentialsFailure',
       platform: 'apple',
-      message: 'No App Store Connect API key found. Import one with: launch creds set-key',
+      message: 'No App Store Connect API key found. Import one with: launch-store creds set-key',
     });
   });
 });
@@ -220,7 +220,7 @@ describe('localCredentialsProvider.status', () => {
     const provider = makeLocalCredentialsProvider();
     const status = await provider.status();
 
-    expect(status).toContain('unresolved - run `launch creds refresh`');
+    expect(status).toContain('unresolved - run `launch-store creds refresh`');
   });
 
   it('reports an empty registry plainly', async () => {

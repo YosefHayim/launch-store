@@ -35,7 +35,7 @@ async function selectAppleAccount(
   if (canPrompt == false) {
     failCommand(
       'select Apple account',
-      'No active Apple account. Import one with `launch creds set-key`.',
+      'No active Apple account. Import one with `launch-store creds set-key`.',
     );
   }
 
@@ -53,7 +53,7 @@ export async function setupIos(
   if (ascKey == null) {
     failCommand(
       'set up Apple signing',
-      `Account "${account.label}" has no stored key. Re-import it with \`launch creds set-key\`.`,
+      `Account "${account.label}" has no stored key. Re-import it with \`launch-store creds set-key\`.`,
     );
   }
 

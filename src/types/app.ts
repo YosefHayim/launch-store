@@ -20,7 +20,7 @@ export const playTracks = ['internal', 'closed', 'open', 'production'] as const;
 /** A Google Play release track - one of {@link playTracks}. */
 export type PlayTrack = (typeof playTracks)[number];
 /**
- * Which web console page `launch open` deep-links to. Each value maps to a per-platform URL in
+ * Which web console page `launch-store open` deep-links to. Each value maps to a per-platform URL in
  * `core/console-links.ts` - the connective tissue between a read-only finding ("agreement unsigned")
  * and the irreducible UI step that fixes it. `asc` / `play` are the platform consoles' home for the
  * app; the rest target a specific section:
@@ -62,13 +62,13 @@ export type AndroidReleaseOptions = {
 /**
  * Which kind of TestFlight beta feedback a {@link BetaFeedback} carries - Apple keeps the two on
  * separate resources (`betaFeedbackCrashSubmissions` / `betaFeedbackScreenshotSubmissions`), which is
- * also the discriminant `launch testflight feedback --type` filters on.
+ * also the discriminant `launch-store testflight feedback --type` filters on.
  */
 export type BetaFeedbackKind = 'crash' | 'screenshot';
 /**
  * One TestFlight screenshot attachment on a {@link BetaFeedback} - a presigned image URL plus its
  * pixel dimensions. The URL expires (Apple signs it for a short window), so it's for immediate viewing
- * or download, not long-term storage; `launch testflight feedback --out` fetches it before it lapses.
+ * or download, not long-term storage; `launch-store testflight feedback --out` fetches it before it lapses.
  */
 type BetaFeedbackScreenshot = {
   url: string;
@@ -77,7 +77,7 @@ type BetaFeedbackScreenshot = {
 };
 /**
  * One piece of TestFlight beta feedback, normalized across Apple's two submission resources into the
- * single shape `launch testflight feedback` renders. `kind` discriminates the two: a `crash` carries no
+ * single shape `launch-store testflight feedback` renders. `kind` discriminates the two: a `crash` carries no
  * `screenshots`; a `screenshot` carries one or more. The `*Resource`/wire types stay in `asc-client.ts`;
  * this is the product-facing read model the CLI and `--json` output share, so it omits Apple ids beyond
  * the feedback's own and keeps only the fields a developer triages from.
@@ -129,7 +129,7 @@ export type BuildProfile = {
   /**
    * Extra environment variables for this profile.
    * They override the dotenv file and are overridden by keychain secrets and by `--env`.
-   * Put committed, non-secret settings here. Put real secrets in `launch secret set`.
+   * Put committed, non-secret settings here. Put real secrets in `launch-store secret set`.
    */
   env?: Record<string, string>;
   /**
@@ -143,7 +143,7 @@ export type BuildProfile = {
    */
   sizeBudgetMB?: number;
   /**
-   * Google Play track used by `launch build android` when you do not pass `--track`.
+   * Google Play track used by `launch-store build android` when you do not pass `--track`.
    * `internal` is the default, and it is the only safe track for a new Play account.
    * `closed` and `open` are wider tests. `production` is the public track.
    * iOS ignores this.

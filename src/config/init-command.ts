@@ -147,7 +147,7 @@ function requireInteractiveTerminal(operation: string): void {
   }
 
   throw initFailure(operation, {
-    message: '`launch init` requires an interactive terminal.',
+    message: '`launch-store init` requires an interactive terminal.',
   });
 }
 
@@ -180,9 +180,9 @@ function showInitReceipt(writtenFiles: string): void {
     `Wrote: ${writtenFiles}`,
     '',
     'Next:',
-    '  1. launch creds set-key   # import your App Store Connect API key',
-    '  2. launch creds setup     # create/reuse your cert + provisioning profile',
-    '  3. launch build ios --dry-run   # rehearse the whole flow, no changes',
+    '  1. launch-store creds set-key   # import your App Store Connect API key',
+    '  2. launch-store creds setup     # create/reuse your cert + provisioning profile',
+    '  3. launch-store build ios --dry-run   # rehearse the whole flow, no changes',
   );
 }
 
@@ -222,7 +222,7 @@ export async function runInitProgram(rawCommandInput: unknown): Promise<boolean>
     const logger = createLogger(false);
 
     if (commandInput.framed) {
-      logger.line('launch init');
+      logger.line('launch-store init');
     }
 
     let workingDirectory = readLaunchDirectories().workingDirectory;

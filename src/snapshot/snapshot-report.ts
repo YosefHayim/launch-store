@@ -14,6 +14,6 @@ export function storeLabel(snapshotStore: SnapshotStore): string {
 
 export function reportMissingSnapshot(logger: Logger, snapshotName: string): void {
   logger.error(`No snapshot named "${snapshotName}".`);
-  logger.tip('run `launch snapshot list` to see saved snapshots');
+  logger.tip('run `launch-store snapshot list` to see saved snapshots');
   completeCommand(1);
 }

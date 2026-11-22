@@ -705,7 +705,7 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
       throw createStatusFailure(
         'load Apple account',
         new Error(
-          'No Apple account key found. Run `launch creds set-key`, or pick one with --account.',
+          'No Apple account key found. Run `launch-store creds set-key`, or pick one with --account.',
         ),
       );
     }

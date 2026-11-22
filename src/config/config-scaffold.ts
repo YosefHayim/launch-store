@@ -46,16 +46,16 @@ export function detectAppRoot(
   return `./${onlySegment}`;
 }
 /**
- * The in-repo artifact directory `launch init` scaffolds by default - a `.launch`
+ * The in-repo artifact directory `launch-store init` scaffolds by default - a `.launch`
  * folder in the project, mirroring the global `~/.launch`. Auto-added to `.gitignore` so build binaries
  * never get committed. Users can point `artifactDir` elsewhere (or omit it for the global default).
  */
 export const DEFAULT_IN_REPO_ARTIFACT_DIR = './.launch/artifacts';
 /**
  * The commented config Launch writes, tailored with a detected `appRoots` when there is one. `extraSections`
- * is injected verbatim just before the closing `});` - `launch adopt` passes a populated `products:` block
- * there; `launch init` passes nothing and gets the blank starter. `profilesSection`, when given, replaces
- * the default single-`production` profiles block - `launch migrate` passes the profiles it mapped from
+ * is injected verbatim just before the closing `});` - `launch-store adopt` passes a populated `products:` block
+ * there; `launch-store init` passes nothing and gets the blank starter. `profilesSection`, when given, replaces
+ * the default single-`production` profiles block - `launch-store migrate` passes the profiles it mapped from
  * `eas.json` there so the migrated config carries the user's real build profiles. `artifactDir`, when
  * given, emits an explicit `artifactDir:` line (e.g. the in-repo {@link DEFAULT_IN_REPO_ARTIFACT_DIR});
  * omit it to leave the config on the global `~/.launch/artifacts` default.
@@ -102,8 +102,8 @@ ${appRootsLine}
   // artifactRetentionDays: 30, // auto-prune local build binaries older than this (0 = keep forever; newest per app is always kept)
   buildEngine: "xcode", // "xcode" (local) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
 
-  // No Mac? Build remotely. Run \`launch cloud doctor\`.
-  // aws: { region: "us-east-1" }, // for \`launch build ios --remote aws\`
+  // No Mac? Build remotely. Run \`launch-store cloud doctor\`.
+  // aws: { region: "us-east-1" }, // for \`launch-store build ios --remote aws\`
 
 ${profilesBlock}
 
@@ -111,7 +111,7 @@ ${profilesBlock}
   // The single-config form of the *.config.json sidecars - each reconciled to App Store Connect by
   // its own command. Uncomment and fill in what your app uses (the standalone JSON files still work too).
 
-  // Game Center achievements & leaderboards, keyed by iOS bundle id -> \`launch game-center\`
+  // Game Center achievements & leaderboards, keyed by iOS bundle id -> \`launch-store game-center\`
   // gameCenter: {
   //   "com.acme.app": {
   //     achievements: [{ vendorIdentifier: "first_win", referenceName: "First Win", points: 10,
@@ -121,13 +121,13 @@ ${profilesBlock}
   //   },
   // },
 
-  // App Clip card metadata, keyed by the parent app's bundle id -> \`launch app-clips\`
+  // App Clip card metadata, keyed by the parent app's bundle id -> \`launch-store app-clips\`
   // appClips: {
   //   "com.acme.app": { clips: { "com.acme.app.Clip": { action: "OPEN",
   //     localizations: { "en-US": { subtitle: "Try it instantly" } } } } },
   // },
 
-  // App Store release attributes (age rating, categories, price, review), keyed by bundle id -> \`launch release-config\`
+  // App Store release attributes (age rating, categories, price, review), keyed by bundle id -> \`launch-store release-config\`
   // releaseAttributes: {
   //   "com.acme.app": {
   //     categories: { primary: "PRODUCTIVITY" },
@@ -136,10 +136,10 @@ ${profilesBlock}
   //   },
   // },
 
-  // Team-level Apple Pay merchant ids & Wallet pass type ids -> \`launch wallet\`
+  // Team-level Apple Pay merchant ids & Wallet pass type ids -> \`launch-store wallet\`
   // wallet: { merchantIds: [{ identifier: "merchant.com.acme.app", name: "Acme Pay" }] },
 
-  // Team-level EU alternative-distribution domains (DMA) -> \`launch eu-distribution\`
+  // Team-level EU alternative-distribution domains (DMA) -> \`launch-store eu-distribution\`
   // euDistribution: { domains: [{ domain: "downloads.acme.com", referenceName: "Acme Downloads" }] },
 ${injected}});
 `;

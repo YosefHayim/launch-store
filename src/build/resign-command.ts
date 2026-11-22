@@ -318,7 +318,7 @@ async function selectAccountKeyId(selector: string | undefined): Promise<string>
 
     throw makeResignCommandFailure({
       operation: 'select Apple account',
-      message: 'No active Apple account. Run `launch creds set-key` or pass --account.',
+      message: 'No active Apple account. Run `launch-store creds set-key` or pass --account.',
     });
   }
 
@@ -605,7 +605,7 @@ async function runAndroidResign(
     throw makeResignCommandFailure({
       operation: 'load Android signing assets',
       message:
-        'No cached upload keystore exists. Run `launch creds setup --platform android --app <name>`.',
+        'No cached upload keystore exists. Run `launch-store creds setup --platform android --app <name>`.',
     });
   }
 
@@ -619,7 +619,7 @@ async function runAndroidResign(
   await resignAndroidArtifact(artifact, keystore, outputPath);
 }
 
-/** Decode and execute one `launch build:resign` request. */
+/** Decode and execute one `launch-store build:resign` request. */
 export async function resignCommandProgram(rawCommandInput: unknown): Promise<void> {
   try {
     const commandInput = decodeResignCommandInput(rawCommandInput);

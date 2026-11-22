@@ -49,7 +49,7 @@ type AgentTarget =
   | 'cline'
   | 'amazonq';
 
-/** The coding-agent targets supported by `launch agents`, in display order. */
+/** The coding-agent targets supported by `launch-store agents`, in display order. */
 const AGENT_TARGETS: readonly AgentTarget[] = [
   'claude',
   'cursor',
@@ -724,7 +724,7 @@ function formatMcpClientLine(clientPreview: McpClientPreview): string {
     clientPreview.operatingSystem,
   );
 
-  return `- ${configPath} (launch mcp server)`;
+  return `- ${configPath} (launch-store mcp server)`;
 }
 
 function listPreviewLines(preview: AgentPreview): string[] {
@@ -764,7 +764,7 @@ async function confirmWritesWhenInteractive(preview: InteractivePreview): Promis
   }
 
   const previewLines = listPreviewLines(preview);
-  preview.logger.line('launch agents');
+  preview.logger.line('launch-store agents');
   preview.logger.line(`Will write for: ${preview.targets.join(', ')}`);
   preview.logger.line(previewLines.join('\n'));
   const confirmed = await confirmAgentWrites();
@@ -821,14 +821,14 @@ function logQuietWrites(report: QuietWriteReport): void {
     const didChange = mcpInstallation.changed;
 
     if (didChange) {
-      report.logger.ok(`${mcpInstallation.path} (launch mcp server)`);
+      report.logger.ok(`${mcpInstallation.path} (launch-store mcp server)`);
     }
   }
 
   report.logger.line(report.summary);
 }
 
-/** Run `launch agents init` through the shared platform and prompt services. */
+/** Run `launch-store agents init` through the shared platform and prompt services. */
 async function initializeAgents(commandRequest: AgentsCommandRequest): Promise<void> {
   const launchDirectories = readLaunchDirectories();
   const logger = createLogger(false);
@@ -876,7 +876,7 @@ async function initializeAgents(commandRequest: AgentsCommandRequest): Promise<v
     logQuietWrites({ logger, plannedArtifacts, mcpInstallations, summary });
   }
 
-  logger.line('Verify anytime with: launch agents check');
+  logger.line('Verify anytime with: launch-store agents check');
 }
 
 async function readCheckTargets(
@@ -892,7 +892,7 @@ async function readCheckTargets(
   return detectAgentTargets(repositoryPath);
 }
 
-/** Run `launch agents check` and return a failing command exit when generated files drift. */
+/** Run `launch-store agents check` and return a failing command exit when generated files drift. */
 async function checkAgents(commandRequest: AgentsCommandRequest): Promise<void> {
   const launchDirectories = readLaunchDirectories();
   const logger = createLogger(false);
@@ -901,7 +901,7 @@ async function checkAgents(commandRequest: AgentsCommandRequest): Promise<void> 
   const hasNoTargets = targets.length == 0;
 
   if (hasNoTargets) {
-    logger.line('No agent files found. Scaffold them with: launch agents init');
+    logger.line('No agent files found. Scaffold them with: launch-store agents init');
     return;
   }
 
@@ -912,13 +912,13 @@ async function checkAgents(commandRequest: AgentsCommandRequest): Promise<void> 
 
   if (isInSync) {
     logger.line(
-      `Agent files are in sync with launch v${normalizedVersion} (${targets.join(', ')}).`,
+      `Agent files are in sync with launch-store v${normalizedVersion} (${targets.join(', ')}).`,
     );
     return;
   }
 
   logger.error(
-    `These agent files are out of date - re-run \`launch agents init\`:\n  ${staleArtifacts.join('\n  ')}`,
+    `These agent files are out of date - re-run \`launch-store agents init\`:\n  ${staleArtifacts.join('\n  ')}`,
   );
   completeCommand(1);
 }

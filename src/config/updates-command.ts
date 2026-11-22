@@ -613,7 +613,7 @@ async function listUpdates(
 
   if (updateRows.length == 0) {
     commandService.logger.line(
-      `No updates on channel "${commandInput.channel}". Run \`launch update\` to publish one.`,
+      `No updates on channel "${commandInput.channel}". Run \`launch-store update\` to publish one.`,
     );
 
     return;
@@ -655,7 +655,7 @@ async function viewUpdate(
     throw updatesFailure(
       'find published update',
       commandInput.reference,
-      `No update matches "${commandInput.reference}" on "${commandInput.channel}". Run \`launch updates list\` to see what's available.`,
+      `No update matches "${commandInput.reference}" on "${commandInput.channel}". Run \`launch-store updates list\` to see what's available.`,
     );
   }
 
@@ -773,7 +773,7 @@ async function rollbackToEmbedded(
   }
 
   commandService.logger.note(
-    'Clients drop to the embedded build on next poll. The next `launch update` publish clears this.',
+    'Clients drop to the embedded build on next poll. The next `launch-store update` publish clears this.',
   );
 }
 
@@ -835,7 +835,7 @@ async function selectRollbackTarget(
       canPrompt: commandService.terminalIsInteractive,
       nonInteractive: {
         kind: 'require',
-        flagHint: 'Pass --to <id> (see `launch updates list`).',
+        flagHint: 'Pass --to <id> (see `launch-store updates list`).',
       },
     });
   } catch (cause) {

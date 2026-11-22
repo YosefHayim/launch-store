@@ -275,7 +275,7 @@ export class PlayReportingClient {
   /**
    * Fetch one vital's full DAILY timeline: bound the window by the metric set's freshness (via `:get`,
    * so the request never reaches past available data), then query + normalize. This is the single
-   * call `launch play-reports vitals` makes per metric - the freshness->window->query orchestration that
+   * call `launch-store play-reports vitals` makes per metric - the freshness->window->query orchestration that
    * belongs in the client, not the CLI.
    */
   async vitalsTimeline(
@@ -299,7 +299,7 @@ export class PlayReportingClient {
   /**
    * Query one metric set over a DAILY window and normalize every row, paging through Google's
    * `nextPageToken` in full. No dimensions are requested, so each row is one day aggregated across
-   * the whole user base - the headline timeline `launch play-reports vitals` shows.
+   * the whole user base - the headline timeline `launch-store play-reports vitals` shows.
    */
   private async queryVitals(
     metric: PlayVitalsMetric,

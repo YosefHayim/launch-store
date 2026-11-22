@@ -73,7 +73,7 @@ const ignoredEntitlements = new Set<string>([
   'com.apple.developer.kernel.extended-virtual-addressing',
 ]);
 /**
- * Capability type -> the one **canonical** entitlement key `launch adopt` emits for it when a shipping
+ * Capability type -> the one **canonical** entitlement key `launch-store adopt` emits for it when a shipping
  * app's provisioning profile didn't supply a concrete value (so the entitlement is written with the
  * build-breaking {@link import("../adopt/capabilities.ts").NEEDS_VALUE} sentinel for the developer to fill in).
  *
@@ -129,7 +129,7 @@ export const isCapabilityEntitlement = (key: string): boolean => {
 /**
  * The canonical `app.json` entitlement key for a capability type, or `undefined` for an always-on /
  * value-less capability that needs no entitlement. Accepts a raw `capabilityType` string (Apple's wire
- * value) so `launch adopt` can look up a gap without first narrowing to {@link CapabilityType}.
+ * value) so `launch-store adopt` can look up a gap without first narrowing to {@link CapabilityType}.
  */
 export const entitlementForCapability = (capabilityType: string): string | undefined => {
   return capabilityToEntitlementLookup.get(capabilityType);

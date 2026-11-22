@@ -124,7 +124,7 @@ export const playProductsSource: SnapshotSource = {
   capture: capturePlayProducts,
   /**
    * Restore each app's captured managed products to Google Play via the same `reconcilePlayProducts` the
-   * `launch sync` / `launch plan` Play-products surface uses. Additive and merge-onto-live: it creates a
+   * `launch-store sync` / `launch-store plan` Play-products surface uses. Additive and merge-onto-live: it creates a
    * missing product or patches a drifted one, never deletes, and preserves Play's auto-fanned regional
    * prices. Each app is isolated - an unreachable Play app record is recorded as a skipped action rather
    * than aborting the rest - and a product with no restorable listing is skipped with a reason.

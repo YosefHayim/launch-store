@@ -558,7 +558,7 @@ describe('android release notes for submit (issue #309)', () => {
       rmSync(notesDirectory, { recursive: true, force: true });
     }
   });
-  it('falls back to release.releaseNotes from launch config when no --notes path', async () => {
+  it('falls back to release.releaseNotes from launch-store config when no --notes path', async () => {
     const systemTemporaryDirectory = tmpdir();
     const launchAppPath = join(systemTemporaryDirectory, 'launch-app-');
     const appDirectory = mkdtempSync(launchAppPath);

@@ -8,7 +8,7 @@ import type {
 import { errorMessage } from '../services/platform/error-message.ts';
 
 /**
- * Exit codes for `snapshot create`, mirroring the `launch plan` convention (error-or-clean):
+ * Exit codes for `snapshot create`, mirroring the `launch-store plan` convention (error-or-clean):
  * - `ok` (0) - every source captured or was benignly skipped (no credentials).
  * - `error` (1) - at least one source threw while reading, so the saved snapshot is incomplete.
  */

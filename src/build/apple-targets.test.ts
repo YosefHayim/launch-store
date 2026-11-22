@@ -303,7 +303,7 @@ describe('multiTargetSigningWarnings - preflight before the long archive (#261)'
     expect(warning).toContain('com.example.sampleapp.widget');
     expect(warning).toContain('not registered');
     expect(warning).toContain('exit 65');
-    expect(warning).toContain('launch creds setup --app');
+    expect(warning).toContain('launch-store creds setup --app');
   });
   it('warns about a target whose App ID is missing a required capability', () => {
     const [warning] = multiTargetSigningWarnings([

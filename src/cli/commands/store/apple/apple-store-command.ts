@@ -37,7 +37,7 @@ export async function loadActiveAppleStore(): Promise<AppStoreConnectClient> {
 
   if (isAccountMissing) {
     throw makeActiveAppleStoreFailure({
-      message: 'No active Apple account. Run `launch creds set-key` first.',
+      message: 'No active Apple account. Run `launch-store creds set-key` first.',
       cause: 'missing-active-account',
     });
   }

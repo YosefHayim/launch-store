@@ -5,7 +5,7 @@ import {
 } from '../../store/apple/custom-product-pages.ts';
 import { planAppStoreSurface } from './app-store-surface.ts';
 import type { SurfacePlanner } from '../../types/plan.ts';
-/** Surface id - also the value users pass as `launch plan custom-pages`. */
+/** Surface id - also the value users pass as `launch-store plan custom-pages`. */
 const SURFACE = 'custom-pages';
 export const customPagesPlanner: SurfacePlanner = {
   id: SURFACE,

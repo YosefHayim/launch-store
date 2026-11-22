@@ -12,7 +12,7 @@ export const registerAiListingCommand = (program: Command): void => {
   aiCommand
     .command('listing')
     .description(
-      'draft App Store / Play listing copy with AI into store.config.json (review with `launch plan`)',
+      'draft App Store / Play listing copy with AI into store.config.json (review with `launch-store plan`)',
     )
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option(

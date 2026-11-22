@@ -204,7 +204,7 @@ async function persistMigration(
   }
 
   logger.box(receiptTitle, receiptLines);
-  logger.tip('Review the files, then run `launch doctor` to check your setup.');
+  logger.tip('Review the files, then run `launch-store doctor` to check your setup.');
 }
 
 export async function migrateCommandProgram(rawCommandInput: unknown): Promise<void> {

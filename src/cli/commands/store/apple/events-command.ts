@@ -140,7 +140,7 @@ async function listEventsProgram(
 
     if (isEmpty) {
       logger.line(
-        'No in-app events yet. Create one with `launch events create <referenceName> --badge ...`.',
+        'No in-app events yet. Create one with `launch-store events create <referenceName> --badge ...`.',
       );
       return;
     }

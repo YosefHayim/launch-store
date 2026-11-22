@@ -224,7 +224,7 @@ export function validateLaunchConfig(candidateConfig: unknown): SchemaViolation[
   return [...structuralViolations, ...ageRatingViolations(candidateConfig)];
 }
 
-/** Parse a launch config, filling provider defaults. Throws the first violation message. */
+/** Parse a launch-store config, filling provider defaults. Throws the first violation message. */
 export function parseLaunchConfig(candidateConfig: unknown): LaunchConfig {
   const violations = validateLaunchConfig(candidateConfig);
   const firstViolation = violations[0];
@@ -239,5 +239,5 @@ export function parseLaunchConfig(candidateConfig: unknown): LaunchConfig {
     return withProviderDefaults(candidateConfigObject);
   }
 
-  throw new Error('launch config must be an object');
+  throw new Error('launch-store config must be an object');
 }

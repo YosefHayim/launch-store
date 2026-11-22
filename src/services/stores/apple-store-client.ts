@@ -54,7 +54,10 @@ function transportFailure(cause: unknown): AppleTransportFailure {
   return makeAppleTransportFailure({ message, cause, status });
 }
 
-export function appRecordMissingMessage(bundleId: string, command = 'launch release ios'): string {
+export function appRecordMissingMessage(
+  bundleId: string,
+  command = 'launch-store release ios',
+): string {
   return (
     `No App Store Connect app record for ${bundleId}. Apple has no API to create one - create the app ` +
     `once at https://appstoreconnect.apple.com/apps. A brand-new app also needs its screenshots, age rating, ` +

@@ -154,7 +154,10 @@ describe('parseFastfile', () => {
     if (beta == null) return;
     expect(beta.platform).toBe('ios');
     expect([...beta.actions].sort()).toEqual(['gym', 'match', 'pilot']);
-    expect(laneLaunchCommands(beta)).toEqual(['launch build', 'launch release --track testing']);
+    expect(laneLaunchCommands(beta)).toEqual([
+      'launch-store build',
+      'launch-store release --track testing',
+    ]);
     const play = lanes.find((lane) => lane.name == 'play');
     expect(play).toBeDefined();
     if (play == null) return;
@@ -197,7 +200,9 @@ describe('migrationNotesFor', () => {
       false,
     );
     const mapped = notesAt(migrationNotes, 'mapped').map((note) => note.message);
-    expect(mapped).toContain('lane :beta (ios) -> launch build + launch release --track testing.');
+    expect(mapped).toContain(
+      'lane :beta (ios) -> launch-store build + launch-store release --track testing.',
+    );
     const manual = notesAt(migrationNotes, 'manual').map((note) => note.message);
     expect(manual.some((message) => message.includes('match/cert/sigh'))).toBe(true);
     expect(manual.some((message) => message.includes('Deliverfile'))).toBe(true);
@@ -292,9 +297,11 @@ describe('migrateFastlane', () => {
   it('maps each lane to its Launch commands and keeps signing as a manual follow-up', async () => {
     const migrationNotes = (await runMigrateFastlane(dir, [app()])).notes;
     const mapped = notesAt(migrationNotes, 'mapped').map((note) => note.message);
-    expect(mapped).toContain('lane :beta (ios) -> launch build + launch release --track testing.');
-    expect(mapped).toContain('lane :release (ios) -> launch release.');
-    expect(mapped).toContain('lane :play (android) -> launch release (Android).');
+    expect(mapped).toContain(
+      'lane :beta (ios) -> launch-store build + launch-store release --track testing.',
+    );
+    expect(mapped).toContain('lane :release (ios) -> launch-store release.');
+    expect(mapped).toContain('lane :play (android) -> launch-store release (Android).');
     const manual = notesAt(migrationNotes, 'manual').map((note) => note.message);
     expect(manual.some((message) => message.includes('match/cert/sigh'))).toBe(true);
   });
@@ -310,7 +317,7 @@ describe('migrateFastlane', () => {
     const mapped = notesAt((await runMigrateFastlane(dir, [app()])).notes, 'mapped').map(
       (note) => note.message,
     );
-    expect(mapped.some((message) => message.includes('launch build'))).toBe(true);
+    expect(mapped.some((message) => message.includes('launch-store build'))).toBe(true);
     expect(mapped.some((message) => message.includes('TestFlight'))).toBe(true);
     expect(mapped.some((message) => message.includes('deliver'))).toBe(true);
   });

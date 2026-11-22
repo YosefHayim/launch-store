@@ -539,7 +539,7 @@ function subscriptionDeclaresOffers(subscription: SubscriptionConfig): boolean {
 
 /**
  * Whether an app's declared catalog carries anything this reconciler acts on - at least one subscription
- * offer (of any kind) or a promoted-purchase ordering. Lets `launch plan`'s offers surface omit apps that
+ * offer (of any kind) or a promoted-purchase ordering. Lets `launch-store plan`'s offers surface omit apps that
  * declare only plain products, reusing {@link subscriptionDeclaresOffers} so "what counts as an offer"
  * has one home.
  */
@@ -707,7 +707,7 @@ async function reconcilePromotedPurchases(
     if (isUnknownProduct) {
       skip(
         offersContext,
-        `promoted purchase ${promoted.productId}: no matching subscription or in-app purchase - run \`launch sync\` first`,
+        `promoted purchase ${promoted.productId}: no matching subscription or in-app purchase - run \`launch-store sync\` first`,
       );
       continue;
     }
@@ -820,7 +820,7 @@ async function reconcilePromotedPurchases(
  * Reconcile one app's offers and promoted-purchase ordering end to end. Fails only for a precondition
  * the user must fix (no ASC app record); every offer write is captured per-action so a single failure
  * never aborts the run. Subscriptions are matched to Apple by `productId`, so a subscription that isn't
- * created yet is reported as skipped with a pointer to `launch sync`.
+ * created yet is reported as skipped with a pointer to `launch-store sync`.
  */
 export async function reconcileOffers(
   api: AscOffersApi,
@@ -873,7 +873,7 @@ export async function reconcileOffers(
       if (isSubscriptionMissing) {
         skip(
           offersContext,
-          `subscription ${subscription.productId}: not in App Store Connect yet - run \`launch sync\` first`,
+          `subscription ${subscription.productId}: not in App Store Connect yet - run \`launch-store sync\` first`,
         );
         continue;
       }
