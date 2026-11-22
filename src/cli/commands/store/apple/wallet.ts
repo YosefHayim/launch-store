@@ -20,7 +20,7 @@ export const registerWalletCommand = (program: Command): void => {
         walletCommandProgram({
           operation: 'reconcile',
           configPath: commandOptions.config,
-          explicitConfig: command.getOptionValueSource('config') === 'cli',
+          explicitConfig: command.getOptionValueSource('config') == 'cli',
           dryRun: commandOptions.dryRun,
           yes: commandOptions.yes,
         }),

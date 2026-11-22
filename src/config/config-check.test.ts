@@ -42,7 +42,7 @@ describe('checkAppConfig', () => {
   it('flags a splash with no backgroundColor as an error on Android only', () => {
     const config = { expo: { ...clean.expo, splash: { image: './assets/splash.png' } } };
     const android = checkAppConfig(config, 'app.json', 'android');
-    expect(android.some((f) => f.key === 'splash' && f.severity === 'error')).toBe(true);
+    expect(android.some((f) => f.key == 'splash' && f.severity == 'error')).toBe(true);
     expect(keys(config, 'ios')).not.toContain('splash');
   });
   it('accepts a splash that has a backgroundColor (incl. an android-level override)', () => {

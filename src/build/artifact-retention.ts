@@ -14,8 +14,8 @@ import type { LaunchConfig } from '../types/config.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 
 export const DEFAULT_RETENTION_DAYS = 30;
-const DAY_MS = 24 * 60 * 60 * 1000;
-const ARTIFACT_PLATFORMS: readonly Platform[] = ['ios', 'android', 'tvos', 'macos', 'visionos'];
+const dayMs = 24 * 60 * 60 * 1000;
+const artifactPlatforms: readonly Platform[] = ['ios', 'android', 'tvos', 'macos', 'visionos'];
 
 function resolveArtifactIndexPath(indexPath: string | undefined): string {
   const hasIndexPath = indexPath != null;
@@ -38,7 +38,7 @@ function isRecord(candidate: unknown): candidate is Record<string, unknown> {
 }
 
 function isPlatform(candidate: unknown): candidate is Platform {
-  return ARTIFACT_PLATFORMS.some(function platformMatches(platform: Platform): boolean {
+  return artifactPlatforms.some(function platformMatches(platform: Platform): boolean {
     return platform == candidate;
   });
 }
@@ -239,7 +239,7 @@ function artifactAgeDays(buildArtifact: BuildArtifact, currentTime: number): num
     return null;
   }
 
-  return (currentTime - createdTime) / DAY_MS;
+  return (currentTime - createdTime) / dayMs;
 }
 
 function artifactGroupKey(buildArtifact: BuildArtifact): string {

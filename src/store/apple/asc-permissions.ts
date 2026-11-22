@@ -41,8 +41,6 @@ type FeatureProbe = Readonly<{
   run: (permissionClient: AscPermissionProbeApi, appId: string) => Promise<unknown>;
 }>;
 
-const IOS_PLATFORM = 'IOS';
-
 function probeProvisioning(permissionClient: AscPermissionProbeApi): Promise<unknown> {
   return permissionClient.listDistributionCertificates();
 }
@@ -55,7 +53,7 @@ function probeAppStoreRelease(
   permissionClient: AscPermissionProbeApi,
   appId: string,
 ): Promise<unknown> {
-  return permissionClient.listAppStoreVersions(appId, IOS_PLATFORM);
+  return permissionClient.listAppStoreVersions(appId, 'IOS');
 }
 
 function probeMonetization(
@@ -76,51 +74,6 @@ function probeAnalytics(permissionClient: AscPermissionProbeApi, appId: string):
   return permissionClient.listAnalyticsReportRequests(appId, 'ONGOING');
 }
 
-const FEATURE_PROBES: readonly FeatureProbe[] = [
-  {
-    feature: 'provisioning',
-    label: 'Provisioning & signing (certificates, identifiers, profiles)',
-    roles: ['Admin', 'App Manager', 'Developer'],
-    needsApp: false,
-    run: probeProvisioning,
-  },
-  {
-    feature: 'testflight',
-    label: 'TestFlight (beta groups & testers)',
-    roles: ['Admin', 'App Manager'],
-    needsApp: true,
-    run: probeTestFlight,
-  },
-  {
-    feature: 'app-store-release',
-    label: 'App Store release (versions, submission, rollout)',
-    roles: ['Admin', 'App Manager'],
-    needsApp: true,
-    run: probeAppStoreRelease,
-  },
-  {
-    feature: 'monetization',
-    label: 'In-app purchases & subscriptions',
-    roles: ['Admin', 'App Manager'],
-    needsApp: true,
-    run: probeMonetization,
-  },
-  {
-    feature: 'customer-reviews',
-    label: 'Customer reviews (read & respond)',
-    roles: ['Admin', 'App Manager', 'Customer Support'],
-    needsApp: true,
-    run: probeCustomerReviews,
-  },
-  {
-    feature: 'analytics-reports',
-    label: 'Analytics reports',
-    roles: ['Admin', 'App Manager', 'Developer', 'Marketing'],
-    needsApp: true,
-    run: probeAnalytics,
-  },
-];
-
 async function classifyProbe(
   featureProbe: FeatureProbe,
   permissionClient: AscPermissionProbeApi,
@@ -137,13 +90,13 @@ async function classifyProbe(
     return { ...featureSummary, status: 'available' };
   } catch (cause) {
     const failure = cause as AppleTransportFailure;
-    const isForbidden = failure.status === 403;
+    const isForbidden = failure.status == 403;
 
     if (isForbidden) {
       return { ...featureSummary, status: 'forbidden' };
     }
 
-    const isUnauthorized = failure.status === 401;
+    const isUnauthorized = failure.status == 401;
 
     if (isUnauthorized) {
       return { ...featureSummary, status: 'unauthorized' };
@@ -186,7 +139,7 @@ async function probeFeature(
   }
 
   let resolvedAppId = '';
-  if (appId !== null) resolvedAppId = appId;
+  if (appId != null) resolvedAppId = appId;
   return classifyProbe(featureProbe, permissionClient, resolvedAppId);
 }
 
@@ -198,7 +151,52 @@ export async function probeKeyPermissions(
     return probeFeature(permissionClient, appId, featureProbe);
   }
 
-  return Promise.all(FEATURE_PROBES.map(probeOne));
+  return Promise.all(
+    [
+      {
+        feature: 'provisioning',
+        label: 'Provisioning & signing (certificates, identifiers, profiles)',
+        roles: ['Admin', 'App Manager', 'Developer'],
+        needsApp: false,
+        run: probeProvisioning,
+      },
+      {
+        feature: 'testflight',
+        label: 'TestFlight (beta groups & testers)',
+        roles: ['Admin', 'App Manager'],
+        needsApp: true,
+        run: probeTestFlight,
+      },
+      {
+        feature: 'app-store-release',
+        label: 'App Store release (versions, submission, rollout)',
+        roles: ['Admin', 'App Manager'],
+        needsApp: true,
+        run: probeAppStoreRelease,
+      },
+      {
+        feature: 'monetization',
+        label: 'In-app purchases & subscriptions',
+        roles: ['Admin', 'App Manager'],
+        needsApp: true,
+        run: probeMonetization,
+      },
+      {
+        feature: 'customer-reviews',
+        label: 'Customer reviews (read & respond)',
+        roles: ['Admin', 'App Manager', 'Customer Support'],
+        needsApp: true,
+        run: probeCustomerReviews,
+      },
+      {
+        feature: 'analytics-reports',
+        label: 'Analytics reports',
+        roles: ['Admin', 'App Manager', 'Developer', 'Marketing'],
+        needsApp: true,
+        run: probeAnalytics,
+      },
+    ].map(probeOne),
+  );
 }
 
 export const formatPermissionLine = (permission: AscPermissionResult): string => {
@@ -211,7 +209,7 @@ export const formatPermissionLine = (permission: AscPermissionResult): string =>
       return `x ${permission.label} - key unauthorized (401); re-check the key id, issuer id, and expiry`;
     case 'inconclusive': {
       const explanation = permission.detail;
-      if (explanation === undefined) return `- ${permission.label} - couldn't determine`;
+      if (explanation == null) return `- ${permission.label} - couldn't determine`;
       return `- ${permission.label} - couldn't determine (${explanation})`;
     }
   }

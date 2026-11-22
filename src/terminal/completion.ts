@@ -69,7 +69,7 @@ export const detectShell = (
   const shellPath = environmentVariables['SHELL'];
   if (!shellPath) return undefined;
   const shellName = shellPath.slice(shellPath.lastIndexOf('/') + 1);
-  return SHELLS.find((shell) => shellName === shell);
+  return SHELLS.find((shell) => shellName == shell);
 };
 /**
  * The bash completion script. On `<Tab>` it forwards the words from after `launch` up to and including the
@@ -176,7 +176,7 @@ async function snapshotNames(): Promise<string[]> {
  * on the preceding word resolves the right source. One table, so adding a new value-completing flag is a
  * single entry rather than a branch in the resolver.
  */
-const FLAG_SOURCES: ReadonlyMap<string, CompletionCandidateSource> = new Map([
+const flagSources: ReadonlyMap<string, CompletionCandidateSource> = new Map([
   ['-a', appHandles],
   ['--app', appHandles],
   ['-p', profileNames],
@@ -187,7 +187,7 @@ const FLAG_SOURCES: ReadonlyMap<string, CompletionCandidateSource> = new Map([
  * `launch` (e.g. `plan`, `snapshot diff`). A second table beside {@link FLAG_SOURCES} so positional and
  * flag-value completion stay declarative and centralized.
  */
-const ARGUMENT_SOURCES: ReadonlyMap<string, CompletionCandidateSource> = new Map([
+const argumentSources: ReadonlyMap<string, CompletionCandidateSource> = new Map([
   ['plan', planSurfaceIds],
   ['drift', planSurfaceIds],
   ['snapshot diff', snapshotNames],
@@ -214,7 +214,7 @@ const descendCommandTree = (
   let command = program;
   const commandPath: string[] = [];
   for (const word of words) {
-    const matchingSubcommand = command.commands.find((candidate) => candidate.name() === word);
+    const matchingSubcommand = command.commands.find((candidate) => candidate.name() == word);
     if (!matchingSubcommand) break;
     command = matchingSubcommand;
     commandPath.push(word);
@@ -266,7 +266,7 @@ async function readFlagCandidates(previousWord: string | null): Promise<string[]
     return null;
   }
 
-  const flagSource = FLAG_SOURCES.get(previousWord);
+  const flagSource = flagSources.get(previousWord);
 
   if (flagSource == null) {
     return null;
@@ -296,7 +296,7 @@ export async function resolveCompletions(words: string[], program: Command): Pro
     return flagCandidates;
   }
 
-  const argumentSource = ARGUMENT_SOURCES.get(descended.commandPath.join(' '));
+  const argumentSource = argumentSources.get(descended.commandPath.join(' '));
 
   if (argumentSource == null) {
     return listStaticCompletionCandidates(descended.command);
@@ -350,7 +350,7 @@ const hasPositional = (
     if (word.startsWith('-')) continue; // a flag, not a positional
     let previousWord: string | undefined;
     if (i > 0) previousWord = afterCommand[i - 1];
-    if (previousWord !== undefined && valueFlags.has(previousWord)) continue;
+    if (previousWord != null && valueFlags.has(previousWord)) continue;
     return true;
   }
   return false;
@@ -369,15 +369,9 @@ async function readCompletionCandidates(source: CompletionCandidateSource): Prom
     return [];
   }
 }
-/** The default rc file each shell sources on login, relative to the user's home directory. */
-const RC_FILE: Record<Shell, string> = {
-  bash: '.bashrc',
-  zsh: '.zshrc',
-  fish: '.config/fish/config.fish',
-};
 /** The single line, per shell, that sources Launch's completion script when the rc file loads. */
 const completionSourceLine = (shell: Shell): string => {
-  if (shell === 'fish') return 'launch completion fish | source';
+  if (shell == 'fish') return 'launch completion fish | source';
   return `source <(launch completion ${shell})`;
 };
 /**
@@ -434,7 +428,7 @@ export const spliceManagedBlock = (
 } => {
   const start = existing.indexOf(BLOCK_START);
   const end = existing.indexOf(BLOCK_END);
-  if (start !== -1 && end !== -1 && end > start) {
+  if (start != -1 && end != -1 && end > start) {
     const before = existing.slice(0, start);
     const after = existing.slice(end + BLOCK_END.length);
     return { contents: `${before}${block}${after}`, updated: true };
@@ -525,7 +519,14 @@ export async function installCompletion(options: InstallOptions = {}): Promise<I
     home = readLaunchDirectories().homeDirectory;
   }
 
-  const rcFile = join(home, RC_FILE[shell]);
+  const rcFile = join(
+    home,
+    {
+      bash: '.bashrc',
+      zsh: '.zshrc',
+      fish: '.config/fish/config.fish',
+    }[shell],
+  );
   const completionBlock = managedBlock(shell);
   const rcDirectory = dirname(rcFile);
 

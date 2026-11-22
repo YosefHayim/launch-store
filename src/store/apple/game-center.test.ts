@@ -79,11 +79,11 @@ const makeGameCenterApi = (
   const api: AscGameCenterApi = {
     getAppId: () => Promise.resolve(fakeState.appId),
     getGameCenterDetail: () => {
-      if (fakeState.detailId === null) return Promise.resolve(null);
+      if (fakeState.detailId == null) return Promise.resolve(null);
       return Promise.resolve({ id: fakeState.detailId });
     },
     createGameCenterDetail: () => {
-      if (fakeState.enableFailure !== null) return Promise.reject(fakeState.enableFailure);
+      if (fakeState.enableFailure != null) return Promise.reject(fakeState.enableFailure);
       writes.detailCreated++;
       return Promise.resolve({ id: 'detail-new' });
     },
@@ -93,7 +93,7 @@ const makeGameCenterApi = (
       return Promise.resolve({ id: 'ach-new', versionId: fakeState.achievementVersionId });
     },
     createGameCenterAchievementLocalization: (versionId, localization) => {
-      if (fakeState.achievementLocalizationFailure !== null) {
+      if (fakeState.achievementLocalizationFailure != null) {
         return Promise.reject(fakeState.achievementLocalizationFailure);
       }
       writes.achievementLocales.push({
@@ -308,7 +308,7 @@ describe('reconcileGameCenter', () => {
     });
     expect(writes.achievements).toHaveLength(0);
     expect(writes.leaderboards).toHaveLength(0);
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
     // 2 creates + 2 localizations planned (detail already exists, so no enable action)
     expect(report.actions).toHaveLength(4);
   });
@@ -329,7 +329,7 @@ describe('reconcileGameCenter', () => {
       'create leaderboard high_score (INTEGER)',
       'set leaderboard high_score localization (en-US)',
     ]);
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
   });
 
   it('records the localization as skipped (not failed) when Apple returns no version id', async () => {
@@ -358,9 +358,9 @@ describe('reconcileGameCenter', () => {
     expect(summary.failed).toBe(1);
     expect(summary.skipped).toBe(1);
     expect(writes.leaderboardLocales).toHaveLength(0);
-    const failedAction = report.actions.find((action) => action.status === 'failed');
+    const failedAction = report.actions.find((action) => action.status == 'failed');
     expect(failedAction).toBeDefined();
-    if (failedAction === undefined) return;
+    if (failedAction == null) return;
     expect(failedAction.error).toBe('vendor id taken');
   });
 
@@ -378,9 +378,9 @@ describe('reconcileGameCenter', () => {
     expect(writes.achievements).toHaveLength(0);
     expect(writes.leaderboards).toHaveLength(0);
     expect(summarize(report.actions)).toEqual({ applied: 0, failed: 1, skipped: 1 });
-    const failedEnable = report.actions.find((action) => action.status === 'failed');
+    const failedEnable = report.actions.find((action) => action.status == 'failed');
     expect(failedEnable).toBeDefined();
-    if (failedEnable === undefined) return;
+    if (failedEnable == null) return;
     expect(failedEnable.error).toBe('enable denied');
   });
 
@@ -442,9 +442,9 @@ describe('reconcileGameCenter', () => {
     expect(writes.achievements).toHaveLength(1);
     expect(writes.achievementLocales).toHaveLength(0);
     expect(summarize(report.actions)).toEqual({ applied: 1, failed: 1, skipped: 0 });
-    const failedLocalization = report.actions.find((action) => action.status === 'failed');
+    const failedLocalization = report.actions.find((action) => action.status == 'failed');
     expect(failedLocalization).toBeDefined();
-    if (failedLocalization === undefined) return;
+    if (failedLocalization == null) return;
     expect(failedLocalization.error).toBe('locale not allowed');
   });
 });

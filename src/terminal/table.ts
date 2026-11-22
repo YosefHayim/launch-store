@@ -17,7 +17,7 @@ export const alignTableColumns = <TableEntry>(
     cells
       .map((cell, columnIndex) => {
         const columnWidth = widths[columnIndex];
-        const isColumnWidthMissing = columnWidth === undefined;
+        const isColumnWidthMissing = columnWidth == null;
         if (isColumnWidthMissing) return cell;
         return cell.padEnd(columnWidth);
       })

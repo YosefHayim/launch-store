@@ -183,7 +183,7 @@ describe('runBuild --dry-run (the end-to-end spine)', () => {
 describe('selectApp', () => {
   const app = (name: string, bundleId?: string): AppDescriptor => {
     const descriptor: AppDescriptor = { name, dir: '/repo', configPath: '/repo/app.json' };
-    if (bundleId === undefined) return descriptor;
+    if (bundleId == null) return descriptor;
     return { ...descriptor, bundleId };
   };
   it('fails when no apps were discovered', async () => {
@@ -388,7 +388,7 @@ describe('resolveBumpKind - flag > remembered > prompt precedence', () => {
 });
 describe('resolveSizeBudgetMB - per-run override > profile > default precedence', () => {
   const profile = (sizeBudgetMB?: number): Pick<BuildProfile, 'sizeBudgetMB'> => {
-    if (sizeBudgetMB === undefined) return {};
+    if (sizeBudgetMB == null) return {};
     return { sizeBudgetMB };
   };
   it('uses the per-run override over both the profile and the default', () => {

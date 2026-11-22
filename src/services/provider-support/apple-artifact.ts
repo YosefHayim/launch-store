@@ -8,7 +8,7 @@ import { appleArtifactExtension, platformLabel } from '../stores/platform.ts';
 const thinningBytes = (sizeAmount: number, unit: string): number => {
   const unitScales: Record<string, number> = { KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3 };
   let unitScale = unitScales[unit.toUpperCase()];
-  if (unitScale === undefined) unitScale = 1;
+  if (unitScale == null) unitScale = 1;
   return Math.round(sizeAmount * unitScale);
 };
 
@@ -18,17 +18,17 @@ export const parseThinningReport = (reportText: string): SizeReportEntry[] => {
   const variants = reportText.split(/Variant:/).slice(1);
   for (const variant of variants) {
     let deviceName = /(iPhone[\d,]+|iPad[\d,]+|Universal)/.exec(variant)?.[1];
-    if (deviceName === undefined) deviceName = 'Universal';
+    if (deviceName == null) deviceName = 'Universal';
     const sizeMatch =
       /App size:\s*([\d.]+)\s*(KB|MB|GB)\s*compressed,\s*([\d.]+)\s*(KB|MB|GB)\s*uncompressed/i.exec(
         variant,
       );
-    if (sizeMatch === null) continue;
+    if (sizeMatch == null) continue;
     const [, downloadValue, downloadUnit, installValue, installUnit] = sizeMatch;
-    if (downloadValue === undefined) continue;
-    if (downloadUnit === undefined) continue;
-    if (installValue === undefined) continue;
-    if (installUnit === undefined) continue;
+    if (downloadValue == null) continue;
+    if (downloadUnit == null) continue;
+    if (installValue == null) continue;
+    if (installUnit == null) continue;
     entries.push({
       device: deviceName,
       downloadBytes: thinningBytes(Number.parseFloat(downloadValue), downloadUnit),

@@ -137,20 +137,20 @@ describe('createStatsReport', () => {
   test('folds the saved numbers per app and ignores days outside the range', async () => {
     const outcome = await createReport(ALL_APPS_REQUEST);
 
-    if (outcome._tag === 'Left') throw new Error('expected a report');
+    if (outcome._tag == 'Left') throw new Error('expected a report');
     const report = outcome.right;
     expect(report.isStale).toBe(false);
     expect(report.days).toBe(7);
     expect(report.apps.map((app) => app.name)).toEqual(['Cal Friend AI', 'Fit <Tracker>']);
     const iosApp = report.apps[0];
     expect(iosApp?.owner).toBe('mine');
-    expect(iosApp?.totals.find((total) => total.metric === 'downloads')?.total).toBe(15);
-    const proceeds = iosApp?.totals.filter((total) => total.metric === 'proceeds');
+    expect(iosApp?.totals.find((total) => total.metric == 'downloads')?.total).toBe(15);
+    const proceeds = iosApp?.totals.filter((total) => total.metric == 'proceeds');
     expect(proceeds?.map((total) => [total.currency, total.total])).toEqual([
       ['EUR', 2],
       ['USD', 3],
     ]);
-    const downloadSeries = iosApp?.series.find((series) => series.metric === 'downloads');
+    const downloadSeries = iosApp?.series.find((series) => series.metric == 'downloads');
     expect(downloadSeries?.points.map((point) => point.amount)).toEqual([5, 10]);
   });
 
@@ -159,15 +159,15 @@ describe('createStatsReport', () => {
     const clientOutcome = await createReport({ ...ALL_APPS_REQUEST, owner: 'client' });
 
     expect(
-      androidOutcome._tag === 'Right' && androidOutcome.right.apps.map((app) => app.key),
+      androidOutcome._tag == 'Right' && androidOutcome.right.apps.map((app) => app.key),
     ).toEqual(['android-com.fit']);
-    expect(clientOutcome._tag === 'Right' && clientOutcome.right.apps).toEqual([]);
+    expect(clientOutcome._tag == 'Right' && clientOutcome.right.apps).toEqual([]);
   });
 
   test('finds one app by part of its name', async () => {
     const outcome = await createReport({ ...ALL_APPS_REQUEST, appName: 'cal friend' });
 
-    expect(outcome._tag === 'Right' && outcome.right.apps.map((app) => app.key)).toEqual(['ios-1']);
+    expect(outcome._tag == 'Right' && outcome.right.apps.map((app) => app.key)).toEqual(['ios-1']);
   });
 
   test('fails with the known app names when no app matches', async () => {
@@ -177,7 +177,7 @@ describe('createStatsReport', () => {
       _tag: 'Left',
       left: { _tag: 'StatsReportAppNotFoundFailure' },
     });
-    expect(outcome._tag === 'Left' && 'message' in outcome.left && outcome.left.message).toContain(
+    expect(outcome._tag == 'Left' && 'message' in outcome.left && outcome.left.message).toContain(
       'Cal Friend AI, Fit <Tracker>',
     );
   });
@@ -187,7 +187,7 @@ describe('createStatsReport', () => {
 
     const outcome = await createReport(ALL_APPS_REQUEST);
 
-    if (outcome._tag === 'Left') throw new Error('expected a report');
+    if (outcome._tag == 'Left') throw new Error('expected a report');
     expect(outcome.right.isStale).toBe(true);
     expect(outcome.right.apps[0]?.isStale).toBe(true);
     expect(outcome.right.apps[0]?.messages).toEqual(['app-store: report not ready']);
@@ -201,7 +201,7 @@ describe('createStatsReport', () => {
 
     const outcome = await createReport(ALL_APPS_REQUEST);
 
-    if (outcome._tag === 'Left') throw new Error('expected a report');
+    if (outcome._tag == 'Left') throw new Error('expected a report');
     expect(outcome.right.isStale).toBe(false);
     expect(outcome.right.apps[0]?.messages).toEqual(['app-store: not built yet']);
     expect(outcome.right.apps[1]?.messages).toEqual([]);
@@ -215,7 +215,7 @@ describe('createStatsReport', () => {
 
     const outcome = await createReport(ALL_APPS_REQUEST);
 
-    if (outcome._tag === 'Left') throw new Error('expected a report');
+    if (outcome._tag == 'Left') throw new Error('expected a report');
     expect(outcome.right.apps.map((app) => app.totals)).toEqual([[], []]);
   });
 });

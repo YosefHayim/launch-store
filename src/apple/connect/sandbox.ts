@@ -16,19 +16,19 @@ export class ConnectSandbox {
     }>(this.client.v2('/sandboxTesters?limit=200'));
     return appleResources.map((tester) => {
       let accountName = tester.attributes.acAccountName;
-      if (accountName === undefined) accountName = '';
+      if (accountName == null) accountName = '';
       const sandboxTester: SandboxTesterResource = { id: tester.id, acAccountName: accountName };
-      if (tester.attributes.firstName !== undefined)
+      if (tester.attributes.firstName != null)
         Object.assign(sandboxTester, { firstName: tester.attributes.firstName });
-      if (tester.attributes.lastName !== undefined)
+      if (tester.attributes.lastName != null)
         Object.assign(sandboxTester, { lastName: tester.attributes.lastName });
-      if (tester.attributes.territory !== undefined)
+      if (tester.attributes.territory != null)
         Object.assign(sandboxTester, { territory: tester.attributes.territory });
-      if (tester.attributes.applePayCompatible !== undefined)
+      if (tester.attributes.applePayCompatible != null)
         Object.assign(sandboxTester, { applePayCompatible: tester.attributes.applePayCompatible });
-      if (tester.attributes.interruptPurchases !== undefined)
+      if (tester.attributes.interruptPurchases != null)
         Object.assign(sandboxTester, { interruptPurchases: tester.attributes.interruptPurchases });
-      if (tester.attributes.subscriptionRenewalRate !== undefined)
+      if (tester.attributes.subscriptionRenewalRate != null)
         Object.assign(sandboxTester, {
           subscriptionRenewalRate: tester.attributes.subscriptionRenewalRate,
         });

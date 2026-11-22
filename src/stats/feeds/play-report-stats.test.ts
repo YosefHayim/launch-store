@@ -14,9 +14,6 @@ import {
 } from './play-report-stats.ts';
 
 const OCTOBER: DateRange = { from: '2026-10-01', to: '2026-10-31' };
-
-const INSTALLS_HEADER =
-  'Date,Package Name,Current Device Installs,Daily Device Installs,Daily Device Uninstalls,Daily Device Upgrades,Current User Installs,Total User Installs,Daily User Installs,Daily User Uninstalls,Active Device Installs';
 const EARNINGS_HEADER =
   'Description,Transaction Date,Transaction Time,Tax Type,Transaction Type,Refund Type,Product Title,Package ID,Product Type,SKU ID,Hardware,Buyer Country,Buyer State,Buyer Postcode,Buyer Currency,Amount (Buyer Currency),Currency Conversion Rate,Merchant Currency,Amount (Merchant Currency)';
 
@@ -39,7 +36,7 @@ const earningsLine = (
 describe('readInstallStats', () => {
   test('maps the documented install columns to metrics for each day in range', () => {
     const table = readPlayCsvTable(
-      `${INSTALLS_HEADER}\n2026-10-01,com.fit,100,12,3,40,90,500,10,2,80\n`,
+      `${'Date,Package Name,Current Device Installs,Daily Device Installs,Daily Device Uninstalls,Daily Device Upgrades,Current User Installs,Total User Installs,Daily User Installs,Daily User Uninstalls,Active Device Installs'}\n2026-10-01,com.fit,100,12,3,40,90,500,10,2,80\n`,
     );
 
     const stats = readInstallStats(table, OCTOBER);

@@ -13,7 +13,7 @@ export const registerSandboxCommand = (program: Command): void => {
     .option('--json', 'output machine-readable JSON', false)
     .action((options: { json?: boolean }) => {
       return runCliProgram(
-        sandboxCommandProgram({ operation: 'list', json: options.json === true }),
+        sandboxCommandProgram({ operation: 'list', json: options.json == true }),
       );
     });
   sandbox
@@ -34,8 +34,8 @@ export const registerSandboxCommand = (program: Command): void => {
           sandboxCommandProgram({
             operation: 'clear',
             emails,
-            all: options.all === true,
-            yes: options.yes === true,
+            all: options.all == true,
+            yes: options.yes == true,
           }),
         );
       },

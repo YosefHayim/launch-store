@@ -95,7 +95,7 @@ const exportComplianceOutcome = (
 ): ExportComplianceResult => complianceOutcome;
 
 function isApprovedDeclaration(encryptionDeclaration: EncryptionDeclarationResource): boolean {
-  return encryptionDeclaration.state === 'APPROVED';
+  return encryptionDeclaration.state == 'APPROVED';
 }
 
 /**
@@ -109,7 +109,7 @@ export async function reconcileExportCompliance(
 ): Promise<ExportComplianceResult> {
   try {
     const { bundleId, buildNumber, usesNonExemptEncryption } = reconciliationInput;
-    const isAnswerMissing = usesNonExemptEncryption === undefined;
+    const isAnswerMissing = usesNonExemptEncryption == null;
 
     if (isAnswerMissing) {
       return exportComplianceOutcome({ status: 'undeclared' });
@@ -122,7 +122,7 @@ export async function reconcileExportCompliance(
       return exportComplianceOutcome({ status: 'build-not-found', buildNumber });
     }
 
-    const isAlreadyAnswered = storeBuild.usesNonExemptEncryption === usesNonExemptEncryption;
+    const isAlreadyAnswered = storeBuild.usesNonExemptEncryption == usesNonExemptEncryption;
 
     if (isAlreadyAnswered) {
       return exportComplianceOutcome({ status: 'already-answered', usesNonExemptEncryption });
@@ -138,7 +138,7 @@ export async function reconcileExportCompliance(
     const encryptionDeclarations = await exportComplianceApi.listEncryptionDeclarations(bundleId);
     /** Apple marks an App Encryption Declaration reusable only once it reaches this review state. */
     const approvedDeclaration = encryptionDeclarations.find(isApprovedDeclaration);
-    const hasApprovedDeclaration = approvedDeclaration !== undefined;
+    const hasApprovedDeclaration = approvedDeclaration != null;
 
     if (hasApprovedDeclaration) {
       await exportComplianceApi.linkBuildToDeclaration(approvedDeclaration.id, storeBuild.id);

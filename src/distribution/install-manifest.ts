@@ -59,7 +59,7 @@ type LandingPageOptions = Readonly<{
 
 /** Platform-specific footnote under the Install button. */
 const installNote = (platform: Platform): string => {
-  if (platform === 'macos') {
+  if (platform == 'macos') {
     return '<p>macOS: if Gatekeeper blocks the app, right-click it and choose Open, or allow it in System Settings -> Privacy &amp; Security.</p>';
   }
   if (isApplePlatform(platform)) {

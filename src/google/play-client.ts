@@ -36,8 +36,6 @@ const mutableGoogleRequest = <GoogleRequest>(requestShape: unknown): GoogleReque
 };
 
 type PlayTrackInfo = Readonly<{ track: string; releases: readonly PlayRelease[] }>;
-
-const OAUTH_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
 /**
  * Region snapshot the subscriptions monetization API pins prices against - a required query parameter on
  * every subscription/offer write. `2022/02` is Google's current published version; bump it here if Google
@@ -114,10 +112,10 @@ function makeServiceAccountParseError(fields: {
 }
 /** Read the numeric status exposed by a generated-client failure, when present. */
 const googleFailureStatus = (cause: unknown): number | undefined => {
-  if (typeof cause !== 'object') return;
-  if (cause === null) return;
+  if (typeof cause != 'object') return;
+  if (cause == null) return;
   if (!('status' in cause)) return;
-  if (typeof cause.status !== 'number') return;
+  if (typeof cause.status != 'number') return;
   return cause.status;
 };
 /** Turn a generated-client failure into the actionable text Launch already exposes. */
@@ -129,37 +127,37 @@ const googleFailureMessage = (cause: unknown): string => {
 const timestampToIso = (
   timestamp: androidpublisher_v3.Schema$Timestamp | undefined,
 ): string | undefined => {
-  if (typeof timestamp?.seconds !== 'string') return;
+  if (typeof timestamp?.seconds != 'string') return;
   return new Date(Number(timestamp.seconds) * 1000).toISOString();
 };
 /** Flatten the generated review DTO into the {@link PlayReview} slice Launch consumes. */
 const normalizeReview = (
   googleReview: androidpublisher_v3.Schema$Review,
 ): PlayReview | undefined => {
-  if (typeof googleReview.reviewId !== 'string') return;
+  if (typeof googleReview.reviewId != 'string') return;
   const userComment = googleReview.comments?.find((comment) => comment.userComment)?.userComment;
   const developerComment = googleReview.comments?.find(
     (comment) => comment.developerComment,
   )?.developerComment;
   let rating = 0;
-  if (typeof userComment?.starRating === 'number') rating = userComment.starRating;
+  if (typeof userComment?.starRating == 'number') rating = userComment.starRating;
   const review: MutableDeep<PlayReview> = {
     reviewId: googleReview.reviewId,
     rating,
-    answered: developerComment !== undefined,
+    answered: developerComment != null,
   };
-  if (typeof googleReview.authorName === 'string') review.authorName = googleReview.authorName;
-  if (typeof userComment?.text === 'string') review.text = userComment.text;
-  if (typeof userComment?.reviewerLanguage === 'string') {
+  if (typeof googleReview.authorName == 'string') review.authorName = googleReview.authorName;
+  if (typeof userComment?.text == 'string') review.text = userComment.text;
+  if (typeof userComment?.reviewerLanguage == 'string') {
     review.reviewerLanguage = userComment.reviewerLanguage;
   }
-  if (typeof userComment?.device === 'string') review.device = userComment.device;
-  if (typeof userComment?.appVersionName === 'string') {
+  if (typeof userComment?.device == 'string') review.device = userComment.device;
+  if (typeof userComment?.appVersionName == 'string') {
     review.appVersionName = userComment.appVersionName;
   }
   const lastModified = timestampToIso(userComment?.lastModified);
-  if (lastModified !== undefined) review.lastModified = lastModified;
-  if (typeof developerComment?.text === 'string') review.developerReply = developerComment.text;
+  if (lastModified != null) review.lastModified = lastModified;
+  if (typeof developerComment?.text == 'string') review.developerReply = developerComment.text;
   return review;
 };
 /** Normalize Google's nullable Money DTO to Launch's consumed money fields. */
@@ -167,9 +165,9 @@ const normalizeMoney = (money: androidpublisher_v3.Schema$Money | undefined): Pl
   let currencyCode = '';
   let units = '0';
   let nanos = 0;
-  if (typeof money?.currencyCode === 'string') currencyCode = money.currencyCode;
-  if (typeof money?.units === 'string') units = money.units;
-  if (typeof money?.nanos === 'number') nanos = money.nanos;
+  if (typeof money?.currencyCode == 'string') currencyCode = money.currencyCode;
+  if (typeof money?.units == 'string') units = money.units;
+  if (typeof money?.nanos == 'number') nanos = money.nanos;
   return {
     currencyCode,
     units,
@@ -181,10 +179,10 @@ const normalizeTrackRelease = (
   googleRelease: androidpublisher_v3.Schema$TrackRelease,
 ): PlayRelease => {
   const release: MutableDeep<PlayRelease> = {};
-  if (typeof googleRelease.name === 'string') release.name = googleRelease.name;
+  if (typeof googleRelease.name == 'string') release.name = googleRelease.name;
   if (Array.isArray(googleRelease.versionCodes)) release.versionCodes = googleRelease.versionCodes;
-  if (typeof googleRelease.status === 'string') release.status = googleRelease.status;
-  if (typeof googleRelease.userFraction === 'number') {
+  if (typeof googleRelease.status == 'string') release.status = googleRelease.status;
+  if (typeof googleRelease.userFraction == 'number') {
     release.userFraction = googleRelease.userFraction;
   }
   if (Array.isArray(googleRelease.releaseNotes)) {
@@ -193,8 +191,8 @@ const normalizeTrackRelease = (
       text: string;
     }[] = [];
     for (const googleNote of googleRelease.releaseNotes) {
-      if (typeof googleNote.language !== 'string') continue;
-      if (typeof googleNote.text !== 'string') continue;
+      if (typeof googleNote.language != 'string') continue;
+      if (typeof googleNote.text != 'string') continue;
       releaseNotes.push({ language: googleNote.language, text: googleNote.text });
     }
     release.releaseNotes = releaseNotes;
@@ -207,8 +205,8 @@ function isText(text: string | null | undefined): text is string {
 
 /** Retain a non-empty generated page token and collapse null/empty values to undefined. */
 export const nonEmptyPageToken = (token: string | null | undefined): string | undefined => {
-  if (typeof token !== 'string') return;
-  if (token.length === 0) return;
+  if (typeof token != 'string') return;
+  if (token.length == 0) return;
   return token;
 };
 /**
@@ -251,16 +249,16 @@ const releasesFromGoogleTrack = (
 const listingFromGoogle = (
   googleListing: androidpublisher_v3.Schema$Listing,
 ): PlayListing | undefined => {
-  if (typeof googleListing.language !== 'string') return undefined;
+  if (typeof googleListing.language != 'string') return undefined;
   const listing: MutableDeep<PlayListing> = { language: googleListing.language };
-  if (typeof googleListing.title === 'string') listing.title = googleListing.title;
-  if (typeof googleListing.shortDescription === 'string') {
+  if (typeof googleListing.title == 'string') listing.title = googleListing.title;
+  if (typeof googleListing.shortDescription == 'string') {
     listing.shortDescription = googleListing.shortDescription;
   }
-  if (typeof googleListing.fullDescription === 'string') {
+  if (typeof googleListing.fullDescription == 'string') {
     listing.fullDescription = googleListing.fullDescription;
   }
-  if (typeof googleListing.video === 'string') listing.video = googleListing.video;
+  if (typeof googleListing.video == 'string') listing.video = googleListing.video;
   return listing;
 };
 /** Keep only offer tags that carry a real tag string. */
@@ -276,7 +274,7 @@ const offerTagsFromGoogle = (
     tag: string;
   }[] = [];
   for (const googleTag of googleTags) {
-    if (typeof googleTag.tag === 'string') offerTags.push({ tag: googleTag.tag });
+    if (typeof googleTag.tag == 'string') offerTags.push({ tag: googleTag.tag });
   }
   return offerTags;
 };
@@ -300,43 +298,43 @@ export const serviceAccountJwtOptions = (
     key: account.privateKey,
     scopes: [...scopes],
   };
-  if (account.privateKeyId !== undefined) authenticationOptions.keyId = account.privateKeyId;
+  if (account.privateKeyId != null) authenticationOptions.keyId = account.privateKeyId;
   return authenticationOptions;
 };
 /** Normalize the legacy in-app-product money representation. */
 const normalizeProductMoney = (
   googlePrice: androidpublisher_v3.Schema$Price | undefined,
 ): PlayMoney | undefined => {
-  if (googlePrice === undefined) return;
+  if (googlePrice == null) return;
   const price: MutableDeep<PlayMoney> = {};
-  if (typeof googlePrice.priceMicros === 'string') price.priceMicros = googlePrice.priceMicros;
-  if (typeof googlePrice.currency === 'string') price.currency = googlePrice.currency;
+  if (typeof googlePrice.priceMicros == 'string') price.priceMicros = googlePrice.priceMicros;
+  if (typeof googlePrice.currency == 'string') price.currency = googlePrice.currency;
   return price;
 };
 /** Normalize one generated in-app product to Launch's reconciler slice. */
 const normalizeInAppProduct = (
   googleProduct: androidpublisher_v3.Schema$InAppProduct,
 ): InAppProductResource | undefined => {
-  if (typeof googleProduct.sku !== 'string') return;
+  if (typeof googleProduct.sku != 'string') return;
   const product: MutableDeep<InAppProductResource> = { sku: googleProduct.sku };
-  if (typeof googleProduct.status === 'string') product.status = googleProduct.status;
-  if (typeof googleProduct.purchaseType === 'string') {
+  if (typeof googleProduct.status == 'string') product.status = googleProduct.status;
+  if (typeof googleProduct.purchaseType == 'string') {
     product.purchaseType = googleProduct.purchaseType;
   }
-  if (typeof googleProduct.defaultLanguage === 'string') {
+  if (typeof googleProduct.defaultLanguage == 'string') {
     product.defaultLanguage = googleProduct.defaultLanguage;
   }
   const defaultPrice = normalizeProductMoney(googleProduct.defaultPrice);
-  if (defaultPrice !== undefined) product.defaultPrice = defaultPrice;
-  if (googleProduct.prices !== null && googleProduct.prices !== undefined) {
+  if (defaultPrice != null) product.defaultPrice = defaultPrice;
+  if (googleProduct.prices != null && googleProduct.prices != null) {
     const prices: Record<string, PlayMoney> = {};
     for (const [regionCode, googlePrice] of Object.entries(googleProduct.prices)) {
       const price = normalizeProductMoney(googlePrice);
-      if (price !== undefined) prices[regionCode] = price;
+      if (price != null) prices[regionCode] = price;
     }
     product.prices = prices;
   }
-  if (googleProduct.listings !== null && googleProduct.listings !== undefined) {
+  if (googleProduct.listings != null && googleProduct.listings != null) {
     const listings: Record<
       string,
       {
@@ -349,8 +347,8 @@ const normalizeInAppProduct = (
         title?: string;
         description?: string;
       } = {};
-      if (typeof googleListing.title === 'string') listing.title = googleListing.title;
-      if (typeof googleListing.description === 'string') {
+      if (typeof googleListing.title == 'string') listing.title = googleListing.title;
+      if (typeof googleListing.description == 'string') {
         listing.description = googleListing.description;
       }
       listings[locale] = listing;
@@ -363,58 +361,57 @@ const normalizeInAppProduct = (
 const normalizeBasePlan = (
   googlePlan: androidpublisher_v3.Schema$BasePlan,
 ): MutableDeep<BasePlan> | undefined => {
-  if (typeof googlePlan.basePlanId !== 'string') return;
+  if (typeof googlePlan.basePlanId != 'string') return;
   const basePlan: MutableDeep<BasePlan> = { basePlanId: googlePlan.basePlanId };
-  if (typeof googlePlan.state === 'string') basePlan.state = googlePlan.state;
+  if (typeof googlePlan.state == 'string') basePlan.state = googlePlan.state;
   const billingPeriod = googlePlan.autoRenewingBasePlanType?.billingPeriodDuration;
-  if (typeof billingPeriod === 'string') {
+  if (typeof billingPeriod == 'string') {
     basePlan.autoRenewingBasePlanType = { billingPeriodDuration: billingPeriod };
   }
   if (Array.isArray(googlePlan.regionalConfigs)) {
     const regionalConfigs: MutableDeep<RegionalBasePlanConfig>[] = [];
     for (const googleRegion of googlePlan.regionalConfigs) {
-      if (typeof googleRegion.regionCode !== 'string') continue;
+      if (typeof googleRegion.regionCode != 'string') continue;
       const regionalConfig: MutableDeep<RegionalBasePlanConfig> = {
         regionCode: googleRegion.regionCode,
       };
-      if (typeof googleRegion.newSubscriberAvailability === 'boolean') {
+      if (typeof googleRegion.newSubscriberAvailability == 'boolean') {
         regionalConfig.newSubscriberAvailability = googleRegion.newSubscriberAvailability;
       }
-      if (googleRegion.price !== undefined)
-        regionalConfig.price = normalizeMoney(googleRegion.price);
+      if (googleRegion.price != null) regionalConfig.price = normalizeMoney(googleRegion.price);
       regionalConfigs.push(regionalConfig);
     }
     basePlan.regionalConfigs = regionalConfigs;
   }
   const offerTags = offerTagsFromGoogle(googlePlan.offerTags);
-  if (offerTags !== undefined) basePlan.offerTags = offerTags;
+  if (offerTags != null) basePlan.offerTags = offerTags;
   return basePlan;
 };
 /** Normalize one generated subscription to Launch's consumed catalog shape. */
 const normalizeSubscription = (
   googleSubscription: androidpublisher_v3.Schema$Subscription,
 ): SubscriptionResource | undefined => {
-  if (typeof googleSubscription.productId !== 'string') return;
+  if (typeof googleSubscription.productId != 'string') return;
   const subscription: MutableDeep<SubscriptionResource> = {
     productId: googleSubscription.productId,
   };
-  if (typeof googleSubscription.packageName === 'string') {
+  if (typeof googleSubscription.packageName == 'string') {
     subscription.packageName = googleSubscription.packageName;
   }
   if (Array.isArray(googleSubscription.basePlans)) {
     const basePlans: MutableDeep<BasePlan>[] = [];
     for (const googlePlan of googleSubscription.basePlans) {
       const basePlan = normalizeBasePlan(googlePlan);
-      if (basePlan !== undefined) basePlans.push(basePlan);
+      if (basePlan != null) basePlans.push(basePlan);
     }
     subscription.basePlans = basePlans;
   }
   if (Array.isArray(googleSubscription.listings)) {
     const listings: MutableDeep<SubscriptionListing>[] = [];
     for (const googleListing of googleSubscription.listings) {
-      if (typeof googleListing.languageCode !== 'string') continue;
-      if (typeof googleListing.title !== 'string') continue;
-      if (typeof googleListing.description !== 'string') continue;
+      if (typeof googleListing.languageCode != 'string') continue;
+      if (typeof googleListing.title != 'string') continue;
+      if (typeof googleListing.description != 'string') continue;
       const listing: MutableDeep<SubscriptionListing> = {
         languageCode: googleListing.languageCode,
         title: googleListing.title,
@@ -431,23 +428,23 @@ const normalizeSubscription = (
 const normalizeSubscriptionOffer = (
   googleOffer: androidpublisher_v3.Schema$SubscriptionOffer,
 ): SubscriptionOfferResource | undefined => {
-  if (typeof googleOffer.offerId !== 'string') return;
+  if (typeof googleOffer.offerId != 'string') return;
   const offer: MutableDeep<SubscriptionOfferResource> = {
     offerId: googleOffer.offerId,
     phases: [],
     regionalConfigs: [],
   };
-  if (typeof googleOffer.packageName === 'string') offer.packageName = googleOffer.packageName;
-  if (typeof googleOffer.productId === 'string') offer.productId = googleOffer.productId;
-  if (typeof googleOffer.basePlanId === 'string') offer.basePlanId = googleOffer.basePlanId;
-  if (typeof googleOffer.state === 'string') offer.state = googleOffer.state;
+  if (typeof googleOffer.packageName == 'string') offer.packageName = googleOffer.packageName;
+  if (typeof googleOffer.productId == 'string') offer.productId = googleOffer.productId;
+  if (typeof googleOffer.basePlanId == 'string') offer.basePlanId = googleOffer.basePlanId;
+  if (typeof googleOffer.state == 'string') offer.state = googleOffer.state;
   if (Array.isArray(googleOffer.regionalConfigs)) {
     for (const googleRegion of googleOffer.regionalConfigs) {
-      if (typeof googleRegion.regionCode !== 'string') continue;
+      if (typeof googleRegion.regionCode != 'string') continue;
       const regionalConfig: MutableDeep<RegionalSubscriptionOfferConfig> = {
         regionCode: googleRegion.regionCode,
       };
-      if (typeof googleRegion.newSubscriberAvailability === 'boolean') {
+      if (typeof googleRegion.newSubscriberAvailability == 'boolean') {
         regionalConfig.newSubscriberAvailability = googleRegion.newSubscriberAvailability;
       }
       offer.regionalConfigs.push(regionalConfig);
@@ -455,21 +452,20 @@ const normalizeSubscriptionOffer = (
   }
   if (Array.isArray(googleOffer.phases)) {
     for (const googlePhase of googleOffer.phases) {
-      if (typeof googlePhase.recurrenceCount !== 'number') continue;
+      if (typeof googlePhase.recurrenceCount != 'number') continue;
       const phase: MutableDeep<SubscriptionOfferPhase> = {
         recurrenceCount: googlePhase.recurrenceCount,
         regionalConfigs: [],
       };
-      if (typeof googlePhase.duration === 'string') phase.duration = googlePhase.duration;
+      if (typeof googlePhase.duration == 'string') phase.duration = googlePhase.duration;
       if (Array.isArray(googlePhase.regionalConfigs)) {
         for (const googleRegion of googlePhase.regionalConfigs) {
-          if (typeof googleRegion.regionCode !== 'string') continue;
+          if (typeof googleRegion.regionCode != 'string') continue;
           const regionalConfig: MutableDeep<OfferPhaseRegionalConfig> = {
             regionCode: googleRegion.regionCode,
           };
-          if (googleRegion.price !== undefined)
-            regionalConfig.price = normalizeMoney(googleRegion.price);
-          if (googleRegion.free !== undefined) regionalConfig.free = {};
+          if (googleRegion.price != null) regionalConfig.price = normalizeMoney(googleRegion.price);
+          if (googleRegion.free != null) regionalConfig.free = {};
           phase.regionalConfigs.push(regionalConfig);
         }
       }
@@ -477,7 +473,7 @@ const normalizeSubscriptionOffer = (
     }
   }
   const offerTags = offerTagsFromGoogle(googleOffer.offerTags);
-  if (offerTags !== undefined) offer.offerTags = offerTags;
+  if (offerTags != null) offer.offerTags = offerTags;
   return offer;
 };
 const SERVICE_ACCOUNT_JSON_MESSAGE =
@@ -663,12 +659,12 @@ export class GooglePlayClient {
    */
   constructor(account: ServiceAccount, generatedPublisher?: GooglePlayTransport) {
     this.serviceAccountEmail = account.clientEmail;
-    if (generatedPublisher !== undefined) {
+    if (generatedPublisher != null) {
       this.publisher = generatedPublisher;
       return;
     }
     const googleAuthentication = new androidPublisherAuth.JWT(
-      serviceAccountJwtOptions(account, [OAUTH_SCOPE]),
+      serviceAccountJwtOptions(account, ['https://www.googleapis.com/auth/androidpublisher']),
     );
     this.publisher = androidpublisher({ version: 'v3', auth: googleAuthentication });
   }

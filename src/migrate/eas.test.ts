@@ -58,14 +58,14 @@ const app = (over: Partial<AppDescriptor> = {}): AppDescriptor => ({
 
 /** The artifact at `path`, asserting it was emitted. */
 const artifact = (artifacts: readonly MigrationArtifact[], path: string): MigrationArtifact => {
-  const found = artifacts.find((entry) => entry.path === path);
+  const found = artifacts.find((entry) => entry.path == path);
   expect(found, `expected artifact ${path}`).toBeDefined();
   return expectDefined(found, `artifact ${path}`);
 };
 
 /** Notes at a given level. */
 const notesAt = (notes: readonly MigrationNote[], level: MigrationNoteLevel): MigrationNote[] =>
-  notes.filter((note) => note.level === level);
+  notes.filter((note) => note.level == level);
 
 function sampleEasConfiguration(): EasJson {
   return parseEasJson(SAMPLE_EAS);
@@ -247,9 +247,9 @@ describe('expoFactsFromResolvedConfig / notesFromExpoFacts', () => {
       },
     });
     expect(expoFacts).not.toBeNull();
-    if (expoFacts === null) return;
+    if (expoFacts == null) return;
     expect(expoFacts.runtimeVersion).toEqual({ policy: 'sdkVersion' });
-    if (expoFacts.runtimeVersion === undefined) return;
+    if (expoFacts.runtimeVersion == null) return;
     expect(describeRuntimeVersion(expoFacts.runtimeVersion)).toBe('policy "sdkVersion"');
     const informational = notesFromExpoFacts('alpha', expoFacts).map((note) => note.message);
     expect(
@@ -266,9 +266,9 @@ describe('expoFactsFromResolvedConfig / notesFromExpoFacts', () => {
       runtimeVersion: '1.2.3',
     });
     expect(expoFacts).not.toBeNull();
-    if (expoFacts === null) return;
+    if (expoFacts == null) return;
     expect(expoFacts.runtimeVersion).toBe('1.2.3');
-    if (expoFacts.runtimeVersion === undefined) return;
+    if (expoFacts.runtimeVersion == null) return;
     expect(describeRuntimeVersion(expoFacts.runtimeVersion)).toBe('1.2.3');
   });
 });

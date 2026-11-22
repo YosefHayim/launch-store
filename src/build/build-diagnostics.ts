@@ -11,7 +11,7 @@ type DiagnosticSignature = BuildDiagnosis & {
  * The known-failure table, most-specific first. Patterns are intentionally narrow so a diagnosis only
  * fires on its real signature, not on an incidental mention of a word.
  */
-const SIGNATURES: DiagnosticSignature[] = [
+const signatures: DiagnosticSignature[] = [
   {
     title: 'Code signing - app profile leaked onto CocoaPods targets (Xcode 26)',
     cause:
@@ -144,7 +144,7 @@ const SIGNATURES: DiagnosticSignature[] = [
  */
 export const diagnoseBuildLog = (log: string): BuildDiagnosis[] => {
   const matched: BuildDiagnosis[] = [];
-  for (const signature of SIGNATURES) {
+  for (const signature of signatures) {
     if (signature.match.some((pattern) => pattern.test(log))) {
       matched.push({ title: signature.title, cause: signature.cause, fix: signature.fix });
     }
@@ -153,9 +153,9 @@ export const diagnoseBuildLog = (log: string): BuildDiagnosis[] => {
 };
 /** Render diagnoses as an indented, human-readable block for the terminal. Empty input -> empty string. */
 export const formatDiagnoses = (diagnoses: readonly BuildDiagnosis[]): string => {
-  if (diagnoses.length === 0) return '';
+  if (diagnoses.length == 0) return '';
   let header = 'Likely causes:';
-  if (diagnoses.length === 1) header = 'Likely cause:';
+  if (diagnoses.length == 1) header = 'Likely cause:';
   const blocks = diagnoses.map(
     (diagnosis) => `  - ${diagnosis.title}\n    Why: ${diagnosis.cause}\n    Fix: ${diagnosis.fix}`,
   );

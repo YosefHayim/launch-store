@@ -9,12 +9,6 @@ import { startMcpServer } from './server.ts';
 
 const ALL_CLIENTS: readonly McpClient[] = ['claude-code', 'cursor', 'claude-desktop'];
 
-const CLIENT_LABELS: Record<McpClient, string> = {
-  'claude-code': 'Claude Code',
-  cursor: 'Cursor',
-  'claude-desktop': 'Claude Desktop',
-};
-
 type McpCommandInput = { operation: 'serve' } | { operation: 'install'; client?: string };
 
 type McpCommandFailure = Readonly<{
@@ -175,7 +169,11 @@ async function installClients(targetClients: readonly McpClient[]): Promise<void
       launchDirectories.homeDirectory,
       operatingSystem,
     );
-    const clientLabel = CLIENT_LABELS[client];
+    const clientLabel = {
+      'claude-code': 'Claude Code',
+      cursor: 'Cursor',
+      'claude-desktop': 'Claude Desktop',
+    }[client];
 
     if (installedServer.changed) {
       logger.step(clientLabel, `wired \`launch\` into ${installedServer.path}`);

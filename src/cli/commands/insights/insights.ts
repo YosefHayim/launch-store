@@ -19,7 +19,7 @@ export const registerInsightsCommand = (program: Command): void => {
       return runCliProgram(
         insightsCommandProgram({
           app: commandOptions.app,
-          json: commandOptions.json === true,
+          json: commandOptions.json == true,
         }),
       );
     });

@@ -41,28 +41,6 @@ function makeAppEventFailure(fields: {
   return { _tag: 'AppEventFailure', ...fields };
 }
 
-/** Apple's in-app-event badges. */
-const APP_EVENT_BADGES: readonly string[] = [
-  'LIVE_EVENT',
-  'PREMIERE',
-  'CHALLENGE',
-  'COMPETITION',
-  'NEW_SEASON',
-  'MAJOR_UPDATE',
-  'SPECIAL_EVENT',
-];
-
-/** How prominently Apple may feature an event. */
-const APP_EVENT_PRIORITIES: readonly string[] = ['HIGH', 'NORMAL'];
-
-/** The supported marketing purposes for an event. */
-const APP_EVENT_PURPOSES: readonly string[] = [
-  'APPROPRIATE_FOR_ALL_USERS',
-  'ATTRACT_NEW_USERS',
-  'KEEP_ACTIVE_USERS_INFORMED',
-  'BRING_BACK_LAPSED_USERS',
-];
-
 /** One event paired with its localizations. */
 export type AppEventWithLocalizations = Readonly<{
   event: AppEventResource;
@@ -132,7 +110,7 @@ function validateEventEnum(
   fieldText: string | undefined,
   allowedValues: readonly string[],
 ): string | undefined {
-  const isFieldMissing = fieldText === undefined;
+  const isFieldMissing = fieldText == null;
 
   if (isFieldMissing) {
     return undefined;
@@ -189,7 +167,7 @@ export async function createEvent(
   eventRequest: CreateEventRequest,
 ): Promise<AppEventResource> {
   const referenceName = eventRequest.referenceName.trim();
-  const isReferenceNameMissing = referenceName.length === 0;
+  const isReferenceNameMissing = referenceName.length == 0;
 
   if (isReferenceNameMissing) {
     throw makeAppEventFailure({
@@ -199,9 +177,22 @@ export async function createEvent(
     });
   }
 
-  const badge = validateEventEnum('badge', eventRequest.badge, APP_EVENT_BADGES);
-  const priority = validateEventEnum('priority', eventRequest.priority, APP_EVENT_PRIORITIES);
-  const purpose = validateEventEnum('purpose', eventRequest.purpose, APP_EVENT_PURPOSES);
+  const badge = validateEventEnum('badge', eventRequest.badge, [
+    'LIVE_EVENT',
+    'PREMIERE',
+    'CHALLENGE',
+    'COMPETITION',
+    'NEW_SEASON',
+    'MAJOR_UPDATE',
+    'SPECIAL_EVENT',
+  ]);
+  const priority = validateEventEnum('priority', eventRequest.priority, ['HIGH', 'NORMAL']);
+  const purpose = validateEventEnum('purpose', eventRequest.purpose, [
+    'APPROPRIATE_FOR_ALL_USERS',
+    'ATTRACT_NEW_USERS',
+    'KEEP_ACTIVE_USERS_INFORMED',
+    'BRING_BACK_LAPSED_USERS',
+  ]);
   const appId = await runEventRequest('resolve App Store app', appEventsStore.getAppId(bundleId));
   const isAppMissing = appId == null;
 
@@ -210,15 +201,15 @@ export async function createEvent(
   }
 
   const eventAttributes: MutableDeep<NewAppEvent> = { referenceName };
-  if (badge !== undefined) eventAttributes.badge = badge;
-  if (eventRequest.primaryLocale !== undefined) {
+  if (badge != null) eventAttributes.badge = badge;
+  if (eventRequest.primaryLocale != null) {
     eventAttributes.primaryLocale = eventRequest.primaryLocale.trim();
   }
-  if (eventRequest.deepLink !== undefined) {
+  if (eventRequest.deepLink != null) {
     eventAttributes.deepLink = eventRequest.deepLink.trim();
   }
-  if (priority !== undefined) eventAttributes.priority = priority;
-  if (purpose !== undefined) eventAttributes.purpose = purpose;
+  if (priority != null) eventAttributes.priority = priority;
+  if (purpose != null) eventAttributes.purpose = purpose;
 
   return runEventRequest(
     'create in-app event',
@@ -233,7 +224,7 @@ export async function localizeEvent(
   localizationRequest: LocalizeEventRequest,
 ): Promise<LocalizeResult> {
   const locale = localizationRequest.locale.trim();
-  const isLocaleMissing = locale.length === 0;
+  const isLocaleMissing = locale.length == 0;
 
   if (isLocaleMissing) {
     throw makeAppEventFailure({
@@ -244,17 +235,17 @@ export async function localizeEvent(
   }
 
   const localizationAttributes: MutableDeep<AppEventLocalizationInput> = {};
-  if (localizationRequest.name !== undefined) {
+  if (localizationRequest.name != null) {
     localizationAttributes.name = localizationRequest.name;
   }
-  if (localizationRequest.shortDescription !== undefined) {
+  if (localizationRequest.shortDescription != null) {
     localizationAttributes.shortDescription = localizationRequest.shortDescription;
   }
-  if (localizationRequest.longDescription !== undefined) {
+  if (localizationRequest.longDescription != null) {
     localizationAttributes.longDescription = localizationRequest.longDescription;
   }
 
-  const hasNoCopy = Object.keys(localizationAttributes).length === 0;
+  const hasNoCopy = Object.keys(localizationAttributes).length == 0;
 
   if (hasNoCopy) {
     throw makeAppEventFailure({
@@ -270,11 +261,11 @@ export async function localizeEvent(
   );
 
   function localizationMatchesLocale(localization: AppEventLocalizationResource): boolean {
-    return localization.locale.toLowerCase() === locale.toLowerCase();
+    return localization.locale.toLowerCase() == locale.toLowerCase();
   }
 
   const existingLocalization = localizations.find(localizationMatchesLocale);
-  const hasExistingLocalization = existingLocalization !== undefined;
+  const hasExistingLocalization = existingLocalization != null;
 
   if (hasExistingLocalization) {
     const storedLocalization = await runEventRequest(

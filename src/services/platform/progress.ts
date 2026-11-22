@@ -92,27 +92,26 @@ export const formatProgressLine = (parts: {
   if (bySteps) counter = ` ${steps}/~${estimate.steps}`;
   return `${head}   ${bar} ${pct}${counter} - ${elapsed} / ~${formatElapsed(estimate.ms)}`;
 };
-const XCODE_STEP_LINE =
-  /^(CompileC|CompileSwift|SwiftCompile|CompileAssetCatalog|CompileStoryboard|Ld|Libtool|CodeSign|ProcessInfoPlistFile|ProcessProductPackaging|GenerateDSYMFile|CopySwiftLibs|PhaseScriptExecution) (.+?)(?: \(in target .*)?$/;
-const XCODE_SUCCESS_LINE = /^\*\* (ARCHIVE|EXPORT|BUILD) SUCCEEDED \*\*/;
-const XCODE_SCRIPT_NAME = /^(.+?)(?: \/|$)/;
 /** Pull a compact step out of a raw `xcodebuild` line such as `CompileC ...`, `Ld ...` or `** ARCHIVE SUCCEEDED **`. */
 export const xcodeProgressStep = (line: string): string | undefined => {
   const trimmedLine = line.trim();
-  const successMatch = XCODE_SUCCESS_LINE.exec(trimmedLine);
+  const successMatch = /^\*\* (ARCHIVE|EXPORT|BUILD) SUCCEEDED \*\*/.exec(trimmedLine);
   if (successMatch?.[1]) return `${successMatch[1].toLowerCase()} succeeded`;
-  const stepMatch = XCODE_STEP_LINE.exec(trimmedLine);
+  const stepMatch =
+    /^(CompileC|CompileSwift|SwiftCompile|CompileAssetCatalog|CompileStoryboard|Ld|Libtool|CodeSign|ProcessInfoPlistFile|ProcessProductPackaging|GenerateDSYMFile|CopySwiftLibs|PhaseScriptExecution) (.+?)(?: \(in target .*)?$/.exec(
+      trimmedLine,
+    );
   const verb = stepMatch?.[1];
   const detail = stepMatch?.[2];
-  if (verb === undefined) return undefined;
-  if (detail === undefined) return truncateStep(verb);
-  if (verb === 'PhaseScriptExecution') {
-    const scriptMatch = XCODE_SCRIPT_NAME.exec(detail);
+  if (verb == null) return undefined;
+  if (detail == null) return truncateStep(verb);
+  if (verb == 'PhaseScriptExecution') {
+    const scriptMatch = /^(.+?)(?: \/|$)/.exec(detail);
     if (!scriptMatch?.[1]) return truncateStep(verb);
     return truncateStep(`${verb} ${scriptMatch[1].replace(/\\ /g, ' ')}`);
   }
   const pathToken = detail.split(' ').find((token) => token.includes('/'));
-  if (pathToken === undefined) return truncateStep(verb);
+  if (pathToken == null) return truncateStep(verb);
   const fileName = pathToken.slice(pathToken.lastIndexOf('/') + 1);
   return truncateStep(`${verb} ${fileName}`);
 };
@@ -131,7 +130,7 @@ const logSlug = (label: string): string => {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  if (normalizedLabel.length === 0) return 'run';
+  if (normalizedLabel.length == 0) return 'run';
   return normalizedLabel;
 };
 /** A filesystem-safe timestamp, e.g. `2026-06-14T02-56-32`. */
@@ -305,7 +304,7 @@ export const isInteractiveTerminal = (
   environment: Readonly<Record<string, string | undefined>>,
 ): boolean => {
   if (!isTTY) return false;
-  return environment['CI'] === undefined;
+  return environment['CI'] == null;
 };
 /**
  * Run a silent async step under a spinner so long network round-trips (App Store Connect / Google

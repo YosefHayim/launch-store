@@ -59,7 +59,7 @@ export const clampDraft = (
     maxCharacters: number,
     fieldLabel: string,
   ): string | undefined => {
-    if (listingText === undefined) return undefined;
+    if (listingText == null) return undefined;
     if (listingText.length > maxCharacters) {
       warningMessages.push(
         `${fieldLabel} was ${listingText.length} chars; trimmed to the ${maxCharacters}-char limit.`,
@@ -69,18 +69,18 @@ export const clampDraft = (
     return listingText;
   };
   const title = fitText(listingDraft.title, APPLE_LIMITS.title, 'title');
-  if (title !== undefined) clampedDraft.title = title;
+  if (title != null) clampedDraft.title = title;
   const subtitle = fitText(listingDraft.subtitle, APPLE_LIMITS.subtitle, 'subtitle');
-  if (subtitle !== undefined) clampedDraft.subtitle = subtitle;
+  if (subtitle != null) clampedDraft.subtitle = subtitle;
   const promotionalText = fitText(
     listingDraft.promotionalText,
     APPLE_LIMITS.promotionalText,
     'promotional text',
   );
-  if (promotionalText !== undefined) clampedDraft.promotionalText = promotionalText;
+  if (promotionalText != null) clampedDraft.promotionalText = promotionalText;
   const description = fitText(listingDraft.description, APPLE_LIMITS.description, 'description');
-  if (description !== undefined) clampedDraft.description = description;
-  if (listingDraft.keywords !== undefined) {
+  if (description != null) clampedDraft.description = description;
+  if (listingDraft.keywords != null) {
     const keptKeywords = clampKeywords(listingDraft.keywords, APPLE_LIMITS.keywords);
     if (keptKeywords.length < listingDraft.keywords.length) {
       warningMessages.push(
@@ -105,13 +105,12 @@ export const briefFor = (
 ): ListingBrief => {
   const listingBrief: MutableDeep<ListingBrief> = { locale: localeName, appName: displayName };
   let aboutText = aboutOverride;
-  if (aboutText === undefined && currentListing !== undefined)
-    aboutText = currentListing.promotionalText;
-  if (aboutText === undefined && currentListing !== undefined) aboutText = currentListing.subtitle;
-  if (aboutText !== undefined && aboutText.length > 0) listingBrief.about = aboutText;
-  if (currentListing?.keywords !== undefined && currentListing.keywords.length > 0)
+  if (aboutText == null && currentListing != null) aboutText = currentListing.promotionalText;
+  if (aboutText == null && currentListing != null) aboutText = currentListing.subtitle;
+  if (aboutText != null && aboutText.length > 0) listingBrief.about = aboutText;
+  if (currentListing?.keywords != null && currentListing.keywords.length > 0)
     listingBrief.keywords = currentListing.keywords;
-  if (currentListing !== undefined) listingBrief.current = currentListing;
+  if (currentListing != null) listingBrief.current = currentListing;
   return listingBrief;
 };
 /**
@@ -121,14 +120,14 @@ export const briefFor = (
  */
 export const deriveAndroidLocale = (listingDraft: DraftListing): AndroidLocaleInfo => {
   const androidListing: AndroidLocaleInfo = {};
-  if (listingDraft.title !== undefined)
+  if (listingDraft.title != null)
     androidListing.title = clampText(listingDraft.title, ANDROID_LIMITS.title);
   let shortDescription = listingDraft.subtitle;
-  if (shortDescription === undefined) shortDescription = listingDraft.promotionalText;
-  if (shortDescription !== undefined) {
+  if (shortDescription == null) shortDescription = listingDraft.promotionalText;
+  if (shortDescription != null) {
     androidListing.shortDescription = clampText(shortDescription, ANDROID_LIMITS.shortDescription);
   }
-  if (listingDraft.description !== undefined)
+  if (listingDraft.description != null)
     androidListing.fullDescription = clampText(
       listingDraft.description,
       ANDROID_LIMITS.fullDescription,
@@ -146,29 +145,27 @@ const mergeAppleLocale = (
   listingDraft: DraftListing,
 ): AppleLocaleInfo => {
   const mergedLocale: MutableDeep<AppleLocaleInfo> = {};
-  if (existingLocale !== undefined) {
-    if (existingLocale.title !== undefined) mergedLocale.title = existingLocale.title;
-    if (existingLocale.subtitle !== undefined) mergedLocale.subtitle = existingLocale.subtitle;
-    if (existingLocale.description !== undefined)
-      mergedLocale.description = existingLocale.description;
-    if (existingLocale.keywords !== undefined) mergedLocale.keywords = [...existingLocale.keywords];
-    if (existingLocale.releaseNotes !== undefined)
+  if (existingLocale != null) {
+    if (existingLocale.title != null) mergedLocale.title = existingLocale.title;
+    if (existingLocale.subtitle != null) mergedLocale.subtitle = existingLocale.subtitle;
+    if (existingLocale.description != null) mergedLocale.description = existingLocale.description;
+    if (existingLocale.keywords != null) mergedLocale.keywords = [...existingLocale.keywords];
+    if (existingLocale.releaseNotes != null)
       mergedLocale.releaseNotes = existingLocale.releaseNotes;
-    if (existingLocale.promotionalText !== undefined)
+    if (existingLocale.promotionalText != null)
       mergedLocale.promotionalText = existingLocale.promotionalText;
-    if (existingLocale.marketingUrl !== undefined)
+    if (existingLocale.marketingUrl != null)
       mergedLocale.marketingUrl = existingLocale.marketingUrl;
-    if (existingLocale.supportUrl !== undefined)
-      mergedLocale.supportUrl = existingLocale.supportUrl;
-    if (existingLocale.privacyPolicyUrl !== undefined)
+    if (existingLocale.supportUrl != null) mergedLocale.supportUrl = existingLocale.supportUrl;
+    if (existingLocale.privacyPolicyUrl != null)
       mergedLocale.privacyPolicyUrl = existingLocale.privacyPolicyUrl;
   }
-  if (listingDraft.title !== undefined) mergedLocale.title = listingDraft.title;
-  if (listingDraft.subtitle !== undefined) mergedLocale.subtitle = listingDraft.subtitle;
-  if (listingDraft.description !== undefined) mergedLocale.description = listingDraft.description;
-  if (listingDraft.promotionalText !== undefined)
+  if (listingDraft.title != null) mergedLocale.title = listingDraft.title;
+  if (listingDraft.subtitle != null) mergedLocale.subtitle = listingDraft.subtitle;
+  if (listingDraft.description != null) mergedLocale.description = listingDraft.description;
+  if (listingDraft.promotionalText != null)
     mergedLocale.promotionalText = listingDraft.promotionalText;
-  if (listingDraft.keywords !== undefined) mergedLocale.keywords = [...listingDraft.keywords];
+  if (listingDraft.keywords != null) mergedLocale.keywords = [...listingDraft.keywords];
   return mergedLocale;
 };
 
@@ -184,7 +181,7 @@ export const applyDraft = (
   const updatedStoreConfiguration: StoreConfig = { ...storeConfiguration };
   if (listingTargets.ios) {
     let appleListing = storeConfiguration.apple;
-    if (appleListing === undefined) appleListing = { info: {} };
+    if (appleListing == null) appleListing = { info: {} };
     const localeInfo: Record<string, AppleLocaleInfo> = { ...appleListing.info };
     localeInfo[localeName] = mergeAppleLocale(appleListing.info[localeName], listingDraft);
     updatedStoreConfiguration.apple = {
@@ -194,7 +191,7 @@ export const applyDraft = (
   }
   if (listingTargets.android) {
     let androidListing = storeConfiguration.android;
-    if (androidListing === undefined) androidListing = { info: {} };
+    if (androidListing == null) androidListing = { info: {} };
     updatedStoreConfiguration.android = {
       ...androidListing,
       info: {
@@ -238,17 +235,17 @@ export const renderDraftPreview = (
   const localePreviews = listingDrafts.map(({ locale, draft, warnings }) => {
     const lines = [`  ${locale}`];
     if (listingTargets.ios) {
-      if (draft.title !== undefined)
+      if (draft.title != null)
         lines.push(previewLine('title', draft.title, draft.title.length, APPLE_LIMITS.title));
-      if (draft.subtitle !== undefined)
+      if (draft.subtitle != null)
         lines.push(
           previewLine('subtitle', draft.subtitle, draft.subtitle.length, APPLE_LIMITS.subtitle),
         );
-      if (draft.keywords !== undefined) {
+      if (draft.keywords != null) {
         const joined = serializeKeywords(draft.keywords);
         lines.push(previewLine('keywords', joined, joined.length, APPLE_LIMITS.keywords));
       }
-      if (draft.promotionalText !== undefined)
+      if (draft.promotionalText != null)
         lines.push(
           previewLine(
             'promo text',
@@ -257,7 +254,7 @@ export const renderDraftPreview = (
             APPLE_LIMITS.promotionalText,
           ),
         );
-      if (draft.description !== undefined)
+      if (draft.description != null)
         lines.push(
           previewLine(
             'description',
@@ -270,9 +267,9 @@ export const renderDraftPreview = (
     if (listingTargets.android) {
       const android = deriveAndroidLocale(draft);
       lines.push('    android');
-      if (android.title !== undefined)
+      if (android.title != null)
         lines.push(previewLine('title', android.title, android.title.length, ANDROID_LIMITS.title));
-      if (android.shortDescription !== undefined)
+      if (android.shortDescription != null)
         lines.push(
           previewLine(
             'short desc',
@@ -281,7 +278,7 @@ export const renderDraftPreview = (
             ANDROID_LIMITS.shortDescription,
           ),
         );
-      if (android.fullDescription !== undefined)
+      if (android.fullDescription != null)
         lines.push(
           previewLine(
             'full desc',

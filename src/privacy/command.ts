@@ -26,7 +26,7 @@ type PrivacyCommandFailure = Readonly<{
 }>;
 
 /** Directories excluded from bounded privacy manifest discovery. */
-const SKIPPED_DIRECTORIES = new Set(['node_modules', 'Pods', 'build', 'DerivedData', 'dist']);
+const skippedDirectories = new Set(['node_modules', 'Pods', 'build', 'DerivedData', 'dist']);
 
 function commandFailure(operation: string, cause: unknown): PrivacyCommandFailure {
   let message = `${operation} failed.`;
@@ -91,7 +91,7 @@ async function findFiles(
     const matchingPaths: string[] = [];
 
     for (const directoryEntry of directoryEntries) {
-      const isSkippedDirectory = SKIPPED_DIRECTORIES.has(directoryEntry);
+      const isSkippedDirectory = skippedDirectories.has(directoryEntry);
 
       if (isSkippedDirectory) {
         continue;

@@ -423,7 +423,7 @@ export class Command {
       hasDefault = true;
     }
 
-    if (isReducer == false && arguments.length >= 3 && defaultOrReducer !== undefined) {
+    if (isReducer == false && arguments.length >= 3 && defaultOrReducer != null) {
       storedDefault = defaultOrReducer;
       hasDefault = true;
     }

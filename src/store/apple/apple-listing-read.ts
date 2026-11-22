@@ -80,7 +80,7 @@ function fieldString(
 ): string | undefined {
   const listingField = fields[key];
 
-  if (typeof listingField === 'string') {
+  if (typeof listingField == 'string') {
     return listingField;
   }
 
@@ -95,15 +95,15 @@ function fieldString(
 export const toLocaleInfo = (fields: Readonly<{ [key: string]: JsonValue }>): AppleLocaleInfo => {
   const localeInfo: AppleLocaleInfo = {};
   const title = fieldString(fields, 'name');
-  if (title !== undefined) localeInfo.title = title;
+  if (title != null) localeInfo.title = title;
   const subtitle = fieldString(fields, 'subtitle');
-  if (subtitle !== undefined) localeInfo.subtitle = subtitle;
+  if (subtitle != null) localeInfo.subtitle = subtitle;
   const privacyPolicyUrl = fieldString(fields, 'privacyPolicyUrl');
-  if (privacyPolicyUrl !== undefined) localeInfo.privacyPolicyUrl = privacyPolicyUrl;
+  if (privacyPolicyUrl != null) localeInfo.privacyPolicyUrl = privacyPolicyUrl;
   const description = fieldString(fields, 'description');
-  if (description !== undefined) localeInfo.description = description;
+  if (description != null) localeInfo.description = description;
   const keywords = fieldString(fields, 'keywords');
-  if (keywords !== undefined) {
+  if (keywords != null) {
     const list = keywords
       .split(',')
       .map((keyword) => keyword.trim())
@@ -111,13 +111,13 @@ export const toLocaleInfo = (fields: Readonly<{ [key: string]: JsonValue }>): Ap
     if (list.length > 0) localeInfo.keywords = list;
   }
   const releaseNotes = fieldString(fields, 'whatsNew');
-  if (releaseNotes !== undefined) localeInfo.releaseNotes = releaseNotes;
+  if (releaseNotes != null) localeInfo.releaseNotes = releaseNotes;
   const promotionalText = fieldString(fields, 'promotionalText');
-  if (promotionalText !== undefined) localeInfo.promotionalText = promotionalText;
+  if (promotionalText != null) localeInfo.promotionalText = promotionalText;
   const supportUrl = fieldString(fields, 'supportUrl');
-  if (supportUrl !== undefined) localeInfo.supportUrl = supportUrl;
+  if (supportUrl != null) localeInfo.supportUrl = supportUrl;
   const marketingUrl = fieldString(fields, 'marketingUrl');
-  if (marketingUrl !== undefined) localeInfo.marketingUrl = marketingUrl;
+  if (marketingUrl != null) localeInfo.marketingUrl = marketingUrl;
   return localeInfo;
 };
 

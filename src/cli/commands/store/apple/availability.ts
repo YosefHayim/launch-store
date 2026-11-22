@@ -18,7 +18,7 @@ const toAvailabilityInput = (commandOptions: AvailabilityOptions): AvailabilityC
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     availabilityInput = { ...availabilityInput, app: commandOptions.app };
   }
   return availabilityInput;

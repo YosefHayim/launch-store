@@ -16,7 +16,7 @@ export const accessibilityPlanner: SurfacePlanner = {
       direction: 'additive',
       configFor: () => {
         let configPath = planContext.config.configFiles?.accessibility;
-        if (configPath === undefined) configPath = 'accessibility.config.json';
+        if (configPath == null) configPath = 'accessibility.config.json';
         return resolveSidecarConfig({
           typed: undefined,
           configPath,

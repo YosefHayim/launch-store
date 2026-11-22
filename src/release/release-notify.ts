@@ -23,9 +23,9 @@ export const createTransitionTracker = (): TransitionTracker => {
  * though their `verdict.done` is true. Pure.
  */
 export const reviewStatusForVerdict = (verdict: ReleaseVerdict): 'approved' | 'rejected' | null => {
-  if (verdict.state === 'rejected') return 'rejected';
-  if (verdict.state === 'released') return 'approved';
-  if (verdict.state === 'pending-release') return 'approved';
+  if (verdict.state == 'rejected') return 'rejected';
+  if (verdict.state == 'released') return 'approved';
+  if (verdict.state == 'pending-release') return 'approved';
   return null;
 };
 /**
@@ -44,8 +44,8 @@ export const planTransitionNotifications = (
 ): NotifyEvent[] => {
   const events: NotifyEvent[] = [];
   let version = status.versionString;
-  if (version === null) version = '';
-  if (version === undefined) version = '';
+  if (version == null) version = '';
+  if (version == null) version = '';
   // Key transition memory by app *and* version so a new release of the same app during one watch
   // session is a fresh review/rollout, not blocked by the prior version's already-notified state.
   const key = `${appName}@${version}`;
@@ -64,7 +64,7 @@ export const planTransitionNotifications = (
     }
   }
   const phased = status.phasedReleaseState;
-  if (phased && tracker.lastPhasedState.get(key) !== phased) {
+  if (phased && tracker.lastPhasedState.get(key) != phased) {
     const isFirstObservation = !tracker.lastPhasedState.has(key);
     tracker.lastPhasedState.set(key, phased);
     if (!isFirstObservation) {

@@ -26,7 +26,7 @@ export const registerStatsCommand = (program: Command): void => {
             owner: options.owner,
             app: options.app,
             days: options.days,
-            json: options.json === true,
+            json: options.json == true,
           }),
         );
       },
@@ -44,7 +44,7 @@ export const registerStatsCommand = (program: Command): void => {
         statsSyncProgram({
           app: flags.app,
           days: flags.days,
-          isJson: flags.json === true,
+          isJson: flags.json == true,
         }),
       );
     });

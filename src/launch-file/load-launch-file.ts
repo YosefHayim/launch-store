@@ -5,8 +5,6 @@ import { importTypeScriptModule } from '../config/import-typescript-module.ts';
 import { CheckLaunchFile } from './check-launch-file.ts';
 import { pathExists } from '../path-exists.ts';
 
-const LAUNCH_FILE_NAMES = ['launch.config.ts', 'launch.config.mjs', 'launch.config.js'];
-
 export class LoadLaunchFile {
   constructor(private readonly checker = new CheckLaunchFile()) {}
 
@@ -49,7 +47,7 @@ export class LoadLaunchFile {
   }
 
   private async findInDirectory(directory: string): Promise<string | null> {
-    for (const fileName of LAUNCH_FILE_NAMES) {
+    for (const fileName of ['launch.config.ts', 'launch.config.mjs', 'launch.config.js']) {
       const candidate = join(directory, fileName);
       const exists = await pathExists(candidate);
 

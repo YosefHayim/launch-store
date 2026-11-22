@@ -21,7 +21,7 @@ const ZERO_VERSION: SemVer = { major: 0, minor: 0, patch: 0 };
 export const parseVersion = (input: string): SemVer | null => {
   const versionParts = input.trim().replace(/^v/i, '').split(/[-+]/);
   let core = versionParts[0];
-  if (core === undefined) core = '';
+  if (core == null) core = '';
   if (!/^\d+(\.\d+){0,2}$/.test(core)) return null;
   const [major = 0, minor = 0, patch = 0] = core
     .split('.')
@@ -49,7 +49,7 @@ export const bumpVersion = (version: SemVer, bump: VersionBump): SemVer => {
  */
 export const nextVersion = (current: string, bump: VersionBump): string => {
   let parsed = parseVersion(current);
-  if (parsed === null) parsed = ZERO_VERSION;
+  if (parsed == null) parsed = ZERO_VERSION;
   return formatVersion(bumpVersion(parsed, bump));
 };
 /**
@@ -58,9 +58,9 @@ export const nextVersion = (current: string, bump: VersionBump): string => {
  */
 export const compareVersions = (a: string, b: string): number => {
   let left = parseVersion(a);
-  if (left === null) left = ZERO_VERSION;
+  if (left == null) left = ZERO_VERSION;
   let right = parseVersion(b);
-  if (right === null) right = ZERO_VERSION;
+  if (right == null) right = ZERO_VERSION;
   for (const key of ['major', 'minor', 'patch'] as const) {
     if (left[key] < right[key]) return -1;
     if (left[key] > right[key]) return 1;
@@ -73,8 +73,8 @@ export const compareVersions = (a: string, b: string): number => {
  * store's own (lexical) sort, which would order `1.10.0` below `1.9.0`.
  */
 export const highestVersion = (versions: readonly string[]): string | null => {
-  const parseable = versions.filter((version) => parseVersion(version) !== null);
-  if (parseable.length === 0) return null;
+  const parseable = versions.filter((version) => parseVersion(version) != null);
+  if (parseable.length == 0) return null;
   return parseable.reduce((highest, version) => {
     if (compareVersions(version, highest) > 0) return version;
     return highest;

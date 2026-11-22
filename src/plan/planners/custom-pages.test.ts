@@ -8,7 +8,7 @@ import { makeAscApiFake } from '../../testkit/asc-api-fake.testkit.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
-const ALPHA: AppDescriptor = {
+const alpha: AppDescriptor = {
   name: 'alpha',
   dir: '/no/such/dir/alpha',
   configPath: '/no/such/dir/alpha/app.json',
@@ -37,7 +37,7 @@ const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext =>
   };
   return {
     config,
-    apps: [ALPHA],
+    apps: [alpha],
     resolveAscApi: () => Promise.resolve(api),
     resolvePlayApi: () => Promise.resolve(null),
   };
@@ -54,7 +54,7 @@ describe('customPagesPlanner', () => {
   it('skips with a creds hint when no Apple account is active', async () => {
     const plan = await runPlanner(customPagesPlanner, makeCtx(null, writeConfig(DECLARED)));
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports the page a fresh config would create (two-way)', async () => {
@@ -63,8 +63,8 @@ describe('customPagesPlanner', () => {
       makeCtx(makeAscApiFake(), writeConfig(DECLARED)),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.direction).toBe('two-way');
     expect(plan.apps[0]?.actions.some((a) => a.description.includes('custom product page'))).toBe(
       true,
@@ -76,16 +76,16 @@ describe('customPagesPlanner', () => {
     });
     const plan = await runPlanner(customPagesPlanner, makeCtx(api, writeConfig(DECLARED)));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });
   it('captures a missing app record as a per-app error, not a thrown plan', async () => {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(customPagesPlanner, makeCtx(api, writeConfig(DECLARED)));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
   });
   it('is strictly read-only: never invokes a write endpoint', async () => {

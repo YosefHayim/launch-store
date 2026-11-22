@@ -5,15 +5,15 @@ import { registerMigrateCommand } from './migrate.ts';
 const subcommand = (name: string) => {
   const program = new Command();
   registerMigrateCommand(program);
-  const migrate = program.commands.find((command) => command.name() === 'migrate');
+  const migrate = program.commands.find((command) => command.name() == 'migrate');
   expect(migrate).toBeDefined();
-  return migrate?.commands.find((command) => command.name() === name);
+  return migrate?.commands.find((command) => command.name() == name);
 };
 describe('registerMigrateCommand', () => {
   it('attaches a `migrate` group with `eas` and `fastlane` subcommands', () => {
     const program = new Command();
     registerMigrateCommand(program);
-    const migrate = program.commands.find((command) => command.name() === 'migrate');
+    const migrate = program.commands.find((command) => command.name() == 'migrate');
     expect(migrate?.commands.map((command) => command.name())).toEqual(['eas', 'fastlane']);
   });
   it.each(['eas', 'fastlane'])('%s takes --force, --dry-run, and --out', (name) => {

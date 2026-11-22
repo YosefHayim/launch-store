@@ -21,8 +21,6 @@ import {
 
 const DOWNLOAD_CONCURRENCY = 4;
 const EARNINGS_PREFIX = 'earnings/earnings_';
-// The six digits after earnings/earnings_ are the report month.
-const EARNINGS_MONTH_PATTERN = /^earnings\/earnings_(\d{6})/;
 
 interface MonthlyCsvReport {
   readonly folder: string;
@@ -30,29 +28,6 @@ interface MonthlyCsvReport {
   readonly isCoverageArbiter: boolean;
   readonly readStats: (table: PlayCsvTable, range: DateRange) => DailyStat[];
 }
-
-// The installs overview is the one daily report every app gets, so it decides how far the CSVs are published.
-const MONTHLY_CSV_REPORTS: readonly MonthlyCsvReport[] = [
-  {
-    folder: 'installs',
-    dimension: 'overview',
-    isCoverageArbiter: true,
-    readStats: readInstallStats,
-  },
-  {
-    folder: 'ratings',
-    dimension: 'overview',
-    isCoverageArbiter: false,
-    readStats: readRatingStats,
-  },
-  { folder: 'crashes', dimension: 'overview', isCoverageArbiter: false, readStats: readCrashStats },
-  {
-    folder: 'store_performance',
-    dimension: 'country',
-    isCoverageArbiter: false,
-    readStats: readStorePerformanceStats,
-  },
-];
 
 interface BucketReportsRequest {
   readonly bucket: string;
@@ -120,7 +95,32 @@ async function readMonthlyCsvReports(request: BucketReportsRequest): Promise<Buc
   const reportFiles = listReportMonths(range).flatMap(function monthFiles(
     reportMonth: string,
   ): ReportFile[] {
-    return MONTHLY_CSV_REPORTS.map(function monthReport(report: MonthlyCsvReport): ReportFile {
+    return [
+      {
+        folder: 'installs',
+        dimension: 'overview',
+        isCoverageArbiter: true,
+        readStats: readInstallStats,
+      },
+      {
+        folder: 'ratings',
+        dimension: 'overview',
+        isCoverageArbiter: false,
+        readStats: readRatingStats,
+      },
+      {
+        folder: 'crashes',
+        dimension: 'overview',
+        isCoverageArbiter: false,
+        readStats: readCrashStats,
+      },
+      {
+        folder: 'store_performance',
+        dimension: 'country',
+        isCoverageArbiter: false,
+        readStats: readStorePerformanceStats,
+      },
+    ].map(function monthReport(report: MonthlyCsvReport): ReportFile {
       return { report, reportMonth };
     });
   });
@@ -189,7 +189,7 @@ async function readMonthlyCsvReports(request: BucketReportsRequest): Promise<Buc
 /** The newest month any earnings object covers: the report is published through its last day. */
 function findEarningsPublishedThrough(objectNames: readonly string[]): string | null {
   const reportMonths = objectNames.flatMap(function readReportMonth(objectName: string): string[] {
-    const reportMonth = EARNINGS_MONTH_PATTERN.exec(objectName)?.[1];
+    const reportMonth = /^earnings\/earnings_(\d{6})/.exec(objectName)?.[1];
 
     if (reportMonth == null) {
       return [];

@@ -25,11 +25,11 @@ export class ConnectTestflight {
     }>(`/apps/${appId}/betaGroups?limit=200&fields[betaGroups]=name,isInternalGroup,publicLink`);
     return appleResources.flatMap((group) => {
       const groupName = group.attributes.name;
-      if (groupName === undefined) return [];
+      if (groupName == null) return [];
       const betaGroup: BetaGroupResource = { id: group.id, name: groupName };
-      if (group.attributes.isInternalGroup !== undefined)
+      if (group.attributes.isInternalGroup != null)
         Object.assign(betaGroup, { isInternal: group.attributes.isInternalGroup });
-      if (group.attributes.publicLink !== null && group.attributes.publicLink !== undefined)
+      if (group.attributes.publicLink != null && group.attributes.publicLink != null)
         Object.assign(betaGroup, { publicLink: group.attributes.publicLink });
       return [betaGroup];
     });
@@ -38,9 +38,9 @@ export class ConnectTestflight {
   async findBetaGroupByName(appId: string, name: string): Promise<BetaGroupResource | null> {
     const wanted = name.toLowerCase();
     const matchingGroup = (await this.listBetaGroups(appId)).find(
-      (group) => group.name.toLowerCase() === wanted,
+      (group) => group.name.toLowerCase() == wanted,
     );
-    if (matchingGroup === undefined) return null;
+    if (matchingGroup == null) return null;
     return matchingGroup;
   }
 
@@ -53,7 +53,7 @@ export class ConnectTestflight {
       relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     let createdGroupName = appleResources.attributes.name;
-    if (createdGroupName === undefined) createdGroupName = name;
+    if (createdGroupName == null) createdGroupName = name;
     return { id: appleResources.id, name: createdGroupName };
   }
 
@@ -68,10 +68,10 @@ export class ConnectTestflight {
     const appleResources = await this.betaTestersFrom(
       `/betaTesters?filter[email]=${encodeURIComponent(email)}&limit=1&fields[betaTesters]=email,firstName,lastName,state`,
     );
-    const matchingTester = appleResources.find((tester) => tester.email.toLowerCase() === wanted);
-    if (matchingTester !== undefined) return matchingTester;
+    const matchingTester = appleResources.find((tester) => tester.email.toLowerCase() == wanted);
+    if (matchingTester != null) return matchingTester;
     const firstTester = appleResources[0];
-    if (firstTester === undefined) return null;
+    if (firstTester == null) return null;
     return firstTester;
   }
 
@@ -84,9 +84,8 @@ export class ConnectTestflight {
     },
   ): Promise<BetaTesterResource> {
     const testerAttributes = { email: input.email };
-    if (input.firstName !== undefined)
-      Object.assign(testerAttributes, { firstName: input.firstName });
-    if (input.lastName !== undefined) Object.assign(testerAttributes, { lastName: input.lastName });
+    if (input.firstName != null) Object.assign(testerAttributes, { firstName: input.firstName });
+    if (input.lastName != null) Object.assign(testerAttributes, { lastName: input.lastName });
     const appleResources = await this.client.createResource<{
       email?: string | null;
       firstName?: string | null;
@@ -98,13 +97,13 @@ export class ConnectTestflight {
       relationships: { betaGroups: { data: [{ type: 'betaGroups', id: groupId }] } },
     });
     let testerEmail = appleResources.attributes.email;
-    if (typeof testerEmail !== 'string') testerEmail = input.email;
+    if (typeof testerEmail != 'string') testerEmail = input.email;
     const betaTester: BetaTesterResource = { id: appleResources.id, email: testerEmail };
-    if (typeof appleResources.attributes.firstName === 'string')
+    if (typeof appleResources.attributes.firstName == 'string')
       Object.assign(betaTester, { firstName: appleResources.attributes.firstName });
-    if (typeof appleResources.attributes.lastName === 'string')
+    if (typeof appleResources.attributes.lastName == 'string')
       Object.assign(betaTester, { lastName: appleResources.attributes.lastName });
-    if (appleResources.attributes.state !== undefined)
+    if (appleResources.attributes.state != null)
       Object.assign(betaTester, { state: appleResources.attributes.state });
     return betaTester;
   }
@@ -134,14 +133,14 @@ export class ConnectTestflight {
     }>(path);
     return appleResources.flatMap((tester) => {
       let testerEmail = tester.attributes.email;
-      if (testerEmail === undefined) return [];
-      if (testerEmail === null) testerEmail = '';
+      if (testerEmail == null) return [];
+      if (testerEmail == null) testerEmail = '';
       const betaTester: BetaTesterResource = { id: tester.id, email: testerEmail };
-      if (typeof tester.attributes.firstName === 'string')
+      if (typeof tester.attributes.firstName == 'string')
         Object.assign(betaTester, { firstName: tester.attributes.firstName });
-      if (typeof tester.attributes.lastName === 'string')
+      if (typeof tester.attributes.lastName == 'string')
         Object.assign(betaTester, { lastName: tester.attributes.lastName });
-      if (tester.attributes.state !== undefined)
+      if (tester.attributes.state != null)
         Object.assign(betaTester, { state: tester.attributes.state });
       return [betaTester];
     });
@@ -187,27 +186,27 @@ export class ConnectTestflight {
       const page: BetaFeedbackPage = await this.client.request<BetaFeedbackPage>('GET', next);
       const buildVersionById = new Map<string, string>();
       let includedResources = page.included;
-      if (includedResources === undefined) includedResources = [];
+      if (includedResources == null) includedResources = [];
       for (const includedResource of includedResources) {
-        if (includedResource.type === 'builds' && includedResource.attributes?.version)
+        if (includedResource.type == 'builds' && includedResource.attributes?.version)
           buildVersionById.set(includedResource.id, includedResource.attributes.version);
       }
       for (const { id, attributes, relationships } of page.data) {
         const buildId = relationships?.build?.data?.id;
         let buildVersion: string | undefined;
-        if (buildId !== undefined) buildVersion = buildVersionById.get(buildId);
+        if (buildId != null) buildVersion = buildVersionById.get(buildId);
         const submission: BetaFeedbackSubmissionResource = { id };
-        if (attributes?.createdDate !== undefined)
+        if (attributes?.createdDate != null)
           Object.assign(submission, { createdDate: attributes.createdDate });
-        if (typeof attributes?.comment === 'string')
+        if (typeof attributes?.comment == 'string')
           Object.assign(submission, { comment: attributes.comment });
-        if (typeof attributes?.email === 'string')
+        if (typeof attributes?.email == 'string')
           Object.assign(submission, { email: attributes.email });
-        if (typeof attributes?.deviceModel === 'string')
+        if (typeof attributes?.deviceModel == 'string')
           Object.assign(submission, { deviceModel: attributes.deviceModel });
-        if (typeof attributes?.osVersion === 'string')
+        if (typeof attributes?.osVersion == 'string')
           Object.assign(submission, { osVersion: attributes.osVersion });
-        if (buildVersion !== undefined) Object.assign(submission, { buildVersion });
+        if (buildVersion != null) Object.assign(submission, { buildVersion });
         let screenshots: BetaFeedbackRow['screenshots'] = [];
         if (withScreenshots) screenshots = toFeedbackScreenshots(attributes?.screenshots);
         submissions.push({ base: submission, screenshots });
@@ -242,9 +241,9 @@ export class ConnectTestflight {
     );
     return appleResources.flatMap((localization) => {
       const locale = localization.attributes.locale;
-      if (locale === undefined) return [];
+      if (locale == null) return [];
       const betaLocalization: BetaBuildLocalizationResource = { id: localization.id, locale };
-      if (typeof localization.attributes.whatsNew === 'string')
+      if (typeof localization.attributes.whatsNew == 'string')
         Object.assign(betaLocalization, { whatsNew: localization.attributes.whatsNew });
       return [betaLocalization];
     });
@@ -282,9 +281,9 @@ export class ConnectTestflight {
           };
         } | null;
       }>('GET', `/builds/${buildId}/betaAppReviewSubmission`);
-      if (appleResources === null) return null;
+      if (appleResources == null) return null;
       const reviewSubmission: BetaAppReviewSubmissionResource = { id: appleResources.id };
-      if (appleResources.attributes?.betaReviewState !== undefined)
+      if (appleResources.attributes?.betaReviewState != null)
         Object.assign(reviewSubmission, { state: appleResources.attributes.betaReviewState });
       return reviewSubmission;
     });

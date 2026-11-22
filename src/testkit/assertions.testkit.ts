@@ -1,8 +1,8 @@
 export const expectDefined = <T>(candidate: T | null | undefined, label = 'candidate'): T => {
-  if (candidate === null) {
+  if (candidate == null) {
     throw new Error(`expected ${label} to be defined`);
   }
-  if (candidate === undefined) {
+  if (candidate == null) {
     throw new Error(`expected ${label} to be defined`);
   }
   return candidate;

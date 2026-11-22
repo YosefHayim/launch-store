@@ -168,13 +168,6 @@ export async function missingKeys(
   return Object.keys(exampleEnvironment).filter(isExampleKeyMissing);
 }
 
-/** Names containing one of these are always treated as secret (case-insensitive). */
-const OBVIOUSLY_SECRET = /(SECRET|PRIVATE|PASSWORD|PASSWD|TOKEN)/i;
-/** A trailing `_KEY` is secret-ish unless qualified as publishable. */
-const KEYISH = /_KEY$/i;
-/** Qualifiers that mark a `_KEY` as safe to ship (publishable/anon keys). */
-const PUBLISHABLE = /(PUBLISHABLE|PUBLIC|CLIENT|WEB|ANON)/i;
-
 /**
  * Whether a single variable NAME looks like a backend secret: it contains SECRET/PRIVATE/PASSWORD/
  * TOKEN, or ends in `_KEY` without a publishable/public/client/web/anon qualifier. The one heuristic
@@ -182,19 +175,19 @@ const PUBLISHABLE = /(PUBLISHABLE|PUBLIC|CLIENT|WEB|ANON)/i;
  * so both agree on what counts as a secret.
  */
 export function isSecretLookingName(name: string): boolean {
-  const isObviouslySecret = OBVIOUSLY_SECRET.test(name);
+  const isObviouslySecret = /(SECRET|PRIVATE|PASSWORD|PASSWD|TOKEN)/i.test(name);
 
   if (isObviouslySecret) {
     return true;
   }
 
-  const endsWithKey = KEYISH.test(name);
+  const endsWithKey = /_KEY$/i.test(name);
 
   if (endsWithKey == false) {
     return false;
   }
 
-  const isPublishable = PUBLISHABLE.test(name);
+  const isPublishable = /(PUBLISHABLE|PUBLIC|CLIENT|WEB|ANON)/i.test(name);
 
   if (isPublishable) {
     return false;

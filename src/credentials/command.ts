@@ -65,7 +65,7 @@ const CREDENTIAL_ACTIONS = [
 
 type CredentialsAction = (typeof CREDENTIAL_ACTIONS)[number];
 
-const OPTION_TEXT_FIELDS = [
+const optionTextFields = [
   'platform',
   'keyId',
   'issuerId',
@@ -233,7 +233,7 @@ function readAction(candidate: unknown): CredentialsAction {
 function readCommandOptions(record: Record<string, unknown>): CredentialsCommandOptions {
   const options: CredentialsCommandOptions = {};
 
-  for (const fieldName of OPTION_TEXT_FIELDS) {
+  for (const fieldName of optionTextFields) {
     const fieldText = readOptionalString(record, fieldName);
 
     if (fieldText != null) {
@@ -1207,8 +1207,6 @@ async function renameAppleAccount(
   createLogger(false).ok(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`);
 }
 
-const VENDOR_NUMBER_PATTERN = /^[0-9]+$/;
-
 async function setAppleVendorNumber(commandOptions: CredentialsCommandOptions): Promise<void> {
   const usage = 'Usage: launch creds set-vendor-number --account <label> --vendor-number <n>.';
   const selector = commandOptions.account;
@@ -1224,7 +1222,7 @@ async function setAppleVendorNumber(commandOptions: CredentialsCommandOptions): 
 
   const trimmedVendorNumber = vendorNumber.trim();
   // A vendor number is digits only.
-  const isVendorNumberDigits = VENDOR_NUMBER_PATTERN.test(trimmedVendorNumber);
+  const isVendorNumberDigits = /^[0-9]+$/.test(trimmedVendorNumber);
 
   if (isVendorNumberDigits == false) {
     failCommand('set vendor number', 'The vendor number is digits only.');

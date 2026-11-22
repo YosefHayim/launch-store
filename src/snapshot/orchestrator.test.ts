@@ -33,10 +33,11 @@ function source(
   return { id, title: id, store, capture };
 }
 
-const META = { name: 'before-sync', capturedAt: '2026-06-16T00:00:00.000Z' };
-
 function runCapture(sources: readonly SnapshotSource[]) {
-  return captureSnapshot(makeCtx(), sources, META);
+  return captureSnapshot(makeCtx(), sources, {
+    name: 'before-sync',
+    capturedAt: '2026-06-16T00:00:00.000Z',
+  });
 }
 
 function captured(count: number): SourceCapture {
@@ -94,7 +95,7 @@ describe('captureSnapshot', () => {
       source('ok', 'appstore', () => Promise.resolve(captured(1))),
       source('boom', 'play', () => Promise.reject(new Error('network down'))),
     ]);
-    const errored = captureResult.snapshot.reports.find((report) => report.id === 'boom');
+    const errored = captureResult.snapshot.reports.find((report) => report.id == 'boom');
     expect(errored?.outcome).toEqual({ state: 'errored', error: 'network down' });
     expect(captureResult.errorCount).toBe(1);
     expect(captureResult.exitCode).toBe(SNAPSHOT_EXIT.error);

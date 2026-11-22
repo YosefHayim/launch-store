@@ -9,9 +9,9 @@ import { registerAgentsCommand, registeredCommandTree } from './agents.ts';
 const agentsCommand = () => {
   const program = new Command();
   registerAgentsCommand(program);
-  const agents = program.commands.find((command) => command.name() === 'agents');
+  const agents = program.commands.find((command) => command.name() == 'agents');
   expect(agents).toBeDefined();
-  if (agents === undefined) {
+  if (agents == null) {
     throw new Error('expected agents command to be registered');
   }
   return agents;
@@ -22,14 +22,14 @@ describe('registerAgentsCommand', () => {
     const agents = agentsCommand();
     const subcommandNames = agents.commands.map((command) => command.name());
     expect(subcommandNames).toEqual(expect.arrayContaining(['init', 'check']));
-    const initCommand = agents.commands.find((command) => command.name() === 'init');
-    const checkCommand = agents.commands.find((command) => command.name() === 'check');
+    const initCommand = agents.commands.find((command) => command.name() == 'init');
+    const checkCommand = agents.commands.find((command) => command.name() == 'check');
     expect(initCommand).toBeDefined();
     expect(checkCommand).toBeDefined();
-    if (initCommand === undefined) {
+    if (initCommand == null) {
       throw new Error('expected init subcommand');
     }
-    if (checkCommand === undefined) {
+    if (checkCommand == null) {
       throw new Error('expected check subcommand');
     }
     expect(initCommand.options.map((option) => option.long)).toEqual(

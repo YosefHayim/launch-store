@@ -33,14 +33,14 @@ describe('walletPlanner', () => {
   it('skips with a creds hint when no Apple account is active', async () => {
     const plan = await runPlanner(walletPlanner, makeCtx(null, DECLARED));
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports a team-scoped additive plan for a fresh merchant id', async () => {
     const plan = await runPlanner(walletPlanner, makeCtx(makeAscApiFake(), DECLARED));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'team') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'team') return;
     expect(plan.direction).toBe('additive');
     expect(plan.actions.some((a) => a.description.includes('merchant id'))).toBe(true);
   });
@@ -52,8 +52,8 @@ describe('walletPlanner', () => {
     });
     const plan = await runPlanner(walletPlanner, makeCtx(api, DECLARED));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'team') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'team') return;
     expect(plan.actions).toHaveLength(0);
   });
   it('is strictly read-only: never invokes a write endpoint', async () => {

@@ -21,7 +21,7 @@ const fakeResponse = (
   headers: Record<string, string> = {},
 ): Response => {
   let responseBody: string | null = responseText;
-  if (status === 204) responseBody = null;
+  if (status == 204) responseBody = null;
   return new Response(responseBody, { status, headers });
 };
 const fakeBinaryResponse = (status: number, bytes: string, errorResponseText = ''): Response => {
@@ -40,20 +40,20 @@ const requestHeaders = (requestInit: RequestInit): Headers => new Headers(reques
 const documentValueAt = (document: unknown, path: readonly (number | string)[]): unknown => {
   let currentValue = document;
   for (const pathPart of path) {
-    if (typeof pathPart === 'number') {
+    if (typeof pathPart == 'number') {
       if (!Array.isArray(currentValue)) throw new Error('expected a JSON array');
       currentValue = currentValue[pathPart];
       continue;
     }
-    if (typeof currentValue !== 'object') throw new Error('expected a JSON object');
-    if (currentValue === null) throw new Error('expected a JSON object');
+    if (typeof currentValue != 'object') throw new Error('expected a JSON object');
+    if (currentValue == null) throw new Error('expected a JSON object');
     currentValue = Reflect.get(currentValue, pathPart);
   }
   return currentValue;
 };
 const numberClaim = (claims: Record<string, unknown>, claimName: string): number => {
   const claim = claims[claimName];
-  if (typeof claim !== 'number') throw new Error(`expected numeric JWT claim ${claimName}`);
+  if (typeof claim != 'number') throw new Error(`expected numeric JWT claim ${claimName}`);
   return claim;
 };
 function decodeJwt(token: string): {
@@ -396,7 +396,7 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
         inFlightUploads -= 1;
         return fakeResponse(200, '');
       }
-      if (requestInit.method === 'POST') {
+      if (requestInit.method == 'POST') {
         const reservation = { data: { id: 'shot-1', attributes: { uploadOperations } } };
         return fakeResponse(201, JSON.stringify(reservation));
       }
@@ -420,10 +420,10 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
     fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
       if (url.startsWith('https://upload.example/')) {
         partAttempts += 1;
-        if (partAttempts === 1) return Promise.reject(new TypeError('fetch failed'));
+        if (partAttempts == 1) return Promise.reject(new TypeError('fetch failed'));
         return Promise.resolve(fakeResponse(200, ''));
       }
-      if (requestInit.method === 'POST') {
+      if (requestInit.method == 'POST') {
         const reservation = { data: { id: 'shot-1', attributes: { uploadOperations } } };
         return Promise.resolve(fakeResponse(201, JSON.stringify(reservation)));
       }
@@ -441,13 +441,13 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
     ];
     let slowPartFinished = false;
     fetchMock.mockImplementation(async (url: string, requestInit: RequestInit) => {
-      if (url === 'https://upload.example/part-0') return fakeResponse(400, '');
-      if (url === 'https://upload.example/part-1') {
+      if (url == 'https://upload.example/part-0') return fakeResponse(400, '');
+      if (url == 'https://upload.example/part-1') {
         await new Promise((resumeUpload) => setTimeout(resumeUpload, 10));
         slowPartFinished = true;
         return fakeResponse(200, '');
       }
-      if (requestInit.method === 'POST') {
+      if (requestInit.method == 'POST') {
         const reservation = { data: { id: 'shot-1', attributes: { uploadOperations } } };
         return fakeResponse(201, JSON.stringify(reservation));
       }
@@ -485,7 +485,7 @@ describe('AppStoreConnectClient - build uploads', () => {
     ];
     fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
       if (url.startsWith('https://upload.example/')) return Promise.resolve(fakeResponse(200, ''));
-      if (requestInit.method === 'POST') {
+      if (requestInit.method == 'POST') {
         const reservation = { data: { id: 'file-1', attributes: { uploadOperations } } };
         return Promise.resolve(fakeResponse(201, JSON.stringify(reservation)));
       }
@@ -510,7 +510,7 @@ describe('AppStoreConnectClient - build uploads', () => {
     ];
     fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
       if (url.startsWith('https://upload.example/')) return Promise.resolve(fakeResponse(200, ''));
-      if (requestInit.method === 'POST') {
+      if (requestInit.method == 'POST') {
         const reservation = { data: { id: 'file-1', attributes: { uploadOperations } } };
         return Promise.resolve(fakeResponse(201, JSON.stringify(reservation)));
       }
@@ -531,10 +531,10 @@ describe('AppStoreConnectClient - build uploads', () => {
       documentValueAt(readRequestDocument(reserveInit), ['data', 'relationships', 'buildUpload']),
     ).toEqual({ data: { type: 'buildUploads', id: 'upload-1' } });
     const partCalls = fetchMock.mock.calls.slice(1, 3);
-    const firstPartCall = partCalls.find(([url]) => url === 'https://upload.example/part-0');
+    const firstPartCall = partCalls.find(([url]) => url == 'https://upload.example/part-0');
     const [, firstPartInit] = expectDefined(firstPartCall, 'part 0');
     expect(firstPartInit.body).toEqual(ipaBytes.subarray(0, 5));
-    const secondPartCall = partCalls.find(([url]) => url === 'https://upload.example/part-1');
+    const secondPartCall = partCalls.find(([url]) => url == 'https://upload.example/part-1');
     const [, secondPartInit] = expectDefined(secondPartCall, 'part 1');
     expect(secondPartInit.body).toEqual(ipaBytes.subarray(5, 12));
     const [commitUrl, commitInit] = expectArrayElement(fetchMock.mock.calls, 3, 'commit call');
@@ -2417,7 +2417,7 @@ describe('AppStoreConnectClient - app availability', () => {
   });
   it('PATCHes only changed territory rows when the singleton already exists', async () => {
     fetchMock.mockImplementation((_url: string | URL, init?: RequestInit) => {
-      if (init?.method === 'GET') {
+      if (init?.method == 'GET') {
         return Promise.resolve(
           fakeResponse(
             200,
@@ -2540,7 +2540,7 @@ describe('AppStoreConnectClient - app availability', () => {
   });
   it('never POSTs a second singleton when updating an existing availability', async () => {
     fetchMock.mockImplementation((_url: string | URL, init?: RequestInit) => {
-      if (init?.method === 'GET') {
+      if (init?.method == 'GET') {
         return Promise.resolve(
           fakeResponse(
             200,
@@ -2557,20 +2557,20 @@ describe('AppStoreConnectClient - app availability', () => {
           ),
         );
       }
-      if (init?.method === 'PATCH') return Promise.resolve(fakeResponse(204, ''));
+      if (init?.method == 'PATCH') return Promise.resolve(fakeResponse(204, ''));
       return Promise.resolve(
         fakeResponse(500, JSON.stringify({ errors: [{ title: 'unexpected' }] })),
       );
     });
     await client.updateAppAvailabilityTerritories('availability-1', []);
     const methods = fetchMock.mock.calls.map(([, requestInit]) => {
-      if (requestInit?.method === undefined) return 'GET';
+      if (requestInit?.method == null) return 'GET';
       return requestInit.method;
     });
     expect(methods).not.toContain('POST');
     expect(methods).toContain('PATCH');
     const createSingletonCalls = fetchMock.mock.calls.filter(([requestUrl, requestInit]) => {
-      if (requestInit?.method !== 'POST') return false;
+      if (requestInit?.method != 'POST') return false;
       return String(requestUrl).includes('/v2/appAvailabilities');
     });
     expect(createSingletonCalls).toHaveLength(0);

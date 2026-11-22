@@ -7,11 +7,11 @@ const snapshotSubcommand = (commandName: string) => {
   const program = new Command();
   registerSnapshotCommand(program);
   const snapshotCommand = program.commands.find(
-    (registeredCommand) => registeredCommand.name() === 'snapshot',
+    (registeredCommand) => registeredCommand.name() == 'snapshot',
   );
   expect(snapshotCommand).toBeDefined();
   return snapshotCommand?.commands.find(
-    (registeredCommand) => registeredCommand.name() === commandName,
+    (registeredCommand) => registeredCommand.name() == commandName,
   );
 };
 
@@ -20,7 +20,7 @@ describe('registerSnapshotCommand', () => {
     const program = new Command();
     registerSnapshotCommand(program);
     const snapshotCommand = program.commands.find(
-      (registeredCommand) => registeredCommand.name() === 'snapshot',
+      (registeredCommand) => registeredCommand.name() == 'snapshot',
     );
     const operationNames = snapshotCommand?.commands
       .map((registeredCommand) => registeredCommand.name())

@@ -5,7 +5,7 @@ describe('registerDoctorCommand', () => {
   it('attaches a `doctor` command with platform, app, fix, yes, and json options', () => {
     const program = new Command();
     registerDoctorCommand(program);
-    const doctor = program.commands.find((command) => command.name() === 'doctor');
+    const doctor = program.commands.find((command) => command.name() == 'doctor');
     expect(doctor).toBeDefined();
     const options = doctor?.options.map((option) => option.long);
     expect(options).toContain('--platform');

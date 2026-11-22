@@ -11,11 +11,11 @@ const toOpenCommandInput = (
   commandOptions: OpenCommandOptions,
 ): OpenCommandInput => {
   let commandInput: OpenCommandInput = {};
-  if (target !== undefined) commandInput = { ...commandInput, target };
-  if (commandOptions.platform !== undefined) {
+  if (target != null) commandInput = { ...commandInput, target };
+  if (commandOptions.platform != null) {
     commandInput = { ...commandInput, platform: commandOptions.platform };
   }
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
   return commandInput;

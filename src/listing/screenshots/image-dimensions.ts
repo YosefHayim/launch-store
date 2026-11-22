@@ -5,43 +5,43 @@ type ImageDimensions = {
   readonly height: number;
 };
 
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const readPngDimensions = (imageBytes: Buffer): ImageDimensions | null => {
   if (imageBytes.length < 24) return null;
-  if (!imageBytes.subarray(0, 8).equals(PNG_SIGNATURE)) return null;
-  if (imageBytes.toString('ascii', 12, 16) !== 'IHDR') return null;
+  if (!imageBytes.subarray(0, 8).equals(pngSignature)) return null;
+  if (imageBytes.toString('ascii', 12, 16) != 'IHDR') return null;
   return { width: imageBytes.readUInt32BE(16), height: imageBytes.readUInt32BE(20) };
 };
 
 const isStartOfFrame = (marker: number): boolean => {
   if (marker < 0xc0) return false;
   if (marker > 0xcf) return false;
-  if (marker === 0xc4) return false;
-  if (marker === 0xc8) return false;
-  return marker !== 0xcc;
+  if (marker == 0xc4) return false;
+  if (marker == 0xc8) return false;
+  return marker != 0xcc;
 };
 
 const readJpegDimensions = (imageBytes: Buffer): ImageDimensions | null => {
   if (imageBytes.length < 4) return null;
-  if (imageBytes[0] !== 0xff) return null;
-  if (imageBytes[1] !== 0xd8) return null;
+  if (imageBytes[0] != 0xff) return null;
+  if (imageBytes[1] != 0xd8) return null;
 
   let byteOffset = 2;
   while (byteOffset + 1 < imageBytes.length) {
-    if (imageBytes[byteOffset] !== 0xff) return null;
+    if (imageBytes[byteOffset] != 0xff) return null;
 
     const marker = imageBytes[byteOffset + 1];
-    if (marker === undefined) return null;
-    if (marker === 0xd8) {
+    if (marker == null) return null;
+    if (marker == 0xd8) {
       byteOffset += 2;
       continue;
     }
-    if (marker === 0xd9) {
+    if (marker == 0xd9) {
       byteOffset += 2;
       continue;
     }
-    if (marker === 0x01) {
+    if (marker == 0x01) {
       byteOffset += 2;
       continue;
     }
@@ -67,7 +67,7 @@ const readJpegDimensions = (imageBytes: Buffer): ImageDimensions | null => {
 export const readImageDimensions = (imageBytes: Uint8Array): ImageDimensions | null => {
   const imageBuffer = Buffer.from(imageBytes);
   const pngDimensions = readPngDimensions(imageBuffer);
-  if (pngDimensions !== null) return pngDimensions;
+  if (pngDimensions != null) return pngDimensions;
   return readJpegDimensions(imageBuffer);
 };
 

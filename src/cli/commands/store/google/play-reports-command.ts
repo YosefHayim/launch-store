@@ -33,11 +33,6 @@ function makePlayReportsCommandFailure(fields: {
   return { _tag: 'PlayReportsCommandFailure', ...fields };
 }
 
-const METRIC_LABEL: Record<PlayVitalsMetric, string> = {
-  crash: 'Crash rate',
-  anr: 'ANR rate',
-};
-
 function isRecord(candidate: unknown): candidate is Record<string, unknown> {
   if (candidate == null) {
     return false;
@@ -132,16 +127,13 @@ export function parseVitalsMetrics(metricFlag: string | undefined): PlayVitalsMe
   });
 }
 
-// Whole digits only, so "7.5" and "-3" are rejected before the range check.
-const WHOLE_NUMBER_PATTERN = /^\d+$/;
-
 export function parseVitalsDays(daysFlag: string | undefined): number {
   if (daysFlag == null) {
     return DEFAULT_VITALS_DAYS;
   }
 
   const trimmedDays = daysFlag.trim();
-  const isWholeNumber = WHOLE_NUMBER_PATTERN.test(trimmedDays);
+  const isWholeNumber = /^\d+$/.test(trimmedDays);
 
   if (isWholeNumber == false) {
     throw makePlayReportsCommandFailure({
@@ -188,7 +180,12 @@ function renderVitalsEntry(vitalsEntry: VitalsTimeline['rows'][number]): string 
 }
 
 function renderVitalsTimeline(timeline: VitalsTimeline): string {
-  const header = `\n${METRIC_LABEL[timeline.metric]}  (${timeline.window.startDate} -> ${timeline.window.endDate}, DAILY)`;
+  const header = `\n${
+    {
+      crash: 'Crash rate',
+      anr: 'ANR rate',
+    }[timeline.metric]
+  }  (${timeline.window.startDate} -> ${timeline.window.endDate}, DAILY)`;
   const hasNoRows = timeline.rows.length == 0;
 
   if (hasNoRows) {

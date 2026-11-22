@@ -21,8 +21,6 @@ const BASE_OPTIONS: BuildCommandOptions = {
   ccache: true,
 };
 const GREATER_THAN_ZERO_ERROR = /greater than 0/;
-const INVALID_SIZE_BUDGET_ERROR = /Invalid --size-budget "big"/;
-const UNKNOWN_TRACK_ERROR = /Unknown --track "beta"/;
 describe('parseSizeBudget - the per-run size-budget CLI boundary', () => {
   it('returns undefined when the flag is omitted (-> profile, then default)', () => {
     expect(parseSizeBudget(undefined)).toBeUndefined();
@@ -64,7 +62,7 @@ describe('parseSizeBudget - the per-run size-budget CLI boundary', () => {
     }
 
     expect(sizeBudgetFailure).toMatchObject({
-      message: expect.stringMatching(INVALID_SIZE_BUDGET_ERROR),
+      message: expect.stringMatching(/Invalid --size-budget "big"/),
     });
   });
 });
@@ -106,7 +104,7 @@ describe('parseBuildCommandInput - raw Commander values to pipeline input', () =
     }
 
     expect(trackFailure).toMatchObject({
-      message: expect.stringMatching(UNKNOWN_TRACK_ERROR),
+      message: expect.stringMatching(/Unknown --track "beta"/),
     });
   });
   it('decodes --no-ccache into the BuildRunOptions contract', () => {
@@ -118,7 +116,7 @@ describe('registerBuildCommand - the size-budget flag and its alias', () => {
   function buildCommand() {
     const program = new Command();
     registerBuildCommand(program);
-    return program.commands.find((command) => command.name() === 'build');
+    return program.commands.find((command) => command.name() == 'build');
   }
   it('exposes --size-budget and its --budget alias', () => {
     const storeBuild82 = buildCommand();
@@ -135,7 +133,7 @@ describe('registerBuildCommand - the size-budget flag and its alias', () => {
   });
   it('exposes --json, off by default', () => {
     const storeBuildJson = buildCommand();
-    const jsonOption = storeBuildJson?.options.find((option) => option.long === '--json');
+    const jsonOption = storeBuildJson?.options.find((option) => option.long == '--json');
     expect(jsonOption).toBeDefined();
     expect(jsonOption?.defaultValue).toBe(false);
   });

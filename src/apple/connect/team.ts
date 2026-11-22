@@ -17,13 +17,13 @@ export class ConnectTeam {
     }>('/users?limit=200&fields[users]=username,firstName,lastName,roles');
     return appleResources.map((user) => {
       let username = user.attributes.username;
-      if (username === undefined) username = '';
+      if (username == null) username = '';
       let roles = user.attributes.roles;
-      if (roles === undefined) roles = [];
+      if (roles == null) roles = [];
       const teamUser: UserResource = { id: user.id, username, roles };
-      if (user.attributes.firstName !== undefined)
+      if (user.attributes.firstName != null)
         Object.assign(teamUser, { firstName: user.attributes.firstName });
-      if (user.attributes.lastName !== undefined)
+      if (user.attributes.lastName != null)
         Object.assign(teamUser, { lastName: user.attributes.lastName });
       return teamUser;
     });
@@ -41,15 +41,15 @@ export class ConnectTeam {
     );
     return appleResources.map((invitation) => {
       let email = invitation.attributes.email;
-      if (email === undefined) email = '';
+      if (email == null) email = '';
       let roles = invitation.attributes.roles;
-      if (roles === undefined) roles = [];
+      if (roles == null) roles = [];
       const pendingInvitation: UserInvitationResource = { id: invitation.id, email, roles };
-      if (invitation.attributes.firstName !== undefined)
+      if (invitation.attributes.firstName != null)
         Object.assign(pendingInvitation, { firstName: invitation.attributes.firstName });
-      if (invitation.attributes.lastName !== undefined)
+      if (invitation.attributes.lastName != null)
         Object.assign(pendingInvitation, { lastName: invitation.attributes.lastName });
-      if (invitation.attributes.expirationDate !== undefined)
+      if (invitation.attributes.expirationDate != null)
         Object.assign(pendingInvitation, { expirationDate: invitation.attributes.expirationDate });
       return pendingInvitation;
     });
@@ -74,15 +74,15 @@ export class ConnectTeam {
       },
     });
     let email = appleResources.attributes.email;
-    if (email === undefined) email = invite.email;
+    if (email == null) email = invite.email;
     let roles = appleResources.attributes.roles;
-    if (roles === undefined) roles = [...invite.roles];
+    if (roles == null) roles = [...invite.roles];
     const pendingInvitation: UserInvitationResource = { id: appleResources.id, email, roles };
-    if (appleResources.attributes.firstName !== undefined)
+    if (appleResources.attributes.firstName != null)
       Object.assign(pendingInvitation, { firstName: appleResources.attributes.firstName });
-    if (appleResources.attributes.lastName !== undefined)
+    if (appleResources.attributes.lastName != null)
       Object.assign(pendingInvitation, { lastName: appleResources.attributes.lastName });
-    if (appleResources.attributes.expirationDate !== undefined)
+    if (appleResources.attributes.expirationDate != null)
       Object.assign(pendingInvitation, {
         expirationDate: appleResources.attributes.expirationDate,
       });

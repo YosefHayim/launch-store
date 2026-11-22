@@ -38,7 +38,7 @@ import type {
 } from './pipeline-types.ts';
 
 const BYTES_PER_KILOBYTE = 1024;
-const BYTES_PER_MEGABYTE = BYTES_PER_KILOBYTE * BYTES_PER_KILOBYTE;
+const bytesPerMegabyte = BYTES_PER_KILOBYTE * BYTES_PER_KILOBYTE;
 
 /** Prefer the app's marketing version; fall back so logs and indexes never store blanks. */
 function artifactMarketingVersion(app: AppDescriptor): string {
@@ -201,11 +201,10 @@ export async function storeArtifact(
   }
 }
 
-const CCACHE_NOTICE =
-  "ccache isn't installed - this build runs uncached. `launch doctor --fix` (or brew install ccache) speeds up repeat builds.";
-
 function warnNoCcache(log: Logger): void {
-  log.warn(CCACHE_NOTICE);
+  log.warn(
+    "ccache isn't installed - this build runs uncached. `launch doctor --fix` (or brew install ccache) speeds up repeat builds.",
+  );
 }
 
 /**
@@ -540,7 +539,7 @@ export function sizeSummary(
 }
 
 /** A build whose worst-case download grows beyond this fraction over the previous one earns a warning. */
-const GROWTH_WARN_RATIO = 0.1;
+const growthWarnRatio = 0.1;
 
 type UploadSizeGrowth = {
   readonly pct: number;
@@ -596,7 +595,7 @@ export function uploadSizeReadout(
 
     downloadLine += ` (${deltaSign}${mb(Math.abs(deltaBytes))} since build ${previous.buildNumber})`;
 
-    const grewPastRatio = growthRatio > GROWTH_WARN_RATIO;
+    const grewPastRatio = growthRatio > growthWarnRatio;
 
     if (grewPastRatio) {
       grew = { pct: Math.round(growthRatio * 100), buildNumber: previous.buildNumber };
@@ -705,7 +704,7 @@ export async function confirmUpload(uploadOptions: ConfirmUploadOptions): Promis
   const previous = uploadOptions.previous;
   const yes = uploadOptions.yes;
   const log = uploadOptions.log;
-  const overBudget = worstDownloadBytes(report) > budgetMB * BYTES_PER_MEGABYTE;
+  const overBudget = worstDownloadBytes(report) > budgetMB * bytesPerMegabyte;
   const readout = uploadSizeReadout(report, previous);
 
   log.notice(

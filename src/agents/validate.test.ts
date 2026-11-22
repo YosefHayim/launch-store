@@ -37,7 +37,7 @@ const skill = (partial: {
   steps: ConsumerSkill['steps'];
   reference?: ConsumerSkill['reference'];
 }): ConsumerSkill => {
-  if (partial.reference === undefined) {
+  if (partial.reference == null) {
     return {
       id: partial.id,
       title: partial.id,

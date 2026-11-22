@@ -28,13 +28,13 @@ const toPlayReviewsListInput = (commandOptions: PlayReviewsListOptions): PlayRev
     unanswered: commandOptions.unanswered,
     json: commandOptions.json,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
-  if (commandOptions.rating !== undefined) {
+  if (commandOptions.rating != null) {
     commandInput = { ...commandInput, rating: commandOptions.rating };
   }
-  if (commandOptions.lang !== undefined) {
+  if (commandOptions.lang != null) {
     commandInput = { ...commandInput, lang: commandOptions.lang };
   }
   return commandInput;
@@ -50,13 +50,13 @@ const toPlayReviewsReplyInput = (
     reviewId,
     yes: commandOptions.yes,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
-  if (commandOptions.message !== undefined) {
+  if (commandOptions.message != null) {
     commandInput = { ...commandInput, message: commandOptions.message };
   }
-  if (commandOptions.file !== undefined) {
+  if (commandOptions.file != null) {
     commandInput = { ...commandInput, file: commandOptions.file };
   }
   return commandInput;

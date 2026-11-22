@@ -37,7 +37,7 @@ vi.mock('./feed-registry.ts', () => {
   return { STATS_FEED_PLUGINS: [iosFeed] };
 });
 
-const PORTFOLIO_FILE: PortfolioFile = {
+const portfolioFile: PortfolioFile = {
   version: 1,
   discoveredAt: '2026-10-01T00:00:00.000Z',
   apps: [
@@ -99,7 +99,7 @@ describe('statsSyncProgram', () => {
       homeDirectory,
       workingDirectory: join(homeDirectory, 'work'),
     });
-    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(PORTFOLIO_FILE));
+    writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(portfolioFile));
     makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
   });

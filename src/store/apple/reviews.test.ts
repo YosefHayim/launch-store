@@ -66,15 +66,15 @@ const makeReviewsStore = (fixtures: {
 }): AscReviewsApi => ({
   getAppId: vi.fn((bundleId: string) => {
     const appId = fixtures.appIds?.[bundleId];
-    if (appId === undefined) return Promise.resolve(null);
+    if (appId == null) return Promise.resolve(null);
     return Promise.resolve(appId);
   }),
   listCustomerReviews: vi.fn(() => {
-    if (fixtures.customerReviews === undefined) return Promise.resolve([]);
+    if (fixtures.customerReviews == null) return Promise.resolve([]);
     return Promise.resolve(fixtures.customerReviews);
   }),
   getCustomerReviewResponse: vi.fn(() => {
-    if (fixtures.existingReply === undefined) return Promise.resolve(null);
+    if (fixtures.existingReply == null) return Promise.resolve(null);
     return Promise.resolve(fixtures.existingReply);
   }),
   createCustomerReviewResponse: vi.fn((reviewId: string, responseText: string) =>

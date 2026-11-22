@@ -59,7 +59,7 @@ export class ConnectScreenshots {
     );
     return appleResources.map((screenshotSet) => {
       let screenshotDisplayType = screenshotSet.attributes.screenshotDisplayType;
-      if (screenshotDisplayType === undefined) screenshotDisplayType = '';
+      if (screenshotDisplayType == null) screenshotDisplayType = '';
       return { id: screenshotSet.id, screenshotDisplayType };
     });
   }
@@ -78,7 +78,7 @@ export class ConnectScreenshots {
       relationships: { [ownerRelationship]: { data: { type: ownerType, id: ownerId } } },
     });
     let screenshotDisplayType = appleResources.attributes.screenshotDisplayType;
-    if (screenshotDisplayType === undefined) screenshotDisplayType = displayType;
+    if (screenshotDisplayType == null) screenshotDisplayType = displayType;
     return { id: appleResources.id, screenshotDisplayType };
   }
 
@@ -94,13 +94,13 @@ export class ConnectScreenshots {
     );
     return appleResources.map((screenshot) => {
       let fileName = screenshot.attributes.fileName;
-      if (fileName === undefined) fileName = '';
+      if (fileName == null) fileName = '';
       const screenshotResource: ScreenshotResource = { id: screenshot.id, fileName };
-      if (screenshot.attributes.sourceFileChecksum !== undefined)
+      if (screenshot.attributes.sourceFileChecksum != null)
         Object.assign(screenshotResource, {
           sourceFileChecksum: screenshot.attributes.sourceFileChecksum,
         });
-      if (screenshot.attributes.assetDeliveryState?.state !== undefined)
+      if (screenshot.attributes.assetDeliveryState?.state != null)
         Object.assign(screenshotResource, {
           assetDeliveryState: screenshot.attributes.assetDeliveryState.state,
         });
@@ -156,11 +156,11 @@ export class ConnectScreenshots {
     );
     if (!appleResources) return null;
     const reviewScreenshot: ReviewScreenshotResource = { id: appleResources.id };
-    if (appleResources.attributes.sourceFileChecksum !== undefined)
+    if (appleResources.attributes.sourceFileChecksum != null)
       Object.assign(reviewScreenshot, {
         sourceFileChecksum: appleResources.attributes.sourceFileChecksum,
       });
-    if (appleResources.attributes.assetDeliveryState?.state !== undefined)
+    if (appleResources.attributes.assetDeliveryState?.state != null)
       Object.assign(reviewScreenshot, {
         assetDeliveryState: appleResources.attributes.assetDeliveryState.state,
       });
@@ -191,7 +191,7 @@ export class ConnectScreenshots {
     );
     return appleResources.map((previewSet) => {
       let previewType = previewSet.attributes.previewType;
-      if (previewType === undefined) previewType = '';
+      if (previewType == null) previewType = '';
       return { id: previewSet.id, previewType };
     });
   }
@@ -212,7 +212,7 @@ export class ConnectScreenshots {
       },
     });
     let createdPreviewType = appleResources.attributes.previewType;
-    if (createdPreviewType === undefined) createdPreviewType = previewType;
+    if (createdPreviewType == null) createdPreviewType = previewType;
     return { id: appleResources.id, previewType: createdPreviewType };
   }
 
@@ -228,13 +228,13 @@ export class ConnectScreenshots {
     );
     return appleResources.map((preview) => {
       let fileName = preview.attributes.fileName;
-      if (fileName === undefined) fileName = '';
+      if (fileName == null) fileName = '';
       const previewResource: PreviewResource = { id: preview.id, fileName };
-      if (preview.attributes.sourceFileChecksum !== undefined)
+      if (preview.attributes.sourceFileChecksum != null)
         Object.assign(previewResource, {
           sourceFileChecksum: preview.attributes.sourceFileChecksum,
         });
-      if (preview.attributes.assetDeliveryState?.state !== undefined)
+      if (preview.attributes.assetDeliveryState?.state != null)
         Object.assign(previewResource, {
           assetDeliveryState: preview.attributes.assetDeliveryState.state,
         });

@@ -24,13 +24,6 @@ const IOS_APP: PortfolioApp = {
   owner: 'mine',
   ga4PropertyId: null,
 };
-const ANDROID_APP: PortfolioApp = {
-  ...IOS_APP,
-  key: 'android-com.example.calfriend',
-  platform: 'android',
-  bundleId: null,
-  packageName: 'com.example.calfriend',
-};
 
 interface SequenceReply {
   readonly status: number;
@@ -305,7 +298,7 @@ function readSentQuery(sentRequest: SentRequest | undefined) {
 }
 
 const readSkippedReason = (reply: FeedFetchReply): string => {
-  if (reply.status !== 'skipped') throw new Error('expected a skipped reply');
+  if (reply.status != 'skipped') throw new Error('expected a skipped reply');
   return reply.reason;
 };
 
@@ -339,7 +332,7 @@ describe('ga4Feed', () => {
       credentials: makeCredentials(),
     });
 
-    const reportRequest = sentRequests.find((sent) => sent.url === RUN_REPORT_URL);
+    const reportRequest = sentRequests.find((sent) => sent.url == RUN_REPORT_URL);
     const reportQuery = readSentQuery(reportRequest);
     expect(reply).toEqual({
       status: 'fetched',
@@ -361,7 +354,13 @@ describe('ga4Feed', () => {
 
   test('finds the property by Android package name', async () => {
     const { reply, sentRequests } = await runFeed({
-      app: ANDROID_APP,
+      app: {
+        ...IOS_APP,
+        key: 'android-com.example.calfriend',
+        platform: 'android',
+        bundleId: null,
+        packageName: 'com.example.calfriend',
+      },
       routes: [
         readTwoPropertySummaries(),
         streamsRoute('111', [IOS_STREAM]),
@@ -406,9 +405,9 @@ describe('ga4Feed', () => {
       credentials: makeCredentials(),
     });
 
-    const reportRequest = sentRequests.find((sent) => sent.url === RUN_REPORT_URL);
+    const reportRequest = sentRequests.find((sent) => sent.url == RUN_REPORT_URL);
     expect(reply.status).toBe('fetched');
-    expect(sentRequests.some((sent) => sent.url === ACCOUNT_SUMMARIES_URL)).toBe(false);
+    expect(sentRequests.some((sent) => sent.url == ACCOUNT_SUMMARIES_URL)).toBe(false);
     expect(readSentQuery(reportRequest).dimensionFilter).toBeDefined();
   });
 
@@ -422,8 +421,8 @@ describe('ga4Feed', () => {
       credentials: makeCredentials(),
     });
 
-    const reportRequest = sentRequests.find((sent) => sent.url === RUN_REPORT_URL);
-    expect(reply.status === 'fetched' && reply.notes).toEqual([
+    const reportRequest = sentRequests.find((sent) => sent.url == RUN_REPORT_URL);
+    expect(reply.status == 'fetched' && reply.notes).toEqual([
       'GA4 property 111 has no stream for this app, so the numbers cover the whole property',
     ]);
     expect(readSentQuery(reportRequest).dimensionFilter).toBeUndefined();
@@ -494,10 +493,10 @@ describe('ga4Feed', () => {
     });
 
     const reportQueries = sentRequests
-      .filter((sent) => sent.url === RUN_REPORT_URL)
+      .filter((sent) => sent.url == RUN_REPORT_URL)
       .map((sent) => JSON.parse(String(sent.sentDocument)));
     expect(reportQueries.map((reportQuery) => reportQuery.offset)).toEqual(['0', '1']);
-    expect(reply.status === 'fetched' && reply.stats).toHaveLength(6);
+    expect(reply.status == 'fetched' && reply.stats).toHaveLength(6);
   });
 
   test('skips with the Viewer hint when the report is permission denied', async () => {

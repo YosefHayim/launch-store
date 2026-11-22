@@ -2,8 +2,6 @@ import type { Command } from '../../command.ts';
 import { snapshotCommandProgram } from '../../../snapshot/snapshot-command.ts';
 import { runCliProgram } from '../../run-cli-program.ts';
 
-const LIVE_SNAPSHOT = 'live';
-
 type CaptureOptions = Readonly<{ app?: string; json?: boolean }>;
 type PruneOptions = Readonly<{
   keep?: string;
@@ -29,7 +27,7 @@ export const registerSnapshotCommand = (program: Command): void => {
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
     .action((name: string | undefined, commandOptions: CaptureOptions) => {
-      if (name === undefined)
+      if (name == null)
         return runCliProgram(snapshotCommandProgram({ operation: 'create', ...commandOptions }));
       return runCliProgram(
         snapshotCommandProgram({ operation: 'create', name, ...commandOptions }),
@@ -51,7 +49,7 @@ export const registerSnapshotCommand = (program: Command): void => {
     .option('--json', 'machine-readable output for CI/agents', false)
     .action((baseline: string, against: string | undefined, commandOptions: CaptureOptions) => {
       let comparisonName = against;
-      if (comparisonName === undefined) comparisonName = LIVE_SNAPSHOT;
+      if (comparisonName == null) comparisonName = 'live';
       return runCliProgram(
         snapshotCommandProgram({
           operation: 'diff',

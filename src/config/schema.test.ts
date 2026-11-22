@@ -147,7 +147,7 @@ describe('validateLaunchConfig', () => {
 
   it('flags a missing profiles field at its own path', () => {
     const violations = validateLaunchConfig({});
-    expect(violations.some((violation) => violation.path === 'profiles')).toBe(true);
+    expect(violations.some((violation) => violation.path == 'profiles')).toBe(true);
   });
 
   it('flags malformed nested fields at dotted paths', () => {
@@ -156,9 +156,9 @@ describe('validateLaunchConfig', () => {
       release: { releaseType: 'WHENEVER' },
     });
     expect(
-      violations.some((violation) => violation.path === 'profiles.production.sizeBudgetMB'),
+      violations.some((violation) => violation.path == 'profiles.production.sizeBudgetMB'),
     ).toBe(true);
-    expect(violations.some((violation) => violation.path === 'release.releaseType')).toBe(true);
+    expect(violations.some((violation) => violation.path == 'release.releaseType')).toBe(true);
   });
 
   it('rejects unknown per-platform submit keys without requiring every platform', () => {
@@ -167,7 +167,7 @@ describe('validateLaunchConfig', () => {
       submit: { windows: ['store'] },
     });
     expect(violations).toContainEqual({ path: 'submit.windows', message: 'unknown property' });
-    expect(violations.some((violation) => violation.path === 'submit.ios')).toBe(false);
+    expect(violations.some((violation) => violation.path == 'submit.ios')).toBe(false);
   });
 
   it('accepts a single-platform submit map and an empty submit map', () => {

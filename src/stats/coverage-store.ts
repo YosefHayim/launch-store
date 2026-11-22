@@ -6,7 +6,7 @@ import {
 import { locateAppStatsDirectory } from '../services/platform/paths.ts';
 import type { AppCoverage, FeedCoverage, StatsFeed } from '../types/stats.ts';
 
-const COVERAGE_FEEDS: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
+const coverageFeeds: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
 
 function isRecord(candidate: unknown): candidate is Record<string, unknown> {
   if (candidate == null) {
@@ -82,7 +82,7 @@ function decodeAppCoverage(documentText: string): AppCoverage {
 
   const feeds: AppCoverage['feeds'] = {};
 
-  for (const feed of COVERAGE_FEEDS) {
+  for (const feed of coverageFeeds) {
     const hasFeed = feed in feedsDocument;
 
     if (hasFeed == false) {

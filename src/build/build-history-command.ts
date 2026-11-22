@@ -236,7 +236,7 @@ export function buildKindLabel(flags: Readonly<{ clean: boolean; prunedAt?: stri
   return 'incremental';
 }
 
-const BUILD_COLUMNS: readonly Column<BuildRow>[] = [
+const buildColumns: readonly Column<BuildRow>[] = [
   {
     header: 'BUILD',
     cell: function buildNumberCell(buildRow: BuildRow) {
@@ -281,7 +281,7 @@ const BUILD_COLUMNS: readonly Column<BuildRow>[] = [
   },
 ];
 
-const PRUNE_COLUMNS: readonly Column<PrunedArtifact>[] = [
+const pruneColumns: readonly Column<PrunedArtifact>[] = [
   {
     header: 'BUILD',
     cell: function buildNumberCell(prunedArtifact: PrunedArtifact) {
@@ -315,11 +315,11 @@ const PRUNE_COLUMNS: readonly Column<PrunedArtifact>[] = [
 ];
 
 export function formatBuildsTable(buildRows: readonly BuildRow[]): string {
-  return alignTableColumns(BUILD_COLUMNS, buildRows);
+  return alignTableColumns(buildColumns, buildRows);
 }
 
 export function formatPrunePreview(prunedArtifacts: readonly PrunedArtifact[]): string {
-  return alignTableColumns(PRUNE_COLUMNS, prunedArtifacts);
+  return alignTableColumns(pruneColumns, prunedArtifacts);
 }
 
 export function formatBuildDetail(artifact: BuildArtifact): string {

@@ -10,9 +10,9 @@ import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import type { AwsConfig, HostHandle } from '../types/remote.ts';
 import { clearLiveHost, getAmiId, getLiveHost } from './cloud-state.ts';
 
-const CLOUD_OPERATIONS = ['setup', 'status', 'teardown', 'doctor'] as const;
+const cloudOperations = ['setup', 'status', 'teardown', 'doctor'] as const;
 
-type CloudOperation = (typeof CLOUD_OPERATIONS)[number];
+type CloudOperation = (typeof cloudOperations)[number];
 
 type CloudCommandInput = Readonly<{
   operation: CloudOperation;

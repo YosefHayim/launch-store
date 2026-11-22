@@ -157,7 +157,7 @@ describe('planPrune', () => {
 
   it('sorts by capturedAt before applying keep, regardless of input order', () => {
     const shuffled = [snaps[1], snaps[2], snaps[0]].filter(
-      (saved): saved is Snapshot => saved !== undefined,
+      (saved): saved is Snapshot => saved != null,
     );
     expect(planPrune(shuffled, { keep: 1 }, now).map((saved) => saved.name)).toEqual([
       'd10',

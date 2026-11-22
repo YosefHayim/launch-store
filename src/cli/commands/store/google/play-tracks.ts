@@ -37,7 +37,7 @@ const toTrackStatusInput = (commandOptions: StatusOptions): PlayTracksStatusInpu
     operation: 'status',
     json: commandOptions.json,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
   return commandInput;
@@ -50,22 +50,22 @@ const toTrackPromoteInput = (commandOptions: PromoteOptions): PlayTracksPromoteI
     track: commandOptions.track,
     yes: commandOptions.yes,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
-  if (commandOptions.versionCode !== undefined) {
+  if (commandOptions.versionCode != null) {
     commandInput = { ...commandInput, versionCode: commandOptions.versionCode };
   }
-  if (commandOptions.status !== undefined) {
+  if (commandOptions.status != null) {
     commandInput = { ...commandInput, status: commandOptions.status };
   }
-  if (commandOptions.rollout !== undefined) {
+  if (commandOptions.rollout != null) {
     commandInput = { ...commandInput, rollout: commandOptions.rollout };
   }
-  if (commandOptions.notes !== undefined) {
+  if (commandOptions.notes != null) {
     commandInput = { ...commandInput, notes: commandOptions.notes };
   }
-  if (commandOptions.name !== undefined) {
+  if (commandOptions.name != null) {
     commandInput = { ...commandInput, name: commandOptions.name };
   }
   return commandInput;
@@ -78,10 +78,10 @@ const toTrackTestersInput = (commandOptions: TestersOptions): PlayTracksTestersI
     track: commandOptions.track,
     yes: commandOptions.yes,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
-  if (commandOptions.groups !== undefined) {
+  if (commandOptions.groups != null) {
     commandInput = { ...commandInput, groups: commandOptions.groups };
   }
   return commandInput;

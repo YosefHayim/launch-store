@@ -13,8 +13,6 @@ type LastRunState = {
   apps: Record<string, AppMemory>;
 };
 
-const BUMP_KINDS: readonly BumpKind[] = ['major', 'minor', 'patch', 'keep'];
-
 function emptyLastRunState(): LastRunState {
   return { apps: {} };
 }
@@ -42,7 +40,7 @@ function readBump(candidate: unknown): BumpKind | null | undefined {
     return null;
   }
 
-  const isBump = BUMP_KINDS.includes(bump as BumpKind);
+  const isBump = ['major', 'minor', 'patch', 'keep'].includes(bump as BumpKind);
 
   if (isBump) {
     return bump as BumpKind;
@@ -85,7 +83,7 @@ function decodeLastRun(memoryText: string): LastRunState | null {
 
     const bump = readBump(appMemory);
 
-    if (bump === null) {
+    if (bump == null) {
       return null;
     }
 

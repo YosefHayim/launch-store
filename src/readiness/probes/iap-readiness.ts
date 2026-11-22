@@ -2,7 +2,7 @@ import type { AppProducts } from '../../types/catalog.ts';
 import type { ReadinessContext } from '../../types/readiness.ts';
 const declaredIapIds = (readinessContext: ReadinessContext, bundleId: string): string[] => {
   let inAppPurchases = readinessContext.config.products?.[bundleId]?.inAppPurchases;
-  if (inAppPurchases === undefined) inAppPurchases = [];
+  if (inAppPurchases == null) inAppPurchases = [];
   return inAppPurchases.map((inAppPurchase) => inAppPurchase.productId);
 };
 export const declaredSubscriptionIds = (
@@ -10,7 +10,7 @@ export const declaredSubscriptionIds = (
   bundleId: string,
 ): string[] => {
   let groups = readinessContext.config.products?.[bundleId]?.subscriptionGroups;
-  if (groups === undefined) groups = [];
+  if (groups == null) groups = [];
   return groups.flatMap((group) => group.subscriptions.map((sub) => sub.productId));
 };
 export const sellsProducts = (readinessContext: ReadinessContext, bundleId: string): boolean => {
@@ -20,23 +20,15 @@ export const sellsProducts = (readinessContext: ReadinessContext, bundleId: stri
 export const declaredAppleProductIds = (products: AppProducts | undefined): string[] => {
   if (!products) return [];
   let inAppPurchases = products.inAppPurchases;
-  if (inAppPurchases === undefined) inAppPurchases = [];
+  if (inAppPurchases == null) inAppPurchases = [];
   const purchases = inAppPurchases.map((purchase) => purchase.productId);
   let subscriptionGroups = products.subscriptionGroups;
-  if (subscriptionGroups === undefined) subscriptionGroups = [];
+  if (subscriptionGroups == null) subscriptionGroups = [];
   const subscriptions = subscriptionGroups.flatMap((group) =>
     group.subscriptions.map((subscription) => subscription.productId),
   );
   return [...purchases, ...subscriptions];
 };
-/**
- * The lifecycle state Apple reports for a product still missing required metadata (a name, a price, or a
- * localization). It's the canonical "you started this product but never finished it" signal and the one
- * thing that silently keeps a product out of a submission, so it's the blocking state we grade on. Other
- * states (`READY_TO_SUBMIT`, `WAITING_FOR_REVIEW`, `APPROVED`, ...) mean the product is at least submittable
- * and pass through informationally.
- */
-const MISSING_METADATA = 'MISSING_METADATA';
 /** A `checked` finding's status + copy, without the per-app fields the probe stamps on. */
 type ProductGrade = {
   status: 'ok' | 'blocker';
@@ -59,7 +51,7 @@ export const gradeDeclaredProduct = (
       hint: `run \`launch sync\` to create the ${kind}`,
     };
   }
-  if (live.state === MISSING_METADATA) {
+  if (live.state == 'MISSING_METADATA') {
     return {
       status: 'blocker',
       detail: `${productId}: missing metadata (name, price, or localization)`,
@@ -67,6 +59,6 @@ export const gradeDeclaredProduct = (
     };
   }
   let productState = live.state;
-  if (productState === undefined) productState = 'present';
+  if (productState == null) productState = 'present';
   return { status: 'ok', detail: `${productId}: ${productState}` };
 };

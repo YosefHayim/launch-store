@@ -160,7 +160,7 @@ describe('reconcileCustomProductPages', () => {
     });
     expect(calls.createdPages).toHaveLength(0);
     expect(calls.createdLocs).toHaveLength(0);
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
     expect(report.actions).toHaveLength(2); // create page + set promo text
   });
   it("skips a page's promotional text when the page create failed", async () => {
@@ -173,7 +173,7 @@ describe('reconcileCustomProductPages', () => {
     });
     const summary = summarizeCustomPages(report.actions);
     expect(summary).toEqual({ applied: 0, failed: 1, skipped: 1 });
-    expect(report.actions.find((action) => action.status === 'failed')?.error).toBe(
+    expect(report.actions.find((action) => action.status == 'failed')?.error).toBe(
       'page name taken',
     );
   });

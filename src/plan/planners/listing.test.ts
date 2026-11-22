@@ -83,7 +83,7 @@ const makeCtx = (api: AscCatalogApi | null, appDir: string): PlanContext => {
     // Widen the catalog-only fake to the full surface API the context now exposes; the listing methods
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
     resolveAscApi: () => {
-      if (api === null) return Promise.resolve(null);
+      if (api == null) return Promise.resolve(null);
       return Promise.resolve(makeAscApiFake(api));
     },
     resolvePlayApi: () => Promise.resolve(null),
@@ -100,7 +100,7 @@ describe('listingPlanner', () => {
       makeCtx(null, appDirWithListing({ title: 'Acme' })),
     );
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.reason).toMatch(/Apple account/);
     expect(plan.hint).toMatch(/creds/);
   });
@@ -108,8 +108,8 @@ describe('listingPlanner', () => {
     const dir = appDirWithListing({ title: 'Acme', description: 'The best acme app.' });
     const plan = await runPlanner(listingPlanner, makeCtx(makeApi(), dir));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
     expect(
@@ -130,8 +130,8 @@ describe('listingPlanner', () => {
       makeCtx(api, appDirWithListing({ title: 'Acme' })),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });

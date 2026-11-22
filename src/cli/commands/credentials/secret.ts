@@ -25,7 +25,7 @@ export const registerSecretCommand = (program: Command): void => {
     )
     .option('--yes', 'non-interactive: fail instead of prompting (CI, remote, agents)')
     .action((action: string, name: string | undefined, commandOptions: SecretOptions) => {
-      if (action === 'set') {
+      if (action == 'set') {
         return runCliProgram(
           secretCommandProgram({
             action,
@@ -33,7 +33,7 @@ export const registerSecretCommand = (program: Command): void => {
             value: commandOptions.value,
             app: commandOptions.app,
             profile: commandOptions.profile,
-            yes: commandOptions.yes === true,
+            yes: commandOptions.yes == true,
           }),
         );
       }

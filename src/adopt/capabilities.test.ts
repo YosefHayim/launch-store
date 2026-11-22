@@ -148,7 +148,7 @@ function emptyAdoptCatalog(overrides: Partial<AdoptCatalogApi> = {}): AdoptCatal
   return { ...baseCatalog, ...overrides } as AdoptCatalogApi;
 }
 
-const APP: AppDescriptor = {
+const acmeApp: AppDescriptor = {
   name: 'acme',
   dir: '/repo/acme',
   configPath: '/repo/acme/app.json',
@@ -156,7 +156,7 @@ const APP: AppDescriptor = {
 };
 
 const TARGET: AdoptTarget = {
-  app: APP,
+  app: acmeApp,
   appId: 'app1',
   bundleId: 'com.acme.app',
   keyId: 'K',

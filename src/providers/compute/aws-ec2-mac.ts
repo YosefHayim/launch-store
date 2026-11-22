@@ -34,12 +34,12 @@ import {
 const KEY_NAME = 'launch-ec2-mac';
 const SG_NAME = 'launch-ec2-mac-sg';
 export const DEFAULT_INSTANCE_TYPE = 'mac2.metal';
-const SSH_BOOT_TIMEOUT_MS = 12 * 60 * 1000;
-const AMI_AVAILABLE_TIMEOUT_MS = 30 * 60 * 1000;
-const TERMINATE_TIMEOUT_MS = 5 * 60 * 1000;
+const sshBootTimeoutMs = 12 * 60 * 1000;
+const amiAvailableTimeoutMs = 30 * 60 * 1000;
+const terminateTimeoutMs = 5 * 60 * 1000;
 const BOOT_POLL_MILLISECONDS = 15 * 1000;
-const AMI_POLL_MILLISECONDS = 20 * 1000;
-const TERMINATE_POLL_MILLISECONDS = 10 * 1000;
+const amiPollMilliseconds = 20 * 1000;
+const terminatePollMilliseconds = 10 * 1000;
 
 function sleep(milliseconds: number): Promise<void> {
   return new Promise(function wake(finish) {
@@ -52,15 +52,15 @@ export const publicAddress = (
   publicDnsName: string | undefined,
   publicIpAddress: string | undefined,
 ): string | undefined => {
-  if (publicDnsName !== undefined && publicDnsName.length > 0) return publicDnsName;
-  if (publicIpAddress !== undefined && publicIpAddress.length > 0) return publicIpAddress;
+  if (publicDnsName != null && publicDnsName.length > 0) return publicDnsName;
+  if (publicIpAddress != null && publicIpAddress.length > 0) return publicIpAddress;
   return undefined;
 };
 
 export const configuredInstanceType = (
   awsConfiguration: Pick<AwsConfig, 'instanceType'>,
 ): string => {
-  if (awsConfiguration.instanceType !== undefined) return awsConfiguration.instanceType;
+  if (awsConfiguration.instanceType != null) return awsConfiguration.instanceType;
   return DEFAULT_INSTANCE_TYPE;
 };
 
@@ -85,14 +85,14 @@ export const datedMacImages = (
   }>,
 ): DatedAmiImage[] =>
   catalogImages.flatMap((imageDescription) => {
-    if (imageDescription.ImageId === undefined) return [];
-    if (imageDescription.CreationDate === undefined) return [];
+    if (imageDescription.ImageId == null) return [];
+    if (imageDescription.CreationDate == null) return [];
     return [{ id: imageDescription.ImageId, date: imageDescription.CreationDate }];
   });
 
 /** Newest by CreationDate; stable for equal dates. */
 export const newestImageId = (datedImages: readonly DatedAmiImage[]): string | undefined => {
-  if (datedImages.length === 0) return undefined;
+  if (datedImages.length == 0) return undefined;
   const sortedImages = datedImages.slice().sort((firstImage, secondImage) => {
     if (firstImage.date < secondImage.date) return 1;
     if (firstImage.date > secondImage.date) return -1;
@@ -105,13 +105,13 @@ export const countLiveDedicatedHosts = (
   describedHosts: ReadonlyArray<{ State?: string | undefined }>,
 ): number =>
   describedHosts.filter((describedHost) => {
-    if (describedHost.State === undefined) return false;
+    if (describedHost.State == null) return false;
     return !describedHost.State.startsWith('released');
   }).length;
 
 /** Missing or already-released hosts are not billable status targets. */
 export const hostIsReleasedOrMissing = (hostState: string | undefined): boolean => {
-  if (hostState === undefined) return true;
+  if (hostState == null) return true;
   return hostState.startsWith('released');
 };
 
@@ -126,8 +126,8 @@ export const releaseFailureDetail = (
       }
     | undefined,
 ): string | undefined => {
-  if (failedRelease === undefined) return undefined;
-  if (failedRelease.Error?.Message !== undefined) return failedRelease.Error.Message;
+  if (failedRelease == null) return undefined;
+  if (failedRelease.Error?.Message != null) return failedRelease.Error.Message;
   return 'unknown';
 };
 
@@ -494,7 +494,7 @@ async function waitForSsh(
   keyPath: string,
   reportProgress: (message: string) => void,
 ): Promise<SshTarget> {
-  const deadline = Date.now() + SSH_BOOT_TIMEOUT_MS;
+  const deadline = Date.now() + sshBootTimeoutMs;
   let host: string | undefined;
 
   while (Date.now() < deadline) {
@@ -551,22 +551,22 @@ async function waitForSsh(
   throw awsFailure('wait for SSH', message, message);
 }
 
-const BOOTSTRAP_BREW_LINES = AWS_BOOTSTRAP_TOOLS.flatMap((requiredTool) => {
-  if (requiredTool.install.kind !== 'brew') return [];
+const bootstrapBrewLines = AWS_BOOTSTRAP_TOOLS.flatMap((requiredTool) => {
+  if (requiredTool.install.kind != 'brew') return [];
   return [
     `command -v ${requiredTool.command} >/dev/null || brew install ${requiredTool.install.formula} || true`,
   ];
 });
 
-const BOOTSTRAP_SCRIPT = [
+const bootstrapScript = [
   'set -e',
   'command -v brew >/dev/null || echo LAUNCH_NO_BREW',
-  ...BOOTSTRAP_BREW_LINES,
+  ...bootstrapBrewLines,
   'xcodebuild -version >/dev/null 2>&1 || echo LAUNCH_NO_XCODE',
 ].join('\n');
 
 async function bootstrapToolchain(sshTarget: SshTarget): Promise<void> {
-  const bootstrapOutput = await sshCapture(sshTarget, BOOTSTRAP_SCRIPT);
+  const bootstrapOutput = await sshCapture(sshTarget, bootstrapScript);
   const isMissingXcode = bootstrapReportsMissingXcode(bootstrapOutput);
 
   if (isMissingXcode == false) {
@@ -601,7 +601,7 @@ async function snapshotGoldenAmi(
     throw awsFailure('create the golden AMI', message, message);
   }
 
-  const deadline = Date.now() + AMI_AVAILABLE_TIMEOUT_MS;
+  const deadline = Date.now() + amiAvailableTimeoutMs;
 
   while (Date.now() < deadline) {
     const imageCatalog = await sendAwsRequest('wait for the golden AMI', function describeImage() {
@@ -612,7 +612,7 @@ async function snapshotGoldenAmi(
       return amiId;
     }
 
-    await sleep(AMI_POLL_MILLISECONDS);
+    await sleep(amiPollMilliseconds);
   }
 
   return amiId;
@@ -623,7 +623,7 @@ async function waitForTerminated(
   client: Ec2Client,
   instanceId: string,
 ): Promise<void> {
-  const deadline = Date.now() + TERMINATE_TIMEOUT_MS;
+  const deadline = Date.now() + terminateTimeoutMs;
 
   while (Date.now() < deadline) {
     const instanceCatalog = await sendAwsRequest(
@@ -637,7 +637,7 @@ async function waitForTerminated(
       return;
     }
 
-    await sleep(TERMINATE_POLL_MILLISECONDS);
+    await sleep(terminatePollMilliseconds);
   }
 }
 
@@ -686,11 +686,11 @@ async function provisionAllocatedHost(provisionRequest: ProvisionRequest): Promi
   const securityGroupId = await ensureSecurityGroup(ec2, client, vpcId);
   let goldenAmiId: string | null | undefined = awsConfiguration.amiId;
 
-  if (goldenAmiId === undefined) {
+  if (goldenAmiId == null) {
     goldenAmiId = await getAwsGoldenAmiId();
   }
 
-  const shouldCreateGoldenImage = goldenAmiId === null;
+  const shouldCreateGoldenImage = goldenAmiId == null;
   let imageId = goldenAmiId;
 
   if (typeof imageId != 'string') {

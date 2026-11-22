@@ -16,9 +16,9 @@ export class ConnectAccessibility {
     );
     return declarations.flatMap((declaration) => {
       const deviceFamily = declaration.attributes.deviceFamily;
-      if (deviceFamily === undefined) return [];
+      if (deviceFamily == null) return [];
       let state = declaration.attributes.state;
-      if (state === undefined) state = 'DRAFT';
+      if (state == null) state = 'DRAFT';
       return [
         {
           id: declaration.id,
@@ -48,9 +48,9 @@ export class ConnectAccessibility {
       },
     });
     let declarationAttributes = appleResources.attributes;
-    if (declarationAttributes === undefined) declarationAttributes = {};
+    if (declarationAttributes == null) declarationAttributes = {};
     let state = declarationAttributes.state;
-    if (state === undefined) state = 'DRAFT';
+    if (state == null) state = 'DRAFT';
     return {
       id: appleResources.id,
       deviceFamily,

@@ -15,7 +15,7 @@ import { isCommandExit, makeCommandExit } from '../terminal/command-exit.ts';
 import { readFile, writeFile } from 'node:fs/promises';
 
 const PACKAGE_NAME = 'launch-store';
-const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const checkIntervalMs = 24 * 60 * 60 * 1000;
 
 export type UpdateState = {
   lastCheckedAt: number;
@@ -25,12 +25,12 @@ export type UpdateState = {
 export type UpgradeResult = 'upgraded' | 'eacces' | 'failed';
 export type GlobalInstaller = 'npm' | 'pnpm';
 
-const INSTALL_VERBS: Record<GlobalInstaller, readonly string[]> = {
+const installVerbs: Record<GlobalInstaller, readonly string[]> = {
   npm: ['install', '-g'],
   pnpm: ['add', '-g'],
 };
 
-const GLOBAL_INSTALLERS: readonly GlobalInstaller[] = ['npm', 'pnpm'];
+const globalInstallers: readonly GlobalInstaller[] = ['npm', 'pnpm'];
 
 function versionPart(versionToken: string | undefined): number {
   if (versionToken == null) {
@@ -74,7 +74,7 @@ export function isNewer(latest: string, current: string): boolean {
 export function shouldCheck(
   now: number,
   state: UpdateState | null,
-  intervalMs: number = CHECK_INTERVAL_MS,
+  intervalMs: number = checkIntervalMs,
 ): boolean {
   if (state == null) {
     return true;
@@ -128,7 +128,7 @@ export function autoUpgradeBlockedReason(input: {
 }
 
 function installArguments(installer: GlobalInstaller, version: string): readonly string[] {
-  return [...INSTALL_VERBS[installer], `${PACKAGE_NAME}@${version}`];
+  return [...installVerbs[installer], `${PACKAGE_NAME}@${version}`];
 }
 
 function installCommandText(installer: GlobalInstaller, version: string): string {
@@ -542,7 +542,7 @@ async function resolveRunningInstaller(
   realScriptPath: string,
   homeDirectory: string,
 ): Promise<GlobalInstaller | null> {
-  for (const installer of GLOBAL_INSTALLERS) {
+  for (const installer of globalInstallers) {
     const isThisInstaller = await isRunningGlobalInstall(installer, realScriptPath, homeDirectory);
 
     if (isThisInstaller) {

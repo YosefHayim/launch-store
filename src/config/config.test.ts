@@ -112,7 +112,7 @@ describe('defineConfig', () => {
     expect(
       violations.some(
         (violation) =>
-          violation.path === 'profile' && violation.message.includes('unknown property'),
+          violation.path == 'profile' && violation.message.includes('unknown property'),
       ),
     ).toBe(true);
   });

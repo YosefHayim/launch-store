@@ -26,7 +26,7 @@ export class ConnectSigning {
         seedId?: string;
       }>
     >('GET', `/bundleIds?filter[identifier]=${encodeURIComponent(identifier)}&limit=200`);
-    const exact = appleResources.find((entry) => entry.attributes.identifier === identifier);
+    const exact = appleResources.find((entry) => entry.attributes.identifier == identifier);
     if (!exact) return null;
     return {
       id: exact.id,
@@ -150,9 +150,9 @@ export class ConnectSigning {
   async findDeviceByUdid(udid: string): Promise<DeviceResource | null> {
     const wanted = udid.toLowerCase();
     const matchingDevice = (await this.listDevices()).find(
-      (device) => device.udid.toLowerCase() === wanted,
+      (device) => device.udid.toLowerCase() == wanted,
     );
-    if (matchingDevice === undefined) return null;
+    if (matchingDevice == null) return null;
     return matchingDevice;
   }
 
@@ -214,12 +214,12 @@ export class ConnectSigning {
     );
     return appleResources.flatMap((capability) => {
       const capabilityType = capability.attributes.capabilityType;
-      if (capabilityType === undefined) return [];
+      if (capabilityType == null) return [];
       const enabledCapability: BundleIdCapabilityResource = {
         id: capability.id,
         capabilityType,
       };
-      if (capability.attributes.settings !== null && capability.attributes.settings !== undefined)
+      if (capability.attributes.settings != null && capability.attributes.settings != null)
         Object.assign(enabledCapability, { settings: capability.attributes.settings });
       return [enabledCapability];
     });
@@ -235,11 +235,11 @@ export class ConnectSigning {
     );
     return appleResources.flatMap((profile) => {
       const profileName = profile.attributes.name;
-      if (profileName === undefined) return [];
+      if (profileName == null) return [];
       const profileUuid = profile.attributes.uuid;
-      if (profileUuid === undefined) return [];
+      if (profileUuid == null) return [];
       const profileContent = profile.attributes.profileContent;
-      if (profileContent === undefined) return [];
+      if (profileContent == null) return [];
       return [{ id: profile.id, name: profileName, uuid: profileUuid, profileContent }];
     });
   }
@@ -256,7 +256,7 @@ export class ConnectSigning {
       relationships: { bundleId: { data: { type: 'bundleIds', id: bundleIdResourceId } } },
     });
     let enabledCapabilityType = appleResources.attributes.capabilityType;
-    if (enabledCapabilityType === undefined) enabledCapabilityType = capabilityType;
+    if (enabledCapabilityType == null) enabledCapabilityType = capabilityType;
     return { id: appleResources.id, capabilityType: enabledCapabilityType };
   }
 

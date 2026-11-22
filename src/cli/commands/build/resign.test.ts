@@ -7,10 +7,10 @@ describe('registerResignCommand', () => {
     const program = new Command();
     registerResignCommand(program);
     const resignCommand = program.commands.find(
-      (registeredCommand) => registeredCommand.name() === 'build:resign',
+      (registeredCommand) => registeredCommand.name() == 'build:resign',
     );
     expect(resignCommand).toBeDefined();
-    if (resignCommand === undefined) return;
+    if (resignCommand == null) return;
     const optionFlags = resignCommand.options.map((option) => option.long);
     expect(optionFlags).toContain('--id');
     expect(optionFlags).toContain('--latest');

@@ -34,7 +34,7 @@ const APP_FILTER_SCHEMA = {
   },
 } as const;
 
-const EMPTY_SYNC_REPORT = {
+const emptySyncReport = {
   apps: [],
   summary: { apps: 0, applied: 0, failed: 0, skipped: 0, planErrors: 0 },
 } as const;
@@ -281,7 +281,7 @@ async function runSyncTool(
   const hasNoJobs = syncJobs.length == 0;
 
   if (hasNoJobs) {
-    return jsonToolOutput(EMPTY_SYNC_REPORT);
+    return jsonToolOutput(emptySyncReport);
   }
 
   const appleClient = await storeContext.resolveAscApi();

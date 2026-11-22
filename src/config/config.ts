@@ -52,7 +52,7 @@ export async function resolveSidecarConfig<Section>(sidecarRequest: {
     return sidecarRequest.load(sidecarRequest.configPath);
   }
 
-  if (sidecarRequest.typed !== undefined) {
+  if (sidecarRequest.typed != null) {
     return sidecarRequest.typed;
   }
 
@@ -70,15 +70,7 @@ export type LoadedConfig = Readonly<{
   apps: AppDescriptor[];
 }>;
 
-const DEFAULT_CONFIG: LaunchConfig = {
-  credentials: DEFAULT_CREDENTIALS_PROVIDER,
-  storage: DEFAULT_STORAGE_PROVIDER,
-  buildEngine: DEFAULT_BUILD_ENGINE,
-  submit: DEFAULT_SUBMITTER,
-  profiles: { production: { name: 'production', sizeBudgetMB: 200 } },
-};
-
-const SKIP_DIRS = new Set(['node_modules', '.git', 'ios', 'android', 'dist', '.expo', '.launch']);
+const skipDirs = new Set(['node_modules', '.git', 'ios', 'android', 'dist', '.expo', '.launch']);
 
 type FoundConfig = Readonly<{
   path: string;
@@ -108,7 +100,7 @@ function makeConfigLoadFailure(fields: {
 export async function findLaunchConfig(requestedDirectory?: string): Promise<FoundConfig | null> {
   let workingDirectory = readLaunchDirectories().workingDirectory;
 
-  if (requestedDirectory !== undefined) {
+  if (requestedDirectory != null) {
     workingDirectory = requestedDirectory;
   }
 
@@ -149,14 +141,20 @@ async function readLaunchConfig(root: string): Promise<LaunchConfig> {
   const foundConfig = await findLaunchConfig(root);
 
   if (foundConfig == null) {
-    return DEFAULT_CONFIG;
+    return {
+      credentials: DEFAULT_CREDENTIALS_PROVIDER,
+      storage: DEFAULT_STORAGE_PROVIDER,
+      buildEngine: DEFAULT_BUILD_ENGINE,
+      submit: DEFAULT_SUBMITTER,
+      profiles: { production: { name: 'production', sizeBudgetMB: 200 } },
+    };
   }
 
   return foundConfig.config;
 }
 
-const STATIC_CONFIGS = ['app.config.json', 'app.json'] as const;
-const DYNAMIC_CONFIGS = ['app.config.ts', 'app.config.js', 'app.config.mjs'] as const;
+const staticConfigs = ['app.config.json', 'app.json'] as const;
+const dynamicConfigs = ['app.config.ts', 'app.config.js', 'app.config.mjs'] as const;
 
 function decodedRecordOrNull(candidateValue: unknown): Record<string, unknown> | null {
   if (candidateValue == null) {
@@ -356,7 +354,7 @@ async function readJsonRecord(configPath: string): Promise<Record<string, unknow
 }
 
 async function readStaticConfig(appDirectory: string): Promise<AppConfigDocument | null> {
-  for (const fileName of STATIC_CONFIGS) {
+  for (const fileName of staticConfigs) {
     const configPath = join(appDirectory, fileName);
     const configExists = await entryExists(configPath);
 
@@ -378,7 +376,7 @@ async function readDynamicConfig(
   appDirectory: string,
   staticConfig: Record<string, unknown>,
 ): Promise<AppConfigDocument | null> {
-  for (const fileName of DYNAMIC_CONFIGS) {
+  for (const fileName of dynamicConfigs) {
     const configPath = join(appDirectory, fileName);
     const configExists = await entryExists(configPath);
 
@@ -523,7 +521,7 @@ async function discoverApps(root: string, maxDepth = 4): Promise<AppDescriptor[]
     }
 
     for (const entryName of directoryEntries) {
-      const isSkipped = SKIP_DIRS.has(entryName);
+      const isSkipped = skipDirs.has(entryName);
 
       if (isSkipped) {
         continue;
@@ -653,7 +651,7 @@ export async function writeAppEntitlements(
 export async function loadConfig(requestedDirectory?: string): Promise<LoadedConfig> {
   let workingDirectory = readLaunchDirectories().workingDirectory;
 
-  if (requestedDirectory !== undefined) {
+  if (requestedDirectory != null) {
     workingDirectory = requestedDirectory;
   }
 

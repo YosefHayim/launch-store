@@ -32,7 +32,7 @@ const toOffersReconcileInput = (commandOptions: OffersOptions): OffersReconcileI
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
-  if (commandOptions.app !== undefined) offersInput = { ...offersInput, app: commandOptions.app };
+  if (commandOptions.app != null) offersInput = { ...offersInput, app: commandOptions.app };
   return offersInput;
 };
 
@@ -48,13 +48,13 @@ const toGenerateCodesInput = (
     offerName,
     count: commandOptions.count,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     generateCodesInput = { ...generateCodesInput, app: commandOptions.app };
   }
-  if (commandOptions.expires !== undefined) {
+  if (commandOptions.expires != null) {
     generateCodesInput = { ...generateCodesInput, expires: commandOptions.expires };
   }
-  if (commandOptions.custom !== undefined) {
+  if (commandOptions.custom != null) {
     generateCodesInput = { ...generateCodesInput, custom: commandOptions.custom };
   }
   return generateCodesInput;
@@ -66,7 +66,7 @@ const toOffersListInput = (
   commandOptions: AppScopedOptions,
 ): OffersListInput => {
   let listInput: OffersListInput = { operation: 'list', productId };
-  if (commandOptions.app !== undefined) listInput = { ...listInput, app: commandOptions.app };
+  if (commandOptions.app != null) listInput = { ...listInput, app: commandOptions.app };
   return listInput;
 };
 
@@ -77,7 +77,7 @@ const toOffersDeactivateInput = (
   commandOptions: AppScopedOptions,
 ): OffersDeactivateInput => {
   let deactivateInput: OffersDeactivateInput = { operation: 'deactivate', productId, offerName };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     deactivateInput = { ...deactivateInput, app: commandOptions.app };
   }
   return deactivateInput;

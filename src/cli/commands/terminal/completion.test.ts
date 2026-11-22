@@ -5,7 +5,7 @@ import { registerCompletionCommand } from './completion.ts';
 const completionGroup = (): Command => {
   const program = new Command();
   registerCompletionCommand(program);
-  const completion = program.commands.find((command) => command.name() === 'completion');
+  const completion = program.commands.find((command) => command.name() == 'completion');
   expect(completion).toBeDefined();
   if (!completion) throw new Error('completion group missing');
   return completion;
@@ -22,14 +22,14 @@ describe('registerCompletionCommand', () => {
     expect(args).toEqual(['shell']);
   });
   it('install takes -s/--shell', () => {
-    const install = completionGroup().commands.find((command) => command.name() === 'install');
+    const install = completionGroup().commands.find((command) => command.name() == 'install');
     const flags = install?.options.map((option) => option.long);
     expect(flags).toContain('--shell');
   });
   it('keeps the __complete subcommand out of help while still registering it', () => {
     const group = completionGroup();
-    expect(group.commands.some((command) => command.name() === '__complete')).toBe(true);
+    expect(group.commands.some((command) => command.name() == '__complete')).toBe(true);
     const visible = group.createHelp().visibleCommands(group);
-    expect(visible.some((command) => command.name() === '__complete')).toBe(false);
+    expect(visible.some((command) => command.name() == '__complete')).toBe(false);
   });
 });

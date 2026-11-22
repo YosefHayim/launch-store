@@ -6,7 +6,7 @@ import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
 import type { AppClipsConfig } from '../../types/store-surface.ts';
-const ALPHA: AppDescriptor = {
+const alpha: AppDescriptor = {
   name: 'alpha',
   dir: '/no/such/dir/alpha',
   configPath: '/no/such/dir/alpha/app.json',
@@ -31,7 +31,7 @@ const makeCtx = (
   if (appClips) config = { ...baseConfig, appClips };
   return {
     config,
-    apps: [ALPHA],
+    apps: [alpha],
     resolveAscApi: () => Promise.resolve(api),
     resolvePlayApi: () => Promise.resolve(null),
   };
@@ -44,14 +44,14 @@ describe('appClipsPlanner', () => {
   it('skips with a creds hint when no Apple account is active', async () => {
     const plan = await runPlanner(appClipsPlanner, makeCtx(null, DECLARED));
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports an additive plan for the declared clip', async () => {
     const plan = await runPlanner(appClipsPlanner, makeCtx(makeAscApiFake(), DECLARED));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.direction).toBe('additive');
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
     expect(plan.apps[0]?.actions.length).toBeGreaterThan(0);
@@ -60,8 +60,8 @@ describe('appClipsPlanner', () => {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(appClipsPlanner, makeCtx(api, DECLARED));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
   });
   it('is strictly read-only: never invokes a write endpoint', async () => {

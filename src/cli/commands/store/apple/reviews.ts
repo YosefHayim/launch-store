@@ -30,8 +30,8 @@ export const registerReviewsCommand = (program: Command): void => {
           reviewsCommandProgram({
             operation: 'list',
             ...options,
-            unanswered: options.unanswered === true,
-            json: options.json === true,
+            unanswered: options.unanswered == true,
+            json: options.json == true,
           }),
         );
       },
@@ -55,7 +55,7 @@ export const registerReviewsCommand = (program: Command): void => {
             operation: 'reply',
             reviewId,
             ...options,
-            yes: options.yes === true,
+            yes: options.yes == true,
           }),
         );
       },
@@ -67,7 +67,7 @@ export const registerReviewsCommand = (program: Command): void => {
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((reviewId: string, options: { yes?: boolean }) => {
       return runCliProgram(
-        reviewsCommandProgram({ operation: 'delete', reviewId, yes: options.yes === true }),
+        reviewsCommandProgram({ operation: 'delete', reviewId, yes: options.yes == true }),
       );
     });
 };

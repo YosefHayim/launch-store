@@ -16,9 +16,9 @@ export type Distribution = 'store' | 'internal';
  * else would fail for fresh accounts. Has no iOS equivalent. Array-first (SSOT) so config schemas reuse
  * it for {@link BuildProfile}'s `track`.
  */
-export const PLAY_TRACKS = ['internal', 'closed', 'open', 'production'] as const;
-/** A Google Play release track - one of {@link PLAY_TRACKS}. */
-export type PlayTrack = (typeof PLAY_TRACKS)[number];
+export const playTracks = ['internal', 'closed', 'open', 'production'] as const;
+/** A Google Play release track - one of {@link playTracks}. */
+export type PlayTrack = (typeof playTracks)[number];
 /**
  * Which web console page `launch open` deep-links to. Each value maps to a per-platform URL in
  * `core/console-links.ts` - the connective tissue between a read-only finding ("agreement unsigned")

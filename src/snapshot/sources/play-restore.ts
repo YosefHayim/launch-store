@@ -8,8 +8,8 @@ import type { PlannedAction } from '../../types/reconcile.ts';
 const isJsonRecord = (
   capturedNode: JsonValue,
 ): capturedNode is Readonly<{ [key: string]: JsonValue }> => {
-  if (typeof capturedNode !== 'object') return false;
-  if (capturedNode === null) return false;
+  if (typeof capturedNode != 'object') return false;
+  if (capturedNode == null) return false;
   if (Array.isArray(capturedNode)) return false;
   return true;
 };
@@ -17,7 +17,7 @@ const isJsonRecord = (
 export const jsonRecord = (
   capturedNode: JsonValue | undefined,
 ): Readonly<{ [key: string]: JsonValue }> | null => {
-  if (capturedNode === undefined) return null;
+  if (capturedNode == null) return null;
   if (!isJsonRecord(capturedNode)) return null;
   return capturedNode;
 };
@@ -27,7 +27,7 @@ export const stringField = (
   key: string,
 ): string | undefined => {
   const capturedField = record[key];
-  if (typeof capturedField === 'string') return capturedField;
+  if (typeof capturedField == 'string') return capturedField;
   return undefined;
 };
 /**
@@ -40,8 +40,8 @@ export const toPriceConfig = (capturedNode: JsonValue | undefined): PlayPriceCon
   if (!record) return null;
   const priceMicros = stringField(record, 'priceMicros');
   const currency = stringField(record, 'currency');
-  if (priceMicros === undefined) return null;
-  if (currency === undefined) return null;
+  if (priceMicros == null) return null;
+  if (currency == null) return null;
   return { priceMicros, currency };
 };
 /** A skipped {@link PlannedAction} - the restore couldn't act (no account / unrestorable entity) but didn't fail. */

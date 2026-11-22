@@ -7,7 +7,7 @@ describe('registerFingerprintCommand', () => {
     const program = new Command();
     registerFingerprintCommand(program);
     const fingerprintCommand = program.commands.find(
-      (registeredCommand) => registeredCommand.name() === 'fingerprint',
+      (registeredCommand) => registeredCommand.name() == 'fingerprint',
     );
     expect(fingerprintCommand).toBeDefined();
     expect(fingerprintCommand?.options.map((commandOption) => commandOption.long)).toEqual(

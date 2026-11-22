@@ -57,7 +57,7 @@ export type EasMigrationFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-const PLAY_TRACKS: readonly PlayTrack[] = ['internal', 'closed', 'open', 'production'];
+const playTracks: readonly PlayTrack[] = ['internal', 'closed', 'open', 'production'];
 const DEFAULT_PROFILE_SIZE_BUDGET_MB = 200;
 
 function makeEasMigrationFailure(fields: {
@@ -490,7 +490,7 @@ function isPlayTrack(trackName: string): trackName is PlayTrack {
     return playTrack == trackName;
   }
 
-  return PLAY_TRACKS.some(sameTrack);
+  return playTracks.some(sameTrack);
 }
 
 function trackFromSubmitProfile(submitProfile: EasSubmitProfile | undefined): PlayTrack | null {

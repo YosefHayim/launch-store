@@ -21,7 +21,7 @@ export const groupStatsByMonth = (stats: readonly DailyStat[]): Map<string, Dail
   for (const stat of stats) {
     const month = readMonthOfDate(stat.date);
     const monthStats = statsByMonth.get(month);
-    const isMonthNew = monthStats === undefined;
+    const isMonthNew = monthStats == null;
     if (isMonthNew) statsByMonth.set(month, [stat]);
     if (!isMonthNew) monthStats.push(stat);
   }

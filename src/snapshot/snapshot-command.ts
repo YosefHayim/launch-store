@@ -37,12 +37,12 @@ import {
 
 const LIVE_SNAPSHOT = 'live';
 const SNAPSHOT_STORES: readonly SnapshotStore[] = ['appstore', 'play'];
-const DIFF_MARKER: Readonly<Record<DiffChange, string>> = {
+const diffMarker: Readonly<Record<DiffChange, string>> = {
   added: '+',
   removed: '-',
   changed: '~',
 };
-const RESTORE_MARKER: Readonly<Record<ActionStatus, string>> = {
+const restoreMarker: Readonly<Record<ActionStatus, string>> = {
   planned: '+',
   applied: 'OK',
   skipped: '-',
@@ -683,7 +683,7 @@ function renderDiff(
 
     for (const diffEntry of storeEntries) {
       logger.note(
-        `  ${DIFF_MARKER[diffEntry.change]} ${diffEntry.app} ${diffEntry.key} - ${diffEntry.summary}`,
+        `  ${diffMarker[diffEntry.change]} ${diffEntry.app} ${diffEntry.key} - ${diffEntry.summary}`,
       );
     }
   }
@@ -1106,7 +1106,7 @@ function renderSourceRestore(logger: Logger, sourceRestore: SourceRestore): void
     }
 
     logger.note(
-      `  ${RESTORE_MARKER[restoreAction.status]} ${restoreAction.description}${errorSuffix}`,
+      `  ${restoreMarker[restoreAction.status]} ${restoreAction.description}${errorSuffix}`,
     );
   }
 }

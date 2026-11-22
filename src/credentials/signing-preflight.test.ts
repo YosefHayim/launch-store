@@ -11,8 +11,44 @@ import {
   signingPreflightWarnings,
 } from './signing-preflight.ts';
 
-/** Minimal realistic pbxproj fixture - same shape as {@link apple-targets.test.ts}. */
-const APP_WITH_WIDGET_PBXPROJ = `// !$*UTF8*$!
+function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
+  return {
+    name: 'sampleapp',
+    dir: '/apps/sampleapp',
+    configPath: '/apps/sampleapp/app.json',
+    bundleId: 'com.example.sampleapp',
+    ...overrides,
+  };
+}
+
+describe('resolveExtensionBundleIdsForApp', () => {
+  it('returns configured extensions when ios/ has not been generated yet', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'launch-preflight-'));
+
+    try {
+      await expect(
+        resolveExtensionBundleIdsForApp(
+          app({
+            dir: join(root, 'app'),
+            iosExtensions: ['com.example.sampleapp.widget'],
+          }),
+        ),
+      ).resolves.toEqual(['com.example.sampleapp.widget']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('discovers widget extensions from a generated ios/ project', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'launch-preflight-'));
+
+    try {
+      const appDir = join(root, 'app');
+      const projectDir = join(appDir, 'ios', 'SampleApp.xcodeproj');
+      mkdirSync(projectDir, { recursive: true });
+      writeFileSync(
+        join(projectDir, 'project.pbxproj'),
+        `// !$*UTF8*$!
 {
 	objects = {
 		13B07F861A680F5B00A75B9A /* SampleApp */ = {
@@ -71,44 +107,8 @@ const APP_WITH_WIDGET_PBXPROJ = `// !$*UTF8*$!
 		};
 	};
 }
-`;
-
-function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
-  return {
-    name: 'sampleapp',
-    dir: '/apps/sampleapp',
-    configPath: '/apps/sampleapp/app.json',
-    bundleId: 'com.example.sampleapp',
-    ...overrides,
-  };
-}
-
-describe('resolveExtensionBundleIdsForApp', () => {
-  it('returns configured extensions when ios/ has not been generated yet', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'launch-preflight-'));
-
-    try {
-      await expect(
-        resolveExtensionBundleIdsForApp(
-          app({
-            dir: join(root, 'app'),
-            iosExtensions: ['com.example.sampleapp.widget'],
-          }),
-        ),
-      ).resolves.toEqual(['com.example.sampleapp.widget']);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  it('discovers widget extensions from a generated ios/ project', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'launch-preflight-'));
-
-    try {
-      const appDir = join(root, 'app');
-      const projectDir = join(appDir, 'ios', 'SampleApp.xcodeproj');
-      mkdirSync(projectDir, { recursive: true });
-      writeFileSync(join(projectDir, 'project.pbxproj'), APP_WITH_WIDGET_PBXPROJ);
+`,
+      );
 
       await expect(resolveExtensionBundleIdsForApp(app({ dir: appDir }))).resolves.toEqual([
         'com.example.sampleapp.widget',

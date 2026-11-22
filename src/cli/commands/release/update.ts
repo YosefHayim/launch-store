@@ -54,8 +54,8 @@ export const registerUpdateCommand = (program: Command): void => {
     const commandInput: typeof requiredCommandInput & { app?: string; runtimeVersion?: string } = {
       ...requiredCommandInput,
     };
-    if (commandOptions.app !== undefined) commandInput.app = commandOptions.app;
-    if (commandOptions.runtimeVersion !== undefined) {
+    if (commandOptions.app != null) commandInput.app = commandOptions.app;
+    if (commandOptions.runtimeVersion != null) {
       commandInput.runtimeVersion = commandOptions.runtimeVersion;
     }
     return runCliProgram(updateCommandProgram(commandInput));

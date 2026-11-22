@@ -76,7 +76,7 @@ function readManifestAsset(candidate: unknown): UpdateManifest['launchAsset'] {
   };
   const fileExtension = readOptionalString(candidate, 'fileExtension');
 
-  if (fileExtension === null) {
+  if (fileExtension == null) {
     throw new Error('Manifest asset extension is malformed.');
   }
 
@@ -190,7 +190,7 @@ function decodeRollbackDirective(jsonText: string): StoredRollbackDirective | nu
 
     const signature = readOptionalString(parsed, 'signature');
 
-    if (signature === null) {
+    if (signature == null) {
       return null;
     }
 

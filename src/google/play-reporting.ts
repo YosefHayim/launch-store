@@ -12,8 +12,6 @@ import type {
 } from '../types/vitals.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import { describePlayErrors, nonEmptyPageToken, serviceAccountJwtOptions } from './play-client.ts';
-/** Distinct from the Play Developer API scope - the reporting API rejects an `androidpublisher` token. */
-const OAUTH_SCOPE = 'https://www.googleapis.com/auth/playdeveloperreporting';
 /**
  * The metric set behind each vital: its API resource segment and the three metrics Launch reads.
  * `rate`/`userPerceivedRate` are the headline + foreground-only figures; `distinctUsers` is the
@@ -56,17 +54,17 @@ export const vitalsWindowFromLatestDate = (
   days: number,
 ): VitalsWindow => {
   let endDate = new Date().toISOString().slice(0, 10);
-  if (latestDate !== null) endDate = latestDate;
+  if (latestDate != null) endDate = latestDate;
   return { startDate: shiftIsoDate(endDate, -(days - 1)), endDate };
 };
 /** Render a Google `DateTime`'s date part as ISO `YYYY-MM-DD`, or undefined when the date is incomplete. */
 const dateTimeToIso = (
   date: playdeveloperreporting_v1beta1.Schema$GoogleTypeDateTime | undefined,
 ): string | undefined => {
-  if (date === undefined) return;
-  if (typeof date.year !== 'number') return;
-  if (typeof date.month !== 'number') return;
-  if (typeof date.day !== 'number') return;
+  if (date == null) return;
+  if (typeof date.year != 'number') return;
+  if (typeof date.month != 'number') return;
+  if (typeof date.day != 'number') return;
   const pad = (n: number): string => String(n).padStart(2, '0');
   return `${date.year}-${pad(date.month)}-${pad(date.day)}`;
 };
@@ -82,9 +80,9 @@ const isoToDateParts = (
   let year = 0;
   let month = 0;
   let day = 0;
-  if (typeof dateSegments[0] === 'number') year = dateSegments[0];
-  if (typeof dateSegments[1] === 'number') month = dateSegments[1];
-  if (typeof dateSegments[2] === 'number') day = dateSegments[2];
+  if (typeof dateSegments[0] == 'number') year = dateSegments[0];
+  if (typeof dateSegments[1] == 'number') month = dateSegments[1];
+  if (typeof dateSegments[2] == 'number') day = dateSegments[2];
   return { year, month, day };
 };
 /** Parse a metric's string value to a number, or undefined when the column is absent/unparseable. */
@@ -92,9 +90,9 @@ const metricNumber = (
   metricEntry: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1MetricsRow,
   name: string,
 ): number | undefined => {
-  const encodedValue = metricEntry.metrics?.find((metric) => metric.metric === name)?.decimalValue
+  const encodedValue = metricEntry.metrics?.find((metric) => metric.metric == name)?.decimalValue
     ?.value;
-  if (typeof encodedValue !== 'string') return;
+  if (typeof encodedValue != 'string') return;
   const metricValue = Number(encodedValue);
   if (Number.isNaN(metricValue)) return;
   return metricValue;
@@ -135,7 +133,7 @@ export type PlayReportingApp = Readonly<{ packageName: string; displayName: stri
 const createAppsSearchRequest = (
   pageToken: string | undefined,
 ): playdeveloperreporting_v1beta1.Params$Resource$Apps$Search => {
-  const isFirstPage = pageToken === undefined;
+  const isFirstPage = pageToken == null;
   if (isFirstPage) return { pageSize: PLAY_APPS_PAGE_SIZE };
   return { pageSize: PLAY_APPS_PAGE_SIZE, pageToken };
 };
@@ -145,7 +143,7 @@ const readDisplayName = (
   packageName: string,
 ): string => {
   const displayName = googleApp.displayName;
-  const hasDisplayName = typeof displayName === 'string';
+  const hasDisplayName = typeof displayName == 'string';
   if (hasDisplayName) return displayName;
   return packageName;
 };
@@ -156,7 +154,7 @@ const listReadableApps = (
   const readableApps: PlayReportingApp[] = [];
   for (const googleApp of googleApps) {
     const packageName = googleApp.packageName;
-    const hasPackageName = typeof packageName === 'string';
+    const hasPackageName = typeof packageName == 'string';
     if (!hasPackageName) continue;
     readableApps.push({ packageName, displayName: readDisplayName(googleApp, packageName) });
   }
@@ -184,12 +182,12 @@ export class PlayReportingClient {
    * @param generatedReporting - Optional generated transport supplied by adapter tests.
    */
   constructor(account: ServiceAccount, generatedReporting?: PlayReportingTransport) {
-    if (generatedReporting !== undefined) {
+    if (generatedReporting != null) {
       this.reporting = generatedReporting;
       return;
     }
     const googleAuthentication = new playReportingAuth.JWT(
-      serviceAccountJwtOptions(account, [OAUTH_SCOPE]),
+      serviceAccountJwtOptions(account, ['https://www.googleapis.com/auth/playdeveloperreporting']),
     );
     this.reporting = playdeveloperreporting({
       version: 'v1beta1',
@@ -268,7 +266,7 @@ export class PlayReportingClient {
     }
 
     const dailyFreshness = metricSet.freshnessInfo?.freshnesses?.find(
-      (freshness) => freshness.aggregationPeriod === 'DAILY',
+      (freshness) => freshness.aggregationPeriod == 'DAILY',
     );
     const latestDate = dateTimeToIso(dailyFreshness?.latestEndTime);
 

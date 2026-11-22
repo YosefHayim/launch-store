@@ -52,11 +52,11 @@ export const notifyMessage = (event: NotifyEvent): string => {
     case 'build':
     case 'submit': {
       let icon = '[ERROR]';
-      if (event.status === 'success') icon = '[OK]';
+      if (event.status == 'success') icon = '[OK]';
       let what = 'build';
-      if (event.event === 'submit') what = 'submit';
+      if (event.event == 'submit') what = 'submit';
       const head = `${icon} Launch: ${event.app} ${event.version}`;
-      if (event.status === 'failure') {
+      if (event.status == 'failure') {
         let errorSuffix = '';
         if (event.error) errorSuffix = `: ${event.error}`;
         return `${head} - ${what} failed${errorSuffix}`;
@@ -64,12 +64,12 @@ export const notifyMessage = (event: NotifyEvent): string => {
       let where = '';
       if (event.destination) where = ` -> ${event.destination}`;
       let buildNumberText = '';
-      if (event.buildNumber !== undefined) buildNumberText = ` (${event.buildNumber})`;
+      if (event.buildNumber != null) buildNumberText = ` (${event.buildNumber})`;
       return `${head}${buildNumberText} ${what} succeeded${where}`;
     }
     case 'review': {
       let icon = '[ERROR]';
-      if (event.status === 'approved') icon = '[OK]';
+      if (event.status == 'approved') icon = '[OK]';
       const head = `${icon} Launch: ${event.app} ${event.version} - review ${event.status}`;
       if (event.detail) return `${head}: ${event.detail}`;
       return head;
@@ -93,7 +93,7 @@ export const notificationDocument = (event: NotifyEvent): Record<string, unknown
     content: redactText(message),
   };
   for (const [field, eventValue] of Object.entries(event)) {
-    if (typeof eventValue === 'string') notification[field] = redactText(eventValue);
+    if (typeof eventValue == 'string') notification[field] = redactText(eventValue);
     else notification[field] = eventValue;
   }
   return notification;
@@ -109,13 +109,13 @@ export const notifyEnv = (event: NotifyEvent): Record<string, string> => {
     LAUNCH_VERSION: event.version,
     LAUNCH_MESSAGE: redactText(message),
   };
-  if (event.event === 'review') {
-    if (event.detail !== undefined) env['LAUNCH_DETAIL'] = event.detail;
-  } else if (event.event === 'rollout') {
-    if (event.detail !== undefined) env['LAUNCH_DETAIL'] = event.detail;
+  if (event.event == 'review') {
+    if (event.detail != null) env['LAUNCH_DETAIL'] = event.detail;
+  } else if (event.event == 'rollout') {
+    if (event.detail != null) env['LAUNCH_DETAIL'] = event.detail;
   } else {
-    if (event.buildNumber !== undefined) env['LAUNCH_BUILD_NUMBER'] = String(event.buildNumber);
-    if (event.sizeBytes !== undefined) env['LAUNCH_SIZE_BYTES'] = String(event.sizeBytes);
+    if (event.buildNumber != null) env['LAUNCH_BUILD_NUMBER'] = String(event.buildNumber);
+    if (event.sizeBytes != null) env['LAUNCH_SIZE_BYTES'] = String(event.sizeBytes);
     if (event.destination) env['LAUNCH_DESTINATION'] = event.destination;
     if (event.error) env['LAUNCH_ERROR'] = event.error;
   }

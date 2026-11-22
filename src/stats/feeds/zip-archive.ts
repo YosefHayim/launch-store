@@ -1,12 +1,12 @@
 import { inflateRawSync } from 'node:zlib';
 
-const LOCAL_HEADER = 0x04034b50;
-const CENTRAL_HEADER = 0x02014b50;
-const END_HEADER = 0x06054b50;
-const STORED = 0;
-const DEFLATED = 8;
+const zipLocalFileHeader = 0x04034b50;
+const centralHeader = 0x02014b50;
+const endHeader = 0x06054b50;
+const stored = 0;
+const deflated = 8;
 const END_RECORD_LENGTH = 22;
-const COMMENT_LIMIT = 65535;
+const commentLimit = 65535;
 
 export function readZipEntries(zipBytes: Uint8Array): Record<string, Uint8Array> {
   const view = new DataView(zipBytes.buffer, zipBytes.byteOffset, zipBytes.byteLength);
@@ -18,7 +18,7 @@ export function readZipEntries(zipBytes: Uint8Array): Record<string, Uint8Array>
 
   for (let entryIndex = 0; entryIndex < entryCount; entryIndex += 1) {
     const header = view.getUint32(cursor, true);
-    const isCentralHeader = header == CENTRAL_HEADER;
+    const isCentralHeader = header == centralHeader;
 
     if (isCentralHeader == false) {
       throw new Error('The zip central directory is unreadable');
@@ -56,11 +56,11 @@ function findEndRecord(zipBytes: Uint8Array, view: DataView): number {
   }
 
   let start = zipBytes.length - END_RECORD_LENGTH;
-  const earliest = Math.max(0, zipBytes.length - END_RECORD_LENGTH - COMMENT_LIMIT);
+  const earliest = Math.max(0, zipBytes.length - END_RECORD_LENGTH - commentLimit);
 
   while (start >= earliest) {
     const header = view.getUint32(start, true);
-    const isEnd = header == END_HEADER;
+    const isEnd = header == endHeader;
 
     if (isEnd) {
       const commentLength = view.getUint16(start + 20, true);
@@ -84,7 +84,7 @@ function readEntry(
   entry: { method: number; compressedSize: number; localOffset: number },
 ): Uint8Array {
   const localHeader = view.getUint32(entry.localOffset, true);
-  const isLocalHeader = localHeader == LOCAL_HEADER;
+  const isLocalHeader = localHeader == zipLocalFileHeader;
 
   if (isLocalHeader == false) {
     throw new Error('The zip local header is unreadable');
@@ -96,11 +96,11 @@ function readEntry(
   const dataEnd = dataStart + entry.compressedSize;
   const compressed = zipBytes.subarray(dataStart, dataEnd);
 
-  if (entry.method == STORED) {
+  if (entry.method == stored) {
     return compressed;
   }
 
-  if (entry.method == DEFLATED) {
+  if (entry.method == deflated) {
     return inflateRawSync(compressed);
   }
 

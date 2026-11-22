@@ -9,11 +9,11 @@ import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { isCommandExit } from '../terminal/command-exit.ts';
 
-const PACKAGE_MANIFEST_PATH = fileURLToPath(new URL('../../package.json', import.meta.url));
+const packageManifestPath = fileURLToPath(new URL('../../package.json', import.meta.url));
 
 async function readVersion(): Promise<string> {
   try {
-    const manifestSource = await readFile(PACKAGE_MANIFEST_PATH, 'utf8');
+    const manifestSource = await readFile(packageManifestPath, 'utf8');
     const manifest: unknown = JSON.parse(manifestSource);
     const isRecord = typeof manifest == 'object';
 

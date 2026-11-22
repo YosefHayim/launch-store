@@ -126,7 +126,7 @@ function deviceCommandFailure(
 /** Render one registered device for the list view. */
 export const renderRegisteredDevice = (registeredDevice: DeviceResource): string => {
   let statusSuffix = '';
-  if (registeredDevice.status === 'DISABLED') statusSuffix = ' (disabled)';
+  if (registeredDevice.status == 'DISABLED') statusSuffix = ' (disabled)';
   return `- ${registeredDevice.name} - ${registeredDevice.udid}${statusSuffix}`;
 };
 
@@ -135,7 +135,7 @@ async function addDevice(commandInput: DeviceAddInput): Promise<void> {
   try {
     const appleStore = await loadActiveAppleStore();
     let deviceName = commandInput.udid;
-    if (commandInput.name !== undefined) deviceName = commandInput.name;
+    if (commandInput.name != null) deviceName = commandInput.name;
     const registeredDevice = await appleStore.registerDevice(commandInput.udid, deviceName);
     const logger = createLogger(false);
     logger.line(`OK Registered ${registeredDevice.name} (${registeredDevice.udid})`);

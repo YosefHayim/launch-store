@@ -49,7 +49,7 @@ A file that performs one documented Apple or Google request belongs in `src/appl
 
 - Usage and product direction: [README.md](./README.md).
 - Domain language: runtime teaching text in `src/terminal/glossary.ts`.
-- Config schema: `schema/launch.config.schema.json` is the published copy. `src/config/` loads and checks it.
+- Config schema: `schema/launch.config.schema.json` is the published copy. `src/config/` loads and checks it. The root `launch.config.ts` is the full example of every field a developer can set.
 - Root files: there is no `LICENSE` file, no `.env.example`, and no `launch.config.example.ts`. The root sample is `launch.config.ts`. `package.json` keeps `"license": "MIT"`. `launch init` still writes a starter `.env.example` into the app being set up.
 
 ### Imports Follow Ownership
@@ -79,7 +79,7 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 ### Rules Digest
 
 - **Commands are plain TypeScript.** They return `Promise` or a plain value and throw a readonly `{ _tag }` object. File names are kebab-case (`build-command.ts`). Imports of this package's files are relative and end in `.ts` (`../types/app.ts`). TypeScript rewrites those to `.js` on emit. Do not add a path alias: the compiler will not rewrite it. A published package keeps the `.js` path it documents. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `src/release-command.ts` and `src/app-release.ts` stay in `src/`.
-- **New modules use function declarations.** An arrow only when a method is passed elsewhere and must keep `this`. Do not add `&&` or `||`. `??` and `?.` are allowed. Name each condition.
+- **New modules use function declarations.** An arrow only when a method is passed elsewhere and must keep `this`. Do not add `&&` or `||`. Comparisons use `==` and `!=`. A missing value is `== null`. `??` and `?.` are allowed. Name each condition. A `SCREAMING_SNAKE` constant is only for a literal used twice or more in that file. A literal used once stays inline. A number used once is a camelCase const next to that use.
 - **Registration is thin.** `src/cli/program.ts` registers the commands. Prompts require a TTY or `--yes`. `--json` emits one object. Only the entry sets exit codes.
 - **JSON Schema is the config source.** Do not delete `schema/`.
 - **Purpose-grouped jobs.** Later-command code goes under `src/<job>/`. Do not add `src/core` back.

@@ -25,7 +25,7 @@ import {
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;
-const TOKEN_REUSE_SECONDS = 15 * 60;
+const tokenReuseSeconds = 15 * 60;
 const mintedTokens = new Map<string, Readonly<{ token: string; issuedAt: number }>>();
 const ASSET_UPLOAD_CONCURRENCY = 4;
 
@@ -129,7 +129,7 @@ export const SUBSCRIPTION_GROUP_VERSION_RESOURCES: VersionedLocalizationResource
 };
 
 export const pickDraftVersion = (versions: ProductVersion[]): ProductVersion | null =>
-  versions.find((version) => version.attributes.state === 'PREPARE_FOR_SUBMISSION') ?? null;
+  versions.find((version) => version.attributes.state == 'PREPARE_FOR_SUBMISSION') ?? null;
 
 export const pickNewestVersion = (versions: ProductVersion[]): ProductVersion | null => {
   const versionsNewestFirst = [...versions].sort(
@@ -170,12 +170,12 @@ export class AscAvailabilityUpdateError {
 
 export const isRetryableAscError = (error: unknown): boolean => {
   if (!(error instanceof AscRequestError)) return false;
-  if (error.status === 429) return true;
+  if (error.status == 429) return true;
   return error.status >= 500;
 };
 
 export const isRejectedToken = (requestFailure: unknown): boolean =>
-  requestFailure instanceof AscRequestError && requestFailure.status === 401;
+  requestFailure instanceof AscRequestError && requestFailure.status == 401;
 
 export const isRetryableIdempotentFailure = (requestFailure: unknown): boolean => {
   if (requestFailure instanceof TypeError) return true;
@@ -223,10 +223,10 @@ export const findAppInfoId = (
 ): string | null => {
   const appInformation = appInfos.find((candidate) => {
     let state = candidate.attributes.state;
-    if (state === undefined) state = candidate.attributes.appStoreState;
-    return state !== undefined && states.has(state);
+    if (state == null) state = candidate.attributes.appStoreState;
+    return state != null && states.has(state);
   });
-  if (appInformation === undefined) return null;
+  if (appInformation == null) return null;
   return appInformation.id;
 };
 
@@ -235,7 +235,7 @@ export const findVersionId = (
   states: ReadonlySet<string>,
 ): string | null => {
   const version = versions.find((candidate) => states.has(candidate.attributes.appStoreState));
-  if (version === undefined) return null;
+  if (version == null) return null;
   return version.id;
 };
 export type ResourceSingle<A> = {
@@ -365,7 +365,7 @@ export const pickListingFields = (
   const fields: Record<string, string> = {};
   for (const key of keys) {
     const fieldValue = attributes[key];
-    if (typeof fieldValue === 'string' && fieldValue.length > 0) fields[key] = fieldValue;
+    if (typeof fieldValue == 'string' && fieldValue.length > 0) fields[key] = fieldValue;
   }
   return fields;
 };
@@ -376,7 +376,7 @@ export const pickAccessibilitySupport = (
   const support: MutableDeep<AccessibilitySupport> = {};
   for (const key of ACCESSIBILITY_SUPPORT_KEYS) {
     const fieldValue = attributes[key];
-    if (typeof fieldValue === 'boolean') support[key] = fieldValue;
+    if (typeof fieldValue == 'boolean') support[key] = fieldValue;
   }
   return support;
 };
@@ -442,7 +442,7 @@ export type BetaFeedbackPage = {
 export const BUILD_PAGE_QUERY =
   'fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion&fields[preReleaseVersions]=version';
 export const createMarketingVersionFilter = (marketingVersion: string | undefined): string => {
-  const isMarketingVersionGiven = marketingVersion !== undefined;
+  const isMarketingVersionGiven = marketingVersion != null;
   if (!isMarketingVersionGiven) return '';
   return `&filter[preReleaseVersion.version]=${marketingVersion}`;
 };
@@ -581,9 +581,9 @@ export const reusableToken = async (key: AscKey): Promise<string> => {
   const currentSeconds = Math.floor(Date.now() / 1000);
   const mintedToken = mintedTokens.get(tokenKey);
   if (
-    mintedToken !== undefined &&
+    mintedToken != null &&
     currentSeconds >= mintedToken.issuedAt &&
-    currentSeconds - mintedToken.issuedAt < TOKEN_REUSE_SECONDS
+    currentSeconds - mintedToken.issuedAt < tokenReuseSeconds
   ) {
     return mintedToken.token;
   }
@@ -598,18 +598,18 @@ const putAssetChunk = async (
   fileByteLength: number,
 ): Promise<void> => {
   let offset = operation.offset;
-  if (offset === undefined) offset = 0;
+  if (offset == null) offset = 0;
   let operationLength = operation.length;
-  if (operationLength === undefined) operationLength = fileByteLength - offset;
+  if (operationLength == null) operationLength = fileByteLength - offset;
   const chunk = await readTransportRange(filePath, offset, operationLength);
   const headers: Record<string, string> = {};
   let requestHeaders = operation.requestHeaders;
-  if (requestHeaders === undefined) requestHeaders = [];
+  if (requestHeaders == null) requestHeaders = [];
   for (const header of requestHeaders) {
-    if (header.name && header.value !== undefined) headers[header.name] = header.value;
+    if (header.name && header.value != null) headers[header.name] = header.value;
   }
   let requestMethod = operation.method;
-  if (requestMethod === undefined) requestMethod = 'PUT';
+  if (requestMethod == null) requestMethod = 'PUT';
   await retryAppleTransportRequest(
     async () => {
       const appleResponse = await fetch(operation.url, {
@@ -631,12 +631,12 @@ const putAssetChunk = async (
 export const buildUploadProblems = (
   stateDetails: readonly components['schemas']['StateDetail'][] | undefined,
 ): BuildUploadProblem[] => {
-  if (stateDetails === undefined) return [];
+  if (stateDetails == null) return [];
   return stateDetails.map((stateDetail) => {
     let code = stateDetail.code;
-    if (code === undefined) code = '';
+    if (code == null) code = '';
     let description = stateDetail.description;
-    if (description === undefined) description = '';
+    if (description == null) description = '';
     return { code, description };
   });
 };
@@ -654,9 +654,9 @@ export const putAssetFile = async (
     // biome-ignore lint/performance/noAwaitInLoops: bounded batches - each part is its own byte range, so a batch uploads in parallel without flooding Apple's CDN
     const settledChunkUploads = await Promise.allSettled(chunkUploads);
     const failedChunkUpload = settledChunkUploads.find(
-      (chunkUpload): chunkUpload is PromiseRejectedResult => chunkUpload.status === 'rejected',
+      (chunkUpload): chunkUpload is PromiseRejectedResult => chunkUpload.status == 'rejected',
     );
-    if (failedChunkUpload !== undefined) return Promise.reject(failedChunkUpload.reason);
+    if (failedChunkUpload != null) return Promise.reject(failedChunkUpload.reason);
   }
 };
 
@@ -667,7 +667,7 @@ interface AppleAppSummary {
 }
 
 const readNonEmptyAttribute = (attribute: string | undefined): string | null => {
-  const isAttributePresent = typeof attribute === 'string' && attribute.length > 0;
+  const isAttributePresent = typeof attribute == 'string' && attribute.length > 0;
   if (isAttributePresent) return attribute;
   return null;
 };
@@ -678,7 +678,7 @@ export const summarizeAppleApp = (appleResource: {
 }): AppleAppSummary => {
   const name = readNonEmptyAttribute(appleResource.attributes.name);
   const bundleId = readNonEmptyAttribute(appleResource.attributes.bundleId);
-  const isNameMissing = name === null;
+  const isNameMissing = name == null;
   if (isNameMissing) return { id: appleResource.id, name: appleResource.id, bundleId };
   return { id: appleResource.id, name, bundleId };
 };
@@ -688,26 +688,26 @@ const toBuildResource = (
   preReleaseVersions: readonly BuildPageIncluded[],
 ): BuildResource => {
   let version = entry.attributes.version;
-  if (version === undefined) version = '';
+  if (version == null) version = '';
   let processingState = entry.attributes.processingState;
-  if (processingState === undefined) processingState = '';
+  if (processingState == null) processingState = '';
   let expired = entry.attributes.expired;
-  if (expired === undefined) expired = false;
+  if (expired == null) expired = false;
   const buildResource: BuildResource = {
     id: entry.id,
     version,
     processingState,
     expired,
   };
-  if (entry.attributes.uploadedDate !== undefined)
+  if (entry.attributes.uploadedDate != null)
     Object.assign(buildResource, { uploadedDate: entry.attributes.uploadedDate });
   const preReleaseVersionId = entry.relationships?.preReleaseVersion?.data?.id;
   const preReleaseVersion = preReleaseVersions.find(
     (includedResource) =>
-      includedResource.type === 'preReleaseVersions' && includedResource.id === preReleaseVersionId,
+      includedResource.type == 'preReleaseVersions' && includedResource.id == preReleaseVersionId,
   );
   const marketingVersion = preReleaseVersion?.attributes?.version;
-  if (marketingVersion !== undefined) Object.assign(buildResource, { marketingVersion });
+  if (marketingVersion != null) Object.assign(buildResource, { marketingVersion });
   return buildResource;
 };
 export const toBuildResources = ({ data: builds, included = [] }: BuildPage): BuildResource[] =>
@@ -723,14 +723,14 @@ export const toVersionResource = (
   includedBuilds: readonly BuildPageIncluded[] = [],
 ): AppStoreVersionResource => {
   let versionString = entry.attributes.versionString;
-  if (versionString === undefined) versionString = fallbackVersion;
+  if (versionString == null) versionString = fallbackVersion;
   let appStoreState = entry.attributes.appStoreState;
-  if (appStoreState === undefined) appStoreState = '';
+  if (appStoreState == null) appStoreState = '';
   const releaseType = entry.attributes.releaseType;
   const attachedBuildId = entry.relationships?.build?.data?.id;
-  const isBuildAttached = attachedBuildId !== undefined;
+  const isBuildAttached = attachedBuildId != null;
   const attachedBuild = includedBuilds.find(
-    (includedBuild) => includedBuild.type === 'builds' && includedBuild.id === attachedBuildId,
+    (includedBuild) => includedBuild.type == 'builds' && includedBuild.id == attachedBuildId,
   );
   const attachedBuildNumber = attachedBuild?.attributes?.version;
   const attachedBuildProcessingState = attachedBuild?.attributes?.processingState;
@@ -738,10 +738,10 @@ export const toVersionResource = (
     id: entry.id,
     versionString,
     appStoreState,
-    ...(releaseType !== undefined && { releaseType }),
+    ...(releaseType != null && { releaseType }),
     ...(isBuildAttached && { attachedBuildId }),
-    ...(attachedBuildNumber !== undefined && { attachedBuildNumber }),
-    ...(attachedBuildProcessingState !== undefined && { attachedBuildProcessingState }),
+    ...(attachedBuildNumber != null && { attachedBuildNumber }),
+    ...(attachedBuildProcessingState != null && { attachedBuildProcessingState }),
   };
   return version;
 };
@@ -754,12 +754,12 @@ export const toPhasedRelease = (entry: {
   };
 }): PhasedReleaseResource => {
   let phasedReleaseState = entry.attributes.phasedReleaseState;
-  if (phasedReleaseState === undefined) phasedReleaseState = '';
+  if (phasedReleaseState == null) phasedReleaseState = '';
   const phasedRelease: PhasedReleaseResource = {
     id: entry.id,
     phasedReleaseState,
   };
-  if (entry.attributes.currentDayNumber !== undefined)
+  if (entry.attributes.currentDayNumber != null)
     Object.assign(phasedRelease, { currentDayNumber: entry.attributes.currentDayNumber });
   return phasedRelease;
 };
@@ -777,9 +777,9 @@ export const matchPricePoint = (
 ): PricePointResource | null => {
   for (const point of points) {
     const price = point.attributes.customerPrice;
-    if (price !== undefined && Number.parseFloat(price) === customerPrice) {
+    if (price != null && Number.parseFloat(price) == customerPrice) {
       let priceTerritory = point.attributes.territory;
-      if (priceTerritory === undefined) priceTerritory = territory;
+      if (priceTerritory == null) priceTerritory = territory;
       return {
         id: point.id,
         customerPrice: price,
@@ -806,14 +806,12 @@ export const toFeedbackScreenshots = (
   if (!raw) return [];
   return raw.flatMap((screenshot) => {
     const screenshotUrl = screenshot.url;
-    if (screenshotUrl === undefined) return [];
+    if (screenshotUrl == null) return [];
     const feedbackScreenshot: { url: string; width?: number; height?: number } = {
       url: screenshotUrl,
     };
-    if (screenshot.width !== undefined)
-      Object.assign(feedbackScreenshot, { width: screenshot.width });
-    if (screenshot.height !== undefined)
-      Object.assign(feedbackScreenshot, { height: screenshot.height });
+    if (screenshot.width != null) Object.assign(feedbackScreenshot, { width: screenshot.width });
+    if (screenshot.height != null) Object.assign(feedbackScreenshot, { height: screenshot.height });
     return [feedbackScreenshot];
   });
 };
@@ -827,14 +825,14 @@ export const toReviewResponse = (appleResources: {
   };
 }): CustomerReviewResponseResource => {
   let responseBody = appleResources.attributes.responseBody;
-  if (responseBody === undefined) responseBody = '';
+  if (responseBody == null) responseBody = '';
   const reviewResponse: CustomerReviewResponseResource = {
     id: appleResources.id,
     responseBody,
   };
-  if (appleResources.attributes.state !== undefined)
+  if (appleResources.attributes.state != null)
     Object.assign(reviewResponse, { state: appleResources.attributes.state });
-  if (appleResources.attributes.lastModifiedDate !== undefined)
+  if (appleResources.attributes.lastModifiedDate != null)
     Object.assign(reviewResponse, { lastModifiedDate: appleResources.attributes.lastModifiedDate });
   return reviewResponse;
 };
@@ -847,19 +845,19 @@ export const toAppEvent = (
   fallbackReferenceName: string,
 ): AppEventResource => {
   let referenceName = appleEvent.attributes.referenceName;
-  if (referenceName === undefined) referenceName = fallbackReferenceName;
+  if (referenceName == null) referenceName = fallbackReferenceName;
   const appEvent: AppEventResource = { id: appleEvent.id, referenceName };
-  if (typeof appleEvent.attributes.badge === 'string')
+  if (typeof appleEvent.attributes.badge == 'string')
     Object.assign(appEvent, { badge: appleEvent.attributes.badge });
-  if (appleEvent.attributes.eventState !== undefined)
+  if (appleEvent.attributes.eventState != null)
     Object.assign(appEvent, { eventState: appleEvent.attributes.eventState });
-  if (typeof appleEvent.attributes.primaryLocale === 'string')
+  if (typeof appleEvent.attributes.primaryLocale == 'string')
     Object.assign(appEvent, { primaryLocale: appleEvent.attributes.primaryLocale });
-  if (typeof appleEvent.attributes.deepLink === 'string')
+  if (typeof appleEvent.attributes.deepLink == 'string')
     Object.assign(appEvent, { deepLink: appleEvent.attributes.deepLink });
-  if (typeof appleEvent.attributes.priority === 'string')
+  if (typeof appleEvent.attributes.priority == 'string')
     Object.assign(appEvent, { priority: appleEvent.attributes.priority });
-  if (typeof appleEvent.attributes.purpose === 'string')
+  if (typeof appleEvent.attributes.purpose == 'string')
     Object.assign(appEvent, { purpose: appleEvent.attributes.purpose });
   return appEvent;
 };
@@ -872,18 +870,18 @@ export const toAppEventLocalization = (
   fallbackLocale: string,
 ): AppEventLocalizationResource => {
   let locale = appleResources.attributes.locale;
-  if (locale === undefined) locale = fallbackLocale;
+  if (locale == null) locale = fallbackLocale;
   const eventLocalization: AppEventLocalizationResource = {
     id: appleResources.id,
     locale,
   };
-  if (typeof appleResources.attributes.name === 'string')
+  if (typeof appleResources.attributes.name == 'string')
     Object.assign(eventLocalization, { name: appleResources.attributes.name });
-  if (typeof appleResources.attributes.shortDescription === 'string')
+  if (typeof appleResources.attributes.shortDescription == 'string')
     Object.assign(eventLocalization, {
       shortDescription: appleResources.attributes.shortDescription,
     });
-  if (typeof appleResources.attributes.longDescription === 'string')
+  if (typeof appleResources.attributes.longDescription == 'string')
     Object.assign(eventLocalization, {
       longDescription: appleResources.attributes.longDescription,
     });
@@ -901,12 +899,12 @@ export const toReportRequest = (
   fallbackAccessType: string,
 ): AnalyticsReportRequestResource => {
   let accessType = entry.attributes.accessType;
-  if (accessType === undefined) accessType = fallbackAccessType;
+  if (accessType == null) accessType = fallbackAccessType;
   const reportRequest: AnalyticsReportRequestResource = {
     id: entry.id,
     accessType,
   };
-  if (entry.attributes.stoppedDueToInactivity !== undefined)
+  if (entry.attributes.stoppedDueToInactivity != null)
     Object.assign(reportRequest, {
       stoppedDueToInactivity: entry.attributes.stoppedDueToInactivity,
     });
@@ -918,8 +916,8 @@ export const clockSkewHint = (args: {
   nowMs: number;
   platform: NodeJS.Platform;
 }): string => {
-  if (args.platform !== 'darwin') return '';
-  if (args.appleDate === null) return '';
+  if (args.platform != 'darwin') return '';
+  if (args.appleDate == null) return '';
   const appleMs = Date.parse(args.appleDate);
   if (Number.isNaN(appleMs)) return '';
   const skewSeconds = Math.abs(args.nowMs - appleMs) / 1000;
@@ -1235,9 +1233,9 @@ function describeUnparsedAppleBody(appleBody: string): string {
 
 const describeAscError = (error: AscError): string => {
   let message = error.detail;
-  if (message === undefined) message = error.title;
-  if (message === undefined) message = error.code;
-  if (message === undefined) message = 'unknown App Store Connect error';
+  if (message == null) message = error.title;
+  if (message == null) message = error.code;
+  if (message == null) message = 'unknown App Store Connect error';
   const associated = describeAssociatedErrors(error.meta?.associatedErrors);
   if (associated.length > 0) return `${message}; ${associated.join('; ')}`;
   return message;

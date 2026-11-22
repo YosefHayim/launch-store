@@ -7,7 +7,7 @@ describe('registerReleaseTrainCommand', () => {
     const program = new Command();
     registerReleaseTrainCommand(program);
     const releaseTrainCommand = program.commands.find(
-      (registeredCommand) => registeredCommand.name() === 'release-train',
+      (registeredCommand) => registeredCommand.name() == 'release-train',
     );
     expect(releaseTrainCommand).toBeDefined();
     expect(releaseTrainCommand?.registeredArguments.map((argument) => argument.name())).toEqual([

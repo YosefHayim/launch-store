@@ -8,10 +8,6 @@ import type { AscReadinessApi } from '../../types/readiness.ts';
 import { iosApps } from '../app-scopes.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 
-/** The App Store Connect app-record readiness probe - both an account-onboarding and a submit blocker. */
-const ACCOUNT_HINT =
-  "create the app once in App Store Connect - Apple's API can't (no POST /v1/apps)";
-
 function isAppleAccountMissing(api: AscReadinessApi | null): api is null {
   return api == null;
 }
@@ -32,7 +28,7 @@ async function readAppRecord(
       identifier: app.identifier,
       status: 'blocker',
       detail: 'no app record on App Store Connect',
-      hint: ACCOUNT_HINT,
+      hint: "create the app once in App Store Connect - Apple's API can't (no POST /v1/apps)",
     };
   }
 

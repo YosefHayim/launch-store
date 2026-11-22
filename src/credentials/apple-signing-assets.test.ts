@@ -28,7 +28,7 @@ vi.mock('../adopt/profile-entitlements.ts', () => ({
 const KEY_ID = 'ABC123';
 const MAIN = 'com.example.sampleapp';
 const WIDGET = 'com.example.sampleapp.widget';
-const DUMMY_KEY: AscKey = { keyId: KEY_ID, issuerId: 'issuer-uuid', p8: 'not-a-real-key' };
+const dummyKey: AscKey = { keyId: KEY_ID, issuerId: 'issuer-uuid', p8: 'not-a-real-key' };
 
 function profileRecord(bundleId: string, uuid: string) {
   return {
@@ -125,7 +125,7 @@ describe('ensureAdHocSigningCredentials - macOS has no ad-hoc distribution', () 
         platform: 'macos',
         bundleId: MAIN,
         appName: 'Mapleleaf',
-        ascKey: DUMMY_KEY,
+        ascKey: dummyKey,
         log: createLogger(false),
         dryRun: true,
         confirmCreate: function confirmCreate() {

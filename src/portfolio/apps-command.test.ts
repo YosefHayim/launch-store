@@ -23,7 +23,7 @@ import {
   type AppsTagRequest,
 } from './apps-command.ts';
 
-const ACCOUNTS_FILE = JSON.stringify({
+const accountsFile = JSON.stringify({
   active: 'KEYA',
   accounts: [
     { keyId: 'KEYA', issuerId: 'issuer-a', label: 'alpha', addedAt: 't' },
@@ -187,7 +187,7 @@ describe('appsListProgram and appsTagProgram', () => {
       join(project, 'app.json'),
       JSON.stringify({ expo: { slug: 'fit', android: { package: 'com.jts.fit' } } }),
     );
-    writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
+    writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
     useLaunchDirectories({ homeDirectory, workingDirectory: project });
 
     async function ascClientForAccount(keyId: string): Promise<AppStoreStatsClient | null> {

@@ -30,13 +30,6 @@ const PLAY_SUB: SubscriptionConfig = {
   localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
   play: { prices: { US: { priceMicros: '4990000', currency: 'USD' } } },
 };
-/** An Apple-only subscription (no `play` override) - must never reach Play. */
-const APPLE_ONLY_SUB: SubscriptionConfig = {
-  productId: 'com.acme.pro.yearly',
-  referenceName: 'Pro Yearly',
-  subscriptionPeriod: 'ONE_YEAR',
-  localizations: [{ locale: 'en-US', name: 'Pro Yearly' }],
-};
 /** Wrap subscriptions in the one group `products[bundleId].subscriptionGroups` requires. */
 const productsWith = (
   subscriptions: readonly SubscriptionConfig[],
@@ -49,17 +42,18 @@ const productsWith = (
     },
   };
 };
-const ALPHA: AppDescriptor = {
-  name: 'alpha',
-  dir: '/no/such/dir/alpha',
-  configPath: '/no/such/dir/alpha/app.json',
-  bundleId: 'com.acme.alpha',
-  packageName: 'com.acme.alpha',
-};
 const makeCtx = (
   api: PlayCatalogApi | null,
   products: Record<string, AppProducts> = {},
-  apps: AppDescriptor[] = [ALPHA],
+  apps: AppDescriptor[] = [
+    {
+      name: 'alpha',
+      dir: '/no/such/dir/alpha',
+      configPath: '/no/such/dir/alpha/app.json',
+      bundleId: 'com.acme.alpha',
+      packageName: 'com.acme.alpha',
+    },
+  ],
 ): PlanContext => {
   const baseConfig: LaunchConfig = {
     profiles: {},
@@ -81,7 +75,17 @@ describe('playSubscriptionsPlanner', () => {
   it('omits itself when no app declares a Play-overridden subscription', async () => {
     const plan = await runPlanner(
       playSubscriptionsPlanner,
-      makeCtx(makePlayApi(), productsWith([APPLE_ONLY_SUB])),
+      makeCtx(
+        makePlayApi(),
+        productsWith([
+          {
+            productId: 'com.acme.pro.yearly',
+            referenceName: 'Pro Yearly',
+            subscriptionPeriod: 'ONE_YEAR',
+            localizations: [{ locale: 'en-US', name: 'Pro Yearly' }],
+          },
+        ]),
+      ),
     );
     expect(plan.state).toBe('omitted');
   });
@@ -104,7 +108,7 @@ describe('playSubscriptionsPlanner', () => {
       makeCtx(null, productsWith([PLAY_SUB])),
     );
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.reason).toMatch(/Play service account/);
     expect(plan.hint).toMatch(/android/);
   });
@@ -114,13 +118,13 @@ describe('playSubscriptionsPlanner', () => {
       makeCtx(makePlayApi(), productsWith([PLAY_SUB])),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
     expect(
       plan.apps[0]?.actions.some(
-        (a) => a.description === 'create Play subscription com.acme.pro.monthly',
+        (a) => a.description == 'create Play subscription com.acme.pro.monthly',
       ),
     ).toBe(true);
   });
@@ -130,8 +134,8 @@ describe('playSubscriptionsPlanner', () => {
     });
     const plan = await runPlanner(playSubscriptionsPlanner, makeCtx(api, productsWith([PLAY_SUB])));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/app not found on Play/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });

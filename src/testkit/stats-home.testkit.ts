@@ -2,7 +2,7 @@ import { writeLaunchHomeFile } from './launch-home.testkit.ts';
 import type { PortfolioFile } from '../types/portfolio.ts';
 import type { DailyStat } from '../types/stats.ts';
 
-const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
+const dayMilliseconds = 24 * 60 * 60 * 1000;
 
 export const STATS_PORTFOLIO_FILE: PortfolioFile = {
   version: 1,
@@ -35,7 +35,7 @@ export const STATS_PORTFOLIO_FILE: PortfolioFile = {
 
 /** A `YYYY-MM-DD` date some whole days before now, in UTC. */
 export const readDateDaysAgo = (dayCount: number): string =>
-  new Date(Date.now() - dayCount * DAY_MILLISECONDS).toISOString().slice(0, 10);
+  new Date(Date.now() - dayCount * dayMilliseconds).toISOString().slice(0, 10);
 
 /** Write one month file per month the stats touch, as the stats store would. */
 export const writeStatsMonthFiles = (

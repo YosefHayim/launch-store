@@ -12,7 +12,7 @@ export const findFeedCoverage = (
   feed: StatsFeed,
 ): FeedCoverage | null => {
   const savedFeedCoverage = appCoverage.feeds[feed];
-  const isFeedCoverageMissing = savedFeedCoverage === undefined;
+  const isFeedCoverageMissing = savedFeedCoverage == null;
   if (isFeedCoverageMissing) return null;
   return savedFeedCoverage;
 };
@@ -22,10 +22,10 @@ export const subtractCoverage = (
   requested: DateRange,
   covered: Pick<FeedCoverage, 'coveredFrom' | 'coveredThrough'> | null,
 ): DateRange | null => {
-  const isNothingCovered = covered === null;
+  const isNothingCovered = covered == null;
   if (isNothingCovered) return requested;
   const { coveredFrom, coveredThrough } = covered;
-  const isCoverageEmpty = coveredFrom === null || coveredThrough === null;
+  const isCoverageEmpty = coveredFrom == null || coveredThrough == null;
   if (isCoverageEmpty) return requested;
   const refreshFrom = shiftDate(coveredThrough, 1 - REFRESH_TAIL_DAYS);
   const isRangeReachingTail = requested.to >= refreshFrom;
@@ -49,7 +49,7 @@ export const mergeFeedCoverage = (
 ): FeedCoverage => {
   const isNothingPulled = coveredThrough < range.from;
   const isPreviousCoverageMissing =
-    previous === null || previous.coveredFrom === null || previous.coveredThrough === null;
+    previous == null || previous.coveredFrom == null || previous.coveredThrough == null;
   if (isPreviousCoverageMissing && isNothingPulled) {
     return {
       lastSyncedAt: syncedAt,
@@ -85,7 +85,7 @@ export const markFeedCoverageSkipped = (
   syncedAt: string,
   reason: string,
 ): FeedCoverage => {
-  const isNeverSynced = previous === null;
+  const isNeverSynced = previous == null;
   if (isNeverSynced) {
     return {
       lastSyncedAt: syncedAt,
@@ -102,7 +102,7 @@ export const markFeedCoverageFailed = (
   previous: FeedCoverage | null,
   message: string,
 ): FeedCoverage => {
-  const isNeverSynced = previous === null;
+  const isNeverSynced = previous == null;
   if (isNeverSynced) {
     return {
       lastSyncedAt: '1970-01-01T00:00:00.000Z',
@@ -116,7 +116,7 @@ export const markFeedCoverageFailed = (
 };
 
 export const createNotesMessage = (notes: readonly string[]): string | null => {
-  const hasNoNotes = notes.length === 0;
+  const hasNoNotes = notes.length == 0;
   if (hasNoNotes) return null;
   return notes.join('; ');
 };
@@ -125,9 +125,9 @@ export const isFeedCoverageStale = (
   coverage: FeedCoverage | null,
   nowMilliseconds: number,
 ): boolean => {
-  const isNeverSynced = coverage === null;
+  const isNeverSynced = coverage == null;
   if (isNeverSynced) return true;
-  const hasLastSyncFailed = coverage.lastError !== null;
+  const hasLastSyncFailed = coverage.lastError != null;
   if (hasLastSyncFailed) return true;
   return isSyncedAtStale(coverage.lastSyncedAt, nowMilliseconds);
 };

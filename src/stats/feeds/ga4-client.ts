@@ -3,7 +3,7 @@ import type { StatsFeedFailure } from '../../types/stats.ts';
 
 export const ANALYTICS_ADMIN_URL = 'https://analyticsadmin.googleapis.com/v1beta';
 export const ANALYTICS_DATA_URL = 'https://analyticsdata.googleapis.com/v1beta';
-const HTTP_FORBIDDEN = 403;
+const httpForbidden = 403;
 
 export interface Ga4Session {
   readonly appKey: string;
@@ -135,7 +135,7 @@ export function readGa4Error(httpStatus: number, errorDocument: unknown): Ga4Err
     return { kind: 'service-disabled', message };
   }
 
-  const isForbidden = httpStatus == HTTP_FORBIDDEN;
+  const isForbidden = httpStatus == httpForbidden;
   const isPermissionStatus = googleError['status'] == 'PERMISSION_DENIED';
 
   if (isForbidden == false) {

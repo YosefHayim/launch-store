@@ -22,26 +22,23 @@ export type UpdateManifest = {
   extra: Record<string, never>;
 };
 
-/** Map a file extension to the content type Expo serves it as. */
-const CONTENT_TYPES: Readonly<Record<string, string>> = {
-  '.js': 'application/javascript',
-  '.hbc': 'application/javascript',
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.svg': 'image/svg+xml',
-  '.ttf': 'font/ttf',
-  '.otf': 'font/otf',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-};
-
 /** Resolve a file's content type from its extension, defaulting to a binary stream. */
 export function contentTypeFor(filePath: string): string {
-  const contentType = CONTENT_TYPES[extname(filePath).toLowerCase()];
+  const contentType = {
+    '.js': 'application/javascript',
+    '.hbc': 'application/javascript',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+    '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+  }[extname(filePath).toLowerCase()];
 
   if (contentType == null) {
     return 'application/octet-stream';

@@ -70,13 +70,13 @@ const normalizeAscReviews = (customerReviews: readonly CustomerReviewResource[])
   const normalizedReviews: ReviewDatum[] = [];
   for (const customerReview of customerReviews) {
     const starRating = toStarRating(customerReview.rating);
-    if (starRating === null) continue;
+    if (starRating == null) continue;
     const normalizedReview: MutableDeep<ReviewDatum> = {
       store: 'appstore',
       rating: starRating,
       answered: customerReview.answered,
     };
-    if (customerReview.createdDate !== undefined) {
+    if (customerReview.createdDate != null) {
       normalizedReview.date = customerReview.createdDate;
     }
     normalizedReviews.push(normalizedReview);
@@ -89,13 +89,13 @@ const normalizePlayReviews = (playReviews: readonly PlayReview[]): ReviewDatum[]
   const normalizedReviews: ReviewDatum[] = [];
   for (const playReview of playReviews) {
     const starRating = toStarRating(playReview.rating);
-    if (starRating === null) continue;
+    if (starRating == null) continue;
     const normalizedReview: MutableDeep<ReviewDatum> = {
       store: 'play',
       rating: starRating,
       answered: playReview.answered,
     };
-    if (playReview.lastModified !== undefined) normalizedReview.date = playReview.lastModified;
+    if (playReview.lastModified != null) normalizedReview.date = playReview.lastModified;
     normalizedReviews.push(normalizedReview);
   }
   return normalizedReviews;
@@ -103,7 +103,7 @@ const normalizePlayReviews = (playReviews: readonly PlayReview[]): ReviewDatum[]
 
 /** Human label for a normalized store key. */
 const storeLabel = (store: InsightsStore): string => {
-  if (store === 'appstore') return 'App Store';
+  if (store == 'appstore') return 'App Store';
   return 'Play';
 };
 
@@ -118,19 +118,19 @@ const distributionBar = (count: number, maximum: number, width = 12): string => 
 const ratingSummaryLine = (ratingSummary: RatingSummary): string => {
   const answeredPercentage = Math.round(ratingSummary.answeredRate * 100);
   let reviewNoun = 'reviews';
-  if (ratingSummary.total === 1) reviewNoun = 'review';
+  if (ratingSummary.total == 1) reviewNoun = 'review';
   return `Rating ${ratingSummary.average.toFixed(1)}/5 - ${ratingSummary.total} ${reviewNoun} - ${answeredPercentage}% answered`;
 };
 
 /** Render the normalized insights report as one terminal block. */
 export const renderInsights = (insightsReport: InsightsReport): string => {
-  if (insightsReport.apps.length === 0) {
+  if (insightsReport.apps.length == 0) {
     return 'No review data - no selected app returned reviews from the App Store or Play.';
   }
   let appNoun = 'apps';
-  if (insightsReport.apps.length === 1) appNoun = 'app';
+  if (insightsReport.apps.length == 1) appNoun = 'app';
   let reviewNoun = 'reviews';
-  if (insightsReport.overall.total === 1) reviewNoun = 'review';
+  if (insightsReport.overall.total == 1) reviewNoun = 'review';
   const reportLines: string[] = [
     `Insights - ${insightsReport.apps.length} ${appNoun} - ${insightsReport.overall.total} ${reviewNoun}`,
   ];
@@ -151,11 +151,11 @@ export const renderInsights = (insightsReport: InsightsReport): string => {
         `${appInsights.ratings.sentiment.neutral} neutral - ${appInsights.ratings.sentiment.negative} negative`,
     );
     const stores: readonly InsightsStore[] = ['appstore', 'play'];
-    const presentStores = stores.filter((store) => appInsights.byStore[store] !== undefined);
+    const presentStores = stores.filter((store) => appInsights.byStore[store] != null);
     if (presentStores.length > 1) {
       for (const store of presentStores) {
         const storeSummary = appInsights.byStore[store];
-        if (storeSummary !== undefined) {
+        if (storeSummary != null) {
           reportLines.push(`  ${storeLabel(store)}: ${ratingSummaryLine(storeSummary)}`);
         }
       }

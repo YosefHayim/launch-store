@@ -24,10 +24,10 @@ describe('registerPlanCommand', () => {
   it('preserves app, check, and JSON options on their public commands', () => {
     const planCommands = registeredPlanCommands();
     const planCommand = planCommands.find(
-      (registeredCommand) => registeredCommand.name() === 'plan',
+      (registeredCommand) => registeredCommand.name() == 'plan',
     );
     const driftCommand = planCommands.find(
-      (registeredCommand) => registeredCommand.name() === 'drift',
+      (registeredCommand) => registeredCommand.name() == 'drift',
     );
     expect(planCommand?.options.map((commandOption) => commandOption.long)).toEqual([
       '--app',

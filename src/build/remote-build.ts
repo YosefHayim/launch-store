@@ -14,22 +14,6 @@ import {
   parseThinningReport,
 } from '../services/provider-support/apple-artifact.ts';
 
-/**
- * What never leaves your machine in the source archive: dependencies and native build dirs are
- * regenerated on the host, and `.env` values are injected separately.
- */
-const SOURCE_EXCLUDES = [
-  'node_modules',
-  '.git',
-  'ios',
-  'android',
-  'dist',
-  '.expo',
-  '.launch',
-  '.env',
-  '.env.*',
-];
-
 /** A live remote-build session: the persistent per-app work tree plus a per-run secrets dir. */
 type RemoteSession = {
   target: SshTarget;
@@ -108,7 +92,17 @@ export async function openRemoteSession(
 
 /** Mirror the project into the host's persistent `app/` tree, honoring SOURCE_EXCLUDES. */
 export function syncProject(session: RemoteSession, appDir: string): Promise<void> {
-  return rsyncUp(session.target, appDir, `${session.workDirectory}/app`, SOURCE_EXCLUDES);
+  return rsyncUp(session.target, appDir, `${session.workDirectory}/app`, [
+    'node_modules',
+    '.git',
+    'ios',
+    'android',
+    'dist',
+    '.expo',
+    '.launch',
+    '.env',
+    '.env.*',
+  ]);
 }
 
 /** Upload the transient p12, profile, and export-options plist into the per-run creds dir. */
@@ -206,7 +200,7 @@ export async function runBuildOnHost(
   const cleanBuilt = await withRemoteStaging(async function stageBuild(stagingDirectory: string) {
     const scriptLocal = join(stagingDirectory, 'build.sh');
 
-    await writeFile(scriptLocal, REMOTE_BUILD_SCRIPT);
+    await writeFile(scriptLocal, remoteBuildScript);
 
     const scriptRemote = `${session.credentialsDirectory}/build.sh`;
 
@@ -305,7 +299,7 @@ export function shredHost(session: RemoteSession): Promise<void> {
   );
 }
 
-const REMOTE_BUILD_SCRIPT = String.raw`#!/usr/bin/env bash
+const remoteBuildScript = String.raw`#!/usr/bin/env bash
 set -euo pipefail
 
 WORK="$1"

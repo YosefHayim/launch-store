@@ -133,9 +133,6 @@ export type ListingReconcileInput = {
   dryRun: boolean;
 };
 
-/** Default base territory when a product price omits one. */
-const DEFAULT_TERRITORY = 'USA';
-
 type CatalogPricePointFailure = Readonly<{
   readonly _tag: 'CatalogPricePointFailure';
   readonly message: string;
@@ -152,7 +149,7 @@ export const DRY_RUN_ID = '(dry-run)';
  * Capabilities Apple enables on every App ID and will not remove. Never plan a disable for these
  * merely because config omits them.
  */
-const ALWAYS_ENABLED_CAPABILITIES = new Set<string>(['IN_APP_PURCHASE', 'GAME_CENTER']);
+const alwaysEnabledCapabilities = new Set<string>(['IN_APP_PURCHASE', 'GAME_CENTER']);
 
 /**
  * Shared plan/apply log. `dryRun: true` is plan-only (record, no write); `dryRun: false` applies
@@ -255,7 +252,7 @@ function territoryForPrice(productPrice: ProductPrice): string {
     return baseTerritory;
   }
 
-  return DEFAULT_TERRITORY;
+  return 'USA';
 }
 
 function readUnpricedProduct(
@@ -465,7 +462,7 @@ async function reconcileCapabilities(
       continue;
     }
 
-    const isAlwaysEnabled = ALWAYS_ENABLED_CAPABILITIES.has(liveCapability.capabilityType);
+    const isAlwaysEnabled = alwaysEnabledCapabilities.has(liveCapability.capabilityType);
 
     if (isAlwaysEnabled) {
       continue;
@@ -848,16 +845,6 @@ async function reconcileSubscription(
   }
 }
 
-/** Apple field length caps; over-limit fields become skipped plan lines, never sent. */
-const LISTING_LIMITS: Record<string, number> = {
-  name: 30,
-  subtitle: 30,
-  keywords: 100,
-  promotionalText: 170,
-  description: 4000,
-  whatsNew: 4000,
-};
-
 type ListingLevel = 'appInfo' | 'version';
 
 type RoutedListing = {
@@ -929,7 +916,14 @@ function routeListing(localeListing: AppleLocaleInfo): RoutedListing {
 }
 
 function listingLimitError(fieldName: string, fieldText: string): string | null {
-  const limit = LISTING_LIMITS[fieldName];
+  const limit = {
+    name: 30,
+    subtitle: 30,
+    keywords: 100,
+    promotionalText: 170,
+    description: 4000,
+    whatsNew: 4000,
+  }[fieldName];
 
   if (limit == null) {
     return null;

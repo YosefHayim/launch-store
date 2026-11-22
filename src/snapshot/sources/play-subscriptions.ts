@@ -74,7 +74,7 @@ const toEntity = (subscription: SubscriptionResource): SnapshotEntity => {
   if (subscription.basePlans) subscriptionFields['basePlans'] = basePlans(subscription.basePlans);
   if (subscription.listings) subscriptionFields['listings'] = listings(subscription.listings);
   let planCount = subscription.basePlans?.length;
-  if (planCount === undefined) planCount = 0;
+  if (planCount == null) planCount = 0;
   return {
     key: subscription.productId,
     summary: `Play subscription (${planCount} base plan(s))`,
@@ -108,7 +108,7 @@ const firstBasePlan = (capturedBasePlans: JsonValue | undefined): RestorableBase
   const first = jsonRecord(capturedBasePlans[0]);
   if (!first) return null;
   const basePlanId = stringField(first, 'basePlanId');
-  if (basePlanId === undefined) return null;
+  if (basePlanId == null) return null;
   return { basePlanId, period: stringField(first, 'period'), prices: toPriceMap(first['prices']) };
 };
 /** Invert a captured `listings` array (`{ languageCode, title }`) back into the shared localization list. */
@@ -143,12 +143,12 @@ const toSubscriptionConfig = (entity: SnapshotEntity): SubscriptionConfig | null
   const subscriptionFields = jsonRecord(entity.data);
   if (!subscriptionFields) return null;
   let productId = stringField(subscriptionFields, 'productId');
-  if (productId === undefined) productId = entity.key;
+  if (productId == null) productId = entity.key;
   const basePlan = firstBasePlan(subscriptionFields['basePlans']);
   if (!basePlan?.period) return null;
   const subscriptionPeriod = periodFromIso(basePlan.period);
   if (!subscriptionPeriod) return null;
-  if (Object.keys(basePlan.prices).length === 0) return null;
+  if (Object.keys(basePlan.prices).length == 0) return null;
   const play: PlaySubscriptionOverride = {
     productId,
     basePlanId: basePlan.basePlanId,

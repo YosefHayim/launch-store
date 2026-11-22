@@ -13,11 +13,11 @@ const planCommandInput = (
   surfaceName: string | undefined,
   commandOptions: PlanOptions,
 ): PlanCommandInput => {
-  let check = commandOptions.check === true;
-  if (operation === 'drift') check = true;
+  let check = commandOptions.check == true;
+  if (operation == 'drift') check = true;
   let commandInput: PlanCommandInput = { operation, check, json: commandOptions.json };
-  if (surfaceName !== undefined) commandInput = { ...commandInput, surface: surfaceName };
-  if (commandOptions.app !== undefined) commandInput = { ...commandInput, app: commandOptions.app };
+  if (surfaceName != null) commandInput = { ...commandInput, surface: surfaceName };
+  if (commandOptions.app != null) commandInput = { ...commandInput, app: commandOptions.app };
   return commandInput;
 };
 

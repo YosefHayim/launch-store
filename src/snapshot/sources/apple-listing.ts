@@ -31,8 +31,8 @@ async function captureListing(api: SnapshotAscApi, appId: string): Promise<Snaps
 const isJsonObject = (
   capturedNode: JsonValue,
 ): capturedNode is Readonly<{ [key: string]: JsonValue }> => {
-  if (typeof capturedNode !== 'object') return false;
-  if (capturedNode === null) return false;
+  if (typeof capturedNode != 'object') return false;
+  if (capturedNode == null) return false;
   if (Array.isArray(capturedNode)) return false;
   return true;
 };
@@ -44,8 +44,8 @@ const toListing = (saved: AppEntities): AppleStoreConfig => {
     if (!isJsonObject(capturedListing)) continue;
     const locale = capturedListing['locale'];
     const fields = capturedListing['fields'];
-    if (typeof locale !== 'string') continue;
-    if (fields === undefined) continue;
+    if (typeof locale != 'string') continue;
+    if (fields == null) continue;
     if (!isJsonObject(fields)) continue;
     localeInfoByLocale[locale] = toLocaleInfo(fields);
   }

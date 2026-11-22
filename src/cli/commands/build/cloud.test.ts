@@ -7,7 +7,7 @@ describe('registerCloudCommand', () => {
     const program = new Command();
     registerCloudCommand(program);
     const cloudCommand = program.commands.find(
-      (registeredCommand) => registeredCommand.name() === 'cloud',
+      (registeredCommand) => registeredCommand.name() == 'cloud',
     );
     expect(cloudCommand).toBeDefined();
     expect(cloudCommand?.registeredArguments[0]?.defaultValue).toBe('status');

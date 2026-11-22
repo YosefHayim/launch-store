@@ -101,14 +101,14 @@ describe('reconcileScreenshots - app screenshots', () => {
       'create screenshot set iPhone 6.7" [en-US]',
       'upload screenshot iPhone 6.7" [en-US] 01.png',
     ]);
-    expect(actions.every((a) => a.status === 'planned')).toBe(true);
+    expect(actions.every((a) => a.status == 'planned')).toBe(true);
     expect(api.createScreenshotSet).not.toHaveBeenCalled();
     expect(api.uploadScreenshot).not.toHaveBeenCalled();
   });
   it('creates the set and uploads on apply', async () => {
     const api = makeApi();
     const actions = await runScreenshots(api, input({ screenshots: [shot()] }));
-    expect(actions.every((a) => a.status === 'applied')).toBe(true);
+    expect(actions.every((a) => a.status == 'applied')).toBe(true);
     expect(api.createScreenshotSet).toHaveBeenCalledWith('loc-en', 'APP_IPHONE_67');
     expect(api.uploadScreenshot).toHaveBeenCalledWith('set-new', '01.png', '/tmp/01.png');
   });
@@ -120,7 +120,7 @@ describe('reconcileScreenshots - app screenshots', () => {
         inFlightUploads += 1;
         peakInFlightUploads = Math.max(peakInFlightUploads, inFlightUploads);
         let uploadDelayMs = 1;
-        if (fileName === '01.png') uploadDelayMs = 10;
+        if (fileName == '01.png') uploadDelayMs = 10;
         await new Promise((resumeUpload) => setTimeout(resumeUpload, uploadDelayMs));
         inFlightUploads -= 1;
       }),
@@ -372,14 +372,14 @@ describe('reconcilePreviews', () => {
       'create preview set iPhone 6.7" [en-US]',
       'upload preview iPhone 6.7" [en-US] 01.mp4',
     ]);
-    expect(actions.every((a) => a.status === 'planned')).toBe(true);
+    expect(actions.every((a) => a.status == 'planned')).toBe(true);
     expect(api.createPreviewSet).not.toHaveBeenCalled();
     expect(api.uploadPreview).not.toHaveBeenCalled();
   });
   it('creates the set and uploads on apply', async () => {
     const api = makePreviewsApi();
     const actions = await runPreviews(api, previewInput({ previews: [preview()] }));
-    expect(actions.every((a) => a.status === 'applied')).toBe(true);
+    expect(actions.every((a) => a.status == 'applied')).toBe(true);
     expect(api.createPreviewSet).toHaveBeenCalledWith('loc-en', 'IPHONE_67');
     expect(api.uploadPreview).toHaveBeenCalledWith('set-new', '01.mp4', '/tmp/01.mp4');
   });

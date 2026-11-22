@@ -39,14 +39,14 @@ type ReadinessCommandFailure = Readonly<{
   cause?: unknown;
 }>;
 
-const READINESS_STORES: readonly ReadinessStore[] = ['appstore', 'play'];
+const readinessStores: readonly ReadinessStore[] = ['appstore', 'play'];
 
-const STORE_LABELS: Readonly<Record<ReadinessStore, string>> = {
+const storeLabels: Readonly<Record<ReadinessStore, string>> = {
   appstore: 'App Store',
   play: 'Google Play',
 };
 
-const READINESS_CATEGORIES: readonly ReadinessCategory[] = [
+const readinessCategories: readonly ReadinessCategory[] = [
   'account',
   'iap',
   'listing',
@@ -104,7 +104,7 @@ function isReadinessCategory(candidate: unknown): candidate is ReadinessCategory
     return category == candidate;
   }
 
-  return READINESS_CATEGORIES.some(isThisCategory);
+  return readinessCategories.some(isThisCategory);
 }
 
 function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
@@ -181,7 +181,7 @@ function decodeReadinessCommandInput(rawCommandInput: unknown): ReadinessCommand
 
 /** Human store name for a report header. */
 export function readinessStoreLabel(store: ReadinessStore): string {
-  return STORE_LABELS[store];
+  return storeLabels[store];
 }
 
 /** Build the human summary detail after probe tallies (without the command-specific prefix). */
@@ -287,7 +287,7 @@ function renderReadinessOutcome(
     return;
   }
 
-  for (const store of READINESS_STORES) {
+  for (const store of readinessStores) {
     const storeReports = readinessOutcome.reports.filter(belongsToStore(store));
     const isStoreEmpty = storeReports.length == 0;
 

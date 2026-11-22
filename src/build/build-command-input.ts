@@ -67,10 +67,6 @@ function makeBuildCommandInputError(fields: {
   };
 }
 
-const BUMP_SELECTORS: readonly (BumpKind | 'ask')[] = ['patch', 'minor', 'major', 'keep', 'ask'];
-const DISTRIBUTIONS: readonly Distribution[] = ['store', 'internal'];
-const PLAY_TRACKS: readonly PlayTrack[] = ['internal', 'closed', 'open', 'production'];
-
 function buildCommandInputError(
   field: string,
   rejectedInput: unknown,
@@ -113,7 +109,7 @@ function parseBuildBump(bump: string | undefined): BumpKind | 'ask' | undefined 
       throw buildCommandInputError(
         'bump',
         bump,
-        `Unknown --bump "${bump}". Use one of: ${BUMP_SELECTORS.join(', ')}.`,
+        `Unknown --bump "${bump}". Use one of: ${['patch', 'minor', 'major', 'keep', 'ask'].join(', ')}.`,
       );
   }
 }
@@ -129,7 +125,7 @@ function parseBuildDistribution(distribution: string | undefined): Distribution 
       throw buildCommandInputError(
         'distribution',
         distribution,
-        `Unknown --distribution "${distribution}". Use one of: ${DISTRIBUTIONS.join(', ')}.`,
+        `Unknown --distribution "${distribution}". Use one of: ${['store', 'internal'].join(', ')}.`,
       );
   }
 }
@@ -160,7 +156,7 @@ function parseBuildTrack(track: string | undefined): PlayTrack | undefined {
       throw buildCommandInputError(
         'track',
         track,
-        `Unknown --track "${track}". Use one of: ${PLAY_TRACKS.join(', ')}.`,
+        `Unknown --track "${track}". Use one of: ${['internal', 'closed', 'open', 'production'].join(', ')}.`,
       );
   }
 }

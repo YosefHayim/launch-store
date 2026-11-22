@@ -113,8 +113,8 @@ describe('recordPublish', () => {
     await recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'second' }));
     const historyEntries = await readHistory(storage, 'production', 'ios');
     expect(historyEntries.map((historyEntry) => historyEntry.id)).toEqual(['second', 'first']);
-    expect(historyEntries.find((historyEntry) => historyEntry.id === 'second')?.active).toBe(true);
-    expect(historyEntries.find((historyEntry) => historyEntry.id === 'first')?.active).toBe(false);
+    expect(historyEntries.find((historyEntry) => historyEntry.id == 'second')?.active).toBe(true);
+    expect(historyEntries.find((historyEntry) => historyEntry.id == 'first')?.active).toBe(false);
   });
 
   it('keeps active entries for other runtime versions', async () => {
@@ -195,7 +195,7 @@ describe('republishUpdate', () => {
     );
     const historyEntries = await readHistory(storage, channel, platform);
     expect(historyEntries[0]?.id).toBe('rollback-id');
-    expect(historyEntries.find((historyEntry) => historyEntry.id === 'bad-id')?.active).toBe(false);
+    expect(historyEntries.find((historyEntry) => historyEntry.id == 'bad-id')?.active).toBe(false);
   });
 
   it('fails with a typed error when the target snapshot is absent', async () => {

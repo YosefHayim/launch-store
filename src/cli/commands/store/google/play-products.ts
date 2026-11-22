@@ -24,7 +24,7 @@ export const registerPlayProductsCommand = (program: Command): void => {
         dryRun: commandOptions.dryRun,
         yes: commandOptions.yes,
       };
-      if (commandOptions.app !== undefined) {
+      if (commandOptions.app != null) {
         playProductsInput = { ...playProductsInput, app: commandOptions.app };
       }
       return runCliProgram(playProductsCommandProgram(playProductsInput));

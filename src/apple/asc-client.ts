@@ -195,7 +195,7 @@ export class AppStoreConnectClient implements AscHost {
     // minted per attempt, so a retry that straddles the 19-minute TTL re-signs rather than 401s.
     // A write that lost its connection may already have landed, so only a GET retries one.
     let isRetryableFailure = isRetryableAscError;
-    if (method === 'GET') isRetryableFailure = isRetryableIdempotentFailure;
+    if (method == 'GET') isRetryableFailure = isRetryableIdempotentFailure;
     const requestWithBackoff = () =>
       retryAppleTransportRequest(() => this.requestOnce<T>(method, pathOrUrl, requestDocument), {
         isRetryableFailure,
@@ -220,7 +220,7 @@ export class AppStoreConnectClient implements AscHost {
       Authorization: `Bearer ${await this.token()}`,
     };
     const requestInit: RequestInit = { method, headers: requestHeaders };
-    if (requestDocument !== undefined) {
+    if (requestDocument != null) {
       requestHeaders['Content-Type'] = 'application/json';
       requestInit.body = JSON.stringify(requestDocument);
     }
@@ -236,7 +236,7 @@ export class AppStoreConnectClient implements AscHost {
       // A 401 most often means a wrong/expired token - but the sneaky cause is a skewed local clock,
       // since `exp`/`iat` are signed off it. Apple's `Date` header is the authoritative reference.
       let clockHint = '';
-      if (appleResponse.status === 401)
+      if (appleResponse.status == 401)
         clockHint = clockSkewHint({
           appleDate: appleResponse.headers.get('date'),
           nowMs: Date.now(),
@@ -278,7 +278,7 @@ export class AppStoreConnectClient implements AscHost {
     try {
       return await load();
     } catch (error) {
-      if (error instanceof AscRequestError && error.status === 404) return null;
+      if (error instanceof AscRequestError && error.status == 404) return null;
       throw error;
     }
   }
@@ -337,7 +337,7 @@ export class AppStoreConnectClient implements AscHost {
       },
     });
     let operations = reservation.data.attributes.uploadOperations;
-    if (operations === undefined) operations = [];
+    if (operations == null) operations = [];
     return { id: reservation.data.id, operations };
   }
 

@@ -1,32 +1,32 @@
 import type { MigrationNoteLevel, MigrationResult, MigrationSource } from '../types/migrate.ts';
 
-const LEVEL_LABEL: Record<MigrationNoteLevel, string> = {
+const levelLabel: Record<MigrationNoteLevel, string> = {
   mapped: 'OK',
   manual: 'MANUAL',
   skipped: 'SKIP',
   info: 'INFO',
 };
 
-const LEVEL_HEADING: Record<MigrationNoteLevel, string> = {
+const levelHeading: Record<MigrationNoteLevel, string> = {
   manual: 'Needs your attention',
   mapped: 'Mapped automatically',
   skipped: 'Skipped (left as-is)',
   info: 'For your information',
 };
 
-const SOURCE_LABEL: Record<MigrationSource, string> = {
+const sourceLabel: Record<MigrationSource, string> = {
   eas: 'EAS (eas.json)',
   fastlane: 'fastlane',
 };
 
-const LEVEL_ORDER: MigrationNoteLevel[] = ['manual', 'mapped', 'skipped', 'info'];
+const levelOrder: MigrationNoteLevel[] = ['manual', 'mapped', 'skipped', 'info'];
 
 /** Render a migration as the migration-report.md document. */
 export function renderReport(migration: MigrationResult): string {
   const reportLines: string[] = [
     '# Launch migration report',
     '',
-    `Migrated from **${SOURCE_LABEL[migration.source]}**.`,
+    `Migrated from **${sourceLabel[migration.source]}**.`,
     '',
     '## Files',
     '',
@@ -36,7 +36,7 @@ export function renderReport(migration: MigrationResult): string {
     reportLines.push(`- \`${migrationArtifact.path}\``);
   }
 
-  for (const noteLevel of LEVEL_ORDER) {
+  for (const noteLevel of levelOrder) {
     const levelNotes = migration.notes.filter(function noteMatchesLevel(migrationNote) {
       return migrationNote.level == noteLevel;
     });
@@ -46,10 +46,10 @@ export function renderReport(migration: MigrationResult): string {
       continue;
     }
 
-    reportLines.push('', `## ${LEVEL_HEADING[noteLevel]}`, '');
+    reportLines.push('', `## ${levelHeading[noteLevel]}`, '');
 
     for (const migrationNote of levelNotes) {
-      reportLines.push(`- ${LEVEL_LABEL[noteLevel]} ${migrationNote.message}`);
+      reportLines.push(`- ${levelLabel[noteLevel]} ${migrationNote.message}`);
     }
   }
 

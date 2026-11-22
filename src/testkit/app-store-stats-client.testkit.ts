@@ -27,7 +27,7 @@ export interface FakeAppStoreStatsScenario {
 }
 
 const SEGMENT_URL_PREFIX = 'https://segments.test/';
-const MISSING_SALES_STATUS = 404;
+const missingSalesStatus = 404;
 
 const EMPTY_SCENARIO: FakeAppStoreStatsScenario = {
   salesTsvByDate: {},
@@ -202,7 +202,7 @@ export function makeFakeAppStoreStatsClient(scenario: Partial<FakeAppStoreStatsS
     const tsv = salesTsvByDate[query.reportDate];
 
     if (isMissing(tsv)) {
-      throwTransport('no sales', MISSING_SALES_STATUS);
+      throwTransport('no sales', missingSalesStatus);
     }
 
     return gzipTsv(tsv);

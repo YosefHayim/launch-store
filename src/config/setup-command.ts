@@ -327,7 +327,7 @@ function isMissingActiveAccount(
   accountRecord: AccountRecord | null | undefined,
 ): accountRecord is null {
   // Null means no active account. Undefined means the selector matched nothing, so == null is too wide.
-  return accountRecord === null;
+  return accountRecord == null;
 }
 
 function isUnmatchedAccount(accountRecord: AccountRecord | undefined): accountRecord is undefined {

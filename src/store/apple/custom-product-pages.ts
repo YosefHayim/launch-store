@@ -9,7 +9,7 @@ import type { PlannedAction } from '../../types/reconcile.ts';
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
 
 /** Custom-product-page version states Apple still lets us edit localizations in. */
-const EDITABLE_VERSION_STATES = new Set(['PREPARE_FOR_SUBMISSION', 'REJECTED']);
+const editableVersionStates = new Set(['PREPARE_FOR_SUBMISSION', 'REJECTED']);
 const CUSTOM_PAGES_DOCUMENT_NAME = 'custom-pages.config.json';
 
 /** One declared custom product page: a name plus optional per-locale promotional text. */
@@ -195,7 +195,7 @@ const customProductPagesConfigSpec = {
 };
 
 function isEditableVersion(version: CustomProductPageVersionResource): boolean {
-  return EDITABLE_VERSION_STATES.has(version.state);
+  return editableVersionStates.has(version.state);
 }
 
 function pageByName(page: CustomProductPageResource): [string, CustomProductPageResource] {

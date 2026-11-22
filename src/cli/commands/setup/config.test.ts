@@ -5,15 +5,15 @@ import { registerConfigCommand } from './config.ts';
 const subcommand = (name: string) => {
   const program = new Command();
   registerConfigCommand(program);
-  const config = program.commands.find((command) => command.name() === 'config');
+  const config = program.commands.find((command) => command.name() == 'config');
   expect(config).toBeDefined();
-  return config?.commands.find((command) => command.name() === name);
+  return config?.commands.find((command) => command.name() == name);
 };
 describe('registerConfigCommand', () => {
   it('attaches a `config` group with `schema`, `validate`, and `docs` subcommands', () => {
     const program = new Command();
     registerConfigCommand(program);
-    const config = program.commands.find((command) => command.name() === 'config');
+    const config = program.commands.find((command) => command.name() == 'config');
     expect(config?.commands.map((command) => command.name())).toEqual([
       'schema',
       'validate',

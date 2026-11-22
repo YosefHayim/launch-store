@@ -44,7 +44,7 @@ const config = (products?: LaunchConfig['products']): LaunchConfig => {
     buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
-  if (products === undefined) return launchConfig;
+  if (products == null) return launchConfig;
   return { ...launchConfig, products };
 };
 /** A discovered app; override `bundleId`/`packageName` to scope it to a store. */
@@ -113,9 +113,9 @@ const createReadinessContext = (args: {
   products?: LaunchConfig['products'];
 }): ReadinessContext => {
   let appleStore: AscReadinessApi | null = null;
-  if (args.asc !== undefined) appleStore = args.asc;
+  if (args.asc != null) appleStore = args.asc;
   let googleStore: PlayReadinessApi | null = null;
-  if (args.play !== undefined) googleStore = args.play;
+  if (args.play != null) googleStore = args.play;
   return {
     config: config(args.products),
     apps: args.apps,
@@ -130,7 +130,7 @@ const findings = (
   status: string;
   identifier: string;
 }[] => {
-  if (probeResult.state !== 'checked') return [];
+  if (probeResult.state != 'checked') return [];
   return probeResult.apps.map(({ status, identifier }) => ({ status, identifier }));
 };
 
@@ -867,9 +867,9 @@ describe('sandboxTestersProbe', () => {
 });
 /** The first finding's `detail` string from a `checked` result (empty otherwise) - for asserting copy. */
 const firstDetail = (probeResult: ProbeResult): string => {
-  if (probeResult.state !== 'checked') return '';
+  if (probeResult.state != 'checked') return '';
   const firstFinding = probeResult.apps[0];
-  if (firstFinding === undefined) return '';
+  if (firstFinding == null) return '';
   return firstFinding.detail;
 };
 /** A products catalog declaring a single one-time IAP under `com.x`. */

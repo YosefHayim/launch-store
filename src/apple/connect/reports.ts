@@ -28,13 +28,13 @@ export class ConnectReports {
       `filter[vendorNumber]=${encodeURIComponent(query.vendorNumber)}`,
       `filter[reportDate]=${query.reportDate}`,
     ];
-    if (query.version !== undefined) reportParameters.push(`filter[version]=${query.version}`);
+    if (query.version != null) reportParameters.push(`filter[version]=${query.version}`);
     return this.getReportBytes(`/salesReports?${reportParameters.join('&')}`);
   }
 
   async getFinanceReport(query: FinanceReportQuery): Promise<Buffer> {
     let reportType = query.reportType;
-    if (reportType === undefined) reportType = 'FINANCE_DETAIL';
+    if (reportType == null) reportType = 'FINANCE_DETAIL';
     const reportParameters = [
       `filter[regionCode]=${query.regionCode}`,
       `filter[reportDate]=${query.reportDate}`,
@@ -86,9 +86,9 @@ export class ConnectReports {
     }>(path);
     return appleResources.map((report) => {
       let reportName = report.attributes.name;
-      if (reportName === undefined) reportName = '';
+      if (reportName == null) reportName = '';
       const analyticsReport: AnalyticsReportResource = { id: report.id, name: reportName };
-      if (report.attributes.category !== undefined)
+      if (report.attributes.category != null)
         Object.assign(analyticsReport, { category: report.attributes.category });
       return analyticsReport;
     });
@@ -110,9 +110,9 @@ export class ConnectReports {
     }>(path);
     return appleResources.map((instance) => {
       let granularity = instance.attributes.granularity;
-      if (granularity === undefined) granularity = '';
+      if (granularity == null) granularity = '';
       const reportInstance: AnalyticsReportInstanceResource = { id: instance.id, granularity };
-      if (instance.attributes.processingDate !== undefined)
+      if (instance.attributes.processingDate != null)
         Object.assign(reportInstance, { processingDate: instance.attributes.processingDate });
       return reportInstance;
     });
@@ -126,11 +126,11 @@ export class ConnectReports {
     }>(`/analyticsReportInstances/${instanceId}/segments?limit=200`);
     return appleResources.flatMap((segment) => {
       const segmentUrl = segment.attributes.url;
-      if (segmentUrl === undefined) return [];
+      if (segmentUrl == null) return [];
       const reportSegment: AnalyticsReportSegmentResource = { id: segment.id, url: segmentUrl };
-      if (segment.attributes.checksum !== undefined)
+      if (segment.attributes.checksum != null)
         Object.assign(reportSegment, { checksum: segment.attributes.checksum });
-      if (segment.attributes.sizeInBytes !== undefined)
+      if (segment.attributes.sizeInBytes != null)
         Object.assign(reportSegment, { sizeInBytes: segment.attributes.sizeInBytes });
       return [reportSegment];
     });

@@ -9,7 +9,7 @@ function escapeCell(cell: string): string {
 /** Decode the trailing segment of a `$ref` into the definition name, e.g. `#/definitions/BuildProfile` -> `BuildProfile`. */
 const refName = (ref: string): string => {
   let referenceSegment = ref.split('/').pop();
-  if (referenceSegment === undefined) referenceSegment = '';
+  if (referenceSegment == null) referenceSegment = '';
   return decodeURIComponent(referenceSegment);
 };
 /**
@@ -21,14 +21,14 @@ const resolveLink = (inner: string): string => {
   const [target, ...rest] = inner.split('|');
   if (rest.length > 0) return rest.join('|').trim();
   let trimmed = target;
-  if (trimmed === undefined) trimmed = '';
+  if (trimmed == null) trimmed = '';
   trimmed = trimmed.trim();
   const space = trimmed.search(/\s/);
-  if (space !== -1) return trimmed.slice(space + 1).trim();
+  if (space != -1) return trimmed.slice(space + 1).trim();
   const symbol = trimmed.replace(/^import\([^)]*\)\./, '');
   const symbolParts = symbol.split('.');
   const finalSymbol = symbolParts.pop();
-  if (finalSymbol === undefined) return symbol;
+  if (finalSymbol == null) return symbol;
   return finalSymbol;
 };
 /** Strip `{@link}` tags and collapse all whitespace so a JSDoc block renders as one clean table-cell line. */
@@ -53,13 +53,13 @@ const renderType = (schema: JsonSchema): string => {
   if (schema.allOf) return schema.allOf.map(renderType).join(' & ');
   let types: readonly string[] = [];
   if (Array.isArray(schema.type)) types = schema.type;
-  else if (schema.type !== undefined) types = [schema.type];
+  else if (schema.type != null) types = [schema.type];
   if (types.includes('array')) {
-    if (schema.items !== undefined) return `${renderType(schema.items)}[]`;
+    if (schema.items != null) return `${renderType(schema.items)}[]`;
     return 'unknown[]';
   }
   if (types.includes('object')) {
-    if (typeof schema.additionalProperties === 'object')
+    if (typeof schema.additionalProperties == 'object')
       return `Record<string, ${renderType(schema.additionalProperties)}>`;
     return 'object';
   }
@@ -69,11 +69,11 @@ const renderType = (schema: JsonSchema): string => {
 /** Render an object schema's properties as a `Field | Type | Required | Description` table (or a note when it has none). */
 const renderPropertiesTable = (object: JsonSchema): string => {
   let documentedProperties = object.properties;
-  if (documentedProperties === undefined) documentedProperties = {};
+  if (documentedProperties == null) documentedProperties = {};
   const properties = Object.entries(documentedProperties);
-  if (properties.length === 0) return '_No documented fields._';
+  if (properties.length == 0) return '_No documented fields._';
   let requiredFields = object.required;
-  if (requiredFields === undefined) requiredFields = [];
+  if (requiredFields == null) requiredFields = [];
   const required = new Set(requiredFields);
   const rows = properties.map(([name, property]) => {
     const type = `\`${escapeCell(renderType(property))}\``;
@@ -101,11 +101,11 @@ const renderTypeSection = (name: string, definition: JsonSchema): string => {
  */
 export const renderConfigDocs = (schema: JsonSchema): string => {
   let rootName = '';
-  if (schema.$ref !== undefined) rootName = refName(schema.$ref);
+  if (schema.$ref != null) rootName = refName(schema.$ref);
   let definitions = schema.definitions;
-  if (definitions === undefined) definitions = {};
+  if (definitions == null) definitions = {};
   let root = definitions[rootName];
-  if (root === undefined) root = schema;
+  if (root == null) root = schema;
   const header = 'Field reference printed by `launch config docs`.';
   const intro = [
     'The config types live in `src/config/` and `src/types/config.ts`. The published copy is `schema/launch.config.schema.json`.',
@@ -113,7 +113,7 @@ export const renderConfigDocs = (schema: JsonSchema): string => {
     'Run `launch config validate` to check a config against this schema (it also reports cross-field semantic warnings, which never fail the command); pass a `.json` file to validate it verbatim, including unknown top-level keys.',
   ].join(' ');
   const nestedTypes = Object.entries(definitions)
-    .filter(([name, definition]) => name !== rootName && definition.properties !== undefined)
+    .filter(([name, definition]) => name != rootName && definition.properties != null)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, definition]) => renderTypeSection(name, definition));
   const parts = [

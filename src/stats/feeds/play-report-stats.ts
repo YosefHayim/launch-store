@@ -7,45 +7,8 @@ interface PlayColumnMapping {
   readonly metric: StatsMetric;
 }
 
-const INSTALL_COLUMNS: readonly PlayColumnMapping[] = [
-  { columnNames: ['daily device installs'], metric: 'installs' },
-  { columnNames: ['daily device uninstalls'], metric: 'uninstalls' },
-  { columnNames: ['daily device upgrades'], metric: 'updates' },
-  {
-    columnNames: ['active device installs', 'installs on active devices'],
-    metric: 'activeInstalls',
-  },
-];
-const RATING_COLUMNS: readonly PlayColumnMapping[] = [
-  { columnNames: ['total average rating'], metric: 'ratingAverage' },
-];
-const CRASH_COLUMNS: readonly PlayColumnMapping[] = [
-  { columnNames: ['daily crashes'], metric: 'crashes' },
-];
-const STORE_PERFORMANCE_COLUMNS: readonly PlayColumnMapping[] = [
-  { columnNames: ['store listing visitors'], metric: 'productPageViews' },
-];
-
-const DATE_COLUMN = 'date';
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const EARNINGS_DATE_PATTERN = /^([A-Za-z]{3}) (\d{1,2}), (\d{4})$/;
-const MONTH_NAMES: readonly string[] = [
-  'jan',
-  'feb',
-  'mar',
-  'apr',
-  'may',
-  'jun',
-  'jul',
-  'aug',
-  'sep',
-  'oct',
-  'nov',
-  'dec',
-];
-
 export const pickLaterKnownDate = (firstDate: string | null, secondDate: string): string => {
-  if (firstDate === null) return secondDate;
+  if (firstDate == null) return secondDate;
   return pickLaterDate(firstDate, secondDate);
 };
 
@@ -53,9 +16,9 @@ const isDateInRange = (date: string, range: DateRange): boolean =>
   date >= range.from && date <= range.to;
 
 const readNumber = (cell: string | undefined): number | null => {
-  if (cell === undefined) return null;
+  if (cell == null) return null;
   const withoutThousandsSeparators = cell.replaceAll(',', '');
-  const isCellBlank = withoutThousandsSeparators === '';
+  const isCellBlank = withoutThousandsSeparators == '';
   if (isCellBlank) return null;
   const cellNumber = Number(withoutThousandsSeparators);
   const isCellNumeric = Number.isFinite(cellNumber);
@@ -67,15 +30,15 @@ const readFirstColumn = (
   line: Readonly<Record<string, string>>,
   columnNames: readonly string[],
 ): string | undefined => {
-  const presentColumnName = columnNames.find((columnName) => line[columnName] !== undefined);
-  if (presentColumnName === undefined) return undefined;
+  const presentColumnName = columnNames.find((columnName) => line[columnName] != null);
+  if (presentColumnName == null) return undefined;
   return line[presentColumnName];
 };
 
 const readDateOfLine = (line: Readonly<Record<string, string>>): string | null => {
-  const date = line[DATE_COLUMN];
-  if (date === undefined) return null;
-  const isDateIso = ISO_DATE_PATTERN.test(date);
+  const date = line['date'];
+  if (date == null) return null;
+  const isDateIso = /^\d{4}-\d{2}-\d{2}$/.test(date);
   if (!isDateIso) return null;
   return date;
 };
@@ -87,11 +50,11 @@ const readMappedStats = (
 ): DailyStat[] =>
   table.lines.flatMap((line) => {
     const date = readDateOfLine(line);
-    if (date === null) return [];
+    if (date == null) return [];
     if (!isDateInRange(date, range)) return [];
     return mappings.flatMap((mapping) => {
       const cellNumber = readNumber(readFirstColumn(line, mapping.columnNames));
-      if (cellNumber === null) return [];
+      if (cellNumber == null) return [];
       return [
         {
           date,
@@ -109,7 +72,7 @@ const sumStatsByIdentity = (stats: readonly DailyStat[]): DailyStat[] => {
   for (const stat of stats) {
     const identity = `${stat.date}|${stat.metric}|${String(stat.currency)}`;
     const total = totals.get(identity);
-    if (total === undefined) {
+    if (total == null) {
       totals.set(identity, stat);
       continue;
     }
@@ -120,25 +83,39 @@ const sumStatsByIdentity = (stats: readonly DailyStat[]): DailyStat[] => {
 
 /** Installs overview: device installs, uninstalls, upgrades and installs on active devices per day. */
 export const readInstallStats = (table: PlayCsvTable, range: DateRange): DailyStat[] =>
-  readMappedStats(table, range, INSTALL_COLUMNS);
+  readMappedStats(table, range, [
+    { columnNames: ['daily device installs'], metric: 'installs' },
+    { columnNames: ['daily device uninstalls'], metric: 'uninstalls' },
+    { columnNames: ['daily device upgrades'], metric: 'updates' },
+    {
+      columnNames: ['active device installs', 'installs on active devices'],
+      metric: 'activeInstalls',
+    },
+  ]);
 
 /** Ratings overview: the running average rating per day. */
 export const readRatingStats = (table: PlayCsvTable, range: DateRange): DailyStat[] =>
-  readMappedStats(table, range, RATING_COLUMNS);
+  readMappedStats(table, range, [
+    { columnNames: ['total average rating'], metric: 'ratingAverage' },
+  ]);
 
 /** Crashes overview: crash count per day. */
 export const readCrashStats = (table: PlayCsvTable, range: DateRange): DailyStat[] =>
-  readMappedStats(table, range, CRASH_COLUMNS);
+  readMappedStats(table, range, [{ columnNames: ['daily crashes'], metric: 'crashes' }]);
 
 /** Store performance by country: listing visitors summed over countries per day. */
 export const readStorePerformanceStats = (table: PlayCsvTable, range: DateRange): DailyStat[] =>
-  sumStatsByIdentity(readMappedStats(table, range, STORE_PERFORMANCE_COLUMNS));
+  sumStatsByIdentity(
+    readMappedStats(table, range, [
+      { columnNames: ['store listing visitors'], metric: 'productPageViews' },
+    ]),
+  );
 
 /** The newest day that has a line, whatever the range, so a half-published month is covered only as far as it goes. */
 export const findLatestCsvDate = (table: PlayCsvTable): string | null => {
   const dates = table.lines.flatMap((line) => {
     const date = readDateOfLine(line);
-    if (date === null) return [];
+    if (date == null) return [];
     return [date];
   });
   return dates.reduce<string | null>(
@@ -149,19 +126,32 @@ export const findLatestCsvDate = (table: PlayCsvTable): string | null => {
 
 /** `Nov 30, 2016` (Pacific Time, as the earnings report writes it) as `2016-11-30`. */
 const readEarningsDate = (earningsDate: string): string | null => {
-  const dateParts = EARNINGS_DATE_PATTERN.exec(earningsDate);
-  if (dateParts === null) return null;
+  const dateParts = /^([A-Za-z]{3}) (\d{1,2}), (\d{4})$/.exec(earningsDate);
+  if (dateParts == null) return null;
   const [, monthName, dayOfMonth, year] = dateParts;
-  if (monthName === undefined || dayOfMonth === undefined || year === undefined) return null;
-  const monthPosition = MONTH_NAMES.indexOf(monthName.toLowerCase());
-  const isMonthUnknown = monthPosition === -1;
+  if (monthName == null || dayOfMonth == null || year == null) return null;
+  const monthPosition = [
+    'jan',
+    'feb',
+    'mar',
+    'apr',
+    'may',
+    'jun',
+    'jul',
+    'aug',
+    'sep',
+    'oct',
+    'nov',
+    'dec',
+  ].indexOf(monthName.toLowerCase());
+  const isMonthUnknown = monthPosition == -1;
   if (isMonthUnknown) return null;
   const month = String(monthPosition + 1).padStart(2, '0');
   return `${year}-${month}-${dayOfMonth.padStart(2, '0')}`;
 };
 
 const isTaxTransaction = (transactionType: string | undefined): boolean => {
-  if (transactionType === undefined) return false;
+  if (transactionType == null) return false;
   return transactionType.toLowerCase().includes('tax');
 };
 
@@ -175,19 +165,19 @@ export const readEarningsStats = (
   range: DateRange,
 ): DailyStat[] => {
   const proceeds = table.lines.flatMap((line) => {
-    const isOtherPackage = line['package id'] !== packageName;
+    const isOtherPackage = line['package id'] != packageName;
     if (isOtherPackage) return [];
     if (isTaxTransaction(line['transaction type'])) return [];
     const transactionDate = line['transaction date'];
-    if (transactionDate === undefined) return [];
+    if (transactionDate == null) return [];
     const date = readEarningsDate(transactionDate);
-    if (date === null) return [];
+    if (date == null) return [];
     if (!isDateInRange(date, range)) return [];
     const merchantCurrency = line['merchant currency'];
-    const isCurrencyMissing = merchantCurrency === undefined || merchantCurrency === '';
+    const isCurrencyMissing = merchantCurrency == null || merchantCurrency == '';
     if (isCurrencyMissing) return [];
     const amount = readNumber(line['amount (merchant currency)']);
-    if (amount === null) return [];
+    if (amount == null) return [];
     return [
       {
         date,

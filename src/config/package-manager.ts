@@ -4,13 +4,6 @@ import { pathExists } from '../path-exists.ts';
 
 type PackageManagerName = 'npm' | 'yarn' | 'pnpm' | 'bun';
 
-const LOCKFILES: Record<PackageManagerName, string> = {
-  npm: 'package-lock.json',
-  yarn: 'yarn.lock',
-  pnpm: 'pnpm-lock.yaml',
-  bun: 'bun.lockb',
-};
-
 type PackageManagerInfo = {
   name: PackageManagerName;
   version?: string;
@@ -28,8 +21,6 @@ type PackageSetup = {
   workspace: WorkspaceInfo | null;
   lockfile: string | null;
 };
-
-const PACKAGE_MANAGER_FIELD = /^(npm|yarn|pnpm|bun)@?([0-9][^+\s]*)?/;
 
 function isPackageManagerName(name: string | undefined): name is PackageManagerName {
   if (name == 'npm') {
@@ -55,7 +46,7 @@ export function parsePackageManagerField(field: unknown): {
     return null;
   }
 
-  const match = PACKAGE_MANAGER_FIELD.exec(field.trim());
+  const match = /^(npm|yarn|pnpm|bun)@?([0-9][^+\s]*)?/.exec(field.trim());
 
   if (match == null) {
     return null;
@@ -166,7 +157,12 @@ export function packageManagerWarnings(input: PackageManagerWarningInput): strin
 
   if (lockfile != null) {
     if (declaredByField) {
-      const expected = LOCKFILES[packageManagerInfo.name];
+      const expected = {
+        npm: 'package-lock.json',
+        yarn: 'yarn.lock',
+        pnpm: 'pnpm-lock.yaml',
+        bun: 'bun.lockb',
+      }[packageManagerInfo.name];
       const lockfileAgrees = lockfile == expected;
       const bunAgrees = bunLockfileMatches(packageManagerInfo.name, lockfile);
       const lockfilesMatch = lockfileAgrees;
@@ -225,7 +221,7 @@ async function readPackageJson(directory: string): Promise<Record<string, unknow
   }
 }
 
-const LOCKFILE_NAMES = [
+const lockfileNames = [
   'pnpm-lock.yaml',
   'yarn.lock',
   'bun.lockb',
@@ -234,7 +230,7 @@ const LOCKFILE_NAMES = [
 ] as const;
 
 async function lockfileIn(directory: string): Promise<string | null> {
-  for (const name of LOCKFILE_NAMES) {
+  for (const name of lockfileNames) {
     const lockfilePath = join(directory, name);
     const lockfileExists = await pathExists(lockfilePath);
 

@@ -108,7 +108,7 @@ const makeExperimentsApi = (
     },
     listTreatmentScreenshotSets: (localizationId) => {
       let localizationSets = experimentStore.screenshotSetsByLocalization[localizationId];
-      if (localizationSets === undefined) localizationSets = [];
+      if (localizationSets == null) localizationSets = [];
       return Promise.resolve(localizationSets);
     },
     createTreatmentScreenshotSet: (localizationId, displayType) => {
@@ -117,13 +117,13 @@ const makeExperimentsApi = (
     },
     listScreenshots: (setId) => {
       let setScreenshots = experimentStore.screenshotsBySet[setId];
-      if (setScreenshots === undefined) setScreenshots = [];
+      if (setScreenshots == null) setScreenshots = [];
       return Promise.resolve(setScreenshots);
     },
     uploadScreenshot: (setId, fileName) => {
       experimentWrites.uploads.push({ setId, fileName });
       let setScreenshots = experimentStore.screenshotsBySet[setId];
-      if (setScreenshots === undefined) setScreenshots = [];
+      if (setScreenshots == null) setScreenshots = [];
       const uploadedId = `up-${fileName}`;
       // Apple fills sourceFileChecksum only after it processes the upload.
       experimentStore.screenshotsBySet[setId] = [...setScreenshots, { id: uploadedId, fileName }];
@@ -133,7 +133,7 @@ const makeExperimentsApi = (
       experimentWrites.removedScreenshots.push(screenshotId);
       for (const [setId, setScreenshots] of Object.entries(experimentStore.screenshotsBySet)) {
         experimentStore.screenshotsBySet[setId] = setScreenshots.filter(
-          (screenshot) => screenshot.id !== screenshotId,
+          (screenshot) => screenshot.id != screenshotId,
         );
       }
       return Promise.resolve();
@@ -271,7 +271,7 @@ const descriptionsWithStatus = (
   status: string,
 ): string[] =>
   reconciliationReport.actions
-    .filter((plannedAction) => plannedAction.status === status)
+    .filter((plannedAction) => plannedAction.status == status)
     .map((plannedAction) => plannedAction.description);
 
 describe('version experiments schema', () => {
@@ -399,7 +399,7 @@ describe('version experiment reconciliation', () => {
     expect(experimentWrites.createdExperiments).toHaveLength(0);
     expect(experimentWrites.createdTreatments).toHaveLength(0);
     expect(
-      reconciliationReport.actions.every((plannedAction) => plannedAction.status === 'planned'),
+      reconciliationReport.actions.every((plannedAction) => plannedAction.status == 'planned'),
     ).toBe(true);
     expect(reconciliationReport.actions).toHaveLength(3);
   });
@@ -420,8 +420,7 @@ describe('version experiment reconciliation', () => {
       skipped: 2,
     });
     expect(
-      reconciliationReport.actions.find((plannedAction) => plannedAction.status === 'failed')
-        ?.error,
+      reconciliationReport.actions.find((plannedAction) => plannedAction.status == 'failed')?.error,
     ).toBe('name already in use');
   });
 });

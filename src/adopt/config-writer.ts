@@ -11,7 +11,7 @@ export const aggregateProductPieces = (pieces: readonly ProductPiece[]): AppProd
   const inAppPurchases: InAppPurchaseConfig[] = [];
   const subscriptionGroups: SubscriptionGroupConfig[] = [];
   for (const piece of pieces) {
-    if (piece.type === 'iap') {
+    if (piece.type == 'iap') {
       inAppPurchases.push(piece.iap);
       continue;
     }
@@ -34,7 +34,7 @@ export const serializeProductsSection = (
   const indented = productsJson
     .split('\n')
     .map((line, index) => {
-      if (index === 0) return line;
+      if (index == 0) return line;
       return `  ${line}`;
     })
     .join('\n');

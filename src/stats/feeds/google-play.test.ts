@@ -10,7 +10,6 @@ import { googlePlayFeed } from './google-play.ts';
 const BUCKET = 'pubsite_prod_rev_1';
 const BUCKET_URL = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o`;
 const EARNINGS_LIST_URL = `${BUCKET_URL}?prefix=earnings%2Fearnings_&fields=items(name),nextPageToken`;
-const RANGE = { from: '2026-10-01', to: '2026-10-20' };
 
 const ANDROID_APP: PortfolioApp = {
   key: 'android-com.fit',
@@ -25,11 +24,6 @@ const ANDROID_APP: PortfolioApp = {
   ga4PropertyId: null,
 };
 
-const INSTALLS_HEADER =
-  'Date,Package Name,Current Device Installs,Daily Device Installs,Daily Device Uninstalls,Daily Device Upgrades,Current User Installs,Total User Installs,Daily User Installs,Daily User Uninstalls,Active Device Installs';
-const EARNINGS_HEADER =
-  'Description,Transaction Date,Transaction Time,Tax Type,Transaction Type,Refund Type,Product Title,Package ID,Product Type,SKU ID,Hardware,Buyer Country,Buyer State,Buyer Postcode,Buyer Currency,Amount (Buyer Currency),Currency Conversion Rate,Merchant Currency,Amount (Merchant Currency)';
-
 const encodeUtf16 = (csvDocument: string): Uint8Array =>
   Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(csvDocument, 'utf16le')]);
 
@@ -41,7 +35,7 @@ const createVitalsTimeline = (
   metric,
   window: { startDate: '2026-09-01', endDate },
   rows: Object.entries(rates).map(([date, rate]) =>
-    rate === undefined ? { metric, date } : { metric, date, rate },
+    rate == null ? { metric, date } : { metric, date, rate },
   ),
 });
 
@@ -63,7 +57,7 @@ function createPlayClient(
   };
 }
 
-const DEFAULT_PLAY_CLIENT = createPlayClient(
+const defaultPlayClient = createPlayClient(
   createVitalsTimeline('crash', '2026-10-19', {
     '2026-09-30': 0.5,
     '2026-10-01': 0.01,
@@ -151,10 +145,10 @@ const createBucketRoutes = (
   );
   return [...reportObjectNames, ...earningsObjectNames].map((objectName) => {
     const found = foundObjects[objectName];
-    if (found === undefined) {
+    if (found == null) {
       return { method: 'GET', url: objectUrl(objectName), status: 404, body: {} };
     }
-    if (found === 403) {
+    if (found == 403) {
       return { method: 'GET', url: objectUrl(objectName), status: 403, body: {} };
     }
     return { method: 'GET', url: objectUrl(objectName), status: 200, body: found };
@@ -169,7 +163,10 @@ const createEarningsListRoute = (objectNames: readonly string[]): HttpRoute => (
 });
 
 function createEarningsZip(earningsLines: readonly string[]): Uint8Array {
-  const csvText = [EARNINGS_HEADER, ...earningsLines].join('\n');
+  const csvText = [
+    'Description,Transaction Date,Transaction Time,Tax Type,Transaction Type,Refund Type,Product Title,Package ID,Product Type,SKU ID,Hardware,Buyer Country,Buyer State,Buyer Postcode,Buyer Currency,Amount (Buyer Currency),Currency Conversion Rate,Merchant Currency,Amount (Merchant Currency)',
+    ...earningsLines,
+  ].join('\n');
 
   return writeDeflatedZip({ 'earnings_202610.csv': Buffer.from(csvText, 'utf8') });
 }
@@ -243,7 +240,11 @@ async function fetchDays(
   const credentials = makeStatsCredentialsTest(credentialsOverrides);
 
   try {
-    const right = await googlePlayFeed.fetchDays({ app, range: RANGE, credentials });
+    const right = await googlePlayFeed.fetchDays({
+      app,
+      range: { from: '2026-10-01', to: '2026-10-20' },
+      credentials,
+    });
 
     return { _tag: 'Right', right };
   } catch (left) {
@@ -254,7 +255,7 @@ async function fetchDays(
 function withBucket(overrides: Partial<StatsCredentialsApi> = {}): Partial<StatsCredentialsApi> {
   return {
     async playReportingClient() {
-      return DEFAULT_PLAY_CLIENT;
+      return defaultPlayClient;
     },
     async playReportsBucket() {
       return BUCKET;
@@ -272,7 +273,7 @@ afterEach(() => {
 });
 
 const statsOfMetric = (stats: readonly DailyStat[], metric: DailyStat['metric']): DailyStat[] =>
-  stats.filter((stat) => stat.metric === metric);
+  stats.filter((stat) => stat.metric == metric);
 
 describe('googlePlayFeed.isApplicable', () => {
   test('applies to Android apps only', () => {
@@ -324,8 +325,7 @@ describe('googlePlayFeed.fetchDays', () => {
         notes: [expect.stringContaining('Play reports bucket not set')],
       },
     });
-    const stats =
-      reply._tag === 'Right' && reply.right.status === 'fetched' ? reply.right.stats : [];
+    const stats = reply._tag == 'Right' && reply.right.status == 'fetched' ? reply.right.stats : [];
     expect(stats).toEqual([
       { date: '2026-10-01', feed: 'google-play', metric: 'crashRate', value: 0.01, currency: null },
       { date: '2026-10-19', feed: 'google-play', metric: 'crashRate', value: 0.02, currency: null },
@@ -353,7 +353,7 @@ describe('googlePlayFeed.fetchDays', () => {
 
   test('maps every CSV column of the bucket and covers through the last installs day', async () => {
     const installs = encodeUtf16(
-      `${INSTALLS_HEADER}\r\n2026-10-01,com.fit,100,12,3,40,90,500,10,2,80\r\n2026-10-18,com.fit,100,5,1,2,90,500,10,2,81\r\n`,
+      `${'Date,Package Name,Current Device Installs,Daily Device Installs,Daily Device Uninstalls,Daily Device Upgrades,Current User Installs,Total User Installs,Daily User Installs,Daily User Uninstalls,Active Device Installs'}\r\n2026-10-01,com.fit,100,12,3,40,90,500,10,2,80\r\n2026-10-18,com.fit,100,5,1,2,90,500,10,2,81\r\n`,
     );
     const ratings = encodeUtf16(
       'Date,Package Name,Daily Average Rating,Total Average Rating\r\n2026-10-01,com.fit,5.00,4.16\r\n',
@@ -379,8 +379,7 @@ describe('googlePlayFeed.fetchDays', () => {
     expect(reply).toMatchObject({
       right: { status: 'fetched', coveredThrough: '2026-10-18', notes: [] },
     });
-    const stats =
-      reply._tag === 'Right' && reply.right.status === 'fetched' ? reply.right.stats : [];
+    const stats = reply._tag == 'Right' && reply.right.status == 'fetched' ? reply.right.stats : [];
     expect(statsOfMetric(stats, 'installs').map((stat) => stat.value)).toEqual([12, 5]);
     expect(statsOfMetric(stats, 'uninstalls').map((stat) => stat.value)).toEqual([3, 1]);
     expect(statsOfMetric(stats, 'updates').map((stat) => stat.value)).toEqual([40, 2]);
@@ -425,7 +424,7 @@ describe('googlePlayFeed.fetchDays', () => {
     });
 
     expect(reply).toMatchObject({ status: 'fetched', coveredThrough: '2026-10-01' });
-    const stats = reply.status === 'fetched' ? reply.stats : [];
+    const stats = reply.status == 'fetched' ? reply.stats : [];
     expect(statsOfMetric(stats, 'installs').map((stat) => stat.date)).toEqual([
       '2026-09-29',
       '2026-09-30',
@@ -461,8 +460,7 @@ describe('googlePlayFeed.fetchDays', () => {
     const reply = await fetchDays(withBucket(), routes);
 
     expect(reply).toMatchObject({ right: { status: 'fetched', coveredThrough: '2026-10-18' } });
-    const stats =
-      reply._tag === 'Right' && reply.right.status === 'fetched' ? reply.right.stats : [];
+    const stats = reply._tag == 'Right' && reply.right.status == 'fetched' ? reply.right.stats : [];
     expect(statsOfMetric(stats, 'proceeds')).toEqual([
       { date: '2026-10-01', feed: 'google-play', metric: 'proceeds', value: 8.5, currency: 'EUR' },
     ]);
@@ -493,8 +491,7 @@ describe('googlePlayFeed.fetchDays', () => {
         notes: [expect.stringContaining('View app information and download bulk reports')],
       },
     });
-    const stats =
-      reply._tag === 'Right' && reply.right.status === 'fetched' ? reply.right.stats : [];
+    const stats = reply._tag == 'Right' && reply.right.status == 'fetched' ? reply.right.stats : [];
     expect(stats.map((stat) => stat.metric)).toEqual(['crashRate', 'crashRate', 'anrRate']);
   });
 

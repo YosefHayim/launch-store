@@ -43,7 +43,7 @@ const compositeKey = (
 const flatten = (snapshot: Snapshot): Map<string, FlatEntity> => {
   const flat = new Map<string, FlatEntity>();
   for (const report of snapshot.reports) {
-    if (report.outcome.state !== 'captured') continue;
+    if (report.outcome.state != 'captured') continue;
     for (const app of report.outcome.apps) {
       for (const entity of app.entities) {
         flat.set(compositeKey(report.store, report.id, app.app, entity.key), {
@@ -60,8 +60,8 @@ const flatten = (snapshot: Snapshot): Map<string, FlatEntity> => {
 };
 /** Canonical JSON with recursively sorted object keys, so field order never registers as a change. */
 export const stableStringify = (jsonNode: JsonValue): string => {
-  if (jsonNode === null) return JSON.stringify(jsonNode);
-  if (typeof jsonNode !== 'object') return JSON.stringify(jsonNode);
+  if (jsonNode == null) return JSON.stringify(jsonNode);
+  if (typeof jsonNode != 'object') return JSON.stringify(jsonNode);
   if (Array.isArray(jsonNode)) return `[${jsonNode.map(stableStringify).join(',')}]`;
   const serializedFields = Object.entries(jsonNode)
     .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
@@ -73,10 +73,10 @@ const unavailableScopes = (snapshot: Snapshot) => {
   const sources = new Set<string>();
   const apps = new Set<string>();
   for (const report of snapshot.reports) {
-    if (report.outcome.state === 'skipped' || report.outcome.state === 'errored') {
+    if (report.outcome.state == 'skipped' || report.outcome.state == 'errored') {
       sources.add(JSON.stringify([report.store, report.id]));
     }
-    if (report.outcome.state === 'captured' && report.outcome.skippedApps !== undefined) {
+    if (report.outcome.state == 'captured' && report.outcome.skippedApps != null) {
       for (const app of report.outcome.skippedApps)
         apps.add(JSON.stringify([report.store, report.id, app.app]));
     }
@@ -117,16 +117,16 @@ export const diffSnapshots = (a: Snapshot, b: Snapshot): SnapshotDiff => {
     } else if (
       prev &&
       next &&
-      stableStringify(prev.entity.data) !== stableStringify(next.entity.data)
+      stableStringify(prev.entity.data) != stableStringify(next.entity.data)
     ) {
       entries.push(toEntry(next, 'changed'));
     }
   }
   return {
     entries,
-    addedCount: entries.filter((entry) => entry.change === 'added').length,
-    removedCount: entries.filter((entry) => entry.change === 'removed').length,
-    changedCount: entries.filter((entry) => entry.change === 'changed').length,
+    addedCount: entries.filter((entry) => entry.change == 'added').length,
+    removedCount: entries.filter((entry) => entry.change == 'removed').length,
+    changedCount: entries.filter((entry) => entry.change == 'changed').length,
   };
 };
 /** Project a flattened entity to a diff entry under the given change kind. */

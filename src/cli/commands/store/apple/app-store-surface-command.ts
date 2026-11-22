@@ -27,7 +27,7 @@ function surfaceFailure(
   cause: unknown,
   explicitMessage?: string,
 ): AppStoreSurfaceCommandFailure {
-  const hasExplicitMessage = explicitMessage !== undefined;
+  const hasExplicitMessage = explicitMessage != null;
 
   if (hasExplicitMessage) {
     return makeAppStoreSurfaceCommandFailure({ operation, message: explicitMessage, cause });
@@ -56,10 +56,10 @@ function surfaceFailure(
 
 /** Render one planned App Store surface action with ASCII markers. */
 export const renderStoreSurfaceAction = (plannedAction: PlannedAction): string => {
-  if (plannedAction.status === 'skipped') return `- ${plannedAction.description}`;
-  if (plannedAction.status === 'failed') {
+  if (plannedAction.status == 'skipped') return `- ${plannedAction.description}`;
+  if (plannedAction.status == 'failed') {
     let failureText = '';
-    if (plannedAction.error !== undefined) failureText = ` - ${plannedAction.error}`;
+    if (plannedAction.error != null) failureText = ` - ${plannedAction.error}`;
     return `x ${plannedAction.description}${failureText}`;
   }
   return `+ ${plannedAction.description}`;
@@ -67,12 +67,12 @@ export const renderStoreSurfaceAction = (plannedAction: PlannedAction): string =
 
 /** Render one applied App Store surface action with ASCII markers. */
 export const renderAppliedStoreSurfaceAction = (appliedAction: PlannedAction): string => {
-  if (appliedAction.status === 'failed') {
+  if (appliedAction.status == 'failed') {
     let failureText = 'failed';
-    if (appliedAction.error !== undefined) failureText = appliedAction.error;
+    if (appliedAction.error != null) failureText = appliedAction.error;
     return `x ${appliedAction.description} - ${failureText}`;
   }
-  if (appliedAction.status === 'skipped') return `- ${appliedAction.description}`;
+  if (appliedAction.status == 'skipped') return `- ${appliedAction.description}`;
   return `OK ${appliedAction.description}`;
 };
 
@@ -86,7 +86,7 @@ function shouldUseTypedSection<StoreSurfaceSection>(
     return false;
   }
 
-  return typedSection !== undefined;
+  return typedSection != null;
 }
 
 function shouldSkipMissingSidecar(sidecarExists: boolean, explicitPath: boolean): boolean {

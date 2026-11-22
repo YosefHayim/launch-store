@@ -8,8 +8,6 @@ import openapiTypeScript, { astToString } from 'openapi-typescript';
 const schemaPath = fileURLToPath(new URL('../src/apple-api-types.ts', import.meta.url));
 const ASC_SPEC_URL =
   'https://developer.apple.com/sample-code/app-store-connect/app-store-connect-openapi-specification.zip';
-// Apple's zip member, including the " (2)" suffix a browser download adds.
-const ASC_SPEC_FILENAME = /^openapi\.oas(?: \(\d+\))?\.json$/;
 
 interface AppleSpecVersion {
   openapi: string;
@@ -85,7 +83,8 @@ function isAppleSpecEntry(entry: string): boolean {
     return false;
   }
 
-  return ASC_SPEC_FILENAME.test(fileName);
+  // Apple's zip member, including the " (2)" suffix a browser download adds.
+  return /^openapi\.oas(?: \(\d+\))?\.json$/.test(fileName);
 }
 
 function pickSpecEntry(entries: readonly string[]): string | null {

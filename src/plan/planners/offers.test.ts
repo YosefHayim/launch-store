@@ -6,7 +6,7 @@ import type { AppDescriptor } from '../../types/app.ts';
 import type { AppProducts } from '../../types/catalog.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
-const ALPHA: AppDescriptor = {
+const alpha: AppDescriptor = {
   name: 'alpha',
   dir: '/no/such/dir/alpha',
   configPath: '/no/such/dir/alpha/app.json',
@@ -40,7 +40,7 @@ const WITH_OFFER: AppProducts = {
   ],
 };
 /** A plain catalog (one IAP, no offers and no promoted purchases) - the offers surface should omit it. */
-const NO_OFFERS: AppProducts = {
+const noOffers: AppProducts = {
   inAppPurchases: [
     {
       productId: 'com.acme.coins',
@@ -74,7 +74,7 @@ const makeCtx = (
   if (Object.keys(products).length > 0) config = { ...baseConfig, products };
   return {
     config,
-    apps: [ALPHA],
+    apps: [alpha],
     resolveAscApi: () => Promise.resolve(api),
     resolvePlayApi: () => Promise.resolve(null),
   };
@@ -83,14 +83,14 @@ describe('offersPlanner', () => {
   it('omits itself when no app declares offers or promoted purchases', async () => {
     const plan = await runPlanner(
       offersPlanner,
-      makeCtx(apiWithLiveSubscription(), { 'com.acme.alpha': NO_OFFERS }),
+      makeCtx(apiWithLiveSubscription(), { 'com.acme.alpha': noOffers }),
     );
     expect(plan.state).toBe('omitted');
   });
   it('skips with a creds hint when no Apple account is active', async () => {
     const plan = await runPlanner(offersPlanner, makeCtx(null, { 'com.acme.alpha': WITH_OFFER }));
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.hint).toMatch(/creds/);
   });
   it("reports an additive plan to create a declared offer code that doesn't exist yet", async () => {
@@ -99,8 +99,8 @@ describe('offersPlanner', () => {
       makeCtx(apiWithLiveSubscription(), { 'com.acme.alpha': WITH_OFFER }),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.direction).toBe('additive');
     expect(
       plan.apps[0]?.actions.some((a) =>
@@ -112,8 +112,8 @@ describe('offersPlanner', () => {
     const api = apiWithLiveSubscription({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(offersPlanner, makeCtx(api, { 'com.acme.alpha': WITH_OFFER }));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
   });
   it('is strictly read-only: never invokes a write endpoint', async () => {

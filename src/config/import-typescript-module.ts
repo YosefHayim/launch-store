@@ -29,10 +29,10 @@ declare module 'module' {
   }
 }
 
-const PACKAGE_ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const SOURCE_ROOT = join(PACKAGE_ROOT, 'src');
+const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
+const SOURCE_ROOT = join(packageRoot, 'src');
 
-const SOURCE_ALIASES: readonly (readonly [string, string])[] = [
+const sourceAliases: readonly (readonly [string, string])[] = [
   ['@apple/', join(SOURCE_ROOT, 'apple')],
   ['@cli/', join(SOURCE_ROOT, 'cli')],
   ['@google/', join(SOURCE_ROOT, 'google')],
@@ -175,7 +175,7 @@ function loadLaunchStoreSource(
 }
 
 function aliasUrlFor(specifier: string): string | null {
-  for (const [prefix, folder] of SOURCE_ALIASES) {
+  for (const [prefix, folder] of sourceAliases) {
     if (specifier.startsWith(prefix) == false) {
       continue;
     }

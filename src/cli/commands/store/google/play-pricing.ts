@@ -21,7 +21,7 @@ const toPlayPricingInput = (
     currency: commandOptions.currency,
     json: commandOptions.json,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
   return commandInput;

@@ -58,7 +58,7 @@ export const platformLabel = (platform: Platform): string => {
  * unknown value. Centralizes the validation every platform-taking command shares.
  */
 export const parsePlatform = (platformText: string) => {
-  const match = PLATFORMS.find((platform) => platform === platformText);
+  const match = PLATFORMS.find((platform) => platform == platformText);
   if (!match)
     return unsupportedPlatform(
       'parse platform',

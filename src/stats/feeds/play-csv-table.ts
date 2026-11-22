@@ -2,14 +2,13 @@ export interface PlayCsvTable {
   readonly lines: readonly Readonly<Record<string, string>>[];
 }
 
-const UTF16_LITTLE_ENDIAN_BOM_FIRST_BYTE = 0xff;
-const UTF16_LITTLE_ENDIAN_BOM_SECOND_BYTE = 0xfe;
+const utf16LittleEndianBomFirstByte = 0xff;
+const utf16LittleEndianBomSecondByte = 0xfe;
 
 /** Play stats CSVs are UTF-16LE with a BOM; the earnings CSVs are plain UTF-8. */
 export const decodePlayCsvBytes = (csvBytes: Uint8Array): string => {
   const isUtf16LittleEndian =
-    csvBytes[0] === UTF16_LITTLE_ENDIAN_BOM_FIRST_BYTE &&
-    csvBytes[1] === UTF16_LITTLE_ENDIAN_BOM_SECOND_BYTE;
+    csvBytes[0] == utf16LittleEndianBomFirstByte && csvBytes[1] == utf16LittleEndianBomSecondByte;
   if (isUtf16LittleEndian) return new TextDecoder('utf-16le').decode(csvBytes);
   return new TextDecoder('utf-8').decode(csvBytes);
 };

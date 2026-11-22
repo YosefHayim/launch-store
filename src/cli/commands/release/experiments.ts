@@ -25,7 +25,7 @@ const toVersionExperimentsInput = (
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     experimentsInput = { ...experimentsInput, app: commandOptions.app };
   }
   return experimentsInput;

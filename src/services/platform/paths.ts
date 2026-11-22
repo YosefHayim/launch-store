@@ -3,8 +3,6 @@ import { mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const APP_KEY_PATTERN = /^(ios|android)-[A-Za-z0-9._]+$/;
-
 type LaunchDirectories = Readonly<{
   homeDirectory: string;
   workingDirectory: string;
@@ -158,7 +156,7 @@ export function locateStatsDirectory(): string {
 }
 
 export function locateAppStatsDirectory(appKey: string): string {
-  const isAppKeyValid = APP_KEY_PATTERN.test(appKey);
+  const isAppKeyValid = /^(ios|android)-[A-Za-z0-9._]+$/.test(appKey);
 
   if (isAppKeyValid == false) {
     throw makeInvalidAppKeyFailure(`"${appKey}" is not a valid app key.`);

@@ -17,8 +17,6 @@ interface Ga4FetchRequest {
   readonly credentials: StatsCredentialsApi;
 }
 
-const ANALYTICS_READONLY_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
-
 function createCredentialsFailure(app: PortfolioApp, cause: unknown): StatsFeedFailure {
   return {
     _tag: 'StatsFeedFailure',
@@ -88,7 +86,10 @@ async function readAccessToken(
   packageName: string | null,
 ): Promise<string | null> {
   try {
-    return await request.credentials.googleAccessToken([ANALYTICS_READONLY_SCOPE], packageName);
+    return await request.credentials.googleAccessToken(
+      ['https://www.googleapis.com/auth/analytics.readonly'],
+      packageName,
+    );
   } catch (cause) {
     throw createCredentialsFailure(request.app, cause);
   }

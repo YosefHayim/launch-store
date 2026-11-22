@@ -18,7 +18,7 @@ export class ConnectAppClips {
     }>(`/apps/${appId}/appClips?limit=200`);
     return appleResources.map((clip) => {
       const appClip: AppClipResource = { id: clip.id };
-      if (clip.attributes.bundleId !== undefined)
+      if (clip.attributes.bundleId != null)
         Object.assign(appClip, { bundleId: clip.attributes.bundleId });
       return appClip;
     });
@@ -39,10 +39,10 @@ export class ConnectAppClips {
       );
       for (const experience of page.data) {
         const defaultExperience: AppClipDefaultExperienceResource = { id: experience.id };
-        if (experience.attributes?.action !== undefined)
+        if (experience.attributes?.action != null)
           Object.assign(defaultExperience, { action: experience.attributes.action });
         const versionId = experience.relationships?.releaseWithAppStoreVersion?.data?.id;
-        if (versionId !== undefined) Object.assign(defaultExperience, { versionId });
+        if (versionId != null) Object.assign(defaultExperience, { versionId });
         all.push(defaultExperience);
       }
       next = page.links?.next;
@@ -64,7 +64,7 @@ export class ConnectAppClips {
         releaseWithAppStoreVersion: { data: { type: 'appStoreVersions', id: versionId } },
       },
     };
-    if (action !== undefined) Object.assign(experienceData, { attributes: { action } });
+    if (action != null) Object.assign(experienceData, { attributes: { action } });
     const requestDocument: components['schemas']['AppClipDefaultExperienceCreateRequest'] = {
       data: experienceData,
     };
@@ -101,12 +101,12 @@ export class ConnectAppClips {
     );
     return appleResources.map((localization) => {
       let locale = localization.attributes.locale;
-      if (locale === undefined) locale = '';
+      if (locale == null) locale = '';
       const localizedExperience: MutableDeep<AppClipLocalizationResource> = {
         id: localization.id,
         locale,
       };
-      if (localization.attributes.subtitle !== undefined)
+      if (localization.attributes.subtitle != null)
         localizedExperience.subtitle = localization.attributes.subtitle;
       return localizedExperience;
     });

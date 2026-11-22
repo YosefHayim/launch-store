@@ -28,7 +28,7 @@ describe('planCertReports', () => {
     expect(writes).toHaveLength(1);
     const firstWrite = writes[0];
     expect(firstWrite).toBeDefined();
-    if (firstWrite === undefined) return;
+    if (firstWrite == null) return;
     expect(firstWrite.description).toBe('certs: no distribution certificates on this account');
     expect(firstWrite.note).toMatch(/launch creds setup/);
     expect(firstWrite.change).toEqual({ home: 'keychain' });
@@ -45,7 +45,7 @@ describe('planCertReports', () => {
     });
     const firstWrite = writes[0];
     expect(firstWrite).toBeDefined();
-    if (firstWrite === undefined) return;
+    if (firstWrite == null) return;
     expect(firstWrite.description).toBe(
       'certs: distribution certificate ABC123 (expires 2027-01-02) - private key present in this keychain',
     );
@@ -61,7 +61,7 @@ describe('planCertReports', () => {
     });
     const firstWrite = writes[0];
     expect(firstWrite).toBeDefined();
-    if (firstWrite === undefined) return;
+    if (firstWrite == null) return;
     expect(firstWrite.description).toContain('private key not in this keychain');
     expect(firstWrite.note).toMatch(/never returns the private key/);
   });
@@ -75,7 +75,7 @@ describe('planCertReports', () => {
     });
     const installedWrite = installed.at(-1);
     expect(installedWrite).toBeDefined();
-    if (installedWrite === undefined) return;
+    if (installedWrite == null) return;
     expect(installedWrite.description).toBe(
       'certs: profile "Acme App Store" (uuid-1) - installed locally',
     );
@@ -89,7 +89,7 @@ describe('planCertReports', () => {
     });
     const missingWrite = missing.at(-1);
     expect(missingWrite).toBeDefined();
-    if (missingWrite === undefined) return;
+    if (missingWrite == null) return;
     expect(missingWrite.description).toContain('not installed locally');
     expect(missingWrite.note).toMatch(/launch creds setup/);
   });

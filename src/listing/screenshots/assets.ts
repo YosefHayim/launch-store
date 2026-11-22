@@ -9,8 +9,8 @@ export const MAX_SCREENSHOTS_PER_SET = 10;
 export const PREVIEWS_DIRNAME = 'previews';
 export const MAX_PREVIEWS_PER_SET = 3;
 
-const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
-const VIDEO_EXTENSIONS = new Set(['.mov', '.mp4', '.m4v']);
+const imageExtensions = new Set(['.png', '.jpg', '.jpeg']);
+const videoExtensions = new Set(['.mov', '.mp4', '.m4v']);
 
 export type LocalAsset = {
   readonly path: string;
@@ -124,7 +124,7 @@ export async function discoverScreenshotsAt(
 
     for (const displayType of displayTypes) {
       const displayTypeDirectory = join(localeDirectory, displayType);
-      const fileNames = await listMediaFileNames(displayTypeDirectory, IMAGE_EXTENSIONS);
+      const fileNames = await listMediaFileNames(displayTypeDirectory, imageExtensions);
 
       for (const fileName of fileNames) {
         const screenshotPath = join(displayTypeDirectory, fileName);
@@ -198,7 +198,7 @@ export async function discoverPreviews(appDirectory: string): Promise<readonly L
 
     for (const previewType of previewTypes) {
       const previewTypeDirectory = join(localeDirectory, previewType);
-      const fileNames = await listMediaFileNames(previewTypeDirectory, VIDEO_EXTENSIONS);
+      const fileNames = await listMediaFileNames(previewTypeDirectory, videoExtensions);
 
       for (const fileName of fileNames) {
         const previewPath = join(previewTypeDirectory, fileName);

@@ -13,11 +13,11 @@ import {
   runArtifactPrune,
   writeArtifactIndex,
 } from './artifact-retention.ts';
-const DAY_MS = 24 * 60 * 60 * 1000;
+const dayMs = 24 * 60 * 60 * 1000;
 /** A fixed reference "now" so age math is deterministic (no wall clock in the tests). */
 const NOW = Date.parse('2026-06-15T00:00:00.000Z');
 /** ISO stamp for a build created `days` before {@link NOW}. */
-const daysAgo = (days: number): string => new Date(NOW - days * DAY_MS).toISOString();
+const daysAgo = (days: number): string => new Date(NOW - days * dayMs).toISOString();
 /** A stored-build fixture; override any field to vary one dimension under test. */
 const artifact = (overrides: Partial<BuildArtifact> = {}): BuildArtifact => {
   return {
@@ -216,11 +216,11 @@ describe('runArtifactPrune - executes the plan against a real index + binaries',
     expect(existsSync(oldPath)).toBe(false); // binary gone
     expect(existsSync(newestPath)).toBe(true); // newest survives
     const writtenArtifacts = await runArtifactEffect(readArtifactIndex(indexPath));
+    expect(writtenArtifacts.find((buildArtifact) => buildArtifact.buildNumber == 7)?.prunedAt).toBe(
+      new Date(NOW).toISOString(),
+    );
     expect(
-      writtenArtifacts.find((buildArtifact) => buildArtifact.buildNumber === 7)?.prunedAt,
-    ).toBe(new Date(NOW).toISOString());
-    expect(
-      writtenArtifacts.find((buildArtifact) => buildArtifact.buildNumber === 9)?.prunedAt,
+      writtenArtifacts.find((buildArtifact) => buildArtifact.buildNumber == 9)?.prunedAt,
     ).toBeUndefined();
   });
   it('dry-run deletes nothing and leaves the index untouched', async () => {
@@ -272,7 +272,7 @@ describe('runArtifactPrune - executes the plan against a real index + binaries',
     expect(pruneSummary.freedBytes).toBe(555); // falls back to the recorded artifactBytes
     const writtenArtifacts = await runArtifactEffect(readArtifactIndex(indexPath));
     expect(
-      writtenArtifacts.find((buildArtifact) => buildArtifact.buildNumber === 7)?.prunedAt,
+      writtenArtifacts.find((buildArtifact) => buildArtifact.buildNumber == 7)?.prunedAt,
     ).toBeDefined();
   });
 });

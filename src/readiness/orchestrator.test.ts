@@ -148,7 +148,7 @@ describe('runProbes', () => {
     expect(outcome.okCount).toBe(1);
     expect(outcome.errorCount).toBe(1);
     expect(outcome.exitCode).toBe(READINESS_EXIT.error);
-    const errored = outcome.reports.find((report) => report.id === 'boom');
+    const errored = outcome.reports.find((report) => report.id == 'boom');
     expect(errored?.outcome).toEqual({ state: 'errored', error: 'network down' });
   });
   it('formats non-Error probe failures via errorMessage', async () => {

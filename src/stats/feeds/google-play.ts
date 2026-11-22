@@ -13,16 +13,11 @@ import type { PlayVitalsReader, StatsCredentialsApi } from '../stats-credentials
 import { readBucketReports } from './play-bucket-reports.ts';
 import { STORAGE_READ_ONLY_SCOPE } from './play-reports-bucket-client.ts';
 
-const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
-const VITALS_METRICS: Readonly<Record<PlayVitalsMetric, StatsMetric>> = {
+const dayMilliseconds = 24 * 60 * 60 * 1000;
+const vitalsMetrics: Readonly<Record<PlayVitalsMetric, StatsMetric>> = {
   crash: 'crashRate',
   anr: 'anrRate',
 };
-
-const BUCKET_NOT_SET_NOTE =
-  'Play reports bucket not set: copy the Cloud Storage URI from Play Console > Download reports, then run launch creds set-play-reports-bucket --play-reports-bucket <uri>';
-const BUCKET_FORBIDDEN_NOTE =
-  'The Play reports bucket refused the service account: in Play Console > Users and permissions, give it "View app information and download bulk reports" set to Global';
 
 interface VitalsReading {
   readonly stats: readonly DailyStat[];
@@ -46,7 +41,7 @@ function makeStatsFeedFailure(appKey: string, cause: unknown): StatsFeedFailure 
 }
 
 function countRangeDays(range: DateRange): number {
-  return Math.round((Date.parse(range.to) - Date.parse(range.from)) / DAY_MILLISECONDS) + 1;
+  return Math.round((Date.parse(range.to) - Date.parse(range.from)) / dayMilliseconds) + 1;
 }
 
 function isPublishedDate(publishedDate: string | null): publishedDate is string {
@@ -78,7 +73,7 @@ function readVitalsDay(range: DateRange, timeline: VitalsTimeline) {
       {
         date: vitalsDay.date,
         feed: 'google-play',
-        metric: VITALS_METRICS[timeline.metric],
+        metric: vitalsMetrics[timeline.metric],
         value: vitalsDay.rate,
         currency: null,
       },
@@ -141,7 +136,9 @@ async function fetchPlayStats(
       status: 'fetched',
       stats: vitals.stats,
       coveredThrough: vitalsCoveredThrough,
-      notes: [BUCKET_NOT_SET_NOTE],
+      notes: [
+        'Play reports bucket not set: copy the Cloud Storage URI from Play Console > Download reports, then run launch creds set-play-reports-bucket --play-reports-bucket <uri>',
+      ],
     };
   }
 
@@ -163,7 +160,9 @@ async function fetchPlayStats(
       status: 'fetched',
       stats: vitals.stats,
       coveredThrough: vitalsCoveredThrough,
-      notes: [BUCKET_FORBIDDEN_NOTE],
+      notes: [
+        'The Play reports bucket refused the service account: in Play Console > Users and permissions, give it "View app information and download bulk reports" set to Global',
+      ],
     };
   }
 

@@ -180,7 +180,7 @@ describe('planAgentArtifacts', () => {
 
   it('writes AGENTS.md once when both claude and codex are selected', () => {
     const agentsBlocks = planAgentArtifacts(['claude', 'codex'], '1.0.0').filter(
-      (artifact) => artifact.path === 'AGENTS.md',
+      (artifact) => artifact.path == 'AGENTS.md',
     );
     expect(agentsBlocks).toHaveLength(1);
   });

@@ -21,11 +21,11 @@ export class ConnectAvailability {
     const availableTerritories = territoryAvailabilities.flatMap((territoryAvailability) => {
       if (!territoryAvailability.attributes?.available) return [];
       const territoryCode = territoryAvailability.relationships?.territory?.data?.id;
-      if (territoryCode === undefined) return [];
+      if (territoryCode == null) return [];
       return [territoryCode];
     });
     let availableInNewTerritories = head.data.attributes?.availableInNewTerritories;
-    if (availableInNewTerritories === undefined) availableInNewTerritories = false;
+    if (availableInNewTerritories == null) availableInNewTerritories = false;
     return {
       id: head.data.id,
       availableInNewTerritories,
@@ -96,7 +96,7 @@ export class ConnectAvailability {
     const returnedCodes = new Set(
       territoryAvailabilities.flatMap((territoryAvailability) => {
         const territoryCode = territoryAvailability.relationships?.territory?.data?.id;
-        if (territoryCode === undefined) return [];
+        if (territoryCode == null) return [];
         return [territoryCode];
       }),
     );
@@ -109,9 +109,9 @@ export class ConnectAvailability {
     }
     const changes = territoryAvailabilities.flatMap((territoryAvailability) => {
       const territoryCode = territoryAvailability.relationships?.territory?.data?.id;
-      if (territoryCode === undefined) return [];
+      if (territoryCode == null) return [];
       const available = desired.has(territoryCode);
-      if (territoryAvailability.attributes?.available === available) return [];
+      if (territoryAvailability.attributes?.available == available) return [];
       return [{ id: territoryAvailability.id, available }];
     });
     for (

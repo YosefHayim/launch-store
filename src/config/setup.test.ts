@@ -10,7 +10,7 @@ import {
 } from './setup.ts';
 import type { Tool } from './toolchain.ts';
 /** A three-tool slice covering every branch: a required guide tool, a required brew tool, a recommended one. */
-const TOOLS: Tool[] = [
+const tools: Tool[] = [
   {
     label: 'Xcode (xcodebuild)',
     command: 'xcodebuild',
@@ -31,9 +31,9 @@ const TOOLS: Tool[] = [
   },
 ];
 describe('toolchainReadinessRows', () => {
-  const readinessRows = toolchainReadinessRows(TOOLS, new Set(['pod']));
+  const readinessRows = toolchainReadinessRows(tools, new Set(['pod']));
   it('marks a present tool ok with no fix hint', () => {
-    expect(readinessRows.find((readinessRow) => readinessRow.label === 'pod')).toEqual({
+    expect(readinessRows.find((readinessRow) => readinessRow.label == 'pod')).toEqual({
       label: 'pod',
       status: 'ok',
     });
@@ -46,7 +46,7 @@ describe('toolchainReadinessRows', () => {
     });
   });
   it('marks a missing recommended tool advisory (info), never a gap', () => {
-    const ccacheRow = readinessRows.find((readinessRow) => readinessRow.label === 'ccache');
+    const ccacheRow = readinessRows.find((readinessRow) => readinessRow.label == 'ccache');
     expect(ccacheRow?.status).toBe('info');
     expect(ccacheRow?.detail).toContain('brew install ccache');
   });

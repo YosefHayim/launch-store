@@ -129,7 +129,7 @@ function isUnknownRole(normalizedRole: string): boolean {
 
 function hasMemberEmail(normalizedEmail: string): (teamMember: UserResource) => boolean {
   return function memberHasEmail(teamMember: UserResource): boolean {
-    return teamMember.username.toLowerCase() === normalizedEmail;
+    return teamMember.username.toLowerCase() == normalizedEmail;
   };
 }
 
@@ -137,7 +137,7 @@ function hasInvitationEmail(
   normalizedEmail: string,
 ): (pendingInvitation: UserInvitationResource) => boolean {
   return function invitationHasEmail(pendingInvitation: UserInvitationResource): boolean {
-    return pendingInvitation.email.toLowerCase() === normalizedEmail;
+    return pendingInvitation.email.toLowerCase() == normalizedEmail;
   };
 }
 
@@ -147,14 +147,14 @@ export async function inviteTeamMember(
   inviteRequest: InviteRequest,
 ): Promise<UserInvitationResource> {
   const email = inviteRequest.email.trim();
-  const isEmailMissing = email.length === 0;
+  const isEmailMissing = email.length == 0;
 
   if (isEmailMissing) {
     throw teamFailure('invite', 'An email is required to invite a team member.');
   }
 
   const normalizedRoles = normalizeRoles(inviteRequest.roles);
-  const isRoleListEmpty = normalizedRoles.length === 0;
+  const isRoleListEmpty = normalizedRoles.length == 0;
 
   if (isRoleListEmpty) {
     throw teamFailure(
@@ -206,11 +206,11 @@ export async function inviteTeamMember(
   }
 
   let allAppsVisible = true;
-  if (inviteRequest.allAppsVisible !== undefined) {
+  if (inviteRequest.allAppsVisible != null) {
     allAppsVisible = inviteRequest.allAppsVisible;
   }
   let provisioningAllowed = false;
-  if (inviteRequest.provisioningAllowed !== undefined) {
+  if (inviteRequest.provisioningAllowed != null) {
     provisioningAllowed = inviteRequest.provisioningAllowed;
   }
 
@@ -244,7 +244,7 @@ export async function removeTeamMember(
 
   const memberHasEmail = hasMemberEmail(normalizedEmail);
   const matchingMember = currentTeam.members.find(memberHasEmail);
-  const hasMatchingMember = matchingMember !== undefined;
+  const hasMatchingMember = matchingMember != null;
 
   if (hasMatchingMember) {
     try {
@@ -258,7 +258,7 @@ export async function removeTeamMember(
 
   const invitationHasEmail = hasInvitationEmail(normalizedEmail);
   const matchingInvitation = currentTeam.invitations.find(invitationHasEmail);
-  const hasMatchingInvitation = matchingInvitation !== undefined;
+  const hasMatchingInvitation = matchingInvitation != null;
 
   if (hasMatchingInvitation) {
     try {

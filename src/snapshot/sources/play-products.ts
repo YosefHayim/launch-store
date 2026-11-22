@@ -77,19 +77,19 @@ const toLocalizations = (
     const fields = jsonRecord(capturedListing);
     let name: string | undefined;
     if (fields) name = stringField(fields, 'title');
-    if (name === undefined) continue;
+    if (name == null) continue;
     const localization: MutableDeep<ProductLocalization> = { locale, name };
     let description: string | undefined;
     if (fields) description = stringField(fields, 'description');
-    if (description !== undefined) localization.description = description;
+    if (description != null) localization.description = description;
     localizations.push(localization);
   }
   localizations.sort((a, b) => {
-    if (a.locale === defaultLanguage) {
-      if (b.locale === defaultLanguage) return 0;
+    if (a.locale == defaultLanguage) {
+      if (b.locale == defaultLanguage) return 0;
       return -1;
     }
-    if (b.locale === defaultLanguage) return 1;
+    if (b.locale == defaultLanguage) return 1;
     return a.locale.localeCompare(b.locale);
   });
   return localizations;
@@ -105,12 +105,12 @@ const toProductConfig = (entity: SnapshotEntity): InAppPurchaseConfig | null => 
   const productFields = jsonRecord(entity.data);
   if (!productFields) return null;
   let sku = stringField(productFields, 'sku');
-  if (sku === undefined) sku = entity.key;
+  if (sku == null) sku = entity.key;
   const localizations = toLocalizations(
     productFields['listings'],
     stringField(productFields, 'defaultLanguage'),
   );
-  if (localizations.length === 0) return null;
+  if (localizations.length == 0) return null;
   const play: MutableDeep<PlayProductOverride> = { sku };
   const defaultPrice = toPriceConfig(productFields['defaultPrice']);
   if (defaultPrice) play.defaultPrice = defaultPrice;

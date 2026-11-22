@@ -61,18 +61,6 @@ const AGENT_TARGETS: readonly AgentTarget[] = [
   'amazonq',
 ];
 
-/** Short picker label for each supported coding-agent target. */
-const AGENT_TARGET_LABELS: Readonly<Record<AgentTarget, string>> = {
-  claude: 'Claude    (.claude/skills + CLAUDE.md)',
-  cursor: 'Cursor    (.cursor/rules)',
-  codex: 'Codex     (AGENTS.md)',
-  windsurf: 'Windsurf  (.windsurf/rules)',
-  copilot: 'Copilot   (.github/copilot-instructions.md)',
-  kiro: 'Kiro      (.kiro/steering)',
-  cline: 'Cline     (.cline/rules)',
-  amazonq: 'Amazon Q  (.amazonq/rules)',
-};
-
 type OwnedAgentArtifact = {
   readonly kind: 'owned';
   readonly path: string;
@@ -629,7 +617,16 @@ export async function findStaleAgentArtifacts(
 function agentTargetChoice(agentTarget: AgentTarget): { selection: AgentTarget; label: string } {
   return {
     selection: agentTarget,
-    label: AGENT_TARGET_LABELS[agentTarget],
+    label: {
+      claude: 'Claude    (.claude/skills + CLAUDE.md)',
+      cursor: 'Cursor    (.cursor/rules)',
+      codex: 'Codex     (AGENTS.md)',
+      windsurf: 'Windsurf  (.windsurf/rules)',
+      copilot: 'Copilot   (.github/copilot-instructions.md)',
+      kiro: 'Kiro      (.kiro/steering)',
+      cline: 'Cline     (.cline/rules)',
+      amazonq: 'Amazon Q  (.amazonq/rules)',
+    }[agentTarget],
   };
 }
 

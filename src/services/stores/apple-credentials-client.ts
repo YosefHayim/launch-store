@@ -54,7 +54,7 @@ export type AppleCredentialsClientFactory = Readonly<{
 
 /** Translate the Apple transport shape without leaking explicit `undefined` fields into the domain. */
 const toDomainBundleId = (bundleIdentifier: AscBundleIdResource): BundleIdResource => {
-  if (bundleIdentifier.seedId === undefined)
+  if (bundleIdentifier.seedId == null)
     return { id: bundleIdentifier.id, identifier: bundleIdentifier.identifier };
   return {
     id: bundleIdentifier.id,
@@ -67,13 +67,13 @@ const toDomainBundleId = (bundleIdentifier: AscBundleIdResource): BundleIdResour
 const toOptionalDomainBundleId = (
   bundleIdentifier: AscBundleIdResource | null,
 ): BundleIdResource | null => {
-  if (bundleIdentifier === null) return null;
+  if (bundleIdentifier == null) return null;
   return toDomainBundleId(bundleIdentifier);
 };
 
 /** Translate an Apple certificate while preserving an absent expiration date as an absent field. */
 const toDomainCertificate = (certificate: AscCertificateResource): CertificateResource => {
-  if (certificate.expirationDate === undefined) {
+  if (certificate.expirationDate == null) {
     return {
       id: certificate.id,
       serialNumber: certificate.serialNumber,
@@ -90,7 +90,7 @@ const toDomainCertificate = (certificate: AscCertificateResource): CertificateRe
 
 /** Translate an Apple device while preserving an absent status as an absent field. */
 const toDomainDevice = (device: AscDeviceResource): AppleDeviceResource => {
-  if (device.status === undefined) return { id: device.id, udid: device.udid, name: device.name };
+  if (device.status == null) return { id: device.id, udid: device.udid, name: device.name };
   return { id: device.id, udid: device.udid, name: device.name, status: device.status };
 };
 
@@ -98,13 +98,13 @@ const toDomainDevice = (device: AscDeviceResource): AppleDeviceResource => {
 const toDomainCapability = (
   capability: AscBundleIdCapabilityResource,
 ): BundleIdCapabilityResource => {
-  if (capability.settings === undefined)
+  if (capability.settings == null)
     return { id: capability.id, capabilityType: capability.capabilityType };
   return {
     id: capability.id,
     capabilityType: capability.capabilityType,
     settings: capability.settings.map((setting) => {
-      if (setting.options === undefined) return { key: setting.key };
+      if (setting.options == null) return { key: setting.key };
       return { key: setting.key, options: setting.options };
     }),
   };

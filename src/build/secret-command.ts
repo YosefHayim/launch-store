@@ -217,9 +217,6 @@ export function decodeSecretCommandInput(rawCommandInput: unknown): SecretComman
   throw new Error(`Unknown secret action "${String(action)}".`);
 }
 
-// A shell identifier: a letter or underscore, then letters, digits, or underscores.
-const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
 /** Render a secret reference's app-wide or profile-specific scope. */
 function scopeLabel(secretReference: SecretRef): string {
   const isAppWide = secretReference.profile == null;
@@ -286,7 +283,7 @@ async function setSecretValue(commandInput: SecretSetInput): Promise<void> {
     });
   }
 
-  const nameIsValid = ENVIRONMENT_NAME.test(commandInput.name);
+  const nameIsValid = /^[A-Za-z_][A-Za-z0-9_]*$/.test(commandInput.name);
 
   if (nameIsValid == false) {
     throw makeSecretCommandFailure({

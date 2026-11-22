@@ -24,19 +24,19 @@ type State = {
   submissionFailure?: string;
 };
 
-const VALID_BUILD: BuildResource = {
-  id: 'build-1',
-  version: '42',
-  processingState: 'VALID',
-  expired: false,
-};
-
 /** Create a hand fake that records beta-review writes. */
 function makeAppleStore(
   state: Partial<State>,
 ): Readonly<{ appleStore: AscBetaReviewApi; calls: Calls }> {
   const storedState: State = {
-    builds: [VALID_BUILD],
+    builds: [
+      {
+        id: 'build-1',
+        version: '42',
+        processingState: 'VALID',
+        expired: false,
+      },
+    ],
     localizations: [],
     submission: null,
     ...state,
@@ -231,7 +231,7 @@ describe('reconcileBetaReview', () => {
     });
     expect(calls.created).toHaveLength(0);
     expect(calls.submitted).toHaveLength(0);
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
     expect(report.actions).toHaveLength(2);
   });
 
@@ -244,7 +244,7 @@ describe('reconcileBetaReview', () => {
       dryRun: false,
     });
     expect(summarizeBetaReview(report.actions)).toEqual({ applied: 1, failed: 1, skipped: 0 });
-    expect(report.actions.find((action) => action.status === 'failed')?.error).toBe(
+    expect(report.actions.find((action) => action.status == 'failed')?.error).toBe(
       'build is still processing',
     );
   });

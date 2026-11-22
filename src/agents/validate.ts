@@ -14,7 +14,7 @@ const matchRegisteredCommand = (
   commandName: string,
 ): RegisteredCommand | undefined => {
   for (const registeredCommand of availableCommands) {
-    if (registeredCommand.name === commandName) return registeredCommand;
+    if (registeredCommand.name == commandName) return registeredCommand;
     if (registeredCommand.aliases.includes(commandName)) return registeredCommand;
   }
   return undefined;
@@ -28,11 +28,11 @@ export const commandPathIsRegistered = (
   registeredCli: RegisteredCommand,
   commandPath: readonly string[],
 ): boolean => {
-  if (commandPath.length === 0) return false;
+  if (commandPath.length == 0) return false;
   let availableCommands = registeredCli.commands;
   for (const commandName of commandPath) {
     const matchedCommand = matchRegisteredCommand(availableCommands, commandName);
-    if (matchedCommand === undefined) return false;
+    if (matchedCommand == null) return false;
     availableCommands = matchedCommand.commands;
   }
   return true;
@@ -40,7 +40,7 @@ export const commandPathIsRegistered = (
 
 /** Recipe steps plus optional reference-catalog commands for one consumer skill. */
 export const skillReferencedCommands = (skill: ConsumerSkill): readonly SkillStep[] => {
-  if (skill.reference === undefined) return skill.steps;
+  if (skill.reference == null) return skill.steps;
   return [...skill.steps, ...skill.reference.commands];
 };
 

@@ -23,7 +23,7 @@ import {
 
 const skill = (skillId: string) =>
   expectDefined(
-    CONSUMER_SKILLS.find((candidateSkill) => candidateSkill.id === skillId),
+    CONSUMER_SKILLS.find((candidateSkill) => candidateSkill.id == skillId),
     `consumer skill ${skillId}`,
   );
 const VERSION = '9.9.9';
@@ -138,7 +138,7 @@ describe("spliceManagedBlock preserves the user's own content", () => {
 
 describe('contributor Claude skills are committed without a version stamp', () => {
   const gate = expectDefined(
-    CONTRIBUTOR_SKILLS.find((contributorSkill) => contributorSkill.id === 'run-the-gate'),
+    CONTRIBUTOR_SKILLS.find((contributorSkill) => contributorSkill.id == 'run-the-gate'),
     'run-the-gate contributor skill',
   );
   it('renders a SKILL.md with name+description frontmatter, the recipe, and no generated-by stamp', () => {
@@ -153,7 +153,7 @@ describe('contributor Claude skills are committed without a version stamp', () =
   });
   it('renders the skill-specific cautions block when a skill has cautions', () => {
     const provider = expectDefined(
-      CONTRIBUTOR_SKILLS.find((contributorSkill) => contributorSkill.id === 'add-a-provider'),
+      CONTRIBUTOR_SKILLS.find((contributorSkill) => contributorSkill.id == 'add-a-provider'),
       'add-a-provider contributor skill',
     );
     expect(renderContributorSkill(provider).body).toContain('## Cautions');

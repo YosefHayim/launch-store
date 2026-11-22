@@ -9,10 +9,10 @@ export const createServiceAccountAccessToken = async (
   const jwtClient = new googleAuthentication.JWT(serviceAccountJwtOptions(account, scopes));
   const tokenReply = await jwtClient.getAccessToken();
   const accessToken = tokenReply.token;
-  if (typeof accessToken !== 'string') {
+  if (typeof accessToken != 'string') {
     throw new Error('Google returned no access token for the service account.');
   }
-  if (accessToken.length === 0) {
+  if (accessToken.length == 0) {
     throw new Error('Google returned an empty access token for the service account.');
   }
   return accessToken;

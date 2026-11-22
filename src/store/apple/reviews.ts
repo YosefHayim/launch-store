@@ -95,8 +95,8 @@ export async function listReviews(
   }
 
   const serverFilters: { rating?: number; territory?: string } = {};
-  if (filters.rating !== undefined) serverFilters.rating = filters.rating;
-  if (filters.territory !== undefined) serverFilters.territory = filters.territory;
+  if (filters.rating != null) serverFilters.rating = filters.rating;
+  if (filters.territory != null) serverFilters.territory = filters.territory;
 
   const customerReviews = await runReviewRequest(
     'list customer reviews',

@@ -5,7 +5,7 @@ import { runCliProgram } from '../../run-cli-program.ts';
 /** Map the optional device name without passing an explicit undefined. */
 const toDeviceAddInput = (udid: string, name: string | undefined): DeviceAddInput => {
   let commandInput: DeviceAddInput = { operation: 'add', udid };
-  if (name !== undefined) commandInput = { ...commandInput, name };
+  if (name != null) commandInput = { ...commandInput, name };
   return commandInput;
 };
 

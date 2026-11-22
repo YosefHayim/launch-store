@@ -67,7 +67,7 @@ function readWorkingDirectory(record: Record<string, unknown>): string | undefin
 
   const workingDirectory = record['workingDirectory'];
 
-  if (workingDirectory === undefined) {
+  if (workingDirectory == null) {
     throw new Error('workingDirectory cannot be undefined');
   }
 

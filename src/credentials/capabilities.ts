@@ -63,7 +63,7 @@ const ENTITLEMENT_TO_CAPABILITY: Record<string, CapabilityType> = {
  * truly-unrecognized key still surfaces as {@link mapEntitlementsToCapabilities}'s `unmapped` (a real
  * "you may need to handle this in the portal" signal) instead of being lost in the noise.
  */
-const IGNORED_ENTITLEMENTS = new Set<string>([
+const ignoredEntitlements = new Set<string>([
   'application-identifier',
   'com.apple.developer.team-identifier',
   'keychain-access-groups',
@@ -113,14 +113,14 @@ export const CAPABILITY_TO_ENTITLEMENT: Partial<Record<CapabilityType, string>> 
   // capability's settings, so adopt surfaces it as advisory detail rather than an app.json entitlement.
 };
 /** Reverse map as a string-keyed lookup, so a raw `capabilityType` string resolves without a cast. */
-const CAPABILITY_TO_ENTITLEMENT_LOOKUP = new Map<string, string>(
+const capabilityToEntitlementLookup = new Map<string, string>(
   Object.entries(CAPABILITY_TO_ENTITLEMENT),
 );
 /** The full set of {@link CapabilityType}s Launch maps, for narrowing a raw `capabilityType` wire string. */
-const CAPABILITY_TYPES = new Set<string>(Object.values(ENTITLEMENT_TO_CAPABILITY));
+const capabilityTypes = new Set<string>(Object.values(ENTITLEMENT_TO_CAPABILITY));
 /** Narrow a raw App Store Connect `capabilityType` string to a {@link CapabilityType} Launch recognizes. */
 export const isCapabilityType = (capabilityText: string): capabilityText is CapabilityType => {
-  return CAPABILITY_TYPES.has(capabilityText);
+  return capabilityTypes.has(capabilityText);
 };
 /** Whether an entitlement key is one Launch maps to an App Store Connect capability (vs. signing plumbing). */
 export const isCapabilityEntitlement = (key: string): boolean => {
@@ -132,7 +132,7 @@ export const isCapabilityEntitlement = (key: string): boolean => {
  * value) so `launch adopt` can look up a gap without first narrowing to {@link CapabilityType}.
  */
 export const entitlementForCapability = (capabilityType: string): string | undefined => {
-  return CAPABILITY_TO_ENTITLEMENT_LOOKUP.get(capabilityType);
+  return capabilityToEntitlementLookup.get(capabilityType);
 };
 /** The outcome of mapping entitlements: capabilities to enable, plus keys we didn't recognize. */
 type CapabilityMapping = {
@@ -151,12 +151,12 @@ export const mapEntitlementsToCapabilities = (
   const enable = new Set<CapabilityType>();
   const unmapped: string[] = [];
   let configuredEntitlements = entitlements;
-  if (configuredEntitlements === undefined) configuredEntitlements = {};
+  if (configuredEntitlements == null) configuredEntitlements = {};
   for (const key of Object.keys(configuredEntitlements)) {
     const capability = ENTITLEMENT_TO_CAPABILITY[key];
     if (capability) {
       enable.add(capability);
-    } else if (!IGNORED_ENTITLEMENTS.has(key)) {
+    } else if (!ignoredEntitlements.has(key)) {
       unmapped.push(key);
     }
   }
@@ -176,8 +176,6 @@ export const staleProfileCapabilities = (
   }
   return [...missing].sort();
 };
-/** The entitlement key whose value lists the `group.*` App Group container ids a bundle joins. */
-const APP_GROUPS_ENTITLEMENT = 'com.apple.security.application-groups';
 /**
  * The `group.*` App Group container ids declared by one bundle's entitlements. The
  * {@link APP_GROUPS_ENTITLEMENT} value is an array of group ids in a normal Expo config; this reads it
@@ -186,10 +184,10 @@ const APP_GROUPS_ENTITLEMENT = 'com.apple.security.application-groups';
  * why the *container* itself is out of API scope).
  */
 export const appGroupContainers = (entitlements: Record<string, unknown> | undefined): string[] => {
-  const entitlementValue = entitlements?.[APP_GROUPS_ENTITLEMENT];
-  if (typeof entitlementValue === 'string') return [entitlementValue];
+  const entitlementValue = entitlements?.['com.apple.security.application-groups'];
+  if (typeof entitlementValue == 'string') return [entitlementValue];
   if (!Array.isArray(entitlementValue)) return [];
-  return entitlementValue.filter((id): id is string => typeof id === 'string' && id.length > 0);
+  return entitlementValue.filter((id): id is string => typeof id == 'string' && id.length > 0);
 };
 /** The Apple Developer portal page where App Group container ids are created and assigned to bundle ids. */
 export const APP_GROUP_PORTAL_URL =
@@ -204,10 +202,10 @@ export const APP_GROUP_PORTAL_URL =
  * warn before archiving and for unit tests.
  */
 export const appGroupPortalNotice = (containers: readonly string[]): string | null => {
-  if (containers.length === 0) return null;
+  if (containers.length == 0) return null;
   const groups = containers.map((id) => `"${id}"`).join(', ');
   let plural = 'App Groups';
-  if (containers.length === 1) plural = 'App Group';
+  if (containers.length == 1) plural = 'App Group';
   return (
     `This app uses ${plural} (${groups}). Launch can register the App ID and enable the App Groups ` +
     `capability, but the public Apple API can't create the group container or assign it to your bundle ` +

@@ -7,10 +7,10 @@ describe('registerGameCenterCommand', () => {
     const program = new Command();
     registerGameCenterCommand(program);
     const gameCenterCommand = program.commands.find(
-      (registeredCommand) => registeredCommand.name() === 'game-center',
+      (registeredCommand) => registeredCommand.name() == 'game-center',
     );
     expect(gameCenterCommand).toBeDefined();
-    if (gameCenterCommand === undefined) return;
+    if (gameCenterCommand == null) return;
     const optionFlags = gameCenterCommand.options.map((option) => option.long);
     expect(optionFlags).toContain('--app');
     expect(optionFlags).toContain('--config');

@@ -30,7 +30,7 @@ export class ConnectVersions {
   async getCurrentVersionId(appId: string): Promise<string | null> {
     const versions = await this.listVersionStates(appId);
     const editableVersionId = findVersionId(versions, EDITABLE_VERSION_STATES);
-    if (editableVersionId !== null) return editableVersionId;
+    if (editableVersionId != null) return editableVersionId;
     return findVersionId(versions, LIVE_STATES);
   }
 
@@ -49,7 +49,7 @@ export class ConnectVersions {
     return appleResources.map((localization) => {
       const localeAttribute = localization.attributes['locale'];
       let locale = '';
-      if (typeof localeAttribute === 'string') locale = localeAttribute;
+      if (typeof localeAttribute == 'string') locale = localeAttribute;
       return {
         id: localization.id,
         locale,
@@ -97,13 +97,13 @@ export class ConnectVersions {
     );
     const editable = appleResources.find((version) => {
       let versionState = version.attributes.appVersionState;
-      if (versionState === undefined) versionState = version.attributes.appStoreState;
-      if (versionState === undefined) return false;
+      if (versionState == null) versionState = version.attributes.appStoreState;
+      if (versionState == null) return false;
       return EDITABLE_METADATA_STATES.has(versionState);
     });
-    if (editable === undefined) return null;
+    if (editable == null) return null;
     let copyright = editable.attributes.copyright;
-    if (typeof copyright !== 'string') copyright = '';
+    if (typeof copyright != 'string') copyright = '';
     return { id: editable.id, copyright };
   }
 
@@ -115,9 +115,9 @@ export class ConnectVersions {
           attributes?: Record<string, string | boolean>;
         } | null;
       }>('GET', `/appStoreVersions/${versionId}/appStoreReviewDetail`);
-      if (appleResources === null) return null;
+      if (appleResources == null) return null;
       let reviewAttributes = appleResources.attributes;
-      if (reviewAttributes === undefined) reviewAttributes = {};
+      if (reviewAttributes == null) reviewAttributes = {};
       return { id: appleResources.id, attributes: reviewAttributes };
     });
   }
@@ -228,12 +228,12 @@ export class ConnectVersions {
     );
     return appleResources.flatMap((localization) => {
       const locale = localization.attributes.locale;
-      if (locale === undefined) return [];
+      if (locale == null) return [];
       const versionLocalization: AppStoreVersionLocalizationResource = {
         id: localization.id,
         locale,
       };
-      if (localization.attributes.whatsNew !== undefined)
+      if (localization.attributes.whatsNew != null)
         Object.assign(versionLocalization, { whatsNew: localization.attributes.whatsNew });
       return [versionLocalization];
     });
@@ -255,12 +255,12 @@ export class ConnectVersions {
       relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } } },
     });
     let locale = appleResources.attributes.locale;
-    if (locale === undefined) locale = input.locale;
+    if (locale == null) locale = input.locale;
     const versionLocalization: AppStoreVersionLocalizationResource = {
       id: appleResources.id,
       locale,
     };
-    if (appleResources.attributes.whatsNew !== undefined)
+    if (appleResources.attributes.whatsNew != null)
       Object.assign(versionLocalization, { whatsNew: appleResources.attributes.whatsNew });
     return versionLocalization;
   }
@@ -284,7 +284,7 @@ export class ConnectVersions {
           };
         } | null;
       }>('GET', `/appStoreVersions/${versionId}/appStoreVersionPhasedRelease`);
-      if (appleResources === null) return null;
+      if (appleResources == null) return null;
       return toPhasedRelease(appleResources);
     });
   }
@@ -324,7 +324,7 @@ export class ConnectVersions {
     );
     return appleResources.map((submission) => {
       let state = submission.attributes.state;
-      if (state === undefined) state = '';
+      if (state == null) state = '';
       return { id: submission.id, state };
     });
   }
@@ -338,7 +338,7 @@ export class ConnectVersions {
       relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     let state = appleResources.attributes.state;
-    if (state === undefined) state = '';
+    if (state == null) state = '';
     return { id: appleResources.id, state };
   }
 
@@ -397,7 +397,7 @@ export class ConnectVersions {
       }>
     >('GET', `/reviewSubmissions/${submissionId}?fields[reviewSubmissions]=state`);
     let state = appleResources.attributes.state;
-    if (state === undefined) state = '';
+    if (state == null) state = '';
     return { id: appleResources.id, state };
   }
 }

@@ -64,7 +64,7 @@ export const registerReleaseCommand = (program: Command): void => {
         {
           command: 'release',
           platform: platformArgument,
-          dryRun: commandOptions.dryRun === true,
+          dryRun: commandOptions.dryRun == true,
           profile: commandOptions.profile,
         },
         startRelease,

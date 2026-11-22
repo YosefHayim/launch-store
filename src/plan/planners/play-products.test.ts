@@ -30,24 +30,18 @@ const PLAY_IAP: InAppPurchaseConfig = {
   localizations: [{ locale: 'en-US', name: 'Coins' }],
   play: {},
 };
-/** An Apple-only in-app product (no `play` override) - must never reach Play. */
-const APPLE_ONLY_IAP: InAppPurchaseConfig = {
-  productId: 'com.acme.gems',
-  referenceName: 'Gems',
-  type: 'CONSUMABLE',
-  localizations: [{ locale: 'en-US', name: 'Gems' }],
-};
-const ALPHA: AppDescriptor = {
-  name: 'alpha',
-  dir: '/no/such/dir/alpha',
-  configPath: '/no/such/dir/alpha/app.json',
-  bundleId: 'com.acme.alpha',
-  packageName: 'com.acme.alpha',
-};
 const makeCtx = (
   api: PlayCatalogApi | null,
   products: Record<string, AppProducts> = {},
-  apps: AppDescriptor[] = [ALPHA],
+  apps: AppDescriptor[] = [
+    {
+      name: 'alpha',
+      dir: '/no/such/dir/alpha',
+      configPath: '/no/such/dir/alpha/app.json',
+      bundleId: 'com.acme.alpha',
+      packageName: 'com.acme.alpha',
+    },
+  ],
 ): PlanContext => {
   const baseConfig: LaunchConfig = {
     profiles: {},
@@ -69,7 +63,18 @@ describe('playProductsPlanner', () => {
   it('omits itself when no app declares a Play-overridden product', async () => {
     const plan = await runPlanner(
       playProductsPlanner,
-      makeCtx(makePlayApi(), { 'com.acme.alpha': { inAppPurchases: [APPLE_ONLY_IAP] } }),
+      makeCtx(makePlayApi(), {
+        'com.acme.alpha': {
+          inAppPurchases: [
+            {
+              productId: 'com.acme.gems',
+              referenceName: 'Gems',
+              type: 'CONSUMABLE',
+              localizations: [{ locale: 'en-US', name: 'Gems' }],
+            },
+          ],
+        },
+      }),
     );
     expect(plan.state).toBe('omitted');
   });
@@ -92,7 +97,7 @@ describe('playProductsPlanner', () => {
       makeCtx(null, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
     );
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.reason).toMatch(/Play service account/);
     expect(plan.hint).toMatch(/android/);
   });
@@ -102,12 +107,12 @@ describe('playProductsPlanner', () => {
       makeCtx(makePlayApi(), { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
     expect(
-      plan.apps[0]?.actions.some((a) => a.description === 'create Play product com.acme.coins'),
+      plan.apps[0]?.actions.some((a) => a.description == 'create Play product com.acme.coins'),
     ).toBe(true);
   });
   it('captures an unreachable app as a per-app error, not a thrown plan', async () => {
@@ -119,8 +124,8 @@ describe('playProductsPlanner', () => {
       makeCtx(api, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/app not found on Play/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });

@@ -24,7 +24,7 @@ function isRecord(candidate: unknown): candidate is Record<string, unknown> {
 }
 
 function isJsonValue(candidate: unknown): candidate is JsonValue {
-  if (candidate === null) {
+  if (candidate == null) {
     return true;
   }
 

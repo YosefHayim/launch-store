@@ -51,14 +51,6 @@ export function detectAppRoot(
  * never get committed. Users can point `artifactDir` elsewhere (or omit it for the global default).
  */
 export const DEFAULT_IN_REPO_ARTIFACT_DIR = './.launch/artifacts';
-/** The single `production` profile `launch init` / `launch adopt` scaffold when none is supplied. */
-const DEFAULT_PROFILES_BLOCK = `  profiles: {
-    production: {
-      name: "production",
-      envFile: ".env", // dotenv loaded for this profile (validated against .env.example)
-      sizeBudgetMB: 200, // soft-gate: confirm before uploading a build over this download size
-    },
-  },`;
 /**
  * The commented config Launch writes, tailored with a detected `appRoots` when there is one. `extraSections`
  * is injected verbatim just before the closing `});` - `launch adopt` passes a populated `products:` block
@@ -75,17 +67,24 @@ export const configTemplate = (
   artifactDir?: string,
 ): string => {
   let appRootsLine = `  // appRoots: ["./apps"], // uncomment if your apps live in a subfolder`;
-  if (appRoot !== null) {
+  if (appRoot != null) {
     appRootsLine = `  appRoots: ["${appRoot}"], // every app.json lives under here`;
   }
   let injected = '';
-  if (extraSections !== undefined && extraSections.length > 0) {
+  if (extraSections != null && extraSections.length > 0) {
     injected = `\n${extraSections}\n`;
   }
   let profilesBlock = profilesSection;
-  if (profilesBlock === undefined) profilesBlock = DEFAULT_PROFILES_BLOCK;
+  if (profilesBlock == null)
+    profilesBlock = `  profiles: {
+    production: {
+      name: "production",
+      envFile: ".env", // dotenv loaded for this profile (validated against .env.example)
+      sizeBudgetMB: 200, // soft-gate: confirm before uploading a build over this download size
+    },
+  },`;
   let artifactDirLine = '';
-  if (artifactDir !== undefined && artifactDir.length > 0) {
+  if (artifactDir != null && artifactDir.length > 0) {
     artifactDirLine = `\n  artifactDir: ${JSON.stringify(artifactDir)}, // where local build binaries land (auto-added to .gitignore)`;
   }
   return `import { defineConfig } from "launch-store";

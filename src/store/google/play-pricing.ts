@@ -45,11 +45,6 @@ function makePlayPricingExecutionError(fields: {
   return { _tag: 'PlayPricingExecutionError', ...fields };
 }
 
-// Three ASCII letters, the shape of an ISO currency code.
-const CURRENCY_PATTERN = /^[A-Za-z]{3}$/;
-// A non-negative decimal with at most nine fractional digits.
-const AMOUNT_PATTERN = /^\d+(\.\d{1,9})?$/;
-
 function failureMessage(cause: unknown, fallbackMessage: string): string {
   if (cause instanceof Error) {
     return cause.message;
@@ -167,7 +162,7 @@ function isZeroPlayAmount(units: string, nanos: number): boolean {
 /** Parse a positive decimal amount and ISO currency into Play money units. */
 export function parsePlayPrice(amountText: string, currencyText: string): PlayMoneyUnits {
   const currencyCode = currencyText.trim().toUpperCase();
-  const currencyIsValid = CURRENCY_PATTERN.test(currencyCode);
+  const currencyIsValid = /^[A-Za-z]{3}$/.test(currencyCode);
 
   if (currencyIsValid == false) {
     throw makePlayPricingInputError({
@@ -178,7 +173,7 @@ export function parsePlayPrice(amountText: string, currencyText: string): PlayMo
   }
 
   const decimalAmount = amountText.trim();
-  const amountIsValid = AMOUNT_PATTERN.test(decimalAmount);
+  const amountIsValid = /^\d+(\.\d{1,9})?$/.test(decimalAmount);
 
   if (amountIsValid == false) {
     throw makePlayPricingInputError({

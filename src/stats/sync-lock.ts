@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { locateStatsDirectory } from '../services/platform/paths.ts';
 
-const SYNC_LOCK_STALE_AFTER_MILLISECONDS = 5 * 60 * 1000;
+const syncLockStaleAfterMilliseconds = 5 * 60 * 1000;
 
 export type SyncLockFailure = Readonly<{
   readonly _tag: 'SyncLockFailure';
@@ -24,7 +24,7 @@ export function isSyncLockStale(lockedAt: string, nowMilliseconds: number): bool
     return true;
   }
 
-  return nowMilliseconds - lockedAtMilliseconds > SYNC_LOCK_STALE_AFTER_MILLISECONDS;
+  return nowMilliseconds - lockedAtMilliseconds > syncLockStaleAfterMilliseconds;
 }
 
 function isAlreadyExistsError(cause: unknown): boolean {

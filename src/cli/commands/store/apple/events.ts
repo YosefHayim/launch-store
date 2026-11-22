@@ -21,7 +21,7 @@ export const registerEventsCommand = (program: Command): void => {
         eventsCommandProgram({
           operation: 'list',
           app: options.app,
-          json: options.json === true,
+          json: options.json == true,
         }),
       );
     });
@@ -65,7 +65,7 @@ export const registerEventsCommand = (program: Command): void => {
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((eventId: string, options: { yes?: boolean }) => {
       return runCliProgram(
-        eventsCommandProgram({ operation: 'delete', eventId, yes: options.yes === true }),
+        eventsCommandProgram({ operation: 'delete', eventId, yes: options.yes == true }),
       );
     });
 };

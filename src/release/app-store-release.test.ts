@@ -411,7 +411,7 @@ describe('releaseApp - submit an update over the API', () => {
     }
     expect(report.submitted).toBe(false);
     expect(report.actions.length).toBeGreaterThan(0);
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
     expect(report.actions.map((action) => action.description)).toContain(
       'create App Store version 1.2.0',
     );
@@ -731,7 +731,7 @@ describe('waitForValidBuild', () => {
     const findBuildByVersion = vi.fn(
       (_appId: string, _buildNumber: number, marketingVersion?: string) =>
         Promise.resolve(
-          marketingVersion === '1.3.0'
+          marketingVersion == '1.3.0'
             ? {
                 id: 'b-130',
                 version: '42',

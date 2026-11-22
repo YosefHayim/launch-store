@@ -16,7 +16,7 @@ import {
 import type { PortfolioFile, PortfolioLoad, PortfolioLoadMode } from '../types/portfolio.ts';
 import { loadPortfolioApps } from './load-portfolio-apps.ts';
 
-const ACCOUNTS_FILE = JSON.stringify({
+const accountsFile = JSON.stringify({
   active: 'KEYA',
   accounts: [
     { keyId: 'KEYA', issuerId: 'issuer-a', label: 'alpha', addedAt: 't' },
@@ -100,7 +100,7 @@ describe('loadPortfolioApps', () => {
       homeDirectory,
       workingDirectory: join(homeDirectory, 'work'),
     });
-    writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
+    writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
   });
 
   afterEach(function resetPortfolioHome() {

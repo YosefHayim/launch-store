@@ -20,7 +20,7 @@ const toAppClipsInput = (
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     appClipsInput = { ...appClipsInput, app: commandOptions.app };
   }
   return appClipsInput;
@@ -38,7 +38,7 @@ export const registerAppClipsCommand = (program: Command): void => {
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((commandOptions: AppClipsOptions, registeredCommand: Command) => {
-      const explicitConfig = registeredCommand.getOptionValueSource('config') === 'cli';
+      const explicitConfig = registeredCommand.getOptionValueSource('config') == 'cli';
       return runCliProgram(appClipsCommandProgram(toAppClipsInput(commandOptions, explicitConfig)));
     });
 };

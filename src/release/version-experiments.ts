@@ -19,11 +19,9 @@ import type {
   VersionExperimentResource,
 } from '../types/apple-catalog.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
-
-const DEFAULT_PLATFORM = 'IOS';
 const NEW_EXPERIMENT_STATE = 'PREPARE_FOR_SUBMISSION';
-const SUBMITTABLE_STATES = new Set([NEW_EXPERIMENT_STATE, 'READY_FOR_REVIEW', 'REJECTED']);
-const STARTABLE_STATES = new Set(['ACCEPTED', 'APPROVED']);
+const submittableStates = new Set([NEW_EXPERIMENT_STATE, 'READY_FOR_REVIEW', 'REJECTED']);
+const startableStates = new Set(['ACCEPTED', 'APPROVED']);
 const NAME_MESSAGE =
   'experiments.config.json: experiment and treatment names must be non-empty strings.';
 const TRAFFIC_MESSAGE = 'experiments.config.json: trafficProportion must be a positive number.';
@@ -327,7 +325,7 @@ function readExperimentPlatform(desiredExperiment: ExperimentConfig): string {
     return desiredExperiment.platform;
   }
 
-  return DEFAULT_PLATFORM;
+  return 'IOS';
 }
 
 function readExperimentId(ensuredExperiment: EnsuredExperiment): string {
@@ -710,7 +708,7 @@ async function submitExperiment(
 ): Promise<void> {
   const description = `submit experiment "${desiredExperiment.name}" for App Review`;
   const state = readExperimentState(existingExperiment);
-  const cannotSubmit = SUBMITTABLE_STATES.has(state) == false;
+  const cannotSubmit = submittableStates.has(state) == false;
 
   if (cannotSubmit) {
     skipAction(actionLog, `${description}: it is already ${state}`);
@@ -759,7 +757,7 @@ async function startExperiment(
     return;
   }
 
-  const cannotStart = STARTABLE_STATES.has(approvedExperiment.state) == false;
+  const cannotStart = startableStates.has(approvedExperiment.state) == false;
 
   if (cannotStart) {
     skipAction(

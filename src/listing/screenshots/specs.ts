@@ -4,12 +4,12 @@ import { readScreenshotDimensions } from './image-dimensions.ts';
 import { APPLE_ASSET_TARGETS, findAppleScreenshotTarget } from './targets.ts';
 
 export const REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES: readonly string[] =
-  APPLE_ASSET_TARGETS.filter((assetTarget) => assetTarget.readinessRequired === true).map(
+  APPLE_ASSET_TARGETS.filter((assetTarget) => assetTarget.readinessRequired == true).map(
     (assetTarget) => assetTarget.screenshotDisplayType,
   );
 
 // Source: https://support.google.com/googleplay/android-developer/answer/9866151?hl=en
-const PLAY_SCREENSHOT_CONSTRAINTS = {
+const playScreenshotConstraints = {
   minSide: 320,
   maxSide: 3840,
   maxAspectMultiple: 2,
@@ -53,13 +53,13 @@ export const validateAppleDimensions = (
   height: number,
 ): DimensionVerdict => {
   const assetTarget = findAppleScreenshotTarget(displayType);
-  if (assetTarget === undefined) return { ok: true };
+  if (assetTarget == null) return { ok: true };
 
   const dimensionsMatch = assetTarget.dimensions.accepted.some(
     ([expectedWidth, expectedHeight]) => {
-      if (width === expectedWidth && height === expectedHeight) return true;
-      if (assetTarget.dimensions.orientation !== 'both') return false;
-      return width === expectedHeight && height === expectedWidth;
+      if (width == expectedWidth && height == expectedHeight) return true;
+      if (assetTarget.dimensions.orientation != 'both') return false;
+      return width == expectedHeight && height == expectedWidth;
     },
   );
   if (dimensionsMatch) return { ok: true };
@@ -72,7 +72,7 @@ export const validateAppleDimensions = (
 };
 
 export const validatePlayDimensions = (width: number, height: number): DimensionVerdict => {
-  const { minSide, maxSide, maxAspectMultiple } = PLAY_SCREENSHOT_CONSTRAINTS;
+  const { minSide, maxSide, maxAspectMultiple } = playScreenshotConstraints;
   const shorterSide = Math.min(width, height);
   const longerSide = Math.max(width, height);
   if (shorterSide < minSide) {

@@ -46,9 +46,6 @@ function readCollectedDataType(entry: unknown): string | null {
 
   return dataType;
 }
-/** `<key>NS...UsageDescription</key>` with its `<string>` value - captures empty and self-closing values too. */
-const USAGE_DESCRIPTION_RE =
-  /<key>(NS\w*UsageDescription)<\/key>\s*(?:<string>([^<]*)<\/string>|<string\s*\/>)/g;
 /** De-duplicate while preserving first-seen order. */
 const unique = (strings: readonly string[]): string[] => {
   return [...new Set(strings)];
@@ -62,11 +59,13 @@ const stringTags = (xml: string): string[] => {
 /** Parse `NS*UsageDescription` keys (and their purpose strings) out of an `Info.plist`. */
 export const parseUsageDescriptions = (plistXml: string): Record<string, string> => {
   const usage: Record<string, string> = {};
-  for (const match of plistXml.matchAll(USAGE_DESCRIPTION_RE)) {
+  for (const match of plistXml.matchAll(
+    /<key>(NS\w*UsageDescription)<\/key>\s*(?:<string>([^<]*)<\/string>|<string\s*\/>)/g,
+  )) {
     const [, key, purposeText] = match;
     if (key) {
       let purpose = purposeText;
-      if (purpose === undefined) purpose = '';
+      if (purpose == null) purpose = '';
       usage[key] = purpose.trim();
     }
   }
@@ -108,7 +107,7 @@ export const parseAndroidPermissions = (manifestXml: string): string[] => {
 /** Read a string-array field, dropping non-strings; `[]` when absent or the wrong type. */
 const stringArray = (unknownArray: unknown): string[] => {
   if (Array.isArray(unknownArray))
-    return unknownArray.filter((entry): entry is string => typeof entry === 'string');
+    return unknownArray.filter((entry): entry is string => typeof entry == 'string');
   return [];
 };
 /** Pull the `NSPrivacyCollectedDataType` id out of each entry of an `NSPrivacyCollectedDataTypes` array. */

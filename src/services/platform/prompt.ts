@@ -59,9 +59,6 @@ type PromptAnswers = Readonly<{
   selectionIndexes?: readonly number[];
 }>;
 
-const JSON_PROMPT_MESSAGE =
-  'This step needs an answer, but --json never prompts. Pass the flag that answers it (for example --yes to confirm).';
-
 let promptAnswers: PromptAnswers | null = null;
 let jsonPrompts = false;
 
@@ -94,7 +91,10 @@ function requireEnteredText(enteredText: string | null): string {
 }
 
 function failJsonPrompt(): never {
-  throw makePromptSelectionFailure({ message: JSON_PROMPT_MESSAGE });
+  throw makePromptSelectionFailure({
+    message:
+      'This step needs an answer, but --json never prompts. Pass the flag that answers it (for example --yes to confirm).',
+  });
 }
 
 function isTaggedFailure(cause: unknown): boolean {

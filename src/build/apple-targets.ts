@@ -38,7 +38,7 @@ type NativeTargetRef = {
 /** Read one parser line without leaking undefined into regex operations. */
 const lineAt = (lines: readonly string[], lineIndex: number): string => {
   const sourceLine = lines[lineIndex];
-  if (sourceLine === undefined) return '';
+  if (sourceLine == null) return '';
   return sourceLine;
 };
 /**
@@ -49,7 +49,7 @@ const lineAt = (lines: readonly string[], lineIndex: number): string => {
 const assignedId = (line: string): string | null => {
   const match = /[=]\s*([^\s;]+)/.exec(line);
   const assignedIdentifier = match?.[1];
-  if (assignedIdentifier === undefined) return null;
+  if (assignedIdentifier == null) return null;
   return assignedIdentifier;
 };
 /**
@@ -60,7 +60,7 @@ const assignedId = (line: string): string | null => {
 const stringValue = (line: string, key: string): string | null => {
   const match = new RegExp(`^\\s*${key}\\s*=\\s*"?([^";]+)"?\\s*;`).exec(line);
   const assignedText = match?.[1]?.trim();
-  if (assignedText === undefined) return null;
+  if (assignedText == null) return null;
   return assignedText;
 };
 /**
@@ -80,14 +80,14 @@ const parseNativeTargets = (lines: string[]): NativeTargetRef[] => {
     for (let j = i + 1; j < lines.length; j++) {
       const line = lineAt(lines, j);
       if (/^\s*};/.test(line)) break;
-      if (name === null) name = stringValue(line, 'name');
-      if (productType === null) productType = stringValue(line, 'productType');
-      if (/^\s*buildConfigurationList\s*=/.test(line) && buildConfigurationListId === null)
+      if (name == null) name = stringValue(line, 'name');
+      if (productType == null) productType = stringValue(line, 'productType');
+      if (/^\s*buildConfigurationList\s*=/.test(line) && buildConfigurationListId == null)
         buildConfigurationListId = assignedId(line);
     }
-    if (name !== null && buildConfigurationListId !== null) {
+    if (name != null && buildConfigurationListId != null) {
       let resolvedProductType = '';
-      if (productType !== null) resolvedProductType = productType;
+      if (productType != null) resolvedProductType = productType;
       targets.push({
         name,
         buildConfigurationListId,
@@ -155,11 +155,9 @@ export const parsePbxprojTargets = (pbxproj: string): DiscoveredTarget[] => {
   return parseNativeTargets(lines).flatMap((target) => {
     let configIds: string[] = [];
     const configuredIds = configLists.get(target.buildConfigurationListId);
-    if (configuredIds !== undefined) configIds = configuredIds;
-    const bundleId = configIds
-      .map((id) => bundleIdsByConfig.get(id))
-      .find((id) => id !== undefined);
-    if (bundleId === undefined) return [];
+    if (configuredIds != null) configIds = configuredIds;
+    const bundleId = configIds.map((id) => bundleIdsByConfig.get(id)).find((id) => id != null);
+    if (bundleId == null) return [];
     return [{ name: target.name, bundleId, productType: target.productType }];
   });
 };
@@ -170,15 +168,15 @@ export const splitMainAndExtensions = (
   main: string | undefined;
   extensions: string[];
 } => {
-  let main = targets.find((target) => target.bundleId === mainBundleId)?.bundleId;
-  if (main === undefined) {
+  let main = targets.find((target) => target.bundleId == mainBundleId)?.bundleId;
+  if (main == null) {
     /** The Xcode product type marking the primary app target (everything else is an embedded extension). */
     main = targets.find(
-      (target) => target.productType === 'com.apple.product-type.application',
+      (target) => target.productType == 'com.apple.product-type.application',
     )?.bundleId;
   }
   const extensions = targets
-    .filter((target) => target.bundleId !== main)
+    .filter((target) => target.bundleId != main)
     .map((target) => target.bundleId);
   // De-dupe in case Debug/Release configs surfaced the same extension twice, preserving first-seen order.
   return { main, extensions: [...new Set(extensions)] };
@@ -262,15 +260,12 @@ type ManualSigningTargets = {
   teamId: string;
   profileByBundleId: Record<string, string>;
 };
-/** The three build settings the pbxproj writer owns inside a target's Release `buildSettings`. */
-const MANAGED_SIGNING_KEY =
-  /^\s*(?:CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER)\s*=/;
 /** Count the net brace balance a line contributes (`{` opens minus `}` closes) - the pbxproj is brace-nested. */
 const braceDelta = (line: string): number => {
   let openingBraces = line.match(/\{/g)?.length;
-  if (openingBraces === undefined) openingBraces = 0;
+  if (openingBraces == null) openingBraces = 0;
   let closingBraces = line.match(/\}/g)?.length;
-  if (closingBraces === undefined) closingBraces = 0;
+  if (closingBraces == null) closingBraces = 0;
   return openingBraces - closingBraces;
 };
 /**
@@ -287,7 +282,7 @@ const parseConfigNames = (lines: string[]): Map<string, string> => {
     for (let j = i + 1; j < lines.length && depth > 0; j++) {
       const line = lineAt(lines, j);
       let name: string | null = null;
-      if (depth === 1) name = stringValue(line, 'name');
+      if (depth == 1) name = stringValue(line, 'name');
       if (name) {
         names.set(header[1], name);
         break;
@@ -313,13 +308,11 @@ const releaseConfigProfiles = (
   for (const target of parseNativeTargets(lines)) {
     let configIds: string[] = [];
     const configuredIds = configLists.get(target.buildConfigurationListId);
-    if (configuredIds !== undefined) configIds = configuredIds;
-    const releaseConfigId = configIds.find((id) => configNames.get(id) === 'Release');
-    const bundleId = configIds
-      .map((id) => bundleIdsByConfig.get(id))
-      .find((id) => id !== undefined);
+    if (configuredIds != null) configIds = configuredIds;
+    const releaseConfigId = configIds.find((id) => configNames.get(id) == 'Release');
+    const bundleId = configIds.map((id) => bundleIdsByConfig.get(id)).find((id) => id != null);
     let profileName: string | undefined;
-    if (bundleId !== undefined) profileName = profileByBundleId[bundleId];
+    if (bundleId != null) profileName = profileByBundleId[bundleId];
     if (releaseConfigId && profileName)
       profilesByReleaseConfiguration.set(releaseConfigId, profileName);
   }
@@ -344,7 +337,7 @@ export const stampManualSigningIntoPbxproj = (
 ): string => {
   const lines = pbxproj.split('\n');
   const releaseProfiles = releaseConfigProfiles(lines, signing.profileByBundleId);
-  if (releaseProfiles.size === 0) return pbxproj;
+  if (releaseProfiles.size == 0) return pbxproj;
   const out: string[] = [];
   /** Profile of the wanted Release config we're currently inside, or null when outside any. */
   let profile: string | null = null;
@@ -353,7 +346,7 @@ export const stampManualSigningIntoPbxproj = (
   let inBuildSettings = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lineAt(lines, i);
-    if (profile === null) {
+    if (profile == null) {
       const id = /^\s*([0-9A-Fa-f]+)\b.*=\s*\{\s*$/.exec(line)?.[1];
       if (
         id &&
@@ -361,7 +354,7 @@ export const stampManualSigningIntoPbxproj = (
         /isa\s*=\s*XCBuildConfiguration;/.test(lineAt(lines, i + 1))
       ) {
         const releaseProfile = releaseProfiles.get(id);
-        if (releaseProfile !== undefined) profile = releaseProfile;
+        if (releaseProfile != null) profile = releaseProfile;
         depth = 1;
         inBuildSettings = false;
       }
@@ -375,10 +368,10 @@ export const stampManualSigningIntoPbxproj = (
       out.push(line);
       continue;
     }
-    if (inBuildSettings && depth + delta === 1) {
+    if (inBuildSettings && depth + delta == 1) {
       // This line closes buildSettings - insert the managed keys just inside it, then emit the `};`.
       let leadingWhitespace = /^(\s*)/.exec(line)?.[1];
-      if (leadingWhitespace === undefined) leadingWhitespace = '';
+      if (leadingWhitespace == null) leadingWhitespace = '';
       const indent = `${leadingWhitespace}\t`;
       out.push(`${indent}CODE_SIGN_STYLE = Manual;`);
       out.push(`${indent}DEVELOPMENT_TEAM = ${signing.teamId};`);
@@ -390,12 +383,13 @@ export const stampManualSigningIntoPbxproj = (
     }
     if (inBuildSettings) {
       depth += delta;
-      if (!MANAGED_SIGNING_KEY.test(line)) out.push(line); // drop the old managed keys; re-added at close
+      if (!/^\s*(?:CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER)\s*=/.test(line))
+        out.push(line); // drop the old managed keys; re-added at close
       continue;
     }
     out.push(line);
     depth += delta;
-    if (depth === 0) profile = null; // the config object closed
+    if (depth == 0) profile = null; // the config object closed
   }
   return out.join('\n');
 };

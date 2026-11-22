@@ -32,7 +32,7 @@ function makeBuildTransportFailure(fields: { message: string }): BuildTransportF
 }
 
 /** Engines that only build Apple apps; an Android build swaps any of them for `gradle`. */
-const APPLE_ONLY_BUILD_ENGINES = new Set(['xcode', 'remote-mac', 'eas']);
+const appleOnlyBuildEngines = new Set(['xcode', 'remote-mac', 'eas']);
 
 /** The build engine name for a platform, swapping an Apple-only engine (`xcode`, `remote-mac`, `eas`) for `gradle` on Android. */
 export function resolveBuildEngineName(launchConfig: LaunchConfig, platform: Platform): string {
@@ -42,7 +42,7 @@ export function resolveBuildEngineName(launchConfig: LaunchConfig, platform: Pla
     return launchConfig.buildEngine;
   }
 
-  const isAppleOnlyEngine = APPLE_ONLY_BUILD_ENGINES.has(launchConfig.buildEngine);
+  const isAppleOnlyEngine = appleOnlyBuildEngines.has(launchConfig.buildEngine);
 
   if (isAppleOnlyEngine) {
     return 'gradle';

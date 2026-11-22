@@ -5,7 +5,7 @@ const markdownBody = (sections: readonly string[]): string => sections.join('\n'
 
 /** One validated recipe step: command path + note, optional positional args. */
 const recipeStep = (path: string[], note: string, args?: string[]): SkillStep => {
-  if (args === undefined) return { path, note };
+  if (args == null) return { path, note };
   return { path, args, note };
 };
 

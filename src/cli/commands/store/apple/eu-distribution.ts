@@ -26,7 +26,7 @@ export const registerEuDistributionCommand = (program: Command): void => {
         euDistributionCommandProgram({
           operation: 'reconcile',
           configPath: commandOptions.config,
-          explicitConfig: command.getOptionValueSource('config') === 'cli',
+          explicitConfig: command.getOptionValueSource('config') == 'cli',
           dryRun: commandOptions.dryRun,
           yes: commandOptions.yes,
         }),

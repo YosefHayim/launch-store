@@ -39,7 +39,7 @@ const SALES_PATH_ANALYTICS_KINDS: readonly AnalyticsReportKind[] = [
   'crashes',
   'installs',
 ];
-const ANALYTICS_KINDS_BY_PATH: Record<AppStoreStatsPath, readonly AnalyticsReportKind[]> = {
+const analyticsKindsByPath: Record<AppStoreStatsPath, readonly AnalyticsReportKind[]> = {
   sales: SALES_PATH_ANALYTICS_KINDS,
   analytics: [...SALES_PATH_ANALYTICS_KINDS, 'downloads', 'purchases'],
 };
@@ -331,7 +331,7 @@ async function loadAnalyticsSummary(
   request: AppStoreFetchRequest,
   path: AppStoreStatsPath,
 ): Promise<AnalyticsSummary> {
-  const kinds = ANALYTICS_KINDS_BY_PATH[path];
+  const kinds = analyticsKindsByPath[path];
   const ongoingBatches = await loadAnalyticsBatches(client, request, kinds, 'ONGOING');
   const snapshotBatches = await loadSnapshotBatches(client, request, kinds);
 

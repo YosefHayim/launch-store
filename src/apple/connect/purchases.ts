@@ -49,18 +49,18 @@ export class ConnectPurchases {
     );
     return appleResources.map((purchase) => {
       let productId = purchase.attributes.productId;
-      if (productId === undefined) productId = '';
+      if (productId == null) productId = '';
       let purchaseName = purchase.attributes.name;
-      if (purchaseName === undefined) purchaseName = '';
+      if (purchaseName == null) purchaseName = '';
       let purchaseType = purchase.attributes.inAppPurchaseType;
-      if (purchaseType === undefined) purchaseType = '';
+      if (purchaseType == null) purchaseType = '';
       const inAppPurchase: InAppPurchaseResource = {
         id: purchase.id,
         productId,
         name: purchaseName,
         inAppPurchaseType: purchaseType,
       };
-      if (purchase.attributes.state !== undefined)
+      if (purchase.attributes.state != null)
         Object.assign(inAppPurchase, { state: purchase.attributes.state });
       return inAppPurchase;
     });
@@ -88,11 +88,11 @@ export class ConnectPurchases {
       relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     let productId = appleResources.attributes.productId;
-    if (productId === undefined) productId = input.productId;
+    if (productId == null) productId = input.productId;
     let purchaseName = appleResources.attributes.name;
-    if (purchaseName === undefined) purchaseName = input.name;
+    if (purchaseName == null) purchaseName = input.name;
     let purchaseType = appleResources.attributes.inAppPurchaseType;
-    if (purchaseType === undefined) purchaseType = input.inAppPurchaseType;
+    if (purchaseType == null) purchaseType = input.inAppPurchaseType;
     return {
       id: appleResources.id,
       productId,
@@ -118,7 +118,7 @@ export class ConnectPurchases {
     }>(`/apps/${appId}/subscriptionGroups?limit=200&fields[subscriptionGroups]=referenceName`);
     return appleResources.flatMap((group) => {
       const referenceName = group.attributes.referenceName;
-      if (referenceName === undefined) return [];
+      if (referenceName == null) return [];
       return [{ id: group.id, referenceName }];
     });
   }
@@ -135,7 +135,7 @@ export class ConnectPurchases {
       relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     let createdReferenceName = appleResources.attributes.referenceName;
-    if (createdReferenceName === undefined) createdReferenceName = referenceName;
+    if (createdReferenceName == null) createdReferenceName = referenceName;
     return { id: appleResources.id, referenceName: createdReferenceName };
   }
 
@@ -161,19 +161,19 @@ export class ConnectPurchases {
     );
     return appleResources.map((subscription) => {
       let productId = subscription.attributes.productId;
-      if (productId === undefined) productId = '';
+      if (productId == null) productId = '';
       let subscriptionName = subscription.attributes.name;
-      if (subscriptionName === undefined) subscriptionName = '';
+      if (subscriptionName == null) subscriptionName = '';
       const subscriptionResource: SubscriptionResource = {
         id: subscription.id,
         productId,
         name: subscriptionName,
       };
-      if (subscription.attributes.subscriptionPeriod !== undefined)
+      if (subscription.attributes.subscriptionPeriod != null)
         Object.assign(subscriptionResource, {
           subscriptionPeriod: subscription.attributes.subscriptionPeriod,
         });
-      if (subscription.attributes.state !== undefined)
+      if (subscription.attributes.state != null)
         Object.assign(subscriptionResource, { state: subscription.attributes.state });
       return subscriptionResource;
     });
@@ -202,9 +202,9 @@ export class ConnectPurchases {
       relationships: { group: { data: { type: 'subscriptionGroups', id: groupId } } },
     });
     let productId = appleResources.attributes.productId;
-    if (productId === undefined) productId = input.productId;
+    if (productId == null) productId = input.productId;
     let subscriptionName = appleResources.attributes.name;
-    if (subscriptionName === undefined) subscriptionName = input.name;
+    if (subscriptionName == null) subscriptionName = input.name;
     return { id: appleResources.id, productId, name: subscriptionName };
   }
 
@@ -259,9 +259,9 @@ export class ConnectPurchases {
     }>(`/subscriptions/${subscriptionId}/offerCodes?limit=200`);
     return appleResources.map((offerCode) => {
       let offerName = offerCode.attributes.name;
-      if (offerName === undefined) offerName = '';
+      if (offerName == null) offerName = '';
       let active = offerCode.attributes.active;
-      if (active === undefined) active = false;
+      if (active == null) active = false;
       return { id: offerCode.id, name: offerName, active };
     });
   }
@@ -306,9 +306,9 @@ export class ConnectPurchases {
       }>
     >('POST', '/subscriptionOfferCodes', requestDocument);
     let offerName = appleResources.attributes.name;
-    if (offerName === undefined) offerName = input.name;
+    if (offerName == null) offerName = input.name;
     let active = appleResources.attributes.active;
-    if (active === undefined) active = true;
+    if (active == null) active = true;
     return { id: appleResources.id, name: offerName, active };
   }
 
@@ -352,7 +352,7 @@ export class ConnectPurchases {
     expirationDate?: string,
   ): Promise<void> {
     const customCodeAttributes = { customCode, numberOfCodes };
-    if (expirationDate !== undefined) Object.assign(customCodeAttributes, { expirationDate });
+    if (expirationDate != null) Object.assign(customCodeAttributes, { expirationDate });
     const requestDocument: components['schemas']['SubscriptionOfferCodeCustomCodeCreateRequest'] = {
       data: {
         type: 'subscriptionOfferCodeCustomCodes',
@@ -374,9 +374,9 @@ export class ConnectPurchases {
     }>(`/subscriptions/${subscriptionId}/promotionalOffers?limit=200`);
     return appleResources.map((offer) => {
       let offerName = offer.attributes.name;
-      if (offerName === undefined) offerName = '';
+      if (offerName == null) offerName = '';
       let offerCode = offer.attributes.offerCode;
-      if (offerCode === undefined) offerCode = '';
+      if (offerCode == null) offerCode = '';
       return { id: offer.id, name: offerName, offerCode };
     });
   }
@@ -420,9 +420,9 @@ export class ConnectPurchases {
       }>
     >('POST', '/subscriptionPromotionalOffers', requestDocument);
     let offerName = appleResources.attributes.name;
-    if (offerName === undefined) offerName = input.name;
+    if (offerName == null) offerName = input.name;
     let offerCode = appleResources.attributes.offerCode;
-    if (offerCode === undefined) offerCode = input.offerCode;
+    if (offerCode == null) offerCode = input.offerCode;
     return { id: appleResources.id, name: offerName, offerCode };
   }
 
@@ -442,7 +442,7 @@ export class ConnectPurchases {
     return appleResources.map((offer) => {
       let territoryId: string | null = null;
       const returnedTerritoryId = offer.relationships?.territory?.data?.id;
-      if (returnedTerritoryId !== undefined) territoryId = returnedTerritoryId;
+      if (returnedTerritoryId != null) territoryId = returnedTerritoryId;
       return { id: offer.id, territory: territoryId };
     });
   }
@@ -453,18 +453,18 @@ export class ConnectPurchases {
       offerMode: input.offerMode,
       numberOfPeriods: input.numberOfPeriods,
     };
-    if (input.startDate !== undefined)
+    if (input.startDate != null)
       Object.assign(introductoryOfferAttributes, { startDate: input.startDate });
-    if (input.endDate !== undefined)
+    if (input.endDate != null)
       Object.assign(introductoryOfferAttributes, { endDate: input.endDate });
     const introductoryOfferRelationships = {
       subscription: { data: { type: 'subscriptions' as const, id: input.subscriptionId } },
     };
-    if (input.territory !== null)
+    if (input.territory != null)
       Object.assign(introductoryOfferRelationships, {
         territory: { data: { type: 'territories', id: input.territory } },
       });
-    if (input.price !== null)
+    if (input.price != null)
       Object.assign(introductoryOfferRelationships, {
         subscriptionPricePoint: {
           data: { type: 'subscriptionPricePoints', id: input.price.pricePointId },
@@ -486,7 +486,7 @@ export class ConnectPurchases {
     }>(`/subscriptions/${subscriptionId}/winBackOffers?limit=200`);
     return appleResources.map((offer) => {
       let offerId = offer.attributes.offerId;
-      if (offerId === undefined) offerId = '';
+      if (offerId == null) offerId = '';
       return { id: offer.id, offerId };
     });
   }
@@ -506,12 +506,12 @@ export class ConnectPurchases {
       startDate: input.startDate,
       priority: input.priority,
     };
-    if (input.waitBetweenOffersMonths !== undefined)
+    if (input.waitBetweenOffersMonths != null)
       Object.assign(winBackAttributes, {
         customerEligibilityWaitBetweenOffersInMonths: input.waitBetweenOffersMonths,
       });
-    if (input.endDate !== undefined) Object.assign(winBackAttributes, { endDate: input.endDate });
-    if (input.promotionIntent !== undefined)
+    if (input.endDate != null) Object.assign(winBackAttributes, { endDate: input.endDate });
+    if (input.promotionIntent != null)
       Object.assign(winBackAttributes, { promotionIntent: input.promotionIntent });
     const requestDocument: components['schemas']['WinBackOfferCreateRequest'] = {
       data: {
@@ -553,14 +553,14 @@ export class ConnectPurchases {
       for (const promotedPurchase of page.data) {
         let inAppPurchaseId: string | null = null;
         const returnedInAppPurchaseId = promotedPurchase.relationships?.inAppPurchaseV2?.data?.id;
-        if (returnedInAppPurchaseId !== undefined) inAppPurchaseId = returnedInAppPurchaseId;
+        if (returnedInAppPurchaseId != null) inAppPurchaseId = returnedInAppPurchaseId;
         let subscriptionId: string | null = null;
         const returnedSubscriptionId = promotedPurchase.relationships?.subscription?.data?.id;
-        if (returnedSubscriptionId !== undefined) subscriptionId = returnedSubscriptionId;
+        if (returnedSubscriptionId != null) subscriptionId = returnedSubscriptionId;
         let enabled = promotedPurchase.attributes?.enabled;
-        if (enabled === undefined) enabled = false;
+        if (enabled == null) enabled = false;
         let visibleForAllUsers = promotedPurchase.attributes?.visibleForAllUsers;
-        if (visibleForAllUsers === undefined) visibleForAllUsers = false;
+        if (visibleForAllUsers == null) visibleForAllUsers = false;
         all.push({
           id: promotedPurchase.id,
           inAppPurchaseId,
@@ -578,11 +578,11 @@ export class ConnectPurchases {
     const promotedPurchaseRelationships = {
       app: { data: { type: 'apps' as const, id: input.appId } },
     };
-    if (input.inAppPurchaseId !== undefined)
+    if (input.inAppPurchaseId != null)
       Object.assign(promotedPurchaseRelationships, {
         inAppPurchaseV2: { data: { type: 'inAppPurchases', id: input.inAppPurchaseId } },
       });
-    if (input.subscriptionId !== undefined)
+    if (input.subscriptionId != null)
       Object.assign(promotedPurchaseRelationships, {
         subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
       });
@@ -600,13 +600,13 @@ export class ConnectPurchases {
       }>
     >('POST', '/promotedPurchases', requestDocument);
     let inAppPurchaseId: string | null = null;
-    if (input.inAppPurchaseId !== undefined) inAppPurchaseId = input.inAppPurchaseId;
+    if (input.inAppPurchaseId != null) inAppPurchaseId = input.inAppPurchaseId;
     let subscriptionId: string | null = null;
-    if (input.subscriptionId !== undefined) subscriptionId = input.subscriptionId;
+    if (input.subscriptionId != null) subscriptionId = input.subscriptionId;
     let enabled = appleResources.attributes.enabled;
-    if (enabled === undefined) enabled = input.enabled;
+    if (enabled == null) enabled = input.enabled;
     let visibleForAllUsers = appleResources.attributes.visibleForAllUsers;
-    if (visibleForAllUsers === undefined) visibleForAllUsers = input.visibleForAllUsers;
+    if (visibleForAllUsers == null) visibleForAllUsers = input.visibleForAllUsers;
     return { id: appleResources.id, inAppPurchaseId, subscriptionId, enabled, visibleForAllUsers };
   }
 
@@ -691,15 +691,15 @@ export class ConnectPurchases {
     }>(path);
     return appleResources.flatMap((localization) => {
       const locale = localization.attributes.locale;
-      if (locale === undefined) return [];
+      if (locale == null) return [];
       const localizationName = localization.attributes.name;
-      if (localizationName === undefined) return [];
+      if (localizationName == null) return [];
       const localizedProduct: LocalizationResource = {
         id: localization.id,
         locale,
         name: localizationName,
       };
-      if (typeof localization.attributes.description === 'string')
+      if (typeof localization.attributes.description == 'string')
         Object.assign(localizedProduct, { description: localization.attributes.description });
       return [localizedProduct];
     });
@@ -782,7 +782,7 @@ export class ConnectPurchases {
       name: savedName,
     };
 
-    const hasSavedDescription = typeof appleResources.attributes.description === 'string';
+    const hasSavedDescription = typeof appleResources.attributes.description == 'string';
     if (hasSavedDescription)
       Object.assign(localizedProduct, { description: appleResources.attributes.description });
     return localizedProduct;

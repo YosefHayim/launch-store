@@ -23,10 +23,10 @@ export const registerAccessibilityCommand = (program: Command): void => {
     .action((commandOptions: AccessibilityOptions) => {
       const requiredInput = {
         configPath: commandOptions.config,
-        dryRun: commandOptions.dryRun === true,
-        yes: commandOptions.yes === true,
+        dryRun: commandOptions.dryRun == true,
+        yes: commandOptions.yes == true,
       };
-      if (commandOptions.app === undefined) {
+      if (commandOptions.app == null) {
         return runCliProgram(accessibilityCommandProgram(requiredInput));
       }
       return runCliProgram(

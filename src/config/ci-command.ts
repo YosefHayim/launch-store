@@ -97,15 +97,6 @@ function workflowHeader(includeAndroid: boolean): string {
   return headerLines.join('\n');
 }
 
-const WORKFLOW_TRIGGERS = `name: launch
-on:
-  workflow_dispatch:
-  push:
-    tags:
-      - "v*"
-
-jobs:`;
-
 const IOS_JOB = `
   ios:
     name: Build & ship iOS
@@ -136,7 +127,11 @@ const IOS_JOB = `
           ASC_ISSUER_ID: \${{ secrets.ASC_ISSUER_ID }}
           ASC_API_KEY_PATH: \${{ runner.temp }}/launch/AuthKey.p8`;
 
-const ANDROID_JOB = `
+export function workflowYaml(includeAndroid: boolean): string {
+  let workflowJobs = IOS_JOB;
+
+  if (includeAndroid) {
+    workflowJobs = `${IOS_JOB}\n${`
   android:
     name: Build & ship Android
     runs-on: ubuntu-latest
@@ -171,16 +166,17 @@ const ANDROID_JOB = `
           PLAY_SERVICE_ACCOUNT: \${{ runner.temp }}/launch/play.json
           ANDROID_KEY_ALIAS: \${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEYSTORE_PASSWORD: \${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: \${{ secrets.ANDROID_KEY_PASSWORD }}`;
-
-export function workflowYaml(includeAndroid: boolean): string {
-  let workflowJobs = IOS_JOB;
-
-  if (includeAndroid) {
-    workflowJobs = `${IOS_JOB}\n${ANDROID_JOB}`;
+          ANDROID_KEY_PASSWORD: \${{ secrets.ANDROID_KEY_PASSWORD }}`}`;
   }
 
-  return `${workflowHeader(includeAndroid)}\n\n${WORKFLOW_TRIGGERS}\n${workflowJobs}\n`;
+  return `${workflowHeader(includeAndroid)}\n\n${`name: launch
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:`}\n${workflowJobs}\n`;
 }
 
 function shouldRefuseOverwrite(workflowExists: boolean, force: boolean): boolean {

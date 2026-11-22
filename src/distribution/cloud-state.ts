@@ -70,7 +70,7 @@ function readSshTarget(candidate: unknown): SshTarget | null {
 
   const identityFile = optionalString(candidate, 'identityFile');
 
-  if (identityFile === null) {
+  if (identityFile == null) {
     return null;
   }
 
@@ -115,7 +115,7 @@ function readHostHandle(candidate: unknown): HostHandle | null {
   const optionalFields = [instanceId, hostId, region, instanceType];
 
   function isInvalidOptional(field: string | null | undefined): boolean {
-    return field === null;
+    return field == null;
   }
 
   const hasInvalidOptional = optionalFields.some(isInvalidOptional);
@@ -152,7 +152,7 @@ function readCloudDocument(candidate: unknown): CloudState | null {
 
   const amiId = optionalString(candidate, 'amiId');
 
-  if (amiId === null) {
+  if (amiId == null) {
     return null;
   }
 

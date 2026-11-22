@@ -3,7 +3,7 @@ import { requireOptional } from '../platform/optional-dep.ts';
 import { detectHostOperatingSystem } from '../platform/os.ts';
 
 const KEYCHAIN_SERVICE_NAME = 'launch';
-const MACOS_ITEM_NOT_FOUND_EXIT_CODE = 44;
+const macosItemNotFoundExitCode = 44;
 
 type KeyringModule = typeof import('@napi-rs/keyring');
 
@@ -61,7 +61,7 @@ async function confirmMacosMissingSecret(account: string): Promise<null> {
     ]);
   } catch (cause) {
     const exitCode = readExitCode(cause);
-    const isItemMissing = exitCode == MACOS_ITEM_NOT_FOUND_EXIT_CODE;
+    const isItemMissing = exitCode == macosItemNotFoundExitCode;
 
     if (isItemMissing) {
       return null;

@@ -27,7 +27,6 @@ type ObjectReply = {
 };
 
 const INDEX_OBJECT_KEY = 'artifacts/index.json';
-const PLATFORMS: readonly Platform[] = ['ios', 'android', 'tvos', 'macos', 'visionos'];
 
 function loadS3Module(): Promise<S3Module> {
   return requireOptional(
@@ -107,7 +106,9 @@ function readPlatform(record: Record<string, unknown>): Platform {
     throw parseFailure('Artifact index platform is not a known platform.');
   }
 
-  const isKnownPlatform = PLATFORMS.includes(field as Platform);
+  const isKnownPlatform = ['ios', 'android', 'tvos', 'macos', 'visionos'].includes(
+    field as Platform,
+  );
 
   if (isKnownPlatform) {
     return field as Platform;
@@ -237,7 +238,7 @@ export function decodeArtifactIndex(indexText: string): BuildArtifact[] {
     const artifact = readBuildArtifact(candidate);
     const prunedAt = isRecord(candidate) ? readOptionalString(candidate, 'prunedAt') : undefined;
 
-    if (prunedAt === null) {
+    if (prunedAt == null) {
       throw parseFailure('Artifact index prunedAt must be a string.');
     }
 

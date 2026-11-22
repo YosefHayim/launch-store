@@ -145,7 +145,7 @@ describe('installCompletion', () => {
     const home = makeDir('launch-completion-home-');
     const installOutcome = await runInstallCompletion({ shell: 'zsh', home });
     expect(installOutcome.status).toBe('installed');
-    if (installOutcome.status !== 'installed') throw new Error('expected installed');
+    if (installOutcome.status != 'installed') throw new Error('expected installed');
     expect(installOutcome.updated).toBe(false);
     expect(readFileSync(installOutcome.rcFile, 'utf8')).toContain(
       'source <(launch completion zsh)',
@@ -157,7 +157,7 @@ describe('installCompletion', () => {
     const first = readFileSync(join(home, '.bashrc'), 'utf8');
     const second = await runInstallCompletion({ shell: 'bash', home });
     expect(second.status).toBe('installed');
-    if (second.status !== 'installed') throw new Error('expected installed');
+    if (second.status != 'installed') throw new Error('expected installed');
     expect(second.updated).toBe(true);
     const after = readFileSync(second.rcFile, 'utf8');
     expect(after).toBe(first);
@@ -175,7 +175,7 @@ describe('installCompletion', () => {
     const home = makeDir('launch-completion-home-');
     const installOutcome = await runInstallCompletion({ shell: 'fish', home });
     expect(installOutcome.status).toBe('manual');
-    if (installOutcome.status !== 'manual') throw new Error('expected manual');
+    if (installOutcome.status != 'manual') throw new Error('expected manual');
     expect(installOutcome.line).toBe('launch completion fish | source');
   });
   it('installs fish when its config directory already exists', async () => {
@@ -183,7 +183,7 @@ describe('installCompletion', () => {
     mkdirSync(join(home, '.config', 'fish'), { recursive: true });
     const installOutcome = await runInstallCompletion({ shell: 'fish', home });
     expect(installOutcome.status).toBe('installed');
-    if (installOutcome.status !== 'installed') throw new Error('expected installed');
+    if (installOutcome.status != 'installed') throw new Error('expected installed');
     expect(readFileSync(installOutcome.rcFile, 'utf8')).toContain(
       'launch completion fish | source',
     );

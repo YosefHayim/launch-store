@@ -31,7 +31,7 @@ const SERVICE_ACCOUNT: ServiceAccount = {
   tokenUri: 'http://127.0.0.1:1/token',
 };
 
-const ACCOUNTS_FILE = JSON.stringify({
+const accountsFile = JSON.stringify({
   active: 'KEYA',
   accounts: [
     { keyId: 'KEYA', issuerId: 'issuer-a', label: 'alpha', addedAt: 't', vendorNumber: '111' },
@@ -93,7 +93,7 @@ describe('StatsCredentialsLive', () => {
       homeDirectory,
       workingDirectory: join(homeDirectory, 'work'),
     });
-    writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
+    writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
     useStatsCredentials(null);
   });
 

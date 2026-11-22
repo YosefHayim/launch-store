@@ -146,13 +146,11 @@ const SUBSCRIPTION_GROUPS: SubscriptionGroupConfig[] = [
   },
 ];
 
-const PRODUCTS: AppProducts = { inAppPurchases: IAPS, subscriptionGroups: SUBSCRIPTION_GROUPS };
-
 const input = (overrides: Partial<ReconcileInput> = {}): ReconcileInput => {
   return {
     bundleId: 'com.acme.app',
     capabilities: ['PUSH_NOTIFICATIONS'],
-    products: PRODUCTS,
+    products: { inAppPurchases: IAPS, subscriptionGroups: SUBSCRIPTION_GROUPS },
     dryRun: false,
     allowDestructive: false,
     ...overrides,
@@ -183,7 +181,7 @@ describe('reconcileApp', () => {
       'add subscription copy com.acme.pro.monthly [en-US]',
       'set subscription price com.acme.pro.monthly = 9.99 (USA)',
     ]);
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
     expect(api.enableCapability).not.toHaveBeenCalled();
     expect(api.createInAppPurchase).not.toHaveBeenCalled();
     expect(api.createSubscription).not.toHaveBeenCalled();
@@ -192,7 +190,7 @@ describe('reconcileApp', () => {
   it('applies every create against an empty account, in dependency order', async () => {
     const api = makeApi();
     const report = await runReconcile(api, input());
-    expect(report.actions.every((action) => action.status === 'applied')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'applied')).toBe(true);
     expect(api.enableCapability).toHaveBeenCalledWith('bundle1', 'PUSH_NOTIFICATIONS');
     expect(api.createInAppPurchase).toHaveBeenCalledWith('app1', {
       productId: 'com.acme.coins',
@@ -259,7 +257,7 @@ describe('reconcileApp', () => {
     const guarded = makeApi(withExtra);
     const guardedReport = await runReconcile(guarded, input());
     const disable = guardedReport.actions.find(
-      (action) => action.description === 'disable capability HEALTHKIT',
+      (action) => action.description == 'disable capability HEALTHKIT',
     );
     expect(disable).toMatchObject({ destructive: true, status: 'skipped' });
     expect(guarded.disableCapability).not.toHaveBeenCalled();
@@ -487,7 +485,7 @@ describe('reconcileApp - store listing localizations', () => {
       info: { 'en-US': { title: 'Acme', description: 'Copy', keywords: ['x'.repeat(120)] } },
     };
     const report = await runReconcile(api, listingViaFullReconcile(listing));
-    expect(report.actions.find((action) => action.status === 'skipped')?.description).toContain(
+    expect(report.actions.find((action) => action.status == 'skipped')?.description).toContain(
       'keywords is 120 chars (max 100)',
     );
     expect(api.createVersionLocalization).toHaveBeenCalledWith('version1', 'en-US', {
@@ -526,7 +524,7 @@ describe('reconcileAppListing', () => {
       listing,
       dryRun: true,
     });
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
     expect(report.actions.map((action) => action.description)).toEqual(
       expect.arrayContaining([
         expect.stringContaining('create listing [en-US] App Info'),
@@ -558,7 +556,7 @@ describe('reconcileAppListing', () => {
       listing,
       dryRun: false,
     });
-    expect(report.actions.every((action) => action.status === 'applied')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'applied')).toBe(true);
     expect(api.createAppInfoLocalization).toHaveBeenCalledWith('appinfo1', 'en-US', {
       name: 'Acme',
     });

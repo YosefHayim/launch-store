@@ -5,7 +5,7 @@ import { serializeStoreConfig, type StoreConfig } from '../store/shared/store-co
 import type { MigrationArtifact, MigrationNote } from '../types/migrate.ts';
 
 /** Fill-in-the-blanks `store.config.json` skeleton (EAS metadata schema for iOS). */
-const STORE_CONFIG_SKELETON: StoreConfig = {
+const storeConfigSkeleton: StoreConfig = {
   configVersion: 0,
   apple: { info: { 'en-US': { title: '', subtitle: '', description: '', keywords: [] } } },
 };
@@ -47,7 +47,7 @@ export async function scaffoldStoreConfig(
   return {
     artifact: {
       path: 'store.config.json',
-      contents: serializeStoreConfig(STORE_CONFIG_SKELETON),
+      contents: serializeStoreConfig(storeConfigSkeleton),
     },
     note: {
       level: 'manual',

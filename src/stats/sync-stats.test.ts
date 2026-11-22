@@ -61,7 +61,7 @@ vi.mock('./feed-registry.ts', () => {
   return { STATS_FEED_PLUGINS: [iosFeed, androidFeed] };
 });
 
-const ACCOUNTS_FILE = JSON.stringify({
+const accountsFile = JSON.stringify({
   active: 'KEYA',
   accounts: [{ keyId: 'KEYA', issuerId: 'issuer-a', label: 'alpha', addedAt: 't' }],
 });
@@ -111,7 +111,7 @@ describe('syncStats', () => {
       homeDirectory,
       workingDirectory: join(homeDirectory, 'work'),
     });
-    writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
+    writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(PORTFOLIO_FILE));
     fakeFeed.reply = FETCHED_REPLY;
     fakeFeed.askedRanges = [];

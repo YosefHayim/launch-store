@@ -19,7 +19,7 @@ const stamp = (version: string): string =>
 /** Render one recipe step as a code-spanned `npx launch ...` line plus its note. */
 const renderStep = (step: SkillStep): string => {
   const commandParts = ['npx', 'launch', ...step.path];
-  if (step.args !== undefined) commandParts.push(...step.args);
+  if (step.args != null) commandParts.push(...step.args);
   return `\`${commandParts.join(' ')}\` - ${step.note}`;
 };
 
@@ -27,7 +27,7 @@ const renderStep = (step: SkillStep): string => {
 const renderReferenceTable = (commands: readonly SkillStep[]): string => {
   const rows = commands.map((step) => {
     const commandParts = ['npx', 'launch', ...step.path];
-    if (step.args !== undefined) commandParts.push(...step.args);
+    if (step.args != null) commandParts.push(...step.args);
     return `| \`${commandParts.join(' ')}\` | ${step.note} |`;
   });
   return ['| Command | What it does |', '| --- | --- |', ...rows].join('\n');
@@ -35,7 +35,7 @@ const renderReferenceTable = (commands: readonly SkillStep[]): string => {
 
 /** Inline command-reference section for targets without progressive disclosure files. */
 const renderInlineReference = (skill: ConsumerSkill): string => {
-  if (skill.reference === undefined) return '';
+  if (skill.reference == null) return '';
   return `## Command reference\n\n${skill.reference.intro}\n\n${renderReferenceTable(skill.reference.commands)}`;
 };
 
@@ -51,18 +51,18 @@ const renderRecipe = (steps: readonly SkillStep[]): string =>
 
 /** Cautions block, or empty when the skill has none. */
 const renderCautions = (cautions: readonly string[] | undefined): string => {
-  if (cautions === undefined) return '';
-  if (cautions.length === 0) return '';
+  if (cautions == null) return '';
+  if (cautions.length == 0) return '';
   return ['## Cautions', '', ...cautions.map((caution) => `- ${caution}`)].join('\n');
 };
 
 /** Join non-empty markdown chunks with blank lines, then end with a single trailing newline. */
 const joinSections = (sections: readonly string[]): string =>
-  `${sections.filter((section) => section.trim() !== '').join('\n\n')}\n`;
+  `${sections.filter((section) => section.trim() != '').join('\n\n')}\n`;
 
 /** Wrap managed prose in the Launch start/end fences used by splice. */
 const wrapManagedBlock = (sections: readonly string[]): string => {
-  const inner = sections.filter((section) => section.trim() !== '').join('\n\n');
+  const inner = sections.filter((section) => section.trim() != '').join('\n\n');
   return `${MANAGED_START}\n${inner}\n${MANAGED_END}`;
 };
 
@@ -122,7 +122,7 @@ const renderBaseRuleMarkdown = (
   frontmatter: string | undefined,
 ): string => {
   const sections: string[] = [];
-  if (frontmatter !== undefined) sections.push(frontmatter);
+  if (frontmatter != null) sections.push(frontmatter);
   sections.push('# Launch', stamp(version), ...renderBaseSections(base, headingLevel));
   return joinSections(sections);
 };
@@ -139,7 +139,7 @@ export const renderClaudeSkillFiles = (
     '\n',
   );
   let referencePointer = '';
-  if (skill.reference !== undefined) {
+  if (skill.reference != null) {
     referencePointer =
       'See [`reference.md`](./reference.md) for the full command surface across both stores.';
   }
@@ -156,7 +156,7 @@ export const renderClaudeSkillFiles = (
   const generatedFiles: GeneratedAgentFile[] = [
     { path: `.claude/skills/${skill.id}/SKILL.md`, body: skillMarkdown },
   ];
-  if (skill.reference !== undefined) {
+  if (skill.reference != null) {
     const referenceMarkdown = joinSections([
       `# ${skill.title} - command reference`,
       stamp(version),
@@ -213,16 +213,16 @@ const renderSkillSection = (skill: ConsumerSkill): string => {
     skill.steps.map((step, stepIndex) => `${stepIndex + 1}. ${renderStep(step)}`).join('\n'),
     skill.body,
   ];
-  if (skill.reference !== undefined) {
+  if (skill.reference != null) {
     parts.push(
       `**Command reference.** ${skill.reference.intro}`,
       renderReferenceTable(skill.reference.commands),
     );
   }
-  if (skill.cautions !== undefined && skill.cautions.length > 0) {
+  if (skill.cautions != null && skill.cautions.length > 0) {
     parts.push(`**Cautions:**\n${skill.cautions.map((caution) => `- ${caution}`).join('\n')}`);
   }
-  return parts.filter((part) => part.trim() !== '').join('\n\n');
+  return parts.filter((part) => part.trim() != '').join('\n\n');
 };
 
 /**
@@ -267,10 +267,10 @@ export const renderClaudeMemoryBlock = (
 export const spliceManagedBlock = (existing: string, blockWithMarkers: string): string => {
   const start = existing.indexOf(MANAGED_START);
   const end = existing.indexOf(MANAGED_END);
-  if (start !== -1 && end !== -1 && end > start) {
+  if (start != -1 && end != -1 && end > start) {
     return existing.slice(0, start) + blockWithMarkers + existing.slice(end + MANAGED_END.length);
   }
-  if (existing.trim() === '') return `${blockWithMarkers}\n`;
+  if (existing.trim() == '') return `${blockWithMarkers}\n`;
   return `${existing.replace(/\n*$/, '')}\n\n${blockWithMarkers}\n`;
 };
 

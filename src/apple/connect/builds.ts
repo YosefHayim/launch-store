@@ -28,7 +28,7 @@ export class ConnectBuilds {
       }>
     >('GET', `/builds?filter[app]=${appId}&sort=-version&limit=1&fields[builds]=version`);
     const latestBuild = appleResources[0];
-    if (latestBuild === undefined) return 0;
+    if (latestBuild == null) return 0;
     const parsedBuildNumber = Number.parseInt(latestBuild.attributes.version, 10);
     if (Number.isNaN(parsedBuildNumber)) return 0;
     return parsedBuildNumber;
@@ -63,7 +63,7 @@ export class ConnectBuilds {
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=processingState`,
     );
     const matchingBuild = appleResources[0];
-    if (matchingBuild === undefined) return null;
+    if (matchingBuild == null) return null;
     return matchingBuild.attributes.processingState;
   }
 
@@ -120,21 +120,18 @@ export class ConnectBuilds {
       `/buildUploads/${buildUploadId}?include=assetFile&fields[buildUploads]=state,assetFile&fields[buildUploadFiles]=assetDeliveryState`,
     );
     let uploadState = buildUpload.attributes?.state;
-    if (uploadState === undefined) uploadState = {};
+    if (uploadState == null) uploadState = {};
     const assetFile = included?.find(
-      (includedResource) => includedResource.type === 'buildUploadFiles',
+      (includedResource) => includedResource.type == 'buildUploadFiles',
     );
     let deliveryState: components['schemas']['AppMediaAssetState'] = {};
-    if (
-      assetFile?.type === 'buildUploadFiles' &&
-      assetFile.attributes?.assetDeliveryState !== undefined
-    ) {
+    if (assetFile?.type == 'buildUploadFiles' && assetFile.attributes?.assetDeliveryState != null) {
       deliveryState = assetFile.attributes.assetDeliveryState;
     }
     let state: string | undefined = uploadState.state;
-    if (state === undefined) state = 'AWAITING_UPLOAD';
+    if (state == null) state = 'AWAITING_UPLOAD';
     let fileState: string | undefined = deliveryState.state;
-    if (fileState === undefined) fileState = '';
+    if (fileState == null) fileState = '';
     return {
       state,
       fileState,
@@ -163,9 +160,9 @@ export class ConnectBuilds {
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=usesNonExemptEncryption`,
     );
     const matchingBuild = appleResources[0];
-    if (matchingBuild === undefined) return null;
+    if (matchingBuild == null) return null;
     let usesNonExemptEncryption = matchingBuild.attributes.usesNonExemptEncryption;
-    if (usesNonExemptEncryption === undefined) usesNonExemptEncryption = null;
+    if (usesNonExemptEncryption == null) usesNonExemptEncryption = null;
     return { id: matchingBuild.id, usesNonExemptEncryption };
   }
 
@@ -220,7 +217,7 @@ export class ConnectBuilds {
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}${versionFilter}&sort=-uploadedDate&limit=1&${BUILD_PAGE_QUERY}`,
     );
     const [firstBuild] = toBuildResources(buildPage);
-    if (firstBuild === undefined) return null;
+    if (firstBuild == null) return null;
     return firstBuild;
   }
 }

@@ -16,7 +16,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-205%20endpoints-8957e5?logo=apple&logoColor=white" alt="205 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2845%20passing-3fb950?logo=vitest&logoColor=white" alt="2845 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2799%20passing-3fb950?logo=vitest&logoColor=white" alt="2799 tests passing" /></a>
 </p>
 
 <p align="center">
@@ -40,7 +40,7 @@ Shipping an app is more than a build: signing setup, [App Store Connect](https:/
 
 ## Quick start
 
-**Node.js 24+** ([nodejs.org](https://nodejs.org/en)). **iOS needs a Mac** with [Xcode](https://developer.apple.com/xcode/), [CocoaPods](https://cocoapods.org/), an [Apple Developer Program](https://developer.apple.com/programs/enroll/) membership, and an [App Store Connect API key](https://appstoreconnect.apple.com/access/integrations/api). **Android** needs a [JDK](https://openjdk.org/), the [Android SDK](https://developer.android.com/studio) with `ANDROID_HOME` set, and a [Google Play Developer](https://play.google.com/console/signup) account. `launch build` does not take `--remote`.
+**Node.js 24+** ([nodejs.org](https://nodejs.org/en)). **iOS needs a Mac** with [Xcode](https://developer.apple.com/xcode/), [CocoaPods](https://cocoapods.org/), an [Apple Developer Program](https://developer.apple.com/programs/enroll/) membership, and an [App Store Connect API key](https://appstoreconnect.apple.com/access/integrations/api). **Android** needs a [JDK](https://openjdk.org/), the [Android SDK](https://developer.android.com/studio) with `ANDROID_HOME` set, and a [Google Play Developer](https://play.google.com/console/signup) account. **iOS on another Mac** uses `launch build ios --remote aws` or `launch build ios --remote user@host`.
 
 Install from [npm](https://www.npmjs.com/package/launch-store):
 
@@ -75,6 +75,8 @@ The dry run prints `Dry run` and changes nothing. A real iOS run leaves the sign
 | `launch plan` | Show what `sync` would change. `launch drift --check` exits 2 when the store has drifted. |
 | `launch doctor` | Check that the local toolchain and store account are ready. |
 
+`launch --help` lists every command. The same names are filled in, with comments, in the root [`launch.config.ts`](./launch.config.ts). Store commands (`offers`, `reviews`, `metadata`, `game-center`, `app-clips`, `release-config`, `availability`, `custom-pages`, `experiments`, `events`, `accessibility`, `wallet`, `eu-distribution`, `play-products`, `play-subscriptions`, `play-tracks`, `play-reviews`, `play-reports`, `play-pricing`, `testflight`, `rollout`, `release-train`, `snapshot`, `stats`) read that file or a sidecar named there.
+
 > **Driving Launch from an AI agent?** `launch agents init` scaffolds ready-made skills into your repo - [Claude Code](https://code.claude.com/docs/en/overview) Skills (`.claude/skills/`), [Cursor rules](https://cursor.com/docs/rules) (`.cursor/rules/`), and a Launch section in `AGENTS.md` for [Codex](https://developers.openai.com/codex/guides/agents-md) - so Claude Code, Cursor, and Codex can run the workflows above (ship, release, store-config-as-code, OTA updates, CI, and `launch doctor`) with the same plan -> confirm -> apply guardrails Launch uses, and never publish without your say-so. `launch agents check` keeps them in sync.
 
 ```sh
@@ -85,24 +87,18 @@ launch stats --app "cal friend" --json
 
 ### Configuration
 
-App facts (bundle id, version) are read from each app's Expo config, `app.json` or `app.config.{ts,js}`. `launch.config.ts` holds Launch settings. `defineConfig` is the public helper. The published [JSON Schema](https://json-schema.org/) is `schema/launch.config.schema.json`. `launch config schema` prints it, and `launch config schema --out launch.config.schema.json` writes a copy for your editor.
+App facts (bundle id, version) are read from each app's Expo config, `app.json` or `app.config.{ts,js}`. `launch.config.ts` holds Launch settings. The root [`launch.config.ts`](./launch.config.ts) is a full example of every field: profiles, products, offers, Game Center, App Clips, release, wallet, EU distribution, storage, AWS, notify, and the sidecar paths. `defineConfig` is the public helper. The published [JSON Schema](https://json-schema.org/) is `schema/launch.config.schema.json`. `launch config schema` prints it, and `launch config schema --out launch.config.schema.json` writes a copy for your editor.
 
 ```ts
 import { defineConfig } from 'launch-store';
 
 export default defineConfig({
-  appRoots: ['./examples'], // every app.json lives under here
-
-  credentials: 'local', // macOS Keychain + ~/.launch (your own keys, cached locally)
-  storage: 'local', // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: 'xcode', // "xcode" (local) · "remote-mac" (AWS EC2 Mac) · "eas" (Expo cloud)
-
+  appRoots: ['./examples'],
+  credentials: 'local',
+  storage: 'local',
+  buildEngine: 'xcode',
   profiles: {
-    production: {
-      name: 'production',
-      envFile: '.env', // dotenv loaded for this profile (validated against .env.example)
-      sizeBudgetMB: 200, // soft-gate: confirm before uploading a build over this download size
-    },
+    production: { name: 'production', envFile: '.env', sizeBudgetMB: 200 },
   },
 });
 ```
@@ -169,8 +165,8 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 <summary><strong>Build &amp; ship - iOS and Android</strong></summary>
 
 1. **One command per platform.** `launch build ios` / `launch build android` runs prebuild and sign. **Android uploads the bundle.** iOS checks that the app exists and leaves the signed archive on disk.
-2. **iOS and Android only.** `launch build` accepts `ios` and `android`. `tvos`, `macos`, and `visionos` are not arguments of this command.
-3. **Flags on this command.** `--dry-run` prints the plan and changes nothing. `--json` prints one JSON object. `--no-submit` skips upload. `-p` selects the profile. This command does not take `--remote`, `--clean`, or `--no-ccache`.
+2. **Platforms.** `launch build` accepts `ios`, `android`, `tvos`, `macos`, and `visionos`.
+3. **Flags on this command.** `--dry-run` prints the plan and changes nothing. `--json` prints one JSON object. `--no-submit` skips upload. `-p` selects the profile. `--remote` builds iOS on AWS or over SSH. `--clean` forces a from-scratch build. `--no-ccache` turns ccache off. `--distribution internal` builds an ad-hoc install instead of a store build.
 4. **What you see.** A dry run prints `Dry run`. A real run prints the binary path, or one JSON object when you pass `--json`.
 5. **Deliberate public release.** The testing track is the default; `launch release <platform>` drives the public store over the API end to end - version, compliance, notes, rollout, submit - with no portal.
 6. **Steer the rollout.** `launch status [--watch]` tracks the review with CI exit codes; `launch rollout pause`/`resume`/`complete` steers an iOS phased release.
@@ -183,16 +179,15 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 <details>
 <summary><strong>Where a build runs</strong></summary>
 
-1. **iOS needs a Mac.** `launch build` runs on the machine you start it on. It does not take `--remote`.
+1. **iOS needs a Mac.** That Mac can be the machine you start `launch build` on, an EC2 Mac (`launch build ios --remote aws`, settings under `aws` in `launch.config.ts`), or an SSH host (`launch build ios --remote user@host`). `launch cloud` sets up the EC2 Mac.
 2. **Android does not need a Mac.** An Android build needs a JDK and the Android SDK.
-3. **`launch cloud` is a separate command.** It is not a flag on `launch build`.
 
 </details>
 
 <details>
 <summary><strong>Distribute &amp; update</strong></summary>
 
-1. **No internal-distribution flag.** `launch build` does not take `--distribution`.
+1. **Internal installs.** `launch build ios --distribution internal` builds an ad-hoc install for registered devices. `store` is the default.
 2. **Over-the-air updates.** `launch update` publishes a code-signed JS/asset update via the **[Expo Updates](https://docs.expo.dev/versions/latest/sdk/updates/) protocol** your `expo-updates` runtime already speaks, hosted on your own bucket ([S3](https://aws.amazon.com/s3/) / [R2](https://developers.cloudflare.com/r2/) / [Supabase](https://supabase.com/docs/guides/storage)).
 3. **Roll back a bad update.** `launch updates list`/`view` show the per-channel history; `launch updates rollback` promotes a known-good update or drops clients back to the embedded bundle.
 4. **Pluggable storage.** Artifacts and updates live in local storage or your own S3 / R2 / Supabase bucket, served from a URL you control - no hosted service.
@@ -243,13 +238,13 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 | `eas metadata` is **iOS-only** | `launch metadata` syncs the listing for **iOS and Android** |
 | After `eas submit`, the **App Store release** is portal hand-work | `launch release` drives it over the API |
 | Signing **credentials can live on Expo's servers** | Keys stay in **your OS keychain** |
-| **No Mac?** EAS's paid cloud is the path | **`launch build` is local.** iOS needs a Mac on that machine |
+| **No Mac?** EAS's paid cloud is the path | **iOS still needs a Mac**: this machine, `launch build ios --remote aws`, or `--remote user@host` |
 
 ## Status and scope
 
 Launch is active, MIT-licensed, and published as [`launch-store`](https://www.npmjs.com/package/launch-store).
 
-**`launch build` accepts `ios` and `android` only.** It does not take `--remote`, `--clean`, `--no-ccache`, or `--distribution`. **iOS does not upload the IPA.** The command checks that the app exists and leaves the signed archive on disk. **Android uploads the bundle** unless you pass `--no-submit`.
+**`launch build` accepts `ios`, `android`, `tvos`, `macos`, and `visionos`.** `--remote`, `--clean`, `--no-ccache`, and `--distribution` are real flags. **iOS does not upload the IPA.** The command checks that the app exists and leaves the signed archive on disk. **Android uploads the bundle** unless you pass `--no-submit`.
 
 **`release`, `sync`, and `adopt` change the live store.** They refuse to run without a terminal unless you pass `--yes`.
 
@@ -267,7 +262,7 @@ Launch is an open-source, self-hosted alternative to Expo EAS: it builds, signs,
 <details>
 <summary><strong>Is Launch a free, open-source alternative to Expo EAS?</strong></summary>
 
-Yes. Launch is MIT-licensed and fully open source, and builds run on hardware you own, so there is no per-build fee, build-minute meter, or monthly subscription - versus EAS's $19-$199/mo paid tiers plus per-build overage. iOS still needs a Mac on the machine that runs `launch build`.
+Yes. Launch is MIT-licensed and fully open source, and builds run on hardware you own, so there is no per-build fee, build-minute meter, or monthly subscription - versus EAS's $19-$199/mo paid tiers plus per-build overage. iOS still needs a Mac: this one, an EC2 Mac (`--remote aws`), or a Mac you can SSH to.
 
 </details>
 
@@ -281,7 +276,7 @@ EAS runs your builds on Expo's cloud and keeps your credentials, artifacts, and 
 <details>
 <summary><strong>Can I build iOS apps without a Mac?</strong></summary>
 
-No. `launch build` runs on the machine you start it on, and iOS signing is macOS-only. It does not take `--remote`. Android builds anywhere a JDK runs.
+Not on the machine that starts the command. iOS signing is macOS-only. `launch build ios --remote aws` uses an EC2 Mac, and `--remote user@host` uses a Mac you can SSH to. Android builds anywhere a JDK runs.
 
 </details>
 

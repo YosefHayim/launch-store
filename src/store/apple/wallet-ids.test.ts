@@ -17,7 +17,7 @@ const makeApi = (existing: {
   const created: { merchant: string[]; passType: string[] } = { merchant: [], passType: [] };
   const api: AscWalletApi = {
     listMerchantIds: () => {
-      if (existing.merchantIds === undefined) return Promise.resolve([]);
+      if (existing.merchantIds == null) return Promise.resolve([]);
       return Promise.resolve(existing.merchantIds);
     },
     createMerchantId: (identifier) => {
@@ -25,7 +25,7 @@ const makeApi = (existing: {
       return Promise.resolve();
     },
     listPassTypeIds: () => {
-      if (existing.passTypeIds === undefined) return Promise.resolve([]);
+      if (existing.passTypeIds == null) return Promise.resolve([]);
       return Promise.resolve(existing.passTypeIds);
     },
     createPassTypeId: (identifier) => {
@@ -105,13 +105,13 @@ describe('reconcileWalletIds', () => {
     const actions = await runReconcile(api, CONFIG, true);
     expect(created.merchant).toHaveLength(0);
     expect(created.passType).toHaveLength(0);
-    expect(actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(actions.every((action) => action.status == 'planned')).toBe(true);
     expect(actions).toHaveLength(3);
   });
   it('captures a failed registration without aborting the rest', async () => {
     const { api } = makeApi({});
     api.createPassTypeId = (identifier) => {
-      if (identifier === 'pass.com.acme.coupon') {
+      if (identifier == 'pass.com.acme.coupon') {
         return Promise.reject(new Error('already taken'));
       }
       return Promise.resolve();
@@ -119,6 +119,6 @@ describe('reconcileWalletIds', () => {
     const actions = await runReconcile(api, CONFIG, false);
     const summary = summarize(actions);
     expect(summary).toEqual({ applied: 2, failed: 1, skipped: 0 });
-    expect(actions.find((action) => action.status === 'failed')?.error).toBe('already taken');
+    expect(actions.find((action) => action.status == 'failed')?.error).toBe('already taken');
   });
 });

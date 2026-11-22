@@ -18,9 +18,6 @@ import type {
   ReleasePricing,
   ReviewDetailsConfig,
 } from '../types/store-surface.ts';
-
-const DEFAULT_PLATFORM = 'IOS';
-const DEFAULT_TERRITORY = 'USA';
 const DEMO_PASSWORD_KEY = 'demoAccountPassword';
 
 /** Release-attribute decoding or reconciliation failed. */
@@ -332,7 +329,7 @@ async function reconcilePricing(
   appId: string,
   pricing: ReleasePricing,
 ): Promise<void> {
-  let baseTerritory = DEFAULT_TERRITORY;
+  let baseTerritory = 'USA';
 
   if (pricing.baseTerritory != null) {
     baseTerritory = pricing.baseTerritory;
@@ -557,7 +554,7 @@ async function reconcileReleaseWith(
   }
 
   if (releaseConfig.reviewDetails != null) {
-    let platform = DEFAULT_PLATFORM;
+    let platform = 'IOS';
 
     if (reconciliationInput.platform != null) {
       platform = reconciliationInput.platform;

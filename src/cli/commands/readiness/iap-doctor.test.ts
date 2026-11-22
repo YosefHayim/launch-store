@@ -5,9 +5,9 @@ describe('registerIapCommand', () => {
   it('attaches an `iap` group with a `doctor` subcommand and its options', () => {
     const program = new Command();
     registerIapCommand(program);
-    const iap = program.commands.find((command) => command.name() === 'iap');
+    const iap = program.commands.find((command) => command.name() == 'iap');
     expect(iap).toBeDefined();
-    const doctor = iap?.commands.find((command) => command.name() === 'doctor');
+    const doctor = iap?.commands.find((command) => command.name() == 'doctor');
     expect(doctor).toBeDefined();
     const options = doctor?.options.map((option) => option.long);
     expect(options).toContain('--app');

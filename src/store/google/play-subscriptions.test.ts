@@ -57,16 +57,16 @@ const makeApi = (
   };
   const api: PlaySubscriptionsApi = {
     async assertAppExists() {
-      if (options.reachable === false) throw new Error('No reachable Play app');
+      if (options.reachable == false) throw new Error('No reachable Play app');
     },
     async listSubscriptions() {
       return existing;
     },
     async createSubscription(_packageName, subscription) {
-      if (options.createSubscriptionFailure !== undefined) {
+      if (options.createSubscriptionFailure != null) {
         throw new Error(options.createSubscriptionFailure);
       }
-      if (options.failCreateSubscription === true) {
+      if (options.failCreateSubscription == true) {
         throw new Error('create subscription rejected');
       }
       calls.created.push(subscription);
@@ -78,17 +78,17 @@ const makeApi = (
       calls.activatedBasePlans.push({ productId, basePlanId });
     },
     async listSubscriptionOffers(_packageName, productId, basePlanId) {
-      if (options.failListOffers === true) {
+      if (options.failListOffers == true) {
         calls.listOffersFailures += 1;
         throw new Error('list offers unavailable');
       }
       let offers: SubscriptionOfferResource[] = [];
       const configuredOffers = options.offersByBasePlan?.[`${productId}/${basePlanId}`];
-      if (configuredOffers !== undefined) offers = configuredOffers;
+      if (configuredOffers != null) offers = configuredOffers;
       return offers;
     },
     async createSubscriptionOffer(_packageName, offer) {
-      if (options.failCreateOffer === true) {
+      if (options.failCreateOffer == true) {
         throw new Error('create offer rejected');
       }
       calls.createdOffers.push(offer);
@@ -363,7 +363,7 @@ describe('reconcilePlaySubscriptions', () => {
     expect(calls.patched[0]?.updateMask).toBe('listings');
     const patchedSubscription = expectArrayElement(calls.patched, 0, 'calls.patched');
     let patchedListings = patchedSubscription.subscription.listings;
-    if (patchedListings === undefined) patchedListings = [];
+    if (patchedListings == null) patchedListings = [];
     const languages = patchedListings.map((listing) => listing.languageCode).sort();
     expect(languages).toEqual(['de-DE', 'en-US']);
   });
@@ -389,9 +389,9 @@ describe('reconcilePlaySubscriptions', () => {
     expect(calls.patched[0]?.updateMask).toBe('basePlans');
     const basePlanPatch = expectArrayElement(calls.patched, 0, 'calls.patched');
     let sentPlans = basePlanPatch.subscription.basePlans;
-    if (sentPlans === undefined) sentPlans = [];
+    if (sentPlans == null) sentPlans = [];
     expect(sentPlans.map((basePlan) => basePlan.basePlanId)).toEqual(['p1y', 'p1m']);
-    expect(sentPlans.find((basePlan) => basePlan.basePlanId === 'p1y')?.state).toBeUndefined();
+    expect(sentPlans.find((basePlan) => basePlan.basePlanId == 'p1y')?.state).toBeUndefined();
     expect(calls.activatedBasePlans).toEqual([
       { productId: 'com.acme.pro.monthly', basePlanId: 'p1m' },
     ]);
@@ -484,7 +484,7 @@ describe('reconcilePlaySubscriptions', () => {
       ],
       dryRun: true,
     });
-    expect(subscriptionsOutcome.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(subscriptionsOutcome.actions.every((action) => action.status == 'planned')).toBe(true);
     expect(subscriptionsOutcome.actions.map((action) => action.description)).toEqual(
       expect.arrayContaining([
         'create Play subscription com.acme.pro.monthly',
@@ -511,7 +511,7 @@ describe('reconcilePlaySubscriptions', () => {
       ],
       dryRun: false,
     });
-    const failedAction = subscriptionsOutcome.actions.find((action) => action.status === 'failed');
+    const failedAction = subscriptionsOutcome.actions.find((action) => action.status == 'failed');
     expect(failedAction?.error).toMatch(/neither a free trial nor intro/);
     expect(calls.created).toHaveLength(1);
   });
@@ -547,7 +547,7 @@ describe('reconcilePlaySubscriptions', () => {
       dryRun: false,
     });
     const permissionFailureAction = permissionFailureOutcome.actions.find(
-      (action) => action.status === 'failed',
+      (action) => action.status == 'failed',
     );
     expect(permissionFailureAction?.error).toContain('launch-catalog@proj.iam.gserviceaccount.com');
     expect(permissionFailureAction?.error).toContain('Manage store presence');
@@ -571,7 +571,7 @@ describe('reconcilePlaySubscriptions', () => {
       dryRun: false,
     });
     const paymentsFailureAction = paymentsFailureOutcome.actions.find(
-      (action) => action.status === 'failed',
+      (action) => action.status == 'failed',
     );
     expect(paymentsFailureAction?.error).toContain('Setup > Payments profile');
     expect(paymentsFailureAction?.error).toContain(

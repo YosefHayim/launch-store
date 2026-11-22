@@ -4,7 +4,7 @@ import { extname, join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 
-const SOURCE_SCAN_SKIP_DIRECTORIES = new Set([
+const sourceScanSkipDirectories = new Set([
   'node_modules',
   '.git',
   '.expo',
@@ -18,7 +18,7 @@ const SOURCE_SCAN_SKIP_DIRECTORIES = new Set([
 ]);
 
 const MAX_SCANNED_FILES = 5000;
-const MAX_SCAN_DEPTH = 8;
+const maxScanDepth = 8;
 
 /** Read the simple top-level directory exclusions declared in `.gitignore`. */
 async function readIgnoredDirectories(sourceRoot: string): Promise<Set<string>> {
@@ -106,11 +106,11 @@ export async function walkAppSource(
   inspectFile: (filePath: string, fileExtension: string) => Promise<boolean>,
 ): Promise<void> {
   const ignoredDirectories = await readIgnoredDirectories(sourceRoot);
-  const skippedDirectories = new Set([...SOURCE_SCAN_SKIP_DIRECTORIES, ...ignoredDirectories]);
+  const skippedDirectories = new Set([...sourceScanSkipDirectories, ...ignoredDirectories]);
   let scannedFileCount = 0;
 
   async function walkDirectory(directoryPath: string, directoryDepth: number): Promise<boolean> {
-    const isPastMaxDepth = directoryDepth > MAX_SCAN_DEPTH;
+    const isPastMaxDepth = directoryDepth > maxScanDepth;
 
     if (isPastMaxDepth) {
       return false;

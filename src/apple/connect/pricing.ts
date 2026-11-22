@@ -50,20 +50,19 @@ export class ConnectPricing {
     );
     if (!requestDocument) return null;
     let includedPricePoints = requestDocument.included;
-    if (includedPricePoints === undefined) includedPricePoints = [];
+    if (includedPricePoints == null) includedPricePoints = [];
     const pointsById = new Map(
       includedPricePoints
-        .filter((entry) => entry.type === 'appPricePoints')
+        .filter((entry) => entry.type == 'appPricePoints')
         .map((entry) => [entry.id, entry.attributes] as const),
     );
     for (const price of requestDocument.data) {
       if (price.attributes?.startDate != null) continue;
       if (price.attributes?.endDate != null) continue;
       const pointId = price.relationships?.appPricePoint?.data?.id;
-      if (pointId === undefined) continue;
+      if (pointId == null) continue;
       const point = pointsById.get(pointId);
-      if (point?.territory === territory && point.customerPrice !== undefined)
-        return point.customerPrice;
+      if (point?.territory == territory && point.customerPrice != null) return point.customerPrice;
     }
     return null;
   }

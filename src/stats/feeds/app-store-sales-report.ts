@@ -16,7 +16,7 @@ interface SalesCountMetric {
   readonly metric: DailyStat['metric'];
 }
 
-const SALES_COUNT_METRICS: readonly SalesCountMetric[] = [
+const salesCountMetrics: readonly SalesCountMetric[] = [
   { kind: 'download', metric: 'downloads' },
   { kind: 'redownload', metric: 'redownloads' },
   { kind: 'update', metric: 'updates' },
@@ -27,17 +27,15 @@ export const findAppSkus = (
   reportLines: readonly ReportLine[],
   storeId: string,
 ): ReadonlySet<string> => {
-  const appLines = reportLines.filter(
-    (line) => readCell(line, APPLE_IDENTIFIER_COLUMN) === storeId,
-  );
-  const skus = appLines.map((line) => readCell(line, 'SKU')).filter((sku) => sku !== '');
+  const appLines = reportLines.filter((line) => readCell(line, APPLE_IDENTIFIER_COLUMN) == storeId);
+  const skus = appLines.map((line) => readCell(line, 'SKU')).filter((sku) => sku != '');
   return new Set(skus);
 };
 
 const isLineOfApp = (line: ReportLine, kind: SalesReportKind, day: SalesDay): boolean => {
-  const isInAppPurchase = kind === 'in-app-purchase';
+  const isInAppPurchase = kind == 'in-app-purchase';
   if (isInAppPurchase) return day.appSkus.has(readCell(line, 'Parent Identifier'));
-  return readCell(line, APPLE_IDENTIFIER_COLUMN) === day.storeId;
+  return readCell(line, APPLE_IDENTIFIER_COLUMN) == day.storeId;
 };
 
 /** Downloads, redownloads, updates and proceeds (per currency) of one app for one day of a Sales Report. */
@@ -49,7 +47,7 @@ export const summarizeSalesLines = (
   const proceedsByCurrency = new Map<string, number>();
   for (const line of reportLines) {
     const kind = findSalesReportKind(readCell(line, 'Product Type Identifier'));
-    if (kind === null) continue;
+    if (kind == null) continue;
     const isLineAboutApp = isLineOfApp(line, kind, day);
     if (!isLineAboutApp) continue;
     const units = readNumberCell(line, 'Units');
@@ -58,17 +56,17 @@ export const summarizeSalesLines = (
     const lineProceeds = readNumberCell(line, 'Developer Proceeds') * units;
     proceedsByCurrency.set(currency, readTotal(proceedsByCurrency, currency) + lineProceeds);
   }
-  const countStats = SALES_COUNT_METRICS.flatMap(({ kind, metric }): DailyStat[] => {
+  const countStats = salesCountMetrics.flatMap(({ kind, metric }): DailyStat[] => {
     const units = unitsByKind.get(kind);
-    if (units === undefined) return [];
+    if (units == null) return [];
     return [{ date: day.date, feed: 'app-store', metric, value: units, currency: null }];
   });
   const proceedsStats = [...proceedsByCurrency.entries()].flatMap(
     ([currency, proceeds]): DailyStat[] => {
       const roundedProceeds = roundMoney(proceeds);
-      const isProceedsZero = roundedProceeds === 0;
+      const isProceedsZero = roundedProceeds == 0;
       if (isProceedsZero) return [];
-      const isCurrencyMissing = currency === '';
+      const isCurrencyMissing = currency == '';
       if (isCurrencyMissing) return [];
       return [
         {

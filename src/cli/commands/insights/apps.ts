@@ -17,7 +17,7 @@ export const registerAppsCommand = (program: Command): void => {
         appsListProgram({
           platform: flags.platform,
           owner: flags.owner,
-          isJson: flags.json === true,
+          isJson: flags.json == true,
         }),
       );
     });
@@ -43,7 +43,7 @@ export const registerAppsCommand = (program: Command): void => {
             account: flags.account,
             owner: flags.owner,
             ga4Property: flags.ga4Property,
-            isJson: flags.json === true,
+            isJson: flags.json == true,
           }),
         );
       },

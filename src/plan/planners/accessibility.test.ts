@@ -8,7 +8,7 @@ import { makeAscApiFake } from '../../testkit/asc-api-fake.testkit.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
-const ALPHA: AppDescriptor = {
+const alpha: AppDescriptor = {
   name: 'alpha',
   dir: '/no/such/dir/alpha',
   configPath: '/no/such/dir/alpha/app.json',
@@ -37,13 +37,13 @@ const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext =>
   };
   return {
     config,
-    apps: [ALPHA],
+    apps: [alpha],
     resolveAscApi: () => Promise.resolve(api),
     resolvePlayApi: () => Promise.resolve(null),
   };
 };
 const DECLARED = { declarations: [{ deviceFamily: 'IPHONE' }] };
-const PUBLISHED_IPHONE = {
+const publishedIphone = {
   id: 'decl1',
   deviceFamily: 'IPHONE',
   state: 'PUBLISHED',
@@ -70,7 +70,7 @@ describe('accessibilityPlanner', () => {
   it('skips with a creds hint when no Apple account is active', async () => {
     const plan = await runPlanner(accessibilityPlanner, makeCtx(null, writeConfig(DECLARED)));
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.hint).toMatch(/creds/);
   });
   it("reports an additive plan when a declaration doesn't exist yet", async () => {
@@ -79,8 +79,8 @@ describe('accessibilityPlanner', () => {
       makeCtx(makeAscApiFake(), writeConfig(DECLARED)),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.direction).toBe('additive');
     expect(
       plan.apps[0]?.actions.some((a) => a.description.includes('accessibility declaration')),
@@ -88,20 +88,20 @@ describe('accessibilityPlanner', () => {
   });
   it('renders in sync when the live declaration already matches', async () => {
     const api = makeAscApiFake({
-      listAccessibilityDeclarations: vi.fn().mockResolvedValue([PUBLISHED_IPHONE]),
+      listAccessibilityDeclarations: vi.fn().mockResolvedValue([publishedIphone]),
     });
     const plan = await runPlanner(accessibilityPlanner, makeCtx(api, writeConfig(DECLARED)));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });
   it('captures a missing app record as a per-app error, not a thrown plan', async () => {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(accessibilityPlanner, makeCtx(api, writeConfig(DECLARED)));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
   });
   it('is strictly read-only: never invokes a write endpoint', async () => {

@@ -31,15 +31,14 @@ export class ConnectEvents {
 
   async createAppEvent(appId: string, attributes: NewAppEvent): Promise<AppEventResource> {
     const eventAttributes = { referenceName: attributes.referenceName };
-    if (attributes.badge !== undefined) Object.assign(eventAttributes, { badge: attributes.badge });
-    if (attributes.primaryLocale !== undefined)
+    if (attributes.badge != null) Object.assign(eventAttributes, { badge: attributes.badge });
+    if (attributes.primaryLocale != null)
       Object.assign(eventAttributes, { primaryLocale: attributes.primaryLocale });
-    if (attributes.deepLink !== undefined)
+    if (attributes.deepLink != null)
       Object.assign(eventAttributes, { deepLink: attributes.deepLink });
-    if (attributes.priority !== undefined)
+    if (attributes.priority != null)
       Object.assign(eventAttributes, { priority: attributes.priority });
-    if (attributes.purpose !== undefined)
-      Object.assign(eventAttributes, { purpose: attributes.purpose });
+    if (attributes.purpose != null) Object.assign(eventAttributes, { purpose: attributes.purpose });
     const appleResources = await this.client.createResource<AppEventAttributes>('/appEvents', {
       type: 'appEvents',
       attributes: eventAttributes,
@@ -58,11 +57,11 @@ export class ConnectEvents {
     attributes: AppEventLocalizationInput,
   ): Promise<AppEventLocalizationResource> {
     const eventLocalizationAttributes = { locale };
-    if (attributes.name !== undefined)
+    if (attributes.name != null)
       Object.assign(eventLocalizationAttributes, { name: attributes.name });
-    if (attributes.shortDescription !== undefined)
+    if (attributes.shortDescription != null)
       Object.assign(eventLocalizationAttributes, { shortDescription: attributes.shortDescription });
-    if (attributes.longDescription !== undefined)
+    if (attributes.longDescription != null)
       Object.assign(eventLocalizationAttributes, { longDescription: attributes.longDescription });
     const appleResources = await this.client.createResource<AppEventLocalizationAttributes>(
       '/appEventLocalizations',
@@ -80,11 +79,11 @@ export class ConnectEvents {
     attributes: AppEventLocalizationInput,
   ): Promise<AppEventLocalizationResource> {
     const eventLocalizationAttributes: AppEventLocalizationInput = {};
-    if (attributes.name !== undefined)
+    if (attributes.name != null)
       Object.assign(eventLocalizationAttributes, { name: attributes.name });
-    if (attributes.shortDescription !== undefined)
+    if (attributes.shortDescription != null)
       Object.assign(eventLocalizationAttributes, { shortDescription: attributes.shortDescription });
-    if (attributes.longDescription !== undefined)
+    if (attributes.longDescription != null)
       Object.assign(eventLocalizationAttributes, { longDescription: attributes.longDescription });
     const { data: appleResources } = await this.client.request<
       ResourceSingle<AppEventLocalizationAttributes>

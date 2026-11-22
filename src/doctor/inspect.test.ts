@@ -14,7 +14,7 @@ const launchConfig: LaunchConfig = {
   submit: 'app-store-connect',
 };
 
-const DOCTOR_PLATFORMS: readonly DoctorPlatform[] = ['ios', 'android'];
+const doctorPlatforms: readonly DoctorPlatform[] = ['ios', 'android'];
 
 async function commandExists(): Promise<boolean> {
   return true;
@@ -256,7 +256,7 @@ describe('inspectDoctor', function describeInspectDoctor() {
     expect(report.checks.some(isPackageManagerCheck)).toBe(true);
   });
 
-  for (const platform of DOCTOR_PLATFORMS) {
+  for (const platform of doctorPlatforms) {
     it(`always reports the package manager first for ${platform}`, async function reportsPackageManagerFirst() {
       const report = await inspectDoctor(sampleDoctorContext({ platform }));
       const firstCheck = report.checks[0];

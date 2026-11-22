@@ -26,7 +26,7 @@ export const registerPlaySubscriptionsCommand = (program: Command): void => {
         dryRun: commandOptions.dryRun,
         yes: commandOptions.yes,
       };
-      if (commandOptions.app !== undefined) {
+      if (commandOptions.app != null) {
         playSubscriptionsInput = { ...playSubscriptionsInput, app: commandOptions.app };
       }
       return runCliProgram(playSubscriptionsCommandProgram(playSubscriptionsInput));

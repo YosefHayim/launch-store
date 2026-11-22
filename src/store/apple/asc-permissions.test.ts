@@ -23,14 +23,14 @@ const permissionFor = (
   permissions: readonly AscPermissionResult[],
   feature: string,
 ): AscPermissionResult => {
-  const permission = permissions.find((candidate) => candidate.feature === feature);
+  const permission = permissions.find((candidate) => candidate.feature == feature);
   if (!permission) throw new Error(`no permission verdict for ${feature}`);
   return permission;
 };
 
 const transportFailure = (message: string, status?: number) => {
   const cause = new Error(message);
-  if (status === undefined) return makeAppleTransportFailure({ message, cause });
+  if (status == null) return makeAppleTransportFailure({ message, cause });
   return makeAppleTransportFailure({ message, cause, status });
 };
 
@@ -38,7 +38,7 @@ describe('probeKeyPermissions', () => {
   it('marks every feature available when all probes succeed', async () => {
     const permissions = await probeKeyPermissions(makePermissionClient(), 'app1');
     expect(permissions).toHaveLength(6);
-    expect(permissions.every((permission) => permission.status === 'available')).toBe(true);
+    expect(permissions.every((permission) => permission.status == 'available')).toBe(true);
   });
 
   it('flags a 403 as forbidden for just that feature', async () => {

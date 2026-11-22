@@ -17,8 +17,8 @@ import type { AscReleaseApi } from './app-store-release.ts';
 import { type StatusCommandFlags, statusCommandProgram } from './status-command.ts';
 
 const ASC_KEY_ID = 'KEY123';
-const P8_SECRET = Buffer.from('-----BEGIN PRIVATE KEY-----').toString('base64');
-const ACCOUNTS_FILE_TEXT = JSON.stringify({
+const p8Secret = Buffer.from('-----BEGIN PRIVATE KEY-----').toString('base64');
+const accountsFileText = JSON.stringify({
   active: ASC_KEY_ID,
   accounts: [
     {
@@ -29,7 +29,7 @@ const ACCOUNTS_FILE_TEXT = JSON.stringify({
     },
   ],
 });
-const APP_JSON_TEXT = JSON.stringify({
+const sampleAppJsonText = JSON.stringify({
   expo: { name: 'Oly', version: '1.2.0', ios: { bundleIdentifier: 'com.acme.app' } },
 });
 const APP_JSON_WITHOUT_IOS_TEXT = JSON.stringify({ expo: { name: 'Oly', version: '1.2.0' } });
@@ -152,7 +152,7 @@ function makeReleaseApiFake(methodOverrides: Partial<AscReleaseApi> = {}): AscRe
 async function runStatusCommand(
   flags: StatusCommandFlags,
   appleReleaseApi: AscReleaseApi,
-  appJsonText = APP_JSON_TEXT,
+  appJsonText = sampleAppJsonText,
 ): Promise<StatusRun> {
   const homeDirectory = createTemporaryHomeDirectory();
   const logLines: string[] = [];
@@ -161,9 +161,9 @@ async function runStatusCommand(
     const workDirectory = join(homeDirectory, 'work');
     mkdirSync(workDirectory, { recursive: true });
     writeFileSync(join(workDirectory, 'app.json'), appJsonText);
-    writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE_TEXT);
+    writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFileText);
     useLaunchDirectories({ homeDirectory, workingDirectory: workDirectory });
-    useSecretStore(new Map([[`asc-p8:${ASC_KEY_ID}`, P8_SECRET]]));
+    useSecretStore(new Map([[`asc-p8:${ASC_KEY_ID}`, p8Secret]]));
     useLoggerSink(function writeLine(text: string) {
       logLines.push(text);
     });

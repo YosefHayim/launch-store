@@ -1,7 +1,5 @@
 import { hasMessage } from './error-message.ts';
 
-const NOT_INSTALLED = /Cannot find (module|package)|ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND/;
-
 type OptionalDependencyMissing = Readonly<{
   _tag: 'OptionalDependencyMissing';
   feature: string;
@@ -51,7 +49,8 @@ export async function requireOptional<LoadedCapability>(
       message = cause.message;
     }
 
-    const isInstalled = NOT_INSTALLED.test(message) == false;
+    const isInstalled =
+      /Cannot find (module|package)|ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND/.test(message) == false;
 
     if (isInstalled) {
       throw cause;

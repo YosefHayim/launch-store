@@ -72,14 +72,14 @@ describe('screenshotsPlanner', () => {
   it('skips with a creds hint when no Apple account is active', async () => {
     const plan = await runPlanner(screenshotsPlanner, makeCtx(null, makeApp(true)));
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.hint).toMatch(/creds/);
   });
   it("reports an additive plan to upload a local screenshot Apple doesn't have", async () => {
     const plan = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), makeApp(true)));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.direction).toBe('additive');
     expect(
       plan.apps[0]?.actions.some(
@@ -100,8 +100,8 @@ describe('screenshotsPlanner', () => {
       makeCtx(apiWithLocale(), makeAppWithShot(1080, 1920)),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     const advisory = plan.apps[0]?.actions.find((a) =>
       a.description.includes('off-spec screenshot'),
     );
@@ -119,8 +119,8 @@ describe('screenshotsPlanner', () => {
       makeCtx(apiWithLocale(), makeApp(true)),
     );
     for (const plan of [inSpec, unmeasurable]) {
-      if (plan.state !== 'planned') throw new Error('expected an app-scoped plan');
-      if (plan.scope !== 'app') throw new Error('expected an app-scoped plan');
+      if (plan.state != 'planned') throw new Error('expected an app-scoped plan');
+      if (plan.scope != 'app') throw new Error('expected an app-scoped plan');
       expect(plan.apps[0]?.actions.some((a) => a.description.includes('off-spec screenshot'))).toBe(
         false,
       );

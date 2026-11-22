@@ -16,16 +16,16 @@ import { toAscPlatform } from '../../services/stores/platform.ts';
 import type { AppStoreConnectClient } from '../../apple/asc-client.ts';
 
 const PROVIDER = 'app-store-connect';
-const BUILD_UPLOAD_WAIT_MILLISECONDS = 30 * 60 * 1000;
-const POLL_INTERVAL_MILLISECONDS = 5 * 1000;
-const CLOSED_VERSION_TRAIN_CODES = new Set(['90062', '90186', '90478']);
+const buildUploadWaitMilliseconds = 30 * 60 * 1000;
+const defaultPollIntervalMilliseconds = 5 * 1000;
+const closedVersionTrainCodes = new Set(['90062', '90186', '90478']);
 
 function describeProblem(problem: BuildUploadProblem): string {
   return `- ${problem.description} (${problem.code})`;
 }
 
 function isClosedTrainCode(problem: BuildUploadProblem): boolean {
-  return CLOSED_VERSION_TRAIN_CODES.has(problem.code);
+  return closedVersionTrainCodes.has(problem.code);
 }
 
 function rejectionMessage(version: string, problems: readonly BuildUploadProblem[]): string {
@@ -184,6 +184,6 @@ export function makeAppStoreConnectSubmitter(
 }
 
 export const appStoreConnectSubmitter = makeAppStoreConnectSubmitter(
-  POLL_INTERVAL_MILLISECONDS,
-  BUILD_UPLOAD_WAIT_MILLISECONDS,
+  defaultPollIntervalMilliseconds,
+  buildUploadWaitMilliseconds,
 );

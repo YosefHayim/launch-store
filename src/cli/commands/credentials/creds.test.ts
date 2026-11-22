@@ -5,7 +5,7 @@ import { registerCredsCommand } from './creds.ts';
 const credsCommand = () => {
   const program = new Command();
   registerCredsCommand(program);
-  const creds = program.commands.find((command) => command.name() === 'creds');
+  const creds = program.commands.find((command) => command.name() == 'creds');
   expect(creds).toBeDefined();
   return creds;
 };

@@ -16,8 +16,6 @@ import type {
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
 
 const APP_CLIPS_DOCUMENT_NAME = 'appclips.config.json';
-/** Platform whose editable App Store version the default experience releases with. */
-const DEFAULT_PLATFORM = 'IOS';
 
 /**
  * The exact slice of App Store Connect the App Clips reconciler depends on. Declaring it here
@@ -467,7 +465,7 @@ export async function reconcileAppClips(
 
   const requestedPlatform = reconcileInput.platform;
   const hasPlatform = requestedPlatform != null;
-  let platform = DEFAULT_PLATFORM;
+  let platform = 'IOS';
 
   if (hasPlatform) {
     platform = requestedPlatform;

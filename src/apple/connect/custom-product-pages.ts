@@ -14,7 +14,7 @@ export class ConnectCustomProductPages {
     }>(`/apps/${appId}/appCustomProductPages?limit=200&fields[appCustomProductPages]=name`);
     return appleResources.flatMap((customPage) => {
       const pageName = customPage.attributes.name;
-      if (pageName === undefined) return [];
+      if (pageName == null) return [];
       return [{ id: customPage.id, name: pageName }];
     });
   }
@@ -39,7 +39,7 @@ export class ConnectCustomProductPages {
     );
     return appleResources.map((version) => {
       let state = version.attributes.state;
-      if (state === undefined) state = '';
+      if (state == null) state = '';
       return { id: version.id, state };
     });
   }
@@ -55,12 +55,12 @@ export class ConnectCustomProductPages {
     );
     return appleResources.flatMap((localization) => {
       const locale = localization.attributes.locale;
-      if (locale === undefined) return [];
+      if (locale == null) return [];
       const customPageLocalization: CustomProductPageLocalizationResource = {
         id: localization.id,
         locale,
       };
-      if (typeof localization.attributes.promotionalText === 'string')
+      if (typeof localization.attributes.promotionalText == 'string')
         Object.assign(customPageLocalization, {
           promotionalText: localization.attributes.promotionalText,
         });

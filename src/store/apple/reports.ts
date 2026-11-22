@@ -29,7 +29,7 @@ export const parseTsv = (text: string): ParsedReport => {
     const reportFields: Record<string, string> = {};
     headers.forEach((header, index) => {
       let cellText = '';
-      if (cells[index] !== undefined) cellText = cells[index];
+      if (cells[index] != null) cellText = cells[index];
       reportFields[header] = cellText;
     });
     return reportFields;
@@ -37,7 +37,7 @@ export const parseTsv = (text: string): ParsedReport => {
   return { headers, rows };
 };
 /** Milliseconds in a day - the step for {@link eachDate}'s UTC walk. */
-const DAY_MS = 24 * 60 * 60 * 1000;
+const dayMs = 24 * 60 * 60 * 1000;
 
 type ReportDateFailure = Readonly<{
   readonly _tag: 'ReportDateFailure';
@@ -89,19 +89,19 @@ function parseYmd(date: string): number {
   const day = Number(dayText);
   const ms = Date.UTC(year, month - 1, day);
   const back = new Date(ms);
-  const isYearWrong = back.getUTCFullYear() !== year;
+  const isYearWrong = back.getUTCFullYear() != year;
 
   if (isYearWrong) {
     throw makeReportDateFailure(`Invalid calendar date "${date}".`);
   }
 
-  const isMonthWrong = back.getUTCMonth() !== month - 1;
+  const isMonthWrong = back.getUTCMonth() != month - 1;
 
   if (isMonthWrong) {
     throw makeReportDateFailure(`Invalid calendar date "${date}".`);
   }
 
-  const isDayWrong = back.getUTCDate() !== day;
+  const isDayWrong = back.getUTCDate() != day;
 
   if (isDayWrong) {
     throw makeReportDateFailure(`Invalid calendar date "${date}".`);
@@ -127,7 +127,7 @@ export function eachDate(from: string, to: string): string[] {
 
   const dates: string[] = [];
 
-  for (let day = start; day <= end; day += DAY_MS) {
+  for (let day = start; day <= end; day += dayMs) {
     dates.push(new Date(day).toISOString().slice(0, 10));
   }
 
@@ -184,7 +184,7 @@ export async function ensureAnalyticsRequest(
 ): Promise<EnsuredRequest> {
   const existingRequests = await api.listAnalyticsReportRequests(appId, accessType);
   const usableRequest = existingRequests.find(isUsableRequest);
-  const hasUsableRequest = usableRequest !== undefined;
+  const hasUsableRequest = usableRequest != null;
 
   if (hasUsableRequest) {
     return { request: usableRequest, created: false };
@@ -237,8 +237,8 @@ export async function collectAnalyticsSegments(
 
   const ensuredRequest = await ensureAnalyticsRequest(api, appId, query.accessType);
   const reportFilters: { category?: string; name?: string } = {};
-  if (query.category !== undefined) reportFilters.category = query.category;
-  if (query.name !== undefined) reportFilters.name = query.name;
+  if (query.category != null) reportFilters.category = query.category;
+  if (query.name != null) reportFilters.name = query.name;
   const analyticsReports = await api.listAnalyticsReports(ensuredRequest.request.id, reportFilters);
   const segmentDownloads: SegmentDownload[] = [];
 
@@ -246,7 +246,7 @@ export async function collectAnalyticsSegments(
     const instanceFilters: { granularity?: string; processingDate?: string } = {
       granularity: query.granularity,
     };
-    if (query.processingDate !== undefined) {
+    if (query.processingDate != null) {
       instanceFilters.processingDate = query.processingDate;
     }
     const reportInstances = await api.listAnalyticsReportInstances(
@@ -259,9 +259,9 @@ export async function collectAnalyticsSegments(
 
       for (const reportSegment of reportSegments) {
         let category = '';
-        if (analyticsReport.category !== undefined) category = analyticsReport.category;
+        if (analyticsReport.category != null) category = analyticsReport.category;
         let processingDate = '';
-        if (reportInstance.processingDate !== undefined) {
+        if (reportInstance.processingDate != null) {
           processingDate = reportInstance.processingDate;
         }
         const segmentDownload: SegmentDownload = {
@@ -271,7 +271,7 @@ export async function collectAnalyticsSegments(
           processingDate,
           url: reportSegment.url,
         };
-        if (reportSegment.checksum !== undefined) {
+        if (reportSegment.checksum != null) {
           segmentDownload.checksum = reportSegment.checksum;
         }
         segmentDownloads.push(segmentDownload);

@@ -55,49 +55,49 @@ export const readRubyString = (rubySource: string, directiveName: string): strin
   const directiveMatch = new RegExp(`^\\s*${directiveName}\\s*\\(?\\s*["']([^"']*)["']`, 'm').exec(
     rubySource,
   );
-  if (directiveMatch === null) return undefined;
+  if (directiveMatch == null) return undefined;
   const directiveText = directiveMatch[1];
-  if (directiveText === undefined) return undefined;
-  if (directiveText === '') return undefined;
+  if (directiveText == null) return undefined;
+  if (directiveText == '') return undefined;
   return directiveText;
 };
 
 export const parseAppfile = (appfileSource: string): AppfileData => {
   const appfile: MutableDeep<AppfileData> = {};
   const appIdentifier = readRubyString(appfileSource, 'app_identifier');
-  if (appIdentifier !== undefined) appfile.appIdentifier = appIdentifier;
+  if (appIdentifier != null) appfile.appIdentifier = appIdentifier;
   const appleId = readRubyString(appfileSource, 'apple_id');
-  if (appleId !== undefined) appfile.appleId = appleId;
+  if (appleId != null) appfile.appleId = appleId;
   const teamId = readRubyString(appfileSource, 'team_id');
-  if (teamId !== undefined) appfile.teamId = teamId;
+  if (teamId != null) appfile.teamId = teamId;
   const itcTeamId = readRubyString(appfileSource, 'itc_team_id');
-  if (itcTeamId !== undefined) appfile.itcTeamId = itcTeamId;
+  if (itcTeamId != null) appfile.itcTeamId = itcTeamId;
   const packageName = readRubyString(appfileSource, 'package_name');
-  if (packageName !== undefined) appfile.packageName = packageName;
+  if (packageName != null) appfile.packageName = packageName;
   return appfile;
 };
 
 export const parseMatchfile = (matchfileSource: string): MatchfileData => {
   const matchfile: MutableDeep<MatchfileData> = {};
   const gitUrl = readRubyString(matchfileSource, 'git_url');
-  if (gitUrl !== undefined) matchfile.gitUrl = gitUrl;
+  if (gitUrl != null) matchfile.gitUrl = gitUrl;
   const signingType = readRubyString(matchfileSource, 'type');
-  if (signingType !== undefined) matchfile.type = signingType;
+  if (signingType != null) matchfile.type = signingType;
   const storageMode = readRubyString(matchfileSource, 'storage_mode');
-  if (storageMode !== undefined) matchfile.storageMode = storageMode;
+  if (storageMode != null) matchfile.storageMode = storageMode;
   const appIdentifier = readRubyString(matchfileSource, 'app_identifier');
-  if (appIdentifier !== undefined) matchfile.appIdentifier = appIdentifier;
+  if (appIdentifier != null) matchfile.appIdentifier = appIdentifier;
   return matchfile;
 };
 
 export const parseSupplyfile = (supplyfileSource: string): SupplyfileData => {
   const supplyfile: MutableDeep<SupplyfileData> = {};
   const packageName = readRubyString(supplyfileSource, 'package_name');
-  if (packageName !== undefined) supplyfile.packageName = packageName;
+  if (packageName != null) supplyfile.packageName = packageName;
   const jsonKey = readRubyString(supplyfileSource, 'json_key');
-  if (jsonKey !== undefined) supplyfile.jsonKey = jsonKey;
+  if (jsonKey != null) supplyfile.jsonKey = jsonKey;
   const trackName = readRubyString(supplyfileSource, 'track');
-  if (trackName !== undefined) supplyfile.track = trackName;
+  if (trackName != null) supplyfile.track = trackName;
   return supplyfile;
 };
 
@@ -164,7 +164,7 @@ const KNOWN_ACTIONS: readonly string[] = FASTLANE_ACTION_GROUPS.flatMap(
 
 const ACTION_LAUNCH_COMMAND: Record<string, string> = {};
 for (const actionGroup of FASTLANE_ACTION_GROUPS) {
-  if (actionGroup.launchCommand === undefined) continue;
+  if (actionGroup.launchCommand == null) continue;
   for (const actionName of actionGroup.actions) {
     ACTION_LAUNCH_COMMAND[actionName] = actionGroup.launchCommand;
   }
@@ -178,7 +178,7 @@ const findLanePlatform = (fastfileSource: string, laneStartIndex: number): strin
   const platformPattern = /^[ \t]*platform\s+:([A-Za-z_]\w*)\s+do\b/gm;
   for (
     let platformMatch = platformPattern.exec(fastfileSource);
-    platformMatch !== null && platformMatch.index < laneStartIndex;
+    platformMatch != null && platformMatch.index < laneStartIndex;
     platformMatch = platformPattern.exec(fastfileSource)
   ) {
     lanePlatform = platformMatch[1];
@@ -196,19 +196,19 @@ export const parseFastfile = (
   const fastlaneLanes: FastlaneLane[] = [];
   for (const [declarationIndex, laneDeclaration] of laneDeclarations.entries()) {
     const laneName = laneDeclaration[1];
-    if (laneName === undefined) continue;
+    if (laneName == null) continue;
     const laneStartIndex = laneDeclaration.index;
     const laneSourceStart = laneStartIndex + laneDeclaration[0].length;
     let laneSourceEnd = fastfileSource.length;
     const nextDeclaration = laneDeclarations[declarationIndex + 1];
-    if (nextDeclaration !== undefined) laneSourceEnd = nextDeclaration.index;
+    if (nextDeclaration != null) laneSourceEnd = nextDeclaration.index;
     const laneSource = fastfileSource.slice(laneSourceStart, laneSourceEnd);
     const laneActions = KNOWN_ACTIONS.filter((actionName) =>
       containsAction(laneSource, actionName),
     );
     const lanePlatform = findLanePlatform(fastfileSource, laneStartIndex);
     const fastlaneLane: MutableDeep<FastlaneLane> = { name: laneName, actions: laneActions };
-    if (lanePlatform !== undefined) fastlaneLane.platform = lanePlatform;
+    if (lanePlatform != null) fastlaneLane.platform = lanePlatform;
     fastlaneLanes.push(fastlaneLane);
   }
   return {
@@ -397,7 +397,7 @@ export const laneLaunchCommands = (fastlaneLane: FastlaneLane): string[] => {
   const launchCommands: string[] = [];
   for (const actionName of fastlaneLane.actions) {
     const launchCommand = ACTION_LAUNCH_COMMAND[actionName];
-    if (launchCommand === undefined) continue;
+    if (launchCommand == null) continue;
     if (!launchCommands.includes(launchCommand)) launchCommands.push(launchCommand);
   }
   return launchCommands;
@@ -410,7 +410,7 @@ const laneNotes = (fastlaneLanes: readonly FastlaneLane[]): MigrationNote[] => {
     const launchCommands = laneLaunchCommands(fastlaneLane);
     if (launchCommands.length > 0) {
       let laneLabel = `lane :${fastlaneLane.name}`;
-      if (fastlaneLane.platform !== undefined) {
+      if (fastlaneLane.platform != null) {
         laneLabel = `${laneLabel} (${fastlaneLane.platform})`;
       }
       migrationNotes.push({
@@ -419,7 +419,7 @@ const laneNotes = (fastlaneLanes: readonly FastlaneLane[]): MigrationNote[] => {
       });
       continue;
     }
-    if (fastlaneLane.actions.length === 0) customLaneNames.push(fastlaneLane.name);
+    if (fastlaneLane.actions.length == 0) customLaneNames.push(fastlaneLane.name);
   }
   if (customLaneNames.length > 0) {
     migrationNotes.push({
@@ -432,15 +432,15 @@ const laneNotes = (fastlaneLanes: readonly FastlaneLane[]): MigrationNote[] => {
 
 const matchfileNotes = (matchfile: MatchfileData): MigrationNote[] => {
   const signingParts: string[] = [];
-  if (matchfile.type !== undefined) signingParts.push(`type "${matchfile.type}"`);
-  if (matchfile.storageMode !== undefined) {
+  if (matchfile.type != null) signingParts.push(`type "${matchfile.type}"`);
+  if (matchfile.storageMode != null) {
     signingParts.push(`storage "${matchfile.storageMode}"`);
   }
-  if (matchfile.gitUrl !== undefined) signingParts.push(`repo ${matchfile.gitUrl}`);
-  if (signingParts.length === 0) return [];
+  if (matchfile.gitUrl != null) signingParts.push(`repo ${matchfile.gitUrl}`);
+  if (signingParts.length == 0) return [];
   let storageExplanation = '';
   const storageMode = matchfile.storageMode;
-  if (storageMode !== undefined && storageMode !== 'git') {
+  if (storageMode != null && storageMode != 'git') {
     storageExplanation = ` Your certificates live in ${storageMode}, not git - Launch doesn't read them; it provisions fresh.`;
   }
   return [
@@ -453,9 +453,9 @@ const matchfileNotes = (matchfile: MatchfileData): MigrationNote[] => {
 
 const appfileNotes = (appfile: AppfileData): MigrationNote[] => {
   const migrationNotes: MigrationNote[] = [];
-  let hasAppleAccount = appfile.appleId !== undefined;
-  if (appfile.teamId !== undefined) hasAppleAccount = true;
-  if (appfile.itcTeamId !== undefined) hasAppleAccount = true;
+  let hasAppleAccount = appfile.appleId != null;
+  if (appfile.teamId != null) hasAppleAccount = true;
+  if (appfile.itcTeamId != null) hasAppleAccount = true;
   if (hasAppleAccount) {
     migrationNotes.push({
       level: 'manual',
@@ -463,7 +463,7 @@ const appfileNotes = (appfile: AppfileData): MigrationNote[] => {
         'Appfile carried Apple account details (apple_id/team_id) - configure your Apple API key with `launch creds set-key`.',
     });
   }
-  if (appfile.appIdentifier !== undefined) {
+  if (appfile.appIdentifier != null) {
     migrationNotes.push({
       level: 'info',
       message: `Appfile app_identifier ${appfile.appIdentifier} - Launch reads the bundle id from app.json; nothing to write.`,
@@ -474,13 +474,13 @@ const appfileNotes = (appfile: AppfileData): MigrationNote[] => {
 
 const supplyNotes = (supplyfile: SupplyfileData): MigrationNote[] => {
   const migrationNotes: MigrationNote[] = [];
-  if (supplyfile.jsonKey !== undefined) {
+  if (supplyfile.jsonKey != null) {
     migrationNotes.push({
       level: 'manual',
       message: `Supplyfile referenced a Play service-account key (${supplyfile.jsonKey}) - configure it with \`launch creds\`.`,
     });
   }
-  if (supplyfile.track !== undefined) {
+  if (supplyfile.track != null) {
     migrationNotes.push({
       level: 'manual',
       message: `Supplyfile default Play track "${supplyfile.track}" - set it as \`track\` on a profile in launch.config.ts.`,
@@ -492,13 +492,13 @@ const supplyNotes = (supplyfile: SupplyfileData): MigrationNote[] => {
 const appDescriptorNotes = (apps: AppDescriptor[]): MigrationNote[] => {
   const migrationNotes: MigrationNote[] = [];
   for (const app of apps) {
-    if (app.bundleId !== undefined) {
+    if (app.bundleId != null) {
       migrationNotes.push({
         level: 'info',
         message: `Detected iOS bundle id ${app.bundleId} for "${app.name}" - read from app.json; nothing to write.`,
       });
     }
-    if (app.packageName !== undefined) {
+    if (app.packageName != null) {
       migrationNotes.push({
         level: 'info',
         message: `Detected Android package ${app.packageName} for "${app.name}" - read from app.json; nothing to write.`,
@@ -522,13 +522,13 @@ export const migrationNotesFor = (
     if (!groupPresent) continue;
     migrationNotes.push({ level: actionGroup.noteLevel, message: actionGroup.noteMessage });
   }
-  if (fastlaneSetup.matchfile !== undefined) {
+  if (fastlaneSetup.matchfile != null) {
     migrationNotes.push(...matchfileNotes(fastlaneSetup.matchfile));
   }
-  if (fastlaneSetup.appfile !== undefined) {
+  if (fastlaneSetup.appfile != null) {
     migrationNotes.push(...appfileNotes(fastlaneSetup.appfile));
   }
-  if (fastlaneSetup.supply !== undefined) {
+  if (fastlaneSetup.supply != null) {
     migrationNotes.push(...supplyNotes(fastlaneSetup.supply));
   }
   if (fastlaneSetup.hasDeliverfile && !importedMetadata) {

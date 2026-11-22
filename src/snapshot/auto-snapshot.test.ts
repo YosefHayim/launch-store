@@ -6,7 +6,7 @@ import type { LaunchConfig } from '../types/config.ts';
 import type { SnapshotContext } from '../types/snapshot.ts';
 import { AUTO_SNAPSHOT_PREFIX, autoSnapshotName, captureAutoSnapshot } from './auto-snapshot.ts';
 
-const CONFIG: LaunchConfig = {
+const sampleLaunchConfig: LaunchConfig = {
   profiles: {},
   credentials: 'local',
   storage: 'local',
@@ -16,7 +16,7 @@ const CONFIG: LaunchConfig = {
 
 function snapshotContext(over: Partial<SnapshotContext> = {}): SnapshotContext {
   return {
-    config: CONFIG,
+    config: sampleLaunchConfig,
     apps: [],
     resolveAscApi: () => Promise.resolve(null),
     resolvePlayApi: () => Promise.resolve(null),

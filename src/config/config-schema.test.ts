@@ -8,9 +8,9 @@ describe('loadConfigSchema', () => {
     // via `$ref` -> `#/definitions/LaunchConfig` when the root carries an identifier.
     const rootName = schema.$ref?.split('/').pop();
     let root = schema;
-    if (rootName !== undefined) {
+    if (rootName != null) {
       const rootDefinition = schema.definitions?.[rootName];
-      if (rootDefinition !== undefined) {
+      if (rootDefinition != null) {
         root = rootDefinition;
       }
     }
@@ -45,7 +45,7 @@ describe('validateConfig', () => {
 
   it('flags a missing `profiles` at its own path', () => {
     const violations = validateConfig({});
-    expect(violations.some((violation) => violation.path === 'profiles')).toBe(true);
+    expect(violations.some((violation) => violation.path == 'profiles')).toBe(true);
   });
 
   it('rejects a bad enum value at its field path', () => {
@@ -53,7 +53,7 @@ describe('validateConfig', () => {
       profiles: { production: { name: 'production' } },
       release: { releaseType: 'WHENEVER' },
     });
-    expect(violations.some((violation) => violation.path === 'release.releaseType')).toBe(true);
+    expect(violations.some((violation) => violation.path == 'release.releaseType')).toBe(true);
   });
 
   it('flags a malformed nested field at its dotted path', () => {
@@ -61,7 +61,7 @@ describe('validateConfig', () => {
       profiles: { production: { name: 'production', sizeBudgetMB: 'big' } },
     });
     expect(
-      violations.some((violation) => violation.path === 'profiles.production.sizeBudgetMB'),
+      violations.some((violation) => violation.path == 'profiles.production.sizeBudgetMB'),
     ).toBe(true);
   });
 

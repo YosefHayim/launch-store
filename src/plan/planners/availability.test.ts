@@ -8,7 +8,7 @@ import { makeAscApiFake } from '../../testkit/asc-api-fake.testkit.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
-const ALPHA: AppDescriptor = {
+const alpha: AppDescriptor = {
   name: 'alpha',
   dir: '/no/such/dir/alpha',
   configPath: '/no/such/dir/alpha/app.json',
@@ -37,7 +37,7 @@ const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext =>
   };
   return {
     config,
-    apps: [ALPHA],
+    apps: [alpha],
     resolveAscApi: () => Promise.resolve(api),
     resolvePlayApi: () => Promise.resolve(null),
   };
@@ -56,7 +56,7 @@ describe('availabilityPlanner', () => {
       makeCtx(null, writeConfig({ territories: ['USA'] })),
     );
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.hint).toMatch(/creds/);
   });
   it('reports the territory change a fresh config would apply (two-way)', async () => {
@@ -65,8 +65,8 @@ describe('availabilityPlanner', () => {
       makeCtx(makeAscApiFake(), writeConfig({ territories: ['USA'] })),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.direction).toBe('two-way');
     expect(plan.apps[0]?.actions.some((a) => a.description.includes('store availability'))).toBe(
       true,
@@ -85,8 +85,8 @@ describe('availabilityPlanner', () => {
       makeCtx(api, writeConfig({ territories: ['USA'], availableInNewTerritories: false })),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });
   it('captures a missing app record as a per-app error, not a thrown plan', async () => {
@@ -96,8 +96,8 @@ describe('availabilityPlanner', () => {
       makeCtx(api, writeConfig({ territories: ['USA'] })),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
   });
   it('is strictly read-only: never invokes a write endpoint', async () => {

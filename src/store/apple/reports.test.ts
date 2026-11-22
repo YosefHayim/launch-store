@@ -117,9 +117,9 @@ const fixtureEntries = <Entry>(
   entriesByParent: Record<string, Entry[]> | undefined,
   parentId: string,
 ): Entry[] => {
-  if (entriesByParent === undefined) return [];
+  if (entriesByParent == null) return [];
   const entries = entriesByParent[parentId];
-  if (entries === undefined) return [];
+  if (entries == null) return [];
   return entries;
 };
 
@@ -127,13 +127,13 @@ const fixtureEntries = <Entry>(
 const makeApi = (fixtures: ReportsApiFixtures): AscReportsApi => {
   return {
     getAppId: vi.fn((bundleId: string) => {
-      if (fixtures.appId === undefined) return Promise.resolve(null);
+      if (fixtures.appId == null) return Promise.resolve(null);
       const appId = fixtures.appId[bundleId];
-      if (appId === undefined) return Promise.resolve(null);
+      if (appId == null) return Promise.resolve(null);
       return Promise.resolve(appId);
     }),
     listAnalyticsReportRequests: vi.fn(() => {
-      if (fixtures.requests === undefined) return Promise.resolve([]);
+      if (fixtures.requests == null) return Promise.resolve([]);
       return Promise.resolve(fixtures.requests);
     }),
     createAnalyticsReportRequest: vi.fn((_appId: string, accessType: string) =>

@@ -86,12 +86,12 @@ describe('reconcileEuDistributionDomains', () => {
   it('captures a failed create without aborting the rest of the walk', async () => {
     const { api } = makeApi([]);
     api.createAlternativeDistributionDomain = (domain) => {
-      if (domain === 'downloads.acme.com') return Promise.reject(new Error('invalid domain'));
+      if (domain == 'downloads.acme.com') return Promise.reject(new Error('invalid domain'));
       return Promise.resolve();
     };
     const actions = await runReconcile(api, CONFIG, false);
     const summary = summarize(actions);
     expect(summary).toEqual({ applied: 1, failed: 1, skipped: 0 });
-    expect(actions.find((action) => action.status === 'failed')?.error).toBe('invalid domain');
+    expect(actions.find((action) => action.status == 'failed')?.error).toBe('invalid domain');
   });
 });

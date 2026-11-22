@@ -187,7 +187,7 @@ async function resolveGameCenterTarget(
 }
 
 function isPlannedAction(plannedAction: { status: string }): boolean {
-  return plannedAction.status === 'planned';
+  return plannedAction.status == 'planned';
 }
 
 /** Plan, confirm, and apply Game Center changes. */
@@ -225,7 +225,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
 
     const plannedActions = gameCenterPlan.actions.filter(isPlannedAction);
     logger.gap();
-    const isAlreadyInSync = gameCenterPlan.actions.length === 0;
+    const isAlreadyInSync = gameCenterPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
       logger.step(
@@ -237,7 +237,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
 
     const actionLines = gameCenterPlan.actions.map(renderStoreSurfaceAction);
     logger.notice(gameCenterTarget.bundleId, ...actionLines);
-    const hasNothingToApply = plannedActions.length === 0;
+    const hasNothingToApply = plannedActions.length == 0;
 
     if (hasNothingToApply) {
       logger.gap();

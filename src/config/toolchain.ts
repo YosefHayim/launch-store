@@ -78,12 +78,9 @@ export const ANDROID_TOOLS: Tool[] = [
   },
   { label: 'Node', command: 'node', tier: 'required', install: { kind: 'brew', formula: 'node' } },
 ];
-/** The official Homebrew installer one-liner, run verbatim under `bash -c` so its `$(curl ...)` substitution and `/dev/tty` prompts work. */
-const HOMEBREW_INSTALL_COMMAND =
-  '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"';
 /** The single-line, actionable fix for a missing tool - `brew install ...` or the guide text. */
 export const fixHint = (tool: Tool): string => {
-  if (tool.install.kind === 'brew') return `brew install ${tool.install.formula}`;
+  if (tool.install.kind == 'brew') return `brew install ${tool.install.formula}`;
   return tool.install.how;
 };
 /**
@@ -97,8 +94,8 @@ export const planInstall = (
   guided: Tool[];
 } => {
   return {
-    brew: missing.filter((tool) => tool.install.kind === 'brew'),
-    guided: missing.filter((tool) => tool.install.kind === 'guide'),
+    brew: missing.filter((tool) => tool.install.kind == 'brew'),
+    guided: missing.filter((tool) => tool.install.kind == 'guide'),
   };
 };
 /**
@@ -139,7 +136,7 @@ export async function missingRequiredTools(io?: Pick<ToolchainIo, 'exists'>): Pr
  * non-zero, so the SSH step fails fast with an actionable message instead of a cryptic mid-build error.
  */
 export const remoteToolchainPreflight = (mode: 'install' | 'assert'): string => {
-  const canInstall = mode === 'install';
+  const canInstall = mode == 'install';
   // Single-quote any message embedded in `echo` so backticks in a hint (e.g. Xcode's) stay literal.
   const q = (text: string): string => `'${text.replace(/'/g, "'\\''")}'`;
   const lines: string[] = ['set -uo pipefail', 'MISSING=0'];
@@ -152,13 +149,13 @@ export const remoteToolchainPreflight = (mode: 'install' | 'assert'): string => 
   }
   for (const tool of REQUIRED_TOOLS) {
     const present = `command -v ${tool.command} >/dev/null 2>&1`;
-    if (canInstall && tool.install.kind === 'brew') {
+    if (canInstall && tool.install.kind == 'brew') {
       lines.push(
         `if ! ${present}; then echo ${q(`-> installing ${tool.label}`)}; ` +
           `if ! brew install ${tool.install.formula}; then echo ${q(`- ${tool.label} install failed; checking again`)}; fi; fi`,
       );
     }
-    if (tool.tier === 'required') {
+    if (tool.tier == 'required') {
       lines.push(
         `if ! ${present}; then echo ${q(`x ${tool.label} missing - ${fixHint(tool)}`)}; MISSING=1; fi`,
       );
@@ -314,8 +311,6 @@ export async function ensureToolchain(options: EnsureToolchainOptions = {}): Pro
 }
 /** ccache cap and the sloppiness flags that make caching reliable for Xcode/CocoaPods ObjC/C++ builds. */
 const CCACHE_MAX_SIZE = '10G';
-const CCACHE_SLOPPINESS =
-  'clang_index_store,file_stat_matches,include_file_ctime,include_file_mtime,ivfsoverlay,pch_defines,modules,system_headers,time_macros';
 /**
  * Configure ccache once, right after installing it: a generous size cap so warm objects survive between
  * builds, plus the sloppiness flags Xcode/CocoaPods builds need to actually hit the cache (timestamps and
@@ -324,7 +319,10 @@ const CCACHE_SLOPPINESS =
 async function configureCcache(io: ToolchainIo): Promise<void> {
   await io.log(`-> configuring ccache (max-size ${CCACHE_MAX_SIZE}, Xcode-friendly sloppiness)...`);
   await io.run('ccache', ['--max-size', CCACHE_MAX_SIZE]);
-  await io.run('ccache', ['--set-config', `sloppiness=${CCACHE_SLOPPINESS}`]);
+  await io.run('ccache', [
+    '--set-config',
+    `sloppiness=${'clang_index_store,file_stat_matches,include_file_ctime,include_file_mtime,ivfsoverlay,pch_defines,modules,system_headers,time_macros'}`,
+  ]);
 }
 /** The outcome of the inline ccache offer, so a build can log it and persist a decline correctly. */
 type CcacheOfferResult = 'installed' | 'declined' | 'skipped-no-brew' | 'skipped-noninteractive';
@@ -454,7 +452,10 @@ async function ensureHomebrew(io: ToolchainIo, assumeYes: boolean): Promise<bool
   }
 
   await io.log('-> installing Homebrew (official installer)...');
-  await io.run('/bin/bash', ['-c', HOMEBREW_INSTALL_COMMAND]);
+  await io.run('/bin/bash', [
+    '-c',
+    '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
+  ]);
 
   return io.exists('brew');
 }

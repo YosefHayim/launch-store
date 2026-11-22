@@ -18,13 +18,13 @@ const metadataInputFromOptions = (
   commandOptions: MetadataOptions,
 ): MetadataCommandInput => {
   let metadataInput: MetadataCommandInput = { operation, dryRun: commandOptions.dryRun };
-  if (commandOptions.platform !== undefined) {
+  if (commandOptions.platform != null) {
     metadataInput = { ...metadataInput, platform: commandOptions.platform };
   }
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     metadataInput = { ...metadataInput, app: commandOptions.app };
   }
-  if (commandOptions.config !== undefined) {
+  if (commandOptions.config != null) {
     metadataInput = { ...metadataInput, config: commandOptions.config };
   }
   return metadataInput;

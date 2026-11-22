@@ -23,14 +23,14 @@ export const registerReleaseConfigCommand = (program: Command): void => {
     .action((commandOptions: ReleaseConfigOptions, command: Command) => {
       const requiredCommandInput = {
         configPath: commandOptions.config,
-        explicitConfigPath: command.getOptionValueSource('config') === 'cli',
-        dryRun: commandOptions.dryRun === true,
-        yes: commandOptions.yes === true,
+        explicitConfigPath: command.getOptionValueSource('config') == 'cli',
+        dryRun: commandOptions.dryRun == true,
+        yes: commandOptions.yes == true,
       };
       const commandInput: typeof requiredCommandInput & { app?: string } = {
         ...requiredCommandInput,
       };
-      if (commandOptions.app !== undefined) commandInput.app = commandOptions.app;
+      if (commandOptions.app != null) commandInput.app = commandOptions.app;
       return runCliProgram(releaseConfigCommandProgram(commandInput));
     });
 };

@@ -10,11 +10,11 @@ export const retryAppleTransportRequest = async <TransportResponse>(
   retryPolicy: AppleTransportRetryPolicy,
 ): Promise<TransportResponse> => {
   let attempts = 4;
-  if (retryPolicy.attempts !== undefined) attempts = retryPolicy.attempts;
+  if (retryPolicy.attempts != null) attempts = retryPolicy.attempts;
   let baseDelayMs = 500;
-  if (retryPolicy.baseDelayMs !== undefined) baseDelayMs = retryPolicy.baseDelayMs;
+  if (retryPolicy.baseDelayMs != null) baseDelayMs = retryPolicy.baseDelayMs;
   let maximumDelayMs = 8000;
-  if (retryPolicy.maximumDelayMs !== undefined) maximumDelayMs = retryPolicy.maximumDelayMs;
+  if (retryPolicy.maximumDelayMs != null) maximumDelayMs = retryPolicy.maximumDelayMs;
 
   let lastTransportFailure: unknown;
   for (let attemptNumber = 1; attemptNumber <= attempts; attemptNumber += 1) {
@@ -23,7 +23,7 @@ export const retryAppleTransportRequest = async <TransportResponse>(
       return await requestAttempt();
     } catch (transportFailure) {
       lastTransportFailure = transportFailure;
-      if (attemptNumber === attempts) throw transportFailure;
+      if (attemptNumber == attempts) throw transportFailure;
       if (!retryPolicy.isRetryableFailure(transportFailure)) throw transportFailure;
       const retryDelayMs = Math.min(maximumDelayMs, baseDelayMs * 2 ** (attemptNumber - 1));
       await new Promise<void>((resumeRetry) => setTimeout(resumeRetry, retryDelayMs));
@@ -41,17 +41,17 @@ type NumericVersion = {
 /** Parse the numeric core of an App Store marketing version. */
 const parseNumericVersion = (marketingVersion: string): NumericVersion | null => {
   const versionCore = marketingVersion.trim().replace(/^v/i, '').split(/[-+]/)[0];
-  if (versionCore === undefined) return null;
+  if (versionCore == null) return null;
   if (!/^\d+(\.\d+){0,2}$/.test(versionCore)) return null;
   const versionParts = versionCore
     .split('.')
     .map((versionPart) => Number.parseInt(versionPart, 10));
   let major = 0;
-  if (versionParts[0] !== undefined) major = versionParts[0];
+  if (versionParts[0] != null) major = versionParts[0];
   let minor = 0;
-  if (versionParts[1] !== undefined) minor = versionParts[1];
+  if (versionParts[1] != null) minor = versionParts[1];
   let patch = 0;
-  if (versionParts[2] !== undefined) patch = versionParts[2];
+  if (versionParts[2] != null) patch = versionParts[2];
   return {
     major,
     minor,
@@ -63,8 +63,8 @@ const parseNumericVersion = (marketingVersion: string): NumericVersion | null =>
 const compareNumericVersions = (leftVersion: string, rightVersion: string): number => {
   const leftParts = parseNumericVersion(leftVersion);
   const rightParts = parseNumericVersion(rightVersion);
-  if (leftParts === null) return -1;
-  if (rightParts === null) return 1;
+  if (leftParts == null) return -1;
+  if (rightParts == null) return 1;
   for (const versionPart of ['major', 'minor', 'patch'] as const) {
     if (leftParts[versionPart] < rightParts[versionPart]) return -1;
     if (leftParts[versionPart] > rightParts[versionPart]) return 1;
@@ -76,9 +76,9 @@ export const highestAppleMarketingVersion = (
   marketingVersions: readonly string[],
 ): string | null => {
   const parseableVersions = marketingVersions.filter(
-    (marketingVersion) => parseNumericVersion(marketingVersion) !== null,
+    (marketingVersion) => parseNumericVersion(marketingVersion) != null,
   );
-  if (parseableVersions.length === 0) return null;
+  if (parseableVersions.length == 0) return null;
   return parseableVersions.reduce((highestVersion, marketingVersion) => {
     if (compareNumericVersions(marketingVersion, highestVersion) > 0) return marketingVersion;
     return highestVersion;

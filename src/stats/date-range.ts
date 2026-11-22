@@ -5,7 +5,7 @@ export const MAX_SYNC_DAYS = 365;
 export const DEFAULT_SYNC_DAYS = 30;
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
-const HOUR_MILLISECONDS = 60 * 60 * 1000;
+const hourMilliseconds = 60 * 60 * 1000;
 
 export const shiftDate = (date: string, dayCount: number): string => {
   const shiftedMilliseconds = Date.parse(`${date}T00:00:00.000Z`) + dayCount * DAY_MILLISECONDS;
@@ -41,5 +41,5 @@ export const isSyncedAtStale = (lastSyncedAt: string, nowMilliseconds: number): 
   const isTimeUnreadable = Number.isNaN(lastSyncedMilliseconds);
   if (isTimeUnreadable) return true;
   const statsStaleAfterHours = 12;
-  return nowMilliseconds - lastSyncedMilliseconds > statsStaleAfterHours * HOUR_MILLISECONDS;
+  return nowMilliseconds - lastSyncedMilliseconds > statsStaleAfterHours * hourMilliseconds;
 };

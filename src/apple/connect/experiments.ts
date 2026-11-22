@@ -19,19 +19,19 @@ export class ConnectExperiments {
     );
     return appleResources.flatMap((experiment) => {
       const experimentName = experiment.attributes.name;
-      if (experimentName === undefined) return [];
+      if (experimentName == null) return [];
       let state = experiment.attributes.state;
-      if (state === undefined) state = '';
+      if (state == null) state = '';
       const versionExperiment: VersionExperimentResource = {
         id: experiment.id,
         name: experimentName,
         state,
       };
-      if (experiment.attributes.trafficProportion !== undefined)
+      if (experiment.attributes.trafficProportion != null)
         Object.assign(versionExperiment, {
           trafficProportion: experiment.attributes.trafficProportion,
         });
-      if (experiment.attributes.startDate !== undefined)
+      if (experiment.attributes.startDate != null)
         Object.assign(versionExperiment, { startDate: experiment.attributes.startDate });
       return [versionExperiment];
     });
@@ -75,7 +75,7 @@ export class ConnectExperiments {
     );
     return appleResources.flatMap((treatment) => {
       const treatmentName = treatment.attributes.name;
-      if (treatmentName === undefined) return [];
+      if (treatmentName == null) return [];
       return [{ id: treatment.id, name: treatmentName }];
     });
   }
@@ -128,7 +128,7 @@ export class ConnectExperiments {
     );
     return appleResources.flatMap((localization) => {
       const locale = localization.attributes.locale;
-      if (locale === undefined) return [];
+      if (locale == null) return [];
       return [{ id: localization.id, locale }];
     });
   }

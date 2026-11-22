@@ -50,7 +50,7 @@ const groupByKey = <Member>(
   const keys = [...new Set(members.map(readKey))].sort((first, second) =>
     first.localeCompare(second),
   );
-  return keys.map((key) => ({ key, members: members.filter((member) => readKey(member) === key) }));
+  return keys.map((key) => ({ key, members: members.filter((member) => readKey(member) == key) }));
 };
 
 const groupStats = (stats: readonly DailyStat[]): StatGroup[] =>
@@ -74,9 +74,9 @@ export const foldMetricStats = (metric: StatsMetric, stats: readonly DailyStat[]
   const aggregation = METRIC_AGGREGATION[metric];
   const sortedStats = sortByDate(stats);
   const latestStat = sortedStats[sortedStats.length - 1];
-  const isLatestRule = aggregation === 'latest' && latestStat !== undefined;
+  const isLatestRule = aggregation == 'latest' && latestStat != null;
   if (isLatestRule) return latestStat.value;
-  const isAverageRule = aggregation === 'average' && stats.length > 0;
+  const isAverageRule = aggregation == 'average' && stats.length > 0;
   if (isAverageRule) return sumAmounts(stats) / stats.length;
   return sumAmounts(stats);
 };
@@ -107,7 +107,7 @@ export const pickHeadlineTotals = (
   preferredMetrics: readonly StatsMetric[],
 ): MetricTotal[] => {
   for (const metric of preferredMetrics) {
-    const metricTotals = totals.filter((total) => total.metric === metric);
+    const metricTotals = totals.filter((total) => total.metric == metric);
     const hasMetricTotals = metricTotals.length > 0;
     if (hasMetricTotals) return metricTotals;
   }
@@ -121,14 +121,14 @@ export const readHeadlineTotal = (
 ): number | null => {
   const headlineTotals = pickHeadlineTotals(totals, preferredMetrics);
   const firstTotal = headlineTotals[0];
-  if (firstTotal === undefined) return null;
-  if (firstTotal.aggregation !== 'sum') return firstTotal.total;
+  if (firstTotal == null) return null;
+  if (firstTotal.aggregation != 'sum') return firstTotal.total;
   return headlineTotals.reduce((runningTotal, total) => runningTotal + total.total, 0);
 };
 
 /** The proceeds totals, one per currency. */
 export const listProceedsTotals = (totals: readonly MetricTotal[]): MetricTotal[] =>
-  totals.filter((total) => total.metric === 'proceeds');
+  totals.filter((total) => total.metric == 'proceeds');
 
 /** One daily series for a headline: the first preferred metric that has points, feeds added per day. */
 export const mergeHeadlinePoints = (
@@ -137,7 +137,7 @@ export const mergeHeadlinePoints = (
 ): DailyPoint[] => {
   for (const metric of preferredMetrics) {
     const metricSeries = series.filter(
-      (oneSeries) => oneSeries.metric === metric && oneSeries.points.length > 0,
+      (oneSeries) => oneSeries.metric == metric && oneSeries.points.length > 0,
     );
     const hasMetricSeries = metricSeries.length > 0;
     if (!hasMetricSeries) continue;
@@ -153,9 +153,9 @@ export const mergeHeadlinePoints = (
 /** An app is stale when the sync could not run, or one of its own feeds failed. */
 export const isAppStale = (freshness: StatsFreshness, appKey: string): boolean => {
   if (!freshness.isStale) return false;
-  if (freshness.report === null) return true;
+  if (freshness.report == null) return true;
   return freshness.report.appFeeds.some(
-    (appFeed) => appFeed.appKey === appKey && appFeed.status === 'failed',
+    (appFeed) => appFeed.appKey == appKey && appFeed.status == 'failed',
   );
 };
 
@@ -163,9 +163,9 @@ export const isAppStale = (freshness: StatsFreshness, appKey: string): boolean =
 export const listAppMessages = (appCoverage: AppCoverage): string[] =>
   STATS_FEEDS.flatMap((feed) => {
     const feedCoverage = findFeedCoverage(appCoverage, feed);
-    const isFeedNeverSynced = feedCoverage === null;
+    const isFeedNeverSynced = feedCoverage == null;
     if (isFeedNeverSynced) return [];
     return [feedCoverage.lastError, feedCoverage.lastNote]
-      .filter((message) => message !== null)
+      .filter((message) => message != null)
       .map((message) => `${feed}: ${message}`);
   });

@@ -11,9 +11,6 @@ interface StatsSyncCommandRequest {
   readonly isJson: boolean;
 }
 
-// A whole number written with digits only.
-const DAYS_PATTERN = /^[0-9]+$/;
-
 function isUsageFailure(cause: unknown): cause is UsageFailure {
   if (cause == null) {
     return false;
@@ -74,7 +71,7 @@ function finishUsageFailure(usageFailure: UsageFailure, isJson: boolean): never 
 }
 
 function isDaysInRange(daysFlag: string): boolean {
-  const isWholeNumber = DAYS_PATTERN.test(daysFlag);
+  const isWholeNumber = /^[0-9]+$/.test(daysFlag);
 
   if (isWholeNumber == false) {
     return false;

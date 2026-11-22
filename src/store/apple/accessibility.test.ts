@@ -217,7 +217,7 @@ describe('reconcileAccessibility', () => {
     });
     expect(calls.created).toHaveLength(0);
     expect(calls.updated).toHaveLength(0);
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
     expect(report.actions).toHaveLength(2); // create + publish, both planned
   });
   it("captures a failed create and skips that family's publish", async () => {
@@ -231,7 +231,7 @@ describe('reconcileAccessibility', () => {
     });
     const summary = summarizeAccessibility(report.actions);
     expect(summary).toEqual({ applied: 0, failed: 1, skipped: 1 });
-    expect(report.actions.find((action) => action.status === 'failed')?.error).toBe(
+    expect(report.actions.find((action) => action.status == 'failed')?.error).toBe(
       'device family not eligible',
     );
   });

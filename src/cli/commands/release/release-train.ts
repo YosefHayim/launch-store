@@ -60,15 +60,14 @@ export const registerReleaseTrainCommand = (program: Command): void => {
         env: commandOptions.env,
         includeLocal: commandOptions.includeLocal,
       };
-      if (commandOptions.app !== undefined) releaseTrainOptions.app = commandOptions.app;
-      if (commandOptions.platform !== undefined)
-        releaseTrainOptions.platform = commandOptions.platform;
-      if (commandOptions.hold !== undefined) releaseTrainOptions.hold = commandOptions.hold;
-      if (commandOptions.runtimeVersion !== undefined)
+      if (commandOptions.app != null) releaseTrainOptions.app = commandOptions.app;
+      if (commandOptions.platform != null) releaseTrainOptions.platform = commandOptions.platform;
+      if (commandOptions.hold != null) releaseTrainOptions.hold = commandOptions.hold;
+      if (commandOptions.runtimeVersion != null)
         releaseTrainOptions.runtimeVersion = commandOptions.runtimeVersion;
-      if (commandOptions.watch !== undefined) releaseTrainOptions.watch = commandOptions.watch;
-      if (commandOptions.json !== undefined) releaseTrainOptions.json = commandOptions.json;
-      if (trainId === undefined) {
+      if (commandOptions.watch != null) releaseTrainOptions.watch = commandOptions.watch;
+      if (commandOptions.json != null) releaseTrainOptions.json = commandOptions.json;
+      if (trainId == null) {
         return runCliProgram(releaseTrainCommandProgram({ action, options: releaseTrainOptions }));
       }
       return runCliProgram(

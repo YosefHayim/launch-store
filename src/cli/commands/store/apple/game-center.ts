@@ -20,7 +20,7 @@ const gameCenterInputFromOptions = (
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
-  if (commandOptions.app !== undefined) {
+  if (commandOptions.app != null) {
     gameCenterInput = { ...gameCenterInput, app: commandOptions.app };
   }
   return gameCenterInput;
@@ -36,7 +36,7 @@ export const registerGameCenterCommand = (program: Command): void => {
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((commandOptions: GameCenterOptions, registeredCommand: Command) => {
-      const explicitConfig = registeredCommand.getOptionValueSource('config') === 'cli';
+      const explicitConfig = registeredCommand.getOptionValueSource('config') == 'cli';
       return runCliProgram(
         gameCenterCommandProgram(gameCenterInputFromOptions(commandOptions, explicitConfig)),
       );

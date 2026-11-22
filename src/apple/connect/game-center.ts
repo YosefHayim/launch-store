@@ -20,7 +20,7 @@ export class ConnectGameCenter {
           id: string;
         } | null;
       }>('GET', `/apps/${appId}/gameCenterDetail`);
-      if (appleResources === null) return null;
+      if (appleResources == null) return null;
       return { id: appleResources.id };
     });
   }
@@ -46,7 +46,7 @@ export class ConnectGameCenter {
     );
     return appleResources.map((achievement) => {
       const achievementResource: GameCenterAchievementResource = { id: achievement.id };
-      if (achievement.attributes.vendorIdentifier !== undefined)
+      if (achievement.attributes.vendorIdentifier != null)
         Object.assign(achievementResource, {
           vendorIdentifier: achievement.attributes.vendorIdentifier,
         });
@@ -86,7 +86,7 @@ export class ConnectGameCenter {
     }>('POST', this.client.v2('/gameCenterAchievements'), requestDocument);
     let versionId: string | null = null;
     const returnedVersionId = appleResources.relationships?.versions?.data?.[0]?.id;
-    if (returnedVersionId !== undefined) versionId = returnedVersionId;
+    if (returnedVersionId != null) versionId = returnedVersionId;
     return { id: appleResources.id, versionId };
   }
 
@@ -124,7 +124,7 @@ export class ConnectGameCenter {
     );
     return appleResources.map((leaderboard) => {
       const leaderboardResource: GameCenterLeaderboardResource = { id: leaderboard.id };
-      if (leaderboard.attributes.vendorIdentifier !== undefined)
+      if (leaderboard.attributes.vendorIdentifier != null)
         Object.assign(leaderboardResource, {
           vendorIdentifier: leaderboard.attributes.vendorIdentifier,
         });
@@ -164,7 +164,7 @@ export class ConnectGameCenter {
     }>('POST', this.client.v2('/gameCenterLeaderboards'), requestDocument);
     let versionId: string | null = null;
     const returnedVersionId = appleResources.relationships?.versions?.data?.[0]?.id;
-    if (returnedVersionId !== undefined) versionId = returnedVersionId;
+    if (returnedVersionId != null) versionId = returnedVersionId;
     return { id: appleResources.id, versionId };
   }
 

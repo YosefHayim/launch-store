@@ -65,9 +65,6 @@ export type AscOffersApi = {
   reorderPromotedPurchases(appId: string, orderedIds: string[]): Promise<void>;
 };
 
-/** Default territory for an {@link OfferPrice} that doesn't name one - matches the rest of the catalog. */
-const DEFAULT_TERRITORY = 'USA';
-
 /** Inputs to reconcile one app's offers. */
 type ReconcileOffersInput = {
   bundleId: string;
@@ -98,7 +95,7 @@ async function resolvePrices(
   const resolved: ResolvedOfferPrice[] = [];
 
   for (const price of prices) {
-    let territory = DEFAULT_TERRITORY;
+    let territory = 'USA';
     const declaredTerritory = price.territory;
     const hasTerritory = declaredTerritory != null;
 

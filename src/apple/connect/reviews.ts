@@ -17,7 +17,7 @@ export class ConnectReviews {
     } = {},
   ): Promise<CustomerReviewResource[]> {
     let path = `/apps/${appId}/customerReviews?include=response&sort=-createdDate&limit=200`;
-    if (filters.rating !== undefined) path += `&filter[rating]=${filters.rating}`;
+    if (filters.rating != null) path += `&filter[rating]=${filters.rating}`;
     if (filters.territory) path += `&filter[territory]=${encodeURIComponent(filters.territory)}`;
     const reviews: CustomerReviewResource[] = [];
     let next: string | undefined = path;
@@ -26,20 +26,19 @@ export class ConnectReviews {
       const page: CustomerReviewPage = await this.client.request<CustomerReviewPage>('GET', next);
       for (const { id, attributes, relationships } of page.data) {
         let rating = attributes.rating;
-        if (typeof rating !== 'number') rating = 0;
+        if (typeof rating != 'number') rating = 0;
         const customerReview: CustomerReviewResource = {
           id,
           rating,
           answered: Boolean(relationships?.response?.data),
         };
-        if (attributes.title !== undefined)
-          Object.assign(customerReview, { title: attributes.title });
-        if (attributes.body !== undefined) Object.assign(customerReview, { body: attributes.body });
-        if (attributes.reviewerNickname !== undefined)
+        if (attributes.title != null) Object.assign(customerReview, { title: attributes.title });
+        if (attributes.body != null) Object.assign(customerReview, { body: attributes.body });
+        if (attributes.reviewerNickname != null)
           Object.assign(customerReview, { reviewerNickname: attributes.reviewerNickname });
-        if (attributes.territory !== undefined)
+        if (attributes.territory != null)
           Object.assign(customerReview, { territory: attributes.territory });
-        if (attributes.createdDate !== undefined)
+        if (attributes.createdDate != null)
           Object.assign(customerReview, { createdDate: attributes.createdDate });
         reviews.push(customerReview);
       }
@@ -62,7 +61,7 @@ export class ConnectReviews {
           };
         } | null;
       }>('GET', `/customerReviews/${reviewId}/response`);
-      if (appleResources === null) return null;
+      if (appleResources == null) return null;
       return toReviewResponse(appleResources);
     });
   }

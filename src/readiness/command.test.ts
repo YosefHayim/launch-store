@@ -148,7 +148,7 @@ describe('readinessCommandProgram', () => {
     expect(terminalWrites).toHaveLength(1);
     const printedText = terminalWrites[0];
     expect(printedText).toEqual(expect.any(String));
-    if (typeof printedText !== 'string') return;
+    if (typeof printedText != 'string') return;
     const printedOutcome: unknown = JSON.parse(printedText);
     expect(printedOutcome).toMatchObject({ exitCode: READINESS_EXIT.ok });
     expect(printedOutcome).toMatchObject({ reports: [expect.any(Object)] });

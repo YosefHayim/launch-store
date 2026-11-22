@@ -47,7 +47,7 @@ class FakeOffersApi implements AscOffersApi {
   }
   listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
     let subscriptions: SubscriptionResource[] = [];
-    if (this.subsByGroup[groupId] !== undefined) subscriptions = this.subsByGroup[groupId];
+    if (this.subsByGroup[groupId] != null) subscriptions = this.subsByGroup[groupId];
     return Promise.resolve(subscriptions);
   }
   listInAppPurchases(): Promise<InAppPurchaseResource[]> {
@@ -58,7 +58,7 @@ class FakeOffersApi implements AscOffersApi {
     territory: string,
     customerPrice: number,
   ): Promise<PricePointResource | null> {
-    if (customerPrice === 999) return Promise.resolve(null);
+    if (customerPrice == 999) return Promise.resolve(null);
     return Promise.resolve({
       id: `pp-${territory}-${customerPrice}`,
       customerPrice: String(customerPrice),
@@ -103,9 +103,9 @@ class FakeOffersApi implements AscOffersApi {
   createPromotedPurchase(input: PromotedPurchaseCreate): Promise<PromotedPurchaseResource> {
     this.createdPromoted.push(input);
     let inAppPurchaseId: string | null = null;
-    if (input.inAppPurchaseId !== undefined) inAppPurchaseId = input.inAppPurchaseId;
+    if (input.inAppPurchaseId != null) inAppPurchaseId = input.inAppPurchaseId;
     let subscriptionId: string | null = null;
-    if (input.subscriptionId !== undefined) subscriptionId = input.subscriptionId;
+    if (input.subscriptionId != null) subscriptionId = input.subscriptionId;
     return Promise.resolve({
       id: `pp-new-${this.createdPromoted.length}`,
       inAppPurchaseId,
@@ -291,7 +291,7 @@ describe('reconcileOffers - promotional / introductory / win-back', () => {
         ],
       }),
     });
-    expect(report.actions.every((action) => action.status === 'applied')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'applied')).toBe(true);
     expect(api.createdPromotional).toHaveLength(1);
     expect(api.introCreateCount).toBe(1);
     expect(api.createdWinBack).toHaveLength(1);

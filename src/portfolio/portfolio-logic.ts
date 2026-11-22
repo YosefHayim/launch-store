@@ -40,8 +40,8 @@ export const keepCachedAppsOfFailedAccounts = (
 
 export const joinTags = (apps: readonly DiscoveredApp[], tags: readonly AppTag[]): PortfolioApp[] =>
   apps.map((app) => {
-    const appTag = tags.find((tag) => tag.appKey === app.key);
-    const isAppUntagged = appTag === undefined;
+    const appTag = tags.find((tag) => tag.appKey == app.key);
+    const isAppUntagged = appTag == null;
     if (isAppUntagged) return { ...app, owner: null, ga4PropertyId: null };
     return { ...app, owner: appTag.owner, ga4PropertyId: appTag.ga4PropertyId };
   });
@@ -51,12 +51,12 @@ export const findAppsByName = <FoundApp extends DiscoveredApp>(
   query: string,
 ): FoundApp[] => {
   const needle = query.trim().toLowerCase();
-  const isNeedleEmpty = needle.length === 0;
+  const isNeedleEmpty = needle.length == 0;
   if (isNeedleEmpty) return [];
   return apps.filter((app) => {
     const searchableNames = [app.name, app.bundleId, app.packageName];
     return searchableNames.some((searchableName) => {
-      const isNameMissing = searchableName === null;
+      const isNameMissing = searchableName == null;
       if (isNameMissing) return false;
       return searchableName.toLowerCase().includes(needle);
     });
@@ -68,7 +68,7 @@ export const findAppsByAccount = <FoundApp extends DiscoveredApp>(
   accountLabel: string,
 ): FoundApp[] => {
   const wantedLabel = accountLabel.trim().toLowerCase();
-  return apps.filter((app) => app.accountLabel.toLowerCase() === wantedLabel);
+  return apps.filter((app) => app.accountLabel.toLowerCase() == wantedLabel);
 };
 
 interface PortfolioFilter {
@@ -81,15 +81,15 @@ export const filterPortfolioApps = (
   filter: PortfolioFilter,
 ): PortfolioApp[] =>
   apps.filter((app) => {
-    const isPlatformWrong = filter.platform !== null && app.platform !== filter.platform;
+    const isPlatformWrong = filter.platform != null && app.platform != filter.platform;
     if (isPlatformWrong) return false;
-    const isOwnerWrong = filter.owner !== null && app.owner !== filter.owner;
+    const isOwnerWrong = filter.owner != null && app.owner != filter.owner;
     if (isOwnerWrong) return false;
     return true;
   });
 
 const keepWhenNull = <Field>(newField: Field | null, currentField: Field | null): Field | null => {
-  const isNewFieldMissing = newField === null;
+  const isNewFieldMissing = newField == null;
   if (isNewFieldMissing) return currentField;
   return newField;
 };
@@ -101,8 +101,8 @@ export const applyTagChange = (
 ): AppTag[] => {
   const untouchedTags = tags.filter((tag) => !appKeys.includes(tag.appKey));
   const changedTags = appKeys.map((appKey): AppTag => {
-    const currentTag = tags.find((tag) => tag.appKey === appKey);
-    const isAppUntagged = currentTag === undefined;
+    const currentTag = tags.find((tag) => tag.appKey == appKey);
+    const isAppUntagged = currentTag == null;
     if (isAppUntagged) return { appKey, ...change };
     return {
       appKey,

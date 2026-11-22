@@ -10,12 +10,9 @@ import {
 } from '../types/config.ts';
 import { type JsonSchema, type SchemaViolation, validate } from './json-schema.ts';
 
-const SCHEMA_PATH = fileURLToPath(
+const schemaPath = fileURLToPath(
   new URL('../../schema/launch.config.schema.json', import.meta.url),
 );
-
-const PRODUCT_ID_PATTERN_MESSAGE =
-  'productId may contain only letters, digits, underscores, and periods.';
 
 let cachedSchema: JsonSchema | null = null;
 
@@ -39,7 +36,7 @@ export function loadPublishedConfigSchema(): JsonSchema {
     return rememberedSchema;
   }
 
-  const schemaText = readFileSync(SCHEMA_PATH, 'utf8');
+  const schemaText = readFileSync(schemaPath, 'utf8');
   const loadedSchema = JSON.parse(schemaText) as JsonSchema;
   cachedSchema = loadedSchema;
 
@@ -59,7 +56,10 @@ function rewriteProductIdMessage(violation: SchemaViolation): SchemaViolation {
     return violation;
   }
 
-  return { path: violation.path, message: PRODUCT_ID_PATTERN_MESSAGE };
+  return {
+    path: violation.path,
+    message: 'productId may contain only letters, digits, underscores, and periods.',
+  };
 }
 
 function readAgeRatingAnswers(

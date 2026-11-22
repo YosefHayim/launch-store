@@ -16,7 +16,7 @@ const round1 = (numericAmount: number): number => {
 /** Map a star rating to its sentiment bucket: 4-5 positive, 3 neutral, 1-2 negative. */
 export const sentimentOf = (rating: StarRating): Sentiment => {
   if (rating >= 4) return 'positive';
-  if (rating === 3) return 'neutral';
+  if (rating == 3) return 'neutral';
   return 'negative';
 };
 /**
@@ -69,7 +69,7 @@ export const monthlyTrend = (reviews: readonly ReviewDatum[]): MonthlyRatingPoin
     if (!review.date) continue;
     const month = review.date.slice(0, 7); // "YYYY-MM" from an ISO-8601 timestamp
     let bucket = byMonth.get(month);
-    if (bucket === undefined) bucket = { count: 0, sum: 0 };
+    if (bucket == null) bucket = { count: 0, sum: 0 };
     bucket.count += 1;
     bucket.sum += review.rating;
     byMonth.set(month, bucket);
@@ -85,7 +85,7 @@ export const monthlyTrend = (reviews: readonly ReviewDatum[]): MonthlyRatingPoin
 export const buildAppInsights = (app: string, reviews: readonly ReviewDatum[]): AppInsights => {
   const byStore: AppInsights['byStore'] = {};
   for (const store of ['appstore', 'play'] as const) {
-    const subset = reviews.filter((review) => review.store === store);
+    const subset = reviews.filter((review) => review.store == store);
     if (subset.length > 0) byStore[store] = summarizeRatings(subset);
   }
   return {

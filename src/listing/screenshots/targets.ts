@@ -319,7 +319,7 @@ const appleTargetByDisplayType = new Map(
 );
 const appleTargetsWithPreviews = APPLE_ASSET_TARGETS.filter(
   (assetTarget): assetTarget is AppleAssetTarget & { readonly previewType: string } =>
-    assetTarget.previewType !== undefined,
+    assetTarget.previewType != null,
 );
 const appleTargetByPreviewType = new Map(
   appleTargetsWithPreviews.map((assetTarget) => [assetTarget.previewType, assetTarget]),
@@ -339,12 +339,12 @@ export const findApplePreviewTarget = (previewType: string): AppleAssetTarget | 
 /** Return a display type's friendly label, falling back to an unknown future enum value. */
 export const appleDisplayTypeLabel = (displayType: string): string => {
   const assetTarget = findAppleScreenshotTarget(displayType);
-  if (assetTarget === undefined) return displayType;
+  if (assetTarget == null) return displayType;
   return assetTarget.label;
 };
 /** Return a preview type's friendly label, falling back to an unknown future enum value. */
 export const applePreviewTypeLabel = (previewType: string): string => {
   const assetTarget = findApplePreviewTarget(previewType);
-  if (assetTarget === undefined) return previewType;
+  if (assetTarget == null) return previewType;
   return assetTarget.label;
 };

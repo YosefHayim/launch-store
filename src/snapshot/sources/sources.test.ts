@@ -127,7 +127,7 @@ describe('appleProductsSource', () => {
         resolveAscApi: () => Promise.resolve(ascApi),
       }),
     );
-    if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
+    if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       {
         key: 'com.acme.coins',
@@ -144,7 +144,7 @@ describe('appleProductsSource', () => {
         resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
       }),
     );
-    if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
+    if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps).toEqual([]);
   });
 });
@@ -157,7 +157,7 @@ describe('appleSubscriptionsSource', () => {
         resolveAscApi: () => Promise.resolve(ascApi),
       }),
     );
-    if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
+    if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       {
         key: 'com.acme.pro',
@@ -176,7 +176,7 @@ describe('appleListingSource', () => {
         resolveAscApi: () => Promise.resolve(ascApi),
       }),
     );
-    if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
+    if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       {
         key: 'en-US',
@@ -206,7 +206,7 @@ describe('appleListingSource', () => {
           }),
       }),
     );
-    if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
+    if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([]);
   });
   it('drops an app with no App Store Connect record yet', async () => {
@@ -217,7 +217,7 @@ describe('appleListingSource', () => {
         resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
       }),
     );
-    if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
+    if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps).toEqual([]);
   });
 });
@@ -237,7 +237,7 @@ describe('playProductsSource', () => {
         resolvePlayApi: () => Promise.resolve(playApi),
       }),
     );
-    if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
+    if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       {
         key: 'coins',
@@ -262,7 +262,7 @@ describe('playSubscriptionsSource', () => {
         resolvePlayApi: () => Promise.resolve(playApi),
       }),
     );
-    if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
+    if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       {
         key: 'sub.pro',
@@ -306,7 +306,7 @@ describe('appleCapabilitiesSource', () => {
         resolveAscApi: () => Promise.resolve(ascApi),
       }),
     );
-    if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
+    if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([
       { key: 'ICLOUD', summary: 'capability ICLOUD', data: { capabilityType: 'ICLOUD' } },
       {
@@ -325,7 +325,7 @@ describe('appleCapabilitiesSource', () => {
           Promise.resolve({ ...ascApi, findBundleId: () => Promise.resolve(null) }),
       }),
     );
-    if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
+    if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([]);
   });
 });
@@ -404,7 +404,7 @@ describe('appleListingSource.restore', () => {
         (line) => line.includes('App Store version') && line.includes('description'),
       ),
     ).toBe(true);
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
     expect(api.createAppInfoLocalization).toHaveBeenCalledTimes(0);
     expect(api.createVersionLocalization).toHaveBeenCalledTimes(0);
   });
@@ -436,7 +436,7 @@ describe('appleListingSource.restore', () => {
         whatsNew: 'Bug fixes',
       }),
     );
-    expect(report.actions.every((action) => action.status === 'applied')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'applied')).toBe(true);
   });
 });
 /** A fully-stubbed {@link PlayCatalogApi}. Reads default to "nothing exists yet"; writes resolve. */
@@ -534,7 +534,7 @@ describe('playProductsSource.restore', () => {
         defaultPrice: { priceMicros: '990000', currency: 'USD' },
       }),
     );
-    expect(report.actions.every((action) => action.status === 'applied')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'applied')).toBe(true);
   });
   it('skips a product with no captured listing', async () => {
     const api = makePlayApi();
@@ -617,7 +617,7 @@ describe('playSubscriptionsSource.restore', () => {
       'create Play subscription sub.pro',
       'activate base plan monthly',
     ]);
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
     expect(api.createSubscription).toHaveBeenCalledTimes(0);
   });
   it("applies the create, inverting the base plan's period and prices", async () => {
@@ -679,10 +679,10 @@ describe('mixed Android snapshot capture', () => {
             app({ name: 'beta', packageName: 'com.acme.beta' }),
           ],
           resolvePlayApi: (packageName) =>
-            Promise.resolve(packageName === 'com.acme.alpha' ? playApi : null),
+            Promise.resolve(packageName == 'com.acme.alpha' ? playApi : null),
         }),
       );
-      if (capture.state !== 'captured')
+      if (capture.state != 'captured')
         throw new Error(`Expected partial capture: ${capture.state}`);
       expect(capture.apps.map((item) => item.app)).toEqual(['alpha']);
       expect(capture.skippedApps).toEqual([

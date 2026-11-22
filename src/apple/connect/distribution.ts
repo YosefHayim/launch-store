@@ -18,9 +18,9 @@ export class ConnectDistribution {
     }>('/alternativeDistributionDomains?limit=200');
     return appleResources.map((domain) => {
       const distributionDomain: AlternativeDistributionDomainResource = { id: domain.id };
-      if (domain.attributes.domain !== undefined)
+      if (domain.attributes.domain != null)
         Object.assign(distributionDomain, { domain: domain.attributes.domain });
-      if (domain.attributes.referenceName !== undefined)
+      if (domain.attributes.referenceName != null)
         Object.assign(distributionDomain, { referenceName: domain.attributes.referenceName });
       return distributionDomain;
     });
@@ -39,7 +39,7 @@ export class ConnectDistribution {
     }>('/alternativeDistributionKeys?limit=200');
     return appleResources.map((distributionKey) => {
       const keyResource: AlternativeDistributionKeyResource = { id: distributionKey.id };
-      if (distributionKey.attributes.publicKey !== undefined)
+      if (distributionKey.attributes.publicKey != null)
         Object.assign(keyResource, { publicKey: distributionKey.attributes.publicKey });
       return keyResource;
     });
@@ -66,9 +66,9 @@ export class ConnectDistribution {
     }>('/merchantIds?limit=200');
     return appleResources.map((merchant) => {
       const merchantId: MerchantIdResource = { id: merchant.id };
-      if (merchant.attributes.identifier !== undefined)
+      if (merchant.attributes.identifier != null)
         Object.assign(merchantId, { identifier: merchant.attributes.identifier });
-      if (merchant.attributes.name !== undefined)
+      if (merchant.attributes.name != null)
         Object.assign(merchantId, { name: merchant.attributes.name });
       return merchantId;
     });
@@ -88,9 +88,9 @@ export class ConnectDistribution {
     }>('/passTypeIds?limit=200');
     return appleResources.map((passType) => {
       const passTypeId: PassTypeIdResource = { id: passType.id };
-      if (passType.attributes.identifier !== undefined)
+      if (passType.attributes.identifier != null)
         Object.assign(passTypeId, { identifier: passType.attributes.identifier });
-      if (passType.attributes.name !== undefined)
+      if (passType.attributes.name != null)
         Object.assign(passTypeId, { name: passType.attributes.name });
       return passTypeId;
     });

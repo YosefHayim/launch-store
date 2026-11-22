@@ -12,7 +12,7 @@ const captureStdoutLines = () => {
   const writtenText: string[] = [];
   vi.spyOn(process.stdout, 'write').mockImplementation((chunk, ...writeArguments) => {
     writtenText.push(String(chunk));
-    const writeDone = writeArguments.find((writeArgument) => typeof writeArgument === 'function');
+    const writeDone = writeArguments.find((writeArgument) => typeof writeArgument == 'function');
     writeDone?.();
     return true;
   });

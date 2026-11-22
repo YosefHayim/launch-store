@@ -63,7 +63,7 @@ describe('Apple asset targets', () => {
       APPLE_ASSET_TARGETS.length,
     );
     const previewTypes = APPLE_ASSET_TARGETS.flatMap((target) => {
-      if (target.previewType === undefined) return [];
+      if (target.previewType == null) return [];
       return [target.previewType];
     });
     expect(new Set(previewTypes).size).toBe(previewTypes.length);
@@ -86,7 +86,7 @@ describe('discoverScreenshots', () => {
       ['en-US', 'APP_IPHONE_67', '01.png'],
       ['en-US', 'APP_IPHONE_67', '02.png'],
     ]);
-    const iphone01 = shots.find((s) => s.locale === 'en-US' && s.fileName === '01.png');
+    const iphone01 = shots.find((s) => s.locale == 'en-US' && s.fileName == '01.png');
     expect(iphone01?.checksum).toBe(md5('one'));
     expect(iphone01?.size).toBe(3);
   });
@@ -131,7 +131,7 @@ describe('discoverPreviews', () => {
       ['en-US', 'IPHONE_67', '01.mov'],
       ['en-US', 'IPHONE_67', '02.mp4'],
     ]);
-    const iphone01 = previews.find((p) => p.locale === 'en-US' && p.fileName === '01.mov');
+    const iphone01 = previews.find((p) => p.locale == 'en-US' && p.fileName == '01.mov');
     expect(iphone01?.checksum).toBe(md5('one'));
     expect(iphone01?.size).toBe(3);
   });

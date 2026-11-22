@@ -18,25 +18,6 @@ import { walletPlanner } from './planners/wallet.ts';
 /** Registered planners keyed by surface id; re-register replaces (idempotent wiring). */
 const PLANNERS = new Map<string, SurfacePlanner>();
 
-/** Built-in surfaces (catalog/listing/Play + v1.1 App Store breadth). */
-const BUILTIN_PLANNERS: readonly SurfacePlanner[] = [
-  catalogPlanner,
-  listingPlanner,
-  playProductsPlanner,
-  playSubscriptionsPlanner,
-  releaseConfigPlanner,
-  gameCenterPlanner,
-  appClipsPlanner,
-  availabilityPlanner,
-  accessibilityPlanner,
-  experimentsPlanner,
-  customPagesPlanner,
-  walletPlanner,
-  euDistributionPlanner,
-  offersPlanner,
-  screenshotsPlanner,
-];
-
 /** Register (or replace) a surface planner by its id. */
 const registerSurfacePlanner = (planner: SurfacePlanner): void => {
   PLANNERS.set(planner.id, planner);
@@ -47,7 +28,23 @@ export const listSurfacePlanners = (): SurfacePlanner[] => [...PLANNERS.values()
 
 /** Register built-in planners. Idempotent for command entry and tests. */
 export const registerBuiltinPlanners = (): void => {
-  for (const planner of BUILTIN_PLANNERS) {
+  for (const planner of [
+    catalogPlanner,
+    listingPlanner,
+    playProductsPlanner,
+    playSubscriptionsPlanner,
+    releaseConfigPlanner,
+    gameCenterPlanner,
+    appClipsPlanner,
+    availabilityPlanner,
+    accessibilityPlanner,
+    experimentsPlanner,
+    customPagesPlanner,
+    walletPlanner,
+    euDistributionPlanner,
+    offersPlanner,
+    screenshotsPlanner,
+  ]) {
     registerSurfacePlanner(planner);
   }
 };

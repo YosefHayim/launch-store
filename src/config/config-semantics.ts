@@ -8,15 +8,15 @@ type SemanticIssue = {
   message: string;
 };
 /** The cloud storage providers whose `storageConfig` (bucket/endpoint) is mandatory - `local` needs none. */
-const CLOUD_STORAGE = new Set(['s3', 'supabase']);
+const cloudStorage = new Set(['s3', 'supabase']);
 /** Whether a string parses as a real calendar instant (not just any string the schema accepted). */
 const isValidInstant = (instantText: string): boolean => {
   return !Number.isNaN(Date.parse(instantText));
 };
 /** A cloud storage provider must carry its bucket/endpoint settings, or uploads have nowhere to go. */
 const checkStorage = (config: LaunchConfig): SemanticIssue[] => {
-  if (!CLOUD_STORAGE.has(config.storage)) return [];
-  if (config.storageConfig !== undefined) return [];
+  if (!cloudStorage.has(config.storage)) return [];
+  if (config.storageConfig != null) return [];
   return [
     {
       path: 'storageConfig',
@@ -31,25 +31,25 @@ const checkStorage = (config: LaunchConfig): SemanticIssue[] => {
  */
 const checkRelease = (config: LaunchConfig): SemanticIssue[] => {
   const release = config.release;
-  if (release === undefined) return [];
+  if (release == null) return [];
   const issues: SemanticIssue[] = [];
-  if (release.releaseType === 'SCHEDULED' && release.earliestReleaseDate === undefined) {
+  if (release.releaseType == 'SCHEDULED' && release.earliestReleaseDate == null) {
     issues.push({
       path: 'release.earliestReleaseDate',
       message:
         'releaseType is "SCHEDULED" but earliestReleaseDate is missing - set the ISO-8601 instant to go live at.',
     });
   }
-  if (release.earliestReleaseDate !== undefined && !isValidInstant(release.earliestReleaseDate)) {
+  if (release.earliestReleaseDate != null && !isValidInstant(release.earliestReleaseDate)) {
     issues.push({
       path: 'release.earliestReleaseDate',
       message: `earliestReleaseDate "${release.earliestReleaseDate}" is not a valid ISO-8601 instant (e.g. 2026-01-31T09:00:00Z).`,
     });
   }
   const notes = release.releaseNotes;
-  if (notes !== undefined && typeof notes !== 'string') {
+  if (notes != null && typeof notes != 'string') {
     let primary = release.primaryLocale;
-    if (primary === undefined) primary = 'en-US';
+    if (primary == null) primary = 'en-US';
     if (!(primary in notes)) {
       issues.push({
         path: 'release.releaseNotes',
@@ -64,8 +64,8 @@ const checkProfiles = (config: LaunchConfig): SemanticIssue[] => {
   const issues: SemanticIssue[] = [];
   for (const [name, profile] of Object.entries(config.profiles)) {
     let rolloutInvalid = false;
-    if (profile.rollout !== undefined && profile.rollout <= 0) rolloutInvalid = true;
-    if (profile.rollout !== undefined && profile.rollout > 1) rolloutInvalid = true;
+    if (profile.rollout != null && profile.rollout <= 0) rolloutInvalid = true;
+    if (profile.rollout != null && profile.rollout > 1) rolloutInvalid = true;
     if (rolloutInvalid) {
       issues.push({
         path: `profiles.${name}.rollout`,
@@ -77,7 +77,7 @@ const checkProfiles = (config: LaunchConfig): SemanticIssue[] => {
 };
 /** Retention days can't be negative - `0` disables the sweep, any positive value is a day count. */
 const checkRetention = (config: LaunchConfig): SemanticIssue[] => {
-  if (config.artifactRetentionDays === undefined) return [];
+  if (config.artifactRetentionDays == null) return [];
   if (config.artifactRetentionDays >= 0) return [];
   return [
     {

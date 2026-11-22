@@ -98,7 +98,7 @@ const PRODUCTS: AppProducts = {
     },
   ],
 };
-const ALPHA: AppDescriptor = {
+const alpha: AppDescriptor = {
   name: 'alpha',
   dir: '/no/such/dir/alpha',
   configPath: '/no/such/dir/alpha/app.json',
@@ -119,11 +119,11 @@ const makeCtx = (
   if (Object.keys(products).length > 0) config = { ...baseConfig, products };
   return {
     config,
-    apps: [ALPHA],
+    apps: [alpha],
     // Widen the catalog-only fake to the full surface API the context now exposes; the catalog methods
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
     resolveAscApi: () => {
-      if (api === null) return Promise.resolve(null);
+      if (api == null) return Promise.resolve(null);
       return Promise.resolve(makeAscApiFake(api));
     },
     resolvePlayApi: () => Promise.resolve(null),
@@ -137,7 +137,7 @@ describe('catalogPlanner', () => {
   it('skips with an actionable hint when no Apple account is active', async () => {
     const plan = await runPlanner(catalogPlanner, makeCtx(null, { 'com.acme.alpha': PRODUCTS }));
     expect(plan.state).toBe('skipped');
-    if (plan.state !== 'skipped') return;
+    if (plan.state != 'skipped') return;
     expect(plan.reason).toMatch(/Apple account/);
     expect(plan.hint).toMatch(/creds/);
   });
@@ -147,8 +147,8 @@ describe('catalogPlanner', () => {
       makeCtx(makeApi(), { 'com.acme.alpha': PRODUCTS }),
     );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
     expect(
@@ -161,8 +161,8 @@ describe('catalogPlanner', () => {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned') return;
-    if (plan.scope !== 'app') return;
+    if (plan.state != 'planned') return;
+    if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });

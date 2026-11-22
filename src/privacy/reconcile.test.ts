@@ -21,7 +21,7 @@ describe('reconcilePrivacy', () => {
       'app',
       surface({ usageDescriptions: { NSCameraUsageDescription: '' } }),
     );
-    const empty = findings.find((finding) => finding.code === 'ios.usage.empty');
+    const empty = findings.find((finding) => finding.code == 'ios.usage.empty');
     expect(empty?.severity).toBe('blocker');
   });
   it("flags undeclared collection when a permission's data type isn't in the manifest", () => {
@@ -29,7 +29,7 @@ describe('reconcilePrivacy', () => {
       'app',
       surface({ usageDescriptions: { NSCameraUsageDescription: 'Scan' }, collectedDataTypes: [] }),
     );
-    const undeclared = findings.find((finding) => finding.code === 'ios.collection.undeclared');
+    const undeclared = findings.find((finding) => finding.code == 'ios.collection.undeclared');
     expect(undeclared?.severity).toBe('blocker');
     expect(undeclared?.message).toContain('NSPrivacyCollectedDataTypePhotosorVideos');
   });
@@ -48,7 +48,7 @@ describe('reconcilePrivacy', () => {
       'app',
       surface({ collectedDataTypes: ['NSPrivacyCollectedDataTypeContacts'] }),
     );
-    const over = findings.find((finding) => finding.code === 'ios.collection.overdeclared');
+    const over = findings.find((finding) => finding.code == 'ios.collection.overdeclared');
     expect(over?.severity).toBe('warning');
   });
   it('ignores non-reconcilable declared data types (e.g. Name) in the over-declaration check', () => {
@@ -72,7 +72,7 @@ describe('reconcilePrivacy', () => {
       'app',
       surface({ usageDescriptions: { NSUserTrackingUsageDescription: 'Ads' }, tracking: false }),
     );
-    expect(findings.find((finding) => finding.code === 'ios.tracking.mismatch')?.severity).toBe(
+    expect(findings.find((finding) => finding.code == 'ios.tracking.mismatch')?.severity).toBe(
       'blocker',
     );
   });
@@ -81,7 +81,7 @@ describe('reconcilePrivacy', () => {
       'app',
       surface({ androidPermissions: ['android.permission.CAMERA'] }),
     );
-    const reminder = findings.find((finding) => finding.code === 'android.datasafety.reminder');
+    const reminder = findings.find((finding) => finding.code == 'android.datasafety.reminder');
     expect(reminder?.severity).toBe('info');
     expect(reminder?.platform).toBe('android');
   });

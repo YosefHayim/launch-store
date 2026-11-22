@@ -1,7 +1,3 @@
-/** Message shown when a public release needs confirmation but no prompt can be shown. */
-const RELEASE_CONFIRMATION_REQUIRED_MESSAGE =
-  'Refusing to submit a public release without confirmation. Re-run with --yes after the operator approves this release.';
-
 /** The command may either skip the prompt because `--yes` was passed, or show an interactive prompt. */
 type ReleaseConfirmationMode = 'confirmed' | 'prompt';
 
@@ -34,5 +30,8 @@ export function resolveReleaseConfirmationMode(
     return 'prompt';
   }
 
-  throw makeReleaseConfirmationRequired({ message: RELEASE_CONFIRMATION_REQUIRED_MESSAGE });
+  throw makeReleaseConfirmationRequired({
+    message:
+      'Refusing to submit a public release without confirmation. Re-run with --yes after the operator approves this release.',
+  });
 }

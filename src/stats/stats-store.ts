@@ -7,8 +7,8 @@ import { locateAppStatsDirectory } from '../services/platform/paths.ts';
 import type { DailyStat, StatsFeed, StatsMetric } from '../types/stats.ts';
 import { groupStatsByMonth, mergeStats } from './stats-logic.ts';
 
-const STATS_FEEDS: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
-const STATS_METRICS: readonly StatsMetric[] = [
+const statsFeeds: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
+const statsMetrics: readonly StatsMetric[] = [
   'downloads',
   'redownloads',
   'updates',
@@ -49,7 +49,7 @@ function isStatsFeed(feed: unknown): feed is StatsFeed {
     return knownFeed == feed;
   }
 
-  return STATS_FEEDS.some(isSameFeed);
+  return statsFeeds.some(isSameFeed);
 }
 
 function isStatsMetric(metric: unknown): metric is StatsMetric {
@@ -57,7 +57,7 @@ function isStatsMetric(metric: unknown): metric is StatsMetric {
     return knownMetric == metric;
   }
 
-  return STATS_METRICS.some(isSameMetric);
+  return statsMetrics.some(isSameMetric);
 }
 
 function decodeDailyStat(statDocument: unknown): DailyStat {

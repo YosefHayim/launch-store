@@ -87,25 +87,25 @@ type PlaySubscriptionsReconcileInput = {
   dryRun: boolean;
 };
 
-const PAYMENTS_PROFILE_PATTERN = /payments? profile/i;
-const SENSITIVE_PERMISSION_PATTERN = /sensitive|high.?risk|permissions? declaration/i;
-const CATALOG_PERMISSION_PATTERN =
-  /caller does not have permission|permission denied|insufficient permissions?/i;
-
 /** Add setup instructions only to the two Play subscription failures with known operator fixes. */
 export function describePlaySubscriptionWriteFailure(
   failureText: string,
   packageName: string,
   serviceAccountEmail: string | undefined,
 ): string {
-  const isPaymentsProfileFailure = PAYMENTS_PROFILE_PATTERN.test(failureText);
+  const isPaymentsProfileFailure = /payments? profile/i.test(failureText);
 
   if (isPaymentsProfileFailure) {
     return `${failureText}\nComplete Play Console Setup > Payments profile, then rerun your original \`launch play-subscriptions\` command: ${buildPlayPaymentsProfileUrl()}`;
   }
 
-  const isSensitivePermissionFailure = SENSITIVE_PERMISSION_PATTERN.test(failureText);
-  const isCatalogPermissionFailure = CATALOG_PERMISSION_PATTERN.test(failureText);
+  const isSensitivePermissionFailure = /sensitive|high.?risk|permissions? declaration/i.test(
+    failureText,
+  );
+  const isCatalogPermissionFailure =
+    /caller does not have permission|permission denied|insufficient permissions?/i.test(
+      failureText,
+    );
 
   if (isCatalogPermissionFailure == false) {
     return failureText;

@@ -6,9 +6,9 @@ const registeredTestflight = (): Command => {
   const program = new Command();
   registerTestflightCommand(program);
   const testflightCommand = program.commands.find(
-    (registeredCommand) => registeredCommand.name() === 'testflight',
+    (registeredCommand) => registeredCommand.name() == 'testflight',
   );
-  if (testflightCommand === undefined) {
+  if (testflightCommand == null) {
     throw new Error('expected testflight command to be registered');
   }
   return testflightCommand;
@@ -34,13 +34,13 @@ describe('registerTestflightCommand', () => {
   it('wires mutation flags for add, remove, and release', () => {
     const testflightCommand = registeredTestflight();
     const addCommand = testflightCommand.commands.find(
-      (registeredCommand) => registeredCommand.name() === 'add',
+      (registeredCommand) => registeredCommand.name() == 'add',
     );
     const removeCommand = testflightCommand.commands.find(
-      (registeredCommand) => registeredCommand.name() === 'rm',
+      (registeredCommand) => registeredCommand.name() == 'rm',
     );
     const releaseCommand = testflightCommand.commands.find(
-      (registeredCommand) => registeredCommand.name() === 'release',
+      (registeredCommand) => registeredCommand.name() == 'release',
     );
     expect(addCommand?.options.map((option) => option.long)).toEqual(
       expect.arrayContaining([
@@ -72,7 +72,7 @@ describe('registerTestflightCommand', () => {
   it('wires feedback filters without write flags', () => {
     const testflightCommand = registeredTestflight();
     const feedbackCommand = testflightCommand.commands.find(
-      (registeredCommand) => registeredCommand.name() === 'feedback',
+      (registeredCommand) => registeredCommand.name() == 'feedback',
     );
     expect(feedbackCommand?.options.map((option) => option.long)).toEqual(
       expect.arrayContaining(['--app', '--build', '--type', '--out', '--json']),

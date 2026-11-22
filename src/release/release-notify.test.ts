@@ -17,9 +17,9 @@ const status = (over: Partial<ReleaseStatus> = {}): ReleaseStatus => {
     verdict: classifyVerdict('IN_REVIEW'),
   };
   const merged: ReleaseStatus = { ...base, ...over };
-  if (over.appStoreState !== undefined && over.verdict === undefined) {
+  if (over.appStoreState != null && over.verdict == null) {
     let appStoreState = over.appStoreState;
-    if (appStoreState === null) appStoreState = '';
+    if (appStoreState == null) appStoreState = '';
     merged.verdict = classifyVerdict(appStoreState);
   }
   return merged;

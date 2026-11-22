@@ -31,7 +31,9 @@ describe("resolveNativeDir - absolute native-project path so gym can't double th
   });
 });
 
-const REPORT = `App Thinning Size Report for All Variants of MyApp.ipa
+describe('parseThinningReport - per-device download/install before any upload', () => {
+  it('extracts one entry per variant with compressed/uncompressed sizes in bytes', () => {
+    const sizeEntries = parseThinningReport(`App Thinning Size Report for All Variants of MyApp.ipa
 
 Variant: MyApp-iPhone15,2.ipa
 Supported variant descriptors: iPhone15,2
@@ -42,11 +44,7 @@ On Demand Resources size: Zero KB
 Variant: MyApp-Universal.ipa
 Supported variant descriptors: Universal
 App size: 50.0 MB compressed, 100.0 MB uncompressed
-`;
-
-describe('parseThinningReport - per-device download/install before any upload', () => {
-  it('extracts one entry per variant with compressed/uncompressed sizes in bytes', () => {
-    const sizeEntries = parseThinningReport(REPORT);
+`);
     expect(sizeEntries).toEqual([
       {
         device: 'iPhone15,2',

@@ -76,7 +76,7 @@ const artifact = (
   migrationArtifacts: readonly MigrationArtifact[],
   artifactPath: string,
 ): MigrationArtifact => {
-  const matchingArtifact = migrationArtifacts.find((entry) => entry.path === artifactPath);
+  const matchingArtifact = migrationArtifacts.find((entry) => entry.path == artifactPath);
   expect(matchingArtifact, `expected artifact ${artifactPath}`).toBeDefined();
   return expectDefined(matchingArtifact, `artifact ${artifactPath}`);
 };
@@ -85,7 +85,7 @@ const notesAt = (
   migrationNotes: readonly MigrationNote[],
   level: MigrationNoteLevel,
 ): MigrationNote[] => {
-  return migrationNotes.filter((note) => note.level === level);
+  return migrationNotes.filter((note) => note.level == level);
 };
 const runReadFastlaneSetup = (workingDirectory: string) => readFastlaneSetup(workingDirectory);
 const runMigrateFastlane = (workingDirectory: string, apps: AppDescriptor[]) =>
@@ -143,21 +143,21 @@ describe('parseFastfile', () => {
   });
   it('attributes each lane to its platform block and scopes actions to its body', () => {
     const lanes = parseFastfile(SAMPLE_FASTFILE).lanes;
-    const beta = lanes.find((lane) => lane.name === 'beta');
+    const beta = lanes.find((lane) => lane.name == 'beta');
     expect(beta).toBeDefined();
-    if (beta === undefined) return;
+    if (beta == null) return;
     expect(beta.platform).toBe('ios');
     expect([...beta.actions].sort()).toEqual(['gym', 'match', 'pilot']);
     expect(laneLaunchCommands(beta)).toEqual(['launch build', 'launch release --track testing']);
-    const play = lanes.find((lane) => lane.name === 'play');
+    const play = lanes.find((lane) => lane.name == 'play');
     expect(play).toBeDefined();
-    if (play === undefined) return;
+    if (play == null) return;
     expect(play.platform).toBe('android');
     expect(play.actions).toEqual(['supply']);
     // gym lives in :beta, not in :release - body scoping keeps them apart.
-    const release = lanes.find((lane) => lane.name === 'release');
+    const release = lanes.find((lane) => lane.name == 'release');
     expect(release).toBeDefined();
-    if (release === undefined) return;
+    if (release == null) return;
     expect(release.actions).toEqual(['deliver']);
   });
   it('detects the recognized actions used anywhere in the file', () => {

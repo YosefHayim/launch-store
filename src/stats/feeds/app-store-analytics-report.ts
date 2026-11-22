@@ -7,8 +7,6 @@ import type {
 } from './app-store-feed-types.ts';
 import { readCell, roundMoney, sumColumn } from './report-cells.ts';
 
-const DATE_COLUMN = 'Date';
-
 /** The Standard report names Apple lists under an analytics report request. */
 export const ANALYTICS_REPORT_NAMES: Readonly<Record<AnalyticsReportKind, string>> = {
   discovery: 'App Store Discovery and Engagement Standard',
@@ -132,23 +130,22 @@ export interface AnalyticsSummary {
 
 // A later instance overwrites an earlier one for the same Date, and ongoing data beats the snapshot.
 const rankBatch = (accessType: AnalyticsAccessType, processingDate: string): string => {
-  const isOngoing = accessType === 'ONGOING';
+  const isOngoing = accessType == 'ONGOING';
   if (isOngoing) return `1|${processingDate}`;
   return `0|${processingDate}`;
 };
 
 const isoDateLength = 10;
-const readLineDate = (line: ReportLine): string =>
-  readCell(line, DATE_COLUMN).slice(0, isoDateLength);
+const readLineDate = (line: ReportLine): string => readCell(line, 'Date').slice(0, isoDateLength);
 
 const isLineWanted = (line: ReportLine, request: AnalyticsReadRequest): boolean => {
   const date = readLineDate(line);
   const isDateOutsideRange = date < request.range.from || date > request.range.to;
   if (isDateOutsideRange) return false;
   const appIdentifier = readCell(line, 'App Apple Identifier');
-  const isAppIdentifierMissing = appIdentifier === '';
+  const isAppIdentifierMissing = appIdentifier == '';
   if (isAppIdentifierMissing) return true;
-  return appIdentifier === request.storeId;
+  return appIdentifier == request.storeId;
 };
 
 interface RankedLine {
@@ -170,7 +167,7 @@ const pickLatestLines = (
   const bestRankByDate = new Map<string, string>();
   for (const rankedLine of rankedLines) {
     const bestRank = bestRankByDate.get(rankedLine.date);
-    if (bestRank === undefined) {
+    if (bestRank == null) {
       bestRankByDate.set(rankedLine.date, rankedLine.rank);
       continue;
     }
@@ -178,12 +175,12 @@ const pickLatestLines = (
     if (isRankedLineNewer) bestRankByDate.set(rankedLine.date, rankedLine.rank);
   }
   return rankedLines
-    .filter((rankedLine) => rankedLine.rank === bestRankByDate.get(rankedLine.date))
+    .filter((rankedLine) => rankedLine.rank == bestRankByDate.get(rankedLine.date))
     .map((rankedLine) => rankedLine.line);
 };
 
 const isLineCounted = (line: ReportLine, rule: AnalyticsMetricRule): boolean => {
-  if (rule.labelColumn === null) return true;
+  if (rule.labelColumn == null) return true;
   return rule.labels.includes(readCell(line, rule.labelColumn).toLowerCase());
 };
 
@@ -192,7 +189,7 @@ const groupLinesByDate = (
 ): ReadonlyMap<string, readonly ReportLine[]> => {
   const dates = new Set(lines.map(readLineDate));
   return new Map(
-    [...dates].map((date) => [date, lines.filter((line) => readLineDate(line) === date)]),
+    [...dates].map((date) => [date, lines.filter((line) => readLineDate(line) == date)]),
   );
 };
 
@@ -215,7 +212,7 @@ const createRuleStats = (
 
 const findLatestDate = (lines: readonly ReportLine[]): string | null => {
   const dates = lines.map(readLineDate);
-  if (dates.length === 0) return null;
+  if (dates.length == 0) return null;
   return dates.reduce((latestDate, date) => {
     if (date > latestDate) return date;
     return latestDate;
@@ -230,12 +227,12 @@ export const summarizeAnalyticsBatches = (
   const kinds = new Set(ANALYTICS_METRIC_RULES.map((rule) => rule.kind));
   const linesByKind = new Map<AnalyticsReportKind, readonly ReportLine[]>();
   for (const kind of kinds) {
-    const kindBatches = batches.filter((batch) => batch.kind === kind);
+    const kindBatches = batches.filter((batch) => batch.kind == kind);
     linesByKind.set(kind, pickLatestLines(kindBatches, request));
   }
   const stats = ANALYTICS_METRIC_RULES.flatMap((rule) => {
     const kindLines = linesByKind.get(rule.kind);
-    if (kindLines === undefined) return [];
+    if (kindLines == null) return [];
     return createRuleStats(kindLines, rule);
   });
   const allLines = [...linesByKind.values()].flat();

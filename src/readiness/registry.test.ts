@@ -89,7 +89,7 @@ describe('readiness registry', () => {
     });
     registerReadinessProbe(make('first'));
     registerReadinessProbe(make('second'));
-    expect(listReadinessProbes().filter((probe) => probe.id === id)).toHaveLength(1);
-    expect(listReadinessProbes().find((probe) => probe.id === id)?.title).toBe('second');
+    expect(listReadinessProbes().filter((probe) => probe.id == id)).toHaveLength(1);
+    expect(listReadinessProbes().find((probe) => probe.id == id)?.title).toBe('second');
   });
 });

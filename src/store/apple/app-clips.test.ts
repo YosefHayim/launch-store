@@ -61,13 +61,13 @@ const makeApi = (
   const api: AscAppClipsApi = {
     getAppId: () => Promise.resolve(full.appId),
     findEditableAppStoreVersion: () => {
-      if (full.editableVersionId === null) return Promise.resolve(null);
+      if (full.editableVersionId == null) return Promise.resolve(null);
       return Promise.resolve({ id: full.editableVersionId });
     },
     listAppClips: () => Promise.resolve(full.clips),
     listAppClipDefaultExperiences: (appClipId) => {
       let experiences: AppClipDefaultExperienceResource[] = [];
-      if (full.experiences[appClipId] !== undefined) experiences = full.experiences[appClipId];
+      if (full.experiences[appClipId] != null) experiences = full.experiences[appClipId];
       return Promise.resolve(experiences);
     },
     createAppClipDefaultExperience: (appClipId, versionId, action) => {
@@ -75,7 +75,7 @@ const makeApi = (
         appClipId,
         versionId,
       };
-      if (action !== undefined) createdExperience.action = action;
+      if (action != null) createdExperience.action = action;
       calls.createdExperiences.push(createdExperience);
       return Promise.resolve({ id: `exp-new-${++nextId}` });
     },
@@ -85,7 +85,7 @@ const makeApi = (
     },
     listAppClipDefaultExperienceLocalizations: (experienceId) => {
       let localizations: AppClipLocalizationResource[] = [];
-      if (full.localizations[experienceId] !== undefined) {
+      if (full.localizations[experienceId] != null) {
         localizations = full.localizations[experienceId];
       }
       return Promise.resolve(localizations);
@@ -257,6 +257,6 @@ describe('reconcileAppClips', () => {
     expect(summary.failed).toBe(1);
     expect(summary.skipped).toBe(1);
     expect(calls.createdLocalizations).toHaveLength(0);
-    expect(report.actions.find((action) => action.status === 'failed')?.error).toBe('boom');
+    expect(report.actions.find((action) => action.status == 'failed')?.error).toBe('boom');
   });
 });

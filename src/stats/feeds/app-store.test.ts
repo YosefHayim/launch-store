@@ -28,8 +28,6 @@ const SALES_HEADERS = [
   'Currency of Proceeds',
 ];
 const DISCOVERY_HEADERS = ['Date', 'App Apple Identifier', 'Event', 'Counts', 'Unique Counts'];
-const DOWNLOADS_HEADERS = ['Date', 'App Apple Identifier', 'Download Type', 'Counts'];
-const PURCHASES_HEADERS = ['Date', 'App Apple Identifier', 'Purchases', 'Proceeds in USD'];
 
 interface FakeAnalyticsInstance {
   readonly processingDate: string;
@@ -45,13 +43,6 @@ interface FakeAppStoreStatsScenario {
   readonly failure: { readonly method: FakeFailureMethod; readonly status: number } | null;
 }
 
-const EMPTY_SCENARIO: FakeAppStoreStatsScenario = {
-  salesTsvByDate: {},
-  analyticsInstances: {},
-  reviewRatings: [],
-  failure: null,
-};
-
 type FeedOutcome =
   | { readonly _tag: 'Right'; readonly right: FeedFetchReply }
   | { readonly _tag: 'Left'; readonly left: unknown };
@@ -61,7 +52,15 @@ function throwTransport(message: string, status: number): never {
 }
 
 function makePromiseAppStoreClient(scenario: Partial<FakeAppStoreStatsScenario> = {}) {
-  const filled: FakeAppStoreStatsScenario = { ...EMPTY_SCENARIO, ...scenario };
+  const filled: FakeAppStoreStatsScenario = {
+    ...{
+      salesTsvByDate: {},
+      analyticsInstances: {},
+      reviewRatings: [],
+      failure: null,
+    },
+    ...scenario,
+  };
   const { salesTsvByDate, analyticsInstances, reviewRatings, failure } = filled;
 
   function isFailing(method: FakeFailureMethod): boolean {
@@ -261,13 +260,13 @@ const fetchReply = async (
 };
 
 const readFetched = (reply: FeedOutcome) => {
-  if (reply._tag !== 'Right') throw new Error('expected a reply');
-  if (reply.right.status !== 'fetched') throw new Error('expected a fetched reply');
+  if (reply._tag != 'Right') throw new Error('expected a reply');
+  if (reply.right.status != 'fetched') throw new Error('expected a fetched reply');
   return reply.right;
 };
 
 const findStat = (stats: readonly DailyStat[], metric: string, date: string) =>
-  stats.find((stat) => stat.metric === metric && stat.date === date);
+  stats.find((stat) => stat.metric == metric && stat.date == date);
 
 describe('pickStatsPath', () => {
   test('picks sales reports when the account has a vendor number', () => {
@@ -444,17 +443,25 @@ describe('appStoreFeed', () => {
             {
               processingDate: '2026-10-10',
               segmentTsvs: [
-                createTsv(DOWNLOADS_HEADERS, [
-                  ['2026-10-09', APP_ID, 'First-time Download', '3'],
-                  ['2026-10-09', APP_ID, 'Auto-update', '5'],
-                ]),
+                createTsv(
+                  ['Date', 'App Apple Identifier', 'Download Type', 'Counts'],
+                  [
+                    ['2026-10-09', APP_ID, 'First-time Download', '3'],
+                    ['2026-10-09', APP_ID, 'Auto-update', '5'],
+                  ],
+                ),
               ],
             },
           ],
           [`ONGOING|App Store Purchases Standard`]: [
             {
               processingDate: '2026-10-10',
-              segmentTsvs: [createTsv(PURCHASES_HEADERS, [['2026-10-09', APP_ID, '1', '4.2']])],
+              segmentTsvs: [
+                createTsv(
+                  ['Date', 'App Apple Identifier', 'Purchases', 'Proceeds in USD'],
+                  [['2026-10-09', APP_ID, '1', '4.2']],
+                ),
+              ],
             },
           ],
         },
@@ -502,7 +509,7 @@ describe('appStoreFeed', () => {
       value: 3,
       currency: 'ILS',
     });
-    expect(fetched.stats.filter((stat) => stat.date === '2026-10-08')).toEqual([]);
+    expect(fetched.stats.filter((stat) => stat.date == '2026-10-08')).toEqual([]);
     expect(fetched.coveredThrough).toBe('2026-10-07');
     expect(calls.getSalesReport).toHaveBeenCalledTimes(3);
   });
@@ -600,8 +607,8 @@ describe('appStoreFeed', () => {
     );
 
     expect(reply._tag).toBe('Right');
-    expect(reply._tag === 'Right' && reply.right.status).toBe('skipped');
-    expect(reply._tag === 'Right' && 'reason' in reply.right && reply.right.reason).toContain(
+    expect(reply._tag == 'Right' && reply.right.status).toBe('skipped');
+    expect(reply._tag == 'Right' && 'reason' in reply.right && reply.right.reason).toContain(
       'Admin',
     );
   });
@@ -613,7 +620,7 @@ describe('appStoreFeed', () => {
     );
 
     expect(reply._tag).toBe('Left');
-    expect(reply._tag === 'Left' && reply.left).toMatchObject({
+    expect(reply._tag == 'Left' && reply.left).toMatchObject({
       _tag: 'StatsFeedFailure',
       feed: 'app-store',
       appKey: `ios-${APP_ID}`,

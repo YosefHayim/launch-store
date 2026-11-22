@@ -29,13 +29,6 @@ function decodedRecordOrNull(candidateValue: unknown): Record<string, unknown> |
   return candidateValue as Record<string, unknown>;
 }
 
-// Reverse-DNS bundle id: letters, digits, and hyphens, at least two segments.
-const BUNDLE_ID = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
-// Java package: each segment starts with a letter, then letters, digits, or underscores.
-const ANDROID_PACKAGE = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/;
-// Marketing version of one to three numeric parts: 1, 1.2, or 1.2.3.
-const MARKETING_VERSION = /^\d+(\.\d+){0,2}$/;
-
 function splashLacksBackground(splash: Record<string, unknown> | null): boolean {
   if (splash == null) {
     return false;
@@ -61,7 +54,7 @@ function invalidBundleId(ios: Record<string, unknown> | null): string | null {
     return null;
   }
 
-  const isValid = BUNDLE_ID.test(bundleId);
+  const isValid = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(bundleId);
 
   if (isValid) {
     return null;
@@ -81,7 +74,7 @@ function invalidAndroidPackage(android: Record<string, unknown> | null): string 
     return null;
   }
 
-  const isValid = ANDROID_PACKAGE.test(packageName);
+  const isValid = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(packageName);
 
   if (isValid) {
     return null;
@@ -152,7 +145,7 @@ function invalidMarketingVersion(expo: Record<string, unknown>): string | null {
     return null;
   }
 
-  const isPlainVersion = MARKETING_VERSION.test(version);
+  const isPlainVersion = /^\d+(\.\d+){0,2}$/.test(version);
 
   if (isPlainVersion) {
     return null;

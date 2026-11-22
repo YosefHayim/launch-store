@@ -97,7 +97,7 @@ describe('previewBuild', () => {
     const plan = previewBuild({ config: config(), apps: [iosOnly], platform: 'android' }).apps[0];
     expect(plan?.identifier).toBeUndefined();
     expect(plan).toBeDefined();
-    if (plan === undefined) return;
+    if (plan == null) return;
     expect('identifier' in plan).toBe(false);
   });
   it('fails on an explicit unknown profile rather than silently defaulting', () => {

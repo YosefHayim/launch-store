@@ -28,7 +28,7 @@ export class ConnectApps {
       }>
     >('GET', `/apps?filter[bundleId]=${encodeURIComponent(bundleId)}&limit=1`);
     const appResource = appleResources[0];
-    if (appResource === undefined) return null;
+    if (appResource == null) return null;
     return appResource.id;
   }
 
@@ -40,7 +40,7 @@ export class ConnectApps {
   async getCurrentAppInfoId(appId: string): Promise<string | null> {
     const appInfos = await this.listAppInfoStates(appId);
     const editableAppInfoId = findAppInfoId(appInfos, EDITABLE_APPINFO_STATES);
-    if (editableAppInfoId !== null) return editableAppInfoId;
+    if (editableAppInfoId != null) return editableAppInfoId;
     return findAppInfoId(appInfos, LIVE_STATES);
   }
 
@@ -59,7 +59,7 @@ export class ConnectApps {
     return appleResources.map((localization) => {
       const localeAttribute = localization.attributes['locale'];
       let locale = '';
-      if (typeof localeAttribute === 'string') locale = localeAttribute;
+      if (typeof localeAttribute == 'string') locale = localeAttribute;
       return {
         id: localization.id,
         locale,
@@ -82,9 +82,9 @@ export class ConnectApps {
     );
     return appleResources.map((localization) => {
       let locale = localization.attributes.locale;
-      if (locale === undefined) locale = '';
+      if (locale == null) locale = '';
       let accountDeletionUrl = localization.attributes.privacyChoicesUrl;
-      if (typeof accountDeletionUrl !== 'string') accountDeletionUrl = '';
+      if (typeof accountDeletionUrl != 'string') accountDeletionUrl = '';
       return { locale, url: accountDeletionUrl };
     });
   }
@@ -123,7 +123,7 @@ export class ConnectApps {
     } catch (error) {
       if (
         error instanceof AscRequestError &&
-        error.status === 403 &&
+        error.status == 403 &&
         error.codes.some((code) => code.includes(REQUIRED_AGREEMENTS_ERROR_CODE))
       ) {
         return false;
@@ -139,9 +139,9 @@ export class ConnectApps {
       }>
     >('GET', '/bundleIds?limit=1&fields[bundleIds]=seedId');
     const bundleIdResource = appleResources[0];
-    if (bundleIdResource === undefined) return null;
+    if (bundleIdResource == null) return null;
     const teamId = bundleIdResource.attributes.seedId;
-    if (teamId === undefined) return null;
+    if (teamId == null) return null;
     return teamId;
   }
 
@@ -184,27 +184,25 @@ export class ConnectApps {
         };
       }[];
     }>('GET', `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory&limit=200`);
-    if (appleResources.length === 0) return null;
+    if (appleResources.length == 0) return null;
     const editable = appleResources.find((appInformation) => {
       let appInformationState = appInformation.attributes?.state;
-      if (appInformationState === undefined)
+      if (appInformationState == null)
         appInformationState = appInformation.attributes?.appStoreState;
-      if (appInformationState === undefined) return false;
+      if (appInformationState == null) return false;
       return EDITABLE_METADATA_STATES.has(appInformationState);
     });
     let selectedAppInformation = editable;
-    if (selectedAppInformation === undefined) selectedAppInformation = appleResources[0];
-    if (selectedAppInformation === undefined) return null;
+    if (selectedAppInformation == null) selectedAppInformation = appleResources[0];
+    if (selectedAppInformation == null) return null;
     let state = selectedAppInformation.attributes?.state;
-    if (state === undefined) state = selectedAppInformation.attributes?.appStoreState;
+    if (state == null) state = selectedAppInformation.attributes?.appStoreState;
     const primaryCategoryId = selectedAppInformation.relationships?.primaryCategory?.data?.id;
     const secondaryCategoryId = selectedAppInformation.relationships?.secondaryCategory?.data?.id;
     const appInformationResource: AppInfoResource = { id: selectedAppInformation.id };
-    if (state !== undefined) Object.assign(appInformationResource, { state });
-    if (primaryCategoryId !== undefined)
-      Object.assign(appInformationResource, { primaryCategoryId });
-    if (secondaryCategoryId !== undefined)
-      Object.assign(appInformationResource, { secondaryCategoryId });
+    if (state != null) Object.assign(appInformationResource, { state });
+    if (primaryCategoryId != null) Object.assign(appInformationResource, { primaryCategoryId });
+    if (secondaryCategoryId != null) Object.assign(appInformationResource, { secondaryCategoryId });
     return appInformationResource;
   }
 
@@ -229,9 +227,9 @@ export class ConnectApps {
         data: { type: 'appCategories', id: categories.primaryCategoryId },
       };
     }
-    if (categories.secondaryCategoryId !== undefined) {
+    if (categories.secondaryCategoryId != null) {
       let secondaryCategory = null;
-      if (categories.secondaryCategoryId !== null)
+      if (categories.secondaryCategoryId != null)
         secondaryCategory = { type: 'appCategories' as const, id: categories.secondaryCategoryId };
       relationships['secondaryCategory'] = {
         data: secondaryCategory,
@@ -250,9 +248,9 @@ export class ConnectApps {
           attributes?: Record<string, AgeRatingValue>;
         } | null;
       }>('GET', `/appInfos/${appInfoId}/ageRatingDeclaration`);
-      if (appleResources === null) return null;
+      if (appleResources == null) return null;
       let declarationAttributes = appleResources.attributes;
-      if (declarationAttributes === undefined) declarationAttributes = {};
+      if (declarationAttributes == null) declarationAttributes = {};
       return { id: appleResources.id, attributes: declarationAttributes };
     });
   }

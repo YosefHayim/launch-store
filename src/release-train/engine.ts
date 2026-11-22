@@ -30,7 +30,7 @@ export const iosCarState = (verdict: ReleaseVerdict): NativeCarState | null => {
  */
 export const androidCarState = (releases: readonly PlayRelease[]): NativeCarState | null => {
   const release = releases[0];
-  if (release === undefined) return null;
+  if (release == null) return null;
   switch (release.status) {
     case 'completed':
     case 'inProgress':
@@ -66,8 +66,8 @@ export type TrainCarPlanInput = Readonly<{
  */
 export const planTrainCars = (planInput: TrainCarPlanInput): TrainCarPlan => {
   const platforms: TrainPlatform[] = [];
-  if (planInput.hasBundleId && planInput.platformFilter !== 'android') platforms.push('ios');
-  if (planInput.hasPackageName && planInput.platformFilter !== 'ios') platforms.push('android');
+  if (planInput.hasBundleId && planInput.platformFilter != 'android') platforms.push('ios');
+  if (planInput.hasPackageName && planInput.platformFilter != 'ios') platforms.push('android');
   let ota: OtaCarSpec[] = [];
   if (!planInput.noOta && planInput.hasCloudStorage) {
     ota = platforms.map((platform) => ({
