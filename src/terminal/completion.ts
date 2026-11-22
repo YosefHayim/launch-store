@@ -1,16 +1,13 @@
-import type { FileSystem, Path } from '@effect/platform';
-import { FileSystem as FileSystemService, Path as PathService } from '@effect/platform';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import type { Command } from 'commander';
-import { Data, Effect } from 'effect';
-import type { Shell } from '../types/remote.js';
 import { loadConfig } from '../config/config.js';
+import { pathExists } from '../path-exists.js';
 import { listSurfacePlanners, registerBuiltinPlanners } from '../plan/registry.js';
+import { readLaunchEnvironment } from '../services/platform/environment.js';
+import { readLaunchDirectories } from '../services/platform/paths.js';
 import { listSnapshots } from '../snapshot/store.js';
-import {
-  LaunchEnvironment,
-  type LaunchEnvironmentService,
-} from '../services/platform/environment.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import type { Shell } from '../types/remote.js';
 /** The shells `launch completion` supports, in the order help lists them; the first is the default fallback. */
 export const SHELLS: readonly Shell[] = ['bash', 'zsh', 'fish'] as const;
 /**
@@ -34,18 +31,32 @@ export type CompletionFailure = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-export const makeCompletionFailure = Data.tagged<CompletionFailure>('CompletionFailure');
-export const parseShell = (shellText: string): Effect.Effect<Shell, CompletionFailure> => {
-  const shell = SHELLS.find((knownShell) => knownShell === shellText);
-  if (!shell) {
-    return Effect.fail(
-      makeCompletionFailure({
-        message: `Unsupported shell "${shellText}". Use one of: ${SHELLS.join(', ')}.`,
-      }),
-    );
+export function makeCompletionFailure(fields: {
+  message: string;
+  cause?: unknown;
+}): CompletionFailure {
+  if (fields.cause == null) {
+    return { _tag: 'CompletionFailure', message: fields.message };
   }
-  return Effect.succeed(shell);
-};
+
+  return { _tag: 'CompletionFailure', message: fields.message, cause: fields.cause };
+}
+
+export function parseShell(shellText: string): Shell {
+  function isThisShell(knownShell: Shell): boolean {
+    return knownShell == shellText;
+  }
+
+  const shell = SHELLS.find(isThisShell);
+
+  if (shell == null) {
+    throw makeCompletionFailure({
+      message: `Unsupported shell "${shellText}". Use one of: ${SHELLS.join(', ')}.`,
+    });
+  }
+
+  return shell;
+}
 /**
  * Best-effort detect the user's shell from `$SHELL` (e.g. `/bin/zsh` -> `zsh`), returning `undefined` when
  * it's unset or unrecognized so the caller can ask for an explicit `--shell`. Read from the environment
@@ -123,29 +134,43 @@ export const completionScript = (shell: Shell): string => {
 /* -------------------------------------------------------------------------- */
 /*  Dynamic-value resolution - reuse the existing core loaders.                */
 /* -------------------------------------------------------------------------- */
-/**
- * A dynamic candidate source: a thunk that resolves the live values for one completion slot (app handles,
- * profile names, plan surfaces, snapshot names). Async because some sources read config/disk; tolerant -
- * each resolver swallows its own failures and returns `[]`, because a completion callback must never error
- * or hang the shell.
- */
-export type CompletionRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
-type CompletionCandidateSource = () => Effect.Effect<string[], unknown, CompletionRequirements>;
-/** Discovered app handles from `launch.config.ts` + the auto-detected app configs - the `-a/--app` values. */
-const appHandles: CompletionCandidateSource = () =>
-  loadConfig().pipe(Effect.map(({ apps }) => apps.map((app) => app.name)));
-/** Build-profile names declared in `launch.config.ts` - the `-p/--profile` values. */
-const profileNames: CompletionCandidateSource = () =>
-  loadConfig().pipe(Effect.map(({ config }) => Object.keys(config.profiles)));
-/** Registered `plan`/`drift` surface ids - the optional `[surface]` argument of those commands. */
-const planSurfaceIds: CompletionCandidateSource = () =>
-  Effect.sync(() => {
-    registerBuiltinPlanners();
-    return listSurfacePlanners().map((planner) => planner.id);
-  });
-/** Names of saved snapshots - the `snapshot diff`/`export` arguments. */
-const snapshotNames: CompletionCandidateSource = () =>
-  listSnapshots().pipe(Effect.map((snapshots) => snapshots.map((snapshot) => snapshot.name)));
+type CompletionCandidateSource = () => Promise<string[]>;
+
+function pickAppName(app: { name: string }): string {
+  return app.name;
+}
+
+function pickPlannerId(planner: { id: string }): string {
+  return planner.id;
+}
+
+function pickSnapshotName(snapshot: { name: string }): string {
+  return snapshot.name;
+}
+
+async function appHandles(): Promise<string[]> {
+  const loaded = await loadConfig();
+
+  return loaded.apps.map(pickAppName);
+}
+
+async function profileNames(): Promise<string[]> {
+  const loaded = await loadConfig();
+
+  return Object.keys(loaded.config.profiles);
+}
+
+async function planSurfaceIds(): Promise<string[]> {
+  registerBuiltinPlanners();
+
+  return listSurfacePlanners().map(pickPlannerId);
+}
+
+async function snapshotNames(): Promise<string[]> {
+  const snapshots = await listSnapshots();
+
+  return snapshots.map(pickSnapshotName);
+}
 /**
  * Flags whose VALUE has a dynamic candidate set, keyed by every spelling (short and long) so a match
  * on the preceding word resolves the right source. One table, so adding a new value-completing flag is a
@@ -210,27 +235,85 @@ const descendCommandTree = (
  * Never throws: a failed config/snapshot read degrades to the static candidates so completion still works
  * without a `launch.config.ts` present.
  */
-export const resolveCompletions = (
-  words: string[],
-  program: Command,
-): Effect.Effect<string[], never, CompletionRequirements> =>
-  Effect.gen(function* () {
-    const { command, commandPath } = descendCommandTree(program, words);
-    let currentWord = words[words.length - 1];
-    if (currentWord === undefined) currentWord = '';
-    let previousWord: string | undefined;
-    if (words.length >= 2) previousWord = words[words.length - 2];
-    if (currentWord.startsWith('-')) return optionFlags(command);
-    if (previousWord !== undefined) {
-      const flagSource = FLAG_SOURCES.get(previousWord);
-      if (flagSource) return yield* readCompletionCandidates(flagSource);
-    }
-    const argumentSource = ARGUMENT_SOURCES.get(commandPath.join(' '));
-    if (argumentSource && !hasPositional(words, commandPath.length, valueTakingFlags(command))) {
-      return yield* readCompletionCandidates(argumentSource);
-    }
-    return [...command.commands.map((sub) => sub.name()), ...optionFlags(command)];
-  });
+function readEarlierWord(words: readonly string[]): string | null {
+  const hasEarlierWord = words.length >= 2;
+
+  if (hasEarlierWord == false) {
+    return null;
+  }
+
+  const word = words[words.length - 2];
+
+  if (word == null) {
+    return null;
+  }
+
+  return word;
+}
+
+function readSubcommandName(subcommand: Command): string {
+  return subcommand.name();
+}
+
+function listStaticCompletionCandidates(command: Command): string[] {
+  const subcommandNames = command.commands.map(readSubcommandName);
+
+  return [...subcommandNames, ...optionFlags(command)];
+}
+
+async function readFlagCandidates(previousWord: string | null): Promise<string[] | null> {
+  if (previousWord == null) {
+    return null;
+  }
+
+  const flagSource = FLAG_SOURCES.get(previousWord);
+
+  if (flagSource == null) {
+    return null;
+  }
+
+  return readCompletionCandidates(flagSource);
+}
+
+export async function resolveCompletions(words: string[], program: Command): Promise<string[]> {
+  const descended = descendCommandTree(program, words);
+  const lastWord = words[words.length - 1];
+  let currentWord = '';
+
+  if (lastWord != null) {
+    currentWord = lastWord;
+  }
+
+  const isTypingFlag = currentWord.startsWith('-');
+
+  if (isTypingFlag) {
+    return optionFlags(descended.command);
+  }
+
+  const flagCandidates = await readFlagCandidates(readEarlierWord(words));
+
+  if (flagCandidates != null) {
+    return flagCandidates;
+  }
+
+  const argumentSource = ARGUMENT_SOURCES.get(descended.commandPath.join(' '));
+
+  if (argumentSource == null) {
+    return listStaticCompletionCandidates(descended.command);
+  }
+
+  const positionalIsFilled = hasPositional(
+    words,
+    descended.commandPath.length,
+    valueTakingFlags(descended.command),
+  );
+
+  if (positionalIsFilled) {
+    return listStaticCompletionCandidates(descended.command);
+  }
+
+  return readCompletionCandidates(argumentSource);
+}
 /**
  * Every option spelling (short + long) on the resolved command or its ancestors that takes a VALUE
  * (declared `<x>` or `[x]`). Used to tell a flag's value apart from a real positional argument - without it,
@@ -272,11 +355,20 @@ const hasPositional = (
   }
   return false;
 };
-/** Run a dynamic source, swallowing any failure to `[]` - a completion callback must never error. */
-const readCompletionCandidates = (
-  source: CompletionCandidateSource,
-): Effect.Effect<string[], never, CompletionRequirements> =>
-  source().pipe(Effect.catchAll(() => Effect.succeed([])));
+// A completion menu must not fail the shell, so a bad read becomes no candidates.
+async function readCompletionCandidates(source: CompletionCandidateSource): Promise<string[]> {
+  try {
+    return await source();
+  } catch (cause) {
+    const sourceFailed = cause != null;
+
+    if (sourceFailed) {
+      return [];
+    }
+
+    return [];
+  }
+}
 /** The default rc file each shell sources on login, relative to the user's home directory. */
 const RC_FILE: Record<Shell, string> = {
   bash: '.bashrc',
@@ -368,50 +460,81 @@ export const spliceManagedBlock = (
  *
  * Only ever writes the user's own shell rc file - never a secret and never anything under `~/.launch`.
  */
-export const installCompletion = (
-  options: InstallOptions = {},
-): Effect.Effect<
-  InstallResult,
-  CompletionFailure,
-  CompletionRequirements | LaunchEnvironmentService
-> =>
-  Effect.gen(function* () {
-    const environment = yield* LaunchEnvironment;
-    const fileSystem = yield* FileSystemService.FileSystem;
-    const pathService = yield* PathService.Path;
-    const launchPaths = yield* LaunchPaths;
-    let shell = options.shell;
-    if (shell === undefined) shell = detectShell(environment.rawVariables);
-    if (!shell) {
-      return yield* Effect.fail(
-        makeCompletionFailure({
-          message: 'Could not detect your shell. Re-run with --shell bash|zsh|fish.',
-        }),
-      );
-    }
-    let home = options.home;
-    if (home === undefined) home = launchPaths.homeDirectory;
-    const rcFile = pathService.join(home, RC_FILE[shell]);
-    const completionBlock = managedBlock(shell);
-    const rcDirectory = pathService.dirname(rcFile);
-    return yield* Effect.gen(function* () {
-      const rcFileExists = yield* fileSystem.exists(rcFile);
-      const rcDirectoryExists = yield* fileSystem.exists(rcDirectory);
-      if (!rcFileExists && !rcDirectoryExists) {
-        return { status: 'manual', shell, rcFile, line: completionSourceLine(shell) } as const;
-      }
-      let existingContents = '';
-      if (rcFileExists) existingContents = yield* fileSystem.readFileString(rcFile);
-      const { contents, updated } = spliceManagedBlock(existingContents, completionBlock);
-      yield* fileSystem.makeDirectory(rcDirectory, { recursive: true });
-      yield* fileSystem.writeFileString(rcFile, contents);
-      return { status: 'installed', shell, rcFile, updated } as const;
-    }).pipe(
-      Effect.mapError((cause) =>
-        makeCompletionFailure({
-          message: `Could not install completion in ${rcFile}.`,
-          cause,
-        }),
-      ),
-    );
-  });
+function isManualInstall(rcFileExists: boolean, rcDirectoryExists: boolean): boolean {
+  if (rcFileExists) {
+    return false;
+  }
+
+  return rcDirectoryExists == false;
+}
+
+async function writeCompletionBlock(completionInstall: {
+  shell: Shell;
+  rcFile: string;
+  rcDirectory: string;
+  completionBlock: string;
+}): Promise<InstallResult> {
+  const rcFileExists = await pathExists(completionInstall.rcFile);
+  const rcDirectoryExists = await pathExists(completionInstall.rcDirectory);
+  const manualInstall = isManualInstall(rcFileExists, rcDirectoryExists);
+
+  if (manualInstall) {
+    return {
+      status: 'manual',
+      shell: completionInstall.shell,
+      rcFile: completionInstall.rcFile,
+      line: completionSourceLine(completionInstall.shell),
+    };
+  }
+
+  let existingContents = '';
+
+  if (rcFileExists) {
+    existingContents = await readFile(completionInstall.rcFile, 'utf8');
+  }
+
+  const splicedBlock = spliceManagedBlock(existingContents, completionInstall.completionBlock);
+  await mkdir(completionInstall.rcDirectory, { recursive: true });
+  await writeFile(completionInstall.rcFile, splicedBlock.contents);
+
+  return {
+    status: 'installed',
+    shell: completionInstall.shell,
+    rcFile: completionInstall.rcFile,
+    updated: splicedBlock.updated,
+  };
+}
+
+export async function installCompletion(options: InstallOptions = {}): Promise<InstallResult> {
+  const environment = readLaunchEnvironment();
+  let shell = options.shell;
+
+  if (shell == null) {
+    shell = detectShell(environment.rawVariables);
+  }
+
+  if (shell == null) {
+    throw makeCompletionFailure({
+      message: 'Could not detect your shell. Re-run with --shell bash|zsh|fish.',
+    });
+  }
+
+  let home = options.home;
+
+  if (home == null) {
+    home = readLaunchDirectories().homeDirectory;
+  }
+
+  const rcFile = join(home, RC_FILE[shell]);
+  const completionBlock = managedBlock(shell);
+  const rcDirectory = dirname(rcFile);
+
+  try {
+    return await writeCompletionBlock({ shell, rcFile, rcDirectory, completionBlock });
+  } catch (cause) {
+    throw makeCompletionFailure({
+      message: `Could not install completion in ${rcFile}.`,
+      cause,
+    });
+  }
+}

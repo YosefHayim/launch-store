@@ -1,89 +1,85 @@
-import { Data, Effect } from 'effect';
 import type { InAppProductResource, PlayMoney } from '../../types/googlePlay.js';
 import type { InAppPurchaseConfig, PlayPriceConfig } from '../../types/catalog.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import { plan, type ReconcileContext } from '../shared/reconcile.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { MutableDeep } from '../../types/mutable.js';
+
 /**
- * The slice of {@link GooglePlayClient} the products reconciler depends on. Declared here (not the
- * concrete client) so the diff logic is unit-testable with a hand-rolled fake; `GooglePlayClient`
- * satisfies it structurally, mirroring {@link AscAccessibilityApi} in `accessibility.ts`.
+ * The slice of GooglePlayClient the products reconciler depends on. Declared here (not the
+ * concrete client) so the diff logic is unit-testable with a hand-rolled fake.
  */
 export type PlayProductsApi = {
-  assertAppExists(packageName: string): Effect.Effect<void, unknown>;
-  listInAppProducts(packageName: string): Effect.Effect<InAppProductResource[], unknown>;
-  insertInAppProduct(
-    packageName: string,
-    product: InAppProductResource,
-  ): Effect.Effect<void, unknown>;
-  updateInAppProduct(
-    packageName: string,
-    product: InAppProductResource,
-  ): Effect.Effect<void, unknown>;
+  assertAppExists(packageName: string): Promise<void>;
+  listInAppProducts(packageName: string): Promise<InAppProductResource[]>;
+  insertInAppProduct(packageName: string, product: InAppProductResource): Promise<void>;
+  updateInAppProduct(packageName: string, product: InAppProductResource): Promise<void>;
 };
+
 /** Inputs to reconcile one app's Play in-app products. */
 type PlayProductsReconcileInput = {
   packageName: string;
   products: InAppPurchaseConfig[];
   dryRun: boolean;
 };
-/** Map a config price (micro-units + currency) to the client's wire money shape. */
-const toMoney = (price: PlayPriceConfig): PlayMoney => {
+
+function toMoney(price: PlayPriceConfig): PlayMoney {
   return { priceMicros: price.priceMicros, currency: price.currency };
-};
-/**
- * Build the Play product Launch wants from one declared in-app purchase. The SKU defaults to the shared
- * Apple `productId`; the default language and listings come from the product's localizations (name ->
- * title, description -> description); pricing comes from the `play` override. Throws when the product has
- * no localization, since Play requires a default language Launch derives from the first one.
- */
+}
+
 type PlayProductConfigFailure = Readonly<{
   readonly _tag: 'PlayProductConfigFailure';
   readonly message: string;
 }>;
 
-/** Build a typed configuration failure for a Play product. */
-const makePlayProductConfigFailure = Data.tagged<PlayProductConfigFailure>(
-  'PlayProductConfigFailure',
-);
+function makePlayProductConfigFailure(fields: { message: string }): PlayProductConfigFailure {
+  return { _tag: 'PlayProductConfigFailure', ...fields };
+}
 
-export const toPlayProduct = (
-  config: InAppPurchaseConfig,
-): Effect.Effect<InAppProductResource, PlayProductConfigFailure> => {
-  const playOverrides = config.play;
-  let sku = config.productId;
-  if (playOverrides?.sku !== undefined) sku = playOverrides.sku;
-  const defaultLocale = config.localizations[0]?.locale;
-  if (defaultLocale === undefined) {
-    return Effect.fail(
-      makePlayProductConfigFailure({
-        message: `Play product ${sku} needs at least one localization (used as its default language).`,
-      }),
-    );
+/**
+ * Build the Play product Launch wants from one declared in-app purchase. The SKU defaults to the shared
+ * Apple productId. The default language comes from the first localization. Throws when that localization
+ * is missing, since Play requires a default language.
+ */
+export function toPlayProduct(purchase: InAppPurchaseConfig): InAppProductResource {
+  const playOverrides = purchase.play;
+  let sku = purchase.productId;
+  const overrideSku = playOverrides?.sku ?? null;
+
+  if (overrideSku != null) {
+    sku = overrideSku;
   }
-  const listings: Record<
-    string,
-    {
-      title: string;
-      description?: string;
-    }
-  > = {};
-  for (const localization of config.localizations) {
+
+  const defaultLocale = purchase.localizations[0]?.locale;
+
+  if (defaultLocale == null) {
+    throw makePlayProductConfigFailure({
+      message: `Play product ${sku} needs at least one localization (used as its default language).`,
+    });
+  }
+
+  const listings: Record<string, { title: string; description?: string }> = {};
+
+  for (const localization of purchase.localizations) {
     const listing: { title: string; description?: string } = {
       title: localization.name,
     };
-    if (localization.description !== undefined) listing.description = localization.description;
+
+    if (localization.description != null) {
+      listing.description = localization.description;
+    }
+
     listings[localization.locale] = listing;
   }
+
   const prices: Record<string, PlayMoney> = {};
-  if (playOverrides?.prices !== undefined) {
+
+  if (playOverrides?.prices != null) {
     for (const [region, price] of Object.entries(playOverrides.prices)) {
       prices[region] = toMoney(price);
     }
   }
-  /** Play's purchase type for a one-off managed (non-subscription) product. */
-  /** Status Launch publishes products as - declaring a `play` override means "this product should be sellable". */
+
   const desiredProduct: MutableDeep<InAppProductResource> = {
     sku,
     status: 'active',
@@ -91,149 +87,225 @@ export const toPlayProduct = (
     defaultLanguage: defaultLocale,
     listings,
   };
-  if (playOverrides?.defaultPrice !== undefined) {
+
+  if (playOverrides?.defaultPrice != null) {
     desiredProduct.defaultPrice = toMoney(playOverrides.defaultPrice);
   }
-  if (Object.keys(prices).length > 0) desiredProduct.prices = prices;
-  return Effect.succeed(desiredProduct);
-};
-/** Whether two money values agree on amount and currency (both absent counts as equal). */
-const moneyEquals = (a: PlayMoney | undefined, b: PlayMoney | undefined): boolean => {
-  if (a?.priceMicros !== b?.priceMicros) return false;
-  return a?.currency === b?.currency;
-};
+
+  const hasRegionalPrices = Object.keys(prices).length > 0;
+
+  if (hasRegionalPrices) {
+    desiredProduct.prices = prices;
+  }
+
+  return desiredProduct;
+}
+
+function moneyEquals(left: PlayMoney | undefined, right: PlayMoney | undefined): boolean {
+  if (left == null) {
+    return right == null;
+  }
+
+  if (right == null) {
+    return false;
+  }
+
+  if (left.priceMicros != right.priceMicros) {
+    return false;
+  }
+
+  return left.currency == right.currency;
+}
+
+function regionPriceMatches(
+  current: InAppProductResource,
+  region: string,
+  desiredPrice: PlayMoney,
+): boolean {
+  return moneyEquals(current.prices?.[region], desiredPrice);
+}
+
 /**
- * Whether the live product already satisfies everything Launch manages. A *subset* check: it only
- * inspects the fields Launch writes, and for prices/listings only the entries config names - so Play's
- * auto-fanned regional prices and any console-only fields never trigger a spurious update.
+ * Whether the live product already satisfies everything Launch manages. A subset check: it only
+ * inspects the fields Launch writes, so Play's auto-fanned regional prices never trigger an update.
  */
-export const productInSync = (
+export function productInSync(
   current: InAppProductResource,
   desired: InAppProductResource,
-): boolean => {
-  if (current.status !== desired.status) return false;
-  if (current.purchaseType !== desired.purchaseType) return false;
-  if (current.defaultLanguage !== desired.defaultLanguage) return false;
-  if (!moneyEquals(current.defaultPrice, desired.defaultPrice)) return false;
-  if (desired.prices !== undefined) {
+): boolean {
+  if (current.status != desired.status) {
+    return false;
+  }
+
+  if (current.purchaseType != desired.purchaseType) {
+    return false;
+  }
+
+  if (current.defaultLanguage != desired.defaultLanguage) {
+    return false;
+  }
+
+  const defaultPriceMatches = moneyEquals(current.defaultPrice, desired.defaultPrice);
+
+  if (defaultPriceMatches == false) {
+    return false;
+  }
+
+  if (desired.prices != null) {
     for (const [region, desiredPrice] of Object.entries(desired.prices)) {
-      if (!moneyEquals(current.prices?.[region], desiredPrice)) return false;
+      const priceMatches = regionPriceMatches(current, region, desiredPrice);
+
+      if (priceMatches == false) {
+        return false;
+      }
     }
   }
-  if (desired.listings !== undefined) {
+
+  if (desired.listings != null) {
     for (const [locale, desiredListing] of Object.entries(desired.listings)) {
       const currentListing = current.listings?.[locale];
-      if (currentListing === undefined) return false;
-      if (currentListing.title !== desiredListing.title) return false;
-      if (currentListing.description !== desiredListing.description) return false;
+
+      if (currentListing == null) {
+        return false;
+      }
+
+      if (currentListing.title != desiredListing.title) {
+        return false;
+      }
+
+      if (currentListing.description != desiredListing.description) {
+        return false;
+      }
     }
   }
+
   return true;
-};
+}
+
 /**
  * Merge the fields Launch manages onto the live product so an update preserves everything else Play
- * holds - most importantly the regional prices Play fans out from `defaultPrice`, which a bare replace
- * would wipe.
+ * holds, including regional prices Play fans out from defaultPrice.
  */
-const mergeOntoCurrent = (
+function mergeOntoCurrent(
   current: InAppProductResource,
   desired: InAppProductResource,
-): InAppProductResource => {
-  // `desired` (from toPlayProduct) only ever carries defined fields, so spreading it over `current`
-  // overrides the managed fields without clobbering Play's other state. Prices and listings are then
-  // merged key-wise so Play's auto-fanned regions and any extra locales survive.
+): InAppProductResource {
   return {
     ...current,
     ...desired,
     prices: { ...current.prices, ...desired.prices },
     listings: { ...current.listings, ...desired.listings },
   };
-};
-/**
- * Reconcile one app's Play in-app products. Throws only for a precondition the user must fix (the Play
- * app record is unreachable, via {@link PlayProductsApi.assertAppExists}); everything else is captured
- * per-action so a single failure never aborts the run.
- */
-export const reconcilePlayProducts = (
-  api: PlayProductsApi,
-  input: PlayProductsReconcileInput,
-): Effect.Effect<
-  { packageName: string; actions: PlannedAction[] },
-  PlayProductConfigFailure | unknown
-> =>
-  Effect.gen(function* () {
-    const reconcileContext: ReconcileContext = { actions: [], dryRun: input.dryRun };
-    yield* api.assertAppExists(input.packageName);
-    const products = yield* api.listInAppProducts(input.packageName);
-    const liveProductsBySku = new Map<string, InAppProductResource>();
-    for (const liveProduct of products) liveProductsBySku.set(liveProduct.sku, liveProduct);
-    for (const product of input.products) {
-      const desired = yield* toPlayProduct(product);
-      const current = liveProductsBySku.get(desired.sku);
-      if (!current) yield* createProduct(reconcileContext, api, input.packageName, desired);
-      else if (!productInSync(current, desired))
-        yield* updateProduct(reconcileContext, api, input.packageName, current, desired);
-    }
-    return { packageName: input.packageName, actions: reconcileContext.actions };
-  });
-/** Create a new active managed product for a SKU Play doesn't have yet. */
-const createProduct = (
+}
+
+async function recordWrite(write: Promise<void>, action: PlannedAction): Promise<void> {
+  try {
+    await write;
+    action.status = 'applied';
+  } catch (writeFailure) {
+    action.status = 'failed';
+    action.error = errorMessage(writeFailure);
+  }
+}
+
+async function createProduct(
   reconcileContext: ReconcileContext,
   api: PlayProductsApi,
   packageName: string,
   desired: InAppProductResource,
-): Effect.Effect<void> => {
+): Promise<void> {
   const action = plan(reconcileContext, `create Play product ${desired.sku}`);
-  if (reconcileContext.dryRun) return Effect.void;
-  return api.insertInAppProduct(packageName, desired).pipe(
-    Effect.match({
-      onFailure: (writeFailure) => {
-        action.status = 'failed';
-        action.error = errorMessage(writeFailure);
-      },
-      onSuccess: () => {
-        action.status = 'applied';
-      },
-    }),
-  );
-};
-/** Update a drifted product, merging the managed fields onto the live one so Play's own fields survive. */
-const updateProduct = (
+
+  if (reconcileContext.dryRun) {
+    return;
+  }
+
+  await recordWrite(api.insertInAppProduct(packageName, desired), action);
+}
+
+async function updateProduct(
   reconcileContext: ReconcileContext,
   api: PlayProductsApi,
   packageName: string,
   current: InAppProductResource,
   desired: InAppProductResource,
-): Effect.Effect<void> => {
+): Promise<void> {
   const action = plan(reconcileContext, `update Play product ${desired.sku}`);
-  if (reconcileContext.dryRun) return Effect.void;
-  return api.updateInAppProduct(packageName, mergeOntoCurrent(current, desired)).pipe(
-    Effect.match({
-      onFailure: (writeFailure) => {
-        action.status = 'failed';
-        action.error = errorMessage(writeFailure);
-      },
-      onSuccess: () => {
-        action.status = 'applied';
-      },
-    }),
-  );
-};
-/** Tally a report's action statuses for the run summary (mirrors the other store-sync commands). */
-export const summarizePlayProducts = (
-  actions: PlannedAction[],
-): {
+
+  if (reconcileContext.dryRun) {
+    return;
+  }
+
+  const mergedProduct = mergeOntoCurrent(current, desired);
+
+  await recordWrite(api.updateInAppProduct(packageName, mergedProduct), action);
+}
+
+/**
+ * Reconcile one app's Play in-app products. Throws only when the Play app record is unreachable.
+ * Every other failure is captured per-action.
+ */
+export async function reconcilePlayProducts(
+  api: PlayProductsApi,
+  reconcileInput: PlayProductsReconcileInput,
+): Promise<{ packageName: string; actions: PlannedAction[] }> {
+  const reconcileContext: ReconcileContext = { actions: [], dryRun: reconcileInput.dryRun };
+
+  await api.assertAppExists(reconcileInput.packageName);
+
+  const products = await api.listInAppProducts(reconcileInput.packageName);
+  const liveProductsBySku = new Map<string, InAppProductResource>();
+
+  for (const liveProduct of products) {
+    liveProductsBySku.set(liveProduct.sku, liveProduct);
+  }
+
+  for (const product of reconcileInput.products) {
+    const desired = toPlayProduct(product);
+    const current = liveProductsBySku.get(desired.sku) ?? null;
+
+    if (current == null) {
+      await createProduct(reconcileContext, api, reconcileInput.packageName, desired);
+      continue;
+    }
+
+    const isInSync = productInSync(current, desired);
+
+    if (isInSync) {
+      continue;
+    }
+
+    await updateProduct(reconcileContext, api, reconcileInput.packageName, current, desired);
+  }
+
+  return { packageName: reconcileInput.packageName, actions: reconcileContext.actions };
+}
+
+/** Tally a report's action statuses for the run summary. */
+export function summarizePlayProducts(actions: PlannedAction[]): {
   applied: number;
   failed: number;
   skipped: number;
-} => {
+} {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
+
   for (const action of actions) {
-    if (action.status === 'applied') applied++;
-    else if (action.status === 'failed') failed++;
-    else if (action.status === 'skipped') skipped++;
+    if (action.status == 'applied') {
+      applied += 1;
+      continue;
+    }
+
+    if (action.status == 'failed') {
+      failed += 1;
+      continue;
+    }
+
+    if (action.status == 'skipped') {
+      skipped += 1;
+    }
   }
+
   return { applied, failed, skipped };
-};
+}

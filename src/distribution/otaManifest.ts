@@ -1,5 +1,4 @@
-import { Path } from '@effect/platform';
-import { Effect } from 'effect';
+import { extname } from 'node:path';
 
 /**
  * One asset (or the launch bundle) in an update manifest: where it lives and what it is.
@@ -41,13 +40,15 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
 };
 
 /** Resolve a file's content type from its extension, defaulting to a binary stream. */
-export const contentTypeFor = (filePath: string): Effect.Effect<string, never, Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const contentType = CONTENT_TYPES[pathService.extname(filePath).toLowerCase()];
-    if (contentType === undefined) return 'application/octet-stream';
-    return contentType;
-  });
+export function contentTypeFor(filePath: string): string {
+  const contentType = CONTENT_TYPES[extname(filePath).toLowerCase()];
+
+  if (contentType == null) {
+    return 'application/octet-stream';
+  }
+
+  return contentType;
+}
 
 /** Inputs for {@link assembleManifest}. */
 type AssembleManifestInput = {

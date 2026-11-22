@@ -1,8 +1,6 @@
 import type { Command } from 'commander';
-import { Effect } from 'effect';
 import {
   releaseCommandProgram,
-  ReleaseCommandServiceLive,
   shouldNudgeRelease,
   type ReleaseCommandOptions,
 } from '@/release/releaseCommand.js';
@@ -59,10 +57,12 @@ export const registerReleaseCommand = (program: Command): void => {
     );
   addEnvFlags(releaseCommand).action(
     (platformArgument: string, commandOptions: ReleaseCommandOptions) => {
-      const releaseProgram = releaseCommandProgram(platformArgument, commandOptions).pipe(
-        Effect.provide(ReleaseCommandServiceLive),
-      );
-      if (!commandOptions.json) return runCliProgram(releaseProgram);
+      function startRelease(): ReturnType<typeof releaseCommandProgram> {
+        return releaseCommandProgram(platformArgument, commandOptions);
+      }
+
+      if (!commandOptions.json) return runCliProgram(startRelease());
+
       return runJsonCliProgram(
         {
           command: 'release',
@@ -70,7 +70,7 @@ export const registerReleaseCommand = (program: Command): void => {
           dryRun: commandOptions.dryRun === true,
           profile: commandOptions.profile,
         },
-        releaseProgram,
+        startRelease,
       );
     },
   );

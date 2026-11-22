@@ -86,7 +86,6 @@ import type {
 } from '@/types/appleCatalog.js';
 import type { AscKey } from '@/types/credentials.js';
 import type { components } from '@/apple/generated/schema.js';
-import { Schema, unsafeCoerce } from 'effect';
 import { platform as detectOperatingSystem } from 'node:os';
 import { retryAppleTransportRequest } from '@/apple/transportHelpers.js';
 import type { AscHost } from './connect/host.js';
@@ -228,9 +227,14 @@ export class AppStoreConnectClient implements AscHost {
       requestInit.body = JSON.stringify(requestDocument);
     }
     const appleResponse = await fetch(url, requestInit);
-    if (appleResponse.status === 204) return unsafeCoerce(undefined);
+    const isEmptyResponse = appleResponse.status == 204;
+
+    if (isEmptyResponse) return undefined as T;
+
     const responseText = await appleResponse.text();
-    if (!appleResponse.ok) {
+    const isFailedResponse = appleResponse.ok == false;
+
+    if (isFailedResponse) {
       // A 401 most often means a wrong/expired token - but the sneaky cause is a skewed local clock,
       // since `exp`/`iat` are signed off it. Apple's `Date` header is the authoritative reference.
       let clockHint = '';
@@ -246,8 +250,9 @@ export class AppStoreConnectClient implements AscHost {
         parseErrorCodes(responseText),
       );
     }
-    const responseDocument = Schema.decodeUnknownSync(Schema.parseJson())(responseText);
-    return unsafeCoerce(responseDocument);
+    const responseDocument: unknown = JSON.parse(responseText);
+
+    return responseDocument as T;
   }
 
   v2(path: string): string {

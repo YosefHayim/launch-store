@@ -1,54 +1,69 @@
-import { Effect } from 'effect';
 import { loadActiveAscKey } from '../../credentials/accounts.js';
 import { loadServiceAccount } from '../../credentials/androidKeystore.js';
-import {
-  AppleStoreClientService,
-  type EffectAppStoreConnectClient,
-} from '../../services/stores/appleStoreClient.js';
-import {
-  type EffectGooglePlayClient,
-  GoogleStoreClientService,
-} from '../../services/stores/googleStoreClient.js';
+import { AppleStoreClientService } from '../../services/stores/appleStoreClient.js';
+import { GoogleStoreClientService } from '../../services/stores/googleStoreClient.js';
 
-/** Build one memoized Effect-native App Store client resolver. */
-export const createAscClientResolver = () => {
-  let cachedClient: EffectAppStoreConnectClient | null | undefined;
-  return () =>
-    Effect.gen(function* () {
-      if (cachedClient === undefined) {
-        const ascKey = yield* loadActiveAscKey();
-        if (ascKey === null) {
-          cachedClient = null;
-        } else {
-          const appleStoreClients = yield* AppleStoreClientService;
-          cachedClient = yield* appleStoreClients.createEffectClient(ascKey);
-        }
-      }
+type AppStoreClient = ReturnType<typeof AppleStoreClientService.createEffectClient>;
+type PlayStoreClient = ReturnType<typeof GoogleStoreClientService.createEffectClient>;
+
+/** Build one memoized App Store client resolver. */
+export function createAscClientResolver(): () => Promise<AppStoreClient | null> {
+  let hasCachedClient = false;
+  let cachedClient: AppStoreClient | null = null;
+
+  return async function resolveAscClient(): Promise<AppStoreClient | null> {
+    if (hasCachedClient) {
       return cachedClient;
-    });
-};
+    }
 
-/** Build one memoized Effect-native Google Play client resolver. */
-export const createPlayClientResolver = () =>
-  Effect.gen(function* () {
-    const credentialContext = yield* Effect.context<
-      | Effect.Effect.Context<ReturnType<typeof loadServiceAccount>>
-      | typeof GoogleStoreClientService.Service
-    >();
-    const clients = new Map<string, EffectGooglePlayClient | null>();
-    return (packageName?: string) =>
-      Effect.gen(function* () {
-        if (!packageName) return null;
-        const cachedClient = clients.get(packageName);
-        if (cachedClient !== undefined) return cachedClient;
-        const serviceAccountJson = yield* loadServiceAccount(packageName);
-        if (serviceAccountJson === null) {
-          clients.set(packageName, null);
-          return null;
-        }
-        const googleStoreClients = yield* GoogleStoreClientService;
-        const client = yield* googleStoreClients.createEffectClient(serviceAccountJson);
-        clients.set(packageName, client);
-        return client;
-      }).pipe(Effect.provide(credentialContext));
-  });
+    const ascKey = await loadActiveAscKey();
+
+    if (ascKey == null) {
+      cachedClient = null;
+      hasCachedClient = true;
+      return null;
+    }
+
+    cachedClient = AppleStoreClientService.createEffectClient(ascKey);
+    hasCachedClient = true;
+
+    return cachedClient;
+  };
+}
+
+/** Build one memoized Google Play client resolver. */
+export function createPlayClientResolver(): (
+  packageName?: string,
+) => Promise<PlayStoreClient | null> {
+  const clients = new Map<string, PlayStoreClient | null>();
+
+  return async function resolvePlayClient(packageName?: string): Promise<PlayStoreClient | null> {
+    if (packageName == null) {
+      return null;
+    }
+
+    const isBlankName = packageName == '';
+
+    if (isBlankName) {
+      return null;
+    }
+
+    if (clients.has(packageName)) {
+      const cachedClient = clients.get(packageName) ?? null;
+
+      return cachedClient;
+    }
+
+    const serviceAccountJson = await loadServiceAccount(packageName);
+
+    if (serviceAccountJson == null) {
+      clients.set(packageName, null);
+      return null;
+    }
+
+    const client = GoogleStoreClientService.createEffectClient(serviceAccountJson);
+    clients.set(packageName, client);
+
+    return client;
+  };
+}

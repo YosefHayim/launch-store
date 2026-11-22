@@ -1,18 +1,11 @@
-import { type FileSystem, type Path, Terminal } from '@effect/platform';
-import { Data, Effect } from 'effect';
 import { selectApp } from '../../build/pipelineEnv.js';
 import { loadConfig } from '../../config/config.js';
 import { loadActiveAscKey } from '../../credentials/accounts.js';
-import {
-  AppleStoreClientService,
-  type AppleStoreClientService as AppleStoreClientDependencies,
-} from '../../services/stores/appleStoreClient.js';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
-import type { LaunchPathsService } from '../../services/platform/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
-import type { LaunchEnvironmentService } from '../../services/platform/environment.js';
-import type { LaunchSecretStoreService } from '../../services/credentials/secretStore.js';
-import { completeCommand, type CommandExit } from '../../terminal/commandExit.js';
+import { AppleStoreClientService } from '../../services/stores/appleStoreClient.js';
+import { createLogger } from '../../services/platform/logger.js';
+import { LaunchPrompt } from '../../services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
+import { completeCommand } from '../../terminal/commandExit.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import {
   loadAccessibilityConfig,
@@ -37,163 +30,233 @@ type AccessibilityCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-const makeAccessibilityCommandFailure = Data.tagged<AccessibilityCommandFailure>(
-  'AccessibilityCommandFailure',
-);
+function makeAccessibilityCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): AccessibilityCommandFailure {
+  return { _tag: 'AccessibilityCommandFailure', ...fields };
+}
 
 /** Convert an unknown cause to the command's tagged channel. */
-const accessibilityFailure = (
+function accessibilityFailure(
   operation: string,
   cause: unknown,
   fallbackMessage?: string,
-): AccessibilityCommandFailure => {
-  let message = fallbackMessage;
-  if (message === undefined && hasMessage(cause)) message = cause.message;
-  if (message === undefined) message = `${operation} failed.`;
-  return makeAccessibilityCommandFailure({ operation, message, cause });
-};
+): AccessibilityCommandFailure {
+  const hasFallback = fallbackMessage != null;
 
-/** Map one logger write to the accessibility command channel. */
-const writeLog = (
-  operation: string,
-  logWrite: ReturnType<Logger['line']>,
-): Effect.Effect<void, AccessibilityCommandFailure> =>
-  logWrite.pipe(Effect.mapError((cause) => accessibilityFailure(operation, cause)));
+  if (hasFallback) {
+    return makeAccessibilityCommandFailure({ operation, message: fallbackMessage, cause });
+  }
+
+  if (hasMessage(cause)) {
+    return makeAccessibilityCommandFailure({ operation, message: cause.message, cause });
+  }
+
+  return makeAccessibilityCommandFailure({
+    operation,
+    message: `${operation} failed.`,
+    cause,
+  });
+}
 
 /** Render one accessibility action with an ASCII status marker. */
-export const renderAccessibilityAction = (plannedAction: PlannedAction): string => {
-  if (plannedAction.status !== 'failed') return `+ ${plannedAction.description}`;
+export function renderAccessibilityAction(plannedAction: PlannedAction): string {
+  const isFailed = plannedAction.status == 'failed';
+
+  if (isFailed == false) {
+    return `+ ${plannedAction.description}`;
+  }
+
   let errorDetail = '';
-  if (plannedAction.error !== undefined) errorDetail = ` - ${plannedAction.error}`;
+  const hasError = plannedAction.error != null;
+
+  if (hasError) {
+    errorDetail = ` - ${plannedAction.error}`;
+  }
+
   return `x ${plannedAction.description}${errorDetail}`;
-};
+}
+
+function renderPlanned(plannedAction: PlannedAction): string {
+  return renderAccessibilityAction(plannedAction);
+}
+
+function isPlannedAction(plannedAction: PlannedAction): boolean {
+  return plannedAction.status == 'planned';
+}
+
+function receiptLine(appliedAction: PlannedAction): string {
+  const isFailed = appliedAction.status == 'failed';
+
+  if (isFailed) {
+    let errorDetail = 'failed';
+    const actionError = appliedAction.error;
+    const hasError = actionError != null;
+
+    if (hasError) {
+      errorDetail = actionError;
+    }
+
+    return `x ${appliedAction.description} - ${errorDetail}`;
+  }
+
+  let marker = 'OK';
+  const isSkipped = appliedAction.status == 'skipped';
+
+  if (isSkipped) {
+    marker = '-';
+  }
+
+  return `${marker} ${appliedAction.description}`;
+}
 
 /** Reconcile accessibility declarations for the selected App Store app. */
-export const accessibilityCommandProgram = (
+export async function accessibilityCommandProgram(
   commandInput: AccessibilityCommandInput,
-): Effect.Effect<
-  void,
-  AccessibilityCommandFailure | CommandExit,
-  | AppleStoreClientDependencies
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchPromptService
-  | LaunchSecretStoreService
-  | Logger
-  | Path.Path
-  | Terminal.Terminal
-> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const loadedConfiguration = yield* loadConfig().pipe(
-      Effect.mapError((cause) => accessibilityFailure('load Launch configuration', cause)),
-    );
-    const selectedApp = yield* selectApp(loadedConfiguration.apps, commandInput.app).pipe(
-      Effect.mapError((cause) => accessibilityFailure('select app', cause, cause.message)),
-    );
-    const bundleId = selectedApp.bundleId;
-    if (bundleId === undefined) {
-      return yield* Effect.fail(
-        accessibilityFailure(
-          'resolve iOS bundle identifier',
-          selectedApp,
-          `No iOS bundle identifier for ${selectedApp.name} (set ios.bundleIdentifier in app.json).`,
-        ),
-      );
+): Promise<void> {
+  const logger = createLogger(false);
+  try {
+    var loadedConfiguration = await loadConfig();
+  } catch (cause) {
+    throw accessibilityFailure('load Launch configuration', cause);
+  }
+
+  try {
+    var selectedApp = await selectApp(loadedConfiguration.apps, commandInput.app);
+  } catch (cause) {
+    let fallbackMessage: string | undefined;
+
+    if (hasMessage(cause)) {
+      fallbackMessage = cause.message;
     }
-    const accessibilityConfig = yield* loadAccessibilityConfig(commandInput.configPath).pipe(
-      Effect.mapError((cause) => accessibilityFailure('load accessibility configuration', cause)),
+
+    throw accessibilityFailure('select app', cause, fallbackMessage);
+  }
+
+  const bundleId = selectedApp.bundleId;
+  const isBundleMissing = bundleId == null;
+
+  if (isBundleMissing) {
+    throw accessibilityFailure(
+      'resolve iOS bundle identifier',
+      selectedApp,
+      `No iOS bundle identifier for ${selectedApp.name} (set ios.bundleIdentifier in app.json).`,
     );
-    const ascKey = yield* loadActiveAscKey().pipe(
-      Effect.mapError((cause) => accessibilityFailure('load active Apple account', cause)),
+  }
+
+  try {
+    var accessibilityConfig = await loadAccessibilityConfig(commandInput.configPath);
+  } catch (cause) {
+    throw accessibilityFailure('load accessibility configuration', cause);
+  }
+
+  try {
+    var ascKey = await loadActiveAscKey();
+  } catch (cause) {
+    throw accessibilityFailure('load active Apple account', cause);
+  }
+
+  const loadedAscKey = ascKey;
+  const isAccountMissing = loadedAscKey == null;
+
+  if (isAccountMissing) {
+    throw accessibilityFailure(
+      'load active Apple account',
+      bundleId,
+      'No active Apple account. Run `launch creds set-key` first.',
     );
-    if (ascKey === null) {
-      return yield* Effect.fail(
-        accessibilityFailure(
-          'load active Apple account',
-          bundleId,
-          'No active Apple account. Run `launch creds set-key` first.',
-        ),
-      );
-    }
-    const appleStoreClient = yield* AppleStoreClientService;
-    const ascClient = yield* appleStoreClient
-      .createEffectClient(ascKey)
-      .pipe(Effect.mapError((cause) => accessibilityFailure('create App Store client', cause)));
-    const accessibilityPlan = yield* reconcileAccessibility(ascClient, {
+  }
+
+  try {
+    var ascClient = AppleStoreClientService.createEffectClient(loadedAscKey);
+  } catch (cause) {
+    throw accessibilityFailure('create App Store client', cause);
+  }
+
+  try {
+    var accessibilityPlan = await reconcileAccessibility(ascClient, {
       bundleId,
       config: accessibilityConfig,
       dryRun: true,
-    }).pipe(Effect.mapError((cause) => accessibilityFailure('plan accessibility changes', cause)));
-    const plannedActions = accessibilityPlan.actions.filter(
-      (plannedAction) => plannedAction.status === 'planned',
-    );
-    yield* writeLog('render accessibility plan', logger.gap());
-    if (accessibilityPlan.actions.length === 0) {
-      yield* writeLog(
-        'render accessibility plan',
-        logger.step(bundleId, 'accessibility declarations already in sync'),
+    });
+  } catch (cause) {
+    throw accessibilityFailure('plan accessibility changes', cause);
+  }
+
+  const plannedActions = accessibilityPlan.actions.filter(isPlannedAction);
+  logger.gap();
+  const isAlreadyInSync = accessibilityPlan.actions.length == 0;
+
+  if (isAlreadyInSync) {
+    logger.step(bundleId, 'accessibility declarations already in sync');
+    return;
+  }
+
+  logger.notice(bundleId, ...accessibilityPlan.actions.map(renderPlanned));
+  logger.gap();
+  logger.note(`${plannedActions.length} change(s) for ${bundleId}.`);
+  const isDryRun = commandInput.dryRun == true;
+
+  if (isDryRun) {
+    logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+    return;
+  }
+
+  const skipConfirmation = commandInput.yes == true;
+
+  if (skipConfirmation == false) {
+    const terminalIsInteractive = checkTerminalIsInteractive();
+    const needsATerminal = terminalIsInteractive == false;
+
+    if (needsATerminal) {
+      throw accessibilityFailure(
+        'confirm accessibility changes',
+        commandInput,
+        'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
       );
+    }
+
+    let confirmed = false;
+
+    try {
+      confirmed = await LaunchPrompt.confirm(
+        `Apply ${plannedActions.length} accessibility change(s) to App Store Connect?`,
+      );
+    } catch (cause) {
+      throw accessibilityFailure('confirm accessibility changes', cause);
+    }
+
+    const declined = confirmed == false;
+
+    if (declined) {
+      LaunchPrompt.cancel('Aborted - no changes made.');
       return;
     }
-    yield* writeLog(
-      'render accessibility plan',
-      logger.notice(bundleId, ...accessibilityPlan.actions.map(renderAccessibilityAction)),
-    );
-    yield* writeLog('render accessibility plan', logger.gap());
-    yield* writeLog(
-      'render accessibility summary',
-      logger.note(`${plannedActions.length} change(s) for ${bundleId}.`),
-    );
-    if (commandInput.dryRun) {
-      yield* writeLog(
-        'render accessibility dry run',
-        logger.note('Dry run - no changes made. Re-run without --dry-run to apply.'),
-      );
-      return;
-    }
-    if (!commandInput.yes) {
-      const terminal = yield* Terminal.Terminal;
-      const terminalIsInteractive = yield* terminal.isTTY;
-      if (!terminalIsInteractive) {
-        return yield* Effect.fail(
-          accessibilityFailure(
-            'confirm accessibility changes',
-            commandInput,
-            'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
-          ),
-        );
-      }
-      const launchPrompt = yield* LaunchPrompt;
-      const confirmed = yield* launchPrompt
-        .confirm(`Apply ${plannedActions.length} accessibility change(s) to App Store Connect?`)
-        .pipe(
-          Effect.mapError((cause) => accessibilityFailure('confirm accessibility changes', cause)),
-        );
-      if (!confirmed) {
-        yield* launchPrompt.cancel('Aborted - no changes made.');
-        return;
-      }
-    }
-    const appliedAccessibility = yield* reconcileAccessibility(ascClient, {
+  }
+
+  try {
+    var appliedAccessibility = await reconcileAccessibility(ascClient, {
       bundleId,
       config: accessibilityConfig,
       dryRun: false,
-    }).pipe(Effect.mapError((cause) => accessibilityFailure('apply accessibility changes', cause)));
-    const accessibilitySummary = summarizeAccessibility(appliedAccessibility.actions);
-    const receiptLines = appliedAccessibility.actions.map((appliedAction) => {
-      if (appliedAction.status === 'failed') {
-        let errorDetail = 'failed';
-        if (appliedAction.error !== undefined) errorDetail = appliedAction.error;
-        return `x ${appliedAction.description} - ${errorDetail}`;
-      }
-      let marker = 'OK';
-      if (appliedAction.status === 'skipped') marker = '-';
-      return `${marker} ${appliedAction.description}`;
     });
-    let receiptTitle = 'Applied';
-    if (accessibilitySummary.failed > 0) receiptTitle = 'Applied with errors';
-    yield* writeLog('render applied accessibility changes', logger.box(receiptTitle, receiptLines));
-    if (accessibilitySummary.failed > 0) yield* completeCommand(1);
-  });
+  } catch (cause) {
+    throw accessibilityFailure('apply accessibility changes', cause);
+  }
+
+  const accessibilitySummary = summarizeAccessibility(appliedAccessibility.actions);
+  let receiptTitle = 'Applied';
+  const hasFailures = accessibilitySummary.failed > 0;
+
+  if (hasFailures) {
+    receiptTitle = 'Applied with errors';
+  }
+
+  logger.box(receiptTitle, appliedAccessibility.actions.map(receiptLine));
+
+  if (hasFailures) {
+    completeCommand(1);
+  }
+}

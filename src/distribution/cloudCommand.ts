@@ -1,257 +1,376 @@
-import { type FileSystem, type Path, Terminal } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
+import { stdin } from 'node:process';
 import { costBanner, formatAge, isReleasable, releasableAt, usd } from '../build/cost.js';
 import { loadConfig } from '../config/config.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
 import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import { LaunchPrompt } from '../services/platform/prompt.js';
+import { readLaunchDirectories } from '../services/platform/paths.js';
 import { getComputeHost } from '../services/providerSupport/registry.js';
-import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
+import { completeCommand, isCommandExit, type CommandExit } from '../terminal/commandExit.js';
 import type { AwsConfig, HostHandle } from '../types/remote.js';
 import { clearLiveHost, getAmiId, getLiveHost } from './cloudState.js';
 
-export const CloudCommandInputSchema = Schema.Struct({
-  operation: Schema.Literal('setup', 'status', 'teardown', 'doctor'),
-  yes: Schema.Boolean,
-});
+const CLOUD_OPERATIONS = ['setup', 'status', 'teardown', 'doctor'] as const;
 
-type CloudCommandInput = Schema.Schema.Type<typeof CloudCommandInputSchema>;
+type CloudOperation = (typeof CLOUD_OPERATIONS)[number];
+
+type CloudCommandInput = Readonly<{
+  operation: CloudOperation;
+  yes: boolean;
+}>;
 
 type CloudCommandFailure = Readonly<{
   readonly _tag: 'CloudCommandFailure';
-  readonly operation: CloudCommandInput['operation'];
+  readonly operation: CloudOperation;
   readonly message: string;
   readonly cause?: unknown;
 }>;
 
-const makeCloudCommandFailure = Data.tagged<CloudCommandFailure>('CloudCommandFailure');
+function makeCloudCommandFailure(fields: {
+  operation: CloudOperation;
+  message: string;
+  cause?: unknown;
+}): CloudCommandFailure {
+  const failureCause = fields.cause;
+  const isCauseMissing = failureCause == null;
 
-type CloudCommandRequirements =
-  | FileSystem.FileSystem
-  | LaunchPathsService
-  | LaunchPromptService
-  | Logger
-  | Path.Path
-  | Terminal.Terminal;
+  if (isCauseMissing) {
+    return {
+      _tag: 'CloudCommandFailure',
+      operation: fields.operation,
+      message: fields.message,
+    };
+  }
 
-const hostLabel = (hostHandle: HostHandle): string => {
-  if (hostHandle.instanceId !== undefined) return hostHandle.instanceId;
-  return hostHandle.ssh.host;
-};
+  return {
+    _tag: 'CloudCommandFailure',
+    operation: fields.operation,
+    message: fields.message,
+    cause: failureCause,
+  };
+}
 
-const showCloudStatus = (): Effect.Effect<
-  void,
-  unknown,
-  FileSystem.FileSystem | LaunchPathsService | Logger | Path.Path
-> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const hostHandle = yield* getLiveHost();
-    if (hostHandle === null) {
-      yield* logger.line('No live cloud host. A remote build allocates one on demand.');
-      return;
-    }
-    const computeHost = yield* getComputeHost(hostHandle.provider);
-    const hostStatus = yield* computeHost.status(hostHandle);
-    if (hostStatus === null) {
-      yield* logger.line(
-        `Recorded host ${hostLabel(hostHandle)} is no longer live (it was released). Clearing state.`,
-      );
-      yield* clearLiveHost();
-      return;
-    }
-    if (hostHandle.provider === 'byo-ssh') {
-      yield* logger.line(
-        `Connected to your Mac at ${hostHandle.ssh.user}@${hostHandle.ssh.host} (up ${formatAge(hostStatus.ageMs)}; not billed by Launch).`,
-      );
-      return;
-    }
-    yield* logger.line(costBanner(hostHandle));
-    let regionLabel = '?';
-    if (hostHandle.region !== undefined) regionLabel = hostHandle.region;
-    let dedicatedHostLabel = '?';
-    if (hostHandle.hostId !== undefined) dedicatedHostLabel = hostHandle.hostId;
-    yield* logger.line(
-      `  region ${regionLabel} - host ${dedicatedHostLabel} - ~${usd(hostStatus.estimatedCostUsd)} so far`,
-    );
-    yield* logger.line(
-      `  releasable after ${new Date(hostStatus.releasableAt).toLocaleString()} (24h Apple-license minimum).`,
-    );
-  });
+function isKnownCloudOperation(operation: unknown): operation is CloudOperation {
+  if (operation == 'setup') {
+    return true;
+  }
 
-const confirmCloudTeardown = (
-  hostHandle: HostHandle,
-  confirmed: boolean,
-): Effect.Effect<boolean, CloudCommandFailure, LaunchPromptService | Terminal.Terminal> =>
-  Effect.gen(function* () {
-    if (confirmed) return true;
-    const terminal = yield* Terminal.Terminal;
-    const terminalIsInteractive = yield* terminal.isTTY;
-    if (!terminalIsInteractive) {
-      return yield* Effect.fail(
-        makeCloudCommandFailure({
-          operation: 'teardown',
-          message: 'Refusing to tear down a cloud host without confirmation. Re-run with --yes.',
-        }),
-      );
-    }
-    const prompt = yield* LaunchPrompt;
-    const shouldTearDown = yield* prompt.confirm(`Tear down ${hostLabel(hostHandle)}?`).pipe(
-      Effect.mapError((cause) =>
-        makeCloudCommandFailure({
-          operation: 'teardown',
-          message: errorMessage(cause),
-          cause,
-        }),
-      ),
-    );
-    if (shouldTearDown) return true;
-    yield* prompt.cancel('Left the host running.');
+  if (operation == 'status') {
+    return true;
+  }
+
+  if (operation == 'teardown') {
+    return true;
+  }
+
+  if (operation == 'doctor') {
+    return true;
+  }
+
+  return false;
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (typeof candidate != 'object') {
     return false;
-  });
+  }
 
-const teardownCloudHost = (
-  confirmed: boolean,
-): Effect.Effect<void, unknown, CloudCommandRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const hostHandle = yield* getLiveHost();
-    if (hostHandle === null) {
-      yield* logger.line('No live cloud host to tear down.');
-      return;
-    }
-    if (hostHandle.provider === 'aws-ec2-mac' && !isReleasable(hostHandle.allocatedAt)) {
-      yield* logger.warn(
+  if (candidate == null) {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+export function decodeCloudCommandInput(rawCommandInput: unknown): CloudCommandInput {
+  if (isRecord(rawCommandInput) == false) {
+    throw new Error('Cloud command input is malformed.');
+  }
+
+  const operation = rawCommandInput['operation'];
+
+  if (isKnownCloudOperation(operation) == false) {
+    throw new Error('Cloud command operation is unknown.');
+  }
+
+  if (typeof rawCommandInput['yes'] != 'boolean') {
+    throw new Error('Cloud command confirmation flag is missing.');
+  }
+
+  return { operation: operation as CloudOperation, yes: rawCommandInput['yes'] };
+}
+
+export const CloudCommandInputSchema = decodeCloudCommandInput;
+
+function hostLabel(hostHandle: HostHandle): string {
+  if (hostHandle.instanceId != null) {
+    return hostHandle.instanceId;
+  }
+
+  return hostHandle.ssh.host;
+}
+
+async function showCloudStatus(): Promise<void> {
+  const logger = createLogger(false);
+  const hostHandle = await getLiveHost();
+
+  if (hostHandle == null) {
+    logger.line('No live cloud host. A remote build allocates one on demand.');
+
+    return;
+  }
+
+  const computeHost = getComputeHost(hostHandle.provider);
+  const hostStatus = await computeHost.status(hostHandle);
+
+  if (hostStatus == null) {
+    logger.line(
+      `Recorded host ${hostLabel(hostHandle)} is no longer live (it was released). Clearing state.`,
+    );
+    await clearLiveHost();
+
+    return;
+  }
+
+  if (hostHandle.provider == 'byo-ssh') {
+    logger.line(
+      `Connected to your Mac at ${hostHandle.ssh.user}@${hostHandle.ssh.host} (up ${formatAge(hostStatus.ageMs)}; not billed by Launch).`,
+    );
+
+    return;
+  }
+
+  logger.line(costBanner(hostHandle));
+  let regionLabel = '?';
+
+  if (hostHandle.region != null) {
+    regionLabel = hostHandle.region;
+  }
+
+  let dedicatedHostLabel = '?';
+
+  if (hostHandle.hostId != null) {
+    dedicatedHostLabel = hostHandle.hostId;
+  }
+
+  logger.line(
+    `  region ${regionLabel} - host ${dedicatedHostLabel} - ~${usd(hostStatus.estimatedCostUsd)} so far`,
+  );
+  logger.line(
+    `  releasable after ${new Date(hostStatus.releasableAt).toLocaleString()} (24h Apple-license minimum).`,
+  );
+}
+
+async function confirmCloudTeardown(hostHandle: HostHandle, confirmed: boolean): Promise<boolean> {
+  if (confirmed) {
+    return true;
+  }
+
+  const terminalIsInteractive = stdin.isTTY == true;
+
+  if (terminalIsInteractive == false) {
+    throw makeCloudCommandFailure({
+      operation: 'teardown',
+      message: 'Refusing to tear down a cloud host without confirmation. Re-run with --yes.',
+    });
+  }
+
+  let shouldTearDown = false;
+
+  try {
+    shouldTearDown = await LaunchPrompt.confirm(`Tear down ${hostLabel(hostHandle)}?`);
+  } catch (cause) {
+    throw makeCloudCommandFailure({
+      operation: 'teardown',
+      message: errorMessage(cause),
+      cause,
+    });
+  }
+
+  if (shouldTearDown) {
+    return true;
+  }
+
+  LaunchPrompt.cancel('Left the host running.');
+
+  return false;
+}
+
+async function teardownCloudHost(confirmed: boolean): Promise<void> {
+  const logger = createLogger(false);
+  const hostHandle = await getLiveHost();
+
+  if (hostHandle == null) {
+    logger.line('No live cloud host to tear down.');
+
+    return;
+  }
+
+  const isAwsHost = hostHandle.provider == 'aws-ec2-mac';
+
+  if (isAwsHost) {
+    const canRelease = isReleasable(hostHandle.allocatedAt);
+
+    if (canRelease == false) {
+      logger.warn(
         `AWS will not release the Dedicated Host until ${new Date(releasableAt(hostHandle.allocatedAt)).toLocaleString()}. It keeps billing until then either way.`,
       );
     }
-    if (!(yield* confirmCloudTeardown(hostHandle, confirmed))) return;
-    const computeHost = yield* getComputeHost(hostHandle.provider);
-    yield* computeHost.teardown(hostHandle);
-    yield* clearLiveHost();
-    yield* logger.ok('Host released. No further charges accrue once AWS reports it released.');
-  });
+  }
 
-const runCloudDoctorProgram = (
-  awsConfiguration: AwsConfig,
-): Effect.Effect<void, CommandExit | unknown, Logger> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const computeHost = yield* getComputeHost('aws-ec2-mac');
-    if (computeHost.doctor === undefined) {
-      return yield* Effect.fail(
-        makeCloudCommandFailure({
-          operation: 'doctor',
-          message: 'The registered AWS compute provider does not expose readiness checks.',
-        }),
-      );
-    }
-    const doctorReport = yield* computeHost.doctor(awsConfiguration);
-    for (const cloudCheck of doctorReport.checks) {
-      if (cloudCheck.ok) {
-        yield* logger.ok(`${cloudCheck.label} - ${cloudCheck.detail}`);
-      } else {
-        yield* logger.error(`${cloudCheck.label} - ${cloudCheck.detail}`);
-      }
-    }
-    if (!doctorReport.ok) yield* completeCommand(1);
-  });
+  const shouldTearDown = await confirmCloudTeardown(hostHandle, confirmed);
 
-const doctorCloudSetup = (): Effect.Effect<
-  void,
-  CommandExit | unknown,
-  FileSystem.FileSystem | LaunchPathsService | Logger | Path.Path
-> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
-    if (loadedConfiguration.config.aws === undefined) {
-      return yield* Effect.fail(
-        makeCloudCommandFailure({
-          operation: 'doctor',
-          message: 'No `aws` block in launch.config.ts. Add `aws: { region: "us-east-1" }`.',
-        }),
-      );
-    }
-    yield* runCloudDoctorProgram(loadedConfiguration.config.aws);
-  });
+  if (shouldTearDown == false) {
+    return;
+  }
 
-const showCloudSetup = (): Effect.Effect<
-  void,
-  CommandExit | unknown,
-  FileSystem.FileSystem | LaunchPathsService | Logger | Path.Path
-> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
-    const awsConfiguration = loadedConfiguration.config.aws;
-    if (awsConfiguration === undefined) {
-      yield* logger.line('Add an AWS block to launch.config.ts, then run `launch cloud doctor`:');
-      yield* logger.line('  aws: {');
-      yield* logger.line('    region: "us-east-1",');
-      yield* logger.line('    // profile: "default",');
-      yield* logger.line('    // amiId: "ami-...",');
-      yield* logger.line('    // instanceType: "mac2.metal",');
-      yield* logger.line('  }');
+  const computeHost = getComputeHost(hostHandle.provider);
+
+  await computeHost.teardown(hostHandle);
+  await clearLiveHost();
+  logger.ok('Host released. No further charges accrue once AWS reports it released.');
+}
+
+async function runCloudDoctorProgram(awsConfiguration: AwsConfig): Promise<void> {
+  const logger = createLogger(false);
+  const computeHost = getComputeHost('aws-ec2-mac');
+
+  if (computeHost.doctor == null) {
+    throw makeCloudCommandFailure({
+      operation: 'doctor',
+      message: 'The registered AWS compute provider does not expose readiness checks.',
+    });
+  }
+
+  const doctorReport = await computeHost.doctor(awsConfiguration);
+
+  for (const cloudCheck of doctorReport.checks) {
+    if (cloudCheck.ok) {
+      logger.ok(`${cloudCheck.label} - ${cloudCheck.detail}`);
+    } else {
+      logger.error(`${cloudCheck.label} - ${cloudCheck.detail}`);
+    }
+  }
+
+  if (doctorReport.ok == false) {
+    completeCommand(1);
+  }
+}
+
+async function doctorCloudSetup(): Promise<void> {
+  const launchPaths = readLaunchDirectories();
+  const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+
+  if (loadedConfiguration.config.aws == null) {
+    throw makeCloudCommandFailure({
+      operation: 'doctor',
+      message: 'No `aws` block in launch.config.ts. Add `aws: { region: "us-east-1" }`.',
+    });
+  }
+
+  await runCloudDoctorProgram(loadedConfiguration.config.aws);
+}
+
+async function showCloudSetup(): Promise<void> {
+  const logger = createLogger(false);
+  const launchPaths = readLaunchDirectories();
+  const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+  const awsConfiguration = loadedConfiguration.config.aws;
+
+  if (awsConfiguration == null) {
+    logger.line('Add an AWS block to launch.config.ts, then run `launch cloud doctor`:');
+    logger.line('  aws: {');
+    logger.line('    region: "us-east-1",');
+    logger.line('    // profile: "default",');
+    logger.line('    // amiId: "ami-...",');
+    logger.line('    // instanceType: "mac2.metal",');
+    logger.line('  }');
+
+    return;
+  }
+
+  let regionLine = `AWS region: ${awsConfiguration.region}`;
+
+  if (awsConfiguration.profile != null) {
+    regionLine = `${regionLine} - profile ${awsConfiguration.profile}`;
+  }
+
+  logger.line(regionLine);
+  let goldenAmiId: string | undefined = awsConfiguration.amiId;
+
+  if (goldenAmiId == null) {
+    const cachedAmiId = await getAmiId();
+
+    if (cachedAmiId != null) {
+      goldenAmiId = cachedAmiId;
+    }
+  }
+
+  if (goldenAmiId == null) {
+    logger.line('Golden AMI: (none yet - bootstrapped and snapshotted on first remote build)');
+  } else {
+    logger.line(`Golden AMI: ${goldenAmiId}`);
+  }
+
+  const hostHandle = await getLiveHost();
+
+  if (hostHandle == null) {
+    logger.line('Live host: none');
+  } else {
+    logger.line(`Live host: ${hostLabel(hostHandle)}`);
+  }
+
+  logger.gap();
+  await runCloudDoctorProgram(awsConfiguration);
+}
+
+function readKnownOperation(rawCommandInput: unknown): CloudOperation {
+  try {
+    return decodeCloudCommandInput(rawCommandInput).operation;
+  } catch (cause) {
+    const isUnknown = cause != null;
+
+    if (isUnknown) {
+      return 'status';
+    }
+
+    return 'status';
+  }
+}
+
+async function executeCloudCommand(commandInput: CloudCommandInput): Promise<void> {
+  switch (commandInput.operation) {
+    case 'status':
+      await showCloudStatus();
       return;
-    }
-    let regionLine = `AWS region: ${awsConfiguration.region}`;
-    if (awsConfiguration.profile !== undefined) {
-      regionLine = `${regionLine} - profile ${awsConfiguration.profile}`;
-    }
-    yield* logger.line(regionLine);
+    case 'teardown':
+      await teardownCloudHost(commandInput.yes);
+      return;
+    case 'doctor':
+      await doctorCloudSetup();
+      return;
+    case 'setup':
+      await showCloudSetup();
+      return;
+  }
+}
 
-    let goldenAmiId: string | undefined = awsConfiguration.amiId;
-    if (goldenAmiId === undefined) {
-      const cachedAmiId = yield* getAmiId();
-      if (cachedAmiId !== null) goldenAmiId = cachedAmiId;
-    }
-    if (goldenAmiId === undefined) {
-      yield* logger.line(
-        'Golden AMI: (none yet - bootstrapped and snapshotted on first remote build)',
-      );
-    } else {
-      yield* logger.line(`Golden AMI: ${goldenAmiId}`);
+export async function cloudCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodeCloudCommandInput(rawCommandInput);
+
+    await executeCloudCommand(commandInput);
+  } catch (cause) {
+    if (isCommandExit(cause)) {
+      throw cause;
     }
 
-    const hostHandle = yield* getLiveHost();
-    if (hostHandle === null) {
-      yield* logger.line('Live host: none');
-    } else {
-      yield* logger.line(`Live host: ${hostLabel(hostHandle)}`);
-    }
-    yield* logger.gap();
-    yield* runCloudDoctorProgram(awsConfiguration);
-  });
+    throw makeCloudCommandFailure({
+      operation: readKnownOperation(rawCommandInput),
+      message: errorMessage(cause),
+      cause,
+    });
+  }
+}
 
-export const cloudCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, CloudCommandFailure | CommandExit, CloudCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(CloudCommandInputSchema)(rawCommandInput);
-    switch (commandInput.operation) {
-      case 'status':
-        return yield* showCloudStatus();
-      case 'teardown':
-        return yield* teardownCloudHost(commandInput.yes);
-      case 'doctor':
-        return yield* doctorCloudSetup();
-      case 'setup':
-        return yield* showCloudSetup();
-    }
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (Schema.is(CommandExitSchema)(cause)) return cause;
-      let operation: CloudCommandInput['operation'] = 'status';
-      if (Schema.is(CloudCommandInputSchema)(rawCommandInput)) {
-        operation = rawCommandInput.operation;
-      }
-      return makeCloudCommandFailure({
-        operation,
-        message: errorMessage(cause),
-        cause,
-      });
-    }),
-  );
+export type { CommandExit, Logger };

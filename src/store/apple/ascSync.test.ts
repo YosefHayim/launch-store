@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import {
   reconcileApp,
@@ -7,7 +6,6 @@ import {
   type ListingReconcileInput,
   type ReconcileInput,
 } from './ascSync.js';
-import { makeAscCatalogApiFake } from '@testkit/ascCatalogApi.testkit.js';
 import type { AppleStoreConfig } from '../shared/storeConfig.js';
 import type {
   AppProducts,
@@ -16,9 +14,110 @@ import type {
 } from '../../types/catalog.js';
 import { expectArrayElement } from '@testkit/assertions.testkit.js';
 
-/** Local alias for the shared {@link AscCatalogApi} fake - keeps existing `makeApi(...)` call sites intact. */
+/** Promise fake of {@link AscCatalogApi}. Reads default to "nothing exists yet"; writes resolve to a created resource. */
 const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
-  return makeAscCatalogApiFake(overrides);
+  const base: AscCatalogApi = {
+    getAppId: vi.fn(() => Promise.resolve('app1')),
+    findBundleId: vi.fn(() => Promise.resolve({ id: 'bundle1', identifier: 'com.acme.app' })),
+    listBundleIdCapabilities: vi.fn(() => Promise.resolve([])),
+    enableCapability: vi
+      .fn()
+      .mockImplementation((_bundleIdResourceId: string, capabilityType: string) =>
+        Promise.resolve({ id: 'cap-new', capabilityType }),
+      ),
+    disableCapability: vi.fn(() => Promise.resolve()),
+    listInAppPurchases: vi.fn(() => Promise.resolve([])),
+    createInAppPurchase: vi.fn().mockImplementation(
+      (
+        _appId: string,
+        purchase: {
+          productId: string;
+          name: string;
+          inAppPurchaseType: string;
+        },
+      ) =>
+        Promise.resolve({
+          id: 'iap-new',
+          productId: purchase.productId,
+          name: purchase.name,
+          inAppPurchaseType: purchase.inAppPurchaseType,
+        }),
+    ),
+    listInAppPurchaseLocalizations: vi.fn(() => Promise.resolve([])),
+    createInAppPurchaseLocalization: vi.fn().mockImplementation(
+      (
+        _iapId: string,
+        localization: {
+          locale: string;
+          name: string;
+        },
+      ) => Promise.resolve({ id: 'iloc', locale: localization.locale, name: localization.name }),
+    ),
+    inAppPurchaseHasPrice: vi.fn(() => Promise.resolve(false)),
+    findInAppPurchasePricePoint: vi
+      .fn()
+      .mockImplementation((_iapId: string, territory: string, price: number) =>
+        Promise.resolve({ id: 'ipp', customerPrice: String(price), territory }),
+      ),
+    createInAppPurchasePriceSchedule: vi.fn(() => Promise.resolve()),
+    listSubscriptionGroups: vi.fn(() => Promise.resolve([])),
+    createSubscriptionGroup: vi
+      .fn()
+      .mockImplementation((_appId: string, referenceName: string) =>
+        Promise.resolve({ id: 'grp-new', referenceName }),
+      ),
+    listSubscriptionGroupLocalizations: vi.fn(() => Promise.resolve([])),
+    createSubscriptionGroupLocalization: vi.fn().mockImplementation(
+      (
+        _groupId: string,
+        localization: {
+          locale: string;
+          name: string;
+        },
+      ) => Promise.resolve({ id: 'gloc', locale: localization.locale, name: localization.name }),
+    ),
+    listSubscriptions: vi.fn(() => Promise.resolve([])),
+    createSubscription: vi.fn().mockImplementation(
+      (
+        _groupId: string,
+        subscription: {
+          productId: string;
+          name: string;
+        },
+      ) =>
+        Promise.resolve({
+          id: 'sub-new',
+          productId: subscription.productId,
+          name: subscription.name,
+        }),
+    ),
+    listSubscriptionLocalizations: vi.fn(() => Promise.resolve([])),
+    createSubscriptionLocalization: vi.fn().mockImplementation(
+      (
+        _subscriptionId: string,
+        localization: {
+          locale: string;
+          name: string;
+        },
+      ) => Promise.resolve({ id: 'sloc', locale: localization.locale, name: localization.name }),
+    ),
+    subscriptionHasPrice: vi.fn(() => Promise.resolve(false)),
+    findSubscriptionPricePoint: vi
+      .fn()
+      .mockImplementation((_subscriptionId: string, territory: string, price: number) =>
+        Promise.resolve({ id: 'spp', customerPrice: String(price), territory }),
+      ),
+    createSubscriptionPrice: vi.fn(() => Promise.resolve()),
+    getEditableAppInfoId: vi.fn(() => Promise.resolve('appinfo1')),
+    listAppInfoLocalizations: vi.fn(() => Promise.resolve([])),
+    createAppInfoLocalization: vi.fn(() => Promise.resolve()),
+    updateAppInfoLocalization: vi.fn(() => Promise.resolve()),
+    getEditableVersionId: vi.fn(() => Promise.resolve('version1')),
+    listVersionLocalizations: vi.fn(() => Promise.resolve([])),
+    createVersionLocalization: vi.fn(() => Promise.resolve()),
+    updateVersionLocalization: vi.fn(() => Promise.resolve()),
+  };
+  return { ...base, ...overrides };
 };
 
 const IAPS: InAppPurchaseConfig[] = [
@@ -62,11 +161,11 @@ const input = (overrides: Partial<ReconcileInput> = {}): ReconcileInput => {
 
 /** Execute the full catalog reconciler at the test boundary. */
 const runReconcile = (api: AscCatalogApi, reconcileInput: ReconcileInput) =>
-  Effect.runPromise(reconcileApp(api, reconcileInput));
+  reconcileApp(api, reconcileInput);
 
 /** Execute the listing-only reconciler (plan listing / snapshot surface). */
 const runListingReconcile = (api: AscCatalogApi, listingInput: ListingReconcileInput) =>
-  Effect.runPromise(reconcileAppListing(api, listingInput));
+  reconcileAppListing(api, listingInput);
 
 describe('reconcileApp', () => {
   it('plans every create from an empty account without performing any writes (dry-run)', async () => {
@@ -400,13 +499,15 @@ describe('reconcileApp - store listing localizations', () => {
     const api = makeApi({ getEditableVersionId: vi.fn().mockResolvedValue(null) });
     const listing: AppleStoreConfig = { info: { 'en-US': { title: 'Acme', description: 'Copy' } } };
     const report = await runReconcile(api, listingViaFullReconcile(listing));
-    expect(
-      report.actions.some(
-        (action) =>
-          action.status === 'skipped' &&
-          action.description.includes('no editable App Store version'),
-      ),
-    ).toBe(true);
+    function isMissingEditableVersion(action: (typeof report.actions)[number]): boolean {
+      const isSkipped = action.status == 'skipped';
+
+      if (isSkipped) return action.description.includes('no editable App Store version');
+
+      return false;
+    }
+
+    expect(report.actions.some(isMissingEditableVersion)).toBe(true);
     expect(api.createVersionLocalization).not.toHaveBeenCalled();
     expect(api.createAppInfoLocalization).toHaveBeenCalled();
   });

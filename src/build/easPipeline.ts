@@ -1,77 +1,97 @@
 import type { BuildArtifact } from '../types/artifacts.js';
-import { Effect } from 'effect';
 import { confirmUpload, reportSize, renderReceipt } from './pipelineArtifact.js';
 import { resolveSizeBudgetMB } from './pipelineProviders.js';
 import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
 import { resolveStorageProvider } from '../distribution/storage.js';
 import { getHostedBuildProvider } from '../services/providerSupport/registry.js';
+
+function readAppVersion(version: string | undefined): string {
+  const versionIsMissing = version == null;
+
+  if (versionIsMissing) {
+    return '0.0.0';
+  }
+
+  return version;
+}
+
 /** Build via EAS, store the downloaded `.ipa`, and optionally submit through `eas submit`. */
-export const runEasBuild = (prepared: PreparedBuild, options: BuildRunOptions) =>
-  Effect.gen(function* () {
-    const { config, app, profile, buildContext, log } = prepared;
-    let appVersion = app.version;
-    if (appVersion === undefined) appVersion = '0.0.0';
-    if (options.dryRun) {
-      yield* log.step('eas', 'would run `eas build --platform ios --profile <p> --json --wait`');
-      if (options.submit) {
-        yield* log.step(
-          'submit',
-          'would run `eas submit --platform ios` -> TestFlight',
-          'testflight',
-        );
-      }
-      yield* log.gap();
-      yield* log.note(`Done. ${app.name} ${appVersion} - dry-run (EAS handoff), nothing changed`);
-      return;
+export async function runEasBuild(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+): Promise<void> {
+  const { config: launchConfig, app, profile, buildContext, log } = prepared;
+  const appVersion = readAppVersion(app.version);
+
+  const isDryRun = buildOptions.dryRun == true;
+
+  if (isDryRun) {
+    log.step('eas', 'would run `eas build --platform ios --profile <p> --json --wait`');
+    const shouldSubmit = buildOptions.submit == true;
+
+    if (shouldSubmit) {
+      log.step('submit', 'would run `eas submit --platform ios` -> TestFlight', 'testflight');
     }
-    const easProvider = yield* getHostedBuildProvider('eas');
-    yield* log.step('eas-cli', yield* easProvider.describeCli(), 'eas-handoff');
-    yield* log.step('expo session', yield* easProvider.authenticate());
-    yield* log.note("Building in Expo's cloud (eas build)...");
-    const { artifactPath, sizeReport, buildNumber } = yield* easProvider.build(
-      buildContext,
-      profile.name,
-    );
-    yield* log.step('build', artifactPath);
-    yield* reportSize(sizeReport, log);
-    const artifact: BuildArtifact = {
-      path: artifactPath,
-      platform: 'ios',
-      appName: app.name,
-      profile: profile.name,
-      version: appVersion,
-      buildNumber,
-      sizeReport,
-      // EAS always clean-builds in Expo's cloud, so its artifacts are reproducible - no release nudge.
-      clean: true,
-      createdAt: new Date().toISOString(),
-    };
-    const storageProvider = yield* resolveStorageProvider(config);
-    const stored = yield* storageProvider.put(artifact);
-    yield* log.step('store', stored.location);
-    if (options.submit) {
-      yield* confirmUpload({
-        report: sizeReport,
-        budgetMB: resolveSizeBudgetMB(options, profile),
-        destination: 'TestFlight (via EAS)',
-        app,
-        version: appVersion,
-        buildNumber,
-        yes: options.yes === true,
-        log,
-      });
-      yield* log.note('Submitting via eas submit...');
-      yield* easProvider.submit(buildContext, artifactPath, profile.name);
-      yield* log.step('submit', 'uploaded to TestFlight via EAS', 'testflight');
-    }
-    let receiptDestination = 'built - not uploaded';
-    if (options.submit) receiptDestination = 'TestFlight - via EAS';
-    yield* renderReceipt({
+
+    log.gap();
+    log.note(`Done. ${app.name} ${appVersion} - dry-run (EAS handoff), nothing changed`);
+    return;
+  }
+
+  const easProvider = getHostedBuildProvider('eas');
+  const cliDescription = await easProvider.describeCli();
+  log.step('eas-cli', cliDescription, 'eas-handoff');
+  const sessionDescription = await easProvider.authenticate();
+  log.step('expo session', sessionDescription);
+  log.note("Building in Expo's cloud (eas build)...");
+  const built = await easProvider.build(buildContext, profile.name);
+  log.step('build', built.artifactPath);
+  await reportSize(built.sizeReport, log);
+  const artifact: BuildArtifact = {
+    path: built.artifactPath,
+    platform: 'ios',
+    appName: app.name,
+    profile: profile.name,
+    version: appVersion,
+    buildNumber: built.buildNumber,
+    sizeReport: built.sizeReport,
+    // EAS always clean-builds in Expo's cloud, so its artifacts are reproducible.
+    clean: true,
+    createdAt: new Date().toISOString(),
+  };
+  const storageProvider = await resolveStorageProvider(launchConfig);
+  const stored = await storageProvider.put(artifact);
+  log.step('store', stored.location);
+  const shouldSubmit = buildOptions.submit == true;
+
+  if (shouldSubmit) {
+    await confirmUpload({
+      report: built.sizeReport,
+      budgetMB: resolveSizeBudgetMB(buildOptions, profile),
+      destination: 'TestFlight (via EAS)',
       app,
       version: appVersion,
-      buildNumber,
-      report: sizeReport,
-      destination: receiptDestination,
+      buildNumber: built.buildNumber,
+      yes: buildOptions.yes == true,
       log,
     });
+    log.note('Submitting via eas submit...');
+    await easProvider.submit(buildContext, built.artifactPath, profile.name);
+    log.step('submit', 'uploaded to TestFlight via EAS', 'testflight');
+  }
+
+  let receiptDestination = 'built - not uploaded';
+
+  if (shouldSubmit) {
+    receiptDestination = 'TestFlight - via EAS';
+  }
+
+  await renderReceipt({
+    app,
+    version: appVersion,
+    buildNumber: built.buildNumber,
+    report: built.sizeReport,
+    destination: receiptDestination,
+    log,
   });
+}

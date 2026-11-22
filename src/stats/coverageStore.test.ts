@@ -1,19 +1,30 @@
-import { Effect } from 'effect';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import type { AppCoverage } from '../types/stats.js';
 import { createEmptyAppCoverage, loadAppCoverage, saveAppCoverage } from './coverageStore.js';
 
 let homeDirectory: string;
+
+function useTemporaryLaunchHome(): void {
+  useLaunchDirectories({
+    homeDirectory,
+    workingDirectory: join(homeDirectory, 'work'),
+  });
+}
+
 beforeEach(() => {
   homeDirectory = createTemporaryHomeDirectory();
+  useTemporaryLaunchHome();
 });
+
 afterEach(() => {
+  resetLaunchDirectories();
   removeTemporaryHomeDirectory(homeDirectory);
 });
 
@@ -39,19 +50,13 @@ describe('createEmptyAppCoverage', () => {
 
 describe('loadAppCoverage', () => {
   test('returns an empty coverage when the app was never synced', async () => {
-    const loaded = await Effect.runPromise(
-      loadAppCoverage('ios-1').pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
-    );
+    const loaded = await loadAppCoverage('ios-1');
 
     expect(loaded).toEqual(createEmptyAppCoverage('ios-1'));
   });
 
   test('fails for an app key that is not valid', async () => {
-    const failure = await Effect.runPromise(
-      loadAppCoverage('../x').pipe(Effect.flip, Effect.provide(makeLaunchHomeTest(homeDirectory))),
-    );
-
-    expect(failure._tag).toBe('InvalidAppKeyFailure');
+    await expect(loadAppCoverage('../x')).rejects.toMatchObject({ _tag: 'InvalidAppKeyFailure' });
   });
 });
 
@@ -71,9 +76,7 @@ describe('loadAppCoverage with a file saved before lastNote existed', () => {
     };
     writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', JSON.stringify(oldFile));
 
-    const loaded = await Effect.runPromise(
-      loadAppCoverage('ios-1').pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
-    );
+    const loaded = await loadAppCoverage('ios-1');
 
     expect(loaded.feeds['app-store']).toMatchObject({ lastError: null, lastNote: null });
   });
@@ -81,14 +84,8 @@ describe('loadAppCoverage with a file saved before lastNote existed', () => {
 
 describe('saveAppCoverage', () => {
   test('saves the coverage so the next load returns it', async () => {
-    const program = Effect.gen(function* () {
-      yield* saveAppCoverage(coverage);
-      return yield* loadAppCoverage('ios-1');
-    });
-
-    const loaded = await Effect.runPromise(
-      program.pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
-    );
+    await saveAppCoverage(coverage);
+    const loaded = await loadAppCoverage('ios-1');
 
     expect(loaded).toEqual(coverage);
   });

@@ -1,11 +1,10 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { DoctorCommandInputSchema, renderDoctorCheckLines } from './command.js';
 
-describe('DoctorCommandInputSchema', () => {
-  it('decodes the Commander boundary with omitted selectors', () => {
+describe('DoctorCommandInputSchema', function describeDoctorCommandInput() {
+  it('decodes the Commander boundary with omitted selectors', function decodesOmittedSelectors() {
     expect(
-      Schema.decodeUnknownSync(DoctorCommandInputSchema)({
+      DoctorCommandInputSchema({
         fix: false,
         yes: false,
         json: true,
@@ -13,20 +12,20 @@ describe('DoctorCommandInputSchema', () => {
     ).toEqual({ fix: false, yes: false, json: true });
   });
 
-  it('rejects explicit undefined exact optionals', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(DoctorCommandInputSchema)({
+  it('rejects explicit undefined exact optionals', function rejectsUndefinedPlatform() {
+    expect(function readUndefinedPlatform() {
+      DoctorCommandInputSchema({
         platform: undefined,
         fix: false,
         yes: false,
         json: false,
-      }),
-    ).toThrow();
+      });
+    }).toThrow();
   });
 });
 
-describe('renderDoctorCheckLines', () => {
-  it('renders a failed check, hint, and detail with ASCII markers', () => {
+describe('renderDoctorCheckLines', function describeRenderedDoctorChecks() {
+  it('renders a failed check, hint, and detail with ASCII markers', function rendersFailedCheck() {
     expect(
       renderDoctorCheckLines({
         status: 'fail',

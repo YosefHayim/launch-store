@@ -1,60 +1,98 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect } from 'effect';
+import { readdir } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 
+// AuthKey_<KEYID>.p8, with a Key ID of at least 8 letters or digits.
 const AUTH_KEY_FILENAME = /^AuthKey_([A-Z0-9]{8,})\.p8$/i;
 
 export type KeyIdentityFailure = Readonly<{
-  readonly _tag: 'KeyIdentityFailure';
-  readonly message: string;
+  _tag: 'KeyIdentityFailure';
+  message: string;
 }>;
 
-const makeKeyIdentityFailure = Data.tagged<KeyIdentityFailure>('KeyIdentityFailure');
+function makeKeyIdentityFailure(message: string): KeyIdentityFailure {
+  return { _tag: 'KeyIdentityFailure', message };
+}
+
+function keyIdentifiersConflict(
+  normalizedKeyId: string | undefined,
+  filenameKeyId: string | null,
+): boolean {
+  if (normalizedKeyId == null) {
+    return false;
+  }
+
+  if (filenameKeyId == null) {
+    return false;
+  }
+
+  return normalizedKeyId != filenameKeyId;
+}
 
 /** Read an uppercase Apple Key ID from an `AuthKey_<KEYID>.p8` filename. */
-export const extractKeyId = (p8Path: string): Effect.Effect<string | null, never, Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const capturedKeyId = AUTH_KEY_FILENAME.exec(pathService.basename(p8Path))?.[1];
-    if (capturedKeyId === undefined) return null;
-    return capturedKeyId.toUpperCase();
-  });
+export function extractKeyId(p8Path: string): string | null {
+  const capturedKeyId = AUTH_KEY_FILENAME.exec(basename(p8Path))?.[1];
+
+  if (capturedKeyId == null) {
+    return null;
+  }
+
+  return capturedKeyId.toUpperCase();
+}
 
 /** List matching Apple key files in one directory, returning an empty list when unavailable. */
-export const findAuthKeyFiles = (
-  directoryPath: string,
-): Effect.Effect<readonly string[], never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const directoryEntries = yield* fileSystem
-      .readDirectory(directoryPath)
-      .pipe(Effect.orElseSucceed((): string[] => []));
-    return directoryEntries
-      .filter((entryName) => AUTH_KEY_FILENAME.test(entryName))
-      .sort()
-      .reverse()
-      .map((entryName) => pathService.join(directoryPath, entryName));
-  });
+export async function findAuthKeyFiles(directoryPath: string): Promise<readonly string[]> {
+  let directoryNames: string[];
+
+  try {
+    directoryNames = await readdir(directoryPath);
+  } catch (error) {
+    // A missing search directory means there are no keys there yet.
+    const isDirectoryUnavailable = error != null;
+
+    if (isDirectoryUnavailable) {
+      return [];
+    }
+
+    return [];
+  }
+
+  function isAuthKeyFile(fileName: string): boolean {
+    return AUTH_KEY_FILENAME.test(fileName);
+  }
+
+  function joinAuthKey(fileName: string): string {
+    return join(directoryPath, fileName);
+  }
+
+  return directoryNames.filter(isAuthKeyFile).sort().reverse().map(joinAuthKey);
+}
 
 /** Reconcile a flag or environment Key ID with the ID carried by Apple's filename. */
-export const reconcileKeyId = (
+export function reconcileKeyId(
   explicitKeyId: string | undefined,
   filenameKeyId: string | null,
-): Effect.Effect<string | undefined, KeyIdentityFailure> => {
+): string | undefined {
   let normalizedKeyId: string | undefined;
-  if (explicitKeyId !== undefined) normalizedKeyId = explicitKeyId.trim().toUpperCase();
-  if (
-    normalizedKeyId !== undefined &&
-    filenameKeyId !== null &&
-    normalizedKeyId !== filenameKeyId
-  ) {
-    return Effect.fail(
-      makeKeyIdentityFailure({
-        message: `Key ID ${normalizedKeyId} does not match AuthKey_${filenameKeyId}.p8.`,
-      }),
+
+  if (explicitKeyId != null) {
+    normalizedKeyId = explicitKeyId.trim().toUpperCase();
+  }
+
+  const identifiersConflict = keyIdentifiersConflict(normalizedKeyId, filenameKeyId);
+
+  if (identifiersConflict) {
+    throw makeKeyIdentityFailure(
+      `Key ID ${normalizedKeyId} does not match AuthKey_${filenameKeyId}.p8.`,
     );
   }
-  if (normalizedKeyId !== undefined) return Effect.succeed(normalizedKeyId);
-  if (filenameKeyId !== null) return Effect.succeed(filenameKeyId);
-  return Effect.succeed(undefined);
-};
+
+  if (normalizedKeyId != null) {
+    return normalizedKeyId;
+  }
+
+  if (filenameKeyId != null) {
+    return filenameKeyId;
+  }
+
+  return undefined;
+}

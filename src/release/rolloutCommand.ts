@@ -1,26 +1,23 @@
-import { Data, Effect, Schema } from 'effect';
-import { loadConfig } from '../config/config.js';
-import { loadActiveAscKey } from '../credentials/accounts.js';
+import { loadConfig } from '@/config/config.js';
+import { loadActiveAscKey } from '@/credentials/accounts.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { notify } from '@/services/platform/notify.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
 import {
   AppleStoreClientService,
   appRecordMissingMessage,
-  type AppleStoreClientService as AppleStoreClientRequirements,
-} from '../services/stores/appleStoreClient.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { notify } from '../services/platform/notify.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
-import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
+} from '@/services/stores/appleStoreClient.js';
+import { completeCommand, isCommandExit } from '@/terminal/commandExit.js';
 import { IOS_PLATFORM, pickCurrentVersion } from './appStoreRelease.js';
 import { selectIosApps } from './statusCommand.js';
 
-export const RolloutCommandInputSchema = Schema.Struct({
-  action: Schema.Literal('pause', 'resume', 'complete'),
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-});
+type RolloutAction = 'pause' | 'resume' | 'complete';
 
-type RolloutCommandInput = Schema.Schema.Type<typeof RolloutCommandInputSchema>;
-type RolloutAction = RolloutCommandInput['action'];
+type RolloutCommandInput = {
+  readonly action: RolloutAction;
+  readonly app?: string;
+};
 
 type RolloutCommandFailure = Readonly<{
   readonly _tag: 'RolloutCommandFailure';
@@ -29,38 +26,117 @@ type RolloutCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-const makeRolloutCommandFailure = Data.tagged<RolloutCommandFailure>('RolloutCommandFailure');
+function makeRolloutCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): RolloutCommandFailure {
+  return {
+    _tag: 'RolloutCommandFailure',
+    operation: fields.operation,
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
 
-const RolloutCommandFailureSchema: Schema.Schema<RolloutCommandFailure> = Schema.Struct({
-  _tag: Schema.Literal('RolloutCommandFailure'),
-  operation: Schema.String,
-  message: Schema.String,
-  cause: Schema.Unknown,
-});
+function isRolloutCommandFailure(cause: unknown): cause is RolloutCommandFailure {
+  if (cause == null) {
+    return false;
+  }
 
-type AccountRequirements = Effect.Effect.Context<ReturnType<typeof loadActiveAscKey>>;
-type NotifyRequirements = Effect.Effect.Context<ReturnType<typeof notify>>;
+  if (typeof cause != 'object') {
+    return false;
+  }
 
-type RolloutCommandRequirements =
-  | AccountRequirements
-  | AppleStoreClientRequirements
-  | LaunchPathsService
-  | Logger
-  | NotifyRequirements;
+  if ('_tag' in cause == false) {
+    return false;
+  }
 
-/** Normalize a rollout dependency failure. */
-const rolloutFailure = (
+  return cause._tag == 'RolloutCommandFailure';
+}
+
+function rolloutFailure(
   operation: string,
   cause: unknown,
   explicitMessage?: string,
-): RolloutCommandFailure => {
+): RolloutCommandFailure {
   let message = errorMessage(cause);
-  if (explicitMessage !== undefined) message = explicitMessage;
+
+  if (explicitMessage != null) {
+    message = explicitMessage;
+  }
+
   return makeRolloutCommandFailure({ operation, message, cause });
-};
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  return typeof candidate == 'object';
+}
+
+function isRolloutAction(action: unknown): action is RolloutAction {
+  if (action == 'pause') {
+    return true;
+  }
+
+  if (action == 'resume') {
+    return true;
+  }
+
+  if (action == 'complete') {
+    return true;
+  }
+
+  return false;
+}
+
+export function decodeRolloutCommandInput(rawCommandInput: unknown): RolloutCommandInput {
+  const isObject = isRecord(rawCommandInput);
+
+  if (isObject == false) {
+    throw rolloutFailure(
+      'decode command input',
+      rawCommandInput,
+      'Rollout command input must be an object with action pause, resume, or complete.',
+    );
+  }
+
+  const action = readRolloutAction(rawCommandInput);
+  const appField = rawCommandInput['app'];
+  const isAppAbsent = appField == null;
+
+  if (isAppAbsent) {
+    return { action };
+  }
+
+  const isAppText = typeof appField == 'string';
+
+  if (isAppText == false) {
+    throw rolloutFailure('decode command input', rawCommandInput, 'Rollout app must be a string.');
+  }
+
+  return { action, app: appField };
+}
+
+function readRolloutAction(rawCommandInput: Record<string, unknown>): RolloutAction {
+  const actionField = rawCommandInput['action'];
+
+  if (isRolloutAction(actionField)) {
+    return actionField;
+  }
+
+  throw rolloutFailure(
+    'decode command input',
+    rawCommandInput,
+    'Rollout action must be pause, resume, or complete.',
+  );
+}
 
 /** Map a public rollout action to App Store Connect's phased-release state. */
-export const phasedStateForAction = (action: RolloutAction): 'PAUSE' | 'ACTIVE' | 'COMPLETE' => {
+export function phasedStateForAction(action: RolloutAction): 'PAUSE' | 'ACTIVE' | 'COMPLETE' {
   switch (action) {
     case 'pause':
       return 'PAUSE';
@@ -69,10 +145,10 @@ export const phasedStateForAction = (action: RolloutAction): 'PAUSE' | 'ACTIVE' 
     case 'complete':
       return 'COMPLETE';
   }
-};
+}
 
 /** Map a public rollout action to the notification contract. */
-export const rolloutNotifyStatus = (action: RolloutAction): 'paused' | 'resumed' | 'completed' => {
+export function rolloutNotifyStatus(action: RolloutAction): 'paused' | 'resumed' | 'completed' {
   switch (action) {
     case 'pause':
       return 'paused';
@@ -81,86 +157,123 @@ export const rolloutNotifyStatus = (action: RolloutAction): 'paused' | 'resumed'
     case 'complete':
       return 'completed';
   }
+}
+
+type SelectedIosApp = {
+  readonly name: string;
+  readonly bundleId: string;
 };
 
+async function updateAppRollout(
+  appleStore: ReturnType<typeof AppleStoreClientService.createEffectClient>,
+  selectedApp: SelectedIosApp,
+  phasedReleaseState: 'PAUSE' | 'ACTIVE' | 'COMPLETE',
+  notificationStatus: 'paused' | 'resumed' | 'completed',
+  loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>,
+): Promise<boolean> {
+  const logger = createLogger(false);
+  const appId = await appleStore.getAppId(selectedApp.bundleId);
+  const isAppMissing = appId == null;
+
+  if (isAppMissing) {
+    logger.error(
+      `${selectedApp.name}: ${appRecordMissingMessage(selectedApp.bundleId, 'launch rollout')}`,
+    );
+    return true;
+  }
+
+  const appStoreVersions = await appleStore.listAppStoreVersions(appId, IOS_PLATFORM);
+  const currentVersion = pickCurrentVersion(appStoreVersions);
+  const isVersionMissing = currentVersion == null;
+
+  if (isVersionMissing) {
+    logger.warn(`${selectedApp.name}: no App Store version to roll out.`);
+    return false;
+  }
+
+  const phasedRelease = await appleStore.getPhasedRelease(currentVersion.id);
+  const isPhasedReleaseMissing = phasedRelease == null;
+
+  if (isPhasedReleaseMissing) {
+    logger.warn(
+      `${selectedApp.name}: version ${currentVersion.versionString} has no phased release; it went out all at once.`,
+    );
+    return true;
+  }
+
+  await appleStore.updatePhasedRelease(phasedRelease.id, phasedReleaseState);
+  logger.step(
+    selectedApp.name,
+    `phased release -> ${phasedReleaseState} (was ${phasedRelease.phasedReleaseState})`,
+  );
+  await notify(loadedConfiguration.config, {
+    event: 'rollout',
+    status: notificationStatus,
+    app: selectedApp.name,
+    platform: 'ios',
+    version: currentVersion.versionString,
+    detail: phasedReleaseState,
+  });
+  return false;
+}
+
 /** Pause, resume, or complete phased release for every selected iOS app. */
-export const rolloutCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, CommandExit | RolloutCommandFailure, RolloutCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(RolloutCommandInputSchema)(rawCommandInput);
-    const launchPaths = yield* LaunchPaths;
-    const logger = yield* createLogger(false);
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
-    const selectedApps = yield* selectIosApps(loadedConfiguration.apps, commandInput.app);
-    if (selectedApps.length === 0) {
-      yield* logger.note(
-        'No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.',
-      );
+export async function rolloutCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodeRolloutCommandInput(rawCommandInput);
+    const launchPaths = readLaunchDirectories();
+    const logger = createLogger(false);
+    const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+    const selectedApps = await selectIosApps(loadedConfiguration.apps, commandInput.app);
+    const isThereNoIosApp = selectedApps.length == 0;
+
+    if (isThereNoIosApp) {
+      logger.note('No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.');
       return;
     }
-    const ascKey = yield* loadActiveAscKey();
-    if (ascKey === null) {
-      return yield* Effect.fail(
-        rolloutFailure(
-          'load active Apple account',
-          'missing-active-account',
-          'No active Apple account. Run `launch creds set-key` first.',
-        ),
+
+    const ascKey = await loadActiveAscKey();
+    const isAccountMissing = ascKey == null;
+
+    if (isAccountMissing) {
+      throw rolloutFailure(
+        'load active Apple account',
+        'missing-active-account',
+        'No active Apple account. Run `launch creds set-key` first.',
       );
     }
-    const appleStoreClients = yield* AppleStoreClientService;
-    const appleStore = yield* appleStoreClients.createEffectClient(ascKey);
+
+    const appleStore = AppleStoreClientService.createEffectClient(ascKey);
     const phasedReleaseState = phasedStateForAction(commandInput.action);
     const notificationStatus = rolloutNotifyStatus(commandInput.action);
     let commandFailed = false;
-    yield* Effect.forEach(
-      selectedApps,
-      (selectedApp) =>
-        Effect.gen(function* () {
-          const appId = yield* appleStore.getAppId(selectedApp.bundleId);
-          if (appId === null) {
-            yield* logger.error(
-              `${selectedApp.name}: ${appRecordMissingMessage(selectedApp.bundleId, 'launch rollout')}`,
-            );
-            commandFailed = true;
-            return;
-          }
-          const appStoreVersions = yield* appleStore.listAppStoreVersions(appId, IOS_PLATFORM);
-          const currentVersion = pickCurrentVersion(appStoreVersions);
-          if (currentVersion === null) {
-            yield* logger.warn(`${selectedApp.name}: no App Store version to roll out.`);
-            return;
-          }
-          const phasedRelease = yield* appleStore.getPhasedRelease(currentVersion.id);
-          if (phasedRelease === null) {
-            yield* logger.warn(
-              `${selectedApp.name}: version ${currentVersion.versionString} has no phased release; it went out all at once.`,
-            );
-            commandFailed = true;
-            return;
-          }
-          yield* appleStore.updatePhasedRelease(phasedRelease.id, phasedReleaseState);
-          yield* logger.step(
-            selectedApp.name,
-            `phased release -> ${phasedReleaseState} (was ${phasedRelease.phasedReleaseState})`,
-          );
-          yield* notify(loadedConfiguration.config, {
-            event: 'rollout',
-            status: notificationStatus,
-            app: selectedApp.name,
-            platform: 'ios',
-            version: currentVersion.versionString,
-            detail: phasedReleaseState,
-          });
-        }),
-      { concurrency: 1, discard: true },
-    );
-    if (commandFailed) yield* completeCommand(1);
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (Schema.is(CommandExitSchema)(cause)) return cause;
-      if (Schema.is(RolloutCommandFailureSchema)(cause)) return cause;
-      return rolloutFailure('update phased release', cause);
-    }),
-  );
+
+    for (const selectedApp of selectedApps) {
+      const appFailed = await updateAppRollout(
+        appleStore,
+        selectedApp,
+        phasedReleaseState,
+        notificationStatus,
+        loadedConfiguration,
+      );
+
+      if (appFailed) {
+        commandFailed = true;
+      }
+    }
+
+    if (commandFailed) {
+      completeCommand(1);
+    }
+  } catch (cause) {
+    if (isCommandExit(cause)) {
+      throw cause;
+    }
+
+    if (isRolloutCommandFailure(cause)) {
+      throw cause;
+    }
+
+    throw rolloutFailure('update phased release', cause);
+  }
+}

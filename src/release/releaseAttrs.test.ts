@@ -1,11 +1,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect, Layer } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
-import { LaunchSecretStoreTest } from '../services/credentials/secretStore.js';
+import { resetLaunchEnvironment } from '../services/platform/environment.js';
 import { summarize } from '../store/shared/reconcile.js';
 import type { ReleaseAttributesConfig } from '../types/storeSurface.js';
 import {
@@ -15,71 +12,95 @@ import {
   reconcileRelease,
 } from './releaseAttrs.js';
 
-/** Build a configurable Effect-native release API fake. */
-const makeReleaseApi = (methodOverrides: Partial<AscReleaseApi> = {}): AscReleaseApi => ({
-  getAppId: vi.fn(() => Effect.succeed('app1')),
-  getAppInfo: vi.fn(() => Effect.succeed({ id: 'info1' })),
-  updateAppInfoCategories: vi.fn(() => Effect.void),
-  getAgeRatingDeclaration: vi.fn(() => Effect.succeed({ id: 'age1', attributes: {} })),
-  updateAgeRatingDeclaration: vi.fn(() => Effect.void),
-  findAppPricePoint: vi.fn(() =>
-    Effect.succeed({ id: 'pp1', customerPrice: '9.99', territory: 'USA' }),
-  ),
-  getCurrentAppPrice: vi.fn(() => Effect.succeed(null)),
-  createAppPriceSchedule: vi.fn(() => Effect.void),
-  findEditableAppStoreVersion: vi.fn(() => Effect.succeed({ id: 'v1' })),
-  getAppStoreReviewDetail: vi.fn(() => Effect.succeed(null)),
-  createAppStoreReviewDetail: vi.fn(() => Effect.succeed({ id: 'rd1' })),
-  updateAppStoreReviewDetail: vi.fn(() => Effect.void),
-  ...methodOverrides,
-});
+function makeReleaseApi(methodOverrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
+  return {
+    getAppId: vi.fn(function readAppId() {
+      return Promise.resolve('app1');
+    }),
+    getAppInfo: vi.fn(function readAppInfo() {
+      return Promise.resolve({ id: 'info1' });
+    }),
+    updateAppInfoCategories: vi.fn(function updateCategories() {
+      return Promise.resolve();
+    }),
+    getAgeRatingDeclaration: vi.fn(function readAgeRating() {
+      return Promise.resolve({ id: 'age1', attributes: {} });
+    }),
+    updateAgeRatingDeclaration: vi.fn(function updateAgeRating() {
+      return Promise.resolve();
+    }),
+    findAppPricePoint: vi.fn(function readPricePoint() {
+      return Promise.resolve({ id: 'pp1', customerPrice: '9.99', territory: 'USA' });
+    }),
+    getCurrentAppPrice: vi.fn(function readCurrentPrice() {
+      return Promise.resolve(null);
+    }),
+    createAppPriceSchedule: vi.fn(function createPriceSchedule() {
+      return Promise.resolve();
+    }),
+    findEditableAppStoreVersion: vi.fn(function readEditableVersion() {
+      return Promise.resolve({ id: 'v1' });
+    }),
+    getAppStoreReviewDetail: vi.fn(function readReviewDetail() {
+      return Promise.resolve(null);
+    }),
+    createAppStoreReviewDetail: vi.fn(function createReviewDetail() {
+      return Promise.resolve({ id: 'rd1' });
+    }),
+    updateAppStoreReviewDetail: vi.fn(function updateReviewDetail() {
+      return Promise.resolve();
+    }),
+    ...methodOverrides,
+  };
+}
 
-/** Run release reconciliation with deterministic secret services. */
-const reconcile = (
+async function reconcile(
   appleReleaseApi: AscReleaseApi,
   releaseConfig: ReleaseAttributesConfig,
   dryRun = false,
-) =>
-  Effect.runPromise(
-    reconcileRelease(appleReleaseApi, {
-      bundleId: 'com.acme.app',
-      config: releaseConfig,
-      dryRun,
-    }).pipe(
-      Effect.provide(Layer.merge(makeLaunchEnvironmentTest(process.env), LaunchSecretStoreTest)),
-    ),
-  );
+) {
+  return reconcileRelease(appleReleaseApi, {
+    bundleId: 'com.acme.app',
+    config: releaseConfig,
+    dryRun,
+  });
+}
 
-afterEach(() => {
+function decodeReleaseDocument(rawDocument: unknown): Promise<ReleaseAttributesConfig> {
+  return Promise.resolve().then(function readConfig() {
+    return parseReleaseConfig(rawDocument);
+  });
+}
+
+afterEach(function resetEnvironmentFixtures() {
+  resetLaunchEnvironment();
   vi.unstubAllEnvs();
 });
 
 describe('release config schema', () => {
   it('rejects a non-object, an empty document, and array-shaped sections', async () => {
-    await expect(Effect.runPromise(parseReleaseConfig(42))).rejects.toThrow(
-      /must be a JSON object/,
-    );
-    await expect(Effect.runPromise(parseReleaseConfig({}))).rejects.toThrow(
-      /no recognized section/,
-    );
+    await expect(decodeReleaseDocument(42)).rejects.toMatchObject({
+      message: expect.stringMatching(/must be a JSON object/),
+    });
+    await expect(decodeReleaseDocument({})).rejects.toMatchObject({
+      message: expect.stringMatching(/no recognized section/),
+    });
     await expect(
-      Effect.runPromise(parseReleaseConfig({ categories: [], reviewDetails: [] })),
-    ).rejects.toThrow();
+      decodeReleaseDocument({ categories: [], reviewDetails: [] }),
+    ).rejects.toMatchObject({ _tag: 'ReleaseAttributesFailure' });
   });
 
-  it('decodes every supported section', async () => {
-    const releaseConfig = await Effect.runPromise(
-      parseReleaseConfig({
-        ageRating: { violenceCartoonOrFantasy: 'NONE', gambling: false },
-        categories: { primary: 'PRODUCTIVITY', secondary: 'BUSINESS' },
-        pricing: { baseTerritory: 'USA', customerPrice: 9.99 },
-        reviewDetails: {
-          contactEmail: 'a@b.co',
-          demoAccountRequired: true,
-          notes: 'n',
-        },
-      }),
-    );
+  it('decodes every supported section', () => {
+    const releaseConfig = parseReleaseConfig({
+      ageRating: { violenceCartoonOrFantasy: 'NONE', gambling: false },
+      categories: { primary: 'PRODUCTIVITY', secondary: 'BUSINESS' },
+      pricing: { baseTerritory: 'USA', customerPrice: 9.99 },
+      reviewDetails: {
+        contactEmail: 'a@b.co',
+        demoAccountRequired: true,
+        notes: 'n',
+      },
+    });
     expect(releaseConfig).toEqual({
       ageRating: { violenceCartoonOrFantasy: 'NONE', gambling: false },
       categories: { primary: 'PRODUCTIVITY', secondary: 'BUSINESS' },
@@ -93,42 +114,54 @@ describe('release config schema', () => {
   });
 
   it('rejects invalid prices and age-rating settings', async () => {
+    await expect(decodeReleaseDocument({ pricing: { customerPrice: -1 } })).rejects.toMatchObject({
+      message: expect.stringMatching(/non-negative number/),
+    });
     await expect(
-      Effect.runPromise(parseReleaseConfig({ pricing: { customerPrice: -1 } })),
-    ).rejects.toThrow(/non-negative number/);
+      decodeReleaseDocument({ pricing: { customerPrice: '9.99' } }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/non-negative number/),
+    });
     await expect(
-      Effect.runPromise(parseReleaseConfig({ pricing: { customerPrice: '9.99' } })),
-    ).rejects.toThrow(/non-negative number/);
-    await expect(
-      Effect.runPromise(parseReleaseConfig({ ageRating: { gambling: { nested: true } } })),
-    ).rejects.toThrow(/string or boolean/);
+      decodeReleaseDocument({ ageRating: { gambling: { nested: true } } }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/string or boolean/),
+    });
   });
 
   it('rejects deprecated age-rating values and attributes with the replacement', async () => {
     await expect(
-      Effect.runPromise(
-        parseReleaseConfig({ ageRating: { violenceRealistic: 'INFREQUENT_OR_MILD' } }),
+      decodeReleaseDocument({ ageRating: { violenceRealistic: 'INFREQUENT_OR_MILD' } }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(
+        /violenceRealistic uses deprecated value INFREQUENT_OR_MILD: use INFREQUENT/,
       ),
-    ).rejects.toThrow(/violenceRealistic uses deprecated value INFREQUENT_OR_MILD: use INFREQUENT/);
+    });
     await expect(
-      Effect.runPromise(parseReleaseConfig({ ageRating: { contests: 'FREQUENT_OR_INTENSE' } })),
-    ).rejects.toThrow(/contests uses deprecated value FREQUENT_OR_INTENSE: use FREQUENT/);
+      decodeReleaseDocument({ ageRating: { contests: 'FREQUENT_OR_INTENSE' } }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(
+        /contests uses deprecated value FREQUENT_OR_INTENSE: use FREQUENT/,
+      ),
+    });
     await expect(
-      Effect.runPromise(parseReleaseConfig({ ageRating: { kidsAgeBand: 'SIX_TO_EIGHT' } })),
-    ).rejects.toThrow(/ageRating.kidsAgeBand is deprecated/);
+      decodeReleaseDocument({ ageRating: { kidsAgeBand: 'SIX_TO_EIGHT' } }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/ageRating.kidsAgeBand is deprecated/),
+    });
     await expect(
-      Effect.runPromise(parseReleaseConfig({ ageRating: { ageRatingOverride: 'NONE' } })),
-    ).rejects.toThrow(/use ageRatingOverrideV2/);
+      decodeReleaseDocument({ ageRating: { ageRatingOverride: 'NONE' } }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/use ageRatingOverrideV2/),
+    });
   });
 
-  it('reads and decodes a sidecar through Effect Platform', async () => {
+  it('reads and decodes a sidecar', async () => {
     const temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-release-attrs-'));
     const configPath = join(temporaryDirectory, 'release.config.json');
     try {
       writeFileSync(configPath, JSON.stringify({ pricing: { customerPrice: 4.99 } }));
-      const releaseConfig = await Effect.runPromise(
-        loadReleaseConfig(configPath).pipe(Effect.provide(NodeContext.layer)),
-      );
+      const releaseConfig = await loadReleaseConfig(configPath);
       expect(releaseConfig.pricing?.customerPrice).toBe(4.99);
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true });
@@ -139,11 +172,13 @@ describe('release config schema', () => {
 describe('release reconciliation preconditions', () => {
   it('fails when the app record is missing', async () => {
     const appleReleaseApi = makeReleaseApi({
-      getAppId: vi.fn(() => Effect.succeed(null)),
+      getAppId: vi.fn(function readMissingApp() {
+        return Promise.resolve(null);
+      }),
     });
-    await expect(reconcile(appleReleaseApi, { pricing: { customerPrice: 9.99 } })).rejects.toThrow(
-      /No App Store Connect app record/,
-    );
+    await expect(
+      reconcile(appleReleaseApi, { pricing: { customerPrice: 9.99 } }),
+    ).rejects.toMatchObject({ message: expect.stringMatching(/No App Store Connect app record/) });
   });
 
   it('touches only declared sections', async () => {
@@ -159,7 +194,7 @@ describe('release category reconciliation', () => {
   it('changes only categories that differ', async () => {
     const appleReleaseApi = makeReleaseApi({
       getAppInfo: vi.fn(() =>
-        Effect.succeed({
+        Promise.resolve({
           id: 'info1',
           primaryCategoryId: 'PRODUCTIVITY',
           secondaryCategoryId: 'UTILITIES',
@@ -183,7 +218,7 @@ describe('release category reconciliation', () => {
   it('does nothing when categories match', async () => {
     const appleReleaseApi = makeReleaseApi({
       getAppInfo: vi.fn(() =>
-        Effect.succeed({
+        Promise.resolve({
           id: 'info1',
           primaryCategoryId: 'GAMES',
           secondaryCategoryId: 'BUSINESS',
@@ -200,7 +235,7 @@ describe('release category reconciliation', () => {
   it('clears a stale secondary category', async () => {
     const appleReleaseApi = makeReleaseApi({
       getAppInfo: vi.fn(() =>
-        Effect.succeed({
+        Promise.resolve({
           id: 'info1',
           primaryCategoryId: 'PRODUCTIVITY',
           secondaryCategoryId: 'HEALTH_AND_FITNESS',
@@ -221,7 +256,7 @@ describe('release category reconciliation', () => {
 
   it('skips when App Info is absent', async () => {
     const appleReleaseApi = makeReleaseApi({
-      getAppInfo: vi.fn(() => Effect.succeed(null)),
+      getAppInfo: vi.fn(() => Promise.resolve(null)),
     });
     const reconciliationReport = await reconcile(appleReleaseApi, {
       categories: { primary: 'GAMES' },
@@ -235,7 +270,7 @@ describe('release age-rating reconciliation', () => {
   it('patches only changed answers', async () => {
     const appleReleaseApi = makeReleaseApi({
       getAgeRatingDeclaration: vi.fn(() =>
-        Effect.succeed({
+        Promise.resolve({
           id: 'age1',
           attributes: { violenceCartoonOrFantasy: 'NONE', gambling: false },
         }),
@@ -255,7 +290,7 @@ describe('release age-rating reconciliation', () => {
 
   it('skips when the declaration is absent', async () => {
     const appleReleaseApi = makeReleaseApi({
-      getAgeRatingDeclaration: vi.fn(() => Effect.succeed(null)),
+      getAgeRatingDeclaration: vi.fn(() => Promise.resolve(null)),
     });
     const reconciliationReport = await reconcile(appleReleaseApi, {
       ageRating: { gambling: true },
@@ -268,7 +303,7 @@ describe('release age-rating reconciliation', () => {
 describe('release pricing reconciliation', () => {
   it('resolves a price point when the price differs', async () => {
     const appleReleaseApi = makeReleaseApi({
-      getCurrentAppPrice: vi.fn(() => Effect.succeed('4.99')),
+      getCurrentAppPrice: vi.fn(() => Promise.resolve('4.99')),
     });
     await reconcile(appleReleaseApi, { pricing: { customerPrice: 9.99 } });
     expect(appleReleaseApi.findAppPricePoint).toHaveBeenCalledWith('app1', 'USA', 9.99);
@@ -277,7 +312,7 @@ describe('release pricing reconciliation', () => {
 
   it('does nothing when the current price matches', async () => {
     const appleReleaseApi = makeReleaseApi({
-      getCurrentAppPrice: vi.fn(() => Effect.succeed('9.99')),
+      getCurrentAppPrice: vi.fn(() => Promise.resolve('9.99')),
     });
     const reconciliationReport = await reconcile(appleReleaseApi, {
       pricing: { customerPrice: 9.99 },
@@ -288,7 +323,7 @@ describe('release pricing reconciliation', () => {
 
   it('records a failed action when no price point matches', async () => {
     const appleReleaseApi = makeReleaseApi({
-      findAppPricePoint: vi.fn(() => Effect.succeed(null)),
+      findAppPricePoint: vi.fn(() => Promise.resolve(null)),
     });
     const reconciliationReport = await reconcile(appleReleaseApi, {
       pricing: { customerPrice: 12.34 },
@@ -329,7 +364,7 @@ describe('release review-detail reconciliation', () => {
     const demoPassword = ['demo', 'review', 'pw'].join('-');
     const appleReleaseApi = makeReleaseApi({
       getAppStoreReviewDetail: vi.fn(() =>
-        Effect.succeed({
+        Promise.resolve({
           id: 'rd1',
           attributes: { contactEmail: 'old@b.co', demoAccountRequired: true },
         }),
@@ -388,7 +423,7 @@ describe('release review-detail reconciliation', () => {
   it('does nothing when readable fields match', async () => {
     const appleReleaseApi = makeReleaseApi({
       getAppStoreReviewDetail: vi.fn(() =>
-        Effect.succeed({ id: 'rd1', attributes: { contactEmail: 'a@b.co' } }),
+        Promise.resolve({ id: 'rd1', attributes: { contactEmail: 'a@b.co' } }),
       ),
     });
     const reconciliationReport = await reconcile(appleReleaseApi, {
@@ -400,7 +435,7 @@ describe('release review-detail reconciliation', () => {
 
   it('skips when no editable version exists', async () => {
     const appleReleaseApi = makeReleaseApi({
-      findEditableAppStoreVersion: vi.fn(() => Effect.succeed(null)),
+      findEditableAppStoreVersion: vi.fn(() => Promise.resolve(null)),
     });
     const reconciliationReport = await reconcile(appleReleaseApi, {
       reviewDetails: { contactEmail: 'a@b.co' },

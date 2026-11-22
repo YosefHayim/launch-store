@@ -1,34 +1,66 @@
-import { Data, Effect } from 'effect';
 import { hasMessage } from './errorMessage.js';
 
-/** Matches the module-resolution errors Node/the loader throw when a package isn't installed. */
-// Raw row example: "not installed"-like input should match.
 const NOT_INSTALLED = /Cannot find (module|package)|ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND/;
-type OptionalDependencyMissing = Readonly<{
-  readonly _tag: 'OptionalDependencyMissing';
-  readonly feature: string;
-  readonly installHint: string;
-  readonly message: string;
+
+export type OptionalDependencyMissing = Readonly<{
+  _tag: 'OptionalDependencyMissing';
+  feature: string;
+  installHint: string;
+  message: string;
 }>;
-const makeOptionalDependencyMissing = Data.tagged<OptionalDependencyMissing>(
-  'OptionalDependencyMissing',
-);
-export const requireOptional = <LoadedCapability, LoadFailure, LoadRequirements>(
+
+function makeOptionalDependencyMissing(fields: {
+  feature: string;
+  installHint: string;
+  message: string;
+}): OptionalDependencyMissing {
+  return { _tag: 'OptionalDependencyMissing', ...fields };
+}
+
+function isOptionalDependencyMissing(cause: unknown): cause is OptionalDependencyMissing {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'OptionalDependencyMissing';
+}
+
+export async function requireOptional<LoadedCapability>(
   feature: string,
   installHint: string,
-  load: () => Effect.Effect<LoadedCapability, LoadFailure, LoadRequirements>,
-): Effect.Effect<LoadedCapability, LoadFailure | OptionalDependencyMissing, LoadRequirements> =>
-  load().pipe(
-    Effect.catchAll((cause): Effect.Effect<never, LoadFailure | OptionalDependencyMissing> => {
-      let message = String(cause);
-      if (hasMessage(cause)) message = cause.message;
-      if (!NOT_INSTALLED.test(message)) return Effect.fail(cause);
-      return Effect.fail(
-        makeOptionalDependencyMissing({
-          feature,
-          installHint,
-          message: `${feature} needs an optional package that isn't installed. Install it with:\n  ${installHint}`,
-        }),
-      );
-    }),
-  );
+  load: () => Promise<LoadedCapability>,
+): Promise<LoadedCapability> {
+  try {
+    return await load();
+  } catch (cause) {
+    if (isOptionalDependencyMissing(cause)) {
+      throw cause;
+    }
+
+    let message = String(cause);
+
+    if (hasMessage(cause)) {
+      message = cause.message;
+    }
+
+    const isInstalled = NOT_INSTALLED.test(message) == false;
+
+    if (isInstalled) {
+      throw cause;
+    }
+
+    throw makeOptionalDependencyMissing({
+      feature,
+      installHint,
+      message: `${feature} needs an optional package that isn't installed. Install it with:\n  ${installHint}`,
+    });
+  }
+}

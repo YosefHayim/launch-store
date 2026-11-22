@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
   InAppPurchaseResource,
@@ -40,74 +39,74 @@ class FakeOffersApi implements AscOffersApi {
   readonly createdPromoted: PromotedPurchaseCreate[] = [];
   introCreateCount = 0;
   reorderedTo: readonly string[] | null = null;
-  getAppId(): Effect.Effect<string | null> {
-    return Effect.succeed(this.appId);
+  getAppId(): Promise<string | null> {
+    return Promise.resolve(this.appId);
   }
-  listSubscriptionGroups(): Effect.Effect<SubscriptionGroupResource[]> {
-    return Effect.succeed(this.groups);
+  listSubscriptionGroups(): Promise<SubscriptionGroupResource[]> {
+    return Promise.resolve(this.groups);
   }
-  listSubscriptions(groupId: string): Effect.Effect<SubscriptionResource[]> {
+  listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
     let subscriptions: SubscriptionResource[] = [];
     if (this.subsByGroup[groupId] !== undefined) subscriptions = this.subsByGroup[groupId];
-    return Effect.succeed(subscriptions);
+    return Promise.resolve(subscriptions);
   }
-  listInAppPurchases(): Effect.Effect<InAppPurchaseResource[]> {
-    return Effect.succeed(this.iaps);
+  listInAppPurchases(): Promise<InAppPurchaseResource[]> {
+    return Promise.resolve(this.iaps);
   }
   findSubscriptionPricePoint(
     _subscriptionId: string,
     territory: string,
     customerPrice: number,
-  ): Effect.Effect<PricePointResource | null> {
-    if (customerPrice === 999) return Effect.succeed(null);
-    return Effect.succeed({
+  ): Promise<PricePointResource | null> {
+    if (customerPrice === 999) return Promise.resolve(null);
+    return Promise.resolve({
       id: `pp-${territory}-${customerPrice}`,
       customerPrice: String(customerPrice),
       territory,
     });
   }
-  listSubscriptionOfferCodes(): Effect.Effect<OfferCodeResource[]> {
-    return Effect.succeed(this.offerCodes);
+  listSubscriptionOfferCodes(): Promise<OfferCodeResource[]> {
+    return Promise.resolve(this.offerCodes);
   }
-  createSubscriptionOfferCode(input: OfferCodeCreate): Effect.Effect<OfferCodeResource> {
+  createSubscriptionOfferCode(input: OfferCodeCreate): Promise<OfferCodeResource> {
     this.createdOfferCodes.push(input);
-    return Effect.succeed({ id: `oc-${input.name}`, name: input.name, active: true });
+    return Promise.resolve({ id: `oc-${input.name}`, name: input.name, active: true });
   }
-  listPromotionalOffers(): Effect.Effect<PromotionalOfferResource[]> {
-    return Effect.succeed(this.promotionalOffers);
+  listPromotionalOffers(): Promise<PromotionalOfferResource[]> {
+    return Promise.resolve(this.promotionalOffers);
   }
-  createPromotionalOffer(input: PromotionalOfferCreate): Effect.Effect<PromotionalOfferResource> {
+  createPromotionalOffer(input: PromotionalOfferCreate): Promise<PromotionalOfferResource> {
     this.createdPromotional.push(input);
-    return Effect.succeed({
+    return Promise.resolve({
       id: `po-${input.offerCode}`,
       name: input.name,
       offerCode: input.offerCode,
     });
   }
-  listIntroductoryOffers(): Effect.Effect<IntroductoryOfferResource[]> {
-    return Effect.succeed(this.introductoryOffers);
+  listIntroductoryOffers(): Promise<IntroductoryOfferResource[]> {
+    return Promise.resolve(this.introductoryOffers);
   }
-  createIntroductoryOffer(): Effect.Effect<void> {
+  createIntroductoryOffer(): Promise<void> {
     this.introCreateCount++;
-    return Effect.void;
+    return Promise.resolve();
   }
-  listWinBackOffers(): Effect.Effect<WinBackOfferResource[]> {
-    return Effect.succeed(this.winBackOffers);
+  listWinBackOffers(): Promise<WinBackOfferResource[]> {
+    return Promise.resolve(this.winBackOffers);
   }
-  createWinBackOffer(input: WinBackOfferCreate): Effect.Effect<void> {
+  createWinBackOffer(input: WinBackOfferCreate): Promise<void> {
     this.createdWinBack.push(input);
-    return Effect.void;
+    return Promise.resolve();
   }
-  listPromotedPurchases(): Effect.Effect<PromotedPurchaseResource[]> {
-    return Effect.succeed(this.promoted);
+  listPromotedPurchases(): Promise<PromotedPurchaseResource[]> {
+    return Promise.resolve(this.promoted);
   }
-  createPromotedPurchase(input: PromotedPurchaseCreate): Effect.Effect<PromotedPurchaseResource> {
+  createPromotedPurchase(input: PromotedPurchaseCreate): Promise<PromotedPurchaseResource> {
     this.createdPromoted.push(input);
     let inAppPurchaseId: string | null = null;
     if (input.inAppPurchaseId !== undefined) inAppPurchaseId = input.inAppPurchaseId;
     let subscriptionId: string | null = null;
     if (input.subscriptionId !== undefined) subscriptionId = input.subscriptionId;
-    return Effect.succeed({
+    return Promise.resolve({
       id: `pp-new-${this.createdPromoted.length}`,
       inAppPurchaseId,
       subscriptionId,
@@ -115,14 +114,14 @@ class FakeOffersApi implements AscOffersApi {
       visibleForAllUsers: input.visibleForAllUsers,
     });
   }
-  reorderPromotedPurchases(_appId: string, orderedIds: readonly string[]): Effect.Effect<void> {
+  reorderPromotedPurchases(_appId: string, orderedIds: readonly string[]): Promise<void> {
     this.reorderedTo = orderedIds;
-    return Effect.void;
+    return Promise.resolve();
   }
 }
 /** Execute the offers reconciler at the test boundary. */
 const runReconcile = (api: AscOffersApi, input: Parameters<typeof reconcileOffers>[1]) =>
-  Effect.runPromise(reconcileOffers(api, input));
+  reconcileOffers(api, input);
 /** Build a products config with one subscription carrying the given offer overrides. */
 const productsWith = (overrides: Partial<SubscriptionConfig>): AppProducts => {
   const subscription: SubscriptionConfig = {

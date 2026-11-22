@@ -1,38 +1,48 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
 } from '@testkit/launchHome.testkit.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import type { DailyStat } from '../types/stats.js';
 import { saveDailyStats } from './statsStore.js';
 
-const createStat = (overrides: Partial<DailyStat>): DailyStat => ({
-  date: '2026-10-01',
-  feed: 'app-store',
-  metric: 'downloads',
-  value: 1,
-  currency: null,
-  ...overrides,
-});
+function createStat(overrides: Partial<DailyStat>): DailyStat {
+  return {
+    date: '2026-10-01',
+    feed: 'app-store',
+    metric: 'downloads',
+    value: 1,
+    currency: null,
+    ...overrides,
+  };
+}
 
 describe('saveDailyStats', () => {
   let homeDirectory: string;
+
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    useLaunchDirectories({
+      homeDirectory,
+      workingDirectory: join(homeDirectory, 'work'),
+    });
   });
+
   afterEach(() => {
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
-  const appFolder = () => join(homeDirectory, '.launch', 'stats', 'ios-1');
-  const saveInHome = (stats: readonly DailyStat[]) =>
-    Effect.runPromise(
-      saveDailyStats('ios-1', stats).pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
-    );
+  function appFolder(): string {
+    return join(homeDirectory, '.launch', 'stats', 'ios-1');
+  }
+
+  async function saveInHome(stats: readonly DailyStat[]): Promise<void> {
+    await saveDailyStats('ios-1', stats);
+  }
 
   test('writes one file per month', async () => {
     await saveInHome([createStat({ date: '2026-09-30' }), createStat({ date: '2026-10-01' })]);
@@ -67,13 +77,8 @@ describe('saveDailyStats', () => {
   });
 
   test('fails for an app key that is not valid', async () => {
-    const failure = await Effect.runPromise(
-      saveDailyStats('bad key', [createStat({})]).pipe(
-        Effect.flip,
-        Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      ),
-    );
-
-    expect(failure._tag).toBe('InvalidAppKeyFailure');
+    await expect(saveDailyStats('bad key', [createStat({})])).rejects.toMatchObject({
+      _tag: 'InvalidAppKeyFailure',
+    });
   });
 });

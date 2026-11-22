@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseServiceAccount } from './playClient.js';
 import {
@@ -70,7 +69,7 @@ let client: PlayReportingClient;
 beforeEach(() => {
   vi.clearAllMocks();
   client = new PlayReportingClient(
-    Effect.runSync(parseServiceAccount(makeServiceAccountJson())),
+    parseServiceAccount(makeServiceAccountJson()),
     generatedReportingFake(),
   );
 });
@@ -110,12 +109,10 @@ describe('PlayReportingClient generated metrics', () => {
         ],
       },
     });
-    const entries = await Effect.runPromise(
-      client.queryCrashRate('com.example.app', {
-        startDate: '2026-06-01',
-        endDate: '2026-06-02',
-      }),
-    );
+    const entries = await client.queryCrashRate('com.example.app', {
+      startDate: '2026-06-01',
+      endDate: '2026-06-02',
+    });
     expect(queryCrashRate).toHaveBeenCalledWith({
       name: 'apps/com.example.app/crashRateMetricSet',
       requestBody: {
@@ -155,12 +152,10 @@ describe('PlayReportingClient generated metrics', () => {
       .mockResolvedValueOnce({
         data: { rows: [crashMetricEntry('2026-06-02', '0.03', '0.02', '11')] },
       });
-    const entries = await Effect.runPromise(
-      client.queryCrashRate('com.example.app', {
-        startDate: '2026-06-01',
-        endDate: '2026-06-02',
-      }),
-    );
+    const entries = await client.queryCrashRate('com.example.app', {
+      startDate: '2026-06-01',
+      endDate: '2026-06-02',
+    });
     expect(entries.map((metricEntry) => metricEntry.date)).toEqual(['2026-06-01', '2026-06-02']);
     expect(queryCrashRate).toHaveBeenCalledTimes(2);
     expect(queryCrashRate.mock.calls[1]?.[0].requestBody.pageToken).toBe('second-page');
@@ -181,12 +176,10 @@ describe('PlayReportingClient generated metrics', () => {
       },
     });
     expect(
-      await Effect.runPromise(
-        client.queryAnrRate('com.example.app', {
-          startDate: '2026-06-01',
-          endDate: '2026-06-01',
-        }),
-      ),
+      await client.queryAnrRate('com.example.app', {
+        startDate: '2026-06-01',
+        endDate: '2026-06-01',
+      }),
     ).toEqual([
       {
         metric: 'anr',
@@ -203,31 +196,27 @@ describe('PlayReportingClient generated metrics', () => {
       data: { rows: [{ startTime: { year: 2026, month: 6, day: 1 }, metrics: [] }] },
     });
     expect(
-      await Effect.runPromise(
-        client.queryCrashRate('com.example.app', {
-          startDate: '2026-06-01',
-          endDate: '2026-06-01',
-        }),
-      ),
+      await client.queryCrashRate('com.example.app', {
+        startDate: '2026-06-01',
+        endDate: '2026-06-01',
+      }),
     ).toEqual([{ metric: 'crash', date: '2026-06-01' }]);
   });
   it('reads DAILY freshness from the matching generated metric set', async () => {
     getCrashFreshness.mockResolvedValue({ data: dailyFreshness('2026-06-20') });
     getAnrFreshness.mockResolvedValue({ data: {} });
-    expect(await Effect.runPromise(client.latestDailyDate('com.example.app', 'crash'))).toBe(
-      '2026-06-20',
-    );
+    expect(await client.latestDailyDate('com.example.app', 'crash')).toBe('2026-06-20');
     expect(getCrashFreshness).toHaveBeenCalledWith({
       name: 'apps/com.example.app/crashRateMetricSet',
     });
-    expect(await Effect.runPromise(client.latestDailyDate('com.example.app', 'anr'))).toBeNull();
+    expect(await client.latestDailyDate('com.example.app', 'anr')).toBeNull();
   });
   it('bounds the timeline query by generated freshness', async () => {
     getCrashFreshness.mockResolvedValue({ data: dailyFreshness('2026-06-20') });
     queryCrashRate.mockResolvedValue({
       data: { rows: [crashMetricEntry('2026-06-20', '0.01', '0.008', '1000')] },
     });
-    const timeline = await Effect.runPromise(client.vitalsTimeline('com.example.app', 'crash', 7));
+    const timeline = await client.vitalsTimeline('com.example.app', 'crash', 7);
     expect(timeline.window).toEqual({ startDate: '2026-06-14', endDate: '2026-06-20' });
     expect(timeline.rows[0]?.date).toBe('2026-06-20');
     expect(queryCrashRate.mock.calls[0]?.[0].requestBody.timelineSpec).toMatchObject({
@@ -238,13 +227,13 @@ describe('PlayReportingClient generated metrics', () => {
   it("surfaces Google's error text from a generated request failure", async () => {
     queryCrashRate.mockRejectedValue(new Error('Reporting API not enabled.'));
     await expect(
-      Effect.runPromise(
-        client.queryCrashRate('com.example.app', {
-          startDate: '2026-06-01',
-          endDate: '2026-06-01',
-        }),
-      ),
-    ).rejects.toThrow(/Reporting API not enabled/);
+      client.queryCrashRate('com.example.app', {
+        startDate: '2026-06-01',
+        endDate: '2026-06-01',
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/Reporting API not enabled/),
+    });
   });
 });
 describe('PlayReportingClient.listApps', () => {
@@ -260,7 +249,7 @@ describe('PlayReportingClient.listApps', () => {
         data: { apps: [{ packageName: 'com.acme.two' }, { displayName: 'No package' }] },
       });
 
-    const apps = await Effect.runPromise(client.listApps());
+    const apps = await client.listApps();
 
     expect(apps).toEqual([
       { packageName: 'com.acme.one', displayName: 'One' },
@@ -273,7 +262,7 @@ describe('PlayReportingClient.listApps', () => {
   it('returns an empty list when a page has no apps', async () => {
     searchApps.mockResolvedValueOnce({ data: {} });
 
-    const apps = await Effect.runPromise(client.listApps());
+    const apps = await client.listApps();
 
     expect(apps).toEqual([]);
   });
@@ -281,6 +270,8 @@ describe('PlayReportingClient.listApps', () => {
   it('fails with a reporting error when the search request fails', async () => {
     searchApps.mockRejectedValueOnce(new Error('forbidden'));
 
-    await expect(Effect.runPromise(client.listApps())).rejects.toThrow(/search accessible apps/);
+    await expect(client.listApps()).rejects.toMatchObject({
+      message: expect.stringMatching(/search accessible apps/),
+    });
   });
 });

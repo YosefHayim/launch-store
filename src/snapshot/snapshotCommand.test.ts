@@ -1,4 +1,3 @@
-import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { Snapshot } from '../types/snapshot.js';
 import {
@@ -67,7 +66,7 @@ const sampleSnapshot = (snapshotFields: Partial<Snapshot> = {}): Snapshot => ({
 describe('SnapshotCommandInputSchema', () => {
   it('decodes capture and diff operations', () => {
     expect(
-      Schema.decodeUnknownSync(SnapshotCommandInputSchema)({
+      SnapshotCommandInputSchema({
         operation: 'create',
         name: 'before-release',
         app: 'demo',
@@ -75,7 +74,7 @@ describe('SnapshotCommandInputSchema', () => {
       }),
     ).toEqual({ operation: 'create', name: 'before-release', app: 'demo', json: true });
     expect(
-      Schema.decodeUnknownSync(SnapshotCommandInputSchema)({
+      SnapshotCommandInputSchema({
         operation: 'diff',
         baseline: 'before-release',
         against: 'live',
@@ -91,13 +90,13 @@ describe('SnapshotCommandInputSchema', () => {
 
   it('decodes prune and restore options without generic records', () => {
     expect(
-      Schema.decodeUnknownSync(SnapshotCommandInputSchema)({
+      SnapshotCommandInputSchema({
         operation: 'prune',
         options: { keep: '3', yes: false, json: true },
       }),
     ).toEqual({ operation: 'prune', options: { keep: '3', yes: false, json: true } });
     expect(
-      Schema.decodeUnknownSync(SnapshotCommandInputSchema)({
+      SnapshotCommandInputSchema({
         operation: 'restore',
         name: 'before-release',
         source: 'apple-listing',
@@ -115,7 +114,7 @@ describe('SnapshotCommandInputSchema', () => {
 
   it('rejects explicit undefined exact optionals', () => {
     expect(() =>
-      Schema.decodeUnknownSync(SnapshotCommandInputSchema)({
+      SnapshotCommandInputSchema({
         operation: 'create',
         name: undefined,
         json: false,
@@ -156,20 +155,24 @@ describe('countEntities', () => {
 });
 
 describe('parsePruneCount', () => {
-  it('accepts non-negative integers', async () => {
-    expect(await Effect.runPromise(parsePruneCount('0', '--keep'))).toBe(0);
-    expect(await Effect.runPromise(parsePruneCount('12', '--older-than'))).toBe(12);
+  it('accepts non-negative integers', () => {
+    expect(parsePruneCount('0', '--keep')).toBe(0);
+    expect(parsePruneCount('12', '--older-than')).toBe(12);
   });
 
-  it('rejects non-integers and negative values with a flag-specific message', async () => {
-    const nonInteger = await Effect.runPromise(parsePruneCount('1.5', '--keep').pipe(Effect.flip));
-    expect(nonInteger._tag).toBe('SnapshotCommandFailure');
-    expect(nonInteger.message).toBe('--keep must be a non-negative integer.');
-
-    const negative = await Effect.runPromise(
-      parsePruneCount('-1', '--older-than').pipe(Effect.flip),
+  it('rejects non-integers and negative values with a flag-specific message', () => {
+    expect(() => parsePruneCount('1.5', '--keep')).toThrow(
+      '--keep must be a non-negative integer.',
     );
-    expect(negative.message).toBe('--older-than must be a non-negative integer.');
+    expect(() => parsePruneCount('-1', '--older-than')).toThrow(
+      '--older-than must be a non-negative integer.',
+    );
+
+    try {
+      parsePruneCount('1.5', '--keep');
+    } catch (failure) {
+      expect(failure).toMatchObject({ _tag: 'SnapshotCommandFailure' });
+    }
   });
 });
 

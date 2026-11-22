@@ -1,29 +1,24 @@
-import { Data, Effect, Schema } from 'effect';
 import {
   loadServiceAccount,
   describeMissingPlayServiceAccount,
 } from '../../credentials/androidKeystore.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
-import {
-  GoogleReportingClientService,
-  type GoogleReportingClientService as GoogleReportingClientRequirements,
-} from '../../services/stores/googleReportingClient.js';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
-import type { LaunchSecretStoreService } from '../../services/credentials/secretStore.js';
+import { createLogger } from '../../services/platform/logger.js';
+import { GoogleReportingClientService } from '../../services/stores/googleReportingClient.js';
 import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.js';
-import { selectStoreApp, type StoreAppSelectionRequirements } from '../shared/selectStoreApp.js';
+import { selectStoreApp } from '../shared/selectStoreApp.js';
 
 /** Default Play vitals history window shown by the command. */
 export const DEFAULT_VITALS_DAYS = 28;
 /** Largest Play vitals history window accepted from the CLI. */
 export const MAX_VITALS_DAYS = 365;
 
-const PlayReportsCommandInputSchema = Schema.Struct({
-  app: Schema.optional(Schema.String),
-  metric: Schema.optional(Schema.String),
-  days: Schema.optional(Schema.String),
-  json: Schema.Boolean,
-});
+export type PlayReportsCommandInput = {
+  app?: string;
+  metric?: string;
+  days?: string;
+  json: boolean;
+};
 
 type PlayReportsCommandFailure = Readonly<{
   readonly _tag: 'PlayReportsCommandFailure';
@@ -31,132 +26,224 @@ type PlayReportsCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-const makePlayReportsCommandFailure = Data.tagged<PlayReportsCommandFailure>(
-  'PlayReportsCommandFailure',
-);
-
-type PlayReportsCommandRequirements =
-  | GoogleReportingClientRequirements
-  | LaunchSecretStoreService
-  | Logger
-  | StoreAppSelectionRequirements;
+function makePlayReportsCommandFailure(fields: {
+  message: string;
+  cause?: unknown;
+}): PlayReportsCommandFailure {
+  return { _tag: 'PlayReportsCommandFailure', ...fields };
+}
 
 const METRIC_LABEL: Record<PlayVitalsMetric, string> = {
   crash: 'Crash rate',
   anr: 'ANR rate',
 };
 
-export const parseVitalsMetrics = (
-  metricFlag: string | undefined,
-): Effect.Effect<PlayVitalsMetric[], PlayReportsCommandFailure> => {
-  if (metricFlag === undefined) return Effect.succeed(['crash', 'anr']);
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
+  const field = record[fieldName];
+
+  if (typeof field != 'boolean') {
+    throw new Error(`${fieldName} must be a boolean`);
+  }
+
+  return field;
+}
+
+function readLooseOptionalString(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | null {
+  if (fieldName in record == false) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field == 'undefined') {
+    return null;
+  }
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  return field;
+}
+
+function decodePlayReportsCommandInput(rawCommandInput: unknown): PlayReportsCommandInput {
+  if (isRecord(rawCommandInput) == false) {
+    throw new Error('Play reports command input must be an object.');
+  }
+
+  const commandInput: PlayReportsCommandInput = {
+    json: readRequiredBoolean(rawCommandInput, 'json'),
+  };
+  const appName = readLooseOptionalString(rawCommandInput, 'app');
+  const metricName = readLooseOptionalString(rawCommandInput, 'metric');
+  const daysText = readLooseOptionalString(rawCommandInput, 'days');
+
+  if (appName != null) {
+    commandInput.app = appName;
+  }
+
+  if (metricName != null) {
+    commandInput.metric = metricName;
+  }
+
+  if (daysText != null) {
+    commandInput.days = daysText;
+  }
+
+  return commandInput;
+}
+
+export function parseVitalsMetrics(metricFlag: string | undefined): PlayVitalsMetric[] {
+  if (metricFlag == null) {
+    return ['crash', 'anr'];
+  }
+
   const metricName = metricFlag.trim().toLowerCase();
-  if (metricName === 'crash') return Effect.succeed(['crash']);
-  if (metricName === 'anr') return Effect.succeed(['anr']);
-  return Effect.fail(
-    makePlayReportsCommandFailure({
-      message: `--metric must be "crash" or "anr" (got "${metricFlag}").`,
-    }),
-  );
-};
 
-export const parseVitalsDays = (
-  daysFlag: string | undefined,
-): Effect.Effect<number, PlayReportsCommandFailure> => {
-  if (daysFlag === undefined) return Effect.succeed(DEFAULT_VITALS_DAYS);
+  if (metricName == 'crash') {
+    return ['crash'];
+  }
+
+  if (metricName == 'anr') {
+    return ['anr'];
+  }
+
+  throw makePlayReportsCommandFailure({
+    message: `--metric must be "crash" or "anr" (got "${metricFlag}").`,
+  });
+}
+
+// Whole digits only, so "7.5" and "-3" are rejected before the range check.
+const WHOLE_NUMBER_PATTERN = /^\d+$/;
+
+export function parseVitalsDays(daysFlag: string | undefined): number {
+  if (daysFlag == null) {
+    return DEFAULT_VITALS_DAYS;
+  }
+
   const trimmedDays = daysFlag.trim();
-  if (!/^\d+$/.test(trimmedDays)) {
-    return Effect.fail(
-      makePlayReportsCommandFailure({
-        message: `--days must be a positive whole number (got "${daysFlag}").`,
-      }),
-    );
+  const isWholeNumber = WHOLE_NUMBER_PATTERN.test(trimmedDays);
+
+  if (isWholeNumber == false) {
+    throw makePlayReportsCommandFailure({
+      message: `--days must be a positive whole number (got "${daysFlag}").`,
+    });
   }
+
   const historyDays = Number(trimmedDays);
-  if (historyDays < 1) {
-    return Effect.fail(
-      makePlayReportsCommandFailure({
-        message: `--days must be a positive whole number (got "${daysFlag}").`,
-      }),
-    );
-  }
-  if (historyDays > MAX_VITALS_DAYS) {
-    return Effect.fail(
-      makePlayReportsCommandFailure({
-        message: `--days cannot exceed ${MAX_VITALS_DAYS} (got "${daysFlag}").`,
-      }),
-    );
-  }
-  return Effect.succeed(historyDays);
-};
+  const isBelowOne = historyDays < 1;
 
-const percentage = (rate: number | undefined): string => {
-  if (rate === undefined) return '-';
+  if (isBelowOne) {
+    throw makePlayReportsCommandFailure({
+      message: `--days must be a positive whole number (got "${daysFlag}").`,
+    });
+  }
+
+  const isAboveMax = historyDays > MAX_VITALS_DAYS;
+
+  if (isAboveMax) {
+    throw makePlayReportsCommandFailure({
+      message: `--days cannot exceed ${MAX_VITALS_DAYS} (got "${daysFlag}").`,
+    });
+  }
+
+  return historyDays;
+}
+
+function percentage(rate: number | undefined): string {
+  if (rate == null) {
+    return '-';
+  }
+
   return `${(rate * 100).toFixed(2)}%`;
-};
+}
 
-const renderVitalsTimeline = (timeline: VitalsTimeline): string => {
+function renderVitalsEntry(vitalsEntry: VitalsTimeline['rows'][number]): string {
+  let usersText = '';
+
+  if (vitalsEntry.distinctUsers != null) {
+    usersText = `  ${vitalsEntry.distinctUsers} users`;
+  }
+
+  return `  ${vitalsEntry.date}  ${percentage(vitalsEntry.rate).padStart(7)}  (user-perceived ${percentage(vitalsEntry.userPerceivedRate)})${usersText}`;
+}
+
+function renderVitalsTimeline(timeline: VitalsTimeline): string {
   const header = `\n${METRIC_LABEL[timeline.metric]}  (${timeline.window.startDate} -> ${timeline.window.endDate}, DAILY)`;
-  if (timeline.rows.length === 0) {
+  const hasNoRows = timeline.rows.length == 0;
+
+  if (hasNoRows) {
     return `${header}\n  (no data - the app may be new, or below Play's reporting threshold)`;
   }
-  const timelineLines = timeline.rows.map((vitalsEntry) => {
-    let usersText = '';
-    if (vitalsEntry.distinctUsers !== undefined) {
-      usersText = `  ${vitalsEntry.distinctUsers} users`;
-    }
-    return `  ${vitalsEntry.date}  ${percentage(vitalsEntry.rate).padStart(7)}  (user-perceived ${percentage(vitalsEntry.userPerceivedRate)})${usersText}`;
-  });
-  return [header, ...timelineLines].join('\n');
-};
 
-export const playReportsCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, PlayReportsCommandFailure, PlayReportsCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(PlayReportsCommandInputSchema)(
-      rawCommandInput,
-    );
-    const metrics = yield* parseVitalsMetrics(commandInput.metric);
-    const historyDays = yield* parseVitalsDays(commandInput.days);
-    const selectedApp = yield* selectStoreApp(commandInput.app);
-    if (selectedApp.packageName === undefined) {
-      return yield* Effect.fail(
-        makePlayReportsCommandFailure({
-          message: `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
-        }),
-      );
+  const timelineLines = timeline.rows.map(renderVitalsEntry);
+
+  return [header, ...timelineLines].join('\n');
+}
+
+function timelineText(timeline: VitalsTimeline): string {
+  return renderVitalsTimeline(timeline);
+}
+
+export async function playReportsCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodePlayReportsCommandInput(rawCommandInput);
+    const metrics = parseVitalsMetrics(commandInput.metric);
+    const historyDays = parseVitalsDays(commandInput.days);
+    const selectedApp = await selectStoreApp(commandInput.app);
+
+    if (selectedApp.packageName == null) {
+      throw makePlayReportsCommandFailure({
+        message: `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
+      });
     }
+
     const packageName = selectedApp.packageName;
-    const serviceAccountJson = yield* loadServiceAccount(packageName);
-    if (serviceAccountJson === null) {
-      return yield* Effect.fail(
-        makePlayReportsCommandFailure({
-          message: yield* describeMissingPlayServiceAccount(selectedApp.name),
-        }),
-      );
+    const serviceAccountJson = await loadServiceAccount(packageName);
+
+    if (serviceAccountJson == null) {
+      const missingMessage = await describeMissingPlayServiceAccount(selectedApp.name);
+
+      throw makePlayReportsCommandFailure({ message: missingMessage });
     }
-    const reportingClients = yield* GoogleReportingClientService;
-    const reportingClient = yield* reportingClients.createClient(serviceAccountJson);
-    const timelines = yield* Effect.forEach(
-      metrics,
-      (metric) => reportingClient.vitalsTimeline(packageName, metric, historyDays),
-      { concurrency: 'unbounded' },
-    );
-    const logger = yield* createLogger(false);
+
+    const reportingClient = GoogleReportingClientService.createClient(serviceAccountJson);
+    const timelineReads = metrics.map(function readTimeline(metric: PlayVitalsMetric) {
+      return reportingClient.vitalsTimeline(packageName, metric, historyDays);
+    });
+    const timelines = await Promise.all(timelineReads);
+    const logger = createLogger(false);
+
     if (commandInput.json) {
-      yield* logger.line(
-        JSON.stringify(
-          timelines.flatMap((timeline) => timeline.rows),
-          null,
-          2,
-        ),
-      );
+      const timelineRows = timelines.flatMap(function rowsOf(timeline: VitalsTimeline) {
+        return timeline.rows;
+      });
+
+      logger.line(JSON.stringify(timelineRows, null, 2));
       return;
     }
-    yield* logger.line(timelines.map(renderVitalsTimeline).join('\n'));
-  }).pipe(
-    Effect.mapError((cause) =>
-      makePlayReportsCommandFailure({ message: errorMessage(cause), cause }),
-    ),
-  );
+
+    logger.line(timelines.map(timelineText).join('\n'));
+  } catch (cause) {
+    throw makePlayReportsCommandFailure({ message: errorMessage(cause), cause });
+  }
+}

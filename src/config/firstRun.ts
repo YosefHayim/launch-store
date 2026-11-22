@@ -1,62 +1,85 @@
-import { FileSystem, type Path } from '@effect/platform';
-import { Clock, Effect, Schema } from 'effect';
+import { readFile, writeFile } from 'node:fs/promises';
+import { pathExists } from '../path-exists.js';
 import {
+  ensureDirectoryExists,
   resolveLaunchHomeDirectory,
   resolveStateFilePath,
-  type LaunchPathsService,
 } from '../services/platform/paths.js';
 
 type FirstRunState = {
   ccacheOfferDeclinedAt?: string;
 };
 
-const FirstRunStateSchema: Schema.Schema<FirstRunState> = Schema.mutable(
-  Schema.Struct({
-    ccacheOfferDeclinedAt: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
+function isFirstRunState(candidate: unknown): candidate is FirstRunState {
+  if (candidate == null) {
+    return false;
+  }
 
-type FirstRunRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  const declinedAt = (candidate as { ccacheOfferDeclinedAt?: unknown }).ccacheOfferDeclinedAt;
+
+  if (declinedAt == null) {
+    return true;
+  }
+
+  return typeof declinedAt == 'string';
+}
 
 /** Reads first-run state, treating absent or malformed state as empty. */
-export const readFirstRunState = (): Effect.Effect<FirstRunState, never, FirstRunRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const stateFilePath = yield* resolveStateFilePath();
-    const stateExists = yield* fileSystem
-      .exists(stateFilePath)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!stateExists) return {};
-    return yield* fileSystem.readFileString(stateFilePath).pipe(
-      Effect.flatMap((stateText) => Effect.try(() => JSON.parse(stateText))),
-      Effect.flatMap(Schema.decodeUnknown(FirstRunStateSchema)),
-      Effect.orElseSucceed(() => ({})),
-    );
-  });
+export async function readFirstRunState(): Promise<FirstRunState> {
+  const stateFilePath = resolveStateFilePath();
+  const stateExists = await pathExists(stateFilePath);
+
+  if (stateExists == false) {
+    return {};
+  }
+
+  try {
+    const stateText = await readFile(stateFilePath, 'utf8');
+    const parsedState: unknown = JSON.parse(stateText);
+    const isUsable = isFirstRunState(parsedState);
+
+    if (isUsable == false) {
+      return {};
+    }
+
+    return parsedState;
+  } catch (error) {
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      return {};
+    }
+
+    return {};
+  }
+}
 
 /** Merges one first-run flag without replacing unrelated state. */
-const patchFirstRunState = (
-  statePatch: Partial<FirstRunState>,
-): Effect.Effect<void, unknown, FirstRunRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const launchHomeDirectory = yield* resolveLaunchHomeDirectory();
-    const stateFilePath = yield* resolveStateFilePath();
-    const currentState = yield* readFirstRunState();
-    yield* fileSystem.makeDirectory(launchHomeDirectory, { recursive: true });
-    yield* fileSystem.writeFileString(
-      stateFilePath,
-      JSON.stringify({ ...currentState, ...statePatch }, null, 2),
-    );
-  });
+async function patchFirstRunState(statePatch: Partial<FirstRunState>): Promise<void> {
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  const stateFilePath = resolveStateFilePath();
+  const currentState = await readFirstRunState();
+
+  await ensureDirectoryExists(launchHomeDirectory);
+  await writeFile(stateFilePath, JSON.stringify({ ...currentState, ...statePatch }, null, 2));
+}
 
 /** Reports whether the inline ccache offer was declined. */
-export const ccacheOfferDeclined = (): Effect.Effect<boolean, never, FirstRunRequirements> =>
-  readFirstRunState().pipe(Effect.map((state) => state.ccacheOfferDeclinedAt !== undefined));
+export async function ccacheOfferDeclined(): Promise<boolean> {
+  const state = await readFirstRunState();
+
+  return state.ccacheOfferDeclinedAt != null;
+}
 
 /** Records that the inline ccache offer was declined. */
-export const markCcacheOfferDeclined = (): Effect.Effect<void, unknown, FirstRunRequirements> =>
-  Effect.gen(function* () {
-    const epochMilliseconds = yield* Clock.currentTimeMillis;
-    yield* patchFirstRunState({ ccacheOfferDeclinedAt: new Date(epochMilliseconds).toISOString() });
-  });
+export async function markCcacheOfferDeclined(): Promise<void> {
+  await patchFirstRunState({ ccacheOfferDeclinedAt: new Date().toISOString() });
+}

@@ -1,10 +1,9 @@
-import { FileSystem, type Path } from '@effect/platform';
-import { Effect, Schema } from 'effect';
-import type { HostHandle } from '../types/remote.js';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { pathExists } from '@/path-exists.js';
+import type { HostHandle, SshTarget } from '../types/remote.js';
 import {
   resolveCloudStateFilePath,
   resolveLaunchHomeDirectory,
-  type LaunchPathsService,
 } from '../services/platform/paths.js';
 
 type CloudState = {
@@ -12,109 +11,267 @@ type CloudState = {
   amiId?: string;
 };
 
-const SshTargetSchema = Schema.mutable(
-  Schema.Struct({
-    host: Schema.String,
-    user: Schema.String,
-    port: Schema.Number,
-    identityFile: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
+function emptyCloudState(): CloudState {
+  return {};
+}
 
-const HostHandleSchema: Schema.Schema<HostHandle> = Schema.mutable(
-  Schema.Struct({
-    provider: Schema.String,
-    ssh: SshTargetSchema,
-    allocatedAt: Schema.String,
-    instanceId: Schema.optionalWith(Schema.String, { exact: true }),
-    hostId: Schema.optionalWith(Schema.String, { exact: true }),
-    region: Schema.optionalWith(Schema.String, { exact: true }),
-    instanceType: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
 
-const CloudStateSchema: Schema.Schema<CloudState> = Schema.mutable(
-  Schema.Struct({
-    host: Schema.optionalWith(HostHandleSchema, { exact: true }),
-    amiId: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
+  return typeof candidate == 'object';
+}
 
-type CloudStateRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
+function optionalString(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | null | undefined {
+  const isAbsent = fieldName in record == false;
 
-const emptyCloudState = (): CloudState => ({});
+  if (isAbsent) {
+    return undefined;
+  }
 
-/** Reads cloud state, treating absent or malformed state as empty. */
-export const readCloudState = (): Effect.Effect<CloudState, never, CloudStateRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const cloudStateFilePath = yield* resolveCloudStateFilePath();
-    const stateExists = yield* fileSystem
-      .exists(cloudStateFilePath)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!stateExists) return emptyCloudState();
-    return yield* fileSystem
-      .readFileString(cloudStateFilePath)
-      .pipe(
-        Effect.flatMap(Schema.decodeUnknown(Schema.parseJson(CloudStateSchema))),
-        Effect.orElseSucceed(emptyCloudState),
-      );
-  });
+  const field = record[fieldName];
 
-/** Writes cloud state with owner-only permissions. */
-const writeCloudState = (
-  cloudState: CloudState,
-): Effect.Effect<void, unknown, CloudStateRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const launchHomeDirectory = yield* resolveLaunchHomeDirectory();
-    const cloudStateFilePath = yield* resolveCloudStateFilePath();
-    yield* fileSystem.makeDirectory(launchHomeDirectory, { recursive: true });
-    yield* fileSystem.writeFileString(cloudStateFilePath, JSON.stringify(cloudState, null, 2));
-    yield* fileSystem.chmod(cloudStateFilePath, 0o600);
-  });
+  if (typeof field != 'string') {
+    return null;
+  }
 
-/** Reads the live remote host handle. */
-export const getLiveHost = (): Effect.Effect<HostHandle | null, never, CloudStateRequirements> =>
-  readCloudState().pipe(
-    Effect.map((cloudState) => {
-      if (cloudState.host === undefined) return null;
-      return cloudState.host;
-    }),
-  );
+  return field;
+}
 
-/** Records a newly allocated remote host. */
-export const setLiveHost = (
-  hostHandle: HostHandle,
-): Effect.Effect<void, unknown, CloudStateRequirements> =>
-  Effect.gen(function* () {
-    const cloudState = yield* readCloudState();
-    yield* writeCloudState({ ...cloudState, host: hostHandle });
-  });
+function readSshTarget(candidate: unknown): SshTarget | null {
+  if (isRecord(candidate) == false) {
+    return null;
+  }
 
-/** Clears the live host while preserving a reusable AMI. */
-export const clearLiveHost = (): Effect.Effect<void, unknown, CloudStateRequirements> =>
-  Effect.gen(function* () {
-    const cloudState = yield* readCloudState();
-    if (cloudState.amiId === undefined) {
-      yield* writeCloudState(emptyCloudState());
-      return;
+  const host = optionalString(candidate, 'host');
+  const user = optionalString(candidate, 'user');
+  const isHostMissing = typeof host != 'string';
+
+  if (isHostMissing) {
+    return null;
+  }
+
+  const isUserMissing = typeof user != 'string';
+
+  if (isUserMissing) {
+    return null;
+  }
+
+  const port = candidate['port'];
+  const isPort = typeof port == 'number';
+
+  if (isPort == false) {
+    return null;
+  }
+
+  const identityFile = optionalString(candidate, 'identityFile');
+
+  if (identityFile === null) {
+    return null;
+  }
+
+  const sshTarget: SshTarget = { host, user, port };
+
+  if (identityFile != null) {
+    return { ...sshTarget, identityFile };
+  }
+
+  return sshTarget;
+}
+
+function readHostHandle(candidate: unknown): HostHandle | null {
+  if (isRecord(candidate) == false) {
+    return null;
+  }
+
+  const provider = optionalString(candidate, 'provider');
+  const allocatedAt = optionalString(candidate, 'allocatedAt');
+  const isProviderMissing = typeof provider != 'string';
+
+  if (isProviderMissing) {
+    return null;
+  }
+
+  const isAllocatedAtMissing = typeof allocatedAt != 'string';
+
+  if (isAllocatedAtMissing) {
+    return null;
+  }
+
+  const ssh = readSshTarget(candidate['ssh']);
+
+  if (ssh == null) {
+    return null;
+  }
+
+  const instanceId = optionalString(candidate, 'instanceId');
+  const hostId = optionalString(candidate, 'hostId');
+  const region = optionalString(candidate, 'region');
+  const instanceType = optionalString(candidate, 'instanceType');
+  const optionalFields = [instanceId, hostId, region, instanceType];
+
+  function isInvalidOptional(field: string | null | undefined): boolean {
+    return field === null;
+  }
+
+  const hasInvalidOptional = optionalFields.some(isInvalidOptional);
+
+  if (hasInvalidOptional) {
+    return null;
+  }
+
+  let recordedHost: HostHandle = { provider, ssh, allocatedAt };
+
+  if (instanceId != null) {
+    recordedHost = { ...recordedHost, instanceId };
+  }
+
+  if (hostId != null) {
+    recordedHost = { ...recordedHost, hostId };
+  }
+
+  if (region != null) {
+    recordedHost = { ...recordedHost, region };
+  }
+
+  if (instanceType != null) {
+    recordedHost = { ...recordedHost, instanceType };
+  }
+
+  return recordedHost;
+}
+
+function readCloudDocument(candidate: unknown): CloudState | null {
+  if (isRecord(candidate) == false) {
+    return null;
+  }
+
+  const amiId = optionalString(candidate, 'amiId');
+
+  if (amiId === null) {
+    return null;
+  }
+
+  const hasHost = 'host' in candidate;
+  let host: HostHandle | undefined;
+
+  if (hasHost) {
+    const decodedHost = readHostHandle(candidate['host']);
+
+    if (decodedHost == null) {
+      return null;
     }
-    yield* writeCloudState({ amiId: cloudState.amiId });
-  });
 
-/** Reads the cached golden AMI identifier. */
-export const getAmiId = (): Effect.Effect<string | null, never, CloudStateRequirements> =>
-  readCloudState().pipe(
-    Effect.map((cloudState) => {
-      if (cloudState.amiId === undefined) return null;
-      return cloudState.amiId;
-    }),
-  );
+    host = decodedHost;
+  }
 
-/** Records the reusable golden AMI identifier. */
-export const setAmiId = (amiId: string): Effect.Effect<void, unknown, CloudStateRequirements> =>
-  Effect.gen(function* () {
-    const cloudState = yield* readCloudState();
-    yield* writeCloudState({ ...cloudState, amiId });
-  });
+  const cloudState: CloudState = {};
+
+  if (host != null) {
+    cloudState.host = host;
+  }
+
+  if (amiId != null) {
+    cloudState.amiId = amiId;
+  }
+
+  return cloudState;
+}
+
+function decodeCloudState(stateText: string): CloudState {
+  try {
+    const parsed: unknown = JSON.parse(stateText);
+    const cloudState = readCloudDocument(parsed);
+
+    if (cloudState == null) {
+      return emptyCloudState();
+    }
+
+    return cloudState;
+  } catch (cause) {
+    const isUnreadable = cause != null;
+
+    if (isUnreadable) {
+      return emptyCloudState();
+    }
+
+    throw cause;
+  }
+}
+
+export async function readCloudState(): Promise<CloudState> {
+  const cloudStateFilePath = resolveCloudStateFilePath();
+
+  try {
+    const stateExists = await pathExists(cloudStateFilePath);
+
+    if (stateExists == false) {
+      return emptyCloudState();
+    }
+
+    const stateText = await readFile(cloudStateFilePath, 'utf8');
+
+    return decodeCloudState(stateText);
+  } catch (cause) {
+    const isUnreadable = cause != null;
+
+    if (isUnreadable) {
+      return emptyCloudState();
+    }
+
+    throw cause;
+  }
+}
+
+async function writeCloudState(cloudState: CloudState): Promise<void> {
+  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  const cloudStateFilePath = resolveCloudStateFilePath();
+  await mkdir(launchHomeDirectory, { recursive: true });
+  await writeFile(cloudStateFilePath, `${JSON.stringify(cloudState, null, 2)}\n`);
+  await chmod(cloudStateFilePath, 0o600);
+}
+
+export async function getLiveHost(): Promise<HostHandle | null> {
+  const cloudState = await readCloudState();
+
+  if (cloudState.host == null) {
+    return null;
+  }
+
+  return cloudState.host;
+}
+
+export async function setLiveHost(hostHandle: HostHandle): Promise<void> {
+  const cloudState = await readCloudState();
+  await writeCloudState({ ...cloudState, host: hostHandle });
+}
+
+export async function clearLiveHost(): Promise<void> {
+  const cloudState = await readCloudState();
+
+  if (cloudState.amiId == null) {
+    await writeCloudState(emptyCloudState());
+    return;
+  }
+
+  await writeCloudState({ amiId: cloudState.amiId });
+}
+
+export async function getAmiId(): Promise<string | null> {
+  const cloudState = await readCloudState();
+
+  if (cloudState.amiId == null) {
+    return null;
+  }
+
+  return cloudState.amiId;
+}
+
+export async function setAmiId(amiId: string): Promise<void> {
+  const cloudState = await readCloudState();
+  await writeCloudState({ ...cloudState, amiId });
+}

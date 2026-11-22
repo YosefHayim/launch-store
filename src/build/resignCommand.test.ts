@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { BuildArtifact } from '../types/artifacts.js';
 import type { KeystoreAssets } from '../types/credentials.js';
@@ -45,15 +44,17 @@ const keystore: KeystoreAssets = {
 };
 
 describe('assertResignablePlatform', () => {
-  it('allows IPA and Android formats and rejects macOS packages', async () => {
-    await expect(
-      Effect.runPromise(
-        Effect.forEach(['ios', 'tvos', 'visionos', 'android'] as const, assertResignablePlatform),
-      ),
-    ).resolves.toEqual([undefined, undefined, undefined, undefined]);
-    await expect(
-      Effect.runPromise(assertResignablePlatform('macos').pipe(Effect.either)),
-    ).resolves.toMatchObject({ _tag: 'Left', left: { _tag: 'ResignCommandFailure' } });
+  it('allows IPA and Android formats and rejects macOS packages', () => {
+    for (const platform of ['ios', 'tvos', 'visionos', 'android'] as const) {
+      expect(() => assertResignablePlatform(platform)).not.toThrow();
+    }
+
+    try {
+      assertResignablePlatform('macos');
+      throw new Error('expected macos to fail');
+    } catch (error) {
+      expect(error).toMatchObject({ _tag: 'ResignCommandFailure' });
+    }
   });
 });
 

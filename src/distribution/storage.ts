@@ -1,6 +1,6 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect } from 'effect';
-import { type LaunchPathsService, LaunchPaths } from '../services/platform/paths.js';
+import { isAbsolute, join, resolve } from 'node:path';
+import { readLaunchDirectories } from '../services/platform/paths.js';
+import { pathExists } from '../path-exists.js';
 import {
   getStorageProvider,
   getStorageProviderResolver,
@@ -15,129 +15,168 @@ type ArtifactDirectoryFailure = Readonly<{
   readonly message: string;
 }>;
 
-const makeArtifactDirectoryFailure = Data.tagged<ArtifactDirectoryFailure>(
-  'ArtifactDirectoryFailure',
-);
-
 type ArtifactUnavailableFailure = Readonly<{
   readonly _tag: 'ArtifactUnavailableFailure';
   readonly message: string;
   readonly artifactPath: string;
 }>;
 
-const makeArtifactUnavailableFailure = Data.tagged<ArtifactUnavailableFailure>(
-  'ArtifactUnavailableFailure',
-);
+function makeArtifactDirectoryFailure(message: string): ArtifactDirectoryFailure {
+  return { _tag: 'ArtifactDirectoryFailure', message };
+}
+
+function makeArtifactUnavailableFailure(fields: {
+  message: string;
+  artifactPath: string;
+}): ArtifactUnavailableFailure {
+  return {
+    _tag: 'ArtifactUnavailableFailure',
+    message: fields.message,
+    artifactPath: fields.artifactPath,
+  };
+}
+
+function isProviderNotRegistered(cause: unknown): boolean {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'ProviderNotRegistered';
+}
 
 /**
  * Resolve `config.artifactDir` to the absolute base directory the `local` provider writes into.
  * Relative paths resolve against `projectRoot` (or the working directory); `~/` expands to home;
  * absolute paths are used as-is. Omitted -> `~/.launch/artifacts`. Empty string fails.
  */
-export const resolveArtifactDir = (
-  artifactDir: string | undefined,
-  projectRoot?: string,
-): Effect.Effect<string, ArtifactDirectoryFailure, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const pathService = yield* Path.Path;
-    let projectDirectory = launchPaths.workingDirectory;
-    if (projectRoot !== undefined) projectDirectory = projectRoot;
-    if (artifactDir === undefined) {
-      return pathService.join(launchPaths.homeDirectory, '.launch', 'artifacts');
-    }
-    const configuredDirectory = artifactDir.trim();
-    if (configuredDirectory.length === 0) {
-      return yield* Effect.fail(
-        makeArtifactDirectoryFailure({
-          message:
-            '`artifactDir` in launch.config.ts must not be empty - set a path or omit it for ~/.launch/artifacts.',
-        }),
-      );
-    }
-    if (configuredDirectory === '~') return launchPaths.homeDirectory;
-    if (configuredDirectory.startsWith('~/')) {
-      return pathService.resolve(launchPaths.homeDirectory, configuredDirectory.slice(2));
-    }
-    if (pathService.isAbsolute(configuredDirectory)) return configuredDirectory;
-    return pathService.resolve(projectDirectory, configuredDirectory);
-  });
+export function resolveArtifactDir(artifactDir: string | undefined, projectRoot?: string): string {
+  const launchPaths = readLaunchDirectories();
+  let projectDirectory = launchPaths.workingDirectory;
+
+  if (projectRoot != null) {
+    projectDirectory = projectRoot;
+  }
+
+  if (artifactDir == null) {
+    return join(launchPaths.homeDirectory, '.launch', 'artifacts');
+  }
+
+  const configuredDirectory = artifactDir.trim();
+
+  if (configuredDirectory.length == 0) {
+    throw makeArtifactDirectoryFailure(
+      '`artifactDir` in launch.config.ts must not be empty - set a path or omit it for ~/.launch/artifacts.',
+    );
+  }
+
+  if (configuredDirectory == '~') {
+    return launchPaths.homeDirectory;
+  }
+
+  if (configuredDirectory.startsWith('~/')) {
+    return resolve(launchPaths.homeDirectory, configuredDirectory.slice(2));
+  }
+
+  if (isAbsolute(configuredDirectory)) {
+    return configuredDirectory;
+  }
+
+  return resolve(projectDirectory, configuredDirectory);
+}
 
 /**
  * Build (or look up) the storage provider named by `config.storage`, wiring `artifactDir` for
  * `local` and `storageConfig` for cloud backends.
  */
-export const resolveStorageProvider = (
+export async function resolveStorageProvider(
   config: LaunchConfig,
   projectRoot?: string,
-): Effect.Effect<StorageProvider, unknown, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const providerResolver = yield* getStorageProviderResolver(config.storage).pipe(
-      Effect.catchTag('ProviderNotRegistered', () => Effect.succeed(undefined)),
-    );
-    if (providerResolver === undefined) return yield* getStorageProvider(config.storage);
+): Promise<StorageProvider> {
+  let providerResolver: ReturnType<typeof getStorageProviderResolver> | undefined;
 
-    switch (config.storage) {
-      case 'local':
-        return yield* providerResolver.resolveStorageProvider({
-          artifactDirectory: yield* resolveArtifactDir(config.artifactDir, projectRoot),
-        });
-      case 's3':
-      case 'supabase': {
-        const storageConfig = config.storageConfig;
-        if (storageConfig === undefined) {
-          return yield* Effect.fail(
-            makeProviderInputFailure({
-              provider: config.storage,
-              message: `Storage "${config.storage}" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).`,
-            }),
-          );
-        }
-        return yield* providerResolver.resolveStorageProvider({ storageConfig });
-      }
-      default: {
-        if (config.storageConfig === undefined) {
-          return yield* providerResolver.resolveStorageProvider({});
-        }
-        return yield* providerResolver.resolveStorageProvider({
-          storageConfig: config.storageConfig,
-        });
-      }
+  try {
+    providerResolver = getStorageProviderResolver(config.storage);
+  } catch (cause) {
+    if (isProviderNotRegistered(cause)) {
+      providerResolver = undefined;
+    } else {
+      throw cause;
     }
-  });
+  }
 
-export type StorageResolverRequirements = Effect.Effect.Context<
-  ReturnType<typeof resolveStorageProvider>
->;
+  if (providerResolver == null) {
+    return getStorageProvider(config.storage);
+  }
+
+  if (config.storage == 'local') {
+    return providerResolver.resolveStorageProvider({
+      artifactDirectory: resolveArtifactDir(config.artifactDir, projectRoot),
+    });
+  }
+
+  const isS3 = config.storage == 's3';
+  const isSupabase = config.storage == 'supabase';
+  const isCloudBackend = isS3 ? true : isSupabase;
+
+  if (isCloudBackend) {
+    const storageConfig = config.storageConfig;
+
+    if (storageConfig == null) {
+      throw makeProviderInputFailure({
+        provider: config.storage,
+        message: `Storage "${config.storage}" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).`,
+      });
+    }
+
+    return providerResolver.resolveStorageProvider({ storageConfig });
+  }
+
+  if (config.storageConfig == null) {
+    return providerResolver.resolveStorageProvider({});
+  }
+
+  return providerResolver.resolveStorageProvider({
+    storageConfig: config.storageConfig,
+  });
+}
 
 /**
  * Whether the resolved storage can serve public HTTP(S) URLs - required for ad-hoc install links
  * and OTA manifests. `local` is for build-artifact history only.
  */
-export const isCloudStorage = (config: LaunchConfig): boolean => config.storage !== 'local';
+export function isCloudStorage(config: LaunchConfig): boolean {
+  return config.storage != 'local';
+}
 
 /**
  * Guard a promote/submit that reuses a stored binary. Turns a pruned or deleted binary into a
  * clear "rebuild first" precondition instead of an opaque store upload failure.
  */
-export const ensureArtifactPresent = (
+export async function ensureArtifactPresent(
   artifact: BuildArtifact,
   appName: string,
   platform: Platform,
-): Effect.Effect<void, ArtifactUnavailableFailure, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    let artifactAvailable = artifact.prunedAt === undefined;
+): Promise<void> {
+  const isPruned = artifact.prunedAt != null;
+
+  if (isPruned == false) {
+    const artifactAvailable = await pathExists(artifact.path);
+
     if (artifactAvailable) {
-      artifactAvailable = yield* fileSystem
-        .exists(artifact.path)
-        .pipe(Effect.orElseSucceed(() => false));
+      return;
     }
-    if (artifactAvailable) return;
-    return yield* Effect.fail(
-      makeArtifactUnavailableFailure({
-        artifactPath: artifact.path,
-        message: `The latest stored ${appName} ${platform} build was pruned to reclaim disk. Run \`launch build ${platform}\` to rebuild before releasing.`,
-      }),
-    );
+  }
+
+  throw makeArtifactUnavailableFailure({
+    artifactPath: artifact.path,
+    message: `The latest stored ${appName} ${platform} build was pruned to reclaim disk. Run \`launch build ${platform}\` to rebuild before releasing.`,
   });
+}

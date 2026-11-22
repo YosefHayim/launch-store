@@ -1,14 +1,10 @@
-import { Effect } from 'effect';
-import { describe, expect, test } from 'vitest';
-import { makeHttpClientTest } from '@testkit/httpClient.testkit.js';
-import {
-  createTsv,
-  makeFakeAppStoreStatsClient,
-  type FakeAppStoreStatsScenario,
-} from '@testkit/appStoreStatsClient.testkit.js';
+import { gzipSync } from 'node:zlib';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { createTsv } from '@testkit/appStoreStatsClient.testkit.js';
 import type { PortfolioApp } from '../../types/portfolio.js';
-import type { DailyStat, DateRange } from '../../types/stats.js';
-import { makeStatsCredentialsTest, StatsCredentials } from '../statsCredentials.js';
+import type { DailyStat, DateRange, FeedFetchReply } from '../../types/stats.js';
+import type { AppStoreStatsClient } from '../statsCredentials.js';
+import { makeStatsCredentialsTest, useStatsCredentials } from '../statsCredentials.js';
 import {
   appStoreFeed,
   createAppStoreReply,
@@ -20,6 +16,7 @@ import {
 const APP_ID = '6802289557';
 const SHORT_RANGE: DateRange = { from: '2026-10-08', to: '2026-10-10' };
 const DISCOVERY_NAME = 'App Store Discovery and Engagement Standard';
+const SEGMENT_URL_PREFIX = 'https://segments.test/';
 
 const SALES_HEADERS = [
   'Apple Identifier',
@@ -33,6 +30,192 @@ const SALES_HEADERS = [
 const DISCOVERY_HEADERS = ['Date', 'App Apple Identifier', 'Event', 'Counts', 'Unique Counts'];
 const DOWNLOADS_HEADERS = ['Date', 'App Apple Identifier', 'Download Type', 'Counts'];
 const PURCHASES_HEADERS = ['Date', 'App Apple Identifier', 'Purchases', 'Proceeds in USD'];
+
+interface FakeAnalyticsInstance {
+  readonly processingDate: string;
+  readonly segmentTsvs: readonly string[];
+}
+
+type FakeFailureMethod = 'getSalesReport' | 'listAnalyticsReportRequests' | 'listCustomerReviews';
+
+interface FakeAppStoreStatsScenario {
+  readonly salesTsvByDate: Readonly<Record<string, string>>;
+  readonly analyticsInstances: Readonly<Record<string, readonly FakeAnalyticsInstance[]>>;
+  readonly reviewRatings: readonly number[];
+  readonly failure: { readonly method: FakeFailureMethod; readonly status: number } | null;
+}
+
+const EMPTY_SCENARIO: FakeAppStoreStatsScenario = {
+  salesTsvByDate: {},
+  analyticsInstances: {},
+  reviewRatings: [],
+  failure: null,
+};
+
+type FeedOutcome =
+  | { readonly _tag: 'Right'; readonly right: FeedFetchReply }
+  | { readonly _tag: 'Left'; readonly left: unknown };
+
+function throwTransport(message: string, status: number): never {
+  throw { _tag: 'AppleTransportFailure', message, status };
+}
+
+function makePromiseAppStoreClient(scenario: Partial<FakeAppStoreStatsScenario> = {}) {
+  const filled: FakeAppStoreStatsScenario = { ...EMPTY_SCENARIO, ...scenario };
+  const { salesTsvByDate, analyticsInstances, reviewRatings, failure } = filled;
+
+  function isFailing(method: FakeFailureMethod): boolean {
+    if (failure == null) {
+      return false;
+    }
+
+    return failure.method == method;
+  }
+
+  function findInstances(accessType: string, reportName: string): readonly FakeAnalyticsInstance[] {
+    const instances = analyticsInstances[`${accessType}|${reportName}`];
+
+    if (instances == undefined) {
+      return [];
+    }
+
+    return instances;
+  }
+
+  const getSalesReport = vi.fn(async function readSalesReport(query: {
+    readonly reportDate: string;
+  }) {
+    if (isFailing('getSalesReport')) {
+      throwTransport('denied', failure?.status ?? 0);
+    }
+
+    const tsv = salesTsvByDate[query.reportDate];
+
+    if (tsv == undefined) {
+      throwTransport('no sales', 404);
+    }
+
+    return gzipSync(Buffer.from(tsv));
+  });
+  const listAnalyticsReportRequests = vi.fn(async function listRequests(
+    _appId: string,
+    accessType: string,
+  ) {
+    if (isFailing('listAnalyticsReportRequests')) {
+      throwTransport('denied', failure?.status ?? 0);
+    }
+
+    return [{ id: `request|${accessType}`, accessType, stoppedDueToInactivity: false }];
+  });
+  const createAnalyticsReportRequest = vi.fn(async function createRequest(
+    _appId: string,
+    accessType: string,
+  ) {
+    return { id: `request|${accessType}`, accessType };
+  });
+  const listAnalyticsReports = vi.fn(async function listReports(
+    requestId: string,
+    filters?: { readonly name?: string },
+  ) {
+    const requestParts = requestId.split('|');
+    const accessType = requestParts[1] ?? '';
+    const reportName = filters?.name ?? '';
+    const reportKey = `${accessType}|${reportName}`;
+    const doesReportExist = reportKey in analyticsInstances;
+
+    if (doesReportExist == false) {
+      return [];
+    }
+
+    return [{ id: `report|${accessType}|${reportName}`, name: reportName }];
+  });
+  const listAnalyticsReportInstances = vi.fn(async function listInstances(reportId: string) {
+    const reportParts = reportId.split('|');
+    const accessType = reportParts[1] ?? '';
+    const reportName = reportParts[2] ?? '';
+    const instances = findInstances(accessType, reportName);
+
+    return instances.map(function readInstance(instance: FakeAnalyticsInstance) {
+      return {
+        id: `instance|${accessType}|${reportName}|${instance.processingDate}`,
+        granularity: 'DAILY',
+        processingDate: instance.processingDate,
+      };
+    });
+  });
+  const listAnalyticsReportSegments = vi.fn(async function listSegments(instanceId: string) {
+    const instanceParts = instanceId.split('|');
+    const accessType = instanceParts[1] ?? '';
+    const reportName = instanceParts[2] ?? '';
+    const processingDate = instanceParts[3] ?? '';
+    const instance = findInstances(accessType, reportName).find(function sameDate(candidate) {
+      return candidate.processingDate == processingDate;
+    });
+
+    if (instance == undefined) {
+      return [];
+    }
+
+    return instance.segmentTsvs.map(function readSegment(_tsv: string, index: number) {
+      return { id: `segment-${index}`, url: `${SEGMENT_URL_PREFIX}${instanceId}|${index}` };
+    });
+  });
+  const downloadAnalyticsSegment = vi.fn(async function downloadSegment(url: string) {
+    const segmentParts = url.replace(SEGMENT_URL_PREFIX, '').split('|');
+    const accessType = segmentParts[1] ?? '';
+    const reportName = segmentParts[2] ?? '';
+    const processingDate = segmentParts[3] ?? '';
+    const index = segmentParts[4] ?? '0';
+    const instance = findInstances(accessType, reportName).find(function sameDate(candidate) {
+      return candidate.processingDate == processingDate;
+    });
+
+    if (instance == undefined) {
+      throw new Error(`Unknown segment ${url}`);
+    }
+
+    const tsv = instance.segmentTsvs[Number(index)];
+
+    if (tsv == undefined) {
+      throw new Error(`Unknown segment ${url}`);
+    }
+
+    return gzipSync(Buffer.from(tsv));
+  });
+  const listCustomerReviews = vi.fn(async function listReviews(_appId: string) {
+    if (isFailing('listCustomerReviews')) {
+      throwTransport('denied', failure?.status ?? 0);
+    }
+
+    return reviewRatings.map(function readReview(rating: number, index: number) {
+      return { id: `review-${index}`, rating, answered: false };
+    });
+  });
+  const client: AppStoreStatsClient = {
+    getSalesReport,
+    listAnalyticsReportRequests,
+    createAnalyticsReportRequest,
+    listAnalyticsReports,
+    listAnalyticsReportInstances,
+    listAnalyticsReportSegments,
+    downloadAnalyticsSegment,
+    listCustomerReviews,
+  };
+
+  return {
+    client,
+    calls: {
+      getSalesReport,
+      listAnalyticsReportRequests,
+      createAnalyticsReportRequest,
+      listAnalyticsReports,
+      listAnalyticsReportInstances,
+      listAnalyticsReportSegments,
+      downloadAnalyticsSegment,
+      listCustomerReviews,
+    },
+  };
+}
 
 const makeApp = (fields: Partial<PortfolioApp> = {}): PortfolioApp => ({
   key: `ios-${APP_ID}`,
@@ -48,32 +231,36 @@ const makeApp = (fields: Partial<PortfolioApp> = {}): PortfolioApp => ({
   ...fields,
 });
 
+afterEach(() => {
+  useStatsCredentials(null);
+});
+
 const fetchReply = async (
   scenario: Partial<FakeAppStoreStatsScenario>,
   vendorNumber: string | null,
   range: DateRange = SHORT_RANGE,
   app: PortfolioApp = makeApp(),
 ) => {
-  const fake = makeFakeAppStoreStatsClient(scenario);
-  const credentials = await Effect.runPromise(
-    StatsCredentials.pipe(
-      Effect.provide(
-        makeStatsCredentialsTest({
-          ascClientForAccount: () => Effect.succeed(fake.client),
-          vendorNumberForAccount: () => Effect.succeed(vendorNumber),
-        }),
-      ),
-    ),
-  );
-  const reply = await Effect.runPromise(
-    appStoreFeed
-      .fetchDays({ app, range, credentials })
-      .pipe(Effect.either, Effect.provide(makeHttpClientTest([]))),
-  );
-  return { reply, calls: fake.calls };
+  const fake = makePromiseAppStoreClient(scenario);
+  const credentials = makeStatsCredentialsTest({
+    async ascClientForAccount() {
+      return fake.client;
+    },
+    async vendorNumberForAccount() {
+      return vendorNumber;
+    },
+  });
+
+  try {
+    const right = await appStoreFeed.fetchDays({ app, range, credentials });
+
+    return { reply: { _tag: 'Right', right } satisfies FeedOutcome, calls: fake.calls };
+  } catch (left) {
+    return { reply: { _tag: 'Left', left } satisfies FeedOutcome, calls: fake.calls };
+  }
 };
 
-const readFetched = (reply: Awaited<ReturnType<typeof fetchReply>>['reply']) => {
+const readFetched = (reply: FeedOutcome) => {
   if (reply._tag !== 'Right') throw new Error('expected a reply');
   if (reply.right.status !== 'fetched') throw new Error('expected a fetched reply');
   return reply.right;
@@ -209,15 +396,12 @@ describe('appStoreFeed', () => {
   });
 
   test('skips when the account has no saved key', async () => {
-    const credentials = await Effect.runPromise(
-      StatsCredentials.pipe(Effect.provide(makeStatsCredentialsTest())),
-    );
-
-    const reply = await Effect.runPromise(
-      appStoreFeed
-        .fetchDays({ app: makeApp(), range: SHORT_RANGE, credentials })
-        .pipe(Effect.provide(makeHttpClientTest([]))),
-    );
+    const credentials = makeStatsCredentialsTest();
+    const reply = await appStoreFeed.fetchDays({
+      app: makeApp(),
+      range: SHORT_RANGE,
+      credentials,
+    });
 
     expect(reply).toEqual({
       status: 'skipped',

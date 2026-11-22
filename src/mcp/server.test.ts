@@ -1,54 +1,57 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext, NodeHttpClient } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
-import { AppleStoreClientLive } from '../services/stores/appleStoreClient.js';
-import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
-import { GoogleStoreClientLive } from '../services/stores/googleStoreClient.js';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
-import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
-import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
+import { expectArrayElement } from '@testkit/assertions.testkit.js';
+import type { McpTool } from '../types/mcp.js';
 import { dispatch, pickServedTools } from './server.js';
 import { STATS_TOOLS } from './statsTools.js';
-import type { McpTool } from '../types/mcp.js';
-import { expectArrayElement } from '@testkit/assertions.testkit.js';
 
-/** A tool whose handler echoes a fixed payload - or throws - so `dispatch`'s boundary is graded in isolation. */
-const tool = (overrides: Partial<McpTool> = {}): McpTool => {
-  return {
+async function sampleHandler(): Promise<{ content: readonly { type: 'text'; text: string }[] }> {
+  return { content: [{ type: 'text', text: 'ok' }] };
+}
+
+function tool(overrides: Partial<McpTool> = {}): McpTool {
+  const sampleTool: McpTool = {
     name: 'sample',
     description: 'sample',
     capability: 'read',
     inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
-    handler: () => Effect.succeed({ content: [{ type: 'text', text: 'ok' }] }),
-    ...overrides,
+    handler: sampleHandler,
   };
-};
+
+  return { ...sampleTool, ...overrides };
+}
+
+async function boomHandler(): Promise<{ content: readonly { type: 'text'; text: string }[] }> {
+  throw new Error('boom');
+}
 
 describe('dispatch', () => {
   it('returns an isError result when args fail schema validation', async () => {
-    const toolOutput = await Effect.runPromise(dispatch(tool(), {}));
+    const toolOutput = await dispatch(tool(), {});
+
     expect(toolOutput.isError).toBe(true);
     expect(expectArrayElement(toolOutput.content, 0, 'toolOutput.content').text).toContain(
       'Invalid arguments for sample',
     );
   });
+
   it('runs the handler and returns its result for valid args', async () => {
-    const toolOutput = await Effect.runPromise(dispatch(tool(), { name: 'x' }));
+    const toolOutput = await dispatch(tool(), { name: 'x' });
+
     expect(toolOutput.isError).toBeUndefined();
     expect(expectArrayElement(toolOutput.content, 0, 'toolOutput.content').text).toBe('ok');
   });
+
   it('turns a thrown handler error into an isError result carrying the message', async () => {
-    const toolOutput = await Effect.runPromise(
-      dispatch(
-        tool({
-          handler: () => Effect.fail(new Error('boom')),
-        }),
-        { name: 'x' },
-      ),
+    const toolOutput = await dispatch(
+      tool({
+        handler: boomHandler,
+      }),
+      { name: 'x' },
     );
+
     expect(toolOutput.isError).toBe(true);
     expect(expectArrayElement(toolOutput.content, 0, 'toolOutput.content').text).toBe('boom');
   });
@@ -56,53 +59,42 @@ describe('dispatch', () => {
 
 describe('pickServedTools', () => {
   const workingDirectories: string[] = [];
+
   afterEach(() => {
     for (const workingDirectory of workingDirectories.splice(0)) {
       rmSync(workingDirectory, { recursive: true, force: true });
     }
   });
 
-  const createWorkingDirectory = (): string => {
+  function createWorkingDirectory(): string {
     const workingDirectory = mkdtempSync(join(tmpdir(), 'launch-mcp-'));
     workingDirectories.push(workingDirectory);
-    return workingDirectory;
-  };
 
-  const pickTools = (workingDirectory: string, tools: readonly McpTool[]) =>
-    Effect.runPromise(
-      pickServedTools(tools, workingDirectory).pipe(
-        Effect.either,
-        Effect.provide(NodeContext.layer),
-        Effect.provide(NodeHttpClient.layer),
-        Effect.provide(makeStatsCredentialsTest()),
-        Effect.provide(AppleStoreClientLive),
-        Effect.provide(GoogleStoreClientLive),
-        Effect.provide(makeLaunchEnvironmentTest({})),
-        Effect.provide(makeLaunchSecretStoreTest()),
-        Effect.provide(makeLaunchPathsTest('', workingDirectory)),
-      ),
-    );
+    return workingDirectory;
+  }
+
+  function servedToolName(servedTool: McpTool): string {
+    return servedTool.name;
+  }
 
   it('serves only the stats tools in a folder with no launch config', async () => {
     const workingDirectory = createWorkingDirectory();
+    const servedTools = await pickServedTools([tool({ name: 'build' })], workingDirectory);
 
-    const outcome = await pickTools(workingDirectory, [tool({ name: 'build' })]);
-
-    if (outcome._tag === 'Left') throw new Error('expected tools');
-    expect(outcome.right).toEqual(STATS_TOOLS);
+    expect(servedTools).toEqual(STATS_TOOLS);
   });
 
   it('serves the gated tools plus the stats tools when a config exists', async () => {
     const workingDirectory = createWorkingDirectory();
+
     writeFileSync(
       join(workingDirectory, 'launch.config.mjs'),
       'export default { profiles: { production: { name: "production" } } };\n',
     );
 
-    const outcome = await pickTools(workingDirectory, [tool({ name: 'sample' })]);
+    const servedTools = await pickServedTools([tool({ name: 'sample' })], workingDirectory);
+    const toolNames = servedTools.map(servedToolName);
 
-    if (outcome._tag === 'Left') throw new Error('expected tools');
-    const toolNames = outcome.right.map((servedTool) => servedTool.name);
     expect(toolNames).toContain('sample');
     expect(toolNames).toContain('stats_portfolio');
     expect(toolNames).toContain('stats_app');
@@ -110,13 +102,24 @@ describe('pickServedTools', () => {
 
   it('fails when a config exists but cannot load', async () => {
     const workingDirectory = createWorkingDirectory();
+
     writeFileSync(
       join(workingDirectory, 'launch.config.mjs'),
       'throw new Error("broken config");\n',
     );
 
-    const outcome = await pickTools(workingDirectory, [tool()]);
+    let didFail = false;
 
-    expect(outcome._tag).toBe('Left');
+    try {
+      await pickServedTools([tool()], workingDirectory);
+    } catch (cause) {
+      const isFailure = cause != null;
+
+      if (isFailure) {
+        didFail = true;
+      }
+    }
+
+    expect(didFail).toBe(true);
   });
 });

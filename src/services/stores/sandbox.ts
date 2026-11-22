@@ -1,72 +1,107 @@
-import { Data, Effect } from 'effect';
 import type { SandboxTesterResource } from '../../types/appleCatalog.js';
-/** The exact slice of {@link AppStoreConnectClient} the sandbox domain depends on. */
+
+/** The exact slice of App Store Connect the sandbox domain depends on. */
 export type AscSandboxApi = {
-  listSandboxTesters(): Effect.Effect<SandboxTesterResource[], unknown>;
-  clearSandboxTesterPurchaseHistory(testerIds: readonly string[]): Effect.Effect<void, unknown>;
+  listSandboxTesters(): Promise<SandboxTesterResource[]>;
+  clearSandboxTesterPurchaseHistory(testerIds: readonly string[]): Promise<void>;
 };
-type SandboxRequestFailure = Readonly<{
-  readonly _tag: 'SandboxRequestFailure';
-  readonly message: string;
-}>;
-const makeSandboxRequestFailure = Data.tagged<SandboxRequestFailure>('SandboxRequestFailure');
-/** What to clear: a set of tester emails, or every tester when `all` is true. */
+
 type ClearRequest = {
   emails: string[];
   all: boolean;
 };
-/** Outcome of {@link clearPurchaseHistory}: which testers were cleared, and which emails matched none. */
+
 type ClearResult = {
   cleared: SandboxTesterResource[];
   notFound: string[];
 };
-/** List the account's sandbox testers. */
-export const listSandboxTesters = (
-  api: AscSandboxApi,
-): Effect.Effect<SandboxTesterResource[], unknown> => {
+
+export async function listSandboxTesters(api: AscSandboxApi): Promise<SandboxTesterResource[]> {
   return api.listSandboxTesters();
-};
+}
+
+function trimmedEmail(email: string): string {
+  return email.trim();
+}
+
+function isNonEmptyEmail(email: string): boolean {
+  return email.length > 0;
+}
+
+function testerId(tester: SandboxTesterResource): string {
+  return tester.id;
+}
+
+async function clearEveryTester(
+  api: AscSandboxApi,
+  testers: SandboxTesterResource[],
+): Promise<ClearResult> {
+  const hasTesters = testers.length > 0;
+
+  if (hasTesters) {
+    const testerIds = testers.map(testerId);
+    await api.clearSandboxTesterPurchaseHistory(testerIds);
+  }
+
+  return { cleared: testers, notFound: [] };
+}
+
 /**
  * Clear sandbox testers' StoreKit purchase history - either every tester (`all`) or the ones matching the
- * given emails (case-insensitive on `acAccountName`). Resolves emails to ids in one read, de-duplicates,
- * issues a single batched clear request, and reports both what was cleared and which emails matched nothing.
- * Throws when neither emails nor `all` are given.
+ * given emails (case-insensitive on `acAccountName`). Throws when neither emails nor `all` are given.
  */
-export const clearPurchaseHistory = (
+export async function clearPurchaseHistory(
   api: AscSandboxApi,
   request: ClearRequest,
-): Effect.Effect<ClearResult, unknown> =>
-  Effect.gen(function* () {
-    const testers = yield* api.listSandboxTesters();
-    if (request.all) {
-      if (testers.length > 0)
-        yield* api.clearSandboxTesterPurchaseHistory(testers.map((tester) => tester.id));
-      return { cleared: testers, notFound: [] };
+): Promise<ClearResult> {
+  const testers = await api.listSandboxTesters();
+
+  if (request.all) {
+    return clearEveryTester(api, testers);
+  }
+
+  const emails = request.emails.map(trimmedEmail).filter(isNonEmptyEmail);
+
+  if (emails.length == 0) {
+    throw {
+      _tag: 'SandboxRequestFailure',
+      message: 'Provide at least one sandbox tester email, or pass --all.',
+    };
+  }
+
+  const byEmail = new Map(
+    testers.map(function testerByEmail(tester: SandboxTesterResource) {
+      return [tester.acAccountName.toLowerCase(), tester] as const;
+    }),
+  );
+  const cleared: SandboxTesterResource[] = [];
+  const seen = new Set<string>();
+  const notFound: string[] = [];
+
+  for (const email of emails) {
+    const tester = byEmail.get(email.toLowerCase());
+    const isMissing = tester == null;
+
+    if (isMissing) {
+      notFound.push(email);
+      continue;
     }
-    const emails = request.emails.map((email) => email.trim()).filter(Boolean);
-    if (emails.length === 0) {
-      return yield* Effect.fail(
-        makeSandboxRequestFailure({
-          message: 'Provide at least one sandbox tester email, or pass --all.',
-        }),
-      );
+
+    const alreadySeen = seen.has(tester.id);
+
+    if (alreadySeen) {
+      continue;
     }
-    const byEmail = new Map(testers.map((tester) => [tester.acAccountName.toLowerCase(), tester]));
-    const cleared: SandboxTesterResource[] = [];
-    const seen = new Set<string>();
-    const notFound: string[] = [];
-    for (const email of emails) {
-      const tester = byEmail.get(email.toLowerCase());
-      if (!tester) {
-        notFound.push(email);
-        continue;
-      }
-      if (!seen.has(tester.id)) {
-        seen.add(tester.id);
-        cleared.push(tester);
-      }
-    }
-    if (cleared.length > 0)
-      yield* api.clearSandboxTesterPurchaseHistory(cleared.map((tester) => tester.id));
-    return { cleared, notFound };
-  });
+
+    seen.add(tester.id);
+    cleared.push(tester);
+  }
+
+  const hasCleared = cleared.length > 0;
+
+  if (hasCleared) {
+    await api.clearSandboxTesterPurchaseHistory(cleared.map(testerId));
+  }
+
+  return { cleared, notFound };
+}

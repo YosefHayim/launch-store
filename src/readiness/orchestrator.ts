@@ -1,13 +1,11 @@
-import { Effect } from 'effect';
-import { errorMessage } from '../services/platform/errorMessage.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
 import type {
   ProbeOutcome,
   ProbeReport,
   ReadinessContext,
   ReadinessOutcome,
   ReadinessProbe,
-  ReadinessProbeRequirements,
-} from '../types/readiness.js';
+} from '@/types/readiness.js';
 
 /** Readiness exit codes, with unreadable state taking precedence over blockers. */
 export const READINESS_EXIT = { ok: 0, error: 1, blocker: 2 } as const;
@@ -27,19 +25,30 @@ type ProbeReportTallies = Readonly<{
   skippedCount: number;
 }>;
 
-export const readinessExitCode = ({ errorCount, blockerCount }: ReadinessExitInputs): number => {
-  if (errorCount > 0) return READINESS_EXIT.error;
-  if (blockerCount > 0) return READINESS_EXIT.blocker;
+export function readinessExitCode({ errorCount, blockerCount }: ReadinessExitInputs): number {
+  const hasUnreadableProbe = errorCount > 0;
+
+  if (hasUnreadableProbe) {
+    return READINESS_EXIT.error;
+  }
+
+  const hasBlocker = blockerCount > 0;
+
+  if (hasBlocker) {
+    return READINESS_EXIT.blocker;
+  }
+
   return READINESS_EXIT.ok;
-};
+}
 
 /** Count findings across visible probe reports for the summary line and exit code. */
-export const tallyProbeReports = (probeReports: readonly ProbeReport[]): ProbeReportTallies => {
+export function tallyProbeReports(probeReports: readonly ProbeReport[]): ProbeReportTallies {
   let okCount = 0;
   let warnCount = 0;
   let blockerCount = 0;
   let errorCount = 0;
   let skippedCount = 0;
+
   for (const { outcome } of probeReports) {
     switch (outcome.state) {
       case 'skipped':
@@ -67,50 +76,55 @@ export const tallyProbeReports = (probeReports: readonly ProbeReport[]): ProbeRe
         break;
     }
   }
-  return { okCount, warnCount, blockerCount, errorCount, skippedCount };
-};
 
-/** Run probes concurrently, drop omitted reports, and compute the readiness outcome. */
-export const runProbes = (
-  readinessContext: ReadinessContext,
-  probes: readonly ReadinessProbe[],
-): Effect.Effect<ReadinessOutcome, never, ReadinessProbeRequirements> =>
-  Effect.gen(function* () {
-    const reports = yield* Effect.forEach(probes, (probe) => runProbe(readinessContext, probe), {
-      concurrency: 'unbounded',
-    });
-    const visibleReports = reports.filter((report) => report.outcome.state !== 'omitted');
-    const tallies = tallyProbeReports(visibleReports);
-    return {
-      reports: visibleReports,
-      ...tallies,
-      exitCode: readinessExitCode({
-        errorCount: tallies.errorCount,
-        blockerCount: tallies.blockerCount,
-      }),
-    };
-  });
+  return { okCount, warnCount, blockerCount, errorCount, skippedCount };
+}
 
 /** Run one probe, stamp identity onto the outcome, and convert unexpected failure to `errored`. */
-const runProbe = (
+async function runProbe(
   readinessContext: ReadinessContext,
   probe: ReadinessProbe,
-): Effect.Effect<ProbeReport, never, ReadinessProbeRequirements> => {
+): Promise<ProbeReport> {
   const identity = { id: probe.id, title: probe.title, store: probe.store };
-  return Effect.try({
-    try: () => probe.check(readinessContext),
-    catch: (probeFailure) => probeFailure,
-  }).pipe(
-    Effect.flatten,
-    Effect.match({
-      onSuccess: (outcome): ProbeReport => ({ ...identity, outcome }),
-      onFailure: (probeFailure): ProbeReport => ({
-        ...identity,
-        outcome: {
-          state: 'errored',
-          error: errorMessage(probeFailure),
-        } satisfies ProbeOutcome,
-      }),
+
+  try {
+    const outcome = await probe.check(readinessContext);
+
+    return { ...identity, outcome };
+  } catch (probeFailure) {
+    const errored: ProbeOutcome = {
+      state: 'errored',
+      error: errorMessage(probeFailure),
+    };
+
+    return { ...identity, outcome: errored };
+  }
+}
+
+function isVisibleReport(report: ProbeReport): boolean {
+  return report.outcome.state != 'omitted';
+}
+
+/** Run probes concurrently, drop omitted reports, and compute the readiness outcome. */
+export async function runProbes(
+  readinessContext: ReadinessContext,
+  probes: readonly ReadinessProbe[],
+): Promise<ReadinessOutcome> {
+  function startProbe(probe: ReadinessProbe): Promise<ProbeReport> {
+    return runProbe(readinessContext, probe);
+  }
+
+  const probeRuns = probes.map(startProbe);
+  const reports = await Promise.all(probeRuns);
+  const visibleReports = reports.filter(isVisibleReport);
+  const tallies = tallyProbeReports(visibleReports);
+
+  return {
+    reports: visibleReports,
+    ...tallies,
+    exitCode: readinessExitCode({
+      errorCount: tallies.errorCount,
+      blockerCount: tallies.blockerCount,
     }),
-  );
-};
+  };
+}

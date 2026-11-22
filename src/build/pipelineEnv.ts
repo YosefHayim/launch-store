@@ -1,5 +1,3 @@
-import { Terminal } from '@effect/platform';
-import { Data, Effect } from 'effect';
 import type { AppDescriptor, BuildProfile } from '../types/app.js';
 import { pickOne, type PickOneArgs } from '../services/platform/prompt.js';
 import { readLastApp } from '../distribution/lastRun.js';
@@ -14,6 +12,8 @@ import {
 } from '../config/env.js';
 import { loadConfig } from '../config/config.js';
 import { createLogger, type Logger } from '../services/platform/logger.js';
+import { checkTerminalIsInteractive } from '../services/platform/progress.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 import type { BuildRunOptions } from './pipelineTypes.js';
 
 /** App selection failed before a build could start. */
@@ -22,7 +22,19 @@ export type AppSelectionFailure = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-const makeAppSelectionFailure = Data.tagged<AppSelectionFailure>('AppSelectionFailure');
+
+function makeAppSelectionFailure(fields: {
+  message: string;
+  cause?: unknown;
+}): AppSelectionFailure {
+  const hasCause = fields.cause != null;
+
+  if (hasCause) {
+    return { _tag: 'AppSelectionFailure', message: fields.message, cause: fields.cause };
+  }
+
+  return { _tag: 'AppSelectionFailure', message: fields.message };
+}
 
 /** Build environment resolution or validation failed before artifact creation. */
 type BuildEnvironmentFailure = Readonly<{
@@ -31,166 +43,251 @@ type BuildEnvironmentFailure = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-const makeBuildEnvironmentFailure = Data.tagged<BuildEnvironmentFailure>('BuildEnvironmentFailure');
-/**
- * Pick the app to build: an explicit `--app`, the sole discovered app, or an interactive prompt. The
- * prompt is the shared {@link pickOne}, which past a threshold (large monorepos) switches the flat list
- * to a fuzzy type-to-search over the name and bundle/package id. With no TTY and more than one app it
- * refuses to guess and tells the user to pass `--app`, rather than silently building the wrong one.
- */
-export const selectApp = (apps: readonly AppDescriptor[], appName: string | undefined) =>
-  Effect.gen(function* () {
-    if (apps.length === 0)
-      return yield* Effect.fail(
-        makeAppSelectionFailure({
-          message: 'No apps found. Run Launch from a repo containing at least one app.json.',
-        }),
-      );
-    if (appName) {
-      const match = apps.find((app) => app.name === appName);
-      if (!match)
-        return yield* Effect.fail(
-          makeAppSelectionFailure({
-            message: `App "${appName}" not found. Available: ${apps.map((availableApp) => availableApp.name).join(', ')}.`,
-          }),
-        );
-      return match;
-    }
-    const sole = apps[0];
-    if (apps.length === 1 && sole) return sole;
-    // Pre-select the app built last time (when it's still discovered) so a re-run is one keystroke; the
-    // pick still shows, so a monorepo never silently builds the wrong app.
-    const lastAppName = yield* readLastApp();
-    const lastApp = apps.find((app) => app.name === lastAppName);
-    const terminal = yield* Terminal.Terminal;
-    const canPrompt = yield* terminal.isTTY;
-    const choices = apps.map((app) => {
-      let hint = app.packageName;
-      if (app.bundleId !== undefined) hint = app.bundleId;
-      if (hint !== undefined) return { selection: app, label: app.name, hint };
-      return { selection: app, label: app.name };
-    });
-    let requestWithInitialSelection: PickOneArgs<AppDescriptor> = {
-      message: `Which app? (${apps.length} found)`,
-      choices,
-      canPrompt,
-      nonInteractive: {
-        kind: 'require' as const,
-        flagHint: '- pass --app <name> to choose one non-interactively.',
-      },
+
+function makeBuildEnvironmentFailure(fields: {
+  stage: 'secrets' | 'validation';
+  message: string;
+  cause?: unknown;
+}): BuildEnvironmentFailure {
+  const hasCause = fields.cause != null;
+
+  if (hasCause) {
+    return {
+      _tag: 'BuildEnvironmentFailure',
+      stage: fields.stage,
+      message: fields.message,
+      cause: fields.cause,
     };
-    if (lastApp !== undefined) {
-      requestWithInitialSelection = { ...requestWithInitialSelection, initialSelection: lastApp };
-    }
-    return yield* pickOne<AppDescriptor>({
-      ...requestWithInitialSelection,
-    }).pipe(Effect.mapError((cause) => makeAppSelectionFailure({ message: cause.message, cause })));
+  }
+
+  return { _tag: 'BuildEnvironmentFailure', stage: fields.stage, message: fields.message };
+}
+
+function isOnlyDiscoveredApp(
+  apps: readonly AppDescriptor[],
+  soleApp: AppDescriptor | undefined,
+): soleApp is AppDescriptor {
+  const isSingle = apps.length == 1;
+
+  if (isSingle == false) {
+    return false;
+  }
+
+  return soleApp != null;
+}
+
+function readAppName(app: AppDescriptor): string {
+  return app.name;
+}
+
+function appChoice(app: AppDescriptor): PickOneArgs<AppDescriptor>['choices'][number] {
+  const bundleId = app.bundleId;
+  const hasBundleId = bundleId != null;
+
+  if (hasBundleId) {
+    return { selection: app, label: app.name, hint: bundleId };
+  }
+
+  const packageName = app.packageName;
+  const hasPackageName = packageName != null;
+
+  if (hasPackageName) {
+    return { selection: app, label: app.name, hint: packageName };
+  }
+
+  return { selection: app, label: app.name };
+}
+
+function findNamedApp(apps: readonly AppDescriptor[], appName: string): AppDescriptor {
+  const namedApp = apps.find(function sameName(app: AppDescriptor): boolean {
+    return app.name == appName;
   });
+  const isMissing = namedApp == null;
+
+  if (isMissing) {
+    const availableNames = apps.map(readAppName);
+
+    throw makeAppSelectionFailure({
+      message: `App "${appName}" not found. Available: ${availableNames.join(', ')}.`,
+    });
+  }
+
+  return namedApp;
+}
+
+function selectionFailureMessage(cause: unknown): string {
+  if (hasMessage(cause)) {
+    return cause.message;
+  }
+
+  return 'Could not choose an app.';
+}
+
 /**
- * Resolve the layered env for any command (build / release / update) from an app + profile: keychain
- * secrets resolved here, then handed with the dotenv files, inline `profile.env`, and `--env` flags to
- * the one precedence ladder in {@link resolveEnv}. The single place keychain meets the resolver, so
- * every command injects identical env (issue #25). Pure resolver stays keychain-free for testability.
+ * Pick the app to build: an explicit `--app`, the sole discovered app, or an interactive prompt.
+ * With no TTY and more than one app it refuses to guess.
  */
-export const resolveCommandEnv = (input: {
+export async function selectApp(
+  apps: readonly AppDescriptor[],
+  appName: string | undefined,
+): Promise<AppDescriptor> {
+  const hasNoApps = apps.length == 0;
+
+  if (hasNoApps) {
+    throw makeAppSelectionFailure({
+      message: 'No apps found. Run Launch from a repo containing at least one app.json.',
+    });
+  }
+
+  const hasRequestedName = appName != null;
+
+  if (hasRequestedName) {
+    return findNamedApp(apps, appName);
+  }
+
+  const soleApp = apps[0];
+  const isSoleApp = isOnlyDiscoveredApp(apps, soleApp);
+
+  if (isSoleApp) {
+    return soleApp;
+  }
+
+  const lastAppName = await readLastApp();
+  const lastApp = apps.find(function sameName(app: AppDescriptor): boolean {
+    return app.name == lastAppName;
+  });
+  const canPrompt = checkTerminalIsInteractive();
+  const choices = apps.map(appChoice);
+  let pickRequest: PickOneArgs<AppDescriptor> = {
+    message: `Which app? (${apps.length} found)`,
+    choices,
+    canPrompt,
+    nonInteractive: {
+      kind: 'require',
+      flagHint: '- pass --app <name> to choose one non-interactively.',
+    },
+  };
+  const hasLastApp = lastApp != null;
+
+  if (hasLastApp) {
+    pickRequest = { ...pickRequest, initialSelection: lastApp };
+  }
+
+  try {
+    const pickedApp = await pickOne(pickRequest);
+
+    return pickedApp;
+  } catch (error) {
+    throw makeAppSelectionFailure({ message: selectionFailureMessage(error), cause: error });
+  }
+}
+
+type CommandEnvironmentRequest = {
   app: AppDescriptor;
   profile: BuildProfile;
   cliEnv?: Record<string, string> | undefined;
   includeLocal?: boolean | undefined;
   envExclude?: readonly string[] | undefined;
-}) =>
-  Effect.gen(function* () {
-    const secrets = yield* resolveBuildSecrets(input.app.name, input.profile.name).pipe(
-      Effect.mapError((cause) =>
-        makeBuildEnvironmentFailure({
-          stage: 'secrets',
-          message: `Could not resolve build secrets for ${input.app.name}.`,
-          cause,
-        }),
-      ),
-    );
-    return yield* resolveEnv({
-      appDir: input.app.dir,
-      profileName: input.profile.name,
-      profileEnv: input.profile.env,
-      envFile: input.profile.envFile,
-      secrets,
-      cliEnv: input.cliEnv,
-      includeLocal: input.includeLocal,
-      envExclude: input.envExclude,
-    });
-  });
+};
+
 /**
- * Gate + warn on a resolved env before an artifact-baking command (build, update): hard-fail on any
- * `.env.example` key that's missing (names matched by `exclude` - the config's `envExclude` - are exempt,
- * since they're intentionally backend-only), then warn about secret-looking names coming from a plaintext
- * source (dotenv files / inline `env:`) since they'd be bundled into the app. Keychain secrets and `--env`
- * flags are exempt - the former are meant to be secret, the latter an explicit override; anything in
- * `envExclude` is already gone from `resolved.values`, so it never reaches this warning. Release does NOT
- * call this: it promotes a prebuilt artifact, so its env never bakes into the app.
+ * Resolve the layered env for a command: keychain secrets, dotenv, profile env, and `--env` flags.
  */
-export const validateResolvedEnv = (
+export async function resolveCommandEnv(request: CommandEnvironmentRequest): Promise<ResolvedEnv> {
+  let secrets: Awaited<ReturnType<typeof resolveBuildSecrets>>;
+
+  try {
+    secrets = await resolveBuildSecrets(request.app.name, request.profile.name);
+  } catch (error) {
+    throw makeBuildEnvironmentFailure({
+      stage: 'secrets',
+      message: `Could not resolve build secrets for ${request.app.name}.`,
+      cause: error,
+    });
+  }
+
+  const resolvedEnvironment = await resolveEnv({
+    appDir: request.app.dir,
+    profileName: request.profile.name,
+    profileEnv: request.profile.env,
+    envFile: request.profile.envFile,
+    secrets,
+    cliEnv: request.cliEnv,
+    includeLocal: request.includeLocal,
+    envExclude: request.envExclude,
+  });
+
+  return resolvedEnvironment;
+}
+
+/**
+ * Hard-fail on missing `.env.example` keys, then warn when a secret-looking name comes from plaintext.
+ */
+export async function validateResolvedEnv(
   appDir: string,
   resolved: ResolvedEnv,
   log: Logger,
   exclude: readonly string[] = [],
-) =>
-  Effect.gen(function* () {
-    const missing = yield* missingKeys(appDir, resolved.values, exclude).pipe(
-      Effect.mapError((cause) =>
-        makeBuildEnvironmentFailure({
-          stage: 'validation',
-          message: `Could not read ${appDir}/.env.example.`,
-          cause,
-        }),
-      ),
-    );
-    if (missing.length > 0) {
-      return yield* Effect.fail(
-        makeBuildEnvironmentFailure({
-          stage: 'validation',
-          message: `Missing env keys (in .env.example, absent from your env): ${missing.join(', ')}`,
-        }),
-      );
-    }
-    for (const environmentName of secretLookingKeys(resolved.values)) {
-      const source = resolved.sources[environmentName];
-      if (source === ENV_SOURCE.secret) continue;
-      if (source === ENV_SOURCE.flag) continue;
-      yield* log
-        .warn(
-          `"${environmentName}" looks like a backend secret (from ${source}) - it would be bundled into the app. If the app needs it at build time, store it with \`launch secret set ${environmentName}\`; if it's backend-only, add it to \`envExclude\` in launch.config.ts.`,
-        )
-        .pipe(
-          Effect.mapError((cause) =>
-            makeBuildEnvironmentFailure({
-              stage: 'validation',
-              message: `Could not write the environment warning for ${environmentName}.`,
-              cause,
-            }),
-          ),
-        );
-    }
-  });
-/**
- * Resolve env exactly as a build would and print the masked provenance table (`--print-env`), with no
- * config preflight or build work - a clean "what env will be injected, and from where" preview.
- */
-export const previewEnv = (options: BuildRunOptions) =>
-  Effect.gen(function* () {
-    const { config, apps } = yield* loadConfig();
-    const app = yield* selectApp(apps, options.appName);
-    let profile = config.profiles[options.profileName];
-    if (profile === undefined) {
-      profile = { name: options.profileName, sizeBudgetMB: 200 };
-    }
-    const resolved = yield* resolveCommandEnv({
-      app,
-      profile,
-      cliEnv: options.envOverrides,
-      includeLocal: options.includeLocal,
-      envExclude: config.envExclude,
+): Promise<void> {
+  let missing: string[];
+
+  try {
+    missing = await missingKeys(appDir, resolved.values, exclude);
+  } catch (error) {
+    throw makeBuildEnvironmentFailure({
+      stage: 'validation',
+      message: `Could not read ${appDir}/.env.example.`,
+      cause: error,
     });
-    const logger = yield* createLogger(false);
-    yield* logger.line(formatEnvTable(resolved));
+  }
+
+  const hasMissingKeys = missing.length > 0;
+
+  if (hasMissingKeys) {
+    throw makeBuildEnvironmentFailure({
+      stage: 'validation',
+      message: `Missing env keys (in .env.example, absent from your env): ${missing.join(', ')}`,
+    });
+  }
+
+  for (const environmentName of secretLookingKeys(resolved.values)) {
+    const environmentSource = resolved.sources[environmentName];
+    const isKeychainSecret = environmentSource == ENV_SOURCE.secret;
+
+    if (isKeychainSecret) {
+      continue;
+    }
+
+    const isFlagOverride = environmentSource == ENV_SOURCE.flag;
+
+    if (isFlagOverride) {
+      continue;
+    }
+
+    log.warn(
+      `"${environmentName}" looks like a backend secret (from ${environmentSource}) - it would be bundled into the app. If the app needs it at build time, store it with \`launch secret set ${environmentName}\`; if it's backend-only, add it to \`envExclude\` in launch.config.ts.`,
+    );
+  }
+}
+
+/** Print the masked env table a build would inject, without preflight or a build. */
+export async function previewEnv(buildOptions: BuildRunOptions): Promise<void> {
+  const loaded = await loadConfig();
+  const app = await selectApp(loaded.apps, buildOptions.appName);
+  let profile = loaded.config.profiles[buildOptions.profileName];
+
+  if (profile == null) {
+    profile = { name: buildOptions.profileName, sizeBudgetMB: 200 };
+  }
+
+  const resolved = await resolveCommandEnv({
+    app,
+    profile,
+    cliEnv: buildOptions.envOverrides,
+    includeLocal: buildOptions.includeLocal,
+    envExclude: loaded.config.envExclude,
   });
+  const logger = createLogger(false);
+
+  logger.line(formatEnvTable(resolved));
+}

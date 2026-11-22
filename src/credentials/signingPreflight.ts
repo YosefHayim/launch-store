@@ -1,111 +1,200 @@
-import { type FileSystem, Path } from '@effect/platform';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { pathExists } from '@/path-exists.js';
 import {
-  discoverExtensionBundleIds,
+  parsePbxprojTargets,
+  splitMainAndExtensions,
   multiTargetSigningWarnings,
   type TargetSigningReadiness,
-} from '../build/appleTargets.js';
+} from '@/build/appleTargets.js';
 import {
   appGroupContainers,
   appGroupPortalNotice,
   mapEntitlementsToCapabilities,
 } from './capabilities.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { DoctorCheck } from '../types/doctor.js';
-import { Effect } from 'effect';
+import type { AppDescriptor } from '@/types/app.js';
+import type { DoctorCheck } from '@/types/doctor.js';
+
 /** The read-only App Store Connect surface the signing preflight needs. */
 type SigningPreflightAscApi = {
-  findBundleId(identifier: string): Effect.Effect<
-    {
-      id: string;
-    } | null,
-    unknown
-  >;
-  listBundleIdCapabilities(bundleIdResourceId: string): Effect.Effect<
-    {
-      capabilityType: string;
-    }[],
-    unknown
-  >;
+  findBundleId(identifier: string): Promise<{ id: string } | null>;
+  listBundleIdCapabilities(bundleIdResourceId: string): Promise<{ capabilityType: string }[]>;
 };
+
+async function readExtensionBundleIds(
+  nativeDirectory: string,
+  mainBundleId: string | undefined,
+): Promise<string[]> {
+  const isNativeDirectoryPresent = await pathExists(nativeDirectory);
+
+  if (isNativeDirectoryPresent == false) {
+    return [];
+  }
+
+  let directoryNames: string[];
+
+  try {
+    directoryNames = await readdir(nativeDirectory);
+  } catch (error) {
+    throw new Error(`Could not read ${nativeDirectory}`, { cause: error });
+  }
+
+  function isXcodeProject(directoryName: string): boolean {
+    return directoryName.endsWith('.xcodeproj');
+  }
+
+  const projectDirectory = directoryNames.find(isXcodeProject);
+
+  if (projectDirectory == null) {
+    return [];
+  }
+
+  const projectFile = join(nativeDirectory, projectDirectory, 'project.pbxproj');
+  const isProjectFilePresent = await pathExists(projectFile);
+
+  if (isProjectFilePresent == false) {
+    return [];
+  }
+
+  let projectText: string;
+
+  try {
+    projectText = await readFile(projectFile, 'utf8');
+  } catch (error) {
+    throw new Error(`Could not read ${projectFile}`, { cause: error });
+  }
+
+  const targets = parsePbxprojTargets(projectText);
+
+  return splitMainAndExtensions(targets, mainBundleId).extensions;
+}
+
 /**
  * Resolve the embedded-extension bundle ids to grade: configured (`ios.extensions`) plus any discovered
  * in a generated `ios/*.xcodeproj/project.pbxproj`. Returns `[]` when the native project hasn't been
  * prebuilt yet - the configured list still covers the common case.
  */
-export const resolveExtensionBundleIdsForApp = (
-  app: AppDescriptor,
-): Effect.Effect<string[], unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    let configured: readonly string[] = [];
-    if (app.iosExtensions !== undefined) configured = app.iosExtensions;
-    const nativeDirectory = pathService.join(app.dir, 'ios');
-    const discovered = yield* discoverExtensionBundleIds(nativeDirectory, app.bundleId);
-    return [...new Set([...configured, ...discovered])].filter(
-      (extensionId) => extensionId !== app.bundleId,
-    );
-  });
+export async function resolveExtensionBundleIdsForApp(app: AppDescriptor): Promise<string[]> {
+  let configured: readonly string[] = [];
+
+  if (app.iosExtensions != null) {
+    configured = app.iosExtensions;
+  }
+
+  const nativeDirectory = join(app.dir, 'ios');
+  const discovered = await readExtensionBundleIds(nativeDirectory, app.bundleId);
+
+  function isNotMainBundle(extensionId: string): boolean {
+    return extensionId != app.bundleId;
+  }
+
+  return [...new Set([...configured, ...discovered])].filter(isNotMainBundle);
+}
+
 /** The portal-only App Group notice for an app's entitlements, or `null` when none are declared. */
-export const appGroupPreflightNotice = (
+export function appGroupPreflightNotice(
   entitlements: Record<string, unknown> | undefined,
-): string | null => {
+): string | null {
   return appGroupPortalNotice(appGroupContainers(entitlements));
+}
+
+type TargetRequirement = {
+  id: string;
+  required: string[];
 };
+
 /**
  * Read each target's App ID registration and live capabilities from App Store Connect. Pure output
  * shape - the network I/O is isolated here so tests can drive {@link multiTargetSigningWarnings} and
  * {@link signingPreflightDoctorChecks} without a client.
  */
-export const gatherTargetSigningReadiness = (
+export async function gatherTargetSigningReadiness(
   asc: SigningPreflightAscApi,
   bundleId: string,
   extensions: readonly string[],
   entitlements: Record<string, unknown> | undefined,
-): Effect.Effect<TargetSigningReadiness[], unknown> => {
+): Promise<TargetSigningReadiness[]> {
   const required = mapEntitlementsToCapabilities(entitlements).enable;
-  const targetRequirements: Array<{ id: string; required: string[] }> = [
+
+  function extensionRequirement(extensionId: string): TargetRequirement {
+    return { id: extensionId, required: [] };
+  }
+
+  const targetRequirements: TargetRequirement[] = [
     { id: bundleId, required },
-    ...extensions.map((id) => ({ id, required: [] })),
+    ...extensions.map(extensionRequirement),
   ];
-  return Effect.forEach(
-    targetRequirements,
-    ({ id, required: needed }) =>
-      Effect.gen(function* () {
-        const bundle = yield* asc.findBundleId(id);
-        if (!bundle) return { bundleId: id, registered: false, missingCapabilities: [] };
-        const enabledCapabilities = yield* asc.listBundleIdCapabilities(bundle.id);
-        const enabled = new Set(enabledCapabilities.map((capability) => capability.capabilityType));
-        return {
-          bundleId: id,
-          registered: true,
-          missingCapabilities: needed.filter((cap) => !enabled.has(cap)),
-        };
-      }),
-    { concurrency: 'unbounded' },
-  );
-};
+
+  async function readTarget(targetRequirement: TargetRequirement): Promise<TargetSigningReadiness> {
+    const bundle = await asc.findBundleId(targetRequirement.id);
+    const isUnregistered = bundle == null;
+
+    if (isUnregistered) {
+      return { bundleId: targetRequirement.id, registered: false, missingCapabilities: [] };
+    }
+
+    const enabledCapabilities = await asc.listBundleIdCapabilities(bundle.id);
+
+    function capabilityTypeOf(capability: { capabilityType: string }): string {
+      return capability.capabilityType;
+    }
+
+    const enabled = new Set(enabledCapabilities.map(capabilityTypeOf));
+
+    function isCapabilityMissing(capabilityType: string): boolean {
+      return enabled.has(capabilityType) == false;
+    }
+
+    return {
+      bundleId: targetRequirement.id,
+      registered: true,
+      missingCapabilities: targetRequirement.required.filter(isCapabilityMissing),
+    };
+  }
+
+  return Promise.all(targetRequirements.map(readTarget));
+}
+
 /** Turn readiness facts into build-time warning strings (best-effort - never throws). */
-export const signingPreflightWarnings = (
-  readiness: readonly TargetSigningReadiness[],
-): string[] => {
+export function signingPreflightWarnings(readiness: readonly TargetSigningReadiness[]): string[] {
   return multiTargetSigningWarnings(readiness);
-};
+}
+
+function hasAppGroupNotice(notice: string | null | undefined): notice is string {
+  if (notice == null) {
+    return false;
+  }
+
+  return notice != '';
+}
+
 /** Turn readiness facts into doctor checks - unregistered/missing-capability targets fail the run. */
-export const signingPreflightDoctorChecks = (
+export function signingPreflightDoctorChecks(
   readiness: TargetSigningReadiness[],
   appGroupNotice?: string | null,
-): DoctorCheck[] => {
+): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
-  if (appGroupNotice) {
+
+  if (hasAppGroupNotice(appGroupNotice)) {
     checks.push({
       status: 'info',
       title: 'App Groups require portal setup',
       detail: appGroupNotice,
     });
   }
+
   for (const warning of multiTargetSigningWarnings(readiness)) {
-    let targetLabel = readiness.find((target) => warning.includes(target.bundleId))?.bundleId;
-    if (targetLabel === undefined) targetLabel = 'target';
+    function warningMentionsTarget(target: TargetSigningReadiness): boolean {
+      return warning.includes(target.bundleId);
+    }
+
+    const matchedTarget = readiness.find(warningMentionsTarget);
+    let targetLabel = 'target';
+
+    if (matchedTarget != null) {
+      targetLabel = matchedTarget.bundleId;
+    }
+
     checks.push({
       status: 'fail',
       title: `Signing preflight: ${targetLabel}`,
@@ -113,5 +202,6 @@ export const signingPreflightDoctorChecks = (
       hint: 'Run `launch creds setup --app <name>` to register and provision each target',
     });
   }
+
   return checks;
-};
+}

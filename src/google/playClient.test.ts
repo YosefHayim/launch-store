@@ -1,5 +1,4 @@
 import { Readable } from 'node:stream';
-import { Effect } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   describePlayErrors,
@@ -99,13 +98,13 @@ let client: GooglePlayClient;
 beforeEach(() => {
   vi.clearAllMocks();
   client = new GooglePlayClient(
-    Effect.runSync(parseServiceAccount(makeServiceAccountJson())),
+    parseServiceAccount(makeServiceAccountJson()),
     generatedPublisherFake(),
   );
 });
 describe('parseServiceAccount', () => {
   it('extracts the fields Launch needs from a valid key', () => {
-    const account = Effect.runSync(parseServiceAccount(makeServiceAccountJson()));
+    const account = parseServiceAccount(makeServiceAccountJson());
     expect(account.clientEmail).toBe('launch@proj.iam.gserviceaccount.com');
     expect(account.privateKey).toContain('PRIVATE KEY');
     expect(account.tokenUri).toBe('https://oauth2.googleapis.com/token');
@@ -113,30 +112,45 @@ describe('parseServiceAccount', () => {
     expect(client.serviceAccountEmail).toBe('launch@proj.iam.gserviceaccount.com');
   });
   it('defaults the token endpoint when absent', () => {
-    const account = Effect.runSync(
-      parseServiceAccount(
-        JSON.stringify({
-          client_email: 'a@b.iam',
-          private_key: '-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----',
-        }),
-      ),
+    const account = parseServiceAccount(
+      JSON.stringify({
+        client_email: 'a@b.iam',
+        private_key: '-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----',
+      }),
     );
     expect(account.tokenUri).toBe('https://oauth2.googleapis.com/token');
   });
-  it('rejects non-JSON and the wrong key kind with actionable text', async () => {
-    await expect(Effect.runPromise(parseServiceAccount('not json'))).rejects.toMatchObject({
+  it('rejects non-JSON and the wrong key kind with actionable text', () => {
+    let invalidJson: unknown;
+
+    try {
+      parseServiceAccount('not json');
+    } catch (error) {
+      invalidJson = error;
+    }
+
+    expect(invalidJson).toMatchObject({
+      _tag: 'ServiceAccountParseError',
       message: expect.stringMatching(/not valid JSON/),
     });
-    await expect(
-      Effect.runPromise(parseServiceAccount(JSON.stringify({ type: 'authorized_user' }))),
-    ).rejects.toMatchObject({
+
+    let wrongKind: unknown;
+
+    try {
+      parseServiceAccount(JSON.stringify({ type: 'authorized_user' }));
+    } catch (error) {
+      wrongKind = error;
+    }
+
+    expect(wrongKind).toMatchObject({
+      _tag: 'ServiceAccountParseError',
       message: expect.stringMatching(/client_email.*private_key/),
     });
   });
 });
 describe('serviceAccountJwtOptions / nonEmptyPageToken', () => {
   it('copies the key id when present and drops empty page tokens', () => {
-    const account = Effect.runSync(parseServiceAccount(makeServiceAccountJson()));
+    const account = parseServiceAccount(makeServiceAccountJson());
     expect(serviceAccountJwtOptions(account, ['scope-a'])).toEqual({
       email: 'launch@proj.iam.gserviceaccount.com',
       key: account.privateKey,
@@ -181,7 +195,7 @@ describe('GooglePlayClient generated reads', () => {
     listBundles.mockResolvedValue({
       data: { bundles: [{ versionCode: 3 }, { versionCode: 7 }] },
     });
-    expect(await Effect.runPromise(client.getLatestVersionCode('com.example.hello'))).toBe(7);
+    expect(await client.getLatestVersionCode('com.example.hello')).toBe(7);
     expect(insertEdit).toHaveBeenCalledWith({ packageName: 'com.example.hello' });
     expect(listBundles).toHaveBeenCalledWith({
       packageName: 'com.example.hello',
@@ -195,16 +209,15 @@ describe('GooglePlayClient generated reads', () => {
   it('reports zero when no bundles have been uploaded', async () => {
     openReadEdit();
     listBundles.mockResolvedValue({ data: {} });
-    expect(await Effect.runPromise(client.getLatestVersionCode('com.example.fresh'))).toBe(0);
+    expect(await client.getLatestVersionCode('com.example.fresh')).toBe(0);
   });
   it('raises PlayAppNotFoundError when edit creation reports a missing app', async () => {
     insertEdit.mockRejectedValue(
       Object.assign(new Error('Application not found.'), { status: 404 }),
     );
-    const appLookupFailure = await Effect.runPromise(
-      Effect.flip(client.assertAppExists('com.example.missing')),
-    );
-    expect(appLookupFailure).toMatchObject({ _tag: 'PlayAppNotFoundError' });
+    await expect(client.assertAppExists('com.example.missing')).rejects.toMatchObject({
+      _tag: 'PlayAppNotFoundError',
+    });
   });
   it('normalizes track releases and tester groups inside a throwaway edit', async () => {
     openReadEdit();
@@ -228,7 +241,7 @@ describe('GooglePlayClient generated reads', () => {
         restOfWorld: true,
       },
     });
-    expect(await Effect.runPromise(client.getTrackReleases('com.example.app', 'beta'))).toEqual([
+    expect(await client.getTrackReleases('com.example.app', 'beta')).toEqual([
       {
         name: '1.2.0',
         versionCodes: ['12'],
@@ -237,12 +250,8 @@ describe('GooglePlayClient generated reads', () => {
         releaseNotes: [{ language: 'en-US', text: 'fixes' }],
       },
     ]);
-    expect(await Effect.runPromise(client.getTesters('com.example.app', 'beta'))).toEqual([
-      'qa@example.com',
-    ]);
-    expect(
-      await Effect.runPromise(client.getCountryAvailability('com.example.app', 'production')),
-    ).toEqual({
+    expect(await client.getTesters('com.example.app', 'beta')).toEqual(['qa@example.com']);
+    expect(await client.getCountryAvailability('com.example.app', 'production')).toEqual({
       countries: [{ countryCode: 'US' }],
       restOfWorld: true,
     });
@@ -258,7 +267,7 @@ describe('GooglePlayClient generated reads', () => {
         ],
       },
     });
-    expect(await Effect.runPromise(client.listTracks('com.example.app'))).toEqual([
+    expect(await client.listTracks('com.example.app')).toEqual([
       {
         track: 'internal',
         releases: [{ name: '1.0.0', status: 'completed' }],
@@ -271,9 +280,8 @@ describe('GooglePlayClient.withEdit', () => {
   it('opens an edit, applies the write, then commits', async () => {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     commitEdit.mockResolvedValue({ data: {} });
-    const appliedEditId = await Effect.runPromise(
-      client.withEdit('com.example.app', (editId) => Effect.succeed(editId)),
-    );
+    const returnEditId = async (editId: string): Promise<string> => editId;
+    const appliedEditId = await client.withEdit('com.example.app', returnEditId);
     expect(appliedEditId).toBe('edit1');
     expect(commitEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
     expect(deleteEdit).not.toHaveBeenCalled();
@@ -281,9 +289,10 @@ describe('GooglePlayClient.withEdit', () => {
   it('abandons the edit when the write fails', async () => {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     deleteEdit.mockResolvedValue({ data: undefined });
-    await expect(
-      Effect.runPromise(client.withEdit('com.example.app', () => Effect.fail(new Error('boom')))),
-    ).rejects.toThrow('boom');
+    const failWrite = async (): Promise<void> => {
+      throw new Error('boom');
+    };
+    await expect(client.withEdit('com.example.app', failWrite)).rejects.toThrow('boom');
     expect(commitEdit).not.toHaveBeenCalled();
     expect(deleteEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
   });
@@ -292,12 +301,10 @@ describe('GooglePlayClient.withEdit', () => {
     commitEdit.mockResolvedValue({ data: {} });
     updateTrack.mockResolvedValue({ data: {} });
     updateTesters.mockResolvedValue({ data: {} });
-    await Effect.runPromise(
-      client.setTrackReleases('com.example.app', 'production', [
-        { name: '2.0.0', versionCodes: ['20'], status: 'completed' },
-      ]),
-    );
-    await Effect.runPromise(client.setTesters('com.example.app', 'internal', ['group@x.com']));
+    await client.setTrackReleases('com.example.app', 'production', [
+      { name: '2.0.0', versionCodes: ['20'], status: 'completed' },
+    ]);
+    await client.setTesters('com.example.app', 'internal', ['group@x.com']);
     expect(updateTrack).toHaveBeenCalledWith({
       packageName: 'com.example.app',
       editId: 'edit1',
@@ -321,12 +328,10 @@ describe('GooglePlayClient.withEdit', () => {
     uploadBundle.mockResolvedValue({ data: { versionCode: 31 } });
     updateTrack.mockResolvedValue({ data: {} });
     const bundleStream = Readable.from([Buffer.from([1, 2, 3])]);
-    const versionCode = await Effect.runPromise(
-      client.uploadBundleToTrack('com.example.app', bundleStream, 'beta', {
-        status: 'inProgress',
-        userFraction: 0.2,
-      }),
-    );
+    const versionCode = await client.uploadBundleToTrack('com.example.app', bundleStream, 'beta', {
+      status: 'inProgress',
+      userFraction: 0.2,
+    });
     expect(versionCode).toBe(31);
     expect(uploadBundle).toHaveBeenCalledWith({
       packageName: 'com.example.app',
@@ -349,17 +354,12 @@ describe('GooglePlayClient.withEdit', () => {
     deleteEdit.mockResolvedValue({ data: undefined });
     uploadBundle.mockResolvedValue({ data: {} });
     await expect(
-      Effect.runPromise(
-        client.uploadBundleToTrack(
-          'com.example.app',
-          Readable.from([Buffer.from([1])]),
-          'internal',
-          {
-            status: 'completed',
-          },
-        ),
-      ),
-    ).rejects.toThrow(/returned no versionCode/);
+      client.uploadBundleToTrack('com.example.app', Readable.from([Buffer.from([1])]), 'internal', {
+        status: 'completed',
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/returned no versionCode/),
+    });
     expect(updateTrack).not.toHaveBeenCalled();
     expect(commitEdit).not.toHaveBeenCalled();
     expect(deleteEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
@@ -383,7 +383,7 @@ describe('GooglePlayClient store listings', () => {
         ],
       },
     });
-    expect(await Effect.runPromise(client.listListings('com.example.app'))).toEqual([
+    expect(await client.listListings('com.example.app')).toEqual([
       {
         language: 'en-US',
         title: 'Hello',
@@ -400,18 +400,16 @@ describe('GooglePlayClient store listings', () => {
   it('returns no listings when the app has none', async () => {
     openReadEdit();
     listListings.mockResolvedValue({ data: {} });
-    expect(await Effect.runPromise(client.listListings('com.example.app'))).toEqual([]);
+    expect(await client.listListings('com.example.app')).toEqual([]);
   });
   it('patches every language inside one committed edit', async () => {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     commitEdit.mockResolvedValue({ data: {} });
     patchListing.mockResolvedValue({ data: {} });
-    await Effect.runPromise(
-      client.updateListings('com.example.app', [
-        { language: 'en-US', title: 'Hello', shortDescription: 'short' },
-        { language: 'de-DE', fullDescription: 'voll' },
-      ]),
-    );
+    await client.updateListings('com.example.app', [
+      { language: 'en-US', title: 'Hello', shortDescription: 'short' },
+      { language: 'de-DE', fullDescription: 'voll' },
+    ]);
     expect(patchListing).toHaveBeenCalledTimes(2);
     expect(patchListing).toHaveBeenNthCalledWith(1, {
       packageName: 'com.example.app',
@@ -432,10 +430,9 @@ describe('GooglePlayClient store listings', () => {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     deleteEdit.mockResolvedValue({ data: undefined });
     patchListing.mockRejectedValue(Object.assign(new Error('bad title'), { status: 400 }));
-    const listingFailure = await Effect.runPromise(
-      Effect.flip(client.updateListings('com.example.app', [{ language: 'en-US', title: '' }])),
-    );
-    expect(listingFailure).toMatchObject({ _tag: 'GooglePlayApiError', statusCode: 400 });
+    await expect(
+      client.updateListings('com.example.app', [{ language: 'en-US', title: '' }]),
+    ).rejects.toMatchObject({ _tag: 'GooglePlayApiError', statusCode: 400 });
     expect(commitEdit).not.toHaveBeenCalled();
     expect(deleteEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
   });
@@ -461,13 +458,11 @@ describe('GooglePlayClient.convertRegionPrices', () => {
         },
       },
     });
-    const convertedPrices = await Effect.runPromise(
-      client.convertRegionPrices('com.example.app', {
-        currencyCode: 'USD',
-        units: '4',
-        nanos: 990000000,
-      }),
-    );
+    const convertedPrices = await client.convertRegionPrices('com.example.app', {
+      currencyCode: 'USD',
+      units: '4',
+      nanos: 990000000,
+    });
     expect(convertRegionPrices).toHaveBeenCalledWith({
       packageName: 'com.example.app',
       requestBody: {
@@ -495,13 +490,11 @@ describe('GooglePlayClient.convertRegionPrices', () => {
         },
       },
     });
-    const convertedPrices = await Effect.runPromise(
-      client.convertRegionPrices('com.example.app', {
-        currencyCode: 'USD',
-        units: '1',
-        nanos: 0,
-      }),
-    );
+    const convertedPrices = await client.convertRegionPrices('com.example.app', {
+      currencyCode: 'USD',
+      units: '1',
+      nanos: 0,
+    });
     expect(convertedPrices.regions).toEqual([
       { regionCode: 'GB', price: { currencyCode: 'GBP', units: '0', nanos: 0 } },
     ]);
@@ -509,12 +502,10 @@ describe('GooglePlayClient.convertRegionPrices', () => {
   });
   it('passes the optional product tax category to the generated request', async () => {
     convertRegionPrices.mockResolvedValue({ data: { convertedRegionPrices: {} } });
-    await Effect.runPromise(
-      client.convertRegionPrices(
-        'com.example.app',
-        { currencyCode: 'USD', units: '4', nanos: 0 },
-        'TAX_CATEGORY',
-      ),
+    await client.convertRegionPrices(
+      'com.example.app',
+      { currencyCode: 'USD', units: '4', nanos: 0 },
+      'TAX_CATEGORY',
     );
     expect(convertRegionPrices).toHaveBeenCalledWith({
       packageName: 'com.example.app',
@@ -552,7 +543,7 @@ describe('GooglePlayClient catalog + reviews', () => {
           inappproduct: [{ sku: 'gems', status: 'active' }],
         },
       });
-    expect(await Effect.runPromise(client.listInAppProducts('com.example.app'))).toEqual([
+    expect(await client.listInAppProducts('com.example.app')).toEqual([
       {
         sku: 'coins',
         status: 'active',
@@ -575,41 +566,29 @@ describe('GooglePlayClient catalog + reviews', () => {
     activateBasePlan.mockResolvedValue({ data: {} });
     createOffer.mockResolvedValue({ data: {} });
     activateOffer.mockResolvedValue({ data: {} });
-    await Effect.runPromise(
-      client.insertInAppProduct('com.example.app', { sku: 'coins', status: 'active' }),
-    );
-    await Effect.runPromise(
-      client.updateInAppProduct('com.example.app', { sku: 'coins', status: 'active' }),
-    );
-    await Effect.runPromise(
-      client.createSubscription('com.example.app', {
+    await client.insertInAppProduct('com.example.app', { sku: 'coins', status: 'active' });
+    await client.updateInAppProduct('com.example.app', { sku: 'coins', status: 'active' });
+    await client.createSubscription('com.example.app', {
+      productId: 'pro',
+      listings: [{ languageCode: 'en-US', title: 'Pro', description: 'All features' }],
+    });
+    await client.patchSubscription(
+      'com.example.app',
+      {
         productId: 'pro',
-        listings: [{ languageCode: 'en-US', title: 'Pro', description: 'All features' }],
-      }),
+        listings: [{ languageCode: 'en-US', title: 'Pro', description: 'All' }],
+      },
+      'listings',
     );
-    await Effect.runPromise(
-      client.patchSubscription(
-        'com.example.app',
-        {
-          productId: 'pro',
-          listings: [{ languageCode: 'en-US', title: 'Pro', description: 'All' }],
-        },
-        'listings',
-      ),
-    );
-    await Effect.runPromise(client.activateBasePlan('com.example.app', 'pro', 'p1m'));
-    await Effect.runPromise(
-      client.createSubscriptionOffer('com.example.app', {
-        offerId: 'trial',
-        productId: 'pro',
-        basePlanId: 'p1m',
-        phases: [],
-        regionalConfigs: [],
-      }),
-    );
-    await Effect.runPromise(
-      client.activateSubscriptionOffer('com.example.app', 'pro', 'p1m', 'trial'),
-    );
+    await client.activateBasePlan('com.example.app', 'pro', 'p1m');
+    await client.createSubscriptionOffer('com.example.app', {
+      offerId: 'trial',
+      productId: 'pro',
+      basePlanId: 'p1m',
+      phases: [],
+      regionalConfigs: [],
+    });
+    await client.activateSubscriptionOffer('com.example.app', 'pro', 'p1m', 'trial');
     expect(insertInAppProduct).toHaveBeenCalled();
     expect(updateInAppProduct.mock.calls[0]?.[0].sku).toBe('coins');
     expect(createSubscription.mock.calls[0]?.[0].productId).toBe('pro');
@@ -683,7 +662,7 @@ describe('GooglePlayClient catalog + reviews', () => {
         ],
       },
     });
-    expect(await Effect.runPromise(client.listSubscriptions('com.example.app'))).toEqual([
+    expect(await client.listSubscriptions('com.example.app')).toEqual([
       {
         productId: 'pro',
         packageName: 'com.example.app',
@@ -713,9 +692,7 @@ describe('GooglePlayClient catalog + reviews', () => {
       },
     ]);
     expect(listSubscriptions.mock.calls[1]?.[0].pageToken).toBe('subs-2');
-    expect(
-      await Effect.runPromise(client.listSubscriptionOffers('com.example.app', 'pro', 'p1m')),
-    ).toEqual([
+    expect(await client.listSubscriptionOffers('com.example.app', 'pro', 'p1m')).toEqual([
       {
         offerId: 'trial',
         productId: 'pro',
@@ -774,9 +751,7 @@ describe('GooglePlayClient catalog + reviews', () => {
         },
       },
     });
-    const reviews = await Effect.runPromise(
-      client.listReviews('com.example.app', { translationLanguage: 'en' }),
-    );
+    const reviews = await client.listReviews('com.example.app', { translationLanguage: 'en' });
     expect(reviews).toEqual([
       {
         reviewId: 'r1',
@@ -792,15 +767,13 @@ describe('GooglePlayClient catalog + reviews', () => {
       },
     ]);
     expect(listReviews.mock.calls[0]?.[0].translationLanguage).toBe('en');
-    expect(await Effect.runPromise(client.getReview('com.example.app', 'r1'))).toMatchObject({
+    expect(await client.getReview('com.example.app', 'r1')).toMatchObject({
       reviewId: 'r1',
       rating: 5,
       answered: false,
     });
-    expect(await Effect.runPromise(client.getReview('com.example.app', 'missing'))).toBeNull();
-    expect(
-      await Effect.runPromise(client.replyToReview('com.example.app', 'r1', 'Thanks!')),
-    ).toEqual({
+    expect(await client.getReview('com.example.app', 'missing')).toBeNull();
+    expect(await client.replyToReview('com.example.app', 'r1', 'Thanks!')).toEqual({
       replyText: 'Thanks for the review!',
       lastEdited: new Date(1710000100 * 1000).toISOString(),
     });
@@ -811,10 +784,7 @@ describe('GooglePlayClient catalog + reviews', () => {
         status: 429,
       }),
     );
-    const listFailure = await Effect.runPromise(
-      Effect.flip(client.listInAppProducts('com.example.app')),
-    );
-    expect(listFailure).toMatchObject({
+    await expect(client.listInAppProducts('com.example.app')).rejects.toMatchObject({
       _tag: 'GooglePlayApiError',
       operation: 'list in-app products',
       statusCode: 429,

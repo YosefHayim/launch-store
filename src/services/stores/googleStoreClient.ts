@@ -1,52 +1,42 @@
-import { GooglePlayClient, parseServiceAccount } from '@google/playClient.js';
-import { Context, Data, Effect, Layer } from 'effect';
+import { GooglePlayClient, readServiceAccount } from '@google/playClient.js';
 import { hasMessage } from '../platform/errorMessage.js';
 
-/** Effect-native Google Play transport surface. */
-export type EffectGooglePlayClient = GooglePlayClient;
-
-/** A Google Play transport request failed. */
 export type GoogleTransportFailure = Readonly<{
-  readonly _tag: 'GoogleTransportFailure';
-  readonly message: string;
-  readonly cause: unknown;
+  _tag: 'GoogleTransportFailure';
+  message: string;
+  cause: unknown;
 }>;
 
-export const makeGoogleTransportFailure =
-  Data.tagged<GoogleTransportFailure>('GoogleTransportFailure');
+export function makeGoogleTransportFailure(fields: {
+  message: string;
+  cause: unknown;
+}): GoogleTransportFailure {
+  return { _tag: 'GoogleTransportFailure', message: fields.message, cause: fields.cause };
+}
 
-/** Convert a Google transport cause to its tagged error channel. */
-const transportFailure = (cause: unknown): GoogleTransportFailure => {
+function transportFailure(cause: unknown): GoogleTransportFailure {
   let message = String(cause);
-  if (hasMessage(cause)) message = cause.message;
+
+  if (hasMessage(cause)) {
+    message = cause.message;
+  }
+
   return makeGoogleTransportFailure({ message, cause });
-};
+}
 
-/** Decode credentials and construct the Effect-native Google Play adapter. */
-const createGooglePlayClient = (
-  serviceAccountJson: string,
-): Effect.Effect<EffectGooglePlayClient, GoogleTransportFailure> =>
-  parseServiceAccount(serviceAccountJson).pipe(
-    Effect.map((serviceAccount) => new GooglePlayClient(serviceAccount)),
-    Effect.mapError(transportFailure),
-  );
+export function createGooglePlayClient(serviceAccountJson: string): GooglePlayClient {
+  try {
+    const serviceAccount = readServiceAccount(serviceAccountJson);
+    return new GooglePlayClient(serviceAccount);
+  } catch (cause) {
+    throw transportFailure(cause);
+  }
+}
 
-/** Injectable Google Play client factory. */
-export type GoogleStoreClientService = Readonly<{
-  createClient: (
-    serviceAccountJson: string,
-  ) => Effect.Effect<GooglePlayClient, GoogleTransportFailure>;
-  createEffectClient: (
-    serviceAccountJson: string,
-  ) => Effect.Effect<EffectGooglePlayClient, GoogleTransportFailure>;
-}>;
-
-export const GoogleStoreClientService = Context.GenericTag<GoogleStoreClientService>(
-  'GoogleStoreClientService',
-);
-
-/** Live Google Play transport factory. */
-export const GoogleStoreClientLive = Layer.succeed(GoogleStoreClientService, {
+export const GoogleStoreClientService = {
   createClient: createGooglePlayClient,
   createEffectClient: createGooglePlayClient,
-} satisfies GoogleStoreClientService);
+};
+
+export type GoogleStoreClientService = typeof GoogleStoreClientService;
+export type EffectGooglePlayClient = GooglePlayClient;

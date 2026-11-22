@@ -1,453 +1,648 @@
-import {
-  Command,
-  FileSystem,
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-  Path,
-} from '@effect/platform';
-import * as CommandExecutor from '@effect/platform/CommandExecutor';
-import { Effect, Option, type ParseResult, Schema } from 'effect';
-import { LaunchEnvironment } from '../services/platform/environment.js';
-import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { spawn } from 'node:child_process';
+import { realpath } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { pathExists } from '../path-exists.js';
+import { readLaunchEnvironment } from '../services/platform/environment.js';
 import { captureCommandOutput, type CommandFailed } from '../services/platform/exec.js';
+import { createLogger } from '../services/platform/logger.js';
 import {
-  LaunchPaths,
+  ensureDirectoryExists,
+  readLaunchDirectories,
   resolveUpdateStateFilePath,
-  type LaunchPathsService,
 } from '../services/platform/paths.js';
 import { mergeChildEnv } from '../terminal/locale.js';
-import { makeCommandExit, type CommandExit } from '../terminal/commandExit.js';
-/** The published package name (the `launch` bin's npm package). */
+import { isCommandExit, makeCommandExit } from '../terminal/commandExit.js';
+import { readFile, writeFile } from 'node:fs/promises';
+
 const PACKAGE_NAME = 'launch-store';
-/** Poll the registry at most this often. */
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-/** Throttle state persisted to `~/.launch/update.json`. */
+
 export type UpdateState = {
   lastCheckedAt: number;
   latestSeen?: string;
 };
-/** Outcome of attempting the global upgrade. */
+
 export type UpgradeResult = 'upgraded' | 'eacces' | 'failed';
 export type GlobalInstaller = 'npm' | 'pnpm';
+
 const INSTALL_VERBS: Record<GlobalInstaller, readonly string[]> = {
   npm: ['install', '-g'],
   pnpm: ['add', '-g'],
 };
-const GLOBAL_INSTALLERS: readonly GlobalInstaller[] = ['npm', 'pnpm'];
-const UpdateStateSchema = Schema.Struct({
-  lastCheckedAt: Schema.Number,
-  latestSeen: Schema.optional(Schema.String),
-});
-const UpdateStateJsonSchema = Schema.parseJson(UpdateStateSchema);
-const RegistryMetadataSchema = Schema.Struct({ version: Schema.String });
-const PnpmGlobalListingSchema = Schema.parseJson(
-  Schema.Array(
-    Schema.Struct({
-      dependencies: Schema.Struct({ [PACKAGE_NAME]: Schema.Struct({ path: Schema.String }) }),
-    }),
-  ),
-);
 
-const versionPart = (versionToken: string | undefined): number => {
-  if (versionToken === undefined) return 0;
+const GLOBAL_INSTALLERS: readonly GlobalInstaller[] = ['npm', 'pnpm'];
+
+function versionPart(versionToken: string | undefined): number {
+  if (versionToken == null) {
+    return 0;
+  }
+
   const parsedPart = Number(versionToken);
-  if (Number.isNaN(parsedPart)) return 0;
+
+  if (Number.isNaN(parsedPart)) {
+    return 0;
+  }
+
   return parsedPart;
-};
-/** Parse a dotted version into a `[major, minor, patch]` tuple, ignoring any pre-release/build suffix. */
-const versionParts = (version: string): [number, number, number] => {
+}
+
+function versionParts(version: string): [number, number, number] {
   const versionTokens = version.replace(/^v/, '').split(/[.+-]/);
+
   return [
     versionPart(versionTokens[0]),
     versionPart(versionTokens[1]),
     versionPart(versionTokens[2]),
   ];
-};
-/** True when `latest` is a strictly higher version than `current`. */
-export const isNewer = (latest: string, current: string): boolean => {
-  const [a0, a1, a2] = versionParts(latest);
-  const [b0, b1, b2] = versionParts(current);
-  if (a0 !== b0) return a0 > b0;
-  if (a1 !== b1) return a1 > b1;
-  return a2 > b2;
-};
-/** Whether enough time has passed (or there's no prior state) to poll the registry again. */
-export const shouldCheck = (
+}
+
+export function isNewer(latest: string, current: string): boolean {
+  const [latestMajor, latestMinor, latestPatch] = versionParts(latest);
+  const [currentMajor, currentMinor, currentPatch] = versionParts(current);
+
+  if (latestMajor != currentMajor) {
+    return latestMajor > currentMajor;
+  }
+
+  if (latestMinor != currentMinor) {
+    return latestMinor > currentMinor;
+  }
+
+  return latestPatch > currentPatch;
+}
+
+export function shouldCheck(
   now: number,
   state: UpdateState | null,
   intervalMs: number = CHECK_INTERVAL_MS,
-): boolean => {
-  if (state === null) return true;
+): boolean {
+  if (state == null) {
+    return true;
+  }
+
   return now - state.lastCheckedAt >= intervalMs;
-};
-/**
- * Why an auto-upgrade is suppressed, or null to proceed. Pure so every guard is unit-tested.
- * Order matters: the loop guard and explicit opt-out come before the environment heuristics.
- */
-export const autoUpgradeBlockedReason = (input: {
+}
+
+function environmentFlagIsSet(environmentValue: string | undefined): boolean {
+  if (environmentValue == null) {
+    return false;
+  }
+
+  return environmentValue != '';
+}
+
+export function autoUpgradeBlockedReason(input: {
   environmentVariables: Readonly<Record<string, string | undefined>>;
   isTTY: boolean;
   scriptPath: string;
-}): string | null => {
-  if (input.environmentVariables['LAUNCH_UPGRADED'] === '1')
+}): string | null {
+  const alreadyUpgraded = input.environmentVariables['LAUNCH_UPGRADED'] == '1';
+
+  if (alreadyUpgraded) {
     return 'already re-executed after an upgrade (loop guard)';
-  if (input.environmentVariables['LAUNCH_NO_UPGRADE']) return 'LAUNCH_NO_UPGRADE is set';
-  if (input.environmentVariables['CI']) return 'running in CI';
-  if (!input.isTTY) return 'not an interactive terminal (piped, agent, or background)';
-  if (input.scriptPath.endsWith('.ts')) return 'running from source (dev)';
+  }
+
+  const optedOut = environmentFlagIsSet(input.environmentVariables['LAUNCH_NO_UPGRADE']);
+
+  if (optedOut) {
+    return 'LAUNCH_NO_UPGRADE is set';
+  }
+
+  const isCi = environmentFlagIsSet(input.environmentVariables['CI']);
+
+  if (isCi) {
+    return 'running in CI';
+  }
+
+  if (input.isTTY == false) {
+    return 'not an interactive terminal (piped, agent, or background)';
+  }
+
+  const isSourceRun = input.scriptPath.endsWith('.ts');
+
+  if (isSourceRun) {
+    return 'running from source (dev)';
+  }
+
   return null;
-};
-const installArguments = (installer: GlobalInstaller, version: string): readonly string[] => [
-  ...INSTALL_VERBS[installer],
-  `${PACKAGE_NAME}@${version}`,
-];
-const installCommandText = (installer: GlobalInstaller, version: string): string =>
-  [installer, ...installArguments(installer, version)].join(' ');
-/** Everything {@link maybeAutoUpgrade} touches, injected so the orchestration is testable. */
+}
+
+function installArguments(installer: GlobalInstaller, version: string): readonly string[] {
+  return [...INSTALL_VERBS[installer], `${PACKAGE_NAME}@${version}`];
+}
+
+function installCommandText(installer: GlobalInstaller, version: string): string {
+  return [installer, ...installArguments(installer, version)].join(' ');
+}
+
 export type UpdateCheckDeps = {
   now(): number;
   currentVersion: string;
   environmentVariables: Readonly<Record<string, string | undefined>>;
   isTTY: boolean;
   scriptPath: string;
-  resolveInstaller(): Effect.Effect<GlobalInstaller | null>;
+  resolveInstaller(): Promise<GlobalInstaller | null>;
   readState(): UpdateState | null;
-  writeState(state: UpdateState): Effect.Effect<void>;
-  fetchLatest(): Effect.Effect<string | null>;
-  upgrade(
-    installer: GlobalInstaller,
-    current: string,
-    latest: string,
-  ): Effect.Effect<UpgradeResult>;
-  reexec(installer: GlobalInstaller): Effect.Effect<void, CommandExit>;
-  notify(message: string): Effect.Effect<void>;
+  writeState(state: UpdateState): Promise<void>;
+  fetchLatest(): Promise<string | null>;
+  upgrade(installer: GlobalInstaller, current: string, latest: string): Promise<UpgradeResult>;
+  reexec(installer: GlobalInstaller): Promise<void>;
+  notify(message: string): Promise<void>;
 };
-/**
- * Decide and (silently) perform a self-upgrade. Returns without effect when guarded, throttled, or
- * already up to date; on a newer version it upgrades and re-execs, falling back to a printed notice
- * when the global install isn't writable.
- */
-export const maybeAutoUpgrade = (deps: UpdateCheckDeps): Effect.Effect<void, CommandExit> =>
-  Effect.gen(function* () {
-    if (
-      autoUpgradeBlockedReason({
-        environmentVariables: deps.environmentVariables,
-        isTTY: deps.isTTY,
-        scriptPath: deps.scriptPath,
-      })
-    )
-      return;
-    if (!shouldCheck(deps.now(), deps.readState())) return;
-    const latest = yield* deps.fetchLatest();
-    const nextState: UpdateState = { lastCheckedAt: deps.now() };
-    if (latest !== null) nextState.latestSeen = latest;
-    yield* deps.writeState(nextState);
-    if (latest === null) return;
-    if (!isNewer(latest, deps.currentVersion)) return;
-    const installer = yield* deps.resolveInstaller();
-    if (installer === null) {
-      yield* deps.notify(`launch ${latest} is available - you have ${deps.currentVersion}`);
-      return;
-    }
-    const installCommand = installCommandText(installer, latest);
-    const upgradeOutcome = yield* deps.upgrade(installer, deps.currentVersion, latest);
-    switch (upgradeOutcome) {
-      case 'upgraded':
-        yield* deps.reexec(installer);
-        return;
-      case 'eacces':
-        yield* deps.notify(
-          `launch ${latest} is available but the global install isn't writable - sudo ${installCommand}`,
-        );
-        return;
-      case 'failed':
-        yield* deps.notify(`launch ${latest} is available - ${installCommand}`);
-        return;
-    }
-  });
-/** Read the throttle state, or null if absent/corrupt. */
-const readState = (
-  stateFilePath: string,
-): Effect.Effect<UpdateState | null, never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const stateText = yield* fileSystem
-      .readFileString(stateFilePath)
-      .pipe(Effect.catchAll(() => Effect.succeed(null)));
-    if (stateText === null) return null;
-    return yield* Effect.sync(() => {
-      const decodedState = Option.getOrNull(
-        Schema.decodeUnknownOption(UpdateStateJsonSchema)(stateText),
-      );
-      if (decodedState === null) return null;
-      if (decodedState.latestSeen === undefined)
-        return { lastCheckedAt: decodedState.lastCheckedAt };
-      return {
-        lastCheckedAt: decodedState.lastCheckedAt,
-        latestSeen: decodedState.latestSeen,
-      };
-    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
-  });
-/** Persist the throttle state; a cache-write failure must never break the CLI. */
-const writeState = (
-  stateFilePath: string,
-  stateDirectory: string,
-  state: UpdateState,
-): Effect.Effect<void, never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    yield* fileSystem.makeDirectory(stateDirectory, { recursive: true });
-    yield* fileSystem.writeFileString(stateFilePath, JSON.stringify(state));
-  }).pipe(Effect.catchAll(() => Effect.void));
-/** Cap the registry request so a slow/offline network never delays the CLI. */
-const fetchTimeoutMs = 1500;
 
-/** Fetch the latest published version from the npm registry, or null on any error/timeout. */
-const fetchLatestVersion = (
-  packageName: string,
-): Effect.Effect<string | null, never, HttpClient.HttpClient> =>
-  Effect.gen(function* () {
-    const httpClient = yield* HttpClient.HttpClient;
-    const registryRequest = HttpClientRequest.get(
-      `https://registry.npmjs.org/${packageName}/latest`,
-    );
-    const registryReply = yield* httpClient.execute(registryRequest);
-    if (registryReply.status < 200) return null;
-    if (registryReply.status >= 300) return null;
-    const registryMetadata =
-      yield* HttpClientResponse.schemaBodyJson(RegistryMetadataSchema)(registryReply);
-    return registryMetadata.version;
-  }).pipe(
-    Effect.timeout(`${fetchTimeoutMs} millis`),
-    Effect.catchAll(() => Effect.succeed(null)),
-  );
-/**
- * Run the global upgrade under a spinner, classifying a permission failure so the caller can degrade
- * to a notice. Uses the same progress spinner as the rest of the CLI, but is result-driven
- * rather than throw-driven so the EACCES-vs-generic distinction survives in the return value. Always
- * called on an interactive TTY (auto-upgrade is otherwise blocked), so a spinner is the right
- * affordance here.
- */
-const performUpgrade = (
+export async function maybeAutoUpgrade(deps: UpdateCheckDeps): Promise<void> {
+  const blockedReason = autoUpgradeBlockedReason({
+    environmentVariables: deps.environmentVariables,
+    isTTY: deps.isTTY,
+    scriptPath: deps.scriptPath,
+  });
+
+  if (blockedReason != null) {
+    return;
+  }
+
+  const isDue = shouldCheck(deps.now(), deps.readState());
+
+  if (isDue == false) {
+    return;
+  }
+
+  const latest = await deps.fetchLatest();
+  const nextState: UpdateState = { lastCheckedAt: deps.now() };
+
+  if (latest != null) {
+    nextState.latestSeen = latest;
+  }
+
+  await deps.writeState(nextState);
+
+  if (latest == null) {
+    return;
+  }
+
+  const hasNewerRelease = isNewer(latest, deps.currentVersion);
+
+  if (hasNewerRelease == false) {
+    return;
+  }
+
+  const installer = await deps.resolveInstaller();
+
+  if (installer == null) {
+    await deps.notify(`launch ${latest} is available - you have ${deps.currentVersion}`);
+
+    return;
+  }
+
+  const installCommand = installCommandText(installer, latest);
+  const upgradeOutcome = await deps.upgrade(installer, deps.currentVersion, latest);
+
+  switch (upgradeOutcome) {
+    case 'upgraded':
+      await deps.reexec(installer);
+      return;
+    case 'eacces':
+      await deps.notify(
+        `launch ${latest} is available but the global install isn't writable - sudo ${installCommand}`,
+      );
+      return;
+    case 'failed':
+      await deps.notify(`launch ${latest} is available - ${installCommand}`);
+      return;
+  }
+}
+
+function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function readUpdateState(candidate: unknown): UpdateState | null {
+  if (isPlainRecord(candidate)) {
+    return updateStateFromRecord(candidate);
+  }
+
+  return null;
+}
+
+function updateStateFromRecord(candidate: Record<string, unknown>): UpdateState | null {
+  const lastCheckedAt = candidate['lastCheckedAt'];
+
+  if (typeof lastCheckedAt != 'number') {
+    return null;
+  }
+
+  const latestSeen = candidate['latestSeen'];
+
+  if (latestSeen == null) {
+    return { lastCheckedAt };
+  }
+
+  if (typeof latestSeen != 'string') {
+    return null;
+  }
+
+  return { lastCheckedAt, latestSeen };
+}
+
+async function readStoredState(stateFilePath: string): Promise<UpdateState | null> {
+  const stateExists = await pathExists(stateFilePath);
+
+  if (stateExists == false) {
+    return null;
+  }
+
+  try {
+    const stateText = await readFile(stateFilePath, 'utf8');
+    const parsedState: unknown = JSON.parse(stateText);
+
+    return readUpdateState(parsedState);
+  } catch (error) {
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      return null;
+    }
+
+    return null;
+  }
+}
+
+async function writeStoredState(stateFilePath: string, state: UpdateState): Promise<void> {
+  try {
+    await ensureDirectoryExists(dirname(stateFilePath));
+    await writeFile(stateFilePath, JSON.stringify(state));
+  } catch (error) {
+    const isUnwritable = error != null;
+
+    if (isUnwritable) {
+      return;
+    }
+  }
+}
+
+async function fetchLatestVersion(packageName: string): Promise<string | null> {
+  try {
+    const registryReply = await fetch(`https://registry.npmjs.org/${packageName}/latest`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    const statusIsLow = registryReply.status < 200;
+
+    if (statusIsLow) {
+      return null;
+    }
+
+    const statusIsHigh = registryReply.status >= 300;
+
+    if (statusIsHigh) {
+      return null;
+    }
+
+    const registryMetadata: unknown = await registryReply.json();
+
+    if (isPlainRecord(registryMetadata)) {
+      return registryVersion(registryMetadata);
+    }
+
+    return null;
+  } catch (error) {
+    const requestFailed = error != null;
+
+    if (requestFailed) {
+      return null;
+    }
+
+    return null;
+  }
+}
+
+function registryVersion(registryMetadata: Record<string, unknown>): string | null {
+  const version = registryMetadata['version'];
+
+  if (typeof version == 'string') {
+    return version;
+  }
+
+  return null;
+}
+
+function isCommandFailed(cause: unknown): cause is CommandFailed {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'CommandFailed';
+}
+
+function permissionDenied(cause: unknown): boolean {
+  if (isCommandFailed(cause) == false) {
+    return false;
+  }
+
+  return /EACCES|permission denied/i.test(cause.stderr);
+}
+
+async function performUpgrade(
   installer: GlobalInstaller,
   current: string,
   latest: string,
   homeDirectory: string,
-): Effect.Effect<
-  UpgradeResult,
-  never,
-  CommandExecutor.CommandExecutor | LaunchEnvironmentService
-> =>
-  Effect.gen(function* () {
-    yield* Effect.logInfo(`Upgrading launch ${current} -> ${latest}`);
-    const installAttempt = yield* captureCommandOutput(
-      installer,
-      installArguments(installer, latest),
-      { workingDirectory: homeDirectory },
-    ).pipe(Effect.either);
-    if (installAttempt._tag === 'Right') {
-      yield* Effect.logInfo(`launch upgraded to ${latest} - relaunching`);
-      return 'upgraded';
+): Promise<UpgradeResult> {
+  const logger = createLogger(false);
+  logger.line(`Upgrading launch ${current} -> ${latest}`);
+
+  try {
+    await captureCommandOutput(installer, installArguments(installer, latest), {
+      workingDirectory: homeDirectory,
+    });
+    logger.line(`launch upgraded to ${latest} - relaunching`);
+
+    return 'upgraded';
+  } catch (cause) {
+    logger.warn(`launch ${latest} available - automatic upgrade failed`);
+    const isPermissionDenied = permissionDenied(cause);
+
+    if (isPermissionDenied) {
+      return 'eacces';
     }
-    yield* Effect.logWarning(`launch ${latest} available - automatic upgrade failed`);
-    const failureMessage = String(installAttempt.left);
-    if (/EACCES|permission denied/i.test(failureMessage)) return 'eacces';
+
     return 'failed';
-  });
-/** Re-run the original command on the now-upgraded binary, tagging the child to prevent an upgrade loop. */
-const reexecLaunch = (
+  }
+}
+
+function reexecLaunch(
   executablePath: string,
   commandArguments: readonly string[],
   environmentVariables: Readonly<Record<string, string | undefined>>,
-): Effect.Effect<never, CommandExit, CommandExecutor.CommandExecutor> =>
-  Effect.gen(function* () {
-    let reexecCommand = Command.make(executablePath, ...commandArguments);
-    reexecCommand = Command.env(
-      reexecCommand,
-      mergeChildEnv(environmentVariables, { LAUNCH_UPGRADED: '1' }),
-    );
-    reexecCommand = reexecCommand.pipe(
-      Command.stdin('inherit'),
-      Command.stdout('inherit'),
-      Command.stderr('inherit'),
-    );
-    const exitCode = yield* Command.exitCode(reexecCommand).pipe(
-      Effect.map(Number),
-      Effect.orElseSucceed(() => 1),
-    );
-    return yield* Effect.fail(makeCommandExit({ exitCode }));
+): Promise<never> {
+  const childEnvironment = mergeChildEnv({ ...environmentVariables }, { LAUNCH_UPGRADED: '1' });
+
+  return new Promise((_resolve, reject) => {
+    const child = spawn(executablePath, [...commandArguments], {
+      stdio: 'inherit',
+      env: childEnvironment,
+    });
+
+    child.on('error', () => {
+      reject(makeCommandExit({ exitCode: 1 }));
+    });
+
+    child.on('exit', (exitCode) => {
+      let code = 1;
+
+      if (exitCode != null) {
+        code = exitCode;
+      }
+
+      reject(makeCommandExit({ exitCode: code }));
+    });
   });
-const resolveGlobalPackagePath = (
-  installer: GlobalInstaller,
-  homeDirectory: string,
-): Effect.Effect<
-  string | null,
-  CommandFailed | ParseResult.ParseError,
-  CommandExecutor.CommandExecutor | LaunchEnvironmentService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    if (installer === 'npm') {
-      const npmGlobalRoot = yield* captureCommandOutput('npm', ['root', '-g'], {
-        workingDirectory: homeDirectory,
-      });
-      return pathService.join(npmGlobalRoot, PACKAGE_NAME);
+}
+
+function pnpmGlobalPath(listingText: string): string | null {
+  let parsedListing: unknown;
+
+  try {
+    parsedListing = JSON.parse(listingText);
+  } catch (error) {
+    const isInvalid = error != null;
+
+    if (isInvalid) {
+      return null;
     }
-    const globalListingText = yield* captureCommandOutput(
-      'pnpm',
-      ['ls', '-g', '--json', PACKAGE_NAME],
-      { workingDirectory: homeDirectory },
-    );
-    const globalListing = yield* Schema.decodeUnknown(PnpmGlobalListingSchema)(globalListingText);
-    const [globalProject] = globalListing;
-    if (globalProject === undefined) return null;
-    return globalProject.dependencies[PACKAGE_NAME].path;
-  });
-const resolveGlobalEntryPath = (
+
+    return null;
+  }
+
+  if (Array.isArray(parsedListing) == false) {
+    return null;
+  }
+
+  const globalProject = parsedListing[0];
+
+  if (isPlainRecord(globalProject)) {
+    return launchStorePath(globalProject);
+  }
+
+  return null;
+}
+
+function launchStorePath(globalProject: Record<string, unknown>): string | null {
+  const dependencies = globalProject['dependencies'];
+
+  if (isPlainRecord(dependencies) == false) {
+    return null;
+  }
+
+  const launchPackage = dependencies[PACKAGE_NAME];
+
+  if (isPlainRecord(launchPackage) == false) {
+    return null;
+  }
+
+  const packagePath = launchPackage['path'];
+
+  if (typeof packagePath == 'string') {
+    return packagePath;
+  }
+
+  return null;
+}
+
+async function resolveGlobalPackagePath(
   installer: GlobalInstaller,
   homeDirectory: string,
-): Effect.Effect<
-  string | null,
-  never,
-  CommandExecutor.CommandExecutor | LaunchEnvironmentService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const globalPackagePath = yield* resolveGlobalPackagePath(installer, homeDirectory);
-    if (globalPackagePath === null) return null;
-    const pathService = yield* Path.Path;
-    return pathService.join(globalPackagePath, 'dist/cli/index.js');
-  }).pipe(Effect.orElseSucceed(() => null));
-const isRunningGlobalInstall = (
+): Promise<string | null> {
+  if (installer == 'npm') {
+    const npmGlobalRoot = await captureCommandOutput('npm', ['root', '-g'], {
+      workingDirectory: homeDirectory,
+    });
+
+    return join(npmGlobalRoot, PACKAGE_NAME);
+  }
+
+  const globalListingText = await captureCommandOutput(
+    'pnpm',
+    ['ls', '-g', '--json', PACKAGE_NAME],
+    { workingDirectory: homeDirectory },
+  );
+
+  return pnpmGlobalPath(globalListingText);
+}
+
+async function resolveGlobalEntryPath(
+  installer: GlobalInstaller,
+  homeDirectory: string,
+): Promise<string | null> {
+  try {
+    const globalPackagePath = await resolveGlobalPackagePath(installer, homeDirectory);
+
+    if (globalPackagePath == null) {
+      return null;
+    }
+
+    return join(globalPackagePath, 'dist/cli/index.js');
+  } catch (error) {
+    const lookupFailed = error != null;
+
+    if (lookupFailed) {
+      return null;
+    }
+
+    return null;
+  }
+}
+
+async function realPathOrNull(candidate: string): Promise<string | null> {
+  try {
+    return await realpath(candidate);
+  } catch (error) {
+    const isMissing = error != null;
+
+    if (isMissing) {
+      return null;
+    }
+
+    return null;
+  }
+}
+
+async function isRunningGlobalInstall(
   installer: GlobalInstaller,
   realScriptPath: string,
   homeDirectory: string,
-): Effect.Effect<
-  boolean,
-  never,
-  CommandExecutor.CommandExecutor | FileSystem.FileSystem | LaunchEnvironmentService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const globalEntryPath = yield* resolveGlobalEntryPath(installer, homeDirectory);
-    if (globalEntryPath === null) return false;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const realGlobalEntryPath = yield* fileSystem
-      .realPath(globalEntryPath)
-      .pipe(Effect.orElseSucceed(() => null));
-    return realGlobalEntryPath === realScriptPath;
-  });
-const resolveRunningInstaller = (
+): Promise<boolean> {
+  const globalEntryPath = await resolveGlobalEntryPath(installer, homeDirectory);
+
+  if (globalEntryPath == null) {
+    return false;
+  }
+
+  const realGlobalEntryPath = await realPathOrNull(globalEntryPath);
+
+  return realGlobalEntryPath == realScriptPath;
+}
+
+async function resolveRunningInstaller(
   realScriptPath: string,
   homeDirectory: string,
-): Effect.Effect<
-  GlobalInstaller | null,
-  never,
-  CommandExecutor.CommandExecutor | FileSystem.FileSystem | LaunchEnvironmentService | Path.Path
-> =>
-  Effect.findFirst(GLOBAL_INSTALLERS, (installer) =>
-    isRunningGlobalInstall(installer, realScriptPath, homeDirectory),
-  ).pipe(Effect.map(Option.getOrNull));
+): Promise<GlobalInstaller | null> {
+  for (const installer of GLOBAL_INSTALLERS) {
+    const isThisInstaller = await isRunningGlobalInstall(installer, realScriptPath, homeDirectory);
+
+    if (isThisInstaller) {
+      return installer;
+    }
+  }
+
+  return null;
+}
 
 type AutoUpgradeRuntime = Readonly<{
-  readonly executablePath: string;
-  readonly commandArguments: readonly string[];
-  readonly terminalIsInteractive: boolean;
-  readonly scriptPath: string;
+  executablePath: string;
+  commandArguments: readonly string[];
+  terminalIsInteractive: boolean;
+  scriptPath: string;
 }>;
-const relaunchUpgradedLaunch = (
+
+async function relaunchUpgradedLaunch(
   installer: GlobalInstaller,
   runtime: AutoUpgradeRuntime,
   environmentVariables: Readonly<Record<string, string | undefined>>,
   homeDirectory: string,
-): Effect.Effect<
-  void,
-  CommandExit,
-  CommandExecutor.CommandExecutor | LaunchEnvironmentService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const relaunchScript = yield* resolveGlobalEntryPath(installer, homeDirectory);
-    if (relaunchScript === null) {
-      yield* Effect.logWarning('launch was upgraded - the new version runs from your next command');
-      return;
-    }
-    yield* reexecLaunch(
-      runtime.executablePath,
-      [relaunchScript, ...runtime.commandArguments],
-      environmentVariables,
-    );
-  });
-/**
- * Entry point wired into the CLI: run the guarded, throttled self-upgrade. Swallows all errors -
- * update checking is never allowed to break a command.
- */
-export const runAutoUpgrade = (
+): Promise<void> {
+  const relaunchScript = await resolveGlobalEntryPath(installer, homeDirectory);
+  const logger = createLogger(false);
+
+  if (relaunchScript == null) {
+    logger.warn('launch was upgraded - the new version runs from your next command');
+
+    return;
+  }
+
+  await reexecLaunch(
+    runtime.executablePath,
+    [relaunchScript, ...runtime.commandArguments],
+    environmentVariables,
+  );
+}
+
+async function notifyUpgrade(message: string): Promise<void> {
+  createLogger(false).warn(message);
+}
+
+export async function runAutoUpgrade(
   currentVersion: string,
   runtime: AutoUpgradeRuntime,
-): Effect.Effect<
-  void,
-  CommandExit,
-  | CommandExecutor.CommandExecutor
-  | FileSystem.FileSystem
-  | HttpClient.HttpClient
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | Path.Path
-> =>
-  Effect.gen(function* () {
-    const commandExecutor = yield* CommandExecutor.CommandExecutor;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const httpClient = yield* HttpClient.HttpClient;
-    const pathService = yield* Path.Path;
-    const environment = yield* LaunchEnvironment;
-    const launchPaths = yield* LaunchPaths;
-    const stateFilePath = yield* resolveUpdateStateFilePath();
-    const currentState = yield* readState(stateFilePath);
-    const realScriptPath = yield* fileSystem
-      .realPath(runtime.scriptPath)
-      .pipe(Effect.orElseSucceed(() => runtime.scriptPath));
-    yield* maybeAutoUpgrade({
-      now: () => Date.now(),
+): Promise<void> {
+  try {
+    const environment = readLaunchEnvironment();
+    const directories = readLaunchDirectories();
+    const stateFilePath = resolveUpdateStateFilePath();
+    const currentState = await readStoredState(stateFilePath);
+    let realScriptPath = runtime.scriptPath;
+    const resolvedScriptPath = await realPathOrNull(runtime.scriptPath);
+
+    if (resolvedScriptPath != null) {
+      realScriptPath = resolvedScriptPath;
+    }
+
+    await maybeAutoUpgrade({
+      now() {
+        return Date.now();
+      },
       currentVersion,
       environmentVariables: environment.rawVariables,
       isTTY: runtime.terminalIsInteractive,
       scriptPath: runtime.scriptPath,
-      resolveInstaller: () =>
-        resolveRunningInstaller(realScriptPath, launchPaths.homeDirectory).pipe(
-          Effect.provideService(CommandExecutor.CommandExecutor, commandExecutor),
-          Effect.provideService(FileSystem.FileSystem, fileSystem),
-          Effect.provideService(LaunchEnvironment, environment),
-          Effect.provideService(Path.Path, pathService),
-        ),
-      readState: () => currentState,
-      writeState: (state) =>
-        writeState(stateFilePath, pathService.dirname(stateFilePath), state).pipe(
-          Effect.provideService(FileSystem.FileSystem, fileSystem),
-        ),
-      fetchLatest: () =>
-        fetchLatestVersion(PACKAGE_NAME).pipe(
-          Effect.provideService(HttpClient.HttpClient, httpClient),
-        ),
-      upgrade: (upgradeInstaller, installedVersion, publishedVersion) =>
-        performUpgrade(
+      resolveInstaller() {
+        return resolveRunningInstaller(realScriptPath, directories.homeDirectory);
+      },
+      readState() {
+        return currentState;
+      },
+      writeState(state) {
+        return writeStoredState(stateFilePath, state);
+      },
+      fetchLatest() {
+        return fetchLatestVersion(PACKAGE_NAME);
+      },
+      upgrade(upgradeInstaller, installedVersion, publishedVersion) {
+        return performUpgrade(
           upgradeInstaller,
           installedVersion,
           publishedVersion,
-          launchPaths.homeDirectory,
-        ).pipe(
-          Effect.provideService(CommandExecutor.CommandExecutor, commandExecutor),
-          Effect.provideService(LaunchEnvironment, environment),
-        ),
-      reexec: (upgradedInstaller) =>
-        relaunchUpgradedLaunch(
+          directories.homeDirectory,
+        );
+      },
+      reexec(upgradedInstaller) {
+        return relaunchUpgradedLaunch(
           upgradedInstaller,
           runtime,
           environment.rawVariables,
-          launchPaths.homeDirectory,
-        ).pipe(
-          Effect.provideService(CommandExecutor.CommandExecutor, commandExecutor),
-          Effect.provideService(LaunchEnvironment, environment),
-          Effect.provideService(Path.Path, pathService),
-        ),
-      notify: (message) => Effect.logWarning(message),
+          directories.homeDirectory,
+        );
+      },
+      notify: notifyUpgrade,
     });
-  });
+  } catch (cause) {
+    if (isCommandExit(cause)) {
+      throw cause;
+    }
+  }
+}

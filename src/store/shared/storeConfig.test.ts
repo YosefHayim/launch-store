@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { Effect } from 'effect';
-import { runOnNodePlatform } from '@testkit/platformRun.testkit.js';
 import { parseStoreConfig, readAndroidMetadataDir, readAppleMetadataDir } from './storeConfig.js';
 const tmpDirs: string[] = [];
 const workDir = (): string => {
@@ -16,16 +14,14 @@ afterEach(() => {
 });
 describe('parseStoreConfig', () => {
   it('parses the Expo apple schema plus the android extension', () => {
-    const config = Effect.runSync(
-      parseStoreConfig({
-        configVersion: 0,
-        apple: {
-          info: { 'en-US': { title: 'Hello', keywords: ['a', 'b'], description: 'Desc' } },
-          categories: ['PRODUCTIVITY'],
-        },
-        android: { info: { 'en-US': { title: 'Hello', shortDescription: 'short' } } },
-      }),
-    );
+    const config = parseStoreConfig({
+      configVersion: 0,
+      apple: {
+        info: { 'en-US': { title: 'Hello', keywords: ['a', 'b'], description: 'Desc' } },
+        categories: ['PRODUCTIVITY'],
+      },
+      android: { info: { 'en-US': { title: 'Hello', shortDescription: 'short' } } },
+    });
     expect(config.apple?.info['en-US']).toEqual({
       title: 'Hello',
       keywords: ['a', 'b'],
@@ -35,18 +31,16 @@ describe('parseStoreConfig', () => {
     expect(config.android?.info['en-US']).toEqual({ title: 'Hello', shortDescription: 'short' });
   });
   it('rejects a non-object document', () => {
-    expect(() => Effect.runSync(parseStoreConfig('nope'))).toThrow(/must be a JSON object/);
+    expect(() => parseStoreConfig('nope')).toThrow(/must be a JSON object/);
   });
   it('rejects a document with neither platform section', () => {
-    expect(() => Effect.runSync(parseStoreConfig({ configVersion: 0 }))).toThrow(/neither/);
+    expect(() => parseStoreConfig({ configVersion: 0 })).toThrow(/neither/);
   });
   it('rejects a non-string listing field at the schema boundary', () => {
     expect(() =>
-      Effect.runSync(
-        parseStoreConfig({
-          apple: { info: { 'en-US': { title: 'Hello', subtitle: 42 } } },
-        }),
-      ),
+      parseStoreConfig({
+        apple: { info: { 'en-US': { title: 'Hello', subtitle: 42 } } },
+      }),
     ).toThrow(/subtitle/);
   });
 });
@@ -68,7 +62,7 @@ describe('apple metadata folder read (deliver layout)', () => {
       [join('en-US', 'privacy_url.txt')]: 'https://example.com/privacy',
       [join('en-US', 'support_url.txt')]: '   ',
     });
-    expect(await runOnNodePlatform(readAppleMetadataDir(dir))).toEqual({
+    expect(await readAppleMetadataDir(dir)).toEqual({
       info: {
         'en-US': {
           title: 'Hello',
@@ -90,7 +84,7 @@ describe('android metadata folder read (supply layout)', () => {
       [join('en-US', 'short_description.txt')]: 'short',
       [join('en-US', 'full_description.txt')]: 'the full thing',
     });
-    expect(await runOnNodePlatform(readAndroidMetadataDir(dir))).toEqual({
+    expect(await readAndroidMetadataDir(dir)).toEqual({
       info: {
         'en-US': { title: 'Hello', shortDescription: 'short', fullDescription: 'the full thing' },
       },

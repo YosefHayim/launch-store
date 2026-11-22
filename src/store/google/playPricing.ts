@@ -1,21 +1,14 @@
-import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
+import { createLogger } from '../../services/platform/logger.js';
 import type { ConvertedPrices, PlayMoneyUnits } from '../../types/playPricing.js';
-import {
-  loadActiveGoogleStore,
-  type ActiveGoogleStoreRequirements,
-  resolveGoogleStoreApp,
-} from './googleStoreCommand.js';
-import type { StoreAppSelectionRequirements } from '../shared/selectStoreApp.js';
+import { loadActiveGoogleStore, resolveGoogleStoreApp } from './googleStoreCommand.js';
 
-export const PlayPricingCommandInputSchema = Schema.Struct({
-  amount: Schema.String,
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  currency: Schema.String,
-  json: Schema.Boolean,
-});
-
-export type PlayPricingCommandInput = Schema.Schema.Type<typeof PlayPricingCommandInputSchema>;
+export type PlayPricingCommandInput = {
+  amount: string;
+  app?: string;
+  currency: string;
+  json: boolean;
+};
 
 /** Invalid price input supplied at the command boundary. */
 type PlayPricingInputError = Readonly<{
@@ -24,7 +17,14 @@ type PlayPricingInputError = Readonly<{
   readonly receivedValue: string;
   readonly message: string;
 }>;
-const makePlayPricingInputError = Data.tagged<PlayPricingInputError>('PlayPricingInputError');
+
+function makePlayPricingInputError(fields: {
+  field: 'amount' | 'currency';
+  receivedValue: string;
+  message: string;
+}): PlayPricingInputError {
+  return { _tag: 'PlayPricingInputError', ...fields };
+}
 
 /** Configuration, credentials, conversion, or output failed. */
 type PlayPricingExecutionError = Readonly<{
@@ -33,173 +33,287 @@ type PlayPricingExecutionError = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-const makePlayPricingExecutionError = Data.tagged<PlayPricingExecutionError>(
-  'PlayPricingExecutionError',
-);
 
-type PlayPricingCommandRequirements =
-  | ActiveGoogleStoreRequirements
-  | Logger
-  | StoreAppSelectionRequirements;
+function makePlayPricingExecutionError(fields: {
+  stage: PlayPricingExecutionError['stage'];
+  message: string;
+  cause?: unknown;
+}): PlayPricingExecutionError {
+  return { _tag: 'PlayPricingExecutionError', ...fields };
+}
 
+// Three ASCII letters, the shape of an ISO currency code.
 const CURRENCY_PATTERN = /^[A-Za-z]{3}$/;
+// A non-negative decimal with at most nine fractional digits.
 const AMOUNT_PATTERN = /^\d+(\.\d{1,9})?$/;
 
-/** Convert an unknown failure into stable human-readable text. */
-const failureMessage = (cause: unknown, fallbackMessage: string): string => {
-  if (cause instanceof Error) return cause.message;
-  if (typeof cause === 'string' && cause.length > 0) return cause;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') return causeMessage;
+function failureMessage(cause: unknown, fallbackMessage: string): string {
+  if (cause instanceof Error) {
+    return cause.message;
   }
-  return fallbackMessage;
-};
 
-/** Convert a command dependency failure into the pricing channel. */
-const pricingFailure = (
+  if (typeof cause == 'string') {
+    const isBlank = cause.length == 0;
+
+    if (isBlank == false) {
+      return cause;
+    }
+  }
+
+  if (hasMessage(cause)) {
+    return cause.message;
+  }
+
+  return fallbackMessage;
+}
+
+function pricingFailure(
   stage: PlayPricingExecutionError['stage'],
   fallbackMessage: string,
   cause: unknown,
-): PlayPricingExecutionError =>
-  makePlayPricingExecutionError({
+): PlayPricingExecutionError {
+  return makePlayPricingExecutionError({
     stage,
     message: failureMessage(cause, fallbackMessage),
     cause,
   });
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
+  const field = record[fieldName];
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  return field;
+}
+
+function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
+  const field = record[fieldName];
+
+  if (typeof field != 'boolean') {
+    throw new Error(`${fieldName} must be a boolean`);
+  }
+
+  return field;
+}
+
+function readExactOptionalString(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | null {
+  if (fieldName in record == false) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  return field;
+}
+
+export function decodePlayPricingCommandInput(rawCommandInput: unknown): PlayPricingCommandInput {
+  if (isRecord(rawCommandInput) == false) {
+    throw new Error('Play pricing command input must be an object.');
+  }
+
+  const commandInput: PlayPricingCommandInput = {
+    amount: readRequiredString(rawCommandInput, 'amount'),
+    currency: readRequiredString(rawCommandInput, 'currency'),
+    json: readRequiredBoolean(rawCommandInput, 'json'),
+  };
+  const appName = readExactOptionalString(rawCommandInput, 'app');
+
+  if (appName != null) {
+    commandInput.app = appName;
+  }
+
+  return commandInput;
+}
+
+export const PlayPricingCommandInputSchema = decodePlayPricingCommandInput;
+
+function isZeroPlayAmount(units: string, nanos: number): boolean {
+  if (units != '0') {
+    return false;
+  }
+
+  return nanos == 0;
+}
 
 /** Parse a positive decimal amount and ISO currency into Play money units. */
-export const parsePlayPrice = (
-  amountText: string,
-  currencyText: string,
-): Effect.Effect<PlayMoneyUnits, PlayPricingInputError> =>
-  Effect.gen(function* () {
-    const currencyCode = currencyText.trim().toUpperCase();
-    if (!CURRENCY_PATTERN.test(currencyCode)) {
-      return yield* Effect.fail(
-        makePlayPricingInputError({
-          field: 'currency',
-          receivedValue: currencyText,
-          message: `--currency must be a 3-letter ISO code (got "${currencyText}").`,
-        }),
-      );
-    }
-    const decimalAmount = amountText.trim();
-    if (!AMOUNT_PATTERN.test(decimalAmount)) {
-      return yield* Effect.fail(
-        makePlayPricingInputError({
-          field: 'amount',
-          receivedValue: amountText,
-          message: `<amount> must be a non-negative decimal with up to 9 places (got "${amountText}").`,
-        }),
-      );
-    }
-    const decimalSegments = decimalAmount.split('.');
-    let wholeDigits = '0';
-    let fractionalDigits = '';
-    const declaredWholeDigits = decimalSegments[0];
-    const declaredFractionalDigits = decimalSegments[1];
-    if (declaredWholeDigits !== undefined) wholeDigits = declaredWholeDigits;
-    if (declaredFractionalDigits !== undefined) fractionalDigits = declaredFractionalDigits;
-    const units = BigInt(wholeDigits).toString();
-    const nanos = Number(fractionalDigits.padEnd(9, '0'));
-    if (units === '0' && nanos === 0) {
-      return yield* Effect.fail(
-        makePlayPricingInputError({
-          field: 'amount',
-          receivedValue: amountText,
-          message: '<amount> must be greater than zero.',
-        }),
-      );
-    }
-    return { currencyCode, units, nanos };
-  });
+export function parsePlayPrice(amountText: string, currencyText: string): PlayMoneyUnits {
+  const currencyCode = currencyText.trim().toUpperCase();
+  const currencyIsValid = CURRENCY_PATTERN.test(currencyCode);
+
+  if (currencyIsValid == false) {
+    throw makePlayPricingInputError({
+      field: 'currency',
+      receivedValue: currencyText,
+      message: `--currency must be a 3-letter ISO code (got "${currencyText}").`,
+    });
+  }
+
+  const decimalAmount = amountText.trim();
+  const amountIsValid = AMOUNT_PATTERN.test(decimalAmount);
+
+  if (amountIsValid == false) {
+    throw makePlayPricingInputError({
+      field: 'amount',
+      receivedValue: amountText,
+      message: `<amount> must be a non-negative decimal with up to 9 places (got "${amountText}").`,
+    });
+  }
+
+  const decimalSegments = decimalAmount.split('.');
+  let wholeDigits = '0';
+  let fractionalDigits = '';
+  const declaredWholeDigits = decimalSegments[0];
+  const declaredFractionalDigits = decimalSegments[1];
+
+  if (declaredWholeDigits != null) {
+    wholeDigits = declaredWholeDigits;
+  }
+
+  if (declaredFractionalDigits != null) {
+    fractionalDigits = declaredFractionalDigits;
+  }
+
+  const units = BigInt(wholeDigits).toString();
+  const nanos = Number(fractionalDigits.padEnd(9, '0'));
+  const isZeroMoney = isZeroPlayAmount(units, nanos);
+
+  if (isZeroMoney) {
+    throw makePlayPricingInputError({
+      field: 'amount',
+      receivedValue: amountText,
+      message: '<amount> must be greater than zero.',
+    });
+  }
+
+  return { currencyCode, units, nanos };
+}
 
 /** Render Play money without trailing fractional zeroes. */
-export const formatPlayMoney = (playMoney: PlayMoneyUnits): Effect.Effect<string> =>
-  Effect.sync(() => {
-    if (playMoney.nanos === 0) return `${playMoney.currencyCode} ${playMoney.units}`;
-    let fractionalDigits = String(playMoney.nanos).padStart(9, '0').replace(/0+$/, '');
-    if (fractionalDigits.length < 2) fractionalDigits = fractionalDigits.padEnd(2, '0');
-    return `${playMoney.currencyCode} ${playMoney.units}.${fractionalDigits}`;
-  });
+export function formatPlayMoney(playMoney: PlayMoneyUnits): string {
+  if (playMoney.nanos == 0) {
+    return `${playMoney.currencyCode} ${playMoney.units}`;
+  }
+
+  // Drop trailing zeroes, then keep at least two fractional digits.
+  let fractionalDigits = String(playMoney.nanos).padStart(9, '0').replace(/0+$/, '');
+  const needsTwoDigits = fractionalDigits.length < 2;
+
+  if (needsTwoDigits) {
+    fractionalDigits = fractionalDigits.padEnd(2, '0');
+  }
+
+  return `${playMoney.currencyCode} ${playMoney.units}.${fractionalDigits}`;
+}
 
 /** Render the human table for one regional conversion. */
-export const renderRecommendedPrices = (
+export function renderRecommendedPrices(
   basePrice: PlayMoneyUnits,
   convertedPrices: ConvertedPrices,
-): Effect.Effect<string> =>
-  Effect.gen(function* () {
-    const basePriceText = yield* formatPlayMoney(basePrice);
-    const heading = `\nRecommended prices for base ${basePriceText}  (${convertedPrices.regions.length} regions)`;
-    if (convertedPrices.regions.length === 0) {
-      return `${heading}\n  (Play returned no regional prices)`;
-    }
-    const priceLines: string[] = [];
-    for (const regionPrice of convertedPrices.regions) {
-      const priceText = yield* formatPlayMoney(regionPrice.price);
-      priceLines.push(`  ${regionPrice.regionCode.padEnd(4)}${priceText}`);
-    }
-    const fallbackLines: string[] = [];
-    if (convertedPrices.otherRegions !== undefined) {
-      const usdPriceText = yield* formatPlayMoney(convertedPrices.otherRegions.usdPrice);
-      const eurPriceText = yield* formatPlayMoney(convertedPrices.otherRegions.eurPrice);
-      fallbackLines.push(
-        '\n  Other regions (no local currency):',
-        `    ${usdPriceText}`,
-        `    ${eurPriceText}`,
-      );
-    }
-    return [heading, ...priceLines, ...fallbackLines].join('\n');
-  });
+): string {
+  const basePriceText = formatPlayMoney(basePrice);
+  const heading = `\nRecommended prices for base ${basePriceText}  (${convertedPrices.regions.length} regions)`;
+  const hasNoRegions = convertedPrices.regions.length == 0;
+
+  if (hasNoRegions) {
+    return `${heading}\n  (Play returned no regional prices)`;
+  }
+
+  const priceLines: string[] = [];
+
+  for (const regionPrice of convertedPrices.regions) {
+    const priceText = formatPlayMoney(regionPrice.price);
+    priceLines.push(`  ${regionPrice.regionCode.padEnd(4)}${priceText}`);
+  }
+
+  const fallbackLines: string[] = [];
+
+  if (convertedPrices.otherRegions != null) {
+    const usdPriceText = formatPlayMoney(convertedPrices.otherRegions.usdPrice);
+    const eurPriceText = formatPlayMoney(convertedPrices.otherRegions.eurPrice);
+    fallbackLines.push(
+      '\n  Other regions (no local currency):',
+      `    ${usdPriceText}`,
+      `    ${eurPriceText}`,
+    );
+  }
+
+  return [heading, ...priceLines, ...fallbackLines].join('\n');
+}
 
 /** Decode, convert, and render one Play pricing request. */
-export const playPricingCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<
-  void,
-  PlayPricingInputError | PlayPricingExecutionError,
-  PlayPricingCommandRequirements
-> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(PlayPricingCommandInputSchema)(
-      rawCommandInput,
-    ).pipe(
-      Effect.mapError((cause) =>
-        pricingFailure('decode', 'Could not decode the Play pricing command input.', cause),
-      ),
+export async function playPricingCommandProgram(rawCommandInput: unknown): Promise<void> {
+  let commandInput: PlayPricingCommandInput;
+
+  try {
+    commandInput = decodePlayPricingCommandInput(rawCommandInput);
+  } catch (cause) {
+    throw pricingFailure('decode', 'Could not decode the Play pricing command input.', cause);
+  }
+
+  const basePrice = parsePlayPrice(commandInput.amount, commandInput.currency);
+  let packageName = '';
+  let appName = '';
+
+  try {
+    const selectedApp = await resolveGoogleStoreApp(commandInput.app);
+    packageName = selectedApp.packageName;
+    appName = selectedApp.appName;
+  } catch (cause) {
+    throw pricingFailure('app', 'Could not select an app.', cause);
+  }
+
+  let googleStore: Awaited<ReturnType<typeof loadActiveGoogleStore>>;
+
+  try {
+    googleStore = await loadActiveGoogleStore(packageName, appName);
+  } catch (cause) {
+    throw pricingFailure(
+      'credentials',
+      failureMessage(cause, 'Could not load Play credentials.'),
+      cause,
     );
-    const basePrice = yield* parsePlayPrice(commandInput.amount, commandInput.currency);
-    const { packageName, appName } = yield* resolveGoogleStoreApp(commandInput.app).pipe(
-      Effect.mapError((cause) => pricingFailure('app', 'Could not select an app.', cause)),
-    );
-    const googleStore = yield* loadActiveGoogleStore(packageName, appName).pipe(
-      Effect.mapError((cause) => pricingFailure('credentials', cause.message, cause)),
-    );
-    const convertedPrices = yield* googleStore
-      .convertRegionPrices(packageName, basePrice)
-      .pipe(
-        Effect.mapError((cause) =>
-          pricingFailure('conversion', 'Google Play could not convert the base price.', cause),
-        ),
-      );
-    const logger = yield* createLogger(false);
-    if (commandInput.json) {
-      yield* logger
-        .line(JSON.stringify(convertedPrices, null, 2))
-        .pipe(
-          Effect.mapError((cause) =>
-            pricingFailure('output', 'Could not write pricing JSON.', cause),
-          ),
-        );
-      return;
-    }
-    const priceTable = yield* renderRecommendedPrices(basePrice, convertedPrices);
-    yield* logger
-      .line(priceTable)
-      .pipe(
-        Effect.mapError((cause) =>
-          pricingFailure('output', 'Could not write pricing output.', cause),
-        ),
-      );
-  });
+  }
+
+  let convertedPrices: ConvertedPrices;
+
+  try {
+    convertedPrices = await googleStore.convertRegionPrices(packageName, basePrice);
+  } catch (cause) {
+    throw pricingFailure('conversion', 'Google Play could not convert the base price.', cause);
+  }
+
+  const logger = createLogger(false);
+
+  if (commandInput.json) {
+    logger.line(JSON.stringify(convertedPrices, null, 2));
+    return;
+  }
+
+  logger.line(renderRecommendedPrices(basePrice, convertedPrices));
+}

@@ -1,8 +1,7 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   type FingerprintReport,
-  FingerprintCommandInputSchema,
+  decodeFingerprintCommandInput,
   formatFingerprintReport,
 } from './fingerprintCommand.js';
 
@@ -20,12 +19,13 @@ const INCREMENTAL_REPORT: FingerprintReport = {
 
 describe('FingerprintCommandInputSchema', () => {
   it('decodes the Commander input shape', () => {
-    expect(Schema.decodeUnknownSync(FingerprintCommandInputSchema)({ json: false })).toEqual({
+    expect(decodeFingerprintCommandInput({ json: false })).toEqual({
       json: false,
     });
-    expect(
-      Schema.decodeUnknownSync(FingerprintCommandInputSchema)({ app: 'demo', json: true }),
-    ).toEqual({ app: 'demo', json: true });
+    expect(decodeFingerprintCommandInput({ app: 'demo', json: true })).toEqual({
+      app: 'demo',
+      json: true,
+    });
   });
 });
 

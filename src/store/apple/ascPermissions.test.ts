@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import { makeAppleTransportFailure } from '../../services/stores/appleStoreClient.js';
 import {
@@ -11,12 +10,12 @@ import {
 const makePermissionClient = (
   overrides: Partial<AscPermissionProbeApi> = {},
 ): AscPermissionProbeApi => ({
-  listDistributionCertificates: vi.fn(() => Effect.succeed([])),
-  listBetaGroups: vi.fn(() => Effect.succeed([])),
-  listAppStoreVersions: vi.fn(() => Effect.succeed([])),
-  listSubscriptionGroups: vi.fn(() => Effect.succeed([])),
-  listCustomerReviews: vi.fn(() => Effect.succeed([])),
-  listAnalyticsReportRequests: vi.fn(() => Effect.succeed([])),
+  listDistributionCertificates: vi.fn(() => Promise.resolve([])),
+  listBetaGroups: vi.fn(() => Promise.resolve([])),
+  listAppStoreVersions: vi.fn(() => Promise.resolve([])),
+  listSubscriptionGroups: vi.fn(() => Promise.resolve([])),
+  listCustomerReviews: vi.fn(() => Promise.resolve([])),
+  listAnalyticsReportRequests: vi.fn(() => Promise.resolve([])),
   ...overrides,
 });
 
@@ -37,35 +36,33 @@ const transportFailure = (message: string, status?: number) => {
 
 describe('probeKeyPermissions', () => {
   it('marks every feature available when all probes succeed', async () => {
-    const permissions = await Effect.runPromise(
-      probeKeyPermissions(makePermissionClient(), 'app1'),
-    );
+    const permissions = await probeKeyPermissions(makePermissionClient(), 'app1');
     expect(permissions).toHaveLength(6);
     expect(permissions.every((permission) => permission.status === 'available')).toBe(true);
   });
 
   it('flags a 403 as forbidden for just that feature', async () => {
     const permissionClient = makePermissionClient({
-      listCustomerReviews: vi.fn(() => Effect.fail(transportFailure('Forbidden', 403))),
+      listCustomerReviews: vi.fn(() => Promise.reject(transportFailure('Forbidden', 403))),
     });
-    const permissions = await Effect.runPromise(probeKeyPermissions(permissionClient, 'app1'));
+    const permissions = await probeKeyPermissions(permissionClient, 'app1');
     expect(permissionFor(permissions, 'customer-reviews').status).toBe('forbidden');
     expect(permissionFor(permissions, 'testflight').status).toBe('available');
   });
 
   it('maps a 401 to unauthorized', async () => {
     const permissionClient = makePermissionClient({
-      listBetaGroups: vi.fn(() => Effect.fail(transportFailure('Unauthorized', 401))),
+      listBetaGroups: vi.fn(() => Promise.reject(transportFailure('Unauthorized', 401))),
     });
-    const permissions = await Effect.runPromise(probeKeyPermissions(permissionClient, 'app1'));
+    const permissions = await probeKeyPermissions(permissionClient, 'app1');
     expect(permissionFor(permissions, 'testflight').status).toBe('unauthorized');
   });
 
   it('maps a transport failure to inconclusive and keeps its message', async () => {
     const permissionClient = makePermissionClient({
-      listAppStoreVersions: vi.fn(() => Effect.fail(transportFailure('network down'))),
+      listAppStoreVersions: vi.fn(() => Promise.reject(transportFailure('network down'))),
     });
-    const permissions = await Effect.runPromise(probeKeyPermissions(permissionClient, 'app1'));
+    const permissions = await probeKeyPermissions(permissionClient, 'app1');
     const releasePermission = permissionFor(permissions, 'app-store-release');
     expect(releasePermission.status).toBe('inconclusive');
     expect(releasePermission.detail).toBe('network down');
@@ -73,7 +70,7 @@ describe('probeKeyPermissions', () => {
 
   it('skips app reads without an app record but still runs account reads', async () => {
     const permissionClient = makePermissionClient();
-    const permissions = await Effect.runPromise(probeKeyPermissions(permissionClient, null));
+    const permissions = await probeKeyPermissions(permissionClient, null);
     expect(permissionFor(permissions, 'provisioning').status).toBe('available');
     expect(permissionFor(permissions, 'testflight').status).toBe('inconclusive');
     expect(permissionFor(permissions, 'testflight').detail).toBe('no app record to probe');

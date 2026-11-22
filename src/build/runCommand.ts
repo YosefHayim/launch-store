@@ -1,23 +1,20 @@
-import { FileSystem, Path } from '@effect/platform';
-import type { CommandExecutor } from '@effect/platform/CommandExecutor';
-import { Data, Effect, Schema } from 'effect';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { loadConfig } from '../config/config.js';
-import {
-  resolveStorageProvider,
-  type StorageResolverRequirements,
-} from '../distribution/storage.js';
+import { resolveStorageProvider } from '../distribution/storage.js';
+import { pathExists } from '../path-exists.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
 import { executeCommand } from '../services/platform/exec.js';
-import type { LaunchEnvironmentService } from '../services/platform/environment.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import { createLogger } from '../services/platform/logger.js';
+import { readLaunchDirectories } from '../services/platform/paths.js';
 import type { BuildArtifact } from '../types/artifacts.js';
 import { findBuild } from './buildHistoryCommand.js';
 
-const RunCommandInputSchema = Schema.Struct({
-  reference: Schema.String,
-  device: Schema.optionalWith(Schema.String, { exact: true }),
-});
+type RunCommandInput = Readonly<{
+  reference: string;
+  device?: string;
+}>;
 
 type RunCommandFailure = Readonly<{
   readonly _tag: 'RunCommandFailure';
@@ -26,162 +23,259 @@ type RunCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-const makeRunCommandFailure = Data.tagged<RunCommandFailure>('RunCommandFailure');
+function makeRunCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause?: unknown;
+}): RunCommandFailure {
+  const hasCause = fields.cause != null;
 
-type RunCommandRequirements =
-  | CommandExecutor
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | Logger
-  | Path.Path
-  | StorageResolverRequirements;
+  if (hasCause) {
+    return {
+      _tag: 'RunCommandFailure',
+      operation: fields.operation,
+      message: fields.message,
+      cause: fields.cause,
+    };
+  }
+
+  return {
+    _tag: 'RunCommandFailure',
+    operation: fields.operation,
+    message: fields.message,
+  };
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  const isObject = typeof candidate == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  return candidate != null;
+}
+
+function readOptionalString(record: Record<string, unknown>, key: string): string | null {
+  const hasKey = Object.hasOwn(record, key);
+
+  if (hasKey == false) {
+    return null;
+  }
+
+  const field = record[key];
+
+  if (field == null) {
+    return null;
+  }
+
+  const isString = typeof field == 'string';
+
+  if (isString == false) {
+    throw new Error(`Run command ${key} must be a string.`);
+  }
+
+  return field;
+}
+
+function decodeRunCommandInput(rawCommandInput: unknown): RunCommandInput {
+  const isCommandRecord = isRecord(rawCommandInput);
+
+  if (isCommandRecord == false) {
+    throw new Error('Run command input must be an object.');
+  }
+
+  const reference = rawCommandInput['reference'];
+  const referenceIsString = typeof reference == 'string';
+
+  if (referenceIsString == false) {
+    throw new Error('Run command reference must be a string.');
+  }
+
+  const device = readOptionalString(rawCommandInput, 'device');
+
+  if (device == null) {
+    return { reference };
+  }
+
+  return { reference, device };
+}
 
 /** Build the `adb install` arguments for an optional device serial. */
-export const adbInstallArgs = (
-  apkPath: string,
-  serial: string | undefined = undefined,
-): string[] => {
+export function adbInstallArgs(apkPath: string, serial: string | undefined = undefined): string[] {
   const commandArguments = ['install', '-r', apkPath];
-  if (serial === undefined) return commandArguments;
+  const isMissingSerial = serial == null;
+
+  if (isMissingSerial) {
+    return commandArguments;
+  }
+
   return ['-s', serial, ...commandArguments];
-};
+}
 
 /** Build the `bundletool build-apks` arguments for a universal APK set. */
-export const bundletoolBuildApksArgs = (aabPath: string, apksPath: string): string[] => [
-  'build-apks',
-  `--bundle=${aabPath}`,
-  `--output=${apksPath}`,
-  '--mode=universal',
-  '--overwrite',
-];
+export function bundletoolBuildApksArgs(aabPath: string, apksPath: string): string[] {
+  return [
+    'build-apks',
+    `--bundle=${aabPath}`,
+    `--output=${apksPath}`,
+    '--mode=universal',
+    '--overwrite',
+  ];
+}
 
 /** Build the `bundletool install-apks` arguments for an optional device serial. */
-export const bundletoolInstallApksArgs = (
+export function bundletoolInstallApksArgs(
   apksPath: string,
   serial: string | undefined = undefined,
-): string[] => {
+): string[] {
   const commandArguments = ['install-apks', `--apks=${apksPath}`];
-  if (serial === undefined) return commandArguments;
+  const isMissingSerial = serial == null;
+
+  if (isMissingSerial) {
+    return commandArguments;
+  }
+
   return [...commandArguments, `--device-id=${serial}`];
-};
+}
 
 /** Build the `xcrun devicectl` arguments for an optional Apple device identifier. */
-export const devicectlInstallArgs = (
+export function devicectlInstallArgs(
   appPath: string,
   device: string | undefined = undefined,
-): string[] => {
+): string[] {
   const commandArguments = ['devicectl', 'device', 'install', 'app'];
-  if (device === undefined) return [...commandArguments, appPath];
+  const isMissingDevice = device == null;
+
+  if (isMissingDevice) {
+    return [...commandArguments, appPath];
+  }
+
   return [...commandArguments, '--device', device, appPath];
-};
+}
+
+function isApplicationBundle(fileName: string): boolean {
+  return fileName.endsWith('.app');
+}
+
+async function removeTemporaryDirectory(temporaryDirectory: string): Promise<void> {
+  await rm(temporaryDirectory, { recursive: true, force: true });
+}
 
 /** Install an APK directly or turn an AAB into a universal APK set first. */
-const installAndroidArtifact = (
+async function installAndroidArtifact(
   artifactPath: string,
   serial: string | undefined,
-): Effect.Effect<void, unknown, RunCommandRequirements> =>
-  Effect.gen(function* () {
-    if (artifactPath.endsWith('.apk')) {
-      yield* executeCommand('adb', adbInstallArgs(artifactPath, serial));
-      return;
-    }
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const temporaryDirectory = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-run-' });
-    const apksPath = pathService.join(temporaryDirectory, 'app.apks');
-    yield* executeCommand('bundletool', bundletoolBuildApksArgs(artifactPath, apksPath));
-    yield* executeCommand('bundletool', bundletoolInstallApksArgs(apksPath, serial));
-  }).pipe(Effect.scoped);
+): Promise<void> {
+  const isApk = artifactPath.endsWith('.apk');
+
+  if (isApk) {
+    await executeCommand('adb', adbInstallArgs(artifactPath, serial));
+    return;
+  }
+
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'launch-run-'));
+
+  try {
+    const apksPath = join(temporaryDirectory, 'app.apks');
+
+    await executeCommand('bundletool', bundletoolBuildApksArgs(artifactPath, apksPath));
+    await executeCommand('bundletool', bundletoolInstallApksArgs(apksPath, serial));
+  } finally {
+    await removeTemporaryDirectory(temporaryDirectory);
+  }
+}
 
 /** Unpack an IPA and install its application bundle with `devicectl`. */
-const installAppleArtifact = (
+async function installAppleArtifact(
   artifactPath: string,
   device: string | undefined,
-): Effect.Effect<void, unknown, RunCommandRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const temporaryDirectory = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-run-' });
-    yield* executeCommand('unzip', ['-oq', artifactPath, '-d', temporaryDirectory]);
-    const applicationDirectory = pathService.join(temporaryDirectory, 'Payload');
-    const applicationNames = yield* fileSystem.readDirectory(applicationDirectory);
-    const applicationName = applicationNames.find((entryName) => entryName.endsWith('.app'));
-    if (applicationName === undefined) {
-      return yield* Effect.fail(
-        makeRunCommandFailure({
-          operation: 'unpack Apple artifact',
-          message: `No .app exists inside ${artifactPath}.`,
-        }),
-      );
+): Promise<void> {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'launch-run-'));
+
+  try {
+    await executeCommand('unzip', ['-oq', artifactPath, '-d', temporaryDirectory]);
+    const applicationDirectory = join(temporaryDirectory, 'Payload');
+    const applicationNames = await readdir(applicationDirectory);
+    const applicationName = applicationNames.find(isApplicationBundle);
+
+    if (applicationName == null) {
+      throw makeRunCommandFailure({
+        operation: 'unpack Apple artifact',
+        message: `No .app exists inside ${artifactPath}.`,
+      });
     }
-    const logger = yield* createLogger(false);
-    if (device === undefined) {
-      yield* logger.warn('No --device was provided; devicectl will choose a connected device.');
+
+    const logger = createLogger(false);
+    const isMissingDevice = device == null;
+
+    if (isMissingDevice) {
+      logger.warn('No --device was provided; devicectl will choose a connected device.');
     }
-    yield* executeCommand(
-      'xcrun',
-      devicectlInstallArgs(pathService.join(applicationDirectory, applicationName), device),
-    );
-  }).pipe(Effect.scoped);
+
+    const applicationPath = join(applicationDirectory, applicationName);
+
+    await executeCommand('xcrun', devicectlInstallArgs(applicationPath, device));
+  } finally {
+    await removeTemporaryDirectory(temporaryDirectory);
+  }
+}
 
 /** Find the requested stored artifact and verify its file still exists. */
-const findRunnableArtifact = (
-  reference: string,
-): Effect.Effect<
-  BuildArtifact,
-  unknown,
-  FileSystem.FileSystem | LaunchPathsService | StorageResolverRequirements
-> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
-    const storageProvider = yield* resolveStorageProvider(
-      loadedConfig.config,
-      launchPaths.workingDirectory,
-    );
-    const artifact = findBuild(yield* storageProvider.list(), reference);
-    if (artifact === undefined) {
-      return yield* Effect.fail(
-        makeRunCommandFailure({
-          operation: 'find stored artifact',
-          message: `No build matches "${reference}". Run \`launch builds list\` first.`,
-        }),
-      );
-    }
-    const fileSystem = yield* FileSystem.FileSystem;
-    if (yield* fileSystem.exists(artifact.path)) return artifact;
-    return yield* Effect.fail(
-      makeRunCommandFailure({
-        operation: 'find stored artifact',
-        message: `The artifact for "${reference}" is gone from ${artifact.path}. Rebuild it.`,
-      }),
-    );
+async function findRunnableArtifact(reference: string): Promise<BuildArtifact> {
+  const launchPaths = readLaunchDirectories();
+  const loadedLaunch = await loadConfig(launchPaths.workingDirectory);
+  const storageProvider = await resolveStorageProvider(
+    loadedLaunch.config,
+    launchPaths.workingDirectory,
+  );
+  const storedArtifacts = await storageProvider.list();
+  const artifact = findBuild(storedArtifacts, reference);
+
+  if (artifact == null) {
+    throw makeRunCommandFailure({
+      operation: 'find stored artifact',
+      message: `No build matches "${reference}". Run \`launch builds list\` first.`,
+    });
+  }
+
+  const artifactExists = await pathExists(artifact.path);
+
+  if (artifactExists) {
+    return artifact;
+  }
+
+  throw makeRunCommandFailure({
+    operation: 'find stored artifact',
+    message: `The artifact for "${reference}" is gone from ${artifact.path}. Rebuild it.`,
   });
+}
 
 /** Decode one `launch run` request and install its stored artifact. */
-export const runCommandProgram = (
-  commandInput: unknown,
-): Effect.Effect<void, RunCommandFailure, RunCommandRequirements> =>
-  Effect.gen(function* () {
-    const decodedCommand = yield* Schema.decodeUnknown(RunCommandInputSchema)(commandInput);
-    const artifact = yield* findRunnableArtifact(decodedCommand.reference);
-    const logger = yield* createLogger(false);
-    yield* logger.run(
+export async function runCommandProgram(commandInput: unknown): Promise<void> {
+  try {
+    const decodedCommand = decodeRunCommandInput(commandInput);
+    const artifact = await findRunnableArtifact(decodedCommand.reference);
+    const logger = createLogger(false);
+
+    logger.run(
       `Installing ${artifact.appName} ${artifact.version} (build ${artifact.buildNumber}).`,
     );
-    if (artifact.platform === 'android') {
-      yield* installAndroidArtifact(artifact.path, decodedCommand.device);
+
+    const isAndroid = artifact.platform == 'android';
+
+    if (isAndroid) {
+      await installAndroidArtifact(artifact.path, decodedCommand.device);
     } else {
-      yield* installAppleArtifact(artifact.path, decodedCommand.device);
+      await installAppleArtifact(artifact.path, decodedCommand.device);
     }
-    yield* logger.ok("Installed. Launch it from the device's home screen.");
-  }).pipe(
-    Effect.mapError((cause) =>
-      makeRunCommandFailure({
-        operation: 'install stored artifact',
-        message: errorMessage(cause),
-        cause,
-      }),
-    ),
-  );
+
+    logger.ok("Installed. Launch it from the device's home screen.");
+  } catch (error) {
+    throw makeRunCommandFailure({
+      operation: 'install stored artifact',
+      message: errorMessage(error),
+      cause: error,
+    });
+  }
+}

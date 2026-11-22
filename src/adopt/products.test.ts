@@ -1,31 +1,67 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { AdoptCatalogApi, AdoptTarget } from '../types/adopt.js';
 import type { AppDescriptor } from '../types/app.js';
 import { productsAdopter } from './products.js';
 
+function ready<Value>(value: Value): Promise<Value> {
+  return Promise.resolve(value);
+}
+
 /** Empty catalog fake; override only the reads a scenario needs. */
-const emptyAdoptCatalog = (overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi => {
-  const baseCatalog: AdoptCatalogApi = {
-    getAppId: () => Effect.succeed('app1'),
-    getLatestMarketingVersion: () => Effect.succeed('1.0.0'),
-    getLatestBuildNumber: () => Effect.succeed(1),
-    findBundleId: () => Effect.succeed({ id: 'b1', identifier: 'com.acme.app' }),
-    listBundleIdCapabilities: () => Effect.succeed([]),
-    listProfilesForBundleId: () => Effect.succeed([]),
-    listMerchantIds: () => Effect.succeed([]),
-    listInAppPurchases: () => Effect.succeed([]),
-    listInAppPurchaseLocalizations: () => Effect.succeed([]),
-    inAppPurchaseHasPrice: () => Effect.succeed(false),
-    listSubscriptionGroups: () => Effect.succeed([]),
-    listSubscriptionGroupLocalizations: () => Effect.succeed([]),
-    listSubscriptions: () => Effect.succeed([]),
-    listSubscriptionLocalizations: () => Effect.succeed([]),
-    subscriptionHasPrice: () => Effect.succeed(false),
-    listDistributionCertificates: () => Effect.succeed([]),
+function emptyAdoptCatalog(overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi {
+  const baseCatalog = {
+    getAppId() {
+      return ready('app1');
+    },
+    getLatestMarketingVersion() {
+      return ready('1.0.0');
+    },
+    getLatestBuildNumber() {
+      return ready(1);
+    },
+    findBundleId() {
+      return ready({ id: 'b1', identifier: 'com.acme.app' });
+    },
+    listBundleIdCapabilities() {
+      return ready([]);
+    },
+    listProfilesForBundleId() {
+      return ready([]);
+    },
+    listMerchantIds() {
+      return ready([]);
+    },
+    listInAppPurchases() {
+      return ready([]);
+    },
+    listInAppPurchaseLocalizations() {
+      return ready([]);
+    },
+    inAppPurchaseHasPrice() {
+      return ready(false);
+    },
+    listSubscriptionGroups() {
+      return ready([]);
+    },
+    listSubscriptionGroupLocalizations() {
+      return ready([]);
+    },
+    listSubscriptions() {
+      return ready([]);
+    },
+    listSubscriptionLocalizations() {
+      return ready([]);
+    },
+    subscriptionHasPrice() {
+      return ready(false);
+    },
+    listDistributionCertificates() {
+      return ready([]);
+    },
   };
-  return { ...baseCatalog, ...overrides };
-};
+
+  return { ...baseCatalog, ...overrides } as AdoptCatalogApi;
+}
 
 const APP: AppDescriptor = {
   name: 'acme',
@@ -34,36 +70,44 @@ const APP: AppDescriptor = {
   bundleId: 'com.acme.app',
 };
 
-const adoptTarget = (overrides: Partial<AdoptTarget> = {}): AdoptTarget => ({
-  app: APP,
-  appId: 'app1',
-  bundleId: 'com.acme.app',
-  keyId: 'K',
-  cwd: '/repo',
-  hasLaunchConfig: false,
-  ...overrides,
-});
+function adoptTarget(overrides: Partial<AdoptTarget> = {}): AdoptTarget {
+  return {
+    app: APP,
+    appId: 'app1',
+    bundleId: 'com.acme.app',
+    keyId: 'K',
+    cwd: '/repo',
+    hasLaunchConfig: false,
+    ...overrides,
+  };
+}
 
 describe('productsAdopter', () => {
   it('imports an in-app purchase with its localizations, keyed by bundle id', async () => {
     const appleCatalog = emptyAdoptCatalog({
-      listInAppPurchases: () =>
-        Effect.succeed([
+      listInAppPurchases() {
+        return ready([
           {
             id: 'iap1',
             productId: 'com.acme.coins',
             name: 'Coins',
             inAppPurchaseType: 'CONSUMABLE',
           },
-        ]),
-      listInAppPurchaseLocalizations: () =>
-        Effect.succeed([{ id: 'l1', locale: 'en-US', name: 'Coins', description: 'Buy coins' }]),
+        ]);
+      },
+      listInAppPurchaseLocalizations() {
+        return ready([{ id: 'l1', locale: 'en-US', name: 'Coins', description: 'Buy coins' }]);
+      },
     });
-    const writes = await Effect.runPromise(productsAdopter.read(appleCatalog, adoptTarget()));
+    const writes = await productsAdopter.read(appleCatalog, adoptTarget());
     expect(writes).toHaveLength(1);
     const firstWrite = writes[0];
     expect(firstWrite).toBeDefined();
-    if (firstWrite === undefined) return;
+
+    if (firstWrite == null) {
+      return;
+    }
+
     expect(firstWrite.description).toBe(
       'products: import in-app purchase com.acme.coins (CONSUMABLE)',
     );
@@ -85,55 +129,72 @@ describe('productsAdopter', () => {
 
   it("notes a priced product whose amount the API won't cheaply return", async () => {
     const appleCatalog = emptyAdoptCatalog({
-      listInAppPurchases: () =>
-        Effect.succeed([
+      listInAppPurchases() {
+        return ready([
           {
             id: 'iap1',
             productId: 'com.acme.pro',
             name: 'Pro',
             inAppPurchaseType: 'NON_CONSUMABLE',
           },
-        ]),
-      inAppPurchaseHasPrice: () => Effect.succeed(true),
+        ]);
+      },
+      inAppPurchaseHasPrice() {
+        return ready(true);
+      },
     });
-    const writes = await Effect.runPromise(productsAdopter.read(appleCatalog, adoptTarget()));
+    const writes = await productsAdopter.read(appleCatalog, adoptTarget());
     const firstWrite = writes[0];
     expect(firstWrite).toBeDefined();
-    if (firstWrite === undefined) return;
+
+    if (firstWrite == null) {
+      return;
+    }
+
     expect(firstWrite.note).toMatch(/priced on App Store Connect/);
   });
 
   it("skips an in-app purchase whose type Launch doesn't model", async () => {
     const appleCatalog = emptyAdoptCatalog({
-      listInAppPurchases: () =>
-        Effect.succeed([
+      listInAppPurchases() {
+        return ready([
           { id: 'iap1', productId: 'com.acme.weird', name: 'Weird', inAppPurchaseType: 'MYSTERY' },
-        ]),
+        ]);
+      },
     });
-    expect(await Effect.runPromise(productsAdopter.read(appleCatalog, adoptTarget()))).toEqual([]);
+    expect(await productsAdopter.read(appleCatalog, adoptTarget())).toEqual([]);
   });
 
   it('imports a subscription group with its levels and billing period', async () => {
     const appleCatalog = emptyAdoptCatalog({
-      listSubscriptionGroups: () => Effect.succeed([{ id: 'g1', referenceName: 'Pro' }]),
-      listSubscriptionGroupLocalizations: () =>
-        Effect.succeed([{ id: 'gl', locale: 'en-US', name: 'Pro Tiers' }]),
-      listSubscriptions: () =>
-        Effect.succeed([
+      listSubscriptionGroups() {
+        return ready([{ id: 'g1', referenceName: 'Pro' }]);
+      },
+      listSubscriptionGroupLocalizations() {
+        return ready([{ id: 'gl', locale: 'en-US', name: 'Pro Tiers' }]);
+      },
+      listSubscriptions() {
+        return ready([
           {
             id: 's1',
             productId: 'com.acme.pro.monthly',
             name: 'Pro Monthly',
             subscriptionPeriod: 'ONE_MONTH',
           },
-        ]),
-      listSubscriptionLocalizations: () =>
-        Effect.succeed([{ id: 'sl', locale: 'en-US', name: 'Pro' }]),
+        ]);
+      },
+      listSubscriptionLocalizations() {
+        return ready([{ id: 'sl', locale: 'en-US', name: 'Pro' }]);
+      },
     });
-    const writes = await Effect.runPromise(productsAdopter.read(appleCatalog, adoptTarget()));
+    const writes = await productsAdopter.read(appleCatalog, adoptTarget());
     const firstWrite = writes[0];
     expect(firstWrite).toBeDefined();
-    if (firstWrite === undefined) return;
+
+    if (firstWrite == null) {
+      return;
+    }
+
     expect(firstWrite.description).toBe('products: import subscription group "Pro" (1 level)');
     expect(firstWrite.change).toMatchObject({
       home: 'launch.config',
@@ -158,10 +219,13 @@ describe('productsAdopter', () => {
 
   it('drops a subscription group whose only level is missing its billing period', async () => {
     const appleCatalog = emptyAdoptCatalog({
-      listSubscriptionGroups: () => Effect.succeed([{ id: 'g1', referenceName: 'Pro' }]),
-      listSubscriptions: () =>
-        Effect.succeed([{ id: 's1', productId: 'com.acme.pro', name: 'Pro' }]),
+      listSubscriptionGroups() {
+        return ready([{ id: 'g1', referenceName: 'Pro' }]);
+      },
+      listSubscriptions() {
+        return ready([{ id: 's1', productId: 'com.acme.pro', name: 'Pro' }]);
+      },
     });
-    expect(await Effect.runPromise(productsAdopter.read(appleCatalog, adoptTarget()))).toEqual([]);
+    expect(await productsAdopter.read(appleCatalog, adoptTarget())).toEqual([]);
   });
 });

@@ -1,14 +1,24 @@
-import { NodeHttpClient } from '@effect/platform-node';
-import { Effect } from 'effect';
-import { describe, expect, it } from 'vitest';
-import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
+import { afterEach, describe, expect, it } from 'vitest';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '@/services/platform/environment.js';
 import {
   buildListingPrompt,
   createAnthropicListingGenerator,
   parseDraftListing,
 } from './generator.js';
 
-const parseDraft = (completionText: string) => Effect.runSync(parseDraftListing(completionText));
+afterEach(function resetEnvironment() {
+  resetLaunchEnvironment();
+});
+
+function thrownBy(run: () => void): unknown {
+  try {
+    run();
+  } catch (error) {
+    return error;
+  }
+
+  return null;
+}
 
 describe('buildListingPrompt', () => {
   it('names the app and locale and states the character limits', () => {
@@ -35,54 +45,64 @@ describe('buildListingPrompt', () => {
 
 describe('parseDraftListing', () => {
   it('parses a plain JSON object', () => {
-    const listingDraft = parseDraft('{"title":"MyApp","keywords":["focus","timer"]}');
+    const listingDraft = parseDraftListing('{"title":"MyApp","keywords":["focus","timer"]}');
     expect(listingDraft).toEqual({ title: 'MyApp', keywords: ['focus', 'timer'] });
   });
 
   it('tolerates a JSON fence', () => {
-    const listingDraft = parseDraft('```json\n{"subtitle":"Stay on task"}\n```');
+    const listingDraft = parseDraftListing('```json\n{"subtitle":"Stay on task"}\n```');
     expect(listingDraft).toEqual({ subtitle: 'Stay on task' });
   });
 
   it('accepts comma-separated keywords as a string', () => {
-    const listingDraft = parseDraft('{"keywords":"focus, timer , "}');
+    const listingDraft = parseDraftListing('{"keywords":"focus, timer , "}');
     expect(listingDraft.keywords).toEqual(['focus', 'timer']);
   });
 
   it('drops blank optional fields', () => {
-    const listingDraft = parseDraft('{"title":"MyApp","description":"  "}');
+    const listingDraft = parseDraftListing('{"title":"MyApp","description":"  "}');
     expect(listingDraft).toEqual({ title: 'MyApp' });
   });
 
   it('fails on invalid JSON', () => {
-    expect(() => parseDraft('not json')).toThrow(/valid JSON/);
+    function parseInvalidJson(): void {
+      parseDraftListing('not json');
+    }
+
+    expect(thrownBy(parseInvalidJson)).toMatchObject({
+      _tag: 'ListingGenerationFailure',
+      message: expect.stringMatching(/valid JSON/),
+    });
   });
 
   it('fails when no usable field is present', () => {
-    expect(() => parseDraft('{"unknown":"x"}')).toThrow(/no usable/);
+    function parseEmptyListing(): void {
+      parseDraftListing('{"unknown":"x"}');
+    }
+
+    expect(thrownBy(parseEmptyListing)).toMatchObject({
+      _tag: 'ListingGenerationFailure',
+      message: expect.stringMatching(/no usable/),
+    });
   });
 });
 
 describe('createAnthropicListingGenerator', () => {
-  it('labels itself with the selected model', async () => {
-    const listingGenerator = await Effect.runPromise(
-      createAnthropicListingGenerator({ model: 'claude-test' }).pipe(
-        Effect.provide(makeLaunchEnvironmentTest({})),
-      ),
-    );
+  it('labels itself with the selected model', () => {
+    useLaunchEnvironment({});
+    const listingGenerator = createAnthropicListingGenerator({ model: 'claude-test' });
     expect(listingGenerator.name).toBe('anthropic:claude-test');
   });
 
   it('fails with an actionable message when no API key is configured', async () => {
-    const listingGenerator = await Effect.runPromise(
-      createAnthropicListingGenerator().pipe(Effect.provide(makeLaunchEnvironmentTest({}))),
-    );
+    useLaunchEnvironment({});
+    const listingGenerator = createAnthropicListingGenerator();
+
     await expect(
-      Effect.runPromise(
-        listingGenerator
-          .generate({ locale: 'en-US', appName: 'MyApp' })
-          .pipe(Effect.provide(NodeHttpClient.layer)),
-      ),
-    ).rejects.toThrow(/ANTHROPIC_API_KEY/);
+      listingGenerator.generate({ locale: 'en-US', appName: 'MyApp' }),
+    ).rejects.toMatchObject({
+      _tag: 'ListingGenerationFailure',
+      message: expect.stringMatching(/ANTHROPIC_API_KEY/),
+    });
   });
 });

@@ -1,9 +1,4 @@
-import { Effect } from 'effect';
-import {
-  checkCommandExists,
-  executeCommand,
-  provideNodeCommandServices,
-} from '../services/platform/exec.js';
+import { checkCommandExists, executeCommand } from '../services/platform/exec.js';
 import { createLogger, type Logger } from '../services/platform/logger.js';
 import { checkIsMacOperatingSystem } from '../services/platform/os.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
@@ -114,22 +109,21 @@ export const planInstall = (
  * offer the install only when it would actually do something (issue #117). Probes through the injectable
  * {@link ToolchainIo.exists}, so it's unit-testable with no real PATH lookups.
  */
-export const missingRequiredTools = (
-  io?: Pick<ToolchainIo, 'exists'>,
-): Effect.Effect<Tool[], unknown> =>
-  Effect.gen(function* () {
-    if (io !== undefined) {
-      const missing = yield* detectMissing(io, REQUIRED_TOOLS);
-      return missing.filter((tool) => tool.tier === 'required');
-    }
-    const missing = yield* detectMissing(
-      {
-        exists: (executable) => provideNodeCommandServices(checkCommandExists(executable)),
-      },
-      REQUIRED_TOOLS,
-    );
-    return missing.filter((tool) => tool.tier === 'required');
-  });
+function isRequiredTool(tool: Tool): boolean {
+  return tool.tier == 'required';
+}
+
+export async function missingRequiredTools(io?: Pick<ToolchainIo, 'exists'>): Promise<Tool[]> {
+  let probe = io;
+
+  if (probe == null) {
+    probe = { exists: checkCommandExists };
+  }
+
+  const missing = await detectMissing(probe, REQUIRED_TOOLS);
+
+  return missing.filter(isRequiredTool);
+}
 /**
  * Generate the bash toolchain preflight that runs ON the remote Mac before a build - the remote twin of
  * `launch doctor`, emitted from {@link REQUIRED_TOOLS} so the host and local checks never drift (issue #6).
@@ -183,89 +177,141 @@ export const remoteToolchainPreflight = (mode: 'install' | 'assert'): string => 
  * Production wiring ({@link realIo}) maps these onto the repo's exec helpers, terminal prompts, and console.
  */
 export type ToolchainIo = {
-  exists(command: string): Effect.Effect<boolean, unknown>;
-  run(command: string, args: readonly string[]): Effect.Effect<void, unknown>;
-  confirm(message: string): Effect.Effect<boolean, unknown>;
-  confirmText(message: string, expected: string): Effect.Effect<boolean, unknown>;
-  log(message: string): Effect.Effect<void, unknown>;
+  exists(command: string): Promise<boolean>;
+  run(command: string, args: readonly string[]): Promise<void>;
+  confirm(message: string): Promise<boolean>;
+  confirmText(message: string, expected: string): Promise<boolean>;
+  log(message: string): Promise<void>;
 };
-/** Production {@link ToolchainIo}: real PATH/exec, terminal prompts, logger-seam output. */
-const realIo = (logger: Logger, prompt: LaunchPromptService): ToolchainIo => {
+
+function realIo(logger: Logger, prompt: LaunchPromptService): ToolchainIo {
   return {
-    exists: (executable) => provideNodeCommandServices(checkCommandExists(executable)),
-    run: (executable, commandArguments) =>
-      provideNodeCommandServices(executeCommand(executable, commandArguments)),
-    log: (message) => logger.line(message),
-    confirm: (message) => prompt.confirm(message),
-    confirmText(message, expected) {
-      return prompt
-        .requiredText(`${message} Type "${expected}" to proceed:`)
-        .pipe(Effect.map((answer) => answer.trim().toLowerCase() === expected.toLowerCase()));
+    exists: checkCommandExists,
+    run: executeCommand,
+    async log(message: string): Promise<void> {
+      logger.line(message);
+    },
+    confirm: prompt.confirm,
+    async confirmText(message: string, expected: string): Promise<boolean> {
+      const answer = await prompt.requiredText(`${message} Type "${expected}" to proceed:`);
+
+      return answer.trim().toLowerCase() == expected.toLowerCase();
     },
   };
-};
+}
 /** Options for {@link ensureToolchain}. */
 type EnsureToolchainOptions = {
   assumeYes?: boolean;
   io?: ToolchainIo;
   platform?: NodeJS.Platform;
 };
-/** Return the tools from `tools` whose command isn't currently on `PATH`. */
-const detectMissing = (
+async function detectMissing(
   io: Pick<ToolchainIo, 'exists'>,
   tools: readonly Tool[],
-): Effect.Effect<Tool[], unknown> =>
-  Effect.filter(tools, (tool) => io.exists(tool.command).pipe(Effect.map((exists) => !exists)), {
-    concurrency: 1,
-  });
-export const ensureToolchain = (
-  options: EnsureToolchainOptions = {},
-): Effect.Effect<boolean, unknown, Logger | LaunchPromptService> =>
-  Effect.gen(function* () {
-    let io = options.io;
-    if (io === undefined) {
-      const logger = yield* createLogger(false);
-      const prompt = yield* LaunchPrompt;
-      io = realIo(logger, prompt);
+): Promise<Tool[]> {
+  const missing: Tool[] = [];
+
+  for (const tool of tools) {
+    const exists = await io.exists(tool.command);
+
+    if (exists == false) {
+      missing.push(tool);
     }
-    let onMac = yield* checkIsMacOperatingSystem;
-    if (options.platform !== undefined) onMac = options.platform === 'darwin';
-    let assumeYes = false;
-    if (options.assumeYes !== undefined) assumeYes = options.assumeYes;
-    if (!onMac) {
-      yield* io.log(
-        'Toolchain auto-install is macOS-only - on this host, build remotely or via EAS.',
-      );
-      return true;
+  }
+
+  return missing;
+}
+
+function isCcache(tool: Tool): boolean {
+  return tool.command == 'ccache';
+}
+
+function isRecommendedTool(tool: Tool): boolean {
+  return tool.tier == 'recommended';
+}
+
+function toolLabel(tool: Tool): string {
+  return tool.label;
+}
+
+function readToolchainIo(options: { io?: ToolchainIo }): ToolchainIo {
+  if (options.io != null) {
+    return options.io;
+  }
+
+  return realIo(createLogger(false), LaunchPrompt);
+}
+
+export async function ensureToolchain(options: EnsureToolchainOptions = {}): Promise<boolean> {
+  const io = readToolchainIo(options);
+  let onMac = checkIsMacOperatingSystem();
+
+  if (options.platform != null) {
+    onMac = options.platform == 'darwin';
+  }
+
+  let assumeYes = false;
+
+  if (options.assumeYes != null) {
+    assumeYes = options.assumeYes;
+  }
+
+  if (onMac == false) {
+    await io.log('Toolchain auto-install is macOS-only - on this host, build remotely or via EAS.');
+
+    return true;
+  }
+
+  const missing = await detectMissing(io, REQUIRED_TOOLS);
+  const noneMissing = missing.length == 0;
+
+  if (noneMissing) {
+    await io.log('OK All build tools are installed.');
+
+    return true;
+  }
+
+  const planned = planInstall(missing);
+
+  for (const tool of planned.guided) {
+    await io.log(`x ${tool.label} - ${fixHint(tool)}`);
+  }
+
+  const hasBrewTools = planned.brew.length > 0;
+
+  if (hasBrewTools) {
+    await installBrewTools(io, planned.brew, assumeYes);
+  }
+
+  const ccacheWasMissing = missing.some(isCcache);
+
+  if (ccacheWasMissing) {
+    const ccacheExists = await io.exists('ccache');
+
+    if (ccacheExists) {
+      await configureCcache(io);
     }
-    const missing = yield* detectMissing(io, REQUIRED_TOOLS);
-    if (missing.length === 0) {
-      yield* io.log('OK All build tools are installed.');
-      return true;
-    }
-    const { brew, guided } = planInstall(missing);
-    for (const tool of guided) yield* io.log(`x ${tool.label} - ${fixHint(tool)}`);
-    if (brew.length > 0) {
-      yield* installBrewTools(io, brew, assumeYes);
-    }
-    // If ccache was among the freshly installed tools, configure it once (size + Xcode-friendly sloppiness).
-    if (missing.some((tool) => tool.command === 'ccache') && (yield* io.exists('ccache'))) {
-      yield* configureCcache(io);
-    }
-    const stillMissing = yield* detectMissing(io, REQUIRED_TOOLS);
-    for (const tool of stillMissing.filter((t) => t.tier === 'recommended')) {
-      yield* io.log(`- ${tool.label} (recommended, skipped) - ${fixHint(tool)}`);
-    }
-    const requiredMissing = stillMissing.filter((tool) => tool.tier === 'required');
-    if (requiredMissing.length === 0) {
-      yield* io.log('OK Toolchain ready.');
-      return true;
-    }
-    yield* io.log(
-      `Still missing: ${requiredMissing.map((tool) => tool.label).join(', ')}. See the hints above.`,
-    );
-    return false;
-  });
+  }
+
+  const stillMissing = await detectMissing(io, REQUIRED_TOOLS);
+
+  for (const tool of stillMissing.filter(isRecommendedTool)) {
+    await io.log(`- ${tool.label} (recommended, skipped) - ${fixHint(tool)}`);
+  }
+
+  const requiredMissing = stillMissing.filter(isRequiredTool);
+  const requiredArePresent = requiredMissing.length == 0;
+
+  if (requiredArePresent) {
+    await io.log('OK Toolchain ready.');
+
+    return true;
+  }
+
+  await io.log(`Still missing: ${requiredMissing.map(toolLabel).join(', ')}. See the hints above.`);
+
+  return false;
+}
 /** ccache cap and the sloppiness flags that make caching reliable for Xcode/CocoaPods ObjC/C++ builds. */
 const CCACHE_MAX_SIZE = '10G';
 const CCACHE_SLOPPINESS =
@@ -275,14 +321,11 @@ const CCACHE_SLOPPINESS =
  * builds, plus the sloppiness flags Xcode/CocoaPods builds need to actually hit the cache (timestamps and
  * the clang index store would otherwise bust every entry). Idempotent - safe to re-run on a later `--fix`.
  */
-const configureCcache = (io: ToolchainIo): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    yield* io.log(
-      `-> configuring ccache (max-size ${CCACHE_MAX_SIZE}, Xcode-friendly sloppiness)...`,
-    );
-    yield* io.run('ccache', ['--max-size', CCACHE_MAX_SIZE]);
-    yield* io.run('ccache', ['--set-config', `sloppiness=${CCACHE_SLOPPINESS}`]);
-  });
+async function configureCcache(io: ToolchainIo): Promise<void> {
+  await io.log(`-> configuring ccache (max-size ${CCACHE_MAX_SIZE}, Xcode-friendly sloppiness)...`);
+  await io.run('ccache', ['--max-size', CCACHE_MAX_SIZE]);
+  await io.run('ccache', ['--set-config', `sloppiness=${CCACHE_SLOPPINESS}`]);
+}
 /** The outcome of the inline ccache offer, so a build can log it and persist a decline correctly. */
 type CcacheOfferResult = 'installed' | 'declined' | 'skipped-no-brew' | 'skipped-noninteractive';
 /**
@@ -297,78 +340,121 @@ type CcacheOfferResult = 'installed' | 'declined' | 'skipped-no-brew' | 'skipped
  *
  * Never throws on a decline or a failed install: a build without ccache simply runs uncached.
  */
-export const ensureCcacheInstalled = (options: {
+export async function ensureCcacheInstalled(options: {
   interactive: boolean;
   io?: ToolchainIo;
-}): Effect.Effect<CcacheOfferResult, unknown, Logger | LaunchPromptService> =>
-  Effect.gen(function* () {
-    let io = options.io;
-    if (io === undefined) {
-      const logger = yield* createLogger(false);
-      const prompt = yield* LaunchPrompt;
-      io = realIo(logger, prompt);
-    }
-    if (!options.interactive) return 'skipped-noninteractive';
-    if (!(yield* io.exists('brew'))) return 'skipped-no-brew';
-    const proceed = yield* io.confirm(
-      "ccache isn't installed - install it via Homebrew now? It makes repeat builds much faster (this build stays uncached).",
-    );
-    if (!proceed) return 'declined';
-    yield* io.log('-> brew install ccache...');
-    yield* io.run('brew', ['install', 'ccache']);
-    if (!(yield* io.exists('ccache'))) return 'skipped-no-brew';
-    yield* configureCcache(io);
-    return 'installed';
-  });
+}): Promise<CcacheOfferResult> {
+  const io = readToolchainIo(options);
+
+  if (options.interactive == false) {
+    return 'skipped-noninteractive';
+  }
+
+  const brewExists = await io.exists('brew');
+
+  if (brewExists == false) {
+    return 'skipped-no-brew';
+  }
+
+  const proceed = await io.confirm(
+    "ccache isn't installed - install it via Homebrew now? It makes repeat builds much faster (this build stays uncached).",
+  );
+
+  if (proceed == false) {
+    return 'declined';
+  }
+
+  await io.log('-> brew install ccache...');
+  await io.run('brew', ['install', 'ccache']);
+  const ccacheExists = await io.exists('ccache');
+
+  if (ccacheExists == false) {
+    return 'skipped-no-brew';
+  }
+
+  await configureCcache(io);
+
+  return 'installed';
+}
 /**
  * Ensure Homebrew exists (guided/consented), then install the brew-able tools in one batch.
  * Extracted from {@link ensureToolchain} to keep that function's flow legible.
  */
-const installBrewTools = (
+function brewFormula(tool: Tool): string {
+  if (tool.install.kind == 'brew') {
+    return tool.install.formula;
+  }
+
+  return tool.command;
+}
+
+async function installBrewTools(
   io: ToolchainIo,
   brewTools: readonly Tool[],
   assumeYes: boolean,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    if (!(yield* ensureHomebrew(io, assumeYes))) {
-      yield* io.log("Homebrew isn't available - install it, then re-run `launch doctor --fix`:");
-      for (const tool of brewTools) yield* io.log(`  ${fixHint(tool)}`);
-      return;
+): Promise<void> {
+  const homebrewReady = await ensureHomebrew(io, assumeYes);
+
+  if (homebrewReady == false) {
+    await io.log("Homebrew isn't available - install it, then re-run `launch doctor --fix`:");
+
+    for (const tool of brewTools) {
+      await io.log(`  ${fixHint(tool)}`);
     }
-    const labels = brewTools.map((tool) => tool.label).join(', ');
-    let proceed = assumeYes;
-    if (!proceed)
-      proceed = yield* io.confirm(
-        `Install ${brewTools.length} missing tool(s) via Homebrew? (${labels})`,
-      );
-    if (!proceed) {
-      yield* io.log('Skipped. Install them yourself with:');
-      for (const tool of brewTools) yield* io.log(`  ${fixHint(tool)}`);
-      return;
+
+    return;
+  }
+
+  const labels = brewTools.map(toolLabel).join(', ');
+  let proceed = assumeYes;
+
+  if (proceed == false) {
+    proceed = await io.confirm(
+      `Install ${brewTools.length} missing tool(s) via Homebrew? (${labels})`,
+    );
+  }
+
+  if (proceed == false) {
+    await io.log('Skipped. Install them yourself with:');
+
+    for (const tool of brewTools) {
+      await io.log(`  ${fixHint(tool)}`);
     }
-    const formulas = brewTools.map((tool) => {
-      if (tool.install.kind === 'brew') return tool.install.formula;
-      return tool.command;
-    });
-    yield* io.log(`-> brew install ${formulas.join(' ')}`);
-    yield* io.run('brew', ['install', ...formulas]);
-  });
+
+    return;
+  }
+
+  const formulas = brewTools.map(brewFormula);
+  await io.log(`-> brew install ${formulas.join(' ')}`);
+  await io.run('brew', ['install', ...formulas]);
+}
 /**
  * Make sure Homebrew is present, installing it only behind an explicit typed-`yes` because its
  * installer pipes a remote script to bash and may prompt for a password. Returns whether brew is
  * usable afterward.
  */
-const ensureHomebrew = (io: ToolchainIo, assumeYes: boolean): Effect.Effect<boolean, unknown> =>
-  Effect.gen(function* () {
-    if (yield* io.exists('brew')) return true;
-    let consent = assumeYes;
-    if (!consent)
-      consent = yield* io.confirmText(
-        'Homebrew is required to install the rest. Run the official installer? It pipes a remote script to bash and may prompt for your password.',
-        'yes',
-      );
-    if (!consent) return false;
-    yield* io.log('-> installing Homebrew (official installer)...');
-    yield* io.run('/bin/bash', ['-c', HOMEBREW_INSTALL_COMMAND]);
-    return yield* io.exists('brew');
-  });
+async function ensureHomebrew(io: ToolchainIo, assumeYes: boolean): Promise<boolean> {
+  const brewExists = await io.exists('brew');
+
+  if (brewExists) {
+    return true;
+  }
+
+  let consent = assumeYes;
+
+  if (consent == false) {
+    consent = await io.confirmText(
+      'Homebrew is required to install the rest. Run the official installer? It pipes a remote script to bash and may prompt for your password.',
+      'yes',
+    );
+  }
+
+  if (consent == false) {
+    return false;
+  }
+
+  await io.log('-> installing Homebrew (official installer)...');
+  await io.run('/bin/bash', ['-c', HOMEBREW_INSTALL_COMMAND]);
+
+  return io.exists('brew');
+}

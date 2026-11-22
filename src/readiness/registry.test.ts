@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { Effect } from 'effect';
 import {
   listReadinessProbes,
   registerBuiltinProbes,
@@ -86,7 +85,7 @@ describe('readiness registry', () => {
       title,
       store: 'appstore',
       categories: ['account'],
-      check: () => Effect.succeed({ state: 'omitted' }),
+      check: () => Promise.resolve({ state: 'omitted' }),
     });
     registerReadinessProbe(make('first'));
     registerReadinessProbe(make('second'));

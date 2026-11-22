@@ -1,5 +1,5 @@
-import { Effect } from 'effect';
-import type { AccountRecord, BuildCredentials } from '../types/credentials.js';
+import type { AccountRecord, AppleCredentials, BuildCredentials } from '../types/credentials.js';
+import type { SizeReport } from '../types/artifacts.js';
 import { makeProviderInputFailure } from '../types/providers.js';
 import type { BumpKind } from '../release/version.js';
 import { refreshIdentityIfStale } from '../credentials/accounts.js';
@@ -24,158 +24,356 @@ import {
   nudgeIfNoCcache,
   uploadIosBuild,
 } from './pipelineArtifact.js';
-/** The iOS spine: prebuild -> resolve creds/signing -> build number -> xcodebuild archive and export -> size -> store -> submit. */
-export const runIosBuild = (prepared: PreparedBuild, options: BuildRunOptions) =>
-  Effect.gen(function* () {
-    const { config, app, buildContext, log } = prepared;
-    const { dryRun } = options;
-    const buildEngine = yield* getBuildEngine(resolveBuildEngineName(config, 'ios'));
-    let appVersion = app.version;
-    if (appVersion === undefined) appVersion = '0.0.0';
-    // 2. Generate ios/ when it's missing, or on every build with `prebuild: 'always'`.
-    yield* ensureNativeProject(buildContext, log, config.prebuild);
-    // 2.5. Resolve which Apple account to build with (skipped in dry-run, which uses the placeholder key).
-    let account: AccountRecord | undefined;
-    if (!dryRun) {
-      account = yield* resolveIosAccount(options, log);
-      buildContext.account = account.keyId;
-    }
-    // 3. Resolve the API key, then reuse-or-provision the distribution cert + profile.
-    let resolved: BuildCredentials = { platform: 'ios', ascKey: DRY_RUN_KEY };
-    if (!dryRun) {
-      const credentialsProvider = yield* getCredentialsProvider(config.credentials);
-      resolved = yield* credentialsProvider.resolveBuildCredentials(buildContext);
-    }
-    if (resolved.platform !== 'ios') {
-      return yield* Effect.fail(
-        makeProviderInputFailure({
-          provider: config.credentials,
-          message: 'Expected Apple (App Store Connect) credentials for an Apple build.',
-        }),
-      );
-    }
-    let credentialsDescription = `key ${resolved.ascKey.keyId}`;
-    if (dryRun) credentialsDescription = 'dry-run (no key needed)';
-    yield* log.step('credentials', credentialsDescription, 'asc-api-key');
-    const signing = yield* resolveSigning(
-      resolved,
+import type { Logger } from '../services/platform/logger.js';
+import type { AppDescriptor } from '../types/app.js';
+
+function isAppleBuildCredentials(
+  credentials: BuildCredentials,
+): credentials is BuildCredentials & AppleCredentials & { platform: 'ios' } {
+  return credentials.platform == 'ios';
+}
+
+function requireAppleCredentials(
+  credentials: BuildCredentials,
+  providerName: string,
+): BuildCredentials & AppleCredentials & { platform: 'ios' } {
+  if (isAppleBuildCredentials(credentials)) {
+    return credentials;
+  }
+
+  throw makeProviderInputFailure({
+    provider: providerName,
+    message: 'Expected Apple (App Store Connect) credentials for an Apple build.',
+  });
+}
+
+function shouldSuggestMarketingVersion(shouldSubmit: boolean, isInternal: boolean): boolean {
+  if (shouldSubmit == false) {
+    return false;
+  }
+
+  return isInternal == false;
+}
+
+function shouldResolveStoreLink(shouldSubmit: boolean, bundleId: string): boolean {
+  if (shouldSubmit == false) {
+    return false;
+  }
+
+  return bundleId != '';
+}
+
+function marketingVersion(app: AppDescriptor): string {
+  if (app.version == null) {
+    return '0.0.0';
+  }
+
+  return app.version;
+}
+
+function bundleIdentifier(app: AppDescriptor): string {
+  if (app.bundleId == null) {
+    return '';
+  }
+
+  return app.bundleId;
+}
+
+async function readIosAccount(
+  isDryRun: boolean,
+  buildOptions: BuildRunOptions,
+  log: Logger,
+  buildContext: PreparedBuild['buildContext'],
+): Promise<AccountRecord | undefined> {
+  if (isDryRun) {
+    return undefined;
+  }
+
+  const account = await resolveIosAccount(buildOptions, log);
+
+  buildContext.account = account.keyId;
+
+  return account;
+}
+
+async function readIosCredentials(
+  isDryRun: boolean,
+  launchConfig: PreparedBuild['config'],
+  buildContext: PreparedBuild['buildContext'],
+): Promise<BuildCredentials> {
+  if (isDryRun) {
+    return { platform: 'ios', ascKey: DRY_RUN_KEY };
+  }
+
+  const credentialsProvider = getCredentialsProvider(launchConfig.credentials);
+  const resolved = await credentialsProvider.resolveBuildCredentials(buildContext);
+
+  return resolved;
+}
+
+function iosBuildKind(cleanBuilt: boolean): string {
+  if (cleanBuilt) {
+    return 'clean (from scratch)';
+  }
+
+  return 'incremental (cache warm)';
+}
+
+function iosBuildDescription(isDryRun: boolean, cleanBuilt: boolean, artifactPath: string): string {
+  if (isDryRun) {
+    return 'skipped (dry-run)';
+  }
+
+  return `${iosBuildKind(cleanBuilt)} - ${artifactPath}`;
+}
+
+function finishDryRunNote(
+  log: Logger,
+  appName: string,
+  appVersion: string,
+  buildNumber: number,
+): void {
+  log.gap();
+  log.note(`Done. ${appName} ${appVersion} (${buildNumber}) - dry-run, nothing changed`);
+}
+
+/** The iOS spine: prebuild, signing, build number, archive, size, store, then submit. */
+export async function runIosBuild(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+): Promise<void> {
+  const launchConfig = prepared.config;
+  const app = prepared.app;
+  const buildContext = prepared.buildContext;
+  const log = prepared.log;
+  const isDryRun = buildOptions.dryRun == true;
+  const buildEngine = getBuildEngine(resolveBuildEngineName(launchConfig, 'ios'));
+  const appVersion = marketingVersion(app);
+
+  await ensureNativeProject(buildContext, log, launchConfig.prebuild);
+
+  const account = await readIosAccount(isDryRun, buildOptions, log, buildContext);
+  const loadedCredentials = await readIosCredentials(isDryRun, launchConfig, buildContext);
+  const resolved = requireAppleCredentials(loadedCredentials, launchConfig.credentials);
+
+  let credentialsDescription = `key ${resolved.ascKey.keyId}`;
+
+  if (isDryRun) {
+    credentialsDescription = 'dry-run (no key needed)';
+  }
+
+  log.step('credentials', credentialsDescription, 'asc-api-key');
+
+  const signing = await resolveSigning(
+    resolved,
+    app,
+    buildContext.platform,
+    log,
+    isDryRun,
+    buildContext.distribution,
+  );
+  const credentials: BuildCredentials = { platform: 'ios', ascKey: resolved.ascKey, signing };
+  const bundleId = bundleIdentifier(app);
+  const isInternal = buildContext.distribution == 'internal';
+  let resolvedBump: BumpKind | undefined;
+  const shouldSuggestVersion = shouldSuggestMarketingVersion(buildOptions.submit, isInternal);
+
+  if (shouldSuggestVersion) {
+    resolvedBump = await resolveMarketingVersion(
+      resolved.ascKey,
+      bundleId,
       app,
       buildContext.platform,
+      buildOptions,
       log,
-      dryRun,
-      buildContext.distribution,
     );
-    const credentials: BuildCredentials = { platform: 'ios', ascKey: resolved.ascKey, signing };
-    let bundleId = app.bundleId;
-    if (bundleId === undefined) bundleId = '';
-    const internal = buildContext.distribution === 'internal';
-    // 3b. Suggest the next marketing version from what's already on the store (interactive store uploads only -
-    // an internal install-link build doesn't touch the store, so the store-version prompt is skipped). The
-    // applied bump kind is remembered after a successful build (see the rememberLastRun calls below).
-    let resolvedBump: BumpKind | undefined;
-    if (options.submit && !internal) {
-      resolvedBump = yield* resolveMarketingVersion(
-        resolved.ascKey,
-        bundleId,
-        app,
-        buildContext.platform,
-        options,
-        log,
-      );
-    }
-    // 4. Auto-bump the build number from the last one Apple has on record.
-    let buildNumber: number;
-    if (dryRun) {
-      buildNumber = yield* nextBuildNumber(resolved.ascKey, bundleId, dryRun);
-    } else {
-      buildNumber = yield* withSpinner('Checking last build number on App Store Connect', () =>
-        nextBuildNumber(resolved.ascKey, bundleId, dryRun),
-      );
-    }
-    let stamped = false;
-    if (!dryRun) {
-      stamped = yield* setIosBuildNumber(app.dir, buildContext.platform, buildNumber);
-    }
-    let buildNumberDescription = `${buildNumber} (could not stamp Info.plist)`;
-    if (stamped) buildNumberDescription = `set to ${buildNumber}`;
-    if (dryRun) buildNumberDescription = `would set next build number (~${buildNumber})`;
-    yield* log.step('build number', buildNumberDescription, 'build-number');
-    // 5. Compile, sign, export, and analyze size - clean or incremental per the build fingerprint.
-    if (!dryRun) yield* nudgeIfNoCcache(log);
-    const { artifactPath, sizeReport, cleanBuilt } = yield* runBuildStep(
-      prepared,
-      buildNumber,
-      () => buildEngine.buildArtifact(buildContext, credentials),
+  }
+
+  async function readNextBuildNumber(): Promise<number> {
+    const buildNumber = await nextBuildNumber(resolved.ascKey, bundleId, isDryRun);
+
+    return buildNumber;
+  }
+
+  let buildNumber: number;
+
+  if (isDryRun) {
+    buildNumber = await readNextBuildNumber();
+  } else {
+    buildNumber = await withSpinner(
+      'Checking last build number on App Store Connect',
+      readNextBuildNumber,
     );
-    let buildDescription = 'skipped (dry-run)';
-    if (!dryRun) {
-      let buildKind = 'incremental (cache warm)';
-      if (cleanBuilt) buildKind = 'clean (from scratch)';
-      buildDescription = `${buildKind} - ${artifactPath}`;
-    }
-    yield* log.step('build', buildDescription, 'incremental-build');
-    if (!dryRun) yield* reportCcacheStats(log);
-    // 6. Show the per-device size readout (the budget decision happens at the upload boundary).
-    yield* reportSize(sizeReport, log);
-    // 7. Store the artifact (shared with Android).
-    yield* storeArtifact(prepared, artifactPath, buildNumber, sizeReport, cleanBuilt);
-    // 8a. Internal distribution: skip the store entirely - upload an ad-hoc install link instead.
-    if (internal) {
-      yield* distributeArtifact({
-        config,
-        app,
-        platform: 'ios',
-        artifactPath,
-        version: appVersion,
-        buildNumber,
-        bundleId,
-        dryRun,
-        log,
-      });
-      if (dryRun) {
-        yield* log.gap();
-        yield* log.note(
-          `Done. ${app.name} ${appVersion} (${buildNumber}) - dry-run, nothing changed`,
-        );
-      } else {
-        yield* rememberLastRun(app.name, resolvedBump);
-      }
-      return;
-    }
-    // 8. Confirm the upload (size shown; budget enforced here), submit, then report processing status.
-    if (options.submit) {
-      if (dryRun) {
-        yield* log.step('submit', 'would upload to TestFlight', 'testflight');
-      } else {
-        const submitArtifact = { path: artifactPath, version: appVersion, buildNumber };
-        yield* uploadIosBuild(prepared, options, submitArtifact, sizeReport, credentials);
-        if (bundleId) {
-          yield* reportProcessing(resolved.ascKey, bundleId, buildNumber, log);
-        }
-      }
-    }
-    if (dryRun) {
-      yield* log.gap();
-      yield* log.note(
-        `Done. ${app.name} ${appVersion} (${buildNumber}) - dry-run, nothing changed`,
-      );
-      return;
-    }
-    // Backfill this account's Team ID + app names from Apple the first time we have a live key in hand.
-    if (account) yield* refreshIdentityIfStale(account, resolved.ascKey);
-    let link: string | undefined;
-    if (options.submit && bundleId) {
-      link = yield* resolveAscBuildLink(resolved.ascKey, bundleId);
-    }
-    yield* renderReceipt({
-      app,
-      version: appVersion,
-      buildNumber,
-      report: sizeReport,
-      destination: receiptDestination('ios', options),
-      link,
-      log,
-    });
-    // Remember this run's picks so the next build defaults to them (app pre-selected, bump auto-applied).
-    yield* rememberLastRun(app.name, resolvedBump);
+  }
+
+  let stamped = false;
+
+  if (isDryRun == false) {
+    stamped = await setIosBuildNumber(app.dir, buildContext.platform, buildNumber);
+  }
+
+  let buildNumberDescription = `${buildNumber} (could not stamp Info.plist)`;
+
+  if (stamped) {
+    buildNumberDescription = `set to ${buildNumber}`;
+  }
+
+  if (isDryRun) {
+    buildNumberDescription = `would set next build number (~${buildNumber})`;
+  }
+
+  log.step('build number', buildNumberDescription, 'build-number');
+
+  if (isDryRun == false) {
+    await nudgeIfNoCcache(log);
+  }
+
+  const compiled = await runBuildStep(prepared, buildNumber, function compileArtifact() {
+    return buildEngine.buildArtifact(buildContext, credentials);
   });
+
+  log.step(
+    'build',
+    iosBuildDescription(isDryRun, compiled.cleanBuilt, compiled.artifactPath),
+    'incremental-build',
+  );
+
+  if (isDryRun == false) {
+    await reportCcacheStats(log);
+  }
+
+  await reportSize(compiled.sizeReport, log);
+  await storeArtifact(
+    prepared,
+    compiled.artifactPath,
+    buildNumber,
+    compiled.sizeReport,
+    compiled.cleanBuilt,
+  );
+
+  if (isInternal) {
+    await finishInternalIosBuild(
+      prepared,
+      buildOptions,
+      compiled.artifactPath,
+      appVersion,
+      buildNumber,
+      bundleId,
+      resolvedBump,
+    );
+    return;
+  }
+
+  await submitIosWhenRequested(
+    prepared,
+    buildOptions,
+    compiled.artifactPath,
+    appVersion,
+    buildNumber,
+    compiled.sizeReport,
+    credentials,
+    resolved.ascKey,
+    bundleId,
+  );
+
+  if (isDryRun) {
+    finishDryRunNote(log, app.name, appVersion, buildNumber);
+    return;
+  }
+
+  const hasAccount = account != null;
+
+  if (hasAccount) {
+    await refreshIdentityIfStale(account, resolved.ascKey);
+  }
+
+  let link: string | undefined;
+  const shouldLink = shouldResolveStoreLink(buildOptions.submit, bundleId);
+
+  if (shouldLink) {
+    link = await resolveAscBuildLink(resolved.ascKey, bundleId);
+  }
+
+  await renderReceipt({
+    app,
+    version: appVersion,
+    buildNumber,
+    report: compiled.sizeReport,
+    destination: receiptDestination('ios', buildOptions),
+    link,
+    log,
+  });
+  await rememberLastRun(app.name, resolvedBump);
+}
+
+async function finishInternalIosBuild(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+  artifactPath: string,
+  appVersion: string,
+  buildNumber: number,
+  bundleId: string,
+  resolvedBump: BumpKind | undefined,
+): Promise<void> {
+  const isDryRun = buildOptions.dryRun == true;
+
+  await distributeArtifact({
+    config: prepared.config,
+    app: prepared.app,
+    platform: 'ios',
+    artifactPath,
+    version: appVersion,
+    buildNumber,
+    bundleId,
+    dryRun: isDryRun,
+    log: prepared.log,
+  });
+
+  if (isDryRun) {
+    finishDryRunNote(prepared.log, prepared.app.name, appVersion, buildNumber);
+    return;
+  }
+
+  await rememberLastRun(prepared.app.name, resolvedBump);
+}
+
+async function submitIosWhenRequested(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+  artifactPath: string,
+  appVersion: string,
+  buildNumber: number,
+  sizeReport: SizeReport,
+  credentials: BuildCredentials,
+  ascKey: AppleCredentials['ascKey'],
+  bundleId: string,
+): Promise<void> {
+  const shouldSubmit = buildOptions.submit == true;
+
+  if (shouldSubmit == false) {
+    return;
+  }
+
+  const isDryRun = buildOptions.dryRun == true;
+
+  if (isDryRun) {
+    prepared.log.step('submit', 'would upload to TestFlight', 'testflight');
+    return;
+  }
+
+  await uploadIosBuild(
+    prepared,
+    buildOptions,
+    { path: artifactPath, version: appVersion, buildNumber },
+    sizeReport,
+    credentials,
+  );
+
+  const hasBundleId = bundleId != '';
+
+  if (hasBundleId == false) {
+    return;
+  }
+
+  await reportProcessing(ascKey, bundleId, buildNumber, prepared.log);
+}

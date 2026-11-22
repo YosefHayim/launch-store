@@ -1,47 +1,70 @@
-import { Effect, unsafeCoerce } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { GooglePlayClient, type GooglePlayTransport } from '../../google/playClient.js';
 
 vi.mock('../../credentials/accounts.js', () => ({ loadActiveAscKey: vi.fn() }));
 vi.mock('../../credentials/androidKeystore.js', () => ({ loadServiceAccount: vi.fn() }));
 
 import { loadActiveAscKey } from '../../credentials/accounts.js';
 import { loadServiceAccount } from '../../credentials/androidKeystore.js';
-import {
-  type AppleStoreClientService,
-  AppleStoreClientService as AppleStoreClients,
-  type EffectAppStoreConnectClient,
-} from '../../services/stores/appleStoreClient.js';
-import {
-  type EffectGooglePlayClient,
-  type GoogleStoreClientService,
-  GoogleStoreClientService as GoogleStoreClients,
-} from '../../services/stores/googleStoreClient.js';
+import { AppleStoreClientService } from '../../services/stores/appleStoreClient.js';
+import { GoogleStoreClientService } from '../../services/stores/googleStoreClient.js';
 import { createAscClientResolver, createPlayClientResolver } from './storeClients.js';
 
-const appStoreClient = unsafeCoerce<unknown, EffectAppStoreConnectClient>({ store: 'apple' });
-const playStoreClient = unsafeCoerce<unknown, EffectGooglePlayClient>({ store: 'google' });
+function playTransport(): GooglePlayTransport {
+  return {
+    edits: {
+      insert: vi.fn(),
+      commit: vi.fn(),
+      delete: vi.fn(),
+      bundles: { list: vi.fn(), upload: vi.fn() },
+      tracks: { get: vi.fn(), list: vi.fn(), update: vi.fn() },
+      testers: { get: vi.fn(), update: vi.fn() },
+      countryavailability: { get: vi.fn() },
+      listings: { list: vi.fn(), patch: vi.fn() },
+    },
+    inappproducts: {
+      list: vi.fn(),
+      insert: vi.fn(),
+      update: vi.fn(),
+    },
+    monetization: {
+      convertRegionPrices: vi.fn(),
+      subscriptions: {
+        list: vi.fn(),
+        create: vi.fn(),
+        patch: vi.fn(),
+        basePlans: {
+          activate: vi.fn(),
+          offers: {
+            list: vi.fn(),
+            create: vi.fn(),
+            activate: vi.fn(),
+          },
+        },
+      },
+    },
+    reviews: {
+      list: vi.fn(),
+      get: vi.fn(),
+      reply: vi.fn(),
+    },
+  };
+}
 
-const createEffectAppStoreClient = vi.fn(() => Effect.succeed(appStoreClient));
-const createEffectPlayStoreClient = vi.fn(() => Effect.succeed(playStoreClient));
-
-const appleStoreClientTest = unsafeCoerce<
-  Pick<AppleStoreClientService, 'createEffectClient'>,
-  AppleStoreClientService
->({ createEffectClient: createEffectAppStoreClient });
-
-const googleStoreClientTest = unsafeCoerce<
-  Pick<GoogleStoreClientService, 'createEffectClient'>,
-  GoogleStoreClientService
->({ createEffectClient: createEffectPlayStoreClient });
-
-const runTest = <Success, Failure, Requirements>(
-  testEffect: Effect.Effect<Success, Failure, Requirements>,
-): Promise<Success> =>
-  Effect.runPromise(
-    unsafeCoerce<Effect.Effect<Success, Failure, Requirements>, Effect.Effect<Success, Failure>>(
-      testEffect,
-    ),
-  );
+const appStoreClient = new AppStoreConnectClient({
+  keyId: 'K',
+  issuerId: 'I',
+  p8: 'pem',
+});
+const playStoreClient = new GooglePlayClient(
+  {
+    clientEmail: 'launch@example.com',
+    privateKey: 'unused',
+    tokenUri: 'https://oauth2.googleapis.com/token',
+  },
+  playTransport(),
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -49,106 +72,83 @@ beforeEach(() => {
 
 describe('createAscClientResolver', () => {
   it('loads credentials and constructs the client once', async () => {
-    vi.mocked(loadActiveAscKey).mockReturnValue(
-      Effect.succeed({ keyId: 'K', issuerId: 'I', p8: 'pem' }),
-    );
+    vi.mocked(loadActiveAscKey).mockResolvedValue({ keyId: 'K', issuerId: 'I', p8: 'pem' });
+    const createClient = vi
+      .spyOn(AppleStoreClientService, 'createEffectClient')
+      .mockReturnValue(appStoreClient);
     const resolveAppStoreClient = createAscClientResolver();
-    const runResolver = () =>
-      runTest(
-        resolveAppStoreClient().pipe(
-          Effect.provideService(AppleStoreClients, appleStoreClientTest),
-        ),
-      );
 
-    const firstClient = await runResolver();
-    const secondClient = await runResolver();
+    const firstClient = await resolveAppStoreClient();
+    const secondClient = await resolveAppStoreClient();
+
     expect(firstClient).toBe(secondClient);
     expect(loadActiveAscKey).toHaveBeenCalledTimes(1);
-    expect(createEffectAppStoreClient).toHaveBeenCalledTimes(1);
+    expect(createClient).toHaveBeenCalledTimes(1);
   });
 
   it('caches an unconfigured account without creating a client', async () => {
-    vi.mocked(loadActiveAscKey).mockReturnValue(Effect.succeed(null));
+    vi.mocked(loadActiveAscKey).mockResolvedValue(null);
+    const createClient = vi
+      .spyOn(AppleStoreClientService, 'createEffectClient')
+      .mockReturnValue(appStoreClient);
     const resolveAppStoreClient = createAscClientResolver();
-    const runResolver = () =>
-      runTest(
-        resolveAppStoreClient().pipe(
-          Effect.provideService(AppleStoreClients, appleStoreClientTest),
-        ),
-      );
 
-    expect(await runResolver()).toBeNull();
-    expect(await runResolver()).toBeNull();
+    expect(await resolveAppStoreClient()).toBeNull();
+    expect(await resolveAppStoreClient()).toBeNull();
     expect(loadActiveAscKey).toHaveBeenCalledTimes(1);
-    expect(createEffectAppStoreClient).not.toHaveBeenCalled();
+    expect(createClient).not.toHaveBeenCalled();
   });
 });
 
 describe('createPlayClientResolver', () => {
   it('loads the service account and constructs the client once', async () => {
-    vi.mocked(loadServiceAccount).mockReturnValue(Effect.succeed('{}'));
-    const resolvePlayStoreClient = await runTest(
-      createPlayClientResolver().pipe(
-        Effect.provideService(GoogleStoreClients, googleStoreClientTest),
-      ),
-    );
-    const runResolver = () =>
-      runTest(
-        resolvePlayStoreClient('com.example.demo').pipe(
-          Effect.provideService(GoogleStoreClients, googleStoreClientTest),
-        ),
-      );
+    vi.mocked(loadServiceAccount).mockResolvedValue('{}');
+    const createClient = vi
+      .spyOn(GoogleStoreClientService, 'createEffectClient')
+      .mockReturnValue(playStoreClient);
+    const resolvePlayStoreClient = createPlayClientResolver();
 
-    const firstClient = await runResolver();
-    const secondClient = await runResolver();
+    const firstClient = await resolvePlayStoreClient('com.example.demo');
+    const secondClient = await resolvePlayStoreClient('com.example.demo');
+
     expect(firstClient).toBe(secondClient);
     expect(loadServiceAccount).toHaveBeenCalledTimes(1);
-    expect(createEffectPlayStoreClient).toHaveBeenCalledTimes(1);
+    expect(createClient).toHaveBeenCalledTimes(1);
   });
 
   it('caches an unconfigured account without creating a client', async () => {
-    vi.mocked(loadServiceAccount).mockReturnValue(Effect.succeed(null));
-    const resolvePlayStoreClient = await runTest(
-      createPlayClientResolver().pipe(
-        Effect.provideService(GoogleStoreClients, googleStoreClientTest),
-      ),
-    );
-    const runResolver = () =>
-      runTest(
-        resolvePlayStoreClient('com.example.demo').pipe(
-          Effect.provideService(GoogleStoreClients, googleStoreClientTest),
-        ),
-      );
+    vi.mocked(loadServiceAccount).mockResolvedValue(null);
+    const createClient = vi
+      .spyOn(GoogleStoreClientService, 'createEffectClient')
+      .mockReturnValue(playStoreClient);
+    const resolvePlayStoreClient = createPlayClientResolver();
 
-    expect(await runResolver()).toBeNull();
-    expect(await runResolver()).toBeNull();
+    expect(await resolvePlayStoreClient('com.example.demo')).toBeNull();
+    expect(await resolvePlayStoreClient('com.example.demo')).toBeNull();
     expect(loadServiceAccount).toHaveBeenCalledTimes(1);
-    expect(createEffectPlayStoreClient).not.toHaveBeenCalled();
+    expect(createClient).not.toHaveBeenCalled();
   });
 });
 
 describe('per-package Play client resolution', () => {
   it('loads each package account independently instead of reusing the first app account', async () => {
-    vi.mocked(loadServiceAccount).mockImplementation((packageName) =>
-      Effect.succeed(JSON.stringify({ packageName })),
-    );
-    const resolvePackageClient = await runTest(
-      createPlayClientResolver().pipe(
-        Effect.provideService(GoogleStoreClients, googleStoreClientTest),
-      ),
-    );
-    await runTest(resolvePackageClient('com.example.alpha'));
-    await runTest(resolvePackageClient('com.example.beta'));
-    await runTest(resolvePackageClient('com.example.alpha'));
+    vi.mocked(loadServiceAccount).mockImplementation(function accountJson(packageName: string) {
+      return Promise.resolve(JSON.stringify({ packageName }));
+    });
+    const createClient = vi
+      .spyOn(GoogleStoreClientService, 'createEffectClient')
+      .mockReturnValue(playStoreClient);
+    const resolvePackageClient = createPlayClientResolver();
+
+    await resolvePackageClient('com.example.alpha');
+    await resolvePackageClient('com.example.beta');
+    await resolvePackageClient('com.example.alpha');
+
     expect(loadServiceAccount).toHaveBeenCalledTimes(2);
     expect(loadServiceAccount).toHaveBeenCalledWith('com.example.alpha');
     expect(loadServiceAccount).toHaveBeenCalledWith('com.example.beta');
-    expect(createEffectPlayStoreClient).toHaveBeenCalledWith(
-      JSON.stringify({ packageName: 'com.example.alpha' }),
-    );
-    expect(createEffectPlayStoreClient).toHaveBeenCalledWith(
-      JSON.stringify({ packageName: 'com.example.beta' }),
-    );
-    expect(await runTest(resolvePackageClient())).toBeNull();
+    expect(createClient).toHaveBeenCalledWith(JSON.stringify({ packageName: 'com.example.alpha' }));
+    expect(createClient).toHaveBeenCalledWith(JSON.stringify({ packageName: 'com.example.beta' }));
+    expect(await resolvePackageClient()).toBeNull();
   });
 });

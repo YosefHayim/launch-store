@@ -1,30 +1,23 @@
 // Probes App Store Connect features to explain which roles the active key can use.
 // The probe reads only; it never changes store state.
 
-import { Effect } from 'effect';
 import type { AppleTransportFailure } from '../../services/stores/appleStoreClient.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
 
 /** App Store Connect reads that represent distinct role-gated feature groups. */
 export type AscPermissionProbeApi = Readonly<{
-  listDistributionCertificates: () => Effect.Effect<unknown, AppleTransportFailure>;
-  listBetaGroups: (appId: string) => Effect.Effect<unknown, AppleTransportFailure>;
-  listAppStoreVersions: (
-    appId: string,
-    platform: string,
-  ) => Effect.Effect<unknown, AppleTransportFailure>;
-  listSubscriptionGroups: (appId: string) => Effect.Effect<unknown, AppleTransportFailure>;
+  listDistributionCertificates: () => Promise<unknown>;
+  listBetaGroups: (appId: string) => Promise<unknown>;
+  listAppStoreVersions: (appId: string, platform: string) => Promise<unknown>;
   listCustomerReviews: (
     appId: string,
     filters?: {
       rating?: number;
       territory?: string;
     },
-  ) => Effect.Effect<unknown, AppleTransportFailure>;
-  listAnalyticsReportRequests: (
-    appId: string,
-    accessType: string,
-  ) => Effect.Effect<unknown, AppleTransportFailure>;
+  ) => Promise<unknown>;
+  listSubscriptionGroups: (appId: string) => Promise<unknown>;
+  listAnalyticsReportRequests: (appId: string, accessType: string) => Promise<unknown>;
 }>;
 
 /** Verdict of probing one role-gated feature with the active key. */
@@ -45,13 +38,43 @@ type FeatureProbe = Readonly<{
   label: string;
   roles: readonly string[];
   needsApp: boolean;
-  run: (
-    permissionClient: AscPermissionProbeApi,
-    appId: string,
-  ) => Effect.Effect<unknown, AppleTransportFailure>;
+  run: (permissionClient: AscPermissionProbeApi, appId: string) => Promise<unknown>;
 }>;
 
 const IOS_PLATFORM = 'IOS';
+
+function probeProvisioning(permissionClient: AscPermissionProbeApi): Promise<unknown> {
+  return permissionClient.listDistributionCertificates();
+}
+
+function probeTestFlight(permissionClient: AscPermissionProbeApi, appId: string): Promise<unknown> {
+  return permissionClient.listBetaGroups(appId);
+}
+
+function probeAppStoreRelease(
+  permissionClient: AscPermissionProbeApi,
+  appId: string,
+): Promise<unknown> {
+  return permissionClient.listAppStoreVersions(appId, IOS_PLATFORM);
+}
+
+function probeMonetization(
+  permissionClient: AscPermissionProbeApi,
+  appId: string,
+): Promise<unknown> {
+  return permissionClient.listSubscriptionGroups(appId);
+}
+
+function probeCustomerReviews(
+  permissionClient: AscPermissionProbeApi,
+  appId: string,
+): Promise<unknown> {
+  return permissionClient.listCustomerReviews(appId);
+}
+
+function probeAnalytics(permissionClient: AscPermissionProbeApi, appId: string): Promise<unknown> {
+  return permissionClient.listAnalyticsReportRequests(appId, 'ONGOING');
+}
 
 const FEATURE_PROBES: readonly FeatureProbe[] = [
   {
@@ -59,95 +82,124 @@ const FEATURE_PROBES: readonly FeatureProbe[] = [
     label: 'Provisioning & signing (certificates, identifiers, profiles)',
     roles: ['Admin', 'App Manager', 'Developer'],
     needsApp: false,
-    run: (permissionClient) => permissionClient.listDistributionCertificates(),
+    run: probeProvisioning,
   },
   {
     feature: 'testflight',
     label: 'TestFlight (beta groups & testers)',
     roles: ['Admin', 'App Manager'],
     needsApp: true,
-    run: (permissionClient, appId) => permissionClient.listBetaGroups(appId),
+    run: probeTestFlight,
   },
   {
     feature: 'app-store-release',
     label: 'App Store release (versions, submission, rollout)',
     roles: ['Admin', 'App Manager'],
     needsApp: true,
-    run: (permissionClient, appId) => permissionClient.listAppStoreVersions(appId, IOS_PLATFORM),
+    run: probeAppStoreRelease,
   },
   {
     feature: 'monetization',
     label: 'In-app purchases & subscriptions',
     roles: ['Admin', 'App Manager'],
     needsApp: true,
-    run: (permissionClient, appId) => permissionClient.listSubscriptionGroups(appId),
+    run: probeMonetization,
   },
   {
     feature: 'customer-reviews',
     label: 'Customer reviews (read & respond)',
     roles: ['Admin', 'App Manager', 'Customer Support'],
     needsApp: true,
-    run: (permissionClient, appId) => permissionClient.listCustomerReviews(appId),
+    run: probeCustomerReviews,
   },
   {
     feature: 'analytics-reports',
     label: 'Analytics reports',
     roles: ['Admin', 'App Manager', 'Developer', 'Marketing'],
     needsApp: true,
-    run: (permissionClient, appId) =>
-      permissionClient.listAnalyticsReportRequests(appId, 'ONGOING'),
+    run: probeAnalytics,
   },
 ];
 
-const classifyProbe = (
+async function classifyProbe(
   featureProbe: FeatureProbe,
   permissionClient: AscPermissionProbeApi,
   appId: string,
-): Effect.Effect<AscPermissionResult> => {
+): Promise<AscPermissionResult> {
   const featureSummary = {
     feature: featureProbe.feature,
     label: featureProbe.label,
     roles: featureProbe.roles,
   };
 
-  return featureProbe.run(permissionClient, appId).pipe(
-    Effect.match({
-      onFailure: (failure): AscPermissionResult => {
-        if (failure.status === 403) return { ...featureSummary, status: 'forbidden' };
-        if (failure.status === 401) return { ...featureSummary, status: 'unauthorized' };
-        return {
-          ...featureSummary,
-          status: 'inconclusive',
-          detail: errorMessage(failure),
-        };
-      },
-      onSuccess: (): AscPermissionResult => ({ ...featureSummary, status: 'available' }),
-    }),
-  );
-};
+  try {
+    await featureProbe.run(permissionClient, appId);
+    return { ...featureSummary, status: 'available' };
+  } catch (cause) {
+    const failure = cause as AppleTransportFailure;
+    const isForbidden = failure.status === 403;
 
-export const probeKeyPermissions = (
+    if (isForbidden) {
+      return { ...featureSummary, status: 'forbidden' };
+    }
+
+    const isUnauthorized = failure.status === 401;
+
+    if (isUnauthorized) {
+      return { ...featureSummary, status: 'unauthorized' };
+    }
+
+    return {
+      ...featureSummary,
+      status: 'inconclusive',
+      detail: errorMessage(failure),
+    };
+  }
+}
+
+function isProbeBlocked(needsApp: boolean, appId: string | null): boolean {
+  const isAppMissing = appId == null;
+
+  if (isAppMissing == false) {
+    return false;
+  }
+
+  return needsApp;
+}
+
+async function probeFeature(
   permissionClient: AscPermissionProbeApi,
   appId: string | null,
-): Effect.Effect<readonly AscPermissionResult[]> =>
-  Effect.forEach(
-    FEATURE_PROBES,
-    (featureProbe): Effect.Effect<AscPermissionResult> => {
-      if (featureProbe.needsApp && appId === null) {
-        return Effect.succeed({
-          feature: featureProbe.feature,
-          label: featureProbe.label,
-          roles: featureProbe.roles,
-          status: 'inconclusive',
-          detail: 'no app record to probe',
-        });
-      }
-      let resolvedAppId = '';
-      if (appId !== null) resolvedAppId = appId;
-      return classifyProbe(featureProbe, permissionClient, resolvedAppId);
-    },
-    { concurrency: 'unbounded' },
-  );
+  featureProbe: FeatureProbe,
+): Promise<AscPermissionResult> {
+  const needsApp = featureProbe.needsApp;
+  const cannotProbe = isProbeBlocked(needsApp, appId);
+
+  if (cannotProbe) {
+    return {
+      feature: featureProbe.feature,
+      label: featureProbe.label,
+      roles: featureProbe.roles,
+      status: 'inconclusive',
+      detail: 'no app record to probe',
+    };
+  }
+
+  let resolvedAppId = '';
+  if (appId !== null) resolvedAppId = appId;
+  return classifyProbe(featureProbe, permissionClient, resolvedAppId);
+}
+
+export async function probeKeyPermissions(
+  permissionClient: AscPermissionProbeApi,
+  appId: string | null,
+): Promise<readonly AscPermissionResult[]> {
+  async function probeOne(featureProbe: FeatureProbe): Promise<AscPermissionResult> {
+    return probeFeature(permissionClient, appId, featureProbe);
+  }
+
+  return Promise.all(FEATURE_PROBES.map(probeOne));
+}
 
 export const formatPermissionLine = (permission: AscPermissionResult): string => {
   switch (permission.status) {

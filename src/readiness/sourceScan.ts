@@ -1,5 +1,8 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Effect } from 'effect';
+import type { Stats } from 'node:fs';
+import { lstat, readdir, readFile } from 'node:fs/promises';
+import { extname, join } from 'node:path';
+import { pathExists } from '@/path-exists.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
 
 const SOURCE_SCAN_SKIP_DIRECTORIES = new Set([
   'node_modules',
@@ -13,93 +16,200 @@ const SOURCE_SCAN_SKIP_DIRECTORIES = new Set([
   'vendor',
   'Pods',
 ]);
-const MAX_SCANNED_FILES = 5000;
 
-export type SourceScanRequirements = FileSystem.FileSystem | Path.Path;
+const MAX_SCANNED_FILES = 5000;
+const MAX_SCAN_DEPTH = 8;
 
 /** Read the simple top-level directory exclusions declared in `.gitignore`. */
-const readIgnoredDirectories = (
-  sourceRoot: string,
-): Effect.Effect<Set<string>, never, SourceScanRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const gitignorePath = pathService.join(sourceRoot, '.gitignore');
-    const gitignoreExists = yield* fileSystem
-      .exists(gitignorePath)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
-    if (!gitignoreExists) return new Set<string>();
+async function readIgnoredDirectories(sourceRoot: string): Promise<Set<string>> {
+  const gitignorePath = join(sourceRoot, '.gitignore');
+  const gitignoreExists = await pathExists(gitignorePath);
 
-    const gitignoreSource = yield* fileSystem
-      .readFileString(gitignorePath)
-      .pipe(Effect.catchAll(() => Effect.succeed('')));
-    const ignoredDirectories = new Set<string>();
-    for (const rawLine of gitignoreSource.split('\n')) {
-      let ignorePattern = rawLine.trim();
-      if (ignorePattern.length === 0) continue;
-      if (ignorePattern.startsWith('#')) continue;
-      if (ignorePattern.startsWith('!')) continue;
-      if (ignorePattern.includes('*')) continue;
-      if (ignorePattern.startsWith('/')) ignorePattern = ignorePattern.slice(1);
-      if (ignorePattern.endsWith('/')) ignorePattern = ignorePattern.slice(0, -1);
-      if (ignorePattern.length === 0) continue;
-      if (ignorePattern.includes('/')) continue;
-      ignoredDirectories.add(ignorePattern);
+  if (gitignoreExists == false) {
+    return new Set<string>();
+  }
+
+  let gitignoreSource = '';
+
+  try {
+    gitignoreSource = await readFile(gitignorePath, 'utf8');
+  } catch (cause) {
+    const isUnreadable = errorMessage(cause) != '';
+
+    if (isUnreadable) {
+      return new Set<string>();
     }
-    return ignoredDirectories;
-  });
 
-export const walkAppSource = <InspectionFailure, InspectionRequirements>(
+    return new Set<string>();
+  }
+
+  const ignoredDirectories = new Set<string>();
+
+  for (const rawLine of gitignoreSource.split('\n')) {
+    let ignorePattern = rawLine.trim();
+    const isBlank = ignorePattern.length == 0;
+
+    if (isBlank) {
+      continue;
+    }
+
+    const isComment = ignorePattern.startsWith('#');
+
+    if (isComment) {
+      continue;
+    }
+
+    const isNegated = ignorePattern.startsWith('!');
+
+    if (isNegated) {
+      continue;
+    }
+
+    const hasWildcard = ignorePattern.includes('*');
+
+    if (hasWildcard) {
+      continue;
+    }
+
+    const isRooted = ignorePattern.startsWith('/');
+
+    if (isRooted) {
+      ignorePattern = ignorePattern.slice(1);
+    }
+
+    const isDirectoryPattern = ignorePattern.endsWith('/');
+
+    if (isDirectoryPattern) {
+      ignorePattern = ignorePattern.slice(0, -1);
+    }
+
+    const isPatternEmpty = ignorePattern.length == 0;
+
+    if (isPatternEmpty) {
+      continue;
+    }
+
+    const isNestedPattern = ignorePattern.includes('/');
+
+    if (isNestedPattern) {
+      continue;
+    }
+
+    ignoredDirectories.add(ignorePattern);
+  }
+
+  return ignoredDirectories;
+}
+
+export async function walkAppSource(
   sourceRoot: string,
-  inspectFile: (
-    filePath: string,
-    fileExtension: string,
-  ) => Effect.Effect<boolean, InspectionFailure, InspectionRequirements>,
-): Effect.Effect<void, InspectionFailure, SourceScanRequirements | InspectionRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const ignoredDirectories = yield* readIgnoredDirectories(sourceRoot);
-    const skippedDirectories = new Set([...SOURCE_SCAN_SKIP_DIRECTORIES, ...ignoredDirectories]);
-    let scannedFileCount = 0;
+  inspectFile: (filePath: string, fileExtension: string) => Promise<boolean>,
+): Promise<void> {
+  const ignoredDirectories = await readIgnoredDirectories(sourceRoot);
+  const skippedDirectories = new Set([...SOURCE_SCAN_SKIP_DIRECTORIES, ...ignoredDirectories]);
+  let scannedFileCount = 0;
 
-    const walkDirectory = (
-      directoryPath: string,
-      directoryDepth: number,
-    ): Effect.Effect<boolean, InspectionFailure, InspectionRequirements> =>
-      Effect.gen(function* () {
-        const maxScanDepth = 8;
-        if (directoryDepth > maxScanDepth) return false;
-        if (scannedFileCount >= MAX_SCANNED_FILES) return true;
+  async function walkDirectory(directoryPath: string, directoryDepth: number): Promise<boolean> {
+    const isPastMaxDepth = directoryDepth > MAX_SCAN_DEPTH;
 
-        const entryNames = yield* fileSystem
-          .readDirectory(directoryPath)
-          .pipe(Effect.catchAll(() => Effect.succeed([])));
-        for (const entryName of entryNames) {
-          if (scannedFileCount >= MAX_SCANNED_FILES) return true;
-          const entryPath = pathService.join(directoryPath, entryName);
-          const entryMetadata = yield* fileSystem
-            .stat(entryPath)
-            .pipe(Effect.catchAll(() => Effect.succeed(undefined)));
-          if (entryMetadata === undefined) continue;
-          if (entryMetadata.type === 'SymbolicLink') continue;
-          if (entryMetadata.type === 'Directory') {
-            if (skippedDirectories.has(entryName)) continue;
-            if (entryName.startsWith('.')) continue;
-            const nestedScanStopped = yield* walkDirectory(entryPath, directoryDepth + 1);
-            if (nestedScanStopped) return true;
-            continue;
-          }
-          if (entryMetadata.type !== 'File') continue;
-          scannedFileCount += 1;
-          const scanStopped = yield* inspectFile(
-            entryPath,
-            pathService.extname(entryName).toLowerCase(),
-          );
-          if (scanStopped) return true;
-        }
+    if (isPastMaxDepth) {
+      return false;
+    }
+
+    const isFileCapReached = scannedFileCount >= MAX_SCANNED_FILES;
+
+    if (isFileCapReached) {
+      return true;
+    }
+
+    let entryNames: string[] = [];
+
+    try {
+      entryNames = await readdir(directoryPath);
+    } catch (cause) {
+      const isUnreadable = errorMessage(cause) != '';
+
+      if (isUnreadable) {
         return false;
-      });
+      }
 
-    yield* walkDirectory(sourceRoot, 0);
-  });
+      return false;
+    }
+
+    for (const entryName of entryNames) {
+      const isCapReached = scannedFileCount >= MAX_SCANNED_FILES;
+
+      if (isCapReached) {
+        return true;
+      }
+
+      const entryPath = join(directoryPath, entryName);
+      let entryMetadata: Stats | null = null;
+
+      try {
+        entryMetadata = await lstat(entryPath);
+      } catch (cause) {
+        const isUnreadable = errorMessage(cause) != '';
+
+        if (isUnreadable) {
+          continue;
+        }
+
+        continue;
+      }
+
+      const isMissing = entryMetadata == null;
+
+      if (isMissing) {
+        continue;
+      }
+
+      const isSymbolicLink = entryMetadata.isSymbolicLink();
+
+      if (isSymbolicLink) {
+        continue;
+      }
+
+      const isDirectory = entryMetadata.isDirectory();
+
+      if (isDirectory) {
+        const isSkippedDirectory = skippedDirectories.has(entryName);
+
+        if (isSkippedDirectory) {
+          continue;
+        }
+
+        const isHiddenDirectory = entryName.startsWith('.');
+
+        if (isHiddenDirectory) {
+          continue;
+        }
+
+        const nestedScanStopped = await walkDirectory(entryPath, directoryDepth + 1);
+
+        if (nestedScanStopped) {
+          return true;
+        }
+
+        continue;
+      }
+
+      const isFile = entryMetadata.isFile();
+
+      if (isFile == false) {
+        continue;
+      }
+
+      scannedFileCount += 1;
+      const scanStopped = await inspectFile(entryPath, extname(entryName).toLowerCase());
+
+      if (scanStopped) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  await walkDirectory(sourceRoot, 0);
+}

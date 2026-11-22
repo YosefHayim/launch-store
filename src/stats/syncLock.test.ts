@@ -1,13 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import { isSyncLockStale, holdSyncLock } from './syncLock.js';
 
 describe('isSyncLockStale', () => {
@@ -28,28 +27,45 @@ describe('isSyncLockStale', () => {
 
 describe('holdSyncLock', () => {
   let homeDirectory: string;
+
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    useLaunchDirectories({
+      homeDirectory,
+      workingDirectory: join(homeDirectory, 'work'),
+    });
   });
+
   afterEach(() => {
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
-  const lockPath = () => join(homeDirectory, '.launch', 'stats', 'sync.lock');
-  const runLocked = <Success, Failure>(program: Effect.Effect<Success, Failure>) =>
-    Effect.runPromise(
-      holdSyncLock(program).pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
-    );
+  function lockPath(): string {
+    return join(homeDirectory, '.launch', 'stats', 'sync.lock');
+  }
+
+  function runLocked<Success>(syncWork: () => Promise<Success>): Promise<Success> {
+    return holdSyncLock(syncWork);
+  }
 
   test('holds the lock while the program runs and removes it after', async () => {
-    const wasLockedDuring = await runLocked(Effect.sync(() => existsSync(lockPath())));
+    async function wasLocked(): Promise<boolean> {
+      return existsSync(lockPath());
+    }
+
+    const wasLockedDuring = await runLocked(wasLocked);
 
     expect(wasLockedDuring).toBe(true);
     expect(existsSync(lockPath())).toBe(false);
   });
 
   test('removes the lock when the program fails', async () => {
-    await expect(runLocked(Effect.fail(new Error('boom')))).rejects.toThrow('boom');
+    async function failProgram(): Promise<void> {
+      throw new Error('boom');
+    }
+
+    await expect(runLocked(failProgram)).rejects.toThrow('boom');
 
     expect(existsSync(lockPath())).toBe(false);
   });
@@ -57,7 +73,14 @@ describe('holdSyncLock', () => {
   test('refuses to start while a fresh lock exists', async () => {
     writeLaunchHomeFile(homeDirectory, join('stats', 'sync.lock'), new Date().toISOString());
 
-    await expect(runLocked(Effect.void)).rejects.toThrow('Another stats sync is running');
+    async function unusedWork(): Promise<void> {
+      return undefined;
+    }
+
+    await expect(runLocked(unusedWork)).rejects.toMatchObject({
+      _tag: 'SyncLockFailure',
+      message: expect.stringContaining('Another stats sync is running'),
+    });
 
     expect(existsSync(lockPath())).toBe(true);
   });
@@ -66,9 +89,11 @@ describe('holdSyncLock', () => {
     const staleLockStamp = '2020-01-01T00:00:00.000Z';
     writeLaunchHomeFile(homeDirectory, join('stats', 'sync.lock'), staleLockStamp);
 
-    const lockStampDuringSync = await runLocked(
-      Effect.sync(() => readFileSync(lockPath(), 'utf8')),
-    );
+    async function readLockStamp(): Promise<string> {
+      return readFileSync(lockPath(), 'utf8');
+    }
+
+    const lockStampDuringSync = await runLocked(readLockStamp);
 
     expect(lockStampDuringSync).not.toBe(staleLockStamp);
     expect(existsSync(lockPath())).toBe(false);

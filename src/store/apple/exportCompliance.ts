@@ -1,4 +1,3 @@
-import { Data, Effect } from 'effect';
 import type { EncryptionDeclarationResource } from '../../types/appleCatalog.js';
 /**
  * The slice of {@link AppStoreConnectClient} that {@link reconcileExportCompliance} needs. Declared as a
@@ -9,21 +8,13 @@ export type ExportComplianceApi = {
   findBuild(
     bundleId: string,
     buildNumber: number,
-  ): Effect.Effect<
-    {
-      id: string;
-      usesNonExemptEncryption: boolean | null;
-    } | null,
-    unknown
-  >;
-  setBuildUsesNonExemptEncryption(
-    buildId: string,
-    encryptionUsage: boolean,
-  ): Effect.Effect<void, unknown>;
-  listEncryptionDeclarations(
-    bundleId: string,
-  ): Effect.Effect<EncryptionDeclarationResource[], unknown>;
-  linkBuildToDeclaration(declarationId: string, buildId: string): Effect.Effect<void, unknown>;
+  ): Promise<{
+    id: string;
+    usesNonExemptEncryption: boolean | null;
+  } | null>;
+  setBuildUsesNonExemptEncryption(buildId: string, encryptionUsage: boolean): Promise<void>;
+  listEncryptionDeclarations(bundleId: string): Promise<EncryptionDeclarationResource[]>;
+  linkBuildToDeclaration(declarationId: string, buildId: string): Promise<void>;
 };
 /** One app's export-compliance reconcile inputs. */
 type ExportComplianceInput = {
@@ -74,61 +65,95 @@ type ExportComplianceFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-const makeExportComplianceFailure = Data.tagged<ExportComplianceFailure>('ExportComplianceFailure');
+function makeExportComplianceFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): ExportComplianceFailure {
+  return { _tag: 'ExportComplianceFailure', ...fields };
+}
 
-const exportComplianceFailure = (operation: string, cause: unknown): ExportComplianceFailure => {
-  let message = `${operation} failed.`;
-  if (cause instanceof Error && cause.message.length > 0) message = cause.message;
+function readErrorText(cause: unknown, fallback: string): string {
+  const isNotError = !(cause instanceof Error);
+
+  if (isNotError) return fallback;
+
+  const isEmpty = cause.message.length == 0;
+
+  if (isEmpty) return fallback;
+
+  return cause.message;
+}
+
+function exportComplianceFailure(operation: string, cause: unknown): ExportComplianceFailure {
+  const message = readErrorText(cause, `${operation} failed.`);
   return makeExportComplianceFailure({ operation, message, cause });
-};
+}
 
 const exportComplianceOutcome = (
   complianceOutcome: ExportComplianceResult,
 ): ExportComplianceResult => complianceOutcome;
+
+function isApprovedDeclaration(encryptionDeclaration: EncryptionDeclarationResource): boolean {
+  return encryptionDeclaration.state === 'APPROVED';
+}
+
 /**
  * Ensure an uploaded build carries the export-compliance answer from the app's Expo config, reusing an
  * approved declaration when one applies. Idempotent: a build that already has the desired answer is left
  * untouched (`already-answered`). See the module doc for the layering with the `Info.plist` path.
  */
-export const reconcileExportCompliance = (
+export async function reconcileExportCompliance(
   exportComplianceApi: ExportComplianceApi,
   reconciliationInput: ExportComplianceInput,
-): Effect.Effect<ExportComplianceResult, ExportComplianceFailure> =>
-  Effect.gen(function* () {
+): Promise<ExportComplianceResult> {
+  try {
     const { bundleId, buildNumber, usesNonExemptEncryption } = reconciliationInput;
-    if (usesNonExemptEncryption === undefined) {
+    const isAnswerMissing = usesNonExemptEncryption === undefined;
+
+    if (isAnswerMissing) {
       return exportComplianceOutcome({ status: 'undeclared' });
     }
-    const storeBuild = yield* exportComplianceApi.findBuild(bundleId, buildNumber);
-    if (storeBuild === null) {
+
+    const storeBuild = await exportComplianceApi.findBuild(bundleId, buildNumber);
+    const isBuildMissing = storeBuild == null;
+
+    if (isBuildMissing) {
       return exportComplianceOutcome({ status: 'build-not-found', buildNumber });
     }
-    if (storeBuild.usesNonExemptEncryption === usesNonExemptEncryption) {
+
+    const isAlreadyAnswered = storeBuild.usesNonExemptEncryption === usesNonExemptEncryption;
+
+    if (isAlreadyAnswered) {
       return exportComplianceOutcome({ status: 'already-answered', usesNonExemptEncryption });
     }
-    if (!usesNonExemptEncryption) {
-      yield* exportComplianceApi.setBuildUsesNonExemptEncryption(storeBuild.id, false);
+
+    const isExemptEncryption = usesNonExemptEncryption == false;
+
+    if (isExemptEncryption) {
+      await exportComplianceApi.setBuildUsesNonExemptEncryption(storeBuild.id, false);
       return exportComplianceOutcome({ status: 'answered', usesNonExemptEncryption: false });
     }
-    const encryptionDeclarations = yield* exportComplianceApi.listEncryptionDeclarations(bundleId);
+
+    const encryptionDeclarations = await exportComplianceApi.listEncryptionDeclarations(bundleId);
     /** Apple marks an App Encryption Declaration reusable only once it reaches this review state. */
-    const approvedDeclaration = encryptionDeclarations.find(
-      (encryptionDeclaration) => encryptionDeclaration.state === 'APPROVED',
-    );
-    if (approvedDeclaration !== undefined) {
-      yield* exportComplianceApi.linkBuildToDeclaration(approvedDeclaration.id, storeBuild.id);
+    const approvedDeclaration = encryptionDeclarations.find(isApprovedDeclaration);
+    const hasApprovedDeclaration = approvedDeclaration !== undefined;
+
+    if (hasApprovedDeclaration) {
+      await exportComplianceApi.linkBuildToDeclaration(approvedDeclaration.id, storeBuild.id);
       return exportComplianceOutcome({
         status: 'reused-declaration',
         declarationId: approvedDeclaration.id,
       });
     }
-    yield* exportComplianceApi.setBuildUsesNonExemptEncryption(storeBuild.id, true);
+
+    await exportComplianceApi.setBuildUsesNonExemptEncryption(storeBuild.id, true);
     return exportComplianceOutcome({ status: 'needs-declaration' });
-  }).pipe(
-    Effect.mapError((cause) =>
-      exportComplianceFailure('reconcile App Store export compliance', cause),
-    ),
-  );
+  } catch (cause) {
+    throw exportComplianceFailure('reconcile App Store export compliance', cause);
+  }
+}
 /** A doctor/preflight verdict derived from the app's Expo config alone - no network. */
 type ExportComplianceConfigStatus = {
   ok: boolean;

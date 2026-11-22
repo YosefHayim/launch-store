@@ -1,40 +1,72 @@
-import { HttpClient, HttpClientResponse } from '@effect/platform';
-import { Effect, Layer } from 'effect';
-
 export interface HttpClientTestRoute {
   readonly method: string;
   readonly url: string;
   readonly status: number;
-  readonly body: unknown;
+  readonly document: unknown;
 }
 
-const pickReplyBytesOrDocument = (routeBody: unknown): string | Uint8Array<ArrayBuffer> => {
-  const isBodyBytes = routeBody instanceof Uint8Array;
-  if (isBodyBytes) return new Uint8Array(routeBody);
-  return JSON.stringify(routeBody);
-};
+export interface HttpClientSentCall {
+  readonly method: string;
+  readonly url: string;
+  readonly sentDocument: string | null;
+}
 
-export const makeHttpClientTest = (
+interface HttpClientTest {
+  readonly sentRequests: HttpClientSentCall[];
+  answer(call: HttpClientSentCall): Response;
+}
+
+function isMissing(candidate: unknown): candidate is null | undefined {
+  return candidate == null;
+}
+
+function findRoute(
   routes: readonly HttpClientTestRoute[],
-): Layer.Layer<HttpClient.HttpClient> =>
-  Layer.succeed(
-    HttpClient.HttpClient,
-    HttpClient.make((request) => {
-      const matchedRoute = routes.find(
-        (route) => route.method === request.method && route.url === request.url,
-      );
-      if (matchedRoute === undefined) {
-        return Effect.die(new Error(`No test route for ${request.method} ${request.url}`));
-      }
-      const replyBytesOrDocument = pickReplyBytesOrDocument(matchedRoute.body);
-      return Effect.succeed(
-        HttpClientResponse.fromWeb(
-          request,
-          new Response(replyBytesOrDocument, {
-            status: matchedRoute.status,
-            headers: { 'content-type': 'application/json' },
-          }),
-        ),
-      );
-    }),
-  );
+  method: string,
+  url: string,
+): HttpClientTestRoute | undefined {
+  function isRequestedRoute(route: HttpClientTestRoute): boolean {
+    const isDifferentMethod = route.method != method;
+
+    if (isDifferentMethod) {
+      return false;
+    }
+
+    return route.url == url;
+  }
+
+  return routes.find(isRequestedRoute);
+}
+
+function createReplyDocument(routeDocument: unknown): string | Uint8Array<ArrayBuffer> {
+  const isByteDocument = routeDocument instanceof Uint8Array;
+
+  if (isByteDocument) {
+    return Uint8Array.from(routeDocument);
+  }
+
+  return JSON.stringify(routeDocument);
+}
+
+export function makeHttpClientTest(routes: readonly HttpClientTestRoute[]): HttpClientTest {
+  const sentRequests: HttpClientSentCall[] = [];
+
+  function answer(call: HttpClientSentCall): Response {
+    sentRequests.push(call);
+
+    const matchedRoute = findRoute(routes, call.method, call.url);
+
+    if (isMissing(matchedRoute)) {
+      throw new Error(`No test route for ${call.method} ${call.url}`);
+    }
+
+    const replyDocument = createReplyDocument(matchedRoute.document);
+
+    return new Response(replyDocument, {
+      status: matchedRoute.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  return { sentRequests, answer };
+}

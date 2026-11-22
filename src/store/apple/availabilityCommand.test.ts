@@ -1,4 +1,3 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   availabilityConfirmationMessage,
@@ -9,14 +8,14 @@ import {
 describe('AvailabilityCommandInputSchema', () => {
   it('decodes required defaults and rejects explicit undefined selectors', () => {
     expect(
-      Schema.decodeUnknownSync(AvailabilityCommandInputSchema)({
+      AvailabilityCommandInputSchema({
         config: 'availability.config.json',
         dryRun: true,
         yes: false,
       }),
     ).toEqual({ config: 'availability.config.json', dryRun: true, yes: false });
     expect(() =>
-      Schema.decodeUnknownSync(AvailabilityCommandInputSchema)({
+      AvailabilityCommandInputSchema({
         app: undefined,
         config: 'availability.config.json',
         dryRun: false,

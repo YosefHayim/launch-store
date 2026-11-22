@@ -1,242 +1,294 @@
-import * as Command from '@effect/platform/Command';
-import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor';
-import * as FileSystem from '@effect/platform/FileSystem';
-import { NodeContext } from '@effect/platform-node';
-import { Data, Effect, FiberRef, Layer, Stream } from 'effect';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { writeFile } from 'node:fs/promises';
 import { isEnvExcluded } from '../../config/env.js';
 import { mergeChildEnv } from '../../terminal/locale.js';
-import {
-  LaunchEnvironment,
-  LaunchEnvironmentLive,
-  type LaunchEnvironmentService,
-} from './environment.js';
-import { makeLogRedactor, redactText } from './redact.js';
+import { readLaunchEnvironment } from './environment.js';
 import { isJsonOutput } from './jsonOutputMode.js';
-/** A command could not start or completed with a non-zero exit code. */
+import { makeLogRedactor, redactText } from './redact.js';
+
 export type CommandFailed = Readonly<{
-  readonly _tag: 'CommandFailed';
-  readonly command: string;
-  readonly exitCode: number | null;
-  readonly stderr: string;
-  readonly cause?: unknown;
+  _tag: 'CommandFailed';
+  command: string;
+  exitCode: number | null;
+  stderr: string;
+  cause?: unknown;
 }>;
-/** Construct a readonly tagged command failure. */
-export const makeCommandFailed = Data.tagged<CommandFailed>('CommandFailed');
-export const commandEnvironmentExclusions = FiberRef.unsafeMake<readonly string[]>([]);
-/** Working-directory and environment inputs shared by command programs. */
+
+export function makeCommandFailed(fields: {
+  command: string;
+  exitCode: number | null;
+  stderr: string;
+  cause?: unknown;
+}): CommandFailed {
+  return {
+    _tag: 'CommandFailed',
+    command: fields.command,
+    exitCode: fields.exitCode,
+    stderr: fields.stderr,
+    cause: fields.cause,
+  };
+}
+
+let inheritedExclusions: readonly string[] = [];
+
+export function setCommandEnvironmentExclusions(exclusions: readonly string[]): void {
+  inheritedExclusions = exclusions;
+}
+
 export type CommandExecutionOptions = Readonly<{
-  readonly workingDirectory?: string;
-  readonly environmentOverrides?: Record<string, string>;
-  readonly envExclude?: readonly string[] | undefined;
+  workingDirectory?: string;
+  environmentOverrides?: Record<string, string>;
+  envExclude?: readonly string[];
 }>;
-/** Output handling for a quiet command program. */
+
 type QuietCommandExecutionOptions = CommandExecutionOptions &
   Readonly<{
-    readonly onLine?: (line: string) => void;
-    readonly logFilePath?: string;
+    onLine?: (line: string) => void;
+    logFilePath?: string;
   }>;
-const makeCommand = (
-  executable: string,
-  commandArguments: readonly string[],
-  commandOptions: CommandExecutionOptions,
-): Effect.Effect<Command.Command, never, LaunchEnvironmentService> =>
-  Effect.gen(function* () {
-    const environment = yield* LaunchEnvironment;
-    let command = Command.make(executable, ...commandArguments);
-    const inheritedExclusions = yield* FiberRef.get(commandEnvironmentExclusions);
-    const { envExclude: exclusions = inheritedExclusions } = commandOptions;
-    const childEnvironment = mergeChildEnv(
-      environment.rawVariables,
-      commandOptions.environmentOverrides,
-    );
-    // Effect's Node executor merges the OS environment again, so deleted names must be shadowed.
-    for (const name of Object.keys(childEnvironment)) {
-      if (isEnvExcluded(name, exclusions)) childEnvironment[name] = '';
-    }
-    for (const pattern of exclusions) {
-      if (!pattern.endsWith('*')) childEnvironment[pattern] = '';
-    }
-    command = Command.env(command, childEnvironment);
-    if (commandOptions.workingDirectory !== undefined) {
-      command = Command.workingDirectory(command, commandOptions.workingDirectory);
-    }
-    return command;
-  });
-const commandPlatformFailure = (executable: string, cause: unknown): CommandFailed =>
-  makeCommandFailed({
+
+function commandPlatformFailure(executable: string, cause: unknown): CommandFailed {
+  return makeCommandFailed({
     command: executable,
     exitCode: null,
     stderr: redactText(String(cause)),
     cause,
   });
-const checkExitCode = (
-  executable: string,
-  exitCode: PlatformCommandExecutor.ExitCode,
-  standardError: string,
-): Effect.Effect<void, CommandFailed> => {
-  if (Number(exitCode) === 0) return Effect.void;
-  return Effect.fail(
-    makeCommandFailed({
-      command: executable,
-      exitCode: Number(exitCode),
-      stderr: redactText(standardError),
-    }),
-  );
-};
-/**
- * Join captured stdout and stderr for failure diagnostics.
- *
- * Many CLIs (including Launch) print human-readable errors via the Effect logger / terminal on
- * stdout. On non-zero exit, callers need both streams or the diagnostic message is lost.
- */
-const combineCapturedDiagnostics = (standardOutput: string, standardError: string): string => {
+}
+
+function checkExitCode(executable: string, exitCode: number | null, standardError: string): void {
+  const isSuccess = exitCode == 0;
+
+  if (isSuccess) {
+    return;
+  }
+
+  throw makeCommandFailed({
+    command: executable,
+    exitCode,
+    stderr: redactText(standardError),
+  });
+}
+
+function combineCapturedDiagnostics(standardOutput: string, standardError: string): string {
   const trimmedOutput = standardOutput.trim();
   const trimmedError = standardError.trim();
-  if (trimmedOutput.length === 0) return trimmedError;
-  if (trimmedError.length === 0) return trimmedOutput;
+
+  if (trimmedOutput.length == 0) {
+    return trimmedError;
+  }
+
+  if (trimmedError.length == 0) {
+    return trimmedOutput;
+  }
+
   return `${trimmedOutput}\n${trimmedError}`;
-};
-const collectText = <TError, TRequirements>(
-  byteStream: Stream.Stream<Uint8Array, TError, TRequirements>,
-): Effect.Effect<string, TError, TRequirements> =>
-  byteStream.pipe(
-    Stream.decodeText(),
-    Stream.runFold('', (collectedText, textChunk) => collectedText + textChunk),
-  );
-/** Run a command without the terminal: stdout is dropped and stderr is kept for the failure text. */
-const runCommandSilently = (command: Command.Command) =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const childProcess = yield* Command.start(command.pipe(Command.stdin(Stream.empty)));
-      const [, standardError, exitCode] = yield* Effect.all(
-        [
-          Stream.runDrain(childProcess.stdout),
-          collectText(childProcess.stderr),
-          childProcess.exitCode,
-        ],
-        { concurrency: 'unbounded' },
-      );
-      return { exitCode, standardError };
-    }),
-  );
-export const executeCommand = (
-  executable: string,
-  commandArguments: readonly string[],
-  commandOptions: CommandExecutionOptions = {},
-): Effect.Effect<
-  void,
-  CommandFailed,
-  PlatformCommandExecutor.CommandExecutor | LaunchEnvironmentService
-> =>
-  Effect.gen(function* () {
-    const baseCommand = yield* makeCommand(executable, commandArguments, commandOptions);
-    if (isJsonOutput()) {
-      const silentRun = yield* runCommandSilently(baseCommand).pipe(
-        Effect.mapError((cause) => commandPlatformFailure(executable, cause)),
-      );
-      yield* checkExitCode(executable, silentRun.exitCode, silentRun.standardError.trim());
-      return;
+}
+
+function childEnvironment(commandOptions: CommandExecutionOptions): NodeJS.ProcessEnv {
+  const environment = readLaunchEnvironment();
+  const merged = mergeChildEnv(environment.rawVariables, commandOptions.environmentOverrides);
+  let exclusions = inheritedExclusions;
+
+  if (commandOptions.envExclude != null) {
+    exclusions = commandOptions.envExclude;
+  }
+
+  const filtered: NodeJS.ProcessEnv = {};
+
+  for (const name of Object.keys(merged)) {
+    const isExcluded = isEnvExcluded(name, exclusions);
+
+    if (isExcluded) {
+      continue;
     }
-    const command = baseCommand.pipe(
-      Command.stdin('inherit'),
-      Command.stdout('inherit'),
-      Command.stderr('inherit'),
-    );
-    const exitCode = yield* Command.exitCode(command).pipe(
-      Effect.mapError((cause) => commandPlatformFailure(executable, cause)),
-    );
-    yield* checkExitCode(executable, exitCode, '');
+
+    const variable = merged[name];
+
+    if (variable == null) {
+      continue;
+    }
+
+    filtered[name] = variable;
+  }
+
+  return filtered;
+}
+
+type CapturedProcess = Readonly<{
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+}>;
+
+function appendChunk(chunks: Buffer[], chunk: Buffer | string): void {
+  if (typeof chunk == 'string') {
+    chunks.push(Buffer.from(chunk));
+    return;
+  }
+
+  chunks.push(chunk);
+}
+
+function waitForExit(child: ChildProcess, executable: string): Promise<number | null> {
+  return new Promise((finish, fail) => {
+    child.once('exit', function finishOnExit(code: number | null) {
+      finish(code);
+    });
+    child.once('error', function failOnSpawn(cause: unknown) {
+      fail(commandPlatformFailure(executable, cause));
+    });
   });
-export const captureCommandOutput = (
+}
+
+async function captureProcess(child: ChildProcess, executable: string): Promise<CapturedProcess> {
+  const stdoutChunks: Buffer[] = [];
+  const stderrChunks: Buffer[] = [];
+
+  child.stdout?.on('data', function keepStdout(chunk: Buffer | string) {
+    appendChunk(stdoutChunks, chunk);
+  });
+  child.stderr?.on('data', function keepStderr(chunk: Buffer | string) {
+    appendChunk(stderrChunks, chunk);
+  });
+
+  const exitCode = await waitForExit(child, executable);
+
+  return {
+    exitCode,
+    stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+    stderr: Buffer.concat(stderrChunks).toString('utf8'),
+  };
+}
+
+function startProcess(
+  executable: string,
+  commandArguments: readonly string[],
+  commandOptions: CommandExecutionOptions,
+  stdio: 'inherit' | 'pipe',
+): ChildProcess {
+  return spawn(executable, [...commandArguments], {
+    cwd: commandOptions.workingDirectory,
+    env: childEnvironment(commandOptions),
+    stdio,
+  });
+}
+
+export async function executeCommand(
   executable: string,
   commandArguments: readonly string[],
   commandOptions: CommandExecutionOptions = {},
-): Effect.Effect<
-  string,
-  CommandFailed,
-  PlatformCommandExecutor.CommandExecutor | LaunchEnvironmentService
-> =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const baseCommand = yield* makeCommand(executable, commandArguments, commandOptions);
-      const command = baseCommand.pipe(Command.stdin(Stream.empty));
-      const childProcess = yield* Command.start(command).pipe(
-        Effect.mapError((cause) => commandPlatformFailure(executable, cause)),
-      );
-      const [standardOutput, standardError, exitCode] = yield* Effect.all(
-        [collectText(childProcess.stdout), collectText(childProcess.stderr), childProcess.exitCode],
-        { concurrency: 'unbounded' },
-      ).pipe(Effect.mapError((cause) => commandPlatformFailure(executable, cause)));
-      yield* checkExitCode(
-        executable,
-        exitCode,
-        combineCapturedDiagnostics(standardOutput, standardError),
-      );
-      return standardOutput.trim();
-    }),
-  );
-export const executeCommandQuietly = (
+): Promise<void> {
+  const shouldHideOutput = isJsonOutput();
+
+  if (shouldHideOutput) {
+    const child = startProcess(executable, commandArguments, commandOptions, 'pipe');
+    child.stdin?.end();
+    const captured = await captureProcess(child, executable);
+    checkExitCode(executable, captured.exitCode, captured.stderr.trim());
+    return;
+  }
+
+  const child = startProcess(executable, commandArguments, commandOptions, 'inherit');
+  const exitCode = await waitForExit(child, executable);
+  checkExitCode(executable, exitCode, '');
+}
+
+export async function captureCommandOutput(
+  executable: string,
+  commandArguments: readonly string[],
+  commandOptions: CommandExecutionOptions = {},
+): Promise<string> {
+  const child = startProcess(executable, commandArguments, commandOptions, 'pipe');
+  child.stdin?.end();
+  const captured = await captureProcess(child, executable);
+  const diagnostics = combineCapturedDiagnostics(captured.stdout, captured.stderr);
+  checkExitCode(executable, captured.exitCode, diagnostics);
+
+  return captured.stdout.trim();
+}
+
+function takeCompleteLines(
+  pending: { text: string },
+  chunk: string,
+  onLine: (line: string) => void,
+): void {
+  pending.text += chunk;
+  let newlineAt = pending.text.indexOf('\n');
+
+  while (newlineAt != -1) {
+    const line = pending.text.slice(0, newlineAt).replace(/\r$/, '');
+    pending.text = pending.text.slice(newlineAt + 1);
+    onLine(line);
+    newlineAt = pending.text.indexOf('\n');
+  }
+}
+
+export async function executeCommandQuietly(
   executable: string,
   commandArguments: readonly string[],
   commandOptions: QuietCommandExecutionOptions = {},
-): Effect.Effect<
-  void,
-  CommandFailed,
-  PlatformCommandExecutor.CommandExecutor | FileSystem.FileSystem | LaunchEnvironmentService
-> =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const baseCommand = yield* makeCommand(executable, commandArguments, commandOptions);
-      const command = baseCommand.pipe(Command.stdin(Stream.empty));
-      const childProcess = yield* Command.start(command).pipe(
-        Effect.mapError((cause) => commandPlatformFailure(executable, cause)),
-      );
-      const redactOutputLine = makeLogRedactor();
-      const combinedLines = Stream.merge(childProcess.stdout, childProcess.stderr).pipe(
-        Stream.decodeText(),
-        Stream.splitLines,
-      );
-      const consumeOutput = combinedLines.pipe(
-        Stream.runForEach((outputLine) =>
-          Effect.gen(function* () {
-            const persistedLine = redactOutputLine(outputLine);
-            if (commandOptions.onLine !== undefined) {
-              yield* Effect.sync(() => commandOptions.onLine?.(persistedLine));
-            }
-            if (commandOptions.logFilePath === undefined) return;
-            yield* fileSystem.writeFileString(commandOptions.logFilePath, `${persistedLine}\n`, {
-              flag: 'a',
-              mode: 0o600,
-            });
-          }),
-        ),
-      );
-      const [, exitCode] = yield* Effect.all([consumeOutput, childProcess.exitCode], {
-        concurrency: 'unbounded',
-      }).pipe(Effect.mapError((cause) => commandPlatformFailure(executable, cause)));
-      yield* checkExitCode(executable, exitCode, '');
-    }),
-  );
-export const checkCommandExists = (
-  executable: string,
-): Effect.Effect<
-  boolean,
-  never,
-  PlatformCommandExecutor.CommandExecutor | LaunchEnvironmentService
-> =>
-  captureCommandOutput('which', [executable]).pipe(
-    Effect.as(true),
-    Effect.catchAll(() => Effect.succeed(false)),
-  );
-export const provideNodeCommandServices = <TValue, TError>(
-  program: Effect.Effect<
-    TValue,
-    TError,
-    PlatformCommandExecutor.CommandExecutor | FileSystem.FileSystem | LaunchEnvironmentService
-  >,
-): Effect.Effect<TValue, TError> =>
-  program.pipe(
-    Effect.provide(NodeContext.layer),
-    Effect.provide(LaunchEnvironmentLive.pipe(Layer.orDie)),
-  );
+): Promise<void> {
+  const child = startProcess(executable, commandArguments, commandOptions, 'pipe');
+  child.stdin?.end();
+  const redactOutputLine = makeLogRedactor();
+  const writes: Promise<void>[] = [];
+  const stdoutPending = { text: '' };
+  const stderrPending = { text: '' };
+
+  async function keepLine(line: string): Promise<void> {
+    const persistedLine = redactOutputLine(line);
+
+    if (commandOptions.onLine != null) {
+      commandOptions.onLine(persistedLine);
+    }
+
+    if (commandOptions.logFilePath == null) {
+      return;
+    }
+
+    await writeFile(commandOptions.logFilePath, `${persistedLine}\n`, { flag: 'a', mode: 0o600 });
+  }
+
+  function queueLine(line: string): void {
+    writes.push(keepLine(line));
+  }
+
+  child.stdout?.setEncoding('utf8');
+  child.stderr?.setEncoding('utf8');
+  child.stdout?.on('data', function keepStdout(chunk: string) {
+    takeCompleteLines(stdoutPending, chunk, queueLine);
+  });
+  child.stderr?.on('data', function keepStderr(chunk: string) {
+    takeCompleteLines(stderrPending, chunk, queueLine);
+  });
+
+  const exitCode = await waitForExit(child, executable);
+
+  if (stdoutPending.text.length > 0) {
+    writes.push(keepLine(stdoutPending.text));
+  }
+
+  if (stderrPending.text.length > 0) {
+    writes.push(keepLine(stderrPending.text));
+  }
+
+  await Promise.all(writes);
+  checkExitCode(executable, exitCode, '');
+}
+
+export async function checkCommandExists(executable: string): Promise<boolean> {
+  try {
+    await captureCommandOutput('which', [executable]);
+  } catch (error) {
+    const isMissing = error != null;
+
+    if (isMissing) {
+      return false;
+    }
+
+    throw error;
+  }
+
+  return true;
+}

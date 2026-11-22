@@ -1,12 +1,7 @@
-import { Terminal } from '@effect/platform';
-import type { PlatformError } from '@effect/platform/Error';
 import type { Command } from 'commander';
-import { Effect } from 'effect';
-import {
-  LaunchEnvironment,
-  type LaunchEnvironmentService,
-} from '../services/platform/environment.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
+import { stdout } from 'node:process';
+import { readLaunchEnvironment } from '../services/platform/environment.js';
+import { createLogger } from '../services/platform/logger.js';
 import type { Shell } from '../types/remote.js';
 import {
   completionScript,
@@ -15,101 +10,81 @@ import {
   makeCompletionFailure,
   parseShell,
   resolveCompletions,
-  type CompletionFailure,
-  type CompletionRequirements,
 } from './completion.js';
 
-/** One shell-completion operation selected by Commander. */
 type CompletionCommandInput =
   | Readonly<{ operation: 'install'; shell: string | undefined }>
   | Readonly<{ operation: 'script'; shell: string | undefined }>
   | Readonly<{ operation: 'complete'; words: readonly string[]; commandTree: Command }>;
 
-/** Resolve an explicit shell or detect the configured login shell. */
-const resolveShell = (
-  shellText: string | undefined,
-): Effect.Effect<Shell, CompletionFailure, LaunchEnvironmentService> =>
-  Effect.gen(function* () {
-    if (shellText !== undefined) return yield* parseShell(shellText);
-    const launchEnvironment = yield* LaunchEnvironment;
-    const detectedShell = detectShell(launchEnvironment.rawVariables);
-    if (detectedShell !== undefined) return detectedShell;
-    return yield* Effect.fail(
-      makeCompletionFailure({
-        message: 'Could not detect your shell. Pass one explicitly: bash, zsh, or fish.',
-      }),
-    );
-  });
+function readShell(shellText: string | undefined): Shell {
+  if (shellText != null) {
+    return parseShell(shellText);
+  }
 
-/** Render the outcome of installing a managed shell-completion block. */
-const renderInstallOutcome = (
-  shellText: string | undefined,
-): Effect.Effect<
-  void,
-  CompletionFailure | PlatformError,
-  CompletionRequirements | LaunchEnvironmentService | Logger
-> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const shell = yield* resolveShell(shellText);
-    const installOutcome = yield* installCompletion({ shell });
-    if (installOutcome.status === 'manual') {
-      yield* logger.warn(
-        `Could not edit ${installOutcome.rcFile} - its directory does not exist yet.`,
-      );
-      yield* logger.tip(
-        `Add this line to your ${installOutcome.shell} config, then restart your shell: ${installOutcome.line}`,
-      );
-      return;
-    }
-    let installVerb = 'installed';
-    if (installOutcome.updated) installVerb = 'updated';
-    yield* logger.step(
-      'completion',
-      `${installVerb} for ${installOutcome.shell} in ${installOutcome.rcFile}`,
-    );
-    yield* logger.tip('Restart your shell (or source the rc file) to activate it.');
-  });
+  const launchEnvironment = readLaunchEnvironment();
+  const detectedShell = detectShell(launchEnvironment.rawVariables);
 
-/** Print a completion script without adding presentation prefixes. */
-const printCompletionScript = (
-  shellText: string | undefined,
-): Effect.Effect<
-  void,
-  CompletionFailure | PlatformError,
-  LaunchEnvironmentService | Terminal.Terminal
-> =>
-  Effect.gen(function* () {
-    const terminal = yield* Terminal.Terminal;
-    const shell = yield* resolveShell(shellText);
-    yield* terminal.display(completionScript(shell));
-  });
+  if (detectedShell != null) {
+    return detectedShell;
+  }
 
-/** Print dynamic completion candidates for the hidden shell callback. */
-const printCompletionCandidates = (
+  throw makeCompletionFailure({
+    message: 'Could not detect your shell. Pass one explicitly: bash, zsh, or fish.',
+  });
+}
+
+async function showInstallOutcome(shellText: string | undefined): Promise<void> {
+  const logger = createLogger(false);
+  const shell = readShell(shellText);
+  const installOutcome = await installCompletion({ shell });
+
+  if (installOutcome.status == 'manual') {
+    logger.warn(`Could not edit ${installOutcome.rcFile} - its directory does not exist yet.`);
+    const shellName = installOutcome.shell;
+    const sourceLine = installOutcome.line;
+    const manualLine = `Add this line to your ${shellName} config, then restart your shell: ${sourceLine}`;
+    logger.tip(manualLine);
+    return;
+  }
+
+  let installVerb = 'installed';
+  const didUpdateExistingBlock = installOutcome.updated;
+
+  if (didUpdateExistingBlock) {
+    installVerb = 'updated';
+  }
+
+  const installDetail = `${installVerb} for ${installOutcome.shell} in ${installOutcome.rcFile}`;
+  logger.step('completion', installDetail);
+  logger.tip('Restart your shell (or source the rc file) to activate it.');
+}
+
+async function printCompletionScript(shellText: string | undefined): Promise<void> {
+  const shell = readShell(shellText);
+  stdout.write(completionScript(shell));
+}
+
+async function printCompletionCandidates(
   words: readonly string[],
   commandTree: Command,
-): Effect.Effect<void, PlatformError, CompletionRequirements | Terminal.Terminal> =>
-  Effect.gen(function* () {
-    const terminal = yield* Terminal.Terminal;
-    const candidates = yield* resolveCompletions([...words], commandTree);
-    yield* terminal.display(`${candidates.join('\n')}\n`);
-  });
+): Promise<void> {
+  const candidates = await resolveCompletions([...words], commandTree);
+  stdout.write(`${candidates.join('\n')}\n`);
+}
 
-/** Run one completion operation through the shared Effect runtime. */
-export const completionCommandProgram = (
+export async function completionCommandProgram(
   commandInput: CompletionCommandInput,
-): Effect.Effect<
-  void,
-  CompletionFailure | PlatformError,
-  CompletionRequirements | LaunchEnvironmentService | Logger | Terminal.Terminal
-> => {
+): Promise<void> {
   switch (commandInput.operation) {
     case 'install':
-      return renderInstallOutcome(commandInput.shell);
+      await showInstallOutcome(commandInput.shell);
+      return;
     case 'script':
-      return printCompletionScript(commandInput.shell);
+      await printCompletionScript(commandInput.shell);
+      return;
     case 'complete':
-      return printCompletionCandidates(commandInput.words, commandInput.commandTree);
+      await printCompletionCandidates(commandInput.words, commandInput.commandTree);
+      return;
   }
-};
+}

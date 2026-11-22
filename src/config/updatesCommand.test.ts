@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { UpdateManifest } from '../distribution/otaManifest.js';
 import {
@@ -44,27 +43,28 @@ describe('shortId', () => {
 });
 
 describe('platformsForUpdatesFilter', () => {
-  it('defaults to both platforms when the filter is omitted', async () => {
-    const platforms = await Effect.runPromise(platformsForUpdatesFilter(undefined));
-    expect(platforms).toEqual(['ios', 'android']);
+  it('defaults to both platforms when the filter is omitted', () => {
+    expect(platformsForUpdatesFilter(undefined)).toEqual(['ios', 'android']);
   });
 
-  it('accepts ios or android alone', async () => {
-    expect(await Effect.runPromise(platformsForUpdatesFilter('ios'))).toEqual(['ios']);
-    expect(await Effect.runPromise(platformsForUpdatesFilter('android'))).toEqual(['android']);
+  it('accepts ios or android alone', () => {
+    expect(platformsForUpdatesFilter('ios')).toEqual(['ios']);
+    expect(platformsForUpdatesFilter('android')).toEqual(['android']);
   });
 
-  it('rejects an unknown platform with a tagged failure', async () => {
-    const filterAttempt = await Effect.runPromise(
-      platformsForUpdatesFilter('web').pipe(Effect.either),
-    );
-    expect(filterAttempt).toMatchObject({
-      _tag: 'Left',
-      left: {
-        _tag: 'UpdatesCommandFailure',
-        operation: 'parse update platform',
-        message: 'Unknown --platform "web". Use "ios" or "android".',
-      },
+  it('rejects an unknown platform with a tagged failure', () => {
+    var thrown: unknown = null;
+
+    try {
+      platformsForUpdatesFilter('web');
+    } catch (cause) {
+      thrown = cause;
+    }
+
+    expect(thrown).toMatchObject({
+      _tag: 'UpdatesCommandFailure',
+      operation: 'parse update platform',
+      message: 'Unknown --platform "web". Use "ios" or "android".',
     });
   });
 });

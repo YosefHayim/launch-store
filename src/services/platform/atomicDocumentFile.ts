@@ -1,59 +1,83 @@
-import { FileSystem, Path } from '@effect/platform';
 import { randomUUID } from 'node:crypto';
-import { Data, Effect, Schema } from 'effect';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { pathExists } from '../../path-exists.js';
 import { errorMessage } from './errorMessage.js';
 
 export type DocumentFileFailure = Readonly<{
-  readonly _tag: 'DocumentFileFailure';
-  readonly filePath: string;
-  readonly message: string;
-  readonly cause: unknown;
+  _tag: 'DocumentFileFailure';
+  filePath: string;
+  message: string;
+  cause: unknown;
 }>;
 
-const makeDocumentFileFailure = Data.tagged<DocumentFileFailure>('DocumentFileFailure');
+function makeDocumentFileFailure(fields: {
+  filePath: string;
+  message: string;
+  cause: unknown;
+}): DocumentFileFailure {
+  return { _tag: 'DocumentFileFailure', ...fields };
+}
 
-export const readDocumentFile = <Document, EncodedDocument>(
+function isDocumentFileFailure(cause: unknown): cause is DocumentFileFailure {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'DocumentFileFailure';
+}
+
+export async function readDocumentFile<Document>(
   filePath: string,
-  documentSchema: Schema.Schema<Document, EncodedDocument>,
-): Effect.Effect<Document | null, DocumentFileFailure, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const isFilePresent = yield* fileSystem.exists(filePath);
-    const isFileMissing = !isFilePresent;
-    if (isFileMissing) return null;
-    const fileAsString = yield* fileSystem.readFileString(filePath);
-    const decodeDocument = Schema.decodeUnknown(Schema.parseJson(documentSchema));
-    return yield* decodeDocument(fileAsString);
-  }).pipe(
-    Effect.mapError((cause) =>
-      makeDocumentFileFailure({
-        filePath,
-        message: `Could not read ${filePath}: ${errorMessage(cause)}`,
-        cause,
-      }),
-    ),
-  );
+  decodeDocument: (documentText: string) => Document,
+): Promise<Document | null> {
+  try {
+    const isFilePresent = await pathExists(filePath);
 
-export const writeDocumentFileAtomically = (
+    if (isFilePresent == false) {
+      return null;
+    }
+
+    const fileAsString = await readFile(filePath, 'utf8');
+
+    return decodeDocument(fileAsString);
+  } catch (cause) {
+    if (isDocumentFileFailure(cause)) {
+      throw cause;
+    }
+
+    throw makeDocumentFileFailure({
+      filePath,
+      message: `Could not read ${filePath}: ${errorMessage(cause)}`,
+      cause,
+    });
+  }
+}
+
+export async function writeDocumentFileAtomically(
   filePath: string,
   document: unknown,
-): Effect.Effect<void, DocumentFileFailure, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const folderPath = pathService.dirname(filePath);
-    yield* fileSystem.makeDirectory(folderPath, { recursive: true });
-    const draftFileId = yield* Effect.sync(() => randomUUID());
-    const draftFilePath = `${filePath}.${draftFileId}.draft`;
+): Promise<void> {
+  try {
+    const folderPath = dirname(filePath);
+    await mkdir(folderPath, { recursive: true });
+    const draftFilePath = `${filePath}.${randomUUID()}.draft`;
     const documentAsString = JSON.stringify(document, null, 2);
-    yield* fileSystem.writeFileString(draftFilePath, `${documentAsString}\n`);
-    yield* fileSystem.rename(draftFilePath, filePath);
-  }).pipe(
-    Effect.mapError((cause) =>
-      makeDocumentFileFailure({
-        filePath,
-        message: `Could not write ${filePath}: ${errorMessage(cause)}`,
-        cause,
-      }),
-    ),
-  );
+    await writeFile(draftFilePath, `${documentAsString}\n`);
+    await rename(draftFilePath, filePath);
+  } catch (cause) {
+    throw makeDocumentFileFailure({
+      filePath,
+      message: `Could not write ${filePath}: ${errorMessage(cause)}`,
+      cause,
+    });
+  }
+}

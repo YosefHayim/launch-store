@@ -1,66 +1,108 @@
-import { Context, Data, Effect, Layer } from 'effect';
 import { AppStoreConnectClient } from '@apple/ascClient.js';
-import type { AscReleaseApi as PublicReleaseApi } from '../../release/appStoreRelease.js';
-import type { AscReleaseApi as ReleaseAttributesApi } from '../../release/releaseAttrs.js';
 import type { AscKey } from '../../types/credentials.js';
-import { effectMethodsProxy, type EffectMethods } from '../platform/effectMethodsClient.js';
 import { hasMessage } from '../platform/errorMessage.js';
 
-export type EffectAppStoreConnectClient = EffectMethods<
-  AppStoreConnectClient,
-  AppleTransportFailure
->;
-
 export type AppleTransportFailure = Readonly<{
-  readonly _tag: 'AppleTransportFailure';
-  readonly message: string;
-  readonly cause: unknown;
-  readonly status?: number;
+  _tag: 'AppleTransportFailure';
+  message: string;
+  cause: unknown;
+  status?: number;
 }>;
 
-export const makeAppleTransportFailure =
-  Data.tagged<AppleTransportFailure>('AppleTransportFailure');
+export function makeAppleTransportFailure(fields: {
+  message: string;
+  cause: unknown;
+  status?: number;
+}): AppleTransportFailure {
+  if (fields.status == null) {
+    return { _tag: 'AppleTransportFailure', message: fields.message, cause: fields.cause };
+  }
 
-const transportFailure = (cause: unknown): AppleTransportFailure => {
+  return {
+    _tag: 'AppleTransportFailure',
+    message: fields.message,
+    cause: fields.cause,
+    status: fields.status,
+  };
+}
+
+function transportFailure(cause: unknown): AppleTransportFailure {
   let message = String(cause);
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause !== 'object') {
+
+  if (hasMessage(cause)) {
+    message = cause.message;
+  }
+
+  if (typeof cause != 'object') {
     return makeAppleTransportFailure({ message, cause });
   }
-  if (cause === null) {
+
+  if (cause == null) {
     return makeAppleTransportFailure({ message, cause });
   }
-  if (!('status' in cause)) {
+
+  if ('status' in cause == false) {
     return makeAppleTransportFailure({ message, cause });
   }
+
   const status = cause.status;
-  if (typeof status !== 'number') return makeAppleTransportFailure({ message, cause });
+
+  if (typeof status != 'number') {
+    return makeAppleTransportFailure({ message, cause });
+  }
+
   return makeAppleTransportFailure({ message, cause, status });
+}
+
+export function appRecordMissingMessage(bundleId: string, command = 'launch release ios'): string {
+  return (
+    `No App Store Connect app record for ${bundleId}. Apple has no API to create one - create the app ` +
+    `once at https://appstoreconnect.apple.com/apps. A brand-new app also needs its screenshots, age rating, ` +
+    `privacy details, and signed Paid/Free Apps agreement set there once. Then re-run \`${command}\`.`
+  );
+}
+
+function wrapAppleClient(client: AppStoreConnectClient): AppStoreConnectClient {
+  return new Proxy(client, {
+    get(target, property, receiver) {
+      const member = Reflect.get(target, property, receiver);
+
+      if (typeof member != 'function') {
+        return member;
+      }
+
+      return async function callApple(...methodArguments: unknown[]) {
+        try {
+          return await Reflect.apply(member, target, methodArguments);
+        } catch (cause) {
+          throw transportFailure(cause);
+        }
+      };
+    },
+  });
+}
+
+type AppleClientFactory = (ascKey: AscKey) => AppStoreConnectClient;
+
+let appleClientFactory: AppleClientFactory | null = null;
+
+export function useAppleStoreClientFactory(factory: AppleClientFactory | null): void {
+  appleClientFactory = factory;
+}
+
+function createAppleClient(ascKey: AscKey): AppStoreConnectClient {
+  if (appleClientFactory != null) {
+    return appleClientFactory(ascKey);
+  }
+
+  return wrapAppleClient(new AppStoreConnectClient(ascKey));
+}
+
+export const AppleStoreClientService = {
+  createClient: createAppleClient,
+  createEffectClient: createAppleClient,
+  createReleaseAttributesClient: createAppleClient,
 };
 
-/** Actionable message when an app has no ASC record (Apple has no API to create one). */
-export const appRecordMissingMessage = (bundleId: string, command = 'launch release ios'): string =>
-  `No App Store Connect app record for ${bundleId}. Apple has no API to create one - create the app ` +
-  `once at https://appstoreconnect.apple.com/apps. A brand-new app also needs its screenshots, age rating, ` +
-  `privacy details, and signed Paid/Free Apps agreement set there once. Then re-run \`${command}\`.`;
-
-const effectClient = (ascKey: AscKey): EffectAppStoreConnectClient => {
-  const promiseClient = new AppStoreConnectClient(ascKey);
-  return effectMethodsProxy(promiseClient, transportFailure);
-};
-
-export type AppleStoreClientService = Readonly<{
-  createClient: (ascKey: AscKey) => Effect.Effect<PublicReleaseApi>;
-  createEffectClient: (ascKey: AscKey) => Effect.Effect<EffectAppStoreConnectClient>;
-  createReleaseAttributesClient: (ascKey: AscKey) => Effect.Effect<ReleaseAttributesApi>;
-}>;
-
-export const AppleStoreClientService =
-  Context.GenericTag<AppleStoreClientService>('AppleStoreClientService');
-
-export const AppleStoreClientLive = Layer.succeed(AppleStoreClientService, {
-  createClient: (ascKey) => Effect.sync((): PublicReleaseApi => effectClient(ascKey)),
-  createEffectClient: (ascKey) => Effect.sync(() => effectClient(ascKey)),
-  createReleaseAttributesClient: (ascKey) =>
-    Effect.sync((): ReleaseAttributesApi => effectClient(ascKey)),
-} satisfies AppleStoreClientService);
+export type AppleStoreClientService = typeof AppleStoreClientService;
+export type EffectAppStoreConnectClient = AppStoreConnectClient;

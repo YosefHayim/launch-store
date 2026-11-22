@@ -1,11 +1,8 @@
-import type { FileSystem, Path } from '@effect/platform';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { makeLaunchPathsTest, type LaunchPathsService } from '../services/platform/paths.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import type { HostHandle } from '../types/remote.js';
 import {
   clearLiveHost,
@@ -27,50 +24,41 @@ const hostHandle: HostHandle = {
 };
 
 describe('cloud state', () => {
-  let testHomeDirectory: string;
+  let testHomeDirectory = '';
 
   beforeEach(() => {
     testHomeDirectory = mkdtempSync(join(tmpdir(), 'launch-cloud-state-'));
+    useLaunchDirectories({
+      homeDirectory: testHomeDirectory,
+      workingDirectory: testHomeDirectory,
+    });
   });
 
   afterEach(() => {
+    resetLaunchDirectories();
     rmSync(testHomeDirectory, { recursive: true, force: true });
   });
 
-  const runCloudState = <Success, Failure>(
-    cloudStateEffect: Effect.Effect<
-      Success,
-      Failure,
-      FileSystem.FileSystem | LaunchPathsService | Path.Path
-    >,
-  ) =>
-    Effect.runPromise(
-      cloudStateEffect.pipe(
-        Effect.provide(makeLaunchPathsTest(testHomeDirectory, testHomeDirectory)),
-        Effect.provide(NodeContext.layer),
-      ),
-    );
-
   it('is empty when the file does not exist', async () => {
-    expect(await runCloudState(readCloudState())).toEqual({});
-    expect(await runCloudState(getLiveHost())).toBeNull();
-    expect(await runCloudState(getAmiId())).toBeNull();
+    expect(await readCloudState()).toEqual({});
+    expect(await getLiveHost()).toBeNull();
+    expect(await getAmiId()).toBeNull();
   });
 
   it('round-trips the live host and clears it without losing the AMI id', async () => {
-    await runCloudState(setAmiId('ami-abc'));
-    await runCloudState(setLiveHost(hostHandle));
-    expect(await runCloudState(getLiveHost())).toEqual(hostHandle);
-    expect(await runCloudState(getAmiId())).toBe('ami-abc');
-    await runCloudState(clearLiveHost());
-    expect(await runCloudState(getLiveHost())).toBeNull();
-    expect(await runCloudState(getAmiId())).toBe('ami-abc');
+    await setAmiId('ami-abc');
+    await setLiveHost(hostHandle);
+    expect(await getLiveHost()).toEqual(hostHandle);
+    expect(await getAmiId()).toBe('ami-abc');
+    await clearLiveHost();
+    expect(await getLiveHost()).toBeNull();
+    expect(await getAmiId()).toBe('ami-abc');
   });
 
   it('tolerates a malformed file by returning empty state', async () => {
     const launchDirectory = join(testHomeDirectory, '.launch');
-    await runCloudState(setAmiId('ami-before-corruption'));
+    await setAmiId('ami-before-corruption');
     writeFileSync(join(launchDirectory, 'cloud.json'), '{ not json');
-    expect(await runCloudState(readCloudState())).toEqual({});
+    expect(await readCloudState()).toEqual({});
   });
 });

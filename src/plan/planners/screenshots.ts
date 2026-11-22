@@ -1,83 +1,121 @@
-import { Effect } from 'effect';
 import { reconcileAssetActions } from '@/store/shared/syncRun.js';
 import { buildJobs, type SyncJob } from '@/store/shared/syncJobs.js';
 import { checkScreenshotFile } from '@/listing/screenshots/specs.js';
 import type { PlannedAction } from '@/types/reconcile.js';
-import type { AppPlan, PlanContext, SurfacePlanner } from '@/types/plan.js';
-/** Surface id - also the value users pass as `launch plan screenshots`. */
+import type { AppPlan, AscSurfacesApi, PlanContext, SurfacePlanner } from '@/types/plan.js';
+
 const SURFACE = 'screenshots';
-/** Whether a job carries any on-disk asset this surface reconciles (screenshots, previews, or review shots). */
-const hasAssets = (job: SyncJob): boolean => {
-  if (job.screenshots.length > 0) return true;
-  if (job.previews.length > 0) return true;
+
+type DimensionCheck =
+  | { measured: false }
+  | { measured: true; verdict: { ok: true } | { ok: false; reason: string } };
+
+function isAppleAccountMissing(api: AscSurfacesApi | null): api is null {
+  return api == null;
+}
+
+function isUnmeasured(dimensionCheck: DimensionCheck): dimensionCheck is { measured: false } {
+  return dimensionCheck.measured == false;
+}
+
+function isOnSpec(verdict: { ok: boolean }): verdict is { ok: true } {
+  return verdict.ok == true;
+}
+
+function hasAssets(job: SyncJob): boolean {
+  const hasScreenshots = job.screenshots.length > 0;
+
+  if (hasScreenshots) {
+    return true;
+  }
+
+  const hasPreviews = job.previews.length > 0;
+
+  if (hasPreviews) {
+    return true;
+  }
+
   return job.subscriptionReviewScreenshots.length > 0;
-};
-/**
- * Advisory dimension checks for a job's on-disk screenshots: any file whose pixels can be measured and
- * fall outside its display type's accepted App Store sizes becomes a `skipped` advisory line, so
- * `launch plan` surfaces a wrong-sized screenshot before App Store Connect rejects the submission.
- * Unmeasurable files (non-image or unreadable) are left to the upload pass - this check only warns, never
- * blocks, mirroring the surface's other advisory `skipped` notes.
- */
-const dimensionAdvisories = (job: SyncJob) =>
-  Effect.gen(function* () {
-    const advisoryActions: PlannedAction[] = [];
-    for (const screenshot of job.screenshots) {
-      const dimensionCheck = yield* checkScreenshotFile(
-        'ios',
-        screenshot.displayType,
-        screenshot.path,
-      );
-      if (dimensionCheck.measured && !dimensionCheck.verdict.ok) {
-        advisoryActions.push({
-          description: `off-spec screenshot ${screenshot.fileName} [${screenshot.locale}/${screenshot.displayType}]: ${dimensionCheck.verdict.reason}`,
-          destructive: false,
-          status: 'skipped',
-        });
-      }
+}
+
+async function dimensionAdvisories(job: SyncJob): Promise<PlannedAction[]> {
+  const advisoryActions: PlannedAction[] = [];
+
+  for (const screenshot of job.screenshots) {
+    const dimensionCheck: DimensionCheck = await checkScreenshotFile(
+      'ios',
+      screenshot.displayType,
+      screenshot.path,
+    );
+
+    if (isUnmeasured(dimensionCheck)) {
+      continue;
     }
-    return advisoryActions;
-  });
+
+    if (isOnSpec(dimensionCheck.verdict)) {
+      continue;
+    }
+
+    advisoryActions.push({
+      description: `off-spec screenshot ${screenshot.fileName} [${screenshot.locale}/${screenshot.displayType}]: ${dimensionCheck.verdict.reason}`,
+      destructive: false,
+      status: 'skipped',
+    });
+  }
+
+  return advisoryActions;
+}
+
+async function planScreenshotJob(api: AscSurfacesApi, job: SyncJob): Promise<AppPlan> {
+  const advisoryActions = await dimensionAdvisories(job);
+  const reconcileActions = await reconcileAssetActions(api, job, true, false);
+
+  return {
+    app: job.app.name,
+    identifier: job.bundleId,
+    actions: [...advisoryActions, ...reconcileActions],
+  };
+}
+
 export const screenshotsPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan(planContext: PlanContext) {
-    return Effect.gen(function* () {
-      const allJobs = yield* buildJobs(planContext.apps, planContext.config);
-      const jobs = allJobs.filter(hasAssets);
-      if (jobs.length === 0) return { surface: SURFACE, store: 'appstore', state: 'omitted' };
-      const api = yield* planContext.resolveAscApi();
-      if (!api) {
-        return {
-          surface: SURFACE,
-          store: 'appstore',
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
-      }
-      const apps: AppPlan[] = yield* Effect.forEach(
-        jobs,
-        (job) =>
-          Effect.gen(function* () {
-            const advisoryActions = yield* dimensionAdvisories(job);
-            const reconcileActions = yield* reconcileAssetActions(api, job, true, false);
-            return {
-              app: job.app.name,
-              identifier: job.bundleId,
-              actions: [...advisoryActions, ...reconcileActions],
-            };
-          }),
-        { concurrency: 'unbounded' },
-      );
+  async plan(planContext: PlanContext) {
+    const allJobs = await buildJobs(planContext.apps, planContext.config);
+    const jobs = allJobs.filter(hasAssets);
+    const isNothingDeclared = jobs.length == 0;
+
+    if (isNothingDeclared) {
+      return { surface: SURFACE, store: 'appstore', state: 'omitted' };
+    }
+
+    const api = await planContext.resolveAscApi();
+
+    if (isAppleAccountMissing(api)) {
       return {
         surface: SURFACE,
         store: 'appstore',
-        state: 'planned',
-        scope: 'app',
-        direction: 'additive',
-        apps,
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
       };
-    });
+    }
+
+    const appleApi = api;
+
+    function planJob(job: SyncJob): Promise<AppPlan> {
+      return planScreenshotJob(appleApi, job);
+    }
+
+    const apps = await Promise.all(jobs.map(planJob));
+
+    return {
+      surface: SURFACE,
+      store: 'appstore',
+      state: 'planned',
+      scope: 'app',
+      direction: 'additive',
+      apps,
+    };
   },
 };

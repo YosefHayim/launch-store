@@ -1,56 +1,44 @@
-import { FileSystem, type Path } from '@effect/platform';
-import { Clock, Data, Effect, Schema } from 'effect';
-import type { AccountRecord, AccountsFile, AscKey } from '../types/credentials.js';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { pathExists } from '@/path-exists.js';
+import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
+import { readLaunchEnvironment } from '@/services/platform/environment.js';
 import {
   resolveAccountCredentialsDirectory,
   resolveAccountsFilePath,
   resolveLaunchHomeDirectory,
-  type LaunchPathsService,
-} from '../services/platform/paths.js';
-import { deleteSecret, getSecret, setSecret } from './storedSecret.js';
+} from '@/services/platform/paths.js';
+import { AppStoreIdentityService } from '@/services/stores/appStoreIdentity.js';
+import type { AccountRecord, AccountsFile, AscKey } from '@/types/credentials.js';
 import { migrateLegacySigningIndex, p12PasswordAccount } from './appleSigning.js';
-import { AppStoreIdentityService } from '../services/stores/appStoreIdentity.js';
-import {
-  LaunchEnvironment,
-  type LaunchEnvironmentService,
-} from '../services/platform/environment.js';
-import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
-import type { MutableDeep } from '../types/mutable.js';
+
 /** Secret-store account holding one Apple account's `.p8` PEM, namespaced by Key ID. */
-const p8Account = (keyId: string): string => {
+function p8Account(keyId: string): string {
   return `asc-p8:${keyId}`;
-};
+}
+
 /** The pre-multi-account secret-store accounts a first-run migration reads and then clears. */
 const LEGACY_KEY_ID = 'asc-key-id';
 const LEGACY_ISSUER_ID = 'asc-issuer-id';
 const LEGACY_P8 = 'asc-p8';
 const LEGACY_P12_PASSWORD = 'dist-cert-p12-password';
+
 type AccountFailure = Readonly<{
-  readonly _tag: 'AccountFailure';
-  readonly message: string;
+  _tag: 'AccountFailure';
+  message: string;
 }>;
-const makeAccountFailure = Data.tagged<AccountFailure>('AccountFailure');
-const AccountRecordSchema: Schema.Schema<AccountRecord> = Schema.Struct({
-  keyId: Schema.String,
-  issuerId: Schema.String,
-  label: Schema.String,
-  teamId: Schema.optionalWith(Schema.String, { exact: true }),
-  apps: Schema.optionalWith(Schema.Array(Schema.String), { exact: true }),
-  addedAt: Schema.String,
-  resolvedAt: Schema.optionalWith(Schema.String, { exact: true }),
-  vendorNumber: Schema.optionalWith(Schema.String, { exact: true }),
-});
-const AccountsFileSchema: Schema.Schema<AccountsFile> = Schema.Struct({
-  active: Schema.NullOr(Schema.String),
-  accounts: Schema.Array(AccountRecordSchema),
-});
-type AccountStorageRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
-const emptyAccountsFile = (): AccountsFile => ({ active: null, accounts: [] });
-/** ISO-8601 stamp for `addedAt`/`resolvedAt`. */
-const currentTimestamp = (): Effect.Effect<string> =>
-  Clock.currentTimeMillis.pipe(
-    Effect.map((epochMilliseconds) => new Date(epochMilliseconds).toISOString()),
-  );
+
+function makeAccountFailure(message: string): AccountFailure {
+  return { _tag: 'AccountFailure', message };
+}
+
+function emptyAccountsFile(): AccountsFile {
+  return { active: null, accounts: [] };
+}
+
+function currentTimestamp(): string {
+  return new Date().toISOString();
+}
+
 /**
  * Encode a `.p8` PEM as single-line base64 for storage.
  *
@@ -58,104 +46,356 @@ const currentTimestamp = (): Effect.Effect<string> =>
  * silently corrupted multi-line PEMs. Base64 has no newlines, so the value round-trips verbatim on
  * every backend (macOS `security`, Windows Credential Manager, Linux libsecret).
  */
-export const encodeP8 = (pem: string): string => {
+export function encodeP8(pem: string): string {
   return Buffer.from(pem, 'utf8').toString('base64');
-};
+}
+
 /**
  * Decode a stored `.p8` back to its PEM, repairing every legacy on-disk form so upgrading never forces
  * a re-import: current single-line base64; a legacy multi-line PEM the macOS backend hex-encoded; and
  * the oldest raw PEM that happened to survive. A value matching none of these is returned verbatim.
  */
-export const decodeP8 = (stored: string): string => {
+export function decodeP8(stored: string): string {
   const fromBase64 = Buffer.from(stored, 'base64').toString('utf8');
-  if (fromBase64.includes('PRIVATE KEY')) return fromBase64;
-  if (/^(?:[0-9a-fA-F]{2})+$/.test(stored)) {
-    const fromHex = Buffer.from(stored, 'hex').toString('utf8');
-    if (fromHex.includes('PRIVATE KEY')) return fromHex;
+  const isPem = fromBase64.includes('PRIVATE KEY');
+
+  if (isPem) {
+    return fromBase64;
   }
+
+  // Even-length hex, the form the macOS keychain used for multi-line PEMs.
+  const isHex = /^(?:[0-9a-fA-F]{2})+$/.test(stored);
+
+  if (isHex == false) {
+    return stored;
+  }
+
+  const fromHex = Buffer.from(stored, 'hex').toString('utf8');
+  const isHexPem = fromHex.includes('PRIVATE KEY');
+
+  if (isHexPem) {
+    return fromHex;
+  }
+
   return stored;
-};
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return candidate != null;
+}
+
+function readRequiredString(document: Record<string, unknown>, fieldName: string): string | null {
+  const field = document[fieldName];
+
+  if (typeof field != 'string') {
+    return null;
+  }
+
+  return field;
+}
+
+function readOptionalString(
+  document: Record<string, unknown>,
+  fieldName: string,
+): { status: 'missing' | 'invalid' | 'present'; text: string } {
+  if (fieldName in document == false) {
+    return { status: 'missing', text: '' };
+  }
+
+  const text = readRequiredString(document, fieldName);
+
+  if (text == null) {
+    return { status: 'invalid', text: '' };
+  }
+
+  return { status: 'present', text };
+}
+
+function readOptionalStringList(
+  document: Record<string, unknown>,
+  fieldName: string,
+): { status: 'missing' | 'invalid' | 'present'; texts: string[] } {
+  if (fieldName in document == false) {
+    return { status: 'missing', texts: [] };
+  }
+
+  const field = document[fieldName];
+
+  if (Array.isArray(field) == false) {
+    return { status: 'invalid', texts: [] };
+  }
+
+  const texts: string[] = [];
+
+  for (const listed of field) {
+    if (typeof listed != 'string') {
+      return { status: 'invalid', texts: [] };
+    }
+
+    texts.push(listed);
+  }
+
+  return { status: 'present', texts };
+}
+
+function decodeAccountRecord(candidate: unknown): AccountRecord | null {
+  if (isRecord(candidate) == false) {
+    return null;
+  }
+
+  const keyId = readRequiredString(candidate, 'keyId');
+
+  if (keyId == null) {
+    return null;
+  }
+
+  const issuerId = readRequiredString(candidate, 'issuerId');
+
+  if (issuerId == null) {
+    return null;
+  }
+
+  const label = readRequiredString(candidate, 'label');
+
+  if (label == null) {
+    return null;
+  }
+
+  const addedAt = readRequiredString(candidate, 'addedAt');
+
+  if (addedAt == null) {
+    return null;
+  }
+
+  const teamId = readOptionalString(candidate, 'teamId');
+
+  if (teamId.status == 'invalid') {
+    return null;
+  }
+
+  const apps = readOptionalStringList(candidate, 'apps');
+
+  if (apps.status == 'invalid') {
+    return null;
+  }
+
+  const resolvedAt = readOptionalString(candidate, 'resolvedAt');
+
+  if (resolvedAt.status == 'invalid') {
+    return null;
+  }
+
+  const vendorNumber = readOptionalString(candidate, 'vendorNumber');
+
+  if (vendorNumber.status == 'invalid') {
+    return null;
+  }
+
+  const account: {
+    keyId: string;
+    issuerId: string;
+    label: string;
+    addedAt: string;
+    teamId?: string;
+    apps?: string[];
+    resolvedAt?: string;
+    vendorNumber?: string;
+  } = { keyId, issuerId, label, addedAt };
+
+  if (teamId.status == 'present') {
+    account.teamId = teamId.text;
+  }
+
+  if (apps.status == 'present') {
+    account.apps = apps.texts;
+  }
+
+  if (resolvedAt.status == 'present') {
+    account.resolvedAt = resolvedAt.text;
+  }
+
+  if (vendorNumber.status == 'present') {
+    account.vendorNumber = vendorNumber.text;
+  }
+
+  return account;
+}
+
+function isActiveFieldValid(activeField: unknown): activeField is string | null {
+  if (activeField == null) {
+    return true;
+  }
+
+  return typeof activeField == 'string';
+}
+
+function decodeAccountsFile(candidate: unknown): AccountsFile | null {
+  if (isRecord(candidate) == false) {
+    return null;
+  }
+
+  const hasActiveField = 'active' in candidate;
+
+  if (hasActiveField == false) {
+    return null;
+  }
+
+  const activeField = candidate['active'];
+
+  if (isActiveFieldValid(activeField) == false) {
+    return null;
+  }
+
+  let active: string | null = null;
+  const activeIsString = typeof activeField == 'string';
+
+  if (activeIsString) {
+    active = activeField;
+  }
+
+  const accountsField = candidate['accounts'];
+
+  if (Array.isArray(accountsField) == false) {
+    return null;
+  }
+
+  const accounts: AccountRecord[] = [];
+
+  for (const accountField of accountsField) {
+    const account = decodeAccountRecord(accountField);
+
+    if (account == null) {
+      return null;
+    }
+
+    accounts.push(account);
+  }
+
+  return { active, accounts };
+}
+
 /** Read the registry, returning an empty one when the file is absent or malformed. */
-const readAccounts = (): Effect.Effect<AccountsFile, never, AccountStorageRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const accountsFilePath = yield* resolveAccountsFilePath();
-    const registryExists = yield* fileSystem
-      .exists(accountsFilePath)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!registryExists) return emptyAccountsFile();
-    return yield* fileSystem.readFileString(accountsFilePath).pipe(
-      Effect.flatMap((registryText) => Effect.try(() => JSON.parse(registryText))),
-      Effect.flatMap(Schema.decodeUnknown(AccountsFileSchema)),
-      Effect.map((accountsFile): AccountsFile => accountsFile),
-      Effect.orElseSucceed(emptyAccountsFile),
-    );
-  });
+async function readAccounts(): Promise<AccountsFile> {
+  const accountsFilePath = resolveAccountsFilePath();
+  const registryExists = await pathExists(accountsFilePath);
+
+  if (registryExists == false) {
+    return emptyAccountsFile();
+  }
+
+  try {
+    const registryText = await readFile(accountsFilePath, 'utf8');
+    const parsedRegistry: unknown = JSON.parse(registryText);
+    const accountsFile = decodeAccountsFile(parsedRegistry);
+
+    if (accountsFile == null) {
+      return emptyAccountsFile();
+    }
+
+    return accountsFile;
+  } catch (error) {
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      return emptyAccountsFile();
+    }
+
+    return emptyAccountsFile();
+  }
+}
+
 /** Write the registry back to disk (pretty-printed; non-secret metadata only). */
-const writeAccounts = (
-  accountsFile: AccountsFile,
-): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const launchHomeDirectory = yield* resolveLaunchHomeDirectory();
-    const accountsFilePath = yield* resolveAccountsFilePath();
-    yield* fileSystem.makeDirectory(launchHomeDirectory, { recursive: true });
-    yield* fileSystem.writeFileString(accountsFilePath, JSON.stringify(accountsFile, null, 2));
-  }).pipe(
-    Effect.mapError(() =>
-      makeAccountFailure({
-        message: 'Could not write the account registry.',
-      }),
-    ),
-  );
+async function writeAccounts(accountsFile: AccountsFile): Promise<void> {
+  try {
+    const launchHomeDirectory = resolveLaunchHomeDirectory();
+    await mkdir(launchHomeDirectory, { recursive: true });
+    const accountsFilePath = resolveAccountsFilePath();
+    await writeFile(accountsFilePath, JSON.stringify(accountsFile, null, 2));
+  } catch (error) {
+    const isWriteFailure = error != null;
+
+    if (isWriteFailure) {
+      throw makeAccountFailure('Could not write the account registry.');
+    }
+  }
+}
+
 /** Every onboarded account, in insertion order. */
-export const listAccounts = (): Effect.Effect<
-  readonly AccountRecord[],
-  never,
-  AccountStorageRequirements
-> => readAccounts().pipe(Effect.map((accountsFile) => accountsFile.accounts));
+export async function listAccounts(): Promise<readonly AccountRecord[]> {
+  const accountsFile = await readAccounts();
+
+  return accountsFile.accounts;
+}
+
 /** Key ID of the active account, or null when none is selected. */
-export const getActiveKeyId = (): Effect.Effect<string | null, never, AccountStorageRequirements> =>
-  readAccounts().pipe(Effect.map((accountsFile) => accountsFile.active));
+export async function getActiveKeyId(): Promise<string | null> {
+  const accountsFile = await readAccounts();
+
+  return accountsFile.active;
+}
+
+function accountWithKeyId(keyId: string | null) {
+  return function hasKeyId(account: AccountRecord): boolean {
+    return account.keyId == keyId;
+  };
+}
+
 /** The active account record, or null when none is selected. */
-export const getActiveAccount = (): Effect.Effect<
-  AccountRecord | null,
-  never,
-  AccountStorageRequirements
-> =>
-  Effect.gen(function* () {
-    const accountsFile = yield* readAccounts();
-    if (accountsFile.active === null) return null;
-    const activeAccount = accountsFile.accounts.find(
-      (account) => account.keyId === accountsFile.active,
-    );
-    if (activeAccount === undefined) return null;
-    return activeAccount;
-  });
+export async function getActiveAccount(): Promise<AccountRecord | null> {
+  const accountsFile = await readAccounts();
+
+  if (accountsFile.active == null) {
+    return null;
+  }
+
+  const activeAccount = accountsFile.accounts.find(accountWithKeyId(accountsFile.active));
+
+  if (activeAccount == null) {
+    return null;
+  }
+
+  return activeAccount;
+}
+
 /** Find an account by exact Key ID. */
-const findAccount = (
-  keyId: string,
-): Effect.Effect<AccountRecord | undefined, never, AccountStorageRequirements> =>
-  readAccounts().pipe(
-    Effect.map((accountsFile) => accountsFile.accounts.find((account) => account.keyId === keyId)),
-  );
+async function findAccount(keyId: string): Promise<AccountRecord | undefined> {
+  const accountsFile = await readAccounts();
+
+  return accountsFile.accounts.find(accountWithKeyId(keyId));
+}
+
 /** Match an account by its label or Key ID, case-insensitively - the selector form users type. */
-export const matchAccount = (
+export function matchAccount(
   accounts: readonly AccountRecord[],
   selector: string,
-): AccountRecord | undefined => {
+): AccountRecord | undefined {
   const needle = selector.trim().toLowerCase();
-  return accounts.find((account) => {
-    if (account.keyId.toLowerCase() === needle) return true;
-    return account.label.toLowerCase() === needle;
-  });
-};
+
+  function matchesSelector(account: AccountRecord): boolean {
+    const keyMatches = account.keyId.toLowerCase() == needle;
+
+    if (keyMatches) {
+      return true;
+    }
+
+    return account.label.toLowerCase() == needle;
+  }
+
+  return accounts.find(matchesSelector);
+}
+
 /** Max app names shown inline in {@link formatAccountSummary} before the remainder collapses to `+N`. */
 const ACCOUNT_SUMMARY_APP_LIMIT = 3;
+
 /** Options for {@link formatAccountSummary}. */
-type AccountSummaryOptions = {
+type AccountSummaryRequest = {
   includeLabel?: boolean;
 };
+
 /**
  * One human-recognizable line for an account, shared by the build step line, the `launch creds`
  * listing, and the account picker hint so all three read identically.
@@ -166,27 +406,54 @@ type AccountSummaryOptions = {
  * not-yet-resolved app list is omitted, so the line degrades cleanly to `label - team - key`. Renders
  * only what's cached on the record - never an Apple call.
  */
-export const formatAccountSummary = (
+export function formatAccountSummary(
   account: AccountRecord,
-  options: AccountSummaryOptions = {},
-): string => {
+  summary: AccountSummaryRequest = {},
+): string {
   const segments: string[] = [];
-  if (options.includeLabel !== false) segments.push(account.label);
-  let apps = account.apps;
-  if (apps === undefined) apps = [];
-  if (apps.length > 0) {
+  let includeLabel = true;
+
+  if (summary.includeLabel == false) {
+    includeLabel = false;
+  }
+
+  if (includeLabel) {
+    segments.push(account.label);
+  }
+
+  let apps: readonly string[] = [];
+
+  if (account.apps != null) {
+    apps = account.apps;
+  }
+
+  const hasApps = apps.length > 0;
+
+  if (hasApps) {
     const extra = apps.length - ACCOUNT_SUMMARY_APP_LIMIT;
     const shown = apps.slice(0, ACCOUNT_SUMMARY_APP_LIMIT).join(', ');
     let appSummary = shown;
-    if (extra > 0) appSummary = `${shown} +${extra}`;
+
+    if (extra > 0) {
+      appSummary = `${shown} +${extra}`;
+    }
+
     segments.push(appSummary);
   }
-  if (account.teamId) segments.push(`team ${account.teamId}`);
+
+  if (account.teamId != null) {
+    if (account.teamId != '') {
+      segments.push(`team ${account.teamId}`);
+    }
+  }
+
   segments.push(`key ${account.keyId}`);
+
   return segments.join(' - ');
-};
+}
+
 /** Inputs to {@link addAccount}: the key material plus any team/apps already resolved from Apple. */
-type AddAccountInput = {
+type AddAccountRequest = {
   keyId: string;
   issuerId: string;
   label: string;
@@ -194,193 +461,288 @@ type AddAccountInput = {
   teamId?: string | null;
   apps?: string[];
 };
+
+function hasSuppliedIdentity(addRequest: AddAccountRequest): boolean {
+  if (addRequest.teamId != null) {
+    return true;
+  }
+
+  if (addRequest.apps == null) {
+    return false;
+  }
+
+  return addRequest.apps.length > 0;
+}
+
 /**
  * Add (or replace) an account and make it active. The `.p8` goes to the OS secret store; the metadata
  * to the registry. Re-adding an existing Key ID updates it in place (keeping its original `addedAt`),
  * so importing the same key with a new label or a fresh `.p8` never creates a duplicate.
  */
-export const addAccount = (
-  input: AddAccountInput,
-): Effect.Effect<AccountRecord, unknown, AccountStorageRequirements | LaunchSecretStoreService> =>
-  Effect.gen(function* () {
-    yield* setSecret(p8Account(input.keyId), encodeP8(input.p8));
-    const file = yield* readAccounts();
-    const existing = file.accounts.find((account) => account.keyId === input.keyId);
-    const timestamp = yield* currentTimestamp();
-    let hasIdentity = input.teamId !== null && input.teamId !== undefined;
-    if (!hasIdentity && input.apps !== undefined) hasIdentity = input.apps.length > 0;
-    let addedAt = existing?.addedAt;
-    if (addedAt === undefined) addedAt = timestamp;
-    const record: MutableDeep<AccountRecord> = {
-      keyId: input.keyId,
-      issuerId: input.issuerId,
-      label: input.label,
-      addedAt,
-    };
-    const hasSavedVendorNumber = existing?.vendorNumber !== undefined;
-    if (hasSavedVendorNumber) record.vendorNumber = existing.vendorNumber;
-    if (input.teamId !== null && input.teamId !== undefined) record.teamId = input.teamId;
-    if (input.apps !== undefined && input.apps.length > 0) record.apps = [...input.apps];
-    if (hasIdentity) record.resolvedAt = timestamp;
-    let accounts = [...file.accounts, record];
-    if (existing) {
-      accounts = file.accounts.map((account) => {
-        if (account.keyId === input.keyId) return record;
-        return account;
-      });
+export async function addAccount(addRequest: AddAccountRequest): Promise<AccountRecord> {
+  await LaunchSecretStore.storeSecret(p8Account(addRequest.keyId), encodeP8(addRequest.p8));
+
+  const accountsFile = await readAccounts();
+  const existing = accountsFile.accounts.find(accountWithKeyId(addRequest.keyId));
+  const timestamp = currentTimestamp();
+  const hasIdentity = hasSuppliedIdentity(addRequest);
+  let addedAt = timestamp;
+
+  if (existing != null) {
+    addedAt = existing.addedAt;
+  }
+
+  const record: {
+    keyId: string;
+    issuerId: string;
+    label: string;
+    addedAt: string;
+    vendorNumber?: string;
+    teamId?: string;
+    apps?: string[];
+    resolvedAt?: string;
+  } = {
+    keyId: addRequest.keyId,
+    issuerId: addRequest.issuerId,
+    label: addRequest.label,
+    addedAt,
+  };
+
+  if (existing?.vendorNumber != null) {
+    record.vendorNumber = existing.vendorNumber;
+  }
+
+  if (addRequest.teamId != null) {
+    record.teamId = addRequest.teamId;
+  }
+
+  if (addRequest.apps != null) {
+    if (addRequest.apps.length > 0) {
+      record.apps = [...addRequest.apps];
     }
-    yield* writeAccounts({ active: input.keyId, accounts });
-    return record;
-  });
+  }
+
+  if (hasIdentity) {
+    record.resolvedAt = timestamp;
+  }
+
+  function replaceExisting(account: AccountRecord): AccountRecord {
+    if (account.keyId == addRequest.keyId) {
+      return record;
+    }
+
+    return account;
+  }
+
+  let accounts: readonly AccountRecord[] = [...accountsFile.accounts, record];
+
+  if (existing != null) {
+    accounts = accountsFile.accounts.map(replaceExisting);
+  }
+
+  await writeAccounts({ active: addRequest.keyId, accounts });
+
+  return record;
+}
+
 /** Refresh an account's cached Team ID / app names in place, preserving prior values a null doesn't replace. */
-export const updateAccountIdentity = (
+export async function updateAccountIdentity(
   keyId: string,
   teamId: string | null,
   apps: readonly string[],
-): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
-  Effect.gen(function* () {
-    const file = yield* readAccounts();
-    const timestamp = yield* currentTimestamp();
-    const accounts = file.accounts.map((account) => {
-      if (account.keyId !== keyId) return account;
-      let next: AccountRecord = { ...account, resolvedAt: timestamp };
-      if (teamId != null) next = { ...next, teamId };
-      if (apps.length > 0) next = { ...next, apps: [...apps] };
-      return next;
-    });
-    yield* writeAccounts({ active: file.active, accounts });
-  });
-export const setAccountVendorNumber = (
-  keyId: string,
-  vendorNumber: string,
-): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
-  Effect.gen(function* () {
-    const file = yield* readAccounts();
-    const isAccountSaved = file.accounts.some((account) => account.keyId === keyId);
-    if (!isAccountSaved) {
-      const missingAccountFailure = makeAccountFailure({
-        message: `No account with key ${keyId}.`,
-      });
-      return yield* Effect.fail(missingAccountFailure);
-    }
-    const accounts = file.accounts.map((account) => {
-      const isTargetAccount = account.keyId === keyId;
-      if (isTargetAccount) return { ...account, vendorNumber };
+): Promise<void> {
+  const accountsFile = await readAccounts();
+  const timestamp = currentTimestamp();
+
+  function refreshAccount(account: AccountRecord): AccountRecord {
+    if (account.keyId != keyId) {
       return account;
-    });
-    yield* writeAccounts({ active: file.active, accounts });
-  });
+    }
+
+    let nextAccount: AccountRecord = { ...account, resolvedAt: timestamp };
+
+    if (teamId != null) {
+      nextAccount = { ...nextAccount, teamId };
+    }
+
+    if (apps.length > 0) {
+      nextAccount = { ...nextAccount, apps: [...apps] };
+    }
+
+    return nextAccount;
+  }
+
+  const accounts = accountsFile.accounts.map(refreshAccount);
+  await writeAccounts({ active: accountsFile.active, accounts });
+}
+
+function requireSavedAccount(accountsFile: AccountsFile, keyId: string): void {
+  const isAccountSaved = accountsFile.accounts.some(accountWithKeyId(keyId));
+
+  if (isAccountSaved) {
+    return;
+  }
+
+  throw makeAccountFailure(`No account with key ${keyId}.`);
+}
+
+export async function setAccountVendorNumber(keyId: string, vendorNumber: string): Promise<void> {
+  const accountsFile = await readAccounts();
+  requireSavedAccount(accountsFile, keyId);
+
+  function withVendorNumber(account: AccountRecord): AccountRecord {
+    if (account.keyId == keyId) {
+      return { ...account, vendorNumber };
+    }
+
+    return account;
+  }
+
+  const accounts = accountsFile.accounts.map(withVendorNumber);
+  await writeAccounts({ active: accountsFile.active, accounts });
+}
+
 /** Make `keyId` the active account; throws if it isn't registered. */
-export const setActiveKeyId = (
-  keyId: string,
-): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
-  Effect.gen(function* () {
-    const file = yield* readAccounts();
-    const isAccountSaved = file.accounts.some((account) => account.keyId === keyId);
-    if (!isAccountSaved) {
-      const missingAccountFailure = makeAccountFailure({
-        message: `No account with key ${keyId}.`,
-      });
-      return yield* Effect.fail(missingAccountFailure);
-    }
-    yield* writeAccounts({ active: keyId, accounts: file.accounts });
-  });
+export async function setActiveKeyId(keyId: string): Promise<void> {
+  const accountsFile = await readAccounts();
+  requireSavedAccount(accountsFile, keyId);
+  await writeAccounts({ active: keyId, accounts: accountsFile.accounts });
+}
+
 /** Rename an account's label; throws if it isn't registered. Caller enforces label uniqueness. */
-export const renameAccount = (
-  keyId: string,
-  newLabel: string,
-): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
-  Effect.gen(function* () {
-    const file = yield* readAccounts();
-    const isAccountSaved = file.accounts.some((account) => account.keyId === keyId);
-    if (!isAccountSaved) {
-      const missingAccountFailure = makeAccountFailure({
-        message: `No account with key ${keyId}.`,
-      });
-      return yield* Effect.fail(missingAccountFailure);
+export async function renameAccount(keyId: string, newLabel: string): Promise<void> {
+  const accountsFile = await readAccounts();
+  requireSavedAccount(accountsFile, keyId);
+
+  function withLabel(account: AccountRecord): AccountRecord {
+    if (account.keyId == keyId) {
+      return { ...account, label: newLabel };
     }
-    const accounts = file.accounts.map((account) => {
-      if (account.keyId === keyId) return { ...account, label: newLabel };
-      return account;
-    });
-    yield* writeAccounts({ active: file.active, accounts });
-  });
+
+    return account;
+  }
+
+  const accounts = accountsFile.accounts.map(withLabel);
+  await writeAccounts({ active: accountsFile.active, accounts });
+}
+
+function nextActiveKeyId(
+  currentActive: string | null,
+  removedKeyId: string,
+  remainingAccounts: readonly AccountRecord[],
+): string | null {
+  if (currentActive != removedKeyId) {
+    return currentActive;
+  }
+
+  const firstRemaining = remainingAccounts[0];
+
+  if (firstRemaining == null) {
+    return null;
+  }
+
+  return firstRemaining.keyId;
+}
+
 /**
  * Remove an account completely: its `.p8` and `.p12` password from the secret store, its per-account
  * signing folder, and its registry entry. If it was active, the active pointer falls to the first
  * remaining account (or null when none are left).
  */
-export const removeAccount = (
-  keyId: string,
-): Effect.Effect<void, unknown, AccountStorageRequirements | LaunchSecretStoreService> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    yield* deleteSecret(p8Account(keyId));
-    yield* deleteSecret(p12PasswordAccount(keyId));
-    const accountDirectory = yield* resolveAccountCredentialsDirectory(keyId);
-    yield* fileSystem
-      .remove(accountDirectory, { recursive: true, force: true })
-      .pipe(Effect.catchAll(() => Effect.void));
-    const file = yield* readAccounts();
-    const accounts = file.accounts.filter((account) => account.keyId !== keyId);
-    let active = file.active;
-    if (active === keyId) {
-      active = null;
-      if (accounts[0] !== undefined) active = accounts[0].keyId;
+export async function removeAccount(keyId: string): Promise<void> {
+  await LaunchSecretStore.deleteSecret(p8Account(keyId));
+  await LaunchSecretStore.deleteSecret(p12PasswordAccount(keyId));
+
+  const accountDirectory = resolveAccountCredentialsDirectory(keyId);
+
+  try {
+    await rm(accountDirectory, { recursive: true, force: true });
+  } catch (error) {
+    // A missing signing folder still leaves the registry entry to remove.
+    const isAlreadyGone = error != null;
+
+    if (isAlreadyGone == false) {
+      throw error;
     }
-    yield* writeAccounts({ active, accounts });
-  });
+  }
+
+  const accountsFile = await readAccounts();
+
+  function isOtherAccount(account: AccountRecord): boolean {
+    return account.keyId != keyId;
+  }
+
+  const accounts = accountsFile.accounts.filter(isOtherAccount);
+  const active = nextActiveKeyId(accountsFile.active, keyId, accounts);
+  await writeAccounts({ active, accounts });
+}
+
 /** Load one account's full {@link AscKey} (key from the secret store, ids from the registry), or null. */
-export const loadAscKeyById = (
-  keyId: string,
-): Effect.Effect<AscKey | null, unknown, AccountStorageRequirements | LaunchSecretStoreService> =>
-  Effect.gen(function* () {
-    const record = yield* findAccount(keyId);
-    if (!record) return null;
-    const stored = yield* getSecret(p8Account(keyId));
-    if (!stored) return null;
-    return { keyId, issuerId: record.issuerId, p8: decodeP8(stored) };
-  });
-/** Load the key of the account `ASC_ACCOUNT` names (label or Key ID), failing when none matches. */
-const loadSelectedAscKey = (selector: string) =>
-  Effect.gen(function* () {
-    const accounts = yield* listAccounts();
-    const selected = matchAccount(accounts, selector);
-    if (!selected) {
-      return yield* Effect.fail(
-        makeAccountFailure({
-          message: `No Apple account matching "${selector}". Run \`launch creds\` to list them.`,
-        }),
-      );
-    }
-    return yield* loadAscKeyById(selected.keyId);
-  });
-/** Load the `ASC_ACCOUNT` account's key, else the active account's, or null when none is selected. */
-export const loadActiveAscKey = (): Effect.Effect<
-  AscKey | null,
-  unknown,
-  AccountStorageRequirements | LaunchEnvironmentService | LaunchSecretStoreService
-> =>
-  Effect.gen(function* () {
-    const environment = yield* LaunchEnvironment;
-    const selector = environment.values.appleAccount;
-    if (selector !== undefined) return yield* loadSelectedAscKey(selector);
-    const active = yield* getActiveKeyId();
-    if (active) return yield* loadAscKeyById(active);
+export async function loadAscKeyById(keyId: string): Promise<AscKey | null> {
+  const record = await findAccount(keyId);
+
+  if (record == null) {
     return null;
-  });
-export const loadAscKeyForAccount = (
+  }
+
+  const stored = await LaunchSecretStore.readSecret(p8Account(keyId));
+
+  if (stored == null) {
+    return null;
+  }
+
+  if (stored == '') {
+    return null;
+  }
+
+  return { keyId, issuerId: record.issuerId, p8: decodeP8(stored) };
+}
+
+/** Load the key of the account `ASC_ACCOUNT` names (label or Key ID), failing when none matches. */
+async function loadSelectedAscKey(selector: string): Promise<AscKey | null> {
+  const accounts = await listAccounts();
+  const selected = matchAccount(accounts, selector);
+
+  if (selected == null) {
+    throw makeAccountFailure(
+      `No Apple account matching "${selector}". Run \`launch creds\` to list them.`,
+    );
+  }
+
+  return loadAscKeyById(selected.keyId);
+}
+
+/** Load the `ASC_ACCOUNT` account's key, else the active account's, or null when none is selected. */
+export async function loadActiveAscKey(): Promise<AscKey | null> {
+  const selector = readLaunchEnvironment().values.appleAccount;
+
+  if (selector != null) {
+    return loadSelectedAscKey(selector);
+  }
+
+  const active = await getActiveKeyId();
+
+  if (active != null) {
+    if (active != '') {
+      return loadAscKeyById(active);
+    }
+  }
+
+  return null;
+}
+
+export async function loadAscKeyForAccount(
   accountSelector: string | undefined,
-): Effect.Effect<
-  AscKey | null,
-  unknown,
-  AccountStorageRequirements | LaunchEnvironmentService | LaunchSecretStoreService
-> =>
-  Effect.gen(function* () {
-    const isAccountSelected = accountSelector !== undefined;
-    if (isAccountSelected) return yield* loadSelectedAscKey(accountSelector);
-    return yield* loadActiveAscKey();
-  });
+): Promise<AscKey | null> {
+  const isAccountSelected = accountSelector != null;
+
+  if (isAccountSelected) {
+    return loadSelectedAscKey(accountSelector);
+  }
+
+  return loadActiveAscKey();
+}
+
 /**
  * The decision tree for which account a build uses, factored out as a pure function so it's unit-
  * testable without the filesystem: an explicit selector wins (error if it matches nothing), else the
@@ -398,119 +760,191 @@ type BuildAccountDecision =
       kind: 'error';
       message: string;
     };
+
+function hasSelector(selector: string | undefined): selector is string {
+  if (selector == null) {
+    return false;
+  }
+
+  return selector != '';
+}
+
 /** Decide which account a build should use from the registry state + an optional selector. Pure. */
-export const decideBuildAccount = (file: AccountsFile, selector?: string): BuildAccountDecision => {
-  if (file.accounts.length === 0) {
+export function decideBuildAccount(
+  accountsFile: AccountsFile,
+  selector?: string,
+): BuildAccountDecision {
+  const hasNoAccounts = accountsFile.accounts.length == 0;
+
+  if (hasNoAccounts) {
     return {
       kind: 'error',
       message: 'No Apple account configured. Import one with: launch creds set-key',
     };
   }
-  if (selector) {
-    const matched = matchAccount(file.accounts, selector);
-    if (matched) return { kind: 'use', record: matched };
+
+  if (hasSelector(selector)) {
+    const matched = matchAccount(accountsFile.accounts, selector);
+
+    if (matched != null) {
+      return { kind: 'use', record: matched };
+    }
+
     return {
       kind: 'error',
       message: `No Apple account matching "${selector}". Run \`launch creds\` to list them.`,
     };
   }
+
   let active: AccountRecord | undefined;
-  if (file.active) active = file.accounts.find((account) => account.keyId === file.active);
-  if (active) return { kind: 'use', record: active };
-  const sole = file.accounts[0];
-  if (file.accounts.length === 1 && sole) return { kind: 'use', record: sole };
+
+  if (accountsFile.active != null) {
+    if (accountsFile.active != '') {
+      active = accountsFile.accounts.find(accountWithKeyId(accountsFile.active));
+    }
+  }
+
+  if (active != null) {
+    return { kind: 'use', record: active };
+  }
+
+  const sole = accountsFile.accounts[0];
+  const isSoleAccount = accountsFile.accounts.length == 1;
+
+  if (isSoleAccount) {
+    if (sole != null) {
+      return { kind: 'use', record: sole };
+    }
+  }
+
   return { kind: 'pick' };
-};
+}
+
 /** Options for {@link resolveBuildAccount}. */
-type ResolveBuildAccountOptions = {
+type ResolveBuildAccountRequest = {
   selector?: string | undefined;
   interactive: boolean;
-  pick: (accounts: readonly AccountRecord[]) => Effect.Effect<AccountRecord, unknown>;
+  pick: (accounts: readonly AccountRecord[]) => Promise<AccountRecord>;
 };
+
 /**
  * Resolve the account a build should use, applying {@link decideBuildAccount} and then either using
  * the result, prompting via `pick` (interactive only), or throwing an actionable error in CI.
  */
-export const resolveBuildAccount = (
-  options: ResolveBuildAccountOptions,
-): Effect.Effect<AccountRecord, AccountFailure | unknown, AccountStorageRequirements> =>
-  Effect.gen(function* () {
-    const file = yield* readAccounts();
-    const decision = decideBuildAccount(file, options.selector);
-    if (decision.kind === 'use') return decision.record;
-    if (decision.kind === 'error')
-      return yield* Effect.fail(makeAccountFailure({ message: decision.message }));
-    if (!options.interactive) {
-      return yield* Effect.fail(
-        makeAccountFailure({
-          message:
-            'No active Apple account. Pick one with: launch creds use  (or pass --account / set ASC_ACCOUNT).',
-        }),
-      );
-    }
-    return yield* options.pick(file.accounts);
-  });
-/** Validated Apple-side identity for an account: the Team ID and visible app names (best-effort each). */
-type AccountIdentity = {
-  teamId: string | null;
-  apps: string[];
-};
-/** Resolve an account's Team ID + accessible app names from Apple (each degrades to null/[] on failure). */
-const resolveAccountIdentity = (
-  ascKey: AscKey,
-): Effect.Effect<AccountIdentity, never, AppStoreIdentityService> =>
-  Effect.gen(function* () {
-    const appStoreIdentity = yield* AppStoreIdentityService;
-    return yield* appStoreIdentity.resolveIdentity(ascKey);
-  });
+export async function resolveBuildAccount(
+  accountRequest: ResolveBuildAccountRequest,
+): Promise<AccountRecord> {
+  const accountsFile = await readAccounts();
+  const decision = decideBuildAccount(accountsFile, accountRequest.selector);
+
+  if (decision.kind == 'use') {
+    return decision.record;
+  }
+
+  if (decision.kind == 'error') {
+    throw makeAccountFailure(decision.message);
+  }
+
+  if (accountRequest.interactive == false) {
+    throw makeAccountFailure(
+      'No active Apple account. Pick one with: launch creds use  (or pass --account / set ASC_ACCOUNT).',
+    );
+  }
+
+  return accountRequest.pick(accountsFile.accounts);
+}
+
+function hasResolvedIdentity(account: AccountRecord): boolean {
+  if (account.resolvedAt == null) {
+    return false;
+  }
+
+  return account.resolvedAt != '';
+}
+
 /**
  * Backfill an account's cached team/apps the first time a live key is in hand (e.g. during a build),
  * skipping accounts already resolved. Best-effort: any Apple-side failure is swallowed so it never
  * disrupts the surrounding flow.
  */
-export const refreshIdentityIfStale = (
+export async function refreshIdentityIfStale(
   account: AccountRecord,
   ascKey: AscKey,
-): Effect.Effect<void, never, AccountStorageRequirements | AppStoreIdentityService> =>
-  Effect.gen(function* () {
-    if (account.resolvedAt) return;
-    const identity = yield* resolveAccountIdentity(ascKey);
-    yield* updateAccountIdentity(account.keyId, identity.teamId, identity.apps);
-  }).pipe(Effect.catchAll(() => Effect.void));
+): Promise<void> {
+  if (hasResolvedIdentity(account)) {
+    return;
+  }
+
+  try {
+    const identity = await AppStoreIdentityService.resolveIdentity(ascKey);
+    await updateAccountIdentity(account.keyId, identity.teamId, identity.apps);
+  } catch (error) {
+    const isAppleUnavailable = error != null;
+
+    if (isAppleUnavailable) {
+      return;
+    }
+  }
+}
+
 /**
  * One-time, silent upgrade from the pre-multi-account layout. When `accounts.json` is absent but the
  * legacy single-key secret-store entries exist, move them into the registry as a `default` account:
  * namespace the `.p8` and `.p12` password by Key ID, relocate the signing index per-account, then mark
  * it active. Idempotent and best-effort - a partial run simply re-completes on the next invocation.
  */
-export const migrateLegacyAccounts = (): Effect.Effect<
-  void,
-  unknown,
-  AccountStorageRequirements | LaunchSecretStoreService
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const accountsFilePath = yield* resolveAccountsFilePath();
-    if (yield* fileSystem.exists(accountsFilePath)) return;
-    const keyId = yield* getSecret(LEGACY_KEY_ID);
-    const issuerId = yield* getSecret(LEGACY_ISSUER_ID);
-    const p8 = yield* getSecret(LEGACY_P8);
-    if (keyId === null) return; // fresh install - nothing imported the old way
-    if (issuerId === null) return; // fresh install - nothing imported the old way
-    if (p8 === null) return; // fresh install - nothing imported the old way
-    yield* setSecret(p8Account(keyId), encodeP8(decodeP8(p8)));
-    const legacyPassword = yield* getSecret(LEGACY_P12_PASSWORD);
-    if (legacyPassword) {
-      yield* setSecret(p12PasswordAccount(keyId), legacyPassword);
-      yield* deleteSecret(LEGACY_P12_PASSWORD);
+export async function migrateLegacyAccounts(): Promise<void> {
+  const accountsFilePath = resolveAccountsFilePath();
+  const registryExists = await pathExists(accountsFilePath);
+
+  if (registryExists) {
+    return;
+  }
+
+  const keyId = await LaunchSecretStore.readSecret(LEGACY_KEY_ID);
+  const issuerId = await LaunchSecretStore.readSecret(LEGACY_ISSUER_ID);
+  const p8 = await LaunchSecretStore.readSecret(LEGACY_P8);
+
+  if (keyId == null) {
+    return;
+  }
+
+  if (issuerId == null) {
+    return;
+  }
+
+  if (p8 == null) {
+    return;
+  }
+
+  await LaunchSecretStore.storeSecret(p8Account(keyId), encodeP8(decodeP8(p8)));
+
+  const legacyPassword = await LaunchSecretStore.readSecret(LEGACY_P12_PASSWORD);
+
+  if (legacyPassword != null) {
+    if (legacyPassword != '') {
+      await LaunchSecretStore.storeSecret(p12PasswordAccount(keyId), legacyPassword);
+      await LaunchSecretStore.deleteSecret(LEGACY_P12_PASSWORD);
     }
-    yield* migrateLegacySigningIndex(keyId).pipe(Effect.catchAll(() => Effect.void));
-    const timestamp = yield* currentTimestamp();
-    yield* writeAccounts({
-      active: keyId,
-      accounts: [{ keyId, issuerId, label: 'default', addedAt: timestamp }],
-    });
-    yield* deleteSecret(LEGACY_KEY_ID);
-    yield* deleteSecret(LEGACY_ISSUER_ID);
-    yield* deleteSecret(LEGACY_P8);
+  }
+
+  try {
+    await migrateLegacySigningIndex(keyId);
+  } catch (error) {
+    // A partial migration re-completes on the next invocation.
+    const isMigrationIncomplete = error != null;
+
+    if (isMigrationIncomplete == false) {
+      throw error;
+    }
+  }
+
+  const timestamp = currentTimestamp();
+  await writeAccounts({
+    active: keyId,
+    accounts: [{ keyId, issuerId, label: 'default', addedAt: timestamp }],
   });
+  await LaunchSecretStore.deleteSecret(LEGACY_KEY_ID);
+  await LaunchSecretStore.deleteSecret(LEGACY_ISSUER_ID);
+  await LaunchSecretStore.deleteSecret(LEGACY_P8);
+}

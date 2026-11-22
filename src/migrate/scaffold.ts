@@ -1,7 +1,6 @@
-import { FileSystem, Path } from '@effect/platform';
-import type { PlatformError } from '@effect/platform/Error';
-import { Effect } from 'effect';
+import { join } from 'node:path';
 import { ENV_EXAMPLE_TEMPLATE } from '../config/configScaffold.js';
+import { pathExists } from '../path-exists.js';
 import { serializeStoreConfig, type StoreConfig } from '../store/shared/storeConfig.js';
 import type { MigrationArtifact, MigrationNote } from '../types/migrate.js';
 
@@ -16,47 +15,61 @@ type StoreScaffoldDecision = Readonly<{
   note: MigrationNote;
 }>;
 
+function isCommentLine(line: string): boolean {
+  return line.startsWith('#');
+}
+
+function blankEnvLine(key: string): string {
+  return `${key}=`;
+}
+
 /**
  * Emit a skeleton `store.config.json` when absent, or skip when present.
  * Shared by EAS and Fastlane migrations.
  */
-export const scaffoldStoreConfig = (
+export async function scaffoldStoreConfig(
   workingDirectory: string,
-): Effect.Effect<StoreScaffoldDecision, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    if (yield* fileSystem.exists(pathService.join(workingDirectory, 'store.config.json'))) {
-      return {
-        artifact: null,
-        note: {
-          level: 'skipped',
-          message:
-            'store.config.json already present - Launch uses it verbatim (same schema as EAS metadata).',
-        },
-      };
-    }
+): Promise<StoreScaffoldDecision> {
+  const configPath = join(workingDirectory, 'store.config.json');
+  const configExists = await pathExists(configPath);
+
+  if (configExists) {
     return {
-      artifact: {
-        path: 'store.config.json',
-        contents: serializeStoreConfig(STORE_CONFIG_SKELETON),
-      },
+      artifact: null,
       note: {
-        level: 'manual',
+        level: 'skipped',
         message:
-          'Scaffolded store.config.json - fill in your listing, or run `launch metadata pull` to import the live App Store listing.',
+          'store.config.json already present - Launch uses it verbatim (same schema as EAS metadata).',
       },
     };
-  });
+  }
+
+  return {
+    artifact: {
+      path: 'store.config.json',
+      contents: serializeStoreConfig(STORE_CONFIG_SKELETON),
+    },
+    note: {
+      level: 'manual',
+      message:
+        'Scaffolded store.config.json - fill in your listing, or run `launch metadata pull` to import the live App Store listing.',
+    },
+  };
+}
 
 /**
  * `.env.example` body from imported env KEYS only (values dropped; may be secrets).
  * Falls back to the starter template when no keys were found. Shared by EAS and Fastlane.
  */
-export const buildEnvExample = (keys: readonly string[]): string => {
-  if (keys.length === 0) return ENV_EXAMPLE_TEMPLATE;
-  const header = ENV_EXAMPLE_TEMPLATE.split('\n')
-    .filter((line) => line.startsWith('#'))
-    .join('\n');
-  return `${header}\n${keys.map((key) => `${key}=`).join('\n')}\n`;
-};
+export function buildEnvExample(keys: readonly string[]): string {
+  const hasNoKeys = keys.length == 0;
+
+  if (hasNoKeys) {
+    return ENV_EXAMPLE_TEMPLATE;
+  }
+
+  const header = ENV_EXAMPLE_TEMPLATE.split('\n').filter(isCommentLine).join('\n');
+  const keyLines = keys.map(blankEnvLine).join('\n');
+
+  return `${header}\n${keyLines}\n`;
+}

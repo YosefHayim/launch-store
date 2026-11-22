@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { MerchantIdResource, PassTypeIdResource } from '../../types/appleCatalog.js';
 import { summarize } from '../shared/reconcile.js';
@@ -18,27 +17,27 @@ const makeApi = (existing: {
   const created: { merchant: string[]; passType: string[] } = { merchant: [], passType: [] };
   const api: AscWalletApi = {
     listMerchantIds: () => {
-      if (existing.merchantIds === undefined) return Effect.succeed([]);
-      return Effect.succeed(existing.merchantIds);
+      if (existing.merchantIds === undefined) return Promise.resolve([]);
+      return Promise.resolve(existing.merchantIds);
     },
     createMerchantId: (identifier) => {
       created.merchant.push(identifier);
-      return Effect.void;
+      return Promise.resolve();
     },
     listPassTypeIds: () => {
-      if (existing.passTypeIds === undefined) return Effect.succeed([]);
-      return Effect.succeed(existing.passTypeIds);
+      if (existing.passTypeIds === undefined) return Promise.resolve([]);
+      return Promise.resolve(existing.passTypeIds);
     },
     createPassTypeId: (identifier) => {
       created.passType.push(identifier);
-      return Effect.void;
+      return Promise.resolve();
     },
   };
   return { api, created };
 };
 /** Execute the Wallet reconciler at the test boundary. */
 const runReconcile = (api: AscWalletApi, config: WalletConfig, dryRun: boolean) =>
-  Effect.runPromise(reconcileWalletIds(api, config, dryRun));
+  reconcileWalletIds(api, config, dryRun);
 const CONFIG: WalletConfig = {
   merchantIds: [{ identifier: 'merchant.com.acme.app', name: 'Acme Pay' }],
   passTypeIds: [
@@ -46,7 +45,7 @@ const CONFIG: WalletConfig = {
     { identifier: 'pass.com.acme.ticket', name: 'Acme Ticket' },
   ],
 };
-const decodeWalletConfig = (rawDocument: unknown) => Effect.runSync(parseWalletConfig(rawDocument));
+const decodeWalletConfig = (rawDocument: unknown) => parseWalletConfig(rawDocument);
 describe('parseWalletConfig', () => {
   it('parses both identifier families', () => {
     expect(decodeWalletConfig(CONFIG)).toEqual(CONFIG);
@@ -96,7 +95,7 @@ describe('reconcileWalletIds', () => {
     const { api } = makeApi({});
     api.listMerchantIds = () => {
       merchantListed = true;
-      return Effect.succeed([]);
+      return Promise.resolve([]);
     };
     await runReconcile(api, { passTypeIds: [{ identifier: 'pass.x', name: 'X' }] }, false);
     expect(merchantListed).toBe(false);
@@ -113,9 +112,9 @@ describe('reconcileWalletIds', () => {
     const { api } = makeApi({});
     api.createPassTypeId = (identifier) => {
       if (identifier === 'pass.com.acme.coupon') {
-        return Effect.fail(new Error('already taken'));
+        return Promise.reject(new Error('already taken'));
       }
-      return Effect.void;
+      return Promise.resolve();
     };
     const actions = await runReconcile(api, CONFIG, false);
     const summary = summarize(actions);

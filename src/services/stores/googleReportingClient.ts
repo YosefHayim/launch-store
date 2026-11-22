@@ -1,37 +1,31 @@
 import { PlayReportingClient } from '@google/playReporting.js';
-import { parseServiceAccount } from '@google/playClient.js';
-import { Context, Data, Effect, Layer } from 'effect';
+import { readServiceAccount } from '@google/playClient.js';
 
 type GoogleReportingClientFailure = Readonly<{
-  readonly _tag: 'GoogleReportingClientFailure';
-  readonly message: string;
-  readonly cause: unknown;
+  _tag: 'GoogleReportingClientFailure';
+  message: string;
+  cause: unknown;
 }>;
 
-const makeGoogleReportingClientFailure = Data.tagged<GoogleReportingClientFailure>(
-  'GoogleReportingClientFailure',
-);
+function makeGoogleReportingClientFailure(cause: unknown): GoogleReportingClientFailure {
+  return {
+    _tag: 'GoogleReportingClientFailure',
+    message: 'Could not create the Play Developer Reporting client.',
+    cause,
+  };
+}
 
-export type GoogleReportingClientService = Readonly<{
-  readonly createClient: (
-    serviceAccountJson: string,
-  ) => Effect.Effect<PlayReportingClient, GoogleReportingClientFailure>;
-}>;
+export function createPlayReportingClient(serviceAccountJson: string): PlayReportingClient {
+  try {
+    const serviceAccount = readServiceAccount(serviceAccountJson);
+    return new PlayReportingClient(serviceAccount);
+  } catch (cause) {
+    throw makeGoogleReportingClientFailure(cause);
+  }
+}
 
-export const GoogleReportingClientService = Context.GenericTag<GoogleReportingClientService>(
-  'launch-store/GoogleReportingClient',
-);
+export const GoogleReportingClientService = {
+  createClient: createPlayReportingClient,
+};
 
-/** Live Play Developer Reporting client factory backed by Google's generated package. */
-export const GoogleReportingClientLive = Layer.succeed(GoogleReportingClientService, {
-  createClient: (serviceAccountJson) =>
-    parseServiceAccount(serviceAccountJson).pipe(
-      Effect.map((serviceAccount) => new PlayReportingClient(serviceAccount)),
-      Effect.mapError((cause) =>
-        makeGoogleReportingClientFailure({
-          message: 'Could not create the Play Developer Reporting client.',
-          cause,
-        }),
-      ),
-    ),
-} satisfies GoogleReportingClientService);
+export type GoogleReportingClientService = typeof GoogleReportingClientService;

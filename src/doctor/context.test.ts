@@ -1,31 +1,31 @@
-import { LaunchSecretStoreTest } from '../services/credentials/secretStore.js';
-import { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
-import { describe, expect, it, vi } from 'vitest';
-import type { AppDescriptor } from '../types/app.js';
-import type { LaunchConfig } from '../types/config.js';
-
-vi.mock('../config/config.js', () => ({
-  loadConfig: vi.fn(),
-}));
-vi.mock('../services/platform/exec.js', () => ({
-  captureCommandOutput: vi.fn(() => Effect.succeed('')),
-  checkCommandExists: vi.fn(() => Effect.succeed(true)),
-}));
-vi.mock('../store/shared/storeClients.js', () => ({
-  createAscClientResolver: () => () => Effect.succeed(null),
-  createPlayClientResolver: () => Effect.succeed(() => Effect.succeed(null)),
-}));
-vi.mock('../services/providerSupport/registry.js', () => ({
-  getCredentialsProvider: () =>
-    Effect.succeed({ name: 'local', status: () => Effect.succeed('no credentials') }),
-}));
-
-import { loadConfig } from '../config/config.js';
-import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { loadConfig } from '@/config/config.js';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '@/services/platform/environment.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { LaunchConfig } from '@/types/config.js';
 import { buildDoctorContext } from './context.js';
+
+vi.mock('@/config/config.js', function mockConfigModule() {
+  return {
+    loadConfig: vi.fn(),
+  };
+});
+
+vi.mock('@/store/shared/storeClients.js', function mockStoreClients() {
+  return {
+    createAscClientResolver: function createAscClientResolver() {
+      return function resolveAscClient() {
+        return Promise.resolve(null);
+      };
+    },
+    createPlayClientResolver: function createPlayClientResolver() {
+      return function resolvePlayClient() {
+        return Promise.resolve(null);
+      };
+    },
+  };
+});
 
 const apps: AppDescriptor[] = [
   {
@@ -50,43 +50,48 @@ const launchConfig: LaunchConfig = {
   submit: 'app-store-connect',
 };
 
-/** Run context construction with deterministic environment and path services. */
-const runBuildDoctorContext = (appSelector?: string) =>
-  Effect.runPromise(
-    buildDoctorContext('ios', appSelector).pipe(
-      Effect.provide(makeLaunchEnvironmentTest({ LANG: 'en_US.UTF-8' })),
-      Effect.provide(makeLaunchPathsTest('/test-home', '/workspace')),
-      Effect.provide(NodeContext.layer),
-      Effect.provide(LaunchSecretStoreTest),
-      Effect.provideService(GoogleStoreClientService, {
-        createClient: () => Effect.dieMessage('unused'),
-        createEffectClient: () => Effect.dieMessage('unused'),
-      }),
-    ),
-  );
+function appName(app: AppDescriptor): string {
+  return app.name;
+}
 
-describe('buildDoctorContext', () => {
-  it('filters apps when an app selector is provided', async () => {
-    vi.mocked(loadConfig).mockReturnValue(
-      Effect.succeed({
-        config: launchConfig,
-        apps,
-      }),
-    );
+async function runBuildDoctorContext(appSelector?: string) {
+  useLaunchEnvironment({ LANG: 'en_US.UTF-8' });
+  useLaunchDirectories({
+    homeDirectory: '/test-home',
+    workingDirectory: '/workspace',
+  });
+
+  return buildDoctorContext('ios', appSelector);
+}
+
+describe('buildDoctorContext', function describeBuildDoctorContext() {
+  afterEach(function resetDoctorContextDoubles() {
+    resetLaunchEnvironment();
+    resetLaunchDirectories();
+    vi.clearAllMocks();
+  });
+
+  it('filters apps when an app selector is provided', async function filtersSelectedApp() {
+    vi.mocked(loadConfig).mockResolvedValue({
+      config: launchConfig,
+      apps,
+    });
+
     const doctorContext = await runBuildDoctorContext('alpha');
-    expect(doctorContext.apps.map((app) => app.name)).toEqual(['alpha']);
+
+    expect(doctorContext.apps.map(appName)).toEqual(['alpha']);
     expect(doctorContext.cwd).toBe('/workspace');
     expect(doctorContext.shellLocale).toEqual({ LANG: 'en_US.UTF-8' });
   });
 
-  it('includes every app when no selector is provided', async () => {
-    vi.mocked(loadConfig).mockReturnValue(
-      Effect.succeed({
-        config: launchConfig,
-        apps,
-      }),
-    );
+  it('includes every app when no selector is provided', async function includesEveryApp() {
+    vi.mocked(loadConfig).mockResolvedValue({
+      config: launchConfig,
+      apps,
+    });
+
     const doctorContext = await runBuildDoctorContext();
-    expect(doctorContext.apps.map((app) => app.name)).toEqual(['alpha', 'beta']);
+
+    expect(doctorContext.apps.map(appName)).toEqual(['alpha', 'beta']);
   });
 });

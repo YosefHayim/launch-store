@@ -1,4 +1,3 @@
-import type { Effect } from 'effect';
 /**
  * The operating-system family Launch is running on.
  *
@@ -105,6 +104,6 @@ export type RemoteTarget =
 export type AllocateRequest = Readonly<{
   aws?: AwsConfig;
   sshTarget?: string;
-  confirm(message: string): Effect.Effect<boolean, unknown>;
+  confirm(message: string): Promise<boolean>;
   onProgress?: (message: string) => void;
 }>;

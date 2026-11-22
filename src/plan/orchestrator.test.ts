@@ -1,5 +1,3 @@
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   PLAN_EXIT,
@@ -24,25 +22,24 @@ const makeCtx = (): PlanContext => {
   return {
     config,
     apps: [],
-    resolveAscApi: () => Effect.succeed(null),
-    resolvePlayApi: () => Effect.succeed(null),
+    resolveAscApi: async () => null,
+    resolvePlayApi: async () => null,
   };
 };
 
 /** Planner that returns a canned surface. */
 const planner = (plan: SurfacePlan): SurfacePlanner => {
-  return { id: plan.surface, store: plan.store, plan: () => Effect.succeed(plan) };
+  return { id: plan.surface, store: plan.store, plan: () => Promise.resolve(plan) };
 };
 
 /** Execute the planner orchestrator at the test boundary. */
-const runPlannerSet = (
+function runPlannerSet(
   planContext: PlanContext,
   planners: readonly SurfacePlanner[],
   options: Parameters<typeof runPlanners>[2],
-) =>
-  Effect.runPromise(
-    runPlanners(planContext, planners, options).pipe(Effect.provide(NodeContext.layer)),
-  );
+) {
+  return runPlanners(planContext, planners, options);
+}
 
 const action = (over: Partial<PlannedAction> = {}): PlannedAction => {
   return {

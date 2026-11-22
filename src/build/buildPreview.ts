@@ -1,4 +1,3 @@
-import { Data, Effect } from 'effect';
 import { isApplePlatform } from '../services/stores/platform.js';
 import type { AppDescriptor, Platform, PlayTrack } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';
@@ -45,69 +44,137 @@ export type BuildPreviewFailure = Readonly<{
   readonly message: string;
 }>;
 
-const makeBuildPreviewFailure = Data.tagged<BuildPreviewFailure>('BuildPreviewFailure');
+function makeBuildPreviewFailure(fields: {
+  requestedProfile: string;
+  message: string;
+}): BuildPreviewFailure {
+  return {
+    _tag: 'BuildPreviewFailure',
+    requestedProfile: fields.requestedProfile,
+    message: fields.message,
+  };
+}
 
 /** Resolve the store identifier an app exposes for the selected platform. */
-const identifierFor = (appDescriptor: AppDescriptor, platform: Platform): string | undefined => {
-  if (isApplePlatform(platform)) return appDescriptor.bundleId;
+function identifierFor(appDescriptor: AppDescriptor, platform: Platform): string | undefined {
+  const isApple = isApplePlatform(platform);
+
+  if (isApple) {
+    return appDescriptor.bundleId;
+  }
+
   return appDescriptor.packageName;
-};
+}
 
 /** Resolve the configured profile name or fail for an explicit unknown profile. */
-const resolveProfileName = (
-  config: LaunchConfig,
+function resolveProfileName(
+  launchConfig: LaunchConfig,
   requestedProfile: string | undefined,
-): Effect.Effect<string, BuildPreviewFailure> => {
-  const profileNames = Object.keys(config.profiles);
-  if (requestedProfile !== undefined) {
-    if (requestedProfile in config.profiles) return Effect.succeed(requestedProfile);
-    let declaredProfiles = profileNames.join(', ');
-    if (declaredProfiles.length === 0) declaredProfiles = 'none';
-    return Effect.fail(
-      makeBuildPreviewFailure({
-        requestedProfile,
-        message: `Unknown profile "${requestedProfile}". Declared profiles: ${declaredProfiles}.`,
-      }),
-    );
-  }
-  if ('production' in config.profiles) return Effect.succeed('production');
-  const firstProfileName = profileNames[0];
-  if (firstProfileName !== undefined) return Effect.succeed(firstProfileName);
-  return Effect.succeed('production');
-};
+): string {
+  const profileNames = Object.keys(launchConfig.profiles);
+  const hasRequestedProfile = requestedProfile != null;
 
-export const previewBuild = (
-  previewInput: BuildPreviewInput,
-): Effect.Effect<BuildPreview, BuildPreviewFailure> =>
-  Effect.gen(function* () {
-    const profileName = yield* resolveProfileName(previewInput.config, previewInput.profile);
-    let buildProfile = previewInput.config.profiles[profileName];
-    if (buildProfile === undefined) buildProfile = { name: profileName, sizeBudgetMB: 200 };
-    let distribution = previewInput.distribution;
-    if (distribution === undefined) distribution = 'store';
-    const appPlans = previewInput.apps.map((appDescriptor): AppBuildPlan => {
-      const identifier = identifierFor(appDescriptor, previewInput.platform);
-      let appPlan: AppBuildPlan = {
-        app: appDescriptor.name,
-        buildEngine: resolveBuildEngineName(previewInput.config, previewInput.platform),
-        submitter: resolveSubmitterName(previewInput.config, previewInput.platform),
-      };
-      if (identifier !== undefined) appPlan = { ...appPlan, identifier };
-      if (previewInput.platform !== 'android') return appPlan;
-      let releaseOptions: Pick<BuildRunOptions, 'track' | 'rollout'> = {};
-      if (previewInput.track !== undefined) {
-        releaseOptions = { ...releaseOptions, track: previewInput.track };
-      }
-      if (previewInput.rollout !== undefined) {
-        releaseOptions = { ...releaseOptions, rollout: previewInput.rollout };
-      }
-      const androidRelease = resolveAndroidRelease(releaseOptions, buildProfile);
-      return { ...appPlan, ...androidRelease };
+  if (hasRequestedProfile) {
+    const profileExists = requestedProfile in launchConfig.profiles;
+
+    if (profileExists) {
+      return requestedProfile;
+    }
+
+    let declaredProfiles = profileNames.join(', ');
+    const hasNoDeclaredProfiles = declaredProfiles.length == 0;
+
+    if (hasNoDeclaredProfiles) {
+      declaredProfiles = 'none';
+    }
+
+    throw makeBuildPreviewFailure({
+      requestedProfile,
+      message: `Unknown profile "${requestedProfile}". Declared profiles: ${declaredProfiles}.`,
     });
-    return {
-      platform: previewInput.platform,
-      profile: profileName,
-      distribution,
-      apps: appPlans,
+  }
+
+  const hasProduction = 'production' in launchConfig.profiles;
+
+  if (hasProduction) {
+    return 'production';
+  }
+
+  const firstProfileName = profileNames[0];
+  const hasFirstProfile = firstProfileName != null;
+
+  if (hasFirstProfile) {
+    return firstProfileName;
+  }
+
+  return 'production';
+}
+
+function planApp(
+  previewInput: BuildPreviewInput,
+  buildProfileName: string,
+): (appDescriptor: AppDescriptor) => AppBuildPlan {
+  const buildProfile = previewInput.config.profiles[buildProfileName] ?? {
+    name: buildProfileName,
+    sizeBudgetMB: 200,
+  };
+
+  return function planOneApp(appDescriptor: AppDescriptor): AppBuildPlan {
+    const identifier = identifierFor(appDescriptor, previewInput.platform);
+    let appPlan: AppBuildPlan = {
+      app: appDescriptor.name,
+      buildEngine: resolveBuildEngineName(previewInput.config, previewInput.platform),
+      submitter: resolveSubmitterName(previewInput.config, previewInput.platform),
     };
-  });
+    const hasIdentifier = identifier != null;
+
+    if (hasIdentifier) {
+      appPlan = { ...appPlan, identifier };
+    }
+
+    const isAndroid = previewInput.platform == 'android';
+
+    if (isAndroid == false) {
+      return appPlan;
+    }
+
+    let releaseOptions: Pick<BuildRunOptions, 'track' | 'rollout'> = {};
+    const hasTrack = previewInput.track != null;
+
+    if (hasTrack) {
+      releaseOptions = { ...releaseOptions, track: previewInput.track };
+    }
+
+    const hasRollout = previewInput.rollout != null;
+
+    if (hasRollout) {
+      releaseOptions = { ...releaseOptions, rollout: previewInput.rollout };
+    }
+
+    const androidRelease = resolveAndroidRelease(releaseOptions, buildProfile);
+
+    return { ...appPlan, ...androidRelease };
+  };
+}
+
+function readPreviewDistribution(distribution: string | undefined): string {
+  const distributionIsMissing = distribution == null;
+
+  if (distributionIsMissing) {
+    return 'store';
+  }
+
+  return distribution;
+}
+
+export function previewBuild(previewInput: BuildPreviewInput): BuildPreview {
+  const profileName = resolveProfileName(previewInput.config, previewInput.profile);
+  const distribution = readPreviewDistribution(previewInput.distribution);
+
+  return {
+    platform: previewInput.platform,
+    profile: profileName,
+    distribution,
+    apps: previewInput.apps.map(planApp(previewInput, profileName)),
+  };
+}

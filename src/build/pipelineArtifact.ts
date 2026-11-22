@@ -1,13 +1,7 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect } from 'effect';
 import { ccacheOfferDeclined, markCcacheOfferDeclined } from '../config/firstRun.js';
 import { ensureArtifactDirIgnored } from '../config/gitignore.js';
 import { ensureCcacheInstalled } from '../config/toolchain.js';
-import {
-  resolveArtifactDir,
-  resolveStorageProvider,
-  type StorageResolverRequirements,
-} from '../distribution/storage.js';
+import { resolveArtifactDir, resolveStorageProvider } from '../distribution/storage.js';
 import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
 import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.js';
 import type { Logger } from '../services/platform/logger.js';
@@ -30,6 +24,8 @@ import type { BuildArtifact, SizeReport } from '../types/artifacts.js';
 import type { LaunchConfig, PrebuildMode, ResolvedBuildContext } from '../types/config.js';
 import type { AppleCredentials, BuildCredentials } from '../types/credentials.js';
 import type { SubmitArtifact } from '../types/providers.js';
+import { pathExists } from '../path-exists.js';
+import { join } from 'node:path';
 import { resolveRetentionDays } from './artifactRetention.js';
 import { beginBuildLog, buildLogId, endBuildLog } from './buildLog.js';
 import { mb, resolveSizeBudgetMB, submitToStores } from './pipelineProviders.js';
@@ -41,158 +37,248 @@ import type {
   ReceiptOptions,
 } from './pipelineTypes.js';
 
+const BYTES_PER_KILOBYTE = 1024;
+const BYTES_PER_MEGABYTE = BYTES_PER_KILOBYTE * BYTES_PER_KILOBYTE;
+
 /** Prefer the app's marketing version; fall back so logs and indexes never store blanks. */
-const artifactMarketingVersion = (app: AppDescriptor): string => {
-  /** Marketing version stamped on artifacts and logs when app config omits one. */
-  if (app.version === undefined) return '0.0.0';
+function artifactMarketingVersion(app: AppDescriptor): string {
+  if (app.version == null) {
+    return '0.0.0';
+  }
+
   return app.version;
-};
+}
 
 /**
  * Own the per-build log lifecycle around the engine compile. Dry-run skips logging because no
- * compile runs. Completion notifications fire at the dispatch boundary ({@link runBuild}).
+ * compile runs.
  */
-export const runBuildStep = <Failure, Requirements>(
+export async function runBuildStep(
   prepared: PreparedBuild,
   buildNumber: number,
-  compileStep: () => Effect.Effect<BuildOutput, Failure, Requirements>,
-) =>
-  Effect.gen(function* () {
-    const { buildContext, app } = prepared;
-    if (buildContext.dryRun) return yield* compileStep();
-    yield* beginBuildLog(
-      buildLogId({
-        appName: app.name,
-        version: artifactMarketingVersion(app),
-        buildNumber,
-        platform: buildContext.platform,
-      }),
-    );
-    return yield* compileStep().pipe(Effect.ensuring(endBuildLog()));
-  });
+  compileStep: () => Promise<BuildOutput>,
+): Promise<BuildOutput> {
+  const buildContext = prepared.buildContext;
+  const app = prepared.app;
+  const isDryRun = buildContext.dryRun == true;
 
-/** Keep a local artifactDir out of git before the first binary lands (idempotent; cloud no-ops). */
-const ensureLocalArtifactDirIgnored = (config: LaunchConfig, log: Logger) =>
-  Effect.gen(function* () {
-    if (config.storage !== 'local') return;
-    const artifactDirectory = yield* resolveArtifactDir(config.artifactDir);
-    const ignored = yield* ensureArtifactDirIgnored(artifactDirectory);
-    if (!ignored.added) return;
-    let ignoredEntry = '';
-    if (ignored.entry !== undefined) ignoredEntry = ignored.entry;
-    yield* log.step('gitignore', `added ${ignoredEntry} (build artifacts stay out of git)`);
-  });
+  if (isDryRun) {
+    const dryOutput = await compileStep();
 
-/**
- * Announce retention policy and sweep old local binaries. `0` disables auto-sweep; newest per
- * app+platform is always kept. Cloud providers without `prune` no-op.
- */
-const sweepStoredArtifacts = (
+    return dryOutput;
+  }
+
+  beginBuildLog(
+    buildLogId({
+      appName: app.name,
+      version: artifactMarketingVersion(app),
+      buildNumber,
+      platform: buildContext.platform,
+    }),
+  );
+
+  try {
+    const compiled = await compileStep();
+
+    return compiled;
+  } finally {
+    endBuildLog();
+  }
+}
+
+/** Keep a local artifactDir out of git before the first binary lands. Cloud storage no-ops. */
+async function ensureLocalArtifactDirIgnored(
+  launchConfig: LaunchConfig,
+  log: Logger,
+): Promise<void> {
+  const isLocal = launchConfig.storage == 'local';
+
+  if (isLocal == false) {
+    return;
+  }
+
+  const artifactDirectory = await resolveArtifactDir(launchConfig.artifactDir);
+  const ignored = await ensureArtifactDirIgnored(artifactDirectory);
+  const wasAdded = ignored.added == true;
+
+  if (wasAdded == false) {
+    return;
+  }
+
+  let ignoredEntry = '';
+
+  if (ignored.entry != null) {
+    ignoredEntry = ignored.entry;
+  }
+
+  log.step('gitignore', `added ${ignoredEntry} (build artifacts stay out of git)`);
+}
+
+type PruneSweep = {
+  pruned: readonly unknown[];
+  freedBytes: number;
+};
+
+async function sweepStoredArtifacts(
   storageProvider: {
     readonly prune?: (pruneOptions: {
       readonly now: number;
       readonly retentionDays: number;
-    }) => Effect.Effect<{ pruned: readonly unknown[]; freedBytes: number }, unknown>;
+    }) => Promise<PruneSweep>;
   },
   retentionDays: number,
   log: Logger,
-) =>
-  Effect.gen(function* () {
-    yield* log.tip(
-      `kept ~${retentionDays} days, then auto-pruned to save space (launch builds prune)`,
-    );
-    if (storageProvider.prune === undefined) return;
-    const swept = yield* storageProvider.prune({ now: Date.now(), retentionDays });
-    if (swept.pruned.length === 0) return;
-    let noun = 'builds';
-    if (swept.pruned.length === 1) noun = 'build';
-    yield* log.step(
-      'prune',
-      `removed ${swept.pruned.length} old ${noun} >${retentionDays}d - freed ${mb(swept.freedBytes)}`,
-    );
-  });
+): Promise<void> {
+  log.tip(`kept ~${retentionDays} days, then auto-pruned to save space (launch builds prune)`);
 
-/** Store the built artifact (skipped in dry-run) and log its location. Shared by both platform spines. */
-export const storeArtifact = (
+  if (storageProvider.prune == null) {
+    return;
+  }
+
+  const swept = await storageProvider.prune({ now: Date.now(), retentionDays });
+  const removedNothing = swept.pruned.length == 0;
+
+  if (removedNothing) {
+    return;
+  }
+
+  let noun = 'builds';
+
+  if (swept.pruned.length == 1) {
+    noun = 'build';
+  }
+
+  log.step(
+    'prune',
+    `removed ${swept.pruned.length} old ${noun} >${retentionDays}d - freed ${mb(swept.freedBytes)}`,
+  );
+}
+
+/** Store the built artifact (skipped in dry-run) and log its location. */
+export async function storeArtifact(
   prepared: PreparedBuild,
   artifactPath: string,
   buildNumber: number,
   sizeReport: SizeReport,
   cleanBuilt: boolean,
-) =>
-  Effect.gen(function* () {
-    const { config, app, profile, buildContext, log } = prepared;
-    if (buildContext.dryRun) {
-      yield* log.step('store', 'skipped (dry-run)');
-      return;
-    }
-    const buildArtifact: BuildArtifact = {
-      path: artifactPath,
-      platform: buildContext.platform,
-      appName: app.name,
-      profile: profile.name,
-      version: artifactMarketingVersion(app),
-      buildNumber,
-      sizeReport,
-      clean: cleanBuilt,
-      createdAt: new Date().toISOString(),
-    };
-    const storageProvider = yield* resolveStorageProvider(config);
-    yield* ensureLocalArtifactDirIgnored(config, log);
-    const stored = yield* storageProvider.put(buildArtifact);
-    yield* log.step('store', stored.location);
-    const retentionDays = resolveRetentionDays(config);
-    if (retentionDays > 0) {
-      yield* sweepStoredArtifacts(storageProvider, retentionDays, log);
-    }
-  });
+): Promise<void> {
+  const launchConfig = prepared.config;
+  const app = prepared.app;
+  const profile = prepared.profile;
+  const buildContext = prepared.buildContext;
+  const log = prepared.log;
+  const isDryRun = buildContext.dryRun == true;
 
-/** One-line notice when a build runs without ccache. No fabricated speedup claims. */
+  if (isDryRun) {
+    log.step('store', 'skipped (dry-run)');
+    return;
+  }
+
+  const buildArtifact: BuildArtifact = {
+    path: artifactPath,
+    platform: buildContext.platform,
+    appName: app.name,
+    profile: profile.name,
+    version: artifactMarketingVersion(app),
+    buildNumber,
+    sizeReport,
+    clean: cleanBuilt,
+    createdAt: new Date().toISOString(),
+  };
+  const storageProvider = await resolveStorageProvider(launchConfig);
+
+  await ensureLocalArtifactDirIgnored(launchConfig, log);
+
+  const stored = await storageProvider.put(buildArtifact);
+
+  log.step('store', stored.location);
+
+  const retentionDays = resolveRetentionDays(launchConfig);
+  const shouldSweep = retentionDays > 0;
+
+  if (shouldSweep) {
+    await sweepStoredArtifacts(storageProvider, retentionDays, log);
+  }
+}
+
 const CCACHE_NOTICE =
   "ccache isn't installed - this build runs uncached. `launch doctor --fix` (or brew install ccache) speeds up repeat builds.";
 
+function warnNoCcache(log: Logger): void {
+  log.warn(CCACHE_NOTICE);
+}
+
 /**
- * Offer inline ccache install when missing (interactive only). Decline is remembered; CI / no-brew
- * degrade to a notice. Never blocks or fails the build.
+ * Offer inline ccache install when missing. Decline is remembered. Never blocks the build.
  */
-export const nudgeIfNoCcache = (log: Logger) =>
-  Effect.gen(function* () {
-    if (yield* checkCommandExists('ccache')) return;
-    if (yield* ccacheOfferDeclined()) {
-      yield* log.warn(CCACHE_NOTICE);
-      return;
-    }
-    switch (
-      yield* ensureCcacheInstalled({
-        interactive: yield* checkTerminalIsInteractive,
-      })
-    ) {
-      case 'installed':
-        yield* log.step('ccache', 'installed + configured - this build is now cached', 'ccache');
-        return;
-      case 'declined':
-        yield* markCcacheOfferDeclined();
-        yield* log.warn(CCACHE_NOTICE);
-        return;
-      case 'skipped-no-brew':
-      case 'skipped-noninteractive':
-        yield* log.warn(CCACHE_NOTICE);
-        return;
-    }
+export async function nudgeIfNoCcache(log: Logger): Promise<void> {
+  const ccacheExists = await checkCommandExists('ccache');
+
+  if (ccacheExists) {
+    return;
+  }
+
+  const offerDeclined = await ccacheOfferDeclined();
+
+  if (offerDeclined) {
+    warnNoCcache(log);
+    return;
+  }
+
+  const installStatus = await ensureCcacheInstalled({
+    interactive: checkTerminalIsInteractive(),
   });
 
+  switch (installStatus) {
+    case 'installed':
+      log.step('ccache', 'installed + configured - this build is now cached', 'ccache');
+      return;
+    case 'declined':
+      await markCcacheOfferDeclined();
+      warnNoCcache(log);
+      return;
+    case 'skipped-no-brew':
+    case 'skipped-noninteractive':
+      warnNoCcache(log);
+      return;
+  }
+}
+
+function isCacheHitLine(line: string): boolean {
+  // A ccache stats row that mentions hits.
+  return /hit/i.test(line);
+}
+
 /** Best-effort one-line ccache hit summary after an iOS build when ccache is present. */
-export const reportCcacheStats = (log: Logger) =>
-  Effect.gen(function* () {
-    if (!(yield* checkCommandExists('ccache'))) return;
-    const statsOutput = yield* captureCommandOutput('ccache', ['-s']).pipe(
-      Effect.catchAll(() => Effect.succeed(undefined)),
-    );
-    if (statsOutput === undefined) return;
-    const hitLine = statsOutput.split('\n').find((line) => /hit/i.test(line));
-    if (hitLine === undefined) return;
-    yield* log.step('cache', hitLine.trim(), 'ccache');
-  });
+export async function reportCcacheStats(log: Logger): Promise<void> {
+  const ccacheExists = await checkCommandExists('ccache');
+
+  if (ccacheExists == false) {
+    return;
+  }
+
+  let statsOutput: string;
+
+  try {
+    statsOutput = await captureCommandOutput('ccache', ['-s']);
+  } catch (error) {
+    const statsFailed = error != null;
+
+    if (statsFailed) {
+      return;
+    }
+
+    return;
+  }
+
+  const hitLine = statsOutput.split('\n').find(isCacheHitLine);
+
+  if (hitLine == null) {
+    return;
+  }
+
+  log.step('cache', hitLine.trim(), 'ccache');
+}
 
 /** A required native project or target is missing for the selected build platform. */
 export type NativeProjectFailure = {
@@ -201,159 +287,257 @@ export type NativeProjectFailure = {
   readonly message: string;
 };
 
-export const makeNativeProjectFailure = Data.tagged<NativeProjectFailure>('NativeProjectFailure');
+export function makeNativeProjectFailure(fields: {
+  platform: Platform;
+  message: string;
+}): NativeProjectFailure {
+  return { _tag: 'NativeProjectFailure', platform: fields.platform, message: fields.message };
+}
 
-/** Run a clean Expo prebuild for ios/android; `reason` says why in the dry-run line (dry-run logs only). */
-const runExpoPrebuild = (
+async function runExpoPrebuild(
   buildContext: ResolvedBuildContext,
   log: Logger,
   platform: 'ios' | 'android',
   reason: string,
-) =>
-  Effect.gen(function* () {
-    if (buildContext.dryRun) {
-      yield* log.step(
-        'prebuild',
-        `would run \`expo prebuild --platform ${platform} --clean\` (${reason})`,
-        'prebuild',
-      );
-      return;
-    }
-    yield* runWithProgress('npx', ['expo', 'prebuild', '--platform', platform, '--clean'], {
-      label: `Generating ${platform}/ (expo prebuild)`,
-      cwd: buildContext.app.dir,
-      env: buildContext.env,
-    });
-    yield* log.step('prebuild', `${platform}/ generated from app.json`, 'prebuild');
+): Promise<void> {
+  const isDryRun = buildContext.dryRun == true;
+
+  if (isDryRun) {
+    log.step(
+      'prebuild',
+      `would run \`expo prebuild --platform ${platform} --clean\` (${reason})`,
+      'prebuild',
+    );
+    return;
+  }
+
+  await runWithProgress('npx', ['expo', 'prebuild', '--platform', platform, '--clean'], {
+    label: `Generating ${platform}/ (expo prebuild)`,
+    cwd: buildContext.app.dir,
+    env: buildContext.env,
   });
+  log.step('prebuild', `${platform}/ generated from app.json`, 'prebuild');
+}
+
+function shouldAlwaysPrebuildIos(prebuild: PrebuildMode, platform: Platform): boolean {
+  if (prebuild != 'always') {
+    return false;
+  }
+
+  return platform == 'ios';
+}
+
+function needsCommittedNativeProject(platform: Platform): boolean {
+  if (platform == 'ios') {
+    return false;
+  }
+
+  if (platform == 'tvos') {
+    return false;
+  }
+
+  return true;
+}
 
 /**
- * Ensure the Apple native Xcode project exists. iOS (and tvOS reusing ios/) can be generated by Expo
- * prebuild; macOS/visionOS have no prebuild generator and fail with an actionable gate. With
- * `prebuild: 'always'`, iOS regenerates ios/ on every build so a gitignored (CNG) tree never goes stale.
+ * Ensure the Apple native project exists. iOS can be generated by Expo prebuild. macOS and visionOS
+ * cannot, and tvOS reuses a committed ios/ project.
  */
-export const ensureNativeProject = (
+export async function ensureNativeProject(
   buildContext: ResolvedBuildContext,
   log: Logger,
   prebuild: PrebuildMode = 'missing',
-) =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const platform = buildContext.platform;
-    const dirName = yield* nativeProjectDirName(platform);
-    const nativeDir = pathService.join(buildContext.app.dir, dirName);
-    if (prebuild === 'always' && platform === 'ios') {
-      yield* runExpoPrebuild(buildContext, log, 'ios', "prebuild: 'always'");
-      return;
-    }
-    if (yield* fileSystem.exists(nativeDir)) {
-      yield* log.step(
-        'native project',
-        `using existing ${dirName}/ (no prebuild needed)`,
-        'prebuild',
-      );
-      return;
-    }
-    if (platform !== 'ios' && platform !== 'tvos') {
-      const targetHint = yield* nativeTargetHint(platform);
-      return yield* Effect.fail(
-        makeNativeProjectFailure({
-          platform,
-          message: `${platformLabel(platform)} native target not configured - Expo prebuild does not emit a ${platformLabel(platform)} target. Commit a native project (${targetHint}) at ${dirName}/, then re-run.`,
-        }),
-      );
-    }
-    // tvOS reuses ios/; without it, prebuild would emit iOS-only and the archive would fail later.
-    if (platform === 'tvos') {
-      return yield* Effect.fail(
-        makeNativeProjectFailure({
-          platform,
-          message:
-            'tvOS native target not configured - no ios/ project found. Commit a react-native-tvos project (its tvOS target lives in ios/), then re-run `launch build tvos`.',
-        }),
-      );
-    }
-    yield* runExpoPrebuild(buildContext, log, 'ios', 'no ios/ found');
-  });
+): Promise<void> {
+  const platform = buildContext.platform;
+  const dirName = nativeProjectDirName(platform);
+  const nativeDir = join(buildContext.app.dir, dirName);
+  const alwaysPrebuild = shouldAlwaysPrebuildIos(prebuild, platform);
+
+  if (alwaysPrebuild) {
+    await runExpoPrebuild(buildContext, log, 'ios', "prebuild: 'always'");
+    return;
+  }
+
+  const nativeExists = await pathExists(nativeDir);
+
+  if (nativeExists) {
+    log.step('native project', `using existing ${dirName}/ (no prebuild needed)`, 'prebuild');
+    return;
+  }
+
+  const needsCommit = needsCommittedNativeProject(platform);
+
+  if (needsCommit) {
+    const targetHint = nativeTargetHint(platform);
+
+    throw makeNativeProjectFailure({
+      platform,
+      message: `${platformLabel(platform)} native target not configured - Expo prebuild does not emit a ${platformLabel(platform)} target. Commit a native project (${targetHint}) at ${dirName}/, then re-run.`,
+    });
+  }
+
+  const isTvos = platform == 'tvos';
+
+  if (isTvos) {
+    throw makeNativeProjectFailure({
+      platform,
+      message:
+        'tvOS native target not configured - no ios/ project found. Commit a react-native-tvos project (its tvOS target lives in ios/), then re-run `launch build tvos`.',
+    });
+  }
+
+  await runExpoPrebuild(buildContext, log, 'ios', 'no ios/ found');
+}
 
 /** Run `expo prebuild` when android/ is missing, or on every build with `prebuild: 'always'`. */
-export const ensureAndroidProject = (
+export async function ensureAndroidProject(
   buildContext: ResolvedBuildContext,
   log: Logger,
   prebuild: PrebuildMode = 'missing',
-) =>
-  Effect.gen(function* () {
-    if (prebuild === 'always') {
-      yield* runExpoPrebuild(buildContext, log, 'android', "prebuild: 'always'");
-      return;
-    }
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const androidDir = pathService.join(buildContext.app.dir, 'android');
-    if (yield* fileSystem.exists(androidDir)) {
-      yield* log.step('native project', 'using existing android/ (no prebuild needed)', 'prebuild');
-      return;
-    }
-    yield* runExpoPrebuild(buildContext, log, 'android', 'no android/ found');
-  });
+): Promise<void> {
+  const alwaysPrebuild = prebuild == 'always';
 
-/**
- * Poll the uploaded build's processing state under a spinner so the run ends with a clear status.
- * Safe to Ctrl-C - Apple keeps processing regardless.
- */
-export const reportProcessing = (
+  if (alwaysPrebuild) {
+    await runExpoPrebuild(buildContext, log, 'android', "prebuild: 'always'");
+    return;
+  }
+
+  const androidDir = join(buildContext.app.dir, 'android');
+  const androidExists = await pathExists(androidDir);
+
+  if (androidExists) {
+    log.step('native project', 'using existing android/ (no prebuild needed)', 'prebuild');
+    return;
+  }
+
+  await runExpoPrebuild(buildContext, log, 'android', 'no android/ found');
+}
+
+function waitForAppleProcessingPoll(): Promise<void> {
+  const processingPollDelayMilliseconds = 10_000;
+
+  return new Promise(function finishWait(finish) {
+    setTimeout(finish, processingPollDelayMilliseconds);
+  });
+}
+
+async function readAppleProcessingState(
+  appStoreClient: {
+    getBuildProcessingState: (bundleId: string, buildNumber: number) => Promise<string | null>;
+  },
+  bundleId: string,
+  buildNumber: number,
+): Promise<string | null> {
+  try {
+    const currentState = await appStoreClient.getBuildProcessingState(bundleId, buildNumber);
+
+    return currentState;
+  } catch (error) {
+    const pollFailed = error != null;
+
+    if (pollFailed) {
+      return null;
+    }
+
+    return null;
+  }
+}
+
+async function pollAppleProcessingState(
+  appStoreClient: {
+    getBuildProcessingState: (bundleId: string, buildNumber: number) => Promise<string | null>;
+  },
+  bundleId: string,
+  buildNumber: number,
+): Promise<string | null> {
+  const processingAttemptLimit = 6;
+
+  for (let attempt = 0; attempt < processingAttemptLimit; attempt += 1) {
+    await waitForAppleProcessingPoll();
+
+    const currentState = await readAppleProcessingState(appStoreClient, bundleId, buildNumber);
+    const isUnknown = currentState == null;
+
+    if (isUnknown) {
+      continue;
+    }
+
+    const finishedProcessing = currentState != 'PROCESSING';
+
+    if (finishedProcessing) {
+      return currentState;
+    }
+  }
+
+  return null;
+}
+
+/** Poll the uploaded build until Apple leaves PROCESSING, or time runs out. */
+export async function reportProcessing(
   ascKey: AppleCredentials['ascKey'],
   bundleId: string,
   buildNumber: number,
   log: Logger,
-) =>
-  Effect.gen(function* () {
-    const appleStoreClients = yield* AppleStoreClientService;
-    const appStoreClient = yield* appleStoreClients.createEffectClient(ascKey);
-    const processingState = yield* withSpinner(
-      "Processing on Apple's side (safe to Ctrl-C; it keeps processing)",
-      () =>
-        Effect.gen(function* () {
-          for (let attempt = 0; attempt < 6; attempt++) {
-            yield* Effect.sleep('10 seconds');
-            const currentState = yield* appStoreClient
-              .getBuildProcessingState(bundleId, buildNumber)
-              .pipe(Effect.catchAll(() => Effect.succeed(null)));
-            if (currentState === null) continue;
-            if (currentState !== 'PROCESSING') return currentState;
-          }
-          return null;
-        }),
-    );
-    if (processingState === null) {
-      yield* log.note("Still processing - it'll appear in TestFlight shortly.");
-      return;
-    }
-    let processingDescription = `state: ${processingState}`;
-    if (processingState === 'VALID') processingDescription = 'ready to test on TestFlight';
-    yield* log.step('processing', processingDescription);
-  });
+): Promise<void> {
+  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+
+  async function pollProcessing(): Promise<string | null> {
+    const processingState = await pollAppleProcessingState(appStoreClient, bundleId, buildNumber);
+
+    return processingState;
+  }
+
+  const processingState = await withSpinner(
+    "Processing on Apple's side (safe to Ctrl-C; it keeps processing)",
+    pollProcessing,
+  );
+  const stillProcessing = processingState == null;
+
+  if (stillProcessing) {
+    log.note("Still processing - it'll appear in TestFlight shortly.");
+    return;
+  }
+
+  let processingDescription = `state: ${processingState}`;
+
+  if (processingState == 'VALID') {
+    processingDescription = 'ready to test on TestFlight';
+  }
+
+  log.step('processing', processingDescription);
+}
 
 /** Worst-case store download across device variants, or on-disk size when no per-device report exists. */
-export const worstDownloadBytes = (sizeReport: SizeReport): number => {
-  if (sizeReport.entries.length === 0) return sizeReport.artifactBytes;
-  return sizeReport.entries.reduce((maxBytes, entry) => Math.max(maxBytes, entry.downloadBytes), 0);
-};
+export function worstDownloadBytes(sizeReport: SizeReport): number {
+  const hasNoEntries = sizeReport.entries.length == 0;
 
-/**
- * Canonical size headline (upload confirm + receipt): both numbers when available, on-disk alone
- * otherwise. `wrapSize` decorates each size (receipt uses {@link Logger.chip}).
- */
-export const sizeSummary = (
+  if (hasNoEntries) {
+    return sizeReport.artifactBytes;
+  }
+
+  return sizeReport.entries.reduce(function largerDownload(
+    maxBytes: number,
+    sizeEntry: SizeReport['entries'][number],
+  ) {
+    return Math.max(maxBytes, sizeEntry.downloadBytes);
+  }, 0);
+}
+
+/** Canonical size headline. `wrapSize` decorates each size. */
+export function sizeSummary(
   sizeReport: SizeReport,
-  wrapSize: (size: string) => string = (size) => size,
-): string => {
-  if (sizeReport.entries.length === 0) {
+  wrapSize: (size: string) => string = function identitySize(size: string) {
+    return size;
+  },
+): string {
+  const hasNoEntries = sizeReport.entries.length == 0;
+
+  if (hasNoEntries) {
     return `on disk ${wrapSize(mb(sizeReport.artifactBytes))} (no per-device estimate)`;
   }
+
   return `download ${wrapSize(mb(worstDownloadBytes(sizeReport)))} - on disk ${wrapSize(mb(sizeReport.artifactBytes))}`;
-};
+}
 
 /** A build whose worst-case download grows beyond this fraction over the previous one earns a warning. */
 const GROWTH_WARN_RATIO = 0.1;
@@ -368,223 +552,325 @@ type UploadSizeReadout = {
   readonly grew: UploadSizeGrowth | null;
 };
 
+type PreviousDownload = {
+  downloadBytes: number;
+  buildNumber: number;
+};
+
+function hasPreviousDownload(previous: PreviousDownload | undefined): previous is PreviousDownload {
+  if (previous == null) {
+    return false;
+  }
+
+  return previous.downloadBytes > 0;
+}
+
 /**
- * Pre-upload size lines plus optional growth vs the previous build. Pure for unit testing.
- * Growth past {@link GROWTH_WARN_RATIO} is returned so callers render line + warning consistently.
+ * Pre-upload size lines plus optional growth vs the previous build.
  */
-export const uploadSizeReadout = (
+export function uploadSizeReadout(
   sizeReport: SizeReport,
-  previous?: {
-    downloadBytes: number;
-    buildNumber: number;
-  },
-): UploadSizeReadout => {
-  if (sizeReport.entries.length === 0) {
+  previous?: PreviousDownload,
+): UploadSizeReadout {
+  const hasNoEntries = sizeReport.entries.length == 0;
+
+  if (hasNoEntries) {
     return {
       lines: [`on disk ${mb(sizeReport.artifactBytes)} (no per-device estimate)`],
       grew: null,
     };
   }
+
   const worstBytes = worstDownloadBytes(sizeReport);
   let downloadLine = `download ${mb(worstBytes)}`;
   let grew: UploadSizeGrowth | null = null;
-  if (previous !== undefined && previous.downloadBytes > 0) {
+
+  if (hasPreviousDownload(previous)) {
     const deltaBytes = worstBytes - previous.downloadBytes;
     const growthRatio = deltaBytes / previous.downloadBytes;
     let deltaSign = '-';
-    if (deltaBytes >= 0) deltaSign = '+';
+
+    if (deltaBytes >= 0) {
+      deltaSign = '+';
+    }
+
     downloadLine += ` (${deltaSign}${mb(Math.abs(deltaBytes))} since build ${previous.buildNumber})`;
-    if (growthRatio > GROWTH_WARN_RATIO) {
-      grew = {
-        pct: Math.round(growthRatio * 100),
-        buildNumber: previous.buildNumber,
-      };
+
+    const grewPastRatio = growthRatio > GROWTH_WARN_RATIO;
+
+    if (grewPastRatio) {
+      grew = { pct: Math.round(growthRatio * 100), buildNumber: previous.buildNumber };
     }
   }
+
   return {
     lines: [downloadLine, `on disk ${mb(sizeReport.artifactBytes)}`],
     grew,
   };
-};
+}
 
-/**
- * Most recent prior stored build for this app+platform (baseline for upload-time size delta).
- * Skips the build just stored (matched by build number). Undefined on the first build.
- */
-export const previousBuild = (
-  config: LaunchConfig,
+function isEarlierBuild(appName: string, platform: Platform, currentBuildNumber: number) {
+  return function matches(buildArtifact: BuildArtifact): boolean {
+    const isSameApp = buildArtifact.appName == appName;
+
+    if (isSameApp == false) {
+      return false;
+    }
+
+    const isSamePlatform = buildArtifact.platform == platform;
+
+    if (isSamePlatform == false) {
+      return false;
+    }
+
+    return buildArtifact.buildNumber != currentBuildNumber;
+  };
+}
+
+/** Most recent prior stored build for this app and platform, skipping the build just stored. */
+export async function previousBuild(
+  launchConfig: LaunchConfig,
   app: AppDescriptor,
   platform: Platform,
   currentBuildNumber: number,
-): Effect.Effect<
-  | {
-      downloadBytes: number;
-      buildNumber: number;
-    }
-  | undefined,
-  unknown,
-  StorageResolverRequirements
-> =>
-  Effect.gen(function* () {
-    const storageProvider = yield* resolveStorageProvider(config);
-    const artifactHistory = yield* storageProvider.list();
-    const priorArtifact = artifactHistory.find(
-      (buildArtifact) =>
-        buildArtifact.appName === app.name &&
-        buildArtifact.platform === platform &&
-        buildArtifact.buildNumber !== currentBuildNumber,
-    );
-    if (priorArtifact === undefined) return undefined;
-    return {
-      downloadBytes: worstDownloadBytes(priorArtifact.sizeReport),
-      buildNumber: priorArtifact.buildNumber,
-    };
-  });
+): Promise<PreviousDownload | undefined> {
+  const storageProvider = await resolveStorageProvider(launchConfig);
+  const artifactHistory = await storageProvider.list();
+  const priorArtifact = artifactHistory.find(
+    isEarlierBuild(app.name, platform, currentBuildNumber),
+  );
 
-/**
- * Per-device size readout (iOS thinning / Android bundletool), or a single on-disk line when no
- * per-device report. Display only - budget decision lives in {@link confirmUpload}.
- */
-export const reportSize = (
+  if (priorArtifact == null) {
+    return undefined;
+  }
+
+  return {
+    downloadBytes: worstDownloadBytes(priorArtifact.sizeReport),
+    buildNumber: priorArtifact.buildNumber,
+  };
+}
+
+/** Per-device size readout, or a single on-disk line when no per-device report exists. */
+export async function reportSize(
   sizeReport: SizeReport,
   log: Logger,
   sizeTopic: GlossaryTopic = 'app-thinning',
-) =>
-  Effect.gen(function* () {
-    if (sizeReport.entries.length === 0) {
-      yield* log.step(
-        'size',
-        `${log.chip(mb(sizeReport.artifactBytes))} on disk (no per-device report)`,
-        sizeTopic,
-      );
-      return;
-    }
-    for (const entry of sizeReport.entries) {
-      let installSuffix = '';
-      if (entry.installBytes > 0) installSuffix = ` - install ${mb(entry.installBytes)}`;
-      yield* log.step(
-        'size',
-        `${entry.device}: download ${log.chip(mb(entry.downloadBytes))}${installSuffix}`,
-        sizeTopic,
-      );
-    }
-  });
+): Promise<void> {
+  const hasNoEntries = sizeReport.entries.length == 0;
 
-const noteProceedDespiteBudget = (log: Logger, overBudget: boolean) => {
-  if (!overBudget) return Effect.void;
-  return log.note('Proceeding anyway (non-interactive or --yes).');
-};
+  if (hasNoEntries) {
+    log.step(
+      'size',
+      `${log.chip(mb(sizeReport.artifactBytes))} on disk (no per-device report)`,
+      sizeTopic,
+    );
+    return;
+  }
+
+  for (const sizeEntry of sizeReport.entries) {
+    let installSuffix = '';
+    const hasInstallBytes = sizeEntry.installBytes > 0;
+
+    if (hasInstallBytes) {
+      installSuffix = ` - install ${mb(sizeEntry.installBytes)}`;
+    }
+
+    log.step(
+      'size',
+      `${sizeEntry.device}: download ${log.chip(mb(sizeEntry.downloadBytes))}${installSuffix}`,
+      sizeTopic,
+    );
+  }
+}
+
+function noteProceedDespiteBudget(log: Logger, overBudget: boolean): void {
+  if (overBudget == false) {
+    return;
+  }
+
+  log.note('Proceeding anyway (non-interactive or --yes).');
+}
 
 /**
- * Single pre-upload checkpoint: surfaces app/build/size, warns over budget or growth, and asks to
- * continue only on an interactive TTY without `--yes`.
+ * Show size, warn over budget or growth, and ask to continue only on an interactive TTY without `--yes`.
+ * Cancel exits with code 0.
  */
-export const confirmUpload = (options: ConfirmUploadOptions) =>
-  Effect.gen(function* () {
-    const { report, budgetMB, destination, app, version, buildNumber, previous, yes, log } =
-      options;
-    const overBudget = worstDownloadBytes(report) > budgetMB * 1024 * 1024;
-    const { lines, grew } = uploadSizeReadout(report, previous);
-    yield* log.notice(
-      ` Upload to ${destination}`,
-      `${app.name} ${version} (build ${buildNumber})`,
-      ...lines,
+export async function confirmUpload(uploadOptions: ConfirmUploadOptions): Promise<void> {
+  const report = uploadOptions.report;
+  const budgetMB = uploadOptions.budgetMB;
+  const destination = uploadOptions.destination;
+  const app = uploadOptions.app;
+  const version = uploadOptions.version;
+  const buildNumber = uploadOptions.buildNumber;
+  const previous = uploadOptions.previous;
+  const yes = uploadOptions.yes;
+  const log = uploadOptions.log;
+  const overBudget = worstDownloadBytes(report) > budgetMB * BYTES_PER_MEGABYTE;
+  const readout = uploadSizeReadout(report, previous);
+
+  log.notice(
+    ` Upload to ${destination}`,
+    `${app.name} ${version} (build ${buildNumber})`,
+    ...readout.lines,
+  );
+
+  const grew = readout.grew;
+
+  if (grew != null) {
+    log.warn(`Grew ${grew.pct}% since build ${grew.buildNumber}.`);
+  }
+
+  if (overBudget) {
+    log.warn(
+      `Worst-case download ${mb(worstDownloadBytes(report))} is over the ${budgetMB} MB budget.`,
     );
-    if (grew !== null) {
-      yield* log.warn(`Grew ${grew.pct}% since build ${grew.buildNumber}.`);
-    }
-    if (overBudget) {
-      yield* log.warn(
-        `Worst-case download ${mb(worstDownloadBytes(report))} is over the ${budgetMB} MB budget.`,
-      );
-    }
-    if (yes) {
-      yield* noteProceedDespiteBudget(log, overBudget);
-      return;
-    }
-    const canPrompt = yield* checkTerminalIsInteractive;
-    if (!canPrompt) {
-      yield* noteProceedDespiteBudget(log, overBudget);
-      return;
-    }
-    const launchPrompt = yield* LaunchPrompt;
-    const proceed = yield* launchPrompt.confirm('Continue?');
-    if (proceed) return;
-    let cancellationMessage = 'Stopped before upload.';
-    if (overBudget) cancellationMessage = 'Stopped before upload (over size budget).';
-    yield* launchPrompt.cancel(cancellationMessage);
-    return yield* Effect.fail(makeCommandExit({ exitCode: 0 }));
-  });
+  }
+
+  if (yes) {
+    noteProceedDespiteBudget(log, overBudget);
+    return;
+  }
+
+  const canPrompt = checkTerminalIsInteractive();
+
+  if (canPrompt == false) {
+    noteProceedDespiteBudget(log, overBudget);
+    return;
+  }
+
+  const launchPrompt = LaunchPrompt;
+  const proceed = await launchPrompt.confirm('Continue?');
+
+  if (proceed) {
+    return;
+  }
+
+  let cancellationMessage = 'Stopped before upload.';
+
+  if (overBudget) {
+    cancellationMessage = 'Stopped before upload (over size budget).';
+  }
+
+  launchPrompt.cancel(cancellationMessage);
+  throw makeCommandExit({ exitCode: 0 });
+}
 
 /** Confirm the upload against the size budget, then send the iOS build to every configured store. */
-export const uploadIosBuild = (
+export async function uploadIosBuild(
   prepared: PreparedBuild,
-  options: BuildRunOptions,
+  buildOptions: BuildRunOptions,
   artifact: SubmitArtifact,
   sizeReport: SizeReport,
   credentials: BuildCredentials,
-) =>
-  Effect.gen(function* () {
-    const { config, app, log, buildContext } = prepared;
-    const previous = yield* previousBuild(config, app, buildContext.platform, artifact.buildNumber);
-    yield* confirmUpload({
-      report: sizeReport,
-      budgetMB: resolveSizeBudgetMB(options, prepared.profile),
-      destination: 'TestFlight',
-      app,
-      version: artifact.version,
-      buildNumber: artifact.buildNumber,
-      previous,
-      yes: options.yes === true,
-      log,
-    });
-    yield* submitToStores(config, buildContext.platform, artifact, credentials, buildContext);
-    yield* log.step('submit', 'uploaded to TestFlight', 'testflight');
-  });
+): Promise<void> {
+  const launchConfig = prepared.config;
+  const app = prepared.app;
+  const log = prepared.log;
+  const buildContext = prepared.buildContext;
+  const previous = await previousBuild(
+    launchConfig,
+    app,
+    buildContext.platform,
+    artifact.buildNumber,
+  );
 
-/** Receipt destination line: where the build went (or that it was not uploaded). */
-export const receiptDestination = (
+  await confirmUpload({
+    report: sizeReport,
+    budgetMB: resolveSizeBudgetMB(buildOptions, prepared.profile),
+    destination: 'TestFlight',
+    app,
+    version: artifact.version,
+    buildNumber: artifact.buildNumber,
+    previous,
+    yes: buildOptions.yes == true,
+    log,
+  });
+  await submitToStores(launchConfig, buildContext.platform, artifact, credentials, buildContext);
+  log.step('submit', 'uploaded to TestFlight', 'testflight');
+}
+
+/** Receipt destination line: where the build went, or that it was not uploaded. */
+export function receiptDestination(
   platform: Platform,
-  options: BuildRunOptions,
+  buildOptions: BuildRunOptions,
   track?: PlayTrack,
-): string => {
-  if (!options.submit) return 'built - not uploaded';
-  if (platform === 'android') {
+): string {
+  const didNotSubmit = buildOptions.submit == false;
+
+  if (didNotSubmit) {
+    return 'built - not uploaded';
+  }
+
+  const isAndroid = platform == 'android';
+
+  if (isAndroid) {
     let playTrack: PlayTrack = 'internal';
-    if (track !== undefined) playTrack = track;
+
+    if (track != null) {
+      playTrack = track;
+    }
+
     return `Play - ${playTrack} track`;
   }
+
   return 'TestFlight';
-};
+}
 
-/**
- * Best-effort deep link to the uploaded build in App Store Connect. Falls back to console home
- * when the app id cannot be resolved. Never fails the build.
- */
-export const resolveAscBuildLink = (ascKey: AppleCredentials['ascKey'], bundleId: string) =>
-  Effect.gen(function* () {
-    const appleStoreClients = yield* AppleStoreClientService;
-    const appStoreClient = yield* appleStoreClients.createEffectClient(ascKey);
-    const appId = yield* appStoreClient
-      .getAppId(bundleId)
-      .pipe(Effect.catchAll(() => Effect.succeed(null)));
-    let linkAppId: string | undefined;
-    if (appId !== null) linkAppId = appId;
-    return buildConsoleUrl('testflight', 'ios', linkAppId);
-  });
+/** Best-effort deep link to the uploaded build. Falls back to the console home. Never fails the build. */
+export async function resolveAscBuildLink(
+  ascKey: AppleCredentials['ascKey'],
+  bundleId: string,
+): Promise<string> {
+  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+  let appId: string | null = null;
 
-/**
- * End-of-run "Shipped" receipt: app/version/build, both-numbers size, destination, optional link.
- * Headline values are pilled via {@link Logger.chip}.
- */
-export const renderReceipt = (options: ReceiptOptions) =>
-  Effect.gen(function* () {
-    const { app, version, buildNumber, report, destination, link, log } = options;
-    const receiptLines = [
-      `${log.chip(app.name)} ${log.chip(version)} (${buildNumber})`,
-      sizeSummary(report, (size) => log.chip(size)),
-      destination,
-    ];
-    if (link !== undefined && link.length > 0) receiptLines.push(link);
-    yield* log.shipped(receiptLines);
-  });
+  try {
+    appId = await appStoreClient.getAppId(bundleId);
+  } catch (error) {
+    const lookupFailed = error != null;
+
+    if (lookupFailed) {
+      appId = null;
+    }
+  }
+
+  let linkAppId: string | undefined;
+
+  if (appId != null) {
+    linkAppId = appId;
+  }
+
+  return buildConsoleUrl('testflight', 'ios', linkAppId);
+}
+
+function hasReceiptLink(link: string | undefined): link is string {
+  if (link == null) {
+    return false;
+  }
+
+  return link.length > 0;
+}
+
+/** End-of-run receipt: app, version, build, size, destination, and an optional link. */
+export async function renderReceipt(receiptOptions: ReceiptOptions): Promise<void> {
+  const app = receiptOptions.app;
+  const version = receiptOptions.version;
+  const buildNumber = receiptOptions.buildNumber;
+  const report = receiptOptions.report;
+  const destination = receiptOptions.destination;
+  const link = receiptOptions.link;
+  const log = receiptOptions.log;
+  const receiptLines = [
+    `${log.chip(app.name)} ${log.chip(version)} (${buildNumber})`,
+    sizeSummary(report, function chipSize(size: string) {
+      return log.chip(size);
+    }),
+    destination,
+  ];
+
+  if (hasReceiptLink(link)) {
+    receiptLines.push(link);
+  }
+
+  log.shipped(receiptLines);
+}

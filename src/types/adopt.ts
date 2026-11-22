@@ -1,4 +1,3 @@
-import type { Effect } from 'effect';
 import type {
   BundleIdCapabilityResource,
   BundleIdResource,
@@ -41,34 +40,24 @@ export type EntitlementValue =
  * belong here.
  */
 export type AdoptCatalogApi = Readonly<{
-  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
-  getLatestMarketingVersion(bundleId: string): Effect.Effect<string | null, unknown>;
-  getLatestBuildNumber(bundleId: string): Effect.Effect<number, unknown>;
-  findBundleId(identifier: string): Effect.Effect<BundleIdResource | null, unknown>;
+  getAppId(bundleId: string): Promise<string | null>;
+  getLatestMarketingVersion(bundleId: string): Promise<string | null>;
+  getLatestBuildNumber(bundleId: string): Promise<number>;
+  findBundleId(identifier: string): Promise<BundleIdResource | null>;
   listBundleIdCapabilities(
     bundleIdResourceId: string,
-  ): Effect.Effect<readonly BundleIdCapabilityResource[], unknown>;
-  listProfilesForBundleId(
-    bundleIdResourceId: string,
-  ): Effect.Effect<readonly ProfileResource[], unknown>;
-  listMerchantIds(): Effect.Effect<readonly MerchantIdResource[], unknown>;
-  listInAppPurchases(appId: string): Effect.Effect<readonly InAppPurchaseResource[], unknown>;
-  listInAppPurchaseLocalizations(
-    iapId: string,
-  ): Effect.Effect<readonly LocalizationResource[], unknown>;
-  inAppPurchaseHasPrice(iapId: string): Effect.Effect<boolean, unknown>;
-  listSubscriptionGroups(
-    appId: string,
-  ): Effect.Effect<readonly SubscriptionGroupResource[], unknown>;
-  listSubscriptionGroupLocalizations(
-    groupId: string,
-  ): Effect.Effect<readonly LocalizationResource[], unknown>;
-  listSubscriptions(groupId: string): Effect.Effect<readonly SubscriptionResource[], unknown>;
-  listSubscriptionLocalizations(
-    subscriptionId: string,
-  ): Effect.Effect<readonly LocalizationResource[], unknown>;
-  subscriptionHasPrice(subscriptionId: string): Effect.Effect<boolean, unknown>;
-  listDistributionCertificates(): Effect.Effect<readonly CertificateResource[], unknown>;
+  ): Promise<readonly BundleIdCapabilityResource[]>;
+  listProfilesForBundleId(bundleIdResourceId: string): Promise<readonly ProfileResource[]>;
+  listMerchantIds(): Promise<readonly MerchantIdResource[]>;
+  listInAppPurchases(appId: string): Promise<readonly InAppPurchaseResource[]>;
+  listInAppPurchaseLocalizations(iapId: string): Promise<readonly LocalizationResource[]>;
+  inAppPurchaseHasPrice(iapId: string): Promise<boolean>;
+  listSubscriptionGroups(appId: string): Promise<readonly SubscriptionGroupResource[]>;
+  listSubscriptionGroupLocalizations(groupId: string): Promise<readonly LocalizationResource[]>;
+  listSubscriptions(groupId: string): Promise<readonly SubscriptionResource[]>;
+  listSubscriptionLocalizations(subscriptionId: string): Promise<readonly LocalizationResource[]>;
+  subscriptionHasPrice(subscriptionId: string): Promise<boolean>;
+  listDistributionCertificates(): Promise<readonly CertificateResource[]>;
 }>;
 /**
  * One app being adopted, resolved by the orchestrator before any adopter runs. `appId`/`bundleId` are
@@ -142,11 +131,8 @@ export type PlannedWrite = Readonly<{
  * `gameCenter` / `appClips` later is a new file + one `registerAdopter()` line; the orchestrator is never
  * touched.
  */
-export type Adopter<Requirements = never> = {
+export type Adopter = {
   domain: string;
   fidelity: Fidelity;
-  read(
-    asc: AdoptCatalogApi,
-    target: AdoptTarget,
-  ): Effect.Effect<PlannedWrite[], unknown, Requirements>;
+  read(asc: AdoptCatalogApi, target: AdoptTarget): Promise<PlannedWrite[]>;
 };

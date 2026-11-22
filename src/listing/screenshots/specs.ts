@@ -1,7 +1,5 @@
-import type { FileSystem } from '@effect/platform';
 import { isApplePlatform } from '@/services/stores/platform.js';
 import type { Platform } from '@/types/app.js';
-import { Effect } from 'effect';
 import { readScreenshotDimensions } from './imageDimensions.js';
 import { APPLE_ASSET_TARGETS, findAppleScreenshotTarget } from './targets.js';
 
@@ -120,24 +118,32 @@ export const canonicalDimensions = (
   return findPlayDimensions(screenshotTarget);
 };
 
-export const checkScreenshotFile = (
+export async function checkScreenshotFile(
   platform: Platform,
   screenshotTarget: string,
   filePath: string,
-): Effect.Effect<FileDimensionCheck, never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const dimensions = yield* readScreenshotDimensions(filePath);
-    if (dimensions === null) return { measured: false };
+): Promise<FileDimensionCheck> {
+  const dimensions = await readScreenshotDimensions(filePath);
 
-    let verdict: DimensionVerdict;
-    if (isApplePlatform(platform))
-      verdict = validateAppleDimensions(screenshotTarget, dimensions.width, dimensions.height);
-    else verdict = validatePlayDimensions(dimensions.width, dimensions.height);
+  if (dimensions == null) {
+    return { measured: false };
+  }
 
+  const usesAppleSpec = isApplePlatform(platform);
+
+  if (usesAppleSpec) {
     return {
       measured: true,
       width: dimensions.width,
       height: dimensions.height,
-      verdict,
+      verdict: validateAppleDimensions(screenshotTarget, dimensions.width, dimensions.height),
     };
-  });
+  }
+
+  return {
+    measured: true,
+    width: dimensions.width,
+    height: dimensions.height,
+    verdict: validatePlayDimensions(dimensions.width, dimensions.height),
+  };
+}

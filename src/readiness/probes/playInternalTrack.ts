@@ -1,77 +1,108 @@
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@/types/readiness.js';
+import type {
+  AppReadiness,
+  PlayReadinessApi,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+} from '@/types/readiness.js';
 import { errorMessage } from '@/services/platform/errorMessage.js';
-import { Effect } from 'effect';
 import { androidApps } from '../appScopes.js';
 import { OMITTED_PROBE, SKIPPED_NO_PLAY_ACCOUNT } from './credentialsSkip.js';
+
+type ScopedApp = { name: string; identifier: string };
+
+function isPlayClientMissing(api: PlayReadinessApi | null | undefined): api is null | undefined {
+  return api == null;
+}
+
+function isInternalTrack(track: { track: string }): boolean {
+  return track.track == 'internal';
+}
+
+async function readPlayClients(
+  readinessContext: ReadinessContext,
+  apps: readonly ScopedApp[],
+): Promise<(PlayReadinessApi | null)[]> {
+  const clients: (PlayReadinessApi | null)[] = [];
+
+  for (const app of apps) {
+    const client = await readinessContext.resolvePlayApi(app.identifier);
+    clients.push(client);
+  }
+
+  return clients;
+}
+
+async function readInternalTrack(api: PlayReadinessApi, app: ScopedApp): Promise<AppReadiness> {
+  try {
+    const tracks = await api.listTracks(app.identifier);
+    const hasInternalTrack = tracks.some(isInternalTrack);
+
+    if (hasInternalTrack) {
+      return {
+        app: app.name,
+        identifier: app.identifier,
+        status: 'ok',
+        detail: 'internal track available',
+      };
+    }
+
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'warn',
+      detail: 'no internal testing track',
+      hint: 'create an internal testing track in Play Console for the fastest tester rollout',
+    };
+  } catch (apiFailure) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'warn',
+      detail: `could not read tracks: ${errorMessage(apiFailure)}`,
+      hint: 'confirm the app exists and the service account has access (see the app-access check)',
+    };
+  }
+}
+
 /** The Google Play internal-track readiness probe. */
 export const playInternalTrackProbe = {
   id: 'play-internal-track',
   title: 'Internal testing track ready',
   store: 'play',
   categories: ['account'],
-  /**
-   * Verify that each selected Android app has an internal testing track.
-   *
-   * @param readinessContext - Loaded config, selected apps, and Google Play resolver.
-   * @returns An Effect that succeeds with one internal-track finding per selected app.
-   */
-  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
-    return Effect.gen(function* () {
-      const apps = androidApps(readinessContext.apps);
-      if (apps.length === 0) return OMITTED_PROBE;
-      const appClients = yield* Effect.forEach(
-        apps,
-        (app) => readinessContext.resolvePlayApi(app.identifier),
-        { concurrency: 1 },
-      );
-      if (appClients.every((api) => !api)) {
-        return SKIPPED_NO_PLAY_ACCOUNT;
+  async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
+    const apps = androidApps(readinessContext.apps);
+    const isNothingSelected = apps.length == 0;
+
+    if (isNothingSelected) {
+      return OMITTED_PROBE;
+    }
+
+    const appClients = await readPlayClients(readinessContext, apps);
+    const isEveryClientMissing = appClients.every(isPlayClientMissing);
+
+    if (isEveryClientMissing) {
+      return SKIPPED_NO_PLAY_ACCOUNT;
+    }
+
+    function readTrack(app: ScopedApp, index: number): Promise<AppReadiness> {
+      const api = appClients[index];
+
+      if (isPlayClientMissing(api)) {
+        return Promise.resolve({
+          app: app.name,
+          identifier: app.identifier,
+          status: 'blocker',
+          detail: 'No Play service account for this package.',
+        });
       }
-      const results = yield* Effect.forEach(
-        apps,
-        ({ name, identifier }, index) =>
-          Effect.gen(function* () {
-            const api = appClients[index];
-            if (!api)
-              return {
-                app: name,
-                identifier,
-                status: 'blocker' as const,
-                detail: 'No Play service account for this package.',
-              };
-            return yield* api.listTracks(identifier).pipe(
-              Effect.map((tracks) => {
-                /** The track id Google Play always provisions for internal testing. */
-                if (tracks.some((track) => track.track === 'internal')) {
-                  return {
-                    app: name,
-                    identifier,
-                    status: 'ok' as const,
-                    detail: 'internal track available',
-                  };
-                }
-                return {
-                  app: name,
-                  identifier,
-                  status: 'warn' as const,
-                  detail: 'no internal testing track',
-                  hint: 'create an internal testing track in Play Console for the fastest tester rollout',
-                };
-              }),
-              Effect.catchAll((apiFailure) =>
-                Effect.succeed({
-                  app: name,
-                  identifier,
-                  status: 'warn' as const,
-                  detail: `could not read tracks: ${errorMessage(apiFailure)}`,
-                  hint: 'confirm the app exists and the service account has access (see the app-access check)',
-                }),
-              ),
-            );
-          }),
-        { concurrency: 'unbounded' },
-      );
-      return { state: 'checked', apps: results };
-    });
+
+      return readInternalTrack(api, app);
+    }
+
+    const findings = await Promise.all(apps.map(readTrack));
+
+    return { state: 'checked', apps: findings };
   },
 } satisfies ReadinessProbe;

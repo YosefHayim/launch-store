@@ -1,11 +1,10 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { CustomProductPagesCommandInputSchema } from './customProductPagesCommand.js';
 
 describe('CustomProductPagesCommandInputSchema', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {
     expect(
-      Schema.decodeUnknownSync(CustomProductPagesCommandInputSchema)({
+      CustomProductPagesCommandInputSchema({
         config: 'custom-pages.config.json',
         dryRun: true,
         yes: false,
@@ -19,7 +18,7 @@ describe('CustomProductPagesCommandInputSchema', () => {
 
   it('rejects an explicit undefined exact optional app', () => {
     expect(() =>
-      Schema.decodeUnknownSync(CustomProductPagesCommandInputSchema)({
+      CustomProductPagesCommandInputSchema({
         app: undefined,
         config: 'custom-pages.config.json',
         dryRun: false,

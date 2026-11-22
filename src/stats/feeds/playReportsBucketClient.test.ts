@@ -1,6 +1,4 @@
-import { Effect } from 'effect';
-import { describe, expect, test } from 'vitest';
-import { makeHttpClientTest } from '@testkit/httpClient.testkit.js';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   downloadBucketObject,
   failBucketRead,
@@ -10,27 +8,96 @@ import {
 const BUCKET_URL = 'https://storage.googleapis.com/storage/v1/b/pubsite_prod_rev_1/o';
 const LIST_URL = `${BUCKET_URL}?prefix=earnings%2Fearnings_&fields=items(name),nextPageToken`;
 
+interface HttpRoute {
+  readonly method: string;
+  readonly url: string;
+  readonly status: number;
+  readonly body: unknown;
+}
+
+type Settled<Success> =
+  | { readonly _tag: 'Right'; readonly right: Success }
+  | { readonly _tag: 'Left'; readonly left: unknown };
+
+function readRequestUrl(url: string | URL | Request): string {
+  if (typeof url == 'string') {
+    return url;
+  }
+
+  if (url instanceof URL) {
+    return url.toString();
+  }
+
+  return url.url;
+}
+
+function createReplyBody(routeBody: unknown): Uint8Array | string {
+  if (routeBody instanceof Uint8Array) {
+    return routeBody;
+  }
+
+  return JSON.stringify(routeBody);
+}
+
+function installFetch(routes: readonly HttpRoute[]): void {
+  vi.stubGlobal(
+    'fetch',
+    async function fetchRoute(url: string | URL | Request, init?: RequestInit): Promise<Response> {
+      const method = init?.method ?? 'GET';
+      const requestUrl = readRequestUrl(url);
+
+      function matchesRoute(route: HttpRoute): boolean {
+        if (route.method != method) {
+          return false;
+        }
+
+        return route.url == requestUrl;
+      }
+
+      const matchedRoute = routes.find(matchesRoute);
+
+      if (matchedRoute == undefined) {
+        throw new Error(`No test route for ${method} ${requestUrl}`);
+      }
+
+      return new Response(createReplyBody(matchedRoute.body), { status: matchedRoute.status });
+    },
+  );
+}
+
+async function settle<Success>(work: () => Promise<Success>): Promise<Settled<Success>> {
+  try {
+    const right = await work();
+
+    return { _tag: 'Right', right };
+  } catch (left) {
+    return { _tag: 'Left', left };
+  }
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('downloadBucketObject', () => {
-  const downloadInstalls = (status: number, body: unknown) =>
-    Effect.runPromise(
+  const downloadInstalls = (status: number, body: unknown) => {
+    installFetch([
+      {
+        method: 'GET',
+        url: `${BUCKET_URL}/stats%2Finstalls%2Finstalls_com.fit_202610_overview.csv?alt=media`,
+        status,
+        body,
+      },
+    ]);
+
+    return settle(() =>
       downloadBucketObject(
         'pubsite_prod_rev_1',
         'stats/installs/installs_com.fit_202610_overview.csv',
         'token-1',
-      ).pipe(
-        Effect.either,
-        Effect.provide(
-          makeHttpClientTest([
-            {
-              method: 'GET',
-              url: `${BUCKET_URL}/stats%2Finstalls%2Finstalls_com.fit_202610_overview.csv?alt=media`,
-              status,
-              body,
-            },
-          ]),
-        ),
       ),
     );
+  };
 
   test('returns the bytes of an object that exists', async () => {
     const reply = await downloadInstalls(200, new Uint8Array([1, 2, 3]));
@@ -67,13 +134,13 @@ describe('downloadBucketObject', () => {
 });
 
 describe('listBucketObjectNames', () => {
-  const listEarnings = (routes: Parameters<typeof makeHttpClientTest>[0]) =>
-    Effect.runPromise(
-      listBucketObjectNames('pubsite_prod_rev_1', 'earnings/earnings_', 'token-1').pipe(
-        Effect.either,
-        Effect.provide(makeHttpClientTest(routes)),
-      ),
+  const listEarnings = (routes: readonly HttpRoute[]) => {
+    installFetch(routes);
+
+    return settle(() =>
+      listBucketObjectNames('pubsite_prod_rev_1', 'earnings/earnings_', 'token-1'),
     );
+  };
 
   test('collects the names over every page', async () => {
     const reply = await listEarnings([

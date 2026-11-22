@@ -1,56 +1,68 @@
 import { createServiceAccountAccessToken } from '@google/serviceAccountToken.js';
-import { parseServiceAccount } from '@google/playClient.js';
-import { Context, Data, Effect, Layer } from 'effect';
+import { readServiceAccount } from '@google/playClient.js';
 import type { ServiceAccount } from '../../types/credentials.js';
 import { errorMessage } from '../platform/errorMessage.js';
 
 export type GoogleAccessTokenFailure = Readonly<{
-  readonly _tag: 'GoogleAccessTokenFailure';
-  readonly message: string;
-  readonly cause: unknown;
+  _tag: 'GoogleAccessTokenFailure';
+  message: string;
+  cause: unknown;
 }>;
 
-const makeGoogleAccessTokenFailure = Data.tagged<GoogleAccessTokenFailure>(
-  'GoogleAccessTokenFailure',
-);
+function makeGoogleAccessTokenFailure(fields: {
+  message: string;
+  cause: unknown;
+}): GoogleAccessTokenFailure {
+  return { _tag: 'GoogleAccessTokenFailure', message: fields.message, cause: fields.cause };
+}
 
-export type GoogleAccessTokenService = Readonly<{
-  readonly readServiceAccount: (
-    savedServiceAccountKey: string,
-  ) => Effect.Effect<ServiceAccount, GoogleAccessTokenFailure>;
-  readonly createAccessToken: (
-    account: ServiceAccount,
-    scopes: readonly string[],
-  ) => Effect.Effect<string, GoogleAccessTokenFailure>;
+type GoogleAccessTokenFixture = Readonly<{
+  serviceAccount: ServiceAccount;
+  accessToken: string;
 }>;
 
-export const GoogleAccessToken = Context.GenericTag<GoogleAccessTokenService>(
-  'launch-store/GoogleAccessToken',
-);
+let accessTokenFixture: GoogleAccessTokenFixture | null = null;
 
-export const GoogleAccessTokenLive = Layer.succeed(GoogleAccessToken, {
-  readServiceAccount: (savedServiceAccountKey) =>
-    parseServiceAccount(savedServiceAccountKey).pipe(
-      Effect.mapError((cause) =>
-        makeGoogleAccessTokenFailure({ message: errorMessage(cause), cause }),
-      ),
-    ),
-  createAccessToken: (account, scopes) =>
-    Effect.tryPromise({
-      try: () => createServiceAccountAccessToken(account, scopes),
-      catch: (cause) =>
-        makeGoogleAccessTokenFailure({
-          message: `Could not get a Google access token: ${errorMessage(cause)}`,
-          cause,
-        }),
-    }),
-} satisfies GoogleAccessTokenService);
-
-export const makeGoogleAccessTokenTest = (
+export function useGoogleAccessTokenFixture(
   serviceAccount: ServiceAccount,
   accessToken: string,
-): Layer.Layer<GoogleAccessTokenService> =>
-  Layer.succeed(GoogleAccessToken, {
-    readServiceAccount: () => Effect.succeed(serviceAccount),
-    createAccessToken: () => Effect.succeed(accessToken),
-  } satisfies GoogleAccessTokenService);
+): void {
+  accessTokenFixture = { serviceAccount, accessToken };
+}
+
+export function resetGoogleAccessToken(): void {
+  accessTokenFixture = null;
+}
+
+export type GoogleAccessTokenService = {
+  readServiceAccount(savedServiceAccountKey: string): ServiceAccount;
+  createAccessToken(account: ServiceAccount, scopes: readonly string[]): Promise<string>;
+};
+
+export const GoogleAccessToken = {
+  readServiceAccount(savedServiceAccountKey: string): ServiceAccount {
+    if (accessTokenFixture != null) {
+      return accessTokenFixture.serviceAccount;
+    }
+
+    try {
+      return readServiceAccount(savedServiceAccountKey);
+    } catch (cause) {
+      throw makeGoogleAccessTokenFailure({ message: errorMessage(cause), cause });
+    }
+  },
+  async createAccessToken(account: ServiceAccount, scopes: readonly string[]): Promise<string> {
+    if (accessTokenFixture != null) {
+      return accessTokenFixture.accessToken;
+    }
+
+    try {
+      return await createServiceAccountAccessToken(account, scopes);
+    } catch (cause) {
+      throw makeGoogleAccessTokenFailure({
+        message: `Could not get a Google access token: ${errorMessage(cause)}`,
+        cause,
+      });
+    }
+  },
+};

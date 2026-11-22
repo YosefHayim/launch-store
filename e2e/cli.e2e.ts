@@ -2,14 +2,32 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Effect } from 'effect';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { captureCommandOutput, provideNodeCommandServices } from '@/services/platform/exec.js';
+import { captureCommandOutput, type CommandFailed } from '@/services/platform/exec.js';
 /** Absolute path to the built CLI this suite exercises - `<root>/dist/cli/index.js`. */
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'cli', 'index.js');
 /** Run the built binary with an explicit argv and return its trimmed stdout (rejects on a non-zero exit). */
-const launch = (...args: string[]): Promise<string> =>
-  Effect.runPromise(provideNodeCommandServices(captureCommandOutput('node', [CLI, ...args])));
+function launch(...args: string[]): Promise<string> {
+  return captureCommandOutput('node', [CLI, ...args]);
+}
+
+function isCommandFailed(caught: unknown): caught is CommandFailed {
+  const isObject = typeof caught == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  if (caught == null) {
+    return false;
+  }
+
+  if ('_tag' in caught == false) {
+    return false;
+  }
+
+  return caught._tag == 'CommandFailed';
+}
 /** Hermetic scratch dir holding the fixture configs the `config validate` cases point at. */
 let workdir: string;
 beforeAll(() => {
@@ -115,22 +133,33 @@ describe('launch CLI - offline surface (compiled dist)', () => {
     );
   });
   it('rejects a bad config with a non-zero exit that names the offending key', async () => {
-    await expect(launch('config', 'validate', join(workdir, 'bad.json'))).rejects.toThrow(
-      /totallyBogusKey|unknown|unrecognized/i,
-    );
+    await expect(launch('config', 'validate', join(workdir, 'bad.json'))).rejects.toMatchObject({
+      stderr: expect.stringMatching(/totallyBogusKey|unknown|unrecognized/i),
+    });
   });
   it('rejects invalid Apple product IDs and explains the allowed characters', async () => {
     await expect(
       launch('config', 'validate', join(workdir, 'bad-product-id.json')),
-    ).rejects.toThrow(/productId.*only letters, digits, underscores, and periods/i);
+    ).rejects.toMatchObject({
+      stderr: expect.stringMatching(/productId.*only letters, digits, underscores, and periods/i),
+    });
   });
   it("prints a failed command's message, not its raw failure object", async () => {
-    const releaseRun = captureCommandOutput('node', [CLI, 'release', 'android'], {
-      workingDirectory: workdir,
-    });
-    const releaseFailure = provideNodeCommandServices(releaseRun).pipe(Effect.flip);
-    const commandFailure = await Effect.runPromise(releaseFailure);
-    expect(commandFailure.stderr).toContain('[ERROR] No apps found.');
-    expect(commandFailure.stderr).not.toContain('"_tag"');
+    let commandFailure: CommandFailed | null = null;
+
+    try {
+      await captureCommandOutput('node', [CLI, 'release', 'android'], {
+        workingDirectory: workdir,
+      });
+    } catch (caught) {
+      const isFailedCommand = isCommandFailed(caught);
+
+      if (isFailedCommand) {
+        commandFailure = caught;
+      }
+    }
+
+    expect(commandFailure?.stderr).toContain('[ERROR] No apps found.');
+    expect(commandFailure?.stderr).not.toContain('"_tag"');
   });
 });

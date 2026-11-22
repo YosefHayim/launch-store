@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { AppAvailabilityResource } from '../../types/appleCatalog.js';
 import {
@@ -27,15 +26,15 @@ const makeApi = (
 } => {
   const calls: Calls = { create: [], update: [] };
   const api: AscAvailabilityApi = {
-    getAppId: () => Effect.succeed(appId),
-    getAppAvailability: () => Effect.succeed(current),
+    getAppId: () => Promise.resolve(appId),
+    getAppAvailability: () => Promise.resolve(current),
     createAppAvailability: (_appId, input) => {
       calls.create.push(input);
-      return Effect.void;
+      return Promise.resolve();
     },
     updateAppAvailabilityTerritories: (availabilityId, territories) => {
       calls.update.push({ availabilityId, territories });
-      return Effect.void;
+      return Promise.resolve();
     },
   };
   return { api, calls };
@@ -44,7 +43,7 @@ const makeApi = (
 const runReconcile = (
   api: AscAvailabilityApi,
   input: Parameters<typeof reconcileAvailability>[1],
-) => Effect.runPromise(reconcileAvailability(api, input));
+) => reconcileAvailability(api, input);
 const availability = (partial: Partial<AppAvailabilityResource>): AppAvailabilityResource => {
   return { id: 'avail-1', availableInNewTerritories: false, availableTerritories: [], ...partial };
 };
@@ -185,7 +184,7 @@ describe('reconcileAvailability', () => {
   });
   it('captures a failed set without throwing', async () => {
     const { api } = makeApi(null);
-    api.createAppAvailability = () => Effect.fail(new Error('territory USA not eligible'));
+    api.createAppAvailability = () => Promise.reject(new Error('territory USA not eligible'));
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       config,

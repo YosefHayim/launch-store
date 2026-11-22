@@ -1,15 +1,8 @@
-import type { FileSystem, Path } from '@effect/platform';
-import { Terminal } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
-import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import type { LaunchPathsService } from '../services/platform/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
-import {
-  selectStoreApp,
-  type StoreAppSelectionRequirements,
-} from '../store/shared/selectStoreApp.js';
+import { createLogger } from '../services/platform/logger.js';
+import { LaunchPrompt } from '../services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '../services/platform/progress.js';
+import { selectStoreApp } from '../store/shared/selectStoreApp.js';
 import {
   listSecretRefs,
   removeBuildSecret,
@@ -17,31 +10,29 @@ import {
   type SecretRef,
 } from './buildSecrets.js';
 
-const SecretOptionsSchema = {
-  app: Schema.optional(Schema.String),
-  profile: Schema.optional(Schema.String),
-};
+type SecretListInput = Readonly<{
+  action: 'list' | 'status';
+  app?: string;
+  profile?: string;
+}>;
 
-export const SecretCommandInputSchema = Schema.Union(
-  Schema.Struct({
-    action: Schema.Literal('list', 'status'),
-    ...SecretOptionsSchema,
-  }),
-  Schema.Struct({
-    action: Schema.Literal('set'),
-    name: Schema.optional(Schema.String),
-    value: Schema.optional(Schema.String),
-    yes: Schema.Boolean,
-    ...SecretOptionsSchema,
-  }),
-  Schema.Struct({
-    action: Schema.Literal('rm', 'remove'),
-    name: Schema.optional(Schema.String),
-    ...SecretOptionsSchema,
-  }),
-);
+type SecretSetInput = Readonly<{
+  action: 'set';
+  name?: string;
+  value?: string;
+  yes: boolean;
+  app?: string;
+  profile?: string;
+}>;
 
-type SecretCommandInput = Schema.Schema.Type<typeof SecretCommandInputSchema>;
+type SecretRemoveInput = Readonly<{
+  action: 'rm' | 'remove';
+  name?: string;
+  app?: string;
+  profile?: string;
+}>;
+
+type SecretCommandInput = SecretListInput | SecretSetInput | SecretRemoveInput;
 
 type SecretCommandFailure = Readonly<{
   readonly _tag: 'SecretCommandFailure';
@@ -50,175 +41,357 @@ type SecretCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-const makeSecretCommandFailure = Data.tagged<SecretCommandFailure>('SecretCommandFailure');
+function makeSecretCommandFailure(fields: {
+  action: string;
+  message: string;
+  cause?: unknown;
+}): SecretCommandFailure {
+  const hasCause = fields.cause != null;
 
-type SecretCommandRequirements =
-  | FileSystem.FileSystem
-  | LaunchPathsService
-  | LaunchPromptService
-  | LaunchSecretStoreService
-  | Logger
-  | Path.Path
-  | StoreAppSelectionRequirements
-  | Terminal.Terminal;
+  if (hasCause) {
+    return {
+      _tag: 'SecretCommandFailure',
+      action: fields.action,
+      message: fields.message,
+      cause: fields.cause,
+    };
+  }
 
+  return { _tag: 'SecretCommandFailure', action: fields.action, message: fields.message };
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  const isObject = typeof candidate == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  return candidate != null;
+}
+
+function readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
+  const hasKey = Object.hasOwn(record, key);
+
+  if (hasKey == false) {
+    return undefined;
+  }
+
+  const field = record[key];
+  const isMissing = field == null;
+
+  if (isMissing) {
+    return undefined;
+  }
+
+  const isString = typeof field == 'string';
+
+  if (isString == false) {
+    throw new Error(`Secret command ${key} must be a string.`);
+  }
+
+  return field;
+}
+
+function assignOptional(
+  target: { app?: string; profile?: string },
+  record: Record<string, unknown>,
+): void {
+  const appName = readOptionalString(record, 'app');
+  const hasApp = appName != null;
+
+  if (hasApp) {
+    target.app = appName;
+  }
+
+  const profileName = readOptionalString(record, 'profile');
+  const hasProfile = profileName != null;
+
+  if (hasProfile) {
+    target.profile = profileName;
+  }
+}
+
+function isListAction(action: unknown): action is 'list' | 'status' {
+  if (action == 'list') {
+    return true;
+  }
+
+  return action == 'status';
+}
+
+function isRemoveAction(action: unknown): action is 'rm' | 'remove' {
+  if (action == 'rm') {
+    return true;
+  }
+
+  return action == 'remove';
+}
+
+function createSecretSetInput(secretDraft: {
+  yes: boolean;
+  name: string | undefined;
+  value: string | undefined;
+}): SecretSetInput {
+  const setInput: {
+    action: 'set';
+    yes: boolean;
+    name?: string;
+    value?: string;
+  } = { action: 'set', yes: secretDraft.yes };
+  const secretName = secretDraft.name;
+
+  if (typeof secretName == 'string') {
+    setInput.name = secretName;
+  }
+
+  const secretText = secretDraft.value;
+
+  if (typeof secretText == 'string') {
+    setInput.value = secretText;
+  }
+
+  return setInput;
+}
+
+function createSecretRemoveInput(secretDraft: {
+  action: 'rm' | 'remove';
+  name: string | undefined;
+}): SecretRemoveInput {
+  const removeInput: {
+    action: 'rm' | 'remove';
+    name?: string;
+  } = { action: secretDraft.action };
+  const secretName = secretDraft.name;
+
+  if (typeof secretName == 'string') {
+    removeInput.name = secretName;
+  }
+
+  return removeInput;
+}
+
+/** Decode one build-secret command. Omitted optionals stay absent. */
+export function decodeSecretCommandInput(rawCommandInput: unknown): SecretCommandInput {
+  const isCommandRecord = isRecord(rawCommandInput);
+
+  if (isCommandRecord == false) {
+    throw new Error('Secret command input must be an object.');
+  }
+
+  const action = rawCommandInput['action'];
+  const isList = isListAction(action);
+
+  if (isList) {
+    const listInput: SecretListInput = { action };
+    assignOptional(listInput, rawCommandInput);
+    return listInput;
+  }
+
+  const isSet = action == 'set';
+
+  if (isSet) {
+    const yes = rawCommandInput['yes'];
+    const yesIsBoolean = typeof yes == 'boolean';
+
+    if (yesIsBoolean == false) {
+      throw new Error('Secret set yes must be a boolean.');
+    }
+
+    const secretName = readOptionalString(rawCommandInput, 'name');
+    const secretText = readOptionalString(rawCommandInput, 'value');
+    const setInput = createSecretSetInput({ yes, name: secretName, value: secretText });
+    assignOptional(setInput, rawCommandInput);
+    return setInput;
+  }
+
+  const isRemove = isRemoveAction(action);
+
+  if (isRemove) {
+    const secretName = readOptionalString(rawCommandInput, 'name');
+    const removeInput = createSecretRemoveInput({ action, name: secretName });
+    assignOptional(removeInput, rawCommandInput);
+    return removeInput;
+  }
+
+  throw new Error(`Unknown secret action "${String(action)}".`);
+}
+
+// A shell identifier: a letter or underscore, then letters, digits, or underscores.
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /** Render a secret reference's app-wide or profile-specific scope. */
-const scopeLabel = (secretReference: SecretRef): string => {
-  if (secretReference.profile === null) return 'all profiles';
+function scopeLabel(secretReference: SecretRef): string {
+  const isAppWide = secretReference.profile == null;
+
+  if (isAppWide) {
+    return 'all profiles';
+  }
+
   return `profile ${secretReference.profile}`;
-};
+}
 
 /** Build one secret coordinate from the selected app and optional profile. */
-const makeSecretReference = (
+function makeSecretReference(
   appName: string,
   profileName: string | undefined,
   environmentName: string,
-): SecretRef => {
+): SecretRef {
   let profile: string | null = null;
-  if (profileName !== undefined) profile = profileName;
+  const hasProfile = profileName != null;
+
+  if (hasProfile) {
+    profile = profileName;
+  }
+
   return { app: appName, profile, name: environmentName };
-};
+}
+
+const MISSING_SECRET_VALUE =
+  'A value is required. Pass --value <v> or run in an interactive terminal without --yes.';
+
+async function readSecretText(commandInput: SecretSetInput): Promise<string> {
+  const providedSecret = commandInput.value;
+  const secretIsMissing = providedSecret == null;
+
+  if (secretIsMissing == false) {
+    return providedSecret;
+  }
+
+  const assumesYes = commandInput.yes == true;
+
+  if (assumesYes) {
+    throw makeSecretCommandFailure({ action: 'set', message: MISSING_SECRET_VALUE });
+  }
+
+  const terminalIsInteractive = checkTerminalIsInteractive();
+
+  if (terminalIsInteractive == false) {
+    throw makeSecretCommandFailure({ action: 'set', message: MISSING_SECRET_VALUE });
+  }
+
+  const promptedSecret = await LaunchPrompt.requiredSecret(`Value for ${commandInput.name}`);
+
+  return promptedSecret;
+}
 
 /** Store or overwrite one keychain-backed build secret. */
-const setSecretValue = (
-  commandInput: Extract<SecretCommandInput, { action: 'set' }>,
-): Effect.Effect<void, unknown, SecretCommandRequirements> =>
-  Effect.gen(function* () {
-    if (commandInput.name === undefined) {
-      return yield* Effect.fail(
-        makeSecretCommandFailure({
-          action: 'set',
-          message:
-            'Usage: launch secret set <NAME> [--value <v>] [--app <app>] [--profile <profile>].',
-        }),
-      );
-    }
-    if (!ENVIRONMENT_NAME.test(commandInput.name)) {
-      return yield* Effect.fail(
-        makeSecretCommandFailure({
-          action: 'set',
-          message: `"${commandInput.name}" is not a valid env var name (letters, digits, underscores).`,
-        }),
-      );
-    }
-    const selectedApp = yield* selectStoreApp(commandInput.app);
-    let secretValue = commandInput.value;
-    if (secretValue === undefined) {
-      const terminal = yield* Terminal.Terminal;
-      const terminalIsInteractive = yield* terminal.isTTY;
-      if (commandInput.yes) {
-        return yield* Effect.fail(
-          makeSecretCommandFailure({
-            action: 'set',
-            message:
-              'A value is required. Pass --value <v> or run in an interactive terminal without --yes.',
-          }),
-        );
-      }
-      if (!terminalIsInteractive) {
-        return yield* Effect.fail(
-          makeSecretCommandFailure({
-            action: 'set',
-            message:
-              'A value is required. Pass --value <v> or run in an interactive terminal without --yes.',
-          }),
-        );
-      }
-      const prompt = yield* LaunchPrompt;
-      secretValue = yield* prompt.requiredSecret(`Value for ${commandInput.name}`);
-    }
-    const secretReference = makeSecretReference(
-      selectedApp.name,
-      commandInput.profile,
-      commandInput.name,
-    );
-    yield* setBuildSecret(secretReference, secretValue);
-    const logger = yield* createLogger(false);
-    yield* logger.ok(
-      `Stored ${commandInput.name} for ${selectedApp.name} - ${scopeLabel(secretReference)} - in the keychain.`,
-    );
-  });
+async function setSecretValue(commandInput: SecretSetInput): Promise<void> {
+  const nameIsMissing = commandInput.name == null;
+
+  if (nameIsMissing) {
+    throw makeSecretCommandFailure({
+      action: 'set',
+      message: 'Usage: launch secret set <NAME> [--value <v>] [--app <app>] [--profile <profile>].',
+    });
+  }
+
+  const nameIsValid = ENVIRONMENT_NAME.test(commandInput.name);
+
+  if (nameIsValid == false) {
+    throw makeSecretCommandFailure({
+      action: 'set',
+      message: `"${commandInput.name}" is not a valid env var name (letters, digits, underscores).`,
+    });
+  }
+
+  const selectedApp = await selectStoreApp(commandInput.app);
+  const secretText = await readSecretText(commandInput);
+  const secretReference = makeSecretReference(
+    selectedApp.name,
+    commandInput.profile,
+    commandInput.name,
+  );
+  await setBuildSecret(secretReference, secretText);
+  const logger = createLogger(false);
+  logger.ok(
+    `Stored ${commandInput.name} for ${selectedApp.name} - ${scopeLabel(secretReference)} - in the keychain.`,
+  );
+}
 
 /** Remove one keychain-backed build secret. */
-const removeSecretValue = (
-  commandInput: Extract<SecretCommandInput, { action: 'rm' | 'remove' }>,
-): Effect.Effect<void, unknown, SecretCommandRequirements> =>
-  Effect.gen(function* () {
-    if (commandInput.name === undefined) {
-      return yield* Effect.fail(
-        makeSecretCommandFailure({
-          action: commandInput.action,
-          message: 'Usage: launch secret rm <NAME> [--app <app>] [--profile <profile>].',
-        }),
-      );
-    }
-    const selectedApp = yield* selectStoreApp(commandInput.app);
-    const secretReference = makeSecretReference(
-      selectedApp.name,
-      commandInput.profile,
-      commandInput.name,
+async function removeSecretValue(commandInput: SecretRemoveInput): Promise<void> {
+  const nameIsMissing = commandInput.name == null;
+
+  if (nameIsMissing) {
+    throw makeSecretCommandFailure({
+      action: commandInput.action,
+      message: 'Usage: launch secret rm <NAME> [--app <app>] [--profile <profile>].',
+    });
+  }
+
+  const selectedApp = await selectStoreApp(commandInput.app);
+  const secretReference = makeSecretReference(
+    selectedApp.name,
+    commandInput.profile,
+    commandInput.name,
+  );
+  const secretExisted = await removeBuildSecret(secretReference);
+  const logger = createLogger(false);
+
+  if (secretExisted) {
+    logger.ok(
+      `Removed ${commandInput.name} for ${selectedApp.name} - ${scopeLabel(secretReference)}.`,
     );
-    const secretExisted = yield* removeBuildSecret(secretReference);
-    const logger = yield* createLogger(false);
-    if (secretExisted) {
-      yield* logger.ok(
-        `Removed ${commandInput.name} for ${selectedApp.name} - ${scopeLabel(secretReference)}.`,
-      );
-      return;
-    }
-    yield* logger.skip(
-      `No secret ${commandInput.name} for ${selectedApp.name} - ${scopeLabel(secretReference)}.`,
-    );
-  });
+    return;
+  }
+
+  logger.skip(
+    `No secret ${commandInput.name} for ${selectedApp.name} - ${scopeLabel(secretReference)}.`,
+  );
+}
 
 /** List non-secret build-secret coordinates without reading their values. */
-const listSecrets = (
-  commandInput: Extract<SecretCommandInput, { action: 'list' | 'status' }>,
-): Effect.Effect<void, unknown, SecretCommandRequirements> =>
-  Effect.gen(function* () {
-    const secretReferences = yield* listSecretRefs(commandInput.app);
-    const logger = yield* createLogger(false);
-    if (secretReferences.length === 0) {
-      if (commandInput.app !== undefined) {
-        yield* logger.skip(
-          `No build secrets for ${commandInput.app}. Add one with: launch secret set <NAME> --app ${commandInput.app}`,
-        );
-        return;
-      }
-      yield* logger.skip('No build secrets stored. Add one with: launch secret set <NAME>');
-      return;
-    }
+async function listSecrets(commandInput: SecretListInput): Promise<void> {
+  const secretReferences = await listSecretRefs(commandInput.app);
+  const logger = createLogger(false);
+  const hasSecrets = secretReferences.length > 0;
+
+  if (hasSecrets) {
     for (const secretReference of secretReferences) {
-      yield* logger.line(
+      logger.line(
         `- ${secretReference.app} - ${secretReference.name} (${scopeLabel(secretReference)})`,
       );
     }
-  });
 
-/** Run one schema-decoded build-secret command. */
-export const secretCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, SecretCommandFailure, SecretCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(SecretCommandInputSchema)(rawCommandInput);
+    return;
+  }
+
+  const hasApp = commandInput.app != null;
+
+  if (hasApp) {
+    logger.skip(
+      `No build secrets for ${commandInput.app}. Add one with: launch secret set <NAME> --app ${commandInput.app}`,
+    );
+    return;
+  }
+
+  logger.skip('No build secrets stored. Add one with: launch secret set <NAME>');
+}
+
+/** Run one decoded build-secret command. */
+export async function secretCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodeSecretCommandInput(rawCommandInput);
+
     switch (commandInput.action) {
       case 'list':
       case 'status':
-        return yield* listSecrets(commandInput);
+        await listSecrets(commandInput);
+        return;
       case 'set':
-        return yield* setSecretValue(commandInput);
+        await setSecretValue(commandInput);
+        return;
       case 'rm':
       case 'remove':
-        return yield* removeSecretValue(commandInput);
+        await removeSecretValue(commandInput);
+        return;
     }
-  }).pipe(
-    Effect.mapError((cause) =>
-      makeSecretCommandFailure({
-        action: 'run',
-        message: errorMessage(cause),
-        cause,
-      }),
-    ),
-  );
+  } catch (cause) {
+    throw makeSecretCommandFailure({
+      action: 'run',
+      message: errorMessage(cause),
+      cause,
+    });
+  }
+}

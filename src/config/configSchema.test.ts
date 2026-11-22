@@ -1,13 +1,9 @@
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { loadConfigSchema, validateConfig } from './configSchema.js';
 
 describe('loadConfigSchema', () => {
   it('loads the committed schema with only `profiles` required and named nested definitions', async () => {
-    const schema = await Effect.runPromise(
-      loadConfigSchema().pipe(Effect.provide(NodeContext.layer)),
-    );
+    const schema = await loadConfigSchema();
     // Effect Schema is the SSOT; gen-docs normalizes `$defs` -> `definitions` and roots
     // via `$ref` -> `#/definitions/LaunchConfig` when the root carries an identifier.
     const rootName = schema.$ref?.split('/').pop();
@@ -34,12 +30,8 @@ describe('loadConfigSchema', () => {
   });
 
   it('memoizes the committed schema across loads', async () => {
-    const first = await Effect.runPromise(
-      loadConfigSchema().pipe(Effect.provide(NodeContext.layer)),
-    );
-    const second = await Effect.runPromise(
-      loadConfigSchema().pipe(Effect.provide(NodeContext.layer)),
-    );
+    const first = await loadConfigSchema();
+    const second = await loadConfigSchema();
     expect(second).toBe(first);
   });
 });

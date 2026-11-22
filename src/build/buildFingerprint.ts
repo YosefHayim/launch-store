@@ -1,9 +1,9 @@
-import { FileSystem, Path } from '@effect/platform';
-import type { PlatformError } from '@effect/platform/Error';
 import { createHash } from 'node:crypto';
-import { Effect, Option, Schema } from 'effect';
-import { captureCommandOutput, provideNodeCommandServices } from '../services/platform/exec.js';
-import { resolveLaunchHomeDirectory, type LaunchPathsService } from '../services/platform/paths.js';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { pathExists } from '../path-exists.js';
+import { captureCommandOutput } from '../services/platform/exec.js';
+import { ensureDirectoryExists, resolveLaunchHomeDirectory } from '../services/platform/paths.js';
 import type { Platform } from '../types/app.js';
 
 /** Native inputs that determine whether an iOS build cache is reusable. */
@@ -28,69 +28,32 @@ export type BuildState = Readonly<{
   estimates?: Readonly<Record<string, BuildEstimate>>;
 }>;
 
-const BuildEstimateSchema = Schema.Struct({
-  ms: Schema.Number,
-  steps: Schema.Number,
-});
-
-const BuildStateSchema: Schema.Schema<BuildState> = Schema.Struct({
-  fingerprint: Schema.String,
-  builtAt: Schema.String,
-  cleanBuilt: Schema.Boolean,
-  estimates: Schema.optionalWith(
-    Schema.Record({ key: Schema.String, value: BuildEstimateSchema }),
-    { exact: true },
-  ),
-});
-
-const NativeConfigFieldsSchema = Schema.Struct({
-  plugins: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  newArchEnabled: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  ios: Schema.optionalWith(
-    Schema.Struct({
-      deploymentTarget: Schema.optionalWith(Schema.Unknown, { exact: true }),
-    }),
-    { exact: true },
-  ),
-});
-
-const AppConfigSchema = Schema.Struct({
-  expo: Schema.optionalWith(NativeConfigFieldsSchema, { exact: true }),
-  plugins: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  newArchEnabled: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  ios: Schema.optionalWith(
-    Schema.Struct({
-      deploymentTarget: Schema.optionalWith(Schema.Unknown, { exact: true }),
-    }),
-    { exact: true },
-  ),
-});
-
-type BuildStateRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
-
 /** Weight assigned to a new duration sample. */
 const emaAlpha = 0.5;
 
 /** Fold a completed build into its moving estimate. */
-export const updateEstimate = (
+export function updateEstimate(
   previousEstimate: BuildEstimate | undefined,
   sample: BuildEstimate,
   alpha: number = emaAlpha,
-): BuildEstimate => {
-  if (previousEstimate === undefined) {
+): BuildEstimate {
+  if (previousEstimate == null) {
     return { ms: Math.round(sample.ms), steps: Math.round(sample.steps) };
   }
+
   return {
     ms: Math.round(previousEstimate.ms * (1 - alpha) + sample.ms * alpha),
     steps: Math.round(previousEstimate.steps * (1 - alpha) + sample.steps * alpha),
   };
-};
+}
 
 /** Read the estimate recorded for one build kind. */
-export const estimateFor = (
+export function estimateFor(
   buildState: BuildState | null,
   buildKind: string,
-): BuildEstimate | undefined => buildState?.estimates?.[buildKind];
+): BuildEstimate | undefined {
+  return buildState?.estimates?.[buildKind];
+}
 
 /** Clean or incremental decision for the next build. */
 export type CleanDecision = Readonly<{
@@ -99,161 +62,358 @@ export type CleanDecision = Readonly<{
   reason: string;
 }>;
 
+function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
+  const isObject = typeof candidate == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  if (candidate == null) {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
 /** Turn an absent optional config field into the stable JSON null marker. */
-const nullableConfigField = (configField: unknown): unknown => {
-  if (configField === undefined) return null;
-  if (configField === null) return null;
+function nullableConfigField(configField: unknown): unknown {
+  if (configField == null) {
+    return null;
+  }
+
   return configField;
-};
+}
+
+function readNativeFields(parsedConfig: Record<string, unknown>): Record<string, unknown> | null {
+  const hasExpo = Object.hasOwn(parsedConfig, 'expo');
+
+  if (hasExpo == false) {
+    return parsedConfig;
+  }
+
+  const expoFields = parsedConfig['expo'];
+  const expoIsUndefined = typeof expoFields == 'undefined';
+
+  if (expoIsUndefined) {
+    return parsedConfig;
+  }
+
+  const expoIsPlain = isPlainRecord(expoFields);
+
+  if (expoIsPlain == false) {
+    return null;
+  }
+
+  return expoFields;
+}
+
+type NativeSlice = Readonly<{
+  plugins: unknown;
+  newArchEnabled: unknown;
+  iosDeploymentTarget: unknown;
+}>;
+
+function readNativeSlice(parsedConfig: Record<string, unknown>): NativeSlice | null {
+  const nativeFields = readNativeFields(parsedConfig);
+
+  if (nativeFields == null) {
+    return null;
+  }
+
+  const hasIos = Object.hasOwn(nativeFields, 'ios');
+
+  if (hasIos == false) {
+    return {
+      plugins: nativeFields['plugins'],
+      newArchEnabled: nativeFields['newArchEnabled'],
+      iosDeploymentTarget: undefined,
+    };
+  }
+
+  const iosFields = nativeFields['ios'];
+  const iosIsPlain = isPlainRecord(iosFields);
+
+  if (iosIsPlain == false) {
+    return null;
+  }
+
+  return {
+    plugins: nativeFields['plugins'],
+    newArchEnabled: nativeFields['newArchEnabled'],
+    iosDeploymentTarget: iosFields['deploymentTarget'],
+  };
+}
+
+function parseConfigText(configText: string): unknown {
+  try {
+    return JSON.parse(configText);
+  } catch (error) {
+    const parseFailed = error != null;
+
+    if (parseFailed) {
+      return null;
+    }
+
+    return null;
+  }
+}
 
 /** Keep only Expo config fields that change the generated native project. */
-export const extractNativeConfigSlice = (configText: string): string => {
-  let parsedConfig: unknown;
-  try {
-    parsedConfig = JSON.parse(configText);
-  } catch {
+export function extractNativeConfigSlice(configText: string): string {
+  const parsedConfig = parseConfigText(configText);
+  const isConfigRecord = isPlainRecord(parsedConfig);
+
+  if (isConfigRecord == false) {
     return configText;
   }
-  const decodedConfig = Option.getOrUndefined(
-    Schema.decodeUnknownOption(AppConfigSchema)(parsedConfig),
-  );
-  if (decodedConfig === undefined) return configText;
-  let nativeFields = decodedConfig;
-  if (decodedConfig.expo !== undefined) nativeFields = decodedConfig.expo;
-  let deploymentTarget: unknown;
-  if (nativeFields.ios !== undefined) deploymentTarget = nativeFields.ios.deploymentTarget;
+
+  const nativeSlice = readNativeSlice(parsedConfig);
+
+  if (nativeSlice == null) {
+    return configText;
+  }
+
   return JSON.stringify({
-    plugins: nullableConfigField(nativeFields.plugins),
-    newArchEnabled: nullableConfigField(nativeFields.newArchEnabled),
-    iosDeploymentTarget: nullableConfigField(deploymentTarget),
+    plugins: nullableConfigField(nativeSlice.plugins),
+    newArchEnabled: nullableConfigField(nativeSlice.newArchEnabled),
+    iosDeploymentTarget: nullableConfigField(nativeSlice.iosDeploymentTarget),
   });
-};
+}
 
 /** Hash native build inputs in a fixed field order. */
-export const computeBuildFingerprint = (fingerprintParts: FingerprintParts): string => {
+export function computeBuildFingerprint(fingerprintParts: FingerprintParts): string {
   const canonicalFingerprint = [
     `podfile.lock:${fingerprintParts.podfileLock}`,
     `podfile.properties:${fingerprintParts.podfileProperties}`,
     `config:${fingerprintParts.appConfigSlice}`,
     `toolchain:${fingerprintParts.toolchainVersion}`,
   ].join('\n\u0000\n');
+
   return createHash('sha256').update(canonicalFingerprint).digest('hex');
-};
+}
 
 /** Decide whether the next build can reuse native caches. */
-export const resolveClean = (
+export function resolveClean(
   forceClean: boolean,
   storedBuild: BuildState | null,
   currentFingerprint: string,
-): CleanDecision => {
-  const nativeChanged = storedBuild?.fingerprint !== currentFingerprint;
-  if (forceClean) {
+): CleanDecision {
+  const storedFingerprint = storedBuild?.fingerprint;
+  const nativeChanged = storedFingerprint != currentFingerprint;
+  const isForced = forceClean == true;
+
+  if (isForced) {
     let reason = 'clean forced (--clean)';
-    if (nativeChanged) reason = 'clean forced (--clean); native deps also changed';
+
+    if (nativeChanged) {
+      reason = 'clean forced (--clean); native deps also changed';
+    }
+
     return { clean: true, nativeChanged, reason };
   }
+
   if (nativeChanged) {
     let reason = 'first build on this host';
-    if (storedBuild !== null) reason = 'native deps changed (Podfile.lock)';
+
+    if (storedBuild != null) {
+      reason = 'native deps changed (Podfile.lock)';
+    }
+
     return { clean: true, nativeChanged, reason };
   }
+
   return { clean: false, nativeChanged, reason: 'cache warm - incremental' };
-};
+}
 
-/** Resolve the build-state directory or a test override. */
-const buildStateDirectory = (
-  directoryOverride: string | undefined,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> => {
-  if (directoryOverride !== undefined) return Effect.succeed(directoryOverride);
-  return Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'build-state');
-  });
-};
+function buildStateDirectory(directoryOverride: string | undefined): string {
+  if (directoryOverride != null) {
+    return directoryOverride;
+  }
 
-/** Resolve the state file for one app and platform. */
-const buildStatePath = (
-  appName: string,
-  platform: Platform,
-  directoryOverride?: string,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const directoryPath = yield* buildStateDirectory(directoryOverride);
-    return pathService.join(directoryPath, `${appName}-${platform}.json`);
-  });
+  return join(resolveLaunchHomeDirectory(), 'build-state');
+}
+
+function buildStatePath(appName: string, platform: Platform, directoryOverride?: string): string {
+  const directoryPath = buildStateDirectory(directoryOverride);
+
+  return join(directoryPath, `${appName}-${platform}.json`);
+}
+
+function isBuildEstimate(candidate: unknown): candidate is BuildEstimate {
+  const isRecord = isPlainRecord(candidate);
+
+  if (isRecord == false) {
+    return false;
+  }
+
+  const durationIsNumber = typeof candidate['ms'] == 'number';
+
+  if (durationIsNumber == false) {
+    return false;
+  }
+
+  return typeof candidate['steps'] == 'number';
+}
+
+function decodeEstimates(candidate: unknown): Readonly<Record<string, BuildEstimate>> | null {
+  const isRecord = isPlainRecord(candidate);
+
+  if (isRecord == false) {
+    return null;
+  }
+
+  const estimates: Record<string, BuildEstimate> = {};
+
+  for (const estimateKey of Object.keys(candidate)) {
+    const estimate = candidate[estimateKey];
+    const isEstimate = isBuildEstimate(estimate);
+
+    if (isEstimate == false) {
+      return null;
+    }
+
+    estimates[estimateKey] = { ms: estimate.ms, steps: estimate.steps };
+  }
+
+  return estimates;
+}
+
+function decodeBuildState(parsedState: unknown): BuildState | null {
+  const isRecord = isPlainRecord(parsedState);
+
+  if (isRecord == false) {
+    return null;
+  }
+
+  const fingerprint = parsedState['fingerprint'];
+  const fingerprintIsString = typeof fingerprint == 'string';
+
+  if (fingerprintIsString == false) {
+    return null;
+  }
+
+  const builtAt = parsedState['builtAt'];
+  const builtAtIsString = typeof builtAt == 'string';
+
+  if (builtAtIsString == false) {
+    return null;
+  }
+
+  const cleanBuilt = parsedState['cleanBuilt'];
+  const cleanIsBoolean = typeof cleanBuilt == 'boolean';
+
+  if (cleanIsBoolean == false) {
+    return null;
+  }
+
+  const hasEstimates = Object.hasOwn(parsedState, 'estimates');
+
+  if (hasEstimates == false) {
+    return { fingerprint, builtAt, cleanBuilt };
+  }
+
+  const estimates = decodeEstimates(parsedState['estimates']);
+
+  if (estimates == null) {
+    return null;
+  }
+
+  return { fingerprint, builtAt, cleanBuilt, estimates };
+}
 
 /** Load a stored build state, treating absent or malformed files as a cold cache. */
-export const readBuildState = (
+export async function readBuildState(
   appName: string,
   platform: Platform,
   directoryOverride?: string,
-): Effect.Effect<BuildState | null, never, BuildStateRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const filePath = yield* buildStatePath(appName, platform, directoryOverride);
-    const fileExists = yield* fileSystem.exists(filePath).pipe(Effect.orElseSucceed(() => false));
-    if (!fileExists) return null;
-    return yield* fileSystem.readFileString(filePath).pipe(
-      Effect.flatMap((stateText) =>
-        Effect.try({
-          try: (): unknown => JSON.parse(stateText),
-          catch: () => null,
-        }),
-      ),
-      Effect.map((parsedState) => {
-        if (parsedState === null) return null;
-        return Option.getOrNull(Schema.decodeUnknownOption(BuildStateSchema)(parsedState));
-      }),
-      Effect.orElseSucceed(() => null),
-    );
-  });
+): Promise<BuildState | null> {
+  const filePath = buildStatePath(appName, platform, directoryOverride);
+
+  try {
+    const fileExists = await pathExists(filePath);
+
+    if (fileExists == false) {
+      return null;
+    }
+
+    const stateText = await readFile(filePath, 'utf8');
+    const parsedState: unknown = JSON.parse(stateText);
+
+    return decodeBuildState(parsedState);
+  } catch (error) {
+    const readFailed = error != null;
+
+    if (readFailed) {
+      return null;
+    }
+
+    return null;
+  }
+}
 
 /** Persist the build state used by the next cache decision. */
-export const writeBuildState = (
+export async function writeBuildState(
   appName: string,
   platform: Platform,
   buildState: BuildState,
   directoryOverride?: string,
-): Effect.Effect<void, PlatformError, BuildStateRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const directoryPath = yield* buildStateDirectory(directoryOverride);
-    const filePath = yield* buildStatePath(appName, platform, directoryOverride);
-    yield* fileSystem.makeDirectory(directoryPath, { recursive: true });
-    yield* fileSystem.writeFileString(filePath, JSON.stringify(buildState, null, 2));
-  });
+): Promise<void> {
+  const directoryPath = buildStateDirectory(directoryOverride);
+  const filePath = buildStatePath(appName, platform, directoryOverride);
 
-/** Read one optional fingerprint input without making a fresh native tree fail. */
-const readFingerprintInput = (
-  filePath: string,
-): Effect.Effect<string, never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const fileExists = yield* fileSystem.exists(filePath).pipe(Effect.orElseSucceed(() => false));
-    if (!fileExists) return '';
-    return yield* fileSystem.readFileString(filePath).pipe(Effect.orElseSucceed(() => ''));
-  });
+  await ensureDirectoryExists(directoryPath);
+  await writeFile(filePath, JSON.stringify(buildState, null, 2));
+}
+
+async function readFingerprintInput(filePath: string): Promise<string> {
+  try {
+    const fileExists = await pathExists(filePath);
+
+    if (fileExists == false) {
+      return '';
+    }
+
+    return await readFile(filePath, 'utf8');
+  } catch (error) {
+    const readFailed = error != null;
+
+    if (readFailed) {
+      return '';
+    }
+
+    return '';
+  }
+}
 
 /** Read and hash the iOS native dependency graph. */
-export const gatherIosFingerprint = (
+export async function gatherIosFingerprint(
   iosDirectory: string,
   configPath: string,
-): Effect.Effect<string, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const podfileLock = yield* readFingerprintInput(pathService.join(iosDirectory, 'Podfile.lock'));
-    const podfileProperties = yield* readFingerprintInput(
-      pathService.join(iosDirectory, 'Podfile.properties.json'),
-    );
-    const appConfigText = yield* readFingerprintInput(configPath);
-    const toolchainVersion = yield* provideNodeCommandServices(
-      captureCommandOutput('xcodebuild', ['-version']),
-    ).pipe(Effect.orElseSucceed(() => ''));
-    return computeBuildFingerprint({
-      podfileLock,
-      podfileProperties,
-      appConfigSlice: extractNativeConfigSlice(appConfigText),
-      toolchainVersion,
-    });
+): Promise<string> {
+  const podfileLock = await readFingerprintInput(join(iosDirectory, 'Podfile.lock'));
+  const podfileProperties = await readFingerprintInput(
+    join(iosDirectory, 'Podfile.properties.json'),
+  );
+  const appConfigText = await readFingerprintInput(configPath);
+  let toolchainVersion = '';
+
+  try {
+    toolchainVersion = await captureCommandOutput('xcodebuild', ['-version']);
+  } catch (error) {
+    const commandFailed = error != null;
+
+    if (commandFailed) {
+      toolchainVersion = '';
+    }
+  }
+
+  const appConfigSlice = extractNativeConfigSlice(appConfigText);
+
+  return computeBuildFingerprint({
+    podfileLock,
+    podfileProperties,
+    appConfigSlice,
+    toolchainVersion,
   });
+}

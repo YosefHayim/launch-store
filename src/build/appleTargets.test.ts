@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -250,13 +248,9 @@ describe('discoverExtensionBundleIds - locate and read the generated project', (
     try {
       const nativeDir = join(root, 'ios');
       seedProject(nativeDir, 'SampleApp', APP_WITH_WIDGET);
-      await expect(
-        Effect.runPromise(
-          discoverExtensionBundleIds(nativeDir, 'com.example.sampleapp').pipe(
-            Effect.provide(NodeContext.layer),
-          ),
-        ),
-      ).resolves.toEqual(['com.example.sampleapp.widget']);
+      await expect(discoverExtensionBundleIds(nativeDir, 'com.example.sampleapp')).resolves.toEqual(
+        ['com.example.sampleapp.widget'],
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -266,13 +260,9 @@ describe('discoverExtensionBundleIds - locate and read the generated project', (
     try {
       const nativeDir = join(root, 'ios');
       seedProject(nativeDir, 'SampleApp', SINGLE_TARGET);
-      await expect(
-        Effect.runPromise(
-          discoverExtensionBundleIds(nativeDir, 'com.example.sampleapp').pipe(
-            Effect.provide(NodeContext.layer),
-          ),
-        ),
-      ).resolves.toEqual([]);
+      await expect(discoverExtensionBundleIds(nativeDir, 'com.example.sampleapp')).resolves.toEqual(
+        [],
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -281,11 +271,7 @@ describe('discoverExtensionBundleIds - locate and read the generated project', (
     const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
     try {
       await expect(
-        Effect.runPromise(
-          discoverExtensionBundleIds(join(root, 'ios'), 'com.example.sampleapp').pipe(
-            Effect.provide(NodeContext.layer),
-          ),
-        ),
+        discoverExtensionBundleIds(join(root, 'ios'), 'com.example.sampleapp'),
       ).resolves.toEqual([]);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -331,15 +317,13 @@ describe('findPbxproj - locate the project file in a native dir', () => {
   it('finds the .xcodeproj/project.pbxproj and returns null when absent', async () => {
     const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
     try {
-      await expect(
-        Effect.runPromise(findPbxproj(join(root, 'ios')).pipe(Effect.provide(NodeContext.layer))),
-      ).resolves.toBeNull();
+      await expect(findPbxproj(join(root, 'ios'))).resolves.toBeNull();
       const projectDir = join(root, 'ios', 'SampleApp.xcodeproj');
       mkdirSync(projectDir, { recursive: true });
       writeFileSync(join(projectDir, 'project.pbxproj'), SINGLE_TARGET);
-      await expect(
-        Effect.runPromise(findPbxproj(join(root, 'ios')).pipe(Effect.provide(NodeContext.layer))),
-      ).resolves.toBe(join(projectDir, 'project.pbxproj'));
+      await expect(findPbxproj(join(root, 'ios'))).resolves.toBe(
+        join(projectDir, 'project.pbxproj'),
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -431,20 +415,12 @@ describe('writeManualSigningToProject - stamp the generated project on disk', ()
       mkdirSync(projectDir, { recursive: true });
       const pbxproj = join(projectDir, 'project.pbxproj');
       writeFileSync(pbxproj, APP_WITH_WIDGET);
-      await expect(
-        Effect.runPromise(
-          writeManualSigningToProject(nativeDir, SIGNING).pipe(Effect.provide(NodeContext.layer)),
-        ),
-      ).resolves.toBe(true);
+      await expect(writeManualSigningToProject(nativeDir, SIGNING)).resolves.toBe(true);
       expect(readFileSync(pbxproj, 'utf8')).toContain(
         `PROVISIONING_PROFILE_SPECIFIER = "${WIDGET_PROFILE}";`,
       );
       // Idempotent on disk: the second run finds nothing to change.
-      await expect(
-        Effect.runPromise(
-          writeManualSigningToProject(nativeDir, SIGNING).pipe(Effect.provide(NodeContext.layer)),
-        ),
-      ).resolves.toBe(false);
+      await expect(writeManualSigningToProject(nativeDir, SIGNING)).resolves.toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -452,13 +428,7 @@ describe('writeManualSigningToProject - stamp the generated project on disk', ()
   it('returns false when the native project has not been generated yet', async () => {
     const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
     try {
-      await expect(
-        Effect.runPromise(
-          writeManualSigningToProject(join(root, 'ios'), SIGNING).pipe(
-            Effect.provide(NodeContext.layer),
-          ),
-        ),
-      ).resolves.toBe(false);
+      await expect(writeManualSigningToProject(join(root, 'ios'), SIGNING)).resolves.toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

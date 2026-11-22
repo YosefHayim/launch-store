@@ -1,7 +1,8 @@
-import { FileSystem, Path } from '@effect/platform';
+import { access, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createJiti } from 'jiti';
-import { Data, Effect, Option, Schema } from 'effect';
+import { readLaunchDirectories } from '../services/platform/paths.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { LaunchConfig, LaunchConfigInput } from '../types/config.js';
 import {
@@ -10,72 +11,71 @@ import {
   DEFAULT_STORAGE_PROVIDER,
   DEFAULT_SUBMITTER,
 } from '../types/config.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 import type { MutableDeep } from '../types/mutable.js';
+
 /**
- * Absolute path to THIS package's own public entry (`defineConfig` + the config types), resolved
- * relative to the loader so it points at whichever copy is actually running - the globally-installed
- * `dist/index.js` in production, the TypeScript source under vitest. The layout `<root>/{src,dist}/config/`
- * makes `../index.js` the entry from either tree.
+ * Absolute path to this package's public entry, so a config's `import { defineConfig } from "launch-store"`
+ * binds to the CLI that is loading it.
  */
 const SELF_ENTRY = fileURLToPath(new URL('../index.js', import.meta.url));
-/**
- * On-the-fly loader for the user's config. The compiled `launch` binary runs on plain Node, which
- * can't `import()` a TypeScript file - jiti transpiles `launch.config.ts` in memory. The `alias` pins
- * the config's `import { defineConfig } from "launch-store"` to {@link SELF_ENTRY}, so a globally
- * installed `launch` loads the config even when the user's project has no local `launch-store`
- * dependency (issue #8), and the config always binds to the exact `defineConfig` of the CLI consuming
- * it - no dual-package version skew. (jiti chosen over bundling a TS toolchain ourselves; it's the
- * same loader Nuxt/ESLint use for config files.)
- */
+
 const jiti = createJiti(import.meta.url, {
   alias: { 'launch-store': SELF_ENTRY },
   // Source still imports with `@/`. The build rewrites those; this loader does not.
   tsconfigPaths: true,
 });
-// Re-exported so `import { LaunchConfigInput } from "launch-store"` (via src/index.ts -> here) still
-// resolves; the type itself is `LaunchConfigInput`, owned by `types/config.ts`.
+
 export type { LaunchConfigInput };
-/** Best-effort existence probe that never fails the Effect channel. */
-const pathExists = (
-  fileSystem: FileSystem.FileSystem,
-  candidatePath: string,
-): Effect.Effect<boolean> =>
-  fileSystem.exists(candidatePath).pipe(Effect.orElseSucceed(() => false));
 export { defineConfig } from '@/define-launch-file.js';
+
+async function entryExists(candidatePath: string): Promise<boolean> {
+  try {
+    await access(candidatePath);
+
+    return true;
+  } catch (error) {
+    const isMissing = error != null;
+
+    if (isMissing) {
+      return false;
+    }
+
+    return false;
+  }
+}
+
 /**
- * Resolve a Launch-native config section that can be declared either as a typed field on
- * `launch.config.ts` (the single-config path - issue #101) or as its standalone `*.config.json`
- * sidecar (back-compat). Precedence, highest first:
- *   1. an explicitly-passed `--config <path>` - the user pointed at a sidecar on purpose, so load it;
- *   2. the typed field, when present on the loaded config;
- *   3. the sidecar at its default path, when that file exists.
- * Returns `undefined` when none apply, so the caller throws a feature-specific "nothing declared" hint.
- * `load` is the section's existing JSON loader (which itself throws a helpful error on a missing path).
+ * Resolve a section declared on `launch.config.ts` or in a `*.config.json` sidecar.
+ * An explicit `--config` wins, then the typed field, then a sidecar at the default path.
  */
-export const resolveSidecarConfig = <Section>(sidecarRequest: {
-  /** The typed value read off the loaded config (e.g. `config.gameCenter?.[bundleId]`), if any. */
+export async function resolveSidecarConfig<Section>(sidecarRequest: {
   typed: NoInfer<Section> | undefined;
-  /** The `--config` path (defaulted by the command); used for both the explicit and fallback loads. */
   configPath: string;
-  /** Whether `--config` was passed on the CLI (`command.getOptionValueSource("config") === "cli"`). */
   explicitPath: boolean;
-  /** The section's JSON loader, e.g. `loadGameCenterConfig`. */
-  load: (path: string) => Effect.Effect<Section, unknown, FileSystem.FileSystem>;
-}): Effect.Effect<Section | undefined, unknown, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    if (sidecarRequest.explicitPath) return yield* sidecarRequest.load(sidecarRequest.configPath);
-    if (sidecarRequest.typed !== undefined) return sidecarRequest.typed;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const sidecarExists = yield* pathExists(fileSystem, sidecarRequest.configPath);
-    if (sidecarExists) return yield* sidecarRequest.load(sidecarRequest.configPath);
-    return undefined;
-  });
-/** The fully-resolved configuration plus every app Launch found. */
+  load: (path: string) => Promise<Section>;
+}): Promise<Section | undefined> {
+  if (sidecarRequest.explicitPath) {
+    return sidecarRequest.load(sidecarRequest.configPath);
+  }
+
+  if (sidecarRequest.typed !== undefined) {
+    return sidecarRequest.typed;
+  }
+
+  const sidecarExists = await entryExists(sidecarRequest.configPath);
+
+  if (sidecarExists) {
+    return sidecarRequest.load(sidecarRequest.configPath);
+  }
+
+  return undefined;
+}
+
 export type LoadedConfig = Readonly<{
   config: LaunchConfig;
   apps: AppDescriptor[];
 }>;
+
 const DEFAULT_CONFIG: LaunchConfig = {
   credentials: DEFAULT_CREDENTIALS_PROVIDER,
   storage: DEFAULT_STORAGE_PROVIDER,
@@ -83,367 +83,605 @@ const DEFAULT_CONFIG: LaunchConfig = {
   submit: DEFAULT_SUBMITTER,
   profiles: { production: { name: 'production', sizeBudgetMB: 200 } },
 };
+
 const SKIP_DIRS = new Set(['node_modules', '.git', 'ios', 'android', 'dist', '.expo', '.launch']);
-/** A located Launch config: the resolved `launch.config.{ts,mjs,js}` path and the config it exports. */
+
 type FoundConfig = Readonly<{
   path: string;
   config: LaunchConfig;
 }>;
-/** One on-disk Expo/React Native app config document chosen for a directory. */
+
 type AppConfigDocument = Readonly<{
   rawConfig: Record<string, unknown>;
   path: string;
 }>;
+
 type ConfigLoadFailure = Readonly<{
-  readonly _tag: 'ConfigLoadFailure';
-  readonly path: string;
-  readonly message: string;
-  readonly cause?: unknown;
+  _tag: 'ConfigLoadFailure';
+  path: string;
+  message: string;
+  cause?: unknown;
 }>;
-const makeConfigLoadFailure = Data.tagged<ConfigLoadFailure>('ConfigLoadFailure');
-/**
- * Find and load the user's `launch.config.{ts,mjs,js}` under `cwd`, returning the resolved path with the
- * loaded config - or `null` when none exists, so a caller (e.g. `launch config validate`) can tell "no
- * config here" apart from "a config that loaded". jiti transpiles a `.ts` config in memory so it runs on
- * plain Node. Throws when a config file exists but doesn't `export default`.
- */
-export const findLaunchConfig = (
-  requestedDirectory?: string,
-): Effect.Effect<
-  FoundConfig | null,
-  ConfigLoadFailure,
-  FileSystem.FileSystem | LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    let workingDirectory = requestedDirectory;
-    if (workingDirectory === undefined) workingDirectory = (yield* LaunchPaths).workingDirectory;
-    for (const fileName of ['launch.config.ts', 'launch.config.mjs', 'launch.config.js']) {
-      const configPath = pathService.join(workingDirectory, fileName);
-      const configExists = yield* pathExists(fileSystem, configPath);
-      if (!configExists) continue;
-      const loaded = yield* Effect.tryPromise({
-        try: () => jiti.import<{ default?: LaunchConfig }>(configPath),
-        catch: (cause) =>
-          makeConfigLoadFailure({
-            path: configPath,
-            message: `Could not load ${fileName}.`,
-            cause,
-          }),
-      });
-      if (!loaded.default)
-        return yield* Effect.fail(
-          makeConfigLoadFailure({
-            path: configPath,
-            message: `${fileName} must \`export default defineConfig({ ... })\`.`,
-          }),
-        );
-      return { path: configPath, config: loaded.default };
+
+function makeConfigLoadFailure(fields: {
+  path: string;
+  message: string;
+  cause?: unknown;
+}): ConfigLoadFailure {
+  return { _tag: 'ConfigLoadFailure', ...fields };
+}
+
+export async function findLaunchConfig(requestedDirectory?: string): Promise<FoundConfig | null> {
+  let workingDirectory = readLaunchDirectories().workingDirectory;
+
+  if (requestedDirectory !== undefined) {
+    workingDirectory = requestedDirectory;
+  }
+
+  for (const fileName of ['launch.config.ts', 'launch.config.mjs', 'launch.config.js']) {
+    const configPath = join(workingDirectory, fileName);
+    const configExists = await entryExists(configPath);
+
+    if (configExists == false) {
+      continue;
     }
-    return null;
-  });
-/** Read `launch.config.{ts,js,mjs}` from `root` if present, else fall back to defaults. */
-const readLaunchConfig = (root: string) =>
-  findLaunchConfig(root).pipe(
-    Effect.map((foundConfig) => {
-      if (foundConfig === null) return DEFAULT_CONFIG;
-      return foundConfig.config;
-    }),
-  );
-/** The static (JSON) and dynamic (evaluated) Expo config filenames, each in Expo's precedence order. */
+
+    let loaded: { default?: LaunchConfig };
+
+    try {
+      loaded = await jiti.import<{ default?: LaunchConfig }>(configPath);
+    } catch (cause) {
+      throw makeConfigLoadFailure({
+        path: configPath,
+        message: `Could not load ${fileName}.`,
+        cause,
+      });
+    }
+
+    if (loaded.default == null) {
+      throw makeConfigLoadFailure({
+        path: configPath,
+        message: `${fileName} must \`export default defineConfig({ ... })\`.`,
+      });
+    }
+
+    return { path: configPath, config: loaded.default };
+  }
+
+  return null;
+}
+
+async function readLaunchConfig(root: string): Promise<LaunchConfig> {
+  const foundConfig = await findLaunchConfig(root);
+
+  if (foundConfig == null) {
+    return DEFAULT_CONFIG;
+  }
+
+  return foundConfig.config;
+}
+
 const STATIC_CONFIGS = ['app.config.json', 'app.json'] as const;
 const DYNAMIC_CONFIGS = ['app.config.ts', 'app.config.js', 'app.config.mjs'] as const;
-/** Narrow an unknown value to a plain object, or null. */
-const UnknownRecordSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown });
-const decodeUnknownRecord = Schema.decodeUnknownOption(UnknownRecordSchema);
-const decodedRecordOrNull = (candidateValue: unknown): Record<string, unknown> | null => {
-  return Option.getOrNull(decodeUnknownRecord(candidateValue));
-};
-/**
- * Build an {@link AppDescriptor} from a parsed/evaluated Expo config. Tolerates an `{ expo: {...} }`
- * wrapper or a flat shape (Expo or bare React Native), and a config missing the iOS, Android, or
- * version fields. Returns null when there's no usable app handle (neither `slug` nor `name`).
- */
-const appDescriptorFromConfig = (
+
+function decodedRecordOrNull(candidateValue: unknown): Record<string, unknown> | null {
+  if (candidateValue == null) {
+    return null;
+  }
+
+  if (typeof candidateValue != 'object') {
+    return null;
+  }
+
+  if (Array.isArray(candidateValue)) {
+    return null;
+  }
+
+  return candidateValue as Record<string, unknown>;
+}
+
+function readStringField(record: Record<string, unknown> | null, fieldName: string): string | null {
+  if (record == null) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field == 'string') {
+    return field;
+  }
+
+  return null;
+}
+
+function readBooleanField(
+  record: Record<string, unknown> | null,
+  fieldName: string,
+): boolean | null {
+  if (record == null) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field == 'boolean') {
+    return field;
+  }
+
+  return null;
+}
+
+function readNumberField(record: Record<string, unknown> | null, fieldName: string): number | null {
+  if (record == null) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field == 'number') {
+    return field;
+  }
+
+  return null;
+}
+
+function readNestedRecord(
+  record: Record<string, unknown> | null,
+  fieldName: string,
+): Record<string, unknown> | null {
+  if (record == null) {
+    return null;
+  }
+
+  return decodedRecordOrNull(record[fieldName]);
+}
+
+function readAppHandle(expoConfig: Record<string, unknown>): string | null {
+  const slug = readStringField(expoConfig, 'slug');
+
+  if (slug != null) {
+    return slug;
+  }
+
+  return readStringField(expoConfig, 'name');
+}
+
+function readExtensionIds(ios: Record<string, unknown> | null): string[] | null {
+  if (ios == null) {
+    return null;
+  }
+
+  const extensions = ios['extensions'];
+
+  if (Array.isArray(extensions) == false) {
+    return null;
+  }
+
+  const extensionIds = extensions.filter(isNonEmptyExtensionId);
+
+  if (extensionIds.length == 0) {
+    return null;
+  }
+
+  return extensionIds;
+}
+
+function isNonEmptyExtensionId(extensionId: unknown): extensionId is string {
+  if (typeof extensionId != 'string') {
+    return false;
+  }
+
+  return extensionId.length > 0;
+}
+
+function appDescriptorFromConfig(
   rawConfig: Record<string, unknown>,
   appDirectory: string,
   configPath: string,
-): AppDescriptor | null => {
+): AppDescriptor | null {
   let expoConfig = decodedRecordOrNull(rawConfig['expo']);
-  if (expoConfig === null) expoConfig = rawConfig;
-  let appHandle: string | undefined;
-  if (typeof expoConfig['slug'] === 'string') appHandle = expoConfig['slug'];
-  if (appHandle === undefined && typeof expoConfig['name'] === 'string') {
-    appHandle = expoConfig['name'];
+
+  if (expoConfig == null) {
+    expoConfig = rawConfig;
   }
-  if (appHandle === undefined) return null;
+
+  const appHandle = readAppHandle(expoConfig);
+
+  if (appHandle == null) {
+    return null;
+  }
+
   const descriptor: MutableDeep<AppDescriptor> = {
     name: appHandle.toLowerCase(),
     dir: appDirectory,
     configPath,
   };
   const ios = decodedRecordOrNull(expoConfig['ios']);
-  if (ios !== null && typeof ios['bundleIdentifier'] === 'string') {
-    descriptor.bundleId = ios['bundleIdentifier'];
+  const bundleId = readStringField(ios, 'bundleIdentifier');
+
+  if (bundleId != null) {
+    descriptor.bundleId = bundleId;
   }
-  let entitlements: Record<string, unknown> | null = null;
-  if (ios !== null) entitlements = decodedRecordOrNull(ios['entitlements']);
-  if (entitlements !== null) descriptor.iosEntitlements = entitlements;
-  let extensions: unknown;
-  if (ios !== null) extensions = ios['extensions'];
-  if (Array.isArray(extensions)) {
-    const extensionIds = extensions.filter(
-      (extensionId): extensionId is string =>
-        typeof extensionId === 'string' && extensionId.length > 0,
-    );
-    if (extensionIds.length > 0) descriptor.iosExtensions = extensionIds;
+
+  const entitlements = readNestedRecord(ios, 'entitlements');
+
+  if (entitlements != null) {
+    descriptor.iosEntitlements = entitlements;
   }
-  let iosConfig: Record<string, unknown> | null = null;
-  if (ios !== null) iosConfig = decodedRecordOrNull(ios['config']);
-  if (iosConfig !== null && typeof iosConfig['usesNonExemptEncryption'] === 'boolean') {
-    descriptor.usesNonExemptEncryption = iosConfig['usesNonExemptEncryption'];
+
+  const extensionIds = readExtensionIds(ios);
+
+  if (extensionIds != null) {
+    descriptor.iosExtensions = extensionIds;
   }
+
+  const iosConfig = readNestedRecord(ios, 'config');
+  const usesNonExemptEncryption = readBooleanField(iosConfig, 'usesNonExemptEncryption');
+
+  if (usesNonExemptEncryption != null) {
+    descriptor.usesNonExemptEncryption = usesNonExemptEncryption;
+  }
+
   const android = decodedRecordOrNull(expoConfig['android']);
-  if (android !== null && typeof android['package'] === 'string') {
-    descriptor.packageName = android['package'];
+  const packageName = readStringField(android, 'package');
+
+  if (packageName != null) {
+    descriptor.packageName = packageName;
   }
-  if (android !== null && typeof android['versionCode'] === 'number') {
-    descriptor.androidVersionCode = android['versionCode'];
+
+  const androidVersionCode = readNumberField(android, 'versionCode');
+
+  if (androidVersionCode != null) {
+    descriptor.androidVersionCode = androidVersionCode;
   }
-  if (typeof expoConfig['version'] === 'string') descriptor.version = expoConfig['version'];
+
+  const version = readStringField(expoConfig, 'version');
+
+  if (version != null) {
+    descriptor.version = version;
+  }
+
   return descriptor;
-};
-/** Read the highest-precedence static (JSON) config in a directory, if any. */
-const readStaticConfig = (
-  appDirectory: string,
-): Effect.Effect<AppConfigDocument | null, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    for (const fileName of STATIC_CONFIGS) {
-      const configPath = pathService.join(appDirectory, fileName);
-      const configExists = yield* pathExists(fileSystem, configPath);
-      if (!configExists) continue;
-      const decodedConfig = yield* fileSystem.readFileString(configPath).pipe(
-        Effect.flatMap((configText) => Effect.try(() => JSON.parse(configText))),
-        Effect.map(decodedRecordOrNull),
-        Effect.orElseSucceed(() => null),
-      );
-      if (decodedConfig !== null) return { rawConfig: decodedConfig, path: configPath };
+}
+
+async function readJsonRecord(configPath: string): Promise<Record<string, unknown> | null> {
+  try {
+    const configText = await readFile(configPath, 'utf8');
+    const parsedConfig: unknown = JSON.parse(configText);
+
+    return decodedRecordOrNull(parsedConfig);
+  } catch (error) {
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      return null;
     }
+
     return null;
-  });
-/**
- * Evaluate the highest-precedence dynamic config (`app.config.{ts,js,mjs}`) in a directory, if any.
- * A dynamic config may export an object or a function; Expo calls the function with the static
- * config so it can extend it, so we pass the same. A config that throws when evaluated is skipped
- * (we fall back to the static JSON), keeping discovery resilient when the repo's own deps are absent.
- */
-const readDynamicConfig = (
+  }
+}
+
+async function readStaticConfig(appDirectory: string): Promise<AppConfigDocument | null> {
+  for (const fileName of STATIC_CONFIGS) {
+    const configPath = join(appDirectory, fileName);
+    const configExists = await entryExists(configPath);
+
+    if (configExists == false) {
+      continue;
+    }
+
+    const decodedConfig = await readJsonRecord(configPath);
+
+    if (decodedConfig != null) {
+      return { rawConfig: decodedConfig, path: configPath };
+    }
+  }
+
+  return null;
+}
+
+async function readDynamicConfig(
   appDirectory: string,
   staticConfig: Record<string, unknown>,
-): Effect.Effect<AppConfigDocument | null, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    for (const fileName of DYNAMIC_CONFIGS) {
-      const configPath = pathService.join(appDirectory, fileName);
-      const configExists = yield* pathExists(fileSystem, configPath);
-      if (!configExists) continue;
-      const configAttempt = yield* Effect.tryPromise(() =>
-        jiti.import<{ default?: unknown }>(configPath),
-      ).pipe(Effect.either);
-      if (configAttempt._tag === 'Left') continue;
-      const exportedConfig = configAttempt.right.default;
-      if (exportedConfig === undefined) continue;
-      let evaluatedConfig: unknown = exportedConfig;
-      if (typeof exportedConfig === 'function') {
-        const evaluationAttempt = yield* Effect.tryPromise(() =>
-          globalThis.Promise.resolve(exportedConfig({ config: staticConfig })),
-        ).pipe(Effect.either);
-        if (evaluationAttempt._tag === 'Left') continue;
-        evaluatedConfig = evaluationAttempt.right;
-      }
-      const rawConfig = decodedRecordOrNull(evaluatedConfig);
-      if (rawConfig !== null) return { rawConfig, path: configPath };
+): Promise<AppConfigDocument | null> {
+  for (const fileName of DYNAMIC_CONFIGS) {
+    const configPath = join(appDirectory, fileName);
+    const configExists = await entryExists(configPath);
+
+    if (configExists == false) {
+      continue;
     }
+
+    let loaded: { default?: unknown };
+
+    try {
+      loaded = await jiti.import<{ default?: unknown }>(configPath);
+    } catch (error) {
+      const failedToImport = error != null;
+
+      if (failedToImport) {
+        continue;
+      }
+
+      continue;
+    }
+
+    const exportedConfig = loaded.default;
+
+    if (exportedConfig == null) {
+      continue;
+    }
+
+    let evaluatedConfig: unknown = exportedConfig;
+
+    if (typeof exportedConfig == 'function') {
+      const evaluateConfig = exportedConfig as (request: {
+        config: Record<string, unknown>;
+      }) => unknown;
+
+      try {
+        evaluatedConfig = await Promise.resolve(evaluateConfig({ config: staticConfig }));
+      } catch (error) {
+        const failedToEvaluate = error != null;
+
+        if (failedToEvaluate) {
+          continue;
+        }
+
+        continue;
+      }
+    }
+
+    const rawConfig = decodedRecordOrNull(evaluatedConfig);
+
+    if (rawConfig != null) {
+      return { rawConfig, path: configPath };
+    }
+  }
+
+  return null;
+}
+
+async function loadAppConfigDocument(appDirectory: string): Promise<AppConfigDocument | null> {
+  const staticConfig = await readStaticConfig(appDirectory);
+  let staticConfigDocument: Record<string, unknown> = {};
+
+  if (staticConfig != null) {
+    staticConfigDocument = staticConfig.rawConfig;
+  }
+
+  const dynamicConfig = await readDynamicConfig(appDirectory, staticConfigDocument);
+
+  if (dynamicConfig != null) {
+    return dynamicConfig;
+  }
+
+  return staticConfig;
+}
+
+async function readAppAt(appDirectory: string): Promise<AppDescriptor | null> {
+  const chosenConfig = await loadAppConfigDocument(appDirectory);
+
+  if (chosenConfig == null) {
     return null;
-  });
-/**
- * Choose a directory's app config document: a dynamic config wins over the static JSON (Expo's
- * precedence) and is handed the static config to extend; null when neither is present. Shared by
- * descriptor discovery ({@link readAppAt}) and the raw-config reader ({@link readResolvedConfig}).
- */
-const loadAppConfigDocument = (
+  }
+
+  return appDescriptorFromConfig(chosenConfig.rawConfig, appDirectory, chosenConfig.path);
+}
+
+export async function readResolvedConfig(
   appDirectory: string,
-): Effect.Effect<AppConfigDocument | null, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const staticConfig = yield* readStaticConfig(appDirectory);
-    let staticConfigDocument: Record<string, unknown> = {};
-    if (staticConfig !== null) staticConfigDocument = staticConfig.rawConfig;
-    const dynamicConfig = yield* readDynamicConfig(appDirectory, staticConfigDocument);
-    if (dynamicConfig !== null) return dynamicConfig;
-    return staticConfig;
-  });
-/** Choose the single app config in a directory into an {@link AppDescriptor}, or null when there's no app. */
-const readAppAt = (appDirectory: string) =>
-  Effect.gen(function* () {
-    const chosenConfig = yield* loadAppConfigDocument(appDirectory);
-    if (chosenConfig === null) return null;
-    return appDescriptorFromConfig(chosenConfig.rawConfig, appDirectory, chosenConfig.path);
-  });
-/**
- * Read a directory's fully-resolved Expo config (the static JSON extended by any dynamic
- * `app.config.*`), exactly as discovery sees it. Exposed for the preflight validator
- * (`core/configCheck.ts`), which inspects fields the {@link AppDescriptor} doesn't carry - splash,
- * icon, scheme. Returns null when the directory has no Expo config.
- */
-export const readResolvedConfig = (appDirectory: string) =>
-  loadAppConfigDocument(appDirectory).pipe(
-    Effect.map((appConfigDocument) => {
-      if (appConfigDocument === null) return null;
-      return appConfigDocument.rawConfig;
-    }),
-  );
-/** Recursively scan a root for Expo configs (static or dynamic), skipping heavy/generated directories. */
-const discoverApps = (
-  root: string,
-  maxDepth = 4,
-): Effect.Effect<AppDescriptor[], never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const discoveredApps: AppDescriptor[] = [];
-    const walk = (
-      directory: string,
-      depth: number,
-    ): Effect.Effect<void, never, FileSystem.FileSystem | Path.Path> =>
-      Effect.gen(function* () {
-        if (depth > maxDepth) return;
-        const directoryEntries = yield* fileSystem
-          .readDirectory(directory)
-          .pipe(Effect.orElseSucceed(() => []));
-        const appDescriptor = yield* readAppAt(directory);
-        if (appDescriptor !== null) discoveredApps.push(appDescriptor);
-        yield* Effect.forEach(
-          directoryEntries,
-          (entryName) =>
-            Effect.gen(function* () {
-              if (SKIP_DIRS.has(entryName)) return;
-              if (entryName.startsWith('.')) return;
-              const childPath = pathService.join(directory, entryName);
-              const childMetadata = yield* fileSystem.stat(childPath).pipe(Effect.option);
-              if (Option.isSome(childMetadata) && childMetadata.value.type === 'Directory') {
-                yield* walk(childPath, depth + 1);
-              }
-            }),
-          { concurrency: 1, discard: true },
-        );
-      });
-    yield* walk(root, 0);
-    return discoveredApps;
-  });
-/**
- * Re-read a static JSON app config from disk. Dynamic configs (`app.config.{ts,js,mjs}`) return
- * null - their values may be computed and are never rewritten in place.
- */
-const readStaticAppJson = (
-  configPath: string,
-): Effect.Effect<Record<string, unknown> | null, never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    if (!configPath.endsWith('.json')) return null;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const configText = yield* fileSystem
-      .readFileString(configPath)
-      .pipe(Effect.orElseSucceed(() => null));
-    if (configText === null) return null;
-    const parsedConfig = yield* Effect.try(() => JSON.parse(configText)).pipe(
-      Effect.orElseSucceed(() => null),
-    );
-    return decodedRecordOrNull(parsedConfig);
-  });
-/** Write a static JSON app config back as 2-space JSON with a trailing newline. */
-const writeStaticAppJson = (
+): Promise<Record<string, unknown> | null> {
+  const appConfigDocument = await loadAppConfigDocument(appDirectory);
+
+  if (appConfigDocument == null) {
+    return null;
+  }
+
+  return appConfigDocument.rawConfig;
+}
+
+async function listDirectoryNames(directory: string): Promise<string[]> {
+  try {
+    return await readdir(directory);
+  } catch (error) {
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      return [];
+    }
+
+    return [];
+  }
+}
+
+async function directoryIsFolder(directory: string): Promise<boolean> {
+  try {
+    const directoryStatus = await stat(directory);
+
+    return directoryStatus.isDirectory();
+  } catch (error) {
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      return false;
+    }
+
+    return false;
+  }
+}
+
+async function discoverApps(root: string, maxDepth = 4): Promise<AppDescriptor[]> {
+  const discoveredApps: AppDescriptor[] = [];
+
+  async function walk(directory: string, depth: number): Promise<void> {
+    const isPastMaxDepth = depth > maxDepth;
+
+    if (isPastMaxDepth) {
+      return;
+    }
+
+    const directoryEntries = await listDirectoryNames(directory);
+    const appDescriptor = await readAppAt(directory);
+
+    if (appDescriptor != null) {
+      discoveredApps.push(appDescriptor);
+    }
+
+    for (const entryName of directoryEntries) {
+      const isSkipped = SKIP_DIRS.has(entryName);
+
+      if (isSkipped) {
+        continue;
+      }
+
+      const isHidden = entryName.startsWith('.');
+
+      if (isHidden) {
+        continue;
+      }
+
+      const childPath = join(directory, entryName);
+      const childIsDirectory = await directoryIsFolder(childPath);
+
+      if (childIsDirectory) {
+        await walk(childPath, depth + 1);
+      }
+    }
+  }
+
+  await walk(root, 0);
+
+  return discoveredApps;
+}
+
+async function readStaticAppJson(configPath: string): Promise<Record<string, unknown> | null> {
+  const isJson = configPath.endsWith('.json');
+
+  if (isJson == false) {
+    return null;
+  }
+
+  return readJsonRecord(configPath);
+}
+
+async function writeStaticAppJson(
   configPath: string,
   rawConfig: Record<string, unknown>,
-): Effect.Effect<void, unknown, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    yield* fileSystem.writeFileString(configPath, `${JSON.stringify(rawConfig, null, 2)}\n`);
-  });
-/**
- * Persist a new marketing version into an app's static Expo config (`expo.version`, or a flat
- * `version`), written back as 2-space JSON. Returns whether it wrote: a dynamic config
- * (`app.config.{ts,js,mjs}`) can't be safely rewritten - its `version` may be computed - so the
- * caller stamps the native project instead and leaves the source untouched. Re-reads from disk
- * rather than trusting the in-memory descriptor, so a concurrent edit since discovery isn't clobbered.
- */
-export const writeAppVersion = (
-  app: AppDescriptor,
-  version: string,
-): Effect.Effect<boolean, unknown, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const rawConfig = yield* readStaticAppJson(app.configPath);
-    if (rawConfig === null) return false;
-    const expoConfig = decodedRecordOrNull(rawConfig['expo']);
-    if (expoConfig !== null) rawConfig['expo'] = { ...expoConfig, version };
-    else rawConfig['version'] = version;
-    yield* writeStaticAppJson(app.configPath, rawConfig);
+): Promise<void> {
+  await writeFile(configPath, `${JSON.stringify(rawConfig, null, 2)}\n`);
+}
+
+export async function writeAppVersion(app: AppDescriptor, version: string): Promise<boolean> {
+  const rawConfig = await readStaticAppJson(app.configPath);
+
+  if (rawConfig == null) {
+    return false;
+  }
+
+  const expoConfig = decodedRecordOrNull(rawConfig['expo']);
+
+  if (expoConfig != null) {
+    rawConfig['expo'] = { ...expoConfig, version };
+
+    await writeStaticAppJson(app.configPath, rawConfig);
+
     return true;
-  });
-/**
- * Merge entitlement key->value pairs into an app's static Expo config (`expo.ios.entitlements`, or a flat
- * `ios.entitlements`), adding only keys not already present - it never overwrites a value you've set - and
- * return the keys actually added, written back as 2-space JSON. Returns `[]` without writing for a dynamic
- * config (`app.config.{ts,js,mjs}`), whose entitlements may be computed, so `launch adopt` prints the block
- * to paste instead. Re-reads from disk (like {@link writeAppVersion}) so a concurrent edit isn't clobbered.
- * The value type is `unknown` so this stays decoupled from the adopt feature that calls it.
- */
-export const writeAppEntitlements = (
+  }
+
+  rawConfig['version'] = version;
+
+  await writeStaticAppJson(app.configPath, rawConfig);
+
+  return true;
+}
+
+export async function writeAppEntitlements(
   app: AppDescriptor,
   entitlements: Record<string, unknown>,
-): Effect.Effect<string[], unknown, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const rawConfig = yield* readStaticAppJson(app.configPath);
-    if (rawConfig === null) return [];
-    const decodedExpo = decodedRecordOrNull(rawConfig['expo']);
-    let expoConfig = rawConfig;
-    if (decodedExpo !== null) expoConfig = decodedExpo;
-    let iosConfig = decodedRecordOrNull(expoConfig['ios']);
-    if (iosConfig === null) iosConfig = {};
-    let currentEntitlements = decodedRecordOrNull(iosConfig['entitlements']);
-    if (currentEntitlements === null) currentEntitlements = {};
-    const addedKeys: string[] = [];
-    for (const [entitlementKey, entitlementValue] of Object.entries(entitlements)) {
-      if (entitlementKey in currentEntitlements) continue;
-      currentEntitlements[entitlementKey] = entitlementValue;
-      addedKeys.push(entitlementKey);
+): Promise<string[]> {
+  const rawConfig = await readStaticAppJson(app.configPath);
+
+  if (rawConfig == null) {
+    return [];
+  }
+
+  const decodedExpo = decodedRecordOrNull(rawConfig['expo']);
+  let expoConfig = rawConfig;
+
+  if (decodedExpo != null) {
+    expoConfig = decodedExpo;
+  }
+
+  let iosConfig = decodedRecordOrNull(expoConfig['ios']);
+
+  if (iosConfig == null) {
+    iosConfig = {};
+  }
+
+  let currentEntitlements = decodedRecordOrNull(iosConfig['entitlements']);
+
+  if (currentEntitlements == null) {
+    currentEntitlements = {};
+  }
+
+  const addedKeys: string[] = [];
+
+  for (const [entitlementKey, entitlementValue] of Object.entries(entitlements)) {
+    const alreadyPresent = entitlementKey in currentEntitlements;
+
+    if (alreadyPresent) {
+      continue;
     }
-    if (addedKeys.length === 0) return [];
-    iosConfig['entitlements'] = currentEntitlements;
-    expoConfig['ios'] = iosConfig;
-    if (decodedExpo !== null) rawConfig['expo'] = expoConfig;
-    yield* writeStaticAppJson(app.configPath, rawConfig);
-    return addedKeys;
-  });
-/** Load the Launch config and discover apps under its `appRoots` (defaulting to `cwd`). */
-export const loadConfig = (requestedDirectory?: string) =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    let workingDirectory = requestedDirectory;
-    if (workingDirectory === undefined) workingDirectory = (yield* LaunchPaths).workingDirectory;
-    const config = yield* readLaunchConfig(workingDirectory);
-    let configuredRoots = config.appRoots;
-    if (configuredRoots === undefined) configuredRoots = [workingDirectory];
-    const resolvedRoots = configuredRoots.map((appRoot) =>
-      pathService.resolve(workingDirectory, appRoot),
-    );
-    const discoveredAppGroups = yield* Effect.forEach(
-      resolvedRoots,
-      (appRoot) => discoverApps(appRoot),
-      { concurrency: 'unbounded' },
-    );
-    const apps = discoveredAppGroups.flat();
-    return { config, apps };
-  });
+
+    currentEntitlements[entitlementKey] = entitlementValue;
+    addedKeys.push(entitlementKey);
+  }
+
+  const nothingAdded = addedKeys.length == 0;
+
+  if (nothingAdded) {
+    return [];
+  }
+
+  iosConfig['entitlements'] = currentEntitlements;
+  expoConfig['ios'] = iosConfig;
+
+  if (decodedExpo != null) {
+    rawConfig['expo'] = expoConfig;
+  }
+
+  await writeStaticAppJson(app.configPath, rawConfig);
+
+  return addedKeys;
+}
+
+export async function loadConfig(requestedDirectory?: string): Promise<LoadedConfig> {
+  let workingDirectory = readLaunchDirectories().workingDirectory;
+
+  if (requestedDirectory !== undefined) {
+    workingDirectory = requestedDirectory;
+  }
+
+  const config = await readLaunchConfig(workingDirectory);
+  let configuredRoots = config.appRoots;
+
+  if (configuredRoots == null) {
+    configuredRoots = [workingDirectory];
+  }
+
+  function resolveRoot(appRoot: string): string {
+    return resolve(workingDirectory, appRoot);
+  }
+
+  const resolvedRoots = configuredRoots.map(resolveRoot);
+
+  function discoverRoot(appRoot: string): Promise<AppDescriptor[]> {
+    return discoverApps(appRoot);
+  }
+
+  const discoveredAppGroups = await Promise.all(resolvedRoots.map(discoverRoot));
+  const apps = discoveredAppGroups.flat();
+
+  return { config, apps };
+}

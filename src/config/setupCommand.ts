@@ -1,6 +1,3 @@
-import type { CommandExecutor } from '@effect/platform/CommandExecutor';
-import { type FileSystem, type HttpClient, type Path, Terminal } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
 import {
   getActiveAccount,
   listAccounts,
@@ -12,48 +9,36 @@ import {
   ensureSigningCredentials,
   loadCachedSigningAssets,
 } from '../credentials/appleSigning.js';
-import type { LaunchEnvironmentService } from '../services/platform/environment.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import type { LaunchPathsService } from '../services/platform/paths.js';
+import { createLogger } from '../services/platform/logger.js';
+import { LaunchPrompt } from '../services/platform/prompt.js';
+import { Prompts } from '../prompts.js';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
 import { parsePlatform } from '../services/stores/platform.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
-import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
-import type { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.js';
-import type { AppStoreIdentityService } from '../services/stores/appStoreIdentity.js';
-import type { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
-import {
-  AppleStoreClientService,
-  type AppleStoreClientService as AppleStoreClientRequirements,
-  type AppleTransportFailure,
-  type EffectAppStoreConnectClient,
-} from '../services/stores/appleStoreClient.js';
-import type { SetupStoreReadinessService } from '../services/stores/setupStoreReadiness.js';
-import type { AccountRecord, AscKey } from '../types/credentials.js';
-import {
-  loadStoreAppContext,
-  type StoreAppSelectionRequirements,
-} from '../store/shared/selectStoreApp.js';
+import type { DeviceResource } from '../types/appleCatalog.js';
+import type { AccountRecord, AscKey, SigningAssets } from '../types/credentials.js';
+import { loadStoreAppContext } from '../store/shared/selectStoreApp.js';
 import { runSetup } from './setup.js';
 
-const SetupCommandInputSchema = Schema.Union(
-  Schema.Struct({
-    operation: Schema.Literal('auto'),
-    platform: Schema.optional(Schema.String),
-    yes: Schema.Boolean,
-    rehearse: Schema.Boolean,
-  }),
-  Schema.Struct({
-    operation: Schema.Literal('ios'),
-    account: Schema.optional(Schema.String),
-    app: Schema.optional(Schema.String),
-    provision: Schema.Boolean,
-    json: Schema.Boolean,
-    yes: Schema.Boolean,
-  }),
-);
+type SetupOperation = 'auto' | 'ios';
 
-type SetupCommandInput = Schema.Schema.Type<typeof SetupCommandInputSchema>;
+type AutoSetupInput = Readonly<{
+  operation: 'auto';
+  platform?: string;
+  yes: boolean;
+  rehearse: boolean;
+}>;
+
+type IosSetupInput = Readonly<{
+  operation: 'ios';
+  account?: string;
+  app?: string;
+  provision: boolean;
+  json: boolean;
+  yes: boolean;
+}>;
+
+type SetupCommandInput = AutoSetupInput | IosSetupInput;
 
 type ProvisioningDevice = Readonly<{
   name: string;
@@ -86,289 +71,509 @@ export type ProvisioningReport = Readonly<{
 
 type SetupCommandFailure = Readonly<{
   readonly _tag: 'SetupCommandFailure';
-  readonly operation: SetupCommandInput['operation'];
+  readonly operation: SetupOperation;
   readonly message: string;
   readonly cause?: unknown;
 }>;
-
-const makeSetupCommandFailure = Data.tagged<SetupCommandFailure>('SetupCommandFailure');
-
-type SetupCommandRequirements =
-  | AppleStoreClientRequirements
-  | AppleCredentialsClientFactory
-  | AppStoreIdentityService
-  | CommandExecutor
-  | FileSystem.FileSystem
-  | GoogleStoreClientService
-  | HttpClient.HttpClient
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchPromptService
-  | LaunchSecretStoreService
-  | Logger
-  | Path.Path
-  | StoreAppSelectionRequirements
-  | SetupStoreReadinessService
-  | Terminal.Terminal;
 
 type SetupAccount = Readonly<{
   record: AccountRecord;
   ascKey: AscKey;
 }>;
 
-export const roleErrorMessage = (feature: string): string =>
-  `Your App Store Connect API key's role cannot read ${feature} (Apple returned 403). Grant the key access in Users & Access -> Integrations, or use another key.`;
+function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
 
-const withAppleRole = <Success>(
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function setupFailure(operation: SetupOperation, message: string): SetupCommandFailure {
+  return { _tag: 'SetupCommandFailure', operation, message };
+}
+
+function setupFailureWithCause(
+  operation: SetupOperation,
+  message: string,
+  cause: unknown,
+): SetupCommandFailure {
+  return { _tag: 'SetupCommandFailure', operation, message, cause };
+}
+
+function optionalString(fields: Record<string, unknown>, fieldName: string): string | undefined {
+  if (fieldName in fields == false) {
+    return undefined;
+  }
+
+  const field = fields[fieldName];
+
+  if (field == null) {
+    return undefined;
+  }
+
+  if (typeof field == 'string') {
+    return field;
+  }
+
+  throw new Error(`setup command ${fieldName} must be a string`);
+}
+
+function requiredBoolean(fields: Record<string, unknown>, fieldName: string): boolean {
+  const field = fields[fieldName];
+
+  if (typeof field == 'boolean') {
+    return field;
+  }
+
+  throw new Error(`setup command ${fieldName} must be a boolean`);
+}
+
+function decodeAutoSetup(fields: Record<string, unknown>): AutoSetupInput {
+  const yes = requiredBoolean(fields, 'yes');
+  const rehearse = requiredBoolean(fields, 'rehearse');
+  const platform = optionalString(fields, 'platform');
+
+  if (platform == null) {
+    return { operation: 'auto', yes, rehearse };
+  }
+
+  return { operation: 'auto', platform, yes, rehearse };
+}
+
+function decodeIosSetup(fields: Record<string, unknown>): IosSetupInput {
+  const provision = requiredBoolean(fields, 'provision');
+  const json = requiredBoolean(fields, 'json');
+  const yes = requiredBoolean(fields, 'yes');
+  const account = optionalString(fields, 'account');
+  const app = optionalString(fields, 'app');
+  const iosSetup: IosSetupInput = { operation: 'ios', provision, json, yes };
+
+  if (account == null) {
+    return iosSetupWithApp(iosSetup, app);
+  }
+
+  return iosSetupWithApp({ ...iosSetup, account }, app);
+}
+
+function iosSetupWithApp(iosSetup: IosSetupInput, app: string | undefined): IosSetupInput {
+  if (app == null) {
+    return iosSetup;
+  }
+
+  return { ...iosSetup, app };
+}
+
+function decodeSetupFields(fields: Record<string, unknown>): SetupCommandInput {
+  const operation = fields['operation'];
+
+  if (operation == 'auto') {
+    return decodeAutoSetup(fields);
+  }
+
+  if (operation == 'ios') {
+    return decodeIosSetup(fields);
+  }
+
+  throw new Error('setup command operation must be auto or ios');
+}
+
+function decodeSetupCommandInput(rawCommandInput: unknown): SetupCommandInput {
+  if (isPlainRecord(rawCommandInput)) {
+    return decodeSetupFields(rawCommandInput);
+  }
+
+  throw new Error('setup command input must be an object');
+}
+
+export function roleErrorMessage(feature: string): string {
+  return [
+    `Your App Store Connect API key's role cannot read ${feature} (Apple returned 403).`,
+    'Grant the key access in Users & Access -> Integrations, or use another key.',
+  ].join(' ');
+}
+
+function isAppleRoleDenied(fields: Record<string, unknown>): boolean {
+  if (fields['_tag'] != 'AppleTransportFailure') {
+    return false;
+  }
+
+  return fields['status'] == 403;
+}
+
+function isForbiddenApple(cause: unknown): boolean {
+  if (isPlainRecord(cause)) {
+    return isAppleRoleDenied(cause);
+  }
+
+  return false;
+}
+
+async function withAppleRole<Success>(
   feature: string,
-  appleEffect: Effect.Effect<Success, AppleTransportFailure>,
-): Effect.Effect<Success, AppleTransportFailure | SetupCommandFailure> =>
-  appleEffect.pipe(
-    Effect.mapError((cause) => {
-      if (cause.status !== 403) return cause;
-      return makeSetupCommandFailure({
-        operation: 'ios',
-        message: roleErrorMessage(feature),
-        cause,
-      });
-    }),
-  );
+  appleCall: Promise<Success>,
+): Promise<Success> {
+  try {
+    return await appleCall;
+  } catch (cause) {
+    if (isForbiddenApple(cause)) {
+      throw setupFailureWithCause('ios', roleErrorMessage(feature), cause);
+    }
 
-export const formatProvisioningReport = (provisioningReport: ProvisioningReport): string => {
-  let teamText = '';
-  if (provisioningReport.account.teamId !== null) {
-    teamText = `, team ${provisioningReport.account.teamId}`;
+    throw cause;
   }
-  let appIdText = "NOT registered - run 'launch setup ios --provision'";
-  if (provisioningReport.bundleIdRegistered) appIdText = 'registered';
-  let capabilitiesText = 'none enabled';
-  if (provisioningReport.capabilities.length > 0) {
-    capabilitiesText = provisioningReport.capabilities.join(', ');
+}
+
+function teamText(teamId: string | null): string {
+  if (teamId == null) {
+    return '';
   }
-  let certificateText = "none cached - run 'launch creds setup'";
-  if (provisioningReport.certificateSerial !== null) {
-    certificateText = provisioningReport.certificateSerial;
+
+  return `, team ${teamId}`;
+}
+
+function appIdText(bundleIdRegistered: boolean): string {
+  if (bundleIdRegistered) {
+    return 'registered';
   }
-  let profileText = "none cached - run 'launch creds setup'";
-  if (provisioningReport.profileName !== null) profileText = provisioningReport.profileName;
+
+  return "NOT registered - run 'launch setup ios --provision'";
+}
+
+function capabilitiesText(capabilities: readonly string[]): string {
+  if (capabilities.length > 0) {
+    return capabilities.join(', ');
+  }
+
+  return 'none enabled';
+}
+
+function certificateText(certificateSerial: string | null): string {
+  if (certificateSerial == null) {
+    return "none cached - run 'launch creds setup'";
+  }
+
+  return certificateSerial;
+}
+
+function profileText(profileName: string | null): string {
+  if (profileName == null) {
+    return "none cached - run 'launch creds setup'";
+  }
+
+  return profileName;
+}
+
+function extensionText(provisioned: boolean): string {
+  if (provisioned) {
+    return 'profile cached';
+  }
+
+  return "not provisioned - run 'launch setup ios --provision'";
+}
+
+function deviceSummary(devices: readonly ProvisioningDevice[]): string {
+  if (devices.length > 0) {
+    return `${devices.length} registered`;
+  }
+
+  return "none (add with 'launch device add <udid>')";
+}
+
+function disabledText(disabled: boolean): string {
+  if (disabled) {
+    return ' (disabled)';
+  }
+
+  return '';
+}
+
+export function formatProvisioningReport(provisioningReport: ProvisioningReport): string {
   const reportLines = [
     `iOS provisioning - ${provisioningReport.app.name} (${provisioningReport.app.bundleId})`,
-    `  account:      ${provisioningReport.account.label} (key ${provisioningReport.account.keyId}${teamText})`,
-    `  App ID:       ${appIdText}`,
-    `  capabilities: ${capabilitiesText}`,
-    `  certificate:  ${certificateText}`,
-    `  profile:      ${profileText}`,
+    `  account:      ${provisioningReport.account.label} (key ${provisioningReport.account.keyId}${teamText(provisioningReport.account.teamId)})`,
+    `  App ID:       ${appIdText(provisioningReport.bundleIdRegistered)}`,
+    `  capabilities: ${capabilitiesText(provisioningReport.capabilities)}`,
+    `  certificate:  ${certificateText(provisioningReport.certificateSerial)}`,
+    `  profile:      ${profileText(provisioningReport.profileName)}`,
   ];
+
   if (provisioningReport.extensions.length > 0) {
     reportLines.push(`  extensions:   ${provisioningReport.extensions.length} declared`);
+
     for (const provisioningExtension of provisioningReport.extensions) {
-      let extensionText = "not provisioned - run 'launch setup ios --provision'";
-      if (provisioningExtension.provisioned) extensionText = 'profile cached';
-      reportLines.push(`                  - ${provisioningExtension.bundleId} - ${extensionText}`);
+      reportLines.push(
+        `                  - ${provisioningExtension.bundleId} - ${extensionText(provisioningExtension.provisioned)}`,
+      );
     }
   }
-  let deviceSummary = "none (add with 'launch device add <udid>')";
-  if (provisioningReport.devices.length > 0) {
-    deviceSummary = `${provisioningReport.devices.length} registered`;
-  }
-  reportLines.push(`  devices:      ${deviceSummary}`);
+
+  reportLines.push(`  devices:      ${deviceSummary(provisioningReport.devices)}`);
+
   for (const provisioningDevice of provisioningReport.devices) {
-    let disabledText = '';
-    if (provisioningDevice.disabled) disabledText = ' (disabled)';
     reportLines.push(
-      `                  - ${provisioningDevice.name} - ${provisioningDevice.udid}${disabledText}`,
+      `                  - ${provisioningDevice.name} - ${provisioningDevice.udid}${disabledText(provisioningDevice.disabled)}`,
     );
   }
+
   return reportLines.join('\n');
-};
+}
 
-const loadSetupAccount = (
+function isMissingActiveAccount(
+  accountRecord: AccountRecord | null | undefined,
+): accountRecord is null {
+  // Null means no active account. Undefined means the selector matched nothing, so == null is too wide.
+  return accountRecord === null;
+}
+
+function isUnmatchedAccount(accountRecord: AccountRecord | undefined): accountRecord is undefined {
+  return accountRecord == null;
+}
+
+async function findSetupAccount(
   accountSelector: string | undefined,
-): Effect.Effect<SetupAccount, unknown, SetupCommandRequirements> =>
-  Effect.gen(function* () {
-    let accountRecord: AccountRecord | null | undefined;
-    if (accountSelector === undefined) {
-      accountRecord = yield* getActiveAccount();
-    } else {
-      const accountRecords = yield* listAccounts();
-      accountRecord = matchAccount([...accountRecords], accountSelector);
-    }
-    if (accountRecord === null) {
-      return yield* Effect.fail(
-        makeSetupCommandFailure({
-          operation: 'ios',
-          message: 'No active Apple account. Import one: launch creds set-key',
-        }),
-      );
-    }
-    if (accountRecord === undefined) {
-      return yield* Effect.fail(
-        makeSetupCommandFailure({
-          operation: 'ios',
-          message: `No Apple account matching "${accountSelector}". See \`launch creds status\`.`,
-        }),
-      );
-    }
-    const ascKey = yield* loadAscKeyById(accountRecord.keyId);
-    if (ascKey === null) {
-      return yield* Effect.fail(
-        makeSetupCommandFailure({
-          operation: 'ios',
-          message: `Account "${accountRecord.label}" has no stored key. Re-import: launch creds set-key`,
-        }),
-      );
-    }
-    return { record: accountRecord, ascKey };
-  });
+): Promise<AccountRecord | null | undefined> {
+  if (accountSelector == null) {
+    return getActiveAccount();
+  }
 
-const provisioningConfirmation = (
+  const accountRecords = await listAccounts();
+
+  return matchAccount([...accountRecords], accountSelector);
+}
+
+async function loadSetupAccount(accountSelector: string | undefined): Promise<SetupAccount> {
+  const accountRecord = await findSetupAccount(accountSelector);
+
+  if (isMissingActiveAccount(accountRecord)) {
+    throw setupFailure('ios', 'No active Apple account. Import one: launch creds set-key');
+  }
+
+  if (isUnmatchedAccount(accountRecord)) {
+    throw setupFailure(
+      'ios',
+      `No Apple account matching "${accountSelector}". See \`launch creds status\`.`,
+    );
+  }
+
+  const ascKey = await loadAscKeyById(accountRecord.keyId);
+
+  if (ascKey == null) {
+    throw setupFailure(
+      'ios',
+      `Account "${accountRecord.label}" has no stored key. Re-import: launch creds set-key`,
+    );
+  }
+
+  return { record: accountRecord, ascKey };
+}
+
+function alwaysConfirm(): Promise<boolean> {
+  return Promise.resolve(true);
+}
+
+function confirmWithPrompt(message: string): Promise<boolean> {
+  return LaunchPrompt.confirm(message);
+}
+
+async function provisioningConfirmation(
   confirmed: boolean,
-): Effect.Effect<
-  (message: string) => Effect.Effect<boolean, unknown>,
-  SetupCommandFailure,
-  LaunchPromptService | Terminal.Terminal
-> =>
-  Effect.gen(function* () {
-    if (confirmed) return () => Effect.succeed(true);
-    const terminal = yield* Terminal.Terminal;
-    if (!(yield* terminal.isTTY)) {
-      return yield* Effect.fail(
-        makeSetupCommandFailure({
-          operation: 'ios',
-          message:
-            'Provisioning requires confirmation. Re-run with --yes in a non-interactive shell.',
-        }),
-      );
-    }
-    const prompt = yield* LaunchPrompt;
-    return (message: string) => prompt.confirm(message);
-  });
+): Promise<(message: string) => Promise<boolean>> {
+  if (confirmed) {
+    return alwaysConfirm;
+  }
 
-const setupIosProgram = (
-  commandInput: Extract<SetupCommandInput, { operation: 'ios' }>,
-): Effect.Effect<void, unknown, SetupCommandRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const setupAccount = yield* loadSetupAccount(commandInput.account);
-    const storeAppContext = yield* loadStoreAppContext(commandInput.app);
-    const selectedApp = storeAppContext.app;
-    if (selectedApp.bundleId === undefined) {
-      return yield* Effect.fail(
-        makeSetupCommandFailure({
-          operation: 'ios',
-          message: `No iOS bundle identifier for ${selectedApp.name}. Set ios.bundleIdentifier in app.json.`,
-        }),
-      );
-    }
-    let appExtensions = selectedApp.iosExtensions;
-    if (appExtensions === undefined) appExtensions = [];
-    if (commandInput.provision) {
-      const confirmCreate = yield* provisioningConfirmation(commandInput.yes);
-      yield* ensureSigningCredentials({
-        platform: 'ios',
-        bundleId: selectedApp.bundleId,
-        appName: selectedApp.name,
-        ascKey: setupAccount.ascKey,
-        log: logger,
-        dryRun: false,
-        confirmCreate,
-        extensions: appExtensions,
-      });
-    }
-    const appleStore = yield* loadActiveAppleStoreForAccount(setupAccount.ascKey);
-    const bundleIdentifier = yield* withAppleRole(
-      'App IDs',
-      appleStore.findBundleId(selectedApp.bundleId),
+  const terminalIsInteractive = new Prompts().isInteractive();
+
+  if (terminalIsInteractive == false) {
+    throw setupFailure(
+      'ios',
+      'Provisioning requires confirmation. Re-run with --yes in a non-interactive shell.',
     );
-    let capabilities: string[] = [];
-    if (bundleIdentifier !== null) {
-      const bundleCapabilities = yield* withAppleRole(
-        'App ID capabilities',
-        appleStore.listBundleIdCapabilities(bundleIdentifier.id),
-      );
-      capabilities = bundleCapabilities
-        .map((bundleCapability) => bundleCapability.capabilityType)
-        .sort((leftCapability, rightCapability) => leftCapability.localeCompare(rightCapability));
-    }
-    const appleDevices = yield* withAppleRole('registered devices', appleStore.listDevices());
-    const signingAssets = yield* loadCachedSigningAssets(
-      setupAccount.record.keyId,
-      selectedApp.bundleId,
-    );
-    const storedCredentials = yield* describeStoredCredentials(setupAccount.record.keyId);
-    const provisionedBundleIds = new Set(storedCredentials.bundleIds);
-    let teamId: string | null = null;
-    if (setupAccount.record.teamId !== undefined) teamId = setupAccount.record.teamId;
-    let certificateSerial: string | null = null;
-    let profileName: string | null = null;
-    if (signingAssets !== null) {
-      certificateSerial = signingAssets.certSerial;
-      profileName = signingAssets.profileName;
-    }
-    const provisioningReport: ProvisioningReport = {
-      account: {
-        label: setupAccount.record.label,
-        keyId: setupAccount.record.keyId,
-        teamId,
-      },
-      app: { name: selectedApp.name, bundleId: selectedApp.bundleId },
-      bundleIdRegistered: bundleIdentifier !== null,
-      capabilities,
-      certificateSerial,
-      profileName,
-      extensions: appExtensions.map((extensionBundleId) => ({
-        bundleId: extensionBundleId,
-        provisioned: provisionedBundleIds.has(extensionBundleId),
-      })),
-      devices: appleDevices.map((appleDevice) => ({
-        name: appleDevice.name,
-        udid: appleDevice.udid,
-        disabled: appleDevice.status === 'DISABLED',
-      })),
-    };
-    if (commandInput.json) {
-      yield* logger.line(JSON.stringify(provisioningReport, null, 2));
-      return;
-    }
-    yield* logger.line(formatProvisioningReport(provisioningReport));
-  });
+  }
 
-const loadActiveAppleStoreForAccount = (
-  ascKey: AscKey,
-): Effect.Effect<EffectAppStoreConnectClient, unknown, AppleStoreClientRequirements> =>
-  Effect.gen(function* () {
-    const appleStoreClients = yield* AppleStoreClientService;
-    return yield* appleStoreClients.createEffectClient(ascKey);
-  });
+  return confirmWithPrompt;
+}
 
-export const setupCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, SetupCommandFailure, SetupCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(SetupCommandInputSchema)(rawCommandInput);
-    switch (commandInput.operation) {
-      case 'auto': {
-        let platformText = 'ios';
-        if (commandInput.platform !== undefined) platformText = commandInput.platform;
-        const platform = yield* parsePlatform(platformText);
-        return yield* runSetup({
-          platform,
-          yes: commandInput.yes,
-          rehearse: commandInput.rehearse,
-        });
-      }
-      case 'ios':
-        return yield* setupIosProgram(commandInput);
-    }
-  }).pipe(
-    Effect.mapError((cause) => {
-      let operation: SetupCommandInput['operation'] = 'auto';
-      if (Schema.is(SetupCommandInputSchema)(rawCommandInput))
-        operation = rawCommandInput.operation;
-      return makeSetupCommandFailure({
-        operation,
-        message: errorMessage(cause),
-        cause,
-      });
-    }),
+function extensionBundleIds(iosExtensions: string[] | undefined): string[] {
+  if (iosExtensions == null) {
+    return [];
+  }
+
+  return iosExtensions;
+}
+
+function storedTeamId(teamId: string | undefined): string | null {
+  if (teamId == null) {
+    return null;
+  }
+
+  return teamId;
+}
+
+function signingLabels(signingAssets: SigningAssets | null): {
+  certificateSerial: string | null;
+  profileName: string | null;
+} {
+  if (signingAssets == null) {
+    return { certificateSerial: null, profileName: null };
+  }
+
+  return {
+    certificateSerial: signingAssets.certSerial,
+    profileName: signingAssets.profileName,
+  };
+}
+
+function capabilityName(bundleCapability: { capabilityType: string }): string {
+  return bundleCapability.capabilityType;
+}
+
+function compareText(leftCapability: string, rightCapability: string): number {
+  return leftCapability.localeCompare(rightCapability);
+}
+
+function provisioningDevice(appleDevice: DeviceResource): ProvisioningDevice {
+  return {
+    name: appleDevice.name,
+    udid: appleDevice.udid,
+    disabled: appleDevice.status == 'DISABLED',
+  };
+}
+
+async function listEnabledCapabilities(
+  appleStore: ReturnType<typeof AppleStoreClientService.createClient>,
+  bundleIdentifier: { id: string } | null,
+): Promise<string[]> {
+  if (bundleIdentifier == null) {
+    return [];
+  }
+
+  const bundleCapabilities = await withAppleRole(
+    'App ID capabilities',
+    appleStore.listBundleIdCapabilities(bundleIdentifier.id),
   );
+
+  return bundleCapabilities.map(capabilityName).sort(compareText);
+}
+
+async function setupIosProgram(commandInput: IosSetupInput): Promise<void> {
+  const logger = createLogger(false);
+  const setupAccount = await loadSetupAccount(commandInput.account);
+  const storeAppContext = await loadStoreAppContext(commandInput.app);
+  const selectedApp = storeAppContext.app;
+  const bundleId = selectedApp.bundleId;
+
+  if (bundleId == null) {
+    throw setupFailure(
+      'ios',
+      `No iOS bundle identifier for ${selectedApp.name}. Set ios.bundleIdentifier in app.json.`,
+    );
+  }
+
+  const appExtensions = extensionBundleIds(selectedApp.iosExtensions);
+
+  if (commandInput.provision) {
+    const confirmCreate = await provisioningConfirmation(commandInput.yes);
+
+    await ensureSigningCredentials({
+      platform: 'ios',
+      bundleId,
+      appName: selectedApp.name,
+      ascKey: setupAccount.ascKey,
+      log: logger,
+      dryRun: false,
+      confirmCreate,
+      extensions: appExtensions,
+    });
+  }
+
+  const appleStore = AppleStoreClientService.createClient(setupAccount.ascKey);
+  const bundleIdentifier = await withAppleRole('App IDs', appleStore.findBundleId(bundleId));
+  const capabilities = await listEnabledCapabilities(appleStore, bundleIdentifier);
+
+  const appleDevices = await withAppleRole('registered devices', appleStore.listDevices());
+  const signingAssets = await loadCachedSigningAssets(setupAccount.record.keyId, bundleId);
+  const storedCredentials = await describeStoredCredentials(setupAccount.record.keyId);
+  const provisionedBundleIds = new Set(storedCredentials.bundleIds);
+  const labels = signingLabels(signingAssets);
+
+  function provisioningExtension(extensionId: string): ProvisioningExtension {
+    return {
+      bundleId: extensionId,
+      provisioned: provisionedBundleIds.has(extensionId),
+    };
+  }
+
+  const provisioningReport: ProvisioningReport = {
+    account: {
+      label: setupAccount.record.label,
+      keyId: setupAccount.record.keyId,
+      teamId: storedTeamId(setupAccount.record.teamId),
+    },
+    app: { name: selectedApp.name, bundleId },
+    bundleIdRegistered: bundleIdentifier != null,
+    capabilities,
+    certificateSerial: labels.certificateSerial,
+    profileName: labels.profileName,
+    extensions: appExtensions.map(provisioningExtension),
+    devices: appleDevices.map(provisioningDevice),
+  };
+
+  if (commandInput.json) {
+    logger.line(JSON.stringify(provisioningReport, null, 2));
+
+    return;
+  }
+
+  logger.line(formatProvisioningReport(provisioningReport));
+}
+
+function requestedPlatformText(platform: string | undefined): string {
+  if (platform == null) {
+    return 'ios';
+  }
+
+  return platform;
+}
+
+async function runAutoSetup(commandInput: AutoSetupInput): Promise<void> {
+  const platform = parsePlatform(requestedPlatformText(commandInput.platform));
+
+  await runSetup({
+    platform,
+    yes: commandInput.yes,
+    rehearse: commandInput.rehearse,
+  });
+}
+
+async function runDecodedSetupCommand(commandInput: SetupCommandInput): Promise<void> {
+  switch (commandInput.operation) {
+    case 'auto':
+      await runAutoSetup(commandInput);
+
+      return;
+    case 'ios':
+      await setupIosProgram(commandInput);
+
+      return;
+  }
+}
+
+export async function setupCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    var commandInput = decodeSetupCommandInput(rawCommandInput);
+  } catch (cause) {
+    throw setupFailureWithCause('auto', errorMessage(cause), cause);
+  }
+
+  try {
+    await runDecodedSetupCommand(commandInput);
+  } catch (cause) {
+    throw setupFailureWithCause(commandInput.operation, errorMessage(cause), cause);
+  }
+}

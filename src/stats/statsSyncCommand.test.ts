@@ -1,38 +1,39 @@
-import { Effect } from 'effect';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { makeHttpClientTest } from '@testkit/httpClient.testkit.js';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
-import { makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import type { PortfolioFile } from '../types/portfolio.js';
-import type { StatsFeedFailure, StatsFeedPlugin } from '../types/stats.js';
-import { makeStatsCredentialsTest } from './statsCredentials.js';
+import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.js';
 import { parseDaysFlag, statsSyncProgram } from './statsSyncCommand.js';
 
 const fakeFeed = vi.hoisted(() => ({ isFailing: false }));
 
-vi.mock('./feedRegistry.js', async () => {
-  const { Effect: EffectModule } = await import('effect');
-  const iosFeed: StatsFeedPlugin = {
-    feed: 'app-store',
-    isApplicable: (app) => app.platform === 'ios',
-    fetchDays: () => {
+vi.mock('./feedRegistry.js', () => {
+  const iosFeed = {
+    feed: 'app-store' as const,
+    isApplicable(app: { platform: string }) {
+      return app.platform == 'ios';
+    },
+    async fetchDays() {
       if (fakeFeed.isFailing) {
-        return EffectModule.fail({
+        throw {
           _tag: 'StatsFeedFailure',
           feed: 'app-store',
           appKey: 'ios-1',
           message: 'report not ready',
           cause: null,
-        } satisfies StatsFeedFailure);
+        };
       }
-      return EffectModule.succeed({ status: 'skipped', reason: 'not built yet' });
+
+      return { status: 'skipped' as const, reason: 'not built yet' };
     },
   };
+
   return { STATS_FEED_PLUGINS: [iosFeed] };
 });
 
@@ -55,26 +56,35 @@ const PORTFOLIO_FILE: PortfolioFile = {
   playReportsBucket: null,
 };
 
+type CommandOutcome =
+  | { readonly _tag: 'Right' }
+  | { readonly _tag: 'Left'; readonly left: unknown };
+
+function readDaysFailure(daysFlag: string): unknown {
+  try {
+    parseDaysFlag(daysFlag);
+
+    throw new Error('expected a failure');
+  } catch (cause) {
+    return cause;
+  }
+}
+
 describe('parseDaysFlag', () => {
-  test('uses 30 days when the flag is absent', async () => {
-    expect(await Effect.runPromise(parseDaysFlag(undefined))).toBe(30);
+  test('uses 30 days when the flag is absent', () => {
+    expect(parseDaysFlag(undefined)).toBe(30);
   });
 
-  test('accepts whole numbers from 1 to 365', async () => {
-    expect(await Effect.runPromise(parseDaysFlag('1'))).toBe(1);
-    expect(await Effect.runPromise(parseDaysFlag('365'))).toBe(365);
+  test('accepts whole numbers from 1 to 365', () => {
+    expect(parseDaysFlag('1')).toBe(1);
+    expect(parseDaysFlag('365')).toBe(365);
   });
 
-  test('rejects zero, too many, and text that is not a whole number', async () => {
+  test('rejects zero, too many, and text that is not a whole number', () => {
     const invalidDaysFlags = ['0', '366', '2.5', '-3', 'abc', ''];
+    const failures = invalidDaysFlags.map(readDaysFailure);
 
-    const failures = await Promise.all(
-      invalidDaysFlags.map((invalidDaysFlag) =>
-        Effect.runPromise(parseDaysFlag(invalidDaysFlag).pipe(Effect.flip)),
-      ),
-    );
-
-    expect(failures.map((failure) => failure.message)).toEqual(
+    expect(failures.map((failure) => (failure as { message: string }).message)).toEqual(
       invalidDaysFlags.map(() => '--days must be a whole number from 1 to 365.'),
     );
   });
@@ -82,27 +92,45 @@ describe('parseDaysFlag', () => {
 
 describe('statsSyncProgram', () => {
   let homeDirectory: string;
+
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    useLaunchDirectories({
+      homeDirectory,
+      workingDirectory: join(homeDirectory, 'work'),
+    });
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(PORTFOLIO_FILE));
+    makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
   });
+
   afterEach(() => {
+    useStatsCredentials(null);
+    resetLogger();
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
-  const run = (request: { app: string | undefined; days: string | undefined; isJson: boolean }) => {
+  const run = async (request: {
+    app: string | undefined;
+    days: string | undefined;
+    isJson: boolean;
+  }) => {
     const lines: string[] = [];
-    const finished = Effect.runPromise(
-      statsSyncProgram(request).pipe(
-        Effect.either,
-        Effect.provide(makeLaunchLoggerTest(lines)),
-        Effect.provide(makeStatsCredentialsTest()),
-        Effect.provide(makeHttpClientTest([])),
-        Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      ),
-    );
-    return finished.then((outcome) => ({ outcome, lines }));
+    useLoggerSink(function writeLine(text: string) {
+      lines.push(text);
+    });
+
+    var outcome: CommandOutcome;
+
+    try {
+      await statsSyncProgram(request);
+      outcome = { _tag: 'Right' };
+    } catch (left) {
+      outcome = { _tag: 'Left', left };
+    }
+
+    return { outcome, lines };
   };
 
   test('prints one JSON object with the feed reports with --json', async () => {

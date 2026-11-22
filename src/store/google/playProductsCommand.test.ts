@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { Schema } from 'effect';
 import { PlayProductsCommandInputSchema } from './playProductsCommand.js';
 
 describe('PlayProductsCommandInputSchema', () => {
   it('decodes the Commander boundary', () => {
     expect(
-      Schema.decodeUnknownSync(PlayProductsCommandInputSchema)({
+      PlayProductsCommandInputSchema({
         app: 'mobile',
         dryRun: true,
         yes: false,
@@ -15,7 +14,7 @@ describe('PlayProductsCommandInputSchema', () => {
 
   it('accepts an omitted app selector', () => {
     expect(
-      Schema.decodeUnknownSync(PlayProductsCommandInputSchema)({
+      PlayProductsCommandInputSchema({
         dryRun: false,
         yes: false,
       }),
@@ -23,8 +22,6 @@ describe('PlayProductsCommandInputSchema', () => {
   });
 
   it('rejects missing confirmation booleans', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(PlayProductsCommandInputSchema)({ dryRun: true }),
-    ).toThrow();
+    expect(() => PlayProductsCommandInputSchema({ dryRun: true })).toThrow();
   });
 });

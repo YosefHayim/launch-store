@@ -1,27 +1,23 @@
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { LaunchEnvironmentTest } from '@/services/platform/environment.js';
-import { makeLaunchLoggerTest } from '@/services/platform/logger.js';
-import { makeLaunchPathsTest } from '@/services/platform/paths.js';
 import { runWithProgress } from '@/services/platform/progress.js';
 import { makeGradleBuildEngine } from './gradle.js';
 
 vi.mock('@/services/platform/progress.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/services/platform/progress.js')>()),
-  runWithProgress: vi.fn(() => Effect.fail('stop after invocation')),
+  runWithProgress: vi.fn(() => Promise.reject(new Error('stop after invocation'))),
 }));
 
 describe('Gradle signing transport', () => {
   it('puts signing passwords in the environment, not arguments', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'launch-gradle-signing-'));
+
     try {
       mkdirSync(join(directory, 'android'));
       writeFileSync(join(directory, 'android', 'gradlew'), '');
-      const context = {
+      const buildContext = {
         platform: 'android' as const,
         app: {
           name: 'demo',
@@ -35,7 +31,7 @@ describe('Gradle signing transport', () => {
         dryRun: false,
         forceClean: false,
       };
-      const credentials = {
+      const buildCredentials = {
         platform: 'android' as const,
         serviceAccountJson: '',
         keystore: {
@@ -45,17 +41,16 @@ describe('Gradle signing transport', () => {
           keyPassword: 'key-secret',
         },
       };
-      await Effect.runPromise(
-        Effect.either(
-          makeGradleBuildEngine().pipe(
-            Effect.flatMap((engine) => engine.buildArtifact(context, credentials)),
-            Effect.provide(LaunchEnvironmentTest),
-            Effect.provide(makeLaunchLoggerTest([])),
-            Effect.provide(makeLaunchPathsTest(directory, directory)),
-            Effect.provide(NodeContext.layer),
-          ),
-        ),
-      );
+      const buildEngine = makeGradleBuildEngine();
+      let stopped: unknown = null;
+
+      try {
+        await buildEngine.buildArtifact(buildContext, buildCredentials);
+      } catch (error) {
+        stopped = error;
+      }
+
+      expect(stopped).not.toBeNull();
       const invocation = vi.mocked(runWithProgress).mock.calls[0];
       expect(invocation).toBeDefined();
       expect(invocation?.[1].join(' ')).not.toContain('store-secret');

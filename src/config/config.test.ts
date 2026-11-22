@@ -2,8 +2,6 @@ import { describe, expect, it, afterEach } from 'vitest';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import {
   defineConfig,
   loadConfig,
@@ -13,18 +11,11 @@ import {
 } from './config.js';
 import { validateConfig } from './configSchema.js';
 import type { AppDescriptor } from '../types/app.js';
-import { makeLaunchPathsTest, type LaunchPathsService } from '../services/platform/paths.js';
 import { expectArrayElement, expectDefined } from '@testkit/assertions.testkit.js';
 const tempDirs: string[] = [];
-const runConfigEffect = <Success, Failure>(
-  configEffect: Effect.Effect<Success, Failure, NodeContext.NodeContext | LaunchPathsService>,
-): Promise<Success> =>
-  Effect.runPromise(
-    configEffect.pipe(
-      Effect.provide(NodeContext.layer),
-      Effect.provide(makeLaunchPathsTest('', '')),
-    ),
-  );
+async function runConfigEffect<Success>(configWork: Promise<Success>): Promise<Success> {
+  return configWork;
+}
 const makeRepo = (): string => {
   const dir = mkdtempSync(join(tmpdir(), 'launch-config-'));
   tempDirs.push(dir);
@@ -128,15 +119,16 @@ describe('defineConfig', () => {
 });
 describe('resolveSidecarConfig - typed field vs JSON sidecar precedence (issue #101)', () => {
   /** A loader that reads + JSON-parses the sidecar, like the real `load*Config` helpers. */
-  const readJson = (path: string) =>
-    Effect.sync((): { source: string } => JSON.parse(readFileSync(path, 'utf8')));
+  async function readJson(path: string): Promise<{ source: string }> {
+    return JSON.parse(readFileSync(path, 'utf8')) as { source: string };
+  }
   it('uses the typed field when present and --config was left at its default', async () => {
     const resolvedSidecar = await runConfigEffect(
       resolveSidecarConfig({
         typed: { source: 'typed' },
         configPath: '/nonexistent.config.json',
         explicitPath: false,
-        load: () => Effect.succeed({ source: 'sidecar' }),
+        load: async () => ({ source: 'sidecar' }),
       }),
     );
     expect(resolvedSidecar).toEqual({ source: 'typed' });
@@ -165,7 +157,9 @@ describe('resolveSidecarConfig - typed field vs JSON sidecar precedence (issue #
           typed: undefined,
           configPath: path,
           explicitPath: false,
-          load: () => Effect.die('should not be called'),
+          load: async () => {
+            throw new Error('should not be called');
+          },
         }),
       ),
     ).toBeUndefined();
@@ -384,10 +378,7 @@ describe('writeAppEntitlements', () => {
   const runWriteAppEntitlements = (
     app: AppDescriptor,
     entitlements: Parameters<typeof writeAppEntitlements>[1],
-  ) =>
-    Effect.runPromise(
-      writeAppEntitlements(app, entitlements).pipe(Effect.provide(NodeContext.layer)),
-    );
+  ) => writeAppEntitlements(app, entitlements);
   it('adds entitlements under expo.ios.entitlements and returns the keys it wrote', async () => {
     const app = appWith({ ios: { bundleIdentifier: 'com.acme.app' } });
     const added = await runWriteAppEntitlements(app, {

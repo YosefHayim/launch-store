@@ -1,5 +1,3 @@
-import { NodeContext, NodeHttpClient } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
   ProbeReport,
@@ -19,9 +17,13 @@ const readinessContext: ReadinessContext = {
     submit: 'app-store-connect',
   },
   apps: [],
-  resolveAscApi: () => Effect.succeed(null),
-  resolvePlayApi: () => Effect.succeed(null),
+  resolveAscApi: () => Promise.resolve(null),
+  resolvePlayApi: () => Promise.resolve(null),
 };
+
+function isThrowingProbe(probeCheck: ProbeResult | (() => never)): probeCheck is () => never {
+  return typeof probeCheck == 'function';
+}
 
 /** Build a fake probe that returns a fixed result (or throws), so the orchestrator is tested with no network. */
 const probe = (id: string, fixedProbeResult: ProbeResult | (() => never)): ReadinessProbe => {
@@ -30,25 +32,20 @@ const probe = (id: string, fixedProbeResult: ProbeResult | (() => never)): Readi
     title: id,
     store: 'appstore',
     categories: ['account'],
-    check: () =>
-      Effect.try({
-        try: () => {
-          if (typeof fixedProbeResult === 'function') return fixedProbeResult();
-          return fixedProbeResult;
-        },
-        catch: (probeFailure) => probeFailure,
-      }),
+    async check(): Promise<ProbeResult> {
+      if (isThrowingProbe(fixedProbeResult)) {
+        return fixedProbeResult();
+      }
+
+      return fixedProbeResult;
+    },
   };
 };
 
 /** Run probe aggregation with the platform services available to production probes. */
-const runProbeSet = (readinessProbes: readonly ReadinessProbe[]) =>
-  Effect.runPromise(
-    runProbes(readinessContext, readinessProbes).pipe(
-      Effect.provide(NodeHttpClient.layer),
-      Effect.provide(NodeContext.layer),
-    ),
-  );
+function runProbeSet(readinessProbes: readonly ReadinessProbe[]) {
+  return runProbes(readinessContext, readinessProbes);
+}
 
 describe('readinessExitCode', () => {
   it('returns ok (0) with no errors or blockers', () => {
@@ -161,7 +158,7 @@ describe('runProbes', () => {
         title: 'tagged',
         store: 'appstore',
         categories: ['account'],
-        check: () => Effect.fail({ message: 'asc rate limited' }),
+        check: () => Promise.reject({ message: 'asc rate limited' }),
       },
     ]);
     expect(outcome.errorCount).toBe(1);

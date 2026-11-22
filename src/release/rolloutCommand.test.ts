@@ -1,8 +1,7 @@
-import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
+  decodeRolloutCommandInput,
   phasedStateForAction,
-  RolloutCommandInputSchema,
   rolloutNotifyStatus,
 } from './rolloutCommand.js';
 
@@ -16,9 +15,9 @@ describe('rollout action mapping', () => {
     expect(rolloutNotifyStatus('complete')).toBe('completed');
   });
 
-  it('rejects unsupported actions at the command boundary', async () => {
-    await expect(
-      Effect.runPromise(Schema.decodeUnknown(RolloutCommandInputSchema)({ action: 'halt' })),
-    ).rejects.toBeDefined();
+  it('rejects unsupported actions at the command boundary', () => {
+    expect(() => decodeRolloutCommandInput({ action: 'halt' })).toThrowError(
+      expect.objectContaining({ _tag: 'RolloutCommandFailure' }),
+    );
   });
 });

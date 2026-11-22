@@ -1,19 +1,16 @@
-import type { Terminal } from '@effect/platform';
 import { randomUUID } from 'node:crypto';
-import { Clock, Data, Effect, Schema } from 'effect';
 import { resolveCommandEnv, selectApp } from '../build/pipelineEnv.js';
-import { loadConfig } from '../config/config.js';
-import { parseCliEnv } from '../config/env.js';
+import { loadConfig, type LoadedConfig } from '../config/config.js';
+import { parseCliEnv, type ResolvedEnv } from '../config/env.js';
 import { resolveRuntimeVersion } from '../config/updateCommand.js';
 import { isCloudStorage } from '../distribution/storage.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
 import { createLogger, type Logger } from '../services/platform/logger.js';
-import type { LaunchPromptService } from '../services/platform/prompt.js';
-import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
-import type { AppDescriptor } from '../types/app.js';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.js';
+import type { AppDescriptor, BuildProfile } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';
-import type { Car, TrainRecord } from '../types/releaseTrain.js';
-import { createTrainRuntime, type TrainRuntime, type TrainRuntimeRequirements } from './builder.js';
+import type { Car, NativeCar, OtaCar, TrainPlatform, TrainRecord } from '../types/releaseTrain.js';
+import { createTrainRuntime, type TrainRuntime } from './builder.js';
 import { planTrainCars, type TrainCarPlanInput } from './engine.js';
 import { isOtaCar, isTrainPlatform } from './guards.js';
 import { advanceTrain, isTrainSettled, startTrain, trainExitCode } from './orchestrator.js';
@@ -21,59 +18,35 @@ import {
   latestTrainRecord,
   listTrainRecords,
   readTrainRecord,
-  type TrainRecordRequirements,
   writeTrainRecord,
 } from './record.js';
 
-type ReleaseTrainRequirements =
-  | LaunchPromptService
-  | Logger
-  | Terminal.Terminal
-  | TrainRuntimeRequirements;
-type ReleaseTrainRecordRequirements = Logger | TrainRecordRequirements;
+type ReleaseTrainCommandOptions = {
+  app?: string;
+  profile: string;
+  platform?: string;
+  ota: boolean;
+  hold?: boolean;
+  channel: string;
+  runtimeVersion?: string;
+  watch?: boolean;
+  json?: boolean;
+  env: string[];
+  includeLocal: boolean;
+};
 
-const OptionalString = Schema.optionalWith(Schema.String, { exact: true });
-const OptionalBoolean = Schema.optionalWith(Schema.Boolean, { exact: true });
+type ReleaseTrainCommandInput = {
+  action: string;
+  id?: string;
+  options: ReleaseTrainCommandOptions;
+};
 
-const ReleaseTrainCommandOptionsSchema = Schema.Struct({
-  app: OptionalString,
-  profile: Schema.String,
-  platform: OptionalString,
-  ota: Schema.Boolean,
-  hold: OptionalBoolean,
-  channel: Schema.String,
-  runtimeVersion: OptionalString,
-  watch: OptionalBoolean,
-  json: OptionalBoolean,
-  env: Schema.Array(Schema.String),
-  includeLocal: Schema.Boolean,
-});
-
-/** Flags shared by the release-train command verbs. */
-type ReleaseTrainCommandOptions = Schema.Schema.Type<typeof ReleaseTrainCommandOptionsSchema>;
-
-/** Schema for one requested release-train verb. */
-export const ReleaseTrainCommandInputSchema = Schema.Struct({
-  action: Schema.String,
-  id: OptionalString,
-  options: ReleaseTrainCommandOptionsSchema,
-});
-
-type ReleaseTrainCommandInput = Schema.Schema.Type<typeof ReleaseTrainCommandInputSchema>;
-
-/** Release-train configuration, persistence, or orchestration failed. */
-const ReleaseTrainCommandFailureSchema = Schema.Struct({
-  _tag: Schema.Literal('ReleaseTrainCommandFailure'),
-  operation: Schema.String,
-  message: Schema.String,
-  cause: Schema.Unknown,
-});
-
-type ReleaseTrainCommandFailure = Schema.Schema.Type<typeof ReleaseTrainCommandFailureSchema>;
-
-const makeReleaseTrainCommandFailure = Data.tagged<ReleaseTrainCommandFailure>(
-  'ReleaseTrainCommandFailure',
-);
+type ReleaseTrainCommandFailure = Readonly<{
+  _tag: 'ReleaseTrainCommandFailure';
+  operation: string;
+  message: string;
+  cause: unknown;
+}>;
 
 type PreparedTrain = Readonly<{
   config: LaunchConfig;
@@ -82,370 +55,725 @@ type PreparedTrain = Readonly<{
   logger: Logger;
 }>;
 
-const trainFailure = (
+function trainFailure(
   operation: string,
   cause: unknown,
   fallbackMessage?: string,
-): ReleaseTrainCommandFailure => {
+): ReleaseTrainCommandFailure {
   let message = fallbackMessage;
-  if (message === undefined) message = errorMessage(cause);
-  if (message.length === 0) message = `${operation} failed.`;
-  return makeReleaseTrainCommandFailure({ operation, message, cause });
-};
 
-const writeLog = (
-  operation: string,
-  logWrite: ReturnType<Logger['line']>,
-): Effect.Effect<void, ReleaseTrainCommandFailure> =>
-  logWrite.pipe(Effect.mapError((cause) => trainFailure(operation, cause)));
+  if (message == null) {
+    message = errorMessage(cause);
+  }
 
-const currentIsoTime = (): Effect.Effect<string> =>
-  Clock.currentTimeMillis.pipe(Effect.map((epochMillis) => new Date(epochMillis).toISOString()));
+  const isMessageEmpty = message.length == 0;
+
+  if (isMessageEmpty) {
+    message = `${operation} failed.`;
+  }
+
+  return { _tag: 'ReleaseTrainCommandFailure', operation, message, cause };
+}
+
+function isReleaseTrainCommandFailure(cause: unknown): cause is ReleaseTrainCommandFailure {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'ReleaseTrainCommandFailure';
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (candidate == null) {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
+  const field = record[fieldName];
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string.`);
+  }
+
+  return field;
+}
+
+function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
+  const field = record[fieldName];
+
+  if (typeof field != 'boolean') {
+    throw new Error(`${fieldName} must be a boolean.`);
+  }
+
+  return field;
+}
+
+function readExactOptionalString(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | null {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string.`);
+  }
+
+  return field;
+}
+
+function readExactOptionalBoolean(
+  record: Record<string, unknown>,
+  fieldName: string,
+): boolean | null {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field != 'boolean') {
+    throw new Error(`${fieldName} must be a boolean.`);
+  }
+
+  return field;
+}
+
+function copyStringList(entries: readonly unknown[], fieldName: string): string[] {
+  const texts: string[] = [];
+
+  for (const entry of entries) {
+    if (typeof entry != 'string') {
+      throw new Error(`${fieldName} must be a list of strings.`);
+    }
+
+    texts.push(entry);
+  }
+
+  return texts;
+}
+
+function readStringList(record: Record<string, unknown>, fieldName: string): string[] {
+  const field = record[fieldName];
+
+  if (Array.isArray(field)) {
+    return copyStringList(field, fieldName);
+  }
+
+  throw new Error(`${fieldName} must be a list of strings.`);
+}
+
+function decodeReleaseTrainFlags(rawFlags: unknown): ReleaseTrainCommandOptions {
+  if (isRecord(rawFlags) == false) {
+    throw new Error('Release train options must be an object.');
+  }
+
+  const commandFlags: ReleaseTrainCommandOptions = {
+    profile: readRequiredString(rawFlags, 'profile'),
+    ota: readRequiredBoolean(rawFlags, 'ota'),
+    channel: readRequiredString(rawFlags, 'channel'),
+    env: readStringList(rawFlags, 'env'),
+    includeLocal: readRequiredBoolean(rawFlags, 'includeLocal'),
+  };
+  const appName = readExactOptionalString(rawFlags, 'app');
+  const platform = readExactOptionalString(rawFlags, 'platform');
+  const runtimeVersion = readExactOptionalString(rawFlags, 'runtimeVersion');
+  const hold = readExactOptionalBoolean(rawFlags, 'hold');
+  const watch = readExactOptionalBoolean(rawFlags, 'watch');
+  const json = readExactOptionalBoolean(rawFlags, 'json');
+
+  if (appName != null) {
+    commandFlags.app = appName;
+  }
+
+  if (platform != null) {
+    commandFlags.platform = platform;
+  }
+
+  if (runtimeVersion != null) {
+    commandFlags.runtimeVersion = runtimeVersion;
+  }
+
+  if (hold != null) {
+    commandFlags.hold = hold;
+  }
+
+  if (watch != null) {
+    commandFlags.watch = watch;
+  }
+
+  if (json != null) {
+    commandFlags.json = json;
+  }
+
+  return commandFlags;
+}
+
+/** Decode one requested release-train verb. */
+export function ReleaseTrainCommandInputSchema(rawCommandInput: unknown): ReleaseTrainCommandInput {
+  if (isRecord(rawCommandInput) == false) {
+    throw new Error('Release train command input must be an object.');
+  }
+
+  const commandInput: ReleaseTrainCommandInput = {
+    action: readRequiredString(rawCommandInput, 'action'),
+    options: decodeReleaseTrainFlags(rawCommandInput['options']),
+  };
+  const trainId = readExactOptionalString(rawCommandInput, 'id');
+
+  if (trainId != null) {
+    commandInput.id = trainId;
+  }
+
+  return commandInput;
+}
 
 /** Filesystem-safe app slug used in train ids. */
-export const trainAppSlug = (appName: string): string => {
-  const appSlug = appName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  if (appSlug === '') return 'train';
+export function trainAppSlug(appName: string): string {
+  const loweredName = appName.toLowerCase();
+  // Turns every run of characters that are not letters or digits into one dash.
+  const dashedName = loweredName.replace(/[^a-z0-9]+/g, '-');
+  // Drops dashes left at the start or end of the slug.
+  const appSlug = dashedName.replace(/^-+|-+$/g, '');
+  const isSlugEmpty = appSlug == '';
+
+  if (isSlugEmpty) {
+    return 'train';
+  }
+
   return appSlug;
-};
+}
 
 /** Mint a stable train id from the app slug and a short random suffix. */
-export const mintTrainId = (appName: string): string =>
-  `${trainAppSlug(appName)}-${randomUUID().slice(0, 4)}`;
+export function mintTrainId(appName: string): string {
+  const trainIdSuffixLength = 4;
+  const suffix = randomUUID().slice(0, trainIdSuffixLength);
+  const appSlug = trainAppSlug(appName);
+
+  return `${appSlug}-${suffix}`;
+}
 
 /** Format one train car's human label. */
-export const carLabel = (trainCar: Car): string => {
-  if (isOtaCar(trainCar))
+export function carLabel(trainCar: Car): string {
+  if (isOtaCar(trainCar)) {
     return `OTA ${trainCar.platform} (${trainCar.channel}/${trainCar.runtimeVersion})`;
+  }
+
   return trainCar.kind;
-};
+}
+
+function otaStatusDetail(trainCar: OtaCar): string {
+  const isManifestMissing = trainCar.manifestId == null;
+
+  if (isManifestMissing) {
+    return '';
+  }
+
+  return ` - ${trainCar.manifestId}`;
+}
+
+function nativeStatusDetail(trainCar: NativeCar): string {
+  const hasError = trainCar.error != null;
+
+  if (hasError) {
+    return ` - ${trainCar.error}`;
+  }
+
+  const hasBuildId = trainCar.buildId != null;
+
+  if (hasBuildId) {
+    return ` - build ${trainCar.buildId}`;
+  }
+
+  return '';
+}
 
 /** Extra status detail for one car (manifest id, build id, or error). */
-export const carStatusDetail = (trainCar: Car): string => {
+export function carStatusDetail(trainCar: Car): string {
   if (isOtaCar(trainCar)) {
-    if (trainCar.manifestId === undefined) return '';
-    return ` - ${trainCar.manifestId}`;
+    return otaStatusDetail(trainCar);
   }
-  if (trainCar.error !== undefined) return ` - ${trainCar.error}`;
-  if (trainCar.buildId !== undefined) return ` - build ${trainCar.buildId}`;
-  return '';
-};
+
+  return nativeStatusDetail(trainCar);
+}
 
 /** Format one train car's state and most useful identifier. */
-export const carStatusLine = (trainCar: Car): string =>
-  `${carLabel(trainCar)}: ${trainCar.state}${carStatusDetail(trainCar)}`;
+export function carStatusLine(trainCar: Car): string {
+  const detail = carStatusDetail(trainCar);
 
-const renderTrain = (
-  trainRecord: TrainRecord,
-  logger: Logger,
-): Effect.Effect<void, ReleaseTrainCommandFailure> => {
+  return `${carLabel(trainCar)}: ${trainCar.state}${detail}`;
+}
+
+function renderTrain(trainRecord: TrainRecord, logger: Logger): void {
   let holdDetail = '';
-  if (trainRecord.hold) holdDetail = ' - hold';
-  return writeLog(
-    'render release train',
-    logger.box(
-      `Train ${trainRecord.id} - ${trainRecord.app} - ${trainRecord.state}${holdDetail}`,
-      trainRecord.cars.map(carStatusLine),
-    ),
+  const isHeld = trainRecord.hold == true;
+
+  if (isHeld) {
+    holdDetail = ' - hold';
+  }
+
+  const statusLines = trainRecord.cars.map(carStatusLine);
+  logger.box(
+    `Train ${trainRecord.id} - ${trainRecord.app} - ${trainRecord.state}${holdDetail}`,
+    statusLines,
   );
-};
+}
+
+function currentIsoTime(): string {
+  return new Date().toISOString();
+}
+
+type Wake = (settled?: void) => void;
+
+function sleep(delayMilliseconds: number): Promise<void> {
+  function wait(wake: Wake): void {
+    function wakeLater(): void {
+      wake();
+    }
+
+    setTimeout(wakeLater, delayMilliseconds);
+  }
+
+  return new Promise(wait);
+}
+
+function readTrainId(trainRecord: TrainRecord): string {
+  return trainRecord.id;
+}
+
+async function failMissingNamedTrain(trainId: string): Promise<TrainRecord> {
+  let knownTrains: TrainRecord[];
+
+  try {
+    knownTrains = await listTrainRecords();
+  } catch (cause) {
+    throw trainFailure('list release trains', cause);
+  }
+
+  const knownTrainIds = knownTrains.map(readTrainId);
+  let knownTrainSummary = knownTrainIds.join(', ');
+  const isSummaryEmpty = knownTrainSummary == '';
+
+  if (isSummaryEmpty) {
+    knownTrainSummary = 'none';
+  }
+
+  throw trainFailure(
+    'find release train',
+    trainId,
+    `No release train "${trainId}". Known: ${knownTrainSummary}.`,
+  );
+}
+
+async function readNamedTrain(trainId: string): Promise<TrainRecord> {
+  const namedTrain = await readTrainRecord(trainId);
+  const isMissing = namedTrain == null;
+
+  if (isMissing) {
+    return failMissingNamedTrain(trainId);
+  }
+
+  return namedTrain;
+}
+
+async function readLatestTrain(): Promise<TrainRecord> {
+  let newestTrain: TrainRecord | null;
+
+  try {
+    newestTrain = await latestTrainRecord();
+  } catch (cause) {
+    throw trainFailure('read latest release train', cause);
+  }
+
+  if (newestTrain != null) {
+    return newestTrain;
+  }
+
+  throw trainFailure(
+    'find release train',
+    undefined,
+    'No release train yet. Start one with `launch release-train start`.',
+  );
+}
 
 /** Load an explicit train id or the latest persisted train. */
-const loadTargetTrain = (
-  trainId: string | undefined,
-): Effect.Effect<TrainRecord, ReleaseTrainCommandFailure, TrainRecordRequirements> =>
-  Effect.gen(function* () {
-    let trainRecord: TrainRecord | null;
-    if (trainId !== undefined) trainRecord = yield* readTrainRecord(trainId);
-    else {
-      trainRecord = yield* latestTrainRecord().pipe(
-        Effect.mapError((cause) => trainFailure('read latest release train', cause)),
-      );
-    }
-    if (trainRecord !== null) return trainRecord;
-    if (trainId !== undefined) {
-      const knownTrainIds = yield* listTrainRecords().pipe(
-        Effect.map((knownTrains) => knownTrains.map((knownTrain) => knownTrain.id)),
-        Effect.mapError((cause) => trainFailure('list release trains', cause)),
-      );
-      let knownTrainSummary = knownTrainIds.join(', ');
-      if (knownTrainSummary === '') knownTrainSummary = 'none';
-      return yield* Effect.fail(
-        trainFailure(
-          'find release train',
-          trainId,
-          `No release train "${trainId}". Known: ${knownTrainSummary}.`,
-        ),
-      );
-    }
-    return yield* Effect.fail(
-      trainFailure(
-        'find release train',
-        trainId,
-        'No release train yet. Start one with `launch release-train start`.',
-      ),
-    );
-  });
+async function loadTargetTrain(trainId: string | undefined): Promise<TrainRecord> {
+  if (trainId != null) {
+    return readNamedTrain(trainId);
+  }
 
-/** Load app configuration, environment, logger, and the live train engine. */
-const prepareTrain = (
-  commandOptions: ReleaseTrainCommandOptions,
-): Effect.Effect<PreparedTrain, ReleaseTrainCommandFailure, ReleaseTrainRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const loadedConfiguration = yield* loadConfig().pipe(
-      Effect.mapError((cause) => trainFailure('load Launch configuration', cause)),
-    );
-    const selectedApp = yield* selectApp(loadedConfiguration.apps, commandOptions.app).pipe(
-      Effect.mapError((cause) => trainFailure('select app', cause, cause.message)),
-    );
-    let buildProfile = loadedConfiguration.config.profiles[commandOptions.profile];
-    if (buildProfile === undefined) buildProfile = { name: commandOptions.profile };
-    const environmentOverrides = yield* parseCliEnv([...commandOptions.env]).pipe(
-      Effect.mapError((cause) => trainFailure('parse environment overrides', cause, cause.message)),
-    );
-    const resolvedEnvironment = yield* resolveCommandEnv({
+  return readLatestTrain();
+}
+
+function readTrainProfile(
+  profiles: Record<string, BuildProfile>,
+  profileName: string,
+): BuildProfile {
+  const selectedProfile = profiles[profileName];
+  const isProfileMissing = selectedProfile == null;
+
+  if (isProfileMissing) {
+    return { name: profileName };
+  }
+
+  return selectedProfile;
+}
+
+async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<PreparedTrain> {
+  const logger = createLogger(false);
+  let loadedConfiguration: LoadedConfig;
+
+  try {
+    loadedConfiguration = await loadConfig();
+  } catch (cause) {
+    throw trainFailure('load Launch configuration', cause);
+  }
+
+  let selectedApp: AppDescriptor;
+
+  try {
+    selectedApp = await selectApp(loadedConfiguration.apps, commandFlags.app);
+  } catch (cause) {
+    throw trainFailure('select app', cause, errorMessage(cause));
+  }
+
+  const buildProfile = readTrainProfile(loadedConfiguration.config.profiles, commandFlags.profile);
+
+  let environmentOverrides: Record<string, string>;
+
+  try {
+    environmentOverrides = parseCliEnv([...commandFlags.env]);
+  } catch (cause) {
+    throw trainFailure('parse environment overrides', cause, errorMessage(cause));
+  }
+
+  let resolvedEnvironment: ResolvedEnv;
+
+  try {
+    resolvedEnvironment = await resolveCommandEnv({
       app: selectedApp,
       profile: buildProfile,
       cliEnv: environmentOverrides,
-      includeLocal: commandOptions.includeLocal,
+      includeLocal: commandFlags.includeLocal,
       envExclude: loadedConfiguration.config.envExclude,
-    }).pipe(Effect.mapError((cause) => trainFailure('resolve release train environment', cause)));
-    const runtime = createTrainRuntime(
-      loadedConfiguration.config,
-      selectedApp,
-      buildProfile,
-      resolvedEnvironment.values,
-      commandOptions.hold === true,
-      logger,
-    );
-    return {
-      config: loadedConfiguration.config,
-      app: selectedApp,
-      runtime,
-      logger,
-    };
-  });
+    });
+  } catch (cause) {
+    throw trainFailure('resolve release train environment', cause);
+  }
 
-const persistTrain = (
-  trainRecord: TrainRecord,
-): Effect.Effect<void, ReleaseTrainCommandFailure, TrainRecordRequirements> =>
-  writeTrainRecord(trainRecord).pipe(
-    Effect.mapError((cause) => trainFailure('write release train', cause)),
+  const runtime = createTrainRuntime(
+    loadedConfiguration.config,
+    selectedApp,
+    buildProfile,
+    resolvedEnvironment.values,
+    commandFlags.hold == true,
+    logger,
   );
 
-const reportTrain = (
-  trainRecord: TrainRecord,
-  commandOptions: ReleaseTrainCommandOptions,
-  logger: Logger,
-): Effect.Effect<void, CommandExit | ReleaseTrainCommandFailure> =>
-  Effect.gen(function* () {
-    if (commandOptions.json === true)
-      yield* writeLog(
-        'render release train JSON',
-        logger.line(JSON.stringify(trainRecord, null, 2)),
-      );
-    else yield* renderTrain(trainRecord, logger);
-    yield* completeCommand(trainExitCode(trainRecord));
-  });
+  return {
+    config: loadedConfiguration.config,
+    app: selectedApp,
+    runtime,
+    logger,
+  };
+}
 
-const reconcileOnce = (
+async function persistTrain(trainRecord: TrainRecord): Promise<void> {
+  try {
+    await writeTrainRecord(trainRecord);
+  } catch (cause) {
+    throw trainFailure('write release train', cause);
+  }
+}
+
+async function reportTrain(
+  trainRecord: TrainRecord,
+  commandFlags: ReleaseTrainCommandOptions,
+  logger: Logger,
+): Promise<void> {
+  const isJson = commandFlags.json == true;
+
+  if (isJson) {
+    logger.line(JSON.stringify(trainRecord, null, 2));
+  }
+
+  if (isJson == false) {
+    renderTrain(trainRecord, logger);
+  }
+
+  completeCommand(trainExitCode(trainRecord));
+}
+
+async function reconcileOnce(
   trainRecord: TrainRecord,
   runtime: TrainRuntime,
   force: boolean,
   logger: Logger,
-): Effect.Effect<TrainRecord, ReleaseTrainCommandFailure, TrainRuntimeRequirements> =>
-  Effect.gen(function* () {
-    const warningMessages: string[] = [];
-    const advancedTrain = yield* advanceTrain(trainRecord, runtime.engine, {
-      now: yield* currentIsoTime(),
+): Promise<TrainRecord> {
+  const warningMessages: string[] = [];
+
+  function keepWarning(warningMessage: string): void {
+    warningMessages.push(warningMessage);
+  }
+
+  let advancedTrain: TrainRecord;
+
+  try {
+    advancedTrain = await advanceTrain(trainRecord, runtime.engine, {
+      now: currentIsoTime(),
       force,
-      onWarn: (warningMessage) => {
-        warningMessages.push(warningMessage);
-      },
-    }).pipe(Effect.mapError((cause) => trainFailure('advance release train', cause)));
-    yield* persistTrain(advancedTrain);
-    for (const warningMessage of warningMessages)
-      yield* writeLog('render release train warning', logger.warn(warningMessage));
-    return advancedTrain;
-  });
+      onWarn: keepWarning,
+    });
+  } catch (cause) {
+    throw trainFailure('advance release train', cause);
+  }
 
-const startReleaseTrain = (
-  commandOptions: ReleaseTrainCommandOptions,
-): Effect.Effect<void, CommandExit | ReleaseTrainCommandFailure, ReleaseTrainRequirements> =>
-  Effect.gen(function* () {
-    const platformFilter = commandOptions.platform;
-    if (platformFilter !== undefined && !isTrainPlatform(platformFilter)) {
-      return yield* Effect.fail(
-        trainFailure(
-          'select release train platform',
-          platformFilter,
-          `Unknown --platform "${platformFilter}". Use ios or android.`,
-        ),
-      );
-    }
-    const preparedTrain = yield* prepareTrain(commandOptions);
-    const runtimeVersion = yield* resolveRuntimeVersion(
+  await persistTrain(advancedTrain);
+
+  for (const warningMessage of warningMessages) {
+    logger.warn(warningMessage);
+  }
+
+  return advancedTrain;
+}
+
+function requireTrainPlatform(platformFilter: string | undefined): TrainPlatform | undefined {
+  const isMissing = platformFilter == null;
+
+  if (isMissing) {
+    return undefined;
+  }
+
+  if (isTrainPlatform(platformFilter)) {
+    return platformFilter;
+  }
+
+  throw trainFailure(
+    'select release train platform',
+    platformFilter,
+    `Unknown --platform "${platformFilter}". Use ios or android.`,
+  );
+}
+
+async function startReleaseTrain(commandFlags: ReleaseTrainCommandOptions): Promise<void> {
+  const platformFilter = requireTrainPlatform(commandFlags.platform);
+  const preparedTrain = await prepareTrain(commandFlags);
+  const runtimeVersion = await runRuntimeVersion(preparedTrain.app, commandFlags.runtimeVersion);
+  const hasBundleId = preparedTrain.app.bundleId != null;
+  const hasPackageName = preparedTrain.app.packageName != null;
+  const hasCloudStorage = isCloudStorage(preparedTrain.config);
+  const skipsOta = commandFlags.ota == false;
+  let trainCarInput: TrainCarPlanInput = {
+    hasBundleId,
+    hasPackageName,
+    hasCloudStorage,
+    runtimeVersion,
+    channel: commandFlags.channel,
+    noOta: skipsOta,
+  };
+  const hasPlatformFilter = platformFilter != null;
+
+  if (hasPlatformFilter) {
+    trainCarInput = { ...trainCarInput, platformFilter };
+  }
+
+  const trainCars = planTrainCars(trainCarInput);
+  const hasNoPlatforms = trainCars.platforms.length == 0;
+
+  if (hasNoPlatforms) {
+    throw trainFailure(
+      'resolve release train cars',
       preparedTrain.app,
-      commandOptions.runtimeVersion,
-    ).pipe(Effect.mapError((cause) => trainFailure('resolve train runtime version', cause)));
-    let trainCarInput: TrainCarPlanInput = {
-      hasBundleId: preparedTrain.app.bundleId !== undefined,
-      hasPackageName: preparedTrain.app.packageName !== undefined,
-      hasCloudStorage: isCloudStorage(preparedTrain.config),
-      runtimeVersion,
-      channel: commandOptions.channel,
-      noOta: !commandOptions.ota,
-    };
-    if (platformFilter !== undefined) {
-      trainCarInput = { ...trainCarInput, platformFilter };
-    }
-    const trainCars = planTrainCars(trainCarInput);
-    if (trainCars.platforms.length === 0) {
-      return yield* Effect.fail(
-        trainFailure(
-          'resolve release train cars',
-          preparedTrain.app,
-          `${preparedTrain.app.name} declares no iOS bundle id or Android package - nothing to release.`,
-        ),
-      );
-    }
-    let otaDetail = '';
-    if (trainCars.ota.length > 0) otaDetail = ' + OTA';
-    yield* writeLog(
-      'render release train start',
-      preparedTrain.logger.step(
-        'release-train',
-        `starting ${preparedTrain.app.name}: ${trainCars.platforms.join(' + ')}${otaDetail}`,
-      ),
+      `${preparedTrain.app.name} declares no iOS bundle id or Android package - nothing to release.`,
     );
-    const trainRecord = yield* startTrain(
-      {
-        id: mintTrainId(preparedTrain.app.name),
-        app: preparedTrain.app.name,
-        hold: commandOptions.hold === true,
-        platforms: trainCars.platforms,
-        ota: trainCars.ota,
-        now: yield* currentIsoTime(),
-      },
-      preparedTrain.runtime.engine,
-    );
-    yield* persistTrain(trainRecord);
-    yield* writeLog(
-      'render release train tracking hint',
-      preparedTrain.logger.note(
-        `Track it with \`launch release-train status ${trainRecord.id} --watch\`.`,
-      ),
-    );
-    yield* reportTrain(trainRecord, commandOptions, preparedTrain.logger);
-  });
+  }
 
-const statusReleaseTrain = (
-  trainId: string | undefined,
-  commandOptions: ReleaseTrainCommandOptions,
-): Effect.Effect<void, CommandExit | ReleaseTrainCommandFailure, ReleaseTrainRequirements> =>
-  Effect.gen(function* () {
-    const targetTrain = yield* loadTargetTrain(trainId);
-    const preparedTrain = yield* prepareTrain({ ...commandOptions, app: targetTrain.app });
-    let trainRecord = yield* reconcileOnce(
-      targetTrain,
+  let otaDetail = '';
+  const hasOta = trainCars.ota.length > 0;
+
+  if (hasOta) {
+    otaDetail = ' + OTA';
+  }
+
+  preparedTrain.logger.step(
+    'release-train',
+    `starting ${preparedTrain.app.name}: ${trainCars.platforms.join(' + ')}${otaDetail}`,
+  );
+  const trainRecord = await startTrain(
+    {
+      id: mintTrainId(preparedTrain.app.name),
+      app: preparedTrain.app.name,
+      hold: commandFlags.hold == true,
+      platforms: trainCars.platforms,
+      ota: trainCars.ota,
+      now: currentIsoTime(),
+    },
+    preparedTrain.runtime.engine,
+  );
+  await persistTrain(trainRecord);
+  preparedTrain.logger.note(
+    `Track it with \`launch release-train status ${trainRecord.id} --watch\`.`,
+  );
+  await reportTrain(trainRecord, commandFlags, preparedTrain.logger);
+}
+
+async function runRuntimeVersion(
+  appDescriptor: AppDescriptor,
+  runtimeVersionFlag: string | undefined,
+): Promise<string> {
+  try {
+    return await resolveRuntimeVersion(appDescriptor, runtimeVersionFlag);
+  } catch (cause) {
+    throw trainFailure('resolve train runtime version', cause);
+  }
+}
+
+function shouldWatchTrain(commandFlags: ReleaseTrainCommandOptions): boolean {
+  const isWatching = commandFlags.watch == true;
+
+  if (isWatching == false) {
+    return false;
+  }
+
+  const isJson = commandFlags.json == true;
+
+  return isJson == false;
+}
+
+async function watchTrain(
+  trainRecord: TrainRecord,
+  preparedTrain: PreparedTrain,
+): Promise<TrainRecord> {
+  let currentTrain = trainRecord;
+  const watchPollDelayMilliseconds = 30000;
+  let isSettled = isTrainSettled(currentTrain);
+
+  while (isSettled == false) {
+    await sleep(watchPollDelayMilliseconds);
+    currentTrain = await reconcileOnce(
+      currentTrain,
       preparedTrain.runtime,
       false,
       preparedTrain.logger,
     );
-    if (commandOptions.watch === true && commandOptions.json !== true) {
-      while (!isTrainSettled(trainRecord)) {
-        yield* Effect.sleep('30 seconds');
-        trainRecord = yield* reconcileOnce(
-          trainRecord,
-          preparedTrain.runtime,
-          false,
-          preparedTrain.logger,
-        );
-        yield* writeLog('render release train watch', preparedTrain.logger.gap());
-        yield* renderTrain(trainRecord, preparedTrain.logger);
-      }
-    }
-    yield* reportTrain(trainRecord, commandOptions, preparedTrain.logger);
-  });
-
-const releaseHeldTrain = (
-  trainId: string | undefined,
-  commandOptions: ReleaseTrainCommandOptions,
-): Effect.Effect<void, CommandExit | ReleaseTrainCommandFailure, ReleaseTrainRequirements> =>
-  Effect.gen(function* () {
-    const targetTrain = yield* loadTargetTrain(trainId);
-    const preparedTrain = yield* prepareTrain({ ...commandOptions, app: targetTrain.app });
-    const trainRecord = yield* reconcileOnce(
-      targetTrain,
-      preparedTrain.runtime,
-      true,
-      preparedTrain.logger,
-    );
-    yield* reportTrain(trainRecord, commandOptions, preparedTrain.logger);
-  });
-
-const abortReleaseTrain = (
-  trainId: string | undefined,
-  commandOptions: ReleaseTrainCommandOptions,
-): Effect.Effect<void, CommandExit | ReleaseTrainCommandFailure, ReleaseTrainRecordRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const targetTrain = yield* loadTargetTrain(trainId);
-    const abortedTrain: TrainRecord = {
-      ...targetTrain,
-      state: 'aborted',
-      updatedAt: yield* currentIsoTime(),
-    };
-    yield* persistTrain(abortedTrain);
-    yield* writeLog(
-      'render aborted release train',
-      logger.note(
-        `Aborted ${abortedTrain.id}. Live cars are untouched - roll back explicitly with \`launch rollout pause\` or \`launch updates rollback\`.`,
-      ),
-    );
-    yield* reportTrain(abortedTrain, commandOptions, logger);
-  });
-
-const executeReleaseTrainCommand = (
-  commandInput: ReleaseTrainCommandInput,
-): Effect.Effect<void, CommandExit | ReleaseTrainCommandFailure, ReleaseTrainRequirements> => {
-  switch (commandInput.action) {
-    case 'start':
-      return startReleaseTrain(commandInput.options);
-    case 'status':
-      return statusReleaseTrain(commandInput.id, commandInput.options);
-    case 'release':
-      return releaseHeldTrain(commandInput.id, commandInput.options);
-    case 'abort':
-      return abortReleaseTrain(commandInput.id, commandInput.options);
-    default:
-      return Effect.fail(
-        trainFailure(
-          'select release train action',
-          commandInput.action,
-          `Unknown action "${commandInput.action}". Use start, status, release, or abort.`,
-        ),
-      );
+    preparedTrain.logger.gap();
+    renderTrain(currentTrain, preparedTrain.logger);
+    isSettled = isTrainSettled(currentTrain);
   }
-};
+
+  return currentTrain;
+}
+
+async function statusReleaseTrain(
+  trainId: string | undefined,
+  commandFlags: ReleaseTrainCommandOptions,
+): Promise<void> {
+  const targetTrain = await loadTargetTrain(trainId);
+  const preparedTrain = await prepareTrain({ ...commandFlags, app: targetTrain.app });
+  let trainRecord = await reconcileOnce(
+    targetTrain,
+    preparedTrain.runtime,
+    false,
+    preparedTrain.logger,
+  );
+  const shouldWatch = shouldWatchTrain(commandFlags);
+
+  if (shouldWatch) {
+    trainRecord = await watchTrain(trainRecord, preparedTrain);
+  }
+
+  await reportTrain(trainRecord, commandFlags, preparedTrain.logger);
+}
+
+async function releaseHeldTrain(
+  trainId: string | undefined,
+  commandFlags: ReleaseTrainCommandOptions,
+): Promise<void> {
+  const targetTrain = await loadTargetTrain(trainId);
+  const preparedTrain = await prepareTrain({ ...commandFlags, app: targetTrain.app });
+  const trainRecord = await reconcileOnce(
+    targetTrain,
+    preparedTrain.runtime,
+    true,
+    preparedTrain.logger,
+  );
+  await reportTrain(trainRecord, commandFlags, preparedTrain.logger);
+}
+
+async function abortReleaseTrain(
+  trainId: string | undefined,
+  commandFlags: ReleaseTrainCommandOptions,
+): Promise<void> {
+  const logger = createLogger(false);
+  const targetTrain = await loadTargetTrain(trainId);
+  const abortedTrain: TrainRecord = {
+    ...targetTrain,
+    state: 'aborted',
+    updatedAt: currentIsoTime(),
+  };
+  await persistTrain(abortedTrain);
+  logger.note(
+    `Aborted ${abortedTrain.id}. Live cars are untouched - roll back explicitly with \`launch rollout pause\` or \`launch updates rollback\`.`,
+  );
+  await reportTrain(abortedTrain, commandFlags, logger);
+}
+
+async function executeReleaseTrainCommand(commandInput: ReleaseTrainCommandInput): Promise<void> {
+  if (commandInput.action == 'start') {
+    return startReleaseTrain(commandInput.options);
+  }
+
+  if (commandInput.action == 'status') {
+    return statusReleaseTrain(commandInput.id, commandInput.options);
+  }
+
+  if (commandInput.action == 'release') {
+    return releaseHeldTrain(commandInput.id, commandInput.options);
+  }
+
+  if (commandInput.action == 'abort') {
+    return abortReleaseTrain(commandInput.id, commandInput.options);
+  }
+
+  throw trainFailure(
+    'select release train action',
+    commandInput.action,
+    `Unknown action "${commandInput.action}". Use start, status, release, or abort.`,
+  );
+}
 
 /** Decode and execute one release-train command. */
-export const releaseTrainCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, CommandExit | ReleaseTrainCommandFailure, ReleaseTrainRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(ReleaseTrainCommandInputSchema)(
-      rawCommandInput,
-    );
-    return yield* executeReleaseTrainCommand(commandInput);
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (Schema.is(CommandExitSchema)(cause)) return cause;
-      if (Schema.is(ReleaseTrainCommandFailureSchema)(cause)) return cause;
-      return trainFailure('run release-train command', cause);
-    }),
-  );
+export async function releaseTrainCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = ReleaseTrainCommandInputSchema(rawCommandInput);
+    await executeReleaseTrainCommand(commandInput);
+  } catch (cause) {
+    if (isCommandExit(cause)) {
+      throw cause;
+    }
+
+    if (isReleaseTrainCommandFailure(cause)) {
+      throw cause;
+    }
+
+    throw trainFailure('run release-train command', cause);
+  }
+}

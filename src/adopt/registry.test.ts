@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Effect } from 'effect';
-import { listAdopters, registerAdopter, registerBuiltinAdopters } from './registry.js';
 import type { Adopter } from '../types/adopt.js';
+import { listAdopters, registerAdopter, registerBuiltinAdopters } from './registry.js';
+
 describe('adopter registry', () => {
   it('registers the four built-in adopters, smallest-blast-radius first', () => {
     registerBuiltinAdopters();
@@ -12,15 +12,18 @@ describe('adopter registry', () => {
       'listing',
     ]);
   });
+
   it('replaces an adopter registered under the same domain rather than duplicating it', () => {
     registerBuiltinAdopters();
     const stub: Adopter = {
       domain: 'products',
       fidelity: 'importable',
-      read: () => Effect.succeed([]),
+      async read() {
+        return [];
+      },
     };
     registerAdopter(stub);
-    const products = listAdopters().filter((adopter) => adopter.domain === 'products');
+    const products = listAdopters().filter((adopter) => adopter.domain == 'products');
     expect(products).toHaveLength(1);
     expect(products[0]).toBe(stub);
   });

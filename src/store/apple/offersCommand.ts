@@ -1,60 +1,54 @@
-import { type FileSystem, type Path, Terminal } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
 import { loadConfig } from '../../config/config.js';
-import type { EffectAppStoreConnectClient } from '../../services/stores/appleStoreClient.js';
+import type { AppStoreConnectClient } from '../../apple/ascClient.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../../services/platform/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
-import { completeCommand, type CommandExit } from '../../terminal/commandExit.js';
+import { createLogger } from '../../services/platform/logger.js';
+import { readLaunchDirectories } from '../../services/platform/paths.js';
+import { LaunchPrompt } from '../../services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
+import { completeCommand } from '../../terminal/commandExit.js';
 import type { AppDescriptor } from '../../types/app.js';
 import type { AppProducts } from '../../types/catalog.js';
+import type { OfferCodeResource } from '../../types/appleCatalog.js';
 import type { PlannedAction, ReconcileReport } from '../../types/reconcile.js';
-import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
+import { loadActiveAppleStore } from './appleStoreCommand.js';
 import { appDeclaresOffers, reconcileOffers } from './offers.js';
 import { summarize } from '../shared/reconcile.js';
 
-const OffersReconcileInputSchema = Schema.Struct({
-  operation: Schema.Literal('reconcile'),
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  dryRun: Schema.Boolean,
-  yes: Schema.Boolean,
-});
+export type OffersReconcileInput = {
+  operation: 'reconcile';
+  app?: string;
+  dryRun: boolean;
+  yes: boolean;
+};
 
-const OffersGenerateCodesInputSchema = Schema.Struct({
-  operation: Schema.Literal('generate-codes'),
-  productId: Schema.String,
-  offerName: Schema.String,
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  count: Schema.String,
-  expires: Schema.optionalWith(Schema.String, { exact: true }),
-  custom: Schema.optionalWith(Schema.String, { exact: true }),
-});
+export type OffersGenerateCodesInput = {
+  operation: 'generate-codes';
+  productId: string;
+  offerName: string;
+  app?: string;
+  count: string;
+  expires?: string;
+  custom?: string;
+};
 
-const OffersListInputSchema = Schema.Struct({
-  operation: Schema.Literal('list'),
-  productId: Schema.String,
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-});
+export type OffersListInput = {
+  operation: 'list';
+  productId: string;
+  app?: string;
+};
 
-const OffersDeactivateInputSchema = Schema.Struct({
-  operation: Schema.Literal('deactivate'),
-  productId: Schema.String,
-  offerName: Schema.String,
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-});
+export type OffersDeactivateInput = {
+  operation: 'deactivate';
+  productId: string;
+  offerName: string;
+  app?: string;
+};
 
-export const OffersCommandInputSchema = Schema.Union(
-  OffersReconcileInputSchema,
-  OffersGenerateCodesInputSchema,
-  OffersListInputSchema,
-  OffersDeactivateInputSchema,
-);
-
-export type OffersReconcileInput = Schema.Schema.Type<typeof OffersReconcileInputSchema>;
-export type OffersGenerateCodesInput = Schema.Schema.Type<typeof OffersGenerateCodesInputSchema>;
-export type OffersListInput = Schema.Schema.Type<typeof OffersListInputSchema>;
-export type OffersDeactivateInput = Schema.Schema.Type<typeof OffersDeactivateInputSchema>;
+type OffersCommandInput =
+  | OffersReconcileInput
+  | OffersGenerateCodesInput
+  | OffersListInput
+  | OffersDeactivateInput;
 
 /** An offers command step failed. */
 type OffersCommandFailure = Readonly<{
@@ -63,14 +57,14 @@ type OffersCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeOffersCommandFailure = Data.tagged<OffersCommandFailure>('OffersCommandFailure');
 
-type OffersCommandRequirements =
-  | ActiveAppleStoreRequirements
-  | LaunchPathsService
-  | LaunchPromptService
-  | Logger
-  | Terminal.Terminal;
+function makeOffersCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): OffersCommandFailure {
+  return { _tag: 'OffersCommandFailure', ...fields };
+}
 
 type OffersJob = Readonly<{
   readonly app: AppDescriptor;
@@ -91,514 +85,1025 @@ type OffersJobOutcome =
     }>;
 
 type ResolvedSubscription = Readonly<{
-  readonly appleStore: EffectAppStoreConnectClient;
+  readonly appleStore: AppStoreConnectClient;
   readonly appName: string;
   readonly subscriptionId: string;
 }>;
 
+type AppleAppChoice = Readonly<{ app: AppDescriptor; bundleId: string }>;
+
+function readCommandRecord(rawCommandInput: unknown): Record<string, unknown> {
+  if (rawCommandInput == null) {
+    throw new Error('Offers command input must be an object.');
+  }
+
+  const isObject = typeof rawCommandInput == 'object';
+
+  if (isObject == false) {
+    throw new Error('Offers command input must be an object.');
+  }
+
+  const isArray = Array.isArray(rawCommandInput);
+
+  if (isArray) {
+    throw new Error('Offers command input must be an object.');
+  }
+
+  return rawCommandInput as Record<string, unknown>;
+}
+
+function readRequiredString(record: Record<string, unknown>, field: string): string {
+  const fieldText = record[field];
+  const isString = typeof fieldText == 'string';
+
+  if (isString == false) {
+    throw new Error(`Expected ${field} to be a string.`);
+  }
+
+  return fieldText;
+}
+
+function readRequiredBoolean(record: Record<string, unknown>, field: string): boolean {
+  const fieldFlag = record[field];
+  const isBoolean = typeof fieldFlag == 'boolean';
+
+  if (isBoolean == false) {
+    throw new Error(`Expected ${field} to be a boolean.`);
+  }
+
+  return fieldFlag;
+}
+
+function readExactOptionalString(
+  record: Record<string, unknown>,
+  field: string,
+): string | undefined {
+  const hasField = Object.hasOwn(record, field);
+
+  if (hasField == false) {
+    return undefined;
+  }
+
+  const fieldText = record[field];
+  const isString = typeof fieldText == 'string';
+
+  if (isString == false) {
+    throw new Error(`Expected ${field} to be a string.`);
+  }
+
+  return fieldText;
+}
+
+function optionalApp(record: Record<string, unknown>): { app?: string } {
+  const appName = readExactOptionalString(record, 'app');
+  const hasAppName = appName != null;
+
+  if (hasAppName == false) {
+    return {};
+  }
+
+  return { app: appName };
+}
+
+function decodeOffersReconcile(record: Record<string, unknown>): OffersReconcileInput {
+  return {
+    operation: 'reconcile',
+    ...optionalApp(record),
+    dryRun: readRequiredBoolean(record, 'dryRun'),
+    yes: readRequiredBoolean(record, 'yes'),
+  };
+}
+
+function optionalText(
+  record: Record<string, unknown>,
+  field: 'expires' | 'custom',
+): {
+  expires?: string;
+  custom?: string;
+} {
+  const fieldText = readExactOptionalString(record, field);
+  const hasFieldText = fieldText != null;
+
+  if (hasFieldText == false) {
+    return {};
+  }
+
+  if (field == 'expires') {
+    return { expires: fieldText };
+  }
+
+  return { custom: fieldText };
+}
+
+function decodeOffersGenerateCodes(record: Record<string, unknown>): OffersGenerateCodesInput {
+  return {
+    operation: 'generate-codes',
+    productId: readRequiredString(record, 'productId'),
+    offerName: readRequiredString(record, 'offerName'),
+    count: readRequiredString(record, 'count'),
+    ...optionalApp(record),
+    ...optionalText(record, 'expires'),
+    ...optionalText(record, 'custom'),
+  };
+}
+
+function decodeOffersList(record: Record<string, unknown>): OffersListInput {
+  return {
+    operation: 'list',
+    productId: readRequiredString(record, 'productId'),
+    ...optionalApp(record),
+  };
+}
+
+function decodeOffersDeactivate(record: Record<string, unknown>): OffersDeactivateInput {
+  return {
+    operation: 'deactivate',
+    productId: readRequiredString(record, 'productId'),
+    offerName: readRequiredString(record, 'offerName'),
+    ...optionalApp(record),
+  };
+}
+
+export function OffersCommandInputSchema(rawCommandInput: unknown): OffersCommandInput {
+  const record = readCommandRecord(rawCommandInput);
+  const operation = readRequiredString(record, 'operation');
+
+  if (operation == 'reconcile') {
+    return decodeOffersReconcile(record);
+  }
+
+  if (operation == 'generate-codes') {
+    return decodeOffersGenerateCodes(record);
+  }
+
+  if (operation == 'list') {
+    return decodeOffersList(record);
+  }
+
+  if (operation == 'deactivate') {
+    return decodeOffersDeactivate(record);
+  }
+
+  throw new Error('Unknown offers command.');
+}
+
 /** Convert a dependency failure into the offers command channel. */
-const offersFailure = (
+function offersFailure(
   operation: string,
   cause: unknown,
   explicitMessage?: string,
-): OffersCommandFailure => {
-  let message = errorMessage(cause);
-  if (explicitMessage !== undefined) message = explicitMessage;
-  return makeOffersCommandFailure({ operation, message, cause });
-};
+): OffersCommandFailure {
+  const hasExplicitMessage = explicitMessage != null;
+
+  if (hasExplicitMessage) {
+    return makeOffersCommandFailure({ operation, message: explicitMessage, cause });
+  }
+
+  return makeOffersCommandFailure({ operation, message: errorMessage(cause), cause });
+}
 
 /** Whether one product catalog declares offers or promoted-purchase ordering. */
-export const hasOffersWork = (products: AppProducts | undefined): boolean => {
-  if (products === undefined) return false;
+export function hasOffersWork(products: AppProducts | undefined): boolean {
+  if (products == null) {
+    return false;
+  }
+
   return appDeclaresOffers(products);
-};
+}
 
 /** Render one offer action with stable ASCII markers. */
-export const renderOfferAction = (plannedAction: PlannedAction): string => {
+export function renderOfferAction(plannedAction: PlannedAction): string {
   switch (plannedAction.status) {
     case 'skipped':
       return `- ${plannedAction.description}`;
     case 'failed': {
       let failureText = 'failed';
-      if (plannedAction.error !== undefined) failureText = plannedAction.error;
+      const actionError = plannedAction.error;
+      const hasActionError = actionError != null;
+
+      if (hasActionError) {
+        failureText = actionError;
+      }
+
       return `x ${plannedAction.description} - ${failureText}`;
     }
     case 'planned':
     case 'applied':
       return `+ ${plannedAction.description}`;
   }
-};
+}
 
 /** Render an offer-code campaign without Unicode status glyphs. */
-export const renderOfferCodeState = (
+export function renderOfferCodeState(
   offerCode: Readonly<{ name: string; active: boolean }>,
-): string => {
-  if (offerCode.active) return `[active] ${offerCode.name}`;
+): string {
+  if (offerCode.active) {
+    return `[active] ${offerCode.name}`;
+  }
+
   return `[inactive] ${offerCode.name}`;
-};
+}
+
+function trimAppName(appName: string): string {
+  return appName.trim();
+}
+
+function isPresentName(appName: string): boolean {
+  return appName.length > 0;
+}
+
+function readAppName(discoveredApp: AppDescriptor): string {
+  return discoveredApp.name;
+}
 
 /** Select all apps or a comma-separated subset. */
-const selectOffersApps = (
-  apps: AppDescriptor[],
-  appSelector: string | undefined,
-): Effect.Effect<AppDescriptor[], OffersCommandFailure> => {
-  if (appSelector === undefined) return Effect.succeed(apps);
-  if (appSelector.length === 0) return Effect.succeed(apps);
-  const requestedNames = appSelector
-    .split(',')
-    .map((appName) => appName.trim())
-    .filter((appName) => appName.length > 0);
-  const appsByName = new Map(apps.map((discoveredApp) => [discoveredApp.name, discoveredApp]));
+function selectOffersApps(apps: AppDescriptor[], appSelector: string | undefined): AppDescriptor[] {
+  if (appSelector == null) {
+    return apps;
+  }
+
+  const isBlankSelector = appSelector.length == 0;
+
+  if (isBlankSelector) {
+    return apps;
+  }
+
+  const requestedNames = appSelector.split(',').map(trimAppName).filter(isPresentName);
+  const appsByName = new Map<string, AppDescriptor>();
+
+  for (const discoveredApp of apps) {
+    appsByName.set(discoveredApp.name, discoveredApp);
+  }
+
   const selectedApps: AppDescriptor[] = [];
+
   for (const requestedName of requestedNames) {
     const selectedApp = appsByName.get(requestedName);
-    if (selectedApp === undefined) {
-      let discoveredNames = apps.map((discoveredApp) => discoveredApp.name).join(', ');
-      if (discoveredNames.length === 0) discoveredNames = 'none';
-      return Effect.fail(
-        offersFailure(
-          'select offers apps',
-          requestedName,
-          `Unknown app "${requestedName}". Discovered: ${discoveredNames}.`,
-        ),
+    const isUnknownApp = selectedApp == null;
+
+    if (isUnknownApp) {
+      let discoveredNames = apps.map(readAppName).join(', ');
+      const hasDiscoveredNames = discoveredNames.length > 0;
+
+      if (hasDiscoveredNames == false) {
+        discoveredNames = 'none';
+      }
+
+      throw offersFailure(
+        'select offers apps',
+        requestedName,
+        `Unknown app "${requestedName}". Discovered: ${discoveredNames}.`,
       );
     }
+
     selectedApps.push(selectedApp);
   }
-  return Effect.succeed(selectedApps);
-};
+
+  return selectedApps;
+}
 
 /** Build runnable offer jobs from discovered apps and their bundle-keyed catalogs. */
-const resolveOffersJobs = (
-  appSelector: string | undefined,
-): Effect.Effect<
-  OffersJob[],
-  OffersCommandFailure,
-  FileSystem.FileSystem | LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory).pipe(
-      Effect.mapError((cause) => offersFailure('load offers configuration', cause)),
-    );
-    const selectedApps = yield* selectOffersApps(loadedConfiguration.apps, appSelector);
-    const offersJobs: OffersJob[] = [];
-    for (const selectedApp of selectedApps) {
-      if (selectedApp.bundleId === undefined) continue;
-      const productCatalog = loadedConfiguration.config.products;
-      if (productCatalog === undefined) continue;
-      const appProducts = productCatalog[selectedApp.bundleId];
-      if (appProducts === undefined) continue;
-      if (!hasOffersWork(appProducts)) continue;
-      offersJobs.push({ app: selectedApp, bundleId: selectedApp.bundleId, products: appProducts });
+async function resolveOffersJobs(appSelector: string | undefined): Promise<OffersJob[]> {
+  const launchPaths = readLaunchDirectories();
+  let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;
+
+  try {
+    loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+  } catch (cause) {
+    throw offersFailure('load offers configuration', cause);
+  }
+
+  const selectedApps = selectOffersApps(loadedConfiguration.apps, appSelector);
+  const offersJobs: OffersJob[] = [];
+
+  for (const selectedApp of selectedApps) {
+    const bundleId = selectedApp.bundleId;
+    const isBundleMissing = bundleId == null;
+
+    if (isBundleMissing) {
+      continue;
     }
-    return offersJobs;
-  });
+
+    const productCatalog = loadedConfiguration.config.products;
+    const isCatalogMissing = productCatalog == null;
+
+    if (isCatalogMissing) {
+      continue;
+    }
+
+    const appProducts = productCatalog[bundleId];
+    const isProductsMissing = appProducts == null;
+
+    if (isProductsMissing) {
+      continue;
+    }
+
+    const declaresOffers = hasOffersWork(appProducts);
+
+    if (declaresOffers == false) {
+      continue;
+    }
+
+    offersJobs.push({ app: selectedApp, bundleId, products: appProducts });
+  }
+
+  return offersJobs;
+}
 
 /** Reconcile one app while keeping its failure isolated from concurrent jobs. */
-const reconcileOffersJob = (
-  appleStore: EffectAppStoreConnectClient,
+async function reconcileOffersJob(
+  appleStore: AppStoreConnectClient,
   offersJob: OffersJob,
   dryRun: boolean,
-): Effect.Effect<OffersJobOutcome> =>
-  reconcileOffers(appleStore, {
-    bundleId: offersJob.bundleId,
-    products: offersJob.products,
-    dryRun,
-  }).pipe(
-    Effect.match({
-      onFailure: (cause): OffersJobOutcome => ({
-        _tag: 'OffersJobFailed',
-        job: offersJob,
-        message: offersFailure('reconcile app offers', cause).message,
-      }),
-      onSuccess: (reconcileReport): OffersJobOutcome => ({
-        _tag: 'OffersJobSucceeded',
-        job: offersJob,
-        report: reconcileReport,
-      }),
-    }),
-  );
+): Promise<OffersJobOutcome> {
+  try {
+    const reconcileReport = await reconcileOffers(appleStore, {
+      bundleId: offersJob.bundleId,
+      products: offersJob.products,
+      dryRun,
+    });
+    return { _tag: 'OffersJobSucceeded', job: offersJob, report: reconcileReport };
+  } catch (cause) {
+    return {
+      _tag: 'OffersJobFailed',
+      job: offersJob,
+      message: offersFailure('reconcile app offers', cause).message,
+    };
+  }
+}
 
 /** Confirm an App Store Connect write unless --yes was supplied. */
-const confirmOffersWrite = (
-  mutationCount: number,
-  assumeYes: boolean,
-): Effect.Effect<boolean, OffersCommandFailure, LaunchPromptService | Terminal.Terminal> =>
-  Effect.gen(function* () {
-    if (assumeYes) return true;
-    const terminal = yield* Terminal.Terminal;
-    if (!(yield* terminal.isTTY)) {
-      return yield* Effect.fail(
-        offersFailure(
-          'confirm offers write',
-          'confirmation-required',
-          'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
-        ),
-      );
+async function confirmOffersWrite(mutationCount: number, assumeYes: boolean): Promise<boolean> {
+  const skipsConfirmation = assumeYes == true;
+
+  if (skipsConfirmation) {
+    return true;
+  }
+
+  const isInteractive = checkTerminalIsInteractive();
+
+  if (isInteractive == false) {
+    throw offersFailure(
+      'confirm offers write',
+      'confirmation-required',
+      'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+    );
+  }
+
+  let confirmed = false;
+
+  try {
+    confirmed = await LaunchPrompt.confirm(
+      `Apply ${mutationCount} offer change(s) to App Store Connect?`,
+    );
+  } catch (cause) {
+    throw offersFailure('confirm offers write', cause);
+  }
+
+  if (confirmed) {
+    return true;
+  }
+
+  LaunchPrompt.cancel('Aborted - no changes made.');
+  return false;
+}
+
+async function mapWithConcurrency<Member, Mapped>(
+  members: readonly Member[],
+  concurrency: number,
+  mapMember: (member: Member) => Promise<Mapped>,
+): Promise<Mapped[]> {
+  const mappedMembers: Mapped[] = new Array(members.length);
+  let nextIndex = 0;
+
+  async function runWorker(): Promise<void> {
+    while (nextIndex < members.length) {
+      const memberIndex = nextIndex;
+      nextIndex += 1;
+      const member = members[memberIndex];
+      const isMemberMissing = member == null;
+
+      if (isMemberMissing) {
+        continue;
+      }
+
+      mappedMembers[memberIndex] = await mapMember(member);
     }
-    const prompt = yield* LaunchPrompt;
-    const confirmed = yield* prompt
-      .confirm(`Apply ${mutationCount} offer change(s) to App Store Connect?`)
-      .pipe(Effect.mapError((cause) => offersFailure('confirm offers write', cause)));
-    if (confirmed) return true;
-    yield* prompt.cancel('Aborted - no changes made.');
-    return false;
-  });
+  }
+
+  const workerCount = Math.min(concurrency, members.length);
+  const workers: Promise<void>[] = [];
+
+  for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
+    workers.push(runWorker());
+  }
+
+  await Promise.all(workers);
+  return mappedMembers;
+}
+
+function countPlannedActions(plannedActions: readonly PlannedAction[]): number {
+  let plannedCount = 0;
+
+  for (const plannedAction of plannedActions) {
+    const isPlanned = plannedAction.status == 'planned';
+
+    if (isPlanned) {
+      plannedCount += 1;
+    }
+  }
+
+  return plannedCount;
+}
+
+function hasPlannedAction(plannedActions: readonly PlannedAction[]): boolean {
+  for (const plannedAction of plannedActions) {
+    const isPlanned = plannedAction.status == 'planned';
+
+    if (isPlanned) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /** Plan, confirm, and apply declared offers across selected apps. */
-const executeOffersReconcile = (
-  commandInput: OffersReconcileInput,
-): Effect.Effect<number, OffersCommandFailure, OffersCommandRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const offersJobs = yield* resolveOffersJobs(commandInput.app);
-    if (offersJobs.length === 0) {
-      yield* logger.note(
+async function executeOffersReconcile(commandInput: OffersReconcileInput): Promise<number> {
+  try {
+    const logger = createLogger(false);
+    const offersJobs = await resolveOffersJobs(commandInput.app);
+    const hasNoJobs = offersJobs.length == 0;
+
+    if (hasNoJobs) {
+      logger.note(
         'Nothing to reconcile - no app declares offers or promoted purchases. Add them under `products`.',
       );
       return 0;
     }
-    const appleStore = yield* loadActiveAppleStore().pipe(
-      Effect.mapError((cause) => offersFailure('load App Store Connect client', cause)),
-    );
-    const planOutcomes = yield* Effect.forEach(
-      offersJobs,
-      (offersJob) => reconcileOffersJob(appleStore, offersJob, true),
-      { concurrency: 4 },
-    );
+
+    let appleStore: AppStoreConnectClient;
+
+    try {
+      appleStore = await loadActiveAppleStore();
+    } catch (cause) {
+      throw offersFailure('load App Store Connect client', cause);
+    }
+
+    const offerJobConcurrency = 4;
+
+    async function planOffersJob(offersJob: OffersJob): Promise<OffersJobOutcome> {
+      return reconcileOffersJob(appleStore, offersJob, true);
+    }
+
+    const planOutcomes = await mapWithConcurrency(offersJobs, offerJobConcurrency, planOffersJob);
     let mutationCount = 0;
     let planFailureCount = 0;
-    yield* logger.gap();
+    logger.gap();
+
     for (const planOutcome of planOutcomes) {
-      if (planOutcome._tag === 'OffersJobFailed') {
+      const isPlanFailed = planOutcome._tag == 'OffersJobFailed';
+
+      if (isPlanFailed) {
         planFailureCount += 1;
-        yield* logger.error(
+        logger.error(
           `${planOutcome.job.app.name} (${planOutcome.job.bundleId}): ${planOutcome.message}`,
         );
         continue;
       }
+
       const plannedActions = planOutcome.report.actions;
-      mutationCount += plannedActions.filter(
-        (plannedAction) => plannedAction.status === 'planned',
-      ).length;
-      if (plannedActions.length === 0) {
-        yield* logger.step(planOutcome.job.app.name, 'offers already in sync');
+      mutationCount += countPlannedActions(plannedActions);
+      const isAlreadyInSync = plannedActions.length == 0;
+
+      if (isAlreadyInSync) {
+        logger.step(planOutcome.job.app.name, 'offers already in sync');
         continue;
       }
-      yield* logger.notice(
-        `${planOutcome.job.app.name} (${planOutcome.job.bundleId})`,
-        ...plannedActions.map(renderOfferAction),
-      );
+
+      const actionLines: string[] = [];
+
+      for (const plannedAction of plannedActions) {
+        actionLines.push(renderOfferAction(plannedAction));
+      }
+
+      logger.notice(`${planOutcome.job.app.name} (${planOutcome.job.bundleId})`, ...actionLines);
     }
-    if (mutationCount === 0) {
-      yield* logger.gap();
-      if (planFailureCount > 0) {
-        yield* logger.error(`${planFailureCount} app(s) could not be planned (see above).`);
+
+    const hasNoMutations = mutationCount == 0;
+
+    if (hasNoMutations) {
+      logger.gap();
+      const hasPlanFailures = planFailureCount > 0;
+
+      if (hasPlanFailures) {
+        logger.error(`${planFailureCount} app(s) could not be planned (see above).`);
         return planFailureCount;
       }
-      yield* logger.step('offers', 'everything is already in sync');
+
+      logger.step('offers', 'everything is already in sync');
       return 0;
     }
-    yield* logger.gap();
-    yield* logger.note(`${mutationCount} change(s) across ${offersJobs.length} app(s).`);
-    if (commandInput.dryRun) {
-      yield* logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+
+    logger.gap();
+    logger.note(`${mutationCount} change(s) across ${offersJobs.length} app(s).`);
+    const isDryRun = commandInput.dryRun == true;
+
+    if (isDryRun) {
+      logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
       return planFailureCount;
     }
-    const confirmed = yield* confirmOffersWrite(mutationCount, commandInput.yes);
-    if (!confirmed) return planFailureCount;
+
+    const confirmed = await confirmOffersWrite(mutationCount, commandInput.yes);
+
+    if (confirmed == false) {
+      return planFailureCount;
+    }
+
     const jobsToApply: OffersJob[] = [];
+
     for (const planOutcome of planOutcomes) {
-      if (planOutcome._tag === 'OffersJobFailed') continue;
-      if (planOutcome.report.actions.some((plannedAction) => plannedAction.status === 'planned')) {
+      const isPlanFailed = planOutcome._tag == 'OffersJobFailed';
+
+      if (isPlanFailed) {
+        continue;
+      }
+
+      const shouldApply = hasPlannedAction(planOutcome.report.actions);
+
+      if (shouldApply) {
         jobsToApply.push(planOutcome.job);
       }
     }
-    const applyOutcomes = yield* Effect.forEach(
+
+    async function applyOffersJob(offersJob: OffersJob): Promise<OffersJobOutcome> {
+      return reconcileOffersJob(appleStore, offersJob, false);
+    }
+
+    const applyOutcomes = await mapWithConcurrency(
       jobsToApply,
-      (offersJob) => reconcileOffersJob(appleStore, offersJob, false),
-      { concurrency: 4 },
+      offerJobConcurrency,
+      applyOffersJob,
     );
     let failureCount = planFailureCount;
     const receiptLines: string[] = [];
+
     for (const applyOutcome of applyOutcomes) {
-      if (applyOutcome._tag === 'OffersJobFailed') {
+      const isApplyFailed = applyOutcome._tag == 'OffersJobFailed';
+
+      if (isApplyFailed) {
         failureCount += 1;
         receiptLines.push(`x ${applyOutcome.job.app.name}: ${applyOutcome.message}`);
         continue;
       }
+
       const offersSummary = summarize(applyOutcome.report.actions);
       failureCount += offersSummary.failed;
       let receiptStatus = 'OK';
-      if (offersSummary.failed > 0) receiptStatus = 'x';
+      const hasFailedActions = offersSummary.failed > 0;
+
+      if (hasFailedActions) {
+        receiptStatus = 'x';
+      }
+
       receiptLines.push(
         `${receiptStatus} ${applyOutcome.job.app.name}: ${offersSummary.applied} applied, ${offersSummary.failed} failed, ${offersSummary.skipped} skipped`,
       );
+
       for (const appliedAction of applyOutcome.report.actions) {
-        if (appliedAction.status !== 'failed') continue;
+        const isFailedAction = appliedAction.status == 'failed';
+
+        if (isFailedAction == false) {
+          continue;
+        }
+
         let failureText = 'failed';
-        if (appliedAction.error !== undefined) failureText = appliedAction.error;
+        const actionError = appliedAction.error;
+        const hasActionError = actionError != null;
+
+        if (hasActionError) {
+          failureText = actionError;
+        }
+
         receiptLines.push(`    x ${appliedAction.description} - ${failureText}`);
       }
     }
+
     let receiptTitle = 'Offers synced';
-    if (failureCount > 0) receiptTitle = 'Offers synced with errors';
-    yield* logger.box(receiptTitle, receiptLines);
+    const hasFailures = failureCount > 0;
+
+    if (hasFailures) {
+      receiptTitle = 'Offers synced with errors';
+    }
+
+    logger.box(receiptTitle, receiptLines);
     return failureCount;
-  }).pipe(Effect.mapError((cause) => offersFailure('reconcile offers', cause)));
+  } catch (cause) {
+    throw offersFailure('reconcile offers', cause);
+  }
+}
+
+function appleAppNames(appleApps: readonly AppleAppChoice[]): string {
+  const names: string[] = [];
+
+  for (const appleApp of appleApps) {
+    names.push(appleApp.app.name);
+  }
+
+  return names.join(', ');
+}
+
+function readOnlyAppleApp(appleApps: readonly AppleAppChoice[]): AppleAppChoice | null {
+  const isOnlyApp = appleApps.length == 1;
+
+  if (isOnlyApp == false) {
+    return null;
+  }
+
+  const onlyApp = appleApps[0];
+
+  if (onlyApp == null) {
+    return null;
+  }
+
+  return onlyApp;
+}
 
 /** Pick the explicit app, or the only app with an iOS bundle identifier. */
-const pickSubscriptionApp = (
+function pickSubscriptionApp(
   apps: AppDescriptor[],
   appSelector: string | undefined,
-): Effect.Effect<Readonly<{ app: AppDescriptor; bundleId: string }>, OffersCommandFailure> => {
-  const appleApps: Array<Readonly<{ app: AppDescriptor; bundleId: string }>> = [];
+): AppleAppChoice {
+  const appleApps: AppleAppChoice[] = [];
+
   for (const discoveredApp of apps) {
-    if (discoveredApp.bundleId !== undefined) {
-      appleApps.push({ app: discoveredApp, bundleId: discoveredApp.bundleId });
+    const bundleId = discoveredApp.bundleId;
+    const hasBundleId = bundleId != null;
+
+    if (hasBundleId) {
+      appleApps.push({ app: discoveredApp, bundleId });
     }
   }
-  if (appSelector !== undefined) {
-    const selectedApp = appleApps.find((appleApp) => appleApp.app.name === appSelector);
-    if (selectedApp !== undefined) return Effect.succeed(selectedApp);
-    return Effect.fail(
-      offersFailure(
-        'select offer-code app',
-        appSelector,
-        `Unknown app "${appSelector}". Discovered: ${appleApps
-          .map((appleApp) => appleApp.app.name)
-          .join(', ')}.`,
-      ),
+
+  const hasSelector = appSelector != null;
+
+  if (hasSelector) {
+    let selectedApp: AppleAppChoice | null = null;
+
+    for (const appleApp of appleApps) {
+      const nameMatches = appleApp.app.name == appSelector;
+
+      if (nameMatches) {
+        selectedApp = appleApp;
+      }
+    }
+
+    const chosenApp = selectedApp;
+    const hasSelectedApp = chosenApp != null;
+
+    if (hasSelectedApp) {
+      return chosenApp;
+    }
+
+    throw offersFailure(
+      'select offer-code app',
+      appSelector,
+      `Unknown app "${appSelector}". Discovered: ${appleAppNames(appleApps)}.`,
     );
   }
-  const onlyApp = appleApps[0];
-  if (appleApps.length === 1 && onlyApp !== undefined) return Effect.succeed(onlyApp);
-  return Effect.fail(
-    offersFailure(
-      'select offer-code app',
-      appleApps,
-      `Several apps found - pass --app <name> (one of: ${appleApps
-        .map((appleApp) => appleApp.app.name)
-        .join(', ')}).`,
-    ),
+
+  const onlyApp = readOnlyAppleApp(appleApps);
+  const hasOnlyApp = onlyApp != null;
+
+  if (hasOnlyApp) {
+    return onlyApp;
+  }
+
+  throw offersFailure(
+    'select offer-code app',
+    appleApps,
+    `Several apps found - pass --app <name> (one of: ${appleAppNames(appleApps)}).`,
   );
-};
+}
 
 /** Resolve an App Store subscription id for an imperative offer-code command. */
-const resolveSubscription = (
+async function resolveSubscription(
   appSelector: string | undefined,
   productId: string,
-): Effect.Effect<ResolvedSubscription, OffersCommandFailure, OffersCommandRequirements> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory).pipe(
-      Effect.mapError((cause) => offersFailure('load offer-code configuration', cause)),
+): Promise<ResolvedSubscription> {
+  const launchPaths = readLaunchDirectories();
+  let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;
+
+  try {
+    loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+  } catch (cause) {
+    throw offersFailure('load offer-code configuration', cause);
+  }
+
+  const selectedApp = pickSubscriptionApp(loadedConfiguration.apps, appSelector);
+  let appleStore: AppStoreConnectClient;
+
+  try {
+    appleStore = await loadActiveAppleStore();
+  } catch (cause) {
+    throw offersFailure('load App Store Connect client', cause);
+  }
+
+  let appId: string | null;
+
+  try {
+    appId = await appleStore.getAppId(selectedApp.bundleId);
+  } catch (cause) {
+    throw offersFailure('find App Store Connect app', cause);
+  }
+
+  const foundAppId = appId;
+  const isAppMissing = foundAppId == null;
+
+  if (isAppMissing) {
+    throw offersFailure(
+      'find App Store Connect app',
+      selectedApp.bundleId,
+      `No App Store Connect app record for ${selectedApp.bundleId}.`,
     );
-    const selectedApp = yield* pickSubscriptionApp(loadedConfiguration.apps, appSelector);
-    const appleStore = yield* loadActiveAppleStore().pipe(
-      Effect.mapError((cause) => offersFailure('load App Store Connect client', cause)),
-    );
-    const appId = yield* appleStore
-      .getAppId(selectedApp.bundleId)
-      .pipe(Effect.mapError((cause) => offersFailure('find App Store Connect app', cause)));
-    if (appId === null) {
-      return yield* Effect.fail(
-        offersFailure(
-          'find App Store Connect app',
-          selectedApp.bundleId,
-          `No App Store Connect app record for ${selectedApp.bundleId}.`,
-        ),
-      );
+  }
+
+  try {
+    var subscriptionGroups = await appleStore.listSubscriptionGroups(foundAppId);
+  } catch (cause) {
+    throw offersFailure('list subscription groups', cause);
+  }
+
+  for (const subscriptionGroup of subscriptionGroups) {
+    try {
+      var subscriptions = await appleStore.listSubscriptions(subscriptionGroup.id);
+    } catch (cause) {
+      throw offersFailure('list subscriptions', cause);
     }
-    const subscriptionGroups = yield* appleStore
-      .listSubscriptionGroups(appId)
-      .pipe(Effect.mapError((cause) => offersFailure('list subscription groups', cause)));
-    for (const subscriptionGroup of subscriptionGroups) {
-      const subscriptions = yield* appleStore
-        .listSubscriptions(subscriptionGroup.id)
-        .pipe(Effect.mapError((cause) => offersFailure('list subscriptions', cause)));
-      const matchingSubscription = subscriptions.find(
-        (subscription) => subscription.productId === productId,
-      );
-      if (matchingSubscription !== undefined) {
+
+    for (const subscription of subscriptions) {
+      const productMatches = subscription.productId == productId;
+
+      if (productMatches) {
         return {
           appleStore,
           appName: selectedApp.app.name,
-          subscriptionId: matchingSubscription.id,
+          subscriptionId: subscription.id,
         };
       }
     }
-    return yield* Effect.fail(
-      offersFailure(
-        'find subscription',
-        productId,
-        `No subscription ${productId} in App Store Connect for ${selectedApp.app.name}.`,
-      ),
-    );
-  });
+  }
+
+  throw offersFailure(
+    'find subscription',
+    productId,
+    `No subscription ${productId} in App Store Connect for ${selectedApp.app.name}.`,
+  );
+}
 
 /** Find an offer-code campaign by its configured name. */
-const findOfferCode = (
+async function findOfferCode(
   resolvedSubscription: ResolvedSubscription,
   productId: string,
   offerName: string,
-) =>
-  resolvedSubscription.appleStore
-    .listSubscriptionOfferCodes(resolvedSubscription.subscriptionId)
-    .pipe(
-      Effect.mapError((cause) => offersFailure('list offer-code campaigns', cause)),
-      Effect.flatMap((offerCodes) => {
-        const matchingOfferCode = offerCodes.find((offerCode) => offerCode.name === offerName);
-        if (matchingOfferCode !== undefined) return Effect.succeed(matchingOfferCode);
-        return Effect.fail(
-          offersFailure(
-            'find offer-code campaign',
-            offerName,
-            `No offer code named "${offerName}" on ${productId} (${resolvedSubscription.appName}).`,
-          ),
-        );
-      }),
+): Promise<OfferCodeResource> {
+  let offerCodes: OfferCodeResource[];
+
+  try {
+    offerCodes = await resolvedSubscription.appleStore.listSubscriptionOfferCodes(
+      resolvedSubscription.subscriptionId,
     );
+  } catch (cause) {
+    throw offersFailure('list offer-code campaigns', cause);
+  }
+
+  let matchingOfferCode: OfferCodeResource | null = null;
+
+  for (const offerCode of offerCodes) {
+    const nameMatches = offerCode.name == offerName;
+
+    if (nameMatches) {
+      matchingOfferCode = offerCode;
+    }
+  }
+
+  const foundOfferCode = matchingOfferCode;
+  const isOfferMissing = foundOfferCode == null;
+
+  if (isOfferMissing) {
+    throw offersFailure(
+      'find offer-code campaign',
+      offerName,
+      `No offer code named "${offerName}" on ${productId} (${resolvedSubscription.appName}).`,
+    );
+  }
+
+  return foundOfferCode;
+}
+
+function isInvalidCodeCount(codeCount: number): boolean {
+  const isWholeNumber = Number.isInteger(codeCount);
+
+  if (isWholeNumber == false) {
+    return true;
+  }
+
+  return codeCount < 1;
+}
 
 /** Generate custom or one-time-use redeemable codes. */
-const executeGenerateCodes = (
-  commandInput: OffersGenerateCodesInput,
-): Effect.Effect<void, OffersCommandFailure, OffersCommandRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
+async function executeGenerateCodes(commandInput: OffersGenerateCodesInput): Promise<void> {
+  try {
+    const logger = createLogger(false);
     const codeCount = Number.parseInt(commandInput.count, 10);
-    let countIsInvalid = !Number.isInteger(codeCount);
-    if (codeCount < 1) countIsInvalid = true;
+    const countIsInvalid = isInvalidCodeCount(codeCount);
+
     if (countIsInvalid) {
-      return yield* Effect.fail(
-        offersFailure(
-          'validate offer code count',
-          commandInput.count,
-          '--count must be a positive integer.',
-        ),
+      throw offersFailure(
+        'validate offer code count',
+        commandInput.count,
+        '--count must be a positive integer.',
       );
     }
-    const resolvedSubscription = yield* resolveSubscription(
+
+    const resolvedSubscription = await resolveSubscription(
       commandInput.app,
       commandInput.productId,
     );
-    const offerCode = yield* findOfferCode(
+    const offerCode = await findOfferCode(
       resolvedSubscription,
       commandInput.productId,
       commandInput.offerName,
     );
-    if (commandInput.custom !== undefined) {
-      yield* resolvedSubscription.appleStore
-        .createOfferCodeCustomCode(
+    const customCode = commandInput.custom;
+    const hasCustomCode = customCode != null;
+
+    if (hasCustomCode) {
+      try {
+        await resolvedSubscription.appleStore.createOfferCodeCustomCode(
           offerCode.id,
-          commandInput.custom,
+          customCode,
           codeCount,
           commandInput.expires,
-        )
-        .pipe(Effect.mapError((cause) => offersFailure('create custom offer code', cause)));
-      yield* logger.step(
+        );
+      } catch (cause) {
+        throw offersFailure('create custom offer code', cause);
+      }
+
+      logger.step(
         'offers',
-        `created custom code "${commandInput.custom}" (${codeCount} uses) on "${commandInput.offerName}"`,
+        `created custom code "${customCode}" (${codeCount} uses) on "${commandInput.offerName}"`,
       );
       return;
     }
-    const missingExpirationFailure = offersFailure(
-      'validate one-time offer codes',
-      commandInput,
-      'One-time-use codes need an expiration date: --expires YYYY-MM-DD.',
-    );
-    if (commandInput.expires === undefined) {
-      return yield* Effect.fail(missingExpirationFailure);
-    }
+
     const expirationDate = commandInput.expires;
-    if (expirationDate.length === 0) return yield* Effect.fail(missingExpirationFailure);
-    yield* resolvedSubscription.appleStore
-      .createOfferCodeOneTimeUseBatch(offerCode.id, codeCount, expirationDate)
-      .pipe(Effect.mapError((cause) => offersFailure('create one-time offer codes', cause)));
-    yield* logger.step(
+    const isExpirationMissing = expirationDate == null;
+
+    if (isExpirationMissing) {
+      throw offersFailure(
+        'validate one-time offer codes',
+        commandInput,
+        'One-time-use codes need an expiration date: --expires YYYY-MM-DD.',
+      );
+    }
+
+    const isExpirationBlank = expirationDate.length == 0;
+
+    if (isExpirationBlank) {
+      throw offersFailure(
+        'validate one-time offer codes',
+        commandInput,
+        'One-time-use codes need an expiration date: --expires YYYY-MM-DD.',
+      );
+    }
+
+    try {
+      await resolvedSubscription.appleStore.createOfferCodeOneTimeUseBatch(
+        offerCode.id,
+        codeCount,
+        expirationDate,
+      );
+    } catch (cause) {
+      throw offersFailure('create one-time offer codes', cause);
+    }
+
+    logger.step(
       'offers',
       `generated ${codeCount} one-time-use code(s) on "${commandInput.offerName}" (expire ${expirationDate})`,
     );
-  }).pipe(Effect.mapError((cause) => offersFailure('generate offer codes', cause)));
+  } catch (cause) {
+    throw offersFailure('generate offer codes', cause);
+  }
+}
 
 /** List a subscription's offer-code campaigns. */
-const executeListOfferCodes = (
-  commandInput: OffersListInput,
-): Effect.Effect<void, OffersCommandFailure, OffersCommandRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const resolvedSubscription = yield* resolveSubscription(
+async function executeListOfferCodes(commandInput: OffersListInput): Promise<void> {
+  try {
+    const logger = createLogger(false);
+    const resolvedSubscription = await resolveSubscription(
       commandInput.app,
       commandInput.productId,
     );
-    const offerCodes = yield* resolvedSubscription.appleStore
-      .listSubscriptionOfferCodes(resolvedSubscription.subscriptionId)
-      .pipe(Effect.mapError((cause) => offersFailure('list offer-code campaigns', cause)));
-    if (offerCodes.length === 0) {
-      yield* logger.note(
-        `No offer codes on ${commandInput.productId} (${resolvedSubscription.appName}).`,
+    let offerCodes: OfferCodeResource[];
+
+    try {
+      offerCodes = await resolvedSubscription.appleStore.listSubscriptionOfferCodes(
+        resolvedSubscription.subscriptionId,
       );
+    } catch (cause) {
+      throw offersFailure('list offer-code campaigns', cause);
+    }
+
+    const hasNoOfferCodes = offerCodes.length == 0;
+
+    if (hasNoOfferCodes) {
+      logger.note(`No offer codes on ${commandInput.productId} (${resolvedSubscription.appName}).`);
       return;
     }
-    yield* logger.notice(
+
+    const offerLines: string[] = [];
+
+    for (const offerCode of offerCodes) {
+      offerLines.push(renderOfferCodeState(offerCode));
+    }
+
+    logger.notice(
       `Offer codes - ${commandInput.productId} (${resolvedSubscription.appName})`,
-      ...offerCodes.map(renderOfferCodeState),
+      ...offerLines,
     );
-  }).pipe(Effect.mapError((cause) => offersFailure('list offer codes', cause)));
+  } catch (cause) {
+    throw offersFailure('list offer codes', cause);
+  }
+}
 
 /** Deactivate one offer-code campaign. */
-const executeDeactivateOfferCode = (
-  commandInput: OffersDeactivateInput,
-): Effect.Effect<void, OffersCommandFailure, OffersCommandRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const resolvedSubscription = yield* resolveSubscription(
+async function executeDeactivateOfferCode(commandInput: OffersDeactivateInput): Promise<void> {
+  try {
+    const logger = createLogger(false);
+    const resolvedSubscription = await resolveSubscription(
       commandInput.app,
       commandInput.productId,
     );
-    const offerCode = yield* findOfferCode(
+    const offerCode = await findOfferCode(
       resolvedSubscription,
       commandInput.productId,
       commandInput.offerName,
     );
-    yield* resolvedSubscription.appleStore
-      .deactivateOfferCode(offerCode.id)
-      .pipe(Effect.mapError((cause) => offersFailure('deactivate offer-code campaign', cause)));
-    yield* logger.step(
+
+    try {
+      await resolvedSubscription.appleStore.deactivateOfferCode(offerCode.id);
+    } catch (cause) {
+      throw offersFailure('deactivate offer-code campaign', cause);
+    }
+
+    logger.step(
       'offers',
       `deactivated offer code "${commandInput.offerName}" on ${commandInput.productId}`,
     );
-  }).pipe(Effect.mapError((cause) => offersFailure('deactivate offer code', cause)));
+  } catch (cause) {
+    throw offersFailure('deactivate offer code', cause);
+  }
+}
 
 /** Decode and run the selected offers command operation. */
-const executeOffersCommand = (
-  rawCommandInput: unknown,
-): Effect.Effect<number, OffersCommandFailure, OffersCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(OffersCommandInputSchema)(
-      rawCommandInput,
-    ).pipe(Effect.mapError((cause) => offersFailure('decode offers command input', cause)));
-    switch (commandInput.operation) {
-      case 'reconcile':
-        return yield* executeOffersReconcile(commandInput);
-      case 'generate-codes':
-        yield* executeGenerateCodes(commandInput);
-        return 0;
-      case 'list':
-        yield* executeListOfferCodes(commandInput);
-        return 0;
-      case 'deactivate':
-        yield* executeDeactivateOfferCode(commandInput);
-        return 0;
+async function executeOffersCommand(rawCommandInput: unknown): Promise<number> {
+  try {
+    let commandInput: OffersCommandInput;
+
+    try {
+      commandInput = OffersCommandInputSchema(rawCommandInput);
+    } catch (cause) {
+      throw offersFailure('decode offers command input', cause);
     }
-  }).pipe(Effect.mapError((cause) => offersFailure('run offers command', cause)));
+
+    if (commandInput.operation == 'reconcile') {
+      return await executeOffersReconcile(commandInput);
+    }
+
+    if (commandInput.operation == 'generate-codes') {
+      await executeGenerateCodes(commandInput);
+      return 0;
+    }
+
+    if (commandInput.operation == 'list') {
+      await executeListOfferCodes(commandInput);
+      return 0;
+    }
+
+    await executeDeactivateOfferCode(commandInput);
+    return 0;
+  } catch (cause) {
+    throw offersFailure('run offers command', cause);
+  }
+}
 
 /** Run a schema-decoded offers operation. */
-export const offersCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, CommandExit | OffersCommandFailure, OffersCommandRequirements> =>
-  Effect.gen(function* () {
-    const failureCount = yield* executeOffersCommand(rawCommandInput);
-    if (failureCount > 0) yield* completeCommand(1);
-  });
+export async function offersCommandProgram(rawCommandInput: unknown): Promise<void> {
+  const failureCount = await executeOffersCommand(rawCommandInput);
+  const hasFailures = failureCount > 0;
+
+  if (hasFailures) {
+    completeCommand(1);
+  }
+}

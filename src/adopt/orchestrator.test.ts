@@ -1,8 +1,6 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdoptCatalogApi, AdoptTarget, Adopter, PlannedWrite } from '../types/adopt.js';
 import type { AppDescriptor } from '../types/app.js';
@@ -17,42 +15,79 @@ import {
   type TargetPlan,
 } from './orchestrator.js';
 
-/** Empty catalog fake; override only the reads a scenario needs. */
-const emptyAdoptCatalog = (overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi => {
-  const baseCatalog: AdoptCatalogApi = {
-    getAppId: () => Effect.succeed('app1'),
-    getLatestMarketingVersion: () => Effect.succeed('2.1'),
-    getLatestBuildNumber: () => Effect.succeed(12),
-    findBundleId: () => Effect.succeed(null),
-    listBundleIdCapabilities: () => Effect.succeed([]),
-    listProfilesForBundleId: () => Effect.succeed([]),
-    listMerchantIds: () => Effect.succeed([]),
-    listInAppPurchases: () => Effect.succeed([]),
-    listInAppPurchaseLocalizations: () => Effect.succeed([]),
-    inAppPurchaseHasPrice: () => Effect.succeed(false),
-    listSubscriptionGroups: () => Effect.succeed([]),
-    listSubscriptionGroupLocalizations: () => Effect.succeed([]),
-    listSubscriptions: () => Effect.succeed([]),
-    listSubscriptionLocalizations: () => Effect.succeed([]),
-    subscriptionHasPrice: () => Effect.succeed(false),
-    listDistributionCertificates: () => Effect.succeed([]),
-  };
-  return { ...baseCatalog, ...overrides };
-};
+function ready<Value>(value: Value): Promise<Value> {
+  return Promise.resolve(value);
+}
 
-const appDescriptor = (
+/** Empty catalog fake; override only the reads a scenario needs. */
+function emptyAdoptCatalog(overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi {
+  const baseCatalog = {
+    getAppId() {
+      return ready('app1');
+    },
+    getLatestMarketingVersion() {
+      return ready('2.1');
+    },
+    getLatestBuildNumber() {
+      return ready(12);
+    },
+    findBundleId() {
+      return ready(null);
+    },
+    listBundleIdCapabilities() {
+      return ready([]);
+    },
+    listProfilesForBundleId() {
+      return ready([]);
+    },
+    listMerchantIds() {
+      return ready([]);
+    },
+    listInAppPurchases() {
+      return ready([]);
+    },
+    listInAppPurchaseLocalizations() {
+      return ready([]);
+    },
+    inAppPurchaseHasPrice() {
+      return ready(false);
+    },
+    listSubscriptionGroups() {
+      return ready([]);
+    },
+    listSubscriptionGroupLocalizations() {
+      return ready([]);
+    },
+    listSubscriptions() {
+      return ready([]);
+    },
+    listSubscriptionLocalizations() {
+      return ready([]);
+    },
+    subscriptionHasPrice() {
+      return ready(false);
+    },
+    listDistributionCertificates() {
+      return ready([]);
+    },
+  };
+
+  return { ...baseCatalog, ...overrides } as AdoptCatalogApi;
+}
+
+function appDescriptor(
   name: string,
   bundleId?: string,
   configPath = `/repo/${name}/app.json`,
-): AppDescriptor => {
+): AppDescriptor {
   const descriptor: AppDescriptor = { name, dir: `/repo/${name}`, configPath };
-  if (bundleId !== undefined) descriptor.bundleId = bundleId;
-  return descriptor;
-};
 
-/** Run local adopt writes with Effect Platform's Node filesystem and path services. */
-const runApplyAdopt = (plans: TargetPlan[], applyContext: ApplyContext) =>
-  Effect.runPromise(applyAdopt(plans, applyContext).pipe(Effect.provide(NodeContext.layer)));
+  if (bundleId != null) {
+    descriptor.bundleId = bundleId;
+  }
+
+  return descriptor;
+}
 
 describe('describeAdoptSignal', () => {
   it('joins live version and build count, with singular build label', () => {
@@ -67,30 +102,35 @@ describe('describeAdoptSignal', () => {
 describe('detectTargets', () => {
   it('separates apps with a live record from those skipped, with a confirming signal', async () => {
     const appleCatalog = emptyAdoptCatalog({
-      getAppId: (bundleId: string) => {
-        if (bundleId === 'com.acme.good') return Effect.succeed('app-good');
-        return Effect.succeed(null);
+      getAppId(bundleId: string) {
+        if (bundleId == 'com.acme.good') {
+          return ready('app-good');
+        }
+
+        return ready(null);
       },
     });
-    const detection = await Effect.runPromise(
-      detectTargets(
-        appleCatalog,
-        [
-          appDescriptor('good', 'com.acme.good'),
-          appDescriptor('norec', 'com.acme.norec'),
-          appDescriptor('android'),
-        ],
-        {
-          keyId: 'K',
-          cwd: '/repo',
-          hasLaunchConfig: false,
-        },
-      ),
+    const detection = await detectTargets(
+      appleCatalog,
+      [
+        appDescriptor('good', 'com.acme.good'),
+        appDescriptor('norec', 'com.acme.norec'),
+        appDescriptor('android'),
+      ],
+      {
+        keyId: 'K',
+        cwd: '/repo',
+        hasLaunchConfig: false,
+      },
     );
     expect(detection.detected).toHaveLength(1);
     const detectedApp = detection.detected[0];
     expect(detectedApp).toBeDefined();
-    if (detectedApp === undefined) return;
+
+    if (detectedApp == null) {
+      return;
+    }
+
     expect(detectedApp.signal).toBe('v2.1 live - 12 builds');
     expect(detection.skipped.map((skipped) => `${skipped.app.name}: ${skipped.reason}`)).toEqual([
       'android: no iOS bundle id',
@@ -104,19 +144,22 @@ describe('planTargets', () => {
     const goodAdopter: Adopter = {
       domain: 'good',
       fidelity: 'importable',
-      read: () =>
-        Effect.succeed([
+      async read() {
+        return [
           {
             description: 'did a thing',
             fidelity: 'importable',
             change: { home: 'keychain' },
           } satisfies PlannedWrite,
-        ]),
+        ];
+      },
     };
     const badAdopter: Adopter = {
       domain: 'bad',
       fidelity: 'detect',
-      read: () => Effect.fail(new Error('boom')),
+      async read() {
+        throw new Error('boom');
+      },
     };
     const detection = {
       detected: [
@@ -134,11 +177,16 @@ describe('planTargets', () => {
       ],
       skipped: [],
     };
-    const [targetPlan] = await Effect.runPromise(
-      planTargets(emptyAdoptCatalog(), detection, [goodAdopter, badAdopter]),
-    );
+    const [targetPlan] = await planTargets(emptyAdoptCatalog(), detection, [
+      goodAdopter,
+      badAdopter,
+    ]);
     expect(targetPlan).toBeDefined();
-    if (targetPlan === undefined) return;
+
+    if (targetPlan == null) {
+      return;
+    }
+
     expect(targetPlan.writes).toHaveLength(1);
     expect(targetPlan.errors).toEqual([{ domain: 'bad', message: 'boom' }]);
   });
@@ -192,9 +240,11 @@ describe('collectAdoptedProducts', () => {
 
 describe('applyAdopt', () => {
   let workspaceDir: string;
+
   beforeEach(() => {
     workspaceDir = mkdtempSync(join(tmpdir(), 'launch-adopt-test-'));
   });
+
   afterEach(() => {
     rmSync(workspaceDir, { recursive: true, force: true });
   });
@@ -206,11 +256,26 @@ describe('applyAdopt', () => {
     localizations: [{ locale: 'en-US', name: 'Coins' }],
   };
 
-  const plan = (target: AdoptTarget, writes: PlannedWrite[]): TargetPlan => ({
-    detected: { target, signal: 'x' },
-    writes,
-    errors: [],
-  });
+  function plan(target: AdoptTarget, writes: PlannedWrite[]): TargetPlan {
+    return {
+      detected: { target, signal: 'x' },
+      writes,
+      errors: [],
+    };
+  }
+
+  async function pullNothing(): Promise<void> {
+    return undefined;
+  }
+
+  function applyContext(pullListing: ApplyContext['pullListing']): ApplyContext {
+    return {
+      cwd: workspaceDir,
+      hasLaunchConfig: false,
+      appRoot: null,
+      pullListing,
+    };
+  }
 
   it('writes a fresh launch.config.ts with the imported products when the repo has none', async () => {
     const target: AdoptTarget = {
@@ -221,7 +286,7 @@ describe('applyAdopt', () => {
       cwd: workspaceDir,
       hasLaunchConfig: false,
     };
-    const adoptionSummary = await runApplyAdopt(
+    const adoptionSummary = await applyAdopt(
       [
         plan(target, [
           {
@@ -235,12 +300,7 @@ describe('applyAdopt', () => {
           },
         ]),
       ],
-      {
-        cwd: workspaceDir,
-        hasLaunchConfig: false,
-        appRoot: null,
-        pullListing: () => Effect.void,
-      },
+      applyContext(pullNothing),
     );
     expect(adoptionSummary.configWritten).toBe(join(workspaceDir, 'launch.config.ts'));
     const written = readFileSync(join(workspaceDir, 'launch.config.ts'), 'utf8');
@@ -257,7 +317,7 @@ describe('applyAdopt', () => {
       cwd: workspaceDir,
       hasLaunchConfig: true,
     };
-    const adoptionSummary = await runApplyAdopt(
+    const adoptionSummary = await applyAdopt(
       [
         plan(target, [
           {
@@ -275,7 +335,7 @@ describe('applyAdopt', () => {
         cwd: workspaceDir,
         hasLaunchConfig: true,
         appRoot: null,
-        pullListing: () => Effect.void,
+        pullListing: pullNothing,
       },
     );
     expect(adoptionSummary.configWritten).toBeUndefined();
@@ -296,7 +356,7 @@ describe('applyAdopt', () => {
       cwd: workspaceDir,
       hasLaunchConfig: true,
     };
-    const adoptionSummary = await runApplyAdopt(
+    const adoptionSummary = await applyAdopt(
       [
         plan(target, [
           {
@@ -310,23 +370,16 @@ describe('applyAdopt', () => {
         cwd: workspaceDir,
         hasLaunchConfig: true,
         appRoot: null,
-        pullListing: () => Effect.void,
+        pullListing: pullNothing,
       },
     );
     expect(adoptionSummary.appJsonPatched).toEqual([
       { app: 'acme', configPath, added: ['aps-environment'] },
     ]);
-    const PatchedConfigSchema = Schema.Struct({
-      expo: Schema.Struct({
-        ios: Schema.Struct({
-          entitlements: Schema.Record({ key: Schema.String, value: Schema.String }),
-        }),
-      }),
+    const patchedDocument: unknown = JSON.parse(readFileSync(configPath, 'utf8'));
+    expect(patchedDocument).toMatchObject({
+      expo: { ios: { entitlements: { 'aps-environment': 'production' } } },
     });
-    const patchedConfig = Schema.decodeUnknownSync(PatchedConfigSchema)(
-      JSON.parse(readFileSync(configPath, 'utf8')),
-    );
-    expect(patchedConfig.expo.ios.entitlements).toEqual({ 'aps-environment': 'production' });
   });
 
   it('prints a paste block (writes nothing) for a dynamic app.config.js', async () => {
@@ -339,7 +392,7 @@ describe('applyAdopt', () => {
       cwd: workspaceDir,
       hasLaunchConfig: true,
     };
-    const adoptionSummary = await runApplyAdopt(
+    const adoptionSummary = await applyAdopt(
       [
         plan(target, [
           {
@@ -353,14 +406,18 @@ describe('applyAdopt', () => {
         cwd: workspaceDir,
         hasLaunchConfig: true,
         appRoot: null,
-        pullListing: () => Effect.void,
+        pullListing: pullNothing,
       },
     );
     expect(adoptionSummary.appJsonPatched).toEqual([]);
     expect(adoptionSummary.appJsonBlocks).toHaveLength(1);
     const pasteBlock = adoptionSummary.appJsonBlocks[0];
     expect(pasteBlock).toBeDefined();
-    if (pasteBlock === undefined) return;
+
+    if (pasteBlock == null) {
+      return;
+    }
+
     expect(pasteBlock.block).toContain('aps-environment');
   });
 
@@ -386,8 +443,8 @@ describe('applyAdopt', () => {
         },
       },
     ];
-    const successfulPull = vi.fn(() => Effect.void);
-    const successfulAdoption = await runApplyAdopt([plan(target, writes)], {
+    const successfulPull = vi.fn(pullNothing);
+    const successfulAdoption = await applyAdopt([plan(target, writes)], {
       cwd: workspaceDir,
       hasLaunchConfig: true,
       appRoot: null,
@@ -395,8 +452,13 @@ describe('applyAdopt', () => {
     });
     expect(successfulPull).toHaveBeenCalledWith('com.acme.app', storeConfig);
     expect(successfulAdoption.listingsPulled).toEqual(['acme']);
-    const failedPull = vi.fn(() => Effect.fail(new Error('App Store Connect unreachable')));
-    const failedAdoption = await runApplyAdopt([plan(target, writes)], {
+
+    async function failPull(): Promise<void> {
+      throw new Error('App Store Connect unreachable');
+    }
+
+    const failedPull = vi.fn(failPull);
+    const failedAdoption = await applyAdopt([plan(target, writes)], {
       cwd: workspaceDir,
       hasLaunchConfig: true,
       appRoot: null,

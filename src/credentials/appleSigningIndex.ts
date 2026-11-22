@@ -1,11 +1,7 @@
-import { FileSystem, Path } from '@effect/platform';
-import type { CommandExecutor } from '@effect/platform/CommandExecutor';
-import { Data, Effect, Schema } from 'effect';
-import type { LaunchEnvironmentService } from '../services/platform/environment.js';
-import {
-  resolveAccountCredentialsDirectory,
-  type LaunchPathsService,
-} from '../services/platform/paths.js';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { pathExists } from '@/path-exists.js';
+import { resolveAccountCredentialsDirectory } from '@/services/platform/paths.js';
 
 /** Persisted record of the distribution certificate Launch created and backed up. */
 export type CertRecord = {
@@ -29,39 +25,9 @@ export type CredentialsIndex = {
   profiles: Record<string, ProfileRecord>;
 };
 
-export type AppleSigningPlatform =
-  | CommandExecutor
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | Path.Path;
-
-const CertRecordSchema: Schema.Schema<CertRecord> = Schema.mutable(
-  Schema.Struct({
-    id: Schema.String,
-    serial: Schema.String,
-    p12Path: Schema.String,
-  }),
-);
-
-const ProfileRecordSchema: Schema.Schema<ProfileRecord> = Schema.mutable(
-  Schema.Struct({
-    id: Schema.String,
-    uuid: Schema.String,
-    name: Schema.String,
-    path: Schema.String,
-    teamId: Schema.String,
-  }),
-);
-
-export const CredentialsIndexSchema: Schema.Schema<CredentialsIndex> = Schema.mutable(
-  Schema.Struct({
-    certificate: Schema.optionalWith(CertRecordSchema, { exact: true }),
-    profiles: Schema.mutable(Schema.Record({ key: Schema.String, value: ProfileRecordSchema })),
-  }),
-);
-
-const emptyCredentialsIndex = (): CredentialsIndex => ({ profiles: {} });
+function emptyCredentialsIndex(): CredentialsIndex {
+  return { profiles: {} };
+}
 
 export type AppleSigningFailure = Readonly<{
   readonly _tag: 'AppleSigningFailure';
@@ -69,46 +35,178 @@ export type AppleSigningFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeAppleSigningFailure = Data.tagged<AppleSigningFailure>('AppleSigningFailure');
+export function makeAppleSigningFailure(fields: {
+  message: string;
+  cause?: unknown;
+}): AppleSigningFailure {
+  if (fields.cause == null) {
+    return { _tag: 'AppleSigningFailure', message: fields.message };
+  }
+
+  return { _tag: 'AppleSigningFailure', message: fields.message, cause: fields.cause };
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return candidate != null;
+}
+
+function readRequiredString(document: Record<string, unknown>, fieldName: string): string | null {
+  const field = document[fieldName];
+
+  if (typeof field != 'string') {
+    return null;
+  }
+
+  return field;
+}
+
+function decodeCertRecord(candidate: unknown): CertRecord | null {
+  if (isRecord(candidate) == false) {
+    return null;
+  }
+
+  const id = readRequiredString(candidate, 'id');
+
+  if (id == null) {
+    return null;
+  }
+
+  const serial = readRequiredString(candidate, 'serial');
+
+  if (serial == null) {
+    return null;
+  }
+
+  const p12Path = readRequiredString(candidate, 'p12Path');
+
+  if (p12Path == null) {
+    return null;
+  }
+
+  return { id, serial, p12Path };
+}
+
+function decodeProfileRecord(candidate: unknown): ProfileRecord | null {
+  if (isRecord(candidate) == false) {
+    return null;
+  }
+
+  const id = readRequiredString(candidate, 'id');
+
+  if (id == null) {
+    return null;
+  }
+
+  const uuid = readRequiredString(candidate, 'uuid');
+
+  if (uuid == null) {
+    return null;
+  }
+
+  const name = readRequiredString(candidate, 'name');
+
+  if (name == null) {
+    return null;
+  }
+
+  const path = readRequiredString(candidate, 'path');
+
+  if (path == null) {
+    return null;
+  }
+
+  const teamId = readRequiredString(candidate, 'teamId');
+
+  if (teamId == null) {
+    return null;
+  }
+
+  return { id, uuid, name, path, teamId };
+}
+
+/** Decode an account signing index, or null when the document is not that shape. */
+export function decodeCredentialsIndex(candidate: unknown): CredentialsIndex | null {
+  if (isRecord(candidate) == false) {
+    return null;
+  }
+
+  const profilesField = candidate['profiles'];
+
+  if (isRecord(profilesField) == false) {
+    return null;
+  }
+
+  const profiles: Record<string, ProfileRecord> = {};
+
+  for (const profileName of Object.keys(profilesField)) {
+    const profile = decodeProfileRecord(profilesField[profileName]);
+
+    if (profile == null) {
+      return null;
+    }
+
+    profiles[profileName] = profile;
+  }
+
+  const hasCertificateField = 'certificate' in candidate;
+
+  if (hasCertificateField == false) {
+    return { profiles };
+  }
+
+  const certificate = decodeCertRecord(candidate['certificate']);
+
+  if (certificate == null) {
+    return null;
+  }
+
+  return { certificate, profiles };
+}
 
 /** Absolute path to one account's signing index. */
-const indexPath = (keyId: string): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const credentialsDirectory = yield* resolveAccountCredentialsDirectory(keyId);
-    return pathService.join(credentialsDirectory, 'index.json');
-  });
+function indexPath(keyId: string): string {
+  return join(resolveAccountCredentialsDirectory(keyId), 'index.json');
+}
 
 /** Read an account's credentials index, tolerating a missing or malformed file. */
-export const readIndex = (
-  keyId: string,
-): Effect.Effect<CredentialsIndex, never, FileSystem.FileSystem | LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const credentialsIndexPath = yield* indexPath(keyId);
-    const indexExists = yield* fileSystem
-      .exists(credentialsIndexPath)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!indexExists) return emptyCredentialsIndex();
-    return yield* fileSystem.readFileString(credentialsIndexPath).pipe(
-      Effect.flatMap((indexText) => Effect.try(() => JSON.parse(indexText))),
-      Effect.flatMap(Schema.decodeUnknown(CredentialsIndexSchema)),
-      Effect.orElseSucceed(emptyCredentialsIndex),
-    );
-  });
+export async function readIndex(keyId: string): Promise<CredentialsIndex> {
+  const credentialsIndexPath = indexPath(keyId);
+  const indexExists = await pathExists(credentialsIndexPath);
+
+  if (indexExists == false) {
+    return emptyCredentialsIndex();
+  }
+
+  try {
+    const indexText = await readFile(credentialsIndexPath, 'utf8');
+    const parsedIndex: unknown = JSON.parse(indexText);
+    const credentialsIndex = decodeCredentialsIndex(parsedIndex);
+
+    if (credentialsIndex == null) {
+      return emptyCredentialsIndex();
+    }
+
+    return credentialsIndex;
+  } catch (error) {
+    // A half-written or unreadable index is treated as empty so signing can be created again.
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      return emptyCredentialsIndex();
+    }
+
+    return emptyCredentialsIndex();
+  }
+}
 
 /** Write an account's credentials index back to disk. */
-export const writeIndex = (
-  keyId: string,
-  credentialsIndex: CredentialsIndex,
-): Effect.Effect<void, unknown, FileSystem.FileSystem | LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const credentialsDirectory = yield* resolveAccountCredentialsDirectory(keyId);
-    yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
-    const credentialsIndexPath = yield* indexPath(keyId);
-    yield* fileSystem.writeFileString(
-      credentialsIndexPath,
-      JSON.stringify(credentialsIndex, null, 2),
-    );
-  });
+export async function writeIndex(keyId: string, credentialsIndex: CredentialsIndex): Promise<void> {
+  const credentialsDirectory = resolveAccountCredentialsDirectory(keyId);
+  await mkdir(credentialsDirectory, { recursive: true });
+  const indexText = JSON.stringify(credentialsIndex, null, 2);
+  await writeFile(indexPath(keyId), indexText);
+}

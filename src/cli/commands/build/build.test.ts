@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { Command } from 'commander';
-import { Effect } from 'effect';
 import {
   type BuildCommandOptions,
   parseBuildCommandInput,
@@ -26,39 +25,63 @@ const INVALID_SIZE_BUDGET_ERROR = /Invalid --size-budget "big"/;
 const UNKNOWN_TRACK_ERROR = /Unknown --track "beta"/;
 describe('parseSizeBudget - the per-run size-budget CLI boundary', () => {
   it('returns undefined when the flag is omitted (-> profile, then default)', () => {
-    expect(Effect.runSync(parseSizeBudget(undefined))).toBeUndefined();
+    expect(parseSizeBudget(undefined)).toBeUndefined();
   });
   it('parses a positive MB number, including fractional values', () => {
-    expect(Effect.runSync(parseSizeBudget('250'))).toBe(250);
-    expect(Effect.runSync(parseSizeBudget('199.5'))).toBe(199.5);
+    expect(parseSizeBudget('250')).toBe(250);
+    expect(parseSizeBudget('199.5')).toBe(199.5);
   });
   it('rejects zero and negative budgets with a clear message', () => {
-    const zeroBudgetFailure = Effect.runSync(Effect.flip(parseSizeBudget('0')));
-    const negativeBudgetFailure = Effect.runSync(Effect.flip(parseSizeBudget('-5')));
-    expect(zeroBudgetFailure.message).toMatch(GREATER_THAN_ZERO_ERROR);
-    expect(negativeBudgetFailure.message).toMatch(GREATER_THAN_ZERO_ERROR);
+    let zeroBudgetFailure: unknown = null;
+    let negativeBudgetFailure: unknown = null;
+
+    try {
+      parseSizeBudget('0');
+    } catch (caught) {
+      zeroBudgetFailure = caught;
+    }
+
+    try {
+      parseSizeBudget('-5');
+    } catch (caught) {
+      negativeBudgetFailure = caught;
+    }
+
+    expect(zeroBudgetFailure).toMatchObject({
+      message: expect.stringMatching(GREATER_THAN_ZERO_ERROR),
+    });
+    expect(negativeBudgetFailure).toMatchObject({
+      message: expect.stringMatching(GREATER_THAN_ZERO_ERROR),
+    });
   });
   it('rejects non-numeric input with a clear message', () => {
-    const sizeBudgetFailure = Effect.runSync(Effect.flip(parseSizeBudget('big')));
-    expect(sizeBudgetFailure.message).toMatch(INVALID_SIZE_BUDGET_ERROR);
+    let sizeBudgetFailure: unknown = null;
+
+    try {
+      parseSizeBudget('big');
+    } catch (caught) {
+      sizeBudgetFailure = caught;
+    }
+
+    expect(sizeBudgetFailure).toMatchObject({
+      message: expect.stringMatching(INVALID_SIZE_BUDGET_ERROR),
+    });
   });
 });
 describe('parseBuildCommandInput - raw Commander values to pipeline input', () => {
   it('decodes optional build flags into the BuildRunOptions contract', () => {
-    const buildInput = Effect.runSync(
-      parseBuildCommandInput('ios', {
-        ...BASE_OPTIONS,
-        app: 'demo',
-        account: 'team-a',
-        remote: 'aws',
-        distribution: 'internal',
-        bump: 'patch',
-        sizeBudget: '250',
-        env: ['API_URL=https://example.com'],
-        includeLocal: true,
-        printEnv: true,
-      }),
-    );
+    const buildInput = parseBuildCommandInput('ios', {
+      ...BASE_OPTIONS,
+      app: 'demo',
+      account: 'team-a',
+      remote: 'aws',
+      distribution: 'internal',
+      bump: 'patch',
+      sizeBudget: '250',
+      env: ['API_URL=https://example.com'],
+      includeLocal: true,
+      printEnv: true,
+    });
     expect(buildInput).toMatchObject({
       platform: 'ios',
       profileName: 'production',
@@ -74,15 +97,20 @@ describe('parseBuildCommandInput - raw Commander values to pipeline input', () =
     });
   });
   it('rejects unknown tracks before the pipeline runs', () => {
-    const trackFailure = Effect.runSync(
-      Effect.flip(parseBuildCommandInput('android', { ...BASE_OPTIONS, track: 'beta' })),
-    );
-    expect(trackFailure.message).toMatch(UNKNOWN_TRACK_ERROR);
+    let trackFailure: unknown = null;
+
+    try {
+      parseBuildCommandInput('android', { ...BASE_OPTIONS, track: 'beta' });
+    } catch (caught) {
+      trackFailure = caught;
+    }
+
+    expect(trackFailure).toMatchObject({
+      message: expect.stringMatching(UNKNOWN_TRACK_ERROR),
+    });
   });
   it('decodes --no-ccache into the BuildRunOptions contract', () => {
-    const buildInput = Effect.runSync(
-      parseBuildCommandInput('ios', { ...BASE_OPTIONS, ccache: false }),
-    );
+    const buildInput = parseBuildCommandInput('ios', { ...BASE_OPTIONS, ccache: false });
     expect(buildInput.ccache).toBe(false);
   });
 });

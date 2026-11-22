@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { runPlanner } from './planner.testkit.js';
 import { describe, expect, it, vi } from 'vitest';
 import { offersPlanner } from './offers.js';
@@ -76,8 +75,8 @@ const makeCtx = (
   return {
     config,
     apps: [ALPHA],
-    resolveAscApi: () => Effect.succeed(api),
-    resolvePlayApi: () => Effect.succeed(null),
+    resolveAscApi: () => Promise.resolve(api),
+    resolvePlayApi: () => Promise.resolve(null),
   };
 };
 describe('offersPlanner', () => {

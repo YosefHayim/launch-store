@@ -1,16 +1,19 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
-import { makeFakeAscClient, makeFakePlayReportingClient } from '@testkit/storeClients.testkit.js';
-import { makeLaunchLoggerTest } from '../services/platform/logger.js';
-import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import {
+  makeStatsCredentialsTest,
+  useStatsCredentials,
+  type AppStoreStatsClient,
+  type PlayVitalsReader,
+} from '../stats/statsCredentials.js';
 import {
   appsListProgram,
   appsTagProgram,
@@ -36,69 +39,136 @@ const TAG_BASE: AppsTagRequest = {
   isJson: false,
 };
 
+interface FakeAscApp {
+  readonly id: string;
+  readonly name: string;
+  readonly bundleId: string | null;
+}
+
+interface FakePlayApp {
+  readonly packageName: string;
+  readonly displayName: string;
+}
+
+function makeAscClient(appsOrFailure: readonly FakeAscApp[] | Error): AppStoreStatsClient {
+  const client = {
+    async listApps() {
+      if (appsOrFailure instanceof Error) {
+        throw appsOrFailure;
+      }
+
+      return appsOrFailure;
+    },
+  };
+
+  return client as unknown as AppStoreStatsClient;
+}
+
+function makePlayClient(appsOrFailure: readonly FakePlayApp[] | Error): PlayVitalsReader {
+  const client = {
+    async listApps() {
+      if (appsOrFailure instanceof Error) {
+        throw appsOrFailure;
+      }
+
+      return appsOrFailure;
+    },
+  };
+
+  return client as unknown as PlayVitalsReader;
+}
+
+type CommandOutcome =
+  | { readonly _tag: 'Right' }
+  | { readonly _tag: 'Left'; readonly left: unknown };
+
+async function runProgram(startProgram: () => Promise<void>): Promise<{
+  outcome: CommandOutcome;
+  lines: string[];
+}> {
+  const lines: string[] = [];
+  useLoggerSink(function writeLine(text: string) {
+    lines.push(text);
+  });
+
+  var outcome: CommandOutcome;
+
+  try {
+    await startProgram();
+    outcome = { _tag: 'Right' };
+  } catch (left) {
+    outcome = { _tag: 'Left', left };
+  }
+
+  return { outcome, lines };
+}
+
 describe('parsePlatformFlag', () => {
   test('accepts ios, android and no flag', async () => {
-    expect(await Effect.runPromise(parsePlatformFlag('ios'))).toBe('ios');
-    expect(await Effect.runPromise(parsePlatformFlag('android'))).toBe('android');
-    expect(await Effect.runPromise(parsePlatformFlag(undefined))).toBeNull();
+    expect(await parsePlatformFlag('ios')).toBe('ios');
+    expect(await parsePlatformFlag('android')).toBe('android');
+    expect(await parsePlatformFlag(undefined)).toBeNull();
   });
 
   test('rejects another platform', async () => {
-    const failure = await Effect.runPromise(parsePlatformFlag('web').pipe(Effect.flip));
-
-    expect(failure.message).toBe('--platform must be ios or android.');
+    await expect(parsePlatformFlag('web')).rejects.toMatchObject({
+      message: '--platform must be ios or android.',
+    });
   });
 });
 
 describe('parseOwnerFlag', () => {
   test('accepts mine, client and no flag', async () => {
-    expect(await Effect.runPromise(parseOwnerFlag('mine'))).toBe('mine');
-    expect(await Effect.runPromise(parseOwnerFlag('client'))).toBe('client');
-    expect(await Effect.runPromise(parseOwnerFlag(undefined))).toBeNull();
+    expect(await parseOwnerFlag('mine')).toBe('mine');
+    expect(await parseOwnerFlag('client')).toBe('client');
+    expect(await parseOwnerFlag(undefined)).toBeNull();
   });
 
   test('rejects another owner', async () => {
-    const failure = await Effect.runPromise(parseOwnerFlag('me').pipe(Effect.flip));
-
-    expect(failure.message).toBe('--owner must be mine or client.');
+    await expect(parseOwnerFlag('me')).rejects.toMatchObject({
+      message: '--owner must be mine or client.',
+    });
   });
 });
 
 describe('parseTagRequest', () => {
-  const messageOf = (request: AppsTagRequest) =>
-    Effect.runPromise(parseTagRequest(request).pipe(Effect.flip)).then(
-      (failure) => failure.message,
-    );
-
   test('needs one of --app or --account', async () => {
     const expected = 'Pass exactly one of --app <name> or --account <label>.';
 
-    expect(await messageOf({ ...TAG_BASE, app: undefined })).toBe(expected);
-    expect(await messageOf({ ...TAG_BASE, account: 'alpha' })).toBe(expected);
+    await expect(parseTagRequest({ ...TAG_BASE, app: undefined })).rejects.toMatchObject({
+      message: expected,
+    });
+    await expect(parseTagRequest({ ...TAG_BASE, account: 'alpha' })).rejects.toMatchObject({
+      message: expected,
+    });
   });
 
   test('needs at least one change', async () => {
-    const message = await messageOf({ ...TAG_BASE, owner: undefined });
-
-    expect(message).toBe('Pass --owner mine|client and/or --ga4-property <id>.');
+    await expect(parseTagRequest({ ...TAG_BASE, owner: undefined })).rejects.toMatchObject({
+      message: 'Pass --owner mine|client and/or --ga4-property <id>.',
+    });
   });
 
   test('rejects a GA4 property that is not a number', async () => {
-    const message = await messageOf({ ...TAG_BASE, ga4Property: 'abc' });
-
-    expect(message).toBe('--ga4-property must be the numeric GA4 property id.');
+    await expect(parseTagRequest({ ...TAG_BASE, ga4Property: 'abc' })).rejects.toMatchObject({
+      message: '--ga4-property must be the numeric GA4 property id.',
+    });
   });
 
   test('rejects an unknown owner', async () => {
-    expect(await messageOf({ ...TAG_BASE, owner: 'boss' })).toBe('--owner must be mine or client.');
+    await expect(parseTagRequest({ ...TAG_BASE, owner: 'boss' })).rejects.toMatchObject({
+      message: '--owner must be mine or client.',
+    });
   });
 
   test('accepts owner only, property only, or both', async () => {
-    const ownerOnly = await Effect.runPromise(parseTagRequest(TAG_BASE));
-    const propertyOnly = await Effect.runPromise(
-      parseTagRequest({ ...TAG_BASE, owner: undefined, ga4Property: '123' }),
-    );
-    const both = await Effect.runPromise(parseTagRequest({ ...TAG_BASE, ga4Property: '123' }));
+    const ownerOnly = await parseTagRequest(TAG_BASE);
+    const propertyOnly = await parseTagRequest({
+      ...TAG_BASE,
+      owner: undefined,
+      ga4Property: '123',
+    });
+    const both = await parseTagRequest({ ...TAG_BASE, ga4Property: '123' });
 
     expect(ownerOnly).toEqual({ owner: 'mine', ga4PropertyId: null });
     expect(propertyOnly).toEqual({ owner: null, ga4PropertyId: '123' });
@@ -108,7 +178,8 @@ describe('parseTagRequest', () => {
 
 describe('appsListProgram and appsTagProgram', () => {
   let homeDirectory: string;
-  beforeEach(() => {
+
+  beforeEach(function setAppsHome() {
     homeDirectory = createTemporaryHomeDirectory();
     const project = join(homeDirectory, 'work');
     mkdirSync(project, { recursive: true });
@@ -117,43 +188,34 @@ describe('appsListProgram and appsTagProgram', () => {
       JSON.stringify({ expo: { slug: 'fit', android: { package: 'com.jts.fit' } } }),
     );
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
+    useLaunchDirectories({ homeDirectory, workingDirectory: project });
+
+    async function ascClientForAccount(keyId: string): Promise<AppStoreStatsClient | null> {
+      if (keyId == 'KEYB') {
+        return makeAscClient(new Error('401 revoked'));
+      }
+
+      return makeAscClient([{ id: '1', name: 'Cal Friend AI', bundleId: 'com.jts.calfriend' }]);
+    }
+
+    async function playReportingClient(): Promise<PlayVitalsReader | null> {
+      return makePlayClient([{ packageName: 'com.jts.fit', displayName: 'Fit' }]);
+    }
+
+    makeStatsCredentialsTest({ ascClientForAccount, playReportingClient });
   });
-  afterEach(() => {
+
+  afterEach(function resetAppsHome() {
+    useStatsCredentials(null);
+    resetLogger();
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
-  const credentials = makeStatsCredentialsTest({
-    ascClientForAccount: (keyId) => {
-      if (keyId === 'KEYB') return Effect.succeed(makeFakeAscClient(new Error('401 revoked')));
-      return Effect.succeed(
-        makeFakeAscClient([{ id: '1', name: 'Cal Friend AI', bundleId: 'com.jts.calfriend' }]),
-      );
-    },
-    playReportingClient: () =>
-      Effect.succeed(
-        makeFakePlayReportingClient([{ packageName: 'com.jts.fit', displayName: 'Fit' }]),
-      ),
-  });
-
-  const runProgram = <Failure>(program: Effect.Effect<void, Failure, never>) => {
-    const lines: string[] = [];
-    const finished = Effect.runPromise(
-      program.pipe(Effect.either, Effect.provide(makeLaunchLoggerTest(lines))),
-    );
-    return finished.then((outcome) => ({ outcome, lines }));
-  };
-  const withServices = <Failure>(
-    program: ReturnType<typeof appsListProgram> | ReturnType<typeof appsTagProgram>,
-  ) =>
-    program.pipe(
-      Effect.provide(credentials),
-      Effect.provide(makeLaunchHomeTest(homeDirectory)),
-    ) as Effect.Effect<void, Failure, never>;
-
   test('apps list prints one JSON object with the apps and the warnings', async () => {
-    const { outcome, lines } = await runProgram(
-      withServices(appsListProgram({ platform: undefined, owner: undefined, isJson: true })),
-    );
+    const { outcome, lines } = await runProgram(function startList() {
+      return appsListProgram({ platform: undefined, owner: undefined, isJson: true });
+    });
 
     expect(outcome._tag).toBe('Right');
     expect(lines).toHaveLength(1);
@@ -164,9 +226,9 @@ describe('appsListProgram and appsTagProgram', () => {
   });
 
   test('apps list shows warnings and one line per app, filtered by platform', async () => {
-    const { lines } = await runProgram(
-      withServices(appsListProgram({ platform: 'android', owner: undefined, isJson: false })),
-    );
+    const { lines } = await runProgram(function startList() {
+      return appsListProgram({ platform: 'android', owner: undefined, isJson: false });
+    });
 
     expect(lines.some((line) => line.includes('beta: 401 revoked'))).toBe(true);
     expect(lines.filter((line) => line.includes('Fit (com.jts.fit) - Google Play'))).toHaveLength(
@@ -176,17 +238,17 @@ describe('appsListProgram and appsTagProgram', () => {
   });
 
   test('apps list says so when no app matches the filter', async () => {
-    const { lines } = await runProgram(
-      withServices(appsListProgram({ platform: undefined, owner: 'client', isJson: false })),
-    );
+    const { lines } = await runProgram(function startList() {
+      return appsListProgram({ platform: undefined, owner: 'client', isJson: false });
+    });
 
     expect(lines.some((line) => line.includes('No apps found.'))).toBe(true);
   });
 
   test('apps list exits 2 on a bad platform, as JSON with --json', async () => {
-    const { outcome, lines } = await runProgram(
-      withServices(appsListProgram({ platform: 'web', owner: undefined, isJson: true })),
-    );
+    const { outcome, lines } = await runProgram(function startList() {
+      return appsListProgram({ platform: 'web', owner: undefined, isJson: true });
+    });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { _tag: 'CommandExit', exitCode: 2 } });
     expect(JSON.parse(lines[0] ?? '')).toEqual({
@@ -196,31 +258,31 @@ describe('appsListProgram and appsTagProgram', () => {
   });
 
   test('apps tag saves the owner so the next list shows it', async () => {
-    const tagged = await runProgram(withServices(appsTagProgram(TAG_BASE)));
+    const tagged = await runProgram(function startTag() {
+      return appsTagProgram(TAG_BASE);
+    });
 
     expect(tagged.lines.some((line) => line.includes('Tagged Cal Friend AI'))).toBe(true);
     const savedFile = JSON.parse(
       readFileSync(join(homeDirectory, '.launch', 'portfolio.json'), 'utf8'),
     );
     expect(savedFile.tags).toEqual([{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: null }]);
-    const listed = await runProgram(
-      withServices(appsListProgram({ platform: undefined, owner: 'mine', isJson: true })),
-    );
+    const listed = await runProgram(function startList() {
+      return appsListProgram({ platform: undefined, owner: 'mine', isJson: true });
+    });
     expect(JSON.parse(listed.lines[0] ?? '').apps).toHaveLength(1);
   });
 
   test('apps tag --account tags every app of that account and prints JSON with --json', async () => {
-    const { lines } = await runProgram(
-      withServices(
-        appsTagProgram({
-          ...TAG_BASE,
-          app: undefined,
-          account: 'google-play',
-          owner: 'client',
-          isJson: true,
-        }),
-      ),
-    );
+    const { lines } = await runProgram(function startTag() {
+      return appsTagProgram({
+        ...TAG_BASE,
+        app: undefined,
+        account: 'google-play',
+        owner: 'client',
+        isJson: true,
+      });
+    });
 
     const tagging = JSON.parse(lines[0] ?? '');
     expect(tagging.tagged).toHaveLength(1);
@@ -228,13 +290,13 @@ describe('appsListProgram and appsTagProgram', () => {
   });
 
   test('apps tag keeps the old owner when only the property is given', async () => {
-    await runProgram(withServices(appsTagProgram(TAG_BASE)));
+    await runProgram(function startTag() {
+      return appsTagProgram(TAG_BASE);
+    });
 
-    const { lines } = await runProgram(
-      withServices(
-        appsTagProgram({ ...TAG_BASE, owner: undefined, ga4Property: '555', isJson: true }),
-      ),
-    );
+    const { lines } = await runProgram(function startPropertyTag() {
+      return appsTagProgram({ ...TAG_BASE, owner: undefined, ga4Property: '555', isJson: true });
+    });
 
     expect(JSON.parse(lines[0] ?? '').tagged[0]).toMatchObject({
       owner: 'mine',
@@ -243,18 +305,18 @@ describe('appsListProgram and appsTagProgram', () => {
   });
 
   test('apps tag exits 2 and lists the known apps when nothing matches', async () => {
-    const { outcome, lines } = await runProgram(
-      withServices(appsTagProgram({ ...TAG_BASE, app: 'zzz' })),
-    );
+    const { outcome, lines } = await runProgram(function startTag() {
+      return appsTagProgram({ ...TAG_BASE, app: 'zzz' });
+    });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
     expect(lines.some((line) => line.includes('Known apps: Cal Friend AI, Fit'))).toBe(true);
   });
 
   test('apps tag exits 2 on bad flags', async () => {
-    const { outcome } = await runProgram(
-      withServices(appsTagProgram({ ...TAG_BASE, owner: undefined })),
-    );
+    const { outcome } = await runProgram(function startTag() {
+      return appsTagProgram({ ...TAG_BASE, owner: undefined });
+    });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
   });

@@ -1,102 +1,148 @@
-import { Effect } from 'effect';
 import { errorMessage } from '@/services/platform/errorMessage.js';
 import { reconcilePlayProducts, type PlayProductsApi } from '@/store/google/playProducts.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { InAppPurchaseConfig } from '@/types/catalog.js';
 import type { LaunchConfig } from '@/types/config.js';
-import type { AppPlan, PlanContext, SurfacePlanner } from '@/types/plan.js';
-/** Surface id - also the value users pass as `launch plan play-products`. */
+import type { AppPlan, PlanContext, PlayCatalogApi, SurfacePlanner } from '@/types/plan.js';
+
 const SURFACE = 'play-products';
-/** One app's Play-products plan target: its package name paired with the declared Play-overridden products. */
+
 type PlayProductsTarget = {
   app: string;
   packageName: string;
   products: InAppPurchaseConfig[];
 };
-/** Resolve the apps that declare at least one Play-overridden in-app product, with their package + products. */
-const targetsFor = (apps: readonly AppDescriptor[], config: LaunchConfig): PlayProductsTarget[] => {
+
+function hasPlayOverride(product: InAppPurchaseConfig): boolean {
+  return product.play != null;
+}
+
+function isStoreIdMissing(storeId: string | undefined): storeId is undefined {
+  return storeId == null;
+}
+
+function isProductListMissing(
+  products: readonly InAppPurchaseConfig[] | undefined,
+): products is undefined {
+  return products == null;
+}
+
+function targetsFor(apps: readonly AppDescriptor[], config: LaunchConfig): PlayProductsTarget[] {
   const targets: PlayProductsTarget[] = [];
+
   for (const app of apps) {
-    if (!app.packageName) continue;
-    if (!app.bundleId) continue;
-    let configuredProducts = config.products?.[app.bundleId]?.inAppPurchases;
-    if (configuredProducts === undefined) configuredProducts = [];
-    const products = configuredProducts.filter((product) => product.play);
-    if (products.length === 0) continue;
-    targets.push({ app: app.name, packageName: app.packageName, products });
+    const packageName = app.packageName;
+
+    if (isStoreIdMissing(packageName)) {
+      continue;
+    }
+
+    const bundleId = app.bundleId;
+
+    if (isStoreIdMissing(bundleId)) {
+      continue;
+    }
+
+    const configuredProducts = config.products?.[bundleId]?.inAppPurchases;
+
+    if (isProductListMissing(configuredProducts)) {
+      continue;
+    }
+
+    const products = configuredProducts.filter(hasPlayOverride);
+    const hasPlayProducts = products.length > 0;
+
+    if (hasPlayProducts == false) {
+      continue;
+    }
+
+    targets.push({ app: app.name, packageName, products });
   }
+
   return targets;
-};
-/** Plan one app's Play products in dry-run, capturing a precondition failure (e.g. unreachable app) as `error`. */
-const planTarget = (api: PlayProductsApi, target: PlayProductsTarget): Effect.Effect<AppPlan> =>
-  reconcilePlayProducts(api, {
-    packageName: target.packageName,
-    products: target.products,
-    dryRun: true,
-  }).pipe(
-    Effect.match({
-      onSuccess: (report): AppPlan => ({
-        app: target.app,
-        identifier: target.packageName,
-        actions: report.actions,
-      }),
-      onFailure: (reconciliationFailure): AppPlan => ({
-        app: target.app,
-        identifier: target.packageName,
-        actions: [],
-        error: errorMessage(reconciliationFailure),
-      }),
-    }),
-  );
-/**
- * The Play-products planner. Omits itself when no app declares a Play-overridden product; reports a skip
- * with an actionable hint when no Play service account is configured (the `--check` gate turns that into
- * an error); otherwise returns the per-app diff. Apps are planned concurrently and isolated - one app's
- * precondition failure is recorded on its {@link AppPlan} and never aborts the rest.
- */
+}
+
+async function planTarget(api: PlayProductsApi, target: PlayProductsTarget): Promise<AppPlan> {
+  try {
+    const report = await reconcilePlayProducts(api, {
+      packageName: target.packageName,
+      products: target.products,
+      dryRun: true,
+    });
+
+    return {
+      app: target.app,
+      identifier: target.packageName,
+      actions: report.actions,
+    };
+  } catch (reconciliationFailure) {
+    return {
+      app: target.app,
+      identifier: target.packageName,
+      actions: [],
+      error: errorMessage(reconciliationFailure),
+    };
+  }
+}
+
+function isMissingClient(api: PlayCatalogApi | null | undefined): api is null | undefined {
+  return api == null;
+}
+
 export const playProductsPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'play',
-  plan(planContext: PlanContext) {
-    return Effect.gen(function* () {
-      const targets = targetsFor(planContext.apps, planContext.config);
-      if (targets.length === 0) return { surface: SURFACE, store: 'play', state: 'omitted' };
-      const targetClients = yield* Effect.forEach(
-        targets,
-        (target) => planContext.resolvePlayApi(target.packageName),
-        { concurrency: 1 },
-      );
-      if (targetClients.every((api) => api === null))
-        return {
-          surface: SURFACE,
-          store: 'play',
-          state: 'skipped',
-          reason: 'no Play service account',
-          hint: 'run `launch creds set-key --platform android --app <name>`',
-        };
-      const apps = yield* Effect.forEach(
-        targets,
-        (target, index) => {
-          const api = targetClients[index];
-          if (!api)
-            return Effect.succeed({
-              app: target.app,
-              identifier: target.packageName,
-              actions: [],
-              error: 'No Play service account for this package.',
-            });
-          return planTarget(api, target);
-        },
-        { concurrency: 'unbounded' },
-      );
+  async plan(planContext: PlanContext) {
+    const targets = targetsFor(planContext.apps, planContext.config);
+    const isNothingDeclared = targets.length == 0;
+
+    if (isNothingDeclared) {
+      return { surface: SURFACE, store: 'play', state: 'omitted' };
+    }
+
+    const targetClients: Array<PlayCatalogApi | null> = [];
+
+    for (const target of targets) {
+      const playClient = await planContext.resolvePlayApi(target.packageName);
+      targetClients.push(playClient);
+    }
+
+    const isEveryClientMissing = targetClients.every(isMissingClient);
+
+    if (isEveryClientMissing) {
       return {
         surface: SURFACE,
         store: 'play',
-        state: 'planned',
-        scope: 'app',
-        direction: 'two-way',
-        apps,
+        state: 'skipped',
+        reason: 'no Play service account',
+        hint: 'run `launch creds set-key --platform android --app <name>`',
       };
-    });
+    }
+
+    async function planPlayProducts(target: PlayProductsTarget, index: number): Promise<AppPlan> {
+      const api = targetClients[index];
+
+      if (isMissingClient(api)) {
+        return {
+          app: target.app,
+          identifier: target.packageName,
+          actions: [],
+          error: 'No Play service account for this package.',
+        };
+      }
+
+      return planTarget(api, target);
+    }
+
+    const apps = await Promise.all(targets.map(planPlayProducts));
+
+    return {
+      surface: SURFACE,
+      store: 'play',
+      state: 'planned',
+      scope: 'app',
+      direction: 'two-way',
+      apps,
+    };
   },
 };

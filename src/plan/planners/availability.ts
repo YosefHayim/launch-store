@@ -1,26 +1,43 @@
-import { FileSystem } from '@effect/platform';
-import { Effect } from 'effect';
+import { pathExists } from '@/path-exists.js';
 import { readAvailabilityConfig, reconcileAvailability } from '@/store/apple/availability.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@/types/plan.js';
-/** Surface id - also the value users pass as `launch plan availability`. */
+
 const SURFACE = 'availability';
+
 export const availabilityPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (planContext) =>
-    planAppStoreSurface(planContext, {
+  async plan(planContext) {
+    async function readAvailabilityConfigForApp() {
+      let configPath = planContext.config.configFiles?.availability;
+
+      if (configPath == null) {
+        configPath = 'availability.config.json';
+      }
+
+      const configExists = await pathExists(configPath);
+
+      if (configExists == false) {
+        return undefined;
+      }
+
+      return readAvailabilityConfig(configPath);
+    }
+
+    function reconcileAppAvailability(
+      api: Parameters<typeof reconcileAvailability>[0],
+      bundleId: string,
+      config: Awaited<ReturnType<typeof readAvailabilityConfig>>,
+    ) {
+      return reconcileAvailability(api, { bundleId, config, dryRun: true });
+    }
+
+    return planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'two-way',
-      configFor: () =>
-        Effect.gen(function* () {
-          const fileSystem = yield* FileSystem.FileSystem;
-          let configPath = planContext.config.configFiles?.availability;
-          if (configPath === undefined) configPath = 'availability.config.json';
-          if (!(yield* fileSystem.exists(configPath))) return undefined;
-          return yield* readAvailabilityConfig(configPath);
-        }),
-      reconcile: (api, bundleId, config) =>
-        reconcileAvailability(api, { bundleId, config, dryRun: true }),
-    }),
+      configFor: readAvailabilityConfigForApp,
+      reconcile: reconcileAppAvailability,
+    });
+  },
 };

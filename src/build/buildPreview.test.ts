@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { AppDescriptor, BuildProfile } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';
@@ -31,9 +30,7 @@ const app = (overrides: Partial<AppDescriptor> = {}): AppDescriptor => {
 };
 describe('previewBuild', () => {
   it('resolves the iOS engine, submitter, and bundle id without track/rollout', () => {
-    const preview = Effect.runSync(
-      previewBuild({ config: config(), apps: [app()], platform: 'ios' }),
-    );
+    const preview = previewBuild({ config: config(), apps: [app()], platform: 'ios' });
     expect(preview.platform).toBe('ios');
     expect(preview.profile).toBe('production');
     expect(preview.distribution).toBe('store');
@@ -47,9 +44,7 @@ describe('previewBuild', () => {
     ]);
   });
   it('swaps the iOS baseline engine and submitter for their Android twins', () => {
-    const preview = Effect.runSync(
-      previewBuild({ config: config(), apps: [app()], platform: 'android' }),
-    );
+    const preview = previewBuild({ config: config(), apps: [app()], platform: 'android' });
     const [plan] = preview.apps;
     expect(plan?.buildEngine).toBe('gradle');
     expect(plan?.submitter).toBe('google-play');
@@ -57,41 +52,37 @@ describe('previewBuild', () => {
   });
   it('builds Android with Gradle when the config names an iOS-only engine', () => {
     for (const buildEngine of ['remote-mac', 'eas']) {
-      const preview = Effect.runSync(
-        previewBuild({ config: config({ buildEngine }), apps: [app()], platform: 'android' }),
-      );
+      const preview = previewBuild({
+        config: config({ buildEngine }),
+        apps: [app()],
+        platform: 'android',
+      });
       const [plan] = preview.apps;
       expect(plan?.buildEngine).toBe('gradle');
     }
   });
   it('defaults Android track/rollout to internal/full like the real build', () => {
-    const preview = Effect.runSync(
-      previewBuild({ config: config(), apps: [app()], platform: 'android' }),
-    );
+    const preview = previewBuild({ config: config(), apps: [app()], platform: 'android' });
     expect(preview.apps[0]?.track).toBe('internal');
     expect(preview.apps[0]?.rollout).toBe(1.0);
   });
   it('rehearses an internal upload as the internal testing track', () => {
-    const preview = Effect.runSync(
-      previewBuild({
-        config: config(),
-        apps: [app()],
-        platform: 'android',
-        distribution: 'internal',
-      }),
-    );
+    const preview = previewBuild({
+      config: config(),
+      apps: [app()],
+      platform: 'android',
+      distribution: 'internal',
+    });
     expect(preview.distribution).toBe('internal');
     expect(preview.apps[0]?.track).toBe('internal');
   });
   it("honors a profile's track and rollout defaults", () => {
-    const preview = Effect.runSync(
-      previewBuild({
-        config: config(),
-        apps: [app()],
-        platform: 'android',
-        profile: 'preview',
-      }),
-    );
+    const preview = previewBuild({
+      config: config(),
+      apps: [app()],
+      platform: 'android',
+      profile: 'preview',
+    });
     expect(preview.profile).toBe('preview');
     expect(preview.apps[0]?.track).toBe('closed');
     expect(preview.apps[0]?.rollout).toBe(0.5);
@@ -103,34 +94,31 @@ describe('previewBuild', () => {
       configPath: '/repo/ios-only/app.json',
       bundleId: 'com.example.iosonly',
     };
-    const plan = Effect.runSync(
-      previewBuild({ config: config(), apps: [iosOnly], platform: 'android' }),
-    ).apps[0];
+    const plan = previewBuild({ config: config(), apps: [iosOnly], platform: 'android' }).apps[0];
     expect(plan?.identifier).toBeUndefined();
     expect(plan).toBeDefined();
     if (plan === undefined) return;
     expect('identifier' in plan).toBe(false);
   });
   it('fails on an explicit unknown profile rather than silently defaulting', () => {
-    expect(
-      Effect.runSync(
-        previewBuild({ config: config(), apps: [app()], platform: 'ios', profile: 'ghost' }).pipe(
-          Effect.flip,
-        ),
-      ),
-    ).toMatchObject({
-      _tag: 'BuildPreviewFailure',
-      requestedProfile: 'ghost',
-      message: 'Unknown profile "ghost". Declared profiles: production, preview.',
-    });
+    try {
+      previewBuild({ config: config(), apps: [app()], platform: 'ios', profile: 'ghost' });
+      throw new Error('expected an unknown profile to fail');
+    } catch (error) {
+      expect(error).toMatchObject({
+        _tag: 'BuildPreviewFailure',
+        requestedProfile: 'ghost',
+        message: 'Unknown profile "ghost". Declared profiles: production, preview.',
+      });
+    }
   });
   it('falls back to production, then the first profile, when no profile is given', () => {
-    expect(
-      Effect.runSync(previewBuild({ config: config(), apps: [app()], platform: 'ios' })).profile,
-    ).toBe('production');
+    expect(previewBuild({ config: config(), apps: [app()], platform: 'ios' }).profile).toBe(
+      'production',
+    );
     const noProd = config({ profiles: { staging: { name: 'staging' } } });
-    expect(
-      Effect.runSync(previewBuild({ config: noProd, apps: [app()], platform: 'ios' })).profile,
-    ).toBe('staging');
+    expect(previewBuild({ config: noProd, apps: [app()], platform: 'ios' }).profile).toBe(
+      'staging',
+    );
   });
 });

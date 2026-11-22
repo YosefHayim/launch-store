@@ -1,5 +1,3 @@
-import { Data, Effect } from 'effect';
-import { loadPortfolioApps } from '../portfolio/loadPortfolioApps.js';
 import { filterPortfolioApps, findAppsByName } from '../portfolio/portfolioLogic.js';
 import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
 import type { InvalidAppKeyFailure } from '../services/platform/paths.js';
@@ -18,99 +16,119 @@ import {
   listAppMessages,
   listMonthsInRange,
 } from './statsReportLogic.js';
-import type { StatsSyncRequirements } from './syncStats.js';
+import { loadStatsPortfolio } from './syncStats.js';
 
 type StatsReportAppNotFoundFailure = Readonly<{
   readonly _tag: 'StatsReportAppNotFoundFailure';
   readonly message: string;
 }>;
 
-const makeStatsReportAppNotFoundFailure = Data.tagged<StatsReportAppNotFoundFailure>(
-  'StatsReportAppNotFoundFailure',
-);
+function makeStatsReportAppNotFoundFailure(message: string): StatsReportAppNotFoundFailure {
+  return { _tag: 'StatsReportAppNotFoundFailure', message };
+}
 
 export type StatsReportFailure =
   | InvalidAppKeyFailure
   | DocumentFileFailure
   | StatsReportAppNotFoundFailure;
 
-const loadRangeStats = (
-  appKey: string,
-  range: DateRange,
-): Effect.Effect<DailyStat[], InvalidAppKeyFailure | DocumentFileFailure, StatsSyncRequirements> =>
-  Effect.gen(function* () {
-    const monthsOfStats = yield* Effect.forEach(listMonthsInRange(range), (month) =>
-      loadMonthStats(appKey, month),
-    );
-    return keepStatsInRange(monthsOfStats.flat(), range);
-  });
+async function loadRangeStats(appKey: string, range: DateRange): Promise<DailyStat[]> {
+  const months = listMonthsInRange(range);
+  const monthsOfStats: DailyStat[][] = [];
 
-const createAppReport = (
+  for (const month of months) {
+    const monthStats = await loadMonthStats(appKey, month);
+    monthsOfStats.push([...monthStats]);
+  }
+
+  return keepStatsInRange(monthsOfStats.flat(), range);
+}
+
+function createAppReport(
   app: PortfolioApp,
   stats: readonly DailyStat[],
   appCoverage: AppCoverage,
   freshness: StatsFreshness,
-): AppStatsReport => ({
-  key: app.key,
-  name: app.name,
-  platform: app.platform,
-  owner: app.owner,
-  accountLabel: app.accountLabel,
-  totals: foldMetricTotals(stats),
-  series: createMetricSeries(stats),
-  isStale: isAppStale(freshness, app.key),
-  messages: listAppMessages(appCoverage),
-});
+): AppStatsReport {
+  return {
+    key: app.key,
+    name: app.name,
+    platform: app.platform,
+    owner: app.owner,
+    accountLabel: app.accountLabel,
+    totals: foldMetricTotals(stats),
+    series: createMetricSeries(stats),
+    isStale: isAppStale(freshness, app.key),
+    messages: listAppMessages(appCoverage),
+  };
+}
 
-const selectNamedApps = (
+function selectNamedApps(
   apps: readonly PortfolioApp[],
   appName: string | null,
-): readonly PortfolioApp[] => {
-  if (appName === null) return apps;
+): readonly PortfolioApp[] {
+  if (appName == null) {
+    return apps;
+  }
+
   return findAppsByName(apps, appName);
-};
+}
+
+function isRequestedNameMissing(
+  appName: string | null,
+  namedApps: readonly PortfolioApp[],
+): boolean {
+  if (appName == null) {
+    return false;
+  }
+
+  return namedApps.length == 0;
+}
 
 /** Read the saved numbers of the selected apps for the last `days` days, marked with how fresh they are. */
-const readStatsReport = (
+async function readStatsReport(
   request: StatsReportRequest,
   freshness: StatsFreshness,
-): Effect.Effect<StatsReport, StatsReportFailure, StatsSyncRequirements> =>
-  Effect.gen(function* () {
-    const portfolioLoad = yield* loadPortfolioApps('cache-first');
-    const namedApps = selectNamedApps(portfolioLoad.apps, request.appName);
-    const isNamedAppMissing = request.appName !== null && namedApps.length === 0;
-    if (isNamedAppMissing) {
-      const knownAppNames = portfolioLoad.apps.map((app) => app.name).join(', ');
-      return yield* Effect.fail(
-        makeStatsReportAppNotFoundFailure({
-          message: `No app matches "${request.appName}". Known apps: ${knownAppNames}.`,
-        }),
-      );
-    }
-    const selectedApps = filterPortfolioApps(namedApps, {
-      platform: request.platform,
-      owner: request.owner,
-    });
-    const lastDate = yield* readYesterdayUtc();
-    const range = createLastDaysRange(lastDate, request.days);
-    const appReports = yield* Effect.forEach(selectedApps, (app) =>
-      Effect.gen(function* () {
-        const stats = yield* loadRangeStats(app.key, range);
-        const appCoverage = yield* loadAppCoverage(app.key);
-        return createAppReport(app, stats, appCoverage, freshness);
-      }),
+): Promise<StatsReport> {
+  const portfolioLoad = await loadStatsPortfolio('cache-first');
+  const namedApps = selectNamedApps(portfolioLoad.apps, request.appName);
+  const isNamedAppMissing = isRequestedNameMissing(request.appName, namedApps);
+
+  if (isNamedAppMissing) {
+    const knownAppNames = portfolioLoad.apps
+      .map(function readAppName(app: PortfolioApp): string {
+        return app.name;
+      })
+      .join(', ');
+
+    throw makeStatsReportAppNotFoundFailure(
+      `No app matches "${request.appName}". Known apps: ${knownAppNames}.`,
     );
-    return { range, days: request.days, isStale: freshness.isStale, apps: appReports };
+  }
+
+  const selectedApps = filterPortfolioApps(namedApps, {
+    platform: request.platform,
+    owner: request.owner,
   });
+  const lastDate = readYesterdayUtc();
+  const range = createLastDaysRange(lastDate, request.days);
+  const appReports: AppStatsReport[] = [];
+
+  for (const app of selectedApps) {
+    const stats = await loadRangeStats(app.key, range);
+    const appCoverage = await loadAppCoverage(app.key);
+    appReports.push(createAppReport(app, stats, appCoverage, freshness));
+  }
+
+  return { range, days: request.days, isStale: freshness.isStale, apps: appReports };
+}
 
 /**
  * Refresh old numbers once, then read them. A sync that failed does not fail the report: the old
  * numbers come back with `isStale: true`.
  */
-export const createStatsReport = (
-  request: StatsReportRequest,
-): Effect.Effect<StatsReport, StatsReportFailure, StatsSyncRequirements> =>
-  Effect.gen(function* () {
-    const freshness = yield* ensureFreshStats(request.appName);
-    return yield* readStatsReport(request, freshness);
-  });
+export async function createStatsReport(request: StatsReportRequest): Promise<StatsReport> {
+  const freshness = await ensureFreshStats(request.appName);
+
+  return readStatsReport(request, freshness);
+}

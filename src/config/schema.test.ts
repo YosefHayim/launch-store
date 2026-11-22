@@ -1,10 +1,9 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { parseLaunchConfig, validateLaunchConfig } from './schema.js';
 
 describe('parseLaunchConfig', () => {
   it('fills provider defaults through Effect Schema', () => {
-    const parsed = Effect.runSync(parseLaunchConfig({ profiles: {} }));
+    const parsed = parseLaunchConfig({ profiles: {} });
     expect(parsed).toMatchObject({
       credentials: 'local',
       storage: 'local',
@@ -14,57 +13,51 @@ describe('parseLaunchConfig', () => {
   });
 
   it('keeps an explicit provider name over the default', () => {
-    const parsed = Effect.runSync(
-      parseLaunchConfig({ profiles: {}, storage: 's3', credentials: 'local' }),
-    );
+    const parsed = parseLaunchConfig({ profiles: {}, storage: 's3', credentials: 'local' });
     expect(parsed.storage).toBe('s3');
     expect(parsed.credentials).toBe('local');
   });
 
   it('accepts a per-platform submit map for a subset of platforms', () => {
-    const parsed = Effect.runSync(
-      parseLaunchConfig({
-        profiles: {},
-        submit: { android: ['google-play', 'amazon-appstore'] },
-      }),
-    );
+    const parsed = parseLaunchConfig({
+      profiles: {},
+      submit: { android: ['google-play', 'amazon-appstore'] },
+    });
     expect(parsed.submit).toEqual({ android: ['google-play', 'amazon-appstore'] });
   });
 
   it('accepts a free-trial offer-code without prices', () => {
-    const parsed = Effect.runSync(
-      parseLaunchConfig({
-        profiles: {},
-        products: {
-          'com.acme.app': {
-            subscriptionGroups: [
-              {
-                referenceName: 'Pro',
-                localizations: [{ locale: 'en-US', name: 'Pro' }],
-                subscriptions: [
-                  {
-                    productId: 'com.acme.pro.monthly',
-                    referenceName: 'Monthly',
-                    subscriptionPeriod: 'ONE_MONTH',
-                    localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
-                    offerCodes: [
-                      {
-                        name: 'trial-week',
-                        duration: 'ONE_WEEK',
-                        offerMode: 'FREE_TRIAL',
-                        numberOfPeriods: 1,
-                        customerEligibilities: ['NEW'],
-                        offerEligibility: 'STACK_WITH_INTRO_OFFERS',
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
+    const parsed = parseLaunchConfig({
+      profiles: {},
+      products: {
+        'com.acme.app': {
+          subscriptionGroups: [
+            {
+              referenceName: 'Pro',
+              localizations: [{ locale: 'en-US', name: 'Pro' }],
+              subscriptions: [
+                {
+                  productId: 'com.acme.pro.monthly',
+                  referenceName: 'Monthly',
+                  subscriptionPeriod: 'ONE_MONTH',
+                  localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
+                  offerCodes: [
+                    {
+                      name: 'trial-week',
+                      duration: 'ONE_WEEK',
+                      offerMode: 'FREE_TRIAL',
+                      numberOfPeriods: 1,
+                      customerEligibilities: ['NEW'],
+                      offerEligibility: 'STACK_WITH_INTRO_OFFERS',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
         },
-      }),
-    );
+      },
+    });
     const group = parsed.products?.['com.acme.app']?.subscriptionGroups?.[0];
     expect(group?.subscriptions[0]?.offerCodes?.[0]?.offerMode).toBe('FREE_TRIAL');
   });
@@ -264,14 +257,12 @@ describe('validateLaunchConfig', () => {
 describe('deprecated age-rating answers in releaseAttributes', () => {
   it('rejects a deprecated value and names the one to use', () => {
     expect(() =>
-      Effect.runSync(
-        parseLaunchConfig({
-          profiles: {},
-          releaseAttributes: {
-            'com.acme.app': { ageRating: { violenceRealistic: 'INFREQUENT_OR_MILD' } },
-          },
-        }),
-      ),
+      parseLaunchConfig({
+        profiles: {},
+        releaseAttributes: {
+          'com.acme.app': { ageRating: { violenceRealistic: 'INFREQUENT_OR_MILD' } },
+        },
+      }),
     ).toThrow(/uses deprecated value INFREQUENT_OR_MILD: use INFREQUENT/);
   });
 });

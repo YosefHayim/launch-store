@@ -1,8 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { expectDefined } from '@testkit/assertions.testkit.js';
 import type { AppDescriptor } from '../types/app.js';
@@ -89,12 +87,9 @@ const notesAt = (
 ): MigrationNote[] => {
   return migrationNotes.filter((note) => note.level === level);
 };
-const runReadFastlaneSetup = (workingDirectory: string) =>
-  Effect.runPromise(readFastlaneSetup(workingDirectory).pipe(Effect.provide(NodeContext.layer)));
+const runReadFastlaneSetup = (workingDirectory: string) => readFastlaneSetup(workingDirectory);
 const runMigrateFastlane = (workingDirectory: string, apps: AppDescriptor[]) =>
-  Effect.runPromise(
-    migrateFastlane(workingDirectory, apps).pipe(Effect.provide(NodeContext.layer)),
-  );
+  migrateFastlane(workingDirectory, apps);
 describe('readRubyString', () => {
   it('reads bare and parenthesized string directives', () => {
     expect(readRubyString('team_id "ABCD1234"', 'team_id')).toBe('ABCD1234');
@@ -257,10 +252,7 @@ describe('migrateFastlane', () => {
   });
   it('returns a tagged failure when there is no fastlane setup', async () => {
     rmSync(join(dir, 'fastlane'), { recursive: true, force: true });
-    const migrationFailure = await Effect.runPromise(
-      Effect.flip(migrateFastlane(dir, [app()]).pipe(Effect.provide(NodeContext.layer))),
-    );
-    expect(migrationFailure).toMatchObject({
+    await expect(migrateFastlane(dir, [app()])).rejects.toMatchObject({
       _tag: 'FastlaneMigrationFailure',
       reason: 'MissingFastlaneSetup',
     });
@@ -333,30 +325,10 @@ describe('migrateFastlane', () => {
     writeFileSync(join(androidLocale, 'title.txt'), 'Alpha');
     writeFileSync(join(androidLocale, 'full_description.txt'), 'The full description.');
     const migration = await runMigrateFastlane(dir, [app()]);
-    const ImportedStoreSchema = Schema.Struct({
-      apple: Schema.optional(
-        Schema.Struct({
-          info: Schema.Record({
-            key: Schema.String,
-            value: Schema.Struct({
-              title: Schema.optional(Schema.String),
-              keywords: Schema.optional(Schema.Array(Schema.String)),
-            }),
-          }),
-        }),
-      ),
-      android: Schema.optional(
-        Schema.Struct({
-          info: Schema.Record({
-            key: Schema.String,
-            value: Schema.Struct({ title: Schema.optional(Schema.String) }),
-          }),
-        }),
-      ),
-    });
-    const store = Schema.decodeUnknownSync(ImportedStoreSchema)(
-      JSON.parse(artifact(migration.artifacts, 'store.config.json').contents),
-    );
+    const store = JSON.parse(artifact(migration.artifacts, 'store.config.json').contents) as {
+      apple?: { info: Record<string, { title?: string; keywords?: string[] }> };
+      android?: { info: Record<string, { title?: string }> };
+    };
     expect(store.apple?.info['en-US']?.title).toBe('Alpha');
     expect(store.apple?.info['en-US']?.keywords).toEqual(['todo', 'tasks']);
     expect(store.android?.info['en-US']?.title).toBe('Alpha');

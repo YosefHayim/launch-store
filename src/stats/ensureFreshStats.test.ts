@@ -1,37 +1,39 @@
-import { Effect } from 'effect';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { makeHttpClientTest } from '@testkit/httpClient.testkit.js';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import type { PortfolioFile } from '../types/portfolio.js';
-import type { AppCoverage, StatsFeedFailure, StatsFeedPlugin } from '../types/stats.js';
+import type { AppCoverage } from '../types/stats.js';
 import { ensureFreshStats } from './ensureFreshStats.js';
-import { makeStatsCredentialsTest } from './statsCredentials.js';
+import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.js';
 
 const fakeFeed = vi.hoisted(() => ({ isFailing: false }));
 
-vi.mock('./feedRegistry.js', async () => {
-  const { Effect: EffectModule } = await import('effect');
-  const iosFeed: StatsFeedPlugin = {
-    feed: 'app-store',
-    isApplicable: (app) => app.platform === 'ios',
-    fetchDays: () => {
+vi.mock('./feedRegistry.js', () => {
+  const iosFeed = {
+    feed: 'app-store' as const,
+    isApplicable(app: { platform: string }) {
+      return app.platform == 'ios';
+    },
+    async fetchDays() {
       if (fakeFeed.isFailing) {
-        return EffectModule.fail({
+        throw {
           _tag: 'StatsFeedFailure',
           feed: 'app-store',
           appKey: 'ios-1',
           message: 'report not ready',
           cause: null,
-        } satisfies StatsFeedFailure);
+        };
       }
-      return EffectModule.succeed({ status: 'skipped', reason: 'not built yet' });
+
+      return { status: 'skipped' as const, reason: 'not built yet' };
     },
   };
+
   return { STATS_FEED_PLUGINS: [iosFeed] };
 });
 
@@ -66,23 +68,26 @@ const PORTFOLIO_FILE: PortfolioFile = {
 
 describe('ensureFreshStats', () => {
   let homeDirectory: string;
+
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    useLaunchDirectories({
+      homeDirectory,
+      workingDirectory: join(homeDirectory, 'work'),
+    });
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(PORTFOLIO_FILE));
+    makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
   });
+
   afterEach(() => {
+    useStatsCredentials(null);
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
-  const ensure = (appName: string | null) =>
-    Effect.runPromise(
-      ensureFreshStats(appName).pipe(
-        Effect.provide(makeStatsCredentialsTest()),
-        Effect.provide(makeHttpClientTest([])),
-        Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      ),
-    );
+  const ensure = (appName: string | null) => ensureFreshStats(appName);
+
   const writeCoverage = (lastSyncedAt: string, lastError: string | null) => {
     const coverage: AppCoverage = {
       version: 1,

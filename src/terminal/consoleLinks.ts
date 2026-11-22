@@ -1,14 +1,12 @@
-import { Data, Effect } from 'effect';
-import { loadConfig } from '../config/config.js';
-import { executeCommand, provideNodeCommandServices } from '../services/platform/exec.js';
-import { detectHostOperatingSystem } from '../services/platform/os.js';
-import { LaunchPaths } from '../services/platform/paths.js';
-import { isApplePlatform, parsePlatform } from '../services/stores/platform.js';
-import type { ActiveAppleStoreRequirements } from '../store/apple/appleStoreCommand.js';
-import { selectApps } from '../store/shared/syncJobs.js';
-import { createAscClientResolver } from '../store/shared/storeClients.js';
-import type { AppDescriptor, OpenTarget, Platform } from '../types/app.js';
+import { loadConfig, type LoadedConfig } from '../config/config.js';
+import { executeCommand } from '../services/platform/exec.js';
 import { hasMessage } from '../services/platform/errorMessage.js';
+import { detectHostOperatingSystem } from '../services/platform/os.js';
+import { readLaunchDirectories } from '../services/platform/paths.js';
+import { isApplePlatform, parsePlatform } from '../services/stores/platform.js';
+import { createAscClientResolver } from '../store/shared/storeClients.js';
+import { selectApps } from '../store/shared/syncJobs.js';
+import type { AppDescriptor, OpenTarget, Platform } from '../types/app.js';
 import { PLAY_CONSOLE_URL } from './playConsoleUrls.js';
 
 export const OPEN_TARGETS: readonly OpenTarget[] = [
@@ -26,34 +24,61 @@ type OpenUrlOptions = Readonly<{
   app?: string;
 }>;
 
-/** Resolving or opening a store-console link failed. */
 type ConsoleLinkFailure = Readonly<{
   readonly _tag: 'ConsoleLinkFailure';
   readonly operation: string;
   readonly message: string;
   readonly cause?: unknown;
 }>;
-const makeConsoleLinkFailure = Data.tagged<ConsoleLinkFailure>('ConsoleLinkFailure');
+
+interface AppleAppLookup {
+  getAppId(bundleId: string): Promise<string | null>;
+}
 
 const ASC_ORIGIN = 'https://appstoreconnect.apple.com';
 
-/** Convert a dependency failure into the console-link channel. */
-const consoleLinkFailure = (operation: string, cause: unknown): ConsoleLinkFailure => {
-  let message = `${operation} failed.`;
-  if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') message = causeMessage;
+function makeConsoleLinkFailure(fields: {
+  operation: string;
+  message: string;
+  cause?: unknown;
+}): ConsoleLinkFailure {
+  if (fields.cause == null) {
+    return { _tag: 'ConsoleLinkFailure', operation: fields.operation, message: fields.message };
   }
-  return makeConsoleLinkFailure({ operation, message, cause });
-};
 
-/** Build an App Store Connect URL, falling back to the apps list without an app id. */
-const appStoreConnectUrl = (target: OpenTarget, appId: string | undefined): string => {
-  if (target === 'agreements') return `${ASC_ORIGIN}/agreements/`;
-  if (appId === undefined) return `${ASC_ORIGIN}/apps`;
+  return {
+    _tag: 'ConsoleLinkFailure',
+    operation: fields.operation,
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
+
+function isNonEmptyText(cause: unknown): cause is string {
+  if (typeof cause != 'string') {
+    return false;
+  }
+
+  return cause.length > 0;
+}
+
+function consoleLinkFailure(operation: string, cause: unknown): ConsoleLinkFailure {
+  let message = `${operation} failed.`;
+
+  if (isNonEmptyText(cause)) {
+    message = cause;
+  }
+
+  if (hasMessage(cause)) {
+    message = cause.message;
+  }
+
+  return makeConsoleLinkFailure({ operation, message, cause });
+}
+
+function appStoreSectionUrl(target: OpenTarget, appId: string): string {
   const appBase = `${ASC_ORIGIN}/apps/${appId}`;
+
   switch (target) {
     case 'testflight':
       return `${appBase}/testflight/ios`;
@@ -64,121 +89,234 @@ const appStoreConnectUrl = (target: OpenTarget, appId: string | undefined): stri
     case 'asc':
     case 'play':
     case 'app-record':
+    case 'agreements':
       return appBase;
   }
-};
+}
 
-/** Build the web-console URL for a resolved target and platform. */
-export const buildConsoleUrl = (
+function appStoreConnectUrl(target: OpenTarget, appId: string | undefined): string {
+  if (target == 'agreements') {
+    return `${ASC_ORIGIN}/agreements/`;
+  }
+
+  if (appId == null) {
+    return `${ASC_ORIGIN}/apps`;
+  }
+
+  return appStoreSectionUrl(target, appId);
+}
+
+export function buildConsoleUrl(
   target: OpenTarget,
   platform: Platform,
   appId: string | undefined,
-): string => {
-  if (target === 'play') return PLAY_CONSOLE_URL;
-  if (platform === 'android') return PLAY_CONSOLE_URL;
+): string {
+  if (target == 'play') {
+    return PLAY_CONSOLE_URL;
+  }
+
+  if (platform == 'android') {
+    return PLAY_CONSOLE_URL;
+  }
+
   return appStoreConnectUrl(target, appId);
-};
+}
 
-/** Validate the optional target, defaulting to App Store Connect. */
-export const parseOpenTarget = (
-  targetText: string | undefined,
-): Effect.Effect<OpenTarget, ConsoleLinkFailure> => {
-  if (targetText === undefined) return Effect.succeed('asc');
-  const matchedTarget = OPEN_TARGETS.find((knownTarget) => knownTarget === targetText);
-  if (matchedTarget !== undefined) return Effect.succeed(matchedTarget);
-  return Effect.fail(
-    makeConsoleLinkFailure({
-      operation: 'parse open target',
-      message: `Unknown target "${targetText}". Use one of: ${OPEN_TARGETS.join(', ')}.`,
-      cause: targetText,
-    }),
-  );
-};
+export function parseOpenTarget(targetText: string | undefined): OpenTarget {
+  if (targetText == null) {
+    return 'asc';
+  }
 
-/** Resolve the explicit platform or the target-based default. */
-export const resolveOpenPlatform = (
+  function isKnownTarget(knownTarget: OpenTarget): boolean {
+    return knownTarget == targetText;
+  }
+
+  const matchedTarget = OPEN_TARGETS.find(isKnownTarget);
+
+  if (matchedTarget != null) {
+    return matchedTarget;
+  }
+
+  throw makeConsoleLinkFailure({
+    operation: 'parse open target',
+    message: `Unknown target "${targetText}". Use one of: ${OPEN_TARGETS.join(', ')}.`,
+    cause: targetText,
+  });
+}
+
+function readFlaggedOpenPlatform(platformFlag: string): 'ios' | 'android' {
+  try {
+    const parsedPlatform = parsePlatform(platformFlag);
+
+    if (isApplePlatform(parsedPlatform)) {
+      return 'ios';
+    }
+
+    return 'android';
+  } catch (cause) {
+    throw consoleLinkFailure('parse open platform', cause);
+  }
+}
+
+export function resolveOpenPlatform(
   target: OpenTarget,
   platformFlag: string | undefined,
-): Effect.Effect<'ios' | 'android', ConsoleLinkFailure> =>
-  Effect.gen(function* () {
-    if (platformFlag !== undefined) {
-      const parsedPlatform = yield* parsePlatform(platformFlag).pipe(
-        Effect.mapError((cause) => consoleLinkFailure('parse open platform', cause)),
-      );
-      if (isApplePlatform(parsedPlatform)) return 'ios';
-      return 'android';
-    }
-    if (target === 'play') return 'android';
-    return 'ios';
-  });
+): 'ios' | 'android' {
+  if (platformFlag != null) {
+    return readFlaggedOpenPlatform(platformFlag);
+  }
 
-/** Pick the selected app that has an identifier for the target platform. */
-export const selectOpenApp = (
+  if (target == 'play') {
+    return 'android';
+  }
+
+  return 'ios';
+}
+
+function hasOpenIdentifier(platform: Platform, discoveredApp: AppDescriptor): boolean {
+  if (platform == 'ios') {
+    return discoveredApp.bundleId != null;
+  }
+
+  return discoveredApp.packageName != null;
+}
+
+export async function selectOpenApp(
   discoveredApps: AppDescriptor[],
   platform: Platform,
   appSelector: string | undefined,
-): Effect.Effect<AppDescriptor, ConsoleLinkFailure> =>
-  Effect.gen(function* () {
-    const selectedApps = yield* selectApps(discoveredApps, appSelector).pipe(
-      Effect.mapError((cause) => consoleLinkFailure('select app to open', cause)),
-    );
-    const selectedApp = selectedApps.find((discoveredApp) => {
-      if (platform === 'ios') return discoveredApp.bundleId !== undefined;
-      return discoveredApp.packageName !== undefined;
-    });
-    if (selectedApp !== undefined) return selectedApp;
-    let identifierLabel = 'android.package';
-    if (platform === 'ios') identifierLabel = 'ios.bundleIdentifier';
-    let selectorDetails = '';
-    if (appSelector !== undefined) selectorDetails = ` matching "${appSelector}"`;
-    return yield* Effect.fail(
-      makeConsoleLinkFailure({
-        operation: 'select app to open',
-        message: `No ${platform} app found${selectorDetails}. Add an ${identifierLabel} in app.json.`,
-        cause: appSelector,
-      }),
-    );
-  });
+): Promise<AppDescriptor> {
+  let selectedApps: readonly AppDescriptor[] = [];
 
-/** Resolve open-command input to one store-console URL. */
-export const resolveOpenUrl = (
+  try {
+    selectedApps = await selectApps(discoveredApps, appSelector);
+  } catch (cause) {
+    throw consoleLinkFailure('select app to open', cause);
+  }
+
+  function isOpenPlatformApp(discoveredApp: AppDescriptor): boolean {
+    return hasOpenIdentifier(platform, discoveredApp);
+  }
+
+  const selectedApp = selectedApps.find(isOpenPlatformApp);
+
+  if (selectedApp != null) {
+    return selectedApp;
+  }
+
+  let identifierLabel = 'android.package';
+  const isIosPlatform = platform == 'ios';
+
+  if (isIosPlatform) {
+    identifierLabel = 'ios.bundleIdentifier';
+  }
+
+  let selectorDetails = '';
+  const hasAppSelector = appSelector != null;
+
+  if (hasAppSelector) {
+    selectorDetails = ` matching "${appSelector}"`;
+  }
+
+  throw makeConsoleLinkFailure({
+    operation: 'select app to open',
+    message: `No ${platform} app found${selectorDetails}. Add an ${identifierLabel} in app.json.`,
+    cause: appSelector,
+  });
+}
+
+async function connectAppleStore(): Promise<AppleAppLookup | null> {
+  const readAppleStore = createAscClientResolver();
+
+  try {
+    return await readAppleStore();
+  } catch (cause) {
+    throw consoleLinkFailure('connect to App Store Connect', cause);
+  }
+}
+
+async function lookupAppleAppId(
+  appleStore: AppleAppLookup,
+  bundleId: string,
+): Promise<string | undefined> {
+  try {
+    const lookedUpAppId = await appleStore.getAppId(bundleId);
+
+    if (lookedUpAppId == null) {
+      return undefined;
+    }
+
+    return lookedUpAppId;
+  } catch (cause) {
+    // A failed lookup still opens the apps list.
+    const lookupFailed = cause != null;
+
+    if (lookupFailed) {
+      return undefined;
+    }
+
+    return undefined;
+  }
+}
+
+async function readOpenAppId(
+  platform: 'ios' | 'android',
+  selectedApp: AppDescriptor,
+): Promise<string | undefined> {
+  const isIosApp = platform == 'ios';
+
+  if (isIosApp == false) {
+    return undefined;
+  }
+
+  const bundleId = selectedApp.bundleId;
+
+  if (bundleId == null) {
+    return undefined;
+  }
+
+  const appleStore = await connectAppleStore();
+
+  if (appleStore == null) {
+    return undefined;
+  }
+
+  return lookupAppleAppId(appleStore, bundleId);
+}
+
+export async function resolveOpenUrl(
   rawTarget: string | undefined,
   openOptions: OpenUrlOptions,
-): Effect.Effect<string, ConsoleLinkFailure, ActiveAppleStoreRequirements> =>
-  Effect.gen(function* () {
-    const target = yield* parseOpenTarget(rawTarget);
-    const platform = yield* resolveOpenPlatform(target, openOptions.platform);
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory).pipe(
-      Effect.mapError((cause) => consoleLinkFailure('load configuration for console link', cause)),
-    );
-    const selectedApp = yield* selectOpenApp(loadedConfiguration.apps, platform, openOptions.app);
-    let appId: string | undefined;
-    if (platform === 'ios' && selectedApp.bundleId !== undefined) {
-      const resolveAppleStore = createAscClientResolver();
-      const appleStore = yield* resolveAppleStore().pipe(
-        Effect.mapError((cause) => consoleLinkFailure('connect to App Store Connect', cause)),
-      );
-      if (appleStore !== null) {
-        const resolvedAppId = yield* appleStore
-          .getAppId(selectedApp.bundleId)
-          .pipe(Effect.catchAll(() => Effect.succeed(null)));
-        if (resolvedAppId !== null) appId = resolvedAppId;
-      }
-    }
-    return buildConsoleUrl(target, platform, appId);
-  });
+): Promise<string> {
+  const target = parseOpenTarget(rawTarget);
+  const platform = resolveOpenPlatform(target, openOptions.platform);
+  const launchPaths = readLaunchDirectories();
+  let loadedConfiguration: LoadedConfig;
 
-/** Open a URL with the host platform's shell-free browser command. */
-export const openUrl = (url: string): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const hostOperatingSystem = yield* detectHostOperatingSystem;
-    switch (hostOperatingSystem) {
-      case 'macos':
-        return yield* provideNodeCommandServices(executeCommand('open', [url]));
-      case 'linux':
-        return yield* provideNodeCommandServices(executeCommand('xdg-open', [url]));
-      case 'windows':
-        return yield* provideNodeCommandServices(executeCommand('cmd', ['/c', 'start', '', url]));
-    }
-  });
+  try {
+    loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+  } catch (cause) {
+    throw consoleLinkFailure('load configuration for console link', cause);
+  }
+
+  const selectedApp = await selectOpenApp(loadedConfiguration.apps, platform, openOptions.app);
+  const appId = await readOpenAppId(platform, selectedApp);
+
+  return buildConsoleUrl(target, platform, appId);
+}
+
+export async function openUrl(url: string): Promise<void> {
+  const hostOperatingSystem = detectHostOperatingSystem();
+
+  switch (hostOperatingSystem) {
+    case 'macos':
+      await executeCommand('open', [url]);
+      return;
+    case 'linux':
+      await executeCommand('xdg-open', [url]);
+      return;
+    case 'windows':
+      await executeCommand('cmd', ['/c', 'start', '', url]);
+      return;
+  }
+}

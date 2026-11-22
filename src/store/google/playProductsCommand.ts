@@ -1,172 +1,251 @@
-import type { Terminal } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
-import type { LaunchPromptService } from '../../services/platform/prompt.js';
-import { completeCommand, type CommandExit } from '../../terminal/commandExit.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
+import { createLogger } from '../../services/platform/logger.js';
+import { completeCommand } from '../../terminal/commandExit.js';
 import type { InAppPurchaseConfig } from '../../types/catalog.js';
-import { loadActiveGoogleStore, type ActiveGoogleStoreRequirements } from './googleStoreCommand.js';
+import { loadStoreAppContext } from '../shared/selectStoreApp.js';
+import { loadActiveGoogleStore } from './googleStoreCommand.js';
 import {
   confirmPlayCatalogWrite,
   renderAppliedPlayCatalogAction,
   renderPlayCatalogAction,
 } from './playCatalogCommand.js';
 import { reconcilePlayProducts, summarizePlayProducts } from './playProducts.js';
-import {
-  loadStoreAppContext,
-  type StoreAppSelectionRequirements,
-} from '../shared/selectStoreApp.js';
-import { hasMessage } from '../../services/platform/errorMessage.js';
 
-export const PlayProductsCommandInputSchema = Schema.Struct({
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  dryRun: Schema.Boolean,
-  yes: Schema.Boolean,
-});
+export type PlayProductsCommandInput = {
+  app?: string;
+  dryRun: boolean;
+  yes: boolean;
+};
 
-export type PlayProductsCommandInput = Schema.Schema.Type<typeof PlayProductsCommandInputSchema>;
-
-/** A Play products command step failed. */
 type PlayProductsCommandFailure = Readonly<{
   readonly _tag: 'PlayProductsCommandFailure';
   readonly operation: string;
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makePlayProductsCommandFailure = Data.tagged<PlayProductsCommandFailure>(
-  'PlayProductsCommandFailure',
-);
 
-type PlayProductsCommandRequirements =
-  | ActiveGoogleStoreRequirements
-  | LaunchPromptService
-  | Logger
-  | StoreAppSelectionRequirements
-  | Terminal.Terminal;
+function makePlayProductsCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): PlayProductsCommandFailure {
+  return { _tag: 'PlayProductsCommandFailure', ...fields };
+}
 
-/** Convert any command dependency failure into the Play products channel. */
-const productsFailure = (operation: string, cause: unknown): PlayProductsCommandFailure => {
+function productsFailure(operation: string, cause: unknown): PlayProductsCommandFailure {
   let message = `${operation} failed.`;
-  if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') message = causeMessage;
+
+  if (typeof cause == 'string') {
+    const isBlank = cause.length == 0;
+
+    if (isBlank == false) {
+      message = cause;
+    }
   }
+
+  if (hasMessage(cause)) {
+    message = cause.message;
+  }
+
   return makePlayProductsCommandFailure({ operation, message, cause });
-};
+}
 
-/** Resolve the selected package and its Play-enabled one-time products. */
-const resolveProductsTarget = (
-  appSelector: string | undefined,
-): Effect.Effect<
-  Readonly<{ appName: string; packageName: string; products: InAppPurchaseConfig[] }>,
-  PlayProductsCommandFailure,
-  StoreAppSelectionRequirements
-> =>
-  Effect.gen(function* () {
-    const storeAppContext = yield* loadStoreAppContext(appSelector).pipe(
-      Effect.mapError((cause) => productsFailure('select app', cause)),
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
+  const field = record[fieldName];
+
+  if (typeof field != 'boolean') {
+    throw new Error(`${fieldName} must be a boolean`);
+  }
+
+  return field;
+}
+
+function readExactOptionalString(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | null {
+  if (fieldName in record == false) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  return field;
+}
+
+export function decodePlayProductsCommandInput(rawCommandInput: unknown): PlayProductsCommandInput {
+  if (isRecord(rawCommandInput) == false) {
+    throw new Error('Play products command input must be an object.');
+  }
+
+  const commandInput: PlayProductsCommandInput = {
+    dryRun: readRequiredBoolean(rawCommandInput, 'dryRun'),
+    yes: readRequiredBoolean(rawCommandInput, 'yes'),
+  };
+  const appName = readExactOptionalString(rawCommandInput, 'app');
+
+  if (appName != null) {
+    commandInput.app = appName;
+  }
+
+  return commandInput;
+}
+
+export const PlayProductsCommandInputSchema = decodePlayProductsCommandInput;
+
+function playEnabledProduct(declaredProduct: InAppPurchaseConfig): boolean {
+  return declaredProduct.play != null;
+}
+
+async function resolveProductsTarget(appSelector: string | undefined): Promise<{
+  appName: string;
+  packageName: string;
+  products: InAppPurchaseConfig[];
+}> {
+  const storeAppContext = await loadStoreAppContext(appSelector);
+  const selectedApp = storeAppContext.app;
+
+  if (selectedApp.packageName == null) {
+    throw productsFailure(
+      'resolve Android application id',
+      `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
     );
-    const selectedApp = storeAppContext.app;
-    if (selectedApp.packageName === undefined) {
-      return yield* Effect.fail(
-        productsFailure(
-          'resolve Android application id',
-          `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
-        ),
-      );
+  }
+
+  if (selectedApp.bundleId == null) {
+    throw productsFailure(
+      'resolve product catalog',
+      `No iOS bundle identifier for ${selectedApp.name} - the product catalog is keyed by bundle id; set ios.bundleIdentifier.`,
+    );
+  }
+
+  let declaredProducts: InAppPurchaseConfig[] = [];
+  const productCatalog = storeAppContext.config.products;
+
+  if (productCatalog != null) {
+    const appCatalog = productCatalog[selectedApp.bundleId];
+
+    if (appCatalog?.inAppPurchases != null) {
+      declaredProducts = appCatalog.inAppPurchases.filter(playEnabledProduct);
     }
-    if (selectedApp.bundleId === undefined) {
-      return yield* Effect.fail(
-        productsFailure(
-          'resolve product catalog',
-          `No iOS bundle identifier for ${selectedApp.name} - the product catalog is keyed by bundle id; set ios.bundleIdentifier.`,
-        ),
-      );
-    }
-    let declaredProducts: InAppPurchaseConfig[] = [];
-    const productCatalog = storeAppContext.config.products;
-    if (productCatalog !== undefined) {
-      const appCatalog = productCatalog[selectedApp.bundleId];
-      if (appCatalog !== undefined && appCatalog.inAppPurchases !== undefined) {
-        declaredProducts = appCatalog.inAppPurchases.filter(
-          (declaredProduct) => declaredProduct.play !== undefined,
-        );
-      }
-    }
-    return {
-      appName: selectedApp.name,
-      packageName: selectedApp.packageName,
-      products: declaredProducts,
-    };
+  }
+
+  return {
+    appName: selectedApp.name,
+    packageName: selectedApp.packageName,
+    products: declaredProducts,
+  };
+}
+
+function isPlanned(plannedAction: { status: string }): boolean {
+  return plannedAction.status == 'planned';
+}
+
+function catalogLine(plannedAction: Parameters<typeof renderPlayCatalogAction>[0]): string {
+  return renderPlayCatalogAction(plannedAction);
+}
+
+function appliedLine(appliedAction: Parameters<typeof renderAppliedPlayCatalogAction>[0]): string {
+  return renderAppliedPlayCatalogAction(appliedAction);
+}
+
+async function executePlayProducts(rawCommandInput: unknown): Promise<number> {
+  const commandInput = decodePlayProductsCommandInput(rawCommandInput);
+  const productsTarget = await resolveProductsTarget(commandInput.app);
+  const logger = createLogger(false);
+
+  if (productsTarget.products.length == 0) {
+    logger.gap();
+    logger.skip(
+      `${productsTarget.packageName}: no in-app purchases carry a play override - nothing to reconcile`,
+    );
+    return 0;
+  }
+
+  const googleStore = await loadActiveGoogleStore(
+    productsTarget.packageName,
+    productsTarget.appName,
+  );
+  const productsPlan = await reconcilePlayProducts(googleStore, {
+    packageName: productsTarget.packageName,
+    products: productsTarget.products,
+    dryRun: true,
   });
+  const plannedActions = productsPlan.actions.filter(isPlanned);
 
-/** Decode, plan, confirm, and apply Play one-time products. */
-const executePlayProducts = (
-  rawCommandInput: unknown,
-): Effect.Effect<number, PlayProductsCommandFailure, PlayProductsCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(PlayProductsCommandInputSchema)(
-      rawCommandInput,
-    ).pipe(Effect.mapError((cause) => productsFailure('decode command input', cause)));
-    const productsTarget = yield* resolveProductsTarget(commandInput.app);
-    const logger = yield* createLogger(false);
-    if (productsTarget.products.length === 0) {
-      yield* logger.gap();
-      yield* logger.skip(
-        `${productsTarget.packageName}: no in-app purchases carry a play override - nothing to reconcile`,
-      );
-      return 0;
-    }
-    const googleStore = yield* loadActiveGoogleStore(
-      productsTarget.packageName,
-      productsTarget.appName,
-    );
-    const productsPlan = yield* reconcilePlayProducts(googleStore, {
-      packageName: productsTarget.packageName,
-      products: productsTarget.products,
-      dryRun: true,
-    });
-    const plannedActions = productsPlan.actions.filter(
-      (plannedAction) => plannedAction.status === 'planned',
-    );
-    yield* logger.gap();
-    if (productsPlan.actions.length === 0) {
-      yield* logger.ok(`${productsTarget.packageName}: Play in-app products already in sync`);
-      return 0;
-    }
-    yield* logger.notice(
-      productsTarget.packageName,
-      ...productsPlan.actions.map(renderPlayCatalogAction),
-    );
-    yield* logger.gap();
-    yield* logger.note(`${plannedActions.length} change(s) for ${productsTarget.packageName}.`);
-    if (commandInput.dryRun) {
-      yield* logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
-      return 0;
-    }
-    const confirmed = yield* confirmPlayCatalogWrite(
-      `Apply ${plannedActions.length} Play product change(s) to ${productsTarget.packageName}?`,
-      commandInput.yes,
-    );
-    if (!confirmed) return 0;
-    const appliedProducts = yield* reconcilePlayProducts(googleStore, {
-      packageName: productsTarget.packageName,
-      products: productsTarget.products,
-      dryRun: false,
-    });
-    const productsSummary = summarizePlayProducts(appliedProducts.actions);
-    let receiptTitle = 'Applied';
-    if (productsSummary.failed > 0) receiptTitle = 'Applied with errors';
-    yield* logger.box(receiptTitle, appliedProducts.actions.map(renderAppliedPlayCatalogAction));
-    return productsSummary.failed;
-  }).pipe(Effect.mapError((cause) => productsFailure('reconcile Play products', cause)));
+  logger.gap();
+
+  if (productsPlan.actions.length == 0) {
+    logger.ok(`${productsTarget.packageName}: Play in-app products already in sync`);
+    return 0;
+  }
+
+  logger.notice(productsTarget.packageName, ...productsPlan.actions.map(catalogLine));
+  logger.gap();
+  logger.note(`${plannedActions.length} change(s) for ${productsTarget.packageName}.`);
+
+  if (commandInput.dryRun) {
+    logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+    return 0;
+  }
+
+  const confirmed = await confirmPlayCatalogWrite(
+    `Apply ${plannedActions.length} Play product change(s) to ${productsTarget.packageName}?`,
+    commandInput.yes,
+  );
+
+  if (confirmed == false) {
+    return 0;
+  }
+
+  const appliedProducts = await reconcilePlayProducts(googleStore, {
+    packageName: productsTarget.packageName,
+    products: productsTarget.products,
+    dryRun: false,
+  });
+  const productsSummary = summarizePlayProducts(appliedProducts.actions);
+  let receiptTitle = 'Applied';
+
+  if (productsSummary.failed > 0) {
+    receiptTitle = 'Applied with errors';
+  }
+
+  logger.box(receiptTitle, appliedProducts.actions.map(appliedLine));
+
+  return productsSummary.failed;
+}
 
 /** Run the schema-decoded Play products command. */
-export const playProductsCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, CommandExit | PlayProductsCommandFailure, PlayProductsCommandRequirements> =>
-  Effect.gen(function* () {
-    const failureCount = yield* executePlayProducts(rawCommandInput);
-    if (failureCount > 0) yield* completeCommand(1);
-  });
+export async function playProductsCommandProgram(rawCommandInput: unknown): Promise<void> {
+  let failureCount = 0;
+
+  try {
+    failureCount = await executePlayProducts(rawCommandInput);
+  } catch (cause) {
+    throw productsFailure('reconcile Play products', cause);
+  }
+
+  if (failureCount > 0) {
+    completeCommand(1);
+  }
+}

@@ -1,6 +1,5 @@
 import type { Command } from 'commander';
-import { Effect } from 'effect';
-import { UpdatesCommandServiceLive, updatesCommandProgram } from '@/config/updatesCommand.js';
+import { updatesCommandProgram } from '@/config/updatesCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type ListOptions = Readonly<{
@@ -22,9 +21,11 @@ type RollbackOptions = Readonly<{
   yes: boolean;
 }>;
 
-/** Provide the live update boundary to one command operation. */
-const provideUpdatesCommand = (commandInput: Parameters<typeof updatesCommandProgram>[0]) =>
-  updatesCommandProgram(commandInput).pipe(Effect.provide(UpdatesCommandServiceLive));
+function provideUpdatesCommand(
+  commandInput: Parameters<typeof updatesCommandProgram>[0],
+): Promise<void> {
+  return updatesCommandProgram(commandInput);
+}
 
 /** Attach the update-history command family. */
 export const registerUpdatesCommand = (program: Command): void => {

@@ -1,4 +1,3 @@
-import { Data, Effect } from 'effect';
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
@@ -7,19 +6,17 @@ import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** The App Store transport operations required by the customer-reviews domain. */
 export type AscReviewsApi = Readonly<{
-  getAppId: (bundleId: string) => Effect.Effect<string | null, unknown>;
+  getAppId: (bundleId: string) => Promise<string | null>;
   listCustomerReviews: (
     appId: string,
     filters: Readonly<{ rating?: number; territory?: string }>,
-  ) => Effect.Effect<CustomerReviewResource[], unknown>;
-  getCustomerReviewResponse: (
-    reviewId: string,
-  ) => Effect.Effect<CustomerReviewResponseResource | null, unknown>;
+  ) => Promise<CustomerReviewResource[]>;
+  getCustomerReviewResponse: (reviewId: string) => Promise<CustomerReviewResponseResource | null>;
   createCustomerReviewResponse: (
     reviewId: string,
     responseText: string,
-  ) => Effect.Effect<CustomerReviewResponseResource, unknown>;
-  deleteCustomerReviewResponse: (reviewReplyId: string) => Effect.Effect<void, unknown>;
+  ) => Promise<CustomerReviewResponseResource>;
+  deleteCustomerReviewResponse: (reviewReplyId: string) => Promise<void>;
 }>;
 
 /** A customer-review validation or App Store request failed. */
@@ -29,7 +26,14 @@ type ReviewFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeReviewFailure = Data.tagged<ReviewFailure>('ReviewFailure');
+
+function makeReviewFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): ReviewFailure {
+  return { _tag: 'ReviewFailure', ...fields };
+}
 
 /** Optional filters for App Store customer reviews. */
 type ReviewFilters = Readonly<{
@@ -45,87 +49,106 @@ type ReplyResult = Readonly<{
 }>;
 
 /** Convert a transport failure to the reviews error channel. */
-const reviewFailure = (operation: string, cause: unknown): ReviewFailure => {
-  let message = `${operation} failed.`;
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') message = causeMessage;
-  }
-  return makeReviewFailure({ operation, message, cause });
-};
+function reviewFailure(operation: string, cause: unknown): ReviewFailure {
+  const fallback = `${operation} failed.`;
+  const hasCauseMessage = hasMessage(cause);
+
+  if (hasCauseMessage) return makeReviewFailure({ operation, message: cause.message, cause });
+
+  return makeReviewFailure({ operation, message: fallback, cause });
+}
 
 /** Run one App Store review request in the reviews error channel. */
-const runReviewRequest = <Success>(
+async function runReviewRequest<Success>(
   operation: string,
-  requestEffect: Effect.Effect<Success, unknown>,
-): Effect.Effect<Success, ReviewFailure> =>
-  requestEffect.pipe(Effect.mapError((cause) => reviewFailure(operation, cause)));
+  request: Promise<Success>,
+): Promise<Success> {
+  try {
+    return await request;
+  } catch (cause) {
+    throw reviewFailure(operation, cause);
+  }
+}
+
+function isUnansweredReview(customerReview: CustomerReviewResource): boolean {
+  const isAnswered = customerReview.answered == true;
+  return isAnswered == false;
+}
 
 /** List an app's customer reviews, newest first. */
-export const listReviews = (
+export async function listReviews(
   reviewsStore: AscReviewsApi,
   bundleId: string,
   filters: ReviewFilters = {},
-): Effect.Effect<readonly CustomerReviewResource[], ReviewFailure> =>
-  Effect.gen(function* () {
-    const appId = yield* runReviewRequest('resolve App Store app', reviewsStore.getAppId(bundleId));
-    if (appId === null) {
-      return yield* Effect.fail(
-        makeReviewFailure({
-          operation: 'resolve App Store app',
-          message:
-            `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this ` +
-            'account can access the app.',
-          cause: bundleId,
-        }),
-      );
-    }
-    const serverFilters: { rating?: number; territory?: string } = {};
-    if (filters.rating !== undefined) serverFilters.rating = filters.rating;
-    if (filters.territory !== undefined) serverFilters.territory = filters.territory;
-    const customerReviews = yield* runReviewRequest(
-      'list customer reviews',
-      reviewsStore.listCustomerReviews(appId, serverFilters),
-    );
-    if (filters.unansweredOnly) {
-      return customerReviews.filter((customerReview) => !customerReview.answered);
-    }
-    return customerReviews;
-  });
+): Promise<readonly CustomerReviewResource[]> {
+  const appId = await runReviewRequest('resolve App Store app', reviewsStore.getAppId(bundleId));
+  const isAppMissing = appId == null;
+
+  if (isAppMissing) {
+    throw makeReviewFailure({
+      operation: 'resolve App Store app',
+      message:
+        `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this ` +
+        'account can access the app.',
+      cause: bundleId,
+    });
+  }
+
+  const serverFilters: { rating?: number; territory?: string } = {};
+  if (filters.rating !== undefined) serverFilters.rating = filters.rating;
+  if (filters.territory !== undefined) serverFilters.territory = filters.territory;
+
+  const customerReviews = await runReviewRequest(
+    'list customer reviews',
+    reviewsStore.listCustomerReviews(appId, serverFilters),
+  );
+  const isUnansweredOnly = filters.unansweredOnly == true;
+
+  if (isUnansweredOnly) {
+    return customerReviews.filter(isUnansweredReview);
+  }
+
+  return customerReviews;
+}
 
 /** Post or replace the developer reply to a customer review. */
-export const replyToReview = (
+export async function replyToReview(
   reviewsStore: AscReviewsApi,
   reviewId: string,
   responseText: string,
-): Effect.Effect<ReplyResult, ReviewFailure> =>
-  Effect.gen(function* () {
-    const existingReply = yield* runReviewRequest(
-      'read existing review reply',
-      reviewsStore.getCustomerReviewResponse(reviewId),
-    );
-    const reviewReply = yield* runReviewRequest(
-      'post review reply',
-      reviewsStore.createCustomerReviewResponse(reviewId, responseText),
-    );
-    return { reviewReply, replaced: existingReply !== null };
-  });
+): Promise<ReplyResult> {
+  const existingReply = await runReviewRequest(
+    'read existing review reply',
+    reviewsStore.getCustomerReviewResponse(reviewId),
+  );
+  const reviewReply = await runReviewRequest(
+    'post review reply',
+    reviewsStore.createCustomerReviewResponse(reviewId, responseText),
+  );
+  const replaced = existingReply != null;
+
+  return { reviewReply, replaced };
+}
 
 /** Delete the developer reply to a customer review when one exists. */
-export const deleteReviewResponse = (
+export async function deleteReviewResponse(
   reviewsStore: AscReviewsApi,
   reviewId: string,
-): Effect.Effect<boolean, ReviewFailure> =>
-  Effect.gen(function* () {
-    const existingReply = yield* runReviewRequest(
-      'read existing review reply',
-      reviewsStore.getCustomerReviewResponse(reviewId),
-    );
-    if (existingReply === null) return false;
-    yield* runReviewRequest(
-      'delete review reply',
-      reviewsStore.deleteCustomerReviewResponse(existingReply.id),
-    );
-    return true;
-  });
+): Promise<boolean> {
+  const existingReply = await runReviewRequest(
+    'read existing review reply',
+    reviewsStore.getCustomerReviewResponse(reviewId),
+  );
+  const isReplyMissing = existingReply == null;
+
+  if (isReplyMissing) {
+    return false;
+  }
+
+  await runReviewRequest(
+    'delete review reply',
+    reviewsStore.deleteCustomerReviewResponse(existingReply.id),
+  );
+
+  return true;
+}

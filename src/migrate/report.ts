@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import type { MigrationNoteLevel, MigrationResult, MigrationSource } from '../types/migrate.js';
 
 const LEVEL_LABEL: Record<MigrationNoteLevel, string> = {
@@ -23,27 +22,38 @@ const SOURCE_LABEL: Record<MigrationSource, string> = {
 const LEVEL_ORDER: MigrationNoteLevel[] = ['manual', 'mapped', 'skipped', 'info'];
 
 /** Render a migration as the migration-report.md document. */
-export const renderReport = (migration: MigrationResult): Effect.Effect<string> =>
-  Effect.sync(() => {
-    const reportLines: string[] = [
-      '# Launch migration report',
-      '',
-      `Migrated from **${SOURCE_LABEL[migration.source]}**.`,
-      '',
-      '## Files',
-      '',
-      ...migration.artifacts.map((migrationArtifact) => `- \`${migrationArtifact.path}\``),
-    ];
-    for (const noteLevel of LEVEL_ORDER) {
-      const levelNotes = migration.notes.filter(
-        (migrationNote) => migrationNote.level === noteLevel,
-      );
-      if (levelNotes.length === 0) continue;
-      reportLines.push('', `## ${LEVEL_HEADING[noteLevel]}`, '');
-      for (const migrationNote of levelNotes) {
-        reportLines.push(`- ${LEVEL_LABEL[noteLevel]} ${migrationNote.message}`);
-      }
+export function renderReport(migration: MigrationResult): string {
+  const reportLines: string[] = [
+    '# Launch migration report',
+    '',
+    `Migrated from **${SOURCE_LABEL[migration.source]}**.`,
+    '',
+    '## Files',
+    '',
+  ];
+
+  for (const migrationArtifact of migration.artifacts) {
+    reportLines.push(`- \`${migrationArtifact.path}\``);
+  }
+
+  for (const noteLevel of LEVEL_ORDER) {
+    const levelNotes = migration.notes.filter(function noteMatchesLevel(migrationNote) {
+      return migrationNote.level == noteLevel;
+    });
+    const hasNoNotes = levelNotes.length == 0;
+
+    if (hasNoNotes) {
+      continue;
     }
-    reportLines.push('');
-    return reportLines.join('\n');
-  });
+
+    reportLines.push('', `## ${LEVEL_HEADING[noteLevel]}`, '');
+
+    for (const migrationNote of levelNotes) {
+      reportLines.push(`- ${LEVEL_LABEL[noteLevel]} ${migrationNote.message}`);
+    }
+  }
+
+  reportLines.push('');
+
+  return reportLines.join('\n');
+}

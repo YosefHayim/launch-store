@@ -1,78 +1,123 @@
-import { FileSystem, Path } from '@effect/platform';
-import type { CommandExecutor } from '@effect/platform/CommandExecutor';
-import { Effect, Schema } from 'effect';
-import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { captureCommandOutput } from '../services/platform/exec.js';
 import { checkIsMacOperatingSystem } from '../services/platform/os.js';
 import type { EntitlementValue } from '../types/adopt.js';
 
-const EntitlementValueSchema: Schema.Schema<EntitlementValue> = Schema.suspend(() =>
-  Schema.Union(
-    Schema.String,
-    Schema.Number,
-    Schema.Boolean,
-    Schema.Null,
-    Schema.mutable(Schema.Array(EntitlementValueSchema)),
-    Schema.mutable(Schema.Record({ key: Schema.String, value: EntitlementValueSchema })),
-  ),
-);
+export type ProfileEntitlementRequirements = never;
 
-const ProfileEntitlementsSchema = Schema.mutable(
-  Schema.Record({
-    key: Schema.String,
-    value: EntitlementValueSchema,
-  }),
-);
+function isEntitlementValue(candidate: unknown): candidate is EntitlementValue {
+  if (typeof candidate == 'string') {
+    return true;
+  }
 
-export type ProfileEntitlementRequirements =
-  | CommandExecutor
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | Path.Path;
+  if (typeof candidate == 'number') {
+    return true;
+  }
+
+  if (typeof candidate == 'boolean') {
+    return true;
+  }
+
+  if (candidate == null) {
+    return true;
+  }
+
+  if (Array.isArray(candidate)) {
+    return candidate.every(isEntitlementValue);
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return Object.values(candidate).every(isEntitlementValue);
+}
+
+function isEntitlementRecord(candidate: unknown): candidate is Record<string, EntitlementValue> {
+  if (isEntitlementValue(candidate) == false) {
+    return false;
+  }
+
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readProfileEntitlements(entitlementsJson: string): Record<string, EntitlementValue> {
+  const parsedEntitlements: unknown = JSON.parse(entitlementsJson);
+  const isRecord = isEntitlementRecord(parsedEntitlements);
+
+  if (isRecord == false) {
+    throw new Error('Provisioning profile entitlements are not a JSON object.');
+  }
+
+  return parsedEntitlements;
+}
 
 /** Decode entitlement values from a provisioning profile on macOS. */
-export const extractProfileEntitlements = (
+export async function extractProfileEntitlements(
   profileContent: string,
-): Effect.Effect<Record<string, EntitlementValue> | null, never, ProfileEntitlementRequirements> =>
-  Effect.gen(function* () {
-    const runningOnMac = yield* checkIsMacOperatingSystem;
-    if (!runningOnMac) return null;
-    return yield* Effect.scoped(
-      Effect.gen(function* () {
-        const fileSystem = yield* FileSystem.FileSystem;
-        const pathService = yield* Path.Path;
-        const workspacePath = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: 'launch-adopt-',
-        });
-        const profilePath = pathService.join(workspacePath, 'profile.mobileprovision');
-        yield* fileSystem.writeFile(profilePath, Buffer.from(profileContent, 'base64'));
-        const decodedPlist = yield* captureCommandOutput('security', [
-          'cms',
-          '-D',
-          '-i',
-          profilePath,
-        ]);
-        const plistPath = pathService.join(workspacePath, 'decoded.plist');
-        yield* fileSystem.writeFileString(plistPath, decodedPlist);
-        const entitlementsPlistPath = pathService.join(workspacePath, 'entitlements.plist');
-        yield* captureCommandOutput('plutil', [
-          '-extract',
-          'Entitlements',
-          'xml1',
-          '-o',
-          entitlementsPlistPath,
-          plistPath,
-        ]);
-        const entitlementsJson = yield* captureCommandOutput('plutil', [
-          '-convert',
-          'json',
-          '-o',
-          '-',
-          entitlementsPlistPath,
-        ]);
-        return yield* Effect.try(() => JSON.parse(entitlementsJson)).pipe(
-          Effect.flatMap(Schema.decodeUnknown(ProfileEntitlementsSchema)),
-        );
-      }).pipe(Effect.catchAll(() => Effect.succeed(null))),
-    );
-  });
+): Promise<Record<string, EntitlementValue> | null> {
+  const runningOnMac = checkIsMacOperatingSystem();
+
+  if (runningOnMac == false) {
+    return null;
+  }
+
+  let workspacePath: string | null = null;
+
+  try {
+    workspacePath = await mkdtemp(join(tmpdir(), 'launch-adopt-'));
+    const profilePath = join(workspacePath, 'profile.mobileprovision');
+    await writeFile(profilePath, Buffer.from(profileContent, 'base64'));
+    const decodedPlist = await captureCommandOutput('security', ['cms', '-D', '-i', profilePath]);
+    const plistPath = join(workspacePath, 'decoded.plist');
+    await writeFile(plistPath, decodedPlist);
+    const entitlementsPlistPath = join(workspacePath, 'entitlements.plist');
+    await captureCommandOutput('plutil', [
+      '-extract',
+      'Entitlements',
+      'xml1',
+      '-o',
+      entitlementsPlistPath,
+      plistPath,
+    ]);
+    const entitlementsJson = await captureCommandOutput('plutil', [
+      '-convert',
+      'json',
+      '-o',
+      '-',
+      entitlementsPlistPath,
+    ]);
+
+    const profileEntitlements = readProfileEntitlements(entitlementsJson);
+
+    if (workspacePath != null) {
+      await rm(workspacePath, { recursive: true, force: true });
+    }
+
+    return profileEntitlements;
+  } catch {
+    if (workspacePath != null) {
+      try {
+        await rm(workspacePath, { recursive: true, force: true });
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  }
+}

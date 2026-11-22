@@ -1,25 +1,27 @@
-import { FileSystem, Path, Terminal } from '@effect/platform';
-import type { CommandExecutor } from '@effect/platform/CommandExecutor';
-import { Data, Effect, Redacted, Schema } from 'effect';
-import { loadConfig } from '../config/config.js';
+import { readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { pathExists } from '@/path-exists.js';
+import { loadConfig } from '@/config/config.js';
+import {
+  readDocumentFile,
+  writeDocumentFileAtomically,
+} from '@/services/platform/atomicDocumentFile.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { readLaunchEnvironment } from '@/services/platform/environment.js';
+import { createLogger, type Logger } from '@/services/platform/logger.js';
+import { locatePortfolioFilePath, readLaunchDirectories } from '@/services/platform/paths.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
 import {
   AppStoreIdentityService,
   type AppStoreIdentity,
-} from '../services/stores/appStoreIdentity.js';
-import type { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.js';
-import {
-  LaunchEnvironment,
-  type LaunchEnvironmentService,
-} from '../services/platform/environment.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
-import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
-import { parsePlatform } from '../services/stores/platform.js';
-import type { AppDescriptor, Platform } from '../types/app.js';
-import type { AccountRecord, AscKey } from '../types/credentials.js';
+} from '@/services/stores/appStoreIdentity.js';
+import { GoogleStoreClientService } from '@/services/stores/googleStoreClient.js';
+import { parsePlatform } from '@/services/stores/platform.js';
+import { pickSavedPortfolioFile } from '@/portfolio/portfolioStore.js';
+import { parsePlayReportsBucket } from '@/stats/playReportsBucket.js';
+import type { AppDescriptor, Platform } from '@/types/app.js';
+import type { AccountRecord, AscKey } from '@/types/credentials.js';
+import type { PortfolioFile } from '@/types/portfolio.js';
 import {
   addAccount,
   formatAccountSummary,
@@ -43,18 +45,9 @@ import {
 } from './androidKeystore.js';
 import { describeStoredCredentials, ensureSigningCredentials } from './appleSigning.js';
 import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './keyFiles.js';
-import {
-  pickSavedPortfolioFile,
-  loadPortfolioFile,
-  savePortfolioFile,
-} from '../portfolio/portfolioStore.js';
-import { parsePlayReportsBucket } from '../stats/playReportsBucket.js';
 import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './pushKeyStore.js';
 
-const optionalCommandText = Schema.optionalWith(Schema.String, { exact: true });
-const optionalCommandFlag = Schema.optionalWith(Schema.Boolean, { exact: true });
-
-const CredentialsActionSchema = Schema.Literal(
+const CREDENTIAL_ACTIONS = [
   'status',
   'adopt',
   'accounts',
@@ -68,48 +61,50 @@ const CredentialsActionSchema = Schema.Literal(
   'push-key',
   'set-vendor-number',
   'set-play-reports-bucket',
-);
+] as const;
 
-const CredentialsCommandOptionsSchema = Schema.Struct({
-  platform: optionalCommandText,
-  keyId: optionalCommandText,
-  issuerId: optionalCommandText,
-  p8: optionalCommandText,
-  label: optionalCommandText,
-  account: optionalCommandText,
-  app: optionalCommandText,
-  import: optionalCommandText,
-  alias: optionalCommandText,
-  yes: optionalCommandFlag,
-  teamId: optionalCommandText,
-  out: optionalCommandText,
-  force: optionalCommandFlag,
-  vendorNumber: optionalCommandText,
-  playReportsBucket: optionalCommandText,
-});
+type CredentialsAction = (typeof CREDENTIAL_ACTIONS)[number];
 
-export const CredentialsCommandInputSchema = Schema.Struct({
-  action: CredentialsActionSchema,
-  firstArgument: optionalCommandText,
-  secondArgument: optionalCommandText,
-  options: CredentialsCommandOptionsSchema,
-});
+const OPTION_TEXT_FIELDS = [
+  'platform',
+  'keyId',
+  'issuerId',
+  'p8',
+  'label',
+  'account',
+  'app',
+  'import',
+  'alias',
+  'teamId',
+  'out',
+  'vendorNumber',
+  'playReportsBucket',
+] as const;
 
-export type CredentialsCommandOptions = Schema.Schema.Type<typeof CredentialsCommandOptionsSchema>;
+export type CredentialsCommandOptions = {
+  platform?: string;
+  keyId?: string;
+  issuerId?: string;
+  p8?: string;
+  label?: string;
+  account?: string;
+  app?: string;
+  import?: string;
+  alias?: string;
+  yes?: boolean;
+  teamId?: string;
+  out?: string;
+  force?: boolean;
+  vendorNumber?: string;
+  playReportsBucket?: string;
+};
 
-type CredentialsCommandRequirements =
-  | AppStoreIdentityService
-  | GoogleStoreClientService
-  | AppleCredentialsClientFactory
-  | CommandExecutor
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchPromptService
-  | LaunchSecretStoreService
-  | Logger
-  | Path.Path
-  | Terminal.Terminal;
+type CredentialsCommandInput = {
+  action: CredentialsAction;
+  firstArgument?: string;
+  secondArgument?: string;
+  options: CredentialsCommandOptions;
+};
 
 export type CredentialsCommandFailure = Readonly<{
   readonly _tag: 'CredentialsCommandFailure';
@@ -118,1029 +113,1563 @@ export type CredentialsCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-const makeCredentialsCommandFailure = Data.tagged<CredentialsCommandFailure>(
-  'CredentialsCommandFailure',
-);
-
-/** Whether a failure already belongs to this command family's public channel. */
-const isCredentialsCommandFailure = (cause: unknown): cause is CredentialsCommandFailure => {
-  if (typeof cause !== 'object') return false;
-  if (cause === null) return false;
-  if (!('_tag' in cause)) return false;
-  return cause._tag === 'CredentialsCommandFailure';
-};
-
-/** Turn an underlying typed failure into the command family's public failure. */
-const commandFailure = (operation: string, cause: unknown): CredentialsCommandFailure =>
-  makeCredentialsCommandFailure({ operation, message: errorMessage(cause), cause });
-
-/** Stop a command branch with an actionable message. */
-const failCommand = (
-  operation: string,
-  message: string,
-): Effect.Effect<never, CredentialsCommandFailure> =>
-  Effect.fail(makeCredentialsCommandFailure({ operation, message }));
-
-/** Return the first defined text without truthiness fallback semantics. */
-const firstDefinedText = (...candidates: readonly (string | undefined)[]): string | undefined => {
-  for (const candidate of candidates) {
-    if (candidate !== undefined) return candidate;
+function makeCredentialsCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause?: unknown;
+}): CredentialsCommandFailure {
+  if (fields.cause != null) {
+    return {
+      _tag: 'CredentialsCommandFailure',
+      operation: fields.operation,
+      message: fields.message,
+      cause: fields.cause,
+    };
   }
-  return undefined;
-};
 
-/** Resolve an account by label or Key ID, or fail with a shared missing-account message. */
-const requireMatchedAccount = (
+  return {
+    _tag: 'CredentialsCommandFailure',
+    operation: fields.operation,
+    message: fields.message,
+  };
+}
+
+function isCredentialsCommandFailure(cause: unknown): cause is CredentialsCommandFailure {
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if (cause == null) {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'CredentialsCommandFailure';
+}
+
+function commandFailure(operation: string, cause: unknown): CredentialsCommandFailure {
+  return makeCredentialsCommandFailure({ operation, message: errorMessage(cause), cause });
+}
+
+function failCommand(operation: string, message: string): never {
+  throw makeCredentialsCommandFailure({ operation, message });
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readOptionalString(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | undefined {
+  const hasField = Object.hasOwn(record, fieldName);
+
+  if (hasField == false) {
+    return undefined;
+  }
+
+  const field = record[fieldName];
+
+  if (field == null) {
+    return undefined;
+  }
+
+  if (typeof field != 'string') {
+    throw new Error(`Credentials ${fieldName} must be a string.`);
+  }
+
+  return field;
+}
+
+function readOptionalBoolean(
+  record: Record<string, unknown>,
+  fieldName: string,
+): boolean | undefined {
+  const hasField = Object.hasOwn(record, fieldName);
+
+  if (hasField == false) {
+    return undefined;
+  }
+
+  const field = record[fieldName];
+
+  if (field == null) {
+    return undefined;
+  }
+
+  if (typeof field != 'boolean') {
+    throw new Error(`Credentials ${fieldName} must be a boolean.`);
+  }
+
+  return field;
+}
+
+function readAction(candidate: unknown): CredentialsAction {
+  for (const action of CREDENTIAL_ACTIONS) {
+    if (candidate == action) {
+      return action;
+    }
+  }
+
+  throw new Error(`Unknown credentials action "${String(candidate)}".`);
+}
+
+function readCommandOptions(record: Record<string, unknown>): CredentialsCommandOptions {
+  const options: CredentialsCommandOptions = {};
+
+  for (const fieldName of OPTION_TEXT_FIELDS) {
+    const fieldText = readOptionalString(record, fieldName);
+
+    if (fieldText != null) {
+      options[fieldName] = fieldText;
+    }
+  }
+
+  const yes = readOptionalBoolean(record, 'yes');
+  const force = readOptionalBoolean(record, 'force');
+
+  if (yes != null) {
+    options.yes = yes;
+  }
+
+  if (force != null) {
+    options.force = force;
+  }
+
+  return options;
+}
+
+export function CredentialsCommandInputSchema(commandInput: unknown): CredentialsCommandInput {
+  if (isRecord(commandInput) == false) {
+    throw new Error('Credentials command input must be an object.');
+  }
+
+  const action = readAction(commandInput['action']);
+  const optionsRecord = commandInput['options'];
+
+  if (isRecord(optionsRecord) == false) {
+    throw new Error('Credentials command options must be an object.');
+  }
+
+  let decoded: CredentialsCommandInput = {
+    action,
+    options: readCommandOptions(optionsRecord),
+  };
+  const firstArgument = readOptionalString(commandInput, 'firstArgument');
+  const secondArgument = readOptionalString(commandInput, 'secondArgument');
+
+  if (firstArgument != null) {
+    decoded = { ...decoded, firstArgument };
+  }
+
+  if (secondArgument != null) {
+    decoded = { ...decoded, secondArgument };
+  }
+
+  return decoded;
+}
+
+function firstDefinedText(...candidates: readonly (string | undefined)[]): string | undefined {
+  for (const candidate of candidates) {
+    if (candidate != null) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+function requireMatchedAccount(
   accounts: readonly AccountRecord[],
   selector: string,
   operation: string,
-): Effect.Effect<AccountRecord, CredentialsCommandFailure> => {
+): AccountRecord {
   const matchedAccount = matchAccount([...accounts], selector);
-  if (matchedAccount === undefined) {
-    return failCommand(operation, `No Apple account matching "${selector}".`);
-  }
-  return Effect.succeed(matchedAccount);
-};
 
-/** Reject a label that another Apple account already owns. */
-const requireUniqueAccountLabel = (
+  if (matchedAccount == null) {
+    failCommand(operation, `No Apple account matching "${selector}".`);
+  }
+
+  return matchedAccount;
+}
+
+function findLabelConflict(
+  accounts: readonly AccountRecord[],
+  accountLabel: string,
+  excludingKeyId: string,
+): AccountRecord | null {
+  const requestedLabel = accountLabel.toLowerCase();
+
+  for (const account of accounts) {
+    const isSameLabel = account.label.toLowerCase() == requestedLabel;
+
+    if (isSameLabel == false) {
+      continue;
+    }
+
+    const isDifferentKey = account.keyId != excludingKeyId;
+
+    if (isDifferentKey) {
+      return account;
+    }
+  }
+
+  return null;
+}
+
+function requireUniqueAccountLabel(
   accounts: readonly AccountRecord[],
   accountLabel: string,
   excludingKeyId: string,
   operation: string,
-): Effect.Effect<void, CredentialsCommandFailure> => {
-  const conflictingAccount = accounts.find(
-    (account) =>
-      account.label.toLowerCase() === accountLabel.toLowerCase() &&
-      account.keyId !== excludingKeyId,
-  );
-  if (conflictingAccount !== undefined) {
-    return failCommand(
+): void {
+  const conflictingAccount = findLabelConflict(accounts, accountLabel, excludingKeyId);
+
+  if (conflictingAccount != null) {
+    failCommand(
       operation,
       `Label "${accountLabel}" is already used by key ${conflictingAccount.keyId}.`,
     );
   }
-  return Effect.void;
-};
+}
 
-/** Build the ordered directories used for deliberate credential discovery. */
-export const credentialSearchDirectories = (
+export function credentialSearchDirectories(
   homeDirectory: string,
   workingDirectory: string,
-): Effect.Effect<readonly string[], never, Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return [
-      pathService.join(homeDirectory, 'Downloads'),
-      pathService.join(homeDirectory, '.appstoreconnect', 'private_keys'),
-      pathService.join(homeDirectory, '.launch', 'credentials'),
-      pathService.join(workingDirectory, 'private_keys'),
-      workingDirectory,
-    ];
-  });
+): readonly string[] {
+  return [
+    join(homeDirectory, 'Downloads'),
+    join(homeDirectory, '.appstoreconnect', 'private_keys'),
+    join(homeDirectory, '.launch', 'credentials'),
+    join(workingDirectory, 'private_keys'),
+    workingDirectory,
+  ];
+}
 
-/** Check whether a file sits directly inside one of the discovery directories. */
-export const isCredentialDiscoveryFile = (
+export function isCredentialDiscoveryFile(
   filePath: string,
   searchDirectories: readonly string[],
-): Effect.Effect<boolean, never, Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const containingDirectory = pathService.resolve(pathService.dirname(filePath));
-    return searchDirectories.some(
-      (searchDirectory) => pathService.resolve(searchDirectory) === containingDirectory,
-    );
-  });
+): boolean {
+  const containingDirectory = resolve(dirname(filePath));
 
-/** Expand a leading home shorthand using the application-level path service. */
-const expandHomePath = (
-  enteredPath: string,
-): Effect.Effect<string, never, Path.Path | LaunchPathsService> =>
-  Effect.gen(function* () {
-    if (!enteredPath.startsWith('~')) return enteredPath;
-    const launchPaths = yield* LaunchPaths;
-    const pathService = yield* Path.Path;
-    return pathService.join(launchPaths.homeDirectory, enteredPath.slice(1));
-  });
+  for (const searchDirectory of searchDirectories) {
+    const isSameDirectory = resolve(searchDirectory) == containingDirectory;
 
-/** Replace the configured home directory with a readable tilde prefix. */
-const displayPath = (absolutePath: string): Effect.Effect<string, never, LaunchPathsService> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    if (!absolutePath.startsWith(launchPaths.homeDirectory)) return absolutePath;
-    return `~${absolutePath.slice(launchPaths.homeDirectory.length)}`;
-  });
+    if (isSameDirectory) {
+      return true;
+    }
+  }
 
-/** Resolve whether this invocation is allowed to open an interactive prompt. */
-const commandCanPrompt = (
-  commandOptions: CredentialsCommandOptions,
-): Effect.Effect<boolean, never, Terminal.Terminal> =>
-  Effect.gen(function* () {
-    if (commandOptions.yes === true) return false;
-    const terminal = yield* Terminal.Terminal;
-    return yield* terminal.isTTY;
-  });
+  return false;
+}
 
-/** Read a required string from a supplied source or the shared prompt service. */
-const requireText = (
-  suppliedText: string | undefined,
+function expandHomePath(enteredPath: string): string {
+  const isHomeShorthand = enteredPath.startsWith('~');
+
+  if (isHomeShorthand == false) {
+    return enteredPath;
+  }
+
+  return join(readLaunchDirectories().homeDirectory, enteredPath.slice(1));
+}
+
+function displayPath(absolutePath: string): string {
+  const homeDirectory = readLaunchDirectories().homeDirectory;
+  const isInsideHome = absolutePath.startsWith(homeDirectory);
+
+  if (isInsideHome == false) {
+    return absolutePath;
+  }
+
+  return `~${absolutePath.slice(homeDirectory.length)}`;
+}
+
+function commandCanPrompt(commandOptions: CredentialsCommandOptions): boolean {
+  if (commandOptions.yes == true) {
+    return false;
+  }
+
+  return process.stdout.isTTY == true;
+}
+
+function suppliedText(supplied: string | undefined): string | null {
+  if (supplied == null) {
+    return null;
+  }
+
+  const trimmed = supplied.trim();
+
+  if (trimmed.length == 0) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+async function requireText(
+  supplied: string | undefined,
   promptMessage: string,
   nonInteractiveMessage: string,
   canPrompt: boolean,
-): Effect.Effect<string, unknown, LaunchPromptService> =>
-  Effect.gen(function* () {
-    if (suppliedText !== undefined && suppliedText.trim().length > 0) return suppliedText.trim();
-    if (!canPrompt) return yield* failCommand('read credentials input', nonInteractiveMessage);
-    const prompt = yield* LaunchPrompt;
-    return (yield* prompt.requiredText(promptMessage)).trim();
-  });
+): Promise<string> {
+  const trimmed = suppliedText(supplied);
 
-/** Read a required secret from a supplied redacted source or the shared prompt service. */
-const requireSecret = (
-  suppliedSecret: Redacted.Redacted<string> | undefined,
+  if (trimmed != null) {
+    return trimmed;
+  }
+
+  if (canPrompt == false) {
+    failCommand('read credentials input', nonInteractiveMessage);
+  }
+
+  const entered = await LaunchPrompt.requiredText(promptMessage);
+
+  return entered.trim();
+}
+
+async function requireSecret(
+  suppliedSecret: string | undefined,
   promptMessage: string,
   nonInteractiveMessage: string,
   canPrompt: boolean,
-): Effect.Effect<string, unknown, LaunchPromptService> =>
-  Effect.gen(function* () {
-    if (suppliedSecret !== undefined) return Redacted.value(suppliedSecret);
-    if (!canPrompt) return yield* failCommand('read credentials input', nonInteractiveMessage);
-    const prompt = yield* LaunchPrompt;
-    return yield* prompt.requiredSecret(promptMessage);
+): Promise<string> {
+  if (suppliedSecret != null) {
+    return suppliedSecret;
+  }
+
+  if (canPrompt == false) {
+    failCommand('read credentials input', nonInteractiveMessage);
+  }
+
+  return LaunchPrompt.requiredSecret(promptMessage);
+}
+
+async function discoverAppleKeyFiles(): Promise<readonly string[]> {
+  const launchPaths = readLaunchDirectories();
+  const searchDirectories = credentialSearchDirectories(
+    launchPaths.homeDirectory,
+    launchPaths.workingDirectory,
+  );
+  const discoveredGroups = await Promise.all(searchDirectories.map(findAuthKeyFiles));
+
+  return discoveredGroups.flat();
+}
+
+async function selectDiscoveredKey(
+  discoveredPaths: readonly string[],
+  canPrompt: boolean,
+): Promise<string | null> {
+  const onlyPath = discoveredPaths[0];
+
+  if (discoveredPaths.length == 1) {
+    if (onlyPath != null) {
+      return onlyPath;
+    }
+  }
+
+  if (discoveredPaths.length < 2) {
+    return null;
+  }
+
+  if (canPrompt == false) {
+    if (onlyPath != null) {
+      return onlyPath;
+    }
+  }
+
+  const choices = discoveredPaths.map(function keyChoice(discoveredPath: string) {
+    return { selection: discoveredPath, label: displayPath(discoveredPath) };
   });
 
-/** Discover every App Store Connect key in the approved directories. */
-const discoverAppleKeyFiles = (): Effect.Effect<
-  readonly string[],
-  never,
-  FileSystem.FileSystem | Path.Path | LaunchPathsService
-> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const searchDirectories = yield* credentialSearchDirectories(
-      launchPaths.homeDirectory,
-      launchPaths.workingDirectory,
-    );
-    const discoveredGroups = yield* Effect.forEach(searchDirectories, findAuthKeyFiles, {
-      concurrency: 'unbounded',
-    });
-    return discoveredGroups.flat();
+  return LaunchPrompt.select({
+    message: 'Multiple API keys found. Pick one:',
+    choices,
   });
+}
 
-/** Resolve an explicit or discovered App Store Connect key file. */
-const selectAppleKeyFile = (
+async function selectAppleKeyFile(
   commandOptions: CredentialsCommandOptions,
   canPrompt: boolean,
-): Effect.Effect<
-  string,
-  unknown,
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchPromptService
-  | Path.Path
-> =>
-  Effect.gen(function* () {
-    const environment = yield* LaunchEnvironment;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const explicitPath = firstDefinedText(commandOptions.p8, environment.values.appleApiKeyPath);
-    if (explicitPath !== undefined && explicitPath.length > 0) {
-      const expandedPath = yield* expandHomePath(explicitPath);
-      if (!(yield* fileSystem.exists(expandedPath))) {
-        return yield* failCommand('select Apple key', `No .p8 file at ${explicitPath}.`);
+): Promise<string> {
+  const environment = readLaunchEnvironment();
+  const explicitPath = firstDefinedText(commandOptions.p8, environment.values.appleApiKeyPath);
+
+  if (explicitPath != null) {
+    const hasPathText = explicitPath.length > 0;
+
+    if (hasPathText) {
+      const expandedPath = expandHomePath(explicitPath);
+      const keyExists = await pathExists(expandedPath);
+
+      if (keyExists == false) {
+        failCommand('select Apple key', `No .p8 file at ${explicitPath}.`);
       }
+
       return expandedPath;
     }
-    const discoveredPaths = yield* discoverAppleKeyFiles();
-    if (discoveredPaths.length === 1 && discoveredPaths[0] !== undefined) return discoveredPaths[0];
-    if (discoveredPaths.length > 1) {
-      if (!canPrompt && discoveredPaths[0] !== undefined) return discoveredPaths[0];
-      const prompt = yield* LaunchPrompt;
-      return yield* prompt.select({
-        message: 'Multiple API keys found. Pick one:',
-        choices: yield* Effect.forEach(discoveredPaths, (discoveredPath) =>
-          displayPath(discoveredPath).pipe(
-            Effect.map((shownPath) => ({ selection: discoveredPath, label: shownPath })),
-          ),
-        ),
-      });
-    }
-    const enteredPath = yield* requireText(
-      undefined,
-      'Path to the App Store Connect .p8 file',
-      'Pass --p8 <path> or set ASC_API_KEY_PATH.',
-      canPrompt,
-    );
-    const expandedPath = yield* expandHomePath(enteredPath);
-    if (!(yield* fileSystem.exists(expandedPath))) {
-      return yield* failCommand('select Apple key', `No .p8 file at ${enteredPath}.`);
-    }
-    return expandedPath;
-  });
+  }
 
-/** Choose a unique account label for a newly imported key. */
-const selectAccountLabel = (
+  const discoveredPaths = await discoverAppleKeyFiles();
+  const discoveredPath = await selectDiscoveredKey(discoveredPaths, canPrompt);
+
+  if (discoveredPath != null) {
+    return discoveredPath;
+  }
+
+  const enteredPath = await requireText(
+    undefined,
+    'Path to the App Store Connect .p8 file',
+    'Pass --p8 <path> or set ASC_API_KEY_PATH.',
+    canPrompt,
+  );
+  const expandedPath = expandHomePath(enteredPath);
+  const enteredKeyExists = await pathExists(expandedPath);
+
+  if (enteredKeyExists == false) {
+    failCommand('select Apple key', `No .p8 file at ${enteredPath}.`);
+  }
+
+  return expandedPath;
+}
+
+async function selectAccountLabel(
   commandOptions: CredentialsCommandOptions,
   keyId: string,
   canPrompt: boolean,
-): Effect.Effect<
-  string,
-  unknown,
-  FileSystem.FileSystem | LaunchPathsService | LaunchPromptService | Path.Path
-> =>
-  Effect.gen(function* () {
-    let accountLabel = commandOptions.label;
-    if (accountLabel === undefined && canPrompt) {
-      const prompt = yield* LaunchPrompt;
-      accountLabel = yield* prompt.requiredText('Label for this Apple account');
-    }
-    if (accountLabel === undefined) accountLabel = keyId;
-    accountLabel = accountLabel.trim();
-    if (accountLabel.length === 0) accountLabel = keyId;
-    const accounts = yield* listAccounts();
-    yield* requireUniqueAccountLabel(accounts, accountLabel, keyId, 'select account label');
-    return accountLabel;
-  });
+): Promise<string> {
+  let accountLabel = commandOptions.label;
+  const needsPrompt = accountLabel == null;
 
-/** Verify a new Apple key while tolerating only transient identity lookup failures. */
-const verifyAppleKey = (
-  ascKey: AscKey,
-): Effect.Effect<AppStoreIdentity, unknown, AppStoreIdentityService | Logger> =>
-  Effect.gen(function* () {
-    const identityService = yield* AppStoreIdentityService;
-    const logger = yield* createLogger(false);
-    const verification = yield* identityService.verifyCredentials(ascKey).pipe(Effect.either);
-    if (verification._tag === 'Right') return verification.right;
-    if (verification.left.status === 401) {
-      return yield* failCommand(
+  if (needsPrompt) {
+    if (canPrompt) {
+      accountLabel = await LaunchPrompt.requiredText('Label for this Apple account');
+    }
+  }
+
+  if (accountLabel == null) {
+    accountLabel = keyId;
+  }
+
+  accountLabel = accountLabel.trim();
+
+  if (accountLabel.length == 0) {
+    accountLabel = keyId;
+  }
+
+  const accounts = await listAccounts();
+
+  requireUniqueAccountLabel(accounts, accountLabel, keyId, 'select account label');
+
+  return accountLabel;
+}
+
+function readFailureStatus(cause: unknown): number | null {
+  if (typeof cause != 'object') {
+    return null;
+  }
+
+  if (cause == null) {
+    return null;
+  }
+
+  if ('status' in cause == false) {
+    return null;
+  }
+
+  const status = cause.status;
+
+  if (typeof status != 'number') {
+    return null;
+  }
+
+  return status;
+}
+
+function isRejectedAppleStatus(status: number | null): boolean {
+  if (status == 401) {
+    return true;
+  }
+
+  if (status == 403) {
+    return true;
+  }
+
+  return false;
+}
+
+async function verifyAppleKey(ascKey: AscKey): Promise<AppStoreIdentity> {
+  const logger = createLogger(false);
+
+  try {
+    return await AppStoreIdentityService.verifyCredentials(ascKey);
+  } catch (cause) {
+    const status = readFailureStatus(cause);
+
+    if (isRejectedAppleStatus(status)) {
+      failCommand(
         'verify Apple key',
         'Apple rejected the key. Check that the Key ID, Issuer ID, and .p8 belong together.',
       );
     }
-    if (verification.left.status === 403) {
-      return yield* failCommand(
-        'verify Apple key',
-        'Apple rejected the key. Check that the Key ID, Issuer ID, and .p8 belong together.',
-      );
-    }
-    yield* logger.warn(
-      `Could not verify the key with Apple (${verification.left.message}). Saving it unresolved; run \`launch creds refresh\` later.`,
+
+    logger.warn(
+      `Could not verify the key with Apple (${errorMessage(cause)}). Saving it unresolved; run \`launch creds refresh\` later.`,
     );
-    return { teamId: null, apps: [] };
-  });
 
-/** Offer removal only for a verified secret imported from a discovery directory. */
-const offerSourceRemoval = (
+    return { teamId: null, apps: [] };
+  }
+}
+
+async function offerSourceRemoval(
   sourcePath: string,
   secretLabel: string,
   canPrompt: boolean,
-): Effect.Effect<
-  void,
-  unknown,
-  FileSystem.FileSystem | LaunchPathsService | LaunchPromptService | Logger | Path.Path
-> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const searchDirectories = yield* credentialSearchDirectories(
-      launchPaths.homeDirectory,
-      launchPaths.workingDirectory,
-    );
-    if (!(yield* isCredentialDiscoveryFile(sourcePath, searchDirectories))) return;
-    const logger = yield* createLogger(false);
-    const shownPath = yield* displayPath(sourcePath);
-    if (!canPrompt) {
-      yield* logger.warn(`Plaintext ${secretLabel} remains at ${shownPath}; it is safe to remove.`);
-      return;
-    }
-    const prompt = yield* LaunchPrompt;
-    const shouldRemove = yield* prompt.confirm(
-      `Remove plaintext ${secretLabel} from ${shownPath}? It is now in the secret store.`,
-    );
-    if (!shouldRemove) {
-      yield* logger.line(`Kept ${shownPath}.`);
-      return;
-    }
-    const fileSystem = yield* FileSystem.FileSystem;
-    yield* fileSystem.remove(sourcePath, { force: true });
-    yield* logger.ok(`Removed ${shownPath}.`);
-  });
+): Promise<void> {
+  const launchPaths = readLaunchDirectories();
+  const searchDirectories = credentialSearchDirectories(
+    launchPaths.homeDirectory,
+    launchPaths.workingDirectory,
+  );
+  const isDiscoveryFile = isCredentialDiscoveryFile(sourcePath, searchDirectories);
 
-/** Import one App Store Connect key, cache its identity, and make it active. */
-const importAppleKey = (
+  if (isDiscoveryFile == false) {
+    return;
+  }
+
+  const logger = createLogger(false);
+  const shownPath = displayPath(sourcePath);
+
+  if (canPrompt == false) {
+    logger.warn(`Plaintext ${secretLabel} remains at ${shownPath}; it is safe to remove.`);
+
+    return;
+  }
+
+  const shouldRemove = await LaunchPrompt.confirm(
+    `Remove plaintext ${secretLabel} from ${shownPath}? It is now in the secret store.`,
+  );
+
+  if (shouldRemove == false) {
+    logger.line(`Kept ${shownPath}.`);
+
+    return;
+  }
+
+  await rm(sourcePath, { force: true });
+  logger.ok(`Removed ${shownPath}.`);
+}
+
+async function importAppleKey(
   p8Path: string,
   commandOptions: CredentialsCommandOptions,
   canPrompt: boolean,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const environment = yield* LaunchEnvironment;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const filenameKeyId = yield* extractKeyId(p8Path);
-    const configuredKeyId = firstDefinedText(commandOptions.keyId, environment.values.appleKeyId);
-    let keyId = yield* reconcileKeyId(configuredKeyId, filenameKeyId);
-    keyId = yield* requireText(
-      keyId,
-      'App Store Connect Key ID',
-      'Pass --key-id <id> or set ASC_KEY_ID.',
-      canPrompt,
-    );
-    const issuerId = yield* requireText(
-      firstDefinedText(commandOptions.issuerId, environment.values.appleIssuerId),
-      'App Store Connect Issuer ID',
-      'Pass --issuer-id <id> or set ASC_ISSUER_ID.',
-      canPrompt,
-    );
-    const accountLabel = yield* selectAccountLabel(commandOptions, keyId, canPrompt);
-    const p8 = yield* fileSystem.readFileString(p8Path);
-    const identity = yield* verifyAppleKey({ keyId, issuerId, p8 });
-    yield* addAccount({
-      keyId,
-      issuerId,
-      label: accountLabel,
-      p8,
-      teamId: identity.teamId,
-      apps: identity.apps,
-    });
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Added Apple account "${accountLabel}" (key ${keyId}) and set it active.`);
-    if (identity.apps.length > 0) {
-      yield* logger.line(`Visible apps: ${identity.apps.slice(0, 3).join(', ')}.`);
-    }
-    if (identity.teamId !== null) {
-      yield* offerSourceRemoval(p8Path, 'App Store Connect key', canPrompt);
-    }
+): Promise<void> {
+  const environment = readLaunchEnvironment();
+  const filenameKeyId = extractKeyId(p8Path);
+  const configuredKeyId = firstDefinedText(commandOptions.keyId, environment.values.appleKeyId);
+  let keyId = reconcileKeyId(configuredKeyId, filenameKeyId);
+
+  keyId = await requireText(
+    keyId,
+    'App Store Connect Key ID',
+    'Pass --key-id <id> or set ASC_KEY_ID.',
+    canPrompt,
+  );
+
+  const issuerId = await requireText(
+    firstDefinedText(commandOptions.issuerId, environment.values.appleIssuerId),
+    'App Store Connect Issuer ID',
+    'Pass --issuer-id <id> or set ASC_ISSUER_ID.',
+    canPrompt,
+  );
+  const accountLabel = await selectAccountLabel(commandOptions, keyId, canPrompt);
+  const p8 = await readFile(p8Path, 'utf8');
+  const identity = await verifyAppleKey({ keyId, issuerId, p8 });
+
+  await addAccount({
+    keyId,
+    issuerId,
+    label: accountLabel,
+    p8,
+    teamId: identity.teamId,
+    apps: identity.apps,
   });
 
-/** Import an Apple account from an explicit or discovered key file. */
-const setAppleKey = (
-  commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const canPrompt = yield* commandCanPrompt(commandOptions);
-    const p8Path = yield* selectAppleKeyFile(commandOptions, canPrompt);
-    yield* importAppleKey(p8Path, commandOptions, canPrompt);
-  });
+  const logger = createLogger(false);
 
-/** Import a Google Play service-account key into the configured secret store. */
-const setGoogleKey = (
-  pathArgument: string | undefined,
-  commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const environment = yield* LaunchEnvironment;
-    const canPrompt = yield* commandCanPrompt(commandOptions);
-    const enteredPath = yield* requireText(
-      firstDefinedText(pathArgument, environment.values.playServiceAccountPath),
-      'Path to the Play service-account JSON',
-      'Pass the service-account JSON path or set PLAY_SERVICE_ACCOUNT.',
-      canPrompt,
-    );
-    const keyPath = yield* expandHomePath(enteredPath);
-    const fileSystem = yield* FileSystem.FileSystem;
-    if (!(yield* fileSystem.exists(keyPath))) {
-      return yield* failCommand('import Google key', `No service-account JSON at ${enteredPath}.`);
+  logger.ok(`Added Apple account "${accountLabel}" (key ${keyId}) and set it active.`);
+
+  const hasVisibleApps = identity.apps.length > 0;
+
+  if (hasVisibleApps) {
+    logger.line(`Visible apps: ${identity.apps.slice(0, 3).join(', ')}.`);
+  }
+
+  if (identity.teamId != null) {
+    await offerSourceRemoval(p8Path, 'App Store Connect key', canPrompt);
+  }
+}
+
+async function setAppleKey(commandOptions: CredentialsCommandOptions): Promise<void> {
+  const canPrompt = commandCanPrompt(commandOptions);
+  const p8Path = await selectAppleKeyFile(commandOptions, canPrompt);
+
+  await importAppleKey(p8Path, commandOptions, canPrompt);
+}
+
+function isTextMissing(text: string | undefined): boolean {
+  if (text == null) {
+    return true;
+  }
+
+  return text.length == 0;
+}
+
+async function findConfiguredApp(
+  apps: readonly AppDescriptor[],
+  requestedApp: string,
+): Promise<AppDescriptor> {
+  for (const configuredApp of apps) {
+    const isRequestedApp = configuredApp.name == requestedApp;
+
+    if (isRequestedApp) {
+      return configuredApp;
     }
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
-    const app = yield* selectConfiguredApp(loadedConfig.apps, commandOptions.app, canPrompt);
-    if (!app.packageName)
-      return yield* failCommand('import Google key', 'Set android.package for the selected app.');
-    yield* storeServiceAccount(yield* fileSystem.readFileString(keyPath), app.packageName);
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Stored the Play service account from ${yield* displayPath(keyPath)}.`);
-    yield* offerSourceRemoval(keyPath, 'Play service-account key', canPrompt);
-  });
+  }
 
-/** Choose one configured application by handle or through the shared prompt service. */
-const selectConfiguredApp = (
+  failCommand('select app', `No configured app named "${requestedApp}".`);
+}
+
+async function selectConfiguredApp(
   apps: readonly AppDescriptor[],
   requestedApp: string | undefined,
   canPrompt: boolean,
-): Effect.Effect<AppDescriptor, unknown, LaunchPromptService> =>
-  Effect.gen(function* () {
-    if (requestedApp !== undefined) {
-      const matchedApp = apps.find((configuredApp) => configuredApp.name === requestedApp);
-      if (matchedApp !== undefined) return matchedApp;
-      return yield* failCommand('select app', `No configured app named "${requestedApp}".`);
+): Promise<AppDescriptor> {
+  if (requestedApp != null) {
+    return findConfiguredApp(apps, requestedApp);
+  }
+
+  const onlyApp = apps[0];
+
+  if (apps.length == 1) {
+    if (onlyApp != null) {
+      return onlyApp;
     }
-    if (apps.length === 1 && apps[0] !== undefined) return apps[0];
-    if (!canPrompt) return yield* failCommand('select app', 'Pass --app <name>.');
-    if (apps.length === 0)
-      return yield* failCommand('select app', 'No applications were discovered.');
-    const prompt = yield* LaunchPrompt;
-    return yield* prompt.select({
-      message: 'Choose an app:',
-      choices: apps.map((configuredApp) => ({
-        selection: configuredApp,
-        label: configuredApp.name,
-      })),
-    });
+  }
+
+  if (canPrompt == false) {
+    failCommand('select app', 'Pass --app <name>.');
+  }
+
+  if (apps.length == 0) {
+    failCommand('select app', 'No applications were discovered.');
+  }
+
+  return LaunchPrompt.select({
+    message: 'Choose an app:',
+    choices: apps.map(function appChoice(configuredApp: AppDescriptor) {
+      return { selection: configuredApp, label: configuredApp.name };
+    }),
+  });
+}
+
+async function setGoogleKey(
+  pathArgument: string | undefined,
+  commandOptions: CredentialsCommandOptions,
+): Promise<void> {
+  const environment = readLaunchEnvironment();
+  const canPrompt = commandCanPrompt(commandOptions);
+  const enteredPath = await requireText(
+    firstDefinedText(pathArgument, environment.values.playServiceAccountPath),
+    'Path to the Play service-account JSON',
+    'Pass the service-account JSON path or set PLAY_SERVICE_ACCOUNT.',
+    canPrompt,
+  );
+  const keyPath = expandHomePath(enteredPath);
+  const keyExists = await pathExists(keyPath);
+
+  if (keyExists == false) {
+    failCommand('import Google key', `No service-account JSON at ${enteredPath}.`);
+  }
+
+  const launchPaths = readLaunchDirectories();
+  const loadedConfig = await loadConfig(launchPaths.workingDirectory);
+  const app = await selectConfiguredApp(loadedConfig.apps, commandOptions.app, canPrompt);
+
+  const packageName = app.packageName;
+
+  if (packageName == null) {
+    failCommand('import Google key', 'Set android.package for the selected app.');
+  }
+
+  if (packageName.length == 0) {
+    failCommand('import Google key', 'Set android.package for the selected app.');
+  }
+
+  const serviceAccountJson = await readFile(keyPath, 'utf8');
+
+  await storeServiceAccount(serviceAccountJson, packageName);
+  createLogger(false).ok(`Stored the Play service account from ${displayPath(keyPath)}.`);
+  await offerSourceRemoval(keyPath, 'Play service-account key', canPrompt);
+}
+
+async function chooseAccountInteractive(
+  commandOptions: CredentialsCommandOptions = {},
+): Promise<AccountRecord> {
+  const accounts = await listAccounts();
+  const activeKeyId = await getActiveKeyId();
+
+  if (accounts.length == 0) {
+    const p8Path = await selectAppleKeyFile(commandOptions, true);
+
+    await importAppleKey(p8Path, commandOptions, true);
+
+    const importedAccount = await getActiveAccount();
+
+    if (importedAccount == null) {
+      failCommand('choose Apple account', 'No active account after import.');
+    }
+
+    return importedAccount;
+  }
+
+  const chosenAccount = await LaunchPrompt.select({
+    message: 'Choose an Apple account:',
+    choices: accounts.map(function accountChoice(account: AccountRecord) {
+      let accountLabel = account.label;
+      const isActive = account.keyId == activeKeyId;
+
+      if (isActive) {
+        accountLabel = `${accountLabel} (active)`;
+      }
+
+      return {
+        selection: account,
+        label: accountLabel,
+        hint: formatAccountSummary(account, { includeLabel: false }),
+      };
+    }),
   });
 
-/** Select an Apple account by flag, environment, active pointer, or prompt. */
-const selectAppleAccount = (
+  await setActiveKeyId(chosenAccount.keyId);
+  createLogger(false).ok(
+    `Active Apple account: ${chosenAccount.label} (key ${chosenAccount.keyId}).`,
+  );
+
+  return chosenAccount;
+}
+
+async function selectAppleAccount(
   commandOptions: CredentialsCommandOptions,
   canPrompt: boolean,
-): Effect.Effect<AccountRecord, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const environment = yield* LaunchEnvironment;
-    const accounts = yield* listAccounts();
-    const selector = firstDefinedText(commandOptions.account, environment.values.appleAccount);
-    if (selector !== undefined) {
-      return yield* requireMatchedAccount(accounts, selector, 'select Apple account');
-    }
-    const activeAccount = yield* getActiveAccount();
-    if (activeAccount !== null) return activeAccount;
-    if (!canPrompt) {
-      return yield* failCommand(
-        'select Apple account',
-        'No active Apple account. Import one with `launch creds set-key`.',
-      );
-    }
-    return yield* chooseAccountInteractive(commandOptions);
-  });
+): Promise<AccountRecord> {
+  const environment = readLaunchEnvironment();
+  const accounts = await listAccounts();
+  const selector = firstDefinedText(commandOptions.account, environment.values.appleAccount);
 
-/** Present the account chooser used by `creds use`. */
-const chooseAccountInteractive = (
-  commandOptions: CredentialsCommandOptions = {},
-): Effect.Effect<AccountRecord, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const accounts = yield* listAccounts();
-    const activeKeyId = yield* getActiveKeyId();
-    const prompt = yield* LaunchPrompt;
-    if (accounts.length === 0) {
-      const p8Path = yield* selectAppleKeyFile(commandOptions, true);
-      yield* importAppleKey(p8Path, commandOptions, true);
-      const importedAccount = yield* getActiveAccount();
-      if (importedAccount === null) {
-        return yield* failCommand('choose Apple account', 'No active account after import.');
-      }
-      return importedAccount;
-    }
-    const chosenAccount = yield* prompt.select({
-      message: 'Choose an Apple account:',
-      choices: accounts.map((account) => {
-        let accountLabel = account.label;
-        if (account.keyId === activeKeyId) accountLabel = `${accountLabel} (active)`;
-        return {
-          selection: account,
-          label: accountLabel,
-          hint: formatAccountSummary(account, { includeLabel: false }),
-        };
-      }),
-    });
-    yield* setActiveKeyId(chosenAccount.keyId);
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Active Apple account: ${chosenAccount.label} (key ${chosenAccount.keyId}).`);
-    return chosenAccount;
-  });
+  if (selector != null) {
+    return requireMatchedAccount(accounts, selector, 'select Apple account');
+  }
 
-/** Provision or reuse signing credentials for one Apple application. */
-const setupIos = (
+  const activeAccount = await getActiveAccount();
+
+  if (activeAccount != null) {
+    return activeAccount;
+  }
+
+  if (canPrompt == false) {
+    failCommand(
+      'select Apple account',
+      'No active Apple account. Import one with `launch creds set-key`.',
+    );
+  }
+
+  return chooseAccountInteractive(commandOptions);
+}
+
+async function setupIos(
   commandOptions: CredentialsCommandOptions,
   platform: Platform = 'ios',
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const canPrompt = yield* commandCanPrompt(commandOptions);
-    const account = yield* selectAppleAccount(commandOptions, canPrompt);
-    const ascKey = yield* loadAscKeyById(account.keyId);
-    if (ascKey === null) {
-      return yield* failCommand(
-        'set up Apple signing',
-        `Account "${account.label}" has no stored key. Re-import it with \`launch creds set-key\`.`,
-      );
-    }
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
-    const app = yield* selectConfiguredApp(loadedConfig.apps, commandOptions.app, canPrompt);
-    if (app.bundleId === undefined) {
-      return yield* failCommand(
-        'set up Apple signing',
-        `No Apple bundle identifier is configured for ${app.name}.`,
-      );
-    }
-    const logger = yield* createLogger(false);
-    const prompt = yield* LaunchPrompt;
-    const signingAssets = yield* ensureSigningCredentials({
-      platform,
-      bundleId: app.bundleId,
-      appName: app.name,
-      ascKey,
-      log: logger,
-      dryRun: false,
-      confirmCreate: (message) => {
-        if (!canPrompt) return Effect.succeed(true);
-        return prompt.confirm(message);
-      },
-    });
-    yield* logger.ok(
-      `Ready (${account.label}): certificate ${signingAssets.certSerial}, profile ${signingAssets.profileName}.`,
+): Promise<void> {
+  const canPrompt = commandCanPrompt(commandOptions);
+  const account = await selectAppleAccount(commandOptions, canPrompt);
+  const ascKey = await loadAscKeyById(account.keyId);
+
+  if (ascKey == null) {
+    failCommand(
+      'set up Apple signing',
+      `Account "${account.label}" has no stored key. Re-import it with \`launch creds set-key\`.`,
     );
+  }
+
+  const launchPaths = readLaunchDirectories();
+  const loadedConfig = await loadConfig(launchPaths.workingDirectory);
+  const app = await selectConfiguredApp(loadedConfig.apps, commandOptions.app, canPrompt);
+
+  if (app.bundleId == null) {
+    failCommand(
+      'set up Apple signing',
+      `No Apple bundle identifier is configured for ${app.name}.`,
+    );
+  }
+
+  const logger = createLogger(false);
+
+  function confirmCreate(message: string): Promise<boolean> {
+    if (canPrompt == false) {
+      return Promise.resolve(true);
+    }
+
+    return LaunchPrompt.confirm(message);
+  }
+
+  const signingAssets = await ensureSigningCredentials({
+    platform,
+    bundleId: app.bundleId,
+    appName: app.name,
+    ascKey,
+    log: logger,
+    dryRun: false,
+    confirmCreate,
   });
 
-/** Read optional import settings for an existing Android upload keystore. */
-const selectKeystoreImport = (
+  logger.ok(
+    `Ready (${account.label}): certificate ${signingAssets.certSerial}, profile ${signingAssets.profileName}.`,
+  );
+}
+
+async function selectKeystoreImport(
   commandOptions: CredentialsCommandOptions,
   canPrompt: boolean,
-): Effect.Effect<KeystoreImport | undefined, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    if (commandOptions.import === undefined) return undefined;
-    const importedPath = yield* expandHomePath(commandOptions.import);
-    const fileSystem = yield* FileSystem.FileSystem;
-    if (!(yield* fileSystem.exists(importedPath))) {
-      return yield* failCommand(
-        'import Android keystore',
-        `No keystore at ${commandOptions.import}.`,
-      );
-    }
-    const environment = yield* LaunchEnvironment;
-    const alias = yield* requireText(
-      commandOptions.alias,
-      'Key alias inside the keystore',
-      'Pass --alias <alias>.',
-      canPrompt,
-    );
-    const storePassword = yield* requireSecret(
-      environment.values.androidKeystorePassword,
-      'Keystore password',
-      'Set ANDROID_KEYSTORE_PASSWORD.',
-      canPrompt,
-    );
-    let keyPassword = storePassword;
-    if (environment.values.androidKeyPassword !== undefined) {
-      keyPassword = Redacted.value(environment.values.androidKeyPassword);
-    }
-    return { path: importedPath, alias, storePassword, keyPassword };
-  });
+): Promise<KeystoreImport | undefined> {
+  if (commandOptions.import == null) {
+    return undefined;
+  }
 
-const provisionAndroidKeystore = (
+  const importedPath = expandHomePath(commandOptions.import);
+  const keystoreExists = await pathExists(importedPath);
+
+  if (keystoreExists == false) {
+    failCommand('import Android keystore', `No keystore at ${commandOptions.import}.`);
+  }
+
+  const environment = readLaunchEnvironment();
+  const alias = await requireText(
+    commandOptions.alias,
+    'Key alias inside the keystore',
+    'Pass --alias <alias>.',
+    canPrompt,
+  );
+  const storePassword = await requireSecret(
+    environment.values.androidKeystorePassword,
+    'Keystore password',
+    'Set ANDROID_KEYSTORE_PASSWORD.',
+    canPrompt,
+  );
+  let keyPassword = storePassword;
+  const androidKeyPassword = environment.values.androidKeyPassword;
+
+  if (androidKeyPassword != null) {
+    keyPassword = androidKeyPassword;
+  }
+
+  return { path: importedPath, alias, storePassword, keyPassword };
+}
+
+function provisionAndroidKeystore(
   options: Parameters<typeof ensureUploadKeystore>[0],
   keystoreImport: KeystoreImport | undefined,
-) => {
-  if (keystoreImport !== undefined)
+): Promise<Awaited<ReturnType<typeof ensureUploadKeystore>>> {
+  if (keystoreImport != null) {
     return ensureUploadKeystore({ ...options, import: keystoreImport });
-  return ensureUploadKeystore(options);
-};
+  }
 
-/** Provision or import the upload keystore for one Android application. */
-const setupAndroid = (
-  commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const canPrompt = yield* commandCanPrompt(commandOptions);
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
-    const app = yield* selectConfiguredApp(loadedConfig.apps, commandOptions.app, canPrompt);
-    const keystoreImport = yield* selectKeystoreImport(commandOptions, canPrompt);
-    const logger = yield* createLogger(false);
-    const prompt = yield* LaunchPrompt;
-    if (!app.packageName)
-      return yield* failCommand('setup Android', 'Set android.package for the selected app.');
-    const keystoreRequest = {
+  return ensureUploadKeystore(options);
+}
+
+async function setupAndroid(commandOptions: CredentialsCommandOptions): Promise<void> {
+  const canPrompt = commandCanPrompt(commandOptions);
+  const launchPaths = readLaunchDirectories();
+  const loadedConfig = await loadConfig(launchPaths.workingDirectory);
+  const app = await selectConfiguredApp(loadedConfig.apps, commandOptions.app, canPrompt);
+  const keystoreImport = await selectKeystoreImport(commandOptions, canPrompt);
+  const logger = createLogger(false);
+
+  const packageName = app.packageName;
+
+  if (packageName == null) {
+    failCommand('setup Android', 'Set android.package for the selected app.');
+  }
+
+  if (packageName.length == 0) {
+    failCommand('setup Android', 'Set android.package for the selected app.');
+  }
+
+  function confirmCreate(message: string): Promise<boolean> {
+    if (canPrompt == false) {
+      return Promise.resolve(true);
+    }
+
+    return LaunchPrompt.confirm(message);
+  }
+
+  function confirmReplace(message: string): Promise<boolean> {
+    if (commandOptions.yes == true) {
+      return Promise.resolve(true);
+    }
+
+    if (canPrompt == false) {
+      return Promise.resolve(false);
+    }
+
+    return LaunchPrompt.confirm(message);
+  }
+
+  const keystore = await provisionAndroidKeystore(
+    {
       appName: app.name,
-      packageName: app.packageName,
+      packageName,
       log: logger,
       dryRun: false,
-      confirmCreate: (message: string) => {
-        if (!canPrompt) return Effect.succeed(true);
-        return prompt.confirm(message);
-      },
-      confirmReplace: (message: string) => {
-        if (commandOptions.yes === true) return Effect.succeed(true);
-        if (!canPrompt) return Effect.succeed(false);
-        return prompt.confirm(message);
-      },
-    };
-    const keystore = yield* provisionAndroidKeystore(keystoreRequest, keystoreImport);
-    yield* logger.ok(
-      `Ready: upload keystore at ${yield* displayPath(keystore.path)} (alias ${keystore.alias}).`,
-    );
-  });
+      confirmCreate,
+      confirmReplace,
+    },
+    keystoreImport,
+  );
 
-/** Copy validated legacy Android credentials into one selected app. */
-const adoptAndroid = (options: CredentialsCommandOptions) =>
-  Effect.gen(function* () {
-    if (options.app === undefined)
-      return yield* failCommand('adopt Android credentials', 'Pass --app <name>.');
-    const launchPaths = yield* LaunchPaths;
-    const configuration = yield* loadConfig(launchPaths.workingDirectory);
-    const app = yield* selectConfiguredApp(configuration.apps, options.app, false);
-    if (app.packageName === undefined)
-      return yield* failCommand(
-        'adopt Android credentials',
-        'Set android.package for the selected app.',
+  logger.ok(`Ready: upload keystore at ${displayPath(keystore.path)} (alias ${keystore.alias}).`);
+}
+
+async function verifyPlayAccess(serviceAccountJson: string, packageName: string): Promise<void> {
+  const playClient = GoogleStoreClientService.createEffectClient(serviceAccountJson);
+
+  await playClient.listTracks(packageName);
+}
+
+async function adoptAndroid(options: CredentialsCommandOptions): Promise<void> {
+  if (options.app == null) {
+    failCommand('adopt Android credentials', 'Pass --app <name>.');
+  }
+
+  const launchPaths = readLaunchDirectories();
+  const configuration = await loadConfig(launchPaths.workingDirectory);
+  const app = await selectConfiguredApp(configuration.apps, options.app, false);
+
+  if (app.packageName == null) {
+    failCommand('adopt Android credentials', 'Set android.package for the selected app.');
+  }
+
+  await adoptLegacyAndroidCredentials(app.packageName, options.yes == true, verifyPlayAccess);
+  createLogger(false).ok(`Adopted legacy Android credentials for ${app.name}.`);
+}
+
+function isAndroidApp(app: AppDescriptor): boolean {
+  return isTextMissing(app.packageName) == false;
+}
+
+async function listAndroidStatusApps(
+  configuredApps: readonly AppDescriptor[],
+  requestedApp: string | undefined,
+): Promise<readonly AppDescriptor[]> {
+  if (requestedApp == null) {
+    return configuredApps.filter(isAndroidApp);
+  }
+
+  const selected = await selectConfiguredApp(configuredApps, requestedApp, false);
+
+  if (selected.packageName == null) {
+    return [];
+  }
+
+  return [selected];
+}
+
+async function showCredentialStatus(commandOptions: CredentialsCommandOptions): Promise<void> {
+  const logger = createLogger(false);
+  const accounts = await listAccounts();
+  const activeKeyId = await getActiveKeyId();
+
+  if (accounts.length == 0) {
+    logger.line('Apple accounts: none');
+  }
+
+  for (const account of accounts) {
+    const storedSigning = await describeStoredCredentials(account.keyId);
+    let activeMarker = '';
+    const isActiveAccount = account.keyId == activeKeyId;
+
+    if (isActiveAccount) {
+      activeMarker = ' (active)';
+    }
+
+    logger.line(`Apple account: ${formatAccountSummary(account)}${activeMarker}`);
+
+    if (storedSigning.certSerial != null) {
+      logger.line(`  certificate: ${storedSigning.certSerial}`);
+    }
+
+    const hasProfiles = storedSigning.bundleIds.length > 0;
+
+    if (hasProfiles) {
+      logger.line(`  profiles: ${storedSigning.bundleIds.join(', ')}`);
+    }
+  }
+
+  const launchPaths = readLaunchDirectories();
+  const configuredApps = (await loadConfig(launchPaths.workingDirectory)).apps;
+  const androidApps = await listAndroidStatusApps(configuredApps, commandOptions.app);
+
+  for (const app of androidApps) {
+    if (app.packageName == null) {
+      continue;
+    }
+
+    const androidCredentials = await describeStoredAndroidCredentials(app.packageName);
+    let serviceAccountStatus = 'not stored';
+
+    if (androidCredentials.hasServiceAccount) {
+      serviceAccountStatus = 'stored';
+    }
+
+    logger.line(`Google service account (${app.name}): ${serviceAccountStatus}`);
+
+    if (androidCredentials.keystoreAlias != null) {
+      logger.line(
+        `Android upload keystore (${app.name}): alias ${androidCredentials.keystoreAlias}`,
       );
-    const clients = yield* GoogleStoreClientService;
-    yield* adoptLegacyAndroidCredentials(
-      app.packageName,
-      options.yes === true,
-      (account, packageName) =>
-        clients.createEffectClient(account).pipe(
-          Effect.flatMap((client) => client.listTracks(packageName)),
-          Effect.asVoid,
-        ),
-    );
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Adopted legacy Android credentials for ${app.name}.`);
-  });
+    }
+  }
 
-/** Render the current Apple, Android, and APNs credential inventory. */
-const showCredentialStatus = (
-  commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const accounts = yield* listAccounts();
-    const activeKeyId = yield* getActiveKeyId();
-    if (accounts.length === 0) {
-      yield* logger.line('Apple accounts: none');
-    }
-    for (const account of accounts) {
-      const storedSigning = yield* describeStoredCredentials(account.keyId);
-      let activeMarker = '';
-      if (account.keyId === activeKeyId) activeMarker = ' (active)';
-      yield* logger.line(`Apple account: ${formatAccountSummary(account)}${activeMarker}`);
-      if (storedSigning.certSerial !== null) {
-        yield* logger.line(`  certificate: ${storedSigning.certSerial}`);
-      }
-      if (storedSigning.bundleIds.length > 0) {
-        yield* logger.line(`  profiles: ${storedSigning.bundleIds.join(', ')}`);
-      }
-    }
-    const launchPaths = yield* LaunchPaths;
-    const configuredApps = (yield* loadConfig(launchPaths.workingDirectory)).apps;
-    const androidApps = yield* Effect.gen(function* () {
-      if (commandOptions.app === undefined)
-        return configuredApps.filter((app) => app.packageName !== undefined);
-      const selected = yield* selectConfiguredApp(configuredApps, commandOptions.app, false);
-      if (selected.packageName === undefined) return [];
-      return [selected];
-    });
-    for (const app of androidApps) {
-      if (app.packageName === undefined) continue;
-      const androidCredentials = yield* describeStoredAndroidCredentials(app.packageName);
-      let serviceAccountStatus = 'not stored';
-      if (androidCredentials.hasServiceAccount) serviceAccountStatus = 'stored';
-      yield* logger.line(`Google service account (${app.name}): ${serviceAccountStatus}`);
-      if (androidCredentials.keystoreAlias !== null) {
-        yield* logger.line(
-          `Android upload keystore (${app.name}): alias ${androidCredentials.keystoreAlias}`,
-        );
-      }
-    }
-    const pushKeys = yield* listPushKeys();
-    yield* logger.line(`APNs keys: ${pushKeys.length}`);
-  });
+  const pushKeys = await listPushKeys();
 
-/** Switch the active Apple account by selector or interactive choice. */
-const useAppleAccount = (
+  logger.line(`APNs keys: ${pushKeys.length}`);
+}
+
+async function useAppleAccount(
   selector: string | undefined,
   commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    if (selector === undefined) {
-      if (!(yield* commandCanPrompt(commandOptions))) {
-        return yield* failCommand('use Apple account', 'Pass an account label or Key ID.');
-      }
-      yield* chooseAccountInteractive(commandOptions);
-      return;
-    }
-    const accounts = yield* listAccounts();
-    const matchedAccount = yield* requireMatchedAccount(accounts, selector, 'use Apple account');
-    yield* setActiveKeyId(matchedAccount.keyId);
-    const logger = yield* createLogger(false);
-    yield* logger.ok(
-      `Active Apple account: ${matchedAccount.label} (key ${matchedAccount.keyId}).`,
-    );
-  });
+): Promise<void> {
+  if (selector == null) {
+    const canPrompt = commandCanPrompt(commandOptions);
 
-/** Rename one Apple account while keeping labels unique. */
-const renameAppleAccount = (
+    if (canPrompt == false) {
+      failCommand('use Apple account', 'Pass an account label or Key ID.');
+    }
+
+    await chooseAccountInteractive(commandOptions);
+
+    return;
+  }
+
+  const accounts = await listAccounts();
+  const matchedAccount = requireMatchedAccount(accounts, selector, 'use Apple account');
+
+  await setActiveKeyId(matchedAccount.keyId);
+  createLogger(false).ok(
+    `Active Apple account: ${matchedAccount.label} (key ${matchedAccount.keyId}).`,
+  );
+}
+
+async function renameAppleAccount(
   selector: string | undefined,
   enteredLabel: string | undefined,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    if (selector === undefined) {
-      return yield* failCommand(
-        'rename Apple account',
-        'Usage: launch creds rename <account> <new-label>.',
-      );
-    }
-    if (enteredLabel === undefined) {
-      return yield* failCommand(
-        'rename Apple account',
-        'Usage: launch creds rename <account> <new-label>.',
-      );
-    }
-    const accounts = yield* listAccounts();
-    const matchedAccount = yield* requireMatchedAccount(accounts, selector, 'rename Apple account');
-    const accountLabel = enteredLabel.trim();
-    yield* requireUniqueAccountLabel(
-      accounts,
-      accountLabel,
-      matchedAccount.keyId,
-      'rename Apple account',
-    );
-    yield* renameAccount(matchedAccount.keyId, accountLabel);
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`);
-  });
+): Promise<void> {
+  if (selector == null) {
+    failCommand('rename Apple account', 'Usage: launch creds rename <account> <new-label>.');
+  }
+
+  if (enteredLabel == null) {
+    failCommand('rename Apple account', 'Usage: launch creds rename <account> <new-label>.');
+  }
+
+  const accounts = await listAccounts();
+  const matchedAccount = requireMatchedAccount(accounts, selector, 'rename Apple account');
+  const accountLabel = enteredLabel.trim();
+
+  requireUniqueAccountLabel(accounts, accountLabel, matchedAccount.keyId, 'rename Apple account');
+  await renameAccount(matchedAccount.keyId, accountLabel);
+  createLogger(false).ok(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`);
+}
 
 const VENDOR_NUMBER_PATTERN = /^[0-9]+$/;
 
-const setAppleVendorNumber = (
-  commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const usage = 'Usage: launch creds set-vendor-number --account <label> --vendor-number <n>.';
-    const { account: selector, vendorNumber } = commandOptions;
-    const isSelectorMissing = selector === undefined;
-    if (isSelectorMissing) return yield* failCommand('set vendor number', usage);
-    const isVendorNumberMissing = vendorNumber === undefined;
-    if (isVendorNumberMissing) return yield* failCommand('set vendor number', usage);
-    const trimmedVendorNumber = vendorNumber.trim();
-    const isVendorNumberDigits = VENDOR_NUMBER_PATTERN.test(trimmedVendorNumber);
-    const isVendorNumberInvalid = !isVendorNumberDigits;
-    if (isVendorNumberInvalid) {
-      return yield* failCommand('set vendor number', 'The vendor number is digits only.');
-    }
-    const accounts = yield* listAccounts();
-    const selectedAccount = yield* requireMatchedAccount(accounts, selector, 'set vendor number');
-    yield* setAccountVendorNumber(selectedAccount.keyId, trimmedVendorNumber);
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Saved the vendor number for account "${selectedAccount.label}".`);
-  });
+async function setAppleVendorNumber(commandOptions: CredentialsCommandOptions): Promise<void> {
+  const usage = 'Usage: launch creds set-vendor-number --account <label> --vendor-number <n>.';
+  const selector = commandOptions.account;
+  const vendorNumber = commandOptions.vendorNumber;
 
-/** Save the Play reports bucket the stats sync reads install, rating, crash and earnings files from. */
-const setPlayReportsBucket = (
-  commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const usage =
-      'Usage: launch creds set-play-reports-bucket --play-reports-bucket <uri or name>.';
-    const { playReportsBucket: copiedBucket } = commandOptions;
-    if (copiedBucket === undefined) return yield* failCommand('set Play reports bucket', usage);
-    const bucketName = parsePlayReportsBucket(copiedBucket);
-    if (bucketName === null) {
-      return yield* failCommand(
-        'set Play reports bucket',
-        'Expected a Cloud Storage URI like gs://pubsite_prod_rev_0123456789/ or its bucket name.',
-      );
-    }
-    const savedFile = yield* loadPortfolioFile();
-    const portfolioFile = pickSavedPortfolioFile(savedFile);
-    yield* savePortfolioFile({ ...portfolioFile, playReportsBucket: bucketName });
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Saved the Play reports bucket ${bucketName}.`);
-  });
+  if (selector == null) {
+    failCommand('set vendor number', usage);
+  }
 
-/** Remove one Apple account after an optional interactive confirmation. */
-const removeAppleAccount = (
-  selector: string | undefined,
-  commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    if (selector === undefined) {
-      return yield* failCommand('remove Apple account', 'Usage: launch creds remove <account>.');
-    }
-    const accounts = yield* listAccounts();
-    const matchedAccount = yield* requireMatchedAccount(accounts, selector, 'remove Apple account');
-    if (yield* commandCanPrompt(commandOptions)) {
-      const prompt = yield* LaunchPrompt;
-      const confirmed = yield* prompt.confirm(
-        `Remove account "${matchedAccount.label}" and its signing assets?`,
-      );
-      if (!confirmed) return;
-    }
-    yield* removeAccount(matchedAccount.keyId);
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Removed Apple account "${matchedAccount.label}".`);
-  });
+  if (vendorNumber == null) {
+    failCommand('set vendor number', usage);
+  }
 
-/** Refresh cached team and application names for one or every Apple account. */
-const refreshAppleAccounts = (
-  selector: string | undefined,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const accounts = yield* listAccounts();
-    let refreshTargets = [...accounts];
-    if (selector !== undefined) {
-      const matchedAccount = yield* requireMatchedAccount(
-        accounts,
-        selector,
-        'refresh Apple accounts',
-      );
-      refreshTargets = [matchedAccount];
+  const trimmedVendorNumber = vendorNumber.trim();
+  // A vendor number is digits only.
+  const isVendorNumberDigits = VENDOR_NUMBER_PATTERN.test(trimmedVendorNumber);
+
+  if (isVendorNumberDigits == false) {
+    failCommand('set vendor number', 'The vendor number is digits only.');
+  }
+
+  const accounts = await listAccounts();
+  const selectedAccount = requireMatchedAccount(accounts, selector, 'set vendor number');
+
+  await setAccountVendorNumber(selectedAccount.keyId, trimmedVendorNumber);
+  createLogger(false).ok(`Saved the vendor number for account "${selectedAccount.label}".`);
+}
+
+function isPortfolioFile(candidate: unknown): candidate is PortfolioFile {
+  if (isRecord(candidate) == false) {
+    return false;
+  }
+
+  if (candidate['version'] != 1) {
+    return false;
+  }
+
+  if (Array.isArray(candidate['apps']) == false) {
+    return false;
+  }
+
+  return Array.isArray(candidate['tags']);
+}
+
+async function readPortfolioDocument(): Promise<PortfolioFile | null> {
+  return readDocumentFile(locatePortfolioFilePath(), function decodePortfolio(documentText) {
+    const parsed: unknown = JSON.parse(documentText);
+
+    if (isPortfolioFile(parsed)) {
+      return parsed;
     }
-    if (refreshTargets.length === 0) {
-      return yield* failCommand('refresh Apple accounts', 'No Apple accounts to refresh.');
-    }
-    const identityService = yield* AppStoreIdentityService;
-    const logger = yield* createLogger(false);
-    yield* Effect.forEach(
-      refreshTargets,
-      (account) =>
-        Effect.gen(function* () {
-          const ascKey = yield* loadAscKeyById(account.keyId);
-          if (ascKey === null) {
-            yield* logger.warn(`Skipped "${account.label}": no stored key.`);
-            return;
-          }
-          const identity = yield* identityService.resolveIdentity(ascKey);
-          yield* updateAccountIdentity(account.keyId, identity.teamId, identity.apps);
-          yield* logger.ok(`Refreshed "${account.label}" (${identity.apps.length} apps).`);
-        }),
-      { concurrency: 1 },
+
+    throw new Error('portfolio.json must be a portfolio file.');
+  });
+}
+
+async function setPlayReportsBucket(commandOptions: CredentialsCommandOptions): Promise<void> {
+  const usage = 'Usage: launch creds set-play-reports-bucket --play-reports-bucket <uri or name>.';
+  const copiedBucket = commandOptions.playReportsBucket;
+
+  if (copiedBucket == null) {
+    failCommand('set Play reports bucket', usage);
+  }
+
+  const bucketName = parsePlayReportsBucket(copiedBucket);
+
+  if (bucketName == null) {
+    failCommand(
+      'set Play reports bucket',
+      'Expected a Cloud Storage URI like gs://pubsite_prod_rev_0123456789/ or its bucket name.',
     );
-  });
+  }
 
-/** Render APNs key metadata without exposing secret material. */
-const showPushKeys = (): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const pushKeys = yield* listPushKeys();
-    if (pushKeys.length === 0) {
-      yield* logger.line('No APNs keys in the vault.');
+  const savedFile = await readPortfolioDocument();
+  const portfolioFile = pickSavedPortfolioFile(savedFile);
+
+  await writeDocumentFileAtomically(locatePortfolioFilePath(), {
+    ...portfolioFile,
+    playReportsBucket: bucketName,
+  });
+  createLogger(false).ok(`Saved the Play reports bucket ${bucketName}.`);
+}
+
+async function removeAppleAccount(
+  selector: string | undefined,
+  commandOptions: CredentialsCommandOptions,
+): Promise<void> {
+  if (selector == null) {
+    failCommand('remove Apple account', 'Usage: launch creds remove <account>.');
+  }
+
+  const accounts = await listAccounts();
+  const matchedAccount = requireMatchedAccount(accounts, selector, 'remove Apple account');
+  const canPrompt = commandCanPrompt(commandOptions);
+
+  if (canPrompt) {
+    const confirmed = await LaunchPrompt.confirm(
+      `Remove account "${matchedAccount.label}" and its signing assets?`,
+    );
+
+    if (confirmed == false) {
       return;
     }
-    for (const pushKey of pushKeys) {
-      const details: string[] = [];
-      if (pushKey.label !== undefined && pushKey.label !== pushKey.keyId)
-        details.push(pushKey.label);
-      if (pushKey.teamId !== undefined) details.push(`team ${pushKey.teamId}`);
-      let detailText = '';
-      if (details.length > 0) detailText = ` - ${details.join(' - ')}`;
-      yield* logger.line(`- ${pushKey.keyId}${detailText}`);
-    }
-  });
+  }
 
-/** Import one APNs key while preserving the download-once source file. */
-const importApnsKey = (
+  await removeAccount(matchedAccount.keyId);
+  createLogger(false).ok(`Removed Apple account "${matchedAccount.label}".`);
+}
+
+async function refreshOneAccount(account: AccountRecord, logger: Logger): Promise<void> {
+  const ascKey = await loadAscKeyById(account.keyId);
+
+  if (ascKey == null) {
+    logger.warn(`Skipped "${account.label}": no stored key.`);
+
+    return;
+  }
+
+  const identity = await AppStoreIdentityService.resolveIdentity(ascKey);
+
+  await updateAccountIdentity(account.keyId, identity.teamId, identity.apps);
+  logger.ok(`Refreshed "${account.label}" (${identity.apps.length} apps).`);
+}
+
+async function refreshAppleAccounts(selector: string | undefined): Promise<void> {
+  const accounts = await listAccounts();
+  let refreshTargets = [...accounts];
+
+  if (selector != null) {
+    refreshTargets = [requireMatchedAccount(accounts, selector, 'refresh Apple accounts')];
+  }
+
+  if (refreshTargets.length == 0) {
+    failCommand('refresh Apple accounts', 'No Apple accounts to refresh.');
+  }
+
+  const logger = createLogger(false);
+
+  for (const account of refreshTargets) {
+    await refreshOneAccount(account, logger);
+  }
+}
+
+async function showPushKeys(): Promise<void> {
+  const logger = createLogger(false);
+  const pushKeys = await listPushKeys();
+
+  if (pushKeys.length == 0) {
+    logger.line('No APNs keys in the vault.');
+
+    return;
+  }
+
+  for (const pushKey of pushKeys) {
+    const details: string[] = [];
+    const hasDistinctLabel = pushKey.label != null;
+
+    if (hasDistinctLabel) {
+      const labelDiffers = pushKey.label != pushKey.keyId;
+
+      if (labelDiffers) {
+        details.push(pushKey.label);
+      }
+    }
+
+    if (pushKey.teamId != null) {
+      details.push(`team ${pushKey.teamId}`);
+    }
+
+    let detailText = '';
+    const hasDetails = details.length > 0;
+
+    if (hasDetails) {
+      detailText = ` - ${details.join(' - ')}`;
+    }
+
+    logger.line(`- ${pushKey.keyId}${detailText}`);
+  }
+}
+
+function pickTeamId(
+  commandTeamId: string | undefined,
+  activeAccount: AccountRecord | null,
+): string | undefined {
+  if (commandTeamId != null) {
+    return commandTeamId;
+  }
+
+  if (activeAccount == null) {
+    return undefined;
+  }
+
+  return activeAccount.teamId;
+}
+
+async function importApnsKey(
   pathArgument: string | undefined,
   commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const canPrompt = yield* commandCanPrompt(commandOptions);
-    const enteredPath = yield* requireText(
-      firstDefinedText(pathArgument, commandOptions.p8),
-      'Path to the APNs .p8 key',
-      'Pass the APNs .p8 path.',
-      canPrompt,
-    );
-    const keyPath = yield* expandHomePath(enteredPath);
-    const fileSystem = yield* FileSystem.FileSystem;
-    if (!(yield* fileSystem.exists(keyPath))) {
-      return yield* failCommand('import APNs key', `No .p8 file at ${enteredPath}.`);
-    }
-    const filenameKeyId = yield* extractKeyId(keyPath);
-    let keyId = yield* reconcileKeyId(commandOptions.keyId, filenameKeyId);
-    keyId = yield* requireText(
-      keyId,
-      'APNs Key ID',
-      'Pass --key-id <id> or name the file AuthKey_<KEYID>.p8.',
-      canPrompt,
-    );
-    const activeAccount = yield* getActiveAccount();
-    let teamId = commandOptions.teamId;
-    if (teamId === undefined && activeAccount !== null) teamId = activeAccount.teamId;
-    let keyLabel = commandOptions.label;
-    if (keyLabel === undefined) keyLabel = keyId;
-    const p8 = yield* fileSystem.readFileString(keyPath);
-    const importRequest: {
-      keyId: string;
-      p8: string;
-      label: string;
-      teamId?: string;
-    } = { keyId, p8, label: keyLabel };
-    if (teamId !== undefined) importRequest.teamId = teamId;
-    yield* importPushKey(importRequest);
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Imported APNs key ${keyId}.`);
-    yield* logger.warn(`Keep ${yield* displayPath(keyPath)}; Apple permits only one download.`);
-  });
+): Promise<void> {
+  const canPrompt = commandCanPrompt(commandOptions);
+  const enteredPath = await requireText(
+    firstDefinedText(pathArgument, commandOptions.p8),
+    'Path to the APNs .p8 key',
+    'Pass the APNs .p8 path.',
+    canPrompt,
+  );
+  const keyPath = expandHomePath(enteredPath);
+  const keyExists = await pathExists(keyPath);
 
-/** Export one vaulted APNs key to a permission-restricted file. */
-const exportApnsKey = (
+  if (keyExists == false) {
+    failCommand('import APNs key', `No .p8 file at ${enteredPath}.`);
+  }
+
+  const filenameKeyId = extractKeyId(keyPath);
+  let keyId = reconcileKeyId(commandOptions.keyId, filenameKeyId);
+
+  keyId = await requireText(
+    keyId,
+    'APNs Key ID',
+    'Pass --key-id <id> or name the file AuthKey_<KEYID>.p8.',
+    canPrompt,
+  );
+
+  const activeAccount = await getActiveAccount();
+  const teamId = pickTeamId(commandOptions.teamId, activeAccount);
+  let keyLabel = commandOptions.label;
+
+  if (keyLabel == null) {
+    keyLabel = keyId;
+  }
+
+  const p8 = await readFile(keyPath, 'utf8');
+  const importRequest: {
+    keyId: string;
+    p8: string;
+    label: string;
+    teamId?: string;
+  } = { keyId, p8, label: keyLabel };
+
+  if (teamId != null) {
+    importRequest.teamId = teamId;
+  }
+
+  await importPushKey(importRequest);
+
+  const logger = createLogger(false);
+
+  logger.ok(`Imported APNs key ${keyId}.`);
+  logger.warn(`Keep ${displayPath(keyPath)}; Apple permits only one download.`);
+}
+
+function blocksKeyOverwrite(outputExists: boolean, force: boolean | undefined): boolean {
+  if (outputExists == false) {
+    return false;
+  }
+
+  return force != true;
+}
+
+async function exportApnsKey(
   keyIdArgument: string | undefined,
   commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    if (keyIdArgument === undefined) {
-      return yield* failCommand(
-        'export APNs key',
-        'Usage: launch creds push-key export <keyId> --out <path>.',
-      );
-    }
-    const keyRecord = yield* findPushKey(keyIdArgument);
-    if (keyRecord === undefined) {
-      return yield* failCommand('export APNs key', `No APNs key "${keyIdArgument}" exists.`);
-    }
-    const p8 = yield* loadPushKey(keyRecord.keyId);
-    if (p8 === null) {
-      return yield* failCommand(
-        'export APNs key',
-        `APNs key ${keyRecord.keyId} has no stored secret.`,
-      );
-    }
-    const canPrompt = yield* commandCanPrompt(commandOptions);
-    const enteredPath = yield* requireText(
-      commandOptions.out,
-      'Write the APNs .p8 to',
-      'Pass --out <path>.',
-      canPrompt,
-    );
-    const outputPath = yield* expandHomePath(enteredPath);
-    const fileSystem = yield* FileSystem.FileSystem;
-    if ((yield* fileSystem.exists(outputPath)) && commandOptions.force !== true) {
-      return yield* failCommand(
-        'export APNs key',
-        `${yield* displayPath(outputPath)} already exists. Pass --force to overwrite.`,
-      );
-    }
-    if (canPrompt) {
-      const prompt = yield* LaunchPrompt;
-      const confirmed = yield* prompt.confirm(
-        `Write secret APNs key ${keyRecord.keyId} to ${yield* displayPath(outputPath)}?`,
-      );
-      if (!confirmed) return;
-    }
-    yield* fileSystem.writeFileString(outputPath, p8, { mode: 0o600 });
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Wrote APNs key ${keyRecord.keyId} to ${yield* displayPath(outputPath)}.`);
-  });
+): Promise<void> {
+  if (keyIdArgument == null) {
+    failCommand('export APNs key', 'Usage: launch creds push-key export <keyId> --out <path>.');
+  }
 
-/** Dispatch the APNs vault subcommand. */
-const runPushKeyAction = (
+  const keyRecord = await findPushKey(keyIdArgument);
+
+  if (keyRecord == null) {
+    failCommand('export APNs key', `No APNs key "${keyIdArgument}" exists.`);
+  }
+
+  const p8 = await loadPushKey(keyRecord.keyId);
+
+  if (p8 == null) {
+    failCommand('export APNs key', `APNs key ${keyRecord.keyId} has no stored secret.`);
+  }
+
+  const canPrompt = commandCanPrompt(commandOptions);
+  const enteredPath = await requireText(
+    commandOptions.out,
+    'Write the APNs .p8 to',
+    'Pass --out <path>.',
+    canPrompt,
+  );
+  const outputPath = expandHomePath(enteredPath);
+  const outputExists = await pathExists(outputPath);
+
+  if (blocksKeyOverwrite(outputExists, commandOptions.force)) {
+    failCommand(
+      'export APNs key',
+      `${displayPath(outputPath)} already exists. Pass --force to overwrite.`,
+    );
+  }
+
+  if (canPrompt) {
+    const confirmed = await LaunchPrompt.confirm(
+      `Write secret APNs key ${keyRecord.keyId} to ${displayPath(outputPath)}?`,
+    );
+
+    if (confirmed == false) {
+      return;
+    }
+  }
+
+  const privateFileMode = 0o600;
+
+  await writeFile(outputPath, p8, { mode: privateFileMode });
+  createLogger(false).ok(`Wrote APNs key ${keyRecord.keyId} to ${displayPath(outputPath)}.`);
+}
+
+async function runPushKeyAction(
   pushAction: string | undefined,
   keyArgument: string | undefined,
   commandOptions: CredentialsCommandOptions,
-): Effect.Effect<void, unknown, CredentialsCommandRequirements> => {
-  switch (pushAction) {
-    case undefined:
-    case 'status':
-      return showPushKeys();
-    case 'import':
-      return importApnsKey(keyArgument, commandOptions);
-    case 'export':
-      return exportApnsKey(keyArgument, commandOptions);
-    default:
-      return failCommand(
-        'run APNs command',
-        `Unknown push-key action "${pushAction}". Use import, status, or export.`,
-      );
-  }
-};
+): Promise<void> {
+  if (pushAction == null) {
+    await showPushKeys();
 
-/** Decode and execute one credentials command through the shared Effect services. */
-export const credentialsCommandProgram = (
-  commandInput: unknown,
-): Effect.Effect<void, CredentialsCommandFailure, CredentialsCommandRequirements> =>
-  Effect.gen(function* () {
-    const decodedCommand = yield* Schema.decodeUnknown(CredentialsCommandInputSchema)(commandInput);
-    let platformText = decodedCommand.options.platform;
-    if (platformText === undefined) platformText = 'ios';
-    const platform = yield* parsePlatform(platformText);
-    switch (decodedCommand.action) {
-      case 'status':
-      case 'accounts':
-        return yield* showCredentialStatus(decodedCommand.options);
-      case 'adopt':
-        if (platform !== 'android')
-          return yield* failCommand('adopt credentials', 'Pass --platform android.');
-        return yield* adoptAndroid(decodedCommand.options);
-      case 'set-key':
-        if (platform === 'android') {
-          return yield* setGoogleKey(decodedCommand.firstArgument, decodedCommand.options);
-        }
-        return yield* setAppleKey(decodedCommand.options);
-      case 'setup':
-        if (platform === 'android') return yield* setupAndroid(decodedCommand.options);
-        return yield* setupIos(decodedCommand.options, platform);
-      case 'use':
-        return yield* useAppleAccount(decodedCommand.firstArgument, decodedCommand.options);
-      case 'rename':
-        return yield* renameAppleAccount(
-          decodedCommand.firstArgument,
-          decodedCommand.secondArgument,
-        );
-      case 'remove':
-      case 'logout':
-        return yield* removeAppleAccount(decodedCommand.firstArgument, decodedCommand.options);
-      case 'refresh':
-        return yield* refreshAppleAccounts(decodedCommand.firstArgument);
-      case 'set-vendor-number':
-        return yield* setAppleVendorNumber(decodedCommand.options);
-      case 'set-play-reports-bucket':
-        return yield* setPlayReportsBucket(decodedCommand.options);
-      case 'push-key':
-        return yield* runPushKeyAction(
-          decodedCommand.firstArgument,
-          decodedCommand.secondArgument,
-          decodedCommand.options,
-        );
-    }
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (isCredentialsCommandFailure(cause)) return cause;
-      return commandFailure('run credentials command', cause);
-    }),
+    return;
+  }
+
+  if (pushAction == 'status') {
+    await showPushKeys();
+
+    return;
+  }
+
+  if (pushAction == 'import') {
+    await importApnsKey(keyArgument, commandOptions);
+
+    return;
+  }
+
+  if (pushAction == 'export') {
+    await exportApnsKey(keyArgument, commandOptions);
+
+    return;
+  }
+
+  failCommand(
+    'run APNs command',
+    `Unknown push-key action "${pushAction}". Use import, status, or export.`,
   );
+}
+
+async function executeCredentialsCommand(decodedCommand: CredentialsCommandInput): Promise<void> {
+  let platformText = decodedCommand.options.platform;
+
+  if (platformText == null) {
+    platformText = 'ios';
+  }
+
+  const platform = parsePlatform(platformText);
+
+  if (decodedCommand.action == 'status') {
+    await showCredentialStatus(decodedCommand.options);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'accounts') {
+    await showCredentialStatus(decodedCommand.options);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'adopt') {
+    if (platform != 'android') {
+      failCommand('adopt credentials', 'Pass --platform android.');
+    }
+
+    await adoptAndroid(decodedCommand.options);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'set-key') {
+    if (platform == 'android') {
+      await setGoogleKey(decodedCommand.firstArgument, decodedCommand.options);
+
+      return;
+    }
+
+    await setAppleKey(decodedCommand.options);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'setup') {
+    if (platform == 'android') {
+      await setupAndroid(decodedCommand.options);
+
+      return;
+    }
+
+    await setupIos(decodedCommand.options, platform);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'use') {
+    await useAppleAccount(decodedCommand.firstArgument, decodedCommand.options);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'rename') {
+    await renameAppleAccount(decodedCommand.firstArgument, decodedCommand.secondArgument);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'remove') {
+    await removeAppleAccount(decodedCommand.firstArgument, decodedCommand.options);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'logout') {
+    await removeAppleAccount(decodedCommand.firstArgument, decodedCommand.options);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'refresh') {
+    await refreshAppleAccounts(decodedCommand.firstArgument);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'set-vendor-number') {
+    await setAppleVendorNumber(decodedCommand.options);
+
+    return;
+  }
+
+  if (decodedCommand.action == 'set-play-reports-bucket') {
+    await setPlayReportsBucket(decodedCommand.options);
+
+    return;
+  }
+
+  await runPushKeyAction(
+    decodedCommand.firstArgument,
+    decodedCommand.secondArgument,
+    decodedCommand.options,
+  );
+}
+
+export async function credentialsCommandProgram(commandInput: unknown): Promise<void> {
+  try {
+    const decodedCommand = CredentialsCommandInputSchema(commandInput);
+
+    await executeCredentialsCommand(decodedCommand);
+  } catch (cause) {
+    if (isCredentialsCommandFailure(cause)) {
+      throw cause;
+    }
+
+    throw commandFailure('run credentials command', cause);
+  }
+}

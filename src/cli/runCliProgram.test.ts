@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Effect } from 'effect';
 import { completeCommand, makeCommandExit } from '../terminal/commandExit.js';
 import { makeBuildCommandExecutionError } from '../build/buildCommandProgram.js';
 import { createLogger } from '../services/platform/logger.js';
@@ -34,13 +33,12 @@ afterEach(() => {
 describe('runJsonCliProgram - the final result line', () => {
   it('streams events and ends with an ok result carrying the run summary', async () => {
     const readEvents = captureStdoutLines();
-    await runJsonCliProgram(
-      SUMMARY,
-      Effect.gen(function* () {
-        const logger = yield* createLogger(false);
-        yield* logger.step('config', 'sampleapp');
-      }),
-    );
+    async function sampleStep(): Promise<void> {
+      const logger = createLogger(false);
+      logger.step('config', 'sampleapp');
+    }
+
+    await runJsonCliProgram(SUMMARY, sampleStep);
     expect(readEvents()).toEqual([
       { event: 'step', step: 'config', detail: 'sampleapp' },
       { event: 'result', ok: true, ...SUMMARY },
@@ -49,15 +47,14 @@ describe('runJsonCliProgram - the final result line', () => {
 
   it('ends a tagged failure with its readable message and rejects for a non-zero exit', async () => {
     const readEvents = captureStdoutLines();
-    const failedRun = runJsonCliProgram(
-      SUMMARY,
-      Effect.fail(
-        makeBuildCommandExecutionError({
-          message: 'No build engine named "missing-engine".',
-          cause: { _tag: 'Hidden' },
-        }),
-      ),
-    );
+    async function failBuild(): Promise<void> {
+      throw makeBuildCommandExecutionError({
+        message: 'No build engine named "missing-engine".',
+        cause: { _tag: 'Hidden' },
+      });
+    }
+
+    const failedRun = runJsonCliProgram(SUMMARY, failBuild);
     await expect(failedRun).rejects.toThrow();
     expect(readEvents()).toEqual([
       {
@@ -70,20 +67,24 @@ describe('runJsonCliProgram - the final result line', () => {
   });
 
   it('reports a requested exit code in the failure message', async () => {
+    async function exitWithoutReason(): Promise<void> {
+      throw makeCommandExit({ exitCode: 3 });
+    }
+
     const readEvents = captureStdoutLines();
-    await expect(
-      runJsonCliProgram(SUMMARY, Effect.fail(makeCommandExit({ exitCode: 3 }))),
-    ).rejects.toThrow();
+    await expect(runJsonCliProgram(SUMMARY, exitWithoutReason)).rejects.toThrow();
     expect(readEvents()).toEqual([
       { event: 'result', ok: false, ...SUMMARY, message: 'The command ended with exit code 3.' },
     ]);
   });
 
   it('reports the reason a command gave for its exit code', async () => {
+    async function exitWithReason(): Promise<void> {
+      completeCommand(1, 'No App Store Connect app record yet.');
+    }
+
     const readEvents = captureStdoutLines();
-    await expect(
-      runJsonCliProgram(SUMMARY, completeCommand(1, 'No App Store Connect app record yet.')),
-    ).rejects.toThrow();
+    await expect(runJsonCliProgram(SUMMARY, exitWithReason)).rejects.toThrow();
     expect(readEvents()).toEqual([
       { event: 'result', ok: false, ...SUMMARY, message: 'No App Store Connect app record yet.' },
     ]);
@@ -91,15 +92,11 @@ describe('runJsonCliProgram - the final result line', () => {
 
   it('turns a prompt into a failure that names the flag to pass', async () => {
     const readEvents = captureStdoutLines();
-    await expect(
-      runJsonCliProgram(
-        SUMMARY,
-        Effect.gen(function* () {
-          const launchPrompt = yield* LaunchPrompt;
-          yield* launchPrompt.confirm('Upload?');
-        }),
-      ),
-    ).rejects.toThrow();
+    async function confirmUpload(): Promise<boolean> {
+      return LaunchPrompt.confirm('Upload?');
+    }
+
+    await expect(runJsonCliProgram(SUMMARY, confirmUpload)).rejects.toThrow();
     const [resultEvent] = readEvents();
     expect(resultEvent.ok).toBe(false);
     expect(resultEvent.message).toContain('--yes');

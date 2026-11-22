@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { runPlanner } from './planner.testkit.js';
 import { describe, expect, it, vi } from 'vitest';
 import { playSubscriptionsPlanner } from './playSubscriptions.js';
@@ -9,17 +8,17 @@ import type { PlanContext, PlayCatalogApi } from '@/types/plan.js';
 /** A fully-stubbed {@link PlayCatalogApi}: reads default to "nothing exists yet", writes resolve to void. */
 const makePlayApi = (overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi => {
   const base: PlayCatalogApi = {
-    assertAppExists: vi.fn(() => Effect.void),
-    listInAppProducts: vi.fn(() => Effect.succeed([])),
-    insertInAppProduct: vi.fn(() => Effect.void),
-    updateInAppProduct: vi.fn(() => Effect.void),
-    listSubscriptions: vi.fn(() => Effect.succeed([])),
-    createSubscription: vi.fn(() => Effect.void),
-    patchSubscription: vi.fn(() => Effect.void),
-    activateBasePlan: vi.fn(() => Effect.void),
-    listSubscriptionOffers: vi.fn(() => Effect.succeed([])),
-    createSubscriptionOffer: vi.fn(() => Effect.void),
-    activateSubscriptionOffer: vi.fn(() => Effect.void),
+    assertAppExists: vi.fn(() => Promise.resolve()),
+    listInAppProducts: vi.fn(() => Promise.resolve([])),
+    insertInAppProduct: vi.fn(() => Promise.resolve()),
+    updateInAppProduct: vi.fn(() => Promise.resolve()),
+    listSubscriptions: vi.fn(() => Promise.resolve([])),
+    createSubscription: vi.fn(() => Promise.resolve()),
+    patchSubscription: vi.fn(() => Promise.resolve()),
+    activateBasePlan: vi.fn(() => Promise.resolve()),
+    listSubscriptionOffers: vi.fn(() => Promise.resolve([])),
+    createSubscriptionOffer: vi.fn(() => Promise.resolve()),
+    activateSubscriptionOffer: vi.fn(() => Promise.resolve()),
   };
   return { ...base, ...overrides };
 };
@@ -74,8 +73,8 @@ const makeCtx = (
   return {
     config,
     apps,
-    resolveAscApi: () => Effect.succeed(null),
-    resolvePlayApi: () => Effect.succeed(api),
+    resolveAscApi: () => Promise.resolve(null),
+    resolvePlayApi: () => Promise.resolve(api),
   };
 };
 describe('playSubscriptionsPlanner', () => {
@@ -127,7 +126,7 @@ describe('playSubscriptionsPlanner', () => {
   });
   it('captures an unreachable app as a per-app error, not a thrown plan', async () => {
     const api = makePlayApi({
-      assertAppExists: vi.fn(() => Effect.fail(new Error('app not found on Play'))),
+      assertAppExists: vi.fn(() => Promise.reject(new Error('app not found on Play'))),
     });
     const plan = await runPlanner(playSubscriptionsPlanner, makeCtx(api, productsWith([PLAY_SUB])));
     expect(plan.state).toBe('planned');

@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -38,14 +36,11 @@ const writeFile = (appDir: string, relPath: string, contents: string): string =>
   return path;
 };
 const md5 = (text: string): string => createHash('md5').update(Buffer.from(text)).digest('hex');
-const runAssetEffect = <TOutput, TFailure>(
-  assetEffect: Effect.Effect<TOutput, TFailure, NodeContext.NodeContext>,
-): Promise<TOutput> => Effect.runPromise(assetEffect.pipe(Effect.provide(NodeContext.layer)));
 describe('hashFile', () => {
   it('returns the MD5 hex and byte length of a file', async () => {
     const appDir = workDir();
     const path = writeFile(appDir, 'a.png', 'pixels');
-    expect(await runAssetEffect(hashFile(path))).toEqual({ checksum: md5('pixels'), size: 6 });
+    expect(await hashFile(path)).toEqual({ checksum: md5('pixels'), size: 6 });
   });
 });
 describe('displayTypeLabel', () => {
@@ -76,7 +71,7 @@ describe('Apple asset targets', () => {
 });
 describe('discoverScreenshots', () => {
   it('returns [] when the convention folder is absent', async () => {
-    expect(await runAssetEffect(discoverScreenshots(workDir()))).toEqual([]);
+    expect(await discoverScreenshots(workDir())).toEqual([]);
   });
   it('walks locale/displayType folders, fingerprints images, and sorts deterministically', async () => {
     const appDir = workDir();
@@ -84,7 +79,7 @@ describe('discoverScreenshots', () => {
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_67/01.png`, 'one');
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/en-US/APP_DESKTOP/mac.jpg`, 'mac');
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/de-DE/APP_IPHONE_67/01.png`, 'eins');
-    const shots = await runAssetEffect(discoverScreenshots(appDir));
+    const shots = await discoverScreenshots(appDir);
     expect(shots.map((s) => [s.locale, s.displayType, s.fileName])).toEqual([
       ['de-DE', 'APP_IPHONE_67', '01.png'],
       ['en-US', 'APP_DESKTOP', 'mac.jpg'],
@@ -104,7 +99,7 @@ describe('discoverScreenshots', () => {
       `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_69_FUTURE/sidecar.json`,
       '{"generationId":"run-001"}',
     );
-    const shots = await runAssetEffect(discoverScreenshots(appDir));
+    const shots = await discoverScreenshots(appDir);
     expect(shots).toHaveLength(1);
     expect(shots[0]?.displayType).toBe('APP_IPHONE_69_FUTURE');
     expect(shots[0]?.fileName).toBe('01.png');
@@ -121,7 +116,7 @@ describe('previewTypeLabel', () => {
 });
 describe('discoverPreviews', () => {
   it('returns [] when the convention folder is absent', async () => {
-    expect(await runAssetEffect(discoverPreviews(workDir()))).toEqual([]);
+    expect(await discoverPreviews(workDir())).toEqual([]);
   });
   it('walks locale/previewType folders, fingerprints videos, and sorts deterministically', async () => {
     const appDir = workDir();
@@ -129,7 +124,7 @@ describe('discoverPreviews', () => {
     writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_67/01.mov`, 'one');
     writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/DESKTOP/mac.m4v`, 'mac');
     writeFile(appDir, `${PREVIEWS_DIRNAME}/de-DE/IPHONE_67/01.mp4`, 'eins');
-    const previews = await runAssetEffect(discoverPreviews(appDir));
+    const previews = await discoverPreviews(appDir);
     expect(previews.map((p) => [p.locale, p.previewType, p.fileName])).toEqual([
       ['de-DE', 'IPHONE_67', '01.mp4'],
       ['en-US', 'DESKTOP', 'mac.m4v'],
@@ -144,7 +139,7 @@ describe('discoverPreviews', () => {
     const appDir = workDir();
     writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_69_FUTURE/01.mp4`, 'future');
     writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_69_FUTURE/01.png`, 'ignore me');
-    const previews = await runAssetEffect(discoverPreviews(appDir));
+    const previews = await discoverPreviews(appDir);
     expect(previews).toHaveLength(1);
     expect(previews[0]?.previewType).toBe('IPHONE_69_FUTURE');
     expect(previews[0]?.fileName).toBe('01.mp4');
@@ -154,7 +149,7 @@ describe('fingerprintAsset', () => {
   it('fingerprints a declared asset resolved relative to the app dir', async () => {
     const appDir = workDir();
     writeFile(appDir, 'store/review.png', 'review');
-    const asset = await runAssetEffect(fingerprintAsset(appDir, 'store/review.png'));
+    const asset = await fingerprintAsset(appDir, 'store/review.png');
     expect(asset).toEqual({
       path: join(appDir, 'store/review.png'),
       fileName: 'review.png',
@@ -163,11 +158,11 @@ describe('fingerprintAsset', () => {
     });
   });
   it('returns null for a missing file', async () => {
-    expect(await runAssetEffect(fingerprintAsset(workDir(), 'store/missing.png'))).toBeNull();
+    expect(await fingerprintAsset(workDir(), 'store/missing.png')).toBeNull();
   });
   it('returns null when the path is a directory, not a file', async () => {
     const appDir = workDir();
     mkdirSync(join(appDir, 'store'), { recursive: true });
-    expect(await runAssetEffect(fingerprintAsset(appDir, 'store'))).toBeNull();
+    expect(await fingerprintAsset(appDir, 'store')).toBeNull();
   });
 });

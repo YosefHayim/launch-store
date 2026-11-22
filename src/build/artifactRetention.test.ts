@@ -1,14 +1,10 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
 import type { BuildArtifact } from '../types/artifacts.js';
 import type { LaunchConfig } from '../types/config.js';
 import {
-  type ArtifactIndexRequirements,
   DEFAULT_RETENTION_DAYS,
   planPrune,
   readArtifactIndex,
@@ -48,15 +44,9 @@ const config = (overrides: Partial<LaunchConfig> = {}): LaunchConfig => {
     ...overrides,
   };
 };
-const runArtifactEffect = <Success, Failure>(
-  artifactEffect: Effect.Effect<Success, Failure, ArtifactIndexRequirements>,
-) =>
-  Effect.runPromise(
-    artifactEffect.pipe(
-      Effect.provide(NodeContext.layer),
-      Effect.provide(makeLaunchPathsTest('/test-home', '/workspace')),
-    ),
-  );
+async function runArtifactEffect<Success>(artifactWork: Promise<Success>): Promise<Success> {
+  return await artifactWork;
+}
 describe('planPrune - the keep-newest-per-app+platform policy', () => {
   it('prunes a build past the window but keeps the newest of its app+platform', () => {
     const newest = artifact({ buildNumber: 9, createdAt: daysAgo(2) });

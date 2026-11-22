@@ -1,24 +1,24 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect, Schema } from 'effect';
-import { describe, expect, it } from 'vitest';
-import { makeLaunchLoggerTest } from '../services/platform/logger.js';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
-import { makeLaunchPromptTest } from '../services/platform/prompt.js';
+import { afterEach, describe, expect, it } from 'vitest';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import { InitCommandInputSchema, runInitProgram } from './initCommand.js';
+
+afterEach(() => {
+  resetLaunchDirectories();
+});
 
 describe('InitCommandInputSchema', () => {
   it('decodes the standalone boundary using the injected working directory', () => {
-    expect(Schema.decodeUnknownSync(InitCommandInputSchema)({ framed: true })).toEqual({
+    expect(InitCommandInputSchema({ framed: true })).toEqual({
       framed: true,
     });
   });
 
   it('decodes the guided setup boundary with an explicit directory', () => {
     expect(
-      Schema.decodeUnknownSync(InitCommandInputSchema)({
+      InitCommandInputSchema({
         workingDirectory: '/workspace',
         framed: false,
       }),
@@ -27,7 +27,7 @@ describe('InitCommandInputSchema', () => {
 
   it('rejects an explicit undefined exact optional directory', () => {
     expect(() =>
-      Schema.decodeUnknownSync(InitCommandInputSchema)({
+      InitCommandInputSchema({
         workingDirectory: undefined,
         framed: false,
       }),
@@ -36,17 +36,12 @@ describe('InitCommandInputSchema', () => {
 
   it('refuses non-interactive scaffolding before writing files', async () => {
     const temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-init-command-'));
+    useLaunchDirectories({
+      homeDirectory: temporaryDirectory,
+      workingDirectory: temporaryDirectory,
+    });
     try {
-      await expect(
-        Effect.runPromise(
-          runInitProgram({ framed: false }).pipe(
-            Effect.provide(makeLaunchPathsTest(temporaryDirectory, temporaryDirectory)),
-            Effect.provide(makeLaunchPromptTest()),
-            Effect.provide(makeLaunchLoggerTest([])),
-            Effect.provide(NodeContext.layer),
-          ),
-        ),
-      ).rejects.toThrow(/interactive terminal/);
+      await expect(runInitProgram({ framed: false })).rejects.toThrow(/interactive terminal/);
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true });
     }

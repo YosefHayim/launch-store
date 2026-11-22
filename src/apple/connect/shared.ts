@@ -1,12 +1,10 @@
 import type { AscKey } from '@/types/credentials.js';
 import type { MutableDeep } from '@/types/mutable.js';
 import type { components } from '@/apple/generated/schema.js';
-import { Chunk, Data, Effect, Option, Schema, Stream } from 'effect';
-import { FileSystem } from '@effect/platform';
-import { NodeContext } from '@effect/platform-node';
 import { SignJWT, importPKCS8 } from 'jose';
 import { createHash } from 'node:crypto';
-import { makeStoreUploadFailure } from '@/types/providers.js';
+import { open, readFile, stat, type FileHandle } from 'node:fs/promises';
+import { makeStoreUploadFailure, type StoreUploadFailure } from '@/types/providers.js';
 import { retryAppleTransportRequest } from '@/apple/transportHelpers.js';
 import {
   type AccessibilityDeclarationResource,
@@ -146,34 +144,6 @@ export const pickNewestVersion = (versions: ProductVersion[]): ProductVersion | 
   return newestVersion;
 };
 
-const AscErrorSchema: Schema.Schema<AscError> = Schema.suspend(() =>
-  Schema.Struct({
-    status: Schema.optionalWith(Schema.String, { exact: true }),
-    code: Schema.optionalWith(Schema.String, { exact: true }),
-    title: Schema.optionalWith(Schema.String, { exact: true }),
-    detail: Schema.optionalWith(Schema.String, { exact: true }),
-    source: Schema.optionalWith(
-      Schema.Struct({
-        pointer: Schema.optionalWith(Schema.String, { exact: true }),
-        parameter: Schema.optionalWith(Schema.String, { exact: true }),
-      }),
-      { exact: true },
-    ),
-    meta: Schema.optionalWith(
-      Schema.Struct({
-        associatedErrors: Schema.optionalWith(
-          Schema.Record({ key: Schema.String, value: Schema.Array(AscErrorSchema) }),
-          { exact: true },
-        ),
-      }),
-      { exact: true },
-    ),
-  }),
-);
-const AscErrorsDocumentSchema = Schema.parseJson(
-  Schema.Struct({ errors: Schema.optionalWith(Schema.Array(AscErrorSchema), { exact: true }) }),
-);
-
 export class AscRequestError extends Error {
   constructor(
     message: string,
@@ -185,10 +155,19 @@ export class AscRequestError extends Error {
   }
 }
 
-export class AscAvailabilityUpdateError extends Data.TaggedError('AscAvailabilityUpdateError')<{
+export class AscAvailabilityUpdateError {
+  readonly _tag = 'AscAvailabilityUpdateError' as const;
   readonly message: string;
   readonly missingTerritories: readonly string[];
-}> {}
+
+  constructor(fields: {
+    readonly message: string;
+    readonly missingTerritories: readonly string[];
+  }) {
+    this.message = fields.message;
+    this.missingTerritories = fields.missingTerritories;
+  }
+}
 
 export const isRetryableAscError = (error: unknown): boolean => {
   if (!(error instanceof AscRequestError)) return false;
@@ -306,33 +285,79 @@ export const inlinePriceId = (index: number): string => `\${price-${index}}`;
 export const md5Hex = (bytes: Buffer): string => {
   return createHash('md5').update(bytes).digest('hex');
 };
-export const readTransportFile = (filePath: string): Promise<Buffer> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const fileBytes = yield* fileSystem.readFile(filePath);
-    return Buffer.from(fileBytes);
-  }).pipe(Effect.provide(NodeContext.layer), Effect.runPromise);
-export const readTransportSize = (filePath: string): Promise<number> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const fileInfo = yield* fileSystem.stat(filePath);
-    return Number(fileInfo.size);
-  }).pipe(Effect.provide(NodeContext.layer), Effect.runPromise);
-const readTransportRange = (filePath: string, offset: number, byteCount: number): Promise<Buffer> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const rangeStream = fileSystem.stream(filePath, { offset, bytesToRead: byteCount });
-    const rangeChunks = yield* Stream.runCollect(rangeStream);
-    const rangeParts = Chunk.toReadonlyArray(rangeChunks);
-    const rangeBuffer = Buffer.concat(rangeParts);
-    if (rangeBuffer.byteLength === byteCount) return rangeBuffer;
-    return yield* Effect.fail(
-      makeStoreUploadFailure({
-        provider: 'app-store-connect',
-        message: `Read ${rangeBuffer.byteLength} of ${byteCount} bytes at offset ${offset} from ${filePath}; the file changed during the upload.`,
-      }),
-    );
-  }).pipe(Effect.provide(NodeContext.layer), Effect.runPromise);
+
+export async function readTransportFile(filePath: string): Promise<Buffer> {
+  try {
+    return await readFile(filePath);
+  } catch (error) {
+    throw new Error(`Could not read ${filePath}`, { cause: error });
+  }
+}
+
+export async function readTransportSize(filePath: string): Promise<number> {
+  try {
+    const fileStats = await stat(filePath);
+
+    return fileStats.size;
+  } catch (error) {
+    throw new Error(`Could not read ${filePath}`, { cause: error });
+  }
+}
+
+async function readTransportRange(
+  filePath: string,
+  offset: number,
+  byteCount: number,
+): Promise<Buffer> {
+  const fileHandle = await openTransportFile(filePath);
+
+  try {
+    const rangeBuffer = Buffer.alloc(byteCount);
+    const fileRead = await fileHandle.read(rangeBuffer, 0, byteCount, offset);
+    const isComplete = fileRead.bytesRead == byteCount;
+
+    if (isComplete) return rangeBuffer;
+
+    throw makeStoreUploadFailure({
+      provider: 'app-store-connect',
+      message: `Read ${fileRead.bytesRead} of ${byteCount} bytes at offset ${offset} from ${filePath}; the file changed during the upload.`,
+    });
+  } catch (error) {
+    const isUploadFailure = isStoreUploadFailure(error);
+
+    if (isUploadFailure) throw error;
+
+    throw new Error(`Could not read ${filePath}`, { cause: error });
+  } finally {
+    await closeTransportFile(fileHandle);
+  }
+}
+
+async function openTransportFile(filePath: string): Promise<FileHandle> {
+  try {
+    return await open(filePath, 'r');
+  } catch (error) {
+    throw new Error(`Could not read ${filePath}`, { cause: error });
+  }
+}
+
+async function closeTransportFile(fileHandle: FileHandle): Promise<void> {
+  try {
+    await fileHandle.close();
+  } catch (error) {
+    throw new Error('Could not close the upload file', { cause: error });
+  }
+}
+
+function isStoreUploadFailure(error: unknown): error is StoreUploadFailure {
+  if (typeof error != 'object') return false;
+
+  if (error == null) return false;
+
+  if ('_tag' in error == false) return false;
+
+  return error._tag == 'StoreUploadFailure';
+}
 
 export const pickListingFields = (
   attributes: Record<string, unknown>,
@@ -913,14 +938,309 @@ export const clockSkewHint = (args: {
   return ` Your Mac's clock is off by ${drift} from Apple's, which makes the signed token read as expired - run \`sudo sntp -sS time.apple.com\` to resync, then retry.`;
 };
 
-export const describeErrors = (responseText: string): string => {
-  const decodedDocument = Schema.decodeUnknownOption(AscErrorsDocumentSchema)(responseText);
-  if (Option.isSome(decodedDocument) && decodedDocument.value.errors?.length) {
-    return decodedDocument.value.errors.map(describeAscError).join('; ');
-  }
-  if (responseText.length > 0) return responseText;
-  return 'no response body';
+type TextField = {
+  readonly kind: 'missing' | 'present' | 'invalid';
+  readonly written: string | null;
 };
+
+type PointerGroup =
+  | { readonly kind: 'missing' }
+  | { readonly kind: 'invalid' }
+  | { readonly kind: 'present'; readonly pointerGroup: { pointer?: string; parameter?: string } };
+
+type MetaGroup =
+  | { readonly kind: 'missing' }
+  | { readonly kind: 'invalid' }
+  | {
+      readonly kind: 'present';
+      readonly metaGroup: { associatedErrors?: Record<string, readonly AscError[]> };
+    };
+
+interface AscErrorDraft {
+  readonly statusField: TextField;
+  readonly codeField: TextField;
+  readonly titleField: TextField;
+  readonly detailField: TextField;
+  readonly pointerGroup: PointerGroup;
+  readonly metaGroup: MetaGroup;
+}
+
+function isJsonObject(candidate: unknown): candidate is Record<string, unknown> {
+  if (typeof candidate != 'object') return false;
+
+  if (candidate == null) return false;
+
+  if (Array.isArray(candidate)) return false;
+
+  return true;
+}
+
+function readOptionalString(appleFields: Record<string, unknown>, key: string): TextField {
+  const hasKey = Object.hasOwn(appleFields, key);
+
+  if (hasKey == false) return { kind: 'missing', written: null };
+
+  const field = appleFields[key];
+
+  if (typeof field == 'string') return { kind: 'present', written: field };
+
+  return { kind: 'invalid', written: null };
+}
+
+function copyOptionalString(
+  appleError: AscError,
+  key: 'status' | 'code' | 'title' | 'detail',
+  field: TextField,
+): void {
+  const written = field.written;
+
+  if (written == null) return;
+
+  appleError[key] = written;
+}
+
+function writePointer(
+  pointerGroup: { pointer?: string; parameter?: string },
+  pointerField: TextField,
+): void {
+  const written = pointerField.written;
+
+  if (written == null) return;
+
+  pointerGroup.pointer = written;
+}
+
+function writeParameter(
+  pointerGroup: { pointer?: string; parameter?: string },
+  parameterField: TextField,
+): void {
+  const written = parameterField.written;
+
+  if (written == null) return;
+
+  pointerGroup.parameter = written;
+}
+
+function readOptionalPointerGroup(appleFields: Record<string, unknown>): PointerGroup {
+  const hasPointerGroup = Object.hasOwn(appleFields, 'source');
+
+  if (hasPointerGroup == false) return { kind: 'missing' };
+
+  const field = appleFields['source'];
+
+  if (isJsonObject(field)) return readPointerGroup(field);
+
+  return { kind: 'invalid' };
+}
+
+function readPointerGroup(appleFields: Record<string, unknown>): PointerGroup {
+  const pointerField = readOptionalString(appleFields, 'pointer');
+  const isPointerInvalid = pointerField.kind == 'invalid';
+
+  if (isPointerInvalid) return { kind: 'invalid' };
+
+  const parameterField = readOptionalString(appleFields, 'parameter');
+  const isParameterInvalid = parameterField.kind == 'invalid';
+
+  if (isParameterInvalid) return { kind: 'invalid' };
+
+  const pointerGroup: { pointer?: string; parameter?: string } = {};
+
+  writePointer(pointerGroup, pointerField);
+  writeParameter(pointerGroup, parameterField);
+
+  return { kind: 'present', pointerGroup };
+}
+
+function readAscErrors(candidate: unknown): readonly AscError[] | null {
+  if (Array.isArray(candidate)) return readAscErrorList(candidate);
+
+  return null;
+}
+
+function readAscErrorList(listedErrors: readonly unknown[]): readonly AscError[] | null {
+  const errors: AscError[] = [];
+
+  for (const listedError of listedErrors) {
+    const appleError = readAscError(listedError);
+    const isInvalid = appleError == null;
+
+    if (isInvalid) return null;
+
+    errors.push(appleError);
+  }
+
+  return errors;
+}
+
+function readAssociatedErrors(candidate: unknown): Record<string, readonly AscError[]> | null {
+  if (isJsonObject(candidate)) return readAssociatedErrorObject(candidate);
+
+  return null;
+}
+
+function readAssociatedErrorObject(
+  appleFields: Record<string, unknown>,
+): Record<string, readonly AscError[]> | null {
+  const associated: Record<string, readonly AscError[]> = {};
+
+  for (const resourcePath of Object.keys(appleFields)) {
+    const errors = readAscErrors(appleFields[resourcePath]);
+    const isInvalid = errors == null;
+
+    if (isInvalid) return null;
+
+    associated[resourcePath] = errors;
+  }
+
+  return associated;
+}
+
+function readOptionalMetaGroup(appleFields: Record<string, unknown>): MetaGroup {
+  const hasMeta = Object.hasOwn(appleFields, 'meta');
+
+  if (hasMeta == false) return { kind: 'missing' };
+
+  const field = appleFields['meta'];
+
+  if (isJsonObject(field)) return readMetaGroup(field);
+
+  return { kind: 'invalid' };
+}
+
+function readMetaGroup(appleFields: Record<string, unknown>): MetaGroup {
+  const hasAssociated = Object.hasOwn(appleFields, 'associatedErrors');
+
+  if (hasAssociated == false) return { kind: 'present', metaGroup: {} };
+
+  const associatedErrors = readAssociatedErrors(appleFields['associatedErrors']);
+  const isInvalid = associatedErrors == null;
+
+  if (isInvalid) return { kind: 'invalid' };
+
+  return { kind: 'present', metaGroup: { associatedErrors } };
+}
+
+function readAscError(candidate: unknown): AscError | null {
+  if (isJsonObject(candidate)) return readAscErrorObject(candidate);
+
+  return null;
+}
+
+function readAscErrorObject(appleFields: Record<string, unknown>): AscError | null {
+  const statusField = readOptionalString(appleFields, 'status');
+  const isStatusInvalid = statusField.kind == 'invalid';
+
+  if (isStatusInvalid) return null;
+
+  const codeField = readOptionalString(appleFields, 'code');
+  const isCodeInvalid = codeField.kind == 'invalid';
+
+  if (isCodeInvalid) return null;
+
+  const titleField = readOptionalString(appleFields, 'title');
+  const isTitleInvalid = titleField.kind == 'invalid';
+
+  if (isTitleInvalid) return null;
+
+  const detailField = readOptionalString(appleFields, 'detail');
+  const isDetailInvalid = detailField.kind == 'invalid';
+
+  if (isDetailInvalid) return null;
+
+  const pointerGroup = readOptionalPointerGroup(appleFields);
+  const isPointerGroupInvalid = pointerGroup.kind == 'invalid';
+
+  if (isPointerGroupInvalid) return null;
+
+  const metaGroup = readOptionalMetaGroup(appleFields);
+  const isMetaInvalid = metaGroup.kind == 'invalid';
+
+  if (isMetaInvalid) return null;
+
+  return assembleAscError({
+    statusField,
+    codeField,
+    titleField,
+    detailField,
+    pointerGroup,
+    metaGroup,
+  });
+}
+
+function assembleAscError(draft: AscErrorDraft): AscError {
+  const appleError: AscError = {};
+
+  copyOptionalString(appleError, 'status', draft.statusField);
+  copyOptionalString(appleError, 'code', draft.codeField);
+  copyOptionalString(appleError, 'title', draft.titleField);
+  copyOptionalString(appleError, 'detail', draft.detailField);
+  copyPointerGroup(appleError, draft.pointerGroup);
+  copyMetaGroup(appleError, draft.metaGroup);
+
+  return appleError;
+}
+
+function copyPointerGroup(appleError: AscError, pointerGroup: PointerGroup): void {
+  if (pointerGroup.kind != 'present') return;
+
+  appleError.source = pointerGroup.pointerGroup;
+}
+
+function copyMetaGroup(appleError: AscError, metaGroup: MetaGroup): void {
+  if (metaGroup.kind != 'present') return;
+
+  appleError.meta = metaGroup.metaGroup;
+}
+
+function parseAppleBody(appleBody: string): unknown {
+  try {
+    return JSON.parse(appleBody);
+  } catch (error) {
+    const isSyntaxError = error instanceof SyntaxError;
+
+    if (isSyntaxError) return null;
+
+    throw error;
+  }
+}
+
+function readAppleErrorDocument(
+  appleBody: string,
+): { readonly errors?: readonly AscError[] } | null {
+  const parsed = parseAppleBody(appleBody);
+  const isUnparsed = parsed == null;
+
+  if (isUnparsed) return null;
+
+  if (isJsonObject(parsed)) return readAppleErrorObject(parsed);
+
+  return null;
+}
+
+function readAppleErrorObject(
+  appleFields: Record<string, unknown>,
+): { readonly errors?: readonly AscError[] } | null {
+  const hasErrors = Object.hasOwn(appleFields, 'errors');
+
+  if (hasErrors == false) return {};
+
+  const errors = readAscErrors(appleFields['errors']);
+  const isInvalid = errors == null;
+
+  if (isInvalid) return null;
+
+  return { errors };
+}
+
+function describeUnparsedAppleBody(appleBody: string): string {
+  const isEmpty = appleBody.length == 0;
+
+  if (isEmpty) return 'no response body';
+
+  return appleBody;
+}
+
 const describeAscError = (error: AscError): string => {
   let message = error.detail;
   if (message === undefined) message = error.title;
@@ -939,11 +1259,43 @@ const describeAssociatedErrors = (
   );
 };
 
-export const parseErrorCodes = (responseText: string): string[] => {
-  const decodedDocument = Schema.decodeUnknownOption(AscErrorsDocumentSchema)(responseText);
-  if (Option.isNone(decodedDocument)) return [];
-  if (decodedDocument.value.errors === undefined) return [];
-  return decodedDocument.value.errors
-    .map((error) => error.code)
-    .filter((errorCode): errorCode is string => errorCode !== undefined);
-};
+export function describeErrors(responseText: string): string {
+  const decodedDocument = readAppleErrorDocument(responseText);
+  const isMissingDocument = decodedDocument == null;
+
+  if (isMissingDocument) return describeUnparsedAppleBody(responseText);
+
+  const errors = decodedDocument.errors;
+  const isMissingErrors = errors == null;
+
+  if (isMissingErrors) return describeUnparsedAppleBody(responseText);
+
+  const hasNoErrors = errors.length == 0;
+
+  if (hasNoErrors) return describeUnparsedAppleBody(responseText);
+
+  return errors.map(describeAscError).join('; ');
+}
+
+function readErrorCode(appleError: AscError): string[] {
+  const code = appleError.code;
+  const isMissingCode = code == null;
+
+  if (isMissingCode) return [];
+
+  return [code];
+}
+
+export function parseErrorCodes(responseText: string): string[] {
+  const decodedDocument = readAppleErrorDocument(responseText);
+  const isMissingDocument = decodedDocument == null;
+
+  if (isMissingDocument) return [];
+
+  const errors = decodedDocument.errors;
+  const isMissingErrors = errors == null;
+
+  if (isMissingErrors) return [];
+
+  return errors.flatMap(readErrorCode);
+}

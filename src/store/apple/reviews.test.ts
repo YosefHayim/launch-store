@@ -1,10 +1,57 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Effect } from 'effect';
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
 } from '../../types/appleCatalog.js';
 import { deleteReviewResponse, listReviews, replyToReview, type AscReviewsApi } from './reviews.js';
+
+function readThrownMessage(cause: unknown): string | null {
+  const isMissing = cause == null;
+
+  if (isMissing) return null;
+
+  const isNotObject = typeof cause != 'object';
+
+  if (isNotObject) return null;
+
+  const fields = Object.entries(cause);
+
+  for (const field of fields) {
+    const message = readMessageField(field[0], field[1]);
+    const hasMessage = message != null;
+
+    if (hasMessage) return message;
+  }
+
+  return null;
+}
+
+function readMessageField(fieldName: string | undefined, fieldText: unknown): string | null {
+  const isNotMessage = fieldName != 'message';
+
+  if (isNotMessage) return null;
+
+  const fieldTextIsString = typeof fieldText == 'string';
+
+  if (fieldTextIsString) return fieldText;
+
+  return null;
+}
+
+async function captureThrown(work: Promise<unknown>): Promise<{ message: string }> {
+  try {
+    await work;
+  } catch (cause) {
+    const message = readThrownMessage(cause);
+    const isMissingMessage = message == null;
+
+    if (isMissingMessage) throw new Error('expected a failure');
+
+    return { message };
+  }
+
+  throw new Error('expected a failure');
+}
 
 /** Build one customer-review fixture. */
 const customerReview = (
@@ -19,33 +66,31 @@ const makeReviewsStore = (fixtures: {
 }): AscReviewsApi => ({
   getAppId: vi.fn((bundleId: string) => {
     const appId = fixtures.appIds?.[bundleId];
-    if (appId === undefined) return Effect.succeed(null);
-    return Effect.succeed(appId);
+    if (appId === undefined) return Promise.resolve(null);
+    return Promise.resolve(appId);
   }),
   listCustomerReviews: vi.fn(() => {
-    if (fixtures.customerReviews === undefined) return Effect.succeed([]);
-    return Effect.succeed(fixtures.customerReviews);
+    if (fixtures.customerReviews === undefined) return Promise.resolve([]);
+    return Promise.resolve(fixtures.customerReviews);
   }),
   getCustomerReviewResponse: vi.fn(() => {
-    if (fixtures.existingReply === undefined) return Effect.succeed(null);
-    return Effect.succeed(fixtures.existingReply);
+    if (fixtures.existingReply === undefined) return Promise.resolve(null);
+    return Promise.resolve(fixtures.existingReply);
   }),
   createCustomerReviewResponse: vi.fn((reviewId: string, responseText: string) =>
-    Effect.succeed({
+    Promise.resolve({
       id: `resp-${reviewId}`,
       responseBody: responseText,
       state: 'PENDING_PUBLISH',
     }),
   ),
-  deleteCustomerReviewResponse: vi.fn(() => Effect.void),
+  deleteCustomerReviewResponse: vi.fn(() => Promise.resolve()),
 });
 
 describe('listReviews', () => {
   it('returns an actionable failure when the app record is missing', async () => {
     const reviewsStore = makeReviewsStore({ appIds: {} });
-    const missingApp = await Effect.runPromise(
-      Effect.flip(listReviews(reviewsStore, 'com.x.missing')),
-    );
+    const missingApp = await captureThrown(listReviews(reviewsStore, 'com.x.missing'));
     expect(missingApp.message).toContain('No App Store Connect app record');
   });
 
@@ -58,9 +103,7 @@ describe('listReviews', () => {
       appIds: { 'com.x': 'app1' },
       customerReviews,
     });
-    const listedReviews = await Effect.runPromise(
-      listReviews(reviewsStore, 'com.x', { rating: 5, territory: 'USA' }),
-    );
+    const listedReviews = await listReviews(reviewsStore, 'com.x', { rating: 5, territory: 'USA' });
     expect(listedReviews).toBe(customerReviews);
     expect(reviewsStore.listCustomerReviews).toHaveBeenCalledWith('app1', {
       rating: 5,
@@ -77,9 +120,7 @@ describe('listReviews', () => {
       appIds: { 'com.x': 'app1' },
       customerReviews,
     });
-    const listedReviews = await Effect.runPromise(
-      listReviews(reviewsStore, 'com.x', { unansweredOnly: true }),
-    );
+    const listedReviews = await listReviews(reviewsStore, 'com.x', { unansweredOnly: true });
     expect(listedReviews.map((listedReview) => listedReview.id)).toEqual(['r2']);
     expect(reviewsStore.listCustomerReviews).toHaveBeenCalledWith('app1', {});
   });
@@ -88,9 +129,7 @@ describe('listReviews', () => {
 describe('replyToReview', () => {
   it('posts a new reply and reports that it did not replace one', async () => {
     const reviewsStore = makeReviewsStore({ existingReply: null });
-    const replyOutcome = await Effect.runPromise(
-      replyToReview(reviewsStore, 'r1', 'Thanks for the feedback!'),
-    );
+    const replyOutcome = await replyToReview(reviewsStore, 'r1', 'Thanks for the feedback!');
     expect(replyOutcome.replaced).toBe(false);
     expect(replyOutcome.reviewReply).toMatchObject({ responseBody: 'Thanks for the feedback!' });
     expect(reviewsStore.createCustomerReviewResponse).toHaveBeenCalledWith(
@@ -103,9 +142,7 @@ describe('replyToReview', () => {
     const reviewsStore = makeReviewsStore({
       existingReply: { id: 'resp-old', responseBody: 'old' },
     });
-    const replyOutcome = await Effect.runPromise(
-      replyToReview(reviewsStore, 'r1', 'Updated reply'),
-    );
+    const replyOutcome = await replyToReview(reviewsStore, 'r1', 'Updated reply');
     expect(replyOutcome.replaced).toBe(true);
   });
 });
@@ -113,7 +150,7 @@ describe('replyToReview', () => {
 describe('deleteReviewResponse', () => {
   it('returns false when no reply exists', async () => {
     const reviewsStore = makeReviewsStore({ existingReply: null });
-    expect(await Effect.runPromise(deleteReviewResponse(reviewsStore, 'r1'))).toBe(false);
+    expect(await deleteReviewResponse(reviewsStore, 'r1')).toBe(false);
     expect(reviewsStore.deleteCustomerReviewResponse).not.toHaveBeenCalled();
   });
 
@@ -121,7 +158,7 @@ describe('deleteReviewResponse', () => {
     const reviewsStore = makeReviewsStore({
       existingReply: { id: 'resp-1', responseBody: 'hi' },
     });
-    expect(await Effect.runPromise(deleteReviewResponse(reviewsStore, 'r1'))).toBe(true);
+    expect(await deleteReviewResponse(reviewsStore, 'r1')).toBe(true);
     expect(reviewsStore.deleteCustomerReviewResponse).toHaveBeenCalledWith('resp-1');
   });
 });

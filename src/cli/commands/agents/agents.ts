@@ -1,7 +1,5 @@
 import type { Command } from 'commander';
-import { Effect } from 'effect';
 import { agentsCommandProgram, type AgentsCommandOptions } from '@/agents/command.js';
-import { AgentsCommandServiceLive } from '@/agents/commandLive.js';
 import type { RegisteredCommand } from '@/agents/validate.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
@@ -15,21 +13,20 @@ export const registeredCommandTree = (command: Command): RegisteredCommand => ({
   commands: command.commands.map(registeredCommandTree),
 });
 
-/** Run init/check through the shared core program and live MCP adapter. */
-const runAgentsSubcommand = (
+function runAgentsSubcommand(
   program: Command,
   mode: 'init' | 'check',
   commandOptions: AgentsCommandOptions,
-): void => {
-  runCliProgram(
+): Promise<void> {
+  return runCliProgram(
     agentsCommandProgram({
       mode,
       launchVersion: program.version(),
       registeredCli: registeredCommandTree(program),
       options: commandOptions,
-    }).pipe(Effect.provide(AgentsCommandServiceLive)),
+    }),
   );
-};
+}
 
 /** Attach the agents command family and its init/check subcommands. */
 export const registerAgentsCommand = (program: Command): void => {

@@ -1,7 +1,6 @@
-import { Data, Effect } from 'effect';
 import { loadConfig } from '../config/config.js';
 import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPaths } from '../services/platform/paths.js';
+import { readLaunchDirectories } from '../services/platform/paths.js';
 import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
 import type { EffectGooglePlayClient } from '../services/stores/googleStoreClient.js';
 import { listReviews } from '../store/apple/reviews.js';
@@ -34,18 +33,20 @@ type InsightsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeInsightsCommandFailure = Data.tagged<InsightsCommandFailure>('InsightsCommandFailure');
-
-/** Convert any dependency failure into the insights command channel. */
-const insightsFailure = (operation: string, cause: unknown): InsightsCommandFailure => {
+function insightsFailure(operation: string, cause: unknown): InsightsCommandFailure {
   let message = `${operation} failed.`;
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') message = causeMessage;
+
+  if (hasMessage(cause)) {
+    message = cause.message;
   }
-  return makeInsightsCommandFailure({ operation, message, cause });
-};
+
+  return {
+    _tag: 'InsightsCommandFailure',
+    operation,
+    message,
+    cause,
+  };
+}
 
 /** Narrow an external rating to Launch's one-to-five-star domain. */
 const toStarRating = (rating: number): StarRating | null => {
@@ -167,81 +168,129 @@ export const renderInsights = (insightsReport: InsightsReport): string => {
   return reportLines.join('\n');
 };
 
+function reviewFailureMessage(readFailure: unknown): string {
+  const hasFailureMessage = hasMessage(readFailure);
+
+  if (hasFailureMessage) {
+    return readFailure.message;
+  }
+
+  return 'request failed';
+}
+
 /** Read App Store reviews and degrade an unavailable store to a warning. */
-const readAscInsights = (
+async function readAscInsights(
   appDescriptor: AppDescriptor,
   ascClient: EffectAppStoreConnectClient | null,
   logger: Logger,
-) => {
-  if (appDescriptor.bundleId === undefined) return Effect.succeed<ReviewDatum[]>([]);
-  if (ascClient === null) return Effect.succeed<ReviewDatum[]>([]);
-  return listReviews(ascClient, appDescriptor.bundleId).pipe(
-    Effect.map(normalizeAscReviews),
-    Effect.catchAll((readFailure) =>
-      logger
-        .warn(`${appDescriptor.name}: App Store reviews unavailable - ${readFailure.message}`)
-        .pipe(Effect.as<ReviewDatum[]>([])),
-    ),
-  );
-};
+): Promise<ReviewDatum[]> {
+  const bundleId = appDescriptor.bundleId;
+  const hasNoBundleId = bundleId == null;
+
+  if (hasNoBundleId) {
+    return [];
+  }
+
+  const isAscMissing = ascClient == null;
+
+  if (isAscMissing) {
+    return [];
+  }
+
+  try {
+    const customerReviews = await listReviews(ascClient, bundleId);
+    return normalizeAscReviews(customerReviews);
+  } catch (readFailure) {
+    logger.warn(
+      `${appDescriptor.name}: App Store reviews unavailable - ${reviewFailureMessage(readFailure)}`,
+    );
+    return [];
+  }
+}
 
 /** Read Google Play reviews and degrade an unavailable store to a warning. */
-const readPlayInsights = (
+async function readPlayInsights(
   appDescriptor: AppDescriptor,
   playClient: EffectGooglePlayClient | null,
   logger: Logger,
-) => {
-  if (appDescriptor.packageName === undefined) return Effect.succeed<ReviewDatum[]>([]);
-  if (playClient === null) return Effect.succeed<ReviewDatum[]>([]);
-  return playClient.listReviews(appDescriptor.packageName, {}).pipe(
-    Effect.map(normalizePlayReviews),
-    Effect.catchAll((readFailure) =>
-      logger
-        .warn(`${appDescriptor.name}: Play reviews unavailable - ${readFailure.message}`)
-        .pipe(Effect.as<ReviewDatum[]>([])),
-    ),
-  );
-};
+): Promise<ReviewDatum[]> {
+  const packageName = appDescriptor.packageName;
+  const hasNoPackageName = packageName == null;
+
+  if (hasNoPackageName) {
+    return [];
+  }
+
+  const isPlayMissing = playClient == null;
+
+  if (isPlayMissing) {
+    return [];
+  }
+
+  try {
+    const playReviews = await playClient.listReviews(packageName, {});
+    return normalizePlayReviews(playReviews);
+  } catch (readFailure) {
+    logger.warn(
+      `${appDescriptor.name}: Play reviews unavailable - ${reviewFailureMessage(readFailure)}`,
+    );
+    return [];
+  }
+}
 
 /** Collect both stores' reviews for one app. */
-const gatherAppReviews = (
+async function gatherAppReviews(
   appDescriptor: AppDescriptor,
   ascClient: EffectAppStoreConnectClient | null,
   playClient: EffectGooglePlayClient | null,
   logger: Logger,
-) =>
-  Effect.all(
-    [
-      readAscInsights(appDescriptor, ascClient, logger),
-      readPlayInsights(appDescriptor, playClient, logger),
-    ],
-    { concurrency: 'unbounded' },
-  ).pipe(Effect.map(([ascReviews, playReviews]) => [...ascReviews, ...playReviews]));
+): Promise<ReviewDatum[]> {
+  const ascReviewsPromise = readAscInsights(appDescriptor, ascClient, logger);
+  const playReviewsPromise = readPlayInsights(appDescriptor, playClient, logger);
+  const ascReviews = await ascReviewsPromise;
+  const playReviews = await playReviewsPromise;
+
+  return [...ascReviews, ...playReviews];
+}
+
+function hasCollectedReviews(appReviewSet: { reviews: readonly ReviewDatum[] }): boolean {
+  return appReviewSet.reviews.length > 0;
+}
 
 /** Load, collect, aggregate, and render cross-store review insights. */
-export const insightsCommandProgram = (commandOptions: InsightsCommandOptions) =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
+export async function insightsCommandProgram(
+  commandOptions: InsightsCommandOptions,
+): Promise<void> {
+  try {
+    const launchDirectories = readLaunchDirectories();
+    const loadedConfiguration = await loadConfig(launchDirectories.workingDirectory);
     const resolveAscClient = createAscClientResolver();
-    const resolvePlayClient = yield* createPlayClientResolver();
-    const ascClient = yield* resolveAscClient();
-    const selectedApps = yield* selectApps(loadedConfiguration.apps, commandOptions.app);
-    const logger = yield* createLogger(false);
-    const appReviews = yield* Effect.forEach(
-      selectedApps,
-      (appDescriptor) =>
-        Effect.gen(function* () {
-          const playClient = yield* resolvePlayClient(appDescriptor.packageName);
-          const reviews = yield* gatherAppReviews(appDescriptor, ascClient, playClient, logger);
-          return { app: appDescriptor.name, reviews };
-        }),
-      { concurrency: 'unbounded' },
-    );
-    const insightsReport = buildInsightsReport(
-      appReviews.filter((appReviewSet) => appReviewSet.reviews.length > 0),
-    );
+    const resolvePlayClient = createPlayClientResolver();
+    const ascClient = await resolveAscClient();
+    const selectedApps = await selectApps(loadedConfiguration.apps, commandOptions.app);
+    const logger = createLogger(false);
+
+    async function collectAppReviews(appDescriptor: AppDescriptor): Promise<{
+      app: string;
+      reviews: ReviewDatum[];
+    }> {
+      const playClient = await resolvePlayClient(appDescriptor.packageName);
+      const reviews = await gatherAppReviews(appDescriptor, ascClient, playClient, logger);
+
+      return { app: appDescriptor.name, reviews };
+    }
+
+    const appReviews = await Promise.all(selectedApps.map(collectAppReviews));
+    const insightsReport = buildInsightsReport(appReviews.filter(hasCollectedReviews));
     let reportText = renderInsights(insightsReport);
-    if (commandOptions.json) reportText = JSON.stringify(insightsReport, null, 2);
-    yield* logger.line(reportText);
-  }).pipe(Effect.mapError((cause) => insightsFailure('collect review insights', cause)));
+    const isJsonReport = commandOptions.json == true;
+
+    if (isJsonReport) {
+      reportText = JSON.stringify(insightsReport, null, 2);
+    }
+
+    logger.line(reportText);
+  } catch (cause) {
+    throw insightsFailure('collect review insights', cause);
+  }
+}

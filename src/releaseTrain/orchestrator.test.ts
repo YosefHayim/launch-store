@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Deferred, Effect } from 'effect';
+import type { Car, NativeCar, NativeCarState, TrainRecord } from '../types/releaseTrain.js';
+import { isNativeCar, isOtaCar } from './guards.js';
 import {
   advanceTrain,
   deriveTrainState,
@@ -11,53 +12,89 @@ import {
   trainExitCode,
   type TrainEngine,
 } from './orchestrator.js';
-import { isNativeCar, isOtaCar } from './guards.js';
-import type { Car, NativeCarState, TrainRecord } from '../types/releaseTrain.js';
+
 const NOW = '2026-06-16T00:00:00.000Z';
 const LATER = '2026-06-16T01:00:00.000Z';
-/**
- * A scripted {@link TrainEngine}: `readNative` returns the next queued state per platform, and every call
- * is recorded so a test can assert what the orchestrator did (and, crucially, did NOT) drive. It exposes
- * no undo/rollback - matching the real engine - so the no-auto-undo guarantee is structural here too.
- */
-const fakeEngine = (
+
+function fakeEngine(
   reads: Partial<Record<string, NativeCarState[]>> = {},
   overrides: Partial<TrainEngine> = {},
-): TrainEngine & {
-  calls: string[];
-} => {
+): TrainEngine & { calls: string[] } {
   const queues = new Map<string, NativeCarState[]>();
+
   for (const [platform, stateQueue] of Object.entries(reads)) {
-    if (stateQueue !== undefined) queues.set(platform, [...stateQueue]);
+    if (stateQueue != null) {
+      queues.set(platform, [...stateQueue]);
+    }
   }
+
   const calls: string[] = [];
-  return {
+
+  async function submitNative(trainCar: NativeCar): Promise<{ buildId: string }> {
+    calls.push(`submit:${trainCar.kind}`);
+
+    return { buildId: `${trainCar.kind}-100` };
+  }
+
+  async function readNative(trainCar: NativeCar): Promise<NativeCarState> {
+    calls.push(`read:${trainCar.kind}`);
+    const stateQueue = queues.get(trainCar.kind);
+
+    if (stateQueue == null) {
+      return trainCar.state;
+    }
+
+    const nextCarPhase = stateQueue.shift();
+
+    if (nextCarPhase == null) {
+      return trainCar.state;
+    }
+
+    return nextCarPhase;
+  }
+
+  async function releaseNative(trainCar: NativeCar): Promise<void> {
+    calls.push(`release:${trainCar.kind}`);
+  }
+
+  async function publishOta(trainCar: { platform: string }): Promise<{ manifestId: string }> {
+    calls.push(`publishOta:${trainCar.platform}`);
+
+    return { manifestId: `${trainCar.platform}-manifest` };
+  }
+
+  const engine: TrainEngine & { calls: string[] } = {
     calls,
-    submitNative: (car) => {
-      calls.push(`submit:${car.kind}`);
-      return Effect.succeed({ buildId: `${car.kind}-100` });
-    },
-    readNative: (car) => {
-      calls.push(`read:${car.kind}`);
-      const stateQueue = queues.get(car.kind);
-      if (stateQueue === undefined) return Effect.succeed(car.state);
-      const nextState = stateQueue.shift();
-      if (nextState === undefined) return Effect.succeed(car.state);
-      return Effect.succeed(nextState);
-    },
-    releaseNative: (car) => {
-      calls.push(`release:${car.kind}`);
-      return Effect.void;
-    },
-    publishOta: (car) => {
-      calls.push(`publishOta:${car.platform}`);
-      return Effect.succeed({ manifestId: `${car.platform}-manifest` });
-    },
-    ...overrides,
+    submitNative,
+    readNative,
+    releaseNative,
+    publishOta,
   };
-};
-/** A running train with one iOS native car (in the given state) and its pending OTA follower. */
-const iosTrain = (state: NativeCarState, over: Partial<TrainRecord> = {}): TrainRecord => {
+  const submitOverride = overrides.submitNative;
+  const readOverride = overrides.readNative;
+  const releaseOverride = overrides.releaseNative;
+  const publishOverride = overrides.publishOta;
+
+  if (submitOverride != null) {
+    return { ...engine, submitNative: submitOverride };
+  }
+
+  if (readOverride != null) {
+    return { ...engine, readNative: readOverride };
+  }
+
+  if (releaseOverride != null) {
+    return { ...engine, releaseNative: releaseOverride };
+  }
+
+  if (publishOverride != null) {
+    return { ...engine, publishOta: publishOverride };
+  }
+
+  return engine;
+}
+
+function iosTrain(carPhase: NativeCarState, over: Partial<TrainRecord> = {}): TrainRecord {
   return {
     id: 'app-ab12',
     app: 'app',
@@ -66,7 +103,7 @@ const iosTrain = (state: NativeCarState, over: Partial<TrainRecord> = {}): Train
     createdAt: NOW,
     updatedAt: NOW,
     cars: [
-      { kind: 'ios', state, updatedAt: NOW },
+      { kind: 'ios', state: carPhase, updatedAt: NOW },
       {
         kind: 'ota',
         platform: 'ios',
@@ -78,28 +115,45 @@ const iosTrain = (state: NativeCarState, over: Partial<TrainRecord> = {}): Train
     ],
     ...over,
   };
-};
-const native = (record: TrainRecord, platform: string): Car | undefined => {
-  return record.cars.find((car) => isNativeCar(car) && car.kind === platform);
-};
-const ota = (record: TrainRecord, platform: string): Car | undefined => {
-  return record.cars.find((car) => isOtaCar(car) && car.platform === platform);
-};
+}
+
+function native(record: TrainRecord, platform: string): Car | undefined {
+  function isPlatformCar(trainCar: Car): boolean {
+    if (isNativeCar(trainCar) == false) {
+      return false;
+    }
+
+    return trainCar.kind == platform;
+  }
+
+  return record.cars.find(isPlatformCar);
+}
+
+function ota(record: TrainRecord, platform: string): Car | undefined {
+  function isPlatformCar(trainCar: Car): boolean {
+    if (isOtaCar(trainCar) == false) {
+      return false;
+    }
+
+    return trainCar.platform == platform;
+  }
+
+  return record.cars.find(isPlatformCar);
+}
+
 describe('startTrain', () => {
   it('submits every native car, adds pending OTA followers, and starts running', async () => {
     const engine = fakeEngine();
-    const record = await Effect.runPromise(
-      startTrain(
-        {
-          id: 'app-ab12',
-          app: 'app',
-          hold: false,
-          platforms: ['ios', 'android'],
-          ota: [{ platform: 'ios', channel: 'production', runtimeVersion: '1.0.0' }],
-          now: NOW,
-        },
-        engine,
-      ),
+    const record = await startTrain(
+      {
+        id: 'app-ab12',
+        app: 'app',
+        hold: false,
+        platforms: ['ios', 'android'],
+        ota: [{ platform: 'ios', channel: 'production', runtimeVersion: '1.0.0' }],
+        now: NOW,
+      },
+      engine,
     );
     expect(engine.calls).toEqual(['submit:ios', 'submit:android']);
     expect(record.state).toBe('running');
@@ -107,106 +161,116 @@ describe('startTrain', () => {
     expect(native(record, 'android')).toMatchObject({ state: 'submitted' });
     expect(ota(record, 'ios')).toMatchObject({ state: 'pending' });
   });
+
   it('records a submit precondition failure on that car without aborting the others', async () => {
-    const engine = fakeEngine(
-      {},
+    async function submitNative(trainCar: NativeCar): Promise<{ buildId: string }> {
+      if (trainCar.kind == 'ios') {
+        throw new Error('no processed build');
+      }
+
+      return { buildId: 'android-100' };
+    }
+
+    const engine = fakeEngine({}, { submitNative });
+    const record = await startTrain(
       {
-        submitNative: (car) => {
-          if (car.kind === 'ios') return Effect.fail(new Error('no processed build'));
-          return Effect.succeed({ buildId: 'android-100' });
-        },
+        id: 'app-ab12',
+        app: 'app',
+        hold: false,
+        platforms: ['ios', 'android'],
+        ota: [],
+        now: NOW,
       },
-    );
-    const record = await Effect.runPromise(
-      startTrain(
-        {
-          id: 'app-ab12',
-          app: 'app',
-          hold: false,
-          platforms: ['ios', 'android'],
-          ota: [],
-          now: NOW,
-        },
-        engine,
-      ),
+      engine,
     );
     expect(native(record, 'ios')).toMatchObject({ state: 'failed', error: 'no processed build' });
     expect(native(record, 'android')).toMatchObject({ state: 'submitted' });
   });
+
   it('submits native cars at the same time instead of one after another', async () => {
-    const androidSubmitted = await Effect.runPromise(Deferred.make<void>());
-    const engine = fakeEngine(
-      {},
+    let markAndroidSubmitted: (() => void) | null = null;
+    const androidSubmitted = new Promise<void>(function captureAndroidStart(
+      startAndroid: () => void,
+    ): void {
+      markAndroidSubmitted = startAndroid;
+    });
+
+    async function submitNative(trainCar: NativeCar): Promise<{ buildId: string }> {
+      if (trainCar.kind == 'ios') {
+        await androidSubmitted;
+
+        return { buildId: 'ios-100' };
+      }
+
+      const startAndroid = markAndroidSubmitted;
+
+      if (startAndroid == null) {
+        throw new Error('android start signal missing');
+      }
+
+      startAndroid();
+
+      return { buildId: 'android-100' };
+    }
+
+    const engine = fakeEngine({}, { submitNative });
+    const record = await startTrain(
       {
-        submitNative: (car) => {
-          if (car.kind === 'ios')
-            return Deferred.await(androidSubmitted).pipe(Effect.as({ buildId: 'ios-100' }));
-          return Deferred.succeed(androidSubmitted, undefined).pipe(
-            Effect.as({ buildId: 'android-100' }),
-          );
-        },
+        id: 'app-ab12',
+        app: 'app',
+        hold: false,
+        platforms: ['ios', 'android'],
+        ota: [],
+        now: NOW,
       },
-    );
-    const record = await Effect.runPromise(
-      startTrain(
-        {
-          id: 'app-ab12',
-          app: 'app',
-          hold: false,
-          platforms: ['ios', 'android'],
-          ota: [],
-          now: NOW,
-        },
-        engine,
-      ),
+      engine,
     );
     expect(native(record, 'ios')).toMatchObject({ state: 'submitted', buildId: 'ios-100' });
     expect(native(record, 'android')).toMatchObject({ state: 'submitted', buildId: 'android-100' });
   });
 });
+
 describe('advanceTrain - release-when-ready (no hold)', () => {
   it('adopts the live state of an in-flight car', async () => {
     const engine = fakeEngine({ ios: ['in-review'] });
-    const record = await Effect.runPromise(
-      advanceTrain(iosTrain('submitted'), engine, { now: LATER }),
-    );
+    const record = await advanceTrain(iosTrain('submitted'), engine, { now: LATER });
     expect(native(record, 'ios')).toMatchObject({ state: 'in-review', updatedAt: LATER });
     expect(record.state).toBe('running');
   });
+
   it('publishes the OTA follower once its platform reads released, and never calls releaseNative', async () => {
     const engine = fakeEngine({ ios: ['released'] });
-    const record = await Effect.runPromise(
-      advanceTrain(iosTrain('in-review'), engine, { now: LATER }),
-    );
+    const record = await advanceTrain(iosTrain('in-review'), engine, { now: LATER });
     expect(native(record, 'ios')).toMatchObject({ state: 'released' });
     expect(ota(record, 'ios')).toMatchObject({ state: 'published', manifestId: 'ios-manifest' });
     expect(record.state).toBe('done');
-    expect(engine.calls).not.toContain('release:ios'); // AFTER_APPROVAL auto-releases; nothing to fire
+    expect(engine.calls).not.toContain('release:ios');
   });
+
   it('does not publish the OTA follower while its platform is still in review', async () => {
     const engine = fakeEngine({ ios: ['in-review'] });
-    const record = await Effect.runPromise(
-      advanceTrain(iosTrain('submitted'), engine, { now: LATER }),
-    );
+    const record = await advanceTrain(iosTrain('submitted'), engine, { now: LATER });
     expect(ota(record, 'ios')).toMatchObject({ state: 'pending' });
     expect(engine.calls).not.toContain('publishOta:ios');
   });
+
   it('leaves the OTA car pending and warns when publish throws (retried next reconcile)', async () => {
     const onWarn = vi.fn();
-    const engine = fakeEngine(
-      { ios: ['released'] },
-      { publishOta: () => Effect.fail(new Error('bucket offline')) },
-    );
-    const record = await Effect.runPromise(
-      advanceTrain(iosTrain('in-review'), engine, { now: LATER, onWarn }),
-    );
+
+    async function publishOta(): Promise<{ manifestId?: string }> {
+      throw new Error('bucket offline');
+    }
+
+    const engine = fakeEngine({ ios: ['released'] }, { publishOta });
+    const record = await advanceTrain(iosTrain('in-review'), engine, { now: LATER, onWarn });
     expect(ota(record, 'ios')).toMatchObject({ state: 'pending' });
     expect(onWarn).toHaveBeenCalledOnce();
     expect(record.state).toBe('running');
   });
 });
+
 describe('advanceTrain - hold gate', () => {
-  function heldTwoPlatform(iosState: NativeCarState, androidState: NativeCarState): TrainRecord {
+  function heldTwoPlatform(iosPhase: NativeCarState, androidPhase: NativeCarState): TrainRecord {
     return {
       id: 'app-ab12',
       app: 'app',
@@ -215,41 +279,45 @@ describe('advanceTrain - hold gate', () => {
       createdAt: NOW,
       updatedAt: NOW,
       cars: [
-        { kind: 'ios', state: iosState, updatedAt: NOW },
-        { kind: 'android', state: androidState, updatedAt: NOW },
+        { kind: 'ios', state: iosPhase, updatedAt: NOW },
+        { kind: 'android', state: androidPhase, updatedAt: NOW },
       ],
     };
   }
+
   it('holds an approved car while the other platform is still in review', async () => {
     const engine = fakeEngine();
-    const record = await Effect.runPromise(
-      advanceTrain(heldTwoPlatform('approved', 'in-review'), engine, { now: LATER }),
-    );
+    const record = await advanceTrain(heldTwoPlatform('approved', 'in-review'), engine, {
+      now: LATER,
+    });
     expect(native(record, 'ios')).toMatchObject({ state: 'approved' });
     expect(engine.calls).not.toContain('release:ios');
     expect(record.state).toBe('running');
   });
+
   it('releases every car together once all native cars are approved', async () => {
     const engine = fakeEngine({ android: ['approved'] });
-    const record = await Effect.runPromise(
-      advanceTrain(heldTwoPlatform('approved', 'in-review'), engine, { now: LATER }),
-    );
+    const record = await advanceTrain(heldTwoPlatform('approved', 'in-review'), engine, {
+      now: LATER,
+    });
     expect(engine.calls).toContain('release:ios');
     expect(engine.calls).toContain('release:android');
     expect(native(record, 'ios')).toMatchObject({ state: 'released' });
     expect(native(record, 'android')).toMatchObject({ state: 'released' });
     expect(record.state).toBe('done');
   });
+
   it('enters blocked when a held car is rejected, firing no releases', async () => {
     const engine = fakeEngine({ ios: ['rejected'] });
-    const record = await Effect.runPromise(
-      advanceTrain(heldTwoPlatform('submitted', 'approved'), engine, { now: LATER }),
-    );
+    const record = await advanceTrain(heldTwoPlatform('submitted', 'approved'), engine, {
+      now: LATER,
+    });
     expect(record.state).toBe('blocked');
     expect(native(record, 'ios')).toMatchObject({ state: 'rejected' });
-    expect(engine.calls).not.toContain('release:android'); // held back by the rejection
+    expect(engine.calls).not.toContain('release:android');
     expect(trainExitCode(record)).toBe(2);
   });
+
   it('force-releases the ready cars on a blocked train, leaving the failed car tracked', async () => {
     const blocked = {
       id: 'app-ab12',
@@ -264,44 +332,46 @@ describe('advanceTrain - hold gate', () => {
       ],
     };
     const engine = fakeEngine();
-    const record = await Effect.runPromise(
-      advanceTrain(blocked, engine, { now: LATER, force: true }),
-    );
+    const record = await advanceTrain(blocked, engine, { now: LATER, force: true });
     expect(engine.calls).toContain('release:android');
     expect(native(record, 'android')).toMatchObject({ state: 'released' });
     expect(native(record, 'ios')).toMatchObject({ state: 'failed', error: 'rejected' });
-    expect(record.state).toBe('done'); // both cars terminal
+    expect(record.state).toBe('done');
   });
 });
+
 describe('advanceTrain - invariants', () => {
   it('never reads, releases, or publishes for a terminal (done) train', async () => {
     const engine = fakeEngine({ ios: ['released'] });
     const done = iosTrain('released', { state: 'done' });
-    const record = await Effect.runPromise(advanceTrain(done, engine, { now: LATER }));
+    const record = await advanceTrain(done, engine, { now: LATER });
     expect(engine.calls).toEqual([]);
     expect(record).toBe(done);
   });
+
   it('does not mutate the input record', async () => {
     const engine = fakeEngine({ ios: ['released'] });
-    const input = iosTrain('in-review');
-    await Effect.runPromise(advanceTrain(input, engine, { now: LATER }));
-    expect(native(input, 'ios')).toMatchObject({ state: 'in-review', updatedAt: NOW });
+    const inputRecord = iosTrain('in-review');
+    await advanceTrain(inputRecord, engine, { now: LATER });
+    expect(native(inputRecord, 'ios')).toMatchObject({ state: 'in-review', updatedAt: NOW });
   });
+
   it('never invokes any undo/rollback path across a full release (no such method exists)', async () => {
-    // The engine has no undo method; assert the only side-effecting calls are forward ones.
     const engine = fakeEngine({ ios: ['released'] });
-    const record = await Effect.runPromise(
-      advanceTrain(iosTrain('approved', { hold: true }), engine, {
-        now: LATER,
-        force: true,
-      }),
-    );
-    expect(engine.calls.every((call) => /^(submit|read|release|publishOta):/.test(call))).toBe(
-      true,
-    );
+    const record = await advanceTrain(iosTrain('approved', { hold: true }), engine, {
+      now: LATER,
+      force: true,
+    });
+
+    function isForwardCall(call: string): boolean {
+      return /^(submit|read|release|publishOta):/.test(call);
+    }
+
+    expect(engine.calls.every(isForwardCall)).toBe(true);
     expect(native(record, 'ios')).toMatchObject({ state: 'released' });
   });
 });
+
 describe('release gate helpers', () => {
   it('classifies native failures and approved-or-released cars', () => {
     expect(isNativeFailure({ kind: 'ios', state: 'rejected', updatedAt: NOW })).toBe(true);
@@ -347,6 +417,7 @@ describe('deriveTrainState / trainExitCode / isTrainSettled', () => {
       ),
     ).toBe('done');
   });
+
   it('blocks a held train with a failure unless forced', () => {
     const cars: Car[] = [
       { kind: 'ios', state: 'failed', updatedAt: NOW },
@@ -356,6 +427,7 @@ describe('deriveTrainState / trainExitCode / isTrainSettled', () => {
     expect(deriveTrainState(cars, true, true)).toBe('running');
     expect(deriveTrainState(cars, false, false)).toBe('running');
   });
+
   it('ranks exit codes ok < in-progress < blocked', () => {
     const allTerminal: TrainRecord = {
       id: 'app-ab12',
@@ -377,9 +449,10 @@ describe('deriveTrainState / trainExitCode / isTrainSettled', () => {
       ],
     };
     expect(trainExitCode(allTerminal)).toBe(0);
-    expect(trainExitCode(iosTrain('in-review'))).toBe(3); // OTA still pending -> in flight
+    expect(trainExitCode(iosTrain('in-review'))).toBe(3);
     expect(trainExitCode(iosTrain('rejected'))).toBe(2);
   });
+
   it('settles a watch loop on done/aborted/blocked only', () => {
     expect(isTrainSettled(iosTrain('released', { state: 'done' }))).toBe(true);
     expect(isTrainSettled(iosTrain('failed', { state: 'aborted' }))).toBe(true);

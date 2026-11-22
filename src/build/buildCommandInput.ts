@@ -1,10 +1,11 @@
-import { Data, Effect } from 'effect';
 import { parseCliEnv } from '../config/env.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 import { parsePlatform, PLATFORMS } from '../services/stores/platform.js';
 import type { BuildRunOptions } from './pipelineTypes.js';
-import type { Distribution, PlayTrack } from '../types/app.js';
+import type { Distribution, Platform, PlayTrack } from '../types/app.js';
 import type { RemoteTarget } from '../types/remote.js';
 import type { BumpKind } from '../release/version.js';
+
 /** Raw `launch build` options as Commander hands them to the action callback. */
 export type BuildCommandOptions = {
   readonly profile: string;
@@ -30,6 +31,7 @@ export type BuildCommandOptions = {
   readonly printEnv: boolean;
   readonly ccache: boolean;
 };
+
 /** A bad `launch build` command-line value that failed before the pipeline started. */
 type BuildCommandInputError = Readonly<{
   readonly _tag: 'BuildCommandInputError';
@@ -38,199 +40,294 @@ type BuildCommandInputError = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-const makeBuildCommandInputError = Data.tagged<BuildCommandInputError>('BuildCommandInputError');
+
+function makeBuildCommandInputError(fields: {
+  field: string;
+  rejectedInput: unknown;
+  message: string;
+  cause?: unknown;
+}): BuildCommandInputError {
+  const hasCause = fields.cause != null;
+
+  if (hasCause) {
+    return {
+      _tag: 'BuildCommandInputError',
+      field: fields.field,
+      rejectedInput: fields.rejectedInput,
+      message: fields.message,
+      cause: fields.cause,
+    };
+  }
+
+  return {
+    _tag: 'BuildCommandInputError',
+    field: fields.field,
+    rejectedInput: fields.rejectedInput,
+    message: fields.message,
+  };
+}
+
 const BUMP_SELECTORS: readonly (BumpKind | 'ask')[] = ['patch', 'minor', 'major', 'keep', 'ask'];
 const DISTRIBUTIONS: readonly Distribution[] = ['store', 'internal'];
 const PLAY_TRACKS: readonly PlayTrack[] = ['internal', 'closed', 'open', 'production'];
-const buildCommandInputError = (
+
+function buildCommandInputError(
   field: string,
   rejectedInput: unknown,
   message: string,
   cause?: unknown,
-): BuildCommandInputError => {
-  if (cause === undefined) return makeBuildCommandInputError({ field, rejectedInput, message });
+): BuildCommandInputError {
+  const hasCause = cause != null;
+
+  if (hasCause == false) {
+    return makeBuildCommandInputError({ field, rejectedInput, message });
+  }
+
   return makeBuildCommandInputError({ field, rejectedInput, message, cause });
-};
-const parseBuildPlatformArgument = (platformArgument: string) =>
-  parsePlatform(platformArgument).pipe(
-    Effect.mapError((cause) =>
-      buildCommandInputError(
-        'platform',
-        platformArgument,
-        `Unknown platform "${platformArgument}". Use one of: ${PLATFORMS.join(', ')}.`,
-        cause,
-      ),
-    ),
+}
+
+function parseBuildPlatformArgument(platformArgument: string): Platform {
+  try {
+    return parsePlatform(platformArgument);
+  } catch (cause) {
+    throw buildCommandInputError(
+      'platform',
+      platformArgument,
+      `Unknown platform "${platformArgument}". Use one of: ${PLATFORMS.join(', ')}.`,
+      cause,
+    );
+  }
+}
+
+function parseBuildBump(bump: string | undefined): BumpKind | 'ask' | undefined {
+  switch (bump) {
+    case undefined:
+      return undefined;
+    case 'patch':
+    case 'minor':
+    case 'major':
+    case 'keep':
+    case 'ask':
+      return bump;
+    default:
+      throw buildCommandInputError(
+        'bump',
+        bump,
+        `Unknown --bump "${bump}". Use one of: ${BUMP_SELECTORS.join(', ')}.`,
+      );
+  }
+}
+
+function parseBuildDistribution(distribution: string | undefined): Distribution {
+  switch (distribution) {
+    case undefined:
+    case 'store':
+      return 'store';
+    case 'internal':
+      return 'internal';
+    default:
+      throw buildCommandInputError(
+        'distribution',
+        distribution,
+        `Unknown --distribution "${distribution}". Use one of: ${DISTRIBUTIONS.join(', ')}.`,
+      );
+  }
+}
+
+function resolveBuildRemoteTarget(remote: string | boolean | undefined): RemoteTarget | undefined {
+  switch (remote) {
+    case undefined:
+    case false:
+      return undefined;
+    case true:
+    case 'aws':
+      return { kind: 'aws' };
+    default:
+      return { kind: 'ssh', target: remote };
+  }
+}
+
+function parseBuildTrack(track: string | undefined): PlayTrack | undefined {
+  switch (track) {
+    case undefined:
+      return undefined;
+    case 'internal':
+    case 'closed':
+    case 'open':
+    case 'production':
+      return track;
+    default:
+      throw buildCommandInputError(
+        'track',
+        track,
+        `Unknown --track "${track}". Use one of: ${PLAY_TRACKS.join(', ')}.`,
+      );
+  }
+}
+
+function invalidRollout(rollout: string): BuildCommandInputError {
+  return buildCommandInputError(
+    'rollout',
+    rollout,
+    `Invalid --rollout "${rollout}". Pass a fraction between 0 (exclusive) and 1.`,
   );
-const parseBuildBump = (bump: string | undefined) =>
-  Effect.gen(function* () {
-    switch (bump) {
-      case undefined:
-        return;
-      case 'patch':
-      case 'minor':
-      case 'major':
-      case 'keep':
-      case 'ask':
-        return bump;
-      default:
-        return yield* Effect.fail(
-          buildCommandInputError(
-            'bump',
-            bump,
-            `Unknown --bump "${bump}". Use one of: ${BUMP_SELECTORS.join(', ')}.`,
-          ),
-        );
-    }
-  });
-const parseBuildDistribution = (distribution: string | undefined) =>
-  Effect.gen(function* () {
-    switch (distribution) {
-      case undefined:
-      case 'store':
-        return 'store' satisfies Distribution;
-      case 'internal':
-        return 'internal' satisfies Distribution;
-      default:
-        return yield* Effect.fail(
-          buildCommandInputError(
-            'distribution',
-            distribution,
-            `Unknown --distribution "${distribution}". Use one of: ${DISTRIBUTIONS.join(', ')}.`,
-          ),
-        );
-    }
-  });
-const resolveBuildRemoteTarget = (remote: string | boolean | undefined) =>
-  Effect.sync((): RemoteTarget | undefined => {
-    switch (remote) {
-      case undefined:
-      case false:
-        return;
-      case true:
-      case 'aws':
-        return { kind: 'aws' };
-      default:
-        return { kind: 'ssh', target: remote };
-    }
-  });
-const parseBuildTrack = (track: string | undefined) =>
-  Effect.gen(function* () {
-    switch (track) {
-      case undefined:
-        return;
-      case 'internal':
-      case 'closed':
-      case 'open':
-      case 'production':
-        return track;
-      default:
-        return yield* Effect.fail(
-          buildCommandInputError(
-            'track',
-            track,
-            `Unknown --track "${track}". Use one of: ${PLAY_TRACKS.join(', ')}.`,
-          ),
-        );
-    }
-  });
-export const parseBuildRollout = (rollout: string | undefined) =>
-  Effect.gen(function* () {
-    if (rollout === undefined) return;
-    const rolloutFraction = Number.parseFloat(rollout);
-    if (Number.isNaN(rolloutFraction)) {
-      return yield* Effect.fail(
-        buildCommandInputError(
-          'rollout',
-          rollout,
-          `Invalid --rollout "${rollout}". Pass a fraction between 0 (exclusive) and 1.`,
-        ),
-      );
-    }
-    if (rolloutFraction <= 0) {
-      return yield* Effect.fail(
-        buildCommandInputError(
-          'rollout',
-          rollout,
-          `Invalid --rollout "${rollout}". Pass a fraction between 0 (exclusive) and 1.`,
-        ),
-      );
-    }
-    if (rolloutFraction > 1) {
-      return yield* Effect.fail(
-        buildCommandInputError(
-          'rollout',
-          rollout,
-          `Invalid --rollout "${rollout}". Pass a fraction between 0 (exclusive) and 1.`,
-        ),
-      );
-    }
-    return rolloutFraction;
-  });
-export const parseSizeBudget = (sizeBudget: string | undefined) =>
-  Effect.gen(function* () {
-    if (sizeBudget === undefined) return;
-    const sizeBudgetMB = Number.parseFloat(sizeBudget);
-    if (Number.isNaN(sizeBudgetMB)) {
-      return yield* Effect.fail(
-        buildCommandInputError(
-          'sizeBudget',
-          sizeBudget,
-          `Invalid --size-budget "${sizeBudget}". Pass a size in MB greater than 0.`,
-        ),
-      );
-    }
-    if (sizeBudgetMB <= 0) {
-      return yield* Effect.fail(
-        buildCommandInputError(
-          'sizeBudget',
-          sizeBudget,
-          `Invalid --size-budget "${sizeBudget}". Pass a size in MB greater than 0.`,
-        ),
-      );
-    }
-    return sizeBudgetMB;
-  });
-const parseBuildEnvironmentOverrides = (envPairs: readonly string[]) =>
-  parseCliEnv([...envPairs]).pipe(
-    Effect.mapError((cause) => buildCommandInputError('env', envPairs, cause.message, cause)),
+}
+
+export function parseBuildRollout(rollout: string | undefined): number | undefined {
+  const isAbsent = rollout == null;
+
+  if (isAbsent) {
+    return undefined;
+  }
+
+  const rolloutFraction = Number.parseFloat(rollout);
+  const isNotANumber = Number.isNaN(rolloutFraction);
+
+  if (isNotANumber) {
+    throw invalidRollout(rollout);
+  }
+
+  const isTooSmall = rolloutFraction <= 0;
+
+  if (isTooSmall) {
+    throw invalidRollout(rollout);
+  }
+
+  const isTooLarge = rolloutFraction > 1;
+
+  if (isTooLarge) {
+    throw invalidRollout(rollout);
+  }
+
+  return rolloutFraction;
+}
+
+function invalidSizeBudget(sizeBudget: string): BuildCommandInputError {
+  return buildCommandInputError(
+    'sizeBudget',
+    sizeBudget,
+    `Invalid --size-budget "${sizeBudget}". Pass a size in MB greater than 0.`,
   );
-export const parseBuildCommandInput = (
+}
+
+export function parseSizeBudget(sizeBudget: string | undefined): number | undefined {
+  const isAbsent = sizeBudget == null;
+
+  if (isAbsent) {
+    return undefined;
+  }
+
+  const sizeBudgetMB = Number.parseFloat(sizeBudget);
+  const isNotANumber = Number.isNaN(sizeBudgetMB);
+
+  if (isNotANumber) {
+    throw invalidSizeBudget(sizeBudget);
+  }
+
+  const isNotPositive = sizeBudgetMB <= 0;
+
+  if (isNotPositive) {
+    throw invalidSizeBudget(sizeBudget);
+  }
+
+  return sizeBudgetMB;
+}
+
+function parseBuildEnvironmentOverrides(envPairs: readonly string[]): Record<string, string> {
+  try {
+    return parseCliEnv([...envPairs]);
+  } catch (cause) {
+    let failureMessage = 'Invalid --env flags.';
+    const causeHasMessage = hasMessage(cause);
+
+    if (causeHasMessage) {
+      failureMessage = cause.message;
+    }
+
+    throw buildCommandInputError('env', envPairs, failureMessage, cause);
+  }
+}
+
+export function parseBuildCommandInput(
   platformArgument: string,
   commandOptions: BuildCommandOptions,
-) =>
-  Effect.gen(function* () {
-    const platform = yield* parseBuildPlatformArgument(platformArgument);
-    const remote = yield* resolveBuildRemoteTarget(commandOptions.remote);
-    const track = yield* parseBuildTrack(commandOptions.track);
-    const rollout = yield* parseBuildRollout(commandOptions.rollout);
-    const distribution = yield* parseBuildDistribution(commandOptions.distribution);
-    const bump = yield* parseBuildBump(commandOptions.bump);
-    let sizeBudgetText = commandOptions.budget;
-    if (commandOptions.sizeBudget !== undefined) sizeBudgetText = commandOptions.sizeBudget;
-    const sizeBudgetMB = yield* parseSizeBudget(sizeBudgetText);
-    const environmentOverrides = yield* parseBuildEnvironmentOverrides(commandOptions.env);
-    const buildRunOptions: BuildRunOptions = {
-      platform,
-      profileName: commandOptions.profile,
-      appName: commandOptions.app,
-      explain: commandOptions.explain,
-      submit: commandOptions.submit,
-      dryRun: commandOptions.dryRun,
-      yes: commandOptions.yes,
-      forceClean: commandOptions.clean,
-      distribution,
-      envOverrides: environmentOverrides,
-      includeLocal: commandOptions.includeLocal,
-      printEnv: commandOptions.printEnv,
-    };
-    if (remote !== undefined) buildRunOptions.remote = remote;
-    if (track !== undefined) buildRunOptions.track = track;
-    if (rollout !== undefined) buildRunOptions.rollout = rollout;
-    if (commandOptions.notes !== undefined) buildRunOptions.notesPath = commandOptions.notes;
-    if (commandOptions.account !== undefined) buildRunOptions.account = commandOptions.account;
-    if (bump !== undefined) buildRunOptions.bump = bump;
-    if (sizeBudgetMB !== undefined) buildRunOptions.sizeBudgetMB = sizeBudgetMB;
-    if (!commandOptions.ccache) buildRunOptions.ccache = false;
-    return buildRunOptions;
-  });
+): BuildRunOptions {
+  const platform = parseBuildPlatformArgument(platformArgument);
+  const remote = resolveBuildRemoteTarget(commandOptions.remote);
+  const track = parseBuildTrack(commandOptions.track);
+  const rollout = parseBuildRollout(commandOptions.rollout);
+  const distribution = parseBuildDistribution(commandOptions.distribution);
+  const bump = parseBuildBump(commandOptions.bump);
+  let sizeBudgetText = commandOptions.budget;
+  const hasSizeBudget = commandOptions.sizeBudget != null;
+
+  if (hasSizeBudget) {
+    sizeBudgetText = commandOptions.sizeBudget;
+  }
+
+  const sizeBudgetMB = parseSizeBudget(sizeBudgetText);
+  const environmentOverrides = parseBuildEnvironmentOverrides(commandOptions.env);
+  const buildRunOptions: BuildRunOptions = {
+    platform,
+    profileName: commandOptions.profile,
+    appName: commandOptions.app,
+    explain: commandOptions.explain,
+    submit: commandOptions.submit,
+    dryRun: commandOptions.dryRun,
+    yes: commandOptions.yes,
+    forceClean: commandOptions.clean,
+    distribution,
+    envOverrides: environmentOverrides,
+    includeLocal: commandOptions.includeLocal,
+    printEnv: commandOptions.printEnv,
+  };
+  const hasRemote = remote != null;
+
+  if (hasRemote) {
+    buildRunOptions.remote = remote;
+  }
+
+  const hasTrack = track != null;
+
+  if (hasTrack) {
+    buildRunOptions.track = track;
+  }
+
+  const hasRollout = rollout != null;
+
+  if (hasRollout) {
+    buildRunOptions.rollout = rollout;
+  }
+
+  const hasNotes = commandOptions.notes != null;
+
+  if (hasNotes) {
+    buildRunOptions.notesPath = commandOptions.notes;
+  }
+
+  const hasAccount = commandOptions.account != null;
+
+  if (hasAccount) {
+    buildRunOptions.account = commandOptions.account;
+  }
+
+  const hasBump = bump != null;
+
+  if (hasBump) {
+    buildRunOptions.bump = bump;
+  }
+
+  const hasSizeBudgetMB = sizeBudgetMB != null;
+
+  if (hasSizeBudgetMB) {
+    buildRunOptions.sizeBudgetMB = sizeBudgetMB;
+  }
+
+  const isCcacheDisabled = commandOptions.ccache == false;
+
+  if (isCcacheDisabled) {
+    buildRunOptions.ccache = false;
+  }
+
+  return buildRunOptions;
+}

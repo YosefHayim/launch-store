@@ -1,4 +1,3 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { AppProducts } from '../../types/catalog.js';
 import {
@@ -11,7 +10,7 @@ import {
 describe('OffersCommandInputSchema', () => {
   it('decodes reconciliation with an omitted app selector', () => {
     expect(
-      Schema.decodeUnknownSync(OffersCommandInputSchema)({
+      OffersCommandInputSchema({
         operation: 'reconcile',
         dryRun: true,
         yes: false,
@@ -21,7 +20,7 @@ describe('OffersCommandInputSchema', () => {
 
   it('decodes code generation and rejects explicit undefined optionals', () => {
     expect(
-      Schema.decodeUnknownSync(OffersCommandInputSchema)({
+      OffersCommandInputSchema({
         operation: 'generate-codes',
         productId: 'com.acme.pro',
         offerName: 'LAUNCH',
@@ -34,7 +33,7 @@ describe('OffersCommandInputSchema', () => {
       count: '100',
     });
     expect(() =>
-      Schema.decodeUnknownSync(OffersCommandInputSchema)({
+      OffersCommandInputSchema({
         operation: 'list',
         productId: 'com.acme.pro',
         app: undefined,

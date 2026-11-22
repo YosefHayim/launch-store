@@ -1,23 +1,17 @@
-import type { HttpClient } from '@effect/platform';
-import { Data, Effect } from 'effect';
-import type { PlayReportingClient } from '@google/playReporting.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { PortfolioApp } from '../../types/portfolio.js';
-import type { PlayVitalsMetric } from '../../types/vitals.js';
+import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.js';
 import type {
   DailyStat,
   DateRange,
   FeedFetchReply,
-  StatsCredentialsShape,
   StatsFeedFailure,
-  StatsFeedPlugin,
   StatsMetric,
 } from '../../types/stats.js';
 import { pickEarlierDate } from '../dateRange.js';
+import type { PlayVitalsReader, StatsCredentialsApi } from '../statsCredentials.js';
 import { readBucketReports } from './playBucketReports.js';
 import { STORAGE_READ_ONLY_SCOPE } from './playReportsBucketClient.js';
-
-const makeStatsFeedFailure = Data.tagged<StatsFeedFailure>('StatsFeedFailure');
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
 const VITALS_METRICS: Readonly<Record<PlayVitalsMetric, StatsMetric>> = {
@@ -35,137 +29,179 @@ interface VitalsReading {
   readonly publishedThrough: string;
 }
 
-const countRangeDays = (range: DateRange): number =>
-  Math.round((Date.parse(range.to) - Date.parse(range.from)) / DAY_MILLISECONDS) + 1;
+interface PlayFetchRequest {
+  readonly app: PortfolioApp;
+  readonly range: DateRange;
+  readonly credentials: StatsCredentialsApi;
+}
 
-const pickCoveredThrough = (publishedThroughDates: readonly (string | null)[]): string => {
-  const publishedDates = publishedThroughDates.flatMap((publishedDate) => {
-    if (publishedDate === null) return [];
-    return [publishedDate];
-  });
-  return publishedDates.reduce(pickEarlierDate);
-};
+function makeStatsFeedFailure(appKey: string, cause: unknown): StatsFeedFailure {
+  return {
+    _tag: 'StatsFeedFailure',
+    feed: 'google-play',
+    appKey,
+    message: errorMessage(cause),
+    cause,
+  };
+}
 
-const readVitals = (
-  playClient: PlayReportingClient,
+function countRangeDays(range: DateRange): number {
+  return Math.round((Date.parse(range.to) - Date.parse(range.from)) / DAY_MILLISECONDS) + 1;
+}
+
+function isPublishedDate(publishedDate: string | null): publishedDate is string {
+  return publishedDate != null;
+}
+
+function pickCoveredThrough(publishedThroughDates: readonly (string | null)[]): string {
+  return publishedThroughDates.filter(isPublishedDate).reduce(pickEarlierDate);
+}
+
+function readVitalsDay(range: DateRange, timeline: VitalsTimeline) {
+  return function readDay(vitalsDay: VitalsTimeline['rows'][number]): DailyStat[] {
+    const isBeforeRange = vitalsDay.date < range.from;
+    const isAfterRange = vitalsDay.date > range.to;
+
+    if (isBeforeRange) {
+      return [];
+    }
+
+    if (isAfterRange) {
+      return [];
+    }
+
+    if (vitalsDay.rate == null) {
+      return [];
+    }
+
+    return [
+      {
+        date: vitalsDay.date,
+        feed: 'google-play',
+        metric: VITALS_METRICS[timeline.metric],
+        value: vitalsDay.rate,
+        currency: null,
+      },
+    ];
+  };
+}
+
+async function readTimeline(
+  playClient: PlayVitalsReader,
+  packageName: string,
+  metric: PlayVitalsMetric,
+  windowDays: number,
+): Promise<VitalsTimeline> {
+  return playClient.vitalsTimeline(packageName, metric, windowDays);
+}
+
+async function readVitals(
+  playClient: PlayVitalsReader,
   packageName: string,
   range: DateRange,
-): Effect.Effect<VitalsReading, unknown> =>
-  Effect.gen(function* () {
-    // Play publishes vitals a day or two behind, so the query window reaches back a little further than the range.
-    const vitalsFreshnessBufferDays = 7;
-    const windowDays = countRangeDays(range) + vitalsFreshnessBufferDays;
-    const [crashTimeline, anrTimeline] = yield* Effect.all([
-      playClient.vitalsTimeline(packageName, 'crash', windowDays),
-      playClient.vitalsTimeline(packageName, 'anr', windowDays),
-    ]);
-    const stats = [crashTimeline, anrTimeline].flatMap((timeline) =>
-      timeline.rows.flatMap((vitalsDay) => {
-        const isBeforeRange = vitalsDay.date < range.from;
-        const isAfterRange = vitalsDay.date > range.to;
-        if (isBeforeRange || isAfterRange) return [];
-        if (vitalsDay.rate === undefined) return [];
-        return [
-          {
-            date: vitalsDay.date,
-            feed: 'google-play',
-            metric: VITALS_METRICS[timeline.metric],
-            value: vitalsDay.rate,
-            currency: null,
-          } satisfies DailyStat,
-        ];
-      }),
-    );
-    return {
-      stats,
-      publishedThrough: pickEarlierDate(crashTimeline.window.endDate, anrTimeline.window.endDate),
-    };
+): Promise<VitalsReading> {
+  // Play publishes vitals a day or two behind, so the query window reaches back a little further than the range.
+  const vitalsFreshnessBufferDays = 7;
+  const windowDays = countRangeDays(range) + vitalsFreshnessBufferDays;
+  const crashTimeline = await readTimeline(playClient, packageName, 'crash', windowDays);
+  const anrTimeline = await readTimeline(playClient, packageName, 'anr', windowDays);
+  const stats = [crashTimeline, anrTimeline].flatMap(function readTimelineStats(
+    timeline: VitalsTimeline,
+  ) {
+    return timeline.rows.flatMap(readVitalsDay(range, timeline));
   });
 
-const fetchPlayStats = (
+  return {
+    stats,
+    publishedThrough: pickEarlierDate(crashTimeline.window.endDate, anrTimeline.window.endDate),
+  };
+}
+
+async function fetchPlayStats(
   app: PortfolioApp,
   packageName: string,
   range: DateRange,
-  credentials: StatsCredentialsShape,
-): Effect.Effect<FeedFetchReply, unknown, HttpClient.HttpClient> =>
-  Effect.gen(function* () {
-    const playClient = yield* credentials.playReportingClient(packageName);
-    const isServiceAccountMissing = playClient === null;
-    if (isServiceAccountMissing) {
-      return {
-        status: 'skipped',
-        reason: `No Play service account saved: run launch creds set-key --platform android --app ${app.name} <key.json>`,
-      } satisfies FeedFetchReply;
-    }
-    const vitals = yield* readVitals(playClient, packageName, range);
-    const vitalsCoveredThrough = pickEarlierDate(vitals.publishedThrough, range.to);
-    const reportsBucket = yield* credentials.playReportsBucket();
-    const isBucketNotSet = reportsBucket === null;
-    if (isBucketNotSet) {
-      return {
-        status: 'fetched',
-        stats: vitals.stats,
-        coveredThrough: vitalsCoveredThrough,
-        notes: [BUCKET_NOT_SET_NOTE],
-      } satisfies FeedFetchReply;
-    }
-    const accessToken = yield* credentials.googleAccessToken(
-      [STORAGE_READ_ONLY_SCOPE],
-      packageName,
-    );
-    const isAccessTokenMissing = accessToken === null;
-    if (isAccessTokenMissing) {
-      return yield* Effect.fail(`Could not get a Cloud Storage token for ${app.key}`);
-    }
-    const bucketReports = yield* readBucketReports({
-      bucket: reportsBucket,
-      accessToken,
-      packageName,
-      range,
-    });
-    if (bucketReports.status === 'forbidden') {
-      return {
-        status: 'fetched',
-        stats: vitals.stats,
-        coveredThrough: vitalsCoveredThrough,
-        notes: [BUCKET_FORBIDDEN_NOTE],
-      } satisfies FeedFetchReply;
-    }
-    // Earnings arrive a month at a time; a month still unpublished must stay uncovered so a later sync pulls it.
-    const coveredThrough = pickCoveredThrough([
-      vitalsCoveredThrough,
-      bucketReports.csvPublishedThrough,
-      bucketReports.earningsPublishedThrough,
-    ]);
+  credentials: StatsCredentialsApi,
+): Promise<FeedFetchReply> {
+  const playClient = await credentials.playReportingClient(packageName);
+
+  if (playClient == null) {
+    return {
+      status: 'skipped',
+      reason: `No Play service account saved: run launch creds set-key --platform android --app ${app.name} <key.json>`,
+    };
+  }
+
+  const vitals = await readVitals(playClient, packageName, range);
+  const vitalsCoveredThrough = pickEarlierDate(vitals.publishedThrough, range.to);
+  const reportsBucket = await credentials.playReportsBucket();
+
+  if (reportsBucket == null) {
     return {
       status: 'fetched',
-      stats: [...vitals.stats, ...bucketReports.stats],
-      coveredThrough,
-      notes: [],
-    } satisfies FeedFetchReply;
+      stats: vitals.stats,
+      coveredThrough: vitalsCoveredThrough,
+      notes: [BUCKET_NOT_SET_NOTE],
+    };
+  }
+
+  const accessToken = await credentials.googleAccessToken([STORAGE_READ_ONLY_SCOPE], packageName);
+
+  if (accessToken == null) {
+    throw new Error(`Could not get a Cloud Storage token for ${app.key}`);
+  }
+
+  const bucketReports = await readBucketReports({
+    bucket: reportsBucket,
+    accessToken,
+    packageName,
+    range,
   });
 
-export const googlePlayFeed: StatsFeedPlugin = {
-  feed: 'google-play',
-  isApplicable: (app) => app.platform === 'android',
-  fetchDays: ({ app, range, credentials }) =>
-    Effect.gen(function* () {
-      const packageName = app.packageName;
-      if (packageName === null) {
-        return {
-          status: 'skipped',
-          reason: `${app.name} has no package name`,
-        } satisfies FeedFetchReply;
-      }
-      return yield* fetchPlayStats(app, packageName, range, credentials);
-    }).pipe(
-      Effect.mapError((cause) =>
-        makeStatsFeedFailure({
-          feed: 'google-play',
-          appKey: app.key,
-          message: errorMessage(cause),
-          cause,
-        }),
-      ),
-    ),
+  if (bucketReports.status == 'forbidden') {
+    return {
+      status: 'fetched',
+      stats: vitals.stats,
+      coveredThrough: vitalsCoveredThrough,
+      notes: [BUCKET_FORBIDDEN_NOTE],
+    };
+  }
+
+  // Earnings arrive a month at a time; a month still unpublished must stay uncovered so a later sync pulls it.
+  const coveredThrough = pickCoveredThrough([
+    vitalsCoveredThrough,
+    bucketReports.csvPublishedThrough,
+    bucketReports.earningsPublishedThrough,
+  ]);
+
+  return {
+    status: 'fetched',
+    stats: [...vitals.stats, ...bucketReports.stats],
+    coveredThrough,
+    notes: [],
+  };
+}
+
+function isGooglePlayApplicable(app: PortfolioApp): boolean {
+  return app.platform == 'android';
+}
+
+async function fetchGooglePlayDays(request: PlayFetchRequest): Promise<FeedFetchReply> {
+  const packageName = request.app.packageName;
+
+  if (packageName == null) {
+    return { status: 'skipped', reason: `${request.app.name} has no package name` };
+  }
+
+  try {
+    return await fetchPlayStats(request.app, packageName, request.range, request.credentials);
+  } catch (cause) {
+    throw makeStatsFeedFailure(request.app.key, cause);
+  }
+}
+
+export const googlePlayFeed = {
+  feed: 'google-play' as const,
+  isApplicable: isGooglePlayApplicable,
+  fetchDays: fetchGooglePlayDays,
 };

@@ -1,65 +1,93 @@
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@/types/readiness.js';
+import type {
+  AppReadiness,
+  PlayReadinessApi,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+} from '@/types/readiness.js';
 import { errorMessage } from '@/services/platform/errorMessage.js';
-import { Effect } from 'effect';
 import { androidApps } from '../appScopes.js';
 import { OMITTED_PROBE, SKIPPED_NO_PLAY_ACCOUNT } from './credentialsSkip.js';
+
+type ScopedApp = { name: string; identifier: string };
+
+function isPlayClientMissing(api: PlayReadinessApi | null | undefined): api is null | undefined {
+  return api == null;
+}
+
+async function readPlayClients(
+  readinessContext: ReadinessContext,
+  apps: readonly ScopedApp[],
+): Promise<(PlayReadinessApi | null)[]> {
+  const clients: (PlayReadinessApi | null)[] = [];
+
+  for (const app of apps) {
+    const client = await readinessContext.resolvePlayApi(app.identifier);
+    clients.push(client);
+  }
+
+  return clients;
+}
+
+async function readPlayApp(api: PlayReadinessApi, app: ScopedApp): Promise<AppReadiness> {
+  try {
+    await api.assertAppExists(app.identifier);
+
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'ok',
+      detail: 'app reachable; service account authorized',
+    };
+  } catch (apiFailure) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'blocker',
+      detail: errorMessage(apiFailure),
+      hint: 'create the app in Play Console and grant the service account access to it',
+    };
+  }
+}
+
 /** The Google Play app-exists / service-account-access readiness probe - an account and a submit blocker. */
 export const playAppProbe = {
   id: 'play-app-access',
   title: 'Play app exists & service account authorized',
   store: 'play',
   categories: ['account', 'submit'],
-  /**
-   * Verify that each selected Android app exists and is reachable by the Play service account.
-   *
-   * @param readinessContext - Loaded config, selected apps, and Google Play resolver.
-   * @returns An Effect that succeeds with one Play app-access finding per selected app.
-   */
-  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
-    return Effect.gen(function* () {
-      const apps = androidApps(readinessContext.apps);
-      if (apps.length === 0) return OMITTED_PROBE;
-      const appClients = yield* Effect.forEach(
-        apps,
-        (app) => readinessContext.resolvePlayApi(app.identifier),
-        { concurrency: 1 },
-      );
-      if (appClients.every((api) => !api)) {
-        return SKIPPED_NO_PLAY_ACCOUNT;
+  async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
+    const apps = androidApps(readinessContext.apps);
+    const isNothingSelected = apps.length == 0;
+
+    if (isNothingSelected) {
+      return OMITTED_PROBE;
+    }
+
+    const appClients = await readPlayClients(readinessContext, apps);
+    const isEveryClientMissing = appClients.every(isPlayClientMissing);
+
+    if (isEveryClientMissing) {
+      return SKIPPED_NO_PLAY_ACCOUNT;
+    }
+
+    function readAccess(app: ScopedApp, index: number): Promise<AppReadiness> {
+      const api = appClients[index];
+
+      if (isPlayClientMissing(api)) {
+        return Promise.resolve({
+          app: app.name,
+          identifier: app.identifier,
+          status: 'blocker',
+          detail: 'No Play service account for this package.',
+        });
       }
-      const results = yield* Effect.forEach(
-        apps,
-        ({ name, identifier }, index) =>
-          Effect.gen(function* () {
-            const api = appClients[index];
-            if (!api)
-              return {
-                app: name,
-                identifier,
-                status: 'blocker' as const,
-                detail: 'No Play service account for this package.',
-              };
-            return yield* api.assertAppExists(identifier).pipe(
-              Effect.as({
-                app: name,
-                identifier,
-                status: 'ok' as const,
-                detail: 'app reachable; service account authorized',
-              }),
-              Effect.catchAll((apiFailure) =>
-                Effect.succeed({
-                  app: name,
-                  identifier,
-                  status: 'blocker' as const,
-                  detail: errorMessage(apiFailure),
-                  hint: 'create the app in Play Console and grant the service account access to it',
-                }),
-              ),
-            );
-          }),
-        { concurrency: 'unbounded' },
-      );
-      return { state: 'checked', apps: results };
-    });
+
+      return readPlayApp(api, app);
+    }
+
+    const findings = await Promise.all(apps.map(readAccess));
+
+    return { state: 'checked', apps: findings };
   },
 } satisfies ReadinessProbe;

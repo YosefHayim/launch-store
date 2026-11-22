@@ -1,12 +1,10 @@
-import { Effect } from 'effect';
 import { zipSync } from 'fflate';
-import { describe, expect, test } from 'vitest';
-import { makeHttpClientTest, type HttpClientTestRoute } from '@testkit/httpClient.testkit.js';
-import type { PlayReportingClient } from '@google/playReporting.js';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { PortfolioApp } from '../../types/portfolio.js';
 import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.js';
-import type { DailyStat, StatsCredentialsShape } from '../../types/stats.js';
-import { makeStatsCredentialsTest, StatsCredentials } from '../statsCredentials.js';
+import type { DailyStat, FeedFetchReply } from '../../types/stats.js';
+import type { PlayVitalsReader, StatsCredentialsApi } from '../statsCredentials.js';
+import { makeStatsCredentialsTest, useStatsCredentials } from '../statsCredentials.js';
 import { googlePlayFeed } from './googlePlay.js';
 
 const BUCKET = 'pubsite_prod_rev_1';
@@ -47,20 +45,23 @@ const createVitalsTimeline = (
   ),
 });
 
-const createPlayClient = (
+function createPlayClient(
   crashTimeline: VitalsTimeline,
   anrTimeline: VitalsTimeline,
   askedWindows: number[] = [],
-): PlayReportingClient => {
-  const fakeClient = {
-    vitalsTimeline: (_packageName: string, metric: PlayVitalsMetric, days: number) => {
+): PlayVitalsReader {
+  return {
+    async vitalsTimeline(_packageName: string, metric: PlayVitalsMetric, days: number) {
       askedWindows.push(days);
-      if (metric === 'crash') return Effect.succeed(crashTimeline);
-      return Effect.succeed(anrTimeline);
+
+      if (metric == 'crash') {
+        return crashTimeline;
+      }
+
+      return anrTimeline;
     },
   };
-  return fakeClient as unknown as PlayReportingClient;
-};
+}
 
 const DEFAULT_PLAY_CLIENT = createPlayClient(
   createVitalsTimeline('crash', '2026-10-19', {
@@ -72,6 +73,63 @@ const DEFAULT_PLAY_CLIENT = createPlayClient(
   createVitalsTimeline('anr', '2026-10-18', { '2026-10-01': 0.003 }),
 );
 
+interface HttpRoute {
+  readonly method: string;
+  readonly url: string;
+  readonly status: number;
+  readonly body: unknown;
+}
+
+type Settled<Success> =
+  | { readonly _tag: 'Right'; readonly right: Success }
+  | { readonly _tag: 'Left'; readonly left: unknown };
+
+function readRequestUrl(url: string | URL | Request): string {
+  if (typeof url == 'string') {
+    return url;
+  }
+
+  if (url instanceof URL) {
+    return url.toString();
+  }
+
+  return url.url;
+}
+
+function createReplyBody(routeBody: unknown): Uint8Array | string {
+  if (routeBody instanceof Uint8Array) {
+    return routeBody;
+  }
+
+  return JSON.stringify(routeBody);
+}
+
+function installFetch(routes: readonly HttpRoute[]): void {
+  vi.stubGlobal(
+    'fetch',
+    async function fetchRoute(url: string | URL | Request, init?: RequestInit): Promise<Response> {
+      const method = init?.method ?? 'GET';
+      const requestUrl = readRequestUrl(url);
+
+      function matchesRoute(route: HttpRoute): boolean {
+        if (route.method != method) {
+          return false;
+        }
+
+        return route.url == requestUrl;
+      }
+
+      const matchedRoute = routes.find(matchesRoute);
+
+      if (matchedRoute == undefined) {
+        throw new Error(`No test route for ${method} ${requestUrl}`);
+      }
+
+      return new Response(createReplyBody(matchedRoute.body), { status: matchedRoute.status });
+    },
+  );
+}
+
 const objectUrl = (objectName: string): string =>
   `${BUCKET_URL}/${encodeURIComponent(objectName)}?alt=media`;
 
@@ -81,7 +139,7 @@ const installsObjectName = (reportMonth: string): string =>
 const createBucketRoutes = (
   reportMonths: readonly string[],
   foundObjects: Readonly<Record<string, Uint8Array | 403>>,
-): HttpClientTestRoute[] => {
+): HttpRoute[] => {
   const reportObjectNames = reportMonths.flatMap((reportMonth) => [
     installsObjectName(reportMonth),
     `stats/ratings/ratings_com.fit_${reportMonth}_overview.csv`,
@@ -103,7 +161,7 @@ const createBucketRoutes = (
   });
 };
 
-const createEarningsListRoute = (objectNames: readonly string[]): HttpClientTestRoute => ({
+const createEarningsListRoute = (objectNames: readonly string[]): HttpRoute => ({
   method: 'GET',
   url: EARNINGS_LIST_URL,
   status: 200,
@@ -122,29 +180,41 @@ const earningsLine = (
 ): string =>
   `GPA.1,"${transactionDate}",12:00:00 PM PDT,,${transactionType},,Coins,com.fit,One-time product,coins,mako,US,MA,02140,USD,1.00,1,EUR,${merchantAmount}`;
 
-const fetchDays = (
-  credentialsOverrides: Partial<StatsCredentialsShape>,
-  routes: readonly HttpClientTestRoute[] = [],
+async function fetchDays(
+  credentialsOverrides: Partial<StatsCredentialsApi>,
+  routes: readonly HttpRoute[] = [],
   app: PortfolioApp = ANDROID_APP,
-) =>
-  Effect.runPromise(
-    Effect.gen(function* () {
-      const credentials = yield* StatsCredentials;
-      return yield* googlePlayFeed.fetchDays({ app, range: RANGE, credentials });
-    }).pipe(
-      Effect.either,
-      Effect.provide(makeStatsCredentialsTest(credentialsOverrides)),
-      Effect.provide(makeHttpClientTest(routes)),
-    ),
-  );
+): Promise<Settled<FeedFetchReply>> {
+  installFetch(routes);
+  const credentials = makeStatsCredentialsTest(credentialsOverrides);
 
-const withBucket = (
-  overrides: Partial<StatsCredentialsShape> = {},
-): Partial<StatsCredentialsShape> => ({
-  playReportingClient: () => Effect.succeed(DEFAULT_PLAY_CLIENT),
-  playReportsBucket: () => Effect.succeed(BUCKET),
-  googleAccessToken: () => Effect.succeed('token-1'),
-  ...overrides,
+  try {
+    const right = await googlePlayFeed.fetchDays({ app, range: RANGE, credentials });
+
+    return { _tag: 'Right', right };
+  } catch (left) {
+    return { _tag: 'Left', left };
+  }
+}
+
+function withBucket(overrides: Partial<StatsCredentialsApi> = {}): Partial<StatsCredentialsApi> {
+  return {
+    async playReportingClient() {
+      return DEFAULT_PLAY_CLIENT;
+    },
+    async playReportsBucket() {
+      return BUCKET;
+    },
+    async googleAccessToken() {
+      return 'token-1';
+    },
+    ...overrides,
+  };
+}
+
+afterEach(() => {
+  useStatsCredentials(null);
+  vi.unstubAllGlobals();
 });
 
 const statsOfMetric = (stats: readonly DailyStat[], metric: DailyStat['metric']): DailyStat[] =>
@@ -187,7 +257,11 @@ describe('googlePlayFeed.fetchDays', () => {
       askedWindows,
     );
 
-    const reply = await fetchDays({ playReportingClient: () => Effect.succeed(playClient) });
+    const reply = await fetchDays({
+      async playReportingClient() {
+        return playClient;
+      },
+    });
 
     expect(reply).toMatchObject({
       right: {
@@ -212,7 +286,11 @@ describe('googlePlayFeed.fetchDays', () => {
       createVitalsTimeline('anr', '2026-10-25', {}),
     );
 
-    const reply = await fetchDays({ playReportingClient: () => Effect.succeed(playClient) });
+    const reply = await fetchDays({
+      async playReportingClient() {
+        return playClient;
+      },
+    });
 
     expect(reply).toMatchObject({
       right: { status: 'fetched', stats: [], coveredThrough: '2026-10-20' },
@@ -278,23 +356,19 @@ describe('googlePlayFeed.fetchDays', () => {
     );
     const twoMonthRange = { from: '2026-09-29', to: '2026-10-20' };
 
-    const reply = await Effect.runPromise(
-      Effect.gen(function* () {
-        const credentials = yield* StatsCredentials;
-        return yield* googlePlayFeed.fetchDays({
-          app: ANDROID_APP,
-          range: twoMonthRange,
-          credentials,
-        });
-      }).pipe(
-        Effect.provide(
-          makeStatsCredentialsTest(
-            withBucket({ playReportingClient: () => Effect.succeed(playClient) }),
-          ),
-        ),
-        Effect.provide(makeHttpClientTest(routes)),
-      ),
+    installFetch(routes);
+    const credentials = makeStatsCredentialsTest(
+      withBucket({
+        async playReportingClient() {
+          return playClient;
+        },
+      }),
     );
+    const reply = await googlePlayFeed.fetchDays({
+      app: ANDROID_APP,
+      range: twoMonthRange,
+      credentials,
+    });
 
     expect(reply).toMatchObject({ status: 'fetched', coveredThrough: '2026-10-01' });
     const stats = reply.status === 'fetched' ? reply.stats : [];
@@ -437,7 +511,13 @@ describe('googlePlayFeed.fetchDays', () => {
   });
 
   test('fails when the bucket is set but no token can be made', async () => {
-    const reply = await fetchDays(withBucket({ googleAccessToken: () => Effect.succeed(null) }));
+    const reply = await fetchDays(
+      withBucket({
+        async googleAccessToken() {
+          return null;
+        },
+      }),
+    );
 
     expect(reply).toMatchObject({
       _tag: 'Left',
@@ -446,12 +526,17 @@ describe('googlePlayFeed.fetchDays', () => {
   });
 
   test('fails with the feed and app named when the vitals call fails', async () => {
-    const brokenClient = {
-      vitalsTimeline: () =>
-        Effect.fail({ _tag: 'PlayReportingApiError', message: 'quota exceeded' }),
-    } as unknown as PlayReportingClient;
+    const brokenClient: PlayVitalsReader = {
+      async vitalsTimeline() {
+        throw { message: 'quota exceeded' };
+      },
+    };
 
-    const reply = await fetchDays({ playReportingClient: () => Effect.succeed(brokenClient) });
+    const reply = await fetchDays({
+      async playReportingClient() {
+        return brokenClient;
+      },
+    });
 
     expect(reply).toMatchObject({
       _tag: 'Left',

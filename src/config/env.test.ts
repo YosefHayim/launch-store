@@ -2,8 +2,6 @@ import { describe, expect, it, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import {
   ENV_SOURCE,
   envInjectionRows,
@@ -18,9 +16,9 @@ import {
 } from './env.js';
 import { expectDefined } from '@testkit/assertions.testkit.js';
 const tempDirs: string[] = [];
-const runEnvEffect = <Success, Failure>(
-  envEffect: Effect.Effect<Success, Failure, NodeContext.NodeContext>,
-): Promise<Success> => Effect.runPromise(envEffect.pipe(Effect.provide(NodeContext.layer)));
+async function runEnvEffect<Success>(envWork: Promise<Success>): Promise<Success> {
+  return envWork;
+}
 const makeTempDir = (): string => {
   const dir = mkdtempSync(join(tmpdir(), 'launch-env-'));
   tempDirs.push(dir);
@@ -240,14 +238,14 @@ describe('resolveEnv - the one precedence ladder', () => {
 });
 describe('parseCliEnv - repeated --env KEY=VAL', () => {
   it('splits on the first = and keeps = in the value', () => {
-    expect(Effect.runSync(parseCliEnv(['A=1', 'DSN=postgres://u:p@h/db?x=1']))).toEqual({
+    expect(parseCliEnv(['A=1', 'DSN=postgres://u:p@h/db?x=1'])).toEqual({
       A: '1',
       DSN: 'postgres://u:p@h/db?x=1',
     });
   });
   it('throws on a pair with no = or an empty key', () => {
-    expect(() => Effect.runSync(parseCliEnv(['NOPE']))).toThrow(/Invalid --env/);
-    expect(() => Effect.runSync(parseCliEnv(['=value']))).toThrow(/empty/);
+    expect(() => parseCliEnv(['NOPE'])).toThrow(/Invalid --env/);
+    expect(() => parseCliEnv(['=value'])).toThrow(/empty/);
   });
 });
 describe('formatEnvTable - masked provenance for --print-env', () => {

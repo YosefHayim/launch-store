@@ -30,10 +30,10 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 | `src/store` | Store sync and the per-platform programs behind store commands. `store/apple` and `store/google` are those programs. The HTTP clients stay in `src/apple` and `src/google`. |
 | `src/adopt`, `src/config`, `src/distribution`, `src/doctor`, `src/insights`, `src/migrate`, `src/portfolio`, `src/privacy`, `src/snapshot`, `src/stats` | The rest of the bridge. |
 | `src/agents`, `src/mcp`, `src/terminal`, `src/docs` | Agent skills, the MCP server, glossary, and the config reference. |
-| `src/services` | Effect service contracts. `services/stores` is the only door from a later command into `src/apple` and `src/google`. |
+| `src/services` | Paths, exec, logger, prompts, secrets, and the store client adapters. `services/stores` is the only door into `src/apple` and `src/google`. |
 | `src/types` | Shared domain shapes. |
 | `src/providers` | Swappable backends for build, storage, credentials, submit, and compute. |
-| `src/testkit` | Shared test fakes and Effect test layers. |
+| `src/testkit` | Shared test fakes. |
 | `schema/` | Published `launch.config.schema.json`. `launch config` and the MCP tools read it. It ships in the npm package. Do not delete it. |
 
 A file that performs one documented Apple or Google request belongs in `src/apple` or `src/google`. A file that decides something for Launch belongs in the job folder. Do not add `src/core` back.
@@ -48,15 +48,15 @@ A file that performs one documented Apple or Google request belongs in `src/appl
 
 - Usage and product direction: [README.md](./README.md).
 - Domain language: runtime teaching text in `src/terminal/glossary.ts`.
-- Config schema: Effect Schema in `src/config/` is the source. `schema/launch.config.schema.json` is the published copy.
+- Config schema: `schema/launch.config.schema.json` is the published copy. `src/config/` loads and checks it.
 - Root files: there is no `LICENSE` file and no `.env.example`. `package.json` keeps `"license": "MIT"`. `launch init` still writes a starter `.env.example` into the app being set up.
 
 ### Imports Follow Ownership
 
 ```text
-src/cli       -> the job folder; src/cli/index.ts may compose provider live layers
+src/cli       -> the job folder; src/cli/index.ts may wire provider adapters
 src/providers -> src/types + src/services only, plus vendor SDKs
-a job folder  -> src/apple and src/google only from live adapters under src/services/stores
+a job folder  -> src/apple and src/google only from the adapters under src/services/stores
 src/apple     -> src/types only, never a job folder's logic
 src/google    -> src/types only, never a job folder's logic
 ```
@@ -69,7 +69,7 @@ The service interfaces in `src/types/` ripple through every provider and the pip
 
 ### Providers
 
-Adding a backend means implementing one of the five provider roles as Effect-returning methods and registering it through the ProviderRegistry live layer. Do not edit the pipeline to add a backend. Heavy SDKs stay lazy inside live layers or optional dependency helpers.
+Adding a backend means implementing one of the five provider roles as async methods and registering it through the provider registry. Do not edit the pipeline to add a backend. Heavy SDKs stay lazy inside the adapter or an optional dependency helper.
 
 ### Secrets
 
@@ -77,16 +77,15 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 
 ### Rules Digest
 
-- **Ship path is plain TypeScript.** `init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` do not use Effect. Imports inside that path use `@/`. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `src/release-command.ts` and `src/app-release.ts` stay in `src/`. Later commands still return `Effect`.
+- **Commands are plain TypeScript.** They return `Promise` or a plain value and throw a readonly `{ _tag }` object. Imports use `@/`. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `src/release-command.ts` and `src/app-release.ts` stay in `src/`.
 - **New modules use function declarations.** An arrow only when a method is passed elsewhere and must keep `this`. Do not add `&&` or `||`. `??` and `?.` are allowed. Name each condition.
-- **Effect commands stay services.** Expected failures are readonly tagged data. Use Effect FileSystem, Path, CommandExecutor, and Terminal there, and hand `*Test` layers in tests. Do not apply that shape to the ship path.
-- **Registration is thin.** `src/cli/program.ts` registers the ship-path classes and the later commands. Prompts require a TTY or `--yes`. `--json` emits one object. Only the entry sets exit codes.
-- **Effect Schema is the config source.** Do not delete `schema/`.
+- **Registration is thin.** `src/cli/program.ts` registers the commands. Prompts require a TTY or `--yes`. `--json` emits one object. Only the entry sets exit codes.
+- **JSON Schema is the config source.** Do not delete `schema/`.
 - **Purpose-grouped jobs.** Later-command code goes under `src/<job>/`. Do not add `src/core` back.
 - **One public barrel.** `src/index.ts` is the package entrypoint. Internal modules import the owning file.
 - **Prose naming.** Generic bindings such as `data`, `result`, and `value` are banned. `build` is reserved for the real build domain.
 - **Comments explain hidden intent.** No narrated headers or TSDoc that restates types.
-- **ASCII output.** Effect logging uses `[RUN]`, `[OK]`, `[WARN]`, `[ERROR]`, and `[SKIP]`. JSON stays machine-clean.
+- **ASCII output.** Logging uses `[RUN]`, `[OK]`, `[WARN]`, `[ERROR]`, and `[SKIP]`. JSON stays machine-clean.
 - **Tests are colocated.** Vitest, no snapshots, hand fakes, shared testkit in `src/testkit/`. A test covers the contract a caller sees: inputs, outputs, errors, and side effects ([Vitest: testing in practice](https://vitest.dev/guide/learn/testing-in-practice.html)). Do not add a test that only copies a catalog, checks README prose, or asserts which names a module exports.
 
 ## Style Is Enforced, Not Re-Explained

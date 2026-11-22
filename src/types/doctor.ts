@@ -1,4 +1,3 @@
-import type { Effect } from 'effect';
 import type { AscPermissionProbeApi } from '../store/apple/ascPermissions.js';
 import type { AppDescriptor } from './app.js';
 import type { LaunchConfig } from './config.js';
@@ -44,24 +43,20 @@ export type DoctorReport = Readonly<{
  */
 export type DoctorAscApi = AscPermissionProbeApi &
   Readonly<{
-    assertReady(): Effect.Effect<void, unknown>;
-    getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
-    findBundleId(identifier: string): Effect.Effect<
-      Readonly<{
-        id: string;
-      }> | null,
-      unknown
-    >;
-    listBundleIdCapabilities(bundleIdResourceId: string): Effect.Effect<
+    assertReady(): Promise<void>;
+    getAppId(bundleId: string): Promise<string | null>;
+    findBundleId(identifier: string): Promise<Readonly<{
+      id: string;
+    }> | null>;
+    listBundleIdCapabilities(bundleIdResourceId: string): Promise<
       Readonly<{
         capabilityType: string;
-      }>[],
-      unknown
+      }>[]
     >;
   }>;
 /** The read-only Google Play surface the doctor uses: prove the service account can reach an app. */
 type DoctorPlayApi = Readonly<{
-  assertAppExists(packageName: string): Effect.Effect<void, unknown>;
+  assertAppExists(packageName: string): Promise<void>;
 }>;
 /**
  * What {@link inspectDoctor} is handed. The pure config/apps plus every impure input injected as a
@@ -69,19 +64,19 @@ type DoctorPlayApi = Readonly<{
  * a test drive it with fakes and lets `launch mcp` reuse it unchanged. Each store resolver returns `null`
  * when that account isn't configured, so the inspection records an advisory skip instead of throwing.
  */
-export type DoctorContext<Requirements = never> = {
+export type DoctorContext = {
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
   platform: DoctorPlatform;
   os: HostOs;
   cwd: string;
-  exists(command: string): Effect.Effect<boolean, unknown, Requirements>;
-  gradleWrapperExists(appDirectory: string): Effect.Effect<boolean, unknown, Requirements>;
-  resolveAsc(): Effect.Effect<DoctorAscApi | null, unknown, Requirements>;
-  resolvePlay(packageName?: string): Effect.Effect<DoctorPlayApi | null, unknown, Requirements>;
-  credentialsStatus(): Effect.Effect<string, unknown, Requirements>;
-  codesignIdentities(): Effect.Effect<string | null, unknown, Requirements>;
-  corepackAvailable(): Effect.Effect<boolean, unknown, Requirements>;
+  exists(command: string): Promise<boolean>;
+  gradleWrapperExists(appDirectory: string): Promise<boolean>;
+  resolveAsc(): Promise<DoctorAscApi | null>;
+  resolvePlay(packageName?: string): Promise<DoctorPlayApi | null>;
+  credentialsStatus(): Promise<string>;
+  codesignIdentities(): Promise<string | null>;
+  corepackAvailable(): Promise<boolean>;
   androidSdk?: string;
   shellLocale?: Partial<Pick<NodeJS.ProcessEnv, 'LANG' | 'LC_ALL' | 'LANGUAGE'>>;
 };

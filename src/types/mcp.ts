@@ -1,4 +1,3 @@
-import type { Effect } from 'effect';
 import type { JsonSchema } from '../config/jsonSchema.js';
 import type { McpCapability } from './storeSurface.js';
 /**
@@ -37,10 +36,10 @@ type McpInputSchema = JsonSchema &
  * structured {@link McpToolResult}. A handler may throw on a real failure - the server catches it and
  * surfaces an `isError` result - but returns normally for any valid read, even a negative one.
  */
-export type McpTool<Requirements = never> = {
+export type McpTool = {
   name: string;
   description: string;
   capability: McpCapability;
   inputSchema: McpInputSchema;
-  handler(args: Record<string, unknown>): Effect.Effect<McpToolResult, unknown, Requirements>;
+  handler(args: Record<string, unknown>): Promise<McpToolResult>;
 };

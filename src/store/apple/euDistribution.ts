@@ -1,108 +1,177 @@
-import { Effect, Schema } from 'effect';
 import type { AlternativeDistributionDomainResource } from '../../types/appleCatalog.js';
 import { plan, type ReconcileContext } from '../shared/reconcile.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { PlannedAction } from '../../types/reconcile.js';
-import type { EuDistributionConfig } from '../../types/storeSurface.js';
-import {
-  decodeStoreSurfaceConfig,
-  loadStoreSurfaceConfig,
-  type StoreSurfaceConfigFailure,
-} from '../shared/surfaceConfig.js';
+import type { EuDistributionConfig, EuDistributionDomainConfig } from '../../types/storeSurface.js';
+import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.js';
 
-const EuDistributionDomainSchema = Schema.mutable(
-  Schema.Struct({
-    domain: Schema.String.pipe(
-      Schema.nonEmptyString({
-        message: () => 'eu-distribution.config.json: domain must be a non-empty string.',
-      }),
-    ),
-    referenceName: Schema.String.pipe(
-      Schema.nonEmptyString({
-        message: () => 'eu-distribution.config.json: referenceName must be a non-empty string.',
-      }),
-    ),
-  }),
-);
+const EU_DISTRIBUTION_DOCUMENT_NAME = 'eu-distribution.config.json';
 
-const EuDistributionConfigSchema = Schema.mutable(
-  Schema.Struct({
-    domains: Schema.mutable(Schema.Array(EuDistributionDomainSchema)).pipe(
-      Schema.minItems(1, {
-        message: () => 'eu-distribution.config.json must declare a non-empty "domains" array.',
-      }),
-    ),
-  }),
-);
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
 
-const EuDistributionConfigSpec = {
-  documentName: 'eu-distribution.config.json',
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readRequiredText(record: Record<string, unknown>, fieldName: string): string {
+  const field = record[fieldName];
+  const isText = typeof field == 'string';
+
+  if (isText == false) {
+    throw new Error(`${EU_DISTRIBUTION_DOCUMENT_NAME}: ${fieldName} must be a non-empty string.`);
+  }
+
+  const isEmpty = field.length == 0;
+
+  if (isEmpty) {
+    throw new Error(`${EU_DISTRIBUTION_DOCUMENT_NAME}: ${fieldName} must be a non-empty string.`);
+  }
+
+  return field;
+}
+
+function readDomain(entry: unknown): EuDistributionDomainConfig {
+  const isEntryRecord = isRecord(entry);
+
+  if (isEntryRecord == false) {
+    throw new Error(`${EU_DISTRIBUTION_DOCUMENT_NAME}: domains entries must be JSON objects.`);
+  }
+
+  return {
+    domain: readRequiredText(entry, 'domain'),
+    referenceName: readRequiredText(entry, 'referenceName'),
+  };
+}
+
+function decodeEuDistributionDocument(rawDocument: unknown): EuDistributionConfig {
+  const documentRecord = rawDocument as Record<string, unknown>;
+  const domainsField = documentRecord['domains'];
+  const hasDomains = Object.hasOwn(documentRecord, 'domains');
+
+  if (hasDomains == false) {
+    throw new Error(`${EU_DISTRIBUTION_DOCUMENT_NAME} must declare a non-empty "domains" array.`);
+  }
+
+  const isDomainList = Array.isArray(domainsField);
+
+  if (isDomainList == false) {
+    throw new Error(`${EU_DISTRIBUTION_DOCUMENT_NAME}: domains must be an array.`);
+  }
+
+  const isEmpty = domainsField.length == 0;
+
+  if (isEmpty) {
+    throw new Error(`${EU_DISTRIBUTION_DOCUMENT_NAME} must declare a non-empty "domains" array.`);
+  }
+
+  const domains: EuDistributionDomainConfig[] = [];
+
+  for (const entry of domainsField) {
+    domains.push(readDomain(entry));
+  }
+
+  return { domains };
+}
+
+function missingEuDistributionMessage(configPath: string): string {
+  return `No EU distribution config at ${configPath}. Create one (see \`launch eu-distribution --help\`) or pass --config.`;
+}
+
+const euDistributionConfigSpec = {
+  documentName: EU_DISTRIBUTION_DOCUMENT_NAME,
   displayName: 'EU distribution config',
-  missingMessage: (configPath: string) =>
-    `No EU distribution config at ${configPath}. Create one (see \`launch eu-distribution --help\`) or pass --config.`,
-  schema: EuDistributionConfigSchema,
+  missingMessage: missingEuDistributionMessage,
+  decodeDocument: decodeEuDistributionDocument,
 };
+
 /**
- * The exact slice of {@link AppStoreConnectClient} the domain reconciler depends on. Declaring it here
- * (rather than taking the concrete client) keeps the diff logic unit-testable with a hand-rolled fake;
- * `AppStoreConnectClient` satisfies it structurally, mirroring {@link AscReleaseApi} in `releaseAttrs.ts`.
+ * The exact slice of App Store Connect the domain reconciler depends on. Declaring it here
+ * (rather than taking the concrete client) keeps the diff logic unit-testable with a hand-rolled fake.
  */
 export type AscEuDistributionApi = {
-  listAlternativeDistributionDomains(): Effect.Effect<
-    AlternativeDistributionDomainResource[],
-    unknown
-  >;
-  createAlternativeDistributionDomain(
-    domain: string,
-    referenceName: string,
-  ): Effect.Effect<void, unknown>;
+  listAlternativeDistributionDomains(): Promise<AlternativeDistributionDomainResource[]>;
+  createAlternativeDistributionDomain(domain: string, referenceName: string): Promise<void>;
 };
+
 /**
  * Reconcile the team's authorized distribution domains: create each declared domain Apple doesn't already
  * have (matched on `domain`), leaving undeclared ones untouched. Every write is captured per-action so a
  * single failure never aborts the run.
  */
-export const reconcileEuDistributionDomains = (
+export async function reconcileEuDistributionDomains(
   api: AscEuDistributionApi,
   config: EuDistributionConfig,
   dryRun: boolean,
-): Effect.Effect<PlannedAction[], unknown> =>
-  Effect.gen(function* () {
-    const reconcileContext: ReconcileContext = { actions: [], dryRun };
-    const domains = yield* api.listAlternativeDistributionDomains();
-    const existing = new Set(
-      domains.flatMap((entry) => {
-        if (entry.domain) return [entry.domain];
-        return [];
-      }),
-    );
-    for (const { domain, referenceName } of config.domains) {
-      if (existing.has(domain)) continue;
-      const action = plan(
-        reconcileContext,
-        `authorize distribution domain ${domain} (${referenceName})`,
-      );
-      if (!dryRun)
-        yield* api.createAlternativeDistributionDomain(domain, referenceName).pipe(
-          Effect.match({
-            onFailure: (writeFailure) => {
-              action.status = 'failed';
-              action.error = errorMessage(writeFailure);
-            },
-            onSuccess: () => {
-              action.status = 'applied';
-            },
-          }),
-        );
-    }
-    return reconcileContext.actions;
-  });
-/** Decode an untrusted EU distribution config document. */
-export const parseEuDistributionConfig = (
-  rawDocument: unknown,
-): Effect.Effect<EuDistributionConfig, StoreSurfaceConfigFailure> =>
-  decodeStoreSurfaceConfig(rawDocument, EuDistributionConfigSpec);
+): Promise<PlannedAction[]> {
+  const reconcileContext: ReconcileContext = { actions: [], dryRun };
+  const domains = await api.listAlternativeDistributionDomains();
+  const existing = new Set<string>();
 
-/** Read and decode eu-distribution.config.json through Effect Platform. */
-export const loadEuDistributionConfig = (configPath: string) =>
-  loadStoreSurfaceConfig(configPath, EuDistributionConfigSpec);
+  for (const entry of domains) {
+    const domainName = entry.domain;
+    const hasDomain = domainName != null;
+
+    if (hasDomain == false) {
+      continue;
+    }
+
+    const isEmptyDomain = domainName.length == 0;
+
+    if (isEmptyDomain) {
+      continue;
+    }
+
+    existing.add(domainName);
+  }
+
+  for (const declaredDomain of config.domains) {
+    const alreadyAuthorized = existing.has(declaredDomain.domain);
+
+    if (alreadyAuthorized) {
+      continue;
+    }
+
+    const action = plan(
+      reconcileContext,
+      `authorize distribution domain ${declaredDomain.domain} (${declaredDomain.referenceName})`,
+    );
+    const isDryRun = dryRun == true;
+
+    if (isDryRun) {
+      continue;
+    }
+
+    try {
+      await api.createAlternativeDistributionDomain(
+        declaredDomain.domain,
+        declaredDomain.referenceName,
+      );
+      action.status = 'applied';
+    } catch (writeFailure) {
+      action.status = 'failed';
+      action.error = errorMessage(writeFailure);
+    }
+  }
+
+  return reconcileContext.actions;
+}
+
+/** Decode an untrusted EU distribution config document. */
+export function parseEuDistributionConfig(rawDocument: unknown): EuDistributionConfig {
+  return decodeStoreSurfaceConfig(rawDocument, euDistributionConfigSpec);
+}
+
+/** Read and decode eu-distribution.config.json. */
+export function loadEuDistributionConfig(configPath: string): Promise<EuDistributionConfig> {
+  return loadStoreSurfaceConfig(configPath, euDistributionConfigSpec);
+}

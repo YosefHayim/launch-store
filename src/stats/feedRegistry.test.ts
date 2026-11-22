@@ -1,9 +1,7 @@
-import { Effect } from 'effect';
-import { describe, expect, test } from 'vitest';
-import { makeHttpClientTest } from '@testkit/httpClient.testkit.js';
+import { afterEach, describe, expect, test } from 'vitest';
 import type { PortfolioApp } from '../types/portfolio.js';
 import { STATS_FEED_PLUGINS } from './feedRegistry.js';
-import { makeStatsCredentialsTest, StatsCredentials } from './statsCredentials.js';
+import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.js';
 
 const makeApp = (platform: 'ios' | 'android'): PortfolioApp => ({
   key: `${platform}-1`,
@@ -16,6 +14,10 @@ const makeApp = (platform: 'ios' | 'android'): PortfolioApp => ({
   accountLabel: 'alpha',
   owner: null,
   ga4PropertyId: null,
+});
+
+afterEach(() => {
+  useStatsCredentials(null);
 });
 
 describe('STATS_FEED_PLUGINS', () => {
@@ -38,23 +40,17 @@ describe('STATS_FEED_PLUGINS', () => {
   });
 
   test('every feed skips with a reason when nothing is saved', async () => {
-    const credentials = await Effect.runPromise(
-      StatsCredentials.pipe(Effect.provide(makeStatsCredentialsTest())),
-    );
+    const credentials = makeStatsCredentialsTest();
 
-    const replies = await Promise.all(
-      STATS_FEED_PLUGINS.map((plugin) =>
-        Effect.runPromise(
-          plugin
-            .fetchDays({
-              app: makeApp('ios'),
-              range: { from: '2026-10-01', to: '2026-10-02' },
-              credentials,
-            })
-            .pipe(Effect.provide(makeHttpClientTest([]))),
-        ),
-      ),
-    );
+    async function fetchSkipped(plugin: (typeof STATS_FEED_PLUGINS)[number]) {
+      return plugin.fetchDays({
+        app: makeApp('ios'),
+        range: { from: '2026-10-01', to: '2026-10-02' },
+        credentials,
+      });
+    }
+
+    const replies = await Promise.all(STATS_FEED_PLUGINS.map(fetchSkipped));
 
     expect(replies).toEqual([
       { status: 'skipped', reason: 'App has no App Store Connect account' },

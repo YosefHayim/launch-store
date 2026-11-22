@@ -1,10 +1,5 @@
-import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../services/platform/logger.js';
+import { createLogger } from '../services/platform/logger.js';
 import { explainTopic, isGlossaryTopic, listTopics } from './glossary.js';
-
-const ExplainCommandInputSchema = Schema.Struct({
-  topic: Schema.optionalWith(Schema.String, { exact: true }),
-});
 
 type ExplainCommandFailure = Readonly<{
   readonly _tag: 'ExplainCommandFailure';
@@ -12,31 +7,85 @@ type ExplainCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-const makeExplainCommandFailure = Data.tagged<ExplainCommandFailure>('ExplainCommandFailure');
+function makeExplainCommandFailure(fields: {
+  message: string;
+  cause: unknown;
+}): ExplainCommandFailure {
+  return { _tag: 'ExplainCommandFailure', message: fields.message, cause: fields.cause };
+}
 
-/** Print the glossary index or one requested explanation. */
-export const explainCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, ExplainCommandFailure, Logger> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(ExplainCommandInputSchema)(rawCommandInput);
-    const logger = yield* createLogger(false);
-    if (commandInput.topic === undefined) {
-      yield* logger.line(`Topics: ${listTopics().join(', ')}`);
+function isExplainCommandFailure(cause: unknown): cause is ExplainCommandFailure {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'ExplainCommandFailure';
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (candidate == null) {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function readExplainTopic(rawCommandInput: unknown): string | null {
+  if (isRecord(rawCommandInput) == false) {
+    throw new Error('Could not run the explain command.');
+  }
+
+  const topicIsPresent = Object.hasOwn(rawCommandInput, 'topic');
+
+  if (topicIsPresent == false) {
+    return null;
+  }
+
+  const topic = rawCommandInput['topic'];
+
+  if (typeof topic == 'string') {
+    return topic;
+  }
+
+  throw new Error('Could not run the explain command.');
+}
+
+export function explainCommandProgram(rawCommandInput: unknown): void {
+  try {
+    const topic = readExplainTopic(rawCommandInput);
+    const logger = createLogger(false);
+
+    if (topic == null) {
+      logger.line(`Topics: ${listTopics().join(', ')}`);
       return;
     }
-    if (!isGlossaryTopic(commandInput.topic)) {
-      return yield* Effect.fail(
-        makeExplainCommandFailure({
-          message: `Unknown topic "${commandInput.topic}". Known topics: ${listTopics().join(', ')}`,
-          cause: commandInput.topic,
-        }),
-      );
+
+    if (isGlossaryTopic(topic)) {
+      logger.line(explainTopic(topic));
+      return;
     }
-    yield* logger.line(explainTopic(commandInput.topic));
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (cause._tag === 'ExplainCommandFailure') return cause;
-      return makeExplainCommandFailure({ message: 'Could not run the explain command.', cause });
-    }),
-  );
+
+    throw makeExplainCommandFailure({
+      message: `Unknown topic "${topic}". Known topics: ${listTopics().join(', ')}`,
+      cause: topic,
+    });
+  } catch (cause) {
+    if (isExplainCommandFailure(cause)) {
+      throw cause;
+    }
+
+    throw makeExplainCommandFailure({ message: 'Could not run the explain command.', cause });
+  }
+}

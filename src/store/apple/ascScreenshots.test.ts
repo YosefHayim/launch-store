@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import {
   reconcilePreviews,
@@ -16,21 +15,7 @@ import type {
 } from '../../listing/screenshots/assets.js';
 
 const effectMethods = <Api extends object>(api: Api): Api => {
-  const wrappedMethods = new Map<PropertyKey, unknown>();
-  return new Proxy(api, {
-    get(targetApi, methodName, receiver) {
-      if (wrappedMethods.has(methodName)) return wrappedMethods.get(methodName);
-      const apiMember = Reflect.get(targetApi, methodName, receiver);
-      if (typeof apiMember !== 'function') return apiMember;
-      const effectMethod = vi.fn((...methodArguments: unknown[]) => {
-        const returnedMember = Reflect.apply(apiMember, targetApi, methodArguments);
-        if (Effect.isEffect(returnedMember)) return returnedMember;
-        return Effect.promise(() => Promise.resolve(returnedMember));
-      });
-      wrappedMethods.set(methodName, effectMethod);
-      return effectMethod;
-    },
-  });
+  return api;
 };
 /**
  * A fully-stubbed {@link ScreenshotsApi}. Reads default to "an editable version with one en-US locale and
@@ -92,7 +77,7 @@ const input = (overrides: Partial<ScreenshotReconcileInput> = {}): ScreenshotRec
   };
 };
 const runScreenshots = (api: ScreenshotsApi, reconcileInput: ScreenshotReconcileInput) =>
-  Effect.runPromise(reconcileScreenshots(api, reconcileInput));
+  reconcileScreenshots(api, reconcileInput);
 describe('reconcileScreenshots - app screenshots', () => {
   it('does nothing when there are no assets to reconcile', async () => {
     const api = makeApi();
@@ -354,7 +339,7 @@ const previewInput = (overrides: Partial<PreviewReconcileInput> = {}): PreviewRe
   };
 };
 const runPreviews = (api: PreviewsApi, reconcileInput: PreviewReconcileInput) =>
-  Effect.runPromise(reconcilePreviews(api, reconcileInput));
+  reconcilePreviews(api, reconcileInput);
 describe('reconcilePreviews', () => {
   it('does nothing when there are no previews to reconcile', async () => {
     const api = makePreviewsApi();

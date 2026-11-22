@@ -1,15 +1,15 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Context, Data, Effect, Layer, Option } from 'effect';
-import { loadConfig, readResolvedConfig, type LoadedConfig } from '../config/config.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPaths } from '../services/platform/paths.js';
+import { readdir, readFile, stat } from 'node:fs/promises';
+import { join } from 'node:path';
+import { loadConfig, readResolvedConfig } from '../config/config.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
+import { createLogger } from '../services/platform/logger.js';
+import { pathExists } from '@/path-exists.js';
 import { selectApps } from '../store/shared/syncJobs.js';
-import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
+import { completeCommand } from '../terminal/commandExit.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { PrivacySurface } from '../types/privacy.js';
 import { surfaceFromExpoConfig, surfaceFromNative } from './parse.js';
 import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from './reconcile.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
 
 /** Options accepted by the privacy scan command program. */
 type PrivacyCommandOptions = {
@@ -25,178 +25,240 @@ type PrivacyCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-const makePrivacyCommandFailure = Data.tagged<PrivacyCommandFailure>('PrivacyCommandFailure');
-
-/** Runtime dependencies for privacy discovery, output, and exit status. */
-type PrivacyCommandDependencies = {
-  readonly loadConfiguration: Effect.Effect<LoadedConfig, PrivacyCommandFailure>;
-  readonly inspectPrivacySurface: (
-    appDescriptor: AppDescriptor,
-  ) => Effect.Effect<PrivacySurface, PrivacyCommandFailure>;
-  readonly logger: Logger;
-};
-
-/** Injectable command boundary for privacy discovery and reporting. */
-const PrivacyCommandService =
-  Context.GenericTag<PrivacyCommandDependencies>('PrivacyCommandService');
-type PrivacyCommandService = PrivacyCommandDependencies;
-
 /** Directories excluded from bounded privacy manifest discovery. */
 const SKIPPED_DIRECTORIES = new Set(['node_modules', 'Pods', 'build', 'DerivedData', 'dist']);
 
-/** Map a failed command dependency to the privacy command's tagged failure. */
-const commandFailure = (operation: string, cause: unknown): PrivacyCommandFailure => {
+function commandFailure(operation: string, cause: unknown): PrivacyCommandFailure {
   let message = `${operation} failed.`;
-  if (hasMessage(cause)) message = cause.message;
-  return makePrivacyCommandFailure({ operation, message, cause });
-};
+
+  if (hasMessage(cause)) {
+    message = cause.message;
+  }
+
+  return {
+    _tag: 'PrivacyCommandFailure',
+    operation,
+    message,
+    cause,
+  };
+}
+
+function isInfoPlist(fileName: string): boolean {
+  return fileName == 'Info.plist';
+}
+
+function isPrivacyManifest(fileName: string): boolean {
+  return fileName.endsWith('.xcprivacy');
+}
+
+function isAndroidManifest(fileName: string): boolean {
+  return fileName == 'AndroidManifest.xml';
+}
 
 /** Find matching source files to a bounded depth while ignoring generated directories. */
-const findFiles = (
+async function findFiles(
   rootDirectory: string,
   matchesFileName: (fileName: string) => boolean,
   maximumDepth = 6,
-): Effect.Effect<string[], never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    if (!(yield* fileSystem.exists(rootDirectory).pipe(Effect.orElseSucceed(() => false)))) {
+): Promise<string[]> {
+  const rootExists = await pathExists(rootDirectory);
+
+  if (rootExists == false) {
+    return [];
+  }
+
+  async function visitDirectory(directoryPath: string, depth: number): Promise<string[]> {
+    const isPastMaximumDepth = depth > maximumDepth;
+
+    if (isPastMaximumDepth) {
       return [];
     }
-    const visitDirectory = (directoryPath: string, depth: number): Effect.Effect<string[]> =>
-      Effect.gen(function* () {
-        if (depth > maximumDepth) return [];
-        const directoryEntries = yield* fileSystem
-          .readDirectory(directoryPath)
-          .pipe(Effect.orElseSucceed(() => []));
-        const matchingPaths: string[] = [];
-        for (const directoryEntry of directoryEntries) {
-          if (SKIPPED_DIRECTORIES.has(directoryEntry)) continue;
-          if (directoryEntry.startsWith('.')) continue;
-          const entryPath = pathService.join(directoryPath, directoryEntry);
-          const entryMetadata = yield* fileSystem.stat(entryPath).pipe(Effect.option);
-          if (Option.isNone(entryMetadata)) continue;
-          if (entryMetadata.value.type === 'Directory') {
-            matchingPaths.push(...(yield* visitDirectory(entryPath, depth + 1)));
-            continue;
-          }
-          if (matchesFileName(directoryEntry)) matchingPaths.push(entryPath);
-        }
-        return matchingPaths;
-      });
-    return yield* visitDirectory(rootDirectory, 0);
-  });
+
+    let directoryEntries: string[] = [];
+
+    try {
+      directoryEntries = await readdir(directoryPath);
+    } catch {
+      directoryEntries = [];
+    }
+
+    const hasNoEntries = directoryEntries.length == 0;
+
+    if (hasNoEntries) {
+      return [];
+    }
+
+    const matchingPaths: string[] = [];
+
+    for (const directoryEntry of directoryEntries) {
+      const isSkippedDirectory = SKIPPED_DIRECTORIES.has(directoryEntry);
+
+      if (isSkippedDirectory) {
+        continue;
+      }
+
+      const isHidden = directoryEntry.startsWith('.');
+
+      if (isHidden) {
+        continue;
+      }
+
+      const entryPath = join(directoryPath, directoryEntry);
+      let isDirectory = false;
+      let isReadable = true;
+
+      try {
+        const entryMetadata = await stat(entryPath);
+        isDirectory = entryMetadata.isDirectory();
+      } catch {
+        isReadable = false;
+      }
+
+      if (isReadable == false) {
+        continue;
+      }
+
+      if (isDirectory) {
+        const nestedPaths = await visitDirectory(entryPath, depth + 1);
+        matchingPaths.push(...nestedPaths);
+        continue;
+      }
+
+      const isMatch = matchesFileName(directoryEntry);
+
+      if (isMatch) {
+        matchingPaths.push(entryPath);
+      }
+    }
+
+    return matchingPaths;
+  }
+
+  return visitDirectory(rootDirectory, 0);
+}
 
 /** Read every accessible path, retaining a partial surface when one file is unreadable. */
-const readFiles = (
-  filePaths: readonly string[],
-): Effect.Effect<string[], never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const fileContents: string[] = [];
-    for (const filePath of filePaths) {
-      const fileSource = yield* fileSystem.readFileString(filePath).pipe(Effect.option);
-      if (Option.isSome(fileSource)) fileContents.push(fileSource.value);
+async function readFiles(filePaths: readonly string[]): Promise<string[]> {
+  const fileContents: string[] = [];
+
+  for (const filePath of filePaths) {
+    let fileSource: string | null = null;
+
+    try {
+      fileSource = await readFile(filePath, 'utf8');
+    } catch {
+      fileSource = null;
     }
-    return fileContents;
-  });
+
+    if (fileSource != null) {
+      fileContents.push(fileSource);
+    }
+  }
+
+  return fileContents;
+}
 
 /** Build a privacy surface from native manifests when a prebuilt project exists. */
-const readNativePrivacySurface = (
-  appDescriptor: AppDescriptor,
-): Effect.Effect<
-  { readonly foundNativeFiles: boolean; readonly privacySurface: PrivacySurface },
-  never,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const iosDirectory = pathService.join(appDescriptor.dir, 'ios');
-    const androidDirectory = pathService.join(appDescriptor.dir, 'android');
-    const infoPlists = yield* readFiles(
-      yield* findFiles(iosDirectory, (fileName) => fileName === 'Info.plist'),
-    );
-    const privacyManifests = yield* readFiles(
-      yield* findFiles(iosDirectory, (fileName) => fileName.endsWith('.xcprivacy')),
-    );
-    const androidManifests = yield* readFiles(
-      yield* findFiles(androidDirectory, (fileName) => fileName === 'AndroidManifest.xml'),
-    );
-    let foundNativeFiles = infoPlists.length > 0;
-    if (!foundNativeFiles && privacyManifests.length > 0) foundNativeFiles = true;
-    if (!foundNativeFiles && androidManifests.length > 0) foundNativeFiles = true;
-    return {
-      foundNativeFiles,
-      privacySurface: surfaceFromNative({ infoPlists, privacyManifests, androidManifests }),
-    };
-  });
+async function readNativePrivacySurface(appDescriptor: AppDescriptor): Promise<{
+  readonly foundNativeFiles: boolean;
+  readonly privacySurface: PrivacySurface;
+}> {
+  const iosDirectory = join(appDescriptor.dir, 'ios');
+  const androidDirectory = join(appDescriptor.dir, 'android');
+  const infoPlistPaths = await findFiles(iosDirectory, isInfoPlist);
+  const privacyManifestPaths = await findFiles(iosDirectory, isPrivacyManifest);
+  const androidManifestPaths = await findFiles(androidDirectory, isAndroidManifest);
+  const infoPlists = await readFiles(infoPlistPaths);
+  const privacyManifests = await readFiles(privacyManifestPaths);
+  const androidManifests = await readFiles(androidManifestPaths);
+  const hasPrivacyManifest = privacyManifests.length > 0;
+  const hasAndroidManifest = androidManifests.length > 0;
+  let foundNativeFiles = infoPlists.length > 0;
+
+  if (hasPrivacyManifest) {
+    foundNativeFiles = true;
+  }
+
+  if (hasAndroidManifest) {
+    foundNativeFiles = true;
+  }
+
+  return {
+    foundNativeFiles,
+    privacySurface: surfaceFromNative({ infoPlists, privacyManifests, androidManifests }),
+  };
+}
 
 /** Inspect native manifests first, falling back to the resolved Expo configuration. */
-const inspectPrivacySurface = (
-  appDescriptor: AppDescriptor,
-): Effect.Effect<PrivacySurface, PrivacyCommandFailure, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const nativeSurface = yield* readNativePrivacySurface(appDescriptor);
-    if (nativeSurface.foundNativeFiles) return nativeSurface.privacySurface;
-    const resolvedExpoConfiguration = yield* readResolvedConfig(appDescriptor.dir);
-    if (resolvedExpoConfiguration === null) return surfaceFromExpoConfig({});
-    return surfaceFromExpoConfig(resolvedExpoConfiguration);
-  });
+async function inspectPrivacySurface(appDescriptor: AppDescriptor): Promise<PrivacySurface> {
+  const nativeSurface = await readNativePrivacySurface(appDescriptor);
 
-/** Live privacy dependencies backed by Effect Platform services. */
-export const PrivacyCommandServiceLive = Layer.effect(
-  PrivacyCommandService,
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const launchPaths = yield* LaunchPaths;
-    const logger = yield* createLogger(false);
-    return {
-      loadConfiguration: loadConfig().pipe(
-        Effect.mapError((cause) => commandFailure('load Launch configuration', cause)),
-        Effect.provideService(FileSystem.FileSystem, fileSystem),
-        Effect.provideService(Path.Path, pathService),
-        Effect.provideService(LaunchPaths, launchPaths),
-      ),
-      inspectPrivacySurface: (appDescriptor) =>
-        inspectPrivacySurface(appDescriptor).pipe(
-          Effect.provideService(FileSystem.FileSystem, fileSystem),
-          Effect.provideService(Path.Path, pathService),
-        ),
-      logger,
-    } satisfies PrivacyCommandDependencies;
-  }),
-);
+  if (nativeSurface.foundNativeFiles) {
+    return nativeSurface.privacySurface;
+  }
+
+  const resolvedExpoConfiguration = await readResolvedConfig(appDescriptor.dir);
+  const hasNoExpoConfig = resolvedExpoConfiguration == null;
+
+  if (hasNoExpoConfig) {
+    return surfaceFromExpoConfig({});
+  }
+
+  return surfaceFromExpoConfig(resolvedExpoConfiguration);
+}
+
+function appNameFromFinding(appFindingSet: { appName: string }): string {
+  return appFindingSet.appName;
+}
+
+function findingsFromApp(appFindingSet: {
+  findings: ReturnType<typeof reconcilePrivacy>;
+}): ReturnType<typeof reconcilePrivacy> {
+  return appFindingSet.findings;
+}
 
 /** Scan selected apps, reconcile their privacy surfaces, and emit the report. */
-export const privacyCommandProgram = (
-  commandOptions: PrivacyCommandOptions,
-): Effect.Effect<void, PrivacyCommandFailure | CommandExit, PrivacyCommandService> =>
-  Effect.gen(function* () {
-    const commandService = yield* PrivacyCommandService;
-    const loadedConfiguration = yield* commandService.loadConfiguration;
-    const selectedApps = yield* selectApps(loadedConfiguration.apps, commandOptions.app).pipe(
-      Effect.mapError((cause) => commandFailure('select privacy apps', cause)),
-    );
-    const appFindings = yield* Effect.forEach(
-      selectedApps,
-      (appDescriptor) =>
-        commandService.inspectPrivacySurface(appDescriptor).pipe(
-          Effect.map((privacySurface) => ({
-            appName: appDescriptor.name,
-            findings: reconcilePrivacy(appDescriptor.name, privacySurface),
-          })),
-        ),
-      { concurrency: 1 },
-    );
-    const privacyReport = buildPrivacyReport(
-      appFindings.flatMap((appFindingSet) => appFindingSet.findings),
-      appFindings.map((appFindingSet) => appFindingSet.appName),
-    );
-    let reportText = renderPrivacyReport(privacyReport);
-    if (commandOptions.json === true) reportText = JSON.stringify(privacyReport, null, 2);
-    yield* commandService.logger
-      .line(reportText)
-      .pipe(Effect.mapError((cause) => commandFailure('write privacy report', cause)));
-    yield* completeCommand(privacyReport.exitCode);
-  });
+export async function privacyCommandProgram(commandOptions: PrivacyCommandOptions): Promise<void> {
+  try {
+    var loadedConfiguration = await loadConfig();
+  } catch (cause) {
+    throw commandFailure('load Launch configuration', cause);
+  }
+
+  try {
+    var selectedApps = await selectApps(loadedConfiguration.apps, commandOptions.app);
+  } catch (cause) {
+    throw commandFailure('select privacy apps', cause);
+  }
+
+  const appFindings = [];
+
+  for (const appDescriptor of selectedApps) {
+    const privacySurface = await inspectPrivacySurface(appDescriptor);
+    appFindings.push({
+      appName: appDescriptor.name,
+      findings: reconcilePrivacy(appDescriptor.name, privacySurface),
+    });
+  }
+
+  const privacyReport = buildPrivacyReport(
+    appFindings.flatMap(findingsFromApp),
+    appFindings.map(appNameFromFinding),
+  );
+  let reportText = renderPrivacyReport(privacyReport);
+  const isJsonReport = commandOptions.json == true;
+
+  if (isJsonReport) {
+    reportText = JSON.stringify(privacyReport, null, 2);
+  }
+
+  const logger = createLogger(false);
+
+  try {
+    logger.line(reportText);
+  } catch (cause) {
+    throw commandFailure('write privacy report', cause);
+  }
+
+  completeCommand(privacyReport.exitCode);
+}

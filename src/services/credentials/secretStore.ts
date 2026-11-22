@@ -1,112 +1,161 @@
-import { Context, Effect, Layer } from 'effect';
-import { captureCommandOutput, provideNodeCommandServices } from '../platform/exec.js';
+import { captureCommandOutput } from '../platform/exec.js';
 import { requireOptional } from '../platform/optionalDep.js';
 import { detectHostOperatingSystem } from '../platform/os.js';
 
 const KEYCHAIN_SERVICE_NAME = 'launch';
-
-export type LaunchSecretStoreService = Readonly<{
-  readonly readSecret: (account: string) => Effect.Effect<string | null, unknown>;
-  readonly storeSecret: (account: string, secretText: string) => Effect.Effect<void, unknown>;
-  readonly deleteSecret: (account: string) => Effect.Effect<void, unknown>;
-}>;
-
-export const LaunchSecretStore = Context.GenericTag<LaunchSecretStoreService>(
-  'launch-store/SecretStore',
-);
+const MACOS_ITEM_NOT_FOUND_EXIT_CODE = 44;
 
 type KeyringModule = typeof import('@napi-rs/keyring');
+
 let loadedKeyring: KeyringModule | null = null;
+let secretFixture: Map<string, string> | null = null;
 
-/** Load the optional native keyring once for secret storage. */
-const loadNativeKeyring = (): Effect.Effect<KeyringModule, unknown> =>
-  Effect.gen(function* () {
-    if (loadedKeyring === null) {
-      loadedKeyring = yield* requireOptional(
-        'Secure credential storage',
-        'pnpm add @napi-rs/keyring',
-        () => Effect.tryPromise(() => import('@napi-rs/keyring')),
-      );
-    }
+export function useSecretStore(storedSecrets: Map<string, string> | null): void {
+  secretFixture = storedSecrets;
+}
+
+export function resetSecretStore(): void {
+  secretFixture = null;
+}
+
+async function loadNativeKeyring(): Promise<KeyringModule> {
+  if (loadedKeyring != null) {
     return loadedKeyring;
-  });
+  }
 
-/** `security` exits 44 (errSecItemNotFound) when no item matches; only that means no secret is saved. */
-const macosItemNotFoundExitCode = 44;
+  loadedKeyring = await requireOptional(
+    'Secure credential storage',
+    'pnpm add @napi-rs/keyring',
+    function loadKeyring() {
+      return import('@napi-rs/keyring');
+    },
+  );
 
-// The native binding also returns null when the user denies access, so a metadata-only query (no -w) tells the two apart.
-const confirmMacosMissingSecret = (account: string): Effect.Effect<null, unknown> =>
-  provideNodeCommandServices(
-    captureCommandOutput('security', [
+  return loadedKeyring;
+}
+
+function readExitCode(cause: unknown): unknown {
+  if (cause == null) {
+    return null;
+  }
+
+  if (typeof cause != 'object') {
+    return null;
+  }
+
+  if ('exitCode' in cause == false) {
+    return null;
+  }
+
+  return cause.exitCode;
+}
+
+async function confirmMacosMissingSecret(account: string): Promise<null> {
+  try {
+    await captureCommandOutput('security', [
       'find-generic-password',
       '-s',
       KEYCHAIN_SERVICE_NAME,
       '-a',
       account,
-    ]),
-  ).pipe(
-    Effect.matchEffect({
-      onSuccess: () => Effect.fail(new Error(`Could not read ${account} from the keychain`)),
-      onFailure: (cause) => {
-        const isItemMissing = cause.exitCode === macosItemNotFoundExitCode;
-        if (isItemMissing) return Effect.succeed(null);
-        return Effect.fail(new Error(`Could not read ${account} from the keychain`, { cause }));
-      },
-    }),
-  );
+    ]);
+  } catch (cause) {
+    const exitCode = readExitCode(cause);
+    const isItemMissing = exitCode == MACOS_ITEM_NOT_FOUND_EXIT_CODE;
 
-const makeNativeKeyringSecretStore = (isMacos: boolean): LaunchSecretStoreService => ({
-  readSecret: (account) =>
-    Effect.gen(function* () {
-      const { Entry } = yield* loadNativeKeyring();
-      const storedPassword = yield* Effect.try({
-        try: () => new Entry(KEYCHAIN_SERVICE_NAME, account).getPassword(),
-        catch: (cause) => new Error(`Could not read ${account} from the keychain`, { cause }),
-      });
-      if (storedPassword === null && isMacos) return yield* confirmMacosMissingSecret(account);
-      return storedPassword;
-    }),
-  storeSecret: (account, secretText) =>
-    Effect.gen(function* () {
-      const { Entry } = yield* loadNativeKeyring();
-      yield* Effect.try(() => new Entry(KEYCHAIN_SERVICE_NAME, account).setPassword(secretText));
-    }),
-  deleteSecret: (account) =>
-    Effect.gen(function* () {
-      const { Entry } = yield* loadNativeKeyring();
-      yield* Effect.try(() => new Entry(KEYCHAIN_SERVICE_NAME, account).deletePassword()).pipe(
-        Effect.catchAll(() => Effect.void),
-      );
-    }),
-});
+    if (isItemMissing) {
+      return null;
+    }
 
-export const LaunchSecretStoreLive = Layer.effect(
-  LaunchSecretStore,
-  detectHostOperatingSystem.pipe(
-    Effect.map((system) => makeNativeKeyringSecretStore(system === 'macos')),
-  ),
-);
+    throw new Error(`Could not read ${account} from the keychain`, { cause });
+  }
 
-/** Build a deterministic secret-store layer over the supplied mutable map. */
-export const makeLaunchSecretStoreTest = (
-  storedSecrets: Map<string, string> = new Map<string, string>(),
-): Layer.Layer<LaunchSecretStoreService> => {
-  return Layer.succeed(LaunchSecretStore, {
-    readSecret: (account) =>
-      Effect.sync(() => {
-        const secretText = storedSecrets.get(account);
-        if (secretText === undefined) return null;
-        return secretText;
-      }),
-    storeSecret: (account, secretText) =>
-      Effect.sync(() => {
-        storedSecrets.set(account, secretText);
-      }),
-    deleteSecret: (account) =>
-      Effect.sync(() => {
-        storedSecrets.delete(account);
-      }),
-  });
+  throw new Error(`Could not read ${account} from the keychain`);
+}
+
+async function readNativeSecret(account: string): Promise<string | null> {
+  const { Entry } = await loadNativeKeyring();
+
+  let storedPassword: string | null;
+
+  try {
+    storedPassword = new Entry(KEYCHAIN_SERVICE_NAME, account).getPassword();
+  } catch (cause) {
+    throw new Error(`Could not read ${account} from the keychain`, { cause });
+  }
+
+  const isMacos = detectHostOperatingSystem() == 'macos';
+  const isMissingPassword = storedPassword == null;
+
+  if (isMissingPassword == false) {
+    return storedPassword;
+  }
+
+  if (isMacos == false) {
+    return storedPassword;
+  }
+
+  return confirmMacosMissingSecret(account);
+}
+
+async function storeNativeSecret(account: string, secretText: string): Promise<void> {
+  const { Entry } = await loadNativeKeyring();
+
+  try {
+    new Entry(KEYCHAIN_SERVICE_NAME, account).setPassword(secretText);
+  } catch (cause) {
+    throw new Error(`Could not store ${account} in the keychain`, { cause });
+  }
+}
+
+async function deleteNativeSecret(account: string): Promise<void> {
+  const { Entry } = await loadNativeKeyring();
+
+  try {
+    new Entry(KEYCHAIN_SERVICE_NAME, account).deletePassword();
+  } catch (cause) {
+    const isAlreadyGone = cause != null;
+
+    if (isAlreadyGone) {
+      return;
+    }
+  }
+}
+
+export type LaunchSecretStoreService = {
+  readSecret(account: string): Promise<string | null>;
+  storeSecret(account: string, secretText: string): Promise<void>;
+  deleteSecret(account: string): Promise<void>;
 };
 
-export const LaunchSecretStoreTest = makeLaunchSecretStoreTest();
+export const LaunchSecretStore = {
+  async readSecret(account: string): Promise<string | null> {
+    if (secretFixture != null) {
+      const secretText = secretFixture.get(account);
+
+      if (secretText == null) {
+        return null;
+      }
+
+      return secretText;
+    }
+
+    return readNativeSecret(account);
+  },
+  async storeSecret(account: string, secretText: string): Promise<void> {
+    if (secretFixture != null) {
+      secretFixture.set(account, secretText);
+      return;
+    }
+
+    await storeNativeSecret(account, secretText);
+  },
+  async deleteSecret(account: string): Promise<void> {
+    if (secretFixture != null) {
+      secretFixture.delete(account);
+      return;
+    }
+
+    await deleteNativeSecret(account);
+  },
+};

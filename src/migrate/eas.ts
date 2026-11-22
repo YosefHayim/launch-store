@@ -1,8 +1,8 @@
-import { FileSystem, Path } from '@effect/platform';
-import type { PlatformError } from '@effect/platform/Error';
-import { Data, Effect, Option, Schema } from 'effect';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { readResolvedConfig } from '../config/config.js';
 import { configTemplate, detectAppRoot } from '../config/configScaffold.js';
+import { pathExists } from '../path-exists.js';
 import type { AppDescriptor, BuildProfile, PlayTrack } from '../types/app.js';
 import type {
   EasBuildProfile,
@@ -12,14 +12,11 @@ import type {
   MigrationNote,
   MigrationResult,
 } from '../types/migrate.js';
-import type { MutableDeep } from '../types/mutable.js';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
 
-/**
- * A non-secret summary of an EAS `credentials.json` (present when `eas.json` sets
- * `credentialsSource: "local"`). Only paths and the keystore alias are surfaced; the certificate/keystore
- * Password fields are discarded by the boundary schema and never enter this shape.
- */
+type EasSubmitIos = NonNullable<EasSubmitProfile['ios']>;
+type EasSubmitAndroid = NonNullable<EasSubmitProfile['android']>;
+
 type CredentialsSummary = Readonly<{
   ios?: Readonly<{
     distributionCertificatePath?: string;
@@ -31,6 +28,28 @@ type CredentialsSummary = Readonly<{
   }>;
 }>;
 
+type RuntimeVersion = string | { policy?: string };
+
+type ExpoFacts = Readonly<{
+  owner?: string;
+  runtimeVersion?: RuntimeVersion;
+  updates?: unknown;
+  extra?: Readonly<{
+    eas?: Readonly<{
+      projectId?: string;
+    }>;
+  }>;
+}>;
+
+type ExactString = { kind: 'absent' } | { kind: 'invalid' } | { kind: 'present'; text: string };
+
+type ExactFlag = { kind: 'absent' } | { kind: 'invalid' } | { kind: 'present'; flag: boolean };
+
+type ExactFlagOrText =
+  | { kind: 'absent' }
+  | { kind: 'invalid' }
+  | { kind: 'present'; flag: boolean | string };
+
 export type EasMigrationFailure = Readonly<{
   readonly _tag: 'EasMigrationFailure';
   readonly reason: 'InvalidEasJson' | 'MissingEasConfig';
@@ -38,272 +57,645 @@ export type EasMigrationFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-const makeEasMigrationFailure = Data.tagged<EasMigrationFailure>('EasMigrationFailure');
-
-const StringEntriesSchema = Schema.transform(
-  Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-  Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.String })),
-  {
-    strict: true,
-    decode: (unknownEntries) => {
-      const stringEntries: Record<string, string> = {};
-      for (const [entryName, unknownEntry] of Object.entries(unknownEntries)) {
-        if (typeof unknownEntry === 'string') stringEntries[entryName] = unknownEntry;
-      }
-      return stringEntries;
-    },
-    encode: (stringEntries) => stringEntries,
-  },
-);
-
-const EasBuildProfileSchema = Schema.mutable(
-  Schema.Struct({
-    channel: Schema.optionalWith(Schema.String, { exact: true }),
-    distribution: Schema.optionalWith(Schema.String, { exact: true }),
-    env: Schema.optionalWith(StringEntriesSchema, { exact: true }),
-    autoIncrement: Schema.optionalWith(Schema.Union(Schema.Boolean, Schema.String), {
-      exact: true,
-    }),
-    developmentClient: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  }),
-);
-
-const EasBuildProfilesSchema = Schema.transform(
-  Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-  Schema.mutable(Schema.Record({ key: Schema.String, value: EasBuildProfileSchema })),
-  {
-    strict: true,
-    decode: (unknownProfiles) => {
-      const buildProfiles: Record<string, EasBuildProfile> = {};
-      for (const [profileName, unknownProfile] of Object.entries(unknownProfiles)) {
-        const decodedProfile = Schema.decodeUnknownOption(EasBuildProfileSchema)(unknownProfile);
-        if (Option.isSome(decodedProfile)) buildProfiles[profileName] = decodedProfile.value;
-      }
-      return buildProfiles;
-    },
-    encode: (buildProfiles) => buildProfiles,
-  },
-);
-
-const EasSubmitIosSchema = Schema.mutable(
-  Schema.Struct({
-    appleId: Schema.optionalWith(Schema.String, { exact: true }),
-    ascAppId: Schema.optionalWith(Schema.String, { exact: true }),
-    appleTeamId: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
-
-const EasSubmitAndroidSchema = Schema.mutable(
-  Schema.Struct({
-    serviceAccountKeyPath: Schema.optionalWith(Schema.String, { exact: true }),
-    track: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
-
-const EasSubmitProfileSchema = Schema.mutable(
-  Schema.Struct({
-    ios: Schema.optionalWith(EasSubmitIosSchema, { exact: true }),
-    android: Schema.optionalWith(EasSubmitAndroidSchema, { exact: true }),
-  }),
-);
-
-const hasIosSubmitFields = (
-  iosSubmission: Schema.Schema.Type<typeof EasSubmitIosSchema>,
-): boolean => {
-  if (iosSubmission.appleId !== undefined) return true;
-  if (iosSubmission.ascAppId !== undefined) return true;
-  return iosSubmission.appleTeamId !== undefined;
-};
-
-const hasAndroidSubmitFields = (
-  androidSubmission: Schema.Schema.Type<typeof EasSubmitAndroidSchema>,
-): boolean => {
-  if (androidSubmission.serviceAccountKeyPath !== undefined) return true;
-  return androidSubmission.track !== undefined;
-};
-
-const EasSubmitProfilesSchema = Schema.transform(
-  Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-  Schema.mutable(Schema.Record({ key: Schema.String, value: EasSubmitProfileSchema })),
-  {
-    strict: true,
-    decode: (unknownProfiles) => {
-      const submitProfiles: Record<string, EasSubmitProfile> = {};
-      for (const [profileName, unknownProfile] of Object.entries(unknownProfiles)) {
-        const decodedProfile = Schema.decodeUnknownOption(EasSubmitProfileSchema)(unknownProfile);
-        if (Option.isNone(decodedProfile)) continue;
-        const submitProfile: MutableDeep<EasSubmitProfile> = {};
-        const iosSubmission = decodedProfile.value.ios;
-        if (iosSubmission !== undefined && hasIosSubmitFields(iosSubmission)) {
-          submitProfile.ios = iosSubmission;
-        }
-        const androidSubmission = decodedProfile.value.android;
-        if (androidSubmission !== undefined && hasAndroidSubmitFields(androidSubmission)) {
-          submitProfile.android = androidSubmission;
-        }
-        submitProfiles[profileName] = submitProfile;
-      }
-      return submitProfiles;
-    },
-    encode: (submitProfiles) => submitProfiles,
-  },
-);
-
-const EasCliSchema = Schema.mutable(
-  Schema.Struct({
-    appVersionSource: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
-
-const EasJsonSchema = Schema.mutable(
-  Schema.Struct({
-    cli: Schema.optionalWith(EasCliSchema, { exact: true }),
-    build: Schema.optionalWith(EasBuildProfilesSchema, { default: () => ({}) }),
-    submit: Schema.optionalWith(EasSubmitProfilesSchema, { default: () => ({}) }),
-  }),
-);
-
-/** Decode the EAS fields that Launch migrates and discard unsupported fields at the boundary. */
-export const parseEasJson = (easJsonSource: string): Effect.Effect<EasJson, EasMigrationFailure> =>
-  Schema.decodeUnknown(Schema.parseJson(EasJsonSchema))(easJsonSource).pipe(
-    Effect.mapError((cause) => makeEasMigrationFailure({ reason: 'InvalidEasJson', cause })),
-  );
-
 const PLAY_TRACKS: readonly PlayTrack[] = ['internal', 'closed', 'open', 'production'];
+const DEFAULT_PROFILE_SIZE_BUDGET_MB = 200;
 
-const isPlayTrack = (trackName: string): trackName is PlayTrack =>
-  PLAY_TRACKS.some((playTrack) => playTrack === trackName);
+function makeEasMigrationFailure(fields: {
+  reason: 'InvalidEasJson' | 'MissingEasConfig';
+  sourcePath?: string;
+  cause?: unknown;
+}): EasMigrationFailure {
+  return { _tag: 'EasMigrationFailure', ...fields };
+}
 
-/** Project EAS build profiles into Launch `profiles`, lifting a matching Play submit track when valid. */
-export const launchProfilesFromEas = (easConfiguration: EasJson): Record<string, BuildProfile> => {
-  const launchProfiles: Record<string, BuildProfile> = {};
-  for (const profileName of Object.keys(easConfiguration.build)) {
-    const launchProfile: BuildProfile = { name: profileName, sizeBudgetMB: 200 };
-    const submitProfile = easConfiguration.submit[profileName];
-    if (submitProfile !== undefined) {
-      const androidSubmission = submitProfile.android;
-      if (androidSubmission !== undefined) {
-        const trackName = androidSubmission.track;
-        if (trackName !== undefined && isPlayTrack(trackName)) {
-          launchProfile.track = trackName;
-        }
-      }
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readExactString(record: Record<string, unknown>, fieldName: string): ExactString {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return { kind: 'absent' };
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field != 'string') {
+    return { kind: 'invalid' };
+  }
+
+  return { kind: 'present', text: field };
+}
+
+function readExactFlag(record: Record<string, unknown>, fieldName: string): ExactFlag {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return { kind: 'absent' };
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field != 'boolean') {
+    return { kind: 'invalid' };
+  }
+
+  return { kind: 'present', flag: field };
+}
+
+function readExactFlagOrText(record: Record<string, unknown>, fieldName: string): ExactFlagOrText {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return { kind: 'absent' };
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field == 'boolean') {
+    return { kind: 'present', flag: field };
+  }
+
+  if (typeof field == 'string') {
+    return { kind: 'present', flag: field };
+  }
+
+  return { kind: 'invalid' };
+}
+
+function keepStringEntry(
+  entryName: string,
+  unknownEntry: unknown,
+  stringEntries: Record<string, string>,
+): void {
+  if (typeof unknownEntry != 'string') {
+    return;
+  }
+
+  stringEntries[entryName] = unknownEntry;
+}
+
+function decodeStringEntries(rawEntries: unknown): Record<string, string> | null {
+  if (isRecord(rawEntries) == false) {
+    return null;
+  }
+
+  const stringEntries: Record<string, string> = {};
+
+  for (const [entryName, unknownEntry] of Object.entries(rawEntries)) {
+    keepStringEntry(entryName, unknownEntry, stringEntries);
+  }
+
+  return stringEntries;
+}
+
+function decodeBuildProfile(rawProfile: unknown): EasBuildProfile | null {
+  if (isRecord(rawProfile) == false) {
+    return null;
+  }
+
+  const buildProfile: {
+    channel?: string;
+    distribution?: string;
+    env?: Record<string, string>;
+    autoIncrement?: boolean | string;
+    developmentClient?: boolean;
+  } = {};
+  const channel = readExactString(rawProfile, 'channel');
+
+  if (channel.kind == 'invalid') {
+    return null;
+  }
+
+  if (channel.kind == 'present') {
+    buildProfile.channel = channel.text;
+  }
+
+  const distribution = readExactString(rawProfile, 'distribution');
+
+  if (distribution.kind == 'invalid') {
+    return null;
+  }
+
+  if (distribution.kind == 'present') {
+    buildProfile.distribution = distribution.text;
+  }
+
+  if (Object.hasOwn(rawProfile, 'env')) {
+    const environment = decodeStringEntries(rawProfile['env']);
+
+    if (environment == null) {
+      return null;
     }
-    launchProfiles[profileName] = launchProfile;
-  }
-  if (Object.keys(launchProfiles).length === 0) {
-    launchProfiles['production'] = { name: 'production', sizeBudgetMB: 200 };
-  }
-  return launchProfiles;
-};
 
-const serializeProfilesSection = (launchProfiles: Record<string, BuildProfile>): string => {
-  const profileLines = JSON.stringify(launchProfiles, null, 2).split('\n');
-  const indentedLines: string[] = [];
-  for (const [lineIndex, profileLine] of profileLines.entries()) {
-    if (lineIndex === 0) {
-      indentedLines.push(profileLine);
+    buildProfile.env = environment;
+  }
+
+  const autoIncrement = readExactFlagOrText(rawProfile, 'autoIncrement');
+
+  if (autoIncrement.kind == 'invalid') {
+    return null;
+  }
+
+  if (autoIncrement.kind == 'present') {
+    buildProfile.autoIncrement = autoIncrement.flag;
+  }
+
+  const developmentClient = readExactFlag(rawProfile, 'developmentClient');
+
+  if (developmentClient.kind == 'invalid') {
+    return null;
+  }
+
+  if (developmentClient.kind == 'present') {
+    buildProfile.developmentClient = developmentClient.flag;
+  }
+
+  return buildProfile;
+}
+
+function decodeBuildProfiles(rawProfiles: unknown): Record<string, EasBuildProfile> | null {
+  if (isRecord(rawProfiles) == false) {
+    return null;
+  }
+
+  const buildProfiles: Record<string, EasBuildProfile> = {};
+
+  for (const [profileName, unknownProfile] of Object.entries(rawProfiles)) {
+    const decodedProfile = decodeBuildProfile(unknownProfile);
+
+    if (decodedProfile == null) {
       continue;
     }
-    indentedLines.push(`  ${profileLine}`);
+
+    buildProfiles[profileName] = decodedProfile;
   }
+
+  return buildProfiles;
+}
+
+function decodeSubmitIos(rawIos: unknown): EasSubmitIos | null {
+  if (isRecord(rawIos) == false) {
+    return null;
+  }
+
+  const iosSubmission: {
+    appleId?: string;
+    ascAppId?: string;
+    appleTeamId?: string;
+  } = {};
+  const appleId = readExactString(rawIos, 'appleId');
+
+  if (appleId.kind == 'invalid') {
+    return null;
+  }
+
+  if (appleId.kind == 'present') {
+    iosSubmission.appleId = appleId.text;
+  }
+
+  const ascAppId = readExactString(rawIos, 'ascAppId');
+
+  if (ascAppId.kind == 'invalid') {
+    return null;
+  }
+
+  if (ascAppId.kind == 'present') {
+    iosSubmission.ascAppId = ascAppId.text;
+  }
+
+  const appleTeamId = readExactString(rawIos, 'appleTeamId');
+
+  if (appleTeamId.kind == 'invalid') {
+    return null;
+  }
+
+  if (appleTeamId.kind == 'present') {
+    iosSubmission.appleTeamId = appleTeamId.text;
+  }
+
+  return iosSubmission;
+}
+
+function decodeSubmitAndroid(rawAndroid: unknown): EasSubmitAndroid | null {
+  if (isRecord(rawAndroid) == false) {
+    return null;
+  }
+
+  const androidSubmission: {
+    serviceAccountKeyPath?: string;
+    track?: string;
+  } = {};
+  const serviceAccountKeyPath = readExactString(rawAndroid, 'serviceAccountKeyPath');
+
+  if (serviceAccountKeyPath.kind == 'invalid') {
+    return null;
+  }
+
+  if (serviceAccountKeyPath.kind == 'present') {
+    androidSubmission.serviceAccountKeyPath = serviceAccountKeyPath.text;
+  }
+
+  const track = readExactString(rawAndroid, 'track');
+
+  if (track.kind == 'invalid') {
+    return null;
+  }
+
+  if (track.kind == 'present') {
+    androidSubmission.track = track.text;
+  }
+
+  return androidSubmission;
+}
+
+function hasIosSubmitFields(iosSubmission: EasSubmitIos): boolean {
+  if (iosSubmission.appleId != null) {
+    return true;
+  }
+
+  if (iosSubmission.ascAppId != null) {
+    return true;
+  }
+
+  return iosSubmission.appleTeamId != null;
+}
+
+function hasAndroidSubmitFields(androidSubmission: EasSubmitAndroid): boolean {
+  if (androidSubmission.serviceAccountKeyPath != null) {
+    return true;
+  }
+
+  return androidSubmission.track != null;
+}
+
+function decodeSubmitProfile(rawProfile: unknown): EasSubmitProfile | null {
+  if (isRecord(rawProfile) == false) {
+    return null;
+  }
+
+  const submitProfile: {
+    ios?: EasSubmitIos;
+    android?: EasSubmitAndroid;
+  } = {};
+
+  if (Object.hasOwn(rawProfile, 'ios')) {
+    const iosSubmission = decodeSubmitIos(rawProfile['ios']);
+
+    if (iosSubmission == null) {
+      return null;
+    }
+
+    if (hasIosSubmitFields(iosSubmission)) {
+      submitProfile.ios = iosSubmission;
+    }
+  }
+
+  if (Object.hasOwn(rawProfile, 'android')) {
+    const androidSubmission = decodeSubmitAndroid(rawProfile['android']);
+
+    if (androidSubmission == null) {
+      return null;
+    }
+
+    if (hasAndroidSubmitFields(androidSubmission)) {
+      submitProfile.android = androidSubmission;
+    }
+  }
+
+  return submitProfile;
+}
+
+function decodeSubmitProfiles(rawProfiles: unknown): Record<string, EasSubmitProfile> | null {
+  if (isRecord(rawProfiles) == false) {
+    return null;
+  }
+
+  const submitProfiles: Record<string, EasSubmitProfile> = {};
+
+  for (const [profileName, unknownProfile] of Object.entries(rawProfiles)) {
+    const decodedProfile = decodeSubmitProfile(unknownProfile);
+
+    if (decodedProfile == null) {
+      continue;
+    }
+
+    submitProfiles[profileName] = decodedProfile;
+  }
+
+  return submitProfiles;
+}
+
+function decodeCli(rawCli: unknown): { appVersionSource?: string } | null {
+  if (isRecord(rawCli) == false) {
+    return null;
+  }
+
+  const cli: { appVersionSource?: string } = {};
+  const appVersionSource = readExactString(rawCli, 'appVersionSource');
+
+  if (appVersionSource.kind == 'invalid') {
+    return null;
+  }
+
+  if (appVersionSource.kind == 'present') {
+    cli.appVersionSource = appVersionSource.text;
+  }
+
+  return cli;
+}
+
+function readDefaultSection(document: Record<string, unknown>, fieldName: string): unknown {
+  if (Object.hasOwn(document, fieldName) == false) {
+    return {};
+  }
+
+  const field = document[fieldName];
+
+  if (typeof field == 'undefined') {
+    return {};
+  }
+
+  return field;
+}
+
+function decodeEasDocument(rawDocument: unknown): EasJson {
+  if (isRecord(rawDocument) == false) {
+    throw new Error('eas.json must be a JSON object.');
+  }
+
+  const easConfiguration: {
+    cli?: { appVersionSource?: string };
+    build: Record<string, EasBuildProfile>;
+    submit: Record<string, EasSubmitProfile>;
+  } = {
+    build: {},
+    submit: {},
+  };
+
+  if (Object.hasOwn(rawDocument, 'cli')) {
+    const cli = decodeCli(rawDocument['cli']);
+
+    if (cli == null) {
+      throw new Error('cli must be an object.');
+    }
+
+    easConfiguration.cli = cli;
+  }
+
+  const buildProfiles = decodeBuildProfiles(readDefaultSection(rawDocument, 'build'));
+
+  if (buildProfiles == null) {
+    throw new Error('build must be an object.');
+  }
+
+  easConfiguration.build = buildProfiles;
+  const submitProfiles = decodeSubmitProfiles(readDefaultSection(rawDocument, 'submit'));
+
+  if (submitProfiles == null) {
+    throw new Error('submit must be an object.');
+  }
+
+  easConfiguration.submit = submitProfiles;
+
+  return easConfiguration;
+}
+
+/** Decode the EAS fields that Launch migrates and discard unsupported fields at the boundary. */
+export function parseEasJson(easJsonSource: string): EasJson {
+  let parsedDocument: unknown;
+
+  try {
+    parsedDocument = JSON.parse(easJsonSource);
+  } catch (cause) {
+    throw makeEasMigrationFailure({ reason: 'InvalidEasJson', cause });
+  }
+
+  try {
+    return decodeEasDocument(parsedDocument);
+  } catch (cause) {
+    throw makeEasMigrationFailure({ reason: 'InvalidEasJson', cause });
+  }
+}
+
+function isPlayTrack(trackName: string): trackName is PlayTrack {
+  function sameTrack(playTrack: PlayTrack): boolean {
+    return playTrack == trackName;
+  }
+
+  return PLAY_TRACKS.some(sameTrack);
+}
+
+function trackFromSubmitProfile(submitProfile: EasSubmitProfile | undefined): PlayTrack | null {
+  if (submitProfile == null) {
+    return null;
+  }
+
+  const androidSubmission = submitProfile.android;
+
+  if (androidSubmission == null) {
+    return null;
+  }
+
+  const trackName = androidSubmission.track;
+
+  if (trackName == null) {
+    return null;
+  }
+
+  if (isPlayTrack(trackName) == false) {
+    return null;
+  }
+
+  return trackName;
+}
+
+/** Project EAS build profiles into Launch `profiles`, lifting a matching Play submit track when valid. */
+export function launchProfilesFromEas(easConfiguration: EasJson): Record<string, BuildProfile> {
+  const launchProfiles: Record<string, BuildProfile> = {};
+
+  for (const profileName of Object.keys(easConfiguration.build)) {
+    const launchProfile: BuildProfile = {
+      name: profileName,
+      sizeBudgetMB: DEFAULT_PROFILE_SIZE_BUDGET_MB,
+    };
+    const playTrack = trackFromSubmitProfile(easConfiguration.submit[profileName]);
+
+    if (playTrack != null) {
+      launchProfile.track = playTrack;
+    }
+
+    launchProfiles[profileName] = launchProfile;
+  }
+
+  if (Object.keys(launchProfiles).length == 0) {
+    launchProfiles['production'] = {
+      name: 'production',
+      sizeBudgetMB: DEFAULT_PROFILE_SIZE_BUDGET_MB,
+    };
+  }
+
+  return launchProfiles;
+}
+
+function indentProfileLine(lineIndex: number, profileLine: string): string {
+  if (lineIndex == 0) {
+    return profileLine;
+  }
+
+  return `  ${profileLine}`;
+}
+
+function serializeProfilesSection(launchProfiles: Record<string, BuildProfile>): string {
+  const profileLines = JSON.stringify(launchProfiles, null, 2).split('\n');
+  const indentedLines: string[] = [];
+
+  for (const [lineIndex, profileLine] of profileLines.entries()) {
+    indentedLines.push(indentProfileLine(lineIndex, profileLine));
+  }
+
   return [
     '  // Imported from eas.json by `launch migrate eas` - review, then commit.',
     `  profiles: ${indentedLines.join('\n')},`,
   ].join('\n');
-};
+}
 
 /** Sorted union of env keys declared across every EAS build profile. */
-export const collectEnvironmentKeys = (easConfiguration: EasJson): string[] => {
+export function collectEnvironmentKeys(easConfiguration: EasJson): string[] {
   const environmentKeys = new Set<string>();
+
   for (const buildProfile of Object.values(easConfiguration.build)) {
-    if (buildProfile.env === undefined) continue;
+    if (buildProfile.env == null) {
+      continue;
+    }
+
     for (const environmentKey of Object.keys(buildProfile.env)) {
       environmentKeys.add(environmentKey);
     }
   }
-  return [...environmentKeys].sort();
-};
 
-const profileEnvironmentArtifactsFromEas = (easConfiguration: EasJson): MigrationArtifact[] => {
+  return [...environmentKeys].sort();
+}
+
+function profileEnvironmentArtifactsFromEas(easConfiguration: EasJson): MigrationArtifact[] {
   const environmentArtifacts: MigrationArtifact[] = [];
+
   for (const [profileName, buildProfile] of Object.entries(easConfiguration.build)) {
-    if (buildProfile.env === undefined) continue;
+    if (buildProfile.env == null) {
+      continue;
+    }
+
     environmentArtifacts.push({
       path: `.env.${profileName}`,
       contents: buildEnvExample(Object.keys(buildProfile.env).sort()),
     });
   }
-  return environmentArtifacts;
-};
 
-const notesFromBuildProfiles = (easConfiguration: EasJson): MigrationNote[] => {
+  return environmentArtifacts;
+}
+
+function notesFromBuildProfiles(easConfiguration: EasJson): MigrationNote[] {
   const migrationNotes: MigrationNote[] = [];
+
   for (const [profileName, buildProfile] of Object.entries(easConfiguration.build)) {
     migrationNotes.push({
       level: 'mapped',
       message: `Build profile "${profileName}" -> Launch profile "${profileName}".`,
     });
-    if (buildProfile.env !== undefined) {
+
+    if (buildProfile.env != null) {
       migrationNotes.push({
         level: 'mapped',
         message: `Profile "${profileName}" env keys -> .env.${profileName} (values left blank - fill them in; they may be secrets).`,
       });
     }
-    if (buildProfile.channel !== undefined) {
+
+    if (buildProfile.channel != null) {
       migrationNotes.push({
         level: 'manual',
         message: `Profile "${profileName}" published to EAS Update channel "${buildProfile.channel}" - set up OTA with \`launch update --channel ${buildProfile.channel}\` (see \`launch explain ota-update\`).`,
       });
     }
-    if (buildProfile.distribution === 'internal') {
+
+    if (buildProfile.distribution == 'internal') {
       migrationNotes.push({
         level: 'manual',
         message: `Profile "${profileName}" used internal (ad-hoc) distribution - register tester devices with \`launch device add\` (see \`launch explain ad-hoc-distribution\`).`,
       });
     }
-    if (buildProfile.developmentClient === true) {
+
+    if (buildProfile.developmentClient == true) {
       migrationNotes.push({
         level: 'manual',
         message: `Profile "${profileName}" built a development client - that's a dev tool, not a store build; Launch ships store and TestFlight builds.`,
       });
     }
   }
-  return migrationNotes;
-};
 
-const notesFromSubmitProfiles = (easConfiguration: EasJson): MigrationNote[] => {
+  return migrationNotes;
+}
+
+function isUnrecognizedPlayTrack(trackName: string | undefined): boolean {
+  if (trackName == null) {
+    return false;
+  }
+
+  return isPlayTrack(trackName) == false;
+}
+
+function notesFromSubmitProfiles(easConfiguration: EasJson): MigrationNote[] {
   const migrationNotes: MigrationNote[] = [];
+
   for (const [profileName, submitProfile] of Object.entries(easConfiguration.submit)) {
-    if (submitProfile.ios !== undefined) {
+    if (submitProfile.ios != null) {
       migrationNotes.push({
         level: 'manual',
         message: `Submit profile "${profileName}" carried Apple account details (appleId/ascAppId/appleTeamId) - configure your Apple API key with \`launch creds set-key\`.`,
       });
     }
+
     const androidSubmission = submitProfile.android;
-    if (androidSubmission === undefined) continue;
-    if (androidSubmission.serviceAccountKeyPath !== undefined) {
+
+    if (androidSubmission == null) {
+      continue;
+    }
+
+    if (androidSubmission.serviceAccountKeyPath != null) {
       migrationNotes.push({
         level: 'manual',
         message: `Submit profile "${profileName}" referenced a Play service account key (${androidSubmission.serviceAccountKeyPath}) - configure it with \`launch creds\`.`,
       });
     }
-    const trackName = androidSubmission.track;
-    if (trackName !== undefined && !isPlayTrack(trackName)) {
+
+    if (isUnrecognizedPlayTrack(androidSubmission.track)) {
       migrationNotes.push({
         level: 'manual',
-        message: `Submit profile "${profileName}" had an unrecognized Play track "${trackName}" - set a valid track (internal/closed/open/production) on the profile.`,
+        message: `Submit profile "${profileName}" had an unrecognized Play track "${androidSubmission.track}" - set a valid track (internal/closed/open/production) on the profile.`,
       });
     }
   }
-  return migrationNotes;
-};
 
-const notesFromEasCli = (easConfiguration: EasJson): MigrationNote[] => {
+  return migrationNotes;
+}
+
+function notesFromEasCli(easConfiguration: EasJson): MigrationNote[] {
   const cliBlock = easConfiguration.cli;
-  if (cliBlock === undefined) return [];
-  if (cliBlock.appVersionSource !== 'remote') return [];
+
+  if (cliBlock == null) {
+    return [];
+  }
+
+  if (cliBlock.appVersionSource != 'remote') {
+    return [];
+  }
+
   return [
     {
       level: 'mapped',
@@ -311,350 +703,664 @@ const notesFromEasCli = (easConfiguration: EasJson): MigrationNote[] => {
         '`cli.appVersionSource: remote` -> Launch already bumps build numbers from the store, matching remote.',
     },
   ];
-};
+}
 
-const notesFromAppIdentifiers = (apps: AppDescriptor[]): MigrationNote[] => {
+function notesFromAppIdentifiers(apps: AppDescriptor[]): MigrationNote[] {
   const migrationNotes: MigrationNote[] = [];
+
   for (const app of apps) {
-    if (app.bundleId !== undefined) {
+    if (app.bundleId != null) {
       migrationNotes.push({
         level: 'info',
         message: `Detected iOS bundle id ${app.bundleId} for "${app.name}" - read from app.json; nothing to write.`,
       });
     }
-    if (app.packageName !== undefined) {
+
+    if (app.packageName != null) {
       migrationNotes.push({
         level: 'info',
         message: `Detected Android package ${app.packageName} for "${app.name}" - read from app.json; nothing to write.`,
       });
     }
   }
+
   return migrationNotes;
-};
+}
 
 /** Report notes for build/submit/cli mapping and detected store identifiers. */
-export const notesFromEasConfiguration = (
+export function notesFromEasConfiguration(
   easConfiguration: EasJson,
   apps: AppDescriptor[],
-): MigrationNote[] => [
-  ...notesFromBuildProfiles(easConfiguration),
-  ...notesFromSubmitProfiles(easConfiguration),
-  ...notesFromEasCli(easConfiguration),
-  {
-    level: 'manual',
-    message:
-      'EAS built in the cloud; Launch builds locally by default (`buildEngine: "xcode"`). No Mac? Set `buildEngine: "eas"` or run `launch build --remote` (see `launch explain eas-handoff`).',
-  },
-  ...notesFromAppIdentifiers(apps),
-];
+): MigrationNote[] {
+  return [
+    ...notesFromBuildProfiles(easConfiguration),
+    ...notesFromSubmitProfiles(easConfiguration),
+    ...notesFromEasCli(easConfiguration),
+    {
+      level: 'manual',
+      message:
+        'EAS built in the cloud; Launch builds locally by default (`buildEngine: "xcode"`). No Mac? Set `buildEngine: "eas"` or run `launch build --remote` (see `launch explain eas-handoff`).',
+    },
+    ...notesFromAppIdentifiers(apps),
+  ];
+}
 
-const CredentialsDocumentSchema = Schema.mutable(
-  Schema.Struct({
-    ios: Schema.optionalWith(
-      Schema.mutable(
-        Schema.Struct({
-          provisioningProfilePath: Schema.optionalWith(Schema.String, { exact: true }),
-          distributionCertificate: Schema.optionalWith(
-            Schema.mutable(
-              Schema.Struct({
-                path: Schema.optionalWith(Schema.String, { exact: true }),
-              }),
-            ),
-            { exact: true },
-          ),
-        }),
-      ),
-      { exact: true },
-    ),
-    android: Schema.optionalWith(
-      Schema.mutable(
-        Schema.Struct({
-          keystore: Schema.optionalWith(
-            Schema.mutable(
-              Schema.Struct({
-                keystorePath: Schema.optionalWith(Schema.String, { exact: true }),
-                keyAlias: Schema.optionalWith(Schema.String, { exact: true }),
-              }),
-            ),
-            { exact: true },
-          ),
-        }),
-      ),
-      { exact: true },
-    ),
-  }),
-);
+type CredentialsIos = {
+  provisioningProfilePath?: string;
+  distributionCertificate?: { path?: string };
+};
 
-type CredentialsDocument = Schema.Schema.Type<typeof CredentialsDocumentSchema>;
+type CredentialsAndroid = {
+  keystore?: {
+    keystorePath?: string;
+    keyAlias?: string;
+  };
+};
 
-/** Drop password fields and keep only path/alias facts Launch can surface in notes. */
-const credentialsSummaryFromDocument = (
-  credentialsDocument: CredentialsDocument,
-): CredentialsSummary | null => {
-  const credentialsSummary: MutableDeep<CredentialsSummary> = {};
+function decodeCertificate(rawCertificate: unknown): { path?: string } | null {
+  if (isRecord(rawCertificate) == false) {
+    return null;
+  }
+
+  const certificate: { path?: string } = {};
+  const certificatePath = readExactString(rawCertificate, 'path');
+
+  if (certificatePath.kind == 'invalid') {
+    return null;
+  }
+
+  if (certificatePath.kind == 'present') {
+    certificate.path = certificatePath.text;
+  }
+
+  return certificate;
+}
+
+function decodeCredentialsIos(rawIos: unknown): CredentialsIos | null {
+  if (isRecord(rawIos) == false) {
+    return null;
+  }
+
+  const iosCredentials: CredentialsIos = {};
+  const provisioningProfilePath = readExactString(rawIos, 'provisioningProfilePath');
+
+  if (provisioningProfilePath.kind == 'invalid') {
+    return null;
+  }
+
+  if (provisioningProfilePath.kind == 'present') {
+    iosCredentials.provisioningProfilePath = provisioningProfilePath.text;
+  }
+
+  if (Object.hasOwn(rawIos, 'distributionCertificate')) {
+    const distributionCertificate = decodeCertificate(rawIos['distributionCertificate']);
+
+    if (distributionCertificate == null) {
+      return null;
+    }
+
+    iosCredentials.distributionCertificate = distributionCertificate;
+  }
+
+  return iosCredentials;
+}
+
+function decodeKeystore(rawKeystore: unknown): { keystorePath?: string; keyAlias?: string } | null {
+  if (isRecord(rawKeystore) == false) {
+    return null;
+  }
+
+  const keystore: { keystorePath?: string; keyAlias?: string } = {};
+  const keystorePath = readExactString(rawKeystore, 'keystorePath');
+
+  if (keystorePath.kind == 'invalid') {
+    return null;
+  }
+
+  if (keystorePath.kind == 'present') {
+    keystore.keystorePath = keystorePath.text;
+  }
+
+  const keyAlias = readExactString(rawKeystore, 'keyAlias');
+
+  if (keyAlias.kind == 'invalid') {
+    return null;
+  }
+
+  if (keyAlias.kind == 'present') {
+    keystore.keyAlias = keyAlias.text;
+  }
+
+  return keystore;
+}
+
+function decodeCredentialsAndroid(rawAndroid: unknown): CredentialsAndroid | null {
+  if (isRecord(rawAndroid) == false) {
+    return null;
+  }
+
+  const androidCredentials: CredentialsAndroid = {};
+
+  if (Object.hasOwn(rawAndroid, 'keystore')) {
+    const keystore = decodeKeystore(rawAndroid['keystore']);
+
+    if (keystore == null) {
+      return null;
+    }
+
+    androidCredentials.keystore = keystore;
+  }
+
+  return androidCredentials;
+}
+
+function decodeCredentialsDocument(rawDocument: unknown): {
+  ios?: CredentialsIos;
+  android?: CredentialsAndroid;
+} | null {
+  if (isRecord(rawDocument) == false) {
+    return null;
+  }
+
+  const credentialsDocument: { ios?: CredentialsIos; android?: CredentialsAndroid } = {};
+
+  if (Object.hasOwn(rawDocument, 'ios')) {
+    const iosCredentials = decodeCredentialsIos(rawDocument['ios']);
+
+    if (iosCredentials == null) {
+      return null;
+    }
+
+    credentialsDocument.ios = iosCredentials;
+  }
+
+  if (Object.hasOwn(rawDocument, 'android')) {
+    const androidCredentials = decodeCredentialsAndroid(rawDocument['android']);
+
+    if (androidCredentials == null) {
+      return null;
+    }
+
+    credentialsDocument.android = androidCredentials;
+  }
+
+  return credentialsDocument;
+}
+
+function credentialsSummaryFromDocument(credentialsDocument: {
+  ios?: CredentialsIos;
+  android?: CredentialsAndroid;
+}): CredentialsSummary | null {
+  const credentialsSummary: {
+    ios?: { distributionCertificatePath?: string; provisioningProfilePath?: string };
+    android?: { keystorePath?: string; keyAlias?: string };
+  } = {};
   const iosCredentials = credentialsDocument.ios;
-  if (iosCredentials !== undefined) {
+
+  if (iosCredentials != null) {
     let distributionCertificatePath: string | undefined;
     const distributionCertificate = iosCredentials.distributionCertificate;
-    if (distributionCertificate !== undefined) {
+
+    if (distributionCertificate != null) {
       distributionCertificatePath = distributionCertificate.path;
     }
+
     const provisioningProfilePath = iosCredentials.provisioningProfilePath;
-    let hasIosSigningPath = distributionCertificatePath !== undefined;
-    if (provisioningProfilePath !== undefined) hasIosSigningPath = true;
+    let hasIosSigningPath = distributionCertificatePath != null;
+
+    if (provisioningProfilePath != null) {
+      hasIosSigningPath = true;
+    }
+
     if (hasIosSigningPath) {
       credentialsSummary.ios = {};
-      if (distributionCertificatePath !== undefined) {
+
+      if (distributionCertificatePath != null) {
         credentialsSummary.ios.distributionCertificatePath = distributionCertificatePath;
       }
-      if (provisioningProfilePath !== undefined) {
+
+      if (provisioningProfilePath != null) {
         credentialsSummary.ios.provisioningProfilePath = provisioningProfilePath;
       }
     }
   }
+
   const androidCredentials = credentialsDocument.android;
-  if (androidCredentials !== undefined) {
+
+  if (androidCredentials != null) {
     const androidKeystore = androidCredentials.keystore;
-    if (androidKeystore !== undefined) {
-      let hasAndroidKeystoreField = androidKeystore.keystorePath !== undefined;
-      if (androidKeystore.keyAlias !== undefined) hasAndroidKeystoreField = true;
+
+    if (androidKeystore != null) {
+      let hasAndroidKeystoreField = androidKeystore.keystorePath != null;
+
+      if (androidKeystore.keyAlias != null) {
+        hasAndroidKeystoreField = true;
+      }
+
       if (hasAndroidKeystoreField) {
         credentialsSummary.android = {};
-        if (androidKeystore.keystorePath !== undefined) {
+
+        if (androidKeystore.keystorePath != null) {
           credentialsSummary.android.keystorePath = androidKeystore.keystorePath;
         }
-        if (androidKeystore.keyAlias !== undefined) {
+
+        if (androidKeystore.keyAlias != null) {
           credentialsSummary.android.keyAlias = androidKeystore.keyAlias;
         }
       }
     }
   }
-  if (credentialsSummary.ios !== undefined) return credentialsSummary;
-  if (credentialsSummary.android !== undefined) return credentialsSummary;
+
+  if (credentialsSummary.ios != null) {
+    return credentialsSummary;
+  }
+
+  if (credentialsSummary.android != null) {
+    return credentialsSummary;
+  }
+
   return null;
-};
+}
 
 /** Decode credentials.json source and keep only non-secret path/alias facts. */
-export const credentialsSummaryFromJson = (
-  credentialsSource: string,
-): CredentialsSummary | null => {
-  const decodedDocument = Schema.decodeUnknownOption(Schema.parseJson(CredentialsDocumentSchema))(
-    credentialsSource,
-  );
-  if (Option.isNone(decodedDocument)) return null;
-  return credentialsSummaryFromDocument(decodedDocument.value);
-};
+export function credentialsSummaryFromJson(credentialsSource: string): CredentialsSummary | null {
+  let parsedDocument: unknown;
 
-const readCredentialsSummary = (
+  try {
+    parsedDocument = JSON.parse(credentialsSource);
+  } catch (error) {
+    const isInvalidJson = error != null;
+
+    if (isInvalidJson) {
+      return null;
+    }
+
+    return null;
+  }
+
+  const credentialsDocument = decodeCredentialsDocument(parsedDocument);
+
+  if (credentialsDocument == null) {
+    return null;
+  }
+
+  return credentialsSummaryFromDocument(credentialsDocument);
+}
+
+async function readCredentialsSummary(
   workingDirectory: string,
-): Effect.Effect<CredentialsSummary | null, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const credentialsPath = pathService.join(workingDirectory, 'credentials.json');
-    if (!(yield* fileSystem.exists(credentialsPath))) return null;
-    const credentialsSource = yield* fileSystem.readFileString(credentialsPath).pipe(Effect.option);
-    if (Option.isNone(credentialsSource)) return null;
-    return credentialsSummaryFromJson(credentialsSource.value);
-  });
+): Promise<CredentialsSummary | null> {
+  const credentialsPath = join(workingDirectory, 'credentials.json');
+  const credentialsExist = await pathExists(credentialsPath);
+
+  if (credentialsExist == false) {
+    return null;
+  }
+
+  try {
+    const credentialsSource = await readFile(credentialsPath, 'utf8');
+
+    return credentialsSummaryFromJson(credentialsSource);
+  } catch (error) {
+    // An unreadable credentials.json is optional and does not stop the migration.
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      return null;
+    }
+
+    return null;
+  }
+}
 
 /** Manual follow-ups when local EAS credentials.json still holds signing material. */
-export const notesFromCredentialsSummary = (
+export function notesFromCredentialsSummary(
   credentialsSummary: CredentialsSummary,
-): MigrationNote[] => {
+): MigrationNote[] {
   const migrationNotes: MigrationNote[] = [];
   const iosCredentials = credentialsSummary.ios;
-  if (iosCredentials !== undefined) {
+
+  if (iosCredentials != null) {
     let certificateLocation = 'your distribution certificate';
-    if (iosCredentials.distributionCertificatePath !== undefined) {
+
+    if (iosCredentials.distributionCertificatePath != null) {
       certificateLocation = iosCredentials.distributionCertificatePath;
     }
+
     migrationNotes.push({
       level: 'manual',
       message: `Local iOS signing material in credentials.json (${certificateLocation}) - import it with \`launch creds\`; Launch keeps certs in the OS keychain and never reads the password from credentials.json.`,
     });
   }
+
   const androidCredentials = credentialsSummary.android;
-  if (androidCredentials !== undefined) {
+
+  if (androidCredentials != null) {
     let keystoreLocation = 'your release keystore';
-    if (androidCredentials.keystorePath !== undefined) {
+
+    if (androidCredentials.keystorePath != null) {
       keystoreLocation = androidCredentials.keystorePath;
     }
+
     let keyAliasLabel = '';
-    if (androidCredentials.keyAlias !== undefined) {
+
+    if (androidCredentials.keyAlias != null) {
       keyAliasLabel = `, key alias "${androidCredentials.keyAlias}"`;
     }
+
     migrationNotes.push({
       level: 'manual',
       message: `Local Android keystore in credentials.json (${keystoreLocation}${keyAliasLabel}) - register it with \`launch creds\`; the keystore/key passwords are never read from credentials.json.`,
     });
   }
+
   return migrationNotes;
-};
+}
 
-const RuntimeVersionSchema = Schema.Union(
-  Schema.String,
-  Schema.mutable(
-    Schema.Struct({
-      policy: Schema.optionalWith(Schema.String, { exact: true }),
-    }),
-  ),
-);
+function decodeRuntimeVersion(rawVersion: unknown): RuntimeVersion | null {
+  if (typeof rawVersion == 'string') {
+    return rawVersion;
+  }
 
-const ExpoFactsSchema = Schema.mutable(
-  Schema.Struct({
-    owner: Schema.optionalWith(Schema.String, { exact: true }),
-    runtimeVersion: Schema.optionalWith(RuntimeVersionSchema, { exact: true }),
-    updates: Schema.optionalWith(Schema.Unknown, { exact: true }),
-    extra: Schema.optionalWith(
-      Schema.mutable(
-        Schema.Struct({
-          eas: Schema.optionalWith(
-            Schema.mutable(
-              Schema.Struct({
-                projectId: Schema.optionalWith(Schema.String, { exact: true }),
-              }),
-            ),
-            { exact: true },
-          ),
-        }),
-      ),
-      { exact: true },
-    ),
-  }),
-);
+  if (isRecord(rawVersion) == false) {
+    return null;
+  }
 
-const ExpoWrapperSchema = Schema.mutable(
-  Schema.Struct({
-    expo: Schema.optionalWith(ExpoFactsSchema, { exact: true }),
-  }),
-);
+  const runtimeVersion: { policy?: string } = {};
+  const policy = readExactString(rawVersion, 'policy');
 
-type ExpoFacts = Schema.Schema.Type<typeof ExpoFactsSchema>;
+  if (policy.kind == 'invalid') {
+    return null;
+  }
+
+  if (policy.kind == 'present') {
+    runtimeVersion.policy = policy.text;
+  }
+
+  return runtimeVersion;
+}
+
+function decodeEasProject(rawProject: unknown): { projectId?: string } | null {
+  if (isRecord(rawProject) == false) {
+    return null;
+  }
+
+  const easProject: { projectId?: string } = {};
+  const projectId = readExactString(rawProject, 'projectId');
+
+  if (projectId.kind == 'invalid') {
+    return null;
+  }
+
+  if (projectId.kind == 'present') {
+    easProject.projectId = projectId.text;
+  }
+
+  return easProject;
+}
+
+function decodeExtra(rawExtra: unknown): { eas?: { projectId?: string } } | null {
+  if (isRecord(rawExtra) == false) {
+    return null;
+  }
+
+  const extra: { eas?: { projectId?: string } } = {};
+
+  if (Object.hasOwn(rawExtra, 'eas')) {
+    const easProject = decodeEasProject(rawExtra['eas']);
+
+    if (easProject == null) {
+      return null;
+    }
+
+    extra.eas = easProject;
+  }
+
+  return extra;
+}
+
+function decodeExpoFacts(rawFacts: unknown): ExpoFacts | null {
+  if (isRecord(rawFacts) == false) {
+    return null;
+  }
+
+  const expoFacts: {
+    owner?: string;
+    runtimeVersion?: RuntimeVersion;
+    updates?: unknown;
+    extra?: { eas?: { projectId?: string } };
+  } = {};
+  const owner = readExactString(rawFacts, 'owner');
+
+  if (owner.kind == 'invalid') {
+    return null;
+  }
+
+  if (owner.kind == 'present') {
+    expoFacts.owner = owner.text;
+  }
+
+  if (Object.hasOwn(rawFacts, 'runtimeVersion')) {
+    const runtimeVersion = decodeRuntimeVersion(rawFacts['runtimeVersion']);
+
+    if (runtimeVersion == null) {
+      return null;
+    }
+
+    expoFacts.runtimeVersion = runtimeVersion;
+  }
+
+  if (Object.hasOwn(rawFacts, 'updates')) {
+    const updates = rawFacts['updates'];
+
+    if (typeof updates == 'undefined') {
+      return null;
+    }
+
+    expoFacts.updates = updates;
+  }
+
+  if (Object.hasOwn(rawFacts, 'extra')) {
+    const extra = decodeExtra(rawFacts['extra']);
+
+    if (extra == null) {
+      return null;
+    }
+
+    expoFacts.extra = extra;
+  }
+
+  return expoFacts;
+}
+
+function decodeExpoWrapper(rawDocument: unknown): { expo?: ExpoFacts } | null {
+  if (isRecord(rawDocument) == false) {
+    return null;
+  }
+
+  if (Object.hasOwn(rawDocument, 'expo') == false) {
+    return {};
+  }
+
+  const expoFacts = decodeExpoFacts(rawDocument['expo']);
+
+  if (expoFacts == null) {
+    return null;
+  }
+
+  return { expo: expoFacts };
+}
+
+function wrappedExpoFacts(resolvedConfiguration: Record<string, unknown>): ExpoFacts | null {
+  const decodedWrapper = decodeExpoWrapper(resolvedConfiguration);
+
+  if (decodedWrapper == null) {
+    return null;
+  }
+
+  if (decodedWrapper.expo == null) {
+    return null;
+  }
+
+  return decodedWrapper.expo;
+}
 
 /** Read Expo/EAS project facts from either a wrapped or bare app config document. */
-export const expoFactsFromResolvedConfig = (
+export function expoFactsFromResolvedConfig(
   resolvedConfiguration: Record<string, unknown>,
-): ExpoFacts | null => {
-  const decodedWrapper = Schema.decodeUnknownOption(ExpoWrapperSchema)(resolvedConfiguration);
-  if (Option.isSome(decodedWrapper)) {
-    const wrappedExpo = decodedWrapper.value.expo;
-    if (wrappedExpo !== undefined) return wrappedExpo;
+): ExpoFacts | null {
+  const wrappedFacts = wrappedExpoFacts(resolvedConfiguration);
+
+  if (wrappedFacts != null) {
+    return wrappedFacts;
   }
-  return Option.getOrNull(Schema.decodeUnknownOption(ExpoFactsSchema)(resolvedConfiguration));
-};
+
+  return decodeExpoFacts(resolvedConfiguration);
+}
 
 /** Human-readable runtimeVersion label for info notes. */
-export const describeRuntimeVersion = (
-  runtimeVersion: Schema.Schema.Type<typeof RuntimeVersionSchema>,
-): string | undefined => {
-  if (typeof runtimeVersion === 'string') return runtimeVersion;
-  if (runtimeVersion.policy !== undefined) return `policy "${runtimeVersion.policy}"`;
+export function describeRuntimeVersion(runtimeVersion: RuntimeVersion): string | undefined {
+  if (typeof runtimeVersion == 'string') {
+    return runtimeVersion;
+  }
+
+  if (runtimeVersion.policy != null) {
+    return `policy "${runtimeVersion.policy}"`;
+  }
+
   return undefined;
-};
+}
+
+function projectIdFromExpoFacts(expoFacts: ExpoFacts): string | undefined {
+  const extraBlock = expoFacts.extra;
+
+  if (extraBlock == null) {
+    return undefined;
+  }
+
+  const easBlock = extraBlock.eas;
+
+  if (easBlock == null) {
+    return undefined;
+  }
+
+  return easBlock.projectId;
+}
 
 /** Info notes from Expo app.json facts (project id, owner, runtimeVersion, updates). */
-export const notesFromExpoFacts = (appName: string, expoFacts: ExpoFacts): MigrationNote[] => {
+export function notesFromExpoFacts(appName: string, expoFacts: ExpoFacts): MigrationNote[] {
   const migrationNotes: MigrationNote[] = [];
-  let projectId: string | undefined;
-  const extraBlock = expoFacts.extra;
-  if (extraBlock !== undefined) {
-    const easBlock = extraBlock.eas;
-    if (easBlock !== undefined) projectId = easBlock.projectId;
-  }
-  if (projectId !== undefined) {
+  const projectId = projectIdFromExpoFacts(expoFacts);
+
+  if (projectId != null) {
     migrationNotes.push({
       level: 'info',
       message: `"${appName}" is EAS project ${projectId} (app.json extra.eas.projectId) - Launch doesn't use an EAS project id; drop it once you've cut over.`,
     });
   }
-  if (expoFacts.owner !== undefined) {
+
+  if (expoFacts.owner != null) {
     migrationNotes.push({
       level: 'info',
       message: `"${appName}" is owned by the Expo account "${expoFacts.owner}" - Launch publishes under your Apple/Play accounts, not an Expo owner.`,
     });
   }
-  if (expoFacts.runtimeVersion !== undefined) {
+
+  if (expoFacts.runtimeVersion != null) {
     const runtimeVersionLabel = describeRuntimeVersion(expoFacts.runtimeVersion);
-    if (runtimeVersionLabel !== undefined) {
+
+    if (runtimeVersionLabel != null) {
       migrationNotes.push({
         level: 'info',
         message: `"${appName}" set runtimeVersion ${runtimeVersionLabel} - relevant only for EAS Update; Launch ships store builds (see \`launch explain ota-update\`).`,
       });
     }
   }
-  if (expoFacts.updates !== undefined) {
+
+  const hasUpdates = typeof expoFacts.updates != 'undefined';
+
+  if (hasUpdates) {
     migrationNotes.push({
       level: 'info',
       message: `"${appName}" configures expo.updates (EAS Update) - Launch ships store builds and doesn't run OTA by default (see \`launch explain ota-update\`).`,
     });
   }
-  return migrationNotes;
-};
 
-const notesFromAppExpoFacts = (apps: AppDescriptor[]) =>
-  Effect.gen(function* () {
-    const migrationNotes: MigrationNote[] = [];
-    for (const app of apps) {
-      const resolvedConfiguration = yield* readResolvedConfig(app.dir);
-      if (resolvedConfiguration === null) continue;
-      const expoFacts = expoFactsFromResolvedConfig(resolvedConfiguration);
-      if (expoFacts === null) continue;
-      migrationNotes.push(...notesFromExpoFacts(app.name, expoFacts));
+  return migrationNotes;
+}
+
+async function notesFromAppExpoFacts(apps: AppDescriptor[]): Promise<MigrationNote[]> {
+  const migrationNotes: MigrationNote[] = [];
+
+  for (const app of apps) {
+    const resolvedConfiguration = await readResolvedConfig(app.dir);
+
+    if (resolvedConfiguration == null) {
+      continue;
     }
-    return migrationNotes;
-  });
+
+    const expoFacts = expoFactsFromResolvedConfig(resolvedConfiguration);
+
+    if (expoFacts == null) {
+      continue;
+    }
+
+    migrationNotes.push(...notesFromExpoFacts(app.name, expoFacts));
+  }
+
+  return migrationNotes;
+}
 
 /** Read an EAS project and return the Launch artifacts and follow-up notes without writing them. */
-export const migrateEas = (
+export async function migrateEas(
   workingDirectory: string,
   apps: AppDescriptor[],
-): Effect.Effect<
-  MigrationResult,
-  EasMigrationFailure | PlatformError,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const easPath = pathService.join(workingDirectory, 'eas.json');
-    if (!(yield* fileSystem.exists(easPath))) {
-      return yield* Effect.fail(
-        makeEasMigrationFailure({ reason: 'MissingEasConfig', sourcePath: easPath }),
-      );
-    }
-    const easJsonSource = yield* fileSystem
-      .readFileString(easPath)
-      .pipe(
-        Effect.mapError((cause) =>
-          makeEasMigrationFailure({ reason: 'InvalidEasJson', sourcePath: easPath, cause }),
-        ),
-      );
-    const easConfiguration = yield* parseEasJson(easJsonSource);
-    const profileSection = serializeProfilesSection(launchProfilesFromEas(easConfiguration));
-    const migrationArtifacts: MigrationArtifact[] = [
-      {
-        path: 'launch.config.ts',
-        contents: configTemplate(
-          yield* detectAppRoot(apps, workingDirectory),
-          undefined,
-          profileSection,
-        ),
-      },
-      {
-        path: '.env.example',
-        contents: buildEnvExample(collectEnvironmentKeys(easConfiguration)),
-      },
-      ...profileEnvironmentArtifactsFromEas(easConfiguration),
-    ];
-    const migrationNotes = notesFromEasConfiguration(easConfiguration, apps);
-    const credentialsSummary = yield* readCredentialsSummary(workingDirectory);
-    if (credentialsSummary !== null) {
-      migrationNotes.push(...notesFromCredentialsSummary(credentialsSummary));
-    }
-    migrationNotes.push(...(yield* notesFromAppExpoFacts(apps)));
-    const storeScaffold = yield* scaffoldStoreConfig(workingDirectory);
-    if (storeScaffold.artifact !== null) migrationArtifacts.push(storeScaffold.artifact);
-    migrationNotes.push(storeScaffold.note);
-    return { source: 'eas', artifacts: migrationArtifacts, notes: migrationNotes };
-  });
+): Promise<MigrationResult> {
+  const easPath = join(workingDirectory, 'eas.json');
+  const easExists = await pathExists(easPath);
+
+  if (easExists == false) {
+    throw makeEasMigrationFailure({ reason: 'MissingEasConfig', sourcePath: easPath });
+  }
+
+  let easJsonSource = '';
+
+  try {
+    easJsonSource = await readFile(easPath, 'utf8');
+  } catch (cause) {
+    throw makeEasMigrationFailure({ reason: 'InvalidEasJson', sourcePath: easPath, cause });
+  }
+
+  const easConfiguration = parseEasJson(easJsonSource);
+  const profileSection = serializeProfilesSection(launchProfilesFromEas(easConfiguration));
+  const appRoot = detectAppRoot(apps, workingDirectory);
+  const migrationArtifacts: MigrationArtifact[] = [
+    {
+      path: 'launch.config.ts',
+      contents: configTemplate(appRoot, undefined, profileSection),
+    },
+    {
+      path: '.env.example',
+      contents: buildEnvExample(collectEnvironmentKeys(easConfiguration)),
+    },
+    ...profileEnvironmentArtifactsFromEas(easConfiguration),
+  ];
+  const migrationNotes = notesFromEasConfiguration(easConfiguration, apps);
+  const credentialsSummary = await readCredentialsSummary(workingDirectory);
+
+  if (credentialsSummary != null) {
+    migrationNotes.push(...notesFromCredentialsSummary(credentialsSummary));
+  }
+
+  const expoNotes = await notesFromAppExpoFacts(apps);
+  migrationNotes.push(...expoNotes);
+  const storeScaffold = await scaffoldStoreConfig(workingDirectory);
+
+  if (storeScaffold.artifact != null) {
+    migrationArtifacts.push(storeScaffold.artifact);
+  }
+
+  migrationNotes.push(storeScaffold.note);
+
+  return { source: 'eas', artifacts: migrationArtifacts, notes: migrationNotes };
+}

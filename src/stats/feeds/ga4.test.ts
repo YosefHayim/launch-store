@@ -1,14 +1,8 @@
-import { HttpClient, HttpClientResponse } from '@effect/platform';
-import { Effect, Layer } from 'effect';
-import { describe, expect, test } from 'vitest';
-import {
-  makeHttpClientSequenceTest,
-  type HttpClientSentRequest,
-  type HttpClientSequenceRoute,
-} from '@testkit/httpClientSequence.testkit.js';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { PortfolioApp } from '../../types/portfolio.js';
-import type { FeedFetchReply, StatsCredentialsShape } from '../../types/stats.js';
-import { makeStatsCredentialsTest, StatsCredentials } from '../statsCredentials.js';
+import type { FeedFetchReply } from '../../types/stats.js';
+import type { StatsCredentialsApi } from '../statsCredentials.js';
+import { makeStatsCredentialsTest, useStatsCredentials } from '../statsCredentials.js';
 import { ga4Feed } from './ga4.js';
 
 const ACCOUNT_SUMMARIES_URL =
@@ -38,7 +32,146 @@ const ANDROID_APP: PortfolioApp = {
   packageName: 'com.example.calfriend',
 };
 
-const readTwoPropertySummaries = (): HttpClientSequenceRoute => ({
+interface SequenceReply {
+  readonly status: number;
+  readonly document: unknown;
+}
+
+interface SequenceRoute {
+  readonly method: string;
+  readonly url: string;
+  readonly replies: readonly SequenceReply[];
+}
+
+interface SentRequest {
+  readonly method: string;
+  readonly url: string;
+  readonly authorization: string | null;
+  readonly sentDocument: string | null;
+}
+
+function readRequestUrl(url: string | URL | Request): string {
+  if (typeof url == 'string') {
+    return url;
+  }
+
+  if (url instanceof URL) {
+    return url.toString();
+  }
+
+  return url.url;
+}
+
+function isHeaderRecord(candidate: unknown): candidate is { authorization?: unknown } {
+  const isMissing = candidate == null;
+
+  if (isMissing) {
+    return false;
+  }
+
+  const isObject = typeof candidate == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  const isList = Array.isArray(candidate);
+
+  return isList == false;
+}
+
+function readAuthorization(headers: unknown): string | null {
+  const hasNoHeaders = headers == null;
+
+  if (hasNoHeaders) {
+    return null;
+  }
+
+  const isHeadersObject = headers instanceof Headers;
+
+  if (isHeadersObject) {
+    return headers.get('authorization');
+  }
+
+  const isRecordedHeader = isHeaderRecord(headers);
+
+  if (isRecordedHeader == false) {
+    return null;
+  }
+
+  const authorization = headers.authorization;
+  const isAuthorizationText = typeof authorization == 'string';
+
+  if (isAuthorizationText == false) {
+    return null;
+  }
+
+  return authorization;
+}
+
+function readSentDocument(body: unknown): string | null {
+  const isTextBody = typeof body == 'string';
+
+  if (isTextBody == false) {
+    return null;
+  }
+
+  return body;
+}
+
+function createReplyBody(document: unknown): string {
+  if (typeof document == 'string') {
+    return document;
+  }
+
+  return JSON.stringify(document);
+}
+
+function installSequenceFetch(routes: readonly SequenceRoute[], sentRequests: SentRequest[]): void {
+  const answeredCounts = new Map<string, number>();
+
+  vi.stubGlobal(
+    'fetch',
+    async function fetchRoute(url: string | URL | Request, init?: RequestInit): Promise<Response> {
+      const method = init?.method ?? 'GET';
+      const requestUrl = readRequestUrl(url);
+      const routeKey = `${method} ${requestUrl}`;
+      sentRequests.push({
+        method,
+        url: requestUrl,
+        authorization: readAuthorization(init?.headers),
+        sentDocument: readSentDocument(init?.body),
+      });
+
+      function matchesRoute(route: SequenceRoute): boolean {
+        if (route.method != method) {
+          return false;
+        }
+
+        return route.url == requestUrl;
+      }
+
+      const requestedRoute = routes.find(matchesRoute);
+
+      if (requestedRoute == undefined) {
+        throw new Error(`No test route for ${routeKey}`);
+      }
+
+      const answeredCount = answeredCounts.get(routeKey) ?? 0;
+      answeredCounts.set(routeKey, answeredCount + 1);
+      const lastReplyIndex = requestedRoute.replies.length - 1;
+      const reply = requestedRoute.replies[Math.min(answeredCount, lastReplyIndex)];
+
+      if (reply == undefined) {
+        throw new Error(`Route ${routeKey} has no replies`);
+      }
+
+      return new Response(createReplyBody(reply.document), { status: reply.status });
+    },
+  );
+}
+
+const readTwoPropertySummaries = (): SequenceRoute => ({
   method: 'GET',
   url: ACCOUNT_SUMMARIES_URL,
   replies: [
@@ -53,10 +186,7 @@ const readTwoPropertySummaries = (): HttpClientSequenceRoute => ({
   ],
 });
 
-const streamsRoute = (
-  propertyId: string,
-  dataStreams: readonly unknown[],
-): HttpClientSequenceRoute => ({
+const streamsRoute = (propertyId: string, dataStreams: readonly unknown[]): SequenceRoute => ({
   method: 'GET',
   url: `https://analyticsadmin.googleapis.com/v1beta/properties/${propertyId}/dataStreams?pageSize=200`,
   replies: [{ status: 200, document: { dataStreams } }],
@@ -82,70 +212,97 @@ const reportRow = (
   metricValues: [{ value: activeUsers }, { value: newUsers }, { value: sessions }],
 });
 
-const reportRoute = (
-  propertyId: string,
-  replies: HttpClientSequenceRoute['replies'],
-): HttpClientSequenceRoute => ({
+const reportRoute = (propertyId: string, replies: SequenceRoute['replies']): SequenceRoute => ({
   method: 'POST',
   url: `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
   replies,
 });
 
-const makeCredentials = (overrides: Partial<StatsCredentialsShape> = {}) =>
-  makeStatsCredentialsTest({
-    googleAccessToken: () => Effect.succeed(SECRET_TOKEN),
-    playServiceAccount: () =>
-      Effect.succeed({ clientEmail: SECRET_EMAIL, privateKey: 'key', tokenUri: 'uri' }),
+function makeCredentials(overrides: Partial<StatsCredentialsApi> = {}): StatsCredentialsApi {
+  return makeStatsCredentialsTest({
+    async googleAccessToken() {
+      return SECRET_TOKEN;
+    },
+    async playServiceAccount() {
+      return { clientEmail: SECRET_EMAIL, privateKey: 'key', tokenUri: 'uri' };
+    },
     ...overrides,
   });
-
-const makeHtmlErrorClient = () =>
-  Layer.succeed(
-    HttpClient.HttpClient,
-    HttpClient.make((request) =>
-      Effect.succeed(
-        HttpClientResponse.fromWeb(
-          request,
-          new Response('<html>Bad Gateway</html>', { status: 502 }),
-        ),
-      ),
-    ),
-  );
+}
 
 interface Ga4Run {
   readonly app: PortfolioApp;
-  readonly routes: readonly HttpClientSequenceRoute[];
-  readonly credentials: Layer.Layer<StatsCredentialsShape>;
+  readonly routes: readonly SequenceRoute[];
+  readonly credentials: StatsCredentialsApi;
 }
 
-const runFeed = async (run: Ga4Run) => {
-  const httpTest = makeHttpClientSequenceTest(run.routes);
-  const reply = await Effect.runPromise(
-    Effect.gen(function* () {
-      const credentials = yield* StatsCredentials;
-      return yield* ga4Feed.fetchDays({ app: run.app, range: RANGE, credentials });
-    }).pipe(Effect.provide(Layer.merge(httpTest.layer, run.credentials))),
-  );
-  return { reply, sentRequests: httpTest.sentRequests };
-};
+async function runFeed(run: Ga4Run) {
+  const sentRequests: SentRequest[] = [];
+  installSequenceFetch(run.routes, sentRequests);
+  const reply = await ga4Feed.fetchDays({
+    app: run.app,
+    range: RANGE,
+    credentials: run.credentials,
+  });
 
-const readFailureMessage = async (run: Ga4Run): Promise<string> => {
-  const httpTest = makeHttpClientSequenceTest(run.routes);
-  const failure = await Effect.runPromise(
-    Effect.gen(function* () {
-      const credentials = yield* StatsCredentials;
-      return yield* ga4Feed.fetchDays({ app: run.app, range: RANGE, credentials });
-    }).pipe(Effect.flip, Effect.provide(Layer.merge(httpTest.layer, run.credentials))),
-  );
-  return failure.message;
-};
+  return { reply, sentRequests };
+}
 
-const readSentQuery = (sentRequest: HttpClientSentRequest | undefined) => {
-  if (sentRequest === undefined || sentRequest.sentDocument === null) {
+function readThrownMessage(cause: unknown): string | null {
+  if (cause == null) {
+    return null;
+  }
+
+  if (typeof cause != 'object') {
+    return null;
+  }
+
+  if ('message' in cause == false) {
+    return null;
+  }
+
+  if (typeof cause.message != 'string') {
+    return null;
+  }
+
+  return cause.message;
+}
+
+async function readFailureMessage(run: Ga4Run): Promise<string> {
+  const sentRequests: SentRequest[] = [];
+  installSequenceFetch(run.routes, sentRequests);
+
+  try {
+    await ga4Feed.fetchDays({ app: run.app, range: RANGE, credentials: run.credentials });
+  } catch (cause) {
+    const failureMessage = readThrownMessage(cause);
+
+    if (failureMessage != null) {
+      return failureMessage;
+    }
+
+    throw cause;
+  }
+
+  throw new Error('expected a failure');
+}
+
+afterEach(() => {
+  useStatsCredentials(null);
+  vi.unstubAllGlobals();
+});
+
+function readSentQuery(sentRequest: SentRequest | undefined) {
+  if (sentRequest == null) {
     throw new Error('expected a sent report request');
   }
+
+  if (sentRequest.sentDocument == null) {
+    throw new Error('expected a sent report request');
+  }
+
   return JSON.parse(sentRequest.sentDocument);
-};
+}
 
 const readSkippedReason = (reply: FeedFetchReply): string => {
   if (reply.status !== 'skipped') throw new Error('expected a skipped reply');
@@ -443,13 +600,20 @@ describe('ga4Feed', () => {
   });
 
   test('fails with the HTTP status when an error reply is not JSON', async () => {
-    const failure = await Effect.runPromise(
-      Effect.gen(function* () {
-        const credentials = yield* StatsCredentials;
-        return yield* ga4Feed.fetchDays({ app: IOS_APP, range: RANGE, credentials });
-      }).pipe(Effect.flip, Effect.provide(Layer.merge(makeHtmlErrorClient(), makeCredentials()))),
-    );
+    vi.stubGlobal('fetch', async function fetchHtml(): Promise<Response> {
+      return new Response('<html>Bad Gateway</html>', { status: 502 });
+    });
 
-    expect(failure.message).toContain('(HTTP 502) was not JSON');
+    var failureMessage: string | null = null;
+
+    try {
+      await ga4Feed.fetchDays({ app: IOS_APP, range: RANGE, credentials: makeCredentials() });
+    } catch (cause) {
+      failureMessage = readThrownMessage(cause);
+    }
+
+    const shownMessage = failureMessage ?? '';
+
+    expect(shownMessage).toContain('(HTTP 502) was not JSON');
   });
 });

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { Effect } from 'effect';
 import type { BuildArtifact, PrunedArtifact } from '../types/artifacts.js';
 import {
   buildId,
@@ -221,22 +220,32 @@ describe('formatPrunePreview', () => {
   });
 });
 
+function thrownPruneFailure(daysText: string): unknown {
+  try {
+    parsePruneDays(daysText);
+  } catch (error) {
+    return error;
+  }
+
+  throw new Error(`expected parsePruneDays(${daysText}) to throw`);
+}
+
 describe('parsePruneDays', () => {
-  it('accepts positive whole numbers and absent overrides', async () => {
-    expect(await Effect.runPromise(parsePruneDays(undefined))).toBeUndefined();
-    expect(await Effect.runPromise(parsePruneDays('30'))).toBe(30);
+  it('accepts positive whole numbers and absent overrides', () => {
+    expect(parsePruneDays(undefined)).toBeUndefined();
+    expect(parsePruneDays('30')).toBe(30);
   });
 
-  it('rejects zero, fractions, and non-numeric text', async () => {
-    const zero = await Effect.runPromise(parsePruneDays('0').pipe(Effect.flip));
-    expect(zero.operation).toBe('parse prune retention');
-    expect(zero.message).toContain('0');
-    const fraction = await Effect.runPromise(parsePruneDays('1.5').pipe(Effect.flip));
-    expect(fraction.message).toContain('1.5');
-    const nonNumeric = await Effect.runPromise(parsePruneDays('nope').pipe(Effect.flip));
-    expect(nonNumeric.message).toContain('nope');
-    const empty = await Effect.runPromise(parsePruneDays('').pipe(Effect.flip));
-    expect(empty._tag).toBe('BuildHistoryCommandFailure');
+  it('rejects zero, fractions, and non-numeric text', () => {
+    const zero = thrownPruneFailure('0');
+    expect(zero).toMatchObject({ operation: 'parse prune retention' });
+    expect(zero).toMatchObject({ message: expect.stringContaining('0') });
+    const fraction = thrownPruneFailure('1.5');
+    expect(fraction).toMatchObject({ message: expect.stringContaining('1.5') });
+    const nonNumeric = thrownPruneFailure('nope');
+    expect(nonNumeric).toMatchObject({ message: expect.stringContaining('nope') });
+    const empty = thrownPruneFailure('');
+    expect(empty).toMatchObject({ _tag: 'BuildHistoryCommandFailure' });
   });
 });
 

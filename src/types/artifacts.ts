@@ -1,37 +1,4 @@
-import { Schema } from 'effect';
-import { PLATFORMS, type Platform } from './app.js';
-
-const SizeReportEntrySchema = Schema.mutable(
-  Schema.Struct({
-    device: Schema.String,
-    downloadBytes: Schema.Number,
-    installBytes: Schema.Number,
-  }),
-);
-
-const SizeReportSchema = Schema.mutable(
-  Schema.Struct({
-    artifactBytes: Schema.Number,
-    entries: Schema.mutable(Schema.Array(SizeReportEntrySchema)),
-  }),
-);
-
-const BuildArtifactSchema = Schema.mutable(
-  Schema.Struct({
-    path: Schema.String,
-    platform: Schema.Literal(...PLATFORMS),
-    appName: Schema.String,
-    profile: Schema.String,
-    version: Schema.String,
-    buildNumber: Schema.Number,
-    sizeReport: SizeReportSchema,
-    clean: Schema.Boolean,
-    createdAt: Schema.String,
-    prunedAt: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
-
-export const ArtifactIndexSchema = Schema.mutable(Schema.Array(BuildArtifactSchema));
+import type { Platform } from './app.js';
 
 /**
  * One row in a {@link SizeReport}: a device variant's estimated store download/install size.
@@ -40,21 +7,40 @@ export const ArtifactIndexSchema = Schema.mutable(Schema.Array(BuildArtifactSche
  * report; `bundletool get-size` yields a single worst-case download, surfaced as one representative
  * row (`installBytes` left 0 - Play doesn't expose an honest install figure).
  */
-export type SizeReportEntry = Schema.Schema.Type<typeof SizeReportEntrySchema>;
+export interface SizeReportEntry {
+  device: string;
+  downloadBytes: number;
+  installBytes: number;
+}
+
 /**
  * Size analysis produced right after the build, before any upload.
  *
  * Surfacing this locally is the whole point of the size step: know the real per-device download
  * before spending a store round-trip discovering the app is too large.
  */
-export type SizeReport = Schema.Schema.Type<typeof SizeReportSchema>;
+export interface SizeReport {
+  artifactBytes: number;
+  entries: SizeReportEntry[];
+}
 
 /**
  * A built, signed artifact plus the metadata Launch records about it.
  *
  * Stored by a {@link StorageProvider} and used to build the run summary and the local index.
  */
-export type BuildArtifact = Schema.Schema.Type<typeof BuildArtifactSchema>;
+export interface BuildArtifact {
+  path: string;
+  platform: Platform;
+  appName: string;
+  profile: string;
+  version: string;
+  buildNumber: number;
+  sizeReport: SizeReport;
+  clean: boolean;
+  createdAt: string;
+  prunedAt?: string;
+}
 /**
  * One build whose binary an artifact-retention sweep removed (or, in a dry run, would remove). A flat,
  * presentation-ready projection of the pruned {@link BuildArtifact} plus the bytes it freed - what the

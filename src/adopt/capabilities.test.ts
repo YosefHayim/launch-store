@@ -1,10 +1,11 @@
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { AdoptCatalogApi, AdoptTarget } from '../types/adopt.js';
 import type { AppDescriptor } from '../types/app.js';
-import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
 import { capabilitiesAdopter, NEEDS_VALUE, planCapabilityEntitlements } from './capabilities.js';
+
+function ready<Value>(value: Value): Promise<Value> {
+  return Promise.resolve(value);
+}
 
 describe('planCapabilityEntitlements', () => {
   it('recovers a real identifier value from the provisioning profile', () => {
@@ -28,7 +29,11 @@ describe('planCapabilityEntitlements', () => {
     });
     const first = planned[0];
     expect(first).toBeDefined();
-    if (first === undefined) return;
+
+    if (first == null) {
+      return;
+    }
+
     expect(first.value).toBe(NEEDS_VALUE);
     expect(first.note).toMatch(/off-Mac or none/);
   });
@@ -78,33 +83,70 @@ describe('planCapabilityEntitlements', () => {
     });
     const first = planned[0];
     expect(first).toBeDefined();
-    if (first === undefined) return;
+
+    if (first == null) {
+      return;
+    }
+
     expect(first.key).toBe('com.apple.developer.icloud-container-identifiers');
     expect(first.note).toContain('settings: ICLOUD_VERSION=VERSION_2');
   });
 });
 
-const emptyAdoptCatalog = (overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi => {
-  const baseCatalog: AdoptCatalogApi = {
-    getAppId: () => Effect.succeed('app1'),
-    getLatestMarketingVersion: () => Effect.succeed(null),
-    getLatestBuildNumber: () => Effect.succeed(0),
-    findBundleId: () => Effect.succeed({ id: 'b1', identifier: 'com.acme.app' }),
-    listBundleIdCapabilities: () => Effect.succeed([]),
-    listProfilesForBundleId: () => Effect.succeed([]),
-    listMerchantIds: () => Effect.succeed([]),
-    listInAppPurchases: () => Effect.succeed([]),
-    listInAppPurchaseLocalizations: () => Effect.succeed([]),
-    inAppPurchaseHasPrice: () => Effect.succeed(false),
-    listSubscriptionGroups: () => Effect.succeed([]),
-    listSubscriptionGroupLocalizations: () => Effect.succeed([]),
-    listSubscriptions: () => Effect.succeed([]),
-    listSubscriptionLocalizations: () => Effect.succeed([]),
-    subscriptionHasPrice: () => Effect.succeed(false),
-    listDistributionCertificates: () => Effect.succeed([]),
+function emptyAdoptCatalog(overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi {
+  const baseCatalog = {
+    getAppId() {
+      return ready('app1');
+    },
+    getLatestMarketingVersion() {
+      return ready(null);
+    },
+    getLatestBuildNumber() {
+      return ready(0);
+    },
+    findBundleId() {
+      return ready({ id: 'b1', identifier: 'com.acme.app' });
+    },
+    listBundleIdCapabilities() {
+      return ready([]);
+    },
+    listProfilesForBundleId() {
+      return ready([]);
+    },
+    listMerchantIds() {
+      return ready([]);
+    },
+    listInAppPurchases() {
+      return ready([]);
+    },
+    listInAppPurchaseLocalizations() {
+      return ready([]);
+    },
+    inAppPurchaseHasPrice() {
+      return ready(false);
+    },
+    listSubscriptionGroups() {
+      return ready([]);
+    },
+    listSubscriptionGroupLocalizations() {
+      return ready([]);
+    },
+    listSubscriptions() {
+      return ready([]);
+    },
+    listSubscriptionLocalizations() {
+      return ready([]);
+    },
+    subscriptionHasPrice() {
+      return ready(false);
+    },
+    listDistributionCertificates() {
+      return ready([]);
+    },
   };
-  return { ...baseCatalog, ...overrides };
-};
+
+  return { ...baseCatalog, ...overrides } as AdoptCatalogApi;
+}
 
 const APP: AppDescriptor = {
   name: 'acme',
@@ -122,31 +164,34 @@ const TARGET: AdoptTarget = {
   hasLaunchConfig: false,
 };
 
-/** Run the capability adopter with platform command services available. */
-const runCapabilitiesAdopter = (appleCatalog: AdoptCatalogApi) =>
-  Effect.runPromise(
-    capabilitiesAdopter
-      .read(appleCatalog, TARGET)
-      .pipe(Effect.provide(NodeContext.layer), Effect.provide(makeLaunchEnvironmentTest({}))),
-  );
-
 describe('capabilitiesAdopter', () => {
   it("returns no writes when the bundle id isn't registered yet", async () => {
-    const appleCatalog = emptyAdoptCatalog({ findBundleId: () => Effect.succeed(null) });
-    expect(await runCapabilitiesAdopter(appleCatalog)).toEqual([]);
+    const appleCatalog = emptyAdoptCatalog({
+      findBundleId() {
+        return ready(null);
+      },
+    });
+    expect(await capabilitiesAdopter.read(appleCatalog, TARGET)).toEqual([]);
   });
 
   it('plans app.json entitlement writes for enabled capabilities with no profile to read', async () => {
     const appleCatalog = emptyAdoptCatalog({
-      listBundleIdCapabilities: () =>
-        Effect.succeed([{ id: 'c1', capabilityType: 'PUSH_NOTIFICATIONS' }]),
-      listProfilesForBundleId: () => Effect.succeed([]),
+      listBundleIdCapabilities() {
+        return ready([{ id: 'c1', capabilityType: 'PUSH_NOTIFICATIONS' }]);
+      },
+      listProfilesForBundleId() {
+        return ready([]);
+      },
     });
-    const writes = await runCapabilitiesAdopter(appleCatalog);
+    const writes = await capabilitiesAdopter.read(appleCatalog, TARGET);
     expect(writes).toHaveLength(1);
     const firstWrite = writes[0];
     expect(firstWrite).toBeDefined();
-    if (firstWrite === undefined) return;
+
+    if (firstWrite == null) {
+      return;
+    }
+
     expect(firstWrite.change).toEqual({
       home: 'app.json',
       configPath: '/repo/acme/app.json',

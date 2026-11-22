@@ -1,15 +1,8 @@
-import type { FileSystem, Path } from '@effect/platform';
-import { Data, Effect } from 'effect';
+import type { AppStoreConnectClient } from '../../apple/ascClient.js';
 import { loadActiveAscKey } from '../../credentials/accounts.js';
-import {
-  AppleStoreClientService,
-  type AppleStoreClientService as AppleStoreClientRequirements,
-  type EffectAppStoreConnectClient,
-} from '../../services/stores/appleStoreClient.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { LaunchPathsService } from '../../services/platform/paths.js';
-import type { LaunchEnvironmentService } from '../../services/platform/environment.js';
-import type { LaunchSecretStoreService } from '../../services/credentials/secretStore.js';
+import { AppleStoreClientService } from '../../services/stores/appleStoreClient.js';
+import type { AscKey } from '../../types/credentials.js';
 
 /** Loading the active Apple account or creating its transport client failed. */
 type ActiveAppleStoreFailure = Readonly<{
@@ -17,46 +10,46 @@ type ActiveAppleStoreFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeActiveAppleStoreFailure = Data.tagged<ActiveAppleStoreFailure>('ActiveAppleStoreFailure');
 
-export type ActiveAppleStoreRequirements =
-  | AppleStoreClientRequirements
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchSecretStoreService
-  | Path.Path;
+function makeActiveAppleStoreFailure(fields: {
+  message: string;
+  cause: unknown;
+}): ActiveAppleStoreFailure {
+  return { _tag: 'ActiveAppleStoreFailure', message: fields.message, cause: fields.cause };
+}
 
-/** Load the active keychain-backed Apple account and create its Effect transport client. */
-export const loadActiveAppleStore = (): Effect.Effect<
-  EffectAppStoreConnectClient,
-  ActiveAppleStoreFailure,
-  ActiveAppleStoreRequirements
-> =>
-  Effect.gen(function* () {
-    const ascKey = yield* loadActiveAscKey().pipe(
-      Effect.mapError((cause) =>
-        makeActiveAppleStoreFailure({
-          message: `Could not load the active Apple account: ${errorMessage(cause)}`,
-          cause,
-        }),
-      ),
-    );
-    if (ascKey === null) {
-      return yield* Effect.fail(
-        makeActiveAppleStoreFailure({
-          message: 'No active Apple account. Run `launch creds set-key` first.',
-          cause: 'missing-active-account',
-        }),
-      );
-    }
-    const appleStoreClients = yield* AppleStoreClientService;
-    return yield* appleStoreClients.createEffectClient(ascKey).pipe(
-      Effect.mapError((cause) =>
-        makeActiveAppleStoreFailure({
-          message: 'Could not create the App Store Connect client.',
-          cause,
-        }),
-      ),
-    );
-  });
+/** Earlier Effect requirements. Callers no longer thread them through. */
+export type ActiveAppleStoreRequirements = Record<string, never>;
+
+/** Load the active keychain-backed Apple account and create its transport client. */
+export async function loadActiveAppleStore(): Promise<AppStoreConnectClient> {
+  let ascKey: AscKey | null = null;
+
+  try {
+    ascKey = await loadActiveAscKey();
+  } catch (cause) {
+    throw makeActiveAppleStoreFailure({
+      message: `Could not load the active Apple account: ${errorMessage(cause)}`,
+      cause,
+    });
+  }
+
+  const loadedAscKey = ascKey;
+  const isAccountMissing = loadedAscKey == null;
+
+  if (isAccountMissing) {
+    throw makeActiveAppleStoreFailure({
+      message: 'No active Apple account. Run `launch creds set-key` first.',
+      cause: 'missing-active-account',
+    });
+  }
+
+  try {
+    return AppleStoreClientService.createEffectClient(loadedAscKey);
+  } catch (cause) {
+    throw makeActiveAppleStoreFailure({
+      message: 'Could not create the App Store Connect client.',
+      cause,
+    });
+  }
+}

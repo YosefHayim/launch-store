@@ -1,27 +1,43 @@
-import { Data, Effect, Schema } from 'effect';
-
-/** A completed command that intentionally requests a non-zero process exit code. */
 export type CommandExit = Readonly<{
-  readonly _tag: 'CommandExit';
-  readonly exitCode: number;
-  readonly message?: string;
+  _tag: 'CommandExit';
+  exitCode: number;
+  message?: string;
 }>;
 
-/** Runtime decoder used by the CLI entrypoint for an uncaught command outcome. */
-export const CommandExitSchema = Schema.Struct({
-  _tag: Schema.Literal('CommandExit'),
-  exitCode: Schema.Number,
-  message: Schema.optionalWith(Schema.String, { exact: true }),
-});
+export function makeCommandExit(fields: { exitCode: number; message?: string }): CommandExit {
+  if (fields.message == null) {
+    return { _tag: 'CommandExit', exitCode: fields.exitCode };
+  }
 
-export const makeCommandExit = Data.tagged<CommandExit>('CommandExit');
+  return { _tag: 'CommandExit', exitCode: fields.exitCode, message: fields.message };
+}
 
-/** Complete normally for exit zero or fail with the requested non-zero outcome and, optionally, its reason. */
-export const completeCommand = (
-  exitCode: number,
-  message?: string,
-): Effect.Effect<void, CommandExit> => {
-  if (exitCode === 0) return Effect.void;
-  if (message === undefined) return Effect.fail(makeCommandExit({ exitCode }));
-  return Effect.fail(makeCommandExit({ exitCode, message }));
-};
+export function isCommandExit(cause: unknown): cause is CommandExit {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'CommandExit';
+}
+
+export function completeCommand(exitCode: number, message?: string): void {
+  const isSuccess = exitCode == 0;
+
+  if (isSuccess) {
+    return;
+  }
+
+  if (message == null) {
+    throw makeCommandExit({ exitCode });
+  }
+
+  throw makeCommandExit({ exitCode, message });
+}

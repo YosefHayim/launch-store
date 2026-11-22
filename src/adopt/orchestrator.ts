@@ -1,5 +1,5 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Effect } from 'effect';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { writeAppEntitlements } from '../config/config.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
 import type {
@@ -52,128 +52,159 @@ export type TargetPlan = Readonly<{
 }>;
 
 /** Confirming live-version / build-count signal for one detected app. */
-export const describeAdoptSignal = (version: string | null, buildCount: number): string => {
+export function describeAdoptSignal(version: string | null, buildCount: number): string {
   const signalParts: string[] = [];
-  if (version !== null) signalParts.push(`v${version} live`);
+
+  if (version != null) {
+    signalParts.push(`v${version} live`);
+  }
+
   if (buildCount > 0) {
     let buildLabel = 'builds';
-    if (buildCount === 1) buildLabel = 'build';
+
+    if (buildCount == 1) {
+      buildLabel = 'build';
+    }
+
     signalParts.push(`${buildCount} ${buildLabel}`);
   }
-  if (signalParts.length === 0) return 'registered, no builds yet';
+
+  const hasNoSignal = signalParts.length == 0;
+
+  if (hasNoSignal) {
+    return 'registered, no builds yet';
+  }
+
   return signalParts.join(' - ');
-};
+}
 
 type AppDetection =
   | Readonly<{ readonly _tag: 'Detected'; readonly detectedApp: DetectedApp }>
   | Readonly<{ readonly _tag: 'Skipped'; readonly skippedApp: SkippedApp }>;
 
+function byBundleId(firstApp: DetectedApp, secondApp: DetectedApp): number {
+  return firstApp.target.bundleId.localeCompare(secondApp.target.bundleId);
+}
+
+function byAppName(firstApp: SkippedApp, secondApp: SkippedApp): number {
+  return firstApp.app.name.localeCompare(secondApp.app.name);
+}
+
 /** Resolve discovered apps against App Store Connect. */
-export const detectTargets = (
+export async function detectTargets(
   appleCatalog: AdoptCatalogApi,
   apps: readonly AppDescriptor[],
   detectionContext: DetectContext,
-): Effect.Effect<Detection, unknown> =>
-  Effect.gen(function* () {
-    const appDetections = yield* Effect.forEach(
-      apps,
-      (app): Effect.Effect<AppDetection, unknown> =>
-        Effect.gen(function* () {
-          if (app.bundleId === undefined) {
-            return {
-              _tag: 'Skipped' as const,
-              skippedApp: { app, reason: 'no iOS bundle id' },
-            };
-          }
-          const appId = yield* appleCatalog.getAppId(app.bundleId);
-          if (appId === null) {
-            return {
-              _tag: 'Skipped' as const,
-              skippedApp: {
-                app,
-                reason: 'no App Store Connect record (create the app once in App Store Connect)',
-              },
-            };
-          }
-          const [version, buildCount] = yield* Effect.all(
-            [
-              appleCatalog
-                .getLatestMarketingVersion(app.bundleId)
-                .pipe(Effect.catchAll(() => Effect.succeed(null))),
-              appleCatalog
-                .getLatestBuildNumber(app.bundleId)
-                .pipe(Effect.catchAll(() => Effect.succeed(0))),
-            ],
-            { concurrency: 'unbounded' },
-          );
-          return {
-            _tag: 'Detected' as const,
-            detectedApp: {
-              target: {
-                app,
-                appId,
-                bundleId: app.bundleId,
-                keyId: detectionContext.keyId,
-                cwd: detectionContext.cwd,
-                hasLaunchConfig: detectionContext.hasLaunchConfig,
-              },
-              signal: describeAdoptSignal(version, buildCount),
-            },
-          };
-        }),
-      { concurrency: 'unbounded' },
-    );
-    const detected: DetectedApp[] = [];
-    const skipped: SkippedApp[] = [];
-    for (const appDetection of appDetections) {
-      if (appDetection._tag === 'Detected') {
-        detected.push(appDetection.detectedApp);
-        continue;
-      }
-      skipped.push(appDetection.skippedApp);
+): Promise<Detection> {
+  async function readVersion(bundleId: string): Promise<string | null> {
+    try {
+      return await appleCatalog.getLatestMarketingVersion(bundleId);
+    } catch {
+      return null;
     }
-    detected.sort((firstApp, secondApp) =>
-      firstApp.target.bundleId.localeCompare(secondApp.target.bundleId),
-    );
-    skipped.sort((firstApp, secondApp) => firstApp.app.name.localeCompare(secondApp.app.name));
-    return { detected, skipped };
-  });
+  }
+
+  async function readBuildCount(bundleId: string): Promise<number> {
+    try {
+      return await appleCatalog.getLatestBuildNumber(bundleId);
+    } catch {
+      return 0;
+    }
+  }
+
+  async function detectApp(app: AppDescriptor): Promise<AppDetection> {
+    if (app.bundleId == null) {
+      return {
+        _tag: 'Skipped',
+        skippedApp: { app, reason: 'no iOS bundle id' },
+      };
+    }
+
+    const appId = await appleCatalog.getAppId(app.bundleId);
+
+    if (appId == null) {
+      return {
+        _tag: 'Skipped',
+        skippedApp: {
+          app,
+          reason: 'no App Store Connect record (create the app once in App Store Connect)',
+        },
+      };
+    }
+
+    const versionPromise = readVersion(app.bundleId);
+    const buildCountPromise = readBuildCount(app.bundleId);
+    const version = await versionPromise;
+    const buildCount = await buildCountPromise;
+
+    return {
+      _tag: 'Detected',
+      detectedApp: {
+        target: {
+          app,
+          appId,
+          bundleId: app.bundleId,
+          keyId: detectionContext.keyId,
+          cwd: detectionContext.cwd,
+          hasLaunchConfig: detectionContext.hasLaunchConfig,
+        },
+        signal: describeAdoptSignal(version, buildCount),
+      },
+    };
+  }
+
+  const appDetections = await Promise.all(apps.map(detectApp));
+  const detected: DetectedApp[] = [];
+  const skipped: SkippedApp[] = [];
+
+  for (const appDetection of appDetections) {
+    if (appDetection._tag == 'Detected') {
+      detected.push(appDetection.detectedApp);
+      continue;
+    }
+
+    skipped.push(appDetection.skippedApp);
+  }
+
+  detected.sort(byBundleId);
+  skipped.sort(byAppName);
+
+  return { detected, skipped };
+}
 
 /** Run adopters in registry order while isolating each domain failure. */
-export const planTargets = <Requirements>(
+export async function planTargets(
   appleCatalog: AdoptCatalogApi,
   detection: Detection,
-  adopters: readonly Adopter<Requirements>[],
-): Effect.Effect<TargetPlan[], never, Requirements> =>
-  Effect.forEach(
-    detection.detected,
-    (detectedApp) =>
-      Effect.gen(function* () {
-        const plannedWrites: PlannedWrite[] = [];
-        const adopterErrors: AdopterError[] = [];
-        for (const adopter of adopters) {
-          const adoptionAttempt = yield* adopter
-            .read(appleCatalog, detectedApp.target)
-            .pipe(Effect.either);
-          if (adoptionAttempt._tag === 'Right') {
-            plannedWrites.push(...adoptionAttempt.right);
-            continue;
-          }
-          adopterErrors.push({
-            domain: adopter.domain,
-            message: errorMessage(adoptionAttempt.left),
-          });
-        }
-        return { detected: detectedApp, writes: plannedWrites, errors: adopterErrors };
-      }),
-    { concurrency: 'unbounded' },
-  );
+  adopters: readonly Adopter[],
+): Promise<TargetPlan[]> {
+  async function planDetectedApp(detectedApp: DetectedApp): Promise<TargetPlan> {
+    const plannedWrites: PlannedWrite[] = [];
+    const adopterErrors: AdopterError[] = [];
 
-export type ApplyContext<Requirements = never> = Readonly<{
+    for (const adopter of adopters) {
+      try {
+        const adopterWrites = await adopter.read(appleCatalog, detectedApp.target);
+        plannedWrites.push(...adopterWrites);
+      } catch (cause) {
+        adopterErrors.push({
+          domain: adopter.domain,
+          message: errorMessage(cause),
+        });
+      }
+    }
+
+    return { detected: detectedApp, writes: plannedWrites, errors: adopterErrors };
+  }
+
+  return Promise.all(detection.detected.map(planDetectedApp));
+}
+
+export type ApplyContext = Readonly<{
   cwd: string;
   hasLaunchConfig: boolean;
   appRoot: string | null;
-  pullListing: (bundleId: string, configPath: string) => Effect.Effect<void, unknown, Requirements>;
+  pullListing: (bundleId: string, configPath: string) => Promise<void>;
 }>;
 
 type AppJsonPatch = Readonly<{
@@ -203,21 +234,31 @@ export type AdoptApplyResult = Readonly<{
 }>;
 
 /** Collect imported product pieces into a bundle-keyed catalog. */
-export const collectAdoptedProducts = (
+export function collectAdoptedProducts(
   targetPlans: readonly TargetPlan[],
-): Record<string, AppProducts> => {
+): Record<string, AppProducts> {
   const productsByBundleId: Record<string, AppProducts> = {};
+
   for (const targetPlan of targetPlans) {
     const productPieces: ProductPiece[] = [];
+
     for (const plannedWrite of targetPlan.writes) {
-      if (plannedWrite.change.home === 'launch.config')
+      if (plannedWrite.change.home == 'launch.config') {
         productPieces.push(plannedWrite.change.piece);
+      }
     }
-    if (productPieces.length === 0) continue;
+
+    const hasNoPieces = productPieces.length == 0;
+
+    if (hasNoPieces) {
+      continue;
+    }
+
     productsByBundleId[targetPlan.detected.target.bundleId] = aggregateProductPieces(productPieces);
   }
+
   return productsByBundleId;
-};
+}
 
 type ProductCatalogOutcome = Readonly<{
   configWritten?: string;
@@ -235,123 +276,143 @@ type ListingPullOutcome = Readonly<{
 }>;
 
 /** Write or print the adopted products section for launch.config.ts. */
-const applyProductCatalog = (
+async function applyProductCatalog(
   productsByBundleId: Record<string, AppProducts>,
   applyContext: Readonly<{
     cwd: string;
     hasLaunchConfig: boolean;
     appRoot: string | null;
   }>,
-): Effect.Effect<ProductCatalogOutcome, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    if (Object.keys(productsByBundleId).length === 0) return {};
-    if (applyContext.hasLaunchConfig) {
-      return { configBlock: serializeProductsSection(productsByBundleId) };
-    }
-    const pathService = yield* Path.Path;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const configPath = pathService.join(applyContext.cwd, 'launch.config.ts');
-    yield* fileSystem.writeFileString(
-      configPath,
-      buildAdoptedConfig(applyContext.appRoot, productsByBundleId),
-    );
-    return { configWritten: configPath };
-  });
+): Promise<ProductCatalogOutcome> {
+  const hasNoProducts = Object.keys(productsByBundleId).length == 0;
+
+  if (hasNoProducts) {
+    return {};
+  }
+
+  if (applyContext.hasLaunchConfig) {
+    return { configBlock: serializeProductsSection(productsByBundleId) };
+  }
+
+  const configPath = join(applyContext.cwd, 'launch.config.ts');
+  await writeFile(configPath, buildAdoptedConfig(applyContext.appRoot, productsByBundleId));
+
+  return { configWritten: configPath };
+}
 
 /** Patch static app.json entitlements or emit paste blocks for dynamic configs. */
-const applyEntitlementWrites = (
+async function applyEntitlementWrites(
   targetPlans: readonly TargetPlan[],
-): Effect.Effect<EntitlementWriteOutcome, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const appJsonPatched: AppJsonPatch[] = [];
-    const appJsonBlocks: AppJsonPasteBlock[] = [];
-    for (const targetPlan of targetPlans) {
-      const app = targetPlan.detected.target.app;
-      const entitlements: Record<string, EntitlementValue> = {};
-      for (const plannedWrite of targetPlan.writes) {
-        if (plannedWrite.change.home === 'app.json') {
-          entitlements[plannedWrite.change.key] = plannedWrite.change.value;
-        }
+): Promise<EntitlementWriteOutcome> {
+  const appJsonPatched: AppJsonPatch[] = [];
+  const appJsonBlocks: AppJsonPasteBlock[] = [];
+
+  for (const targetPlan of targetPlans) {
+    const app = targetPlan.detected.target.app;
+    const entitlements: Record<string, EntitlementValue> = {};
+
+    for (const plannedWrite of targetPlan.writes) {
+      if (plannedWrite.change.home == 'app.json') {
+        entitlements[plannedWrite.change.key] = plannedWrite.change.value;
       }
-      if (Object.keys(entitlements).length === 0) continue;
-      if (app.configPath.endsWith('.json')) {
-        const addedEntitlements = yield* writeAppEntitlements(app, entitlements);
-        if (addedEntitlements.length > 0) {
-          appJsonPatched.push({
-            app: app.name,
-            configPath: app.configPath,
-            added: addedEntitlements,
-          });
-        }
-        continue;
-      }
-      appJsonBlocks.push({
-        app: app.name,
-        configPath: app.configPath,
-        block: renderEntitlementsBlock(entitlements),
-      });
     }
-    return { appJsonPatched, appJsonBlocks };
-  });
+
+    const hasNoEntitlements = Object.keys(entitlements).length == 0;
+
+    if (hasNoEntitlements) {
+      continue;
+    }
+
+    const isStaticConfig = app.configPath.endsWith('.json');
+
+    if (isStaticConfig) {
+      const addedEntitlements = await writeAppEntitlements(app, entitlements);
+      const addedEntitlementCount = addedEntitlements.length;
+
+      if (addedEntitlementCount > 0) {
+        appJsonPatched.push({
+          app: app.name,
+          configPath: app.configPath,
+          added: addedEntitlements,
+        });
+      }
+
+      continue;
+    }
+
+    appJsonBlocks.push({
+      app: app.name,
+      configPath: app.configPath,
+      block: renderEntitlementsBlock(entitlements),
+    });
+  }
+
+  return { appJsonPatched, appJsonBlocks };
+}
 
 /** Delegate store.config listing pulls and capture per-app failures. */
-const applyListingPulls = <Requirements>(
+async function applyListingPulls(
   targetPlans: readonly TargetPlan[],
-  pullListing: (bundleId: string, configPath: string) => Effect.Effect<void, unknown, Requirements>,
-): Effect.Effect<ListingPullOutcome, never, Requirements> =>
-  Effect.gen(function* () {
-    const listingsPulled: string[] = [];
-    const listingErrors: ListingError[] = [];
-    for (const targetPlan of targetPlans) {
-      for (const plannedWrite of targetPlan.writes) {
-        if (plannedWrite.change.home !== 'store.config') continue;
-        const listingPull = yield* pullListing(
-          plannedWrite.change.bundleId,
-          plannedWrite.change.configPath,
-        ).pipe(Effect.either);
-        if (listingPull._tag === 'Right') {
-          listingsPulled.push(plannedWrite.change.appName);
-          continue;
-        }
+  pullListing: (bundleId: string, configPath: string) => Promise<void>,
+): Promise<ListingPullOutcome> {
+  const listingsPulled: string[] = [];
+  const listingErrors: ListingError[] = [];
+
+  for (const targetPlan of targetPlans) {
+    for (const plannedWrite of targetPlan.writes) {
+      if (plannedWrite.change.home != 'store.config') {
+        continue;
+      }
+
+      try {
+        await pullListing(plannedWrite.change.bundleId, plannedWrite.change.configPath);
+        listingsPulled.push(plannedWrite.change.appName);
+      } catch (cause) {
         listingErrors.push({
           app: plannedWrite.change.appName,
-          message: errorMessage(listingPull.left),
+          message: errorMessage(cause),
         });
       }
     }
-    return { listingsPulled, listingErrors };
-  });
+  }
+
+  return { listingsPulled, listingErrors };
+}
 
 /** Apply a confirmed adoption plan to local configuration and delegated listing pulls. */
-export const applyAdopt = <Requirements>(
+export async function applyAdopt(
   targetPlans: readonly TargetPlan[],
-  applyContext: ApplyContext<Requirements>,
-): Effect.Effect<AdoptApplyResult, unknown, FileSystem.FileSystem | Path.Path | Requirements> =>
-  Effect.gen(function* () {
-    const productsByBundleId = collectAdoptedProducts(targetPlans);
-    const productOutcome = yield* applyProductCatalog(productsByBundleId, {
-      cwd: applyContext.cwd,
-      hasLaunchConfig: applyContext.hasLaunchConfig,
-      appRoot: applyContext.appRoot,
-    });
-    const entitlementOutcome = yield* applyEntitlementWrites(targetPlans);
-    const listingOutcome = yield* applyListingPulls(targetPlans, applyContext.pullListing);
-    const adoptionSummary: {
-      configWritten?: string;
-      configBlock?: string;
-      appJsonPatched: readonly AppJsonPatch[];
-      appJsonBlocks: readonly AppJsonPasteBlock[];
-      listingsPulled: readonly string[];
-      listingErrors: readonly ListingError[];
-    } = {
-      appJsonPatched: entitlementOutcome.appJsonPatched,
-      appJsonBlocks: entitlementOutcome.appJsonBlocks,
-      listingsPulled: listingOutcome.listingsPulled,
-      listingErrors: listingOutcome.listingErrors,
-    };
-    if (productOutcome.configWritten !== undefined)
-      adoptionSummary.configWritten = productOutcome.configWritten;
-    if (productOutcome.configBlock !== undefined)
-      adoptionSummary.configBlock = productOutcome.configBlock;
-    return adoptionSummary;
+  applyContext: ApplyContext,
+): Promise<AdoptApplyResult> {
+  const productsByBundleId = collectAdoptedProducts(targetPlans);
+  const productOutcome = await applyProductCatalog(productsByBundleId, {
+    cwd: applyContext.cwd,
+    hasLaunchConfig: applyContext.hasLaunchConfig,
+    appRoot: applyContext.appRoot,
   });
+  const entitlementOutcome = await applyEntitlementWrites(targetPlans);
+  const listingOutcome = await applyListingPulls(targetPlans, applyContext.pullListing);
+  const adoptionSummary: {
+    configWritten?: string;
+    configBlock?: string;
+    appJsonPatched: readonly AppJsonPatch[];
+    appJsonBlocks: readonly AppJsonPasteBlock[];
+    listingsPulled: readonly string[];
+    listingErrors: readonly ListingError[];
+  } = {
+    appJsonPatched: entitlementOutcome.appJsonPatched,
+    appJsonBlocks: entitlementOutcome.appJsonBlocks,
+    listingsPulled: listingOutcome.listingsPulled,
+    listingErrors: listingOutcome.listingErrors,
+  };
+
+  if (productOutcome.configWritten != null) {
+    adoptionSummary.configWritten = productOutcome.configWritten;
+  }
+
+  if (productOutcome.configBlock != null) {
+    adoptionSummary.configBlock = productOutcome.configBlock;
+  }
+
+  return adoptionSummary;
+}

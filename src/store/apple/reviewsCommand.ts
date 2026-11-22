@@ -1,14 +1,11 @@
-import { FileSystem, Terminal } from '@effect/platform';
-import { Data, Effect } from 'effect';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
+import { readFile } from 'node:fs/promises';
+import { createLogger } from '../../services/platform/logger.js';
+import { LaunchPrompt } from '../../services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
 import type { CustomerReviewResource } from '../../types/appleCatalog.js';
-import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
+import { loadActiveAppleStore } from './appleStoreCommand.js';
 import { deleteReviewResponse, listReviews, replyToReview } from './reviews.js';
-import {
-  resolveStoreBundleId,
-  type StoreAppSelectionRequirements,
-} from '../shared/selectStoreApp.js';
+import { resolveStoreBundleId } from '../shared/selectStoreApp.js';
 import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** Options for listing App Store customer reviews. */
@@ -43,212 +40,330 @@ type ReviewsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeReviewsCommandFailure = Data.tagged<ReviewsCommandFailure>('ReviewsCommandFailure');
 
-type ReviewsCommandRequirements =
-  | ActiveAppleStoreRequirements
-  | FileSystem.FileSystem
-  | LaunchPromptService
-  | Logger
-  | StoreAppSelectionRequirements
-  | Terminal.Terminal;
+function makeReviewsCommandFailure(fields: {
+  operation: ReviewsCommandInput['operation'];
+  message: string;
+  cause: unknown;
+}): ReviewsCommandFailure {
+  return { _tag: 'ReviewsCommandFailure', ...fields };
+}
 
 /** Convert any dependency failure into the reviews command channel. */
-const reviewsFailure = (
+function reviewsFailure(
   operation: ReviewsCommandInput['operation'],
   cause: unknown,
-): ReviewsCommandFailure => {
-  let message = `Reviews ${operation} failed.`;
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') message = causeMessage;
+): ReviewsCommandFailure {
+  if (hasMessage(cause)) {
+    return makeReviewsCommandFailure({ operation, message: cause.message, cause });
   }
-  return makeReviewsCommandFailure({ operation, message, cause });
-};
+
+  return makeReviewsCommandFailure({
+    operation,
+    message: `Reviews ${operation} failed.`,
+    cause,
+  });
+}
+
+function isValidReviewRating(isWholeNumber: boolean, parsedRating: number): boolean {
+  if (isWholeNumber == false) {
+    return false;
+  }
+
+  if (parsedRating < 1) {
+    return false;
+  }
+
+  return parsedRating <= 5;
+}
 
 /** Parse and validate an optional one-to-five-star rating filter. */
-export const parseReviewRating = (
-  ratingText: string | undefined,
-): Effect.Effect<number | undefined, ReviewsCommandFailure> => {
-  if (ratingText === undefined) return Effect.succeed(undefined);
+export function parseReviewRating(ratingText: string | undefined): number | undefined {
+  const isMissing = ratingText == null;
+
+  if (isMissing) {
+    return undefined;
+  }
+
   const trimmedRating = ratingText.trim();
   const parsedRating = Number(trimmedRating);
-  if (/^\d+$/.test(trimmedRating) && parsedRating >= 1 && parsedRating <= 5) {
-    return Effect.succeed(parsedRating);
+  // Matches a whole number made only of digits.
+  const isWholeNumber = /^\d+$/.test(trimmedRating);
+  const isValidRating = isValidReviewRating(isWholeNumber, parsedRating);
+
+  if (isValidRating) {
+    return parsedRating;
   }
-  return Effect.fail(
-    makeReviewsCommandFailure({
-      operation: 'list',
-      message: `--rating must be a whole number 1-5 (got "${ratingText}").`,
-      cause: ratingText,
-    }),
-  );
-};
+
+  throw makeReviewsCommandFailure({
+    operation: 'list',
+    message: `--rating must be a whole number 1-5 (got "${ratingText}").`,
+    cause: ratingText,
+  });
+}
+
+function isPresentDetail(reviewDetail: string | undefined): reviewDetail is string {
+  return reviewDetail != null;
+}
 
 /** Render one App Store customer review as a readable block. */
-const renderCustomerReview = (customerReview: CustomerReviewResource): string => {
+function renderCustomerReview(customerReview: CustomerReviewResource): string {
   const reviewDetails = [customerReview.territory];
-  if (customerReview.createdDate !== undefined) {
+  const hasCreatedDate = customerReview.createdDate != null;
+
+  if (hasCreatedDate) {
     reviewDetails.push(customerReview.createdDate.slice(0, 10));
   }
-  if (customerReview.reviewerNickname !== undefined) {
+
+  const hasNickname = customerReview.reviewerNickname != null;
+
+  if (hasNickname) {
     reviewDetails.push(`by ${customerReview.reviewerNickname}`);
   }
-  if (customerReview.answered) reviewDetails.push('OK answered');
-  if (!customerReview.answered) reviewDetails.push('- unanswered');
+
+  const isAnswered = customerReview.answered == true;
+
+  if (isAnswered) {
+    reviewDetails.push('OK answered');
+  }
+
+  const isUnanswered = customerReview.answered == false;
+
+  if (isUnanswered) {
+    reviewDetails.push('- unanswered');
+  }
+
   const reviewLines = [
     `${customerReview.id}  ${customerReview.rating}/5`,
-    `  ${reviewDetails.filter((reviewDetail) => reviewDetail !== undefined).join('  ')}`,
+    `  ${reviewDetails.filter(isPresentDetail).join('  ')}`,
   ];
-  if (customerReview.title !== undefined) reviewLines.push(`  "${customerReview.title}"`);
-  if (customerReview.body !== undefined) reviewLines.push(`  ${customerReview.body}`);
+  const hasTitle = customerReview.title != null;
+
+  if (hasTitle) {
+    reviewLines.push(`  "${customerReview.title}"`);
+  }
+
+  const hasReviewText = customerReview.body != null;
+
+  if (hasReviewText) {
+    reviewLines.push(`  ${customerReview.body}`);
+  }
+
   return reviewLines.join('\n');
-};
+}
+
+function reviewBlock(customerReview: CustomerReviewResource): string {
+  return renderCustomerReview(customerReview);
+}
 
 /** Confirm an outward-facing review write. */
-const confirmReviewWrite = (
+async function confirmReviewWrite(
   operation: 'reply' | 'delete',
   confirmationMessage: string,
   confirmed: boolean,
-): Effect.Effect<boolean, ReviewsCommandFailure, LaunchPromptService | Terminal.Terminal> =>
-  Effect.gen(function* () {
-    if (confirmed) return true;
-    const terminal = yield* Terminal.Terminal;
-    const terminalIsInteractive = yield* terminal.isTTY;
-    if (!terminalIsInteractive) {
-      let refusalMessage =
-        'Refusing to post without confirmation. Re-run with --yes (non-interactive).';
-      if (operation === 'delete') {
-        refusalMessage =
-          'Refusing to delete without confirmation. Re-run with --yes (non-interactive).';
-      }
-      return yield* Effect.fail(
-        makeReviewsCommandFailure({
-          operation,
-          message: refusalMessage,
-          cause: 'confirmation-required',
-        }),
-      );
+): Promise<boolean> {
+  const isConfirmed = confirmed == true;
+
+  if (isConfirmed) {
+    return true;
+  }
+
+  const terminalIsInteractive = checkTerminalIsInteractive();
+  const needsATerminal = terminalIsInteractive == false;
+
+  if (needsATerminal) {
+    let refusalMessage =
+      'Refusing to post without confirmation. Re-run with --yes (non-interactive).';
+    const isDelete = operation == 'delete';
+
+    if (isDelete) {
+      refusalMessage =
+        'Refusing to delete without confirmation. Re-run with --yes (non-interactive).';
     }
-    const prompt = yield* LaunchPrompt;
-    const shouldWrite = yield* prompt
-      .confirm(confirmationMessage)
-      .pipe(Effect.mapError((cause) => reviewsFailure(operation, cause)));
-    if (shouldWrite) return true;
-    yield* prompt.cancel('Aborted - nothing posted.');
-    return false;
-  });
+
+    throw makeReviewsCommandFailure({
+      operation,
+      message: refusalMessage,
+      cause: 'confirmation-required',
+    });
+  }
+
+  let shouldWrite = false;
+
+  try {
+    shouldWrite = await LaunchPrompt.confirm(confirmationMessage);
+  } catch (cause) {
+    throw reviewsFailure(operation, cause);
+  }
+
+  if (shouldWrite) {
+    return true;
+  }
+
+  LaunchPrompt.cancel('Aborted - nothing posted.');
+  return false;
+}
 
 /** List customer reviews for the selected app. */
-const listReviewsProgram = (
-  commandInput: ReviewsListCommandInput,
-): Effect.Effect<void, ReviewsCommandFailure, ReviewsCommandRequirements> =>
-  Effect.gen(function* () {
-    const rating = yield* parseReviewRating(commandInput.rating);
+async function listReviewsProgram(commandInput: ReviewsListCommandInput): Promise<void> {
+  try {
+    const rating = parseReviewRating(commandInput.rating);
     const reviewFilters: {
       rating?: number;
       territory?: string;
       unansweredOnly: boolean;
     } = { unansweredOnly: commandInput.unanswered };
-    if (rating !== undefined) reviewFilters.rating = rating;
-    if (commandInput.territory !== undefined) reviewFilters.territory = commandInput.territory;
-    const bundleId = yield* resolveStoreBundleId(commandInput.app);
-    const appleStore = yield* loadActiveAppleStore();
-    const customerReviews = yield* listReviews(appleStore, bundleId, reviewFilters);
-    const logger = yield* createLogger(false);
-    if (commandInput.json) {
-      yield* logger.line(JSON.stringify(customerReviews, null, 2));
+    const hasRating = rating != null;
+
+    if (hasRating) {
+      reviewFilters.rating = rating;
+    }
+
+    const hasTerritory = commandInput.territory != null;
+
+    if (hasTerritory) {
+      reviewFilters.territory = commandInput.territory;
+    }
+
+    const bundleId = await resolveStoreBundleId(commandInput.app);
+    const appleStore = await loadActiveAppleStore();
+    const customerReviews = await listReviews(appleStore, bundleId, reviewFilters);
+    const logger = createLogger(false);
+    const wantsJson = commandInput.json == true;
+
+    if (wantsJson) {
+      logger.line(JSON.stringify(customerReviews, null, 2));
       return;
     }
-    if (customerReviews.length === 0) {
-      yield* logger.line('No reviews match. Try removing a filter, or check back later.');
+
+    const isEmpty = customerReviews.length == 0;
+
+    if (isEmpty) {
+      logger.line('No reviews match. Try removing a filter, or check back later.');
       return;
     }
-    yield* logger.line(customerReviews.map(renderCustomerReview).join('\n\n'));
+
+    logger.line(customerReviews.map(reviewBlock).join('\n\n'));
     let reviewSuffix = 's';
-    if (customerReviews.length === 1) reviewSuffix = '';
-    yield* logger.line(`\n${customerReviews.length} review${reviewSuffix}.`);
-  }).pipe(Effect.mapError((cause) => reviewsFailure('list', cause)));
+    const isSingleReview = customerReviews.length == 1;
+
+    if (isSingleReview) {
+      reviewSuffix = '';
+    }
+
+    logger.line(`\n${customerReviews.length} review${reviewSuffix}.`);
+  } catch (cause) {
+    throw reviewsFailure('list', cause);
+  }
+}
 
 /** Resolve a developer reply from inline text or a file. */
-const readReplyText = (
-  commandInput: ReviewReplyCommandInput,
-): Effect.Effect<string, ReviewsCommandFailure, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    if (commandInput.file !== undefined) {
-      const fileSystem = yield* FileSystem.FileSystem;
-      return yield* fileSystem.readFileString(commandInput.file).pipe(
-        Effect.map((fileText) => fileText.trim()),
-        Effect.mapError((cause) => reviewsFailure('reply', cause)),
-      );
+async function readReplyText(commandInput: ReviewReplyCommandInput): Promise<string> {
+  const hasFile = commandInput.file != null;
+
+  if (hasFile) {
+    try {
+      const fileText = await readFile(commandInput.file, 'utf8');
+      return fileText.trim();
+    } catch (cause) {
+      throw reviewsFailure('reply', cause);
     }
-    if (commandInput.message !== undefined) return commandInput.message;
-    return yield* Effect.fail(
-      makeReviewsCommandFailure({
-        operation: 'reply',
-        message: 'A reply is required. Pass -m/--message <text> or --file <path>.',
-        cause: 'missing-reply',
-      }),
-    );
+  }
+
+  const hasReplyText = commandInput.message != null;
+
+  if (hasReplyText) {
+    return commandInput.message;
+  }
+
+  throw makeReviewsCommandFailure({
+    operation: 'reply',
+    message: 'A reply is required. Pass -m/--message <text> or --file <path>.',
+    cause: 'missing-reply',
   });
+}
 
 /** Confirm and post or replace a developer reply. */
-const replyToReviewProgram = (
-  commandInput: ReviewReplyCommandInput,
-): Effect.Effect<void, ReviewsCommandFailure, ReviewsCommandRequirements> =>
-  Effect.gen(function* () {
-    const replyText = yield* readReplyText(commandInput);
-    const appleStore = yield* loadActiveAppleStore();
-    const existingReply = yield* appleStore.getCustomerReviewResponse(commandInput.reviewId);
+async function replyToReviewProgram(commandInput: ReviewReplyCommandInput): Promise<void> {
+  try {
+    const replyText = await readReplyText(commandInput);
+    const appleStore = await loadActiveAppleStore();
+    const existingReply = await appleStore.getCustomerReviewResponse(commandInput.reviewId);
     let confirmationVerb = 'Post a public reply to';
-    if (existingReply !== null) confirmationVerb = 'Replace the existing reply to';
-    const shouldReply = yield* confirmReviewWrite(
+    const replacesReply = existingReply != null;
+
+    if (replacesReply) {
+      confirmationVerb = 'Replace the existing reply to';
+    }
+
+    const shouldReply = await confirmReviewWrite(
       'reply',
       `${confirmationVerb} review ${commandInput.reviewId}?`,
       commandInput.yes,
     );
-    if (!shouldReply) return;
-    const replyOutcome = yield* replyToReview(appleStore, commandInput.reviewId, replyText);
+    const declined = shouldReply == false;
+
+    if (declined) {
+      return;
+    }
+
+    const replyOutcome = await replyToReview(appleStore, commandInput.reviewId, replyText);
     let operationLabel = 'reply posted';
-    if (replyOutcome.replaced) operationLabel = 'reply replaced';
-    const logger = yield* createLogger(false);
-    yield* logger.step(operationLabel, replyOutcome.reviewReply.state);
-  }).pipe(Effect.mapError((cause) => reviewsFailure('reply', cause)));
+    const replacedExisting = replyOutcome.replaced == true;
+
+    if (replacedExisting) {
+      operationLabel = 'reply replaced';
+    }
+
+    const logger = createLogger(false);
+    logger.step(operationLabel, replyOutcome.reviewReply.state);
+  } catch (cause) {
+    throw reviewsFailure('reply', cause);
+  }
+}
 
 /** Confirm and delete a developer reply. */
-const deleteReviewReplyProgram = (
+async function deleteReviewReplyProgram(
   commandInput: Extract<ReviewsCommandInput, { operation: 'delete' }>,
-): Effect.Effect<void, ReviewsCommandFailure, ReviewsCommandRequirements> =>
-  Effect.gen(function* () {
-    const shouldDelete = yield* confirmReviewWrite(
+): Promise<void> {
+  try {
+    const shouldDelete = await confirmReviewWrite(
       'delete',
       `Delete the developer response to review ${commandInput.reviewId}?`,
       commandInput.yes,
     );
-    if (!shouldDelete) return;
-    const appleStore = yield* loadActiveAppleStore();
-    const deleted = yield* deleteReviewResponse(appleStore, commandInput.reviewId);
-    const logger = yield* createLogger(false);
-    if (deleted) {
-      yield* logger.step('reply deleted', commandInput.reviewId);
+    const declined = shouldDelete == false;
+
+    if (declined) {
       return;
     }
-    yield* logger.note(
-      `No developer response on review ${commandInput.reviewId} - nothing to delete.`,
-    );
-  }).pipe(Effect.mapError((cause) => reviewsFailure('delete', cause)));
 
-/** Run one customer-reviews operation through the shared Effect runtime. */
-export const reviewsCommandProgram = (
-  commandInput: ReviewsCommandInput,
-): Effect.Effect<void, ReviewsCommandFailure, ReviewsCommandRequirements> => {
-  switch (commandInput.operation) {
-    case 'list':
-      return listReviewsProgram(commandInput);
-    case 'reply':
-      return replyToReviewProgram(commandInput);
-    case 'delete':
-      return deleteReviewReplyProgram(commandInput);
+    const appleStore = await loadActiveAppleStore();
+    const deleted = await deleteReviewResponse(appleStore, commandInput.reviewId);
+    const logger = createLogger(false);
+
+    if (deleted) {
+      logger.step('reply deleted', commandInput.reviewId);
+      return;
+    }
+
+    logger.note(`No developer response on review ${commandInput.reviewId} - nothing to delete.`);
+  } catch (cause) {
+    throw reviewsFailure('delete', cause);
   }
-};
+}
+
+/** Run one customer-reviews operation. */
+export async function reviewsCommandProgram(commandInput: ReviewsCommandInput): Promise<void> {
+  if (commandInput.operation == 'list') {
+    await listReviewsProgram(commandInput);
+    return;
+  }
+
+  if (commandInput.operation == 'reply') {
+    await replyToReviewProgram(commandInput);
+    return;
+  }
+
+  await deleteReviewReplyProgram(commandInput);
+}

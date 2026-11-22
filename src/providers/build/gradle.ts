@@ -1,300 +1,358 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Effect } from 'effect';
+import { mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { SizeReportEntry } from '@/types/artifacts.js';
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials, KeystoreAssets } from '@/types/credentials.js';
+import type { KeystoreAssets } from '@/types/credentials.js';
 import { makeProviderInputFailure, type BuildEngine } from '@/types/providers.js';
-import {
-  captureCommandOutput,
-  executeCommand,
-  provideNodeCommandServices,
-} from '@/services/platform/exec.js';
+import { captureCommandOutput, executeCommand } from '@/services/platform/exec.js';
 import {
   runWithProgress,
   gradleProgressStep,
   type ProgressRunOptions,
 } from '@/services/platform/progress.js';
 import { detectHostOperatingSystem } from '@/services/platform/os.js';
+import { pathExists } from '@/path-exists.js';
 import {
   estimateFor,
   readBuildState,
   updateEstimate,
   writeBuildState,
 } from '@/services/providerSupport/buildEngineSupport.js';
-/**
- * The single ETA baseline key for Android. Unlike iOS there's no clean/incremental split - Gradle tracks
- * its own task inputs/outputs, so every build learns one "default" estimate (see {@link BuildEstimate}).
- */
+
 const ANDROID_ESTIMATE_KIND = 'default';
-const gradleFailure = (message: string) =>
-  makeProviderInputFailure({ provider: 'gradle', message });
-/**
- * Arguments for one release build. AGP's injected-signing properties sign with the resolved upload key
- * (no build.gradle edit); `--build-cache` reuses task outputs from earlier builds.
- */
-export const gradleBuildArguments = (
+
+function makeGradleFailure(message: string) {
+  return makeProviderInputFailure({ provider: 'gradle', message });
+}
+
+export function gradleBuildArguments(
   assembleTask: string,
   cleanBuilt: boolean,
   keystore: KeystoreAssets,
-): string[] => {
+): string[] {
   const gradleArguments: string[] = [];
-  if (cleanBuilt) gradleArguments.push(':app:clean');
+
+  if (cleanBuilt) {
+    gradleArguments.push(':app:clean');
+  }
+
   gradleArguments.push(
     assembleTask,
     '--build-cache',
     `-Pandroid.injected.signing.store.file=${keystore.path}`,
     `-Pandroid.injected.signing.key.alias=${keystore.alias}`,
   );
+
   return gradleArguments;
-};
-/** Locate the platform-specific Gradle wrapper. */
-const gradleWrapper = (androidDirectory: string) =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const operatingSystem = yield* detectHostOperatingSystem;
-    let wrapperName = 'gradlew';
-    if (operatingSystem === 'windows') wrapperName = 'gradlew.bat';
-    const wrapperPath = pathService.join(androidDirectory, wrapperName);
-    if (yield* fileSystem.exists(wrapperPath)) return wrapperPath;
-    return yield* Effect.fail(
-      gradleFailure(`No Gradle wrapper at ${wrapperPath} - did prebuild run?`),
+}
+
+async function gradleWrapper(androidDirectory: string): Promise<string> {
+  const operatingSystem = detectHostOperatingSystem();
+  let wrapperName = 'gradlew';
+  const isWindows = operatingSystem == 'windows';
+
+  if (isWindows) {
+    wrapperName = 'gradlew.bat';
+  }
+
+  const wrapperPath = join(androidDirectory, wrapperName);
+  const wrapperExists = await pathExists(wrapperPath);
+
+  if (wrapperExists) {
+    return wrapperPath;
+  }
+
+  throw makeGradleFailure(`No Gradle wrapper at ${wrapperPath} - did prebuild run?`);
+}
+
+function endsWithExtension(extension: string): (fileName: string) => boolean {
+  function hasExtension(fileName: string): boolean {
+    return fileName.endsWith(extension);
+  }
+
+  return hasExtension;
+}
+
+async function findReleaseArtifact(
+  androidDirectory: string,
+  artifactKind: 'apk' | 'bundle',
+): Promise<string> {
+  let extension = '.aab';
+  let taskName = 'bundleRelease';
+  const isApk = artifactKind == 'apk';
+
+  if (isApk) {
+    extension = '.apk';
+    taskName = 'assembleRelease';
+  }
+
+  const releaseDirectory = join(
+    androidDirectory,
+    'app',
+    'build',
+    'outputs',
+    artifactKind,
+    'release',
+  );
+  const releaseDirectoryExists = await pathExists(releaseDirectory);
+
+  if (releaseDirectoryExists == false) {
+    throw makeGradleFailure(
+      `Gradle produced no ${artifactKind} release directory (${releaseDirectory}).`,
     );
-  });
-/** Find the single release artifact Gradle emitted. */
-const findReleaseArtifact = (androidDirectory: string, artifactKind: 'apk' | 'bundle') =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    let extension = '.aab';
-    let taskName = 'bundleRelease';
-    if (artifactKind === 'apk') {
-      extension = '.apk';
-      taskName = 'assembleRelease';
-    }
-    const releaseDirectory = pathService.join(
-      androidDirectory,
-      'app',
-      'build',
-      'outputs',
-      artifactKind,
-      'release',
-    );
-    const releaseDirectoryExists = yield* fileSystem.exists(releaseDirectory);
-    if (!releaseDirectoryExists) {
-      return yield* Effect.fail(
-        gradleFailure(
-          `Gradle produced no ${artifactKind} release directory (${releaseDirectory}).`,
-        ),
-      );
-    }
-    const artifactName = (yield* fileSystem.readDirectory(releaseDirectory)).find((entryName) =>
-      entryName.endsWith(extension),
-    );
-    if (artifactName !== undefined) return pathService.join(releaseDirectory, artifactName);
-    return yield* Effect.fail(
-      gradleFailure(`No ${extension} found in ${releaseDirectory} after ${taskName}.`),
-    );
-  });
-/**
- * Parse `bundletool get-size total --dimensions=ALL` CSV into the min/max download in bytes.
- *
- * The output is a header row (whose last two columns are `MIN`,`MAX`) followed by one row per device
- * configuration. The honest worst-case download is the largest `MAX` across configurations; `MIN` is
- * the smallest. Unrecognized output degrades to zeros rather than throwing, so a bundletool format
- * drift surfaces as a 0-byte estimate (caught by the caller), not a crash.
- */
-export const parseBundletoolSize = (
-  csv: string,
-): {
-  minBytes: number;
-  maxBytes: number;
-} => {
-  const lines = csv
-    .trim()
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0);
-  if (lines.length < 2) return { minBytes: 0, maxBytes: 0 };
+  }
+
+  const releaseNames = await readdir(releaseDirectory);
+  const artifactName = releaseNames.find(endsWithExtension(extension));
+
+  if (artifactName != null) {
+    return join(releaseDirectory, artifactName);
+  }
+
+  throw makeGradleFailure(`No ${extension} found in ${releaseDirectory} after ${taskName}.`);
+}
+
+function isFilledLine(line: string): boolean {
+  return line.trim().length > 0;
+}
+
+function trimCell(cell: string): string {
+  return cell.trim().toUpperCase();
+}
+
+export function parseBundletoolSize(csv: string): { minBytes: number; maxBytes: number } {
+  const lines = csv.trim().split(/\r?\n/).filter(isFilledLine);
+  const hasSizeRows = lines.length >= 2;
+
+  if (hasSizeRows == false) {
+    return { minBytes: 0, maxBytes: 0 };
+  }
+
   const headerLine = lines[0];
-  if (headerLine === undefined) return { minBytes: 0, maxBytes: 0 };
-  const header = headerLine.split(',').map((cell) => cell.trim().toUpperCase());
-  const minCol = header.indexOf('MIN');
-  const maxCol = header.indexOf('MAX');
-  if (minCol === -1) return { minBytes: 0, maxBytes: 0 };
-  if (maxCol === -1) return { minBytes: 0, maxBytes: 0 };
+
+  if (headerLine == null) {
+    return { minBytes: 0, maxBytes: 0 };
+  }
+
+  const header = headerLine.split(',').map(trimCell);
+  const minColumn = header.indexOf('MIN');
+  const maxColumn = header.indexOf('MAX');
+  const isMinMissing = minColumn == -1;
+
+  if (isMinMissing) {
+    return { minBytes: 0, maxBytes: 0 };
+  }
+
+  const isMaxMissing = maxColumn == -1;
+
+  if (isMaxMissing) {
+    return { minBytes: 0, maxBytes: 0 };
+  }
+
   let minBytes = Number.POSITIVE_INFINITY;
   let maxBytes = 0;
+
   for (const line of lines.slice(1)) {
     const cells = line.split(',');
-    const minimumCell = cells[minCol];
-    const maximumCell = cells[maxCol];
-    if (minimumCell === undefined) continue;
-    if (maximumCell === undefined) continue;
+    const minimumCell = cells[minColumn];
+    const maximumCell = cells[maxColumn];
+
+    if (minimumCell == null) {
+      continue;
+    }
+
+    if (maximumCell == null) {
+      continue;
+    }
+
     const parsedMinimum = Number.parseInt(minimumCell, 10);
     const parsedMaximum = Number.parseInt(maximumCell, 10);
-    if (!Number.isNaN(parsedMinimum)) minBytes = Math.min(minBytes, parsedMinimum);
-    if (!Number.isNaN(parsedMaximum)) maxBytes = Math.max(maxBytes, parsedMaximum);
+    const minimumIsNumber = Number.isNaN(parsedMinimum) == false;
+
+    if (minimumIsNumber) {
+      minBytes = Math.min(minBytes, parsedMinimum);
+    }
+
+    const maximumIsNumber = Number.isNaN(parsedMaximum) == false;
+
+    if (maximumIsNumber) {
+      maxBytes = Math.max(maxBytes, parsedMaximum);
+    }
   }
-  if (!Number.isFinite(minBytes)) minBytes = 0;
+
+  const minimumIsFinite = Number.isFinite(minBytes);
+
+  if (minimumIsFinite == false) {
+    minBytes = 0;
+  }
+
   return { minBytes, maxBytes };
-};
-/**
- * Estimate the worst-case store download for an `.aab` with bundletool: build the device APK splits
- * (signed with the same upload keystore, so the estimate is representative), then read the size table.
- * Returns one {@link SizeReportEntry} (`installBytes` 0 - Play exposes no honest install figure), or an
- * empty array if the estimate couldn't be produced, so the build still completes with the `.aab` size.
- */
-const estimateDownload = (
+}
+
+async function estimateDownload(
   aabPath: string,
   keystore: KeystoreAssets,
-): Effect.Effect<SizeReportEntry[], unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
-      const workingDirectory = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-aab-' });
-      const apksPath = pathService.join(workingDirectory, 'app.apks');
-      const storePasswordPath = pathService.join(workingDirectory, 'store-password');
-      const keyPasswordPath = pathService.join(workingDirectory, 'key-password');
-      yield* fileSystem.writeFileString(storePasswordPath, keystore.storePassword, { mode: 0o600 });
-      yield* fileSystem.writeFileString(keyPasswordPath, keystore.keyPassword, { mode: 0o600 });
-      yield* provideNodeCommandServices(
-        executeCommand('bundletool', [
-          'build-apks',
-          `--bundle=${aabPath}`,
-          `--output=${apksPath}`,
-          '--mode=default',
-          `--ks=${keystore.path}`,
-          `--ks-pass=file:${storePasswordPath}`,
-          `--ks-key-alias=${keystore.alias}`,
-          `--key-pass=file:${keyPasswordPath}`,
-        ]),
-      );
-      const sizeTable = yield* provideNodeCommandServices(
-        captureCommandOutput('bundletool', [
-          'get-size',
-          'total',
-          `--apks=${apksPath}`,
-          '--dimensions=ALL',
-        ]),
-      );
-      const { maxBytes } = parseBundletoolSize(sizeTable);
-      if (maxBytes > 0)
-        return [{ device: 'worst-case device', downloadBytes: maxBytes, installBytes: 0 }];
+): Promise<SizeReportEntry[]> {
+  const workingDirectory = await mkdtemp(join(tmpdir(), 'launch-aab-'));
+
+  try {
+    const apksPath = join(workingDirectory, 'app.apks');
+    const storePasswordPath = join(workingDirectory, 'store-password');
+    const keyPasswordPath = join(workingDirectory, 'key-password');
+    await writeFile(storePasswordPath, keystore.storePassword, { mode: 0o600 });
+    await writeFile(keyPasswordPath, keystore.keyPassword, { mode: 0o600 });
+    await executeCommand('bundletool', [
+      'build-apks',
+      `--bundle=${aabPath}`,
+      `--output=${apksPath}`,
+      '--mode=default',
+      `--ks=${keystore.path}`,
+      `--ks-pass=file:${storePasswordPath}`,
+      `--ks-key-alias=${keystore.alias}`,
+      `--key-pass=file:${keyPasswordPath}`,
+    ]);
+    const sizeTable = await captureCommandOutput('bundletool', [
+      'get-size',
+      'total',
+      `--apks=${apksPath}`,
+      '--dimensions=ALL',
+    ]);
+    const parsedSize = parseBundletoolSize(sizeTable);
+    const hasDownloadEstimate = parsedSize.maxBytes > 0;
+
+    if (hasDownloadEstimate == false) {
       return [];
-    }),
-  );
-const gradleBuildEngine = {
-  name: 'gradle',
-  buildArtifact(buildContext: ResolvedBuildContext, buildCredentials: BuildCredentials) {
-    return Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
-      if (buildContext.dryRun) {
-        return {
-          artifactPath: '(dry-run, not built)',
-          sizeReport: { artifactBytes: 0, entries: [] },
-          cleanBuilt: false,
-        };
-      }
-      if (buildCredentials.platform !== 'android')
-        return yield* Effect.fail(
-          makeProviderInputFailure({
-            provider: 'gradle',
-            message: 'The gradle build engine builds Android only.',
-          }),
-        );
-      const keystore = buildCredentials.keystore;
-      if (!keystore)
-        return yield* Effect.fail(
-          makeProviderInputFailure({
-            provider: 'gradle',
-            message:
-              'No upload keystore resolved - run `launch creds setup --platform android --app <name>` first.',
-          }),
-        );
-      const androidDir = pathService.join(buildContext.app.dir, 'android');
-      const wrapper = yield* gradleWrapper(androidDir);
-      // Gradle is incrementally correct by default; `--clean` prepends the clean task for a from-scratch build.
-      // (iOS-style native fingerprinting isn't needed here - Gradle tracks task inputs/outputs itself.)
-      const cleanBuilt = buildContext.forceClean;
-      // Internal distribution needs a directly-installable .apk; the store path produces an .aab.
-      const internal = buildContext.distribution === 'internal';
-      let assembleTask = ':app:bundleRelease';
-      if (internal) assembleTask = ':app:assembleRelease';
-      const stored = yield* readBuildState(buildContext.app.name, 'android');
-      const estimate = estimateFor(stored, ANDROID_ESTIMATE_KIND);
-      const gradleArguments = gradleBuildArguments(assembleTask, cleanBuilt, keystore);
-      const progressOptions: ProgressRunOptions = {
-        label: `Building Android - ${buildContext.app.name}`,
-        parseStep: gradleProgressStep,
-        cwd: androidDir,
-        env: {
-          ...buildContext.env,
-          'ORG_GRADLE_PROJECT_android.injected.signing.store.password': keystore.storePassword,
-          'ORG_GRADLE_PROJECT_android.injected.signing.key.password': keystore.keyPassword,
-        },
-      };
-      if (estimate !== undefined) progressOptions.estimate = estimate;
-      const buildRun = yield* runWithProgress(wrapper, gradleArguments, progressOptions);
-      // Learn this build's duration/Gradle-task count into the one "default" baseline so the next ETA improves.
-      // Android has no native fingerprint (Gradle owns incrementality), so it's stored empty; stream mode
-      // reports 0 steps (output unparsed), so carry the prior step total forward.
-      const prior = stored?.estimates?.[ANDROID_ESTIMATE_KIND];
-      let priorStepCount = 0;
-      if (prior?.steps !== undefined) priorStepCount = prior.steps;
-      let recordedStepCount = priorStepCount;
-      if (buildRun.steps > 0) recordedStepCount = buildRun.steps;
-      const sample = {
+    }
+
+    return [{ device: 'worst-case device', downloadBytes: parsedSize.maxBytes, installBytes: 0 }];
+  } finally {
+    await rm(workingDirectory, { recursive: true, force: true });
+  }
+}
+
+async function buildAndroidArtifact(
+  buildContext: Parameters<BuildEngine['buildArtifact']>[0],
+  buildCredentials: Parameters<BuildEngine['buildArtifact']>[1],
+): ReturnType<BuildEngine['buildArtifact']> {
+  if (buildContext.dryRun) {
+    return {
+      artifactPath: '(dry-run, not built)',
+      sizeReport: { artifactBytes: 0, entries: [] },
+      cleanBuilt: false,
+    };
+  }
+
+  const isAndroidCredential = buildCredentials.platform == 'android';
+
+  if (isAndroidCredential == false) {
+    throw makeProviderInputFailure({
+      provider: 'gradle',
+      message: 'The gradle build engine builds Android only.',
+    });
+  }
+
+  const keystore = buildCredentials.keystore;
+  const isKeystoreMissing = keystore == null;
+
+  if (isKeystoreMissing) {
+    throw makeProviderInputFailure({
+      provider: 'gradle',
+      message:
+        'No upload keystore resolved - run `launch creds setup --platform android --app <name>` first.',
+    });
+  }
+
+  const androidDirectory = join(buildContext.app.dir, 'android');
+  const wrapper = await gradleWrapper(androidDirectory);
+  const cleanBuilt = buildContext.forceClean;
+  const isInternalDistribution = buildContext.distribution == 'internal';
+  let assembleTask = ':app:bundleRelease';
+
+  if (isInternalDistribution) {
+    assembleTask = ':app:assembleRelease';
+  }
+
+  const storedBuild = await readBuildState(buildContext.app.name, 'android');
+  const estimate = estimateFor(storedBuild, ANDROID_ESTIMATE_KIND);
+  const gradleArguments = gradleBuildArguments(assembleTask, cleanBuilt, keystore);
+  const progressOptions: ProgressRunOptions = {
+    label: `Building Android - ${buildContext.app.name}`,
+    parseStep: gradleProgressStep,
+    cwd: androidDirectory,
+    env: {
+      ...buildContext.env,
+      'ORG_GRADLE_PROJECT_android.injected.signing.store.password': keystore.storePassword,
+      'ORG_GRADLE_PROJECT_android.injected.signing.key.password': keystore.keyPassword,
+    },
+  };
+  const hasEstimate = estimate != null;
+
+  if (hasEstimate) {
+    progressOptions.estimate = estimate;
+  }
+
+  const buildRun = await runWithProgress(wrapper, gradleArguments, progressOptions);
+  const priorEstimate = storedBuild?.estimates?.[ANDROID_ESTIMATE_KIND];
+  let priorStepCount = 0;
+
+  if (priorEstimate?.steps != null) {
+    priorStepCount = priorEstimate.steps;
+  }
+
+  let recordedStepCount = priorStepCount;
+  const parsedSteps = buildRun.steps > 0;
+
+  if (parsedSteps) {
+    recordedStepCount = buildRun.steps;
+  }
+
+  let priorEstimates = {};
+
+  if (storedBuild?.estimates != null) {
+    priorEstimates = storedBuild.estimates;
+  }
+
+  await writeBuildState(buildContext.app.name, 'android', {
+    fingerprint: '',
+    builtAt: new Date().toISOString(),
+    cleanBuilt,
+    estimates: {
+      ...priorEstimates,
+      [ANDROID_ESTIMATE_KIND]: updateEstimate(priorEstimate, {
         ms: buildRun.elapsedMs,
         steps: recordedStepCount,
-      };
-      let priorEstimates = {};
-      if (stored?.estimates !== undefined) priorEstimates = stored.estimates;
-      yield* writeBuildState(buildContext.app.name, 'android', {
-        fingerprint: '',
-        builtAt: new Date().toISOString(),
-        cleanBuilt,
-        estimates: {
-          ...priorEstimates,
-          [ANDROID_ESTIMATE_KIND]: updateEstimate(prior, sample),
-        },
-      });
-      // An .apk's on-disk size is essentially the download (no Play splits), so report it directly;
-      // an .aab gets the bundletool worst-case estimate (the .aab file size is NOT the download).
-      if (internal) {
-        const apkPath = yield* findReleaseArtifact(androidDir, 'apk');
-        const apkBytes = Number((yield* fileSystem.stat(apkPath)).size);
-        return {
-          artifactPath: apkPath,
-          sizeReport: {
-            artifactBytes: apkBytes,
-            entries: [{ device: 'apk', downloadBytes: apkBytes, installBytes: 0 }],
-          },
-          cleanBuilt,
-        };
-      }
-      const artifactPath = yield* findReleaseArtifact(androidDir, 'bundle');
-      const artifactBytes = Number((yield* fileSystem.stat(artifactPath)).size);
-      const entries = yield* estimateDownload(artifactPath, keystore);
-      return { artifactPath, sizeReport: { artifactBytes, entries }, cleanBuilt };
-    });
-  },
+      }),
+    },
+  });
+
+  if (isInternalDistribution) {
+    const apkPath = await findReleaseArtifact(androidDirectory, 'apk');
+    const apkStat = await stat(apkPath);
+    const apkBytes = Number(apkStat.size);
+
+    return {
+      artifactPath: apkPath,
+      sizeReport: {
+        artifactBytes: apkBytes,
+        entries: [{ device: 'apk', downloadBytes: apkBytes, installBytes: 0 }],
+      },
+      cleanBuilt,
+    };
+  }
+
+  const artifactPath = await findReleaseArtifact(androidDirectory, 'bundle');
+  const artifactStat = await stat(artifactPath);
+  const artifactBytes = Number(artifactStat.size);
+  const sizeEntries = await estimateDownload(artifactPath, keystore);
+
+  return { artifactPath, sizeReport: { artifactBytes, entries: sizeEntries }, cleanBuilt };
+}
+
+const gradleBuildEngine: BuildEngine = {
+  name: 'gradle',
+  buildArtifact: buildAndroidArtifact,
 };
 
-type GradleBuildRequirements = Effect.Effect.Context<
-  ReturnType<(typeof gradleBuildEngine)['buildArtifact']>
->;
-
-/** Acquire the build services once and return a requirement-free Gradle engine. */
-export const makeGradleBuildEngine = () =>
-  Effect.gen(function* () {
-    const buildServices = yield* Effect.context<GradleBuildRequirements>();
-    return {
-      name: gradleBuildEngine.name,
-      buildArtifact: (buildContext: ResolvedBuildContext, buildCredentials: BuildCredentials) =>
-        gradleBuildEngine
-          .buildArtifact(buildContext, buildCredentials)
-          .pipe(Effect.provide(buildServices)),
-    } satisfies BuildEngine;
-  });
+export function makeGradleBuildEngine(): BuildEngine {
+  return gradleBuildEngine;
+}

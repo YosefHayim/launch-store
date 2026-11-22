@@ -1,5 +1,4 @@
-import { FileSystem } from '@effect/platform';
-import { Effect } from 'effect';
+import { readFile } from 'node:fs/promises';
 
 type ImageDimensions = {
   readonly width: number;
@@ -72,14 +71,19 @@ export const readImageDimensions = (imageBytes: Uint8Array): ImageDimensions | n
   return readJpegDimensions(imageBuffer);
 };
 
-export const readScreenshotDimensions = (
-  filePath: string,
-): Effect.Effect<ImageDimensions | null, never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const imageBytes = yield* fileSystem
-      .readFile(filePath)
-      .pipe(Effect.catchAll(() => Effect.succeed(null)));
-    if (imageBytes === null) return null;
-    return readImageDimensions(imageBytes);
-  });
+export async function readScreenshotDimensions(filePath: string): Promise<ImageDimensions | null> {
+  try {
+    var imageBytes = await readFile(filePath);
+  } catch (error) {
+    // A missing or unreadable file is an unmeasured screenshot, not a failed check.
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      return null;
+    }
+
+    throw new Error(`Could not read ${filePath}`, { cause: error });
+  }
+
+  return readImageDimensions(imageBytes);
+}

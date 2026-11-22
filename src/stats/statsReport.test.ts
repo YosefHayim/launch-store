@@ -1,9 +1,7 @@
-import { Effect } from 'effect';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { makeHttpClientTest } from '@testkit/httpClient.testkit.js';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
@@ -12,31 +10,34 @@ import {
   STATS_PORTFOLIO_FILE,
   writeStatsMonthFiles,
 } from '@testkit/statsHome.testkit.js';
-import type { StatsFeedFailure, StatsFeedPlugin } from '../types/stats.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import type { StatsReportRequest } from '../types/statsReport.js';
 import { createStatsReport } from './statsReport.js';
-import { makeStatsCredentialsTest } from './statsCredentials.js';
+import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.js';
 
 const fakeFeed = vi.hoisted(() => ({ isFailing: false }));
 
-vi.mock('./feedRegistry.js', async () => {
-  const { Effect: EffectModule } = await import('effect');
-  const iosFeed: StatsFeedPlugin = {
-    feed: 'app-store',
-    isApplicable: (app) => app.platform === 'ios',
-    fetchDays: () => {
+vi.mock('./feedRegistry.js', () => {
+  const iosFeed = {
+    feed: 'app-store' as const,
+    isApplicable(app: { platform: string }) {
+      return app.platform == 'ios';
+    },
+    async fetchDays() {
       if (fakeFeed.isFailing) {
-        return EffectModule.fail({
+        throw {
           _tag: 'StatsFeedFailure',
           feed: 'app-store',
           appKey: 'ios-1',
           message: 'report not ready',
           cause: null,
-        } satisfies StatsFeedFailure);
+        };
       }
-      return EffectModule.succeed({ status: 'skipped', reason: 'not built yet' });
+
+      return { status: 'skipped' as const, reason: 'not built yet' };
     },
   };
+
   return { STATS_FEED_PLUGINS: [iosFeed] };
 });
 
@@ -47,10 +48,23 @@ const ALL_APPS_REQUEST: StatsReportRequest = {
   days: 7,
 };
 
+type ReportOutcome<Report> =
+  | { readonly _tag: 'Right'; readonly right: Report }
+  | { readonly _tag: 'Left'; readonly left: { readonly message?: string } };
+
 describe('createStatsReport', () => {
   let homeDirectory: string;
+
+  function useTemporaryLaunchHome(): void {
+    useLaunchDirectories({
+      homeDirectory,
+      workingDirectory: join(homeDirectory, 'work'),
+    });
+  }
+
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    useTemporaryLaunchHome();
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(STATS_PORTFOLIO_FILE));
     writeStatsMonthFiles(homeDirectory, 'ios-1', [
       {
@@ -98,21 +112,27 @@ describe('createStatsReport', () => {
         currency: null,
       },
     ]);
+    makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
   });
+
   afterEach(() => {
+    useStatsCredentials(null);
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
-  const createReport = (request: StatsReportRequest) =>
-    Effect.runPromise(
-      createStatsReport(request).pipe(
-        Effect.either,
-        Effect.provide(makeStatsCredentialsTest()),
-        Effect.provide(makeHttpClientTest([])),
-        Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      ),
-    );
+  const createReport = async (
+    request: StatsReportRequest,
+  ): Promise<ReportOutcome<Awaited<ReturnType<typeof createStatsReport>>>> => {
+    try {
+      const right = await createStatsReport(request);
+
+      return { _tag: 'Right', right };
+    } catch (left) {
+      return { _tag: 'Left', left: left as { message?: string } };
+    }
+  };
 
   test('folds the saved numbers per app and ignores days outside the range', async () => {
     const outcome = await createReport(ALL_APPS_REQUEST);
@@ -190,6 +210,7 @@ describe('createStatsReport', () => {
   test('gives empty totals for an app with no saved numbers', async () => {
     removeTemporaryHomeDirectory(homeDirectory);
     homeDirectory = createTemporaryHomeDirectory();
+    useTemporaryLaunchHome();
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(STATS_PORTFOLIO_FILE));
 
     const outcome = await createReport(ALL_APPS_REQUEST);

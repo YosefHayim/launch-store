@@ -1,17 +1,13 @@
-import { FileSystem, Terminal } from '@effect/platform';
-import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor';
-import { Context, Data, Effect, Layer } from 'effect';
 import { loadConfig, type LoadedConfig } from '../config/config.js';
 import { resolveStorageProvider } from '../distribution/storage.js';
-import {
-  LaunchEnvironment,
-  type LaunchEnvironmentService,
-} from '../services/platform/environment.js';
+import { readLaunchEnvironment } from '../services/platform/environment.js';
 import { executeCommand } from '../services/platform/exec.js';
 import { createLogger, type Logger } from '../services/platform/logger.js';
 import { detectHostOperatingSystem } from '../services/platform/os.js';
 import { parsePlatform } from '../services/stores/platform.js';
 import { LaunchPrompt } from '../services/platform/prompt.js';
+import { pathExists } from '../path-exists.js';
+import { checkTerminalIsInteractive } from '../services/platform/progress.js';
 import type { Platform } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';
 import type { BuildArtifact, PrunedArtifact } from '../types/artifacts.js';
@@ -23,7 +19,6 @@ import { mb } from './pipelineProviders.js';
 import { hasMessage } from '../services/platform/errorMessage.js';
 import { alignTableColumns, type Column } from '../terminal/table.js';
 
-/** Stable presentation shape emitted by `builds list --json`. */
 type BuildRow = Readonly<{
   id: string;
   app: string;
@@ -38,7 +33,6 @@ type BuildRow = Readonly<{
   prunedAt?: string;
 }>;
 
-/** Options shared with the interactive cleanup entry point. */
 export type PruneCommandOptions = Readonly<{
   app?: string;
   platform?: string;
@@ -48,7 +42,6 @@ export type PruneCommandOptions = Readonly<{
   json?: boolean;
 }>;
 
-/** One build-history operation selected by Commander or an interactive caller. */
 export type BuildHistoryCommandInput =
   | Readonly<{
       operation: 'list';
@@ -60,81 +53,91 @@ export type BuildHistoryCommandInput =
   | Readonly<{ operation: 'log'; reference: string; open: boolean }>
   | Readonly<{ operation: 'prune'; options: PruneCommandOptions }>;
 
-/** A build-history command could not satisfy its requested operation. */
 export type BuildHistoryCommandFailure = Readonly<{
   readonly _tag: 'BuildHistoryCommandFailure';
   readonly operation: string;
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeBuildHistoryCommandFailure = Data.tagged<BuildHistoryCommandFailure>(
-  'BuildHistoryCommandFailure',
-);
 
-/** Injectable terminal, clock, and local I/O boundary for build history. */
-type BuildHistoryCommandService = Readonly<{
-  logger: Logger;
-  currentTime: () => number;
-  terminalIsInteractive: boolean;
-  confirmDeletion: (message: string) => Effect.Effect<boolean, BuildHistoryCommandFailure>;
-  cancelDeletion: () => Effect.Effect<void>;
-  logFileExists: (logPath: string) => Effect.Effect<boolean, BuildHistoryCommandFailure>;
-  readLog: (buildIdentifier: string) => Effect.Effect<string | null>;
-  openLog: (
-    logPath: string,
-  ) => Effect.Effect<void, BuildHistoryCommandFailure, PlatformCommandExecutor.CommandExecutor>;
-}>;
-const BuildHistoryCommandService = Context.GenericTag<BuildHistoryCommandService>(
-  'BuildHistoryCommandService',
-);
+export function makeBuildHistoryCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): BuildHistoryCommandFailure {
+  return {
+    _tag: 'BuildHistoryCommandFailure',
+    operation: fields.operation,
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
 
-/** Loaded config and storage provider for one build-history session. */
 type BuildStorageSession = Readonly<{
   config: LaunchConfig;
   storageProvider: StorageProvider;
 }>;
 
-/** Convert an unknown dependency failure to the build-history error channel. */
-const buildHistoryFailure = (
+type BuildHistoryTools = {
+  logger: Logger;
+  currentTime: () => number;
+  terminalIsInteractive: boolean;
+  confirmDeletion: (message: string) => Promise<boolean>;
+  cancelDeletion: () => void;
+  logFileExists: (logPath: string) => Promise<boolean>;
+  readLog: (buildIdentifier: string) => Promise<string | null>;
+  openLog: (logPath: string) => Promise<void>;
+};
+
+function buildHistoryFailure(
   operation: string,
   cause: unknown,
   fallbackMessage?: string,
-): BuildHistoryCommandFailure => {
+): BuildHistoryCommandFailure {
   let message = fallbackMessage;
-  if (message === undefined && hasMessage(cause)) message = cause.message;
-  if (
-    message === undefined &&
-    typeof cause === 'object' &&
-    cause !== null &&
-    'message' in cause &&
-    typeof cause.message === 'string'
-  ) {
-    message = cause.message;
+
+  if (message == null) {
+    if (hasMessage(cause)) {
+      message = cause.message;
+    }
   }
-  if (message === undefined) message = `${operation} failed.`;
+
+  if (message == null) {
+    message = readLooseMessage(cause);
+  }
+
+  if (message == null) {
+    message = `${operation} failed.`;
+  }
+
   return makeBuildHistoryCommandFailure({ operation, message, cause });
-};
+}
 
-/** Map one terminal write into the build-history error channel. */
-const writeLog = (
-  operation: string,
-  logWrite: ReturnType<Logger['line']>,
-): Effect.Effect<void, BuildHistoryCommandFailure> =>
-  logWrite.pipe(Effect.mapError((cause) => buildHistoryFailure(operation, cause)));
+function readLooseMessage(cause: unknown): string | undefined {
+  if (typeof cause != 'object') {
+    return undefined;
+  }
 
-/** Render a JSON value as a single terminal line. */
-const writeJsonLine = (
-  operation: string,
-  logger: Logger,
-  jsonValue: unknown,
-): Effect.Effect<void, BuildHistoryCommandFailure> =>
-  writeLog(operation, logger.line(JSON.stringify(jsonValue, null, 2)));
+  if (cause == null) {
+    return undefined;
+  }
 
-/** Stable provider-independent identifier for one stored build. */
-export const buildId = (artifact: BuildArtifact): string => buildLogId(artifact);
+  if ('message' in cause == false) {
+    return undefined;
+  }
 
-/** Project one persisted build into the stable presentation shape. */
-export const toBuildRow = (artifact: BuildArtifact): BuildRow => {
+  if (typeof cause.message != 'string') {
+    return undefined;
+  }
+
+  return cause.message;
+}
+
+export function buildId(artifact: BuildArtifact): string {
+  return buildLogId(artifact);
+}
+
+export function toBuildRow(artifact: BuildArtifact): BuildRow {
   const buildRow: BuildRow = {
     id: buildId(artifact),
     app: artifact.appName,
@@ -147,80 +150,185 @@ export const toBuildRow = (artifact: BuildArtifact): BuildRow => {
     createdAt: artifact.createdAt,
     path: artifact.path,
   };
-  if (artifact.prunedAt === undefined) return buildRow;
-  return { ...buildRow, prunedAt: artifact.prunedAt };
-};
 
-/** Narrow build history to the requested app and platform. */
-export const filterBuilds = (
+  if (artifact.prunedAt == null) {
+    return buildRow;
+  }
+
+  return { ...buildRow, prunedAt: artifact.prunedAt };
+}
+
+function appFilterDiffers(wantedApp: string | undefined, appName: string): boolean {
+  if (wantedApp == null) {
+    return false;
+  }
+
+  return appName != wantedApp;
+}
+
+function platformFilterDiffers(wantedPlatform: Platform | undefined, platform: Platform): boolean {
+  if (wantedPlatform == null) {
+    return false;
+  }
+
+  return platform != wantedPlatform;
+}
+
+export function filterBuilds(
   storedBuilds: readonly BuildArtifact[],
   filters: Readonly<{ app?: string; platform?: Platform }>,
-): BuildArtifact[] =>
-  storedBuilds.filter((storedBuild) => {
-    if (filters.app !== undefined && storedBuild.appName !== filters.app) return false;
-    if (filters.platform !== undefined && storedBuild.platform !== filters.platform) return false;
+): BuildArtifact[] {
+  return storedBuilds.filter(function keepBuild(storedBuild: BuildArtifact): boolean {
+    const appDiffers = appFilterDiffers(filters.app, storedBuild.appName);
+
+    if (appDiffers) {
+      return false;
+    }
+
+    const platformDiffers = platformFilterDiffers(filters.platform, storedBuild.platform);
+
+    if (platformDiffers) {
+      return false;
+    }
+
     return true;
   });
+}
 
-/** Resolve a full id, build number, or `latest` against newest-first history. */
-export const findBuild = (
+export function findBuild(
   storedBuilds: readonly BuildArtifact[],
   reference: string,
-): BuildArtifact | undefined => {
-  if (reference === 'latest') return storedBuilds[0];
-  return storedBuilds.find((storedBuild) => {
-    if (buildId(storedBuild) === reference) return true;
-    return String(storedBuild.buildNumber) === reference;
-  });
-};
+): BuildArtifact | undefined {
+  if (reference == 'latest') {
+    return storedBuilds[0];
+  }
 
-/** Render an ISO timestamp as `YYYY-MM-DD HH:MM`. */
-const formatDate = (isoTimestamp: string): string => {
-  if (isoTimestamp.length >= 16) {
+  return storedBuilds.find(function sameBuild(storedBuild: BuildArtifact): boolean {
+    const sameId = buildId(storedBuild) == reference;
+
+    if (sameId) {
+      return true;
+    }
+
+    return String(storedBuild.buildNumber) == reference;
+  });
+}
+
+function formatDate(isoTimestamp: string): string {
+  const hasClock = isoTimestamp.length >= 16;
+
+  if (hasClock) {
     return `${isoTimestamp.slice(0, 10)} ${isoTimestamp.slice(11, 16)}`;
   }
-  return isoTimestamp;
-};
 
-/** Label a build as pruned, clean, or incremental for table/detail output. */
-export const buildKindLabel = (flags: Readonly<{ clean: boolean; prunedAt?: string }>): string => {
-  if (flags.prunedAt !== undefined) return 'pruned';
-  if (flags.clean) return 'clean';
+  return isoTimestamp;
+}
+
+export function buildKindLabel(flags: Readonly<{ clean: boolean; prunedAt?: string }>): string {
+  if (flags.prunedAt != null) {
+    return 'pruned';
+  }
+
+  if (flags.clean) {
+    return 'clean';
+  }
+
   return 'incremental';
-};
+}
 
 const BUILD_COLUMNS: readonly Column<BuildRow>[] = [
-  { header: 'BUILD', cell: (buildRow) => String(buildRow.buildNumber) },
-  { header: 'APP', cell: (buildRow) => buildRow.app },
-  { header: 'VERSION', cell: (buildRow) => buildRow.version },
-  { header: 'PLATFORM', cell: (buildRow) => buildRow.platform },
-  { header: 'DOWNLOAD', cell: (buildRow) => mb(buildRow.downloadBytes) },
-  { header: 'CREATED', cell: (buildRow) => formatDate(buildRow.createdAt) },
-  { header: 'TYPE', cell: (buildRow) => buildKindLabel(buildRow) },
+  {
+    header: 'BUILD',
+    cell: function buildNumberCell(buildRow: BuildRow) {
+      return String(buildRow.buildNumber);
+    },
+  },
+  {
+    header: 'APP',
+    cell: function appCell(buildRow: BuildRow) {
+      return buildRow.app;
+    },
+  },
+  {
+    header: 'VERSION',
+    cell: function versionCell(buildRow: BuildRow) {
+      return buildRow.version;
+    },
+  },
+  {
+    header: 'PLATFORM',
+    cell: function platformCell(buildRow: BuildRow) {
+      return buildRow.platform;
+    },
+  },
+  {
+    header: 'DOWNLOAD',
+    cell: function downloadCell(buildRow: BuildRow) {
+      return mb(buildRow.downloadBytes);
+    },
+  },
+  {
+    header: 'CREATED',
+    cell: function createdCell(buildRow: BuildRow) {
+      return formatDate(buildRow.createdAt);
+    },
+  },
+  {
+    header: 'TYPE',
+    cell: function typeCell(buildRow: BuildRow) {
+      return buildKindLabel(buildRow);
+    },
+  },
 ];
 
 const PRUNE_COLUMNS: readonly Column<PrunedArtifact>[] = [
-  { header: 'BUILD', cell: (prunedArtifact) => String(prunedArtifact.buildNumber) },
-  { header: 'APP', cell: (prunedArtifact) => prunedArtifact.app },
-  { header: 'VERSION', cell: (prunedArtifact) => prunedArtifact.version },
-  { header: 'PLATFORM', cell: (prunedArtifact) => prunedArtifact.platform },
-  { header: 'SIZE', cell: (prunedArtifact) => mb(prunedArtifact.bytes) },
+  {
+    header: 'BUILD',
+    cell: function buildNumberCell(prunedArtifact: PrunedArtifact) {
+      return String(prunedArtifact.buildNumber);
+    },
+  },
+  {
+    header: 'APP',
+    cell: function appCell(prunedArtifact: PrunedArtifact) {
+      return prunedArtifact.app;
+    },
+  },
+  {
+    header: 'VERSION',
+    cell: function versionCell(prunedArtifact: PrunedArtifact) {
+      return prunedArtifact.version;
+    },
+  },
+  {
+    header: 'PLATFORM',
+    cell: function platformCell(prunedArtifact: PrunedArtifact) {
+      return prunedArtifact.platform;
+    },
+  },
+  {
+    header: 'SIZE',
+    cell: function sizeCell(prunedArtifact: PrunedArtifact) {
+      return mb(prunedArtifact.bytes);
+    },
+  },
 ];
 
-/** Render build history as a compact table. */
-export const formatBuildsTable = (buildRows: readonly BuildRow[]): string =>
-  alignTableColumns(BUILD_COLUMNS, buildRows);
+export function formatBuildsTable(buildRows: readonly BuildRow[]): string {
+  return alignTableColumns(BUILD_COLUMNS, buildRows);
+}
 
-/** Render the binaries selected by a prune preview. */
-export const formatPrunePreview = (prunedArtifacts: readonly PrunedArtifact[]): string =>
-  alignTableColumns(PRUNE_COLUMNS, prunedArtifacts);
+export function formatPrunePreview(prunedArtifacts: readonly PrunedArtifact[]): string {
+  return alignTableColumns(PRUNE_COLUMNS, prunedArtifacts);
+}
 
-/** Render the detail block for one stored build. */
-export const formatBuildDetail = (artifact: BuildArtifact): string => {
+export function formatBuildDetail(artifact: BuildArtifact): string {
   let artifactLine = `  artifact: ${artifact.path}`;
-  if (artifact.prunedAt !== undefined) {
+
+  if (artifact.prunedAt != null) {
     artifactLine = `  artifact: pruned ${formatDate(artifact.prunedAt)} - binary removed to save disk; rebuild to ship`;
   }
+
   const detailLines = [
     `${artifact.appName} ${artifact.version} (build ${artifact.buildNumber}) - ${artifact.platform}`,
     `  ${sizeSummary(artifact.sizeReport)}`,
@@ -229,344 +337,470 @@ export const formatBuildDetail = (artifact: BuildArtifact): string => {
     `  id:       ${buildId(artifact)}`,
     artifactLine,
   ];
-  if (artifact.sizeReport.entries.length === 0) return detailLines.join('\n');
+  const hasDeviceSizes = artifact.sizeReport.entries.length > 0;
+
+  if (hasDeviceSizes == false) {
+    return detailLines.join('\n');
+  }
+
   detailLines.push('  per-device download / install:');
+
   for (const sizeEntry of artifact.sizeReport.entries) {
     detailLines.push(
       `    ${sizeEntry.device}  download ${mb(sizeEntry.downloadBytes)}  install ${mb(sizeEntry.installBytes)}`,
     );
   }
+
   return detailLines.join('\n');
-};
+}
 
-/** Parse an optional platform filter through the shared platform decoder. */
-const parsePlatformFilter = (platformText: string | undefined) => {
-  if (platformText === undefined) return Effect.succeed<Platform | undefined>(undefined);
-  return parsePlatform(platformText).pipe(
-    Effect.mapError((cause) => buildHistoryFailure('parse build platform', cause, cause.message)),
-  );
-};
+function parsePlatformFilter(platformText: string | undefined): Platform | undefined {
+  if (platformText == null) {
+    return undefined;
+  }
 
-/** Parse an optional positive retention-day override. */
-export const parsePruneDays = (daysText: string | undefined) => {
-  if (daysText === undefined) return Effect.succeed<number | undefined>(undefined);
-  const retentionDays = Number(daysText);
-  if (Number.isInteger(retentionDays) && retentionDays >= 1) return Effect.succeed(retentionDays);
-  return Effect.fail(
-    buildHistoryFailure(
-      'parse prune retention',
-      daysText,
-      `Invalid --days "${daysText}". Use a positive whole number of days.`,
-    ),
-  );
-};
+  try {
+    const platform = parsePlatform(platformText);
 
-/** Load config and the storage provider once for list/view/log/prune. */
-const loadBuildStorageSession = () =>
-  Effect.gen(function* () {
-    const loadedConfiguration: LoadedConfig = yield* loadConfig().pipe(
-      Effect.mapError((cause) => buildHistoryFailure('load Launch configuration', cause)),
-    );
-    const storageProvider = yield* resolveStorageProvider(loadedConfiguration.config).pipe(
-      Effect.mapError((cause) => buildHistoryFailure('resolve storage provider', cause)),
-    );
-    return {
-      config: loadedConfiguration.config,
-      storageProvider,
-    } satisfies BuildStorageSession;
-  });
+    return platform;
+  } catch (error) {
+    let failureMessage = 'Could not parse the build platform.';
 
-/** Load newest-first history from the configured storage provider. */
-const loadHistory = () =>
-  Effect.gen(function* () {
-    const storageSession = yield* loadBuildStorageSession();
-    return yield* storageSession.storageProvider
-      .list()
-      .pipe(Effect.mapError((cause) => buildHistoryFailure('read build history', cause)));
-  });
-
-/** Fail when a build reference does not match history. */
-const requireStoredBuild = (reference: string) =>
-  Effect.gen(function* () {
-    const storedBuild = findBuild(yield* loadHistory(), reference);
-    if (storedBuild === undefined) {
-      return yield* Effect.fail(
-        buildHistoryFailure(
-          'find stored build',
-          reference,
-          `No build matches "${reference}". Run \`launch builds list\` to see what's available.`,
-        ),
-      );
+    if (hasMessage(error)) {
+      failureMessage = error.message;
     }
-    return storedBuild;
+
+    throw buildHistoryFailure('parse build platform', error, failureMessage);
+  }
+}
+
+function isPositiveWholeDayCount(retentionDays: number): boolean {
+  const isWhole = Number.isInteger(retentionDays);
+
+  if (isWhole == false) {
+    return false;
+  }
+
+  return retentionDays >= 1;
+}
+
+export function parsePruneDays(daysText: string | undefined): number | undefined {
+  if (daysText == null) {
+    return undefined;
+  }
+
+  const retentionDays = Number(daysText);
+  const isValidRetention = isPositiveWholeDayCount(retentionDays);
+
+  if (isValidRetention) {
+    return retentionDays;
+  }
+
+  throw makeBuildHistoryCommandFailure({
+    operation: 'parse prune retention',
+    message: `Invalid --days "${daysText}". Use a positive whole number of days.`,
+    cause: daysText,
   });
+}
 
-/** Render a grammatically correct build-count label. */
-export const buildsLabel = (count: number): string => {
-  if (count === 1) return '1 build';
+async function loadBuildStorageSession(): Promise<BuildStorageSession> {
+  let loadedConfiguration: LoadedConfig;
+
+  try {
+    loadedConfiguration = await loadConfig();
+  } catch (error) {
+    throw buildHistoryFailure('load Launch configuration', error);
+  }
+
+  let storageProvider: StorageProvider;
+
+  try {
+    storageProvider = await resolveStorageProvider(loadedConfiguration.config);
+  } catch (error) {
+    throw buildHistoryFailure('resolve storage provider', error);
+  }
+
+  return { config: loadedConfiguration.config, storageProvider };
+}
+
+async function loadHistory(): Promise<readonly BuildArtifact[]> {
+  const storageSession = await loadBuildStorageSession();
+
+  try {
+    const storedBuilds = await storageSession.storageProvider.list();
+
+    return storedBuilds;
+  } catch (error) {
+    throw buildHistoryFailure('read build history', error);
+  }
+}
+
+async function requireStoredBuild(reference: string): Promise<BuildArtifact> {
+  const storedBuilds = await loadHistory();
+  const storedBuild = findBuild(storedBuilds, reference);
+
+  if (storedBuild == null) {
+    throw buildHistoryFailure(
+      'find stored build',
+      reference,
+      `No build matches "${reference}". Run \`launch builds list\` to see what's available.`,
+    );
+  }
+
+  return storedBuild;
+}
+
+export function buildsLabel(count: number): string {
+  if (count == 1) {
+    return '1 build';
+  }
+
   return `${count} builds`;
-};
+}
 
-/**
- * Whether prune must fail instead of prompting: non-TTY or `--json` without `--yes`.
- * When `--yes` is set, callers skip confirmation entirely.
- */
-export const pruneConfirmationBlocked = (
+export function pruneConfirmationBlocked(
   commandOptions: Readonly<{ yes?: boolean; json?: boolean }>,
   terminalIsInteractive: boolean,
-): boolean => {
-  if (commandOptions.yes === true) return false;
-  if (commandOptions.json === true) return true;
-  if (!terminalIsInteractive) return true;
+): boolean {
+  if (commandOptions.yes == true) {
+    return false;
+  }
+
+  if (commandOptions.json == true) {
+    return true;
+  }
+
+  if (terminalIsInteractive == false) {
+    return true;
+  }
+
   return false;
+}
+
+function isNonBlankEditor(editorCommand: string | undefined): editorCommand is string {
+  if (editorCommand == null) {
+    return false;
+  }
+
+  return editorCommand != '';
+}
+
+function readBuildHistoryTools(): BuildHistoryTools {
+  const logger = createLogger(false);
+
+  async function confirmDeletion(message: string): Promise<boolean> {
+    try {
+      const confirmed = await LaunchPrompt.confirm(message);
+
+      return confirmed;
+    } catch (error) {
+      throw buildHistoryFailure('confirm build cleanup', error);
+    }
+  }
+
+  function cancelDeletion(): void {
+    LaunchPrompt.cancel('Nothing deleted.');
+  }
+
+  async function logFileExists(logPath: string): Promise<boolean> {
+    try {
+      const exists = await pathExists(logPath);
+
+      return exists;
+    } catch (error) {
+      throw buildHistoryFailure('find build log', error);
+    }
+  }
+
+  async function openLogWithCommand(editorCommand: string, logPath: string): Promise<void> {
+    try {
+      await executeCommand(editorCommand, [logPath]);
+    } catch (error) {
+      throw buildHistoryFailure('open build log', error);
+    }
+  }
+
+  async function openLog(logPath: string): Promise<void> {
+    const editorCommand = readLaunchEnvironment().values.editorCommand;
+
+    if (isNonBlankEditor(editorCommand)) {
+      await openLogWithCommand(editorCommand, logPath);
+      return;
+    }
+
+    const operatingSystem = detectHostOperatingSystem();
+
+    if (operatingSystem == 'macos') {
+      await openLogWithCommand('open', logPath);
+      return;
+    }
+
+    if (operatingSystem == 'linux') {
+      await openLogWithCommand('xdg-open', logPath);
+      return;
+    }
+
+    logger.line(`Log file: ${logPath}  (set $EDITOR to open it automatically)`);
+  }
+
+  return {
+    logger,
+    currentTime: function currentTime() {
+      return Date.now();
+    },
+    terminalIsInteractive: checkTerminalIsInteractive(),
+    confirmDeletion,
+    cancelDeletion,
+    logFileExists,
+    readLog: readBuildLog,
+    openLog,
+  };
+}
+
+type PrunePreview = {
+  pruned: readonly PrunedArtifact[];
+  freedBytes: number;
 };
 
-/** Execute build cleanup for CLI callers. */
-const runPrune = (commandOptions: PruneCommandOptions) =>
-  Effect.gen(function* () {
-    const commandService = yield* BuildHistoryCommandService;
-    const platform = yield* parsePlatformFilter(commandOptions.platform);
-    const requestedRetentionDays = yield* parsePruneDays(commandOptions.days);
-    const storageSession = yield* loadBuildStorageSession();
-    if (storageSession.storageProvider.prune === undefined) {
-      return yield* Effect.fail(
-        buildHistoryFailure(
-          'prune build history',
-          storageSession.config.storage,
-          `\`builds prune\` applies only to the local artifact store; storage "${storageSession.config.storage}" manages retention through its own bucket lifecycle rules.`,
-        ),
-      );
-    }
-    const retentionDays = resolveCommandRetentionDays(
-      storageSession.config,
-      requestedRetentionDays,
-    );
-    const pruneFilter: {
-      now: number;
-      retentionDays: number;
-      app?: string;
-      platform?: Platform;
-    } = { now: commandService.currentTime(), retentionDays };
-    if (commandOptions.app !== undefined) pruneFilter.app = commandOptions.app;
-    if (platform !== undefined) pruneFilter.platform = platform;
-    const prunePreview = yield* storageSession.storageProvider
-      .prune({ ...pruneFilter, dryRun: true })
-      .pipe(Effect.mapError((cause) => buildHistoryFailure('preview build cleanup', cause)));
-    if (prunePreview.pruned.length === 0) {
-      if (commandOptions.json === true) {
-        yield* writeJsonLine('render build cleanup preview', commandService.logger, prunePreview);
-      } else {
-        yield* writeLog(
-          'render build cleanup preview',
-          commandService.logger.line(
-            `Nothing to prune - no builds older than ${retentionDays}d (the newest per app+platform is always kept).`,
-          ),
-        );
-      }
-      return;
-    }
-    if (commandOptions.dryRun === true) {
-      if (commandOptions.json === true) {
-        yield* writeJsonLine('render build cleanup preview', commandService.logger, prunePreview);
-        return;
-      }
-      yield* writeLog(
-        'render build cleanup preview',
-        commandService.logger.line(formatPrunePreview(prunePreview.pruned)),
-      );
-      yield* writeLog(
-        'render build cleanup summary',
-        commandService.logger.line(
-          `\nDry run - would remove ${buildsLabel(prunePreview.pruned.length)}, freeing ${mb(prunePreview.freedBytes)}. Nothing deleted.`,
-        ),
-      );
-      return;
-    }
-    if (pruneConfirmationBlocked(commandOptions, commandService.terminalIsInteractive)) {
-      return yield* Effect.fail(
-        buildHistoryFailure(
-          'confirm build cleanup',
-          commandOptions,
-          'Refusing to delete without confirmation. Re-run with --yes (or --dry-run to preview).',
-        ),
-      );
-    }
-    if (commandOptions.yes !== true) {
-      yield* writeLog(
-        'render build cleanup preview',
-        commandService.logger.line(formatPrunePreview(prunePreview.pruned)),
-      );
-      const confirmed = yield* commandService.confirmDeletion(
-        `Delete ${buildsLabel(prunePreview.pruned.length)}, freeing ${mb(prunePreview.freedBytes)}?`,
-      );
-      if (!confirmed) {
-        yield* commandService.cancelDeletion();
-        return;
-      }
-    }
-    const pruneOutcome = yield* storageSession.storageProvider
-      .prune({ ...pruneFilter, dryRun: false })
-      .pipe(Effect.mapError((cause) => buildHistoryFailure('prune build history', cause)));
-    if (commandOptions.json === true) {
-      yield* writeJsonLine('render build cleanup outcome', commandService.logger, pruneOutcome);
-      return;
-    }
-    yield* writeLog(
-      'render build cleanup outcome',
-      commandService.logger.line(
-        `Pruned ${buildsLabel(pruneOutcome.pruned.length)}, freed ${mb(pruneOutcome.freedBytes)}. History kept (shown as "pruned" in \`builds list\`).`,
-      ),
-    );
-  });
+async function runPrune(commandOptions: PruneCommandOptions): Promise<void> {
+  const tools = readBuildHistoryTools();
+  const platform = parsePlatformFilter(commandOptions.platform);
+  const requestedRetentionDays = parsePruneDays(commandOptions.days);
+  const storageSession = await loadBuildStorageSession();
 
-/** List filtered build history as a table or JSON. */
-const listBuilds = (commandInput: Extract<BuildHistoryCommandInput, { operation: 'list' }>) =>
-  Effect.gen(function* () {
-    const commandService = yield* BuildHistoryCommandService;
-    const platform = yield* parsePlatformFilter(commandInput.platform);
-    const storedBuilds = yield* loadHistory();
-    const buildFilters: { app?: string; platform?: Platform } = {};
-    if (commandInput.app !== undefined) buildFilters.app = commandInput.app;
-    if (platform !== undefined) buildFilters.platform = platform;
-    const buildRows = filterBuilds(storedBuilds, buildFilters).map(toBuildRow);
-    if (commandInput.json) {
-      yield* writeJsonLine('render build history', commandService.logger, buildRows);
-      return;
-    }
-    if (buildRows.length === 0) {
-      yield* writeLog(
-        'render build history',
-        commandService.logger.line(
-          'No builds yet. Run `launch build ios` (or android) to create one.',
-        ),
-      );
-      return;
-    }
-    yield* writeLog(
-      'render build history',
-      commandService.logger.line(formatBuildsTable(buildRows)),
+  if (storageSession.storageProvider.prune == null) {
+    throw buildHistoryFailure(
+      'prune build history',
+      storageSession.config.storage,
+      `\`builds prune\` applies only to the local artifact store; storage "${storageSession.config.storage}" manages retention through its own bucket lifecycle rules.`,
     );
-    yield* writeLog(
-      'render build history summary',
-      commandService.logger.line(`\n${buildsLabel(buildRows.length)}.`),
+  }
+
+  const retentionDays = resolveCommandRetentionDays(storageSession.config, requestedRetentionDays);
+  const pruneFilter: {
+    now: number;
+    retentionDays: number;
+    app?: string;
+    platform?: Platform;
+    dryRun?: boolean;
+  } = { now: tools.currentTime(), retentionDays };
+
+  if (commandOptions.app != null) {
+    pruneFilter.app = commandOptions.app;
+  }
+
+  if (platform != null) {
+    pruneFilter.platform = platform;
+  }
+
+  let prunePreview: PrunePreview;
+
+  try {
+    prunePreview = await storageSession.storageProvider.prune({ ...pruneFilter, dryRun: true });
+  } catch (error) {
+    throw buildHistoryFailure('preview build cleanup', error);
+  }
+
+  const nothingToPrune = prunePreview.pruned.length == 0;
+
+  if (nothingToPrune) {
+    renderEmptyPrune(commandOptions, tools.logger, prunePreview, retentionDays);
+    return;
+  }
+
+  const isDryRun = commandOptions.dryRun == true;
+
+  if (isDryRun) {
+    renderDryRunPrune(commandOptions, tools.logger, prunePreview);
+    return;
+  }
+
+  const confirmationBlocked = pruneConfirmationBlocked(commandOptions, tools.terminalIsInteractive);
+
+  if (confirmationBlocked) {
+    throw buildHistoryFailure(
+      'confirm build cleanup',
+      commandOptions,
+      'Refusing to delete without confirmation. Re-run with --yes (or --dry-run to preview).',
     );
-  });
+  }
 
-/** Show detail for one stored build. */
-const viewBuild = (commandInput: Extract<BuildHistoryCommandInput, { operation: 'view' }>) =>
-  Effect.gen(function* () {
-    const commandService = yield* BuildHistoryCommandService;
-    const storedBuild = yield* requireStoredBuild(commandInput.reference);
-    if (commandInput.json) {
-      yield* writeJsonLine('render build detail', commandService.logger, toBuildRow(storedBuild));
-      return;
-    }
-    yield* writeLog(
-      'render build detail',
-      commandService.logger.line(formatBuildDetail(storedBuild)),
+  const skipPrompt = commandOptions.yes == true;
+
+  if (skipPrompt == false) {
+    tools.logger.line(formatPrunePreview(prunePreview.pruned));
+
+    const confirmed = await tools.confirmDeletion(
+      `Delete ${buildsLabel(prunePreview.pruned.length)}, freeing ${mb(prunePreview.freedBytes)}?`,
     );
-  });
 
-/** Print or open the redacted native log for one stored build. */
-const showBuildLog = (commandInput: Extract<BuildHistoryCommandInput, { operation: 'log' }>) =>
-  Effect.gen(function* () {
-    const commandService = yield* BuildHistoryCommandService;
-    const storedBuild = yield* requireStoredBuild(commandInput.reference);
-    const buildIdentifier = buildId(storedBuild);
-    const logPath = yield* buildLogPath(buildIdentifier);
-    if (!(yield* commandService.logFileExists(logPath))) {
-      return yield* Effect.fail(
-        buildHistoryFailure(
-          'find build log',
-          logPath,
-          `No stored log for build ${buildIdentifier}. Logs are captured for local builds (run under the progress spinner); CI / --verbose builds stream their output to stdout instead.`,
-        ),
-      );
-    }
-    if (commandInput.open) {
-      yield* commandService.openLog(logPath);
+    if (confirmed == false) {
+      tools.cancelDeletion();
       return;
     }
-    const logText = yield* commandService.readLog(buildIdentifier);
-    if (logText !== null && logText.trim() !== '') {
-      yield* writeLog('render build log', commandService.logger.line(logText));
-      return;
-    }
-    yield* writeLog('render build log', commandService.logger.line('(log is empty)'));
-  });
+  }
 
-/** Run one build-history command operation. */
-export const buildHistoryCommandProgram = (commandInput: BuildHistoryCommandInput) => {
+  let pruneOutcome: PrunePreview;
+
+  try {
+    pruneOutcome = await storageSession.storageProvider.prune({ ...pruneFilter, dryRun: false });
+  } catch (error) {
+    throw buildHistoryFailure('prune build history', error);
+  }
+
+  const wantsJson = commandOptions.json == true;
+
+  if (wantsJson) {
+    tools.logger.line(JSON.stringify(pruneOutcome, null, 2));
+    return;
+  }
+
+  tools.logger.line(
+    `Pruned ${buildsLabel(pruneOutcome.pruned.length)}, freed ${mb(pruneOutcome.freedBytes)}. History kept (shown as "pruned" in \`builds list\`).`,
+  );
+}
+
+function renderEmptyPrune(
+  commandOptions: PruneCommandOptions,
+  logger: Logger,
+  prunePreview: PrunePreview,
+  retentionDays: number,
+): void {
+  const wantsJson = commandOptions.json == true;
+
+  if (wantsJson) {
+    logger.line(JSON.stringify(prunePreview, null, 2));
+    return;
+  }
+
+  logger.line(
+    `Nothing to prune - no builds older than ${retentionDays}d (the newest per app+platform is always kept).`,
+  );
+}
+
+function renderDryRunPrune(
+  commandOptions: PruneCommandOptions,
+  logger: Logger,
+  prunePreview: PrunePreview,
+): void {
+  const wantsJson = commandOptions.json == true;
+
+  if (wantsJson) {
+    logger.line(JSON.stringify(prunePreview, null, 2));
+    return;
+  }
+
+  logger.line(formatPrunePreview(prunePreview.pruned));
+  logger.line(
+    `\nDry run - would remove ${buildsLabel(prunePreview.pruned.length)}, freeing ${mb(prunePreview.freedBytes)}. Nothing deleted.`,
+  );
+}
+
+async function listBuilds(
+  commandInput: Extract<BuildHistoryCommandInput, { operation: 'list' }>,
+): Promise<void> {
+  const tools = readBuildHistoryTools();
+  const platform = parsePlatformFilter(commandInput.platform);
+  const storedBuilds = await loadHistory();
+  const buildFilters: { app?: string; platform?: Platform } = {};
+
+  if (commandInput.app != null) {
+    buildFilters.app = commandInput.app;
+  }
+
+  if (platform != null) {
+    buildFilters.platform = platform;
+  }
+
+  const buildRows = filterBuilds(storedBuilds, buildFilters).map(toBuildRow);
+  const wantsJson = commandInput.json == true;
+
+  if (wantsJson) {
+    tools.logger.line(JSON.stringify(buildRows, null, 2));
+    return;
+  }
+
+  const isEmpty = buildRows.length == 0;
+
+  if (isEmpty) {
+    tools.logger.line('No builds yet. Run `launch build ios` (or android) to create one.');
+    return;
+  }
+
+  tools.logger.line(formatBuildsTable(buildRows));
+  tools.logger.line(`\n${buildsLabel(buildRows.length)}.`);
+}
+
+async function viewBuild(
+  commandInput: Extract<BuildHistoryCommandInput, { operation: 'view' }>,
+): Promise<void> {
+  const tools = readBuildHistoryTools();
+  const storedBuild = await requireStoredBuild(commandInput.reference);
+  const wantsJson = commandInput.json == true;
+
+  if (wantsJson) {
+    tools.logger.line(JSON.stringify(toBuildRow(storedBuild), null, 2));
+    return;
+  }
+
+  tools.logger.line(formatBuildDetail(storedBuild));
+}
+
+function hasLogBody(logText: string | null): logText is string {
+  if (logText == null) {
+    return false;
+  }
+
+  return logText.trim() != '';
+}
+
+async function showBuildLog(
+  commandInput: Extract<BuildHistoryCommandInput, { operation: 'log' }>,
+): Promise<void> {
+  const tools = readBuildHistoryTools();
+  const storedBuild = await requireStoredBuild(commandInput.reference);
+  const buildIdentifier = buildId(storedBuild);
+  const logPath = buildLogPath(buildIdentifier);
+  const logExists = await tools.logFileExists(logPath);
+
+  if (logExists == false) {
+    throw buildHistoryFailure(
+      'find build log',
+      logPath,
+      `No stored log for build ${buildIdentifier}. Logs are captured for local builds (run under the progress spinner); CI / --verbose builds stream their output to stdout instead.`,
+    );
+  }
+
+  if (commandInput.open) {
+    await tools.openLog(logPath);
+    return;
+  }
+
+  const logText = await tools.readLog(buildIdentifier);
+
+  if (hasLogBody(logText)) {
+    tools.logger.line(logText);
+    return;
+  }
+
+  tools.logger.line('(log is empty)');
+}
+
+export async function buildHistoryCommandProgram(
+  commandInput: BuildHistoryCommandInput,
+): Promise<void> {
   switch (commandInput.operation) {
     case 'list':
-      return listBuilds(commandInput);
+      await listBuilds(commandInput);
+      return;
     case 'view':
-      return viewBuild(commandInput);
+      await viewBuild(commandInput);
+      return;
     case 'log':
-      return showBuildLog(commandInput);
+      await showBuildLog(commandInput);
+      return;
     case 'prune':
-      return runPrune(commandInput.options);
+      await runPrune(commandInput.options);
+      return;
   }
-};
-
-/** Open a log path with one host command under the live environment. */
-const openLogWithCommand = (
-  editorCommand: string,
-  logPath: string,
-  launchEnvironment: LaunchEnvironmentService,
-) =>
-  executeCommand(editorCommand, [logPath]).pipe(
-    Effect.provideService(LaunchEnvironment, launchEnvironment),
-    Effect.mapError((cause) => buildHistoryFailure('open build log', cause)),
-  );
-
-/** Live build-history dependencies backed by Effect platform services. */
-export const BuildHistoryCommandServiceLive = Layer.effect(
-  BuildHistoryCommandService,
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const launchEnvironment = yield* LaunchEnvironment;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const terminal = yield* Terminal.Terminal;
-    const terminalIsInteractive = yield* terminal.isTTY;
-    const launchPrompt = yield* LaunchPrompt;
-    type ReadLogRequirements = Effect.Effect.Context<ReturnType<typeof readBuildLog>>;
-    const readLogServices = yield* Effect.context<ReadLogRequirements>();
-    return {
-      logger,
-      currentTime: () => Date.now(),
-      terminalIsInteractive,
-      confirmDeletion: (message) =>
-        launchPrompt
-          .confirm(message)
-          .pipe(Effect.mapError((cause) => buildHistoryFailure('confirm build cleanup', cause))),
-      cancelDeletion: () => launchPrompt.cancel('Nothing deleted.'),
-      logFileExists: (logPath) =>
-        fileSystem
-          .exists(logPath)
-          .pipe(Effect.mapError((cause) => buildHistoryFailure('find build log', cause))),
-      readLog: (buildIdentifier) =>
-        readBuildLog(buildIdentifier).pipe(Effect.provide(readLogServices)),
-      openLog: (logPath) =>
-        Effect.gen(function* () {
-          const editorCommand = launchEnvironment.values.editorCommand;
-          if (editorCommand !== undefined && editorCommand !== '') {
-            return yield* openLogWithCommand(editorCommand, logPath, launchEnvironment);
-          }
-          const operatingSystem = yield* detectHostOperatingSystem.pipe(
-            Effect.mapError((cause) => buildHistoryFailure('detect host operating system', cause)),
-          );
-          if (operatingSystem === 'macos') {
-            return yield* openLogWithCommand('open', logPath, launchEnvironment);
-          }
-          if (operatingSystem === 'linux') {
-            return yield* openLogWithCommand('xdg-open', logPath, launchEnvironment);
-          }
-          yield* writeLog(
-            'render build log path',
-            logger.line(`Log file: ${logPath}  (set $EDITOR to open it automatically)`),
-          );
-        }),
-    } satisfies BuildHistoryCommandService;
-  }),
-);
+}

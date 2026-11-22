@@ -1,5 +1,4 @@
-import { commandEnvironmentExclusions } from '../services/platform/exec.js';
-import { Data, Effect } from 'effect';
+import { setCommandEnvironmentExclusions } from '../services/platform/exec.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { ResolvedBuildContext } from '../types/config.js';
 import type { MutableDeep } from '../types/mutable.js';
@@ -9,10 +8,9 @@ import { loadConfig } from '../config/config.js';
 import { checkApp, formatFinding } from '../config/configCheck.js';
 import { ENV_SOURCE, envInjectionRows } from '../config/env.js';
 import { createLogger } from '../services/platform/logger.js';
-import {
-  resolveStorageProvider,
-  type StorageResolverRequirements,
-} from '../distribution/storage.js';
+import { resolveStorageProvider } from '../distribution/storage.js';
+import type { BuildArtifact } from '../types/artifacts.js';
+import type { Platform } from '../types/app.js';
 import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
 import {
   resolveAndroidRelease,
@@ -24,260 +22,568 @@ import { receiptDestination, worstDownloadBytes } from './pipelineArtifact.js';
 import { runIosBuild } from './pipelineIos.js';
 import { runAndroidBuild } from './pipelineAndroid.js';
 import { hasMessage } from '../services/platform/errorMessage.js';
+
 /** App configuration failed the pre-build footgun check. */
 type BuildPreparationFailure = Readonly<{
   readonly _tag: 'BuildPreparationFailure';
   readonly appName: string;
   readonly message: string;
 }>;
-const makeBuildPreparationFailure = Data.tagged<BuildPreparationFailure>('BuildPreparationFailure');
-/**
- * Resolve the shared front half of a build: config, the chosen app, the profile, a validated env, a
- * logger, and the {@link ResolvedBuildContext}. Identical for iOS and Android - every build path
- * (local, remote, EAS) starts here so app selection and env validation never drift; the platforms
- * diverge only in HOW they build (see {@link runIosBuild} / {@link runAndroidBuild}).
- */
-export const prepareBuild = (options: BuildRunOptions) =>
-  Effect.gen(function* () {
-    const { dryRun, platform } = options;
-    const log = yield* createLogger(options.explain);
-    const { config, apps } = yield* loadConfig();
-    const app = yield* selectApp(apps, options.appName);
-    let profile = config.profiles[options.profileName];
-    if (profile === undefined) {
-      profile = {
-        name: options.profileName,
-        sizeBudgetMB: 200,
-      };
-    }
-    let remoteSuffix = '';
-    if (options.remote !== undefined) {
-      remoteSuffix = ' - remote(ssh)';
-      if (options.remote.kind === 'aws') remoteSuffix = ' - remote(aws)';
-    }
-    let dryRunSuffix = '';
-    if (dryRun) dryRunSuffix = ' - dry-run';
-    yield* log.step(
-      'config',
-      `${log.chip(app.name)} - ${profile.name} - ${platform}${dryRunSuffix}${remoteSuffix}`,
+
+function makeBuildPreparationFailure(fields: {
+  appName: string;
+  message: string;
+}): BuildPreparationFailure {
+  return { _tag: 'BuildPreparationFailure', appName: fields.appName, message: fields.message };
+}
+
+type ConfigFinding = Parameters<typeof formatFinding>[0];
+
+function isSecretSource(environmentSource: string): boolean {
+  return environmentSource == ENV_SOURCE.secret;
+}
+
+function isConfigWarning(finding: ConfigFinding): boolean {
+  return finding.severity == 'warn';
+}
+
+function isConfigError(finding: ConfigFinding): boolean {
+  return finding.severity == 'error';
+}
+
+function formatConfigError(finding: ConfigFinding): string {
+  return `  x ${formatFinding(finding)}`;
+}
+
+function nonEmptyString(cause: unknown): string | null {
+  if (typeof cause != 'string') {
+    return null;
+  }
+
+  if (cause.length == 0) {
+    return null;
+  }
+
+  return cause;
+}
+
+function readObjectMessage(cause: unknown): string | null {
+  if (typeof cause != 'object') {
+    return null;
+  }
+
+  if (cause == null) {
+    return null;
+  }
+
+  if ('message' in cause == false) {
+    return null;
+  }
+
+  const causeMessage = cause.message;
+
+  if (typeof causeMessage != 'string') {
+    return null;
+  }
+
+  if (causeMessage.length == 0) {
+    return null;
+  }
+
+  return causeMessage;
+}
+
+function readFailureDetail(cause: unknown): string {
+  let detail = 'unknown error';
+  const stringDetail = nonEmptyString(cause);
+
+  if (stringDetail != null) {
+    detail = stringDetail;
+  }
+
+  if (hasMessage(cause)) {
+    detail = cause.message;
+  }
+
+  const objectMessage = readObjectMessage(cause);
+
+  if (objectMessage != null) {
+    detail = objectMessage;
+  }
+
+  return detail;
+}
+
+function copyApp(app: AppDescriptor): MutableDeep<AppDescriptor> {
+  const draftApp: MutableDeep<AppDescriptor> = {
+    name: app.name,
+    dir: app.dir,
+    configPath: app.configPath,
+  };
+
+  if (app.bundleId != null) {
+    draftApp.bundleId = app.bundleId;
+  }
+
+  if (app.packageName != null) {
+    draftApp.packageName = app.packageName;
+  }
+
+  if (app.version != null) {
+    draftApp.version = app.version;
+  }
+
+  if (app.iosEntitlements != null) {
+    draftApp.iosEntitlements = { ...app.iosEntitlements };
+  }
+
+  if (app.iosExtensions != null) {
+    draftApp.iosExtensions = [...app.iosExtensions];
+  }
+
+  if (app.androidVersionCode != null) {
+    draftApp.androidVersionCode = app.androidVersionCode;
+  }
+
+  if (app.usesNonExemptEncryption != null) {
+    draftApp.usesNonExemptEncryption = app.usesNonExemptEncryption;
+  }
+
+  return draftApp;
+}
+
+function remoteSuffixFor(buildOptions: BuildRunOptions): string {
+  const hasRemote = buildOptions.remote != null;
+
+  if (hasRemote == false) {
+    return '';
+  }
+
+  const isAws = buildOptions.remote?.kind == 'aws';
+
+  if (isAws) {
+    return ' - remote(aws)';
+  }
+
+  return ' - remote(ssh)';
+}
+
+async function attachAndroidRelease(
+  preparedAppName: string,
+  launchConfig: PreparedBuild['config'],
+  buildOptions: BuildRunOptions,
+  appDir: string,
+  buildContext: MutableDeep<ResolvedBuildContext>,
+): Promise<MutableDeep<ResolvedBuildContext>> {
+  const resolvedAndroidRelease = resolveAndroidRelease(buildOptions, buildContext.profile);
+  const androidRelease: MutableDeep<typeof resolvedAndroidRelease> = {
+    track: resolvedAndroidRelease.track,
+    rollout: resolvedAndroidRelease.rollout,
+  };
+
+  let releaseNotes: Awaited<ReturnType<typeof resolveAndroidSubmitReleaseNotes>>;
+
+  try {
+    releaseNotes = await resolveAndroidSubmitReleaseNotes(
+      launchConfig,
+      appDir,
+      buildOptions.notesPath,
     );
-    // Resolve + validate env before any expensive work, so a missing/secret-looking key fails fast.
-    const resolved = yield* resolveCommandEnv({
-      app,
-      profile,
-      cliEnv: options.envOverrides,
-      includeLocal: options.includeLocal,
-      envExclude: config.envExclude,
+  } catch (error) {
+    throw makeBuildPreparationFailure({
+      appName: preparedAppName,
+      message: `Could not resolve Android release notes for ${preparedAppName}: ${readFailureDetail(error)}`,
     });
-    const env = resolved.values;
-    yield* validateResolvedEnv(app.dir, resolved, log, config.envExclude);
-    const secretCount = Object.values(resolved.sources).filter(
-      (source) => source === ENV_SOURCE.secret,
-    ).length;
-    const varCount = Object.keys(env).length;
-    let keychainNote = '';
-    if (secretCount > 0) keychainNote = ` (${secretCount} from keychain)`;
-    let injectionNote = '';
-    if (varCount > 0) injectionNote = ' -> injecting into bundle:';
-    // The count summary, then one provenance row per var (KEY -> source, no values) so a run visibly
-    // confirms every layer reaches the bundle step - local iOS used to drop everything above `.env`.
-    yield* log.step('env', `${varCount} vars validated${keychainNote}${injectionNote}`, 'env-vars');
-    for (const environmentSourceLine of envInjectionRows(resolved))
-      yield* log.note(environmentSourceLine);
-    if (resolved.excluded.length > 0) {
-      yield* log.tip(`excluded (envExclude, not injected): ${resolved.excluded.join(', ')}`);
-    }
-    // Preflight the app config against known native-config footguns, before any expensive native work.
-    // Warnings are surfaced; a build-breaking error (an invalid bundle id / package, a splash with no
-    // backgroundColor) hard-stops here rather than failing deep inside xcodebuild/gradle minutes later.
-    const findings = yield* checkApp(app, platform);
-    for (const finding of findings) {
-      if (finding.severity === 'warn') yield* log.warn(formatFinding(finding));
-    }
-    const configErrors = findings.filter((finding) => finding.severity === 'error');
-    if (configErrors.length > 0) {
-      return yield* Effect.fail(
-        makeBuildPreparationFailure({
-          appName: app.name,
-          message: `App config preflight failed for ${app.name}:\n${configErrors.map((finding) => `  x ${formatFinding(finding)}`).join('\n')}`,
-        }),
-      );
-    }
-    let configCheckDescription = 'no footguns';
-    if (findings.length > 0) configCheckDescription = `${findings.length} warning(s)`;
-    yield* log.step('config check', configCheckDescription);
-    const draftApp: MutableDeep<AppDescriptor> = {
-      name: app.name,
-      dir: app.dir,
-      configPath: app.configPath,
-    };
-    if (app.bundleId !== undefined) draftApp.bundleId = app.bundleId;
-    if (app.packageName !== undefined) draftApp.packageName = app.packageName;
-    if (app.version !== undefined) draftApp.version = app.version;
-    if (app.iosEntitlements !== undefined) draftApp.iosEntitlements = { ...app.iosEntitlements };
-    if (app.iosExtensions !== undefined) draftApp.iosExtensions = [...app.iosExtensions];
-    if (app.androidVersionCode !== undefined) draftApp.androidVersionCode = app.androidVersionCode;
-    if (app.usesNonExemptEncryption !== undefined) {
-      draftApp.usesNonExemptEncryption = app.usesNonExemptEncryption;
-    }
-    let buildContext: MutableDeep<ResolvedBuildContext> = {
-      platform,
-      app: draftApp,
-      profile,
-      env: { ...env },
-      explain: options.explain,
-      dryRun,
-      forceClean: options.forceClean === true,
-    };
-    if (options.ccache !== undefined) buildContext = { ...buildContext, ccache: options.ccache };
-    if (platform === 'android') {
-      const resolvedAndroidRelease = resolveAndroidRelease(options, profile);
-      const androidRelease: MutableDeep<typeof resolvedAndroidRelease> = {
-        track: resolvedAndroidRelease.track,
-        rollout: resolvedAndroidRelease.rollout,
-      };
-      const releaseNotes = yield* resolveAndroidSubmitReleaseNotes(
-        config,
-        app.dir,
-        options.notesPath,
-      ).pipe(
-        Effect.mapError((cause) => {
-          let detail = 'unknown error';
-          if (typeof cause === 'string' && cause.length > 0) detail = cause;
-          if (hasMessage(cause)) detail = cause.message;
-          if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-            const causeMessage = cause.message;
-            if (typeof causeMessage === 'string' && causeMessage.length > 0) detail = causeMessage;
-          }
-          return makeBuildPreparationFailure({
-            appName: app.name,
-            message: `Could not resolve Android release notes for ${app.name}: ${detail}`,
-          });
-        }),
-      );
-      if (releaseNotes.length > 0) {
-        androidRelease.releaseNotes = [...releaseNotes];
-      }
-      buildContext = { ...buildContext, android: androidRelease };
-    }
-    if (options.distribution !== undefined)
-      buildContext = { ...buildContext, distribution: options.distribution };
-    return { config, app: draftApp, profile, env, buildContext, log };
-  });
+  }
+
+  const hasReleaseNotes = releaseNotes.length > 0;
+
+  if (hasReleaseNotes) {
+    androidRelease.releaseNotes = [...releaseNotes];
+  }
+
+  return { ...buildContext, android: androidRelease };
+}
+
 /**
- * Run a build, then fire any configured completion notification. Throws with a clear message on any
- * failed step - but first notifies the failure, so an unattended/CI build pings on both outcomes.
- * Dry-runs never notify (they change nothing). See {@link dispatchBuild} for the path selection.
+ * Resolve config, the chosen app, the profile, a validated env, a logger, and the build context.
+ * Local, remote, and EAS builds all start here.
  */
-export const runBuild = (options: BuildRunOptions) =>
-  Effect.gen(function* () {
-    if (options.printEnv) {
-      return yield* previewEnv(options);
+export async function prepareBuild(buildOptions: BuildRunOptions): Promise<PreparedBuild> {
+  const isDryRun = buildOptions.dryRun == true;
+  const platform = buildOptions.platform;
+  const log = createLogger(buildOptions.explain);
+  const loaded = await loadConfig();
+  const launchConfig = loaded.config;
+  const app = await selectApp(loaded.apps, buildOptions.appName);
+  let profile = launchConfig.profiles[buildOptions.profileName];
+
+  if (profile == null) {
+    profile = { name: buildOptions.profileName, sizeBudgetMB: 200 };
+  }
+
+  let dryRunSuffix = '';
+
+  if (isDryRun) {
+    dryRunSuffix = ' - dry-run';
+  }
+
+  const remoteSuffix = remoteSuffixFor(buildOptions);
+
+  log.step(
+    'config',
+    `${log.chip(app.name)} - ${profile.name} - ${platform}${dryRunSuffix}${remoteSuffix}`,
+  );
+
+  const resolved = await resolveCommandEnv({
+    app,
+    profile,
+    cliEnv: buildOptions.envOverrides,
+    includeLocal: buildOptions.includeLocal,
+    envExclude: launchConfig.envExclude,
+  });
+  const environmentValues = resolved.values;
+
+  await validateResolvedEnv(app.dir, resolved, log, launchConfig.envExclude ?? []);
+
+  const secretCount = Object.values(resolved.sources).filter(isSecretSource).length;
+  const varCount = Object.keys(environmentValues).length;
+  let keychainNote = '';
+
+  if (secretCount > 0) {
+    keychainNote = ` (${secretCount} from keychain)`;
+  }
+
+  let injectionNote = '';
+
+  if (varCount > 0) {
+    injectionNote = ' -> injecting into bundle:';
+  }
+
+  log.step('env', `${varCount} vars validated${keychainNote}${injectionNote}`, 'env-vars');
+
+  for (const environmentSourceLine of envInjectionRows(resolved)) {
+    log.note(environmentSourceLine);
+  }
+
+  const hasExclusions = resolved.excluded.length > 0;
+
+  if (hasExclusions) {
+    log.tip(`excluded (envExclude, not injected): ${resolved.excluded.join(', ')}`);
+  }
+
+  const findings: ConfigFinding[] = await checkApp(app, platform);
+
+  for (const finding of findings) {
+    const isWarning = isConfigWarning(finding);
+
+    if (isWarning) {
+      log.warn(formatFinding(finding));
     }
-    const prepared = yield* prepareBuild(options);
-    const { envExclude: environmentExclusions = [] } = prepared.config;
-    return yield* dispatchBuild(prepared, options).pipe(
-      Effect.locally(commandEnvironmentExclusions, environmentExclusions),
-      Effect.tap(() => {
-        if (options.dryRun) return Effect.void;
-        return buildSuccessEvent(prepared, options).pipe(
-          Effect.flatMap((notificationEvent) => notify(prepared.config, notificationEvent)),
-        );
-      }),
-      Effect.tapError((buildFailure) => {
-        if (options.dryRun) return Effect.void;
-        return notify(prepared.config, buildFailureEvent(prepared, options, buildFailure));
-      }),
+  }
+
+  const configErrors = findings.filter(isConfigError);
+  const hasConfigErrors = configErrors.length > 0;
+
+  if (hasConfigErrors) {
+    const errorLines = configErrors.map(formatConfigError);
+
+    throw makeBuildPreparationFailure({
+      appName: app.name,
+      message: `App config preflight failed for ${app.name}:\n${errorLines.join('\n')}`,
+    });
+  }
+
+  let configCheckDescription = 'no footguns';
+
+  if (findings.length > 0) {
+    configCheckDescription = `${findings.length} warning(s)`;
+  }
+
+  log.step('config check', configCheckDescription);
+
+  const draftApp = copyApp(app);
+  let buildContext: MutableDeep<ResolvedBuildContext> = {
+    platform,
+    app: draftApp,
+    profile,
+    env: { ...environmentValues },
+    explain: buildOptions.explain,
+    dryRun: isDryRun,
+    forceClean: buildOptions.forceClean == true,
+  };
+  const ccacheFlag = buildOptions.ccache;
+  const hasCcacheFlag = ccacheFlag != null;
+
+  if (hasCcacheFlag) {
+    buildContext = { ...buildContext, ccache: ccacheFlag };
+  }
+
+  const isAndroid = platform == 'android';
+
+  if (isAndroid) {
+    buildContext = await attachAndroidRelease(
+      app.name,
+      launchConfig,
+      buildOptions,
+      app.dir,
+      buildContext,
     );
-  });
-/**
- * Select the build fork via {@link resolveBuildTransport}, then invoke that adapter.
- * The remote / EAS modules are imported lazily so a local-only build never loads the host or Expo code paths.
- */
-const dispatchBuild = (prepared: PreparedBuild, options: BuildRunOptions) =>
-  Effect.gen(function* () {
-    const choice = yield* resolveBuildTransport(
-      options.platform,
-      prepared.config.buildEngine,
-      options.remote,
-    );
-    switch (choice.kind) {
-      case 'local':
-        return yield* runLocalBuild(prepared, options);
-      case 'remote': {
-        const { runRemoteBuild } = yield* Effect.promise(() => import('./remotePipeline.js'));
-        return yield* runRemoteBuild(prepared, { ...options, remote: choice.remote });
-      }
-      case 'eas': {
-        const { runEasBuild } = yield* Effect.promise(() => import('./easPipeline.js'));
-        return yield* runEasBuild(prepared, options);
-      }
+  }
+
+  const chosenDistribution = buildOptions.distribution;
+  const hasDistribution = chosenDistribution != null;
+
+  if (hasDistribution) {
+    buildContext = { ...buildContext, distribution: chosenDistribution };
+  }
+
+  return {
+    config: launchConfig,
+    app: draftApp,
+    profile,
+    env: environmentValues,
+    buildContext,
+    log,
+  };
+}
+
+function wantsStoreEvent(shouldSubmit: boolean, isInternal: boolean): boolean {
+  if (shouldSubmit == false) {
+    return false;
+  }
+
+  return isInternal == false;
+}
+
+function isStoredForApp(appName: string, platform: Platform) {
+  return function matches(artifact: BuildArtifact): boolean {
+    const isSameApp = artifact.appName == appName;
+
+    if (isSameApp == false) {
+      return false;
     }
-  });
-/**
- * The success {@link NotifyEvent} for a finished run, read back from the artifact just stored (the
- * source of truth for the build number + size). `event` is `submit` once a store upload happened, else
- * `build` (a `--no-submit` or internal install-link run). Falls back to the app's config version when
- * no stored artifact is found (e.g. a remote/EAS path that stores elsewhere).
- */
-const buildSuccessEvent = (
+
+    return artifact.platform == platform;
+  };
+}
+
+async function buildSuccessEvent(
   prepared: PreparedBuild,
-  options: BuildRunOptions,
-): Effect.Effect<NotifyEvent, unknown, StorageResolverRequirements> =>
-  Effect.gen(function* () {
-    const { config, app, buildContext } = prepared;
-    const internal = buildContext.distribution === 'internal';
-    const storageProvider = yield* resolveStorageProvider(config);
-    const storedArtifacts = yield* storageProvider.list();
-    const latest = storedArtifacts.find(
-      (artifact) => artifact.appName === app.name && artifact.platform === options.platform,
-    );
-    let eventName: NotifyEvent['event'] = 'build';
-    if (options.submit && !internal) eventName = 'submit';
-    let eventVersion = app.version;
-    if (latest?.version !== undefined) eventVersion = latest.version;
-    if (eventVersion === undefined) eventVersion = '0.0.0';
-    let destination = receiptDestination(options.platform, options, buildContext.android?.track);
-    if (internal) destination = 'internal install link';
-    const notificationEvent: NotifyEvent = {
-      event: eventName,
-      status: 'success',
-      app: app.name,
-      platform: options.platform,
-      version: eventVersion,
-      destination,
-    };
-    if (latest) {
-      notificationEvent.buildNumber = latest.buildNumber;
-      const size = worstDownloadBytes(latest.sizeReport);
-      if (size > 0) notificationEvent.sizeBytes = size;
-    }
-    return notificationEvent;
-  });
-/** The failure {@link NotifyEvent} for a run that threw, carrying the error message and what's known. */
-const buildFailureEvent = (
-  prepared: PreparedBuild,
-  options: BuildRunOptions,
-  error: unknown,
-): NotifyEvent => {
-  const internal = prepared.buildContext.distribution === 'internal';
+  buildOptions: BuildRunOptions,
+): Promise<NotifyEvent> {
+  const launchConfig = prepared.config;
+  const app = prepared.app;
+  const buildContext = prepared.buildContext;
+  const isInternal = buildContext.distribution == 'internal';
+  const storageProvider = await resolveStorageProvider(launchConfig);
+  const storedArtifacts = await storageProvider.list();
+  const latest = storedArtifacts.find(isStoredForApp(app.name, buildOptions.platform));
   let eventName: NotifyEvent['event'] = 'build';
-  if (options.submit && !internal) eventName = 'submit';
+  const shouldNameSubmit = wantsStoreEvent(buildOptions.submit, isInternal);
+
+  if (shouldNameSubmit) {
+    eventName = 'submit';
+  }
+
+  let eventVersion = app.version;
+  const storedVersion = latest?.version;
+
+  if (storedVersion != null) {
+    eventVersion = storedVersion;
+  }
+
+  if (eventVersion == null) {
+    eventVersion = '0.0.0';
+  }
+
+  let destination = receiptDestination(
+    buildOptions.platform,
+    buildOptions,
+    buildContext.android?.track,
+  );
+
+  if (isInternal) {
+    destination = 'internal install link';
+  }
+
+  const notificationEvent: NotifyEvent = {
+    event: eventName,
+    status: 'success',
+    app: app.name,
+    platform: buildOptions.platform,
+    version: eventVersion,
+    destination,
+    ...storedBuildFields(latest),
+  };
+
+  return notificationEvent;
+}
+
+function isStoredArtifact(latest: BuildArtifact | undefined): latest is BuildArtifact {
+  return latest != null;
+}
+
+function fieldsFromArtifact(latest: BuildArtifact): { buildNumber: number; sizeBytes?: number } {
+  const size = worstDownloadBytes(latest.sizeReport);
+  const hasSize = size > 0;
+
+  if (hasSize == false) {
+    return { buildNumber: latest.buildNumber };
+  }
+
+  return { buildNumber: latest.buildNumber, sizeBytes: size };
+}
+
+function storedBuildFields(latest: BuildArtifact | undefined): {
+  buildNumber?: number;
+  sizeBytes?: number;
+} {
+  if (isStoredArtifact(latest)) {
+    return fieldsFromArtifact(latest);
+  }
+
+  return {};
+}
+
+function buildFailureEvent(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+  error: unknown,
+): NotifyEvent {
+  const isInternal = prepared.buildContext.distribution == 'internal';
+  let eventName: NotifyEvent['event'] = 'build';
+  const shouldNameSubmit = wantsStoreEvent(buildOptions.submit, isInternal);
+
+  if (shouldNameSubmit) {
+    eventName = 'submit';
+  }
+
   let appVersion = prepared.app.version;
-  if (appVersion === undefined) appVersion = '0.0.0';
-  let errorMessage = String(error);
-  if (hasMessage(error)) errorMessage = error.message;
+
+  if (appVersion == null) {
+    appVersion = '0.0.0';
+  }
+
+  let failureText = String(error);
+
+  if (hasMessage(error)) {
+    failureText = error.message;
+  }
+
   return {
     event: eventName,
     status: 'failure',
     app: prepared.app.name,
-    platform: options.platform,
+    platform: buildOptions.platform,
     version: appVersion,
-    error: errorMessage,
+    error: failureText,
   };
-};
-/** The local spine: fork by platform after the shared front (prepareBuild) and before the shared tail. */
-const runLocalBuild = (prepared: PreparedBuild, options: BuildRunOptions) => {
-  if (prepared.buildContext.platform === 'android') return runAndroidBuild(prepared, options);
-  return runIosBuild(prepared, options);
-};
+}
+
+async function notifyBuildSuccess(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+): Promise<void> {
+  const isDryRun = buildOptions.dryRun == true;
+
+  if (isDryRun) {
+    return;
+  }
+
+  const notificationEvent = await buildSuccessEvent(prepared, buildOptions);
+
+  await notify(prepared.config, notificationEvent);
+}
+
+async function notifyBuildFailure(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+  error: unknown,
+): Promise<void> {
+  const isDryRun = buildOptions.dryRun == true;
+
+  if (isDryRun) {
+    return;
+  }
+
+  await notify(prepared.config, buildFailureEvent(prepared, buildOptions, error));
+}
+
+async function runLocalBuild(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+): Promise<void> {
+  const isAndroid = prepared.buildContext.platform == 'android';
+
+  if (isAndroid) {
+    await runAndroidBuild(prepared, buildOptions);
+    return;
+  }
+
+  await runIosBuild(prepared, buildOptions);
+}
+
+async function dispatchBuild(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+): Promise<void> {
+  const choice = resolveBuildTransport(
+    buildOptions.platform,
+    prepared.config.buildEngine,
+    buildOptions.remote,
+  );
+
+  switch (choice.kind) {
+    case 'local':
+      await runLocalBuild(prepared, buildOptions);
+      return;
+    case 'remote': {
+      const remotePipeline = await import('./remotePipeline.js');
+
+      await remotePipeline.runRemoteBuild(prepared, { ...buildOptions, remote: choice.remote });
+      return;
+    }
+    case 'eas': {
+      const easPipeline = await import('./easPipeline.js');
+
+      await easPipeline.runEasBuild(prepared, buildOptions);
+      return;
+    }
+  }
+}
+
+/**
+ * Run a build, then notify success. A failed step notifies the failure first, and that notify error
+ * replaces the build error when it throws. Dry-runs never notify. `--print-env` stops before exclusions.
+ */
+export async function runBuild(buildOptions: BuildRunOptions): Promise<void> {
+  const shouldPrintEnvironment = buildOptions.printEnv == true;
+
+  if (shouldPrintEnvironment) {
+    await previewEnv(buildOptions);
+    return;
+  }
+
+  const prepared = await prepareBuild(buildOptions);
+  let exclusions: readonly string[] = [];
+  const configuredExclusions = prepared.config.envExclude;
+
+  if (configuredExclusions != null) {
+    exclusions = configuredExclusions;
+  }
+
+  setCommandEnvironmentExclusions(exclusions);
+
+  try {
+    try {
+      await dispatchBuild(prepared, buildOptions);
+      await notifyBuildSuccess(prepared, buildOptions);
+    } catch (error) {
+      await notifyBuildFailure(prepared, buildOptions, error);
+      throw error;
+    }
+  } finally {
+    setCommandEnvironmentExclusions([]);
+  }
+}

@@ -7,9 +7,6 @@ import {
   registerStorageProviderResolver,
   registerSubmitter,
 } from '../services/providerSupport/registry.js';
-import { Effect } from 'effect';
-import { ArtifactRetentionLive } from '../services/providerSupport/artifactRetention.js';
-import { LocalCredentialsStoreLive } from '../services/credentials/localCredentialsStore.js';
 import { makeLocalCredentialsProvider } from './credentials/local.js';
 import { makeLocalStorageProviderResolver } from './storage/local.js';
 import { makeS3StorageProviderResolver } from './storage/s3.js';
@@ -22,6 +19,7 @@ import { googlePlaySubmitter } from './submit/googlePlay.js';
 import { easSubmitter } from './submit/eas.js';
 import { makeAwsEc2MacComputeHost } from './compute/awsEc2Mac.js';
 import { byoSshComputeHost } from './compute/byoSsh.js';
+
 /**
  * Register every provider that ships with Launch.
  *
@@ -30,24 +28,21 @@ import { byoSshComputeHost } from './compute/byoSsh.js';
  * The iOS (`xcode`/`app-store-connect`) and Android (`gradle`/`google-play`) engines + submitters are
  * all registered; the pipeline selects the right pair per platform (see `resolveBuildEngineName`).
  */
-export const registerBuiltins = () =>
-  Effect.gen(function* () {
-    registerCredentialsProvider(
-      yield* makeLocalCredentialsProvider().pipe(Effect.provide(LocalCredentialsStoreLive)),
-    );
-    const localStorageResolver = yield* makeLocalStorageProviderResolver().pipe(
-      Effect.provide(ArtifactRetentionLive),
-    );
-    registerStorageProviderResolver(localStorageResolver);
-    registerStorageProvider(yield* localStorageResolver.resolveStorageProvider({}));
-    registerStorageProviderResolver(yield* makeS3StorageProviderResolver());
-    registerStorageProviderResolver(yield* makeSupabaseStorageProviderResolver());
-    registerBuildEngine(yield* makeXcodeBuildEngine());
-    registerBuildEngine(yield* makeGradleBuildEngine());
-    registerHostedBuildProvider(easHostedBuildProvider);
-    registerSubmitter(appStoreConnectSubmitter);
-    registerSubmitter(googlePlaySubmitter);
-    registerSubmitter(easSubmitter);
-    registerComputeHost(yield* makeAwsEc2MacComputeHost());
-    registerComputeHost(byoSshComputeHost);
-  });
+export async function registerBuiltins(): Promise<void> {
+  registerCredentialsProvider(makeLocalCredentialsProvider());
+
+  const localStorageResolver = makeLocalStorageProviderResolver();
+  registerStorageProviderResolver(localStorageResolver);
+  const localStorage = await localStorageResolver.resolveStorageProvider({});
+  registerStorageProvider(localStorage);
+  registerStorageProviderResolver(makeS3StorageProviderResolver());
+  registerStorageProviderResolver(makeSupabaseStorageProviderResolver());
+  registerBuildEngine(makeXcodeBuildEngine());
+  registerBuildEngine(makeGradleBuildEngine());
+  registerHostedBuildProvider(easHostedBuildProvider);
+  registerSubmitter(appStoreConnectSubmitter);
+  registerSubmitter(googlePlaySubmitter);
+  registerSubmitter(easSubmitter);
+  registerComputeHost(makeAwsEc2MacComputeHost());
+  registerComputeHost(byoSshComputeHost);
+}

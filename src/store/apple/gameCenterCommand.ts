@@ -1,8 +1,5 @@
-import type { FileSystem, Terminal } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
-import type { LaunchPromptService } from '../../services/platform/prompt.js';
-import { completeCommand, type CommandExit } from '../../terminal/commandExit.js';
+import { createLogger } from '../../services/platform/logger.js';
+import { completeCommand } from '../../terminal/commandExit.js';
 import type { GameCenterConfig } from '../../types/storeSurface.js';
 import {
   confirmStoreSurfaceWrite,
@@ -10,24 +7,80 @@ import {
   renderStoreSurfaceAction,
   resolveStoreSurfaceSection,
 } from './appStoreSurfaceCommand.js';
-import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
+import { loadActiveAppleStore } from './appleStoreCommand.js';
 import { parseGameCenterConfig, reconcileGameCenter } from './gameCenter.js';
 import { summarize } from '../shared/reconcile.js';
-import {
-  loadStoreAppContext,
-  type StoreAppSelectionRequirements,
-} from '../shared/selectStoreApp.js';
+import { loadStoreAppContext } from '../shared/selectStoreApp.js';
 import { hasMessage } from '../../services/platform/errorMessage.js';
 
-export const GameCenterCommandInputSchema = Schema.Struct({
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  config: Schema.String,
-  explicitConfig: Schema.Boolean,
-  dryRun: Schema.Boolean,
-  yes: Schema.Boolean,
-});
+export type GameCenterCommandInput = Readonly<{
+  app?: string;
+  config: string;
+  explicitConfig: boolean;
+  dryRun: boolean;
+  yes: boolean;
+}>;
 
-export type GameCenterCommandInput = Schema.Schema.Type<typeof GameCenterCommandInputSchema>;
+/** Decode one Game Center command. Rejects an explicit undefined exact optional app. */
+export function GameCenterCommandInputSchema(rawCommandInput: unknown): GameCenterCommandInput {
+  const isObject = typeof rawCommandInput == 'object';
+
+  if (isObject == false) {
+    throw new Error('Game Center command input must be an object.');
+  }
+
+  if (rawCommandInput == null) {
+    throw new Error('Game Center command input must be an object.');
+  }
+
+  if (Array.isArray(rawCommandInput)) {
+    throw new Error('Game Center command input must be an object.');
+  }
+
+  const commandRecord = rawCommandInput as Record<string, unknown>;
+  const config = commandRecord['config'];
+  const explicitConfig = commandRecord['explicitConfig'];
+  const dryRun = commandRecord['dryRun'];
+  const yes = commandRecord['yes'];
+  const isConfigText = typeof config == 'string';
+
+  if (isConfigText == false) {
+    throw new Error('Expected config to be a string.');
+  }
+
+  const isExplicitFlag = typeof explicitConfig == 'boolean';
+
+  if (isExplicitFlag == false) {
+    throw new Error('Expected explicitConfig to be a boolean.');
+  }
+
+  const isDryRunFlag = typeof dryRun == 'boolean';
+
+  if (isDryRunFlag == false) {
+    throw new Error('Expected dryRun to be a boolean.');
+  }
+
+  const isYesFlag = typeof yes == 'boolean';
+
+  if (isYesFlag == false) {
+    throw new Error('Expected yes to be a boolean.');
+  }
+
+  const hasApp = Object.hasOwn(commandRecord, 'app');
+
+  if (hasApp == false) {
+    return { config, explicitConfig, dryRun, yes };
+  }
+
+  const app = commandRecord['app'];
+  const isAppText = typeof app == 'string';
+
+  if (isAppText == false) {
+    throw new Error('Expected app to be a string.');
+  }
+
+  return { app, config, explicitConfig, dryRun, yes };
+}
 
 /** A Game Center command step failed. */
 type GameCenterCommandFailure = Readonly<{
@@ -36,146 +89,222 @@ type GameCenterCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeGameCenterCommandFailure = Data.tagged<GameCenterCommandFailure>(
-  'GameCenterCommandFailure',
-);
 
-type GameCenterCommandRequirements =
-  | ActiveAppleStoreRequirements
-  | FileSystem.FileSystem
-  | LaunchPromptService
-  | Logger
-  | StoreAppSelectionRequirements
-  | Terminal.Terminal;
+function makeGameCenterCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): GameCenterCommandFailure {
+  return { _tag: 'GameCenterCommandFailure', ...fields };
+}
+
+function readNonEmptyText(cause: unknown): string | null {
+  const isNotText = typeof cause != 'string';
+
+  if (isNotText) return null;
+
+  const isEmpty = cause.length == 0;
+
+  if (isEmpty) return null;
+
+  return cause;
+}
+
+function readCauseMessage(cause: unknown, fallback: string): string {
+  const textMessage = readNonEmptyText(cause);
+
+  if (textMessage != null) return textMessage;
+
+  const hasCauseMessage = hasMessage(cause);
+
+  if (hasCauseMessage) return cause.message;
+
+  return fallback;
+}
 
 /** Convert a dependency failure into the Game Center command channel. */
-const gameCenterFailure = (operation: string, cause: unknown): GameCenterCommandFailure => {
-  let message = `${operation} failed.`;
-  if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (hasMessage(cause)) message = cause.message;
-  if (
-    typeof cause === 'object' &&
-    cause !== null &&
-    'message' in cause &&
-    typeof cause.message === 'string'
-  ) {
-    message = cause.message;
-  }
+function gameCenterFailure(operation: string, cause: unknown): GameCenterCommandFailure {
+  const message = readCauseMessage(cause, `${operation} failed.`);
   return makeGameCenterCommandFailure({ operation, message, cause });
-};
+}
 
 /** Resolve the selected bundle id and its Game Center declaration. */
-const resolveGameCenterTarget = (
+async function resolveGameCenterTarget(
   commandInput: GameCenterCommandInput,
-): Effect.Effect<
-  Readonly<{ bundleId: string; gameCenterConfig: GameCenterConfig }>,
-  GameCenterCommandFailure,
-  FileSystem.FileSystem | StoreAppSelectionRequirements
-> =>
-  Effect.gen(function* () {
-    const storeAppContext = yield* loadStoreAppContext(commandInput.app).pipe(
-      Effect.mapError((cause) => gameCenterFailure('select Game Center app', cause)),
-    );
-    if (storeAppContext.app.bundleId === undefined) {
-      return yield* Effect.fail(
-        makeGameCenterCommandFailure({
-          operation: 'resolve Game Center bundle id',
-          message: `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
-          cause: storeAppContext.app,
-        }),
-      );
-    }
-    const bundleId = storeAppContext.app.bundleId;
-    let typedGameCenterConfig: GameCenterConfig | undefined;
-    if (storeAppContext.config.gameCenter !== undefined) {
-      typedGameCenterConfig = storeAppContext.config.gameCenter[bundleId];
-    }
-    const gameCenterConfig = yield* resolveStoreSurfaceSection(
+): Promise<Readonly<{ bundleId: string; gameCenterConfig: GameCenterConfig }>> {
+  let storeAppContext: Awaited<ReturnType<typeof loadStoreAppContext>>;
+
+  try {
+    storeAppContext = await loadStoreAppContext(commandInput.app);
+  } catch (cause) {
+    throw gameCenterFailure('select Game Center app', cause);
+  }
+
+  const bundleId = storeAppContext.app.bundleId;
+  const isBundleMissing = bundleId == null;
+
+  if (isBundleMissing) {
+    throw makeGameCenterCommandFailure({
+      operation: 'resolve Game Center bundle id',
+      message: `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
+      cause: storeAppContext.app,
+    });
+  }
+
+  const gameCenterByBundle = storeAppContext.config.gameCenter;
+  let typedGameCenterConfig: GameCenterConfig | undefined;
+  const hasGameCenterByBundle = gameCenterByBundle != null;
+
+  if (hasGameCenterByBundle) {
+    typedGameCenterConfig = gameCenterByBundle[bundleId];
+  }
+
+  let gameCenterConfig: GameCenterConfig | undefined;
+
+  try {
+    gameCenterConfig = await resolveStoreSurfaceSection(
       typedGameCenterConfig,
       commandInput.config,
       commandInput.explicitConfig,
       parseGameCenterConfig,
-    ).pipe(Effect.mapError((cause) => gameCenterFailure('resolve Game Center config', cause)));
-    if (gameCenterConfig === undefined) {
-      return yield* Effect.fail(
-        makeGameCenterCommandFailure({
-          operation: 'resolve Game Center config',
-          message: `No Game Center config for ${bundleId}. Add a \`gameCenter\` entry to launch.config.ts or create ${commandInput.config}.`,
-          cause: commandInput.config,
-        }),
-      );
-    }
-    return { bundleId, gameCenterConfig };
-  });
+    );
+  } catch (cause) {
+    throw gameCenterFailure('resolve Game Center config', cause);
+  }
+
+  const loadedGameCenterConfig = gameCenterConfig;
+  const isConfigMissing = loadedGameCenterConfig == null;
+
+  if (isConfigMissing) {
+    throw makeGameCenterCommandFailure({
+      operation: 'resolve Game Center config',
+      message: `No Game Center config for ${bundleId}. Add a \`gameCenter\` entry to launch.config.ts or create ${commandInput.config}.`,
+      cause: commandInput.config,
+    });
+  }
+
+  return { bundleId, gameCenterConfig: loadedGameCenterConfig };
+}
+
+function isPlannedAction(plannedAction: { status: string }): boolean {
+  return plannedAction.status === 'planned';
+}
 
 /** Plan, confirm, and apply Game Center changes. */
-const executeGameCenter = (
-  rawCommandInput: unknown,
-): Effect.Effect<number, GameCenterCommandFailure, GameCenterCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(GameCenterCommandInputSchema)(
-      rawCommandInput,
-    ).pipe(
-      Effect.mapError((cause) => gameCenterFailure('decode Game Center command input', cause)),
-    );
-    const gameCenterTarget = yield* resolveGameCenterTarget(commandInput);
-    const logger = yield* createLogger(false);
-    const appleStore = yield* loadActiveAppleStore().pipe(
-      Effect.mapError((cause) => gameCenterFailure('load App Store Connect client', cause)),
-    );
-    const gameCenterPlan = yield* reconcileGameCenter(appleStore, {
-      bundleId: gameCenterTarget.bundleId,
-      config: gameCenterTarget.gameCenterConfig,
-      dryRun: true,
-    }).pipe(Effect.mapError((cause) => gameCenterFailure('plan Game Center changes', cause)));
-    const plannedActions = gameCenterPlan.actions.filter(
-      (plannedAction) => plannedAction.status === 'planned',
-    );
-    yield* logger.gap();
-    if (gameCenterPlan.actions.length === 0) {
-      yield* logger.step(
+async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
+  try {
+    let commandInput: GameCenterCommandInput;
+
+    try {
+      commandInput = GameCenterCommandInputSchema(rawCommandInput);
+    } catch (cause) {
+      throw gameCenterFailure('decode Game Center command input', cause);
+    }
+
+    const gameCenterTarget = await resolveGameCenterTarget(commandInput);
+    const logger = createLogger(false);
+    let appleStore: Awaited<ReturnType<typeof loadActiveAppleStore>>;
+
+    try {
+      appleStore = await loadActiveAppleStore();
+    } catch (cause) {
+      throw gameCenterFailure('load App Store Connect client', cause);
+    }
+
+    let gameCenterPlan: Awaited<ReturnType<typeof reconcileGameCenter>>;
+
+    try {
+      gameCenterPlan = await reconcileGameCenter(appleStore, {
+        bundleId: gameCenterTarget.bundleId,
+        config: gameCenterTarget.gameCenterConfig,
+        dryRun: true,
+      });
+    } catch (cause) {
+      throw gameCenterFailure('plan Game Center changes', cause);
+    }
+
+    const plannedActions = gameCenterPlan.actions.filter(isPlannedAction);
+    logger.gap();
+    const isAlreadyInSync = gameCenterPlan.actions.length === 0;
+
+    if (isAlreadyInSync) {
+      logger.step(
         gameCenterTarget.bundleId,
         'Game Center achievements & leaderboards already in sync',
       );
       return 0;
     }
-    yield* logger.notice(
-      gameCenterTarget.bundleId,
-      ...gameCenterPlan.actions.map(renderStoreSurfaceAction),
-    );
-    if (plannedActions.length === 0) {
-      yield* logger.gap();
-      yield* logger.step('game-center', 'nothing to apply (everything already in sync)');
+
+    const actionLines = gameCenterPlan.actions.map(renderStoreSurfaceAction);
+    logger.notice(gameCenterTarget.bundleId, ...actionLines);
+    const hasNothingToApply = plannedActions.length === 0;
+
+    if (hasNothingToApply) {
+      logger.gap();
+      logger.step('game-center', 'nothing to apply (everything already in sync)');
       return 0;
     }
-    yield* logger.gap();
-    yield* logger.note(`${plannedActions.length} change(s) for ${gameCenterTarget.bundleId}.`);
-    if (commandInput.dryRun) {
-      yield* logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+
+    logger.gap();
+    logger.note(`${plannedActions.length} change(s) for ${gameCenterTarget.bundleId}.`);
+    const isDryRun = commandInput.dryRun == true;
+
+    if (isDryRun) {
+      logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
       return 0;
     }
-    const confirmed = yield* confirmStoreSurfaceWrite(
-      `Apply ${plannedActions.length} Game Center change(s) to App Store Connect?`,
-      commandInput.yes,
-    ).pipe(Effect.mapError((cause) => gameCenterFailure('confirm Game Center changes', cause)));
-    if (!confirmed) return 0;
-    const appliedGameCenter = yield* reconcileGameCenter(appleStore, {
-      bundleId: gameCenterTarget.bundleId,
-      config: gameCenterTarget.gameCenterConfig,
-      dryRun: false,
-    }).pipe(Effect.mapError((cause) => gameCenterFailure('apply Game Center changes', cause)));
+
+    let confirmed = false;
+
+    try {
+      confirmed = await confirmStoreSurfaceWrite(
+        `Apply ${plannedActions.length} Game Center change(s) to App Store Connect?`,
+        commandInput.yes,
+      );
+    } catch (cause) {
+      throw gameCenterFailure('confirm Game Center changes', cause);
+    }
+
+    const wasDeclined = confirmed == false;
+
+    if (wasDeclined) {
+      return 0;
+    }
+
+    let appliedGameCenter: Awaited<ReturnType<typeof reconcileGameCenter>>;
+
+    try {
+      appliedGameCenter = await reconcileGameCenter(appleStore, {
+        bundleId: gameCenterTarget.bundleId,
+        config: gameCenterTarget.gameCenterConfig,
+        dryRun: false,
+      });
+    } catch (cause) {
+      throw gameCenterFailure('apply Game Center changes', cause);
+    }
+
     const gameCenterSummary = summarize(appliedGameCenter.actions);
     let receiptTitle = 'Applied';
-    if (gameCenterSummary.failed > 0) receiptTitle = 'Applied with errors';
-    yield* logger.box(receiptTitle, appliedGameCenter.actions.map(renderAppliedStoreSurfaceAction));
+    const hasFailures = gameCenterSummary.failed > 0;
+
+    if (hasFailures) {
+      receiptTitle = 'Applied with errors';
+    }
+
+    const receiptLines = appliedGameCenter.actions.map(renderAppliedStoreSurfaceAction);
+    logger.box(receiptTitle, receiptLines);
     return gameCenterSummary.failed;
-  }).pipe(Effect.mapError((cause) => gameCenterFailure('run Game Center command', cause)));
+  } catch (cause) {
+    throw gameCenterFailure('run Game Center command', cause);
+  }
+}
 
 /** Run the schema-decoded Game Center command. */
-export const gameCenterCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, CommandExit | GameCenterCommandFailure, GameCenterCommandRequirements> =>
-  Effect.gen(function* () {
-    const failureCount = yield* executeGameCenter(rawCommandInput);
-    if (failureCount > 0) yield* completeCommand(1);
-  });
+export async function gameCenterCommandProgram(rawCommandInput: unknown): Promise<void> {
+  const failureCount = await executeGameCenter(rawCommandInput);
+  const hasFailures = failureCount > 0;
+
+  if (hasFailures) {
+    completeCommand(1);
+  }
+}

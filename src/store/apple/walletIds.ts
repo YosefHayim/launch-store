@@ -1,149 +1,267 @@
-import { Effect, Schema } from 'effect';
 import type { MerchantIdResource, PassTypeIdResource } from '../../types/appleCatalog.js';
 import { plan, type ReconcileContext } from '../shared/reconcile.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import type { WalletConfig, WalletIdConfig } from '../../types/storeSurface.js';
-import {
-  decodeStoreSurfaceConfig,
-  loadStoreSurfaceConfig,
-  type StoreSurfaceConfigFailure,
-} from '../shared/surfaceConfig.js';
+import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.js';
 
-const WalletIdentifierSchema = Schema.mutable(
-  Schema.Struct({
-    identifier: Schema.String.pipe(
-      Schema.nonEmptyString({
-        message: () => 'wallet.config.json: identifier must be a non-empty string.',
-      }),
-    ),
-    name: Schema.String.pipe(
-      Schema.nonEmptyString({
-        message: () => 'wallet.config.json: name must be a non-empty string.',
-      }),
-    ),
-  }),
-);
+const WALLET_DOCUMENT_NAME = 'wallet.config.json';
 
-const WalletConfigSchema = Schema.mutable(
-  Schema.Struct({
-    merchantIds: Schema.optionalWith(Schema.mutable(Schema.Array(WalletIdentifierSchema)), {
-      exact: true,
-    }),
-    passTypeIds: Schema.optionalWith(Schema.mutable(Schema.Array(WalletIdentifierSchema)), {
-      exact: true,
-    }),
-  }),
-).pipe(
-  Schema.filter((walletConfig) => {
-    let merchantIdCount = 0;
-    if (walletConfig.merchantIds !== undefined) merchantIdCount = walletConfig.merchantIds.length;
-    let passTypeIdCount = 0;
-    if (walletConfig.passTypeIds !== undefined) passTypeIdCount = walletConfig.passTypeIds.length;
-    if (merchantIdCount + passTypeIdCount > 0) return true;
-    return 'wallet.config.json must declare at least one entry under "merchantIds" or "passTypeIds".';
-  }),
-);
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
 
-const WalletConfigSpec = {
-  documentName: 'wallet.config.json',
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readRequiredText(record: Record<string, unknown>, fieldName: string): string {
+  const field = record[fieldName];
+  const isText = typeof field == 'string';
+
+  if (isText == false) {
+    throw new Error(`${WALLET_DOCUMENT_NAME}: ${fieldName} must be a non-empty string.`);
+  }
+
+  const isEmpty = field.length == 0;
+
+  if (isEmpty) {
+    throw new Error(`${WALLET_DOCUMENT_NAME}: ${fieldName} must be a non-empty string.`);
+  }
+
+  return field;
+}
+
+function readWalletIdentifier(entry: unknown): WalletIdConfig {
+  const isEntryRecord = isRecord(entry);
+
+  if (isEntryRecord == false) {
+    throw new Error(`${WALLET_DOCUMENT_NAME}: identifier entries must be JSON objects.`);
+  }
+
+  return {
+    identifier: readRequiredText(entry, 'identifier'),
+    name: readRequiredText(entry, 'name'),
+  };
+}
+
+function readWalletFamily(
+  documentRecord: Record<string, unknown>,
+  familyName: 'merchantIds' | 'passTypeIds',
+): readonly WalletIdConfig[] | null {
+  const hasFamily = Object.hasOwn(documentRecord, familyName);
+
+  if (hasFamily == false) {
+    return null;
+  }
+
+  const family = documentRecord[familyName];
+  const isFamilyList = Array.isArray(family);
+
+  if (isFamilyList == false) {
+    throw new Error(`Expected ${familyName} to be an array.`);
+  }
+
+  const identifiers: WalletIdConfig[] = [];
+
+  for (const entry of family) {
+    identifiers.push(readWalletIdentifier(entry));
+  }
+
+  return identifiers;
+}
+
+function familyCount(family: readonly WalletIdConfig[] | null): number {
+  if (family == null) {
+    return 0;
+  }
+
+  return family.length;
+}
+
+function decodeWalletDocument(rawDocument: unknown): WalletConfig {
+  const documentRecord = rawDocument as Record<string, unknown>;
+  const merchantIds = readWalletFamily(documentRecord, 'merchantIds');
+  const passTypeIds = readWalletFamily(documentRecord, 'passTypeIds');
+  const declaredCount = familyCount(merchantIds) + familyCount(passTypeIds);
+  const hasDeclaration = declaredCount > 0;
+
+  if (hasDeclaration == false) {
+    throw new Error(
+      'wallet.config.json must declare at least one entry under "merchantIds" or "passTypeIds".',
+    );
+  }
+
+  const walletConfig: {
+    merchantIds?: readonly WalletIdConfig[];
+    passTypeIds?: readonly WalletIdConfig[];
+  } = {};
+  const hasMerchantIds = merchantIds != null;
+
+  if (hasMerchantIds) {
+    walletConfig.merchantIds = merchantIds;
+  }
+
+  const hasPassTypeIds = passTypeIds != null;
+
+  if (hasPassTypeIds) {
+    walletConfig.passTypeIds = passTypeIds;
+  }
+
+  return walletConfig;
+}
+
+function missingWalletMessage(configPath: string): string {
+  return `No wallet config at ${configPath}. Create one (see \`launch wallet --help\`) or pass --config.`;
+}
+
+const walletConfigSpec = {
+  documentName: WALLET_DOCUMENT_NAME,
   displayName: 'wallet config',
-  missingMessage: (configPath: string) =>
-    `No wallet config at ${configPath}. Create one (see \`launch wallet --help\`) or pass --config.`,
-  schema: WalletConfigSchema,
+  missingMessage: missingWalletMessage,
+  decodeDocument: decodeWalletDocument,
 };
+
 /**
- * The exact slice of {@link AppStoreConnectClient} the wallet reconciler depends on. Declaring it here
- * (rather than taking the concrete client) keeps the diff logic unit-testable with a hand-rolled fake;
- * `AppStoreConnectClient` satisfies it structurally, mirroring {@link AscEuDistributionApi}.
+ * The exact slice of App Store Connect the wallet reconciler depends on. Declaring it here
+ * (rather than taking the concrete client) keeps the diff logic unit-testable with a hand-rolled fake.
  */
 export type AscWalletApi = {
-  listMerchantIds(): Effect.Effect<MerchantIdResource[], unknown>;
-  createMerchantId(identifier: string, name: string): Effect.Effect<void, unknown>;
-  listPassTypeIds(): Effect.Effect<PassTypeIdResource[], unknown>;
-  createPassTypeId(identifier: string, name: string): Effect.Effect<void, unknown>;
+  listMerchantIds(): Promise<MerchantIdResource[]>;
+  createMerchantId(identifier: string, name: string): Promise<void>;
+  listPassTypeIds(): Promise<PassTypeIdResource[]>;
+  createPassTypeId(identifier: string, name: string): Promise<void>;
 };
+
+function hasDeclaredFamily(
+  family: readonly WalletIdConfig[] | undefined,
+): family is readonly WalletIdConfig[] {
+  if (family == null) {
+    return false;
+  }
+
+  return family.length > 0;
+}
+
 /** Create each declared identifier of one family that Apple doesn't already have (matched on `identifier`). */
-const reconcileFamily = (
+async function reconcileFamily(
   reconcileContext: ReconcileContext,
   label: string,
   existing: Set<string>,
   declared: readonly WalletIdConfig[],
-  create: (identifier: string, name: string) => Effect.Effect<void, unknown>,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    for (const { identifier, name } of declared) {
-      if (existing.has(identifier)) continue;
-      const action = plan(reconcileContext, `register ${label} ${identifier} (${name})`);
-      if (!reconcileContext.dryRun)
-        yield* create(identifier, name).pipe(
-          Effect.match({
-            onFailure: (writeFailure) => {
-              action.status = 'failed';
-              action.error = errorMessage(writeFailure);
-            },
-            onSuccess: () => {
-              action.status = 'applied';
-            },
-          }),
-        );
+  create: (identifier: string, name: string) => Promise<void>,
+): Promise<void> {
+  for (const declaredIdentifier of declared) {
+    const alreadyRegistered = existing.has(declaredIdentifier.identifier);
+
+    if (alreadyRegistered) {
+      continue;
     }
-  });
-/** Collect the `identifier`s present on a list of registered ids, for additive matching. */
-const identifiersOf = (
-  entries: {
-    identifier?: string;
-  }[],
-): Set<string> => {
-  return new Set(
-    entries.flatMap((entry) => {
-      if (entry.identifier) return [entry.identifier];
-      return [];
-    }),
-  );
-};
+
+    const action = plan(
+      reconcileContext,
+      `register ${label} ${declaredIdentifier.identifier} (${declaredIdentifier.name})`,
+    );
+    const isDryRun = reconcileContext.dryRun == true;
+
+    if (isDryRun) {
+      continue;
+    }
+
+    try {
+      await create(declaredIdentifier.identifier, declaredIdentifier.name);
+      action.status = 'applied';
+    } catch (writeFailure) {
+      action.status = 'failed';
+      action.error = errorMessage(writeFailure);
+    }
+  }
+}
+
+/** Collect the identifiers present on a list of registered ids, for additive matching. */
+function identifiersOf(entries: { identifier?: string }[]): Set<string> {
+  const identifiers = new Set<string>();
+
+  for (const entry of entries) {
+    const identifier = entry.identifier;
+    const hasIdentifier = identifier != null;
+
+    if (hasIdentifier == false) {
+      continue;
+    }
+
+    const isEmpty = identifier.length == 0;
+
+    if (isEmpty) {
+      continue;
+    }
+
+    identifiers.add(identifier);
+  }
+
+  return identifiers;
+}
+
 /**
  * Reconcile the team's Apple Pay merchant ids and Wallet pass type ids. Only the families present in the
  * config are read and reconciled. Every write is captured per-action so a single failure never aborts the
  * run.
  */
-export const reconcileWalletIds = (
+export async function reconcileWalletIds(
   api: AscWalletApi,
   config: WalletConfig,
   dryRun: boolean,
-): Effect.Effect<PlannedAction[], unknown> =>
-  Effect.gen(function* () {
-    const reconcileContext: ReconcileContext = { actions: [], dryRun };
-    if (config.merchantIds && config.merchantIds.length > 0) {
-      const merchantIds = yield* api.listMerchantIds();
-      const existing = identifiersOf(merchantIds);
-      yield* reconcileFamily(
-        reconcileContext,
-        'Apple Pay merchant id',
-        existing,
-        config.merchantIds,
-        (identifier, name) => api.createMerchantId(identifier, name),
-      );
-    }
-    if (config.passTypeIds && config.passTypeIds.length > 0) {
-      const passTypeIds = yield* api.listPassTypeIds();
-      const existing = identifiersOf(passTypeIds);
-      yield* reconcileFamily(
-        reconcileContext,
-        'Wallet pass type id',
-        existing,
-        config.passTypeIds,
-        (identifier, name) => api.createPassTypeId(identifier, name),
-      );
-    }
-    return reconcileContext.actions;
-  });
-/** Decode an untrusted Wallet config document. */
-export const parseWalletConfig = (
-  rawDocument: unknown,
-): Effect.Effect<WalletConfig, StoreSurfaceConfigFailure> =>
-  decodeStoreSurfaceConfig(rawDocument, WalletConfigSpec);
+): Promise<PlannedAction[]> {
+  const reconcileContext: ReconcileContext = { actions: [], dryRun };
+  const shouldReconcileMerchants = hasDeclaredFamily(config.merchantIds);
 
-/** Read and decode wallet.config.json through Effect Platform. */
-export const loadWalletConfig = (configPath: string) =>
-  loadStoreSurfaceConfig(configPath, WalletConfigSpec);
+  if (shouldReconcileMerchants) {
+    const merchantIds = await api.listMerchantIds();
+    const existing = identifiersOf(merchantIds);
+    await reconcileFamily(
+      reconcileContext,
+      'Apple Pay merchant id',
+      existing,
+      config.merchantIds,
+      function createMerchant(identifier: string, name: string) {
+        return api.createMerchantId(identifier, name);
+      },
+    );
+  }
+
+  const shouldReconcilePasses = hasDeclaredFamily(config.passTypeIds);
+
+  if (shouldReconcilePasses) {
+    const passTypeIds = await api.listPassTypeIds();
+    const existing = identifiersOf(passTypeIds);
+    await reconcileFamily(
+      reconcileContext,
+      'Wallet pass type id',
+      existing,
+      config.passTypeIds,
+      function createPassType(identifier: string, name: string) {
+        return api.createPassTypeId(identifier, name);
+      },
+    );
+  }
+
+  return reconcileContext.actions;
+}
+
+/** Decode an untrusted Wallet config document. */
+export function parseWalletConfig(rawDocument: unknown): WalletConfig {
+  return decodeStoreSurfaceConfig(rawDocument, walletConfigSpec);
+}
+
+/** Read and decode wallet.config.json. */
+export function loadWalletConfig(configPath: string): Promise<WalletConfig> {
+  return loadStoreSurfaceConfig(configPath, walletConfigSpec);
+}

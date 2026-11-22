@@ -1,5 +1,6 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect } from 'effect';
+import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { pathExists } from '../path-exists.js';
 import type { AppDescriptor, Platform } from '../types/app.js';
 import type { AppleCredentials } from '../types/credentials.js';
 import { writeAppVersion } from '../config/config.js';
@@ -13,7 +14,7 @@ import {
 } from '../release/version.js';
 import { readLastBump } from '../distribution/lastRun.js';
 import type { Logger } from '../services/platform/logger.js';
-import { executeCommand, provideNodeCommandServices } from '../services/platform/exec.js';
+import { executeCommand } from '../services/platform/exec.js';
 import { checkTerminalIsInteractive, withSpinner } from '../services/platform/progress.js';
 import { nativeProjectDirName } from '../services/stores/platform.js';
 import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
@@ -27,297 +28,425 @@ type BuildVersionFailure = Readonly<{
   readonly message: string;
 }>;
 
-const makeBuildVersionFailure = Data.tagged<BuildVersionFailure>('BuildVersionFailure');
+function makeBuildVersionFailure(fields: { message: string }): BuildVersionFailure {
+  return { _tag: 'BuildVersionFailure', message: fields.message };
+}
 
 type PromptedVersion = Readonly<{
   readonly chosen: string;
   readonly kind: BumpKind | undefined;
 }>;
+
+function isDirectoryName(childName: string): boolean {
+  return childName != '';
+}
+
 /**
- * Find the app target directory inside a platform's native project directory - the one holding the
- * generated `Info.plist`. Entries are narrowed to directories before the probe because `expo prebuild`
- * leaves regular files (`.gitignore`, `.xcode.env`, `Podfile`) beside the target, and on APFS they
- * enumerate first; probing `<regular file>/Info.plist` fails with `ENOTDIR`, which `exists` surfaces as
- * a fatal error rather than `false`. Returns the entry name, or `null` when no target carries a plist.
+ * Find the native target directory that holds Info.plist. Directories are checked before the plist
+ * probe because a regular file makes `Info.plist` look like `ENOTDIR`.
  */
-export const findNativeTargetDirectory = (
-  nativeDirectory: string,
-): Effect.Effect<string | null, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const nativeEntries = yield* fileSystem.readDirectory(nativeDirectory);
-    for (const nativeEntry of nativeEntries) {
-      const entryPath = pathService.join(nativeDirectory, nativeEntry);
-      const entryInfo = yield* fileSystem.stat(entryPath);
-      if (entryInfo.type !== 'Directory') continue;
-      if (yield* fileSystem.exists(pathService.join(entryPath, 'Info.plist'))) return nativeEntry;
+export async function findNativeTargetDirectory(nativeDirectory: string): Promise<string | null> {
+  const nativeEntries = await readdir(nativeDirectory);
+
+  for (const childName of nativeEntries) {
+    const isNamed = isDirectoryName(childName);
+
+    if (isNamed == false) {
+      continue;
     }
-    return null;
-  });
-/**
- * Stamp a single key into the build platform's generated `Info.plist`. Stamping the plist directly -
- * rather than only writing `app.json` - is what makes a version/build choice take effect even when the
- * native project is committed (so prebuild, which would otherwise read `app.json`, never runs). The
- * native directory is the platform's ({@link nativeProjectDirName}: `ios/` for iOS & tvOS, `macos/`,
- * `visionos/`). Returns whether a target Info.plist was found.
- */
-export const setNativePlistValue = (
+
+    const childPath = join(nativeDirectory, childName);
+    const childInfo = await stat(childPath);
+    const isDirectory = childInfo.isDirectory();
+
+    if (isDirectory == false) {
+      continue;
+    }
+
+    const infoPlistPath = join(childPath, 'Info.plist');
+    const hasInfoPlist = await pathExists(infoPlistPath);
+
+    if (hasInfoPlist) {
+      return childName;
+    }
+  }
+
+  return null;
+}
+
+/** Stamp one key into the platform's generated Info.plist. Returns whether a target plist was found. */
+export async function setNativePlistValue(
   appDir: string,
   platform: Platform,
   key: string,
   plistValue: string | number,
-) =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const nativeDirectory = pathService.join(appDir, yield* nativeProjectDirName(platform));
-    if (!(yield* fileSystem.exists(nativeDirectory))) return false;
-    const targetDirectory = yield* findNativeTargetDirectory(nativeDirectory);
-    if (targetDirectory === null) return false;
-    yield* provideNodeCommandServices(
-      executeCommand('/usr/libexec/PlistBuddy', [
-        '-c',
-        `Set :${key} ${plistValue}`,
-        pathService.join(nativeDirectory, targetDirectory, 'Info.plist'),
-      ]),
-    );
-    return true;
-  });
-/** Set the build number (`CFBundleVersion`) into the platform's generated Info.plist. */
-export const setIosBuildNumber = (appDir: string, platform: Platform, buildNumber: number) => {
+): Promise<boolean> {
+  const nativeDirectory = join(appDir, nativeProjectDirName(platform));
+  const directoryExists = await pathExists(nativeDirectory);
+
+  if (directoryExists == false) {
+    return false;
+  }
+
+  const targetDirectory = await findNativeTargetDirectory(nativeDirectory);
+
+  if (targetDirectory == null) {
+    return false;
+  }
+
+  const plistPath = join(nativeDirectory, targetDirectory, 'Info.plist');
+
+  await executeCommand('/usr/libexec/PlistBuddy', ['-c', `Set :${key} ${plistValue}`, plistPath]);
+
+  return true;
+}
+
+/** Set `CFBundleVersion` in the platform's generated Info.plist. */
+export function setIosBuildNumber(
+  appDir: string,
+  platform: Platform,
+  buildNumber: number,
+): Promise<boolean> {
   return setNativePlistValue(appDir, platform, 'CFBundleVersion', buildNumber);
-};
-/** Set the marketing version (`CFBundleShortVersionString`) into the platform's generated Info.plist. */
-const setIosMarketingVersion = (appDir: string, platform: Platform, version: string) => {
+}
+
+function setIosMarketingVersion(
+  appDir: string,
+  platform: Platform,
+  version: string,
+): Promise<boolean> {
   return setNativePlistValue(appDir, platform, 'CFBundleShortVersionString', version);
-};
-/** Resolve the next build number from App Store Connect, or a placeholder in dry-run. */
-export const nextBuildNumber = (
+}
+
+/** Next App Store Connect build number, or 1 when the run is dry or has no bundle id. */
+export async function nextBuildNumber(
   ascKey: AppleCredentials['ascKey'],
   bundleId: string,
-  dryRun: boolean,
-): Effect.Effect<number, unknown, AppleStoreClientService> =>
-  Effect.gen(function* () {
-    if (dryRun) return 1;
-    if (!bundleId) return 1;
-    const appleStoreClients = yield* AppleStoreClientService;
-    const appStoreClient = yield* appleStoreClients.createEffectClient(ascKey);
-    const latestBuildNumber = yield* appStoreClient.getLatestBuildNumber(bundleId);
-    return latestBuildNumber + 1;
-  });
+  isDryRun: boolean,
+): Promise<number> {
+  if (isDryRun) {
+    return 1;
+  }
+
+  const hasBundleId = bundleId != '';
+
+  if (hasBundleId == false) {
+    return 1;
+  }
+
+  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+  const latestBuildNumber = await appStoreClient.getLatestBuildNumber(bundleId);
+
+  return latestBuildNumber + 1;
+}
+
+function isExplicitBumpKind(flag: BumpKind | 'ask' | undefined): flag is BumpKind {
+  if (flag == null) {
+    return false;
+  }
+
+  return flag != 'ask';
+}
+
 /**
- * How the marketing-version bump gets chosen for one run. `apply` carries the resolved {@link BumpKind}
- * and where it came from; `prompt` runs the interactive picker; `leave` keeps the app-config version as-is.
+ * Decide how to pick the version bump. An explicit `--bump` kind wins, even without a TTY.
  */
-/**
- * Decide how to pick the version bump, by precedence: an explicit `--bump` kind wins and applies even
- * non-interactively (so the version is scriptable in CI); otherwise, when we can prompt, `--bump ask`
- * forces the picker, a remembered pick auto-applies, and a first run prompts; when we can't prompt and
- * no flag was given, the app-config version is left untouched. Pure -> testable with no store round-trip.
- */
-export const resolveBumpKind = (args: {
+export function resolveBumpKind(args: {
   flag: BumpKind | 'ask' | undefined;
   remembered: BumpKind | undefined;
   canPrompt: boolean;
-}): BumpResolution => {
-  if (args.flag && args.flag !== 'ask') return { mode: 'apply', kind: args.flag, source: 'flag' };
-  if (!args.canPrompt) return { mode: 'leave' };
-  if (args.flag === 'ask') return { mode: 'prompt' };
-  if (args.remembered) return { mode: 'apply', kind: args.remembered, source: 'remembered' };
+}): BumpResolution {
+  if (isExplicitBumpKind(args.flag)) {
+    return { mode: 'apply', kind: args.flag, source: 'flag' };
+  }
+
+  if (args.canPrompt == false) {
+    return { mode: 'leave' };
+  }
+
+  if (args.flag == 'ask') {
+    return { mode: 'prompt' };
+  }
+
+  const remembered = args.remembered;
+
+  if (isExplicitBumpKind(remembered)) {
+    return { mode: 'apply', kind: remembered, source: 'remembered' };
+  }
+
   return { mode: 'prompt' };
-};
-/**
- * The interactive version picker: patch/minor/major above the baseline, keep the current, or type a
- * custom one. Returns the resolved version and its {@link BumpKind} - `undefined` for a typed "Custom..."
- * version, which has no kind and so is never remembered. Cancelling (Ctrl-C) exits cleanly.
- */
-const promptVersion = (baseline: string, current: string, latest: string | null) =>
-  Effect.gen(function* () {
-    const launchPrompt = yield* LaunchPrompt;
-    const patchVersion = nextVersion(baseline, 'patch');
-    const minorVersion = nextVersion(baseline, 'minor');
-    const majorVersion = nextVersion(baseline, 'major');
-    let promptMessage = 'No versions on App Store Connect yet. Which version ships?';
-    let initialSelection: BumpKind | 'custom' = 'keep';
-    if (latest !== null) {
-      promptMessage = `App Store Connect's latest is ${latest}. Which version ships next?`;
-      initialSelection = 'patch';
-    }
-    const choice = yield* launchPrompt.select<BumpKind | 'custom'>({
-      message: promptMessage,
-      initialSelection,
-      choices: [
-        { selection: 'patch', label: `Patch  -> ${patchVersion}`, hint: 'bug fixes' },
-        { selection: 'minor', label: `Minor  -> ${minorVersion}`, hint: 'new features' },
-        { selection: 'major', label: `Major  -> ${majorVersion}`, hint: 'breaking changes' },
-        {
-          selection: 'keep',
-          label: `Keep   -> ${current}`,
-          hint: 'reuse the app config version',
-        },
-        { selection: 'custom', label: 'Custom...', hint: 'type a version' },
-      ],
-    });
-    if (choice === 'custom') {
-      const typedVersion = yield* launchPrompt.requiredText('Version (MAJOR.MINOR.PATCH):');
-      const parsedVersion = parseVersion(typedVersion);
-      if (parsedVersion === null) {
-        return yield* Effect.fail(
-          makeBuildVersionFailure({ message: 'Use a version like 1.2.3.' }),
-        );
-      }
-      const customVersion: PromptedVersion = {
-        chosen: formatVersion(parsedVersion),
-        kind: undefined,
-      };
-      return customVersion;
-    }
-    if (choice === 'keep') {
-      const currentVersion: PromptedVersion = { chosen: current, kind: 'keep' };
-      return currentVersion;
-    }
-    const bumpedVersion: PromptedVersion = {
-      chosen: nextVersion(baseline, choice),
-      kind: choice,
-    };
-    return bumpedVersion;
+}
+
+function canPromptForMarketingVersion(
+  terminalIsInteractive: boolean,
+  yes: boolean | undefined,
+): boolean {
+  if (terminalIsInteractive == false) {
+    return false;
+  }
+
+  return yes != true;
+}
+
+async function promptVersion(
+  baseline: string,
+  current: string,
+  latest: string | null,
+): Promise<PromptedVersion> {
+  const launchPrompt = LaunchPrompt;
+  const patchVersion = nextVersion(baseline, 'patch');
+  const minorVersion = nextVersion(baseline, 'minor');
+  const majorVersion = nextVersion(baseline, 'major');
+  let promptMessage = 'No versions on App Store Connect yet. Which version ships?';
+  let initialSelection: BumpKind | 'custom' = 'keep';
+
+  if (latest != null) {
+    promptMessage = `App Store Connect's latest is ${latest}. Which version ships next?`;
+    initialSelection = 'patch';
+  }
+
+  const choice = await launchPrompt.select<BumpKind | 'custom'>({
+    message: promptMessage,
+    initialSelection,
+    choices: [
+      { selection: 'patch', label: `Patch  -> ${patchVersion}`, hint: 'bug fixes' },
+      { selection: 'minor', label: `Minor  -> ${minorVersion}`, hint: 'new features' },
+      { selection: 'major', label: `Major  -> ${majorVersion}`, hint: 'breaking changes' },
+      { selection: 'keep', label: `Keep   -> ${current}`, hint: 'reuse the app config version' },
+      { selection: 'custom', label: 'Custom...', hint: 'type a version' },
+    ],
   });
-/**
- * Stamp the resolved version into Info.plist + a static app.json, mirror it onto `app.version` so every
- * later step reports it, warn when it doesn't increment the store's latest, and log the step. `note`
- * explains the source (e.g. `patch, remembered`) so the line is self-documenting.
- */
-const applyChosenVersion = (
+  const isCustom = choice == 'custom';
+
+  if (isCustom) {
+    const typedVersion = await launchPrompt.requiredText('Version (MAJOR.MINOR.PATCH):');
+    const parsedVersion = parseVersion(typedVersion);
+
+    if (parsedVersion == null) {
+      throw makeBuildVersionFailure({ message: 'Use a version like 1.2.3.' });
+    }
+
+    return { chosen: formatVersion(parsedVersion), kind: undefined };
+  }
+
+  const isKeep = choice == 'keep';
+
+  if (isKeep) {
+    return { chosen: current, kind: 'keep' };
+  }
+
+  return { chosen: nextVersion(baseline, choice), kind: choice };
+}
+
+function doesNotIncrementStore(latest: string | null, chosen: string): boolean {
+  if (latest == null) {
+    return false;
+  }
+
+  const hasLatest = latest != '';
+
+  if (hasLatest == false) {
+    return false;
+  }
+
+  return compareVersions(chosen, latest) <= 0;
+}
+
+async function applyChosenVersion(
   app: MutableDeep<AppDescriptor>,
   platform: Platform,
   chosen: string,
   latest: string | null,
   note: string,
   log: Logger,
-) =>
-  Effect.gen(function* () {
-    if (latest && compareVersions(chosen, latest) <= 0) {
-      yield* log.warn(
-        `${chosen} doesn't increment the store's ${latest} - fine for another TestFlight build, but the App Store rejects a release that reuses a version.`,
-      );
-    }
-    const stamped = yield* setIosMarketingVersion(app.dir, platform, chosen);
-    const persisted = yield* writeAppVersion(app, chosen);
-    app.version = chosen;
-    let persistenceNote = 'app config not written (dynamic config)';
-    if (persisted) persistenceNote = 'app config updated';
-    const notes = [persistenceNote];
-    if (!stamped) notes.push('Info.plist not stamped');
-    yield* log.step(
-      'version',
-      `${log.chip(chosen)} (${note}; ${notes.join('; ')})`,
-      'marketing-version',
+): Promise<void> {
+  const shouldWarn = doesNotIncrementStore(latest, chosen);
+
+  if (shouldWarn) {
+    log.warn(
+      `${chosen} doesn't increment the store's ${latest} - fine for another TestFlight build, but the App Store rejects a release that reuses a version.`,
     );
-  });
+  }
+
+  const stamped = await setIosMarketingVersion(app.dir, platform, chosen);
+  const persisted = await writeAppVersion(app, chosen);
+
+  app.version = chosen;
+
+  let persistenceNote = 'app config not written (dynamic config)';
+
+  if (persisted) {
+    persistenceNote = 'app config updated';
+  }
+
+  const notes = [persistenceNote];
+
+  if (stamped == false) {
+    notes.push('Info.plist not stamped');
+  }
+
+  log.step('version', `${log.chip(chosen)} (${note}; ${notes.join('; ')})`, 'marketing-version');
+}
+
+function isPresentVersion(version: string | null): version is string {
+  return version != null;
+}
+
+function currentMarketingVersion(app: AppDescriptor): string {
+  if (app.version == null) {
+    return '0.0.0';
+  }
+
+  return app.version;
+}
+
 /**
- * Resolve - and apply - the app's marketing version before the build. By precedence (see
- * {@link resolveBumpKind}): an explicit `--bump`, a remembered pick (auto-applied, no prompt), the
- * interactive picker, or - under `--yes`/CI with no flag - the app-config version untouched. The chosen
- * version is computed above the store's latest (App Store + TestFlight) and the app's own version, then
- * stamped into Info.plist + app config and mirrored onto `app.version` so every later step reports it.
- * Returns the {@link BumpKind} applied (for remembering on success), or `undefined` when nothing was
- * applied or a one-off Custom version was typed.
+ * Resolve and apply the marketing version before the build. Returns the bump kind to remember.
  */
-export const resolveMarketingVersion = (
+export async function resolveMarketingVersion(
   ascKey: AppleCredentials['ascKey'],
   bundleId: string,
   app: MutableDeep<AppDescriptor>,
   platform: Platform,
-  options: BuildRunOptions,
+  buildOptions: BuildRunOptions,
   log: Logger,
-) =>
-  Effect.gen(function* () {
-    let currentVersion = app.version;
-    if (currentVersion === undefined) currentVersion = '0.0.0';
-    if (options.dryRun) {
-      log.step(
-        'version',
-        `would suggest the next version above the store's latest (config has ${currentVersion})`,
-        'marketing-version',
-      );
-      return;
-    }
-    const rememberedBump = yield* readLastBump(app.name);
-    const terminalIsInteractive = yield* checkTerminalIsInteractive;
-    const decision = resolveBumpKind({
-      flag: options.bump,
-      remembered: rememberedBump,
-      canPrompt: terminalIsInteractive && options.yes !== true,
-    });
-    if (decision.mode === 'leave') {
-      log.step(
-        'version',
-        `${currentVersion} (from app config; not prompting under --yes / non-interactive)`,
-        'marketing-version',
-      );
-      return;
-    }
-    let latest: string | null = null;
-    if (bundleId) {
-      const appleStoreClients = yield* AppleStoreClientService;
-      const appStoreClient = yield* appleStoreClients.createEffectClient(ascKey);
-      latest = yield* withSpinner('Checking versions already on App Store Connect', () =>
-        appStoreClient.getLatestMarketingVersion(bundleId),
-      );
-    }
-    // Never propose at or below what's already on the store or what the app config already declares.
-    let versionBaseline = highestVersion(
-      [latest, currentVersion].filter((version): version is string => version !== null),
+): Promise<BumpKind | undefined> {
+  const currentVersion = currentMarketingVersion(app);
+
+  if (buildOptions.dryRun) {
+    log.step(
+      'version',
+      `would suggest the next version above the store's latest (config has ${currentVersion})`,
+      'marketing-version',
     );
-    if (versionBaseline === null) versionBaseline = currentVersion;
-    if (decision.mode === 'prompt') {
-      const { chosen, kind } = yield* promptVersion(versionBaseline, currentVersion, latest);
-      let versionChoiceLabel = 'custom';
-      if (kind !== undefined) versionChoiceLabel = kind;
-      yield* applyChosenVersion(app, platform, chosen, latest, versionChoiceLabel, log);
-      return kind;
-    }
-    // apply (flag or remembered): compute the version from the kind.
-    let chosen = currentVersion;
-    if (decision.kind !== 'keep') chosen = nextVersion(versionBaseline, decision.kind);
-    let source = 'remembered';
-    if (decision.source === 'flag') source = '--bump';
-    yield* applyChosenVersion(app, platform, chosen, latest, `${decision.kind}, ${source}`, log);
-    return decision.kind;
+    return undefined;
+  }
+
+  const rememberedBump = await readLastBump(app.name);
+  const terminalIsInteractive = checkTerminalIsInteractive();
+  const decision = resolveBumpKind({
+    flag: buildOptions.bump,
+    remembered: rememberedBump,
+    canPrompt: canPromptForMarketingVersion(terminalIsInteractive, buildOptions.yes),
   });
-/**
- * Resolve the next Android `versionCode`: one above the highest of Google Play's latest and the
- * `app.json` floor, or a placeholder in dry-run. The Android twin of {@link nextBuildNumber} - the
- * store stays the source of truth, but an intentional local bump (the floor) is never clobbered.
- */
-export const nextVersionCode = (
+
+  if (decision.mode == 'leave') {
+    log.step(
+      'version',
+      `${currentVersion} (from app config; not prompting under --yes / non-interactive)`,
+      'marketing-version',
+    );
+    return undefined;
+  }
+
+  const latest = await readStoreMarketingVersion(ascKey, bundleId);
+  let versionBaseline = highestVersion([latest, currentVersion].filter(isPresentVersion));
+
+  if (versionBaseline == null) {
+    versionBaseline = currentVersion;
+  }
+
+  if (decision.mode == 'prompt') {
+    const prompted = await promptVersion(versionBaseline, currentVersion, latest);
+    let versionChoiceLabel = 'custom';
+
+    if (prompted.kind != null) {
+      versionChoiceLabel = prompted.kind;
+    }
+
+    await applyChosenVersion(app, platform, prompted.chosen, latest, versionChoiceLabel, log);
+
+    return prompted.kind;
+  }
+
+  const bumpKind = decision.kind;
+  let chosen = currentVersion;
+  const keepsCurrent = bumpKind == 'keep';
+
+  if (keepsCurrent == false) {
+    chosen = nextVersion(versionBaseline, bumpKind);
+  }
+
+  let source = 'remembered';
+
+  if (decision.source == 'flag') {
+    source = '--bump';
+  }
+
+  await applyChosenVersion(app, platform, chosen, latest, `${decision.kind}, ${source}`, log);
+
+  return decision.kind;
+}
+
+async function readStoreMarketingVersion(
+  ascKey: AppleCredentials['ascKey'],
+  bundleId: string,
+): Promise<string | null> {
+  const hasBundleId = bundleId != '';
+
+  if (hasBundleId == false) {
+    return null;
+  }
+
+  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+
+  async function readLatest(): Promise<string | null> {
+    const latest = await appStoreClient.getLatestMarketingVersion(bundleId);
+
+    return latest;
+  }
+
+  const latest = await withSpinner('Checking versions already on App Store Connect', readLatest);
+
+  return latest;
+}
+
+function nextCodeAboveFloor(floor: number): number {
+  return Math.max(floor, 0) + 1;
+}
+
+/** Next Android versionCode, one above Play's latest and the app.json floor. */
+export async function nextVersionCode(
   serviceAccountJson: string,
   packageName: string,
   floor: number,
-  dryRun: boolean,
-): Effect.Effect<number, unknown, GoogleStoreClientService> =>
-  Effect.gen(function* () {
-    if (dryRun) return Math.max(floor, 0) + 1;
-    if (!serviceAccountJson) return Math.max(floor, 0) + 1;
-    const googleStoreClients = yield* GoogleStoreClientService;
-    const playStoreClient = yield* googleStoreClients.createEffectClient(serviceAccountJson);
-    const latest = yield* playStoreClient.getLatestVersionCode(packageName);
-    return Math.max(latest, floor) + 1;
-  });
-/**
- * Stamp the bumped `versionCode` into the generated `android/app/build.gradle`. A line-edit (no
- * PlistBuddy analog on Android); returns whether a `versionCode <n>` line was found and updated.
- */
-export const setAndroidVersionCode = (appDir: string, versionCode: number) =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const gradlePath = pathService.join(appDir, 'android', 'app', 'build.gradle');
-    if (!(yield* fileSystem.exists(gradlePath))) return false;
-    const originalGradle = yield* fileSystem.readFileString(gradlePath);
-    const updatedGradle = originalGradle.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
-    if (updatedGradle === originalGradle) return false;
-    yield* fileSystem.writeFileString(gradlePath, updatedGradle);
-    return true;
-  });
+  isDryRun: boolean,
+): Promise<number> {
+  if (isDryRun) {
+    return nextCodeAboveFloor(floor);
+  }
+
+  const hasServiceAccount = serviceAccountJson != '';
+
+  if (hasServiceAccount == false) {
+    return nextCodeAboveFloor(floor);
+  }
+
+  const playStoreClient = GoogleStoreClientService.createEffectClient(serviceAccountJson);
+  const latest = await playStoreClient.getLatestVersionCode(packageName);
+
+  return Math.max(latest, floor) + 1;
+}
+
+/** Stamp `versionCode` into android/app/build.gradle. Returns whether a line changed. */
+export async function setAndroidVersionCode(appDir: string, versionCode: number): Promise<boolean> {
+  const gradlePath = join(appDir, 'android', 'app', 'build.gradle');
+  const gradleExists = await pathExists(gradlePath);
+
+  if (gradleExists == false) {
+    return false;
+  }
+
+  const originalGradle = await readFile(gradlePath, 'utf8');
+  // Replaces the first `versionCode <number>` assignment in the Gradle file.
+  const updatedGradle = originalGradle.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
+  const isUnchanged = updatedGradle == originalGradle;
+
+  if (isUnchanged) {
+    return false;
+  }
+
+  await writeFile(gradlePath, updatedGradle);
+
+  return true;
+}

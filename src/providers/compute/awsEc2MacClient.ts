@@ -1,4 +1,3 @@
-import { Data, Effect } from 'effect';
 import { errorMessage } from '@/services/platform/errorMessage.js';
 import { requireOptional } from '@/services/platform/optionalDep.js';
 import type { AllocateRequest, AwsConfig } from '@/types/remote.js';
@@ -14,68 +13,66 @@ export type AwsComputeFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-const makeAwsComputeFailure = Data.tagged<AwsComputeFailure>('AwsComputeFailure');
-
 const INSTALL_HINT = 'pnpm add @aws-sdk/client-ec2 @aws-sdk/credential-providers';
 
-/** Prefer an explicit detail string; otherwise surface the underlying AWS/SDK message. */
-export const awsFailure = (
-  operation: string,
-  cause: unknown,
-  detail?: string,
-): AwsComputeFailure => {
+export function awsFailure(operation: string, cause: unknown, detail?: string): AwsComputeFailure {
   let message = errorMessage(cause);
-  if (detail !== undefined) message = detail;
-  return makeAwsComputeFailure({ operation, message, cause });
-};
 
-export const sendAwsRequest = <Success>(
+  if (detail != null) {
+    message = detail;
+  }
+
+  return { _tag: 'AwsComputeFailure', operation, message, cause };
+}
+
+export async function sendAwsRequest<Success>(
   operation: string,
   sendRequest: () => PromiseLike<Success>,
-): Effect.Effect<Success, AwsComputeFailure> =>
-  Effect.tryPromise({
-    try: sendRequest,
-    catch: (cause) => awsFailure(operation, cause),
+): Promise<Success> {
+  try {
+    return await sendRequest();
+  } catch (cause) {
+    throw awsFailure(operation, cause);
+  }
+}
+
+function loadEc2(): Promise<Ec2Module> {
+  return requireOptional('AWS EC2 Mac builds', INSTALL_HINT, function loadEc2Module() {
+    return import('@aws-sdk/client-ec2');
   });
+}
 
-const loadEc2 = (): Effect.Effect<Ec2Module, unknown> =>
-  requireOptional('AWS EC2 Mac builds', INSTALL_HINT, () =>
-    Effect.tryPromise({
-      try: () => import('@aws-sdk/client-ec2'),
-      catch: (cause) => awsFailure('load the EC2 SDK', cause),
-    }),
-  );
+function loadCredentials(): Promise<CredentialModule> {
+  return requireOptional('AWS EC2 Mac builds', INSTALL_HINT, function loadCredentialModule() {
+    return import('@aws-sdk/credential-providers');
+  });
+}
 
-const loadCredentials = (): Effect.Effect<CredentialModule, unknown> =>
-  requireOptional('AWS EC2 Mac builds', INSTALL_HINT, () =>
-    Effect.tryPromise({
-      try: () => import('@aws-sdk/credential-providers'),
-      catch: (cause) => awsFailure('load AWS credential providers', cause),
-    }),
-  );
-
-/** Regional EC2 client from the standard AWS credential chain (optional profile). */
-export const makeClient = (
+export async function makeClient(
   awsConfiguration: Pick<AwsConfig, 'region' | 'profile'>,
-): Effect.Effect<{ ec2: Ec2Module; client: Ec2Client }, unknown> =>
-  Effect.gen(function* () {
-    const ec2 = yield* loadEc2();
-    const credentialModule = yield* loadCredentials();
-    let credentialOptions = {};
-    if (awsConfiguration.profile !== undefined) {
-      credentialOptions = { profile: awsConfiguration.profile };
-    }
-    const credentials = credentialModule.fromNodeProviderChain(credentialOptions);
-    return {
-      ec2,
-      client: new ec2.EC2Client({ region: awsConfiguration.region, credentials }),
-    };
-  });
+): Promise<{ ec2: Ec2Module; client: Ec2Client }> {
+  const ec2 = await loadEc2();
+  const credentialModule = await loadCredentials();
+  let credentialOptions = {};
 
-export const requireAws = (
-  allocationRequest: AllocateRequest,
-): Effect.Effect<AwsConfig, AwsComputeFailure> => {
-  if (allocationRequest.aws !== undefined) return Effect.succeed(allocationRequest.aws);
+  if (awsConfiguration.profile != null) {
+    credentialOptions = { profile: awsConfiguration.profile };
+  }
+
+  const credentials = credentialModule.fromNodeProviderChain(credentialOptions);
+
+  return {
+    ec2,
+    client: new ec2.EC2Client({ region: awsConfiguration.region, credentials }),
+  };
+}
+
+export function requireAws(allocationRequest: AllocateRequest): AwsConfig {
+  if (allocationRequest.aws != null) {
+    return allocationRequest.aws;
+  }
+
   const message = 'AWS settings missing - add an `aws: { region: ... }` block to launch.config.ts.';
-  return Effect.fail(awsFailure('read AWS settings', message, message));
-};
+
+  throw awsFailure('read AWS settings', message, message);
+}

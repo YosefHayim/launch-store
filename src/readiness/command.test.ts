@@ -1,18 +1,7 @@
-import { NodeContext, NodeHttpClient } from '@effect/platform-node';
-import { Effect, Layer } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  AppleStoreClientService,
-  type AppleStoreClientService as AppleStoreClientContract,
-} from '../services/stores/appleStoreClient.js';
-import {
-  GoogleStoreClientService,
-  type GoogleStoreClientService as GoogleStoreClientContract,
-} from '../services/stores/googleStoreClient.js';
-import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
-import { makeLaunchLoggerTest } from '../services/platform/logger.js';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
-import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import { isCommandExit } from '../terminal/commandExit.js';
 import type { ProbeResult, ReadinessOutcome, ReadinessProbe } from '../types/readiness.js';
 import { formatReadinessSummaryDetail, readinessStoreLabel } from './command.js';
 import { READINESS_EXIT } from './orchestrator.js';
@@ -29,17 +18,17 @@ const probe = (id: string, probeOutcome: ProbeResult): ReadinessProbe => {
     title: id,
     store: 'appstore',
     categories: ['submit'],
-    check: () => Effect.succeed(probeOutcome),
+    check: () => Promise.resolve(probeOutcome),
   };
 };
 /** The probe slice the mocked registry hands back; swapped per test to drive the outcome. */
 let probes: ReadinessProbe[] = [];
 vi.mock('../config/config.js', () => ({
-  loadConfig: () => Effect.succeed({ config: {}, apps: [] }),
+  loadConfig: () => Promise.resolve({ config: {}, apps: [] }),
 }));
 vi.mock('../store/shared/storeClients.js', () => ({
-  createAscClientResolver: () => () => Effect.succeed(null),
-  createPlayClientResolver: () => Effect.succeed(() => Effect.succeed(null)),
+  createAscClientResolver: () => async () => null,
+  createPlayClientResolver: () => async () => null,
 }));
 vi.mock('./registry.js', () => ({
   registerBuiltinProbes: () => {},
@@ -50,33 +39,34 @@ vi.mock('./registry.js', () => ({
 }));
 const { readinessCommandProgram } = await import('./command.js');
 const LABELS = { summary: 'Test readiness', empty: 'No checks ran.' };
-const unavailableAppleClients: AppleStoreClientContract = {
-  createClient: () => Effect.dieMessage('Unexpected Apple client construction.'),
-  createEffectClient: () => Effect.dieMessage('Unexpected Apple client construction.'),
-  createReleaseAttributesClient: () => Effect.dieMessage('Unexpected Apple client construction.'),
-};
-const unavailableGoogleClients: GoogleStoreClientContract = {
-  createClient: () => Effect.dieMessage('Unexpected Google client construction.'),
-  createEffectClient: () => Effect.dieMessage('Unexpected Google client construction.'),
-};
-const runReadinessCommand = (
+
+async function runReadinessCommand(
   commandInput: Parameters<typeof readinessCommandProgram>[0],
   terminalWrites: string[] = [],
-) =>
-  Effect.runPromise(
-    readinessCommandProgram(commandInput).pipe(
-      Effect.provideService(AppleStoreClientService, unavailableAppleClients),
-      Effect.provideService(GoogleStoreClientService, unavailableGoogleClients),
-      Effect.provide(makeLaunchEnvironmentTest({}).pipe(Layer.orDie)),
-      Effect.provide(makeLaunchSecretStoreTest()),
-      Effect.provide(makeLaunchPathsTest('/test-home', '/workspace')),
-      Effect.provide(NodeHttpClient.layer),
-      Effect.provide(NodeContext.layer),
-      Effect.provide(makeLaunchLoggerTest(terminalWrites)),
-      Effect.as(READINESS_EXIT.ok),
-      Effect.catchTag('CommandExit', (commandExit) => Effect.succeed(commandExit.exitCode)),
-    ),
-  );
+): Promise<number> {
+  useLaunchDirectories({ homeDirectory: '/test-home', workingDirectory: '/workspace' });
+
+  function writeLine(text: string): void {
+    terminalWrites.push(text);
+  }
+
+  useLoggerSink(writeLine);
+
+  try {
+    await readinessCommandProgram(commandInput);
+
+    return READINESS_EXIT.ok;
+  } catch (cause) {
+    if (isCommandExit(cause)) {
+      return cause.exitCode;
+    }
+
+    throw cause;
+  } finally {
+    resetLogger();
+    resetLaunchDirectories();
+  }
+}
 
 const emptyOutcome = (overrides: Partial<ReadinessOutcome> = {}): ReadinessOutcome => ({
   reports: [],

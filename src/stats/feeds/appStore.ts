@@ -1,5 +1,3 @@
-import { Data, Effect } from 'effect';
-import type { EffectAppStoreConnectClient } from '../../services/stores/appleStoreClient.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
 import { summarizeRatings } from '../../insights/aggregate.js';
 import {
@@ -12,14 +10,9 @@ import {
 } from '../../store/apple/reports.js';
 import type { PortfolioApp } from '../../types/portfolio.js';
 import type { ReviewDatum, StarRating } from '../../types/insights.js';
-import type {
-  DailyStat,
-  DateRange,
-  FeedFetchReply,
-  StatsFeedFailure,
-  StatsFeedPlugin,
-} from '../../types/stats.js';
+import type { DailyStat, DateRange, FeedFetchReply, StatsFeedFailure } from '../../types/stats.js';
 import { shiftDate } from '../dateRange.js';
+import type { AppStoreStatsClient, StatsCredentialsApi } from '../statsCredentials.js';
 import {
   ANALYTICS_REPORT_NAMES,
   summarizeAnalyticsBatches,
@@ -34,7 +27,11 @@ import type {
 } from './appStoreFeedTypes.js';
 import { findAppSkus, summarizeSalesLines } from './appStoreSalesReport.js';
 
-type AppStoreFetchRequest = Parameters<StatsFeedPlugin['fetchDays']>[0];
+interface AppStoreFetchRequest {
+  readonly app: PortfolioApp;
+  readonly range: DateRange;
+  readonly credentials: StatsCredentialsApi;
+}
 
 const SALES_PATH_ANALYTICS_KINDS: readonly AnalyticsReportKind[] = [
   'discovery',
@@ -47,39 +44,82 @@ const ANALYTICS_KINDS_BY_PATH: Record<AppStoreStatsPath, readonly AnalyticsRepor
   analytics: [...SALES_PATH_ANALYTICS_KINDS, 'downloads', 'purchases'],
 };
 
-const makeStatsFeedFailure = Data.tagged<StatsFeedFailure>('StatsFeedFailure');
-
 // Sales Reports hold every app of a vendor, so one report per (vendor, date) serves all apps of a sync run.
 const salesReportCache = new Map<string, ParsedReport | null>();
 
-/** Sales Reports when the account has a vendor number, else the Analytics Reports alone. */
-export const pickStatsPath = (vendorNumber: string | null): AppStoreStatsPath => {
-  if (vendorNumber === null) return 'analytics';
-  return 'sales';
-};
+interface SegmentToRead {
+  readonly url: string;
+  readonly processingDate: string;
+}
 
-const historyRangeDays = 14;
+interface DatedReport {
+  readonly date: string;
+  readonly report: ParsedReport | null;
+}
+
+interface AppStoreLoad {
+  readonly salesStats: readonly DailyStat[];
+  readonly analyticsSummary: AnalyticsSummary;
+  readonly ratingStats: readonly DailyStat[];
+}
+
+function makeStatsFeedFailure(app: PortfolioApp, cause: unknown): StatsFeedFailure {
+  return {
+    _tag: 'StatsFeedFailure',
+    feed: 'app-store',
+    appKey: app.key,
+    message: errorMessage(cause),
+    cause,
+  };
+}
+
+/** Sales Reports when the account has a vendor number, else the Analytics Reports alone. */
+export function pickStatsPath(vendorNumber: string | null): AppStoreStatsPath {
+  if (vendorNumber == null) {
+    return 'analytics';
+  }
+
+  return 'sales';
+}
 
 /** True when the range reaches back past the refresh tail, so the one-time history snapshot is worth reading. */
-export const isHistoryNeeded = (range: DateRange): boolean =>
-  range.from < shiftDate(range.to, -historyRangeDays);
+export function isHistoryNeeded(range: DateRange): boolean {
+  const historyRangeDays = 14;
 
-export const readHttpStatus = (failure: unknown): number | null => {
-  const isFailureObject = typeof failure === 'object' && failure !== null;
-  if (!isFailureObject) return null;
-  if (!('status' in failure)) return null;
+  return range.from < shiftDate(range.to, -historyRangeDays);
+}
+
+export function readHttpStatus(failure: unknown): number | null {
+  if (failure == null) {
+    return null;
+  }
+
+  if (typeof failure != 'object') {
+    return null;
+  }
+
+  if ('status' in failure == false) {
+    return null;
+  }
+
   const status = failure.status;
-  if (typeof status !== 'number') return null;
+
+  if (typeof status != 'number') {
+    return null;
+  }
+
   return status;
-};
+}
 
-const createPreparingReason = (appName: string): string =>
-  `Apple is preparing analytics reports for ${appName}; first data within 1-2 days`;
+function createPreparingReason(appName: string): string {
+  return `Apple is preparing analytics reports for ${appName}; first data within 1-2 days`;
+}
 
-const createForbiddenReason = (accountLabel: string): string =>
-  `The App Store Connect key of account ${accountLabel} lacks a role: Sales Reports need the Sales, Finance or Admin role; Analytics Reports need Admin to create the request and Sales and Reports, Finance or Admin to read it`;
+function createForbiddenReason(accountLabel: string): string {
+  return `The App Store Connect key of account ${accountLabel} lacks a role: Sales Reports need the Sales, Finance or Admin role; Analytics Reports need Admin to create the request and Sales and Reports, Finance or Admin to read it`;
+}
 
-const pickStarRating = (rating: number): StarRating | null => {
+function pickStarRating(rating: number): StarRating | null {
   switch (rating) {
     case 1:
     case 2:
@@ -90,296 +130,337 @@ const pickStarRating = (rating: number): StarRating | null => {
     default:
       return null;
   }
-};
-
-const readReportLines = (report: ParsedReport | null): readonly ReportLine[] => {
-  if (report === null) return [];
-  return report.rows;
-};
-
-const createReportsApi = (client: EffectAppStoreConnectClient, storeId: string): AscReportsApi => ({
-  getAppId: () => Effect.succeed(storeId),
-  listAnalyticsReportRequests: (appId, accessType) =>
-    client.listAnalyticsReportRequests(appId, accessType),
-  createAnalyticsReportRequest: (appId, accessType) =>
-    client.createAnalyticsReportRequest(appId, accessType),
-  listAnalyticsReports: (requestId, filters) => client.listAnalyticsReports(requestId, filters),
-  listAnalyticsReportInstances: (reportId, filters) =>
-    client.listAnalyticsReportInstances(reportId, filters),
-  listAnalyticsReportSegments: (instanceId) => client.listAnalyticsReportSegments(instanceId),
-});
-
-const readSalesReport = (
-  client: EffectAppStoreConnectClient,
-  vendorNumber: string,
-  date: string,
-): Effect.Effect<ParsedReport | null, unknown> =>
-  Effect.gen(function* () {
-    const cacheKey = `${vendorNumber}|${date}`;
-    const cachedReport = salesReportCache.get(cacheKey);
-    if (cachedReport !== undefined) return cachedReport;
-    const reportBytes = yield* client
-      .getSalesReport({
-        vendorNumber,
-        frequency: 'DAILY',
-        reportType: 'SALES',
-        reportSubType: 'SUMMARY',
-        reportDate: date,
-        version: '1_0',
-      })
-      .pipe(
-        Effect.catchAll((failure) => {
-          const notFoundStatus = 404;
-          const isNoSalesThatDay = readHttpStatus(failure) === notFoundStatus;
-          if (isNoSalesThatDay) return Effect.succeed(null);
-          return Effect.fail(failure);
-        }),
-      );
-    if (reportBytes === null) {
-      salesReportCache.set(cacheKey, null);
-      return null;
-    }
-    const reportTsv = yield* Effect.try(() => decompressReport(reportBytes));
-    const parsedReport = parseTsv(reportTsv);
-    salesReportCache.set(cacheKey, parsedReport);
-    return parsedReport;
-  });
-
-const loadSalesStats = (
-  client: EffectAppStoreConnectClient,
-  vendorNumber: string,
-  request: AppStoreFetchRequest,
-): Effect.Effect<readonly DailyStat[], unknown> =>
-  Effect.gen(function* () {
-    const { app, range } = request;
-    const dates = yield* eachDate(range.from, range.to);
-    const salesConcurrency = 4;
-    const dailyReports = yield* Effect.forEach(
-      dates,
-      (date) =>
-        readSalesReport(client, vendorNumber, date).pipe(
-          Effect.map((report) => ({ date, report })),
-        ),
-      { concurrency: salesConcurrency },
-    );
-    const allLines = dailyReports.flatMap(({ report }) => readReportLines(report));
-    const appSkus = findAppSkus(allLines, app.storeId);
-    return dailyReports.flatMap(({ date, report }) =>
-      summarizeSalesLines(readReportLines(report), { date, storeId: app.storeId, appSkus }),
-    );
-  });
-
-interface SegmentToRead {
-  readonly url: string;
-  readonly processingDate: string;
 }
 
-const readAnalyticsSegment = (
-  client: EffectAppStoreConnectClient,
+function readReportLines(report: ParsedReport | null): readonly ReportLine[] {
+  if (report == null) {
+    return [];
+  }
+
+  return report.rows;
+}
+
+async function mapInChunks<Piece, MappedPiece>(
+  pieces: readonly Piece[],
+  chunkSize: number,
+  mapPiece: (piece: Piece) => Promise<MappedPiece>,
+): Promise<MappedPiece[]> {
+  if (pieces.length == 0) {
+    return [];
+  }
+
+  const chunk = pieces.slice(0, chunkSize);
+  const mappedChunk = await Promise.all(chunk.map(mapPiece));
+  const laterMapped = await mapInChunks(pieces.slice(chunkSize), chunkSize, mapPiece);
+
+  return [...mappedChunk, ...laterMapped];
+}
+
+function createReportsApi(client: AppStoreStatsClient, storeId: string): AscReportsApi {
+  return {
+    async getAppId() {
+      return storeId;
+    },
+    listAnalyticsReportRequests(appId, accessType) {
+      return client.listAnalyticsReportRequests(appId, accessType);
+    },
+    createAnalyticsReportRequest(appId, accessType) {
+      return client.createAnalyticsReportRequest(appId, accessType);
+    },
+    listAnalyticsReports(requestId, filters) {
+      return client.listAnalyticsReports(requestId, filters);
+    },
+    listAnalyticsReportInstances(reportId, filters) {
+      return client.listAnalyticsReportInstances(reportId, filters);
+    },
+    listAnalyticsReportSegments(instanceId) {
+      return client.listAnalyticsReportSegments(instanceId);
+    },
+  };
+}
+
+async function readSalesReport(
+  client: AppStoreStatsClient,
+  vendorNumber: string,
+  date: string,
+): Promise<ParsedReport | null> {
+  const cacheKey = `${vendorNumber}|${date}`;
+  const isCached = salesReportCache.has(cacheKey);
+
+  if (isCached) {
+    const cachedReport = salesReportCache.get(cacheKey);
+
+    if (cachedReport == null) {
+      return null;
+    }
+
+    return cachedReport;
+  }
+
+  try {
+    const reportBytes = await client.getSalesReport({
+      vendorNumber,
+      frequency: 'DAILY',
+      reportType: 'SALES',
+      reportSubType: 'SUMMARY',
+      reportDate: date,
+      version: '1_0',
+    });
+    const parsedReport = parseTsv(decompressReport(reportBytes));
+    salesReportCache.set(cacheKey, parsedReport);
+
+    return parsedReport;
+  } catch (cause) {
+    const isNoSalesThatDay = readHttpStatus(cause) == 404;
+
+    if (isNoSalesThatDay) {
+      salesReportCache.set(cacheKey, null);
+
+      return null;
+    }
+
+    throw cause;
+  }
+}
+
+async function loadSalesStats(
+  client: AppStoreStatsClient,
+  vendorNumber: string,
+  request: AppStoreFetchRequest,
+): Promise<readonly DailyStat[]> {
+  const { app, range } = request;
+  const dates = eachDate(range.from, range.to);
+
+  async function readDatedReport(date: string): Promise<DatedReport> {
+    const report = await readSalesReport(client, vendorNumber, date);
+
+    return { date, report };
+  }
+
+  const dailyReports = await mapInChunks(dates, 4, readDatedReport);
+  const allLines = dailyReports.flatMap(function readLines(datedReport: DatedReport) {
+    return readReportLines(datedReport.report);
+  });
+  const appSkus = findAppSkus(allLines, app.storeId);
+
+  return dailyReports.flatMap(function readDayStats(datedReport: DatedReport) {
+    return summarizeSalesLines(readReportLines(datedReport.report), {
+      date: datedReport.date,
+      storeId: app.storeId,
+      appSkus,
+    });
+  });
+}
+
+async function readAnalyticsSegment(
+  client: AppStoreStatsClient,
   segment: SegmentToRead,
   kind: AnalyticsReportKind,
   accessType: AnalyticsAccessType,
-): Effect.Effect<AnalyticsReportBatch, unknown> =>
-  Effect.gen(function* () {
-    const segmentBytes = yield* client.downloadAnalyticsSegment(segment.url);
-    const segmentTsv = yield* Effect.try(() => decompressReport(segmentBytes));
-    const parsedSegment = parseTsv(segmentTsv);
-    return { kind, accessType, processingDate: segment.processingDate, lines: parsedSegment.rows };
-  });
+): Promise<AnalyticsReportBatch> {
+  const segmentBytes = await client.downloadAnalyticsSegment(segment.url);
+  const parsedSegment = parseTsv(decompressReport(segmentBytes));
+
+  return { kind, accessType, processingDate: segment.processingDate, lines: parsedSegment.rows };
+}
 
 // An ongoing instance older than the range cannot hold a day of the range.
-const isSegmentWanted = (
+function isSegmentWanted(
   processingDate: string,
   accessType: AnalyticsAccessType,
   range: DateRange,
-): boolean => {
-  const isSnapshot = accessType === 'ONE_TIME_SNAPSHOT';
-  if (isSnapshot) return true;
-  return processingDate >= range.from;
-};
+): boolean {
+  const isSnapshot = accessType == 'ONE_TIME_SNAPSHOT';
 
-const loadAnalyticsBatches = (
-  client: EffectAppStoreConnectClient,
+  if (isSnapshot) {
+    return true;
+  }
+
+  return processingDate >= range.from;
+}
+
+async function loadAnalyticsBatches(
+  client: AppStoreStatsClient,
   request: AppStoreFetchRequest,
   kinds: readonly AnalyticsReportKind[],
   accessType: AnalyticsAccessType,
-): Effect.Effect<readonly AnalyticsReportBatch[], unknown> =>
-  Effect.gen(function* () {
-    const { app, range } = request;
-    const reportsApi = createReportsApi(client, app.storeId);
-    const batchesByKind = yield* Effect.forEach(kinds, (kind) =>
-      Effect.gen(function* () {
-        const collection = yield* collectAnalyticsSegments(reportsApi, {
-          bundleId: app.storeId,
-          accessType,
-          name: ANALYTICS_REPORT_NAMES[kind],
-          granularity: 'DAILY',
-        });
-        const wantedSegments = collection.downloads.filter((download) =>
-          isSegmentWanted(download.processingDate, accessType, range),
-        );
-        const segmentConcurrency = 4;
-        return yield* Effect.forEach(
-          wantedSegments,
-          (segment) => readAnalyticsSegment(client, segment, kind, accessType),
-          { concurrency: segmentConcurrency },
-        );
-      }),
-    );
-    return batchesByKind.flat();
-  });
+): Promise<readonly AnalyticsReportBatch[]> {
+  const { app, range } = request;
+  const reportsApi = createReportsApi(client, app.storeId);
+  const batches: AnalyticsReportBatch[] = [];
 
-const loadSnapshotBatches = (
-  client: EffectAppStoreConnectClient,
+  for (const kind of kinds) {
+    const collection = await collectAnalyticsSegments(reportsApi, {
+      bundleId: app.storeId,
+      accessType,
+      name: ANALYTICS_REPORT_NAMES[kind],
+      granularity: 'DAILY',
+    });
+
+    function isWanted(download: { processingDate: string }): boolean {
+      return isSegmentWanted(download.processingDate, accessType, range);
+    }
+
+    const wantedSegments = collection.downloads.filter(isWanted);
+
+    async function readSegment(segment: SegmentToRead): Promise<AnalyticsReportBatch> {
+      return readAnalyticsSegment(client, segment, kind, accessType);
+    }
+
+    const kindBatches = await mapInChunks(wantedSegments, 4, readSegment);
+    batches.push(...kindBatches);
+  }
+
+  return batches;
+}
+
+async function loadSnapshotBatches(
+  client: AppStoreStatsClient,
   request: AppStoreFetchRequest,
   kinds: readonly AnalyticsReportKind[],
-): Effect.Effect<readonly AnalyticsReportBatch[], unknown> => {
-  if (!isHistoryNeeded(request.range)) return Effect.succeed([]);
-  return loadAnalyticsBatches(client, request, kinds, 'ONE_TIME_SNAPSHOT');
-};
+): Promise<readonly AnalyticsReportBatch[]> {
+  if (isHistoryNeeded(request.range) == false) {
+    return [];
+  }
 
-const loadAnalyticsSummary = (
-  client: EffectAppStoreConnectClient,
+  return loadAnalyticsBatches(client, request, kinds, 'ONE_TIME_SNAPSHOT');
+}
+
+async function loadAnalyticsSummary(
+  client: AppStoreStatsClient,
   request: AppStoreFetchRequest,
   path: AppStoreStatsPath,
-): Effect.Effect<AnalyticsSummary, unknown> =>
-  Effect.gen(function* () {
-    const { app, range } = request;
-    const kinds = ANALYTICS_KINDS_BY_PATH[path];
-    const ongoingBatches = yield* loadAnalyticsBatches(client, request, kinds, 'ONGOING');
-    const snapshotBatches = yield* loadSnapshotBatches(client, request, kinds);
-    return summarizeAnalyticsBatches([...ongoingBatches, ...snapshotBatches], {
-      storeId: app.storeId,
-      range,
-    });
-  });
+): Promise<AnalyticsSummary> {
+  const kinds = ANALYTICS_KINDS_BY_PATH[path];
+  const ongoingBatches = await loadAnalyticsBatches(client, request, kinds, 'ONGOING');
+  const snapshotBatches = await loadSnapshotBatches(client, request, kinds);
 
-const loadRatingStats = (
-  client: EffectAppStoreConnectClient,
+  return summarizeAnalyticsBatches([...ongoingBatches, ...snapshotBatches], {
+    storeId: request.app.storeId,
+    range: request.range,
+  });
+}
+
+async function loadRatingStats(
+  client: AppStoreStatsClient,
   request: AppStoreFetchRequest,
-): Effect.Effect<readonly DailyStat[], unknown> =>
-  Effect.gen(function* () {
-    const customerReviews = yield* client.listCustomerReviews(request.app.storeId);
-    const ratedReviews = customerReviews.flatMap((customerReview): ReviewDatum[] => {
-      const starRating = pickStarRating(customerReview.rating);
-      if (starRating === null) return [];
-      return [{ store: 'appstore', rating: starRating, answered: customerReview.answered }];
-    });
-    const ratingSummary = summarizeRatings(ratedReviews);
-    const isThereNoRating = ratingSummary.total === 0;
-    if (isThereNoRating) return [];
-    const date = request.range.to;
-    return [
-      {
-        date,
-        feed: 'app-store',
-        metric: 'ratingAverage',
-        value: ratingSummary.average,
-        currency: null,
-      },
-      {
-        date,
-        feed: 'app-store',
-        metric: 'ratingCount',
-        value: ratingSummary.total,
-        currency: null,
-      },
-    ];
-  });
+): Promise<readonly DailyStat[]> {
+  const customerReviews = await client.listCustomerReviews(request.app.storeId);
+  const ratedReviews = customerReviews.flatMap(function readReview(customerReview): ReviewDatum[] {
+    const starRating = pickStarRating(customerReview.rating);
 
-interface AppStoreLoad {
-  readonly salesStats: readonly DailyStat[];
-  readonly analyticsSummary: AnalyticsSummary;
-  readonly ratingStats: readonly DailyStat[];
+    if (starRating == null) {
+      return [];
+    }
+
+    return [{ store: 'appstore', rating: starRating, answered: customerReview.answered }];
+  });
+  const ratingSummary = summarizeRatings(ratedReviews);
+
+  if (ratingSummary.total == 0) {
+    return [];
+  }
+
+  const date = request.range.to;
+
+  return [
+    {
+      date,
+      feed: 'app-store',
+      metric: 'ratingAverage',
+      value: ratingSummary.average,
+      currency: null,
+    },
+    { date, feed: 'app-store', metric: 'ratingCount', value: ratingSummary.total, currency: null },
+  ];
 }
 
 /** The stats of every source become one reply; no analytics yet keeps the stats but leaves the days uncovered. */
-export const createAppStoreReply = (
+export function createAppStoreReply(
   load: AppStoreLoad,
   request: AppStoreFetchRequest,
-): FeedFetchReply => {
-  const { analyticsSummary } = load;
-  const { app, range } = request;
-  const latestDate = analyticsSummary.latestDate;
-  const stats = [...load.salesStats, ...analyticsSummary.stats, ...load.ratingStats];
-  if (latestDate !== null) {
+): FeedFetchReply {
+  const latestDate = load.analyticsSummary.latestDate;
+  const stats = [...load.salesStats, ...load.analyticsSummary.stats, ...load.ratingStats];
+
+  if (latestDate != null) {
     return { status: 'fetched', stats, coveredThrough: latestDate, notes: [] };
   }
-  const isThereNoStatToKeep = stats.length === 0;
-  if (isThereNoStatToKeep) {
-    return { status: 'skipped', reason: createPreparingReason(app.name) };
+
+  if (stats.length == 0) {
+    return { status: 'skipped', reason: createPreparingReason(request.app.name) };
   }
+
   return {
     status: 'fetched',
     stats,
-    coveredThrough: shiftDate(range.from, -1),
-    notes: [createPreparingReason(app.name)],
+    coveredThrough: shiftDate(request.range.from, -1),
+    notes: [createPreparingReason(request.app.name)],
   };
-};
+}
 
-const loadKnownVendorSales = (
-  client: EffectAppStoreConnectClient,
+async function loadKnownVendorSales(
+  client: AppStoreStatsClient,
   vendorNumber: string | null,
   request: AppStoreFetchRequest,
-): Effect.Effect<readonly DailyStat[], unknown> => {
-  if (vendorNumber === null) return Effect.succeed([]);
+): Promise<readonly DailyStat[]> {
+  if (vendorNumber == null) {
+    return [];
+  }
+
   return loadSalesStats(client, vendorNumber, request);
-};
+}
 
-const loadAppStoreStats = (
-  client: EffectAppStoreConnectClient,
+async function loadAppStoreStats(
+  client: AppStoreStatsClient,
   vendorNumber: string | null,
   request: AppStoreFetchRequest,
-): Effect.Effect<FeedFetchReply, unknown> =>
-  Effect.gen(function* () {
-    const path = pickStatsPath(vendorNumber);
-    const salesStats = yield* loadKnownVendorSales(client, vendorNumber, request);
-    const analyticsSummary = yield* loadAnalyticsSummary(client, request, path);
-    const ratingStats = yield* loadRatingStats(client, request);
-    return createAppStoreReply({ salesStats, analyticsSummary, ratingStats }, request);
-  });
+): Promise<FeedFetchReply> {
+  const path = pickStatsPath(vendorNumber);
+  const salesStats = await loadKnownVendorSales(client, vendorNumber, request);
+  const analyticsSummary = await loadAnalyticsSummary(client, request, path);
+  const ratingStats = await loadRatingStats(client, request);
 
-const createFeedFailure = (app: PortfolioApp, cause: unknown): StatsFeedFailure =>
-  makeStatsFeedFailure({
-    feed: 'app-store',
-    appKey: app.key,
-    message: errorMessage(cause),
-    cause,
-  });
+  return createAppStoreReply({ salesStats, analyticsSummary, ratingStats }, request);
+}
 
-const fetchAppStoreDays: StatsFeedPlugin['fetchDays'] = (request) =>
-  Effect.gen(function* () {
-    const { app, credentials } = request;
-    const accountKeyId = app.accountKeyId;
-    if (accountKeyId === null) {
-      return {
-        status: 'skipped',
-        reason: `${app.name} has no App Store Connect account`,
-      } satisfies FeedFetchReply;
+function isAppStoreApplicable(app: PortfolioApp): boolean {
+  return app.platform == 'ios';
+}
+
+async function fetchAppStoreDays(request: AppStoreFetchRequest): Promise<FeedFetchReply> {
+  const { app, credentials } = request;
+
+  try {
+    if (app.accountKeyId == null) {
+      return { status: 'skipped', reason: `${app.name} has no App Store Connect account` };
     }
-    const client = yield* credentials.ascClientForAccount(accountKeyId);
-    if (client === null) {
+
+    const client = await credentials.ascClientForAccount(app.accountKeyId);
+
+    if (client == null) {
       return {
         status: 'skipped',
         reason: `No saved App Store Connect key for account ${app.accountLabel}`,
-      } satisfies FeedFetchReply;
+      };
     }
-    const vendorNumber = yield* credentials.vendorNumberForAccount(accountKeyId);
-    const loadOutcome = yield* loadAppStoreStats(client, vendorNumber, request).pipe(Effect.either);
-    if (loadOutcome._tag === 'Right') return loadOutcome.right;
-    const forbiddenStatus = 403;
-    const isKeyLackingRole = readHttpStatus(loadOutcome.left) === forbiddenStatus;
-    if (isKeyLackingRole) {
-      return {
-        status: 'skipped',
-        reason: createForbiddenReason(app.accountLabel),
-      } satisfies FeedFetchReply;
-    }
-    return yield* Effect.fail(loadOutcome.left);
-  }).pipe(Effect.mapError((failure) => createFeedFailure(request.app, failure)));
 
-export const appStoreFeed: StatsFeedPlugin = {
-  feed: 'app-store',
-  isApplicable: (app) => app.platform === 'ios',
+    const vendorNumber = await credentials.vendorNumberForAccount(app.accountKeyId);
+
+    return await loadAppStoreStats(client, vendorNumber, request);
+  } catch (cause) {
+    const isKeyLackingRole = readHttpStatus(cause) == 403;
+
+    if (isKeyLackingRole) {
+      return { status: 'skipped', reason: createForbiddenReason(app.accountLabel) };
+    }
+
+    throw makeStatsFeedFailure(app, cause);
+  }
+}
+
+export const appStoreFeed = {
+  feed: 'app-store' as const,
+  isApplicable: isAppStoreApplicable,
   fetchDays: fetchAppStoreDays,
 };

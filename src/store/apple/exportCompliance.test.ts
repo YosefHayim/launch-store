@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import {
   describeExportComplianceConfig,
@@ -9,10 +8,10 @@ import {
 /** A fully-stubbed {@link ExportComplianceApi}: build exists & unanswered, no declarations, writes succeed. */
 const makeApi = (overrides: Partial<ExportComplianceApi> = {}): ExportComplianceApi => {
   return {
-    findBuild: vi.fn(() => Effect.succeed({ id: 'build1', usesNonExemptEncryption: null })),
-    setBuildUsesNonExemptEncryption: vi.fn(() => Effect.void),
-    listEncryptionDeclarations: vi.fn(() => Effect.succeed([])),
-    linkBuildToDeclaration: vi.fn(() => Effect.void),
+    findBuild: vi.fn(() => Promise.resolve({ id: 'build1', usesNonExemptEncryption: null })),
+    setBuildUsesNonExemptEncryption: vi.fn(() => Promise.resolve()),
+    listEncryptionDeclarations: vi.fn(() => Promise.resolve([])),
+    linkBuildToDeclaration: vi.fn(() => Promise.resolve()),
     ...overrides,
   };
 };
@@ -20,37 +19,31 @@ const BASE = { bundleId: 'com.acme.app', buildNumber: 42 };
 describe('reconcileExportCompliance', () => {
   it('does nothing when the app declares no answer', async () => {
     const api = makeApi();
-    const complianceOutcome = await Effect.runPromise(
-      reconcileExportCompliance(api, {
-        ...BASE,
-        usesNonExemptEncryption: undefined,
-      }),
-    );
+    const complianceOutcome = await reconcileExportCompliance(api, {
+      ...BASE,
+      usesNonExemptEncryption: undefined,
+    });
     expect(complianceOutcome).toEqual({ status: 'undeclared' });
     expect(api.findBuild).not.toHaveBeenCalled();
     expect(api.setBuildUsesNonExemptEncryption).not.toHaveBeenCalled();
   });
   it("reports build-not-found when the build hasn't ingested yet", async () => {
-    const api = makeApi({ findBuild: vi.fn(() => Effect.succeed(null)) });
-    const complianceOutcome = await Effect.runPromise(
-      reconcileExportCompliance(api, {
-        ...BASE,
-        usesNonExemptEncryption: false,
-      }),
-    );
+    const api = makeApi({ findBuild: vi.fn(() => Promise.resolve(null)) });
+    const complianceOutcome = await reconcileExportCompliance(api, {
+      ...BASE,
+      usesNonExemptEncryption: false,
+    });
     expect(complianceOutcome).toEqual({ status: 'build-not-found', buildNumber: 42 });
     expect(api.setBuildUsesNonExemptEncryption).not.toHaveBeenCalled();
   });
   it('is a no-op when the build already carries the desired answer', async () => {
     const api = makeApi({
-      findBuild: vi.fn(() => Effect.succeed({ id: 'build1', usesNonExemptEncryption: false })),
+      findBuild: vi.fn(() => Promise.resolve({ id: 'build1', usesNonExemptEncryption: false })),
     });
-    const complianceOutcome = await Effect.runPromise(
-      reconcileExportCompliance(api, {
-        ...BASE,
-        usesNonExemptEncryption: false,
-      }),
-    );
+    const complianceOutcome = await reconcileExportCompliance(api, {
+      ...BASE,
+      usesNonExemptEncryption: false,
+    });
     expect(complianceOutcome).toEqual({
       status: 'already-answered',
       usesNonExemptEncryption: false,
@@ -60,12 +53,10 @@ describe('reconcileExportCompliance', () => {
   });
   it('answers the no/exempt-encryption case with a single build write', async () => {
     const api = makeApi();
-    const complianceOutcome = await Effect.runPromise(
-      reconcileExportCompliance(api, {
-        ...BASE,
-        usesNonExemptEncryption: false,
-      }),
-    );
+    const complianceOutcome = await reconcileExportCompliance(api, {
+      ...BASE,
+      usesNonExemptEncryption: false,
+    });
     expect(complianceOutcome).toEqual({ status: 'answered', usesNonExemptEncryption: false });
     expect(api.setBuildUsesNonExemptEncryption).toHaveBeenCalledWith('build1', false);
     expect(api.linkBuildToDeclaration).not.toHaveBeenCalled();
@@ -73,15 +64,16 @@ describe('reconcileExportCompliance', () => {
   it('reuses an approved declaration for non-exempt encryption', async () => {
     const api = makeApi({
       listEncryptionDeclarations: vi.fn(() =>
-        Effect.succeed([
+        Promise.resolve([
           { id: 'decl-old', state: 'REJECTED' },
           { id: 'decl-good', state: 'APPROVED' },
         ]),
       ),
     });
-    const complianceOutcome = await Effect.runPromise(
-      reconcileExportCompliance(api, { ...BASE, usesNonExemptEncryption: true }),
-    );
+    const complianceOutcome = await reconcileExportCompliance(api, {
+      ...BASE,
+      usesNonExemptEncryption: true,
+    });
     expect(complianceOutcome).toEqual({
       status: 'reused-declaration',
       declarationId: 'decl-good',
@@ -92,12 +84,13 @@ describe('reconcileExportCompliance', () => {
   it('flags needs-declaration when no approved declaration exists to reuse', async () => {
     const api = makeApi({
       listEncryptionDeclarations: vi.fn(() =>
-        Effect.succeed([{ id: 'decl-pending', state: 'IN_REVIEW' }]),
+        Promise.resolve([{ id: 'decl-pending', state: 'IN_REVIEW' }]),
       ),
     });
-    const complianceOutcome = await Effect.runPromise(
-      reconcileExportCompliance(api, { ...BASE, usesNonExemptEncryption: true }),
-    );
+    const complianceOutcome = await reconcileExportCompliance(api, {
+      ...BASE,
+      usesNonExemptEncryption: true,
+    });
     expect(complianceOutcome).toEqual({ status: 'needs-declaration' });
     expect(api.setBuildUsesNonExemptEncryption).toHaveBeenCalledWith('build1', true);
     expect(api.linkBuildToDeclaration).not.toHaveBeenCalled();

@@ -1,25 +1,50 @@
-import { Path } from '@effect/platform';
-import { Effect } from 'effect';
+import { relative } from 'node:path';
 import type { AppDescriptor } from '../types/app.js';
+
 /** Derive a single `appRoots` subdir when every discovered app lives under one (e.g. an `apps/` monorepo). */
-export const detectAppRoot = (apps: readonly AppDescriptor[], workingDirectory: string) =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const topLevelSegments = new Set<string>();
-    for (const app of apps) {
-      const relativeAppPath = pathService.relative(workingDirectory, app.dir);
-      // An app at the repo root means scan the root - no shared monorepo subdir.
-      if (relativeAppPath === '') return null;
-      const [firstSegment] = relativeAppPath.split(/[/\\]/);
-      if (firstSegment !== undefined && firstSegment.length > 0) {
-        topLevelSegments.add(firstSegment);
-      }
+export function detectAppRoot(
+  apps: readonly AppDescriptor[],
+  workingDirectory: string,
+): string | null {
+  const topLevelSegments = new Set<string>();
+
+  for (const app of apps) {
+    const relativeAppPath = relative(workingDirectory, app.dir);
+    const isAtRoot = relativeAppPath == '';
+
+    if (isAtRoot) {
+      return null;
     }
-    if (topLevelSegments.size !== 1) return null;
-    const [onlySegment] = [...topLevelSegments];
-    if (onlySegment === undefined) return null;
-    return `./${onlySegment}`;
-  });
+
+    const firstSegment = relativeAppPath.split(/[/\\]/)[0];
+
+    if (firstSegment == null) {
+      continue;
+    }
+
+    const isEmptySegment = firstSegment.length == 0;
+
+    if (isEmptySegment) {
+      continue;
+    }
+
+    topLevelSegments.add(firstSegment);
+  }
+
+  const hasOneSegment = topLevelSegments.size == 1;
+
+  if (hasOneSegment == false) {
+    return null;
+  }
+
+  const onlySegment = [...topLevelSegments][0];
+
+  if (onlySegment == null) {
+    return null;
+  }
+
+  return `./${onlySegment}`;
+}
 /**
  * The in-repo artifact directory `launch init` scaffolds by default - a `.launch`
  * folder in the project, mirroring the global `~/.launch`. Auto-added to `.gitignore` so build binaries

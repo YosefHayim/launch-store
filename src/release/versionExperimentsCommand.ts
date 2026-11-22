@@ -1,23 +1,16 @@
-import type { FileSystem, Path, Terminal } from '@effect/platform';
-import type { LocalScreenshot } from '../listing/screenshots/assets.js';
-import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import type { LaunchPromptService } from '../services/platform/prompt.js';
+import type { LocalScreenshot } from '@/listing/screenshots/assets.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
 import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
   resolveStoreSurfaceSection,
-} from '../store/apple/appStoreSurfaceCommand.js';
-import {
-  loadActiveAppleStore,
-  type ActiveAppleStoreRequirements,
-} from '../store/apple/appleStoreCommand.js';
-import {
-  loadStoreAppContext,
-  type StoreAppSelectionRequirements,
-} from '../store/shared/selectStoreApp.js';
-import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
+} from '@/store/apple/appStoreSurfaceCommand.js';
+import { loadActiveAppleStore } from '@/store/apple/appleStoreCommand.js';
+import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
+import { completeCommand } from '@/terminal/commandExit.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 import {
   discoverTreatmentScreenshots,
   parseVersionExperimentsConfig,
@@ -25,20 +18,15 @@ import {
   summarizeExperiments,
   type VersionExperimentsConfig,
 } from './versionExperiments.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
 
-export const VersionExperimentsCommandInputSchema = Schema.Struct({
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  config: Schema.String,
-  submit: Schema.Boolean,
-  start: Schema.Boolean,
-  dryRun: Schema.Boolean,
-  yes: Schema.Boolean,
-});
-
-export type VersionExperimentsCommandInput = Schema.Schema.Type<
-  typeof VersionExperimentsCommandInputSchema
->;
+export type VersionExperimentsCommandInput = {
+  readonly app?: string;
+  readonly config: string;
+  readonly submit: boolean;
+  readonly start: boolean;
+  readonly dryRun: boolean;
+  readonly yes: boolean;
+};
 
 /** A version experiments command step failed. */
 type VersionExperimentsCommandFailure = Readonly<{
@@ -47,100 +35,210 @@ type VersionExperimentsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeVersionExperimentsCommandFailure = Data.tagged<VersionExperimentsCommandFailure>(
-  'VersionExperimentsCommandFailure',
-);
 
-type VersionExperimentsCommandRequirements =
-  | ActiveAppleStoreRequirements
-  | FileSystem.FileSystem
-  | LaunchPromptService
-  | Path.Path
-  | Logger
-  | StoreAppSelectionRequirements
-  | Terminal.Terminal;
+function makeVersionExperimentsCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): VersionExperimentsCommandFailure {
+  return {
+    _tag: 'VersionExperimentsCommandFailure',
+    operation: fields.operation,
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  return typeof candidate == 'object';
+}
+
+function readBoolean(record: Record<string, unknown>, fieldName: string): boolean {
+  const field = record[fieldName];
+  const isBoolean = typeof field == 'boolean';
+
+  if (isBoolean == false) {
+    throw makeVersionExperimentsCommandFailure({
+      operation: 'decode experiments command input',
+      message: `Experiments command ${fieldName} must be a boolean.`,
+      cause: record,
+    });
+  }
+
+  return field;
+}
+
+function readAppSelector(record: Record<string, unknown>): string | undefined {
+  const hasAppKey = Object.hasOwn(record, 'app');
+
+  if (hasAppKey == false) {
+    return undefined;
+  }
+
+  const appField = record['app'];
+  const isAppText = typeof appField == 'string';
+
+  if (isAppText == false) {
+    throw makeVersionExperimentsCommandFailure({
+      operation: 'decode experiments command input',
+      message: 'Experiments command app must be a string when it is present.',
+      cause: record,
+    });
+  }
+
+  return appField;
+}
+
+export function decodeVersionExperimentsCommandInput(
+  rawCommandInput: unknown,
+): VersionExperimentsCommandInput {
+  const isObject = isRecord(rawCommandInput);
+
+  if (isObject == false) {
+    throw makeVersionExperimentsCommandFailure({
+      operation: 'decode experiments command input',
+      message: 'Experiments command input must be an object.',
+      cause: rawCommandInput,
+    });
+  }
+
+  const configField = rawCommandInput['config'];
+  const isConfigText = typeof configField == 'string';
+
+  if (isConfigText == false) {
+    throw makeVersionExperimentsCommandFailure({
+      operation: 'decode experiments command input',
+      message: 'Experiments command config must be a string.',
+      cause: rawCommandInput,
+    });
+  }
+
+  const app = readAppSelector(rawCommandInput);
+  const decodedInput: VersionExperimentsCommandInput = {
+    config: configField,
+    submit: readBoolean(rawCommandInput, 'submit'),
+    start: readBoolean(rawCommandInput, 'start'),
+    dryRun: readBoolean(rawCommandInput, 'dryRun'),
+    yes: readBoolean(rawCommandInput, 'yes'),
+  };
+  const hasApp = app != null;
+
+  if (hasApp == false) {
+    return decodedInput;
+  }
+
+  return { ...decodedInput, app };
+}
 
 /** Convert a dependency failure into the experiments command channel. */
-const experimentsFailure = (
-  operation: string,
-  cause: unknown,
-): VersionExperimentsCommandFailure => {
+function experimentsFailure(operation: string, cause: unknown): VersionExperimentsCommandFailure {
   let message = `${operation} failed.`;
-  if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (hasMessage(cause)) message = cause.message;
-  if (
-    typeof cause === 'object' &&
-    cause !== null &&
-    'message' in cause &&
-    typeof cause.message === 'string'
-  ) {
+  const isText = typeof cause == 'string';
+
+  if (isText) {
+    const hasText = cause.length > 0;
+
+    if (hasText) {
+      message = cause;
+    }
+  }
+
+  if (hasMessage(cause)) {
     message = cause.message;
   }
+
   return makeVersionExperimentsCommandFailure({ operation, message, cause });
-};
+}
+
+type ExperimentsTarget = Readonly<{
+  bundleId: string;
+  experimentsConfig: VersionExperimentsConfig;
+  treatmentScreenshots: ReadonlyMap<string, readonly LocalScreenshot[]>;
+}>;
 
 /** Resolve the selected bundle id, the required experiments sidecar, and its treatment screenshots. */
-const resolveExperimentsTarget = (
+async function resolveExperimentsTarget(
   commandInput: VersionExperimentsCommandInput,
-): Effect.Effect<
-  Readonly<{
-    bundleId: string;
-    experimentsConfig: VersionExperimentsConfig;
-    treatmentScreenshots: ReadonlyMap<string, readonly LocalScreenshot[]>;
-  }>,
-  VersionExperimentsCommandFailure,
-  FileSystem.FileSystem | Path.Path | StoreAppSelectionRequirements
-> =>
-  Effect.gen(function* () {
-    const storeAppContext = yield* loadStoreAppContext(commandInput.app).pipe(
-      Effect.mapError((cause) => experimentsFailure('select experiments app', cause)),
-    );
-    if (storeAppContext.app.bundleId === undefined) {
-      return yield* Effect.fail(
-        makeVersionExperimentsCommandFailure({
-          operation: 'resolve experiments bundle id',
-          message: `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
-          cause: storeAppContext.app,
-        }),
-      );
-    }
-    const experimentsConfig = yield* resolveStoreSurfaceSection(
+): Promise<ExperimentsTarget> {
+  let storeAppContext: Awaited<ReturnType<typeof loadStoreAppContext>>;
+
+  try {
+    storeAppContext = await loadStoreAppContext(commandInput.app);
+  } catch (cause) {
+    throw experimentsFailure('select experiments app', cause);
+  }
+
+  const bundleId = storeAppContext.app.bundleId;
+  const isBundleMissing = bundleId == null;
+
+  if (isBundleMissing) {
+    throw makeVersionExperimentsCommandFailure({
+      operation: 'resolve experiments bundle id',
+      message: `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
+      cause: storeAppContext.app,
+    });
+  }
+
+  let experimentsConfig: VersionExperimentsConfig | undefined;
+
+  try {
+    experimentsConfig = await resolveStoreSurfaceSection(
       undefined,
       commandInput.config,
       true,
       parseVersionExperimentsConfig,
-    ).pipe(Effect.mapError((cause) => experimentsFailure('resolve experiments config', cause)));
-    if (experimentsConfig === undefined) {
-      return yield* Effect.fail(
-        makeVersionExperimentsCommandFailure({
-          operation: 'resolve experiments config',
-          message: `No experiments config at ${commandInput.config}. Create one (see \`launch experiments --help\`) or pass --config.`,
-          cause: commandInput.config,
-        }),
-      );
-    }
-    const treatmentScreenshots = yield* discoverTreatmentScreenshots(
+    );
+  } catch (cause) {
+    throw experimentsFailure('resolve experiments config', cause);
+  }
+
+  const loadedExperimentsConfig = experimentsConfig;
+  const isConfigMissing = loadedExperimentsConfig == null;
+
+  if (isConfigMissing) {
+    throw makeVersionExperimentsCommandFailure({
+      operation: 'resolve experiments config',
+      message: `No experiments config at ${commandInput.config}. Create one (see \`launch experiments --help\`) or pass --config.`,
+      cause: commandInput.config,
+    });
+  }
+
+  let treatmentScreenshots: ReadonlyMap<string, readonly LocalScreenshot[]>;
+
+  try {
+    treatmentScreenshots = await discoverTreatmentScreenshots(
       commandInput.config,
-      experimentsConfig,
-    ).pipe(Effect.mapError((cause) => experimentsFailure('read treatment screenshots', cause)));
-    return { bundleId: storeAppContext.app.bundleId, experimentsConfig, treatmentScreenshots };
-  });
+      loadedExperimentsConfig,
+    );
+  } catch (cause) {
+    throw experimentsFailure('read treatment screenshots', cause);
+  }
+
+  return { bundleId, experimentsConfig: loadedExperimentsConfig, treatmentScreenshots };
+}
+
+function isPlannedAction(plannedAction: PlannedAction): boolean {
+  return plannedAction.status == 'planned';
+}
 
 /** Plan, confirm, and apply product-page experiment changes. */
-const executeVersionExperiments = (
-  rawCommandInput: unknown,
-): Effect.Effect<number, VersionExperimentsCommandFailure, VersionExperimentsCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(VersionExperimentsCommandInputSchema)(
-      rawCommandInput,
-    ).pipe(
-      Effect.mapError((cause) => experimentsFailure('decode experiments command input', cause)),
-    );
-    const experimentsTarget = yield* resolveExperimentsTarget(commandInput);
-    const logger = yield* createLogger(false);
-    const appleStore = yield* loadActiveAppleStore().pipe(
-      Effect.mapError((cause) => experimentsFailure('load App Store Connect client', cause)),
-    );
+async function executeVersionExperiments(rawCommandInput: unknown): Promise<number> {
+  try {
+    const commandInput = decodeVersionExperimentsCommandInput(rawCommandInput);
+    const experimentsTarget = await resolveExperimentsTarget(commandInput);
+    const logger = createLogger(false);
+    let appleStore: Awaited<ReturnType<typeof loadActiveAppleStore>>;
+
+    try {
+      appleStore = await loadActiveAppleStore();
+    } catch (cause) {
+      throw experimentsFailure('load App Store Connect client', cause);
+    }
+
     const reconciliationInput = {
       bundleId: experimentsTarget.bundleId,
       config: experimentsTarget.experimentsConfig,
@@ -148,61 +246,94 @@ const executeVersionExperiments = (
       submit: commandInput.submit,
       start: commandInput.start,
     };
-    const experimentsPlan = yield* reconcileVersionExperiments(appleStore, {
-      ...reconciliationInput,
-      dryRun: true,
-    }).pipe(Effect.mapError((cause) => experimentsFailure('plan experiment changes', cause)));
-    const plannedActions = experimentsPlan.actions.filter(
-      (plannedAction) => plannedAction.status === 'planned',
-    );
-    yield* logger.gap();
-    if (experimentsPlan.actions.length === 0) {
-      yield* logger.step(experimentsTarget.bundleId, 'product-page experiments already in sync');
+    let experimentsPlan: Awaited<ReturnType<typeof reconcileVersionExperiments>>;
+
+    try {
+      experimentsPlan = await reconcileVersionExperiments(appleStore, {
+        ...reconciliationInput,
+        dryRun: true,
+      });
+    } catch (cause) {
+      throw experimentsFailure('plan experiment changes', cause);
+    }
+
+    const plannedActions = experimentsPlan.actions.filter(isPlannedAction);
+    logger.gap();
+    const isAlreadyInSync = experimentsPlan.actions.length == 0;
+
+    if (isAlreadyInSync) {
+      logger.step(experimentsTarget.bundleId, 'product-page experiments already in sync');
       return 0;
     }
-    yield* logger.notice(
-      experimentsTarget.bundleId,
-      ...experimentsPlan.actions.map(renderStoreSurfaceAction),
-    );
-    if (plannedActions.length === 0) {
-      yield* logger.gap();
-      yield* logger.step('experiments', 'nothing to apply (everything already in sync)');
+
+    const plannedLines = experimentsPlan.actions.map(renderStoreSurfaceAction);
+    logger.notice(experimentsTarget.bundleId, ...plannedLines);
+    const hasNothingToApply = plannedActions.length == 0;
+
+    if (hasNothingToApply) {
+      logger.gap();
+      logger.step('experiments', 'nothing to apply (everything already in sync)');
       return 0;
     }
-    yield* logger.gap();
-    yield* logger.note(`${plannedActions.length} change(s) for ${experimentsTarget.bundleId}.`);
+
+    logger.gap();
+    logger.note(`${plannedActions.length} change(s) for ${experimentsTarget.bundleId}.`);
+
     if (commandInput.dryRun) {
-      yield* logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+      logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
       return 0;
     }
-    const confirmed = yield* confirmStoreSurfaceWrite(
-      `Apply ${plannedActions.length} experiment change(s) to App Store Connect?`,
-      commandInput.yes,
-    ).pipe(Effect.mapError((cause) => experimentsFailure('confirm experiment changes', cause)));
-    if (!confirmed) return 0;
-    const appliedExperiments = yield* reconcileVersionExperiments(appleStore, {
-      ...reconciliationInput,
-      dryRun: false,
-    }).pipe(Effect.mapError((cause) => experimentsFailure('apply experiment changes', cause)));
+
+    let confirmed = false;
+
+    try {
+      confirmed = await confirmStoreSurfaceWrite(
+        `Apply ${plannedActions.length} experiment change(s) to App Store Connect?`,
+        commandInput.yes,
+      );
+    } catch (cause) {
+      throw experimentsFailure('confirm experiment changes', cause);
+    }
+
+    const isDeclined = confirmed == false;
+
+    if (isDeclined) {
+      return 0;
+    }
+
+    let appliedExperiments: Awaited<ReturnType<typeof reconcileVersionExperiments>>;
+
+    try {
+      appliedExperiments = await reconcileVersionExperiments(appleStore, {
+        ...reconciliationInput,
+        dryRun: false,
+      });
+    } catch (cause) {
+      throw experimentsFailure('apply experiment changes', cause);
+    }
+
     const experimentsSummary = summarizeExperiments(appliedExperiments.actions);
     let receiptTitle = 'Applied';
-    if (experimentsSummary.failed > 0) receiptTitle = 'Applied with errors';
-    yield* logger.box(
-      receiptTitle,
-      appliedExperiments.actions.map(renderAppliedStoreSurfaceAction),
-    );
-    return experimentsSummary.failed;
-  }).pipe(Effect.mapError((cause) => experimentsFailure('run experiments command', cause)));
+    const hasFailedActions = experimentsSummary.failed > 0;
 
-/** Run the schema-decoded experiments command. */
-export const versionExperimentsCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<
-  void,
-  CommandExit | VersionExperimentsCommandFailure,
-  VersionExperimentsCommandRequirements
-> =>
-  Effect.gen(function* () {
-    const failureCount = yield* executeVersionExperiments(rawCommandInput);
-    if (failureCount > 0) yield* completeCommand(1);
-  });
+    if (hasFailedActions) {
+      receiptTitle = 'Applied with errors';
+    }
+
+    const receiptLines = appliedExperiments.actions.map(renderAppliedStoreSurfaceAction);
+    logger.box(receiptTitle, receiptLines);
+    return experimentsSummary.failed;
+  } catch (cause) {
+    throw experimentsFailure('run experiments command', cause);
+  }
+}
+
+/** Run the decoded experiments command. */
+export async function versionExperimentsCommandProgram(rawCommandInput: unknown): Promise<void> {
+  const failureCount = await executeVersionExperiments(rawCommandInput);
+  const hasFailures = failureCount > 0;
+
+  if (hasFailures) {
+    completeCommand(1);
+  }
+}

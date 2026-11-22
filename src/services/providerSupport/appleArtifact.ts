@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import type { Platform } from '../../types/app.js';
 import type { SizeReportEntry } from '../../types/artifacts.js';
 import type { SigningAssets } from '../../types/credentials.js';
@@ -40,42 +39,44 @@ export const parseThinningReport = (reportText: string): SizeReportEntry[] => {
 };
 
 /** Reject simulator, unpackaged, and empty Apple artifacts before storage or upload. */
-export const assertDeviceArtifact = (
+export function assertDeviceArtifact(
   artifactPath: string,
   artifactBytes: number,
   platform: Platform,
-) =>
-  Effect.gen(function* () {
-    const expectedExtension = `.${yield* appleArtifactExtension(platform)}`;
-    if (platform !== 'macos' && /-(?:iphone|appletv|xr)simulator/i.test(artifactPath)) {
-      return yield* Effect.fail(
-        makeProviderInputFailure({
-          provider: 'apple-artifact',
-          message:
-            `Build produced a simulator artifact (${artifactPath}). The store needs a device archive - ` +
-            `build for a generic ${platformLabel(platform)} device, not a simulator, then re-run \`launch build ${platform}\`.`,
-        }),
-      );
-    }
-    if (!artifactPath.toLowerCase().endsWith(expectedExtension)) {
-      return yield* Effect.fail(
-        makeProviderInputFailure({
-          provider: 'apple-artifact',
-          message:
-            `Expected a signed ${expectedExtension} for ${platformLabel(platform)} but got ${artifactPath} - ` +
-            `that artifact is a simulator/unpackaged build and can't be submitted.`,
-        }),
-      );
-    }
-    if (artifactBytes <= 0) {
-      return yield* Effect.fail(
-        makeProviderInputFailure({
-          provider: 'apple-artifact',
-          message: `Build artifact ${artifactPath} is empty (0 bytes) - the export failed silently.`,
-        }),
-      );
-    }
-  });
+): void {
+  const expectedExtension = `.${appleArtifactExtension(platform)}`;
+  const isMacApp = platform == 'macos';
+  const looksLikeSimulator = /-(?:iphone|appletv|xr)simulator/i.test(artifactPath);
+
+  if (isMacApp == false && looksLikeSimulator) {
+    throw makeProviderInputFailure({
+      provider: 'apple-artifact',
+      message:
+        `Build produced a simulator artifact (${artifactPath}). The store needs a device archive - ` +
+        `build for a generic ${platformLabel(platform)} device, not a simulator, then re-run \`launch build ${platform}\`.`,
+    });
+  }
+
+  const hasExpectedExtension = artifactPath.toLowerCase().endsWith(expectedExtension);
+
+  if (hasExpectedExtension == false) {
+    throw makeProviderInputFailure({
+      provider: 'apple-artifact',
+      message:
+        `Expected a signed ${expectedExtension} for ${platformLabel(platform)} but got ${artifactPath} - ` +
+        `that artifact is a simulator/unpackaged build and can't be submitted.`,
+    });
+  }
+
+  const isEmptyArtifact = artifactBytes <= 0;
+
+  if (isEmptyArtifact) {
+    throw makeProviderInputFailure({
+      provider: 'apple-artifact',
+      message: `Build artifact ${artifactPath} is empty (0 bytes) - the export failed silently.`,
+    });
+  }
+}
 
 /** Render the manual-signing export plist used by local and remote Apple builds. */
 export const exportOptionsPlist = (

@@ -1,11 +1,8 @@
-import type { HttpClient } from '@effect/platform';
-import { Effect, Schema } from 'effect';
 import type { DailyStat, DateRange } from '../../types/stats.js';
 import {
   ANALYTICS_DATA_URL,
   createGa4Failure,
   requestGa4Document,
-  type Ga4Failure,
   type Ga4Session,
 } from './ga4Client.js';
 
@@ -19,32 +16,105 @@ interface Ga4Report {
   readonly range: DateRange;
 }
 
-const ReportReplySchema = Schema.Struct({
-  rows: Schema.optionalWith(
-    Schema.Array(
-      Schema.Struct({
-        dimensionValues: Schema.Array(Schema.Struct({ value: Schema.String })),
-        metricValues: Schema.Array(Schema.Struct({ value: Schema.String })),
-      }),
-    ),
-    { default: () => [] },
-  ),
-  rowCount: Schema.optionalWith(Schema.Number, { default: () => 0 }),
-});
+interface ReportCell {
+  readonly value: string;
+}
 
-type ReportReply = typeof ReportReplySchema.Type;
+interface ReportRow {
+  readonly dimensionValues: readonly ReportCell[];
+  readonly metricValues: readonly ReportCell[];
+}
 
-const createReportQuery = (report: Ga4Report, offset: number) => {
+export interface Ga4ReportReply {
+  readonly rows: readonly ReportRow[];
+  readonly rowCount: number;
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  return typeof candidate == 'object';
+}
+
+function decodeCell(cellDocument: unknown): ReportCell {
+  if (isRecord(cellDocument) == false) {
+    throw new Error('A GA4 report cell is not an object.');
+  }
+
+  if (typeof cellDocument['value'] != 'string') {
+    throw new Error('A GA4 report cell value is not a string.');
+  }
+
+  return { value: cellDocument['value'] };
+}
+
+function decodeCells(cells: unknown): readonly ReportCell[] {
+  if (Array.isArray(cells) == false) {
+    throw new Error('GA4 report cells are not a list.');
+  }
+
+  return cells.map(decodeCell);
+}
+
+function decodeReportRow(rowDocument: unknown): ReportRow {
+  if (isRecord(rowDocument) == false) {
+    throw new Error('A GA4 report row is not an object.');
+  }
+
+  return {
+    dimensionValues: decodeCells(rowDocument['dimensionValues']),
+    metricValues: decodeCells(rowDocument['metricValues']),
+  };
+}
+
+function decodeReportReply(reportDocument: unknown): Ga4ReportReply {
+  if (isRecord(reportDocument) == false) {
+    throw new Error('A GA4 report is not an object.');
+  }
+
+  let rows: readonly ReportRow[] = [];
+  let rowCount = 0;
+
+  if (reportDocument['rows'] != null) {
+    if (Array.isArray(reportDocument['rows']) == false) {
+      throw new Error('GA4 report rows are not a list.');
+    }
+
+    rows = reportDocument['rows'].map(decodeReportRow);
+  }
+
+  if (reportDocument['rowCount'] != null) {
+    if (typeof reportDocument['rowCount'] != 'number') {
+      throw new Error('GA4 report row count is not a number.');
+    }
+
+    rowCount = reportDocument['rowCount'];
+  }
+
+  return { rows, rowCount };
+}
+
+function metricQuery(metricName: Ga4Metric): { name: string } {
+  return { name: metricName };
+}
+
+function createReportQuery(report: Ga4Report, offset: number): unknown {
   const reportPageSize = 10000;
   const reportQuery = {
     dimensions: [{ name: 'date' }],
-    metrics: GA4_METRICS.map((metricName) => ({ name: metricName })),
+    metrics: GA4_METRICS.map(metricQuery),
     dateRanges: [{ startDate: report.range.from, endDate: report.range.to }],
     orderBys: [{ dimension: { dimensionName: 'date' } }],
     limit: String(reportPageSize),
     offset: String(offset),
   };
-  if (report.streamId === null) return reportQuery;
+
+  if (report.streamId == null) {
+    return reportQuery;
+  }
+
   return {
     ...reportQuery,
     dimensionFilter: {
@@ -54,59 +124,83 @@ const createReportQuery = (report: Ga4Report, offset: number) => {
       },
     },
   };
-};
+}
 
 /** GA4 writes dates as YYYYMMDD. */
-export const readReportDate = (compactDate: string): string =>
-  `${compactDate.slice(0, 4)}-${compactDate.slice(4, 6)}-${compactDate.slice(6, 8)}`;
+export function readReportDate(compactDate: string): string {
+  return `${compactDate.slice(0, 4)}-${compactDate.slice(4, 6)}-${compactDate.slice(6, 8)}`;
+}
 
-export const createStatsFromReport = (reportReply: ReportReply): readonly DailyStat[] =>
-  reportReply.rows.flatMap((reportRow) => {
-    const compactDate = reportRow.dimensionValues[0]?.value;
-    if (compactDate === undefined) return [];
-    const date = readReportDate(compactDate);
-    return GA4_METRICS.flatMap((metricName, metricIndex) => {
-      const metricAmount = reportRow.metricValues[metricIndex]?.value;
-      if (metricAmount === undefined) return [];
-      return [
-        {
-          date,
-          feed: 'ga4' as const,
-          metric: metricName,
-          value: Number(metricAmount),
-          currency: null,
-        },
-      ];
-    });
-  });
+function readMetricStat(date: string, metricValues: readonly ReportCell[]) {
+  return function readOneMetric(metricName: Ga4Metric, metricIndex: number): DailyStat[] {
+    const metricAmount = metricValues[metricIndex]?.value;
 
-const loadReportPages = (
+    if (metricAmount == null) {
+      return [];
+    }
+
+    return [{ date, feed: 'ga4', metric: metricName, value: Number(metricAmount), currency: null }];
+  };
+}
+
+function readRowStats(reportRow: ReportRow): DailyStat[] {
+  const compactDate = reportRow.dimensionValues[0]?.value;
+
+  if (compactDate == null) {
+    return [];
+  }
+
+  const date = readReportDate(compactDate);
+
+  return GA4_METRICS.flatMap(readMetricStat(date, reportRow.metricValues));
+}
+
+export function createStatsFromReport(reportReply: Ga4ReportReply): readonly DailyStat[] {
+  return reportReply.rows.flatMap(readRowStats);
+}
+
+async function loadReportPages(
   session: Ga4Session,
   report: Ga4Report,
   offset: number,
-): Effect.Effect<readonly DailyStat[], Ga4Failure, HttpClient.HttpClient> =>
-  Effect.gen(function* () {
-    const reportDocument = yield* requestGa4Document(session, {
-      url: `${ANALYTICS_DATA_URL}/properties/${report.propertyId}:runReport`,
-      requestDocument: createReportQuery(report, offset),
-      propertyId: report.propertyId,
-    });
-    const reportReply = yield* Schema.decodeUnknown(ReportReplySchema)(reportDocument).pipe(
-      Effect.mapError((cause) => createGa4Failure(session, 'Unreadable GA4 report', cause)),
-    );
-    const pageStats = createStatsFromReport(reportReply);
-    const pageRowCount = reportReply.rows.length;
-    const nextOffset = offset + pageRowCount;
-    const totalRowCount = reportReply.rowCount;
-    const isLastPage = pageRowCount === 0 || nextOffset >= totalRowCount;
-    if (isLastPage) return pageStats;
-    const laterStats = yield* loadReportPages(session, report, nextOffset);
-    return [...pageStats, ...laterStats];
+): Promise<readonly DailyStat[]> {
+  const reportDocument = await requestGa4Document(session, {
+    url: `${ANALYTICS_DATA_URL}/properties/${report.propertyId}:runReport`,
+    requestDocument: createReportQuery(report, offset),
+    propertyId: report.propertyId,
   });
 
+  let reportReply: Ga4ReportReply;
+
+  try {
+    reportReply = decodeReportReply(reportDocument);
+  } catch (cause) {
+    throw createGa4Failure(session, 'Unreadable GA4 report', cause);
+  }
+
+  const pageStats = createStatsFromReport(reportReply);
+  const pageRowCount = reportReply.rows.length;
+  const nextOffset = offset + pageRowCount;
+  const isPageEmpty = pageRowCount == 0;
+  const isPastEnd = nextOffset >= reportReply.rowCount;
+
+  if (isPageEmpty) {
+    return pageStats;
+  }
+
+  if (isPastEnd) {
+    return pageStats;
+  }
+
+  const laterStats = await loadReportPages(session, report, nextOffset);
+
+  return [...pageStats, ...laterStats];
+}
+
 /** Daily active users, new users and sessions for one property, optionally cut to one stream. */
-export const loadGa4Report = (
+export async function loadGa4Report(
   session: Ga4Session,
   report: Ga4Report,
-): Effect.Effect<readonly DailyStat[], Ga4Failure, HttpClient.HttpClient> =>
-  loadReportPages(session, report, 0);
+): Promise<readonly DailyStat[]> {
+  return loadReportPages(session, report, 0);
+}

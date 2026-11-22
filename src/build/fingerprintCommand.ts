@@ -1,7 +1,6 @@
-import { Path } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
+import path from 'node:path';
 import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
+import { createLogger } from '../services/platform/logger.js';
 import { loadStoreAppContext } from '../store/shared/selectStoreApp.js';
 import type { Platform } from '../types/app.js';
 import {
@@ -12,11 +11,10 @@ import {
   resolveClean,
 } from './buildFingerprint.js';
 
-/** Decoded input for `launch fingerprint`. */
-export const FingerprintCommandInputSchema = Schema.Struct({
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  json: Schema.Boolean,
-});
+export type FingerprintCommandInput = Readonly<{
+  app?: string;
+  json: boolean;
+}>;
 
 /** Fingerprint calculation and the cache decision it produces. */
 export type FingerprintReport = Readonly<{
@@ -27,74 +25,158 @@ export type FingerprintReport = Readonly<{
   decision: CleanDecision;
 }>;
 
-const FingerprintCommandFailureSchema = Schema.Struct({
-  _tag: Schema.Literal('FingerprintCommandFailure'),
-  operation: Schema.String,
-  message: Schema.String,
-  cause: Schema.Unknown,
-});
+type FingerprintCommandFailure = Readonly<{
+  readonly _tag: 'FingerprintCommandFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause: unknown;
+}>;
 
-type FingerprintCommandFailure = Schema.Schema.Type<typeof FingerprintCommandFailureSchema>;
+function makeFingerprintCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): FingerprintCommandFailure {
+  return {
+    _tag: 'FingerprintCommandFailure',
+    operation: fields.operation,
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
 
-const makeFingerprintCommandFailure = Data.tagged<FingerprintCommandFailure>(
-  'FingerprintCommandFailure',
-);
+function fingerprintFailure(operation: string, cause: unknown): FingerprintCommandFailure {
+  return makeFingerprintCommandFailure({ operation, message: errorMessage(cause), cause });
+}
 
-/** Map one command failure into the fingerprint error channel. */
-const fingerprintFailure = (operation: string, cause: unknown): FingerprintCommandFailure =>
-  makeFingerprintCommandFailure({ operation, message: errorMessage(cause), cause });
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  const isObject = typeof candidate == 'object';
 
-/** Map one terminal write into the fingerprint error channel. */
-const writeLog = (
-  operation: string,
-  logWrite: ReturnType<Logger['line']>,
-): Effect.Effect<void, FingerprintCommandFailure> =>
-  logWrite.pipe(Effect.mapError((cause) => fingerprintFailure(operation, cause)));
+  if (isObject == false) {
+    return false;
+  }
+
+  return candidate != null;
+}
+
+/** Decode `launch fingerprint` input. Omitted optionals stay absent. */
+export function decodeFingerprintCommandInput(rawCommandInput: unknown): FingerprintCommandInput {
+  const isCommandRecord = isRecord(rawCommandInput);
+
+  if (isCommandRecord == false) {
+    throw new Error('Fingerprint command input must be an object.');
+  }
+
+  const jsonFlag = rawCommandInput['json'];
+  const jsonIsBoolean = typeof jsonFlag == 'boolean';
+
+  if (jsonIsBoolean == false) {
+    throw new Error('Fingerprint json must be a boolean.');
+  }
+
+  const hasApp = Object.hasOwn(rawCommandInput, 'app');
+
+  if (hasApp == false) {
+    return { json: jsonFlag };
+  }
+
+  const appName = rawCommandInput['app'];
+  const appIsMissing = appName == null;
+
+  if (appIsMissing) {
+    return { json: jsonFlag };
+  }
+
+  const appIsString = typeof appName == 'string';
+
+  if (appIsString == false) {
+    throw new Error('Fingerprint app must be a string.');
+  }
+
+  return { app: appName, json: jsonFlag };
+}
+
+function isFingerprintCommandFailure(cause: unknown): cause is FingerprintCommandFailure {
+  const isObject = typeof cause == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  const isNull = cause == null;
+
+  if (isNull) {
+    return false;
+  }
+
+  const hasTag = '_tag' in cause;
+
+  if (hasTag == false) {
+    return false;
+  }
+
+  return cause._tag == 'FingerprintCommandFailure';
+}
 
 /** Shorten a hash for terminal comparison. */
-const shortHash = (hash: string): string => hash.slice(0, 12);
+function shortHash(hash: string): string {
+  const shortHashLength = 12;
+
+  return hash.slice(0, shortHashLength);
+}
 
 /** Render a fingerprint report for a human terminal. */
-export const formatFingerprintReport = (fingerprintReport: FingerprintReport): string => {
+export function formatFingerprintReport(fingerprintReport: FingerprintReport): string {
   let lastBuild = 'none on this host yet';
-  if (fingerprintReport.stored !== null) {
+  const hasStoredBuild = fingerprintReport.stored != null;
+
+  if (hasStoredBuild) {
     let buildKind = 'incremental';
-    if (fingerprintReport.stored.cleanBuilt) buildKind = 'clean';
+    const wasClean = fingerprintReport.stored.cleanBuilt == true;
+
+    if (wasClean) {
+      buildKind = 'clean';
+    }
+
     lastBuild = `${shortHash(fingerprintReport.stored.fingerprint)}  (${fingerprintReport.stored.builtAt}, ${buildKind})`;
   }
+
   let verdict = 'incremental (reuses warm caches)';
-  if (fingerprintReport.decision.clean) verdict = 'clean (from scratch)';
+  const nextIsClean = fingerprintReport.decision.clean == true;
+
+  if (nextIsClean) {
+    verdict = 'clean (from scratch)';
+  }
+
   return [
     `App:                 ${fingerprintReport.app} (${fingerprintReport.platform})`,
     `Current fingerprint: ${shortHash(fingerprintReport.current)}`,
     `Last build:          ${lastBuild}`,
     `Next build:          ${verdict} - ${fingerprintReport.decision.reason}`,
   ].join('\n');
-};
+}
 
 /** Decode input and explain the selected app's next iOS cache decision. */
-export const fingerprintCommandProgram = (rawCommandInput: unknown) =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(FingerprintCommandInputSchema)(
-      rawCommandInput,
-    );
-    const logger = yield* createLogger(false);
-    const selectedContext = yield* loadStoreAppContext(commandInput.app);
-    if (selectedContext.app.bundleId === undefined) {
-      yield* writeLog(
-        'render unsupported fingerprint app',
-        logger.line(
-          `${selectedContext.app.name} has no iOS bundle id - fingerprints are iOS-only (Gradle tracks Android build inputs itself).`,
-        ),
+export async function fingerprintCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodeFingerprintCommandInput(rawCommandInput);
+    const logger = createLogger(false);
+    const selectedContext = await loadStoreAppContext(commandInput.app);
+    const hasBundleId = selectedContext.app.bundleId != null;
+
+    if (hasBundleId == false) {
+      logger.line(
+        `${selectedContext.app.name} has no iOS bundle id - fingerprints are iOS-only (Gradle tracks Android build inputs itself).`,
       );
       return;
     }
-    const pathService = yield* Path.Path;
-    const currentFingerprint = yield* gatherIosFingerprint(
-      pathService.join(selectedContext.app.dir, 'ios'),
+
+    const iosDirectory = path.join(selectedContext.app.dir, 'ios');
+    const currentFingerprint = await gatherIosFingerprint(
+      iosDirectory,
       selectedContext.app.configPath,
     );
-    const storedBuild = yield* readBuildState(selectedContext.app.name, 'ios');
+    const storedBuild = await readBuildState(selectedContext.app.name, 'ios');
     const fingerprintReport: FingerprintReport = {
       app: selectedContext.app.name,
       platform: 'ios',
@@ -103,11 +185,20 @@ export const fingerprintCommandProgram = (rawCommandInput: unknown) =>
       decision: resolveClean(false, storedBuild, currentFingerprint),
     };
     let reportText = formatFingerprintReport(fingerprintReport);
-    if (commandInput.json) reportText = JSON.stringify(fingerprintReport, null, 2);
-    yield* writeLog('render fingerprint report', logger.line(reportText));
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (Schema.is(FingerprintCommandFailureSchema)(cause)) return cause;
-      return fingerprintFailure('run fingerprint command', cause);
-    }),
-  );
+    const wantsJson = commandInput.json == true;
+
+    if (wantsJson) {
+      reportText = JSON.stringify(fingerprintReport, null, 2);
+    }
+
+    logger.line(reportText);
+  } catch (cause) {
+    const alreadyFingerprintFailure = isFingerprintCommandFailure(cause);
+
+    if (alreadyFingerprintFailure) {
+      throw cause;
+    }
+
+    throw fingerprintFailure('run fingerprint command', cause);
+  }
+}

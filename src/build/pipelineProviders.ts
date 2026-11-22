@@ -1,5 +1,4 @@
-import { FileSystem, type Path } from '@effect/platform';
-import { Data, Effect } from 'effect';
+import { readFile } from 'node:fs/promises';
 import type {
   AndroidReleaseNote,
   AndroidReleaseOptions,
@@ -19,6 +18,7 @@ import {
   type BuildRunOptions,
   type BuildTransportChoice,
 } from './pipelineTypes.js';
+
 const IOS_SUBMITTER = 'app-store-connect';
 const ANDROID_SUBMITTER = 'google-play';
 
@@ -27,167 +27,325 @@ type BuildTransportFailure = Readonly<{
   readonly message: string;
 }>;
 
-const makeBuildTransportFailure = Data.tagged<BuildTransportFailure>('BuildTransportFailure');
+function makeBuildTransportFailure(fields: { message: string }): BuildTransportFailure {
+  return { _tag: 'BuildTransportFailure', message: fields.message };
+}
+
 /** Engines that only build Apple apps; an Android build swaps any of them for `gradle`. */
 const APPLE_ONLY_BUILD_ENGINES = new Set(['xcode', 'remote-mac', 'eas']);
+
 /** The build engine name for a platform, swapping an Apple-only engine (`xcode`, `remote-mac`, `eas`) for `gradle` on Android. */
-export const resolveBuildEngineName = (config: LaunchConfig, platform: Platform): string => {
-  if (platform === 'android' && APPLE_ONLY_BUILD_ENGINES.has(config.buildEngine)) return 'gradle';
-  return config.buildEngine;
-};
-/** The standard store for a platform: Play for Android, App Store Connect for every Apple platform. */
-const defaultSubmitter = (platform: Platform): string => {
-  if (platform === 'android') return ANDROID_SUBMITTER;
-  return IOS_SUBMITTER;
-};
-/**
- * The store(s) a build for `platform` is submitted to - the seam that decouples the build target from the
- * store, so one build can reach several. Two `config.submit` shapes resolve here:
- *
- * - a **string** (the original shape) yields exactly one store: the configured submitter, mapped to
- *   `google-play` for an Android build under the iOS default - so every existing config is unchanged; or
- * - a **per-platform map** (`SubmitByPlatform`) yields its configured list for the platform, defaulting to
- *   the platform's standard store when that platform is omitted.
- */
-export const resolveSubmitters = (config: LaunchConfig, platform: Platform): string[] => {
-  if (typeof config.submit === 'string') {
-    if (platform === 'android' && config.submit === IOS_SUBMITTER) return [ANDROID_SUBMITTER];
-    return [config.submit];
+export function resolveBuildEngineName(launchConfig: LaunchConfig, platform: Platform): string {
+  const isAndroid = platform == 'android';
+
+  if (isAndroid == false) {
+    return launchConfig.buildEngine;
   }
-  const configured = config.submit[platform];
-  if (configured !== undefined && configured.length > 0) return configured;
-  return [defaultSubmitter(platform)];
-};
-/** The primary store for a platform - the first of {@link resolveSubmitters}; used where one name is wanted (e.g. the build preview). */
-export const resolveSubmitterName = (config: LaunchConfig, platform: Platform): string => {
-  const primarySubmitter = resolveSubmitters(config, platform)[0];
-  if (primarySubmitter === undefined) return defaultSubmitter(platform);
-  return primarySubmitter;
-};
+
+  const isAppleOnlyEngine = APPLE_ONLY_BUILD_ENGINES.has(launchConfig.buildEngine);
+
+  if (isAppleOnlyEngine) {
+    return 'gradle';
+  }
+
+  return launchConfig.buildEngine;
+}
+
+/** The standard store for a platform: Play for Android, App Store Connect for every Apple platform. */
+function defaultSubmitter(platform: Platform): string {
+  const isAndroid = platform == 'android';
+
+  if (isAndroid) {
+    return ANDROID_SUBMITTER;
+  }
+
+  return IOS_SUBMITTER;
+}
+
+function isSubmitByPlatform(
+  submitSetting: LaunchConfig['submit'],
+): submitSetting is Exclude<LaunchConfig['submit'], string> {
+  return typeof submitSetting != 'string';
+}
+
+function configuredSubmitters(
+  submitByPlatform: Exclude<LaunchConfig['submit'], string>,
+  platform: Platform,
+): string[] {
+  const configured = submitByPlatform[platform];
+  const isMissing = configured == null;
+
+  if (isMissing) {
+    return [defaultSubmitter(platform)];
+  }
+
+  const isEmpty = configured.length == 0;
+
+  if (isEmpty) {
+    return [defaultSubmitter(platform)];
+  }
+
+  return configured;
+}
+
 /**
- * Upload `artifact` to every store {@link resolveSubmitters configured} for `platform`, in order, and
- * return the store names. A single-store config submits to exactly one (so an iOS / Play-only setup
- * behaves as before); a per-platform `submit` map fans an Android build out to Play plus alternative
- * stores. Each store is a registered `Submitter` resolved by name, so adding a store never changes this loop.
+ * The store(s) a build for `platform` is submitted to. A string submitter yields one store.
+ * A per-platform map yields that platform's list, or the platform's standard store when omitted.
  */
-export const submitToStores = (
-  config: LaunchConfig,
+export function resolveSubmitters(launchConfig: LaunchConfig, platform: Platform): string[] {
+  const submitSetting = launchConfig.submit;
+  const isMap = isSubmitByPlatform(submitSetting);
+
+  if (isMap) {
+    return configuredSubmitters(submitSetting, platform);
+  }
+
+  const isAndroid = platform == 'android';
+
+  if (isAndroid == false) {
+    return [submitSetting];
+  }
+
+  const usesIosDefault = submitSetting == IOS_SUBMITTER;
+
+  if (usesIosDefault) {
+    return [ANDROID_SUBMITTER];
+  }
+
+  return [submitSetting];
+}
+
+/** The primary store for a platform - the first of {@link resolveSubmitters}. */
+export function resolveSubmitterName(launchConfig: LaunchConfig, platform: Platform): string {
+  const primarySubmitter = resolveSubmitters(launchConfig, platform)[0];
+  const isMissing = primarySubmitter == null;
+
+  if (isMissing) {
+    return defaultSubmitter(platform);
+  }
+
+  return primarySubmitter;
+}
+
+/**
+ * Upload `artifact` to every store configured for `platform`, in order, and return the store names.
+ */
+export async function submitToStores(
+  launchConfig: LaunchConfig,
   platform: Platform,
   artifact: SubmitArtifact,
   credentials: BuildCredentials,
   buildContext: ResolvedBuildContext,
-): Effect.Effect<string[], unknown> => {
-  const stores = resolveSubmitters(config, platform);
-  return Effect.forEach(
-    stores,
-    (storeName) =>
-      getSubmitter(storeName).pipe(
-        Effect.flatMap((submitter) => submitter.submit(artifact, credentials, buildContext)),
-      ),
-    { concurrency: 1 },
-  ).pipe(Effect.as(stores));
-};
+): Promise<string[]> {
+  const stores = resolveSubmitters(launchConfig, platform);
+
+  for (const storeName of stores) {
+    const submitter = getSubmitter(storeName);
+    await submitter.submit(artifact, credentials, buildContext);
+  }
+
+  return stores;
+}
+
+function readReleaseTrack(
+  profileTrack: BuildProfile['track'],
+  trackOverride: BuildRunOptions['track'],
+): AndroidReleaseOptions['track'] {
+  const hasTrackOverride = trackOverride != null;
+
+  if (hasTrackOverride) {
+    return trackOverride;
+  }
+
+  const trackIsMissing = profileTrack == null;
+
+  if (trackIsMissing) {
+    return 'internal';
+  }
+
+  return profileTrack;
+}
+
+function readReleaseRollout(
+  profileRollout: BuildProfile['rollout'],
+  rolloutOverride: BuildRunOptions['rollout'],
+): number {
+  const hasRolloutOverride = rolloutOverride != null;
+
+  if (hasRolloutOverride) {
+    return rolloutOverride;
+  }
+
+  const rolloutIsMissing = profileRollout == null;
+
+  if (rolloutIsMissing) {
+    const fullRollout = 1;
+
+    return fullRollout;
+  }
+
+  return profileRollout;
+}
+
 /**
- * Resolve the Android track + rollout for one invocation: an explicit `--track`/`--rollout` wins,
- * then the profile default, then the safe `internal` fallback. The result rides on {@link ResolvedBuildContext.android}
- * so the Google Play submitter reads one source of truth.
+ * Resolve the Android track + rollout for one invocation: an explicit flag wins, then the profile,
+ * then the safe `internal` fallback.
  */
-export const resolveAndroidRelease = (
-  options: Pick<BuildRunOptions, 'track' | 'rollout'>,
+export function resolveAndroidRelease(
+  buildOptions: Pick<BuildRunOptions, 'track' | 'rollout'>,
   profile: BuildProfile,
-): AndroidReleaseOptions => {
-  let track = profile.track;
-  if (options.track !== undefined) track = options.track;
-  if (track === undefined) track = 'internal';
-  let rollout = profile.rollout;
-  if (options.rollout !== undefined) rollout = options.rollout;
-  if (rollout === undefined) rollout = 1.0;
-  return {
-    track,
-    rollout,
-  };
-};
+): AndroidReleaseOptions {
+  const track = readReleaseTrack(profile.track, buildOptions.track);
+  const rollout = readReleaseRollout(profile.rollout, buildOptions.rollout);
+
+  return { track, rollout };
+}
+
+function releaseNoteFromEntry(entry: readonly [string, string]): AndroidReleaseNote {
+  return { language: entry[0], text: entry[1] };
+}
 
 /** Convert a language-to-copy map into the Play submitter's release-note shape. */
-export const androidReleaseNotesFromLocaleMap = (
+export function androidReleaseNotesFromLocaleMap(
   releaseNotesByLocale: Readonly<Record<string, string>>,
-): readonly AndroidReleaseNote[] =>
-  Object.entries(releaseNotesByLocale).map(([language, text]) => ({ language, text }));
+): readonly AndroidReleaseNote[] {
+  return Object.entries(releaseNotesByLocale).map(releaseNoteFromEntry);
+}
 
 /**
  * Resolve Play release notes for an Android ship: `--notes` JSON wins when set, otherwise the same
- * `release.releaseNotes` + store.config sources iOS uses via {@link resolveWhatsNew}. Empty means the
- * submitter skips changelogs (binary-only upload).
+ * `release.releaseNotes` sources iOS uses. Empty means the submitter skips changelogs.
  */
-export const resolveAndroidSubmitReleaseNotes = (
+export async function resolveAndroidSubmitReleaseNotes(
   launchConfig: LaunchConfig,
   appDirectory: string,
   notesPath: string | undefined,
-): Effect.Effect<readonly AndroidReleaseNote[], unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    if (notesPath !== undefined) {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const releaseNotesText = yield* fileSystem.readFileString(notesPath);
-      const releaseNotes = yield* parseReleaseNotesJson(releaseNotesText);
-      return releaseNotes.map((releaseNote) => ({
-        language: releaseNote.language,
-        text: releaseNote.text,
-      }));
-    }
-    const releaseNotesByLocale = yield* resolveWhatsNew(launchConfig.release, appDirectory);
-    return androidReleaseNotesFromLocaleMap(releaseNotesByLocale);
-  });
+): Promise<readonly AndroidReleaseNote[]> {
+  const hasNotesPath = notesPath != null;
+
+  if (hasNotesPath) {
+    const releaseNotesText = await readFile(notesPath, 'utf8');
+    const releaseNotes = await parseReleaseNotesJson(releaseNotesText);
+
+    return releaseNotes.map(function copyReleaseNote(releaseNote): AndroidReleaseNote {
+      return { language: releaseNote.language, text: releaseNote.text };
+    });
+  }
+
+  const releaseNotesByLocale = await resolveWhatsNew(launchConfig.release, appDirectory);
+
+  return androidReleaseNotesFromLocaleMap(releaseNotesByLocale);
+}
+
 /**
- * The soft size budget (MB) the pre-upload gate enforces for one run: a per-run override
- * (`--size-budget`) wins, then the profile's `sizeBudgetMB`, then
- * {@link DEFAULT_SIZE_BUDGET_MB}. One source of truth for the three `confirmUpload` call sites (local
- * iOS, local Android, and the EAS handoff) so the precedence can't drift between them.
+ * The soft size budget (MB) the pre-upload gate enforces: a per-run override wins, then the profile,
+ * then the default.
  */
-export const resolveSizeBudgetMB = (
-  options: Pick<BuildRunOptions, 'sizeBudgetMB'>,
+export function resolveSizeBudgetMB(
+  buildOptions: Pick<BuildRunOptions, 'sizeBudgetMB'>,
   profile: Pick<BuildProfile, 'sizeBudgetMB'>,
-): number => {
-  if (options.sizeBudgetMB !== undefined) return options.sizeBudgetMB;
-  if (profile.sizeBudgetMB !== undefined) return profile.sizeBudgetMB;
+): number {
+  const runBudget = buildOptions.sizeBudgetMB;
+  const hasRunBudget = runBudget != null;
+
+  if (hasRunBudget) {
+    return runBudget;
+  }
+
+  const profileBudget = profile.sizeBudgetMB;
+  const hasProfileBudget = profileBudget != null;
+
+  if (hasProfileBudget) {
+    return profileBudget;
+  }
+
   return DEFAULT_SIZE_BUDGET_MB;
-};
-export const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+export function mb(bytes: number): string {
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function defaultRemoteTarget(
+  remoteFlag: RemoteTarget | undefined,
+  buildEngine: string,
+): RemoteTarget | undefined {
+  const hasRemoteFlag = remoteFlag != null;
+
+  if (hasRemoteFlag) {
+    return remoteFlag;
+  }
+
+  const isRemoteMacEngine = buildEngine == 'remote-mac';
+
+  if (isRemoteMacEngine) {
+    return { kind: 'aws' };
+  }
+
+  return undefined;
+}
+
+function iosTransport(remote: RemoteTarget | undefined, buildEngine: string): BuildTransportChoice {
+  const hasRemote = remote != null;
+
+  if (hasRemote) {
+    return { kind: 'remote', remote };
+  }
+
+  const isEas = buildEngine == 'eas';
+
+  if (isEas) {
+    return { kind: 'eas' };
+  }
+
+  return { kind: 'local' };
+}
+
+function localAppleTransport(
+  platform: Platform,
+  remote: RemoteTarget | undefined,
+  buildEngine: string,
+): BuildTransportChoice {
+  const hasRemote = remote != null;
+
+  if (hasRemote) {
+    throw makeBuildTransportFailure({
+      message: `Remote builds are iOS-only - build ${platformLabel(platform)} on a local Mac (drop \`--remote\` / \`buildEngine: "remote-mac"\`).`,
+    });
+  }
+
+  const isEas = buildEngine == 'eas';
+
+  if (isEas) {
+    throw makeBuildTransportFailure({
+      message: `EAS does not build ${platformLabel(platform)} - build it on a local Mac (drop \`buildEngine: "eas"\`).`,
+    });
+  }
+
+  return { kind: 'local' };
+}
+
 /**
- * Pick the build fork for one run, by the same precedence the dispatch has always used - extracted as a
- * pure function so the decision is unit-testable without driving a real (or even dry) build:
- * - Android always builds locally; it has no off-Mac problem, so `--remote` / `eas` never apply.
- * - For iOS, `--remote` wins (a config `buildEngine: "remote-mac"` defaults the target to AWS),
- * - then `buildEngine: "eas"` hands off to Expo,
- * - otherwise the local Mac spine.
- * - tvOS / macOS / visionOS build locally only: the off-Mac forks are iOS-only in v1 (the remote host
- *   bootstrap is iOS-shaped and EAS has no profile for them), so an explicit off-Mac request fails fast.
+ * Pick the build fork for one run. Android always builds locally. iOS may go remote or to EAS.
+ * The other Apple platforms build locally; an explicit off-Mac request fails fast.
  */
-export const resolveBuildTransport = (
+export function resolveBuildTransport(
   platform: Platform,
   buildEngine: string,
   remoteFlag: RemoteTarget | undefined,
-): Effect.Effect<BuildTransportChoice, BuildTransportFailure> => {
-  if (platform === 'android') return Effect.succeed({ kind: 'local' });
-  let remote = remoteFlag;
-  if (remote === undefined && buildEngine === 'remote-mac') remote = { kind: 'aws' };
-  if (platform !== 'ios') {
-    if (remote) {
-      return Effect.fail(
-        makeBuildTransportFailure({
-          message: `Remote builds are iOS-only - build ${platformLabel(platform)} on a local Mac (drop \`--remote\` / \`buildEngine: "remote-mac"\`).`,
-        }),
-      );
-    }
-    if (buildEngine === 'eas') {
-      return Effect.fail(
-        makeBuildTransportFailure({
-          message: `EAS does not build ${platformLabel(platform)} - build it on a local Mac (drop \`buildEngine: "eas"\`).`,
-        }),
-      );
-    }
-    return Effect.succeed({ kind: 'local' });
+): BuildTransportChoice {
+  const isAndroid = platform == 'android';
+
+  if (isAndroid) {
+    return { kind: 'local' };
   }
-  if (remote) return Effect.succeed({ kind: 'remote', remote });
-  if (buildEngine === 'eas') return Effect.succeed({ kind: 'eas' });
-  return Effect.succeed({ kind: 'local' });
-};
+
+  const remote = defaultRemoteTarget(remoteFlag, buildEngine);
+  const isIos = platform == 'ios';
+
+  if (isIos) {
+    return iosTransport(remote, buildEngine);
+  }
+
+  return localAppleTransport(platform, remote, buildEngine);
+}

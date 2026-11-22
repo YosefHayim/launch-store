@@ -1,5 +1,3 @@
-import { NodeContext, NodeHttpClient } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,16 +8,12 @@ vi.mock('node:child_process', () => ({
     throw new Error('spawn must not run during --dry-run');
   }),
 }));
-import { AppleCredentialsClientLive } from '../services/stores/appleCredentialsClient.js';
-import { AppleStoreClientLive } from '../services/stores/appleStoreClient.js';
-import { AppStoreIdentityLive } from '../services/stores/appStoreIdentity.js';
-import { LaunchEnvironmentTest } from '../services/platform/environment.js';
-import { GoogleStoreClientLive } from '../services/stores/googleStoreClient.js';
-import { makeLaunchLoggerTest } from '../services/platform/logger.js';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
-import { makeLaunchPromptTest } from '../services/platform/prompt.js';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.js';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import { resetPrompts } from '../services/platform/prompt.js';
 import { registerBuildEngine, registerSubmitter } from '../services/providerSupport/registry.js';
-import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import { runBuild } from './pipeline.js';
 import { sizeSummary, uploadSizeReadout, worstDownloadBytes } from './pipelineArtifact.js';
 import { selectApp } from './pipelineEnv.js';
@@ -40,41 +34,45 @@ import type { BuildCredentials } from '../types/credentials.js';
 import type { Submitter } from '../types/providers.js';
 import process from 'node:process';
 
-/** Run a build-core test with deterministic service layers and no CLI/provider bootstrap. */
-type BuildCoreTestRequirements =
-  | Effect.Effect.Context<ReturnType<typeof runBuild>>
-  | Effect.Effect.Context<ReturnType<typeof selectApp>>;
-const runBuildCoreTest = <Success, Failure>(
-  program: Effect.Effect<Success, Failure, BuildCoreTestRequirements>,
+/** Run a build-core test with deterministic services and no CLI/provider bootstrap. */
+async function runBuildCoreTest<Success>(
+  runCase: () => Promise<Success>,
   loggedLines: string[] = [],
-): Promise<Success> =>
-  Effect.runPromise(
-    program.pipe(
-      Effect.provide(AppStoreIdentityLive),
-      Effect.provide(AppleCredentialsClientLive),
-      Effect.provide(AppleStoreClientLive),
-      Effect.provide(GoogleStoreClientLive),
-      Effect.provide(LaunchEnvironmentTest),
-      Effect.provide(makeLaunchPathsTest(tempRepo, tempRepo)),
-      Effect.provide(makeLaunchPromptTest()),
-      Effect.provide(makeLaunchSecretStoreTest()),
-      Effect.provide(makeLaunchLoggerTest(loggedLines)),
-      Effect.provide(NodeHttpClient.layer),
-      Effect.provide(NodeContext.layer),
-    ),
-  );
+): Promise<Success> {
+  const hasTempRepo = tempRepo != '';
+
+  if (hasTempRepo) {
+    useLaunchDirectories({ homeDirectory: tempRepo, workingDirectory: tempRepo });
+  }
+
+  useLoggerSink(function keepLine(text: string): void {
+    loggedLines.push(text);
+  });
+  useLaunchEnvironment({});
+  useSecretStore(new Map());
+  resetPrompts();
+
+  try {
+    return await runCase();
+  } finally {
+    resetLaunchDirectories();
+    resetLogger();
+    resetLaunchEnvironment();
+    resetPrompts();
+    resetSecretStore();
+  }
+}
 
 /** Register requirement-free build engines used only by dry-run orchestration tests. */
 const registerDryRunBuildEngines = (): void => {
   for (const engineName of ['xcode', 'gradle']) {
     registerBuildEngine({
       name: engineName,
-      buildArtifact: () =>
-        Effect.succeed({
-          artifactPath: '(dry-run, not built)',
-          sizeReport: { artifactBytes: 0, entries: [] },
-          cleanBuilt: false,
-        }),
+      buildArtifact: async () => ({
+        artifactPath: '(dry-run, not built)',
+        sizeReport: { artifactBytes: 0, entries: [] },
+        cleanBuilt: false,
+      }),
     });
   }
 };
@@ -117,7 +115,7 @@ describe('runBuild --dry-run (the end-to-end spine)', () => {
     });
     process.chdir(tempRepo);
     await expect(
-      runBuildCoreTest(
+      runBuildCoreTest(() =>
         runBuild({
           platform: 'ios',
           profileName: 'production',
@@ -138,7 +136,7 @@ describe('runBuild --dry-run (the end-to-end spine)', () => {
     });
     process.chdir(tempRepo);
     await expect(
-      runBuildCoreTest(
+      runBuildCoreTest(() =>
         runBuild({
           platform: 'android',
           profileName: 'production',
@@ -164,17 +162,21 @@ describe('runBuild --dry-run (the end-to-end spine)', () => {
     process.chdir(tempRepo);
     const loggedLines: string[] = [];
     const iosBuild = runBuildCoreTest(
-      runBuild({
-        platform: 'ios',
-        profileName: 'production',
-        appName: undefined,
-        explain: false,
-        submit: true,
-        dryRun: true,
-      }),
+      () =>
+        runBuild({
+          platform: 'ios',
+          profileName: 'production',
+          appName: undefined,
+          explain: false,
+          submit: true,
+          dryRun: true,
+        }),
       loggedLines,
     );
-    await expect(iosBuild).rejects.toThrow(/Unknown build engine.*missing-engine/);
+    await expect(iosBuild).rejects.toMatchObject({
+      _tag: 'ProviderNotRegistered',
+      message: expect.stringMatching(/Unknown build engine.*missing-engine/),
+    });
     expect(loggedLines.join('\n')).not.toContain('prebuild');
   });
 });
@@ -185,25 +187,29 @@ describe('selectApp', () => {
     return { ...descriptor, bundleId };
   };
   it('fails when no apps were discovered', async () => {
-    await expect(runBuildCoreTest(selectApp([], undefined))).rejects.toThrow(/No apps found/);
+    await expect(runBuildCoreTest(() => selectApp([], undefined))).rejects.toMatchObject({
+      _tag: 'AppSelectionFailure',
+      message: expect.stringMatching(/No apps found/),
+    });
   });
   it('returns the sole app without prompting', async () => {
     const only = app('solo', 'com.example.solo');
-    expect(await runBuildCoreTest(selectApp([only], undefined))).toBe(only);
+    expect(await runBuildCoreTest(() => selectApp([only], undefined))).toBe(only);
   });
   it('resolves an explicit --app and errors on a miss', async () => {
     const alpha = app('alpha');
     const beta = app('beta');
-    expect(await runBuildCoreTest(selectApp([alpha, beta], 'beta'))).toBe(beta);
-    await expect(
-      runBuildCoreTest(Effect.flip(selectApp([alpha, beta], 'gamma'))),
-    ).resolves.toMatchObject({ message: expect.stringMatching(/App "gamma" not found/) });
+    expect(await runBuildCoreTest(() => selectApp([alpha, beta], 'beta'))).toBe(beta);
+    await expect(runBuildCoreTest(() => selectApp([alpha, beta], 'gamma'))).rejects.toMatchObject({
+      _tag: 'AppSelectionFailure',
+      message: expect.stringMatching(/App "gamma" not found/),
+    });
   });
   it('refuses to guess with multiple apps and no TTY, pointing at --app', async () => {
     // The vitest process has no TTY, so the picker must not hang - it throws an actionable error.
     await expect(
-      runBuildCoreTest(selectApp([app('alpha'), app('beta')], undefined)),
-    ).rejects.toThrow(/--app/);
+      runBuildCoreTest(() => selectApp([app('alpha'), app('beta')], undefined)),
+    ).rejects.toMatchObject({ message: expect.stringMatching(/--app/) });
   });
 });
 describe('size helpers - the both-numbers headline (F2)', () => {
@@ -275,7 +281,7 @@ describe('resolveBuildTransport - which fork a run takes', () => {
     platform: Parameters<typeof resolveBuildTransport>[0],
     buildEngine: string,
     remoteTarget: Parameters<typeof resolveBuildTransport>[2],
-  ) => Effect.runSync(resolveBuildTransport(platform, buildEngine, remoteTarget));
+  ) => resolveBuildTransport(platform, buildEngine, remoteTarget);
 
   it('always builds Android locally - no off-Mac fork applies, even with a stray --remote', () => {
     expect(resolveTransport('android', 'gradle', undefined)).toEqual({ kind: 'local' });
@@ -318,16 +324,30 @@ describe('resolveBuildTransport - which fork a run takes', () => {
     expect(resolveTransport('macos', 'xcode', undefined)).toEqual({ kind: 'local' });
     expect(resolveTransport('visionos', 'xcode', undefined)).toEqual({ kind: 'local' });
   });
+  function thrownTransportFailure(
+    platform: Parameters<typeof resolveBuildTransport>[0],
+    buildEngine: string,
+    remoteTarget: Parameters<typeof resolveBuildTransport>[2],
+  ): unknown {
+    try {
+      resolveTransport(platform, buildEngine, remoteTarget);
+    } catch (error) {
+      return error;
+    }
+
+    throw new Error(`expected ${platform} ${buildEngine} transport to fail`);
+  }
+
   it('fails fast when an off-Mac fork is explicitly requested for a non-iOS Apple platform', () => {
-    expect(() => resolveTransport('tvos', 'xcode', { kind: 'aws' })).toThrow(
-      /Remote builds are iOS-only/,
-    );
-    expect(() => resolveTransport('macos', 'remote-mac', undefined)).toThrow(
-      /Remote builds are iOS-only/,
-    );
-    expect(() => resolveTransport('visionos', 'eas', undefined)).toThrow(
-      /EAS does not build visionOS/,
-    );
+    expect(thrownTransportFailure('tvos', 'xcode', { kind: 'aws' })).toMatchObject({
+      message: expect.stringMatching(/Remote builds are iOS-only/),
+    });
+    expect(thrownTransportFailure('macos', 'remote-mac', undefined)).toMatchObject({
+      message: expect.stringMatching(/Remote builds are iOS-only/),
+    });
+    expect(thrownTransportFailure('visionos', 'eas', undefined)).toMatchObject({
+      message: expect.stringMatching(/EAS does not build visionOS/),
+    });
   });
 });
 describe('resolveBumpKind - flag > remembered > prompt precedence', () => {
@@ -452,10 +472,9 @@ describe('submitToStores - fans one build out to every configured store', () => 
     const calls: string[] = [];
     const fakeStore = (name: string): Submitter => ({
       name,
-      submit: (artifact) =>
-        Effect.sync(() => {
-          calls.push(`${name}:${artifact.path}`);
-        }),
+      submit: async (artifact) => {
+        calls.push(`${name}:${artifact.path}`);
+      },
     });
     registerSubmitter(fakeStore('alt-store-a'));
     registerSubmitter(fakeStore('alt-store-b'));
@@ -466,14 +485,12 @@ describe('submitToStores - fans one build out to every configured store', () => 
       buildEngine: 'gradle',
       submit: { android: ['alt-store-a', 'alt-store-b'] },
     };
-    const stores = await Effect.runPromise(
-      submitToStores(
-        config,
-        'android',
-        { path: '/tmp/app.aab', version: '1.0.0', buildNumber: 1 },
-        buildCredentials,
-        buildContext,
-      ),
+    const stores = await submitToStores(
+      config,
+      'android',
+      { path: '/tmp/app.aab', version: '1.0.0', buildNumber: 1 },
+      buildCredentials,
+      buildContext,
     );
     expect(stores).toEqual(['alt-store-a', 'alt-store-b']);
     expect(calls).toEqual(['alt-store-a:/tmp/app.aab', 'alt-store-b:/tmp/app.aab']);
@@ -496,18 +513,16 @@ describe('android release notes for submit (issue #309)', () => {
     const notesPath = join(notesDirectory, 'notes.json');
     writeFileSync(notesPath, JSON.stringify({ 'en-US': 'From CLI notes file' }));
     try {
-      const releaseNotes = await Effect.runPromise(
-        resolveAndroidSubmitReleaseNotes(
-          {
-            profiles: {},
-            credentials: 'local',
-            storage: 'local',
-            buildEngine: 'gradle',
-            submit: 'google-play',
-          },
-          notesDirectory,
-          notesPath,
-        ).pipe(Effect.provide(NodeContext.layer)),
+      const releaseNotes = await resolveAndroidSubmitReleaseNotes(
+        {
+          profiles: {},
+          credentials: 'local',
+          storage: 'local',
+          buildEngine: 'gradle',
+          submit: 'google-play',
+        },
+        notesDirectory,
+        notesPath,
       );
       expect(releaseNotes).toEqual([{ language: 'en-US', text: 'From CLI notes file' }]);
     } finally {
@@ -517,19 +532,17 @@ describe('android release notes for submit (issue #309)', () => {
   it('falls back to release.releaseNotes from launch config when no --notes path', async () => {
     const appDirectory = mkdtempSync(join(tmpdir(), 'launch-app-'));
     try {
-      const releaseNotes = await Effect.runPromise(
-        resolveAndroidSubmitReleaseNotes(
-          {
-            profiles: {},
-            credentials: 'local',
-            storage: 'local',
-            buildEngine: 'gradle',
-            submit: 'google-play',
-            release: { releaseNotes: { 'en-US': 'From launch.config' }, primaryLocale: 'en-US' },
-          },
-          appDirectory,
-          undefined,
-        ).pipe(Effect.provide(NodeContext.layer)),
+      const releaseNotes = await resolveAndroidSubmitReleaseNotes(
+        {
+          profiles: {},
+          credentials: 'local',
+          storage: 'local',
+          buildEngine: 'gradle',
+          submit: 'google-play',
+          release: { releaseNotes: { 'en-US': 'From launch.config' }, primaryLocale: 'en-US' },
+        },
+        appDirectory,
+        undefined,
       );
       expect(releaseNotes).toEqual([{ language: 'en-US', text: 'From launch.config' }]);
     } finally {

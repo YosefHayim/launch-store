@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import type {
   InAppPurchaseConfig,
   PlayProductOverride,
@@ -122,44 +121,7 @@ export const playProductsSource: SnapshotSource = {
   id: 'play-products',
   title: 'Google Play products',
   store: 'play',
-  capture(snapshotContext: SnapshotContext) {
-    return Effect.gen(function* () {
-      const apps = androidApps(snapshotContext.apps);
-      if (apps.length === 0) return { state: 'omitted' };
-      const results = yield* Effect.forEach(
-        apps,
-        ({ name, identifier }) =>
-          Effect.gen(function* () {
-            const client = yield* snapshotContext.resolvePlayApi(identifier);
-            if (client === null)
-              return {
-                skipped: { app: name, identifier, reason: 'no Play service account' },
-              } as const;
-            const records = yield* client.listInAppProducts(identifier);
-            return {
-              captured: { app: name, identifier, entities: records.map(toEntity) },
-            } as const;
-          }),
-        { concurrency: 'unbounded' },
-      );
-      const captured = results.flatMap((entry) => {
-        if ('captured' in entry) return [entry.captured];
-        return [];
-      });
-      const skippedApps = results.flatMap((entry) => {
-        if ('skipped' in entry) return [entry.skipped];
-        return [];
-      });
-      if (captured.length === 0)
-        return {
-          state: 'skipped',
-          reason: `no Play service account for ${skippedApps.map((entry) => entry.app).join(', ')}`,
-          hint: 'configure Play credentials',
-        };
-      if (skippedApps.length === 0) return { state: 'captured', apps: captured };
-      return { state: 'captured', apps: captured, skippedApps };
-    });
-  },
+  capture: capturePlayProducts,
   /**
    * Restore each app's captured managed products to Google Play via the same `reconcilePlayProducts` the
    * `launch sync` / `launch plan` Play-products surface uses. Additive and merge-onto-live: it creates a
@@ -167,46 +129,134 @@ export const playProductsSource: SnapshotSource = {
    * prices. Each app is isolated - an unreachable Play app record is recorded as a skipped action rather
    * than aborting the rest - and a product with no restorable listing is skipped with a reason.
    */
-  restore({ ctx: restoreContext, saved, dryRun }: RestoreInput) {
-    return Effect.gen(function* () {
-      const actions: PlannedAction[] = [];
-      for (const app of saved) {
-        const client = yield* restoreContext.resolvePlayWriteClient(app.identifier);
-        if (!client) {
-          actions.push(
-            skippedAction(`Google Play: skipped - no Play service account for ${app.identifier}`),
-          );
-          continue;
-        }
-        const products: InAppPurchaseConfig[] = [];
-        for (const entity of app.entities) {
-          const config = toProductConfig(entity);
-          if (config) products.push(config);
-          else
-            actions.push(
-              skippedAction(`Play product ${entity.key}: skipped - no listing to restore`),
-            );
-        }
-        if (products.length === 0) continue;
-        const reconciliation = yield* reconcilePlayProducts(client, {
-          packageName: app.identifier,
-          products,
-          dryRun,
-        }).pipe(
-          Effect.match({
-            onFailure: (reconciliationFailure) => ({
-              actions: [
-                skippedAction(
-                  `Google Play products ${app.identifier}: ${restoreErrorMessage(reconciliationFailure)}`,
-                ),
-              ],
-            }),
-            onSuccess: (reconciliationReport) => reconciliationReport,
-          }),
-        );
-        actions.push(...reconciliation.actions);
-      }
-      return { actions };
-    });
-  },
+  restore: restorePlayProducts,
 };
+
+type PlayCaptureEntry =
+  | { readonly captured: { app: string; identifier: string; entities: SnapshotEntity[] } }
+  | { readonly skipped: { app: string; identifier: string; reason: string } };
+
+async function captureOneProductApp(
+  snapshotContext: SnapshotContext,
+  app: { name: string; identifier: string },
+): Promise<PlayCaptureEntry> {
+  const client = await snapshotContext.resolvePlayApi(app.identifier);
+
+  if (client == null) {
+    return {
+      skipped: { app: app.name, identifier: app.identifier, reason: 'no Play service account' },
+    };
+  }
+
+  const records = await client.listInAppProducts(app.identifier);
+
+  return {
+    captured: { app: app.name, identifier: app.identifier, entities: records.map(toEntity) },
+  };
+}
+
+function capturedApps(entry: PlayCaptureEntry) {
+  if ('captured' in entry) {
+    return [entry.captured];
+  }
+
+  return [];
+}
+
+function skippedApps(entry: PlayCaptureEntry) {
+  if ('skipped' in entry) {
+    return [entry.skipped];
+  }
+
+  return [];
+}
+
+async function capturePlayProducts(snapshotContext: SnapshotContext) {
+  const apps = androidApps(snapshotContext.apps);
+
+  if (apps.length == 0) {
+    return { state: 'omitted' as const };
+  }
+
+  const results = await Promise.all(
+    apps.map(function captureNamedApp(app) {
+      return captureOneProductApp(snapshotContext, app);
+    }),
+  );
+  const captured = results.flatMap(capturedApps);
+  const skipped = results.flatMap(skippedApps);
+
+  if (captured.length == 0) {
+    return {
+      state: 'skipped' as const,
+      reason: `no Play service account for ${skipped
+        .map(function appName(entry) {
+          return entry.app;
+        })
+        .join(', ')}`,
+      hint: 'configure Play credentials',
+    };
+  }
+
+  if (skipped.length == 0) {
+    return { state: 'captured' as const, apps: captured };
+  }
+
+  return { state: 'captured' as const, apps: captured, skippedApps: skipped };
+}
+
+async function restorePlayProducts({ ctx: restoreContext, saved, dryRun }: RestoreInput) {
+  const actions: PlannedAction[] = [];
+
+  for (const app of saved) {
+    const client = await restoreContext.resolvePlayWriteClient(app.identifier);
+
+    if (client == null) {
+      actions.push(
+        skippedAction(`Google Play: skipped - no Play service account for ${app.identifier}`),
+      );
+      continue;
+    }
+
+    const products: InAppPurchaseConfig[] = [];
+
+    for (const entity of app.entities) {
+      const productConfig = toProductConfig(entity);
+
+      if (productConfig == null) {
+        actions.push(skippedAction(`Play product ${entity.key}: skipped - no listing to restore`));
+        continue;
+      }
+
+      products.push(productConfig);
+    }
+
+    if (products.length == 0) {
+      continue;
+    }
+
+    const appActions = await reconcileProductActions(client, app.identifier, products, dryRun);
+    actions.push(...appActions);
+  }
+
+  return { actions };
+}
+
+async function reconcileProductActions(
+  client: NonNullable<Awaited<ReturnType<RestoreInput['ctx']['resolvePlayWriteClient']>>>,
+  packageName: string,
+  products: InAppPurchaseConfig[],
+  dryRun: boolean,
+): Promise<PlannedAction[]> {
+  try {
+    const reconciliation = await reconcilePlayProducts(client, { packageName, products, dryRun });
+
+    return [...reconciliation.actions];
+  } catch (reconciliationFailure) {
+    return [
+      skippedAction(
+        `Google Play products ${packageName}: ${restoreErrorMessage(reconciliationFailure)}`,
+      ),
+    ];
+  }
+}

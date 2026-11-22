@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { Effect } from 'effect';
 import {
   REQUIRED_TOOLS,
   ensureCcacheInstalled,
@@ -11,8 +10,6 @@ import {
   type ToolchainIo,
 } from './toolchain.js';
 import { expectDefined } from '@testkit/assertions.testkit.js';
-import { makeLaunchLoggerTest, type Logger } from '../services/platform/logger.js';
-import { makeLaunchPromptTest, type LaunchPromptService } from '../services/platform/prompt.js';
 /** Map each brew formula back to the command it provides, so the fake can mark it present after install. */
 const FORMULA_TO_COMMAND = new Map(
   REQUIRED_TOOLS.flatMap((tool) => {
@@ -38,39 +35,49 @@ const makeIo = (toolchainOptions: {
   let textConfirmation = true;
   if (toolchainOptions.confirmText !== undefined) textConfirmation = toolchainOptions.confirmText;
   const io: ToolchainIo = {
-    exists: (command) => Effect.sync(() => present.has(command)),
-    run: (command, args) =>
-      Effect.sync(() => {
-        runs.push([command, ...args]);
-        if (command === 'brew' && args[0] === 'install') {
+    async exists(command) {
+      return present.has(command);
+    },
+    async run(command, args) {
+      runs.push([command, ...args]);
+      const isBrewInstall = command == 'brew';
+
+      if (isBrewInstall) {
+        const isInstall = args[0] == 'install';
+
+        if (isInstall) {
           for (const formula of args.slice(1)) {
             const provided = FORMULA_TO_COMMAND.get(formula);
-            if (provided) present.add(provided);
+
+            if (provided != null) {
+              present.add(provided);
+            }
           }
-        } else if (command === '/bin/bash') {
-          present.add('brew'); // the Homebrew installer bootstraps `brew`
         }
-      }),
-    confirm: () => Effect.succeed(confirmation),
-    confirmText: () => Effect.succeed(textConfirmation),
-    log: (message) =>
-      Effect.sync(() => {
-        logs.push(message);
-      }),
+      }
+
+      const isBash = command == '/bin/bash';
+
+      if (isBash) {
+        present.add('brew');
+      }
+    },
+    async confirm() {
+      return confirmation;
+    },
+    async confirmText() {
+      return textConfirmation;
+    },
+    async log(message) {
+      logs.push(message);
+    },
   };
   return { io, logs, runs };
 };
 /** Run a toolchain program with an isolated logger capability. */
-const runToolchainEffect = <TValue, TError>(
-  toolchainEffect: Effect.Effect<TValue, TError, Logger | LaunchPromptService>,
-): Promise<TValue> => {
-  return Effect.runPromise(
-    toolchainEffect.pipe(
-      Effect.provide(makeLaunchLoggerTest([])),
-      Effect.provide(makeLaunchPromptTest()),
-    ),
-  );
-};
+async function runToolchainEffect<TValue>(toolchainWork: Promise<TValue>): Promise<TValue> {
+  return toolchainWork;
+}
 const ALL_COMMANDS = REQUIRED_TOOLS.map((tool) => tool.command);
 describe('fixHint', () => {
   it('renders a brew tool as `brew install <formula>`', () => {

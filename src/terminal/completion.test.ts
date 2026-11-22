@@ -3,10 +3,8 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Command } from 'commander';
-import { Effect } from 'effect';
-import { NodeContext } from '@effect/platform-node';
-import { LaunchEnvironmentTest } from '../services/platform/environment.js';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
+import { readLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import {
   COMPLETE_SUBCOMMAND,
   SHELLS,
@@ -25,27 +23,28 @@ import {
 } from './completion.js';
 import { expectDefined } from '@testkit/assertions.testkit.js';
 const tempDirs: string[] = [];
-/** Run the completion installer with a deterministic empty environment. */
-const runInstallCompletion = (installOptions: InstallOptions): Promise<InstallResult> => {
-  return Effect.runPromise(
-    installCompletion(installOptions).pipe(
-      Effect.provide(LaunchEnvironmentTest),
-      Effect.provide(makeLaunchPathsTest('/tmp', '/tmp')),
-      Effect.provide(NodeContext.layer),
-    ),
-  );
-};
-/** Run dynamic completion with the shared Node platform test layers. */
-const runCompletionResolution = (
-  completionEffect: ReturnType<typeof resolveCompletions>,
-): Promise<string[]> => {
-  return Effect.runPromise(
-    completionEffect.pipe(
-      Effect.provide(makeLaunchPathsTest('/tmp', process.cwd())),
-      Effect.provide(NodeContext.layer),
-    ),
-  );
-};
+async function runInstallCompletion(installOptions: InstallOptions): Promise<InstallResult> {
+  useLaunchEnvironment({});
+
+  try {
+    return await installCompletion(installOptions);
+  } finally {
+    resetLaunchEnvironment();
+  }
+}
+async function runCompletionResolution(words: string[], program: Command): Promise<string[]> {
+  const previousDirectories = readLaunchDirectories();
+  useLaunchDirectories({
+    homeDirectory: '/tmp',
+    workingDirectory: process.cwd(),
+  });
+
+  try {
+    return await resolveCompletions(words, program);
+  } finally {
+    useLaunchDirectories(previousDirectories);
+  }
+}
 /** A throwaway directory cleaned up after each test. */
 const makeDir = (prefix: string): string => {
   const dir = mkdtempSync(join(tmpdir(), prefix));
@@ -59,11 +58,18 @@ afterEach(() => {
 });
 describe('parseShell', () => {
   it('accepts every supported shell', () => {
-    for (const shell of SHELLS) expect(Effect.runSync(parseShell(shell))).toBe(shell);
+    for (const shell of SHELLS) expect(parseShell(shell)).toBe(shell);
   });
   it('rejects an unsupported shell with the valid list', () => {
-    const unsupportedShell = Effect.runSync(Effect.flip(parseShell('powershell')));
-    expect(unsupportedShell.message).toContain('Unsupported shell "powershell"');
+    let unsupportedShell: unknown = null;
+    try {
+      parseShell('powershell');
+    } catch (cause) {
+      unsupportedShell = cause;
+    }
+    expect(unsupportedShell).toMatchObject({
+      message: expect.stringContaining('Unsupported shell "powershell"'),
+    });
   });
 });
 describe('detectShell', () => {
@@ -184,7 +190,10 @@ describe('installCompletion', () => {
   });
   it('throws when no shell is given and none can be detected', async () => {
     const home = makeDir('launch-completion-home-');
-    await expect(runInstallCompletion({ home })).rejects.toThrow(/Could not detect your shell/);
+    await expect(runInstallCompletion({ home })).rejects.toMatchObject({
+      _tag: 'CompletionFailure',
+      message: expect.stringContaining('Could not detect your shell'),
+    });
   });
 });
 describe('resolveCompletions (the __complete callback)', () => {
@@ -201,19 +210,17 @@ describe('resolveCompletions (the __complete callback)', () => {
     return root;
   };
   it('completes top-level command names at the root', async () => {
-    const candidates = await runCompletionResolution(resolveCompletions([], program()));
+    const candidates = await runCompletionResolution([], program());
     expect(candidates).toContain('build');
     expect(candidates).toContain('plan');
     expect(candidates).toContain('snapshot');
   });
   it("completes a command's flags when the current word starts with a dash", async () => {
-    const candidates = await runCompletionResolution(resolveCompletions(['build', '-'], program()));
+    const candidates = await runCompletionResolution(['build', '-'], program());
     expect(candidates).toEqual(expect.arrayContaining(['-p', '--profile', '--clean']));
   });
   it('completes subcommands of a command group', async () => {
-    const candidates = await runCompletionResolution(
-      resolveCompletions(['snapshot', ''], program()),
-    );
+    const candidates = await runCompletionResolution(['snapshot', ''], program());
     expect(candidates).toContain('diff');
   });
   it('resolves -p/--profile values from the loaded config', async () => {
@@ -225,9 +232,7 @@ describe('resolveCompletions (the __complete callback)', () => {
     const saved = process.cwd();
     process.chdir(repo);
     try {
-      const candidates = await runCompletionResolution(
-        resolveCompletions(['build', '--profile', ''], program()),
-      );
+      const candidates = await runCompletionResolution(['build', '--profile', ''], program());
       expect(candidates.sort()).toEqual(['preview', 'production']);
     } finally {
       process.chdir(saved);
@@ -247,32 +252,26 @@ describe('resolveCompletions (the __complete callback)', () => {
     const saved = process.cwd();
     process.chdir(repo);
     try {
-      const candidates = await runCompletionResolution(
-        resolveCompletions(['plan', '-a', ''], program()),
-      );
+      const candidates = await runCompletionResolution(['plan', '-a', ''], program());
       expect(candidates).toContain('atlas');
     } finally {
       process.chdir(saved);
     }
   });
   it('resolves the plan [surface] positional from the planner registry', async () => {
-    const candidates = await runCompletionResolution(resolveCompletions(['plan', ''], program()));
+    const candidates = await runCompletionResolution(['plan', ''], program());
     expect(candidates).toContain('catalog');
     expect(candidates).toContain('listing');
   });
   it('does not re-complete a positional once it has been supplied', async () => {
-    const candidates = await runCompletionResolution(
-      resolveCompletions(['plan', 'catalog', ''], program()),
-    );
+    const candidates = await runCompletionResolution(['plan', 'catalog', ''], program());
     // The surface slot is filled, so we fall through to subcommands/flags (none -> flags only here).
     expect(candidates).not.toContain('listing');
     expect(candidates).toContain('--app');
   });
   it('still completes the positional after a value-taking flag and its value', async () => {
     // `--app atlas` is a flag and its value, not a positional - the [surface] slot must stay open.
-    const candidates = await runCompletionResolution(
-      resolveCompletions(['plan', '--app', 'atlas', ''], program()),
-    );
+    const candidates = await runCompletionResolution(['plan', '--app', 'atlas', ''], program());
     expect(candidates).toContain('catalog');
     expect(candidates).toContain('listing');
   });
@@ -281,9 +280,7 @@ describe('resolveCompletions (the __complete callback)', () => {
     const saved = process.cwd();
     process.chdir(repo);
     try {
-      const candidates = await runCompletionResolution(
-        resolveCompletions(['build', '--profile', ''], program()),
-      );
+      const candidates = await runCompletionResolution(['build', '--profile', ''], program());
       expect(candidates).toEqual(['production']); // loadConfig's DEFAULT_CONFIG profile
     } finally {
       process.chdir(saved);

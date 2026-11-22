@@ -1,11 +1,9 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CodeSigner } from '../credentials/codeSign.js';
-import { createLogger, makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { createLogger, resetLogger, useLoggerSink } from '../services/platform/logger.js';
 import type { StorageProvider } from '../types/providers.js';
 import {
   historyIndexKey,
@@ -20,49 +18,49 @@ type MemoryStorage = StorageProvider &
     readonly objects: Map<string, string>;
   }>;
 
-/** Build an in-memory object store with Effect-returning provider methods. */
-const makeMemoryStorage = (): MemoryStorage => {
+function makeMemoryStorage(): MemoryStorage {
   const objects = new Map<string, string>();
+
   return {
     objects,
     name: 'memory',
-    put: () => Effect.dieMessage('unused'),
-    list: () => Effect.succeed([]),
-    url: () => Effect.succeed(''),
-    putObject: (objectKey, objectContents) =>
-      Effect.sync(() => {
-        objects.set(objectKey, objectContents.toString());
-        return { id: objectKey, location: `memory://${objectKey}` };
-      }),
-    getObject: (objectKey) =>
-      Effect.sync(() => {
-        const storedText = objects.get(objectKey);
-        if (storedText === undefined) return null;
-        return Buffer.from(storedText);
-      }),
+    put: () => Promise.reject(new Error('unused')),
+    list: () => Promise.resolve([]),
+    url: () => Promise.resolve(''),
+    putObject: (objectKey, objectContents) => {
+      objects.set(objectKey, objectContents.toString());
+
+      return Promise.resolve({ id: objectKey, location: `memory://${objectKey}` });
+    },
+    getObject: (objectKey) => {
+      const storedText = objects.get(objectKey);
+
+      if (storedText == null) {
+        return Promise.resolve(null);
+      }
+
+      return Promise.resolve(Buffer.from(storedText));
+    },
     publicUrl: (objectKey) => `https://cdn/${objectKey}`,
   };
-};
+}
 
 const fixedSigner: CodeSigner = {
   certPath: '/tmp/cert.pem',
   sign: () => 'sig="FAKE", keyid="main", alg="rsa-v1_5-sha256"',
 };
 
-/** Run an OTA publish with platform services and a captured test logger. */
-const runPublish = (
-  input: Parameters<typeof publishOtaPlatform>[0],
+function runPublish(
+  publishInput: Parameters<typeof publishOtaPlatform>[0],
   terminalWrites: string[] = [],
-) =>
-  Effect.runPromise(
-    Effect.gen(function* () {
-      const logger = yield* createLogger(false);
-      return yield* publishOtaPlatform(input, logger);
-    }).pipe(
-      Effect.provide(makeLaunchLoggerTest(terminalWrites)),
-      Effect.provide(NodeContext.layer),
-    ),
-  );
+) {
+  useLoggerSink(function captureWrite(text: string) {
+    terminalWrites.push(text);
+  });
+  const logger = createLogger(false);
+
+  return publishOtaPlatform(publishInput, logger);
+}
 
 describe('publishOtaPlatform', () => {
   let exportDirectory: string;
@@ -83,6 +81,7 @@ describe('publishOtaPlatform', () => {
   });
 
   afterEach(() => {
+    resetLogger();
     rmSync(exportDirectory, { recursive: true, force: true });
   });
 
@@ -103,7 +102,11 @@ describe('publishOtaPlatform', () => {
     expect(publishDetails.prefix).toBe('updates/production/ios/1.0.0');
     expect(publishDetails.manifestId).toBeDefined();
     const manifestId = publishDetails.manifestId;
-    if (manifestId === undefined) throw new Error('Expected a manifest identifier');
+
+    if (manifestId == null) {
+      throw new Error('Expected a manifest identifier');
+    }
+
     expect(manifestId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
@@ -115,10 +118,12 @@ describe('publishOtaPlatform', () => {
     expect(objectKeys).toContain(historySnapshotKey('production', 'ios', '1.0.0', manifestId));
 
     const historyText = storage.objects.get(historyIndexKey('production', 'ios'));
-    if (historyText === undefined) throw new Error('Expected an update history index');
-    const historyEntries = Schema.decodeUnknownSync(
-      Schema.Array(Schema.Struct({ signed: Schema.Boolean })),
-    )(JSON.parse(historyText));
+
+    if (historyText == null) {
+      throw new Error('Expected an update history index');
+    }
+
+    const historyEntries = JSON.parse(historyText) as { signed: boolean }[];
     expect(historyEntries).toHaveLength(1);
     expect(historyEntries[0]?.signed).toBe(true);
   });
@@ -163,13 +168,10 @@ describe('publishOtaPlatform', () => {
 describe('readExportMetadata', () => {
   it('fails with an actionable error when metadata.json is missing', async () => {
     const exportDirectory = mkdtempSync(join(tmpdir(), 'launch-ota-empty-'));
+
     try {
-      const metadataRead = await Effect.runPromise(
-        readExportMetadata(exportDirectory).pipe(Effect.either, Effect.provide(NodeContext.layer)),
-      );
-      expect(metadataRead).toMatchObject({
-        _tag: 'Left',
-        left: { _tag: 'OtaPublishFailure' },
+      await expect(readExportMetadata(exportDirectory)).rejects.toMatchObject({
+        _tag: 'OtaPublishFailure',
       });
     } finally {
       rmSync(exportDirectory, { recursive: true, force: true });
@@ -181,12 +183,10 @@ describe('readExportMetadata', () => {
     const expectedMetadata: ExportMetadata = {
       fileMetadata: { ios: { bundle: 'bundle.js', assets: [] } },
     };
+
     try {
       writeFileSync(join(exportDirectory, 'metadata.json'), JSON.stringify(expectedMetadata));
-      const parsedMetadata = await Effect.runPromise(
-        readExportMetadata(exportDirectory).pipe(Effect.provide(NodeContext.layer)),
-      );
-      expect(parsedMetadata).toEqual(expectedMetadata);
+      await expect(readExportMetadata(exportDirectory)).resolves.toEqual(expectedMetadata);
     } finally {
       rmSync(exportDirectory, { recursive: true, force: true });
     }

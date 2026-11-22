@@ -1,11 +1,7 @@
-import type { FileSystem, Path } from '@effect/platform';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { type LaunchPathsService, makeLaunchPathsTest } from '../services/platform/paths.js';
 import {
   type BuildState,
   type FingerprintParts,
@@ -24,9 +20,6 @@ const FINGERPRINT_PARTS: FingerprintParts = {
   appConfigSlice: '{"plugins":["expo-router"],"newArchEnabled":true,"iosDeploymentTarget":"15.1"}',
   toolchainVersion: 'Xcode 16.0\nBuild version 16A242d',
 };
-
-const runFingerprintEffect = <Success>(fingerprintEffect: Effect.Effect<Success, unknown, never>) =>
-  Effect.runPromise(fingerprintEffect);
 
 describe('computeBuildFingerprint', () => {
   it('is deterministic for identical inputs', () => {
@@ -160,22 +153,8 @@ describe('build state storage', () => {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   });
 
-  const provideTestServices = <Success>(
-    buildStateEffect: Effect.Effect<
-      Success,
-      unknown,
-      FileSystem.FileSystem | LaunchPathsService | Path.Path
-    >,
-  ) =>
-    buildStateEffect.pipe(
-      Effect.provide(makeLaunchPathsTest(temporaryDirectory, temporaryDirectory)),
-      Effect.provide(NodeContext.layer),
-    );
-
   it('returns null before a state is written', async () => {
-    const storedBuild = await runFingerprintEffect(
-      provideTestServices(readBuildState('demo', 'ios', temporaryDirectory)),
-    );
+    const storedBuild = await readBuildState('demo', 'ios', temporaryDirectory);
     expect(storedBuild).toBeNull();
   });
 
@@ -189,19 +168,9 @@ describe('build state storage', () => {
         incremental: { ms: 41000, steps: 28 },
       },
     };
-    await runFingerprintEffect(
-      provideTestServices(writeBuildState('demo', 'ios', buildState, temporaryDirectory)),
-    );
-    expect(
-      await runFingerprintEffect(
-        provideTestServices(readBuildState('demo', 'ios', temporaryDirectory)),
-      ),
-    ).toEqual(buildState);
-    expect(
-      await runFingerprintEffect(
-        provideTestServices(readBuildState('demo', 'android', temporaryDirectory)),
-      ),
-    ).toBeNull();
+    await writeBuildState('demo', 'ios', buildState, temporaryDirectory);
+    expect(await readBuildState('demo', 'ios', temporaryDirectory)).toEqual(buildState);
+    expect(await readBuildState('demo', 'android', temporaryDirectory)).toBeNull();
   });
 });
 

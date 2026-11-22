@@ -1,31 +1,12 @@
-import { Effect } from 'effect';
 import { vi } from 'vitest';
 import type { AscSurfacesApi } from '../types/plan.js';
 
-const effectMethods = <Api extends object>(api: Api): Api => {
-  const wrappedMethods = new Map<PropertyKey, unknown>();
-  return new Proxy(api, {
-    get(targetApi, methodName, receiver) {
-      if (wrappedMethods.has(methodName)) return wrappedMethods.get(methodName);
-      const apiMember = Reflect.get(targetApi, methodName, receiver);
-      if (typeof apiMember !== 'function') return apiMember;
-      const effectMethod = vi.fn((...methodArguments: unknown[]) => {
-        const methodOutput = Reflect.apply(apiMember, targetApi, methodArguments);
-        if (Effect.isEffect(methodOutput)) return methodOutput;
-        return Effect.promise(() => Promise.resolve(methodOutput));
-      });
-      wrappedMethods.set(methodName, effectMethod);
-      return effectMethod;
-    },
-  });
-};
 /**
- * A fully-stubbed {@link AscSurfacesApi}. Reads resolve to "the app exists, nothing is configured" so a
- * reconcile dry-run yields a full create plan; writes are inert `vi.fn()`s (never invoked in dry-run, but
- * present so a test can assert they were not called). Pass `overrides` to shape a specific scenario -
- * e.g. `getAppId: () => Promise.resolve(null)` to exercise the missing-record error path.
+ * A fully-stubbed AscSurfacesApi. Reads say the app exists and nothing is set up, so a
+ * dry-run plans every create. Writes are inert mocks, so a test can assert they were
+ * not called. Pass overrides for one case, such as getAppId resolving to null.
  */
-export const makeAscApiFake = (overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi => {
+export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi {
   const base: AscSurfacesApi = {
     // shared
     getAppId: vi.fn().mockResolvedValue('app1'),
@@ -160,5 +141,5 @@ export const makeAscApiFake = (overrides: Partial<AscSurfacesApi> = {}): AscSurf
     createPreviewSet: vi.fn(),
     uploadPreview: vi.fn(),
   };
-  return effectMethods({ ...base, ...overrides });
-};
+  return { ...base, ...overrides };
+}

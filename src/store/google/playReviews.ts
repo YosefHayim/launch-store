@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import type { PlayReplyResult, PlayReview } from '../../types/googlePlay.js';
 
 /** The Google Play review operations used by the reviews domain. */
@@ -8,16 +7,13 @@ export type PlayReviewsApi = Readonly<{
     options: Readonly<{
       readonly translationLanguage?: string;
     }>,
-  ) => Effect.Effect<readonly PlayReview[], unknown>;
-  readonly getReview: (
-    packageName: string,
-    reviewId: string,
-  ) => Effect.Effect<PlayReview | null, unknown>;
+  ) => Promise<readonly PlayReview[]>;
+  readonly getReview: (packageName: string, reviewId: string) => Promise<PlayReview | null>;
   readonly replyToReview: (
     packageName: string,
     reviewId: string,
     replyText: string,
-  ) => Effect.Effect<PlayReplyResult, unknown>;
+  ) => Promise<PlayReplyResult>;
 }>;
 
 /** Client-side filters for recent Google Play reviews. */
@@ -33,36 +29,55 @@ type PlayReplyOutcome = Readonly<{
   readonly replaced: boolean;
 }>;
 
-export const listPlayReviews = (
+function reviewMatches(playReview: PlayReview, reviewFilters: PlayReviewFilters): boolean {
+  if (reviewFilters.rating != null) {
+    if (playReview.rating != reviewFilters.rating) {
+      return false;
+    }
+  }
+
+  const wantsUnanswered = reviewFilters.unansweredOnly == true;
+
+  if (wantsUnanswered) {
+    if (playReview.answered) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export async function listPlayReviews(
   playReviewsApi: PlayReviewsApi,
   packageName: string,
   reviewFilters: PlayReviewFilters = {},
-): Effect.Effect<readonly PlayReview[], unknown> =>
-  Effect.gen(function* () {
-    const reviewRequest: { translationLanguage?: string } = {};
-    if (reviewFilters.translationLanguage !== undefined) {
-      reviewRequest.translationLanguage = reviewFilters.translationLanguage;
-    }
-    const recentReviews = yield* playReviewsApi.listReviews(packageName, reviewRequest);
-    return recentReviews.filter((playReview) => {
-      if (reviewFilters.rating !== undefined && playReview.rating !== reviewFilters.rating) {
-        return false;
-      }
-      if (reviewFilters.unansweredOnly === true && playReview.answered) return false;
-      return true;
-    });
-  });
+): Promise<readonly PlayReview[]> {
+  const reviewRequest: { translationLanguage?: string } = {};
 
-export const replyToPlayReview = (
+  if (reviewFilters.translationLanguage != null) {
+    reviewRequest.translationLanguage = reviewFilters.translationLanguage;
+  }
+
+  const recentReviews = await playReviewsApi.listReviews(packageName, reviewRequest);
+
+  return recentReviews.filter(function keepReview(playReview: PlayReview) {
+    return reviewMatches(playReview, reviewFilters);
+  });
+}
+
+export async function replyToPlayReview(
   playReviewsApi: PlayReviewsApi,
   packageName: string,
   reviewId: string,
   replyText: string,
   existingReview: PlayReview | null,
-): Effect.Effect<PlayReplyOutcome, unknown> =>
-  Effect.gen(function* () {
-    const storedReply = yield* playReviewsApi.replyToReview(packageName, reviewId, replyText);
-    let replaced = existingReview?.answered;
-    if (replaced === undefined) replaced = false;
-    return { reply: storedReply, replaced };
-  });
+): Promise<PlayReplyOutcome> {
+  const storedReply = await playReviewsApi.replyToReview(packageName, reviewId, replyText);
+  let replaced = false;
+
+  if (existingReview != null) {
+    replaced = existingReview.answered;
+  }
+
+  return { reply: storedReply, replaced };
+}

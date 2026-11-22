@@ -1,6 +1,5 @@
 import type { PlayReportingApp, PlayReportingClient } from '@google/playReporting.js';
-import { Effect } from 'effect';
-import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
+import type { AppStoreConnectClient } from '../apple/ascClient.js';
 
 interface FakeAscApp {
   readonly id: string;
@@ -8,26 +7,36 @@ interface FakeAscApp {
   readonly bundleId: string | null;
 }
 
-export const makeFakeAscClient = (
-  appsOrFailure: readonly FakeAscApp[] | Error,
-): EffectAppStoreConnectClient => {
-  const fakeClient = {
-    listApps: () => {
-      if (appsOrFailure instanceof Error) return Effect.fail(appsOrFailure);
-      return Effect.succeed(appsOrFailure);
-    },
-  };
-  return fakeClient as unknown as EffectAppStoreConnectClient;
-};
+function isError(candidate: object): candidate is Error {
+  return candidate instanceof Error;
+}
 
-export const makeFakePlayReportingClient = (
+export function makeFakeAscClient(
+  appsOrFailure: readonly FakeAscApp[] | Error,
+): AppStoreConnectClient {
+  async function listApps(): Promise<FakeAscApp[]> {
+    if (isError(appsOrFailure)) {
+      throw appsOrFailure;
+    }
+
+    return [...appsOrFailure];
+  }
+
+  // Only listApps is exercised; the rest of the client is unused by these tests.
+  return { listApps } as unknown as AppStoreConnectClient;
+}
+
+export function makeFakePlayReportingClient(
   appsOrFailure: readonly PlayReportingApp[] | Error,
-): PlayReportingClient => {
-  const fakeClient = {
-    listApps: () => {
-      if (appsOrFailure instanceof Error) return Effect.fail(appsOrFailure);
-      return Effect.succeed(appsOrFailure);
-    },
-  };
-  return fakeClient as unknown as PlayReportingClient;
-};
+): PlayReportingClient {
+  async function listApps(): Promise<PlayReportingApp[]> {
+    if (isError(appsOrFailure)) {
+      throw appsOrFailure;
+    }
+
+    return [...appsOrFailure];
+  }
+
+  // Only listApps is exercised; the rest of the client is unused by these tests.
+  return { listApps } as unknown as PlayReportingClient;
+}

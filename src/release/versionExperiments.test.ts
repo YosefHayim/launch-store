@@ -1,8 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { LocalScreenshot } from '../listing/screenshots/assets.js';
 import type {
@@ -52,7 +50,7 @@ type ExperimentStoreState = {
   reviewSubmissions: ReviewSubmissionResource[];
 };
 
-/** Build an Effect-native experiments API fake and its write journal. */
+/** Build an experiments API fake and its write journal. */
 const makeExperimentsApi = (
   stateOverrides: Partial<ExperimentStoreState>,
   methodOverrides: Partial<AscExperimentsApi> = {},
@@ -81,46 +79,46 @@ const makeExperimentsApi = (
     startedExperiments: [],
   };
   const appleExperimentsApi: AscExperimentsApi = {
-    getAppId: () => Effect.succeed(experimentStore.appId),
-    listVersionExperiments: () => Effect.succeed(experimentStore.experiments),
+    getAppId: () => Promise.resolve(experimentStore.appId),
+    listVersionExperiments: () => Promise.resolve(experimentStore.experiments),
     createVersionExperiment: (_appId, experimentInput) => {
       experimentWrites.createdExperiments.push(experimentInput);
-      return Effect.succeed({
+      return Promise.resolve({
         id: 'exp-new',
         name: experimentInput.name,
         state: 'PREPARE_FOR_SUBMISSION',
       });
     },
-    listExperimentTreatments: () => Effect.succeed(experimentStore.treatments),
+    listExperimentTreatments: () => Promise.resolve(experimentStore.treatments),
     createExperimentTreatment: (experimentId, treatmentInput) => {
       experimentWrites.createdTreatments.push({
         experimentId,
         name: treatmentInput.name,
       });
-      return Effect.succeed({ id: 'treat-new', name: treatmentInput.name });
+      return Promise.resolve({ id: 'treat-new', name: treatmentInput.name });
     },
     startVersionExperiment: (experimentId) => {
       experimentWrites.startedExperiments.push(experimentId);
-      return Effect.void;
+      return Promise.resolve();
     },
-    listExperimentTreatmentLocalizations: () => Effect.succeed(experimentStore.localizations),
+    listExperimentTreatmentLocalizations: () => Promise.resolve(experimentStore.localizations),
     createExperimentTreatmentLocalization: (treatmentId, locale) => {
       experimentWrites.createdLocalizations.push({ treatmentId, locale });
-      return Effect.succeed({ id: `loc-${locale}`, locale });
+      return Promise.resolve({ id: `loc-${locale}`, locale });
     },
     listTreatmentScreenshotSets: (localizationId) => {
       let localizationSets = experimentStore.screenshotSetsByLocalization[localizationId];
       if (localizationSets === undefined) localizationSets = [];
-      return Effect.succeed(localizationSets);
+      return Promise.resolve(localizationSets);
     },
     createTreatmentScreenshotSet: (localizationId, displayType) => {
       experimentWrites.createdSets.push({ localizationId, displayType });
-      return Effect.succeed({ id: `set-${localizationId}`, screenshotDisplayType: displayType });
+      return Promise.resolve({ id: `set-${localizationId}`, screenshotDisplayType: displayType });
     },
     listScreenshots: (setId) => {
       let setScreenshots = experimentStore.screenshotsBySet[setId];
       if (setScreenshots === undefined) setScreenshots = [];
-      return Effect.succeed(setScreenshots);
+      return Promise.resolve(setScreenshots);
     },
     uploadScreenshot: (setId, fileName) => {
       experimentWrites.uploads.push({ setId, fileName });
@@ -129,7 +127,7 @@ const makeExperimentsApi = (
       const uploadedId = `up-${fileName}`;
       // Apple fills sourceFileChecksum only after it processes the upload.
       experimentStore.screenshotsBySet[setId] = [...setScreenshots, { id: uploadedId, fileName }];
-      return Effect.succeed(uploadedId);
+      return Promise.resolve(uploadedId);
     },
     deleteScreenshot: (screenshotId) => {
       experimentWrites.removedScreenshots.push(screenshotId);
@@ -138,24 +136,24 @@ const makeExperimentsApi = (
           (screenshot) => screenshot.id !== screenshotId,
         );
       }
-      return Effect.void;
+      return Promise.resolve();
     },
     reorderScreenshots: (setId, screenshotIds) => {
       experimentWrites.reorders.push({ setId, screenshotIds });
-      return Effect.void;
+      return Promise.resolve();
     },
-    listReviewSubmissions: () => Effect.succeed(experimentStore.reviewSubmissions),
+    listReviewSubmissions: () => Promise.resolve(experimentStore.reviewSubmissions),
     createReviewSubmission: (_appId, platform) => {
       experimentWrites.createdSubmissions.push(platform);
-      return Effect.succeed({ id: 'sub-new', state: 'READY_FOR_REVIEW' });
+      return Promise.resolve({ id: 'sub-new', state: 'READY_FOR_REVIEW' });
     },
     addExperimentReviewSubmissionItem: (submissionId, experimentId) => {
       experimentWrites.reviewItems.push({ submissionId, experimentId });
-      return Effect.void;
+      return Promise.resolve();
     },
     submitReviewSubmission: (submissionId) => {
       experimentWrites.submittedSubmissions.push(submissionId);
-      return Effect.void;
+      return Promise.resolve();
     },
     ...methodOverrides,
   };
@@ -240,34 +238,32 @@ const existingScreenshotsExperiment: VersionExperimentResource = {
 };
 
 /** Run the shared experiment fixture in plan or apply mode. */
-const reconcileExperiments = (appleExperimentsApi: AscExperimentsApi, dryRun: boolean) =>
-  Effect.runPromise(
-    reconcileVersionExperiments(appleExperimentsApi, {
-      bundleId: 'com.acme.app',
-      config: experimentConfig,
-      treatmentScreenshots: new Map(),
-      submit: false,
-      start: false,
-      dryRun,
-    }),
-  );
+function reconcileExperiments(appleExperimentsApi: AscExperimentsApi, dryRun: boolean) {
+  return reconcileVersionExperiments(appleExperimentsApi, {
+    bundleId: 'com.acme.app',
+    config: experimentConfig,
+    treatmentScreenshots: new Map(),
+    submit: false,
+    start: false,
+    dryRun,
+  });
+}
 
 /** Run the screenshot-treatment fixture with the given lifecycle flags. */
-const reconcileMediaExperiments = (
+function reconcileMediaExperiments(
   appleExperimentsApi: AscExperimentsApi,
   inputOverrides: Partial<ExperimentsReconcileInput>,
-) =>
-  Effect.runPromise(
-    reconcileVersionExperiments(appleExperimentsApi, {
-      bundleId: 'com.acme.app',
-      config: mediaConfig,
-      treatmentScreenshots,
-      submit: false,
-      start: false,
-      dryRun: false,
-      ...inputOverrides,
-    }),
-  );
+) {
+  return reconcileVersionExperiments(appleExperimentsApi, {
+    bundleId: 'com.acme.app',
+    config: mediaConfig,
+    treatmentScreenshots,
+    submit: false,
+    start: false,
+    dryRun: false,
+    ...inputOverrides,
+  });
+}
 
 /** The descriptions of a report's actions with one status. */
 const descriptionsWithStatus = (
@@ -280,7 +276,7 @@ const descriptionsWithStatus = (
 
 describe('version experiments schema', () => {
   it('decodes experiments with treatments', async () => {
-    const decodedConfig = await Effect.runPromise(parseVersionExperimentsConfig(experimentConfig));
+    const decodedConfig = await parseVersionExperimentsConfig(experimentConfig);
     expect(decodedConfig.experiments[0]?.name).toBe('Icon Test');
     expect(
       decodedConfig.experiments[0]?.treatments?.map((declaredTreatment) => declaredTreatment.name),
@@ -288,29 +284,29 @@ describe('version experiments schema', () => {
   });
 
   it('rejects malformed documents and duplicate names', async () => {
-    await expect(Effect.runPromise(parseVersionExperimentsConfig('nope'))).rejects.toThrow(
-      /must be a JSON object/,
-    );
+    await expect(parseVersionExperimentsConfig('nope')).rejects.toMatchObject({
+      message: expect.stringMatching(/must be a JSON object/),
+    });
+    await expect(parseVersionExperimentsConfig({ experiments: [] })).rejects.toMatchObject({
+      message: expect.stringMatching(/at least one entry/),
+    });
     await expect(
-      Effect.runPromise(parseVersionExperimentsConfig({ experiments: [] })),
-    ).rejects.toThrow(/at least one entry/);
+      parseVersionExperimentsConfig({
+        experiments: [{ name: 'X', trafficProportion: 0 }],
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/trafficProportion must be a positive number/),
+    });
     await expect(
-      Effect.runPromise(
-        parseVersionExperimentsConfig({
-          experiments: [{ name: 'X', trafficProportion: 0 }],
-        }),
-      ),
-    ).rejects.toThrow(/trafficProportion must be a positive number/);
-    await expect(
-      Effect.runPromise(
-        parseVersionExperimentsConfig({
-          experiments: [
-            { name: 'X', trafficProportion: 10 },
-            { name: 'X', trafficProportion: 20 },
-          ],
-        }),
-      ),
-    ).rejects.toThrow(/duplicate experiment name/);
+      parseVersionExperimentsConfig({
+        experiments: [
+          { name: 'X', trafficProportion: 10 },
+          { name: 'X', trafficProportion: 20 },
+        ],
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/duplicate experiment name/),
+    });
   });
 
   it('reads treatment screenshot folders relative to the config file', async () => {
@@ -326,11 +322,7 @@ describe('version experiments schema', () => {
     try {
       mkdirSync(displayTypeDirectory, { recursive: true });
       writeFileSync(join(displayTypeDirectory, '01.png'), 'png');
-      const discoveredScreenshots = await Effect.runPromise(
-        discoverTreatmentScreenshots(configPath, mediaConfig).pipe(
-          Effect.provide(NodeContext.layer),
-        ),
-      );
+      const discoveredScreenshots = await discoverTreatmentScreenshots(configPath, mediaConfig);
       expect(
         discoveredScreenshots
           .get('treatment')
@@ -342,25 +334,21 @@ describe('version experiments schema', () => {
         ],
       };
       await expect(
-        Effect.runPromise(
-          discoverTreatmentScreenshots(configPath, missingFolderConfig).pipe(
-            Effect.provide(NodeContext.layer),
-          ),
-        ),
-      ).rejects.toThrow(/No treatment screenshots folder/);
+        discoverTreatmentScreenshots(configPath, missingFolderConfig),
+      ).rejects.toMatchObject({
+        message: expect.stringMatching(/No treatment screenshots folder/),
+      });
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true });
     }
   });
 
-  it('reads and decodes a sidecar through Effect Platform', async () => {
+  it('reads and decodes a sidecar', async () => {
     const temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-experiments-'));
     const configPath = join(temporaryDirectory, 'experiments.config.json');
     try {
       writeFileSync(configPath, JSON.stringify(experimentConfig));
-      const loadedConfig = await Effect.runPromise(
-        loadVersionExperimentsConfig(configPath).pipe(Effect.provide(NodeContext.layer)),
-      );
+      const loadedConfig = await loadVersionExperimentsConfig(configPath);
       expect(loadedConfig).toEqual(experimentConfig);
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true });
@@ -371,9 +359,9 @@ describe('version experiments schema', () => {
 describe('version experiment reconciliation', () => {
   it('fails when the App Store record is absent', async () => {
     const { appleExperimentsApi } = makeExperimentsApi({ appId: null });
-    await expect(reconcileExperiments(appleExperimentsApi, true)).rejects.toThrow(
-      /No App Store Connect app record/,
-    );
+    await expect(reconcileExperiments(appleExperimentsApi, true)).rejects.toMatchObject({
+      message: expect.stringMatching(/No App Store Connect app record/),
+    });
   });
 
   it('creates a missing experiment and its treatments', async () => {
@@ -420,7 +408,9 @@ describe('version experiment reconciliation', () => {
     const { appleExperimentsApi } = makeExperimentsApi(
       {},
       {
-        createVersionExperiment: () => Effect.fail(new Error('name already in use')),
+        createVersionExperiment: function refuseExperiment() {
+          throw new Error('name already in use');
+        },
       },
     );
     const reconciliationReport = await reconcileExperiments(appleExperimentsApi, false);
@@ -604,7 +594,11 @@ describe('version experiment review and start', () => {
         experiments: [existingScreenshotsExperiment],
         treatments: [{ id: 't-1', name: 'Colorful' }],
       },
-      { uploadScreenshot: () => Effect.fail(new Error('upload refused')) },
+      {
+        uploadScreenshot: function refuseUpload() {
+          throw new Error('upload refused');
+        },
+      },
     );
     const failedUploadReport = await reconcileMediaExperiments(failedUpload.appleExperimentsApi, {
       submit: true,

@@ -1,12 +1,17 @@
-import { NodeContext, NodeHttpClient } from '@effect/platform-node';
-import { Effect, Schema } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { LaunchConfig } from '../types/config.js';
+import type { McpTool, McpToolResult } from '../types/mcp.js';
+import type { SurfacePlanner } from '../types/plan.js';
+import type { Snapshot } from '../types/snapshot.js';
+import type { McpCapability } from '../types/storeSurface.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import { gateTools } from './gate.js';
 import {
   ALL_TOOLS,
   chooseSurfacePlanners,
   DANGEROUS_TOOLS,
   DRY_RUN_TOOLS,
-  type McpToolRequirements,
+  type McpToolFailure,
   optionalString,
   READ_TOOLS,
   requestedPlatform,
@@ -14,22 +19,8 @@ import {
   summarizeSnapshots,
   WRITE_TOOLS,
 } from './tools.js';
-import { gateTools } from './gate.js';
-import type { LaunchConfig } from '../types/config.js';
-import type { McpTool } from '../types/mcp.js';
-import type { SurfacePlanner } from '../types/plan.js';
-import type { Snapshot } from '../types/snapshot.js';
-import type { McpCapability } from '../types/storeSurface.js';
-import { expectArrayElement } from '@testkit/assertions.testkit.js';
-import { AppleStoreClientLive } from '../services/stores/appleStoreClient.js';
-import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
-import { GoogleStoreClientLive } from '../services/stores/googleStoreClient.js';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
-import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
-import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
 
-/** A bare config exposing the given MCP capability tiers - only the fields the gate reads matter here. */
-const config = (capabilities: readonly McpCapability[]): LaunchConfig => {
+function sampleLaunchConfig(capabilities: readonly McpCapability[]): LaunchConfig {
   return {
     profiles: {},
     credentials: 'local',
@@ -38,70 +29,162 @@ const config = (capabilities: readonly McpCapability[]): LaunchConfig => {
     submit: 'app-store-connect',
     mcp: { capabilities },
   };
-};
+}
 
-/** Look a tool up by its advertised name, failing loudly if the registry no longer has it. */
-const byName = (name: string): McpTool<McpToolRequirements> => {
-  const tool = ALL_TOOLS.find((candidate) => candidate.name === name);
-  if (!tool) throw new Error(`tool ${name} missing from ALL_TOOLS`);
-  return tool;
-};
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
 
-/** Shared platform + domain services for registry handler tests. */
-const provideToolServices = <A, E, R>(program: Effect.Effect<A, E, R>) =>
-  program.pipe(
-    Effect.provide(NodeContext.layer),
-    Effect.provide(NodeHttpClient.layer),
-    Effect.provide(makeStatsCredentialsTest()),
-    Effect.provide(AppleStoreClientLive),
-    Effect.provide(GoogleStoreClientLive),
-    Effect.provide(makeLaunchEnvironmentTest({})),
-    Effect.provide(makeLaunchPathsTest('/test-home', '/workspace')),
-    Effect.provide(makeLaunchSecretStoreTest()),
-  );
+  if (typeof candidate != 'object') {
+    return false;
+  }
 
-/** Parse the JSON a successful read tool emits as its single text block. */
-const parseToolOutput = <DecodedOutput>(
-  toolOutput: { content: readonly { readonly text: string }[] },
-  outputSchema: Schema.Schema<DecodedOutput>,
-): DecodedOutput =>
-  Schema.decodeUnknownSync(outputSchema)(
-    JSON.parse(expectArrayElement(toolOutput.content, 0, 'toolOutput.content').text),
-  );
+  return Array.isArray(candidate) == false;
+}
 
-/** Run one registry handler with deterministic platform and domain services. */
-const runTool = (tool: McpTool<McpToolRequirements>, argumentsRecord: Record<string, unknown>) =>
-  Effect.runPromise(provideToolServices(tool.handler(argumentsRecord)));
+function isMcpToolFailure(failure: unknown): failure is McpToolFailure {
+  if (failure == null) {
+    return false;
+  }
 
-const McpToolFailureSchema = Schema.Struct({
-  _tag: Schema.Literal('McpToolFailure'),
-  message: Schema.String,
-});
+  if (typeof failure != 'object') {
+    return false;
+  }
 
-const runToolFailure = async (
-  tool: McpTool<McpToolRequirements>,
+  if ('_tag' in failure == false) {
+    return false;
+  }
+
+  if (failure._tag != 'McpToolFailure') {
+    return false;
+  }
+
+  if ('message' in failure == false) {
+    return false;
+  }
+
+  return typeof failure.message == 'string';
+}
+
+function byName(name: string): McpTool {
+  const foundTool = ALL_TOOLS.find(function isNamedTool(candidate: McpTool): boolean {
+    return candidate.name == name;
+  });
+
+  if (foundTool == null) {
+    throw new Error(`tool ${name} missing from ALL_TOOLS`);
+  }
+
+  return foundTool;
+}
+
+function toolName(mcpTool: McpTool): string {
+  return mcpTool.name;
+}
+
+function markdownLength(docsOutput: Record<string, unknown>): number {
+  const markdown = docsOutput['markdown'];
+
+  if (typeof markdown != 'string') {
+    return 0;
+  }
+
+  return markdown.length;
+}
+
+function readToolJson(toolOutput: McpToolResult): unknown {
+  const textBlock = toolOutput.content[0];
+
+  if (textBlock == null) {
+    throw new Error('missing tool text');
+  }
+
+  return JSON.parse(textBlock.text);
+}
+
+async function runTool(
+  mcpTool: McpTool,
   argumentsRecord: Record<string, unknown>,
-) => {
-  const toolFailure = await Effect.runPromise(
-    provideToolServices(Effect.flip(tool.handler(argumentsRecord))),
-  );
-  return Schema.decodeUnknownSync(McpToolFailureSchema)(toolFailure);
-};
+): Promise<McpToolResult> {
+  return mcpTool.handler(argumentsRecord);
+}
 
-const samplePlanner = (surfaceId: string): SurfacePlanner => ({
-  id: surfaceId,
-  store: 'appstore',
-  plan: () =>
-    Effect.succeed({
-      surface: surfaceId,
-      store: 'appstore',
-      state: 'omitted',
-    }),
-});
+async function runToolFailure(
+  mcpTool: McpTool,
+  argumentsRecord: Record<string, unknown>,
+): Promise<McpToolFailure> {
+  try {
+    await mcpTool.handler(argumentsRecord);
+  } catch (failure) {
+    if (isMcpToolFailure(failure)) {
+      return failure;
+    }
+
+    throw failure;
+  }
+
+  throw new Error('expected a tool failure');
+}
+
+function samplePlanner(surfaceId: string): SurfacePlanner {
+  return {
+    id: surfaceId,
+    store: 'appstore',
+    async plan() {
+      return {
+        surface: surfaceId,
+        store: 'appstore',
+        state: 'omitted',
+      };
+    },
+  };
+}
+
+function referencedSchemaType(
+  reference: string,
+  definitions: Record<string, unknown>,
+): unknown | null {
+  const rootName = reference.split('/').pop();
+
+  if (rootName == null) {
+    return null;
+  }
+
+  const referencedSchema = definitions[rootName];
+
+  if (isRecord(referencedSchema)) {
+    return referencedSchema['type'];
+  }
+
+  return null;
+}
+
+function followSchemaReference(reference: unknown, definitions: unknown): unknown | null {
+  if (typeof reference != 'string') {
+    return null;
+  }
+
+  if (isRecord(definitions)) {
+    return referencedSchemaType(reference, definitions);
+  }
+
+  return null;
+}
+
+function rootSchemaType(configSchema: Record<string, unknown>): unknown {
+  const followedType = followSchemaReference(configSchema['$ref'], configSchema['definitions']);
+
+  if (followedType != null) {
+    return followedType;
+  }
+
+  return configSchema['type'];
+}
 
 describe('READ_TOOLS registry', () => {
   it('exposes the v1 read-only surface, every tool on the read tier', () => {
-    expect(READ_TOOLS.map((tool) => tool.name)).toEqual([
+    expect(READ_TOOLS.map(toolName)).toEqual([
       'plan',
       'drift',
       'audit',
@@ -115,34 +198,51 @@ describe('READ_TOOLS registry', () => {
       'snapshot_export',
       'doctor',
     ]);
-    expect(READ_TOOLS.every((tool) => tool.capability === 'read')).toBe(true);
+    expect(
+      READ_TOOLS.every(function isReadTool(mcpTool: McpTool): boolean {
+        return mcpTool.capability == 'read';
+      }),
+    ).toBe(true);
   });
+
   it('gives every tool a snake_case name and an object input schema', () => {
-    for (const tool of ALL_TOOLS) {
-      expect(tool.name).toMatch(/^[a-z][a-z0-9_]*$/);
-      expect(tool.inputSchema.type).toBe('object');
+    for (const mcpTool of ALL_TOOLS) {
+      expect(mcpTool.name).toMatch(/^[a-z][a-z0-9_]*$/);
+      expect(mcpTool.inputSchema.type).toBe('object');
     }
   });
 });
 
 describe('DRY_RUN_TOOLS registry', () => {
   it('exposes the build_plan rehearsal on the dryRun tier', () => {
-    expect(DRY_RUN_TOOLS.map((tool) => tool.name)).toEqual(['build_plan']);
-    expect(DRY_RUN_TOOLS.every((tool) => tool.capability === 'dryRun')).toBe(true);
+    expect(DRY_RUN_TOOLS.map(toolName)).toEqual(['build_plan']);
+    expect(
+      DRY_RUN_TOOLS.every(function isDryRunTool(mcpTool: McpTool): boolean {
+        return mcpTool.capability == 'dryRun';
+      }),
+    ).toBe(true);
   });
 });
 
 describe('WRITE_TOOLS registry', () => {
   it('exposes the additive sync tool on the write tier', () => {
-    expect(WRITE_TOOLS.map((tool) => tool.name)).toEqual(['sync']);
-    expect(WRITE_TOOLS.every((tool) => tool.capability === 'write')).toBe(true);
+    expect(WRITE_TOOLS.map(toolName)).toEqual(['sync']);
+    expect(
+      WRITE_TOOLS.every(function isWriteTool(mcpTool: McpTool): boolean {
+        return mcpTool.capability == 'write';
+      }),
+    ).toBe(true);
   });
 });
 
 describe('DANGEROUS_TOOLS registry', () => {
   it('exposes the destructive sync tool on the dangerous tier', () => {
-    expect(DANGEROUS_TOOLS.map((tool) => tool.name)).toEqual(['sync_destructive']);
-    expect(DANGEROUS_TOOLS.every((tool) => tool.capability === 'dangerous')).toBe(true);
+    expect(DANGEROUS_TOOLS.map(toolName)).toEqual(['sync_destructive']);
+    expect(
+      DANGEROUS_TOOLS.every(function isDangerousTool(mcpTool: McpTool): boolean {
+        return mcpTool.capability == 'dangerous';
+      }),
+    ).toBe(true);
   });
 });
 
@@ -154,19 +254,23 @@ describe('ALL_TOOLS registry', () => {
       ...WRITE_TOOLS,
       ...DANGEROUS_TOOLS,
     ]);
-    expect(new Set(ALL_TOOLS.map((tool) => tool.name)).size).toBe(ALL_TOOLS.length);
+    expect(new Set(ALL_TOOLS.map(toolName)).size).toBe(ALL_TOOLS.length);
   });
+
   it('gates the write and dangerous tools behind their own tiers', () => {
-    const named = (tools: readonly McpTool<McpToolRequirements>[]): string[] =>
-      tools.map((tool) => tool.name);
-    expect(named(gateTools(ALL_TOOLS, config(['read'])))).not.toContain('sync');
-    expect(named(gateTools(ALL_TOOLS, config(['read'])))).not.toContain('sync_destructive');
-    const write = named(gateTools(ALL_TOOLS, config(['read', 'write'])));
-    expect(write).toContain('sync');
-    expect(write).not.toContain('sync_destructive');
-    const dangerous = named(gateTools(ALL_TOOLS, config(['read', 'write', 'dangerous'])));
-    expect(dangerous).toContain('sync');
-    expect(dangerous).toContain('sync_destructive');
+    const readNames = gateTools(ALL_TOOLS, sampleLaunchConfig(['read'])).map(toolName);
+    const writeNames = gateTools(ALL_TOOLS, sampleLaunchConfig(['read', 'write'])).map(toolName);
+    const dangerousNames = gateTools(
+      ALL_TOOLS,
+      sampleLaunchConfig(['read', 'write', 'dangerous']),
+    ).map(toolName);
+
+    expect(readNames).not.toContain('sync');
+    expect(readNames).not.toContain('sync_destructive');
+    expect(writeNames).toContain('sync');
+    expect(writeNames).not.toContain('sync_destructive');
+    expect(dangerousNames).toContain('sync');
+    expect(dangerousNames).toContain('sync_destructive');
   });
 });
 
@@ -177,40 +281,76 @@ describe('argument helpers', () => {
     expect(optionalString({}, 'app')).toBeUndefined();
   });
 
-  it('requiredString fails with a tagged missing-argument message', async () => {
-    const failure = await Effect.runPromise(Effect.flip(requiredString({}, 'baseline')));
+  it('requiredString fails with a tagged missing-argument message', () => {
+    let failure: McpToolFailure | null = null;
+
+    try {
+      requiredString({}, 'baseline');
+    } catch (caught) {
+      if (isMcpToolFailure(caught)) {
+        failure = caught;
+      }
+    }
+
     expect(failure).toEqual({
       _tag: 'McpToolFailure',
       message: '`baseline` is required.',
     });
   });
 
-  it('requestedPlatform defaults to ios and rejects unknowns', async () => {
-    expect(await Effect.runPromise(requestedPlatform({}))).toBe('ios');
-    expect(await Effect.runPromise(requestedPlatform({ platform: 'android' }))).toBe('android');
-    const failure = await Effect.runPromise(Effect.flip(requestedPlatform({ platform: 'web' })));
-    expect(failure.message).toContain('Unknown platform "web"');
+  it('requestedPlatform defaults to ios and rejects unknowns', () => {
+    expect(requestedPlatform({})).toBe('ios');
+    expect(requestedPlatform({ platform: 'android' })).toBe('android');
+
+    let message = '';
+
+    try {
+      requestedPlatform({ platform: 'web' });
+    } catch (caught) {
+      if (isMcpToolFailure(caught)) {
+        message = caught.message;
+      }
+    }
+
+    expect(message).toContain('Unknown platform "web"');
   });
 });
 
 describe('chooseSurfacePlanners', () => {
   const planners = [samplePlanner('catalog'), samplePlanner('listing')];
 
-  it('keeps every planner when no surface is requested', async () => {
-    const selected = await Effect.runPromise(chooseSurfacePlanners(planners, undefined));
-    expect(selected.map((planner) => planner.id)).toEqual(['catalog', 'listing']);
+  it('keeps every planner when no surface is requested', () => {
+    const selected = chooseSurfacePlanners(planners, undefined);
+
+    expect(
+      selected.map(function plannerId(planner: SurfacePlanner): string {
+        return planner.id;
+      }),
+    ).toEqual(['catalog', 'listing']);
   });
 
-  it('narrows to one matching surface', async () => {
-    const selected = await Effect.runPromise(chooseSurfacePlanners(planners, 'listing'));
-    expect(selected.map((planner) => planner.id)).toEqual(['listing']);
+  it('narrows to one matching surface', () => {
+    const selected = chooseSurfacePlanners(planners, 'listing');
+
+    expect(
+      selected.map(function plannerId(planner: SurfacePlanner): string {
+        return planner.id;
+      }),
+    ).toEqual(['listing']);
   });
 
-  it('fails with available surfaces when the id is unknown', async () => {
-    const failure = await Effect.runPromise(
-      Effect.flip(chooseSurfacePlanners(planners, 'missing')),
-    );
-    expect(failure.message).toBe('Unknown surface "missing". Available: catalog, listing.');
+  it('fails with available surfaces when the id is unknown', () => {
+    let message = '';
+
+    try {
+      chooseSurfacePlanners(planners, 'missing');
+    } catch (caught) {
+      if (isMcpToolFailure(caught)) {
+        message = caught.message;
+      }
+    }
+
+    expect(message).toBe('Unknown surface "missing". Available: catalog, listing.');
   });
 });
 
@@ -237,6 +377,7 @@ describe('summarizeSnapshots', () => {
         ],
       },
     ];
+
     expect(summarizeSnapshots(snapshots)).toEqual([
       { name: 'pre', capturedAt: '2026-01-01T00:00:00.000Z', reports: 2 },
     ]);
@@ -245,60 +386,67 @@ describe('summarizeSnapshots', () => {
 
 describe('config introspection tools', () => {
   it('config_schema returns the launch.config JSON Schema', async () => {
-    const SchemaDefinition = Schema.Struct({
-      type: Schema.optionalWith(Schema.String, { exact: true }),
-    });
-    const ConfigSchemaOutput = Schema.Struct({
-      type: Schema.optionalWith(Schema.String, { exact: true }),
-      $ref: Schema.optionalWith(Schema.String, { exact: true }),
-      definitions: Schema.Record({ key: Schema.String, value: SchemaDefinition }),
-    });
-    const configSchema = parseToolOutput(
-      await runTool(byName('config_schema'), {}),
-      ConfigSchemaOutput,
-    );
-    // Effect Schema SSOT: nested types under `definitions` (normalized from `$defs`); root may be
-    // an inline object or a `$ref` into `definitions.LaunchConfig`.
-    expect(configSchema.definitions).toBeDefined();
-    let rootSchema: { readonly type?: string } = configSchema;
-    if (configSchema.$ref !== undefined) {
-      const rootName = configSchema.$ref.split('/').pop();
-      if (rootName !== undefined) {
-        const referencedSchema = configSchema.definitions[rootName];
-        if (referencedSchema !== undefined) rootSchema = referencedSchema;
-      }
+    const toolOutput = await runTool(byName('config_schema'), {});
+    const configSchema = readToolJson(toolOutput);
+
+    if (isRecord(configSchema)) {
+      expect(configSchema['definitions']).toBeDefined();
+      expect(rootSchemaType(configSchema)).toBe('object');
+
+      return;
     }
-    expect(rootSchema.type).toBe('object');
+
+    throw new Error('schema was not an object');
   });
+
   it('config_docs returns the field reference as Markdown', async () => {
-    const docsOutput = parseToolOutput(
-      await runTool(byName('config_docs'), {}),
-      Schema.Struct({ markdown: Schema.String }),
-    );
-    expect(typeof docsOutput.markdown).toBe('string');
-    expect(docsOutput.markdown.length).toBeGreaterThan(0);
+    const toolOutput = await runTool(byName('config_docs'), {});
+    const docsOutput = readToolJson(toolOutput);
+
+    if (isRecord(docsOutput)) {
+      expect(markdownLength(docsOutput)).toBeGreaterThan(0);
+
+      return;
+    }
+
+    throw new Error('docs were not an object');
   });
 });
 
 describe('snapshot tool argument guards', () => {
+  beforeEach(() => {
+    useLaunchDirectories({ homeDirectory: '/test-home', workingDirectory: '/workspace' });
+  });
+
+  afterEach(() => {
+    resetLaunchDirectories();
+  });
+
   it('snapshot_diff requires a baseline', async () => {
     const toolFailure = await runToolFailure(byName('snapshot_diff'), {});
+
     expect(toolFailure.message).toBe('`baseline` is required.');
   });
+
   it('snapshot_diff throws on an unknown baseline snapshot', async () => {
     const toolFailure = await runToolFailure(byName('snapshot_diff'), {
       baseline: 'no-such-snapshot-xyz',
     });
+
     expect(toolFailure.message).toBe('No snapshot named "no-such-snapshot-xyz".');
   });
+
   it('snapshot_export requires a name', async () => {
     const toolFailure = await runToolFailure(byName('snapshot_export'), {});
+
     expect(toolFailure.message).toBe('`name` is required.');
   });
+
   it('snapshot_export throws on an unknown snapshot when not capturing', async () => {
     const toolFailure = await runToolFailure(byName('snapshot_export'), {
       name: 'no-such-snapshot-xyz',
     });
+
     expect(toolFailure.message).toBe('No snapshot named "no-such-snapshot-xyz".');
   });
 });

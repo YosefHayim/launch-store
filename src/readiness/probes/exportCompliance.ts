@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import type { AppDescriptor } from '@/types/app.js';
 import type {
   AppReadiness,
   ProbeResult,
@@ -6,47 +6,83 @@ import type {
   ReadinessProbe,
 } from '@/types/readiness.js';
 import { OMITTED_PROBE } from './credentialsSkip.js';
+
+type ComplianceApp = {
+  name: string;
+  identifier: string;
+  declared: boolean | undefined;
+};
+
+function hasBundleId(app: AppDescriptor): app is AppDescriptor & { bundleId: string } {
+  return app.bundleId != null;
+}
+
+function readComplianceApp(app: AppDescriptor): ComplianceApp | null {
+  if (hasBundleId(app)) {
+    return {
+      name: app.name,
+      identifier: app.bundleId,
+      declared: app.usesNonExemptEncryption,
+    };
+  }
+
+  return null;
+}
+
+function listComplianceApps(readinessContext: ReadinessContext): ComplianceApp[] {
+  const complianceApps: ComplianceApp[] = [];
+
+  for (const app of readinessContext.apps) {
+    const complianceApp = readComplianceApp(app);
+    const isOutsideScope = complianceApp == null;
+
+    if (isOutsideScope) {
+      continue;
+    }
+
+    complianceApps.push(complianceApp);
+  }
+
+  return complianceApps;
+}
+
+function gradeCompliance(app: ComplianceApp): AppReadiness {
+  const isUndeclared = app.declared == null;
+
+  if (isUndeclared) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'warn',
+      detail: 'export compliance not declared',
+      hint: 'set `ios.config.usesNonExemptEncryption` in app.json so uploads skip the Missing-Compliance hold',
+    };
+  }
+
+  return {
+    app: app.name,
+    identifier: app.identifier,
+    status: 'ok',
+    detail: `export compliance declared (usesNonExemptEncryption: ${app.declared})`,
+  };
+}
+
 /** The iOS export-compliance declaration readiness probe (config-only). */
 export const exportComplianceProbe = {
   id: 'apple-export-compliance',
   title: 'iOS export-compliance declared',
   store: 'appstore',
   categories: ['submit'],
-  /**
-   * Read local Expo export-compliance declarations for iOS apps.
-   *
-   * @param readinessContext - Loaded config and selected app scope for the readiness run.
-   * @returns An Effect that succeeds with per-app export-compliance findings.
-   */
-  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult> {
-    return Effect.sync(() => {
-      const apps = readinessContext.apps.flatMap((app) => {
-        if (app.bundleId) {
-          return [
-            { name: app.name, identifier: app.bundleId, declared: app.usesNonExemptEncryption },
-          ];
-        }
-        return [];
-      });
-      if (apps.length === 0) return OMITTED_PROBE;
-      const results: AppReadiness[] = apps.map(({ name, identifier, declared }) => {
-        if (declared === undefined) {
-          return {
-            app: name,
-            identifier,
-            status: 'warn',
-            detail: 'export compliance not declared',
-            hint: 'set `ios.config.usesNonExemptEncryption` in app.json so uploads skip the Missing-Compliance hold',
-          };
-        }
-        return {
-          app: name,
-          identifier,
-          status: 'ok',
-          detail: `export compliance declared (usesNonExemptEncryption: ${declared})`,
-        };
-      });
-      return { state: 'checked', apps: results };
-    });
+  async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
+    const apps = listComplianceApps(readinessContext);
+    const isNothingSelected = apps.length == 0;
+
+    if (isNothingSelected) {
+      return OMITTED_PROBE;
+    }
+
+    const findings = apps.map(gradeCompliance);
+
+    return { state: 'checked', apps: findings };
   },
 } satisfies ReadinessProbe;

@@ -1,8 +1,8 @@
-import { type FileSystem, type Path, Terminal } from '@effect/platform';
-import { Data, Effect } from 'effect';
 import { loadConfig } from '../../config/config.js';
-import { LaunchPaths, type LaunchPathsService } from '../../services/platform/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
+import { readLaunchDirectories } from '../../services/platform/paths.js';
+import { LaunchPrompt } from '../../services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
 import type { AppDescriptor } from '../../types/app.js';
 import type { LaunchConfig } from '../../types/config.js';
 
@@ -12,16 +12,13 @@ export type StoreAppSelectionFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeStoreAppSelectionFailure = Data.tagged<StoreAppSelectionFailure>(
-  'StoreAppSelectionFailure',
-);
 
-export type StoreAppSelectionRequirements =
-  | FileSystem.FileSystem
-  | LaunchPathsService
-  | LaunchPromptService
-  | Path.Path
-  | Terminal.Terminal;
+export function makeStoreAppSelectionFailure(fields: {
+  message: string;
+  cause: unknown;
+}): StoreAppSelectionFailure {
+  return { _tag: 'StoreAppSelectionFailure', ...fields };
+}
 
 /** Loaded Launch configuration paired with the selected app. */
 type StoreAppContext = Readonly<{
@@ -29,93 +26,127 @@ type StoreAppContext = Readonly<{
   app: AppDescriptor;
 }>;
 
+function appNameOf(discoveredApp: AppDescriptor): string {
+  return discoveredApp.name;
+}
+
+function choiceFor(discoveredApp: AppDescriptor) {
+  let hint = discoveredApp.packageName;
+
+  if (discoveredApp.bundleId != null) {
+    hint = discoveredApp.bundleId;
+  }
+
+  if (hint == null) {
+    return { selection: discoveredApp, label: discoveredApp.name };
+  }
+
+  return { selection: discoveredApp, label: discoveredApp.name, hint };
+}
+
+function oneDiscoveredApp(
+  config: LaunchConfig,
+  onlyApp: AppDescriptor | undefined,
+): StoreAppContext {
+  if (onlyApp == null) {
+    throw makeStoreAppSelectionFailure({
+      message: 'No apps found. Run Launch from a repo containing at least one app.json.',
+      cause: 'no-apps',
+    });
+  }
+
+  return { config, app: onlyApp };
+}
+
+function matchesSelector(appSelector: string) {
+  return function isSelectedApp(discoveredApp: AppDescriptor): boolean {
+    return discoveredApp.name == appSelector;
+  };
+}
+
 /** Load the project and select one app without guessing in a non-interactive terminal. */
-export const loadStoreAppContext = (
+export async function loadStoreAppContext(
   appSelector: string | undefined,
-): Effect.Effect<StoreAppContext, StoreAppSelectionFailure, StoreAppSelectionRequirements> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory).pipe(
-      Effect.mapError((cause) =>
-        makeStoreAppSelectionFailure({
-          message: 'Could not load the Launch configuration.',
-          cause,
-        }),
-      ),
-    );
-    if (loadedConfiguration.apps.length === 0) {
-      return yield* Effect.fail(
-        makeStoreAppSelectionFailure({
-          message: 'No apps found. Run Launch from a repo containing at least one app.json.',
-          cause: 'no-apps',
-        }),
-      );
+): Promise<StoreAppContext> {
+  const launchPaths = readLaunchDirectories();
+  let loadedConfiguration: { config: LaunchConfig; apps: readonly AppDescriptor[] };
+
+  try {
+    loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+  } catch (cause) {
+    throw makeStoreAppSelectionFailure({
+      message: 'Could not load the Launch configuration.',
+      cause,
+    });
+  }
+
+  const hasNoApps = loadedConfiguration.apps.length == 0;
+
+  if (hasNoApps) {
+    throw makeStoreAppSelectionFailure({
+      message: 'No apps found. Run Launch from a repo containing at least one app.json.',
+      cause: 'no-apps',
+    });
+  }
+
+  if (appSelector != null) {
+    const selectedApp = loadedConfiguration.apps.find(matchesSelector(appSelector));
+
+    if (selectedApp != null) {
+      return { config: loadedConfiguration.config, app: selectedApp };
     }
-    if (appSelector !== undefined) {
-      const selectedApp = loadedConfiguration.apps.find(
-        (discoveredApp) => discoveredApp.name === appSelector,
-      );
-      if (selectedApp !== undefined) {
-        return { config: loadedConfiguration.config, app: selectedApp };
-      }
-      return yield* Effect.fail(
-        makeStoreAppSelectionFailure({
-          message: `App "${appSelector}" not found. Available: ${loadedConfiguration.apps
-            .map((discoveredApp) => discoveredApp.name)
-            .join(', ')}.`,
-          cause: appSelector,
-        }),
-      );
-    }
-    const onlyApp = loadedConfiguration.apps[0];
-    if (loadedConfiguration.apps.length === 1 && onlyApp !== undefined) {
-      return { config: loadedConfiguration.config, app: onlyApp };
-    }
-    const terminal = yield* Terminal.Terminal;
-    if (!(yield* terminal.isTTY)) {
-      return yield* Effect.fail(
-        makeStoreAppSelectionFailure({
-          message: 'More than one app found. Pass --app <name> to choose non-interactively.',
-          cause: 'app-selection-required',
-        }),
-      );
-    }
-    const prompt = yield* LaunchPrompt;
-    const selectedApp = yield* prompt
-      .select({
-        message: `Which app? (${loadedConfiguration.apps.length} found)`,
-        choices: loadedConfiguration.apps.map((discoveredApp) => {
-          let hint = discoveredApp.packageName;
-          if (discoveredApp.bundleId !== undefined) hint = discoveredApp.bundleId;
-          if (hint === undefined) {
-            return { selection: discoveredApp, label: discoveredApp.name };
-          }
-          return { selection: discoveredApp, label: discoveredApp.name, hint };
-        }),
-      })
-      .pipe(
-        Effect.mapError((cause) => makeStoreAppSelectionFailure({ message: cause.message, cause })),
-      );
+
+    throw makeStoreAppSelectionFailure({
+      message: `App "${appSelector}" not found. Available: ${loadedConfiguration.apps.map(appNameOf).join(', ')}.`,
+      cause: appSelector,
+    });
+  }
+
+  const onlyApp = loadedConfiguration.apps[0];
+  const isOnlyApp = loadedConfiguration.apps.length == 1;
+
+  if (isOnlyApp) {
+    return oneDiscoveredApp(loadedConfiguration.config, onlyApp);
+  }
+
+  const isInteractive = checkTerminalIsInteractive();
+
+  if (isInteractive == false) {
+    throw makeStoreAppSelectionFailure({
+      message: 'More than one app found. Pass --app <name> to choose non-interactively.',
+      cause: 'app-selection-required',
+    });
+  }
+
+  try {
+    const selectedApp = await LaunchPrompt.select({
+      message: `Which app? (${loadedConfiguration.apps.length} found)`,
+      choices: loadedConfiguration.apps.map(choiceFor),
+    });
+
     return { config: loadedConfiguration.config, app: selectedApp };
-  });
+  } catch (cause) {
+    throw makeStoreAppSelectionFailure({ message: errorMessage(cause), cause });
+  }
+}
 
 /** Select one discovered app from its loaded project context. */
-export const selectStoreApp = (
-  appSelector: string | undefined,
-): Effect.Effect<AppDescriptor, StoreAppSelectionFailure, StoreAppSelectionRequirements> =>
-  loadStoreAppContext(appSelector).pipe(Effect.map((storeAppContext) => storeAppContext.app));
+export async function selectStoreApp(appSelector: string | undefined): Promise<AppDescriptor> {
+  const storeAppContext = await loadStoreAppContext(appSelector);
+
+  return storeAppContext.app;
+}
 
 /** Resolve the selected app's iOS bundle identifier. */
-export const resolveStoreBundleId = (
-  appSelector: string | undefined,
-): Effect.Effect<string, StoreAppSelectionFailure, StoreAppSelectionRequirements> =>
-  Effect.gen(function* () {
-    const selectedApp = yield* selectStoreApp(appSelector);
-    if (selectedApp.bundleId !== undefined) return selectedApp.bundleId;
-    return yield* Effect.fail(
-      makeStoreAppSelectionFailure({
-        message: `No iOS bundle identifier for ${selectedApp.name} (set ios.bundleIdentifier in app.json).`,
-        cause: selectedApp,
-      }),
-    );
+export async function resolveStoreBundleId(appSelector: string | undefined): Promise<string> {
+  const selectedApp = await selectStoreApp(appSelector);
+
+  if (selectedApp.bundleId != null) {
+    return selectedApp.bundleId;
+  }
+
+  throw makeStoreAppSelectionFailure({
+    message: `No iOS bundle identifier for ${selectedApp.name} (set ios.bundleIdentifier in app.json).`,
+    cause: selectedApp,
   });
+}

@@ -1,4 +1,3 @@
-import type { Effect } from 'effect';
 import type { ListingLocalization } from './appleCatalog.js';
 import type { InAppProductResource, SubscriptionResource } from './googlePlay.js';
 import type { AscCatalogApi } from '../store/apple/ascSync.js';
@@ -102,50 +101,39 @@ export type Snapshot = Readonly<{
  * {@link import("./readiness.js").AscReadinessApi}; grows by one method as each Apple source lands.
  */
 export type SnapshotAscApi = Readonly<{
-  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
-  listInAppPurchases(appId: string): Effect.Effect<
+  getAppId(bundleId: string): Promise<string | null>;
+  listInAppPurchases(appId: string): Promise<
     Readonly<{
       productId: string;
       inAppPurchaseType: string;
       state?: string | undefined;
-    }>[],
-    unknown
+    }>[]
   >;
-  listSubscriptionGroups(appId: string): Effect.Effect<
+  listSubscriptionGroups(appId: string): Promise<
     Readonly<{
       id: string;
       referenceName: string;
-    }>[],
-    unknown
+    }>[]
   >;
-  listSubscriptions(groupId: string): Effect.Effect<
+  listSubscriptions(groupId: string): Promise<
     Readonly<{
       productId: string;
       subscriptionPeriod?: string | undefined;
       state?: string | undefined;
-    }>[],
-    unknown
+    }>[]
   >;
-  getCurrentAppInfoId(appId: string): Effect.Effect<string | null, unknown>;
-  listAppInfoLocalizations(
-    appInfoId: string,
-  ): Effect.Effect<readonly ListingLocalization[], unknown>;
-  getCurrentVersionId(appId: string): Effect.Effect<string | null, unknown>;
-  listVersionLocalizations(
-    versionId: string,
-  ): Effect.Effect<readonly ListingLocalization[], unknown>;
-  findBundleId(identifier: string): Effect.Effect<
-    Readonly<{
-      id: string;
-      identifier: string;
-    }> | null,
-    unknown
-  >;
-  listBundleIdCapabilities(bundleIdResourceId: string): Effect.Effect<
+  getCurrentAppInfoId(appId: string): Promise<string | null>;
+  listAppInfoLocalizations(appInfoId: string): Promise<readonly ListingLocalization[]>;
+  getCurrentVersionId(appId: string): Promise<string | null>;
+  listVersionLocalizations(versionId: string): Promise<readonly ListingLocalization[]>;
+  findBundleId(identifier: string): Promise<Readonly<{
+    id: string;
+    identifier: string;
+  }> | null>;
+  listBundleIdCapabilities(bundleIdResourceId: string): Promise<
     Readonly<{
       capabilityType: string;
-    }>[],
-    unknown
+    }>[]
   >;
 }>;
 /**
@@ -156,8 +144,8 @@ export type SnapshotAscApi = Readonly<{
  * one source of truth; `GooglePlayClient` satisfies it structurally with no cast.
  */
 export type SnapshotPlayApi = Readonly<{
-  listInAppProducts(packageName: string): Effect.Effect<readonly InAppProductResource[], unknown>;
-  listSubscriptions(packageName: string): Effect.Effect<readonly SubscriptionResource[], unknown>;
+  listInAppProducts(packageName: string): Promise<readonly InAppProductResource[]>;
+  listSubscriptions(packageName: string): Promise<readonly SubscriptionResource[]>;
 }>;
 /**
  * What a {@link SnapshotSource} is handed: the loaded config, the apps in scope (already narrowed by `-a`),
@@ -167,8 +155,8 @@ export type SnapshotPlayApi = Readonly<{
 export type SnapshotContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
-  resolveAscApi(): Effect.Effect<SnapshotAscApi | null, unknown>;
-  resolvePlayApi(packageName?: string): Effect.Effect<SnapshotPlayApi | null, unknown>;
+  resolveAscApi(): Promise<SnapshotAscApi | null>;
+  resolvePlayApi(packageName?: string): Promise<SnapshotPlayApi | null>;
 }>;
 /**
  * What a {@link SnapshotSource.restore} pass is handed: the write-capable counterpart to
@@ -181,8 +169,8 @@ export type SnapshotContext = Readonly<{
 export type RestoreContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
-  resolveAscWriteClient(): Effect.Effect<AscCatalogApi | null, unknown>;
-  resolvePlayWriteClient(packageName?: string): Effect.Effect<PlayCatalogApi | null, unknown>;
+  resolveAscWriteClient(): Promise<AscCatalogApi | null>;
+  resolvePlayWriteClient(packageName?: string): Promise<PlayCatalogApi | null>;
 }>;
 /**
  * One source's restore request: the write context plus the per-app entities loaded from the saved snapshot
@@ -215,6 +203,6 @@ export type SnapshotSource = Readonly<{
   id: string;
   title: string;
   store: SnapshotStore;
-  capture(snapshotContext: SnapshotContext): Effect.Effect<SourceCapture, unknown>;
-  restore?(input: RestoreInput): Effect.Effect<RestoreReport, unknown>;
+  capture(snapshotContext: SnapshotContext): Promise<SourceCapture>;
+  restore?(input: RestoreInput): Promise<RestoreReport>;
 }>;

@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import { appleProductsSource } from './appleProducts.js';
 import { appleSubscriptionsSource } from './appleSubscriptions.js';
@@ -33,45 +32,48 @@ const snapshotContext = (over: Partial<SnapshotContext>): SnapshotContext => {
   return {
     config: CONFIG,
     apps: [],
-    resolveAscApi: () => Effect.succeed(null),
-    resolvePlayApi: () => Effect.succeed(null),
+    resolveAscApi: () => Promise.resolve(null),
+    resolvePlayApi: () => Promise.resolve(null),
     ...over,
   };
 };
-const captureSource = (source: SnapshotSource, snapshotContext: SnapshotContext) =>
-  Effect.runPromise(source.capture(snapshotContext));
-const runRestore = (restore: NonNullable<SnapshotSource['restore']>, restoreInput: RestoreInput) =>
-  Effect.runPromise(restore(restoreInput));
+function captureSource(source: SnapshotSource, snapshotContext: SnapshotContext) {
+  return source.capture(snapshotContext);
+}
+
+function runRestore(restore: NonNullable<SnapshotSource['restore']>, restoreInput: RestoreInput) {
+  return restore(restoreInput);
+}
 const ascApi: SnapshotAscApi = {
-  getAppId: () => Effect.succeed('1234567890'),
+  getAppId: () => Promise.resolve('1234567890'),
   listInAppPurchases: () =>
-    Effect.succeed([
+    Promise.resolve([
       { productId: 'com.acme.coins', inAppPurchaseType: 'CONSUMABLE', state: 'APPROVED' },
     ]),
-  listSubscriptionGroups: () => Effect.succeed([{ id: 'g1', referenceName: 'Pro' }]),
+  listSubscriptionGroups: () => Promise.resolve([{ id: 'g1', referenceName: 'Pro' }]),
   listSubscriptions: () =>
-    Effect.succeed([{ productId: 'com.acme.pro', subscriptionPeriod: 'P1M', state: 'APPROVED' }]),
-  getCurrentAppInfoId: () => Effect.succeed('appinfo-1'),
+    Promise.resolve([{ productId: 'com.acme.pro', subscriptionPeriod: 'P1M', state: 'APPROVED' }]),
+  getCurrentAppInfoId: () => Promise.resolve('appinfo-1'),
   listAppInfoLocalizations: () =>
-    Effect.succeed([
+    Promise.resolve([
       { id: 'ail-1', locale: 'en-US', fields: { name: 'Acme', subtitle: 'Do more' } },
     ]),
-  getCurrentVersionId: () => Effect.succeed('ver-1'),
+  getCurrentVersionId: () => Promise.resolve('ver-1'),
   listVersionLocalizations: () =>
-    Effect.succeed([
+    Promise.resolve([
       {
         id: 'avl-1',
         locale: 'en-US',
         fields: { description: 'Great app', keywords: 'acme,tools' },
       },
     ]),
-  findBundleId: () => Effect.succeed({ id: 'bundle-1', identifier: 'com.acme.alpha' }),
+  findBundleId: () => Promise.resolve({ id: 'bundle-1', identifier: 'com.acme.alpha' }),
   listBundleIdCapabilities: () =>
-    Effect.succeed([{ capabilityType: 'PUSH_NOTIFICATIONS' }, { capabilityType: 'ICLOUD' }]),
+    Promise.resolve([{ capabilityType: 'PUSH_NOTIFICATIONS' }, { capabilityType: 'ICLOUD' }]),
 };
 const playApi: SnapshotPlayApi = {
   listInAppProducts: () =>
-    Effect.succeed([
+    Promise.resolve([
       {
         sku: 'coins',
         status: 'active',
@@ -81,7 +83,7 @@ const playApi: SnapshotPlayApi = {
       },
     ]),
   listSubscriptions: () =>
-    Effect.succeed([
+    Promise.resolve([
       {
         productId: 'sub.pro',
         basePlans: [
@@ -122,7 +124,7 @@ describe('appleProductsSource', () => {
       appleProductsSource,
       snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Effect.succeed(ascApi),
+        resolveAscApi: () => Promise.resolve(ascApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -139,7 +141,7 @@ describe('appleProductsSource', () => {
       appleProductsSource,
       snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Effect.succeed({ ...ascApi, getAppId: () => Effect.succeed(null) }),
+        resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -152,7 +154,7 @@ describe('appleSubscriptionsSource', () => {
       appleSubscriptionsSource,
       snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Effect.succeed(ascApi),
+        resolveAscApi: () => Promise.resolve(ascApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -171,7 +173,7 @@ describe('appleListingSource', () => {
       appleListingSource,
       snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Effect.succeed(ascApi),
+        resolveAscApi: () => Promise.resolve(ascApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -197,10 +199,10 @@ describe('appleListingSource', () => {
       snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
         resolveAscApi: () =>
-          Effect.succeed({
+          Promise.resolve({
             ...ascApi,
-            getCurrentAppInfoId: () => Effect.succeed(null),
-            getCurrentVersionId: () => Effect.succeed(null),
+            getCurrentAppInfoId: () => Promise.resolve(null),
+            getCurrentVersionId: () => Promise.resolve(null),
           }),
       }),
     );
@@ -212,7 +214,7 @@ describe('appleListingSource', () => {
       appleListingSource,
       snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Effect.succeed({ ...ascApi, getAppId: () => Effect.succeed(null) }),
+        resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -232,7 +234,7 @@ describe('playProductsSource', () => {
       playProductsSource,
       snapshotContext({
         apps: [app({ packageName: 'com.acme.alpha' })],
-        resolvePlayApi: () => Effect.succeed(playApi),
+        resolvePlayApi: () => Promise.resolve(playApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -257,7 +259,7 @@ describe('playSubscriptionsSource', () => {
       playSubscriptionsSource,
       snapshotContext({
         apps: [app({ packageName: 'com.acme.alpha' })],
-        resolvePlayApi: () => Effect.succeed(playApi),
+        resolvePlayApi: () => Promise.resolve(playApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -301,7 +303,7 @@ describe('appleCapabilitiesSource', () => {
       appleCapabilitiesSource,
       snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Effect.succeed(ascApi),
+        resolveAscApi: () => Promise.resolve(ascApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -320,7 +322,7 @@ describe('appleCapabilitiesSource', () => {
       snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
         resolveAscApi: () =>
-          Effect.succeed({ ...ascApi, findBundleId: () => Effect.succeed(null) }),
+          Promise.resolve({ ...ascApi, findBundleId: () => Promise.resolve(null) }),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -362,8 +364,8 @@ describe('appleListingSource.restore', () => {
       ctx: {
         config: CONFIG,
         apps: [],
-        resolveAscWriteClient: () => Effect.succeed(null),
-        resolvePlayWriteClient: () => Effect.succeed(null),
+        resolveAscWriteClient: () => Promise.resolve(null),
+        resolvePlayWriteClient: () => Promise.resolve(null),
       },
       saved,
       dryRun: true,
@@ -388,8 +390,8 @@ describe('appleListingSource.restore', () => {
         ctx: {
           config: CONFIG,
           apps: [],
-          resolveAscWriteClient: () => Effect.succeed(api),
-          resolvePlayWriteClient: () => Effect.succeed(null),
+          resolveAscWriteClient: () => Promise.resolve(api),
+          resolvePlayWriteClient: () => Promise.resolve(null),
         },
       }),
     );
@@ -415,8 +417,8 @@ describe('appleListingSource.restore', () => {
         ctx: {
           config: CONFIG,
           apps: [],
-          resolveAscWriteClient: () => Effect.succeed(api),
-          resolvePlayWriteClient: () => Effect.succeed(null),
+          resolveAscWriteClient: () => Promise.resolve(api),
+          resolvePlayWriteClient: () => Promise.resolve(null),
         },
       }),
     );
@@ -440,17 +442,17 @@ describe('appleListingSource.restore', () => {
 /** A fully-stubbed {@link PlayCatalogApi}. Reads default to "nothing exists yet"; writes resolve. */
 const makePlayApi = (overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi => {
   const base: PlayCatalogApi = {
-    assertAppExists: vi.fn(() => Effect.void),
-    listInAppProducts: vi.fn(() => Effect.succeed([])),
-    insertInAppProduct: vi.fn(() => Effect.void),
-    updateInAppProduct: vi.fn(() => Effect.void),
-    listSubscriptions: vi.fn(() => Effect.succeed([])),
-    createSubscription: vi.fn(() => Effect.void),
-    patchSubscription: vi.fn(() => Effect.void),
-    activateBasePlan: vi.fn(() => Effect.void),
-    listSubscriptionOffers: vi.fn(() => Effect.succeed([])),
-    createSubscriptionOffer: vi.fn(() => Effect.void),
-    activateSubscriptionOffer: vi.fn(() => Effect.void),
+    assertAppExists: vi.fn(() => Promise.resolve()),
+    listInAppProducts: vi.fn(() => Promise.resolve([])),
+    insertInAppProduct: vi.fn(() => Promise.resolve()),
+    updateInAppProduct: vi.fn(() => Promise.resolve()),
+    listSubscriptions: vi.fn(() => Promise.resolve([])),
+    createSubscription: vi.fn(() => Promise.resolve()),
+    patchSubscription: vi.fn(() => Promise.resolve()),
+    activateBasePlan: vi.fn(() => Promise.resolve()),
+    listSubscriptionOffers: vi.fn(() => Promise.resolve([])),
+    createSubscriptionOffer: vi.fn(() => Promise.resolve()),
+    activateSubscriptionOffer: vi.fn(() => Promise.resolve()),
   };
   return { ...base, ...overrides };
 };
@@ -459,8 +461,8 @@ const restoreCtx = (over: Partial<RestoreContext> = {}): RestoreContext => {
   return {
     config: CONFIG,
     apps: [],
-    resolveAscWriteClient: () => Effect.succeed(null),
-    resolvePlayWriteClient: () => Effect.succeed(null),
+    resolveAscWriteClient: () => Promise.resolve(null),
+    resolvePlayWriteClient: () => Promise.resolve(null),
     ...over,
   };
 };
@@ -508,7 +510,7 @@ describe('playProductsSource.restore', () => {
     const api = makePlayApi();
     const report = await runRestore(
       restoreOf(),
-      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }) }),
+      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }) }),
     );
     expect(report.actions).toEqual([
       { description: 'create Play product coins', destructive: false, status: 'planned' },
@@ -521,7 +523,7 @@ describe('playProductsSource.restore', () => {
       restoreOf(),
       input({
         dryRun: false,
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }),
+        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
       }),
     );
     expect(api.insertInAppProduct).toHaveBeenCalledWith(
@@ -539,7 +541,7 @@ describe('playProductsSource.restore', () => {
     const report = await runRestore(
       restoreOf(),
       input({
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }),
+        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
         saved: [
           {
             app: 'alpha',
@@ -608,7 +610,7 @@ describe('playSubscriptionsSource.restore', () => {
     const api = makePlayApi();
     const report = await runRestore(
       restoreOf(),
-      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }) }),
+      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }) }),
     );
     const descriptions = report.actions.map((action) => action.description);
     expect(descriptions).toEqual([
@@ -624,7 +626,7 @@ describe('playSubscriptionsSource.restore', () => {
       restoreOf(),
       input({
         dryRun: false,
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }),
+        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
       }),
     );
     expect(api.createSubscription).toHaveBeenCalledWith(
@@ -638,7 +640,7 @@ describe('playSubscriptionsSource.restore', () => {
     const report = await runRestore(
       restoreOf(),
       input({
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }),
+        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
         saved: [
           {
             app: 'alpha',
@@ -677,7 +679,7 @@ describe('mixed Android snapshot capture', () => {
             app({ name: 'beta', packageName: 'com.acme.beta' }),
           ],
           resolvePlayApi: (packageName) =>
-            Effect.succeed(packageName === 'com.acme.alpha' ? playApi : null),
+            Promise.resolve(packageName === 'com.acme.alpha' ? playApi : null),
         }),
       );
       if (capture.state !== 'captured')

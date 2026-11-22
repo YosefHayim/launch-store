@@ -1,7 +1,7 @@
-import { FileSystem, Path } from '@effect/platform';
-import type { PlatformError } from '@effect/platform/Error';
-import { Data, Effect } from 'effect';
+import { readdir, readFile, stat } from 'node:fs/promises';
+import { join } from 'node:path';
 import { configTemplate, detectAppRoot } from '../config/configScaffold.js';
+import { pathExists } from '../path-exists.js';
 import {
   readAndroidMetadataDir,
   readAppleMetadataDir,
@@ -43,9 +43,12 @@ export type FastlaneMigrationFailure = Readonly<{
   readonly sourcePath: string;
 }>;
 
-const makeFastlaneMigrationFailure = Data.tagged<FastlaneMigrationFailure>(
-  'FastlaneMigrationFailure',
-);
+function makeFastlaneMigrationFailure(fields: {
+  reason: 'MissingFastlaneSetup';
+  sourcePath: string;
+}): FastlaneMigrationFailure {
+  return { _tag: 'FastlaneMigrationFailure', ...fields };
+}
 
 /** Read a top-level Fastlane Ruby string directive (`name "value"` / `name("value")`). */
 export const readRubyString = (rubySource: string, directiveName: string): string | undefined => {
@@ -214,117 +217,181 @@ export const parseFastfile = (
   };
 };
 
-const discoverDotenvKeys = (
-  workingDirectory: string,
-): Effect.Effect<string[], PlatformError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const fastlaneDirectory = pathService.join(workingDirectory, 'fastlane');
-    if (!(yield* fileSystem.exists(fastlaneDirectory))) return [];
-    const environmentKeys = new Set<string>();
-    const entryNames = yield* fileSystem.readDirectory(fastlaneDirectory);
-    for (const entryName of entryNames) {
-      if (!entryName.startsWith('.env')) continue;
-      if (entryName === '.env.example') continue;
-      if (entryName === '.env.sample') continue;
-      const dotenvPath = pathService.join(fastlaneDirectory, entryName);
-      if ((yield* fileSystem.stat(dotenvPath)).type !== 'File') continue;
-      const dotenvSource = yield* fileSystem.readFileString(dotenvPath);
-      for (const dotenvLine of dotenvSource.split('\n')) {
-        const assignmentMatch = /^\s*(?:export\s+)?([A-Za-z_]\w*)\s*=/.exec(dotenvLine);
-        if (assignmentMatch === null) continue;
-        const environmentKey = assignmentMatch[1];
-        if (environmentKey !== undefined) environmentKeys.add(environmentKey);
+async function discoverDotenvKeys(workingDirectory: string): Promise<string[]> {
+  const fastlaneDirectory = join(workingDirectory, 'fastlane');
+  const directoryExists = await pathExists(fastlaneDirectory);
+
+  if (directoryExists == false) {
+    return [];
+  }
+
+  const environmentKeys = new Set<string>();
+  const entryNames = await readdir(fastlaneDirectory);
+
+  for (const entryName of entryNames) {
+    const isDotenv = entryName.startsWith('.env');
+
+    if (isDotenv == false) {
+      continue;
+    }
+
+    if (entryName == '.env.example') {
+      continue;
+    }
+
+    if (entryName == '.env.sample') {
+      continue;
+    }
+
+    const dotenvPath = join(fastlaneDirectory, entryName);
+    const dotenvStat = await stat(dotenvPath);
+
+    if (dotenvStat.isFile() == false) {
+      continue;
+    }
+
+    const dotenvSource = await readFile(dotenvPath, 'utf8');
+
+    for (const dotenvLine of dotenvSource.split('\n')) {
+      // Optional `export`, then a shell name, then `=`.
+      const assignmentMatch = /^\s*(?:export\s+)?([A-Za-z_]\w*)\s*=/.exec(dotenvLine);
+
+      if (assignmentMatch == null) {
+        continue;
+      }
+
+      const environmentKey = assignmentMatch[1];
+
+      if (environmentKey != null) {
+        environmentKeys.add(environmentKey);
       }
     }
-    return [...environmentKeys].sort();
-  });
+  }
 
-const readFastlaneFile = (
+  return [...environmentKeys].sort();
+}
+
+async function readFastlaneFile(
   workingDirectory: string,
   fileName: string,
-): Effect.Effect<string | undefined, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const candidatePaths = [
-      pathService.join(workingDirectory, 'fastlane', fileName),
-      pathService.join(workingDirectory, fileName),
-    ];
-    for (const candidatePath of candidatePaths) {
-      if (yield* fileSystem.exists(candidatePath)) {
-        return yield* fileSystem.readFileString(candidatePath);
-      }
+): Promise<string | undefined> {
+  const candidatePaths = [
+    join(workingDirectory, 'fastlane', fileName),
+    join(workingDirectory, fileName),
+  ];
+
+  for (const candidatePath of candidatePaths) {
+    const candidateExists = await pathExists(candidatePath);
+
+    if (candidateExists) {
+      return readFile(candidatePath, 'utf8');
     }
-    return undefined;
-  });
+  }
+
+  return undefined;
+}
 
 /** Read supported Fastlane files; null when no setup exists. */
-export const readFastlaneSetup = (
-  workingDirectory: string,
-): Effect.Effect<FastlaneSetup | null, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fastlaneSources = yield* Effect.all(
-      {
-        appfile: readFastlaneFile(workingDirectory, 'Appfile'),
-        fastfile: readFastlaneFile(workingDirectory, 'Fastfile'),
-        matchfile: readFastlaneFile(workingDirectory, 'Matchfile'),
-        supplyfile: readFastlaneFile(workingDirectory, 'Supplyfile'),
-        deliverfile: readFastlaneFile(workingDirectory, 'Deliverfile'),
-        environmentKeys: discoverDotenvKeys(workingDirectory),
-      },
-      { concurrency: 'unbounded' },
-    );
-    let hasFastlaneSource = fastlaneSources.appfile !== undefined;
-    if (fastlaneSources.fastfile !== undefined) hasFastlaneSource = true;
-    if (fastlaneSources.matchfile !== undefined) hasFastlaneSource = true;
-    if (fastlaneSources.supplyfile !== undefined) hasFastlaneSource = true;
-    if (fastlaneSources.deliverfile !== undefined) hasFastlaneSource = true;
-    if (!hasFastlaneSource) return null;
-    let parsedFastfile: { lanes: FastlaneLane[]; actions: string[] } = {
-      lanes: [],
-      actions: [],
-    };
-    if (fastlaneSources.fastfile !== undefined) {
-      parsedFastfile = parseFastfile(fastlaneSources.fastfile);
-    }
-    let appfile: AppfileData | undefined;
-    if (fastlaneSources.appfile !== undefined) {
-      appfile = parseAppfile(fastlaneSources.appfile);
-    }
-    let matchfile: MatchfileData | undefined;
-    if (fastlaneSources.matchfile !== undefined) {
-      matchfile = parseMatchfile(fastlaneSources.matchfile);
-    }
-    let supply: SupplyfileData | undefined;
-    if (fastlaneSources.supplyfile !== undefined) {
-      supply = parseSupplyfile(fastlaneSources.supplyfile);
-    }
-    const fastlaneSetup: FastlaneSetup = {
-      lanes: parsedFastfile.lanes,
-      actions: parsedFastfile.actions,
-      hasDeliverfile: fastlaneSources.deliverfile !== undefined,
-      envKeys: fastlaneSources.environmentKeys,
-    };
-    if (appfile !== undefined && matchfile !== undefined && supply !== undefined) {
-      return { ...fastlaneSetup, appfile, matchfile, supply };
-    }
-    if (appfile !== undefined && matchfile !== undefined) {
-      return { ...fastlaneSetup, appfile, matchfile };
-    }
-    if (appfile !== undefined && supply !== undefined) {
-      return { ...fastlaneSetup, appfile, supply };
-    }
-    if (matchfile !== undefined && supply !== undefined) {
-      return { ...fastlaneSetup, matchfile, supply };
-    }
-    if (appfile !== undefined) return { ...fastlaneSetup, appfile };
-    if (matchfile !== undefined) return { ...fastlaneSetup, matchfile };
-    if (supply !== undefined) return { ...fastlaneSetup, supply };
-    return fastlaneSetup;
-  });
+export async function readFastlaneSetup(workingDirectory: string): Promise<FastlaneSetup | null> {
+  const fastlaneSources = {
+    appfile: await readFastlaneFile(workingDirectory, 'Appfile'),
+    fastfile: await readFastlaneFile(workingDirectory, 'Fastfile'),
+    matchfile: await readFastlaneFile(workingDirectory, 'Matchfile'),
+    supplyfile: await readFastlaneFile(workingDirectory, 'Supplyfile'),
+    deliverfile: await readFastlaneFile(workingDirectory, 'Deliverfile'),
+    environmentKeys: await discoverDotenvKeys(workingDirectory),
+  };
+  const setup = finishFastlaneSetup(fastlaneSources);
 
+  return setup;
+}
+
+function finishFastlaneSetup(fastlaneSources: {
+  appfile: string | undefined;
+  fastfile: string | undefined;
+  matchfile: string | undefined;
+  supplyfile: string | undefined;
+  deliverfile: string | undefined;
+  environmentKeys: string[];
+}): FastlaneSetup | null {
+  let hasFastlaneSource = fastlaneSources.appfile != null;
+
+  if (fastlaneSources.fastfile != null) {
+    hasFastlaneSource = true;
+  }
+
+  if (fastlaneSources.matchfile != null) {
+    hasFastlaneSource = true;
+  }
+
+  if (fastlaneSources.supplyfile != null) {
+    hasFastlaneSource = true;
+  }
+
+  if (fastlaneSources.deliverfile != null) {
+    hasFastlaneSource = true;
+  }
+
+  if (hasFastlaneSource == false) {
+    return null;
+  }
+
+  let parsedFastfile: { lanes: FastlaneLane[]; actions: string[] } = {
+    lanes: [],
+    actions: [],
+  };
+
+  if (fastlaneSources.fastfile != null) {
+    parsedFastfile = parseFastfile(fastlaneSources.fastfile);
+  }
+
+  let appfile: AppfileData | undefined;
+
+  if (fastlaneSources.appfile != null) {
+    appfile = parseAppfile(fastlaneSources.appfile);
+  }
+
+  let matchfile: MatchfileData | undefined;
+
+  if (fastlaneSources.matchfile != null) {
+    matchfile = parseMatchfile(fastlaneSources.matchfile);
+  }
+
+  let supply: SupplyfileData | undefined;
+
+  if (fastlaneSources.supplyfile != null) {
+    supply = parseSupplyfile(fastlaneSources.supplyfile);
+  }
+
+  const fastlaneSetup: {
+    appfile?: AppfileData;
+    matchfile?: MatchfileData;
+    supply?: SupplyfileData;
+    lanes: readonly FastlaneLane[];
+    actions: readonly string[];
+    hasDeliverfile: boolean;
+    envKeys: readonly string[];
+  } = {
+    lanes: parsedFastfile.lanes,
+    actions: parsedFastfile.actions,
+    hasDeliverfile: fastlaneSources.deliverfile != null,
+    envKeys: fastlaneSources.environmentKeys,
+  };
+
+  if (appfile != null) {
+    fastlaneSetup.appfile = appfile;
+  }
+
+  if (matchfile != null) {
+    fastlaneSetup.matchfile = matchfile;
+  }
+
+  if (supply != null) {
+    fastlaneSetup.supply = supply;
+  }
+
+  return fastlaneSetup;
+}
 /** Distinct Launch commands mapped from recognized actions on one lane. */
 export const laneLaunchCommands = (fastlaneLane: FastlaneLane): string[] => {
   const launchCommands: string[] = [];
@@ -480,107 +547,110 @@ type StoreScaffoldOutcome = Readonly<{
   note: MigrationNote;
 }>;
 
-const importFastlaneMetadata = (
+function isZeroCount(localeCount: number): boolean {
+  return localeCount == 0;
+}
+
+async function importFastlaneMetadata(
   workingDirectory: string,
-): Effect.Effect<StoreScaffoldOutcome | null, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const appleMetadataDirectory = pathService.join(workingDirectory, 'fastlane', 'metadata');
-    const androidMetadataDirectory = pathService.join(appleMetadataDirectory, 'android');
-    const importedListings = yield* Effect.all(
-      {
-        apple: readAppleMetadataDir(appleMetadataDirectory),
-        android: readAndroidMetadataDir(androidMetadataDirectory),
-      },
-      { concurrency: 'unbounded' },
-    );
-    const appleLocaleCount = Object.keys(importedListings.apple.info).length;
-    const androidLocaleCount = Object.keys(importedListings.android.info).length;
-    if (appleLocaleCount === 0 && androidLocaleCount === 0) return null;
-    const storeConfiguration: StoreConfig = { configVersion: 0 };
-    const importedListingLabels: string[] = [];
-    if (appleLocaleCount > 0) {
-      storeConfiguration.apple = importedListings.apple;
-      importedListingLabels.push(`${appleLocaleCount} App Store locale(s)`);
-    }
-    if (androidLocaleCount > 0) {
-      storeConfiguration.android = importedListings.android;
-      importedListingLabels.push(`${androidLocaleCount} Play locale(s)`);
-    }
-    return {
-      artifact: {
-        path: 'store.config.json',
-        contents: serializeStoreConfig(storeConfiguration),
-      },
-      note: {
-        level: 'mapped',
-        message: `Imported your fastlane metadata (${importedListingLabels.join(', ')}) into store.config.json - review it, then push with \`launch metadata push\`.`,
-      },
-    };
-  });
+): Promise<StoreScaffoldOutcome | null> {
+  const appleMetadataDirectory = join(workingDirectory, 'fastlane', 'metadata');
+  const androidMetadataDirectory = join(appleMetadataDirectory, 'android');
+  const appleListingPromise = readAppleMetadataDir(appleMetadataDirectory);
+  const androidListingPromise = readAndroidMetadataDir(androidMetadataDirectory);
+  const appleListing = await appleListingPromise;
+  const androidListing = await androidListingPromise;
+  const appleLocaleCount = Object.keys(appleListing.info).length;
+  const androidLocaleCount = Object.keys(androidListing.info).length;
+  const hasNoImportedLocales = [appleLocaleCount, androidLocaleCount].every(isZeroCount);
+
+  if (hasNoImportedLocales) {
+    return null;
+  }
+
+  const storeConfiguration: StoreConfig = { configVersion: 0 };
+  const importedListingLabels: string[] = [];
+
+  if (appleLocaleCount > 0) {
+    storeConfiguration.apple = appleListing;
+    importedListingLabels.push(`${appleLocaleCount} App Store locale(s)`);
+  }
+
+  if (androidLocaleCount > 0) {
+    storeConfiguration.android = androidListing;
+    importedListingLabels.push(`${androidLocaleCount} Play locale(s)`);
+  }
+
+  return {
+    artifact: {
+      path: 'store.config.json',
+      contents: serializeStoreConfig(storeConfiguration),
+    },
+    note: {
+      level: 'mapped',
+      message: `Imported your fastlane metadata (${importedListingLabels.join(', ')}) into store.config.json - review it, then push with \`launch metadata push\`.`,
+    },
+  };
+}
 
 /** Resolve store.config.json: reuse existing, import metadata, or scaffold. */
-const storeScaffoldFor = (
-  workingDirectory: string,
-): Effect.Effect<
-  { storeScaffold: StoreScaffoldOutcome; importedMetadata: boolean },
-  PlatformError,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const storeConfigPath = pathService.join(workingDirectory, 'store.config.json');
-    if (yield* fileSystem.exists(storeConfigPath)) {
-      return {
-        storeScaffold: yield* scaffoldStoreConfig(workingDirectory),
-        importedMetadata: false,
-      };
-    }
-    const importedStoreConfig = yield* importFastlaneMetadata(workingDirectory);
-    if (importedStoreConfig === null) {
-      return {
-        storeScaffold: yield* scaffoldStoreConfig(workingDirectory),
-        importedMetadata: false,
-      };
-    }
-    return { storeScaffold: importedStoreConfig, importedMetadata: true };
-  });
+async function storeScaffoldFor(workingDirectory: string): Promise<{
+  storeScaffold: StoreScaffoldOutcome;
+  importedMetadata: boolean;
+}> {
+  const storeConfigPath = join(workingDirectory, 'store.config.json');
+  const storeConfigExists = await pathExists(storeConfigPath);
+
+  if (storeConfigExists) {
+    const existingScaffold = await scaffoldStoreConfig(workingDirectory);
+
+    return { storeScaffold: existingScaffold, importedMetadata: false };
+  }
+
+  const importedStoreConfig = await importFastlaneMetadata(workingDirectory);
+
+  if (importedStoreConfig == null) {
+    const scaffoldedStoreConfig = await scaffoldStoreConfig(workingDirectory);
+
+    return { storeScaffold: scaffoldedStoreConfig, importedMetadata: false };
+  }
+
+  return { storeScaffold: importedStoreConfig, importedMetadata: true };
+}
 
 /** Read a Fastlane project and return Launch artifacts without writing them. */
-export const migrateFastlane = (
+export async function migrateFastlane(
   workingDirectory: string,
   apps: AppDescriptor[],
-): Effect.Effect<
-  MigrationResult,
-  FastlaneMigrationFailure | PlatformError,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const fastlaneSetup = yield* readFastlaneSetup(workingDirectory);
-    if (fastlaneSetup === null) {
-      return yield* Effect.fail(
-        makeFastlaneMigrationFailure({
-          reason: 'MissingFastlaneSetup',
-          sourcePath: workingDirectory,
-        }),
-      );
-    }
-    const migrationArtifacts: MigrationArtifact[] = [
-      {
-        path: 'launch.config.ts',
-        contents: configTemplate(yield* detectAppRoot(apps, workingDirectory)),
-      },
-      {
-        path: '.env.example',
-        contents: buildEnvExample(fastlaneSetup.envKeys),
-      },
-    ];
-    const { storeScaffold, importedMetadata } = yield* storeScaffoldFor(workingDirectory);
-    const migrationNotes = migrationNotesFor(fastlaneSetup, apps, importedMetadata);
-    if (storeScaffold.artifact !== null) {
-      migrationArtifacts.push(storeScaffold.artifact);
-    }
-    migrationNotes.push(storeScaffold.note);
-    return { source: 'fastlane', artifacts: migrationArtifacts, notes: migrationNotes };
-  });
+): Promise<MigrationResult> {
+  const fastlaneSetup = await readFastlaneSetup(workingDirectory);
+
+  if (fastlaneSetup == null) {
+    throw makeFastlaneMigrationFailure({
+      reason: 'MissingFastlaneSetup',
+      sourcePath: workingDirectory,
+    });
+  }
+
+  const appRoot = detectAppRoot(apps, workingDirectory);
+  const migrationArtifacts: MigrationArtifact[] = [
+    {
+      path: 'launch.config.ts',
+      contents: configTemplate(appRoot),
+    },
+    {
+      path: '.env.example',
+      contents: buildEnvExample(fastlaneSetup.envKeys),
+    },
+  ];
+  const storeScaffoldPlan = await storeScaffoldFor(workingDirectory);
+  const migrationNotes = migrationNotesFor(fastlaneSetup, apps, storeScaffoldPlan.importedMetadata);
+
+  if (storeScaffoldPlan.storeScaffold.artifact != null) {
+    migrationArtifacts.push(storeScaffoldPlan.storeScaffold.artifact);
+  }
+
+  migrationNotes.push(storeScaffoldPlan.storeScaffold.note);
+
+  return { source: 'fastlane', artifacts: migrationArtifacts, notes: migrationNotes };
+}

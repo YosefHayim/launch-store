@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { runPlanner } from './planner.testkit.js';
 import { describe, expect, it, vi } from 'vitest';
 import { walletPlanner } from './wallet.js';
@@ -22,8 +21,8 @@ const makeCtx = (api: AscSurfacesApi | null, wallet?: WalletConfig): PlanContext
   return {
     config,
     apps: [],
-    resolveAscApi: () => Effect.succeed(api),
-    resolvePlayApi: () => Effect.succeed(null),
+    resolveAscApi: () => Promise.resolve(api),
+    resolvePlayApi: () => Promise.resolve(null),
   };
 };
 describe('walletPlanner', () => {

@@ -1,8 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { expectDefined } from '@testkit/assertions.testkit.js';
 import type { AppDescriptor } from '../types/app.js';
@@ -69,11 +67,13 @@ const artifact = (artifacts: readonly MigrationArtifact[], path: string): Migrat
 const notesAt = (notes: readonly MigrationNote[], level: MigrationNoteLevel): MigrationNote[] =>
   notes.filter((note) => note.level === level);
 
-const sampleEasConfiguration = (): EasJson => Effect.runSync(parseEasJson(SAMPLE_EAS));
+function sampleEasConfiguration(): EasJson {
+  return parseEasJson(SAMPLE_EAS);
+}
 
 describe('parseEasJson', () => {
   it('parses build, submit, and cli into the narrowed shape', () => {
-    const eas = Effect.runSync(parseEasJson(SAMPLE_EAS));
+    const eas = parseEasJson(SAMPLE_EAS);
     expect(Object.keys(eas.build).sort()).toEqual(['development', 'production']);
     expect(eas.build['production']?.env).toEqual({ API_URL: 'https://prod', SENTRY_DSN: 'x' });
     expect(eas.build['development']?.distribution).toBe('internal');
@@ -81,25 +81,37 @@ describe('parseEasJson', () => {
     expect(eas.cli?.appVersionSource).toBe('remote');
   });
   it('defaults missing sections rather than failing', () => {
-    const eas = Effect.runSync(parseEasJson('{}'));
+    const eas = parseEasJson('{}');
     expect(eas).toEqual({ build: {}, submit: {} });
   });
   it('drops non-string env values and empty halves', () => {
-    const eas = Effect.runSync(
-      parseEasJson(
-        JSON.stringify({ build: { p: { env: { A: '1', B: 2 } } }, submit: { p: { ios: {} } } }),
-      ),
+    const eas = parseEasJson(
+      JSON.stringify({ build: { p: { env: { A: '1', B: 2 } } }, submit: { p: { ios: {} } } }),
     );
     expect(eas.build['p']?.env).toEqual({ A: '1' });
     expect(eas.submit['p']?.ios).toBeUndefined();
   });
   it('returns a tagged failure for invalid JSON', () => {
-    const parsingFailure = Effect.runSync(Effect.flip(parseEasJson('{ not json')));
-    expect(parsingFailure.reason).toBe('InvalidEasJson');
+    let parsingFailure: unknown = null;
+
+    try {
+      parseEasJson('{ not json');
+    } catch (error) {
+      parsingFailure = error;
+    }
+
+    expect(parsingFailure).toMatchObject({ reason: 'InvalidEasJson' });
   });
   it('returns a tagged failure for a non-object document', () => {
-    const parsingFailure = Effect.runSync(Effect.flip(parseEasJson('"a string"')));
-    expect(parsingFailure.reason).toBe('InvalidEasJson');
+    let parsingFailure: unknown = null;
+
+    try {
+      parseEasJson('"a string"');
+    } catch (error) {
+      parsingFailure = error;
+    }
+
+    expect(parsingFailure).toMatchObject({ reason: 'InvalidEasJson' });
   });
 });
 
@@ -270,14 +282,12 @@ describe('migrateEas', () => {
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
-  const runMigrateEas = (workingDirectory: string, apps: AppDescriptor[]) =>
-    Effect.runPromise(migrateEas(workingDirectory, apps).pipe(Effect.provide(NodeContext.layer)));
+  function runMigrateEas(workingDirectory: string, apps: AppDescriptor[]) {
+    return migrateEas(workingDirectory, apps);
+  }
   it('returns a tagged failure when there is no eas.json', async () => {
     rmSync(join(dir, 'eas.json'));
-    const migrationFailure = await Effect.runPromise(
-      Effect.flip(migrateEas(dir, [app()]).pipe(Effect.provide(NodeContext.layer))),
-    );
-    expect(migrationFailure).toMatchObject({
+    await expect(migrateEas(dir, [app()])).rejects.toMatchObject({
       _tag: 'EasMigrationFailure',
       reason: 'MissingEasConfig',
     });

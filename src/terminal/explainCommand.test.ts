@@ -1,26 +1,41 @@
-import { Effect } from 'effect';
-import { describe, expect, it } from 'vitest';
-import { makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { afterEach, describe, expect, it } from 'vitest';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
 import { explainCommandProgram } from './explainCommand.js';
 
+afterEach(function resetExplainLogger() {
+  resetLogger();
+});
+
+function captureExplainWrites(): string[] {
+  const terminalWrites: string[] = [];
+  useLoggerSink(function writeLine(text: string) {
+    terminalWrites.push(text);
+  });
+
+  return terminalWrites;
+}
+
 describe('explainCommandProgram', () => {
-  it('lists topics when none is requested', async () => {
-    const terminalWrites: string[] = [];
-    await Effect.runPromise(
-      explainCommandProgram({}).pipe(Effect.provide(makeLaunchLoggerTest(terminalWrites))),
-    );
+  it('lists topics when none is requested', () => {
+    const terminalWrites = captureExplainWrites();
+    explainCommandProgram({});
+
     expect(terminalWrites.join('')).toContain('Topics:');
   });
 
-  it('rejects an unknown topic with the known choices', async () => {
-    const explanationAttempt = await Effect.runPromise(
-      Effect.either(
-        explainCommandProgram({ topic: 'magic' }).pipe(Effect.provide(makeLaunchLoggerTest([]))),
-      ),
-    );
-    expect(explanationAttempt._tag).toBe('Left');
-    if (explanationAttempt._tag === 'Left') {
-      expect(explanationAttempt.left.message).toMatch(/Unknown topic "magic"/);
+  it('rejects an unknown topic with the known choices', () => {
+    captureExplainWrites();
+    let thrownCause: unknown = null;
+
+    try {
+      explainCommandProgram({ topic: 'magic' });
+    } catch (cause) {
+      thrownCause = cause;
     }
+
+    expect(thrownCause).toMatchObject({
+      _tag: 'ExplainCommandFailure',
+      message: expect.stringMatching(/Unknown topic "magic"/),
+    });
   });
 });

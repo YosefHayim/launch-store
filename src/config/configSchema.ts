@@ -1,41 +1,16 @@
-import { FileSystem } from '@effect/platform';
-import { fileURLToPath } from 'node:url';
-import { Effect, Schema } from 'effect';
-import { type JsonSchema, JsonSchemaNode, type SchemaViolation } from './jsonSchema.js';
-import { validateLaunchConfig } from './schema.js';
-
-/**
- * Absolute path to the committed schema, resolved relative to THIS module so it points at the copy that
- * actually ships: `<root>/schema/...` under vitest (`src/config/configSchema.ts`) and
- * `<pkgroot>/schema/...` in the published tarball (`dist/config/configSchema.js`) - the `../../`
- * lands on the package root from either tree, the same trick {@link import("./config.js")}'s
- * `SELF_ENTRY` uses for the public entry.
- */
-const SCHEMA_PATH = fileURLToPath(
-  new URL('../../schema/launch.config.schema.json', import.meta.url),
-);
-
-/** Memoized parse of the committed schema - it's immutable at runtime, so read and parse it once. */
-let cachedSchema: JsonSchema | undefined;
+import type { JsonSchema, SchemaViolation } from './jsonSchema.js';
+import { loadPublishedConfigSchema, validateLaunchConfig } from './schema.js';
 
 /** Load and cache the committed JSON Schema used by config commands and MCP tools. */
-export const loadConfigSchema = (): Effect.Effect<JsonSchema, unknown, FileSystem.FileSystem> => {
-  if (cachedSchema !== undefined) {
-    return Effect.succeed(cachedSchema);
-  }
-  return Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const schemaText = yield* fileSystem.readFileString(SCHEMA_PATH);
-    const loadedSchema = yield* Schema.decodeUnknown(Schema.parseJson(JsonSchemaNode))(schemaText);
-    cachedSchema = loadedSchema;
-    return loadedSchema;
-  });
-};
+export function loadConfigSchema(): JsonSchema {
+  return loadPublishedConfigSchema();
+}
 
 /**
- * Validate a candidate config against the Effect Schema SSOT, returning every violation (empty when valid).
+ * Validate a candidate config, returning every violation (empty when valid).
  * Authoring shape: `profiles` required, provider names optional (they default). Unknown keys at any level
  * are flagged. Cross-field semantics are a separate advisory pass (`configSemantics.ts`).
  */
-export const validateConfig = (candidateConfig: unknown): SchemaViolation[] =>
-  validateLaunchConfig(candidateConfig);
+export function validateConfig(candidateConfig: unknown): SchemaViolation[] {
+  return validateLaunchConfig(candidateConfig);
+}

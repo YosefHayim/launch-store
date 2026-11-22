@@ -1,10 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Effect } from 'effect';
-import {
-  LaunchSecretStore,
-  LaunchSecretStoreLive,
-  makeLaunchSecretStoreTest,
-} from './secretStore.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { LaunchSecretStore, resetSecretStore, useSecretStore } from './secretStore.js';
 
 const fakeKeyring = vi.hoisted(() => ({
   storedPassword: null as string | null,
@@ -20,28 +15,20 @@ vi.mock('@napi-rs/keyring', () => ({
   },
 }));
 
-const readSecretFromLiveStore = (account: string) =>
-  Effect.runPromise(
-    Effect.gen(function* () {
-      const secretStore = yield* LaunchSecretStore;
-      const storedSecret = yield* secretStore.readSecret(account);
-      return storedSecret;
-    }).pipe(Effect.provide(LaunchSecretStoreLive)),
-  );
+afterEach(function resetSecretFixture() {
+  resetSecretStore();
+});
 
 describe('LaunchSecretStore', () => {
-  it('stores, reads, and deletes secrets through the test layer', async () => {
+  it('stores, reads, and deletes secrets through the test map', async () => {
     const storedSecrets = new Map<string, string>();
-    const secretStoreProgram = Effect.gen(function* () {
-      const secretStore = yield* LaunchSecretStore;
-      yield* secretStore.storeSecret('review-password', 'secret-text');
-      const storedSecret = yield* secretStore.readSecret('review-password');
-      yield* secretStore.deleteSecret('review-password');
-      const deletedSecret = yield* secretStore.readSecret('review-password');
-      return { storedSecret, deletedSecret };
-    }).pipe(Effect.provide(makeLaunchSecretStoreTest(storedSecrets)));
+    useSecretStore(storedSecrets);
+    await LaunchSecretStore.storeSecret('review-password', 'secret-text');
+    const storedSecret = await LaunchSecretStore.readSecret('review-password');
+    await LaunchSecretStore.deleteSecret('review-password');
+    const deletedSecret = await LaunchSecretStore.readSecret('review-password');
 
-    await expect(Effect.runPromise(secretStoreProgram)).resolves.toEqual({
+    expect({ storedSecret, deletedSecret }).toEqual({
       storedSecret: 'secret-text',
       deletedSecret: null,
     });
@@ -49,25 +36,23 @@ describe('LaunchSecretStore', () => {
   });
 });
 
-describe('LaunchSecretStoreLive', () => {
-  beforeEach(() => {
+describe('LaunchSecretStore native keyring', () => {
+  beforeEach(function resetKeyring() {
     fakeKeyring.storedPassword = null;
     fakeKeyring.isBroken = false;
+    resetSecretStore();
   });
 
   it('readSecret returns null when the native keyring has no entry', async () => {
     fakeKeyring.storedPassword = null;
-
-    const storedSecret = await readSecretFromLiveStore('review-password');
-
+    const storedSecret = await LaunchSecretStore.readSecret('review-password');
     expect(storedSecret).toBeNull();
   });
 
   it('readSecret fails with a clear message when the native keyring throws', async () => {
     fakeKeyring.isBroken = true;
-
-    const readAttempt = readSecretFromLiveStore('review-password');
-
-    await expect(readAttempt).rejects.toThrow('Could not read review-password from the keychain');
+    await expect(LaunchSecretStore.readSecret('review-password')).rejects.toThrow(
+      'Could not read review-password from the keychain',
+    );
   });
 });

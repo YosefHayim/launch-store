@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import type {
   PlayPriceConfig,
   PlaySubscriptionOverride,
@@ -121,7 +120,15 @@ const toLocalizations = (capturedListings: JsonValue | undefined): ProductLocali
     if (!record) continue;
     const locale = stringField(record, 'languageCode');
     const name = stringField(record, 'title');
-    if (locale !== undefined && name !== undefined) localizations.push({ locale, name });
+    if (locale == null) {
+      continue;
+    }
+
+    if (name == null) {
+      continue;
+    }
+
+    localizations.push({ locale, name });
   }
   return localizations;
 };
@@ -160,44 +167,7 @@ export const playSubscriptionsSource: SnapshotSource = {
   id: 'play-subscriptions',
   title: 'Google Play subscriptions',
   store: 'play',
-  capture(snapshotContext: SnapshotContext) {
-    return Effect.gen(function* () {
-      const apps = androidApps(snapshotContext.apps);
-      if (apps.length === 0) return { state: 'omitted' };
-      const results = yield* Effect.forEach(
-        apps,
-        ({ name, identifier }) =>
-          Effect.gen(function* () {
-            const client = yield* snapshotContext.resolvePlayApi(identifier);
-            if (client === null)
-              return {
-                skipped: { app: name, identifier, reason: 'no Play service account' },
-              } as const;
-            const records = yield* client.listSubscriptions(identifier);
-            return {
-              captured: { app: name, identifier, entities: records.map(toEntity) },
-            } as const;
-          }),
-        { concurrency: 'unbounded' },
-      );
-      const captured = results.flatMap((entry) => {
-        if ('captured' in entry) return [entry.captured];
-        return [];
-      });
-      const skippedApps = results.flatMap((entry) => {
-        if ('skipped' in entry) return [entry.skipped];
-        return [];
-      });
-      if (captured.length === 0)
-        return {
-          state: 'skipped',
-          reason: `no Play service account for ${skippedApps.map((entry) => entry.app).join(', ')}`,
-          hint: 'configure Play credentials',
-        };
-      if (skippedApps.length === 0) return { state: 'captured', apps: captured };
-      return { state: 'captured', apps: captured, skippedApps };
-    });
-  },
+  capture: capturePlaySubscriptions,
   /**
    * Restore each app's captured subscriptions to Google Play via the same `reconcilePlaySubscriptions` the
    * `launch sync` / `launch plan` Play-subscriptions surface uses. Additive: it creates a missing
@@ -205,49 +175,147 @@ export const playSubscriptionsSource: SnapshotSource = {
    * deleting or repricing a live base plan. Each app is isolated - an unreachable Play app record becomes a
    * skipped action - and a subscription that can't be faithfully rebuilt is skipped with a reason.
    */
-  restore({ ctx: restoreContext, saved, dryRun }: RestoreInput) {
-    return Effect.gen(function* () {
-      const actions: PlannedAction[] = [];
-      for (const app of saved) {
-        const client = yield* restoreContext.resolvePlayWriteClient(app.identifier);
-        if (!client) {
-          actions.push(
-            skippedAction(`Google Play: skipped - no Play service account for ${app.identifier}`),
-          );
-          continue;
-        }
-        const subscriptions: SubscriptionConfig[] = [];
-        for (const entity of app.entities) {
-          const config = toSubscriptionConfig(entity);
-          if (config) subscriptions.push(config);
-          else {
-            actions.push(
-              skippedAction(
-                `Play subscription ${entity.key}: skipped - needs a base plan with a known period and prices`,
-              ),
-            );
-          }
-        }
-        if (subscriptions.length === 0) continue;
-        const reconciliation = yield* reconcilePlaySubscriptions(client, {
-          packageName: app.identifier,
-          subscriptions,
-          dryRun,
-        }).pipe(
-          Effect.match({
-            onFailure: (reconciliationFailure) => ({
-              actions: [
-                skippedAction(
-                  `Google Play subscriptions ${app.identifier}: ${restoreErrorMessage(reconciliationFailure)}`,
-                ),
-              ],
-            }),
-            onSuccess: (reconciliationReport) => reconciliationReport,
-          }),
-        );
-        actions.push(...reconciliation.actions);
-      }
-      return { actions };
-    });
-  },
+  restore: restorePlaySubscriptions,
 };
+
+type PlayCaptureEntry =
+  | { readonly captured: { app: string; identifier: string; entities: SnapshotEntity[] } }
+  | { readonly skipped: { app: string; identifier: string; reason: string } };
+
+async function captureOneSubscriptionApp(
+  snapshotContext: SnapshotContext,
+  app: { name: string; identifier: string },
+): Promise<PlayCaptureEntry> {
+  const client = await snapshotContext.resolvePlayApi(app.identifier);
+
+  if (client == null) {
+    return {
+      skipped: { app: app.name, identifier: app.identifier, reason: 'no Play service account' },
+    };
+  }
+
+  const records = await client.listSubscriptions(app.identifier);
+
+  return {
+    captured: { app: app.name, identifier: app.identifier, entities: records.map(toEntity) },
+  };
+}
+
+function capturedApps(entry: PlayCaptureEntry) {
+  if ('captured' in entry) {
+    return [entry.captured];
+  }
+
+  return [];
+}
+
+function skippedApps(entry: PlayCaptureEntry) {
+  if ('skipped' in entry) {
+    return [entry.skipped];
+  }
+
+  return [];
+}
+
+async function capturePlaySubscriptions(snapshotContext: SnapshotContext) {
+  const apps = androidApps(snapshotContext.apps);
+
+  if (apps.length == 0) {
+    return { state: 'omitted' as const };
+  }
+
+  const results = await Promise.all(
+    apps.map(function captureNamedApp(app) {
+      return captureOneSubscriptionApp(snapshotContext, app);
+    }),
+  );
+  const captured = results.flatMap(capturedApps);
+  const skipped = results.flatMap(skippedApps);
+
+  if (captured.length == 0) {
+    return {
+      state: 'skipped' as const,
+      reason: `no Play service account for ${skipped
+        .map(function appName(entry) {
+          return entry.app;
+        })
+        .join(', ')}`,
+      hint: 'configure Play credentials',
+    };
+  }
+
+  if (skipped.length == 0) {
+    return { state: 'captured' as const, apps: captured };
+  }
+
+  return { state: 'captured' as const, apps: captured, skippedApps: skipped };
+}
+
+async function restorePlaySubscriptions({ ctx: restoreContext, saved, dryRun }: RestoreInput) {
+  const actions: PlannedAction[] = [];
+
+  for (const app of saved) {
+    const client = await restoreContext.resolvePlayWriteClient(app.identifier);
+
+    if (client == null) {
+      actions.push(
+        skippedAction(`Google Play: skipped - no Play service account for ${app.identifier}`),
+      );
+      continue;
+    }
+
+    const subscriptions: SubscriptionConfig[] = [];
+
+    for (const entity of app.entities) {
+      const subscriptionConfig = toSubscriptionConfig(entity);
+
+      if (subscriptionConfig == null) {
+        actions.push(
+          skippedAction(
+            `Play subscription ${entity.key}: skipped - needs a base plan with a known period and prices`,
+          ),
+        );
+        continue;
+      }
+
+      subscriptions.push(subscriptionConfig);
+    }
+
+    if (subscriptions.length == 0) {
+      continue;
+    }
+
+    const appActions = await reconcileSubscriptionActions(
+      client,
+      app.identifier,
+      subscriptions,
+      dryRun,
+    );
+    actions.push(...appActions);
+  }
+
+  return { actions };
+}
+
+async function reconcileSubscriptionActions(
+  client: NonNullable<Awaited<ReturnType<RestoreInput['ctx']['resolvePlayWriteClient']>>>,
+  packageName: string,
+  subscriptions: SubscriptionConfig[],
+  dryRun: boolean,
+): Promise<PlannedAction[]> {
+  try {
+    const reconciliation = await reconcilePlaySubscriptions(client, {
+      packageName,
+      subscriptions,
+      dryRun,
+    });
+
+    return [...reconciliation.actions];
+  } catch (reconciliationFailure) {
+    return [
+      skippedAction(
+        `Google Play subscriptions ${packageName}: ${restoreErrorMessage(reconciliationFailure)}`,
+      ),
+    ];
+  }
+}

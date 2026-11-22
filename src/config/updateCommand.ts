@@ -1,32 +1,17 @@
-import { FileSystem, Path, type Terminal } from '@effect/platform';
-import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor';
-import { Data, Effect, Schema } from 'effect';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { resolveCommandEnv, selectApp, validateResolvedEnv } from '../build/pipelineEnv.js';
 import { ensureCodeSigner } from '../credentials/codeSign.js';
 import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.js';
 import { updatesAppConfigSnippet, updatesWorkerScript } from '../distribution/otaManifest.js';
 import { isCloudStorage, resolveStorageProvider } from '../distribution/storage.js';
-import type { LaunchEnvironmentService } from '../services/platform/environment.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import type { LaunchPathsService } from '../services/platform/paths.js';
-import type { LaunchPromptService } from '../services/platform/prompt.js';
-import { executeCommand } from '../services/platform/exec.js';
-import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
-import type { AppDescriptor } from '../types/app.js';
-import { formatEnvTable, parseCliEnv } from './env.js';
-import { loadConfig } from './config.js';
 import { hasMessage } from '../services/platform/errorMessage.js';
+import { executeCommand, type CommandExecutionOptions } from '../services/platform/exec.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import type { AppDescriptor } from '../types/app.js';
+import { loadConfig } from './config.js';
+import { formatEnvTable, parseCliEnv } from './env.js';
 
-const AppRuntimeVersionSchema = Schema.Struct({
-  expo: Schema.optional(
-    Schema.Struct({
-      runtimeVersion: Schema.optional(Schema.Unknown),
-    }),
-  ),
-  runtimeVersion: Schema.optional(Schema.Unknown),
-});
-
-/** Inputs resolved from the OTA update command flags. */
 type UpdateCommandInput = Readonly<{
   channel: string;
   platform: string;
@@ -40,259 +25,381 @@ type UpdateCommandInput = Readonly<{
   printEnv: boolean;
 }>;
 
-/** OTA export, signing, or publishing failed. */
 type UpdateCommandFailure = Readonly<{
-  readonly _tag: 'UpdateCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
+  _tag: 'UpdateCommandFailure';
+  operation: string;
+  message: string;
+  cause: unknown;
 }>;
 
-const makeUpdateCommandFailure = Data.tagged<UpdateCommandFailure>('UpdateCommandFailure');
+type UpdatePlatform = 'ios' | 'android';
 
-/** Convert an unknown cause to the OTA update error channel. */
-const updateFailure = (
+function updateFailure(
   operation: string,
   cause: unknown,
   fallbackMessage?: string,
-): UpdateCommandFailure => {
+): UpdateCommandFailure {
   let message = fallbackMessage;
-  if (message === undefined && hasMessage(cause)) message = cause.message;
-  if (message === undefined) message = `${operation} failed.`;
-  return makeUpdateCommandFailure({ operation, message, cause });
-};
 
-/** Map one terminal write into the OTA update error channel. */
-const writeLog = (
-  operation: string,
-  logWrite: ReturnType<Logger['line']>,
-): Effect.Effect<void, UpdateCommandFailure> =>
-  logWrite.pipe(Effect.mapError((cause) => updateFailure(operation, cause)));
+  if (message == null) {
+    if (hasMessage(cause)) {
+      message = cause.message;
+    }
+  }
 
-/** Resolve one or both native platforms from the CLI selector. */
-const platformsFor = (
-  platformSelector: string,
-): Effect.Effect<readonly ('ios' | 'android')[], UpdateCommandFailure> => {
-  if (platformSelector === 'ios') return Effect.succeed(['ios']);
-  if (platformSelector === 'android') return Effect.succeed(['android']);
-  if (platformSelector === 'all') return Effect.succeed(['ios', 'android']);
-  return Effect.fail(
-    updateFailure(
-      'select update platforms',
-      platformSelector,
-      `Unknown --platform "${platformSelector}". Use ios, android, or all.`,
-    ),
+  if (message == null) {
+    message = `${operation} failed.`;
+  }
+
+  return { _tag: 'UpdateCommandFailure', operation, message, cause };
+}
+
+function platformsFor(platformSelector: string): readonly UpdatePlatform[] {
+  if (platformSelector == 'ios') {
+    return ['ios'];
+  }
+
+  if (platformSelector == 'android') {
+    return ['android'];
+  }
+
+  if (platformSelector == 'all') {
+    return ['ios', 'android'];
+  }
+
+  throw updateFailure(
+    'select update platforms',
+    platformSelector,
+    `Unknown --platform "${platformSelector}". Use ios, android, or all.`,
   );
-};
+}
 
-/** Resolve the explicit, Expo-configured, or marketing-version runtime version. */
-export const resolveRuntimeVersion = (
+function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function readRuntimeVersion(candidate: unknown): string | null {
+  if (isPlainRecord(candidate)) {
+    return runtimeVersionFromRecord(candidate);
+  }
+
+  return null;
+}
+
+function runtimeVersionFromRecord(candidate: Record<string, unknown>): string | null {
+  const expo = candidate['expo'];
+
+  if (isPlainRecord(expo)) {
+    const expoRuntimeVersion = expo['runtimeVersion'];
+
+    if (typeof expoRuntimeVersion == 'string') {
+      return expoRuntimeVersion;
+    }
+  }
+
+  const runtimeVersion = candidate['runtimeVersion'];
+
+  if (typeof runtimeVersion == 'string') {
+    return runtimeVersion;
+  }
+
+  return null;
+}
+
+export async function resolveRuntimeVersion(
   appDescriptor: AppDescriptor,
   override: string | undefined,
-): Effect.Effect<string, UpdateCommandFailure, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    if (override !== undefined && override !== '') return override;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const appConfigText = yield* fileSystem
-      .readFileString(appDescriptor.configPath)
-      .pipe(Effect.mapError((cause) => updateFailure('read app runtime version', cause)));
-    const appConfig = yield* Schema.decodeUnknown(Schema.parseJson(AppRuntimeVersionSchema))(
-      appConfigText,
-    ).pipe(Effect.mapError((cause) => updateFailure('decode app runtime version', cause)));
-    if (typeof appConfig.expo?.runtimeVersion === 'string') return appConfig.expo.runtimeVersion;
-    if (typeof appConfig.runtimeVersion === 'string') return appConfig.runtimeVersion;
-    if (appDescriptor.version !== undefined && appDescriptor.version !== '')
-      return appDescriptor.version;
-    return yield* Effect.fail(
-      updateFailure(
-        'resolve update runtime version',
-        appDescriptor.configPath,
-        'Could not resolve a runtime version. Pass --runtime-version <v> (e.g. 1.0.0).',
-      ),
-    );
-  });
+): Promise<string> {
+  const hasOverride = override != null;
 
-/** Render the deployment and app-configuration steps after an OTA publish. */
-const renderAfterPublish = (
+  if (hasOverride) {
+    const overrideIsBlank = override == '';
+
+    if (overrideIsBlank == false) {
+      return override;
+    }
+  }
+
+  let appConfigText: string;
+
+  try {
+    appConfigText = await readFile(appDescriptor.configPath, 'utf8');
+  } catch (cause) {
+    throw updateFailure('read app runtime version', cause);
+  }
+
+  let parsedConfig: unknown;
+
+  try {
+    parsedConfig = JSON.parse(appConfigText);
+  } catch (cause) {
+    throw updateFailure('decode app runtime version', cause);
+  }
+
+  const configuredVersion = readRuntimeVersion(parsedConfig);
+
+  if (configuredVersion != null) {
+    return configuredVersion;
+  }
+
+  if (appDescriptor.version != null) {
+    const versionIsBlank = appDescriptor.version == '';
+
+    if (versionIsBlank == false) {
+      return appDescriptor.version;
+    }
+  }
+
+  throw updateFailure(
+    'resolve update runtime version',
+    appDescriptor.configPath,
+    'Could not resolve a runtime version. Pass --runtime-version <v> (e.g. 1.0.0).',
+  );
+}
+
+function renderAfterPublish(
   workerUrl: string,
   runtimeVersion: string,
   signed: boolean,
   logger: Logger,
-): Effect.Effect<void, UpdateCommandFailure> =>
-  Effect.gen(function* () {
-    yield* writeLog('render update next steps', logger.gap());
-    yield* writeLog(
-      'render update next steps',
-      logger.note(
-        "Edge worker uploaded - deploy it (Cloudflare) and point the app's updates.url at the Worker route.",
-      ),
-    );
-    yield* writeLog('render update worker source', logger.note(`Worker source: ${workerUrl}`));
-    yield* writeLog('render update next steps', logger.gap());
-    yield* writeLog(
-      'render update app configuration',
-      logger.note('One-time app config (app.json):'),
-    );
-    yield* writeLog(
-      'render update app configuration',
-      logger.line(
-        updatesAppConfigSnippet({
-          updateUrl: '<your-worker-route>',
-          runtimeVersion,
-          signed,
-        }),
-      ),
-    );
-  });
+): void {
+  logger.gap();
+  logger.note(
+    "Edge worker uploaded - deploy it (Cloudflare) and point the app's updates.url at the Worker route.",
+  );
+  logger.note(`Worker source: ${workerUrl}`);
+  logger.gap();
+  logger.note('One-time app config (app.json):');
+  logger.line(
+    updatesAppConfigSnippet({
+      updateUrl: '<your-worker-route>',
+      runtimeVersion,
+      signed,
+    }),
+  );
+}
 
-/** Export and publish an Expo Updates bundle to the configured cloud storage. */
-export const updateCommandProgram = (
-  commandInput: UpdateCommandInput,
-): Effect.Effect<
-  void,
-  UpdateCommandFailure,
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchPromptService
-  | LaunchSecretStoreService
-  | Logger
-  | Path.Path
-  | PlatformCommandExecutor.CommandExecutor
-  | Terminal.Terminal
-> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const platforms = yield* platformsFor(commandInput.platform);
-    const loadedConfiguration = yield* loadConfig().pipe(
-      Effect.mapError((cause) => updateFailure('load Launch configuration', cause)),
+function readExportOptions(
+  workingDirectory: string,
+  environmentOverrides: Record<string, string>,
+  excludedEnvironmentNames: readonly string[] | undefined,
+): CommandExecutionOptions {
+  const baseOptions = {
+    workingDirectory,
+    environmentOverrides,
+  };
+
+  if (excludedEnvironmentNames == null) {
+    return baseOptions;
+  }
+
+  return {
+    ...baseOptions,
+    envExclude: excludedEnvironmentNames,
+  };
+}
+
+export async function updateCommandProgram(commandInput: UpdateCommandInput): Promise<void> {
+  const logger = createLogger(false);
+  const platforms = platformsFor(commandInput.platform);
+  let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;
+
+  try {
+    loadedConfiguration = await loadConfig();
+  } catch (cause) {
+    throw updateFailure('load Launch configuration', cause);
+  }
+
+  let selectedApp: AppDescriptor;
+
+  try {
+    selectedApp = await selectApp(loadedConfiguration.apps, commandInput.app);
+  } catch (cause) {
+    throw updateFailure('select app', cause, hasMessage(cause) ? cause.message : undefined);
+  }
+
+  let buildProfile = loadedConfiguration.config.profiles[commandInput.profile];
+
+  if (buildProfile == null) {
+    buildProfile = { name: commandInput.profile };
+  }
+
+  const runtimeVersion = await resolveRuntimeVersion(selectedApp, commandInput.runtimeVersion);
+  let environmentOverrides: ReturnType<typeof parseCliEnv>;
+
+  try {
+    environmentOverrides = parseCliEnv([...commandInput.env]);
+  } catch (cause) {
+    throw updateFailure(
+      'parse environment overrides',
+      cause,
+      hasMessage(cause) ? cause.message : undefined,
     );
-    const selectedApp = yield* selectApp(loadedConfiguration.apps, commandInput.app).pipe(
-      Effect.mapError((cause) => updateFailure('select app', cause, cause.message)),
-    );
-    let buildProfile = loadedConfiguration.config.profiles[commandInput.profile];
-    if (buildProfile === undefined) buildProfile = { name: commandInput.profile };
-    const runtimeVersion = yield* resolveRuntimeVersion(selectedApp, commandInput.runtimeVersion);
-    const environmentOverrides = yield* parseCliEnv([...commandInput.env]).pipe(
-      Effect.mapError((cause) =>
-        updateFailure('parse environment overrides', cause, cause.message),
-      ),
-    );
-    const resolvedEnvironment = yield* resolveCommandEnv({
+  }
+
+  let resolvedEnvironment: Awaited<ReturnType<typeof resolveCommandEnv>>;
+
+  try {
+    resolvedEnvironment = await resolveCommandEnv({
       app: selectedApp,
       profile: buildProfile,
       cliEnv: environmentOverrides,
       includeLocal: commandInput.includeLocal,
       envExclude: loadedConfiguration.config.envExclude,
-    }).pipe(Effect.mapError((cause) => updateFailure('resolve update environment', cause)));
-    if (commandInput.printEnv) {
-      yield* writeLog(
-        'render update environment',
-        logger.line(formatEnvTable(resolvedEnvironment)),
-      );
-      return;
-    }
-    yield* validateResolvedEnv(
+    });
+  } catch (cause) {
+    throw updateFailure('resolve update environment', cause);
+  }
+
+  if (commandInput.printEnv) {
+    logger.line(formatEnvTable(resolvedEnvironment));
+
+    return;
+  }
+
+  try {
+    await validateResolvedEnv(
       selectedApp.dir,
       resolvedEnvironment,
       logger,
       loadedConfiguration.config.envExclude,
-    ).pipe(Effect.mapError((cause) => updateFailure('validate update environment', cause)));
-    if (!isCloudStorage(loadedConfiguration.config)) {
-      return yield* Effect.fail(
-        updateFailure(
-          'resolve OTA storage',
-          loadedConfiguration.config.storage,
-          'OTA updates need a cloud storage provider. Set storage to s3 or supabase and add storageConfig in launch.config.ts.',
-        ),
-      );
-    }
-    yield* writeLog(
-      'render update configuration',
+    );
+  } catch (cause) {
+    throw updateFailure('validate update environment', cause);
+  }
+
+  const cloudStorage = isCloudStorage(loadedConfiguration.config);
+
+  if (cloudStorage == false) {
+    throw updateFailure(
+      'resolve OTA storage',
+      loadedConfiguration.config.storage,
+      'OTA updates need a cloud storage provider. Set storage to s3 or supabase and add storageConfig in launch.config.ts.',
+    );
+  }
+
+  logger.step(
+    'config',
+    `${selectedApp.name} - channel ${commandInput.channel} - rtv ${runtimeVersion} - ${platforms.join('+')}`,
+  );
+
+  let storageProvider: Awaited<ReturnType<typeof resolveStorageProvider>>;
+
+  try {
+    storageProvider = await resolveStorageProvider(loadedConfiguration.config);
+  } catch (cause) {
+    throw updateFailure('resolve OTA storage', cause);
+  }
+
+  const workerPath = 'updates/_worker.js';
+
+  if (commandInput.dryRun) {
+    for (const platform of platforms) {
       logger.step(
-        'config',
-        `${selectedApp.name} - channel ${commandInput.channel} - rtv ${runtimeVersion} - ${platforms.join('+')}`,
-      ),
-    );
-    const storageProvider = yield* resolveStorageProvider(loadedConfiguration.config).pipe(
-      Effect.mapError((cause) => updateFailure('resolve OTA storage', cause)),
-    );
-    const workerPath = 'updates/_worker.js';
-    if (commandInput.dryRun) {
-      for (const platform of platforms)
-        yield* writeLog(
-          'render update dry run',
-          logger.step(
-            'update',
-            `would export + upload ${platform} manifest -> updates/${commandInput.channel}/${platform}/${runtimeVersion}/`,
-            'ota-update',
-          ),
-        );
-      let signingSummary = 'off (--no-sign)';
-      if (commandInput.sign) signingSummary = 'on (manifests code-signed)';
-      yield* writeLog('render update signing mode', logger.note(`signing: ${signingSummary}`));
-      yield* renderAfterPublish(
-        storageProvider.publicUrl(workerPath),
-        runtimeVersion,
-        commandInput.sign,
-        logger,
+        'update',
+        `would export + upload ${platform} manifest -> updates/${commandInput.channel}/${platform}/${runtimeVersion}/`,
+        'ota-update',
       );
-      return;
     }
-    const pathService = yield* Path.Path;
-    const distributionDirectory = pathService.join(selectedApp.dir, 'dist');
-    yield* writeLog(
-      'render update export step',
-      logger.run(`Exporting JS bundle - ${selectedApp.name}`),
-    );
-    yield* executeCommand('npx', ['expo', 'export', '--output-dir', distributionDirectory], {
-      workingDirectory: selectedApp.dir,
-      environmentOverrides: resolvedEnvironment.values,
-      envExclude: loadedConfiguration.config.envExclude,
-    }).pipe(Effect.mapError((cause) => updateFailure('export update bundle', cause)));
-    yield* writeLog(
-      'render update export outcome',
-      logger.ok(`Exported JS bundle - ${selectedApp.name}`),
-    );
-    const exportMetadata = yield* readExportMetadata(distributionDirectory).pipe(
-      Effect.mapError((cause) => updateFailure('read update export metadata', cause)),
-    );
-    let codeSigner = null;
-    if (commandInput.sign)
-      codeSigner = yield* ensureCodeSigner(false, logger).pipe(
-        Effect.mapError((cause) => updateFailure('resolve update signer', cause)),
-      );
-    yield* Effect.forEach(
-      platforms,
-      (platform) =>
-        publishOtaPlatform(
-          {
-            storage: storageProvider,
-            distDir: distributionDirectory,
-            metadata: exportMetadata,
-            platform,
-            channel: commandInput.channel,
-            runtimeVersion,
-            signer: codeSigner,
-          },
-          logger,
-        ).pipe(Effect.mapError((cause) => updateFailure(`publish ${platform} update`, cause))),
-      { concurrency: 1, discard: true },
-    );
-    yield* storageProvider
-      .putObject(
-        workerPath,
-        updatesWorkerScript(storageProvider.publicUrl('')),
-        'application/javascript',
-      )
-      .pipe(
-        Effect.asVoid,
-        Effect.mapError((cause) => updateFailure('upload update worker', cause)),
-      );
-    yield* renderAfterPublish(
+
+    let signingSummary = 'off (--no-sign)';
+
+    if (commandInput.sign) {
+      signingSummary = 'on (manifests code-signed)';
+    }
+
+    logger.note(`signing: ${signingSummary}`);
+    renderAfterPublish(
       storageProvider.publicUrl(workerPath),
       runtimeVersion,
       commandInput.sign,
       logger,
     );
-  });
+
+    return;
+  }
+
+  const distributionDirectory = join(selectedApp.dir, 'dist');
+  logger.run(`Exporting JS bundle - ${selectedApp.name}`);
+
+  const excludedEnvironmentNames = loadedConfiguration.config.envExclude;
+  const exportOptions = readExportOptions(
+    selectedApp.dir,
+    resolvedEnvironment.values,
+    excludedEnvironmentNames,
+  );
+
+  try {
+    await executeCommand(
+      'npx',
+      ['expo', 'export', '--output-dir', distributionDirectory],
+      exportOptions,
+    );
+  } catch (cause) {
+    throw updateFailure('export update bundle', cause);
+  }
+
+  logger.ok(`Exported JS bundle - ${selectedApp.name}`);
+
+  let exportMetadata: Awaited<ReturnType<typeof readExportMetadata>>;
+
+  try {
+    exportMetadata = await readExportMetadata(distributionDirectory);
+  } catch (cause) {
+    throw updateFailure('read update export metadata', cause);
+  }
+
+  let codeSigner = null;
+
+  if (commandInput.sign) {
+    try {
+      codeSigner = await ensureCodeSigner(false, logger);
+    } catch (cause) {
+      throw updateFailure('resolve update signer', cause);
+    }
+  }
+
+  for (const platform of platforms) {
+    try {
+      await publishOtaPlatform(
+        {
+          storage: storageProvider,
+          distDir: distributionDirectory,
+          metadata: exportMetadata,
+          platform,
+          channel: commandInput.channel,
+          runtimeVersion,
+          signer: codeSigner,
+        },
+        logger,
+      );
+    } catch (cause) {
+      throw updateFailure(`publish ${platform} update`, cause);
+    }
+  }
+
+  try {
+    await storageProvider.putObject(
+      workerPath,
+      updatesWorkerScript(storageProvider.publicUrl('')),
+      'application/javascript',
+    );
+  } catch (cause) {
+    throw updateFailure('upload update worker', cause);
+  }
+
+  renderAfterPublish(
+    storageProvider.publicUrl(workerPath),
+    runtimeVersion,
+    commandInput.sign,
+    logger,
+  );
+}

@@ -1,359 +1,875 @@
-import { FileSystem, type HttpClient, Path, Terminal } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
-import { readResolvedConfig, loadConfig } from '../config/config.js';
-import { readLastApp } from '../distribution/lastRun.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import type { LaunchEnvironmentService } from '../services/platform/environment.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { loadConfig, readResolvedConfig } from '@/config/config.js';
+import { pathExists } from '@/path-exists.js';
+import { readLastApp } from '@/distribution/lastRun.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
 import type {
   AndroidLocaleInfo,
+  AndroidStoreConfig,
   AppleLocaleInfo,
+  AppleStoreConfig,
   StoreConfig,
-} from '../store/shared/storeConfig.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { ListingGenerator, LocaleDraft } from '../types/listing.js';
+} from '@/store/shared/storeConfig.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { DraftListing, ListingBrief, LocaleDraft } from '@/types/listing.js';
 import { applyDraft, briefFor, clampDraft, renderDraftPreview } from './apply.js';
 import { createAnthropicListingGenerator } from './generator.js';
 
-export const AiListingInputSchema = Schema.Struct({
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  locale: Schema.optionalWith(Schema.String, { exact: true }),
-  about: Schema.optionalWith(Schema.String, { exact: true }),
-  platform: Schema.optionalWith(Schema.String, { default: () => 'ios' }),
-  model: Schema.optionalWith(Schema.String, { exact: true }),
-  config: Schema.optionalWith(Schema.String, { exact: true }),
-  dryRun: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-  yes: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-});
+export interface AiListingInput {
+  app?: string;
+  locale?: string;
+  about?: string;
+  platform: string;
+  model?: string;
+  config?: string;
+  dryRun: boolean;
+  yes: boolean;
+}
 
-export type AiListingInput = Schema.Schema.Type<typeof AiListingInputSchema>;
+interface ListingTargets {
+  readonly ios: boolean;
+  readonly android: boolean;
+}
 
-const optionalString = Schema.optionalWith(Schema.String, { exact: true });
-const optionalStringArray = Schema.optionalWith(Schema.mutable(Schema.Array(Schema.String)), {
-  exact: true,
-});
-
-const AppleLocaleInfoSchema: Schema.Schema<AppleLocaleInfo> = Schema.mutable(
-  Schema.Struct({
-    title: optionalString,
-    subtitle: optionalString,
-    description: optionalString,
-    keywords: optionalStringArray,
-    releaseNotes: optionalString,
-    promotionalText: optionalString,
-    marketingUrl: optionalString,
-    supportUrl: optionalString,
-    privacyPolicyUrl: optionalString,
-  }),
-);
-
-const AndroidLocaleInfoSchema: Schema.Schema<AndroidLocaleInfo> = Schema.mutable(
-  Schema.Struct({
-    title: optionalString,
-    shortDescription: optionalString,
-    fullDescription: optionalString,
-    video: optionalString,
-  }),
-);
-
-const StoreConfigSchema: Schema.Schema<StoreConfig> = Schema.mutable(
-  Schema.Struct({
-    configVersion: Schema.optionalWith(Schema.Number, { exact: true }),
-    apple: Schema.optionalWith(
-      Schema.mutable(
-        Schema.Struct({
-          info: Schema.mutable(Schema.Record({ key: Schema.String, value: AppleLocaleInfoSchema })),
-          categories: optionalStringArray,
-        }),
-      ),
-      { exact: true },
-    ),
-    android: Schema.optionalWith(
-      Schema.mutable(
-        Schema.Struct({
-          info: Schema.mutable(
-            Schema.Record({ key: Schema.String, value: AndroidLocaleInfoSchema }),
-          ),
-        }),
-      ),
-      { exact: true },
-    ),
-  }),
-);
-
-const ResolvedDisplayNameSchema = Schema.Struct({
-  name: Schema.optionalWith(Schema.String, { exact: true }),
-  expo: Schema.optionalWith(
-    Schema.Struct({ name: Schema.optionalWith(Schema.String, { exact: true }) }),
-    { exact: true },
-  ),
-});
-
-/** Listing drafting, preview, or persistence failed. */
-type AiListingFailure = Readonly<{
+interface AiListingFailure {
   readonly _tag: 'AiListingFailure';
   readonly operation: string;
   readonly message: string;
   readonly cause: unknown;
-}>;
+}
 
-const makeAiListingFailure = Data.tagged<AiListingFailure>('AiListingFailure');
+interface CopyGenerator {
+  readonly name: string;
+  generate(brief: ListingBrief): Promise<DraftListing>;
+}
 
-const AiListingFailureSchema: Schema.Schema<AiListingFailure> = Schema.Struct({
-  _tag: Schema.Literal('AiListingFailure'),
-  operation: Schema.String,
-  message: Schema.String,
-  cause: Schema.Unknown,
-});
+interface PromptChoice {
+  selection: AppDescriptor;
+  label: string;
+  hint?: string;
+}
 
-type ListingTargets = Readonly<{ ios: boolean; android: boolean }>;
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
 
-type AiListingRequirements =
-  | FileSystem.FileSystem
-  | HttpClient.HttpClient
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchPromptService
-  | Logger
-  | Path.Path
-  | Terminal.Terminal;
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function isAiListingFailure(cause: unknown): cause is AiListingFailure {
+  if (isRecord(cause) == false) {
+    return false;
+  }
+
+  return cause['_tag'] == 'AiListingFailure';
+}
 
 /** Normalize one listing command failure. */
-const listingFailure = (
+function listingFailure(
   operation: string,
   cause: unknown,
   explicitMessage?: string,
-): AiListingFailure => {
+): AiListingFailure {
   let message = errorMessage(cause);
-  if (explicitMessage !== undefined) message = explicitMessage;
-  return makeAiListingFailure({ operation, message, cause });
-};
+
+  if (explicitMessage != null) {
+    message = explicitMessage;
+  }
+
+  return { _tag: 'AiListingFailure', operation, message, cause };
+}
+
+function readOptionalInputString(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | undefined {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return undefined;
+  }
+
+  const field = record[fieldName];
+
+  if (field == null) {
+    return undefined;
+  }
+
+  if (typeof field != 'string') {
+    throw listingFailure(
+      'decode AI listing command',
+      field,
+      `Command field ${fieldName} must be a string.`,
+    );
+  }
+
+  return field;
+}
+
+function readBooleanField(
+  record: Record<string, unknown>,
+  fieldName: string,
+  fallback: boolean,
+): boolean {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return fallback;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field != 'boolean') {
+    throw listingFailure(
+      'decode AI listing command',
+      field,
+      `Command field ${fieldName} must be a boolean.`,
+    );
+  }
+
+  return field;
+}
+
+function readPlatform(record: Record<string, unknown>): string {
+  const platform = readOptionalInputString(record, 'platform');
+
+  if (platform == null) {
+    return 'ios';
+  }
+
+  return platform;
+}
+
+export function readAiListingInput(rawCommandInput: unknown): AiListingInput {
+  if (isRecord(rawCommandInput) == false) {
+    throw listingFailure(
+      'decode AI listing command',
+      rawCommandInput,
+      'The AI listing command input must be an object.',
+    );
+  }
+
+  const commandInput: AiListingInput = {
+    platform: readPlatform(rawCommandInput),
+    dryRun: readBooleanField(rawCommandInput, 'dryRun', false),
+    yes: readBooleanField(rawCommandInput, 'yes', false),
+  };
+  const app = readOptionalInputString(rawCommandInput, 'app');
+  const locale = readOptionalInputString(rawCommandInput, 'locale');
+  const about = readOptionalInputString(rawCommandInput, 'about');
+  const model = readOptionalInputString(rawCommandInput, 'model');
+  const config = readOptionalInputString(rawCommandInput, 'config');
+
+  if (app != null) {
+    commandInput.app = app;
+  }
+
+  if (locale != null) {
+    commandInput.locale = locale;
+  }
+
+  if (about != null) {
+    commandInput.about = about;
+  }
+
+  if (model != null) {
+    commandInput.model = model;
+  }
+
+  if (config != null) {
+    commandInput.config = config;
+  }
+
+  return commandInput;
+}
 
 /** Decode the requested store selector. */
-export const parseListingTargets = (
-  platformSelector: string,
-): Effect.Effect<ListingTargets, AiListingFailure> => {
-  switch (platformSelector) {
-    case 'ios':
-      return Effect.succeed({ ios: true, android: false });
-    case 'android':
-      return Effect.succeed({ ios: false, android: true });
-    case 'all':
-      return Effect.succeed({ ios: true, android: true });
-    default:
-      return Effect.fail(
-        listingFailure(
-          'select listing platforms',
-          platformSelector,
-          `Unknown platform "${platformSelector}". Use ios, android, or all.`,
-        ),
-      );
+export function parseListingTargets(platformSelector: string): ListingTargets {
+  if (platformSelector == 'ios') {
+    return { ios: true, android: false };
   }
-};
 
-/** Select one app without reading process state inside core. */
-const selectListingApp = (
-  discoveredApps: readonly AppDescriptor[],
-  appSelector: string | undefined,
-): Effect.Effect<
-  AppDescriptor,
-  AiListingFailure,
-  FileSystem.FileSystem | LaunchPathsService | LaunchPromptService | Path.Path | Terminal.Terminal
-> =>
-  Effect.gen(function* () {
-    if (discoveredApps.length === 0) {
-      return yield* Effect.fail(
-        listingFailure(
-          'select app',
-          discoveredApps,
-          'No apps found. Run Launch from a repo containing at least one app.json.',
-        ),
-      );
-    }
-    if (appSelector !== undefined) {
-      const selectedApp = discoveredApps.find(
-        (discoveredApp) => discoveredApp.name === appSelector,
-      );
-      if (selectedApp !== undefined) return selectedApp;
-      return yield* Effect.fail(
-        listingFailure(
-          'select app',
-          appSelector,
-          `App "${appSelector}" not found. Available: ${discoveredApps.map((discoveredApp) => discoveredApp.name).join(', ')}.`,
-        ),
-      );
-    }
-    const soleApp = discoveredApps[0];
-    if (discoveredApps.length === 1 && soleApp !== undefined) return soleApp;
-    const terminal = yield* Terminal.Terminal;
-    if (!(yield* terminal.isTTY)) {
-      return yield* Effect.fail(
-        listingFailure(
-          'select app',
-          discoveredApps,
-          `Multiple apps found. Pass --app <name> to choose one: ${discoveredApps.map((discoveredApp) => discoveredApp.name).join(', ')}.`,
-        ),
-      );
-    }
-    const rememberedAppName = yield* readLastApp();
-    const rememberedApp = discoveredApps.find(
-      (discoveredApp) => discoveredApp.name === rememberedAppName,
+  if (platformSelector == 'android') {
+    return { ios: false, android: true };
+  }
+
+  if (platformSelector == 'all') {
+    return { ios: true, android: true };
+  }
+
+  throw listingFailure(
+    'select listing platforms',
+    platformSelector,
+    `Unknown platform "${platformSelector}". Use ios, android, or all.`,
+  );
+}
+
+function readConfigString(record: Record<string, unknown>, fieldName: string): string | undefined {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return undefined;
+  }
+
+  const field = record[fieldName];
+
+  if (field == null) {
+    return undefined;
+  }
+
+  if (typeof field != 'string') {
+    throw listingFailure(
+      'decode listing config',
+      field,
+      `store.config.json field ${fieldName} must be a string.`,
     );
-    const launchPrompt = yield* LaunchPrompt;
-    const selectionRequest = {
-      message: `Which app? (${discoveredApps.length} found)`,
-      choices: discoveredApps.map((discoveredApp) => {
-        let hint = discoveredApp.packageName;
-        if (discoveredApp.bundleId !== undefined) hint = discoveredApp.bundleId;
-        if (hint === undefined) return { selection: discoveredApp, label: discoveredApp.name };
-        return { selection: discoveredApp, label: discoveredApp.name, hint };
-      }),
-    };
-    if (rememberedApp !== undefined) {
-      return yield* launchPrompt
-        .select({ ...selectionRequest, initialSelection: rememberedApp })
-        .pipe(Effect.mapError((cause) => listingFailure('select app', cause)));
-    }
-    return yield* launchPrompt
-      .select(selectionRequest)
-      .pipe(Effect.mapError((cause) => listingFailure('select app', cause)));
-  });
+  }
 
-/** Read the display name from resolved Expo configuration. */
-const resolveDisplayName = (
-  selectedApp: AppDescriptor,
-): Effect.Effect<string, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const resolvedAppConfig = yield* readResolvedConfig(selectedApp.dir);
-    if (resolvedAppConfig === null) return selectedApp.name;
-    const decodedConfig = Schema.decodeUnknownEither(ResolvedDisplayNameSchema)(resolvedAppConfig);
-    if (decodedConfig._tag === 'Left') return selectedApp.name;
-    if (decodedConfig.right.expo !== undefined && decodedConfig.right.expo.name !== undefined)
-      return decodedConfig.right.expo.name;
-    if (decodedConfig.right.name !== undefined) return decodedConfig.right.name;
-    return selectedApp.name;
-  });
+  return field;
+}
+
+function readConfigStringList(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string[] | undefined {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return undefined;
+  }
+
+  const field = record[fieldName];
+
+  if (field == null) {
+    return undefined;
+  }
+
+  if (Array.isArray(field) == false) {
+    throw listingFailure(
+      'decode listing config',
+      field,
+      `store.config.json field ${fieldName} must be a list of strings.`,
+    );
+  }
+
+  const texts: string[] = [];
+
+  for (const entry of field) {
+    if (typeof entry != 'string') {
+      throw listingFailure(
+        'decode listing config',
+        entry,
+        `store.config.json field ${fieldName} must be a list of strings.`,
+      );
+    }
+
+    texts.push(entry);
+  }
+
+  return texts;
+}
+
+function readOptionalNumber(
+  record: Record<string, unknown>,
+  fieldName: string,
+): number | undefined {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return undefined;
+  }
+
+  const field = record[fieldName];
+
+  if (field == null) {
+    return undefined;
+  }
+
+  if (typeof field != 'number') {
+    throw listingFailure(
+      'decode listing config',
+      field,
+      `store.config.json field ${fieldName} must be a number.`,
+    );
+  }
+
+  return field;
+}
+
+function readAppleLocale(candidate: unknown): AppleLocaleInfo {
+  if (isRecord(candidate) == false) {
+    throw listingFailure(
+      'decode listing config',
+      candidate,
+      'store.config.json locale must be an object.',
+    );
+  }
+
+  const locale: AppleLocaleInfo = {};
+  const title = readConfigString(candidate, 'title');
+  const subtitle = readConfigString(candidate, 'subtitle');
+  const description = readConfigString(candidate, 'description');
+  const releaseNotes = readConfigString(candidate, 'releaseNotes');
+  const promotionalText = readConfigString(candidate, 'promotionalText');
+  const marketingUrl = readConfigString(candidate, 'marketingUrl');
+  const supportUrl = readConfigString(candidate, 'supportUrl');
+  const privacyPolicyUrl = readConfigString(candidate, 'privacyPolicyUrl');
+  const keywords = readConfigStringList(candidate, 'keywords');
+
+  if (title != null) {
+    locale.title = title;
+  }
+
+  if (subtitle != null) {
+    locale.subtitle = subtitle;
+  }
+
+  if (description != null) {
+    locale.description = description;
+  }
+
+  if (releaseNotes != null) {
+    locale.releaseNotes = releaseNotes;
+  }
+
+  if (promotionalText != null) {
+    locale.promotionalText = promotionalText;
+  }
+
+  if (marketingUrl != null) {
+    locale.marketingUrl = marketingUrl;
+  }
+
+  if (supportUrl != null) {
+    locale.supportUrl = supportUrl;
+  }
+
+  if (privacyPolicyUrl != null) {
+    locale.privacyPolicyUrl = privacyPolicyUrl;
+  }
+
+  if (keywords != null) {
+    locale.keywords = keywords;
+  }
+
+  return locale;
+}
+
+function readAndroidLocale(candidate: unknown): AndroidLocaleInfo {
+  if (isRecord(candidate) == false) {
+    throw listingFailure(
+      'decode listing config',
+      candidate,
+      'store.config.json locale must be an object.',
+    );
+  }
+
+  const locale: AndroidLocaleInfo = {};
+  const title = readConfigString(candidate, 'title');
+  const shortDescription = readConfigString(candidate, 'shortDescription');
+  const fullDescription = readConfigString(candidate, 'fullDescription');
+  const video = readConfigString(candidate, 'video');
+
+  if (title != null) {
+    locale.title = title;
+  }
+
+  if (shortDescription != null) {
+    locale.shortDescription = shortDescription;
+  }
+
+  if (fullDescription != null) {
+    locale.fullDescription = fullDescription;
+  }
+
+  if (video != null) {
+    locale.video = video;
+  }
+
+  return locale;
+}
+
+function readAppleLocales(candidate: unknown): Record<string, AppleLocaleInfo> {
+  if (isRecord(candidate) == false) {
+    throw listingFailure(
+      'decode listing config',
+      candidate,
+      'store.config.json apple.info must be an object.',
+    );
+  }
+
+  const locales: Record<string, AppleLocaleInfo> = {};
+
+  for (const localeName of Object.keys(candidate)) {
+    locales[localeName] = readAppleLocale(candidate[localeName]);
+  }
+
+  return locales;
+}
+
+function readAndroidLocales(candidate: unknown): Record<string, AndroidLocaleInfo> {
+  if (isRecord(candidate) == false) {
+    throw listingFailure(
+      'decode listing config',
+      candidate,
+      'store.config.json android.info must be an object.',
+    );
+  }
+
+  const locales: Record<string, AndroidLocaleInfo> = {};
+
+  for (const localeName of Object.keys(candidate)) {
+    locales[localeName] = readAndroidLocale(candidate[localeName]);
+  }
+
+  return locales;
+}
+
+function readAppleStore(candidate: unknown): AppleStoreConfig {
+  if (isRecord(candidate) == false) {
+    throw listingFailure(
+      'decode listing config',
+      candidate,
+      'store.config.json apple must be an object.',
+    );
+  }
+
+  if (Object.hasOwn(candidate, 'info') == false) {
+    throw listingFailure(
+      'decode listing config',
+      candidate,
+      'store.config.json apple.info is required.',
+    );
+  }
+
+  const appleStore: NonNullable<StoreConfig['apple']> = {
+    info: readAppleLocales(candidate['info']),
+  };
+  const categories = readConfigStringList(candidate, 'categories');
+
+  if (categories != null) {
+    appleStore.categories = categories;
+  }
+
+  return appleStore;
+}
+
+function readAndroidStore(candidate: unknown): AndroidStoreConfig {
+  if (isRecord(candidate) == false) {
+    throw listingFailure(
+      'decode listing config',
+      candidate,
+      'store.config.json android must be an object.',
+    );
+  }
+
+  if (Object.hasOwn(candidate, 'info') == false) {
+    throw listingFailure(
+      'decode listing config',
+      candidate,
+      'store.config.json android.info is required.',
+    );
+  }
+
+  return { info: readAndroidLocales(candidate['info']) };
+}
+
+function decodeStoreConfig(configText: string): StoreConfig {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(configText);
+  } catch (cause) {
+    throw listingFailure(
+      'decode listing config',
+      cause,
+      'store.config.json must be a JSON object.',
+    );
+  }
+
+  if (isRecord(parsed) == false) {
+    throw listingFailure(
+      'decode listing config',
+      parsed,
+      'store.config.json must be a JSON object.',
+    );
+  }
+
+  const storeConfiguration: StoreConfig = {};
+  const configVersion = readOptionalNumber(parsed, 'configVersion');
+
+  if (configVersion != null) {
+    storeConfiguration.configVersion = configVersion;
+  }
+
+  if (Object.hasOwn(parsed, 'apple')) {
+    storeConfiguration.apple = readAppleStore(parsed['apple']);
+  }
+
+  if (Object.hasOwn(parsed, 'android')) {
+    storeConfiguration.android = readAndroidStore(parsed['android']);
+  }
+
+  return storeConfiguration;
+}
 
 /** Decode an existing store config or start an empty listing. */
-const readListingConfig = (
-  configPath: string,
-): Effect.Effect<StoreConfig, AiListingFailure, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const configExists = yield* fileSystem
-      .exists(configPath)
-      .pipe(Effect.mapError((cause) => listingFailure('inspect listing config', cause)));
-    if (!configExists) return {};
-    const configText = yield* fileSystem
-      .readFileString(configPath)
-      .pipe(Effect.mapError((cause) => listingFailure('read listing config', cause)));
-    return yield* Schema.decodeUnknown(Schema.parseJson(StoreConfigSchema))(configText).pipe(
-      Effect.mapError((cause) => listingFailure('decode listing config', cause)),
-    );
-  });
+async function readListingConfig(configPath: string): Promise<StoreConfig> {
+  let configExists = false;
+
+  try {
+    configExists = await pathExists(configPath);
+  } catch (cause) {
+    throw listingFailure('inspect listing config', cause);
+  }
+
+  if (configExists == false) {
+    return {};
+  }
+
+  let configText: string;
+
+  try {
+    configText = await readFile(configPath, 'utf8');
+  } catch (cause) {
+    throw listingFailure('read listing config', cause);
+  }
+
+  return decodeStoreConfig(configText);
+}
+
+function trimLocale(localeName: string): string {
+  return localeName.trim();
+}
+
+function isPresentLocale(localeName: string): boolean {
+  return localeName.length > 0;
+}
 
 /** Resolve explicit locales or reuse the current Apple listing locales. */
-export const resolveListingLocales = (
+export function resolveListingLocales(
   localeSelector: string | undefined,
   storeConfiguration: StoreConfig,
-): Effect.Effect<string[], AiListingFailure> => {
-  if (localeSelector !== undefined) {
-    const requestedLocales = localeSelector
-      .split(',')
-      .map((localeName) => localeName.trim())
-      .filter((localeName) => localeName.length > 0);
-    if (requestedLocales.length > 0) return Effect.succeed(requestedLocales);
-    return Effect.fail(
-      listingFailure(
-        'select listing locales',
-        localeSelector,
-        '--locale was empty. Pass locales like --locale en-US,fr-FR.',
-      ),
+): string[] {
+  if (localeSelector != null) {
+    const requestedLocales = localeSelector.split(',').map(trimLocale).filter(isPresentLocale);
+
+    if (requestedLocales.length > 0) {
+      return requestedLocales;
+    }
+
+    throw listingFailure(
+      'select listing locales',
+      localeSelector,
+      '--locale was empty. Pass locales like --locale en-US,fr-FR.',
     );
   }
-  if (storeConfiguration.apple !== undefined) {
-    const currentLocales = Object.keys(storeConfiguration.apple.info);
-    if (currentLocales.length > 0) return Effect.succeed(currentLocales);
+
+  const appleListing = storeConfiguration.apple;
+
+  if (appleListing == null) {
+    return ['en-US'];
   }
-  return Effect.succeed(['en-US']);
-};
+
+  const currentLocales = Object.keys(appleListing.info);
+
+  if (currentLocales.length == 0) {
+    return ['en-US'];
+  }
+
+  return currentLocales;
+}
+
+function readAppName(discoveredApp: AppDescriptor): string {
+  return discoveredApp.name;
+}
+
+function appChoice(discoveredApp: AppDescriptor): PromptChoice {
+  let hint = discoveredApp.packageName;
+
+  if (discoveredApp.bundleId != null) {
+    hint = discoveredApp.bundleId;
+  }
+
+  if (hint == null) {
+    return { selection: discoveredApp, label: discoveredApp.name };
+  }
+
+  return { selection: discoveredApp, label: discoveredApp.name, hint };
+}
+
+function findNamedApp(
+  discoveredApps: readonly AppDescriptor[],
+  appName: string | undefined,
+): AppDescriptor | null {
+  if (appName == null) {
+    return null;
+  }
+
+  function hasAppName(discoveredApp: AppDescriptor): boolean {
+    return discoveredApp.name == appName;
+  }
+
+  const selectedApp = discoveredApps.find(hasAppName);
+
+  if (selectedApp == null) {
+    return null;
+  }
+
+  return selectedApp;
+}
+
+function requireDiscoveredApp(
+  onlyApp: AppDescriptor | undefined,
+  discoveredApps: readonly AppDescriptor[],
+): AppDescriptor {
+  if (onlyApp == null) {
+    throw listingFailure(
+      'select app',
+      discoveredApps,
+      'No apps found. Run Launch from a repo containing at least one app.json.',
+    );
+  }
+
+  return onlyApp;
+}
+
+async function selectNamedApp(request: {
+  message: string;
+  choices: readonly PromptChoice[];
+  initialSelection?: AppDescriptor;
+}): Promise<AppDescriptor> {
+  try {
+    return await LaunchPrompt.select(request);
+  } catch (cause) {
+    throw listingFailure('select app', cause);
+  }
+}
+
+async function promptForListingApp(
+  discoveredApps: readonly AppDescriptor[],
+): Promise<AppDescriptor> {
+  const isInteractive = checkTerminalIsInteractive();
+
+  if (isInteractive == false) {
+    throw listingFailure(
+      'select app',
+      discoveredApps,
+      `Multiple apps found. Pass --app <name> to choose one: ${discoveredApps.map(readAppName).join(', ')}.`,
+    );
+  }
+
+  const rememberedAppName = await readLastApp();
+  const rememberedApp = findNamedApp(discoveredApps, rememberedAppName);
+  const selectionRequest = {
+    message: `Which app? (${discoveredApps.length} found)`,
+    choices: discoveredApps.map(appChoice),
+  };
+
+  if (rememberedApp == null) {
+    return selectNamedApp(selectionRequest);
+  }
+
+  return selectNamedApp({ ...selectionRequest, initialSelection: rememberedApp });
+}
+
+/** Select one app without reading process state inside core. */
+async function selectListingApp(
+  discoveredApps: readonly AppDescriptor[],
+  appSelector: string | undefined,
+): Promise<AppDescriptor> {
+  if (discoveredApps.length == 0) {
+    throw listingFailure(
+      'select app',
+      discoveredApps,
+      'No apps found. Run Launch from a repo containing at least one app.json.',
+    );
+  }
+
+  if (appSelector != null) {
+    const selectedApp = findNamedApp(discoveredApps, appSelector);
+
+    if (selectedApp != null) {
+      return selectedApp;
+    }
+
+    throw listingFailure(
+      'select app',
+      appSelector,
+      `App "${appSelector}" not found. Available: ${discoveredApps.map(readAppName).join(', ')}.`,
+    );
+  }
+
+  const onlyApp = discoveredApps[0];
+  const isOnlyApp = discoveredApps.length == 1;
+
+  if (isOnlyApp) {
+    return requireDiscoveredApp(onlyApp, discoveredApps);
+  }
+
+  return promptForListingApp(discoveredApps);
+}
+
+function namedOrFallback(name: unknown, fallbackName: string): string {
+  if (typeof name != 'string') {
+    return fallbackName;
+  }
+
+  return name;
+}
+
+function displayNameFromExpo(
+  expo: unknown,
+  resolvedAppConfig: Record<string, unknown>,
+  fallbackName: string,
+): string {
+  if (isRecord(expo) == false) {
+    return fallbackName;
+  }
+
+  if (Object.hasOwn(expo, 'name') == false) {
+    return namedOrFallback(resolvedAppConfig['name'], fallbackName);
+  }
+
+  if (typeof expo['name'] != 'string') {
+    return fallbackName;
+  }
+
+  return expo['name'];
+}
+
+function displayNameFromConfig(
+  resolvedAppConfig: Record<string, unknown>,
+  fallbackName: string,
+): string {
+  if (Object.hasOwn(resolvedAppConfig, 'expo')) {
+    return displayNameFromExpo(resolvedAppConfig['expo'], resolvedAppConfig, fallbackName);
+  }
+
+  return namedOrFallback(resolvedAppConfig['name'], fallbackName);
+}
+
+/** Read the display name from resolved Expo configuration. */
+async function resolveDisplayName(selectedApp: AppDescriptor): Promise<string> {
+  const resolvedAppConfig = await readResolvedConfig(selectedApp.dir);
+
+  if (resolvedAppConfig == null) {
+    return selectedApp.name;
+  }
+
+  return displayNameFromConfig(resolvedAppConfig, selectedApp.name);
+}
+
+function readCurrentListing(
+  storeConfiguration: StoreConfig,
+  localeName: string,
+): AppleLocaleInfo | undefined {
+  const appleListing = storeConfiguration.apple;
+
+  if (appleListing == null) {
+    return undefined;
+  }
+
+  return appleListing.info[localeName];
+}
+
+async function confirmListingWrite(configPath: string): Promise<boolean> {
+  const isInteractive = checkTerminalIsInteractive();
+
+  if (isInteractive == false) {
+    throw listingFailure(
+      'confirm listing write',
+      'confirmation-required',
+      'Refusing to write without confirmation. Re-run with --yes.',
+    );
+  }
+
+  const confirmed = await LaunchPrompt.confirm(`Write these draft(s) into ${configPath}?`);
+
+  if (confirmed) {
+    return true;
+  }
+
+  LaunchPrompt.cancel('Aborted - nothing written.');
+
+  return false;
+}
+
+async function draftLocales(
+  locales: readonly string[],
+  storeConfiguration: StoreConfig,
+  displayName: string,
+  about: string | undefined,
+  listingGenerator: CopyGenerator,
+): Promise<LocaleDraft[]> {
+  const localeDrafts: LocaleDraft[] = [];
+
+  for (const localeName of locales) {
+    const currentListing = readCurrentListing(storeConfiguration, localeName);
+    const listingBrief = briefFor(localeName, displayName, currentListing, about);
+    const generatedListing = await listingGenerator.generate(listingBrief);
+    const clampedListing = clampDraft(generatedListing);
+
+    localeDrafts.push({
+      locale: localeName,
+      draft: clampedListing.draft,
+      warnings: clampedListing.warnings,
+    });
+  }
+
+  return localeDrafts;
+}
 
 /** Draft, preview, and optionally write listing copy with an injected generator. */
-export const runAiListing = <GeneratorRequirements>(
+export async function runAiListing(
   commandInput: AiListingInput,
-  listingGenerator: ListingGenerator<GeneratorRequirements>,
-): Effect.Effect<
-  void,
-  AiListingFailure,
-  | FileSystem.FileSystem
-  | GeneratorRequirements
-  | LaunchPathsService
-  | LaunchPromptService
-  | Logger
-  | Path.Path
-  | Terminal.Terminal
-> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const pathService = yield* Path.Path;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const logger = yield* createLogger(false);
-    const listingTargets = yield* parseListingTargets(commandInput.platform);
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
-    const selectedApp = yield* selectListingApp(loadedConfiguration.apps, commandInput.app);
-    const displayName = yield* resolveDisplayName(selectedApp);
-    let configPath = pathService.join(selectedApp.dir, 'store.config.json');
-    if (commandInput.config !== undefined) configPath = commandInput.config;
-    const storeConfiguration = yield* readListingConfig(configPath);
-    const locales = yield* resolveListingLocales(commandInput.locale, storeConfiguration);
-    yield* logger.note(
+  listingGenerator: CopyGenerator,
+): Promise<void> {
+  try {
+    const launchPaths = readLaunchDirectories();
+    const logger = createLogger(false);
+    const listingTargets = parseListingTargets(commandInput.platform);
+    const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+    const selectedApp = await selectListingApp(loadedConfiguration.apps, commandInput.app);
+    const displayName = await resolveDisplayName(selectedApp);
+    let configPath = join(selectedApp.dir, 'store.config.json');
+
+    if (commandInput.config != null) {
+      configPath = commandInput.config;
+    }
+
+    const storeConfiguration = await readListingConfig(configPath);
+    const locales = resolveListingLocales(commandInput.locale, storeConfiguration);
+
+    logger.note(
       `Drafting ${locales.length} locale(s) for ${displayName} with ${listingGenerator.name}...`,
     );
-    const localeDrafts = yield* Effect.forEach(
+
+    const localeDrafts = await draftLocales(
       locales,
-      (localeName): Effect.Effect<LocaleDraft, unknown, GeneratorRequirements> =>
-        Effect.gen(function* () {
-          const currentListing = storeConfiguration.apple?.info[localeName];
-          const generatedListing = yield* listingGenerator.generate(
-            briefFor(localeName, displayName, currentListing, commandInput.about),
-          );
-          const clampedListing = clampDraft(generatedListing);
-          return {
-            locale: localeName,
-            draft: clampedListing.draft,
-            warnings: clampedListing.warnings,
-          };
-        }),
-      { concurrency: 1 },
+      storeConfiguration,
+      displayName,
+      commandInput.about,
+      listingGenerator,
     );
-    yield* logger.line(renderDraftPreview(localeDrafts, listingTargets));
+
+    logger.line(renderDraftPreview(localeDrafts, listingTargets));
+
     if (commandInput.dryRun) {
-      yield* logger.note(
-        'Dry run - nothing written. Drop --dry-run to save into store.config.json.',
-      );
+      logger.note('Dry run - nothing written. Drop --dry-run to save into store.config.json.');
       return;
     }
-    if (!commandInput.yes) {
-      const terminal = yield* Terminal.Terminal;
-      if (!(yield* terminal.isTTY)) {
-        return yield* Effect.fail(
-          listingFailure(
-            'confirm listing write',
-            'confirmation-required',
-            'Refusing to write without confirmation. Re-run with --yes.',
-          ),
-        );
-      }
-      const launchPrompt = yield* LaunchPrompt;
-      const confirmed = yield* launchPrompt.confirm(`Write these draft(s) into ${configPath}?`);
-      if (!confirmed) {
-        yield* launchPrompt.cancel('Aborted - nothing written.');
+
+    if (commandInput.yes == false) {
+      const confirmed = await confirmListingWrite(configPath);
+
+      if (confirmed == false) {
         return;
       }
     }
+
     let updatedStoreConfiguration = storeConfiguration;
+
     for (const localeDraft of localeDrafts) {
       updatedStoreConfiguration = applyDraft(
         updatedStoreConfiguration,
@@ -362,34 +878,46 @@ export const runAiListing = <GeneratorRequirements>(
         listingTargets,
       );
     }
-    yield* fileSystem.writeFileString(
-      configPath,
-      `${JSON.stringify(updatedStoreConfiguration, null, 2)}\n`,
-    );
-    yield* logger.ok(`ai listing - wrote ${localeDrafts.length} locale draft(s) -> ${configPath}`);
-    yield* logger.note(
+
+    const configText = `${JSON.stringify(updatedStoreConfiguration, null, 2)}\n`;
+
+    try {
+      await writeFile(configPath, configText);
+    } catch (cause) {
+      throw listingFailure('run AI listing command', cause);
+    }
+
+    logger.ok(`ai listing - wrote ${localeDrafts.length} locale draft(s) -> ${configPath}`);
+    logger.note(
       'Review with `launch plan`, then apply with `launch sync` or `launch metadata push`.',
     );
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (Schema.is(AiListingFailureSchema)(cause)) return cause;
-      return listingFailure('run AI listing command', cause);
-    }),
-  );
+  } catch (cause) {
+    if (isAiListingFailure(cause)) {
+      throw cause;
+    }
+
+    throw listingFailure('run AI listing command', cause);
+  }
+}
 
 /** Run `launch ai listing` with the shared Anthropic generator. */
-export const aiListingCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, AiListingFailure, AiListingRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(AiListingInputSchema)(rawCommandInput);
-    let generatorOptions: Readonly<{ model?: string }> = {};
-    if (commandInput.model !== undefined) generatorOptions = { model: commandInput.model };
-    const listingGenerator = yield* createAnthropicListingGenerator(generatorOptions);
-    yield* runAiListing(commandInput, listingGenerator);
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (Schema.is(AiListingFailureSchema)(cause)) return cause;
-      return listingFailure('decode AI listing command', cause);
-    }),
-  );
+export async function aiListingCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = readAiListingInput(rawCommandInput);
+    let generatorOptions: { model?: string } = {};
+
+    if (commandInput.model != null) {
+      generatorOptions = { model: commandInput.model };
+    }
+
+    const listingGenerator = createAnthropicListingGenerator(generatorOptions);
+
+    await runAiListing(commandInput, listingGenerator);
+  } catch (cause) {
+    if (isAiListingFailure(cause)) {
+      throw cause;
+    }
+
+    throw listingFailure('decode AI listing command', cause);
+  }
+}

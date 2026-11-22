@@ -1,5 +1,6 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Effect } from 'effect';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { SizeReport } from '../types/artifacts.js';
 import type { SigningAssets } from '../types/credentials.js';
 import type { SshTarget } from '../types/remote.js';
@@ -12,10 +13,10 @@ import {
   exportOptionsPlist,
   parseThinningReport,
 } from '../services/providerSupport/appleArtifact.js';
+
 /**
- * What never leaves your machine in the source archive (decision 9): dependencies and native build
- * dirs are reinstalled/regenerated on the host, history is irrelevant, and `.env` is a secret-bearing
- * file whose *values* are injected separately as build env vars.
+ * What never leaves your machine in the source archive: dependencies and native build dirs are
+ * regenerated on the host, and `.env` values are injected separately.
  */
 const SOURCE_EXCLUDES = [
   'node_modules',
@@ -28,13 +29,15 @@ const SOURCE_EXCLUDES = [
   '.env',
   '.env.*',
 ];
-/** A live remote-build session: the persistent per-app work tree plus a per-run ephemeral secrets dir. */
+
+/** A live remote-build session: the persistent per-app work tree plus a per-run secrets dir. */
 type RemoteSession = {
   target: SshTarget;
   workDirectory: string;
   credentialsDirectory: string;
   keychainPassword: string;
 };
+
 /** Everything the on-host build script needs, gathered locally first. */
 export type RemoteBuildInputs = {
   appName: string;
@@ -46,20 +49,12 @@ export type RemoteBuildInputs = {
   ccacheEnabled: boolean;
   env: Record<string, string>;
 };
+
 /**
- * Adapt a {@link RemoteSigningBundle} to the {@link SigningAssets} shape {@link exportOptionsPlist} reads.
- *
- * `extensionProfiles` is intentionally absent: the remote path uploads and installs exactly one profile
- * (see {@link uploadSigningMaterial} and the build script's step 2), so it is single-target-only by
- * construction. The per-target archive-signing fixes (issues #262 / #301) landed on the LOCAL engine - see
- * {@link import("./buildFlags.js").assembleArchiveArguments} and
- * {@link import("./appleTargets.js").writeManualSigningToProject} - which moved the app's profile out of
- * the global `xcodebuild` build settings and into the app target's pbxproj. The remote build script below still pins the
- * profile in its own global build settings, so it shares the Xcode 26 "does not support provisioning profiles"
- * exposure on the Pods library targets; porting the pbxproj-stamping fix onto the host (the stamper has to
- * run on the remote Mac, not just in the local CLI) is a larger, separately-verified follow-up.
+ * `extensionProfiles` is absent: the remote path uploads one profile, so it is single-target-only.
+ * The local engine stamps profiles into the pbxproj; the remote script still pins one global profile.
  */
-const toSigningAssets = (bundle: RemoteSigningBundle): SigningAssets => {
+function toSigningAssets(bundle: RemoteSigningBundle): SigningAssets {
   return {
     bundleId: bundle.bundleId,
     teamId: bundle.teamId,
@@ -69,86 +64,99 @@ const toSigningAssets = (bundle: RemoteSigningBundle): SigningAssets => {
     profileUuid: '',
     profilePath: bundle.profilePath,
   };
-};
+}
+
 /** Single-quote a value for the remote shell, escaping embedded single quotes the POSIX way. */
-const shellQuote = (shellText: string): string => {
+function shellQuote(shellText: string): string {
   return `'${shellText.replace(/'/g, "'\\''")}'`;
-};
-/**
- * Resolve the stable per-app work tree (persists across builds) and a fresh per-run ephemeral secrets
- * dir, then create both. The work tree's `$HOME` is resolved on the host so every later path is absolute.
- */
-export const openRemoteSession = (target: SshTarget, appName: string) =>
-  Effect.gen(function* () {
-    const home = yield* sshCapture(target, 'echo $HOME');
-    const workDirectory = `${home}/.launch-remote/${appName}`;
-    const credentialsDirectory = yield* sshCapture(target, 'mktemp -d /tmp/launch-creds.XXXXXXXX');
-    yield* sshRun(
-      target,
-      `mkdir -p ${shellQuote(`${workDirectory}/app`)} ${shellQuote(`${workDirectory}/out`)} ${shellQuote(credentialsDirectory)}`,
+}
+
+async function withRemoteStaging<Staged>(
+  useStaging: (stagingDirectory: string) => Promise<Staged>,
+): Promise<Staged> {
+  const stagingDirectory = await mkdtemp(join(tmpdir(), 'launch-remote-'));
+
+  try {
+    const staged = await useStaging(stagingDirectory);
+
+    return staged;
+  } finally {
+    await rm(stagingDirectory, { recursive: true, force: true });
+  }
+}
+
+/** Resolve the stable work tree and a fresh secrets dir, then create both. */
+export async function openRemoteSession(
+  target: SshTarget,
+  appName: string,
+): Promise<RemoteSession> {
+  const home = await sshCapture(target, 'echo $HOME');
+  const workDirectory = `${home}/.launch-remote/${appName}`;
+  const credentialsDirectory = await sshCapture(target, 'mktemp -d /tmp/launch-creds.XXXXXXXX');
+  const appDirectory = `${workDirectory}/app`;
+  const outDirectory = `${workDirectory}/out`;
+
+  await sshRun(
+    target,
+    `mkdir -p ${shellQuote(appDirectory)} ${shellQuote(outDirectory)} ${shellQuote(credentialsDirectory)}`,
+  );
+
+  const keychainPassword = randomHexSecret(18);
+
+  return { target, workDirectory, credentialsDirectory, keychainPassword };
+}
+
+/** Mirror the project into the host's persistent `app/` tree, honoring SOURCE_EXCLUDES. */
+export function syncProject(session: RemoteSession, appDir: string): Promise<void> {
+  return rsyncUp(session.target, appDir, `${session.workDirectory}/app`, SOURCE_EXCLUDES);
+}
+
+/** Upload the transient p12, profile, and export-options plist into the per-run creds dir. */
+export async function uploadSigningMaterial(
+  session: RemoteSession,
+  inputs: RemoteBuildInputs,
+): Promise<void> {
+  await withRemoteStaging(async function stageSigning(stagingDirectory: string): Promise<void> {
+    const credentialsDirectory = session.credentialsDirectory;
+    const plistLocal = join(stagingDirectory, 'ExportOptions.plist');
+
+    await writeFile(plistLocal, exportOptionsPlist(toSigningAssets(inputs.signing)));
+    await scpUp(session.target, inputs.signing.p12Path, `${credentialsDirectory}/dist.p12`);
+    await scpUp(
+      session.target,
+      inputs.signing.profilePath,
+      `${credentialsDirectory}/profile.mobileprovision`,
     );
-    return {
-      target,
-      workDirectory,
-      credentialsDirectory,
-      keychainPassword: yield* randomHexSecret(18),
-    };
+    await scpUp(session.target, plistLocal, `${credentialsDirectory}/ExportOptions.plist`);
+    await sshRun(session.target, `chmod 600 ${shellQuote(`${credentialsDirectory}/dist.p12`)}`);
   });
+}
+
 /**
- * Mirror the project to the host's persistent `app/` tree, honoring {@link SOURCE_EXCLUDES}. Because
- * `node_modules`/`ios`/`android` are excluded, rsync's `--delete` PROTECTS the host's warm copies of them
- * from removal - so source stays in exact sync while the expensive build caches survive between runs.
+ * Run the toolchain doctor on the remote Mac. `install` fills gaps on an AWS host we own.
+ * `assert` checks a BYO host and never mutates it.
  */
-export const syncProject = (session: RemoteSession, appDir: string) =>
-  rsyncUp(session.target, appDir, `${session.workDirectory}/app`, SOURCE_EXCLUDES);
-/** Upload the transient `.p12`/profile + the export-options plist into the per-run ephemeral creds dir (chmod 600). */
-export const uploadSigningMaterial = (session: RemoteSession, inputs: RemoteBuildInputs) =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
-      const credentialsDirectory = session.credentialsDirectory;
-      const staging = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-remote-' });
-      const plistLocal = pathService.join(staging, 'ExportOptions.plist');
-      yield* fileSystem.writeFileString(
-        plistLocal,
-        exportOptionsPlist(toSigningAssets(inputs.signing)),
-      );
-      yield* scpUp(session.target, inputs.signing.p12Path, `${credentialsDirectory}/dist.p12`);
-      yield* scpUp(
-        session.target,
-        inputs.signing.profilePath,
-        `${credentialsDirectory}/profile.mobileprovision`,
-      );
-      yield* scpUp(session.target, plistLocal, `${credentialsDirectory}/ExportOptions.plist`);
-      yield* sshRun(session.target, `chmod 600 ${shellQuote(`${credentialsDirectory}/dist.p12`)}`);
-    }),
-  );
-/**
- * Run the toolchain doctor ON the remote Mac before building - the remote twin of `launch doctor`.
- * Uploads {@link remoteToolchainPreflight} and executes it: `"install"` for an AWS host we own (brew-
- * installs any gaps) or `"assert"` for a BYO-SSH host (checks + fails with hints, never mutates the
- * user's machine). A missing required tool exits the preflight non-zero, so `sshRun` rejects and the
- * build fails fast with the gaps listed instead of a cryptic error deep inside xcodebuild.
- */
-export const runDoctorOnHost = (session: RemoteSession, mode: 'install' | 'assert') =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
-      const staging = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-remote-' });
-      const scriptLocal = pathService.join(staging, 'doctor.sh');
-      yield* fileSystem.writeFileString(scriptLocal, remoteToolchainPreflight(mode));
-      const scriptRemote = `${session.credentialsDirectory}/doctor.sh`;
-      yield* scpUp(session.target, scriptLocal, scriptRemote);
-      yield* sshRun(session.target, `bash ${shellQuote(scriptRemote)}`);
-    }),
-  );
-/** The env the host build script reads: app identity, signing and the build switches. */
-export const remoteBuildEnvironment = (
+export async function runDoctorOnHost(
+  session: RemoteSession,
+  mode: 'install' | 'assert',
+): Promise<void> {
+  await withRemoteStaging(async function stageDoctor(stagingDirectory: string): Promise<void> {
+    const scriptLocal = join(stagingDirectory, 'doctor.sh');
+
+    await writeFile(scriptLocal, remoteToolchainPreflight(mode));
+
+    const scriptRemote = `${session.credentialsDirectory}/doctor.sh`;
+
+    await scpUp(session.target, scriptLocal, scriptRemote);
+    await sshRun(session.target, `bash ${shellQuote(scriptRemote)}`);
+  });
+}
+
+/** The env the host build script reads: app identity, signing, and the build switches. */
+export function remoteBuildEnvironment(
   inputs: RemoteBuildInputs,
   keychainPassword: string,
-): Record<string, string> => {
+): Record<string, string> {
   const environmentVariables: Record<string, string> = {
     ...inputs.env,
     APP_NAME: inputs.appName,
@@ -162,106 +170,141 @@ export const remoteBuildEnvironment = (
     FORCE_CLEAN: '0',
     PREBUILD_ALWAYS: '0',
   };
-  if (inputs.forceClean) environmentVariables['FORCE_CLEAN'] = '1';
-  if (inputs.prebuildAlways) environmentVariables['PREBUILD_ALWAYS'] = '1';
-  if (inputs.ccacheEnabled) environmentVariables['USE_CCACHE'] = '1';
+  const shouldForceClean = inputs.forceClean == true;
+
+  if (shouldForceClean) {
+    environmentVariables['FORCE_CLEAN'] = '1';
+  }
+
+  const shouldAlwaysPrebuild = inputs.prebuildAlways == true;
+
+  if (shouldAlwaysPrebuild) {
+    environmentVariables['PREBUILD_ALWAYS'] = '1';
+  }
+
+  const shouldUseCcache = inputs.ccacheEnabled == true;
+
+  if (shouldUseCcache) {
+    environmentVariables['USE_CCACHE'] = '1';
+  }
+
   return environmentVariables;
-};
+}
+
+function isShellIdentifier(variableName: string): boolean {
+  // A shell identifier: a letter or underscore, then letters, digits, or underscores.
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(variableName);
+}
+
 /**
- * Upload the build script and run it on the host (ephemeral keychain -> incremental deps/prebuild ->
- * host-gated pod install + xcodebuild archive and export). The clean-vs-incremental, prebuild and ccache flags
- * ride in as env (`FORCE_CLEAN`, `PREBUILD_ALWAYS`, `USE_CCACHE`); the host owns its own staleness check, so this returns whether it
- * actually clean-built (read from a marker the script writes) for the pipeline to stamp on the artifact.
+ * Upload the build script and run it on the host. Returns whether the host actually clean-built.
  */
-export const runBuildOnHost = (session: RemoteSession, inputs: RemoteBuildInputs) =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
-      const staging = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-remote-' });
-      const scriptLocal = pathService.join(staging, 'build.sh');
-      yield* fileSystem.writeFileString(scriptLocal, REMOTE_BUILD_SCRIPT);
-      const scriptRemote = `${session.credentialsDirectory}/build.sh`;
-      yield* scpUp(session.target, scriptLocal, scriptRemote);
-      const environmentVariables = remoteBuildEnvironment(inputs, session.keychainPassword);
-      const environmentLines: string[] = [];
-      for (const [variableName, variableValue] of Object.entries(environmentVariables)) {
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(variableName))
-          return yield* Effect.fail({
-            _tag: 'InvalidRemoteEnvironmentName',
-            message: 'Remote environment names must be shell identifiers.',
-          });
-        environmentLines.push(`export ${variableName}=${shellQuote(variableValue)}`);
+export async function runBuildOnHost(
+  session: RemoteSession,
+  inputs: RemoteBuildInputs,
+): Promise<{ cleanBuilt: boolean }> {
+  const cleanBuilt = await withRemoteStaging(async function stageBuild(stagingDirectory: string) {
+    const scriptLocal = join(stagingDirectory, 'build.sh');
+
+    await writeFile(scriptLocal, REMOTE_BUILD_SCRIPT);
+
+    const scriptRemote = `${session.credentialsDirectory}/build.sh`;
+
+    await scpUp(session.target, scriptLocal, scriptRemote);
+
+    const environmentVariables = remoteBuildEnvironment(inputs, session.keychainPassword);
+    const environmentLines: string[] = [];
+
+    for (const [variableName, variableValue] of Object.entries(environmentVariables)) {
+      const nameIsSafe = isShellIdentifier(variableName);
+
+      if (nameIsSafe == false) {
+        throw {
+          _tag: 'InvalidRemoteEnvironmentName',
+          message: 'Remote environment names must be shell identifiers.',
+        };
       }
-      const environmentLocal = pathService.join(staging, 'environment.sh');
-      yield* fileSystem.writeFileString(environmentLocal, environmentLines.join('\n'), {
-        mode: 0o600,
-      });
-      const environmentRemote = `${session.credentialsDirectory}/environment.sh`;
-      yield* scpUp(session.target, environmentLocal, environmentRemote);
-      yield* sshRun(session.target, `chmod 600 ${shellQuote(environmentRemote)}`);
-      const command = `. ${shellQuote(environmentRemote)}; bash ${shellQuote(scriptRemote)} ${shellQuote(session.workDirectory)} ${shellQuote(session.credentialsDirectory)}`;
-      yield* sshRun(session.target, command);
-      const marker = yield* sshCapture(
-        session.target,
-        `cat ${shellQuote(`${session.workDirectory}/.launch-clean`)} 2>/dev/null || echo 0`,
-      );
-      return { cleanBuilt: marker.trim() === '1' };
-    }),
-  );
-/** Pull the built `.ipa` (and the thinning report, if any) home; returns the local path + size report. */
-export const pullArtifact = (session: RemoteSession, appName: string, destDir: string) =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    yield* fileSystem.makeDirectory(destDir, { recursive: true });
-    const ipaPath = pathService.join(destDir, `${appName}.ipa`);
-    yield* scpDown(
+
+      environmentLines.push(`export ${variableName}=${shellQuote(variableValue)}`);
+    }
+
+    const environmentLocal = join(stagingDirectory, 'environment.sh');
+    const secretFileMode = 0o600;
+
+    await writeFile(environmentLocal, environmentLines.join('\n'), { mode: secretFileMode });
+
+    const environmentRemote = `${session.credentialsDirectory}/environment.sh`;
+
+    await scpUp(session.target, environmentLocal, environmentRemote);
+    await sshRun(session.target, `chmod 600 ${shellQuote(environmentRemote)}`);
+
+    const command = `. ${shellQuote(environmentRemote)}; bash ${shellQuote(scriptRemote)} ${shellQuote(session.workDirectory)} ${shellQuote(session.credentialsDirectory)}`;
+
+    await sshRun(session.target, command);
+
+    const marker = await sshCapture(
       session.target,
-      shellQuote(`${session.workDirectory}/out/${appName}.ipa`),
-      ipaPath,
+      `cat ${shellQuote(`${session.workDirectory}/.launch-clean`)} 2>/dev/null || echo 0`,
     );
-    let entries: SizeReport['entries'] = [];
-    const reportPath = pathService.join(destDir, 'App Thinning Size Report.txt');
-    entries = yield* scpDown(
+
+    return { cleanBuilt: marker.trim() == '1' };
+  });
+
+  return cleanBuilt;
+}
+
+/** Pull the built ipa and the thinning report home. A missing report becomes an empty device list. */
+export async function pullArtifact(
+  session: RemoteSession,
+  appName: string,
+  destDir: string,
+): Promise<{ ipaPath: string; sizeReport: SizeReport }> {
+  await mkdir(destDir, { recursive: true });
+
+  const ipaPath = join(destDir, `${appName}.ipa`);
+
+  await scpDown(session.target, shellQuote(`${session.workDirectory}/out/${appName}.ipa`), ipaPath);
+
+  let entries: SizeReport['entries'] = [];
+  const reportPath = join(destDir, 'App Thinning Size Report.txt');
+
+  try {
+    await scpDown(
       session.target,
       shellQuote(`${session.workDirectory}/out/App Thinning Size Report.txt`),
       reportPath,
-    ).pipe(
-      Effect.flatMap(() => fileSystem.readFileString(reportPath)),
-      Effect.map(parseThinningReport),
-      Effect.catchAll(() => Effect.succeed([])),
     );
-    const artifactBytes = Number((yield* fileSystem.stat(ipaPath)).size);
-    // The authoritative device-archive guard, shared with the local build: reject a simulator/.app/empty
-    // artifact with the same actionable error rather than storing or submitting a dead one (issue #6).
-    // Remote builds are iOS-only (the host bootstrap is iOS-shaped), so the platform is always iOS here.
-    yield* assertDeviceArtifact(ipaPath, artifactBytes, 'ios');
-    return { ipaPath, sizeReport: { artifactBytes, entries } };
-  });
+    const reportText = await readFile(reportPath, 'utf8');
+
+    entries = parseThinningReport(reportText);
+  } catch (error) {
+    const reportMissing = error != null;
+
+    if (reportMissing) {
+      entries = [];
+    }
+  }
+
+  const artifactStat = await stat(ipaPath);
+  const artifactBytes = Number(artifactStat.size);
+
+  assertDeviceArtifact(ipaPath, artifactBytes, 'ios');
+
+  return { ipaPath, sizeReport: { artifactBytes, entries } };
+}
+
 /**
- * Shred ONLY the secrets: delete the ephemeral keychain and the per-run creds dir (which holds the
- * `.p8`/`.p12`/profile + the uploaded script). The persistent work tree (source + caches) is left intact
- * for the next build's warmth - it isn't secret. Best-effort; runs on every exit path. `launch cloud
- * teardown` (releasing the host) is what ultimately removes the work tree.
+ * Delete the ephemeral keychain and the per-run creds dir. The persistent work tree stays.
  */
-export const shredHost = (session: RemoteSession) => {
+export function shredHost(session: RemoteSession): Promise<void> {
   const keychain = `${session.credentialsDirectory}/launch.keychain-db`;
+
   return sshRun(
     session.target,
     `security delete-keychain ${shellQuote(keychain)} 2>/dev/null || true; rm -rf ${shellQuote(session.credentialsDirectory)}`,
   );
-};
-/**
- * The bash script Launch uploads and runs on the remote Mac - the on-host mirror of the local xcodebuild
- * spine, now stateful for speed. `$1` is the PERSISTENT per-app work tree (source + warm
- * `node_modules`/`ios`/`Pods` survive between builds); `$2` is the per-run EPHEMERAL creds dir (cert,
- * profile, keychain - shredded every run). It installs deps incrementally, keeps the committed/generated
- * `ios/`, and owns its own staleness check: it re-pods + clean-builds only when `Podfile.lock`/Xcode
- * changed (or `FORCE_CLEAN=1`), otherwise reusing the warm DerivedData/ccache for a fast incremental
- * build. ccache wires in via `USE_CCACHE` when the host has it. The clean decision is written to
- * `$WORK/.launch-clean` for the orchestrator to stamp on the artifact. Inputs arrive as env vars.
- */
+}
+
 const REMOTE_BUILD_SCRIPT = String.raw`#!/usr/bin/env bash
 set -euo pipefail
 

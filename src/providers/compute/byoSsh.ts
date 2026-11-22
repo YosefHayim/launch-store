@@ -1,85 +1,106 @@
-import { Effect } from 'effect';
 import { makeProviderInputFailure, type ComputeHost } from '@/types/providers.js';
 import type { AllocateRequest, HostHandle, HostStatus, SshTarget } from '@/types/remote.js';
-/**
- * Parse a `user@host[:port]` (or bare `host`) connection string into an {@link SshTarget}.
- * Exported so the CLI can validate `--remote <ssh>` before doing any work.
- */
-export const parseSshTarget = (spec: string): Effect.Effect<SshTarget, unknown> =>
-  Effect.gen(function* () {
-    const trimmed = spec.trim();
-    if (trimmed.length === 0) {
-      return yield* Effect.fail(
-        makeProviderInputFailure({
-          provider: 'byo-ssh',
-          message: 'Empty SSH target. Use the form user@host or user@host:port.',
-        }),
-      );
-    }
-    const at = trimmed.indexOf('@');
-    /** Default SSH login user for the common EC2 Mac case; overridden by `user@` in the target string. */
-    let user = 'ec2-user';
-    if (at !== -1) user = trimmed.slice(0, at);
-    let hostPort = trimmed;
-    if (at !== -1) hostPort = trimmed.slice(at + 1);
-    const colon = hostPort.lastIndexOf(':');
-    let host = hostPort;
-    if (colon !== -1) host = hostPort.slice(0, colon);
-    let port = 22;
-    if (colon !== -1) port = Number.parseInt(hostPort.slice(colon + 1), 10);
-    if (host.length === 0) {
-      return yield* Effect.fail(
-        makeProviderInputFailure({
-          provider: 'byo-ssh',
-          message: `Could not parse a host from "${spec}". Use user@host or user@host:port.`,
-        }),
-      );
-    }
-    if (Number.isNaN(port)) {
-      return yield* Effect.fail(
-        makeProviderInputFailure({
-          provider: 'byo-ssh',
-          message: `Invalid port in "${spec}".`,
-        }),
-      );
-    }
-    return { host, user, port };
-  });
+
+export function parseSshTarget(spec: string): SshTarget {
+  const trimmed = spec.trim();
+  const isBlank = trimmed.length == 0;
+
+  if (isBlank) {
+    throw makeProviderInputFailure({
+      provider: 'byo-ssh',
+      message: 'Empty SSH target. Use the form user@host or user@host:port.',
+    });
+  }
+
+  const at = trimmed.indexOf('@');
+  let user = 'ec2-user';
+  const hasUser = at != -1;
+
+  if (hasUser) {
+    user = trimmed.slice(0, at);
+  }
+
+  let hostPort = trimmed;
+
+  if (hasUser) {
+    hostPort = trimmed.slice(at + 1);
+  }
+
+  const colon = hostPort.lastIndexOf(':');
+  let host = hostPort;
+  const hasPort = colon != -1;
+
+  if (hasPort) {
+    host = hostPort.slice(0, colon);
+  }
+
+  let port = 22;
+
+  if (hasPort) {
+    port = Number.parseInt(hostPort.slice(colon + 1), 10);
+  }
+
+  const isHostMissing = host.length == 0;
+
+  if (isHostMissing) {
+    throw makeProviderInputFailure({
+      provider: 'byo-ssh',
+      message: `Could not parse a host from "${spec}". Use user@host or user@host:port.`,
+    });
+  }
+
+  const isPortInvalid = Number.isNaN(port);
+
+  if (isPortInvalid) {
+    throw makeProviderInputFailure({
+      provider: 'byo-ssh',
+      message: `Invalid port in "${spec}".`,
+    });
+  }
+
+  return { host, user, port };
+}
+
+async function allocateByoHost(request: AllocateRequest): Promise<HostHandle> {
+  const sshTarget = request.sshTarget;
+
+  if (sshTarget == null) {
+    throw makeProviderInputFailure({
+      provider: 'byo-ssh',
+      message: 'byo-ssh needs an SSH target - pass `--remote user@host`.',
+    });
+  }
+
+  const ssh = parseSshTarget(sshTarget);
+  const reportProgress = request.onProgress;
+
+  if (reportProgress != null) {
+    reportProgress(`Using your Mac at ${ssh.user}@${ssh.host}:${ssh.port}`);
+  }
+
+  return { provider: 'byo-ssh', ssh, allocatedAt: new Date().toISOString() };
+}
+
+function readByoStatus(handle: HostHandle): HostStatus {
+  const ageMilliseconds = Date.now() - new Date(handle.allocatedAt).getTime();
+
+  return {
+    handle,
+    ageMs: ageMilliseconds,
+    estimatedCostUsd: 0,
+    releasableAt: handle.allocatedAt,
+  };
+}
+
+async function teardownByoHost(): Promise<void> {
+  return;
+}
+
 export const byoSshComputeHost: ComputeHost = {
   name: 'byo-ssh',
-  allocate(request: AllocateRequest) {
-    const sshTarget = request.sshTarget;
-    if (sshTarget === undefined) {
-      return Effect.fail(
-        makeProviderInputFailure({
-          provider: 'byo-ssh',
-          message: 'byo-ssh needs an SSH target - pass `--remote user@host`.',
-        }),
-      );
-    }
-    return Effect.gen(function* () {
-      const ssh = yield* parseSshTarget(sshTarget);
-      const reportProgress = request.onProgress;
-      if (reportProgress !== undefined) {
-        yield* Effect.sync(() =>
-          reportProgress(`Using your Mac at ${ssh.user}@${ssh.host}:${ssh.port}`),
-        );
-      }
-      return { provider: 'byo-ssh', ssh, allocatedAt: new Date().toISOString() };
-    });
+  allocate: allocateByoHost,
+  status(handle) {
+    return Promise.resolve(readByoStatus(handle));
   },
-  status(handle: HostHandle) {
-    const ageMs = Date.now() - new Date(handle.allocatedAt).getTime();
-    // A borrowed Mac is never billed by Launch and is always "releasable" (we just stop using it).
-    const hostStatus: HostStatus = {
-      handle,
-      ageMs,
-      estimatedCostUsd: 0,
-      releasableAt: handle.allocatedAt,
-    };
-    return Effect.succeed(hostStatus);
-  },
-  teardown() {
-    return Effect.void;
-  },
+  teardown: teardownByoHost,
 };

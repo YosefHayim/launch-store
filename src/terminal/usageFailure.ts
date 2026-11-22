@@ -1,27 +1,28 @@
-import { Data, Effect } from 'effect';
-import { LaunchLogger, type Logger } from '../services/platform/logger.js';
-import { makeCommandExit, type CommandExit } from './commandExit.js';
+import { createLogger } from '../services/platform/logger.js';
+import { makeCommandExit } from './commandExit.js';
 
 export type UsageFailure = Readonly<{
   readonly _tag: 'UsageFailure';
   readonly message: string;
 }>;
 
-export const makeUsageFailure = Data.tagged<UsageFailure>('UsageFailure');
+export function makeUsageFailure(fields: { message: string }): UsageFailure {
+  return { _tag: 'UsageFailure', message: fields.message };
+}
 
-export const endWithUsageFailure = (
-  usageFailure: UsageFailure,
-  isJson: boolean,
-): Effect.Effect<never, CommandExit, Logger> =>
-  Effect.gen(function* () {
-    const logger = yield* LaunchLogger;
-    if (isJson) {
-      const failureLine = JSON.stringify({ ok: false, error: usageFailure.message });
-      yield* logger.line(failureLine).pipe(Effect.orDie);
-    }
-    const isHumanOutput = !isJson;
-    if (isHumanOutput) yield* logger.error(usageFailure.message).pipe(Effect.orDie);
-    const usageExitCode = 2;
-    const usageExit = makeCommandExit({ exitCode: usageExitCode, message: usageFailure.message });
-    return yield* Effect.fail(usageExit);
-  });
+export function endWithUsageFailure(usageFailure: UsageFailure, isJson: boolean): never {
+  const logger = createLogger(false);
+  const failureLine = JSON.stringify({ ok: false, error: usageFailure.message });
+
+  if (isJson) {
+    logger.line(failureLine);
+  }
+
+  const isHumanOutput = isJson == false;
+
+  if (isHumanOutput) {
+    logger.error(usageFailure.message);
+  }
+
+  throw makeCommandExit({ exitCode: 2, message: usageFailure.message });
+}

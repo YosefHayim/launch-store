@@ -1,5 +1,3 @@
-import { Schema } from 'effect';
-
 export type JsonSchema = {
   $schema?: string;
   $ref?: string;
@@ -20,42 +18,6 @@ export type JsonSchema = {
   title?: string;
   pattern?: string;
 };
-
-/** Recursive Effect Schema for the committed JSON Schema document. */
-export const JsonSchemaNode: Schema.Schema<JsonSchema> = Schema.suspend(
-  (): Schema.Schema<JsonSchema> =>
-    Schema.Struct({
-      $schema: Schema.optionalWith(Schema.String, { exact: true }),
-      $ref: Schema.optionalWith(Schema.String, { exact: true }),
-      type: Schema.optionalWith(
-        Schema.Union(Schema.String, Schema.mutable(Schema.Array(Schema.String))),
-        { exact: true },
-      ),
-      enum: Schema.optionalWith(Schema.mutable(Schema.Array(Schema.Unknown)), { exact: true }),
-      const: Schema.optionalWith(Schema.Unknown, { exact: true }),
-      default: Schema.optionalWith(Schema.Unknown, { exact: true }),
-      properties: Schema.optionalWith(
-        Schema.mutable(Schema.Record({ key: Schema.String, value: JsonSchemaNode })),
-        { exact: true },
-      ),
-      required: Schema.optionalWith(Schema.mutable(Schema.Array(Schema.String)), { exact: true }),
-      additionalProperties: Schema.optionalWith(Schema.Union(Schema.Boolean, JsonSchemaNode), {
-        exact: true,
-      }),
-      propertyNames: Schema.optionalWith(JsonSchemaNode, { exact: true }),
-      items: Schema.optionalWith(JsonSchemaNode, { exact: true }),
-      anyOf: Schema.optionalWith(Schema.mutable(Schema.Array(JsonSchemaNode)), { exact: true }),
-      allOf: Schema.optionalWith(Schema.mutable(Schema.Array(JsonSchemaNode)), { exact: true }),
-      oneOf: Schema.optionalWith(Schema.mutable(Schema.Array(JsonSchemaNode)), { exact: true }),
-      definitions: Schema.optionalWith(
-        Schema.mutable(Schema.Record({ key: Schema.String, value: JsonSchemaNode })),
-        { exact: true },
-      ),
-      description: Schema.optionalWith(Schema.String, { exact: true }),
-      title: Schema.optionalWith(Schema.String, { exact: true }),
-      pattern: Schema.optionalWith(Schema.String, { exact: true }),
-    }),
-);
 
 /** One validation failure: the dotted path to the offending value and a human-readable reason. */
 export type SchemaViolation = {
@@ -173,7 +135,7 @@ const validateObject = (
   return violations;
 };
 
-/** Validate an `anyOf`/`oneOf`: report a single, concise violation when the right number of branches don't match. */
+/** Validate an `anyOf`/`oneOf`. A matching branch is enough. Otherwise report the branch that got furthest into the value, or one type mismatch when every branch failed at this path. */
 const validateCombinator = (
   candidateValue: unknown,
   branches: JsonSchema[],
@@ -181,9 +143,8 @@ const validateCombinator = (
   path: string,
   kind: 'anyOf' | 'oneOf',
 ): SchemaViolation[] => {
-  const matchCount = branches.filter(
-    (branch) => validate(candidateValue, branch, root, path).length === 0,
-  ).length;
+  const branchViolations = branches.map((branch) => validate(candidateValue, branch, root, path));
+  const matchCount = branchViolations.filter((violations) => violations.length === 0).length;
   let matchesExpectedCount = matchCount === 1;
   if (kind === 'anyOf') {
     matchesExpectedCount = matchCount >= 1;
@@ -191,8 +152,38 @@ const validateCombinator = (
   if (matchesExpectedCount) {
     return [];
   }
+  const nestedViolations = pickNestedBranchViolations(branchViolations, path);
+  if (nestedViolations) {
+    return nestedViolations;
+  }
   const expected = branches.map((branch) => describeExpected(branch)).join(' | ');
   return [{ path, message: `expected ${expected}, got ${jsonTypeOf(candidateValue)}` }];
+};
+
+/** When every branch fails at the combinator itself, keep the short type message. A branch that got inside the value has the useful errors. */
+const pickNestedBranchViolations = (
+  branchViolations: SchemaViolation[][],
+  path: string,
+): SchemaViolation[] | null => {
+  let chosen: SchemaViolation[] | null = null;
+  let chosenDepth = -1;
+  for (const violations of branchViolations) {
+    let depth = -1;
+    for (const violation of violations) {
+      if (violation.path === path) {
+        continue;
+      }
+      if (violation.path.length > depth) {
+        depth = violation.path.length;
+      }
+    }
+    const isDeeper = depth > chosenDepth;
+    if (isDeeper) {
+      chosenDepth = depth;
+      chosen = violations;
+    }
+  }
+  return chosen;
 };
 
 /**

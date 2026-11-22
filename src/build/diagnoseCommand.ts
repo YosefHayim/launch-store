@@ -1,13 +1,14 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
+import { readdir, readFile, stat } from 'node:fs/promises';
+import path from 'node:path';
 import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { resolveLogsDirectory, type LaunchPathsService } from '../services/platform/paths.js';
+import { createLogger } from '../services/platform/logger.js';
+import { resolveLogsDirectory } from '../services/platform/paths.js';
+import { pathExists } from '../path-exists.js';
 import { diagnoseBuildLog, formatDiagnoses } from './buildDiagnostics.js';
 
-export const DiagnoseCommandInputSchema = Schema.Struct({
-  logfile: Schema.optional(Schema.String),
-});
+export type DiagnoseCommandInput = Readonly<{
+  logfile?: string;
+}>;
 
 type DiagnoseCommandFailure = Readonly<{
   readonly _tag: 'DiagnoseCommandFailure';
@@ -16,93 +17,213 @@ type DiagnoseCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-const makeDiagnoseCommandFailure = Data.tagged<DiagnoseCommandFailure>('DiagnoseCommandFailure');
+function makeDiagnoseCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause?: unknown;
+}): DiagnoseCommandFailure {
+  const hasCause = fields.cause != null;
 
-type DiagnoseCommandRequirements = FileSystem.FileSystem | LaunchPathsService | Logger | Path.Path;
+  if (hasCause) {
+    return {
+      _tag: 'DiagnoseCommandFailure',
+      operation: fields.operation,
+      message: fields.message,
+      cause: fields.cause,
+    };
+  }
+
+  return {
+    _tag: 'DiagnoseCommandFailure',
+    operation: fields.operation,
+    message: fields.message,
+  };
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  const isObject = typeof candidate == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  return candidate != null;
+}
+
+/** Decode `launch diagnose` input. Omitted optionals stay absent. */
+export function decodeDiagnoseCommandInput(rawCommandInput: unknown): DiagnoseCommandInput {
+  const isCommandRecord = isRecord(rawCommandInput);
+
+  if (isCommandRecord == false) {
+    throw new Error('Diagnose command input must be an object.');
+  }
+
+  const hasLogfile = Object.hasOwn(rawCommandInput, 'logfile');
+
+  if (hasLogfile == false) {
+    return {};
+  }
+
+  const logfile = rawCommandInput['logfile'];
+  const logfileIsMissing = logfile == null;
+
+  if (logfileIsMissing) {
+    return {};
+  }
+
+  const logfileIsString = typeof logfile == 'string';
+
+  if (logfileIsString == false) {
+    throw new Error('Diagnose logfile must be a string.');
+  }
+
+  return { logfile };
+}
+
+function isDiagnoseCommandFailure(cause: unknown): cause is DiagnoseCommandFailure {
+  const isObject = typeof cause == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  const isNull = cause == null;
+
+  if (isNull) {
+    return false;
+  }
+
+  const hasTag = '_tag' in cause;
+
+  if (hasTag == false) {
+    return false;
+  }
+
+  return cause._tag == 'DiagnoseCommandFailure';
+}
+
+type NewestLog = Readonly<{ path: string; modifiedAt: number }>;
 
 /** Find the newest readable build log in Launch's local log directory. */
-export const findMostRecentBuildLog = (): Effect.Effect<
-  string | null,
-  never,
-  FileSystem.FileSystem | LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const logsDirectory = yield* resolveLogsDirectory();
-    const directoryExists = yield* fileSystem
-      .exists(logsDirectory)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!directoryExists) return null;
-    const filenames = yield* fileSystem
-      .readDirectory(logsDirectory)
-      .pipe(Effect.orElseSucceed(() => []));
-    let newestLog: Readonly<{ path: string; modifiedAt: number }> | null = null;
-    for (const filename of filenames) {
-      if (!filename.endsWith('.log')) continue;
-      const logPath = pathService.join(logsDirectory, filename);
-      const fileMetadata = yield* fileSystem.stat(logPath).pipe(Effect.either);
-      if (fileMetadata._tag === 'Left') continue;
-      let modifiedAt = 0;
-      if (fileMetadata.right.mtime._tag === 'Some') {
-        modifiedAt = fileMetadata.right.mtime.value.getTime();
-      }
-      if (newestLog === null) {
-        newestLog = { path: logPath, modifiedAt };
-        continue;
-      }
-      if (modifiedAt > newestLog.modifiedAt) newestLog = { path: logPath, modifiedAt };
+export async function findMostRecentBuildLog(): Promise<string | null> {
+  const logsDirectory = resolveLogsDirectory();
+  const directoryExists = await pathExists(logsDirectory);
+
+  if (directoryExists == false) {
+    return null;
+  }
+
+  let filenames: string[] = [];
+
+  try {
+    filenames = await readdir(logsDirectory);
+  } catch {
+    return null;
+  }
+
+  let newestLog: NewestLog | null = null;
+
+  for (const filename of filenames) {
+    const isLog = filename.endsWith('.log');
+
+    if (isLog == false) {
+      continue;
     }
-    if (newestLog === null) return null;
-    return newestLog.path;
-  });
+
+    const logPath = path.join(logsDirectory, filename);
+    let modifiedAt = 0;
+
+    try {
+      const fileStat = await stat(logPath);
+      modifiedAt = fileStat.mtimeMs;
+    } catch {
+      continue;
+    }
+
+    const currentNewest = newestLog;
+    const hasNewest = currentNewest != null;
+
+    if (hasNewest == false) {
+      newestLog = { path: logPath, modifiedAt };
+      continue;
+    }
+
+    const isNewer = modifiedAt > currentNewest.modifiedAt;
+
+    if (isNewer) {
+      newestLog = { path: logPath, modifiedAt };
+    }
+  }
+
+  const foundLog = newestLog;
+  const logWasFound = foundLog != null;
+
+  if (logWasFound == false) {
+    return null;
+  }
+
+  return foundLog.path;
+}
+
+async function readDiagnoseLogPath(logfile: string | undefined): Promise<string | null> {
+  const logfileIsMissing = logfile == null;
+
+  if (logfileIsMissing) {
+    const newestLogPath = await findMostRecentBuildLog();
+
+    return newestLogPath;
+  }
+
+  return logfile;
+}
 
 /** Read one build log and render any recognized native failure diagnoses. */
-export const diagnoseCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, DiagnoseCommandFailure, DiagnoseCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(DiagnoseCommandInputSchema)(rawCommandInput);
-    let logPath: string | null | undefined = commandInput.logfile;
-    if (logPath === undefined) logPath = yield* findMostRecentBuildLog();
-    const logger = yield* createLogger(false);
-    if (logPath === null) {
-      yield* logger.skip(
+export async function diagnoseCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodeDiagnoseCommandInput(rawCommandInput);
+    const logPath = await readDiagnoseLogPath(commandInput.logfile);
+    const logger = createLogger(false);
+    const hasNoLog = logPath == null;
+
+    if (hasNoLog) {
+      logger.skip(
         'No build log found. Run a build first, or pass a log path: `launch diagnose <file>`.',
       );
       return;
     }
-    if (logPath === undefined) {
-      yield* logger.skip(
-        'No build log found. Run a build first, or pass a log path: `launch diagnose <file>`.',
-      );
-      return;
-    }
-    const fileSystem = yield* FileSystem.FileSystem;
-    if (!(yield* fileSystem.exists(logPath))) {
-      return yield* Effect.fail(
-        makeDiagnoseCommandFailure({
-          operation: 'read build log',
-          message: `No log file at ${logPath}.`,
-        }),
-      );
-    }
-    const logText = yield* fileSystem.readFileString(logPath);
-    const diagnoses = diagnoseBuildLog(logText);
-    if (diagnoses.length === 0) {
-      yield* logger.skip(`No known issues recognized in ${logPath}.`);
-      yield* logger.line('Open the log to inspect the failure directly.');
-      return;
-    }
-    yield* logger.line(`Diagnosing ${logPath}\n`);
-    yield* logger.line(formatDiagnoses(diagnoses));
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (cause._tag === 'DiagnoseCommandFailure') return cause;
-      return makeDiagnoseCommandFailure({
-        operation: 'diagnose build log',
-        message: errorMessage(cause),
-        cause,
+
+    const logFileExists = await pathExists(logPath);
+
+    if (logFileExists == false) {
+      throw makeDiagnoseCommandFailure({
+        operation: 'read build log',
+        message: `No log file at ${logPath}.`,
       });
-    }),
-  );
+    }
+
+    const logText = await readFile(logPath, 'utf8');
+    const diagnoses = diagnoseBuildLog(logText);
+    const hasNoDiagnoses = diagnoses.length == 0;
+
+    if (hasNoDiagnoses) {
+      logger.skip(`No known issues recognized in ${logPath}.`);
+      logger.line('Open the log to inspect the failure directly.');
+      return;
+    }
+
+    logger.line(`Diagnosing ${logPath}\n`);
+    logger.line(formatDiagnoses(diagnoses));
+  } catch (cause) {
+    const alreadyDiagnoseFailure = isDiagnoseCommandFailure(cause);
+
+    if (alreadyDiagnoseFailure) {
+      throw cause;
+    }
+
+    throw makeDiagnoseCommandFailure({
+      operation: 'diagnose build log',
+      message: errorMessage(cause),
+      cause,
+    });
+  }
+}

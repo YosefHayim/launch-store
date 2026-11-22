@@ -1,9 +1,8 @@
-import { Effect } from 'effect';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { captureCommandOutput, provideNodeCommandServices } from '@/services/platform/exec.js';
+import { captureCommandOutput } from '@/services/platform/exec.js';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'cli', 'index.js');
 const PLAY_SUBSCRIPTIONS = join(
@@ -16,12 +15,11 @@ const PLAY_SUBSCRIPTIONS = join(
   'playSubscriptions.js',
 );
 
-const launch = (...commandArguments: string[]): Promise<string> =>
-  Effect.runPromise(
-    provideNodeCommandServices(captureCommandOutput('node', [CLI, ...commandArguments])),
-  );
+function launch(...commandArguments: string[]): Promise<string> {
+  return captureCommandOutput('node', [CLI, ...commandArguments]);
+}
 
-const renderBuiltDiagnostics = (): Promise<string> => {
+function renderBuiltDiagnostics(): Promise<string> {
   const playSubscriptionsUrl = pathToFileURL(PLAY_SUBSCRIPTIONS).href;
   const diagnosticScript = `
     import { describePlaySubscriptionWriteFailure } from ${JSON.stringify(playSubscriptionsUrl)};
@@ -37,12 +35,8 @@ const renderBuiltDiagnostics = (): Promise<string> => {
     );
     process.stdout.write(JSON.stringify({ permission, payments }));
   `;
-  return Effect.runPromise(
-    provideNodeCommandServices(
-      captureCommandOutput('node', ['--input-type=module', '--eval', diagnosticScript]),
-    ),
-  );
-};
+  return captureCommandOutput('node', ['--input-type=module', '--eval', diagnosticScript]);
+}
 
 beforeAll(() => {
   if (!existsSync(CLI)) throw new Error('Build dist before running the built-CLI e2e suite.');

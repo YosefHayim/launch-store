@@ -1,64 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
+import { createLogger } from '../services/platform/logger.js';
 import type { AppDescriptor, BuildProfile } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';
 import type { NativeCar, OtaCar } from '../types/releaseTrain.js';
-import { AppleStoreClientLive } from '../services/stores/appleStoreClient.js';
-import { LaunchEnvironmentTest } from '../services/platform/environment.js';
-import { GoogleStoreClientLive } from '../services/stores/googleStoreClient.js';
-import { createLogger, makeLaunchLoggerTest } from '../services/platform/logger.js';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
-import { LaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import {
   createTrainRuntime,
   isStoredAndroidBuild,
   isUsableIosStoreBuild,
   marketingVersionMissingMessage,
-  type TrainRuntimeRequirements,
   usableMarketingVersion,
 } from './builder.js';
 
-/** Minimal config - local storage gates OTA off so the engine never reaches a store client. */
-const config = (overrides: Partial<LaunchConfig> = {}): LaunchConfig => ({
-  profiles: {},
-  credentials: 'local',
-  storage: 'local',
-  buildEngine: 'xcode',
-  submit: 'app-store-connect',
-  ...overrides,
-});
+function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
+  return {
+    profiles: {},
+    credentials: 'local',
+    storage: 'local',
+    buildEngine: 'xcode',
+    submit: 'app-store-connect',
+    ...overrides,
+  };
+}
 
-/** Minimal app; pass bundleId / packageName to declare a native platform. */
-const app = (overrides: Partial<AppDescriptor> = {}): AppDescriptor => ({
-  name: 'Demo',
-  dir: '/tmp/demo',
-  configPath: '/tmp/demo/app.json',
-  ...overrides,
-});
+function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
+  return {
+    name: 'Demo',
+    dir: '/tmp/demo',
+    configPath: '/tmp/demo/app.json',
+    ...overrides,
+  };
+}
 
 const profile: BuildProfile = { name: 'production' };
-const logger = Effect.runSync(createLogger(false).pipe(Effect.provide(makeLaunchLoggerTest([]))));
+const logger = createLogger(false);
 
-const engineFor = (
+function engineFor(
   appOverrides: Partial<AppDescriptor>,
   configOverrides: Partial<LaunchConfig> = {},
-) =>
-  createTrainRuntime(config(configOverrides), app(appOverrides), profile, {}, false, logger).engine;
-
-const runEngineGuard = <Success, Failure>(
-  engineOperation: Effect.Effect<Success, Failure, TrainRuntimeRequirements>,
-): Promise<Success> =>
-  Effect.runPromise(
-    engineOperation.pipe(
-      Effect.provide(AppleStoreClientLive),
-      Effect.provide(GoogleStoreClientLive),
-      Effect.provide(LaunchEnvironmentTest),
-      Effect.provide(makeLaunchPathsTest('/tmp/launch-home', '/tmp/launch-workspace')),
-      Effect.provide(LaunchSecretStoreTest),
-      Effect.provide(NodeContext.layer),
-    ),
-  );
+) {
+  return createTrainRuntime(config(configOverrides), app(appOverrides), profile, {}, false, logger)
+    .engine;
+}
 
 const iosCar: NativeCar = { kind: 'ios', state: 'building', updatedAt: '2026-06-25T00:00:00Z' };
 const androidCar: NativeCar = {
@@ -102,38 +84,43 @@ describe('createTrainRuntime pure helpers', () => {
 
 describe('createTrainRuntime - engine guards fail loudly before any store call', () => {
   it('rejects an iOS submit when the app declares no bundle id', async () => {
-    await expect(
-      runEngineGuard(engineFor({ packageName: 'com.demo' }).submitNative(iosCar)),
-    ).rejects.toThrow('has no iOS bundle id');
+    await expect(engineFor({ packageName: 'com.demo' }).submitNative(iosCar)).rejects.toMatchObject(
+      {
+        _tag: 'TrainRuntimeFailure',
+        message: expect.stringContaining('has no iOS bundle id'),
+      },
+    );
   });
 
   it('rejects an Android submit when the app declares no package name', async () => {
     await expect(
-      runEngineGuard(engineFor({ bundleId: 'com.demo' }).submitNative(androidCar)),
-    ).rejects.toThrow('has no Android package');
+      engineFor({ bundleId: 'com.demo' }).submitNative(androidCar),
+    ).rejects.toMatchObject({
+      _tag: 'TrainRuntimeFailure',
+      message: expect.stringContaining('has no Android package'),
+    });
   });
 
   it('rejects an OTA publish when storage is not a cloud provider', async () => {
     await expect(
-      runEngineGuard(engineFor({ bundleId: 'com.demo' }, { storage: 'local' }).publishOta(otaCar)),
-    ).rejects.toThrow('OTA needs a cloud storage provider');
+      engineFor({ bundleId: 'com.demo' }, { storage: 'local' }).publishOta(otaCar),
+    ).rejects.toMatchObject({
+      _tag: 'TrainRuntimeFailure',
+      message: expect.stringContaining('OTA needs a cloud storage provider'),
+    });
   });
 
   it('keeps a native car put on read when its platform is undeclared (no client constructed)', async () => {
-    expect(await runEngineGuard(engineFor({ packageName: 'com.demo' }).readNative(iosCar))).toBe(
-      'building',
-    );
-    expect(await runEngineGuard(engineFor({ bundleId: 'com.demo' }).readNative(androidCar))).toBe(
-      'building',
-    );
+    expect(await engineFor({ packageName: 'com.demo' }).readNative(iosCar)).toBe('building');
+    expect(await engineFor({ bundleId: 'com.demo' }).readNative(androidCar)).toBe('building');
   });
 
   it('is a no-op to release a non-iOS car or an iOS car with no bundle id', async () => {
     await expect(
-      runEngineGuard(engineFor({ bundleId: 'com.demo' }).releaseNative(androidCar)),
+      engineFor({ bundleId: 'com.demo' }).releaseNative(androidCar),
     ).resolves.toBeUndefined();
     await expect(
-      runEngineGuard(engineFor({ packageName: 'com.demo' }).releaseNative(iosCar)),
+      engineFor({ packageName: 'com.demo' }).releaseNative(iosCar),
     ).resolves.toBeUndefined();
   });
 });

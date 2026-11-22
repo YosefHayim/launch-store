@@ -7,7 +7,7 @@ import type {
   StorageProviderResolver,
   Submitter,
 } from '../../types/providers.js';
-import { Data, Effect } from 'effect';
+
 const credentialsProviders = new Map<string, CredentialsProvider>();
 const buildEngines = new Map<string, BuildEngine>();
 const hostedBuildProviders = new Map<string, HostedBuildProvider>();
@@ -51,20 +51,30 @@ export type ProviderNotRegistered = Readonly<{
   readonly available: readonly string[];
   readonly message: string;
 }>;
-const makeProviderNotRegistered = Data.tagged<ProviderNotRegistered>('ProviderNotRegistered');
-const lookup = <T>(
+function makeProviderNotRegistered(fields: {
+  kind: string;
+  name: string;
+  available: readonly string[];
+  message: string;
+}): ProviderNotRegistered {
+  return { _tag: 'ProviderNotRegistered', ...fields };
+}
+
+function lookup<Registered>(
   kind: string,
   name: string,
-  registry: Map<string, T>,
-): Effect.Effect<T, ProviderNotRegistered> => {
+  registry: Map<string, Registered>,
+): Registered {
   const found = registry.get(name);
-  if (!found) {
+
+  if (found == null) {
     const names = [...registry.keys()];
     const message = `Unknown ${kind} "${name}". Valid ${kind}s: ${names.join(', ')}.`;
-    return Effect.fail(makeProviderNotRegistered({ kind, name, available: names, message }));
+    throw makeProviderNotRegistered({ kind, name, available: names, message });
   }
-  return Effect.succeed(found);
-};
+
+  return found;
+}
 export const getCredentialsProvider = (name: string) =>
   lookup('credentials provider', name, credentialsProviders);
 export const getBuildEngine = (name: string) => lookup('build engine', name, buildEngines);

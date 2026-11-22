@@ -1,11 +1,10 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { AppClipsCommandInputSchema } from './appClipsCommand.js';
 
 describe('AppClipsCommandInputSchema', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {
     expect(
-      Schema.decodeUnknownSync(AppClipsCommandInputSchema)({
+      AppClipsCommandInputSchema({
         config: 'appclips.config.json',
         explicitConfig: false,
         dryRun: true,
@@ -21,7 +20,7 @@ describe('AppClipsCommandInputSchema', () => {
 
   it('rejects an explicit undefined exact optional app', () => {
     expect(() =>
-      Schema.decodeUnknownSync(AppClipsCommandInputSchema)({
+      AppClipsCommandInputSchema({
         app: undefined,
         config: 'appclips.config.json',
         explicitConfig: false,

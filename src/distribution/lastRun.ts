@@ -1,6 +1,7 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Effect, Schema } from 'effect';
-import { resolveLastRunFilePath, type LaunchPathsService } from '../services/platform/paths.js';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { resolveLastRunFilePath } from '../services/platform/paths.js';
+import { pathExists } from '../path-exists.js';
 import type { BumpKind } from '../release/version.js';
 
 type AppMemory = {
@@ -12,102 +13,192 @@ type LastRunState = {
   apps: Record<string, AppMemory>;
 };
 
-const BumpKindSchema = Schema.Literal('major', 'minor', 'patch', 'keep');
-const AppMemorySchema: Schema.Schema<AppMemory> = Schema.mutable(
-  Schema.Struct({
-    bump: Schema.optionalWith(BumpKindSchema, { exact: true }),
-  }),
-);
-const LastRunStateSchema: Schema.Schema<LastRunState> = Schema.mutable(
-  Schema.Struct({
-    lastApp: Schema.optionalWith(Schema.String, { exact: true }),
-    apps: Schema.mutable(Schema.Record({ key: Schema.String, value: AppMemorySchema })),
-  }),
-);
+const BUMP_KINDS: readonly BumpKind[] = ['major', 'minor', 'patch', 'keep'];
 
-type LastRunRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
+function emptyLastRunState(): LastRunState {
+  return { apps: {} };
+}
 
-const emptyLastRunState = (): LastRunState => ({ apps: {} });
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (typeof candidate != 'object') {
+    return false;
+  }
 
-const resolveMemoryFilePath = (
-  filePath: string | undefined,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> => {
-  if (filePath !== undefined) return Effect.succeed(filePath);
+  if (candidate == null) {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function readBump(candidate: unknown): BumpKind | null | undefined {
+  if (Object.hasOwn(candidate as object, 'bump') == false) {
+    return undefined;
+  }
+
+  const bump = (candidate as Record<string, unknown>)['bump'];
+
+  if (typeof bump != 'string') {
+    return null;
+  }
+
+  const isBump = BUMP_KINDS.includes(bump as BumpKind);
+
+  if (isBump) {
+    return bump as BumpKind;
+  }
+
+  return null;
+}
+
+function decodeLastRun(memoryText: string): LastRunState | null {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(memoryText);
+  } catch (cause) {
+    const isUnreadable = cause != null;
+
+    if (isUnreadable) {
+      return null;
+    }
+
+    return null;
+  }
+
+  if (isRecord(parsed) == false) {
+    return null;
+  }
+
+  if (isRecord(parsed['apps']) == false) {
+    return null;
+  }
+
+  const apps: Record<string, AppMemory> = {};
+
+  for (const appName of Object.keys(parsed['apps'])) {
+    const appMemory = parsed['apps'][appName];
+
+    if (isRecord(appMemory) == false) {
+      return null;
+    }
+
+    const bump = readBump(appMemory);
+
+    if (bump === null) {
+      return null;
+    }
+
+    if (bump == null) {
+      apps[appName] = {};
+    } else {
+      apps[appName] = { bump };
+    }
+  }
+
+  const memory: LastRunState = { apps };
+  const lastApp = parsed['lastApp'];
+
+  if (lastApp == null) {
+    return memory;
+  }
+
+  if (typeof lastApp != 'string') {
+    return null;
+  }
+
+  return { ...memory, lastApp };
+}
+
+function resolveMemoryFilePath(filePath: string | undefined): string {
+  if (filePath != null) {
+    return filePath;
+  }
+
   return resolveLastRunFilePath();
-};
+}
 
 /** Reads remembered build choices, treating absent or malformed state as empty. */
-export const readLastRun = (
-  filePath?: string,
-): Effect.Effect<LastRunState, never, LastRunRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const memoryFilePath = yield* resolveMemoryFilePath(filePath);
-    const memoryExists = yield* fileSystem
-      .exists(memoryFilePath)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!memoryExists) return emptyLastRunState();
-    return yield* fileSystem
-      .readFileString(memoryFilePath)
-      .pipe(
-        Effect.flatMap(Schema.decodeUnknown(Schema.parseJson(LastRunStateSchema))),
-        Effect.orElseSucceed(emptyLastRunState),
-      );
-  });
+export async function readLastRun(filePath?: string): Promise<LastRunState> {
+  const memoryFilePath = resolveMemoryFilePath(filePath);
+  const memoryExists = await pathExists(memoryFilePath);
+
+  if (memoryExists == false) {
+    return emptyLastRunState();
+  }
+
+  try {
+    const memoryText = await readFile(memoryFilePath, 'utf8');
+    const memory = decodeLastRun(memoryText);
+
+    if (memory == null) {
+      return emptyLastRunState();
+    }
+
+    return memory;
+  } catch (cause) {
+    const isUnreadable = cause != null;
+
+    if (isUnreadable) {
+      return emptyLastRunState();
+    }
+
+    return emptyLastRunState();
+  }
+}
 
 /** Reads the most recently built app name. */
-export const readLastApp = (
-  filePath?: string,
-): Effect.Effect<string | undefined, never, LastRunRequirements> =>
-  readLastRun(filePath).pipe(Effect.map((memory) => memory.lastApp));
+export async function readLastApp(filePath?: string): Promise<string | undefined> {
+  const memory = await readLastRun(filePath);
+
+  return memory.lastApp;
+}
 
 /** Reads the last version bump selected for an app. */
-export const readLastBump = (
+export async function readLastBump(
   appName: string,
   filePath?: string,
-): Effect.Effect<BumpKind | undefined, never, LastRunRequirements> =>
-  readLastRun(filePath).pipe(
-    Effect.map((memory) => {
-      const appMemory = memory.apps[appName];
-      if (appMemory === undefined) return undefined;
-      return appMemory.bump;
-    }),
-  );
+): Promise<BumpKind | undefined> {
+  const memory = await readLastRun(filePath);
+  const appMemory = memory.apps[appName];
 
-/** Write last-run memory with parent directories created as needed. */
-const writeLastRun = (
-  memoryFilePath: string,
-  memory: LastRunState,
-): Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    yield* fileSystem.makeDirectory(pathService.dirname(memoryFilePath), { recursive: true });
-    yield* fileSystem.writeFileString(memoryFilePath, JSON.stringify(memory, null, 2));
-  });
+  if (appMemory == null) {
+    return undefined;
+  }
+
+  return appMemory.bump;
+}
+
+async function writeLastRun(memoryFilePath: string, memory: LastRunState): Promise<void> {
+  await mkdir(dirname(memoryFilePath), { recursive: true });
+  await writeFile(memoryFilePath, JSON.stringify(memory, null, 2));
+}
 
 /** Records one successful build's app and optional version bump. */
-export const rememberLastRun = (
+export async function rememberLastRun(
   appName: string,
   bump?: BumpKind,
   filePath?: string,
-): Effect.Effect<void, unknown, LastRunRequirements> =>
-  Effect.gen(function* () {
-    const memoryFilePath = yield* resolveMemoryFilePath(filePath);
-    const memory = yield* readLastRun(memoryFilePath);
-    let nextApps = memory.apps;
-    if (bump !== undefined) {
-      const priorAppMemory = memory.apps[appName];
-      if (priorAppMemory === undefined) {
-        nextApps = { ...memory.apps, [appName]: { bump } };
-      } else {
-        nextApps = { ...memory.apps, [appName]: { ...priorAppMemory, bump } };
-      }
+): Promise<void> {
+  const memoryFilePath = resolveMemoryFilePath(filePath);
+  const memory = await readLastRun(memoryFilePath);
+  let nextApps = memory.apps;
+
+  if (bump != null) {
+    const priorAppMemory = memory.apps[appName];
+
+    if (priorAppMemory == null) {
+      nextApps = { ...memory.apps, [appName]: { bump } };
+    } else {
+      nextApps = { ...memory.apps, [appName]: { ...priorAppMemory, bump } };
     }
-    const nextMemory: LastRunState = {
-      ...memory,
-      lastApp: appName,
-      apps: nextApps,
-    };
-    yield* writeLastRun(memoryFilePath, nextMemory);
-  });
+  }
+
+  const nextMemory: LastRunState = {
+    ...memory,
+    lastApp: appName,
+    apps: nextApps,
+  };
+
+  await writeLastRun(memoryFilePath, nextMemory);
+}

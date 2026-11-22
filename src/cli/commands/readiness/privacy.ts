@@ -1,6 +1,5 @@
 import type { Command } from 'commander';
-import { Effect } from 'effect';
-import { PrivacyCommandServiceLive, privacyCommandProgram } from '@/privacy/command.js';
+import { privacyCommandProgram } from '@/privacy/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** CLI options for `launch privacy scan`. */
@@ -22,8 +21,6 @@ export const registerPrivacyCommand = (program: Command): void => {
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
     .action((commandOptions: PrivacyScanOptions) =>
-      runCliProgram(
-        privacyCommandProgram(commandOptions).pipe(Effect.provide(PrivacyCommandServiceLive)),
-      ),
+      runCliProgram(privacyCommandProgram(commandOptions)),
     );
 };

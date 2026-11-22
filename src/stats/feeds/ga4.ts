@@ -1,14 +1,8 @@
-import type { HttpClient } from '@effect/platform';
-import { Effect } from 'effect';
-import type { PortfolioApp } from '../../types/portfolio.js';
-import type {
-  FeedFetchReply,
-  StatsCredentialsShape,
-  StatsFeedFailure,
-  StatsFeedPlugin,
-} from '../../types/stats.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
-import { readProjectIdFromClientEmail, type Ga4Failure, type Ga4Session } from './ga4Client.js';
+import type { PortfolioApp } from '../../types/portfolio.js';
+import type { DateRange, FeedFetchReply, StatsFeedFailure } from '../../types/stats.js';
+import type { StatsCredentialsApi } from '../statsCredentials.js';
+import { isGa4SkipSignal, readProjectIdFromClientEmail, type Ga4Session } from './ga4Client.js';
 import { loadGa4Report } from './ga4Report.js';
 import { findAppStream, listAllAppStreams, listAppStreams } from './ga4Streams.js';
 
@@ -17,116 +11,192 @@ interface Ga4Target {
   readonly streamId: string | null;
 }
 
-const createCredentialsFailure = (app: PortfolioApp, cause: unknown): StatsFeedFailure => ({
-  _tag: 'StatsFeedFailure',
-  feed: 'ga4',
-  appKey: app.key,
-  message: `Could not read the Google credentials: ${errorMessage(cause)}`,
-  cause,
-});
+interface Ga4FetchRequest {
+  readonly app: PortfolioApp;
+  readonly range: DateRange;
+  readonly credentials: StatsCredentialsApi;
+}
 
-const readAccessToken = (
-  credentials: StatsCredentialsShape,
-  app: PortfolioApp,
-  packageName: string | null,
-): Effect.Effect<string | null, StatsFeedFailure> =>
-  credentials
-    .googleAccessToken(['https://www.googleapis.com/auth/analytics.readonly'], packageName)
-    .pipe(Effect.mapError((cause) => createCredentialsFailure(app, cause)));
+const ANALYTICS_READONLY_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
 
-const readProjectId = (
-  credentials: StatsCredentialsShape,
-  app: PortfolioApp,
-  packageName: string | null,
-): Effect.Effect<string | null, StatsFeedFailure> =>
-  Effect.gen(function* () {
-    const serviceAccount = yield* credentials
-      .playServiceAccount(packageName)
-      .pipe(Effect.mapError((cause) => createCredentialsFailure(app, cause)));
-    if (serviceAccount === null) return null;
-    return readProjectIdFromClientEmail(serviceAccount.clientEmail);
-  });
+function createCredentialsFailure(app: PortfolioApp, cause: unknown): StatsFeedFailure {
+  return {
+    _tag: 'StatsFeedFailure',
+    feed: 'ga4',
+    appKey: app.key,
+    message: `Could not read the Google credentials: ${errorMessage(cause)}`,
+    cause,
+  };
+}
 
-const createWholePropertyNotes = (target: Ga4Target): readonly string[] => {
-  if (target.streamId !== null) return [];
+function createWholePropertyNotes(target: Ga4Target): readonly string[] {
+  if (target.streamId != null) {
+    return [];
+  }
+
   return [
     `GA4 property ${target.propertyId} has no stream for this app, so the numbers cover the whole property`,
   ];
-};
+}
 
-const readStoreIdentifier = (app: PortfolioApp): string => {
-  if (app.platform === 'ios' && app.bundleId !== null) return app.bundleId;
-  if (app.platform === 'android' && app.packageName !== null) return app.packageName;
+function readIosBundle(app: PortfolioApp): string | null {
+  if (app.platform != 'ios') {
+    return null;
+  }
+
+  return app.bundleId;
+}
+
+function readAndroidPackage(app: PortfolioApp): string | null {
+  if (app.platform != 'android') {
+    return null;
+  }
+
+  return app.packageName;
+}
+
+function readStoreIdentifier(app: PortfolioApp): string {
+  const bundleId = readIosBundle(app);
+
+  if (bundleId != null) {
+    return bundleId;
+  }
+
+  const packageName = readAndroidPackage(app);
+
+  if (packageName != null) {
+    return packageName;
+  }
+
   return app.key;
-};
+}
 
-const createNoPropertyReason = (app: PortfolioApp): string =>
-  `No GA4 property with a stream for ${readStoreIdentifier(app)}; tag one with launch apps tag --app ${app.name} --ga4-property <id>`;
+function createNoPropertyReason(app: PortfolioApp): string {
+  return `No GA4 property with a stream for ${readStoreIdentifier(app)}; tag one with launch apps tag --app ${app.name} --ga4-property <id>`;
+}
 
-const findTaggedTarget = (
+async function readPackageName(request: Ga4FetchRequest): Promise<string | null> {
+  try {
+    return await request.credentials.googlePackageForApp(request.app);
+  } catch (cause) {
+    throw createCredentialsFailure(request.app, cause);
+  }
+}
+
+async function readAccessToken(
+  request: Ga4FetchRequest,
+  packageName: string | null,
+): Promise<string | null> {
+  try {
+    return await request.credentials.googleAccessToken([ANALYTICS_READONLY_SCOPE], packageName);
+  } catch (cause) {
+    throw createCredentialsFailure(request.app, cause);
+  }
+}
+
+async function readProjectId(
+  request: Ga4FetchRequest,
+  packageName: string | null,
+): Promise<string | null> {
+  try {
+    var serviceAccount = await request.credentials.playServiceAccount(packageName);
+  } catch (cause) {
+    throw createCredentialsFailure(request.app, cause);
+  }
+
+  if (serviceAccount == null) {
+    return null;
+  }
+
+  return readProjectIdFromClientEmail(serviceAccount.clientEmail);
+}
+
+async function findTaggedTarget(
   session: Ga4Session,
   app: PortfolioApp,
   propertyId: string,
-): Effect.Effect<Ga4Target, Ga4Failure, HttpClient.HttpClient> =>
-  Effect.gen(function* () {
-    const propertyStreams = yield* listAppStreams(session, propertyId);
-    const taggedStream = findAppStream(app, propertyStreams);
-    if (taggedStream === null) return { propertyId, streamId: null };
-    return { propertyId, streamId: taggedStream.streamId };
-  });
+): Promise<Ga4Target> {
+  const propertyStreams = await listAppStreams(session, propertyId);
+  const taggedStream = findAppStream(app, propertyStreams);
 
-const findTarget = (
+  if (taggedStream == null) {
+    return { propertyId, streamId: null };
+  }
+
+  return { propertyId, streamId: taggedStream.streamId };
+}
+
+async function findTarget(session: Ga4Session, app: PortfolioApp): Promise<Ga4Target | null> {
+  if (app.ga4PropertyId != null) {
+    return findTaggedTarget(session, app, app.ga4PropertyId);
+  }
+
+  const catalog = await listAllAppStreams(session);
+  const foundStream = findAppStream(app, catalog);
+
+  if (foundStream == null) {
+    return null;
+  }
+
+  return { propertyId: foundStream.propertyId, streamId: foundStream.streamId };
+}
+
+async function fetchWithSession(
   session: Ga4Session,
   app: PortfolioApp,
-): Effect.Effect<Ga4Target | null, Ga4Failure, HttpClient.HttpClient> =>
-  Effect.gen(function* () {
-    if (app.ga4PropertyId !== null) return yield* findTaggedTarget(session, app, app.ga4PropertyId);
-    const catalog = yield* listAllAppStreams(session);
-    const foundStream = findAppStream(app, catalog);
-    if (foundStream === null) return null;
-    return { propertyId: foundStream.propertyId, streamId: foundStream.streamId };
+  range: DateRange,
+): Promise<FeedFetchReply> {
+  const target = await findTarget(session, app);
+
+  if (target == null) {
+    return { status: 'skipped', reason: createNoPropertyReason(app) };
+  }
+
+  const stats = await loadGa4Report(session, {
+    propertyId: target.propertyId,
+    streamId: target.streamId,
+    range,
   });
 
-const fetchWithSession = (
-  session: Ga4Session,
-  app: PortfolioApp,
-  range: { readonly from: string; readonly to: string },
-): Effect.Effect<FeedFetchReply, Ga4Failure, HttpClient.HttpClient> =>
-  Effect.gen(function* () {
-    const target = yield* findTarget(session, app);
-    if (target === null) {
-      return { status: 'skipped', reason: createNoPropertyReason(app) } as const;
+  return {
+    status: 'fetched',
+    stats,
+    coveredThrough: range.to,
+    notes: createWholePropertyNotes(target),
+  };
+}
+
+function isGa4Applicable(): boolean {
+  return true;
+}
+
+async function fetchGa4Days(request: Ga4FetchRequest): Promise<FeedFetchReply> {
+  const packageName = await readPackageName(request);
+  const accessToken = await readAccessToken(request, packageName);
+
+  if (accessToken == null) {
+    return {
+      status: 'skipped',
+      reason: 'No Google service account saved; add one with launch credentials',
+    };
+  }
+
+  const projectId = await readProjectId(request, packageName);
+  const session = { appKey: request.app.key, accessToken, projectId };
+
+  try {
+    return await fetchWithSession(session, request.app, request.range);
+  } catch (cause) {
+    if (isGa4SkipSignal(cause)) {
+      return { status: 'skipped', reason: cause.reason };
     }
-    const stats = yield* loadGa4Report(session, {
-      propertyId: target.propertyId,
-      streamId: target.streamId,
-      range,
-    });
-    const notes: readonly string[] = createWholePropertyNotes(target);
-    return { status: 'fetched', stats, coveredThrough: range.to, notes } as const;
-  });
 
-export const ga4Feed: StatsFeedPlugin = {
-  feed: 'ga4',
-  isApplicable: () => true,
-  fetchDays: ({ app, range, credentials }) =>
-    Effect.gen(function* () {
-      const packageName = yield* credentials
-        .googlePackageForApp(app)
-        .pipe(Effect.mapError((cause) => createCredentialsFailure(app, cause)));
-      const accessToken = yield* readAccessToken(credentials, app, packageName);
-      if (accessToken === null) {
-        return {
-          status: 'skipped',
-          reason: 'No Google service account saved; add one with launch credentials',
-        } as const;
-      }
-      const projectId = yield* readProjectId(credentials, app, packageName);
-      const session = { appKey: app.key, accessToken, projectId };
-      return yield* fetchWithSession(session, app, range).pipe(
-        Effect.catchTag('Ga4SkipSignal', (skipSignal) =>
-          Effect.succeed({ status: 'skipped', reason: skipSignal.reason } as const),
-        ),
-      );
-    }),
+    throw cause;
+  }
+}
+
+export const ga4Feed = {
+  feed: 'ga4' as const,
+  isApplicable: isGa4Applicable,
+  fetchDays: fetchGa4Days,
 };

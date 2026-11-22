@@ -1,29 +1,47 @@
-import { Data, Effect } from 'effect';
 import { runBuild } from './pipeline.js';
 import { setVerboseOutput } from '../services/platform/progress.js';
 import { type BuildCommandOptions, parseBuildCommandInput } from './buildCommandInput.js';
 import { hasMessage } from '../services/platform/errorMessage.js';
+
 /** The build pipeline failed while executing a decoded build command. */
 type BuildCommandExecutionError = Readonly<{
   readonly _tag: 'BuildCommandExecutionError';
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeBuildCommandExecutionError = Data.tagged<BuildCommandExecutionError>(
-  'BuildCommandExecutionError',
-);
-export const buildCommandProgram = (
+
+export function makeBuildCommandExecutionError(fields: {
+  message: string;
+  cause: unknown;
+}): BuildCommandExecutionError {
+  return {
+    _tag: 'BuildCommandExecutionError',
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
+
+function wrapBuildFailure(cause: unknown): BuildCommandExecutionError {
+  let failureMessage = 'Build command failed.';
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    failureMessage = cause.message;
+  }
+
+  return makeBuildCommandExecutionError({ message: failureMessage, cause });
+}
+
+export async function buildCommandProgram(
   platformArgument: string,
   commandOptions: BuildCommandOptions,
-) =>
-  Effect.gen(function* () {
-    const buildRunOptions = yield* parseBuildCommandInput(platformArgument, commandOptions);
-    yield* Effect.sync(() => setVerboseOutput(commandOptions.verbose));
-    return yield* runBuild(buildRunOptions).pipe(
-      Effect.mapError((cause) => {
-        let failureMessage = 'Build command failed.';
-        if (hasMessage(cause)) failureMessage = cause.message;
-        return makeBuildCommandExecutionError({ message: failureMessage, cause });
-      }),
-    );
-  });
+): Promise<void> {
+  const buildRunOptions = await parseBuildCommandInput(platformArgument, commandOptions);
+  setVerboseOutput(commandOptions.verbose);
+
+  try {
+    await runBuild(buildRunOptions);
+  } catch (cause) {
+    throw wrapBuildFailure(cause);
+  }
+}

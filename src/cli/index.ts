@@ -1,82 +1,79 @@
 #!/usr/bin/env node
-import { FileSystem } from '@effect/platform';
-import { Cause, Effect, Option, Runtime, Schema } from 'effect';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { registerBuiltins } from '../providers/index.js';
-import { migrateLegacyAccounts } from '../credentials/accounts.js';
-import { runAutoUpgrade } from '../config/updateCheck.js';
-import { CommandExitSchema } from '../terminal/commandExit.js';
-import { createLogger } from '../services/platform/logger.js';
 import { Cli } from '../cli.js';
-import { runCliProgram } from './runCliProgram.js';
+import { runAutoUpgrade } from '../config/updateCheck.js';
+import { migrateLegacyAccounts } from '../credentials/accounts.js';
+import { registerBuiltins } from '../providers/index.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger } from '../services/platform/logger.js';
+import { isCommandExit } from '../terminal/commandExit.js';
 
-const PackageManifestJsonSchema = Schema.parseJson(Schema.Struct({ version: Schema.String }));
 const PACKAGE_MANIFEST_PATH = fileURLToPath(new URL('../../package.json', import.meta.url));
-const CommandFailureMessageSchema = Schema.Struct({ message: Schema.String });
 
-const readVersion = (): Effect.Effect<string, never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const manifestSource = yield* fileSystem
-      .readFileString(PACKAGE_MANIFEST_PATH)
-      .pipe(Effect.orElseSucceed(() => '{}'));
-    const manifest = Option.getOrNull(
-      Schema.decodeUnknownOption(PackageManifestJsonSchema)(manifestSource),
-    );
-    if (manifest === null) return '0.0.0';
-    return manifest.version;
-  });
-/**
- * Boot the CLI: register providers, silently self-upgrade (guarded/throttled - usually an instant
- * no-op), then let commander dispatch. With no subcommand it prints the help; with a subcommand it runs
- * that command. The upgrade degrades to a no-op in CI, when piped, and for agents.
- */
-const main = async () => {
-  const launchVersion = await runCliProgram(readVersion());
-  await runCliProgram(registerBuiltins());
+async function readVersion(): Promise<string> {
+  try {
+    const manifestSource = await readFile(PACKAGE_MANIFEST_PATH, 'utf8');
+    const manifest: unknown = JSON.parse(manifestSource);
+    const isRecord = typeof manifest == 'object';
+
+    if (isRecord == false) {
+      return '0.0.0';
+    }
+
+    if (manifest == null) {
+      return '0.0.0';
+    }
+
+    if ('version' in manifest == false) {
+      return '0.0.0';
+    }
+
+    const version = manifest.version;
+    const isVersionText = typeof version == 'string';
+
+    if (isVersionText == false) {
+      return '0.0.0';
+    }
+
+    return version;
+  } catch {
+    return '0.0.0';
+  }
+}
+
+async function main(): Promise<void> {
+  const launchVersion = await readVersion();
+  await registerBuiltins();
   let scriptPath = '';
-  if (process.argv[1] !== undefined) scriptPath = process.argv[1];
-  await runCliProgram(
-    runAutoUpgrade(launchVersion, {
-      executablePath: process.execPath,
-      commandArguments: process.argv.slice(2),
-      terminalIsInteractive: process.stdout.isTTY === true,
-      scriptPath,
-    }),
-  );
-  // One-time, near-instant no-op after the first post-upgrade run: moves a pre-multi-account key into
-  // the registry. Best-effort - a hiccup must not block the CLI; commands re-attempt it on next run.
-  await runCliProgram(migrateLegacyAccounts().pipe(Effect.catchAll(() => Effect.void)));
+
+  if (process.argv[1] != null) {
+    scriptPath = process.argv[1];
+  }
+
+  const terminalIsInteractive = process.stdout.isTTY == true;
+  await runAutoUpgrade(launchVersion, {
+    executablePath: process.execPath,
+    commandArguments: process.argv.slice(2),
+    terminalIsInteractive,
+    scriptPath,
+  });
+
+  try {
+    await migrateLegacyAccounts();
+  } catch (cause) {
+    createLogger(false).warn(`Skipped the old account move. ${errorMessage(cause)}`);
+  }
+
   await new Cli().start(launchVersion);
-};
-/** The failure a command's Effect failed with, or none for a defect or a plain throw. */
-const commandFailureOf = (runtimeFailure: unknown): Option.Option<unknown> => {
-  if (!Runtime.isFiberFailure(runtimeFailure)) return Option.none();
-  return Cause.failureOption(runtimeFailure[Runtime.FiberFailureCauseId]);
-};
-/** The line to print: a command failure's own message, else the thrown error's message. */
-const failureMessageOf = (
-  runtimeFailure: unknown,
-  commandFailure: Option.Option<unknown>,
-): string => {
-  const failureMessage = Option.flatMap(
-    commandFailure,
-    Schema.decodeUnknownOption(CommandFailureMessageSchema),
-  );
-  if (Option.isSome(failureMessage)) return failureMessage.value.message;
-  if (runtimeFailure instanceof Error) return runtimeFailure.message;
-  return String(runtimeFailure);
-};
-main().catch(async (runtimeFailure: unknown) => {
-  const commandFailure = commandFailureOf(runtimeFailure);
-  const commandExit = Option.flatMap(commandFailure, Schema.decodeUnknownOption(CommandExitSchema));
-  if (Option.isSome(commandExit)) {
-    process.exitCode = commandExit.value.exitCode;
+}
+
+main().catch(function reportBootFailure(runtimeFailure: unknown): void {
+  if (isCommandExit(runtimeFailure)) {
+    process.exitCode = runtimeFailure.exitCode;
     return;
   }
-  const runtimeMessage = failureMessageOf(runtimeFailure, commandFailure);
-  await runCliProgram(
-    createLogger(false).pipe(Effect.flatMap((logger) => logger.error(runtimeMessage))),
-  ).catch(() => undefined);
+
+  createLogger(false).error(errorMessage(runtimeFailure));
   process.exitCode = 1;
 });

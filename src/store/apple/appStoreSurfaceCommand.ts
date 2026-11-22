@@ -1,8 +1,9 @@
-import { FileSystem, Terminal } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
-import type { PlannedAction } from '../../types/reconcile.js';
+import { readFile } from 'node:fs/promises';
+import { LaunchPrompt } from '../../services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
 import { hasMessage } from '../../services/platform/errorMessage.js';
+import { pathExists } from '../../path-exists.js';
+import type { PlannedAction } from '../../types/reconcile.js';
 
 /** Reading a sidecar or confirming an App Store surface write failed. */
 type AppStoreSurfaceCommandFailure = Readonly<{
@@ -11,23 +12,47 @@ type AppStoreSurfaceCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeAppStoreSurfaceCommandFailure = Data.tagged<AppStoreSurfaceCommandFailure>(
-  'AppStoreSurfaceCommandFailure',
-);
+
+function makeAppStoreSurfaceCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): AppStoreSurfaceCommandFailure {
+  return { _tag: 'AppStoreSurfaceCommandFailure', ...fields };
+}
 
 /** Convert a surface helper failure into its tagged channel. */
-const surfaceFailure = (
+function surfaceFailure(
   operation: string,
   cause: unknown,
   explicitMessage?: string,
-): AppStoreSurfaceCommandFailure => {
-  let message = `${operation} failed.`;
-  if (explicitMessage !== undefined) message = explicitMessage;
-  if (explicitMessage === undefined && typeof cause === 'string' && cause.length > 0)
-    message = cause;
-  if (explicitMessage === undefined && hasMessage(cause)) message = cause.message;
-  return makeAppStoreSurfaceCommandFailure({ operation, message, cause });
-};
+): AppStoreSurfaceCommandFailure {
+  const hasExplicitMessage = explicitMessage !== undefined;
+
+  if (hasExplicitMessage) {
+    return makeAppStoreSurfaceCommandFailure({ operation, message: explicitMessage, cause });
+  }
+
+  const isCauseText = typeof cause == 'string';
+
+  if (isCauseText) {
+    const hasCauseText = cause.length > 0;
+
+    if (hasCauseText) {
+      return makeAppStoreSurfaceCommandFailure({ operation, message: cause, cause });
+    }
+  }
+
+  if (hasMessage(cause)) {
+    return makeAppStoreSurfaceCommandFailure({ operation, message: cause.message, cause });
+  }
+
+  return makeAppStoreSurfaceCommandFailure({
+    operation,
+    message: `${operation} failed.`,
+    cause,
+  });
+}
 
 /** Render one planned App Store surface action with ASCII markers. */
 export const renderStoreSurfaceAction = (plannedAction: PlannedAction): string => {
@@ -51,75 +76,123 @@ export const renderAppliedStoreSurfaceAction = (appliedAction: PlannedAction): s
   return `OK ${appliedAction.description}`;
 };
 
+function shouldUseTypedSection<StoreSurfaceSection>(
+  explicitPath: boolean,
+  typedSection: StoreSurfaceSection | undefined,
+): boolean {
+  const isExplicitPath = explicitPath == true;
+
+  if (isExplicitPath) {
+    return false;
+  }
+
+  return typedSection !== undefined;
+}
+
+function shouldSkipMissingSidecar(sidecarExists: boolean, explicitPath: boolean): boolean {
+  const isSidecarMissing = sidecarExists == false;
+
+  if (isSidecarMissing == false) {
+    return false;
+  }
+
+  return explicitPath == false;
+}
+
 /** Resolve a typed config section or its backward-compatible JSON sidecar. */
-export const resolveStoreSurfaceSection = <StoreSurfaceSection>(
+export async function resolveStoreSurfaceSection<StoreSurfaceSection>(
   typedSection: StoreSurfaceSection | undefined,
   configPath: string,
   explicitPath: boolean,
-  parseDocument: (
-    parsedDocument: unknown,
-  ) => StoreSurfaceSection | Effect.Effect<StoreSurfaceSection, unknown>,
-): Effect.Effect<
-  StoreSurfaceSection | undefined,
-  AppStoreSurfaceCommandFailure,
-  FileSystem.FileSystem
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    if (!explicitPath && typedSection !== undefined) return typedSection;
-    const sidecarExists = yield* fileSystem
-      .exists(configPath)
-      .pipe(Effect.mapError((cause) => surfaceFailure('inspect store surface config', cause)));
-    if (!sidecarExists && !explicitPath) return undefined;
-    if (!sidecarExists) {
-      return yield* Effect.fail(
-        surfaceFailure(
-          'read store surface config',
-          configPath,
-          `No store surface config at ${configPath}.`,
-        ),
-      );
-    }
-    const sidecarText = yield* fileSystem
-      .readFileString(configPath)
-      .pipe(Effect.mapError((cause) => surfaceFailure('read store surface config', cause)));
-    const parsedDocument = yield* Schema.decodeUnknown(Schema.parseJson())(sidecarText).pipe(
-      Effect.mapError((cause) => surfaceFailure('parse store surface JSON', cause)),
+  parseDocument: (parsedDocument: unknown) => StoreSurfaceSection | Promise<StoreSurfaceSection>,
+): Promise<StoreSurfaceSection | undefined> {
+  const useTypedSection = shouldUseTypedSection(explicitPath, typedSection);
+
+  if (useTypedSection) {
+    return typedSection;
+  }
+
+  let sidecarExists = false;
+
+  try {
+    sidecarExists = await pathExists(configPath);
+  } catch (cause) {
+    throw surfaceFailure('inspect store surface config', cause);
+  }
+
+  const skipMissingSidecar = shouldSkipMissingSidecar(sidecarExists, explicitPath);
+
+  if (skipMissingSidecar) {
+    return undefined;
+  }
+
+  const isSidecarMissing = sidecarExists == false;
+
+  if (isSidecarMissing) {
+    throw surfaceFailure(
+      'read store surface config',
+      configPath,
+      `No store surface config at ${configPath}.`,
     );
-    const decodedSection = yield* Effect.try({
-      try: () => parseDocument(parsedDocument),
-      catch: (cause) => surfaceFailure('decode store surface config', cause),
-    });
-    if (Effect.isEffect(decodedSection)) {
-      return yield* decodedSection.pipe(
-        Effect.mapError((cause) => surfaceFailure('decode store surface config', cause)),
-      );
-    }
-    return decodedSection;
-  });
+  }
+
+  let sidecarText = '';
+
+  try {
+    sidecarText = await readFile(configPath, 'utf8');
+  } catch (cause) {
+    throw surfaceFailure('read store surface config', cause);
+  }
+
+  let parsedDocument: unknown;
+
+  try {
+    parsedDocument = JSON.parse(sidecarText);
+  } catch (cause) {
+    throw surfaceFailure('parse store surface JSON', cause);
+  }
+
+  try {
+    return await parseDocument(parsedDocument);
+  } catch (cause) {
+    throw surfaceFailure('decode store surface config', cause);
+  }
+}
 
 /** Confirm a store-surface write unless the caller supplied --yes. */
-export const confirmStoreSurfaceWrite = (
+export async function confirmStoreSurfaceWrite(
   confirmationMessage: string,
   assumeYes: boolean,
-): Effect.Effect<boolean, AppStoreSurfaceCommandFailure, LaunchPromptService | Terminal.Terminal> =>
-  Effect.gen(function* () {
-    if (assumeYes) return true;
-    const terminal = yield* Terminal.Terminal;
-    if (!(yield* terminal.isTTY)) {
-      return yield* Effect.fail(
-        surfaceFailure(
-          'confirm store surface write',
-          'confirmation-required',
-          'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
-        ),
-      );
-    }
-    const prompt = yield* LaunchPrompt;
-    const confirmed = yield* prompt
-      .confirm(confirmationMessage)
-      .pipe(Effect.mapError((cause) => surfaceFailure('confirm store surface write', cause)));
-    if (confirmed) return true;
-    yield* prompt.cancel('Aborted - no changes made.');
-    return false;
-  });
+): Promise<boolean> {
+  const shouldAssumeYes = assumeYes == true;
+
+  if (shouldAssumeYes) {
+    return true;
+  }
+
+  const isInteractive = checkTerminalIsInteractive();
+  const needsATerminal = isInteractive == false;
+
+  if (needsATerminal) {
+    throw surfaceFailure(
+      'confirm store surface write',
+      'confirmation-required',
+      'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+    );
+  }
+
+  let confirmed = false;
+
+  try {
+    confirmed = await LaunchPrompt.confirm(confirmationMessage);
+  } catch (cause) {
+    throw surfaceFailure('confirm store surface write', cause);
+  }
+
+  if (confirmed) {
+    return true;
+  }
+
+  LaunchPrompt.cancel('Aborted - no changes made.');
+  return false;
+}

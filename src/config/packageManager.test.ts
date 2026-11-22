@@ -1,8 +1,6 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   detectFromLockfiles,
@@ -14,10 +12,9 @@ import {
 } from './packageManager.js';
 import { expectDefined } from '@testkit/assertions.testkit.js';
 const tmpDirs: string[] = [];
-const runPackageManagerEffect = <Success, Failure>(
-  packageManagerEffect: Effect.Effect<Success, Failure, NodeContext.NodeContext>,
-): Promise<Success> =>
-  Effect.runPromise(packageManagerEffect.pipe(Effect.provide(NodeContext.layer)));
+async function runPackageManagerEffect<Success>(packageWork: Promise<Success>): Promise<Success> {
+  return packageWork;
+}
 const scratch = (): string => {
   const dir = mkdtempSync(join(tmpdir(), 'launch-pm-'));
   tmpDirs.push(dir);

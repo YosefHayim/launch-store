@@ -1,44 +1,71 @@
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@/types/readiness.js';
-import { Effect } from 'effect';
+import type {
+  AppReadiness,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+} from '@/types/readiness.js';
+import type { AscReadinessApi } from '@/types/readiness.js';
 import { iosApps } from '../appScopes.js';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
+
 /** The App Store Connect app-record readiness probe - both an account-onboarding and a submit blocker. */
+const ACCOUNT_HINT =
+  "create the app once in App Store Connect - Apple's API can't (no POST /v1/apps)";
+
+function isAppleAccountMissing(api: AscReadinessApi | null): api is null {
+  return api == null;
+}
+
+function isAppRecordMissing(appId: string | null): appId is null {
+  return appId == null;
+}
+
+async function readAppRecord(
+  api: AscReadinessApi,
+  app: { name: string; identifier: string },
+): Promise<AppReadiness> {
+  const appId = await api.getAppId(app.identifier);
+
+  if (isAppRecordMissing(appId)) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'blocker',
+      detail: 'no app record on App Store Connect',
+      hint: ACCOUNT_HINT,
+    };
+  }
+
+  return { app: app.name, identifier: app.identifier, status: 'ok', detail: 'record exists' };
+}
+
 export const appRecordProbe = {
   id: 'apple-app-record',
   title: 'App Store Connect app record',
   store: 'appstore',
   categories: ['account', 'submit'],
-  /**
-   * Verify that every selected iOS app has an App Store Connect app record.
-   *
-   * @param readinessContext - Loaded config, selected apps, and App Store Connect resolver.
-   * @returns An Effect that succeeds with one app-record finding per selected app.
-   */
-  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
-    return Effect.gen(function* () {
-      const apps = iosApps(readinessContext.apps);
-      if (apps.length === 0) return OMITTED_PROBE;
-      const api = yield* readinessContext.resolveAscApi();
-      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
-      const results = yield* Effect.forEach(
-        apps,
-        ({ name, identifier }) =>
-          Effect.gen(function* () {
-            const appId = yield* api.getAppId(identifier);
-            if (appId) {
-              return { app: name, identifier, status: 'ok' as const, detail: 'record exists' };
-            }
-            return {
-              app: name,
-              identifier,
-              status: 'blocker' as const,
-              detail: 'no app record on App Store Connect',
-              hint: "create the app once in App Store Connect - Apple's API can't (no POST /v1/apps)",
-            };
-          }),
-        { concurrency: 'unbounded' },
-      );
-      return { state: 'checked', apps: results };
-    });
+  async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
+    const apps = iosApps(readinessContext.apps);
+    const isNothingSelected = apps.length == 0;
+
+    if (isNothingSelected) {
+      return OMITTED_PROBE;
+    }
+
+    const api = await readinessContext.resolveAscApi();
+
+    if (isAppleAccountMissing(api)) {
+      return SKIPPED_NO_APPLE_ACCOUNT;
+    }
+
+    const appleApi = api;
+
+    function readRecord(app: { name: string; identifier: string }): Promise<AppReadiness> {
+      return readAppRecord(appleApi, app);
+    }
+
+    const findings = await Promise.all(apps.map(readRecord));
+
+    return { state: 'checked', apps: findings };
   },
 } satisfies ReadinessProbe;

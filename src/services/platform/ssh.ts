@@ -1,10 +1,4 @@
-import { Effect } from 'effect';
-import {
-  captureCommandOutput,
-  type CommandExecutionOptions,
-  executeCommand,
-  provideNodeCommandServices,
-} from './exec.js';
+import { captureCommandOutput, type CommandExecutionOptions, executeCommand } from './exec.js';
 import type { SshTarget } from '../../types/remote.js';
 /** `user@host` for ssh/scp/rsync destinations. */
 const userHost = (target: SshTarget): string => {
@@ -39,37 +33,41 @@ const scpFlags = (target: SshTarget): string[] => {
   return flags;
 };
 /** Run a command on the remote host, streaming output. `remoteCommand` runs in the remote shell. */
-export const sshRun = (
+export function sshRun(
   target: SshTarget,
   remoteCommand: string,
   options: CommandExecutionOptions = {},
-) => {
-  return provideNodeCommandServices(
-    executeCommand('ssh', [...sshFlags(target), userHost(target), remoteCommand], options),
-  );
-};
+): Promise<void> {
+  return executeCommand('ssh', [...sshFlags(target), userHost(target), remoteCommand], options);
+}
 /** Run a command on the remote host and return its trimmed stdout. */
-export const sshCapture = (
+export function sshCapture(
   target: SshTarget,
   remoteCommand: string,
   options: CommandExecutionOptions = {},
-) => {
-  return provideNodeCommandServices(
-    captureCommandOutput('ssh', [...sshFlags(target), userHost(target), remoteCommand], options),
+): Promise<string> {
+  return captureCommandOutput(
+    'ssh',
+    [...sshFlags(target), userHost(target), remoteCommand],
+    options,
   );
-};
+}
 /** Copy a local file UP to `remotePath` on the host. */
-export const scpUp = (target: SshTarget, localPath: string, remotePath: string) => {
-  return provideNodeCommandServices(
-    executeCommand('scp', [...scpFlags(target), localPath, `${userHost(target)}:${remotePath}`]),
-  );
-};
+export function scpUp(target: SshTarget, localPath: string, remotePath: string): Promise<void> {
+  return executeCommand('scp', [
+    ...scpFlags(target),
+    localPath,
+    `${userHost(target)}:${remotePath}`,
+  ]);
+}
 /** Copy `remotePath` DOWN from the host to a local path. */
-export const scpDown = (target: SshTarget, remotePath: string, localPath: string) => {
-  return provideNodeCommandServices(
-    executeCommand('scp', [...scpFlags(target), `${userHost(target)}:${remotePath}`, localPath]),
-  );
-};
+export function scpDown(target: SshTarget, remotePath: string, localPath: string): Promise<void> {
+  return executeCommand('scp', [
+    ...scpFlags(target),
+    `${userHost(target)}:${remotePath}`,
+    localPath,
+  ]);
+}
 /**
  * rsync a local directory UP to the remote over the same ssh transport, honoring an exclude list.
  *
@@ -86,11 +84,21 @@ export const rsyncUp = (
   const args = ['-az', '--delete', '-e', sshCommand];
   for (const exclude of excludes) args.push('--exclude', exclude);
   args.push(`${localDir}/`, `${userHost(target)}:${remoteDir}/`);
-  return provideNodeCommandServices(executeCommand('rsync', args));
+  return executeCommand('rsync', args);
 };
-/** Whether the host answers over SSH right now (used while waiting for a fresh instance to boot). */
-export const sshReachable = (target: SshTarget): Effect.Effect<boolean> =>
-  sshCapture(target, 'echo ok').pipe(
-    Effect.as(true),
-    Effect.catchAll(() => Effect.succeed(false)),
-  );
+
+export async function sshReachable(target: SshTarget): Promise<boolean> {
+  try {
+    await sshCapture(target, 'echo ok');
+  } catch (error) {
+    const isUnreachable = error != null;
+
+    if (isUnreachable) {
+      return false;
+    }
+
+    throw error;
+  }
+
+  return true;
+}

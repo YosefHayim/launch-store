@@ -1,5 +1,3 @@
-import { NodeContext, NodeHttpClient } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,42 +8,44 @@ vi.mock('node:child_process', () => ({
     throw new Error('spawn must not run during --dry-run');
   }),
 }));
-import { AppleCredentialsClientLive } from '../services/stores/appleCredentialsClient.js';
-import { AppleStoreClientLive } from '../services/stores/appleStoreClient.js';
-import { AppStoreIdentityLive } from '../services/stores/appStoreIdentity.js';
-import { LaunchEnvironmentTest } from '../services/platform/environment.js';
-import { GoogleStoreClientLive } from '../services/stores/googleStoreClient.js';
-import { makeLaunchLoggerTest } from '../services/platform/logger.js';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
-import { makeLaunchPromptTest } from '../services/platform/prompt.js';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.js';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import { resetPrompts } from '../services/platform/prompt.js';
 import { registerBuildEngine } from '../services/providerSupport/registry.js';
-import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import { prepareBuild, runBuild } from './pipeline.js';
 import { runEasBuild } from './easPipeline.js';
 
 /** Run remote build-core tests with deterministic services and no CLI/provider bootstrap. */
-type RemoteCoreTestRequirements =
-  | Effect.Effect.Context<ReturnType<typeof runBuild>>
-  | Effect.Effect.Context<ReturnType<typeof prepareBuild>>
-  | Effect.Effect.Context<ReturnType<typeof runEasBuild>>;
-const runRemoteCoreTest = <Success, Failure>(
-  program: Effect.Effect<Success, Failure, RemoteCoreTestRequirements>,
-): Promise<Success> =>
-  Effect.runPromise(
-    program.pipe(
-      Effect.provide(AppStoreIdentityLive),
-      Effect.provide(AppleCredentialsClientLive),
-      Effect.provide(AppleStoreClientLive),
-      Effect.provide(LaunchEnvironmentTest),
-      Effect.provide(GoogleStoreClientLive),
-      Effect.provide(makeLaunchPathsTest(tempRepo, tempRepo)),
-      Effect.provide(makeLaunchPromptTest()),
-      Effect.provide(makeLaunchSecretStoreTest()),
-      Effect.provide(makeLaunchLoggerTest([])),
-      Effect.provide(NodeHttpClient.layer),
-      Effect.provide(NodeContext.layer),
-    ),
-  );
+async function runRemoteCoreTest<Success>(runCase: () => Promise<Success>): Promise<Success> {
+  const hasTempRepo = tempRepo != '';
+
+  if (hasTempRepo) {
+    useLaunchDirectories({ homeDirectory: tempRepo, workingDirectory: tempRepo });
+  }
+
+  useLoggerSink(function keepLine(loggedLine: string): void {
+    const isBlank = loggedLine == '';
+
+    if (isBlank) {
+      return;
+    }
+  });
+  useLaunchEnvironment({});
+  useSecretStore(new Map());
+  resetPrompts();
+
+  try {
+    return await runCase();
+  } finally {
+    resetLaunchDirectories();
+    resetLogger();
+    resetLaunchEnvironment();
+    resetPrompts();
+    resetSecretStore();
+  }
+}
 /** Any network call during a dry-run is a bug - the rehearsal makes no AWS/Expo/account changes. */
 const fetchGuard = vi.fn(() => {
   throw new Error('fetch must not run during --dry-run');
@@ -61,12 +61,11 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   registerBuildEngine({
     name: 'xcode',
-    buildArtifact: () =>
-      Effect.succeed({
-        artifactPath: '(dry-run, not built)',
-        sizeReport: { artifactBytes: 0, entries: [] },
-        cleanBuilt: false,
-      }),
+    buildArtifact: async () => ({
+      artifactPath: '(dry-run, not built)',
+      sizeReport: { artifactBytes: 0, entries: [] },
+      cleanBuilt: false,
+    }),
   });
 });
 afterEach(() => {
@@ -102,7 +101,7 @@ describe('remote build --dry-run rehearses with no SSH/AWS/network', () => {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
     await expect(
-      runRemoteCoreTest(runBuild({ ...base, remote: { kind: 'aws' } })),
+      runRemoteCoreTest(() => runBuild({ ...base, remote: { kind: 'aws' } })),
     ).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   });
@@ -110,7 +109,9 @@ describe('remote build --dry-run rehearses with no SSH/AWS/network', () => {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
     await expect(
-      runRemoteCoreTest(runBuild({ ...base, remote: { kind: 'ssh', target: 'ec2-user@1.2.3.4' } })),
+      runRemoteCoreTest(() =>
+        runBuild({ ...base, remote: { kind: 'ssh', target: 'ec2-user@1.2.3.4' } }),
+      ),
     ).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   });
@@ -120,11 +121,11 @@ describe('EAS handoff --dry-run rehearses with no eas-cli/network', () => {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
     await expect(
-      runRemoteCoreTest(
-        prepareBuild(base).pipe(
-          Effect.flatMap((preparedBuild) => runEasBuild(preparedBuild, base)),
-        ),
-      ),
+      runRemoteCoreTest(async function rehearseEasBuild() {
+        const preparedBuild = await prepareBuild(base);
+
+        await runEasBuild(preparedBuild, base);
+      }),
     ).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   });

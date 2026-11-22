@@ -1,269 +1,428 @@
-import type { FileSystem, Path } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
-import { loadConfig } from '../config/config.js';
-import type { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import type { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
-import type { LaunchEnvironmentService } from '../services/platform/environment.js';
-import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
-import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.js';
-import { selectApps } from '../store/shared/syncJobs.js';
-import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
-import type { PlanContext, PlanStore, SurfacePlan, SurfacePlanner } from '../types/plan.js';
-import type { PlannedAction } from '../types/reconcile.js';
+import { loadConfig } from '@/config/config.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { createLogger, type Logger } from '@/services/platform/logger.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import { createAscClientResolver, createPlayClientResolver } from '@/store/shared/storeClients.js';
+import { selectApps } from '@/store/shared/syncJobs.js';
+import { completeCommand, isCommandExit } from '@/terminal/commandExit.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { PlanContext, PlanStore, SurfacePlan, SurfacePlanner } from '@/types/plan.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from './orchestrator.js';
 import { listSurfacePlanners, registerBuiltinPlanners } from './registry.js';
 
-export const PlanCommandInputSchema = Schema.Struct({
-  operation: Schema.Literal('plan', 'drift'),
-  surface: Schema.optionalWith(Schema.String, { exact: true }),
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  check: Schema.Boolean,
-  json: Schema.Boolean,
-});
+export type PlanCommandInput = Readonly<{
+  operation: 'plan' | 'drift';
+  surface?: string;
+  app?: string;
+  check: boolean;
+  json: boolean;
+}>;
 
-export type PlanCommandInput = Schema.Schema.Type<typeof PlanCommandInputSchema>;
-
-const PlanCommandFailureSchema = Schema.Struct({
-  _tag: Schema.Literal('PlanCommandFailure'),
-  operation: Schema.String,
-  message: Schema.String,
-  cause: Schema.Unknown,
-});
-
-export type PlanCommandFailure = Schema.Schema.Type<typeof PlanCommandFailureSchema>;
-const makePlanCommandFailure = Data.tagged<PlanCommandFailure>('PlanCommandFailure');
+export type PlanCommandFailure = Readonly<{
+  _tag: 'PlanCommandFailure';
+  operation: string;
+  message: string;
+  cause: unknown;
+}>;
 
 type PlannedAppSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'app' }>;
 type PlannedTeamSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'team' }>;
 
-type PlanCommandRequirements =
-  | AppleStoreClientService
-  | FileSystem.FileSystem
-  | GoogleStoreClientService
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchSecretStoreService
-  | Logger
-  | Path.Path;
+function makePlanCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): PlanCommandFailure {
+  return { _tag: 'PlanCommandFailure', ...fields };
+}
 
-const commandFailure = (operation: string, cause: unknown): PlanCommandFailure =>
-  makePlanCommandFailure({ operation, message: errorMessage(cause), cause });
+function commandFailure(operation: string, cause: unknown): PlanCommandFailure {
+  return makePlanCommandFailure({ operation, message: errorMessage(cause), cause });
+}
 
-const writeLog = (
-  operation: string,
-  logWrite: ReturnType<Logger['line']>,
-): Effect.Effect<void, PlanCommandFailure> =>
-  logWrite.pipe(Effect.mapError((cause) => commandFailure(operation, cause)));
+export function isPlanCommandFailure(cause: unknown): cause is PlanCommandFailure {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'PlanCommandFailure';
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  return typeof candidate == 'object';
+}
+
+function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
+  const field = record[fieldName];
+  const isBoolean = typeof field == 'boolean';
+
+  if (isBoolean == false) {
+    throw commandFailure('decode plan command', `Expected ${fieldName} to be a boolean.`);
+  }
+
+  return field;
+}
+
+function readPlanOperation(operationField: unknown): PlanCommandInput['operation'] {
+  const isPlan = operationField == 'plan';
+
+  if (isPlan) {
+    return 'plan';
+  }
+
+  const isDrift = operationField == 'drift';
+
+  if (isDrift) {
+    return 'drift';
+  }
+
+  throw commandFailure('decode plan command', 'Plan operation must be plan or drift.');
+}
+
+function readOptionalString(record: Record<string, unknown>, fieldName: string): string | null {
+  const isAbsent = Object.hasOwn(record, fieldName) == false;
+
+  if (isAbsent) {
+    return null;
+  }
+
+  const field = record[fieldName];
+  const isString = typeof field == 'string';
+
+  if (isString == false) {
+    throw commandFailure('decode plan command', `Expected ${fieldName} to be a string.`);
+  }
+
+  return field;
+}
+
+export function decodePlanCommandInput(rawCommandInput: unknown): PlanCommandInput {
+  const isObject = isRecord(rawCommandInput);
+
+  if (isObject == false) {
+    throw commandFailure('decode plan command', 'Plan command input must be an object.');
+  }
+
+  const operation = readPlanOperation(rawCommandInput['operation']);
+  let commandInput: PlanCommandInput = {
+    operation,
+    check: readRequiredBoolean(rawCommandInput, 'check'),
+    json: readRequiredBoolean(rawCommandInput, 'json'),
+  };
+  const surface = readOptionalString(rawCommandInput, 'surface');
+  const app = readOptionalString(rawCommandInput, 'app');
+  const hasSurface = surface != null;
+
+  if (hasSurface) {
+    commandInput = { ...commandInput, surface };
+  }
+
+  const hasApp = app != null;
+
+  if (hasApp) {
+    commandInput = { ...commandInput, app };
+  }
+
+  return commandInput;
+}
 
 /** ASCII action marker for plan report lines. */
-export const planGlyph = (plannedAction: PlannedAction): string => {
-  if (plannedAction.status === 'skipped') return '-';
-  if (plannedAction.destructive) return '-';
-  if (/^update\b/i.test(plannedAction.description)) return '~';
+export function planGlyph(plannedAction: PlannedAction): string {
+  const isSkipped = plannedAction.status == 'skipped';
+
+  if (isSkipped) {
+    return '-';
+  }
+
+  const isDestructive = plannedAction.destructive == true;
+
+  if (isDestructive) {
+    return '-';
+  }
+
+  // Matches a description that starts with the word "update"
+  const isUpdate = /^update\b/i.test(plannedAction.description);
+
+  if (isUpdate) {
+    return '~';
+  }
+
   return '+';
-};
+}
 
 /** Caveat shown under additive surfaces (portal-side extras are invisible). */
-export const additiveNote = (surfaceName: string): string =>
-  `-> ${surfaceName} is additive - detects missing items, not portal-side additions (drift != "live == config")`;
+export function additiveNote(surfaceName: string): string {
+  return `-> ${surfaceName} is additive - detects missing items, not portal-side additions (drift != "live == config")`;
+}
 
-const storeLabel = (planStore: PlanStore): string => {
-  if (planStore === 'appstore') return 'App Store';
+function storeLabel(planStore: PlanStore): string {
+  const isAppStore = planStore == 'appstore';
+
+  if (isAppStore) {
+    return 'App Store';
+  }
+
   return 'Google Play';
-};
+}
 
-const renderActionLine = (plannedAction: PlannedAction): string =>
-  `${planGlyph(plannedAction)} ${plannedAction.description}`;
+function renderActionLine(plannedAction: PlannedAction): string {
+  return `${planGlyph(plannedAction)} ${plannedAction.description}`;
+}
 
-const renderAppSurface = (
-  logger: Logger,
-  plannedSurface: PlannedAppSurface,
-): Effect.Effect<void, PlanCommandFailure> =>
-  Effect.gen(function* () {
-    for (const appPlan of plannedSurface.apps) {
-      const heading = `${appPlan.app} - ${plannedSurface.surface} (${appPlan.identifier})`;
-      if (appPlan.error !== undefined) {
-        yield* writeLog('render plan app error', logger.error(`${heading}: ${appPlan.error}`));
-        continue;
-      }
-      if (appPlan.actions.length === 0) {
-        yield* writeLog(
-          'render synchronized plan app',
-          logger.step(`${appPlan.app} - ${plannedSurface.surface}`, 'in sync'),
-        );
-        continue;
-      }
-      yield* writeLog(
-        'render plan app actions',
-        logger.notice(heading, ...appPlan.actions.map(renderActionLine)),
-      );
+function renderAppSurface(logger: Logger, plannedSurface: PlannedAppSurface): void {
+  for (const appPlan of plannedSurface.apps) {
+    const heading = `${appPlan.app} - ${plannedSurface.surface} (${appPlan.identifier})`;
+    const hasError = appPlan.error != null;
+
+    if (hasError) {
+      logger.error(`${heading}: ${appPlan.error}`);
+      continue;
     }
-  });
 
-const renderTeamSurface = (
-  logger: Logger,
-  plannedSurface: PlannedTeamSurface,
-): Effect.Effect<void, PlanCommandFailure> =>
-  Effect.gen(function* () {
-    if (plannedSurface.actions.length === 0) {
-      yield* writeLog(
-        'render synchronized team plan',
-        logger.step(`Team - ${plannedSurface.surface}`, 'in sync'),
-      );
-      return;
+    const isInSync = appPlan.actions.length == 0;
+
+    if (isInSync) {
+      logger.step(`${appPlan.app} - ${plannedSurface.surface}`, 'in sync');
+      continue;
     }
-    yield* writeLog(
-      'render team plan actions',
-      logger.notice(
-        `${storeLabel(plannedSurface.store)} - Team - ${plannedSurface.surface}`,
-        ...plannedSurface.actions.map(renderActionLine),
-      ),
+
+    const actionLines = appPlan.actions.map(renderActionLine);
+    logger.notice(heading, ...actionLines);
+  }
+}
+
+function renderTeamSurface(logger: Logger, plannedSurface: PlannedTeamSurface): void {
+  const isInSync = plannedSurface.actions.length == 0;
+
+  if (isInSync) {
+    logger.step(`Team - ${plannedSurface.surface}`, 'in sync');
+    return;
+  }
+
+  const actionLines = plannedSurface.actions.map(renderActionLine);
+  logger.notice(
+    `${storeLabel(plannedSurface.store)} - Team - ${plannedSurface.surface}`,
+    ...actionLines,
+  );
+}
+
+function isZeroCount(count: number): boolean {
+  return count == 0;
+}
+
+function renderSummary(logger: Logger, planOutcome: PlanOutcome): void {
+  const { changeCount, appErrorCount, skippedSurfaceCount } = planOutcome;
+  const isClean = [changeCount, appErrorCount, skippedSurfaceCount].every(isZeroCount);
+
+  if (isClean) {
+    logger.step('plan', 'everything matches - no drift');
+    return;
+  }
+
+  const summaryParts: string[] = [];
+  const hasChanges = changeCount > 0;
+
+  if (hasChanges) {
+    summaryParts.push(`${changeCount} change(s)`);
+  }
+
+  const hasErrors = appErrorCount > 0;
+
+  if (hasErrors) {
+    summaryParts.push(`${appErrorCount} error(s)`);
+  }
+
+  const hasSkips = skippedSurfaceCount > 0;
+
+  if (hasSkips) {
+    summaryParts.push(`${skippedSurfaceCount} skipped`);
+  }
+
+  logger.note(summaryParts.join(' - '));
+  const isCheck = planOutcome.check == true;
+
+  if (isCheck == false) {
+    logger.note('Run `launch sync` to apply, or `launch drift` to gate this in CI.');
+    return;
+  }
+
+  const isErrorExit = planOutcome.exitCode == PLAN_EXIT.error;
+
+  if (isErrorExit) {
+    logger.error(
+      'Drift check could not certify - resolve the errors/credentials above, then re-run.',
     );
-  });
+    return;
+  }
 
-const renderSummary = (
-  logger: Logger,
-  planOutcome: PlanOutcome,
-): Effect.Effect<void, PlanCommandFailure> =>
-  Effect.gen(function* () {
-    const { changeCount, appErrorCount, skippedSurfaceCount } = planOutcome;
-    if (changeCount === 0 && appErrorCount === 0 && skippedSurfaceCount === 0) {
-      yield* writeLog(
-        'render synchronized plan summary',
-        logger.step('plan', 'everything matches - no drift'),
-      );
-      return;
-    }
-    const summaryParts: string[] = [];
-    if (changeCount > 0) summaryParts.push(`${changeCount} change(s)`);
-    if (appErrorCount > 0) summaryParts.push(`${appErrorCount} error(s)`);
-    if (skippedSurfaceCount > 0) summaryParts.push(`${skippedSurfaceCount} skipped`);
-    yield* writeLog('render plan summary', logger.note(summaryParts.join(' - ')));
-    if (planOutcome.check) {
-      if (planOutcome.exitCode === PLAN_EXIT.error) {
-        yield* writeLog(
-          'render plan error guidance',
-          logger.error(
-            'Drift check could not certify - resolve the errors/credentials above, then re-run.',
-          ),
-        );
-        return;
-      }
-      if (planOutcome.exitCode === PLAN_EXIT.drift) {
-        yield* writeLog(
-          'render plan drift guidance',
-          logger.note('Drift detected. Run `launch sync` to reconcile.'),
-        );
-      }
-      return;
-    }
-    yield* writeLog(
-      'render plan guidance',
-      logger.note('Run `launch sync` to apply, or `launch drift` to gate this in CI.'),
-    );
-  });
+  const isDriftExit = planOutcome.exitCode == PLAN_EXIT.drift;
+
+  if (isDriftExit) {
+    logger.note('Drift detected. Run `launch sync` to reconcile.');
+  }
+}
 
 /** Render human plan/drift report lines for one outcome. */
-const renderPlanOutcome = (
-  logger: Logger,
-  planOutcome: PlanOutcome,
-): Effect.Effect<void, PlanCommandFailure> =>
-  Effect.gen(function* () {
-    yield* writeLog('open plan report', logger.gap());
-    if (planOutcome.surfaces.length === 0) {
-      yield* writeLog(
-        'render empty plan report',
-        logger.note(
-          'Nothing declared to plan - add products, capabilities, or a store.config.json listing, then re-run.',
-        ),
-      );
-      return;
-    }
-    for (const plannedSurface of planOutcome.surfaces) {
-      if (plannedSurface.state === 'skipped') {
+function renderPlanOutcome(logger: Logger, planOutcome: PlanOutcome): void {
+  logger.gap();
+  const isEmpty = planOutcome.surfaces.length == 0;
+
+  if (isEmpty) {
+    logger.note(
+      'Nothing declared to plan - add products, capabilities, or a store.config.json listing, then re-run.',
+    );
+    return;
+  }
+
+  for (const plannedSurface of planOutcome.surfaces) {
+    switch (plannedSurface.state) {
+      case 'skipped': {
         let hint = '';
-        if (plannedSurface.hint !== undefined) hint = ` (${plannedSurface.hint})`;
-        yield* writeLog(
-          'render skipped plan surface',
-          logger.warn(
-            `${storeLabel(plannedSurface.store)} - ${plannedSurface.surface}: skipped - ${plannedSurface.reason}${hint}`,
-          ),
+        const hasHint = plannedSurface.hint != null;
+
+        if (hasHint) {
+          hint = ` (${plannedSurface.hint})`;
+        }
+
+        logger.warn(
+          `${storeLabel(plannedSurface.store)} - ${plannedSurface.surface}: skipped - ${plannedSurface.reason}${hint}`,
         );
-        continue;
+        break;
       }
-      if (plannedSurface.scope === 'team') yield* renderTeamSurface(logger, plannedSurface);
-      else yield* renderAppSurface(logger, plannedSurface);
-      if (plannedSurface.direction === 'additive') {
-        yield* writeLog(
-          'render additive plan caveat',
-          logger.note(additiveNote(plannedSurface.surface)),
-        );
+      case 'planned': {
+        const isTeam = plannedSurface.scope == 'team';
+
+        if (isTeam) {
+          renderTeamSurface(logger, plannedSurface);
+        }
+
+        if (isTeam == false) {
+          renderAppSurface(logger, plannedSurface);
+        }
+
+        const isAdditive = plannedSurface.direction == 'additive';
+
+        if (isAdditive) {
+          logger.note(additiveNote(plannedSurface.surface));
+        }
+        break;
       }
     }
-    yield* writeLog('separate plan summary', logger.gap());
-    yield* renderSummary(logger, planOutcome);
-  });
+  }
+
+  logger.gap();
+  renderSummary(logger, planOutcome);
+}
+
+function matchesSurface(surfaceName: string) {
+  return function isSelectedPlanner(registeredPlanner: SurfacePlanner): boolean {
+    return registeredPlanner.id == surfaceName;
+  };
+}
+
+function plannerId(registeredPlanner: SurfacePlanner): string {
+  return registeredPlanner.id;
+}
 
 /** Narrow registered planners to an optional surface id. */
-export const selectPlanPlanners = (
+export function selectPlanPlanners(
   registeredPlanners: readonly SurfacePlanner[],
   surfaceName: string | undefined,
-): Effect.Effect<SurfacePlanner[], PlanCommandFailure> => {
-  if (surfaceName === undefined) return Effect.succeed([...registeredPlanners]);
-  const selectedPlanner = registeredPlanners.find(
-    (registeredPlanner) => registeredPlanner.id === surfaceName,
+): SurfacePlanner[] {
+  const isEverySurface = surfaceName == null;
+
+  if (isEverySurface) {
+    return [...registeredPlanners];
+  }
+
+  const selectedPlanner = registeredPlanners.find(matchesSurface(surfaceName));
+  const isKnownSurface = selectedPlanner != null;
+
+  if (isKnownSurface) {
+    return [selectedPlanner];
+  }
+
+  let availableSurfaces = registeredPlanners.map(plannerId).join(', ');
+  const isNoneRegistered = availableSurfaces.length == 0;
+
+  if (isNoneRegistered) {
+    availableSurfaces = 'none';
+  }
+
+  throw commandFailure(
+    'select plan surface',
+    `Unknown surface "${surfaceName}". Available: ${availableSurfaces}.`,
   );
-  if (selectedPlanner !== undefined) return Effect.succeed([selectedPlanner]);
-  let availableSurfaces = registeredPlanners
-    .map((registeredPlanner) => registeredPlanner.id)
-    .join(', ');
-  if (availableSurfaces.length === 0) availableSurfaces = 'none';
-  return Effect.fail(
-    commandFailure(
-      'select plan surface',
-      `Unknown surface "${surfaceName}". Available: ${availableSurfaces}.`,
-    ),
-  );
-};
+}
 
 /** Load config, resolve store clients once, run planners, and print or emit JSON. */
-export const planCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, CommandExit | PlanCommandFailure, PlanCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(PlanCommandInputSchema)(rawCommandInput);
-    const launchPaths = yield* LaunchPaths;
-    const logger = yield* createLogger(false);
-    yield* Effect.sync(registerBuiltinPlanners);
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
-    const selectedApps = yield* selectApps(loadedConfiguration.apps, commandInput.app).pipe(
-      Effect.mapError((cause) => commandFailure('select plan apps', cause)),
-    );
-    const selectedPlanners = yield* selectPlanPlanners(listSurfacePlanners(), commandInput.surface);
+export async function planCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodePlanCommandInput(rawCommandInput);
+    const launchDirectories = readLaunchDirectories();
+    const logger = createLogger(false);
+    registerBuiltinPlanners();
+    const loadedConfiguration = await loadConfig(launchDirectories.workingDirectory);
+
+    let selectedApps: readonly AppDescriptor[];
+
+    try {
+      selectedApps = await selectApps(loadedConfiguration.apps, commandInput.app);
+    } catch (cause) {
+      throw commandFailure('select plan apps', cause);
+    }
+
+    const selectedPlanners = selectPlanPlanners(listSurfacePlanners(), commandInput.surface);
     let check = commandInput.check;
-    if (commandInput.operation === 'drift') check = true;
-    const ascClient = yield* createAscClientResolver()();
-    const playClient = yield* createPlayClientResolver();
+    const isDrift = commandInput.operation == 'drift';
+
+    if (isDrift) {
+      check = true;
+    }
+
+    const resolveAscClient = createAscClientResolver();
+    const ascClient = await resolveAscClient();
+    const resolvePlayClient = await createPlayClientResolver();
     const planContext: PlanContext = {
       config: loadedConfiguration.config,
       apps: selectedApps,
-      resolveAscApi: () => Effect.succeed(ascClient),
-      resolvePlayApi: playClient,
+      resolveAscApi: async function resolveAscApi() {
+        return ascClient;
+      },
+      resolvePlayApi: resolvePlayClient,
     };
-    const planOutcome = yield* runPlanners(planContext, selectedPlanners, { check });
-    if (commandInput.json === true) {
-      yield* writeLog('render plan JSON', logger.line(JSON.stringify(planOutcome, null, 2)));
+    const planOutcome = await runPlanners(planContext, selectedPlanners, { check });
+    const isJson = commandInput.json == true;
+
+    if (isJson) {
+      logger.line(JSON.stringify(planOutcome, null, 2));
     } else {
-      yield* renderPlanOutcome(logger, planOutcome);
+      renderPlanOutcome(logger, planOutcome);
     }
-    yield* completeCommand(planOutcome.exitCode);
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (Schema.is(CommandExitSchema)(cause)) return cause;
-      if (Schema.is(PlanCommandFailureSchema)(cause)) return cause;
-      return commandFailure('run plan command', cause);
-    }),
-  );
+
+    completeCommand(planOutcome.exitCode);
+  } catch (cause) {
+    if (isCommandExit(cause)) {
+      throw cause;
+    }
+
+    if (isPlanCommandFailure(cause)) {
+      throw cause;
+    }
+
+    throw commandFailure('run plan command', cause);
+  }
+}

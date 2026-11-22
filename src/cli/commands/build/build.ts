@@ -78,8 +78,12 @@ export const registerBuildCommand = (program: Command): void => {
     ),
   );
   addEnvFlags(command).action((platformArgument: string, commandOptions: BuildCommandOptions) => {
-    const buildProgram = buildCommandProgram(platformArgument, commandOptions);
-    if (!commandOptions.json) return runCliProgram(buildProgram);
+    function startBuild(): ReturnType<typeof buildCommandProgram> {
+      return buildCommandProgram(platformArgument, commandOptions);
+    }
+
+    if (!commandOptions.json) return runCliProgram(startBuild());
+
     return runJsonCliProgram(
       {
         command: 'build',
@@ -87,7 +91,7 @@ export const registerBuildCommand = (program: Command): void => {
         dryRun: commandOptions.dryRun,
         profile: commandOptions.profile,
       },
-      buildProgram,
+      startBuild,
     );
   });
 };

@@ -1,4 +1,3 @@
-import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   parseFeedbackType,
@@ -80,15 +79,15 @@ describe('renderBetaAction', () => {
 
 describe('parseFeedbackType', () => {
   it('accepts an omitted or case-insensitive supported type', async () => {
-    await expect(Effect.runPromise(parseFeedbackType(undefined))).resolves.toBeUndefined();
-    await expect(Effect.runPromise(parseFeedbackType('  CRASH  '))).resolves.toBe('crash');
-    await expect(Effect.runPromise(parseFeedbackType('SCREENSHOT'))).resolves.toBe('screenshot');
+    await expect(parseFeedbackType(undefined)).resolves.toBeUndefined();
+    await expect(parseFeedbackType('  CRASH  ')).resolves.toBe('crash');
+    await expect(parseFeedbackType('SCREENSHOT')).resolves.toBe('screenshot');
   });
 
   it('rejects an unknown feedback type', async () => {
-    await expect(Effect.runPromise(parseFeedbackType('video'))).rejects.toThrow(
-      /--type must be one of/,
-    );
+    await expect(parseFeedbackType('video')).rejects.toMatchObject({
+      message: expect.stringMatching(/--type must be one of/),
+    });
   });
 });
 
@@ -143,7 +142,7 @@ describe('renderFeedback', () => {
 describe('TestflightCommandInputSchema', () => {
   it('decodes a complete add-testers boundary', () => {
     expect(
-      Schema.decodeUnknownSync(TestflightCommandInputSchema)({
+      TestflightCommandInputSchema({
         operation: 'add',
         emails: ['tester@example.com'],
         dryRun: true,
@@ -159,7 +158,7 @@ describe('TestflightCommandInputSchema', () => {
 
   it('decodes release, remove, and feedback boundaries', () => {
     expect(
-      Schema.decodeUnknownSync(TestflightCommandInputSchema)({
+      TestflightCommandInputSchema({
         operation: 'release',
         locale: 'en-US',
         config: 'testflight.config.json',
@@ -169,7 +168,7 @@ describe('TestflightCommandInputSchema', () => {
       }),
     ).toMatchObject({ operation: 'release', review: true, yes: true });
     expect(
-      Schema.decodeUnknownSync(TestflightCommandInputSchema)({
+      TestflightCommandInputSchema({
         operation: 'remove',
         emails: ['gone@example.com'],
         dryRun: false,
@@ -177,7 +176,7 @@ describe('TestflightCommandInputSchema', () => {
       }),
     ).toMatchObject({ operation: 'remove', emails: ['gone@example.com'] });
     expect(
-      Schema.decodeUnknownSync(TestflightCommandInputSchema)({
+      TestflightCommandInputSchema({
         operation: 'feedback',
         json: true,
         type: 'crash',
@@ -186,8 +185,8 @@ describe('TestflightCommandInputSchema', () => {
   });
 
   it('rejects an unknown operation', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(TestflightCommandInputSchema)({ operation: 'erase' }),
-    ).toThrow();
+    expect(function decodeUnknownOperation() {
+      TestflightCommandInputSchema({ operation: 'erase' });
+    }).toThrow();
   });
 });

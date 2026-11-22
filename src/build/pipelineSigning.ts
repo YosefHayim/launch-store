@@ -1,5 +1,4 @@
-import { type FileSystem, Path } from '@effect/platform';
-import { Data, Effect } from 'effect';
+import { join } from 'node:path';
 import type { AppDescriptor, Distribution, Platform } from '../types/app.js';
 import type {
   AccountRecord,
@@ -14,7 +13,7 @@ import {
 } from '../credentials/accounts.js';
 import type { Logger } from '../services/platform/logger.js';
 import { checkTerminalIsInteractive } from '../services/platform/progress.js';
-import { LaunchEnvironment } from '../services/platform/environment.js';
+import { readLaunchEnvironment } from '../services/platform/environment.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
 import { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.js';
 import {
@@ -31,244 +30,390 @@ import { ensureUploadKeystore } from '../credentials/androidKeystore.js';
 import { discoverExtensionBundleIds } from './appleTargets.js';
 import { nativeProjectDirName } from '../services/stores/platform.js';
 import type { BuildRunOptions } from './pipelineTypes.js';
-/** The interactive build-time account picker: choose among onboarded accounts and make the pick active. */
-const pickAccount = (launchPrompt: LaunchPromptService, accounts: readonly AccountRecord[]) =>
-  Effect.gen(function* () {
-    return yield* launchPrompt.select({
-      message: 'Which Apple account?',
-      choices: accounts.map((account) => ({
+
+async function pickAccount(
+  launchPrompt: LaunchPromptService,
+  accounts: readonly AccountRecord[],
+): Promise<AccountRecord> {
+  const picked = await launchPrompt.select({
+    message: 'Which Apple account?',
+    choices: accounts.map(function accountChoice(account: AccountRecord) {
+      return {
         selection: account,
         label: account.label,
         hint: formatAccountSummary(account, { includeLabel: false }),
-      })),
-    });
+      };
+    }),
   });
+
+  return picked;
+}
+
 /**
- * Resolve which Apple account an iOS build uses: `--account`/`ASC_ACCOUNT` -> the active account -> an
- * interactive picker (TTY only; CI fails fast with the fix). Shared by the local spine and the remote
- * pipeline so both select the account identically. Logs the chosen account as a build step.
+ * Resolve which Apple account an iOS build uses. Logs the chosen account as a build step.
  */
-export const resolveIosAccount = (options: Pick<BuildRunOptions, 'account'>, log: Logger) =>
-  Effect.gen(function* () {
-    const environment = yield* LaunchEnvironment;
-    const launchPrompt = yield* LaunchPrompt;
-    let accountSelector = environment.values.appleAccount;
-    if (options.account !== undefined) accountSelector = options.account;
-    const interactive = yield* checkTerminalIsInteractive;
-    const account = yield* resolveBuildAccount({
-      selector: accountSelector,
-      interactive,
-      pick: (accounts) => pickAccount(launchPrompt, accounts),
-    });
-    yield* setActiveKeyId(account.keyId);
-    yield* log.step('account', formatAccountSummary(account));
-    return account;
+export async function resolveIosAccount(
+  buildOptions: Pick<BuildRunOptions, 'account'>,
+  log: Logger,
+): Promise<AccountRecord> {
+  const environment = readLaunchEnvironment();
+  const launchPrompt = LaunchPrompt;
+  let accountSelector = environment.values.appleAccount;
+
+  if (buildOptions.account != null) {
+    accountSelector = buildOptions.account;
+  }
+
+  const interactive = checkTerminalIsInteractive();
+
+  function pickAccounts(accounts: readonly AccountRecord[]): Promise<AccountRecord> {
+    return pickAccount(launchPrompt, accounts);
+  }
+
+  const account = await resolveBuildAccount({
+    selector: accountSelector,
+    interactive,
+    pick: pickAccounts,
   });
-/**
- * A yes/no prompt that exits cleanly on cancel. Shared with `launch creds setup` so provisioning
- * confirmations look identical whether triggered inline by a build or run explicitly.
- */
-export const interactiveConfirm = (launchPrompt: LaunchPromptService, message: string) =>
-  launchPrompt.confirm(message);
+
+  await setActiveKeyId(account.keyId);
+  log.step('account', formatAccountSummary(account));
+
+  return account;
+}
+
+/** A yes/no prompt. Cancelling is the prompt's own exit. */
+export function interactiveConfirm(
+  launchPrompt: LaunchPromptService,
+  message: string,
+): Promise<boolean> {
+  return launchPrompt.confirm(message);
+}
 
 type SigningResolutionFailure = Readonly<{
   readonly _tag: 'SigningResolutionFailure';
   readonly message: string;
 }>;
 
-const makeSigningResolutionFailure = Data.tagged<SigningResolutionFailure>(
-  'SigningResolutionFailure',
-);
-/**
- * Resolve the full set of embedded-extension bundle ids to provision: the union of those declared in
- * config (`ios.extensions`) and those discovered in the generated `*.xcodeproj/project.pbxproj` (the
- * authoritative source - `@bacons/apple-targets` derives an extension's bundle id from its folder name,
- * not its target `name`, so only the pbxproj's `PRODUCT_BUNDLE_IDENTIFIER` is reliable). Discovery runs
- * after `ensureNativeProject`, so the project exists; when it finds no extra targets (single-target app)
- * the returned list matches the app's declared extensions, keeping the no-extension path byte-identical. The
- * main bundle id is excluded so it's never mistaken for one of its own extensions.
- */
-const resolveExtensionBundleIds = (
+function makeSigningResolutionFailure(fields: { message: string }): SigningResolutionFailure {
+  return { _tag: 'SigningResolutionFailure', message: fields.message };
+}
+
+function isNotMainBundle(mainBundleId: string | undefined) {
+  return function keepExtension(extensionId: string): boolean {
+    return extensionId != mainBundleId;
+  };
+}
+
+/** Union of configured extension ids and those discovered in the generated Xcode project. */
+async function resolveExtensionBundleIds(
   app: AppDescriptor,
   platform: Platform,
-): Effect.Effect<string[], unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    let configured: readonly string[] = [];
-    if (app.iosExtensions !== undefined) configured = app.iosExtensions;
-    const nativeDirectoryName = yield* nativeProjectDirName(platform);
-    const nativeDirectory = pathService.join(app.dir, nativeDirectoryName);
-    const discovered = yield* discoverExtensionBundleIds(nativeDirectory, app.bundleId);
-    return [...new Set([...configured, ...discovered])].filter(
-      (extensionId) => extensionId !== app.bundleId,
-    );
-  });
+): Promise<string[]> {
+  let configured: readonly string[] = [];
+
+  if (app.iosExtensions != null) {
+    configured = app.iosExtensions;
+  }
+
+  const nativeDirectoryName = nativeProjectDirName(platform);
+  const nativeDirectory = join(app.dir, nativeDirectoryName);
+  const discovered = await discoverExtensionBundleIds(nativeDirectory, app.bundleId);
+  const extensionIds = [...new Set([...configured, ...discovered])];
+
+  return extensionIds.filter(isNotMainBundle(app.bundleId));
+}
+
 /**
- * Warn - BEFORE the ~15-minute archive, not at exit 65 - when a build target's App ID isn't registered or
- * is missing a capability its entitlements require (issue #261, the preflight). Reads each bundle id's
- * registration + live capabilities from App Store Connect, computes the gap with the same pure mapping the
- * provisioner uses, and hands {@link multiTargetSigningWarnings} the facts to phrase. Best-effort: any read
- * failure is swallowed (a flaky preflight must never block a build that would otherwise succeed). The main
- * bundle is checked for missing capabilities (we know its entitlements); extensions are checked for
- * registration (App Group coverage is already surfaced by {@link appGroupPortalNotice}).
+ * Warn before the archive when an App ID is unregistered or missing a capability.
+ * A failed read is ignored so a flaky preflight never blocks a build that would succeed.
  */
-const warnUnreadySigningTargets = (
+async function warnUnreadySigningTargets(
   ascKey: AppleCredentials['ascKey'],
   app: AppDescriptor,
   bundleId: string,
   extensions: readonly string[],
   log: Logger,
-) =>
-  Effect.gen(function* () {
-    const clientFactory = yield* AppleCredentialsClientFactory;
-    const credentialsClient = yield* clientFactory.createClient(ascKey);
-    const readiness = yield* gatherTargetSigningReadiness(
+): Promise<void> {
+  try {
+    const credentialsClient = await AppleCredentialsClientFactory.createClient(ascKey);
+    const readiness = await gatherTargetSigningReadiness(
       credentialsClient,
       bundleId,
       extensions,
       app.iosEntitlements,
     );
-    for (const warning of signingPreflightWarnings(readiness)) yield* log.warn(warning);
-  }).pipe(Effect.catchAll(() => Effect.void));
+
+    for (const warning of signingPreflightWarnings(readiness)) {
+      log.warn(warning);
+    }
+  } catch (error) {
+    const preflightFailed = error != null;
+
+    if (preflightFailed) {
+      return;
+    }
+  }
+}
+
 /**
- * The cached-reuse arm of {@link resolveSigning}: return the cached assets to reuse, or null to fall
- * through to (re)provisioning. Silent reuse is correct only when no cached profile predates a capability
- * change - `loadCachedSigningAssets` reuses by uuid with no network check, so this grades each target
- * against its App ID's live capabilities via {@link staleCachedSigningTargets} and regenerates a stale set
- * rather than letting the archive die at exit 65 (issue #292). Skipped under `--dry-run` (no network).
+ * Return cached signing assets when they still match live capabilities, or null to provision again.
  */
-const reuseCachedSigning = (
+async function reuseCachedSigning(
   signing: SigningAssets,
   ascKey: AppleCredentials['ascKey'],
   log: Logger,
-  dryRun: boolean,
-) =>
-  Effect.gen(function* () {
-    let stale: { bundleId: string; missing: string[] }[] = [];
-    if (!dryRun) {
-      const clientFactory = yield* AppleCredentialsClientFactory;
-      const credentialsClient = yield* clientFactory.createClient(ascKey);
-      stale = yield* staleCachedSigningTargets(credentialsClient, signing);
-    }
-    if (stale.length > 0) {
-      yield* log.note(
-        `Regenerating signing - cached profile(s) predate a capability change: ${stale
-          .map((target) => `${target.bundleId} (missing ${target.missing.join(', ')})`)
-          .join('; ')}.`,
-      );
-      return null;
-    }
-    yield* log.step(
-      'signing',
-      `reusing cert ${signing.certSerial} - ${signing.profileName}`,
-      'code-signing',
+  isDryRun: boolean,
+): Promise<SigningAssets | null> {
+  let stale: { bundleId: string; missing: string[] }[] = [];
+
+  if (isDryRun == false) {
+    const credentialsClient = await AppleCredentialsClientFactory.createClient(ascKey);
+
+    stale = await staleCachedSigningTargets(credentialsClient, signing);
+  }
+
+  const hasStaleProfiles = stale.length > 0;
+
+  if (hasStaleProfiles) {
+    const staleSummary = stale
+      .map(function describeStaleTarget(target: { bundleId: string; missing: string[] }) {
+        return `${target.bundleId} (missing ${target.missing.join(', ')})`;
+      })
+      .join('; ');
+
+    log.note(
+      `Regenerating signing - cached profile(s) predate a capability change: ${staleSummary}.`,
     );
-    return signing;
+
+    return null;
+  }
+
+  log.step(
+    'signing',
+    `reusing cert ${signing.certSerial} - ${signing.profileName}`,
+    'code-signing',
+  );
+
+  return signing;
+}
+
+function confirmWith(launchPrompt: LaunchPromptService) {
+  return function confirmCreate(message: string): Promise<boolean> {
+    return interactiveConfirm(launchPrompt, message);
+  };
+}
+
+function shouldNoteMissingSigning(isDryRun: boolean, signing: SigningAssets | undefined): boolean {
+  if (isDryRun) {
+    return false;
+  }
+
+  return signing == null;
+}
+
+async function provisionInternalSigning(request: {
+  isDryRun: boolean;
+  bundleId: string;
+  platform: Platform;
+  app: AppDescriptor;
+  credentials: AppleCredentials;
+  log: Logger;
+  confirmCreate: (message: string) => Promise<boolean>;
+}): Promise<SigningAssets> {
+  if (request.isDryRun == false) {
+    request.log.note(
+      `Provisioning an ad-hoc profile for ${request.bundleId} over your registered devices.`,
+    );
+  }
+
+  const signingAssets = await ensureAdHocSigningCredentials({
+    platform: request.platform,
+    bundleId: request.bundleId,
+    appName: request.app.name,
+    ascKey: request.credentials.ascKey,
+    log: request.log,
+    dryRun: request.isDryRun,
+    confirmCreate: request.confirmCreate,
   });
+
+  return signingAssets;
+}
+
 /**
- * Resolve signing assets: reuse silently when cached, otherwise (interactively) provision them now.
- * Mirrors the locked decision - the build never hard-blocks; it offers to run setup inline.
+ * Reuse cached signing assets, or provision them inline. An internal build always uses an ad-hoc profile.
  */
-export const resolveSigning = (
+export async function resolveSigning(
   credentials: AppleCredentials,
   app: AppDescriptor,
   platform: Platform,
   log: Logger,
-  dryRun: boolean,
+  isDryRun: boolean,
   distribution: Distribution | undefined,
-) =>
-  Effect.gen(function* () {
-    const launchPrompt = yield* LaunchPrompt;
-    const confirmCreate = (message: string) => interactiveConfirm(launchPrompt, message);
-    const bundleId = app.bundleId;
-    if (!bundleId)
-      return yield* Effect.fail(
-        makeSigningResolutionFailure({
-          message: `No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`,
-        }),
-      );
-    // App Group containers are the one signing input the JWT API can't provision (portal-only); warn up
-    // front so the user fixes it before xcodebuild fails to export, rather than after.
-    const appGroupNotice = appGroupPreflightNotice(app.iosEntitlements);
-    if (appGroupNotice) yield* log.warn(appGroupNotice);
-    // An ad-hoc (internal) build needs a device-scoped ad-hoc profile, recreated each run, so the cached
-    // App Store assets don't apply - go straight to ad-hoc provisioning.
-    if (distribution === 'internal') {
-      if (!dryRun)
-        yield* log.note(
-          `Provisioning an ad-hoc profile for ${bundleId} over your registered devices.`,
-        );
-      return yield* ensureAdHocSigningCredentials({
-        platform,
-        bundleId,
-        appName: app.name,
-        ascKey: credentials.ascKey,
-        log,
-        dryRun,
-        confirmCreate,
-      });
-    }
-    const extensions = yield* resolveExtensionBundleIds(app, platform);
-    // Preflight BEFORE the long archive: surface an unregistered App ID or a missing capability on any
-    // target now, while the fix is one command, instead of after a ~15-minute compile fails at exit 65.
-    if (!dryRun)
-      yield* warnUnreadySigningTargets(credentials.ascKey, app, bundleId, extensions, log);
-    if (credentials.signing) {
-      const reused = yield* reuseCachedSigning(
-        credentials.signing,
-        credentials.ascKey,
-        log,
-        dryRun,
-      );
-      if (reused) return reused;
-    }
-    if (!dryRun && credentials.signing === undefined)
-      yield* log.note(
-        `No cached signing assets for ${bundleId} - provisioning now (you'll confirm each Apple resource).`,
-      );
-    return yield* ensureSigningCredentials({
-      platform,
+): Promise<SigningAssets> {
+  const launchPrompt = LaunchPrompt;
+  const confirmCreate = confirmWith(launchPrompt);
+  const bundleId = presentBundleId(app);
+
+  const appGroupNotice = appGroupPreflightNotice(app.iosEntitlements);
+
+  if (isPresentNotice(appGroupNotice)) {
+    log.warn(appGroupNotice);
+  }
+
+  const isInternal = distribution == 'internal';
+
+  if (isInternal) {
+    const signingAssets = await provisionInternalSigning({
+      isDryRun,
       bundleId,
-      appName: app.name,
-      ascKey: credentials.ascKey,
+      platform,
+      app,
+      credentials,
       log,
-      dryRun,
       confirmCreate,
-      extensions,
     });
+
+    return signingAssets;
+  }
+
+  const extensions = await resolveExtensionBundleIds(app, platform);
+
+  if (isDryRun == false) {
+    await warnUnreadySigningTargets(credentials.ascKey, app, bundleId, extensions, log);
+  }
+
+  const reused = await reuseWhenCached(credentials, log, isDryRun);
+
+  if (isPresentSigning(reused)) {
+    return reused;
+  }
+
+  const shouldNote = shouldNoteMissingSigning(isDryRun, credentials.signing);
+
+  if (shouldNote) {
+    log.note(
+      `No cached signing assets for ${bundleId} - provisioning now (you'll confirm each Apple resource).`,
+    );
+  }
+
+  const provisioned = await ensureSigningCredentials({
+    platform,
+    bundleId,
+    appName: app.name,
+    ascKey: credentials.ascKey,
+    log,
+    dryRun: isDryRun,
+    confirmCreate,
+    extensions,
   });
-/**
- * Resolve the upload keystore: reuse silently when cached, otherwise provision (or import) it inline.
- * The Android twin of {@link resolveSigning} - the build never hard-blocks; it offers setup in place.
- */
-export const resolveKeystore = (
+
+  return provisioned;
+}
+
+function isPresentNotice(notice: string | null | undefined): notice is string {
+  if (notice == null) {
+    return false;
+  }
+
+  return notice != '';
+}
+
+function isPresentBundle(bundleId: string | undefined): bundleId is string {
+  if (bundleId == null) {
+    return false;
+  }
+
+  return bundleId != '';
+}
+
+function presentBundleId(app: AppDescriptor): string {
+  const bundleId = app.bundleId;
+
+  if (isPresentBundle(bundleId)) {
+    return bundleId;
+  }
+
+  throw makeSigningResolutionFailure({
+    message: `No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`,
+  });
+}
+
+function isPresentSigning(signing: SigningAssets | null | undefined): signing is SigningAssets {
+  return signing != null;
+}
+
+async function reuseWhenCached(
+  credentials: AppleCredentials,
+  log: Logger,
+  isDryRun: boolean,
+): Promise<SigningAssets | null> {
+  const cachedSigning = credentials.signing;
+
+  if (isPresentSigning(cachedSigning)) {
+    const reused = await reuseCachedSigning(cachedSigning, credentials.ascKey, log, isDryRun);
+
+    return reused;
+  }
+
+  return null;
+}
+
+function isPresentPackage(packageName: string | undefined): packageName is string {
+  if (packageName == null) {
+    return false;
+  }
+
+  return packageName != '';
+}
+
+function requireAndroidPackage(app: AppDescriptor): string {
+  const packageName = app.packageName;
+
+  if (isPresentPackage(packageName)) {
+    return packageName;
+  }
+
+  throw {
+    _tag: 'MissingAndroidPackage',
+    message: 'Set android.package before creating an upload keystore.',
+  };
+}
+
+/** Reuse a cached upload keystore, or provision one inline. */
+export async function resolveKeystore(
   credentials: AndroidCredentials,
   app: AppDescriptor,
   log: Logger,
-  dryRun: boolean,
-) =>
-  Effect.gen(function* () {
-    const launchPrompt = yield* LaunchPrompt;
-    if (credentials.keystore) {
-      yield* log.step(
-        'keystore',
-        `reusing upload keystore (alias ${credentials.keystore.alias})`,
-        'upload-key',
-      );
-      return credentials.keystore;
-    }
-    if (!dryRun)
-      yield* log.note(`No cached upload keystore for ${app.name} - provisioning one now.`);
-    if (!app.packageName)
-      return yield* Effect.fail({
-        _tag: 'MissingAndroidPackage',
-        message: 'Set android.package before creating an upload keystore.',
-      });
-    return yield* ensureUploadKeystore({
-      appName: app.name,
-      packageName: app.packageName,
-      log,
-      dryRun,
-      confirmCreate: (message) => interactiveConfirm(launchPrompt, message),
-    });
+  isDryRun: boolean,
+) {
+  const launchPrompt = LaunchPrompt;
+  const cachedKeystore = credentials.keystore;
+  const hasKeystore = cachedKeystore != null;
+
+  if (hasKeystore) {
+    log.step('keystore', `reusing upload keystore (alias ${cachedKeystore.alias})`, 'upload-key');
+
+    return cachedKeystore;
+  }
+
+  if (isDryRun == false) {
+    log.note(`No cached upload keystore for ${app.name} - provisioning one now.`);
+  }
+
+  const packageName = requireAndroidPackage(app);
+
+  function confirmCreate(message: string): Promise<boolean> {
+    return interactiveConfirm(launchPrompt, message);
+  }
+
+  const keystore = await ensureUploadKeystore({
+    appName: app.name,
+    packageName,
+    log,
+    dryRun: isDryRun,
+    confirmCreate,
   });
+
+  return keystore;
+}

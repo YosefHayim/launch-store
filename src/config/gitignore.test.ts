@@ -9,22 +9,9 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { captureCommandOutput, provideNodeCommandServices } from '../services/platform/exec.js';
-import { makeLaunchPathsTest, type LaunchPathsService } from '../services/platform/paths.js';
+import { captureCommandOutput } from '../services/platform/exec.js';
 import { ensureArtifactDirIgnored } from './gitignore.js';
-const runGitignoreEffect = <Success, Failure>(
-  gitignoreEffect: Effect.Effect<Success, Failure, NodeContext.NodeContext | LaunchPathsService>,
-  projectDirectory: string,
-): Promise<Success> =>
-  Effect.runPromise(
-    gitignoreEffect.pipe(
-      Effect.provide(NodeContext.layer),
-      Effect.provide(makeLaunchPathsTest(projectDirectory, projectDirectory)),
-    ),
-  );
 /**
  * Exercise the auto-gitignore against a real git repo in a temp dir (git's own `check-ignore` decides
  * "already covered", so a mocked repo wouldn't prove anything). `realpathSync` resolves the macOS
@@ -34,49 +21,42 @@ describe('ensureArtifactDirIgnored', () => {
   let repo: string;
   beforeEach(async () => {
     repo = realpathSync(mkdtempSync(join(tmpdir(), 'launch-gitignore-')));
-    await Effect.runPromise(
-      provideNodeCommandServices(
-        captureCommandOutput('env', [
-          '-u',
-          'GIT_DIR',
-          '-u',
-          'GIT_WORK_TREE',
-          'git',
-          '-C',
-          repo,
-          'init',
-        ]),
-      ),
-    );
+    await captureCommandOutput('env', [
+      '-u',
+      'GIT_DIR',
+      '-u',
+      'GIT_WORK_TREE',
+      'git',
+      '-C',
+      repo,
+      'init',
+    ]);
   });
   afterEach(() => {
     rmSync(repo, { recursive: true, force: true });
   });
   it('appends an anchored entry under the marker for an in-repo dir, and is idempotent', async () => {
     const artifacts = join(repo, '.launch', 'artifacts');
-    const first = await runGitignoreEffect(ensureArtifactDirIgnored(artifacts, repo), repo);
+    const first = await ensureArtifactDirIgnored(artifacts, repo);
     expect(first).toEqual({ added: true, entry: '/.launch/artifacts' });
     const gitignore = readFileSync(join(repo, '.gitignore'), 'utf8');
     expect(gitignore).toContain('# launch build artifacts');
     expect(gitignore).toContain('/.launch/artifacts');
     // Idempotent even though the dir was never created - `check-ignore` matches the anchored entry anyway.
-    const second = await runGitignoreEffect(ensureArtifactDirIgnored(artifacts, repo), repo);
+    const second = await ensureArtifactDirIgnored(artifacts, repo);
     expect(second).toEqual({ added: false });
     // Re-run appended nothing - the marker still appears exactly once.
     expect(readFileSync(join(repo, '.gitignore'), 'utf8')).toBe(gitignore);
   });
   it('respects a pre-existing broader ignore pattern (no duplicate entry)', async () => {
     writeFileSync(join(repo, '.gitignore'), '.launch/\n');
-    const ignoreOutcome = await runGitignoreEffect(
-      ensureArtifactDirIgnored(join(repo, '.launch', 'artifacts'), repo),
-      repo,
-    );
+    const ignoreOutcome = await ensureArtifactDirIgnored(join(repo, '.launch', 'artifacts'), repo);
     expect(ignoreOutcome).toEqual({ added: false });
   });
   it("no-ops for a dir outside the project's work tree", async () => {
     const outside = realpathSync(mkdtempSync(join(tmpdir(), 'launch-outside-')));
     try {
-      expect(await runGitignoreEffect(ensureArtifactDirIgnored(outside, repo), repo)).toEqual({
+      expect(await ensureArtifactDirIgnored(outside, repo)).toEqual({
         added: false,
       });
       expect(existsSync(join(repo, '.gitignore'))).toBe(false);
@@ -88,9 +68,7 @@ describe('ensureArtifactDirIgnored', () => {
     const plain = realpathSync(mkdtempSync(join(tmpdir(), 'launch-plain-')));
     mkdirSync(join(plain, 'out'));
     try {
-      expect(
-        await runGitignoreEffect(ensureArtifactDirIgnored(join(plain, 'out'), plain), plain),
-      ).toEqual({ added: false });
+      expect(await ensureArtifactDirIgnored(join(plain, 'out'), plain)).toEqual({ added: false });
     } finally {
       rmSync(plain, { recursive: true, force: true });
     }

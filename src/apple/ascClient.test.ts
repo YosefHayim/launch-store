@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { Schema } from 'effect';
 import type { AscKey } from '../types/credentials.js';
 import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
 import {
@@ -34,10 +33,13 @@ const fakeBinaryResponse = (status: number, bytes: string, errorResponseText = '
   if (status >= 200 && status < 300) responseBody = bytes;
   return new Response(responseBody, { status });
 };
-const readRequestDocument = (requestInit: RequestInit): unknown => {
-  if (typeof requestInit.body !== 'string') throw new Error('expected a JSON request body');
-  return Schema.decodeUnknownSync(Schema.parseJson())(requestInit.body);
-};
+function readRequestDocument(requestInit: RequestInit): unknown {
+  const requestBody = requestInit.body;
+
+  if (typeof requestBody == 'string') return JSON.parse(requestBody);
+
+  throw new Error('expected a JSON request body');
+}
 const requestHeaders = (requestInit: RequestInit): Headers => new Headers(requestInit.headers);
 const documentValueAt = (document: unknown, path: readonly (number | string)[]): unknown => {
   let currentValue = document;
@@ -58,25 +60,39 @@ const numberClaim = (claims: Record<string, unknown>, claimName: string): number
   if (typeof claim !== 'number') throw new Error(`expected numeric JWT claim ${claimName}`);
   return claim;
 };
-const JwtPartSchema = Schema.parseJson(
-  Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-);
-const decodeJwt = (
-  token: string,
-): {
+function decodeJwt(token: string): {
   header: Record<string, unknown>;
-  payload: Record<string, unknown>;
-} => {
-  const [header, jwtClaims] = token.split('.');
+  claims: Record<string, unknown>;
+} {
+  const tokenParts = token.split('.');
+  const headerPart = tokenParts[0];
+  const claimsPart = tokenParts[1];
+  const headerText = Buffer.from(expectDefined(headerPart, 'JWT header'), 'base64url').toString();
+  const claimsText = Buffer.from(expectDefined(claimsPart, 'JWT payload'), 'base64url').toString();
+
   return {
-    header: Schema.decodeUnknownSync(JwtPartSchema)(
-      Buffer.from(expectDefined(header, 'JWT header'), 'base64url').toString(),
-    ),
-    payload: Schema.decodeUnknownSync(JwtPartSchema)(
-      Buffer.from(expectDefined(jwtClaims, 'JWT payload'), 'base64url').toString(),
-    ),
+    header: readObjectText(headerText),
+    claims: readObjectText(claimsText),
   };
-};
+}
+
+function readObjectText(objectText: string): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(objectText);
+
+  if (isJsonObject(parsed)) return parsed;
+
+  throw new Error('expected a JSON object');
+}
+
+function isJsonObject(candidate: unknown): candidate is Record<string, unknown> {
+  if (typeof candidate != 'object') return false;
+
+  if (candidate == null) return false;
+
+  if (Array.isArray(candidate)) return false;
+
+  return true;
+}
 const fetchMock = vi.fn();
 let client: AppStoreConnectClient;
 beforeEach(() => {
@@ -98,7 +114,7 @@ describe('AppStoreConnectClient - auth + request building', () => {
     expect(url).toContain('/apps?filter[bundleId]=com.example.hello&limit=1');
     const auth = expectDefined(requestHeaders(init).get('Authorization'), 'authorization header');
     expect(auth).toMatch(/^Bearer /);
-    const { header, payload: jwtClaims } = decodeJwt(auth.slice('Bearer '.length));
+    const { header, claims: jwtClaims } = decodeJwt(auth.slice('Bearer '.length));
     expect(header).toMatchObject({ alg: 'ES256', kid: 'KEY123', typ: 'JWT' });
     expect(jwtClaims['iss']).toBe('issuer-uuid');
     expect(jwtClaims['aud']).toBe('appstoreconnect-v1');
@@ -481,9 +497,11 @@ describe('AppStoreConnectClient - build uploads', () => {
         fakeResponse(200, JSON.stringify({ data: { id: 'file-1', attributes: {} } })),
       );
     });
-    await expect(client.uploadBuildFile('upload-1', 'App.ipa', ipaPath)).rejects.toThrow(
-      `Read 2 of 5 bytes at offset ${pastTheEnd} from ${ipaPath}; the file changed during the upload.`,
-    );
+    await expect(client.uploadBuildFile('upload-1', 'App.ipa', ipaPath)).rejects.toMatchObject({
+      _tag: 'StoreUploadFailure',
+      provider: 'app-store-connect',
+      message: `Read 2 of 5 bytes at offset ${pastTheEnd} from ${ipaPath}; the file changed during the upload.`,
+    });
     const partCalls = fetchMock.mock.calls.filter(([url]) => url.startsWith('https://upload.'));
     expect(partCalls).toEqual([]);
   });
@@ -2517,7 +2535,11 @@ describe('AppStoreConnectClient - app availability', () => {
     );
     await expect(
       client.updateAppAvailabilityTerritories('availability-1', ['USA', 'GBR']),
-    ).rejects.toThrow(/GBR/);
+    ).rejects.toMatchObject({
+      _tag: 'AscAvailabilityUpdateError',
+      message: 'Apple did not return updatable availability rows for: GBR.',
+      missingTerritories: ['GBR'],
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
   it('never POSTs a second singleton when updating an existing availability', async () => {

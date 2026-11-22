@@ -1,9 +1,7 @@
-import { Effect } from 'effect';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { makeHttpClientTest } from '@testkit/httpClient.testkit.js';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
@@ -12,31 +10,34 @@ import {
   STATS_PORTFOLIO_FILE,
   writeStatsMonthFiles,
 } from '@testkit/statsHome.testkit.js';
-import { makeLaunchLoggerTest } from '../services/platform/logger.js';
-import type { StatsFeedFailure, StatsFeedPlugin } from '../types/stats.js';
-import { makeStatsCredentialsTest } from './statsCredentials.js';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.js';
 import { statsReportProgram, type StatsCommandRequest } from './statsCommand.js';
 
 const fakeFeed = vi.hoisted(() => ({ isFailing: false }));
 
-vi.mock('./feedRegistry.js', async () => {
-  const { Effect: EffectModule } = await import('effect');
-  const iosFeed: StatsFeedPlugin = {
-    feed: 'app-store',
-    isApplicable: (app) => app.platform === 'ios',
-    fetchDays: () => {
+vi.mock('./feedRegistry.js', () => {
+  const iosFeed = {
+    feed: 'app-store' as const,
+    isApplicable(app: { platform: string }) {
+      return app.platform == 'ios';
+    },
+    async fetchDays() {
       if (fakeFeed.isFailing) {
-        return EffectModule.fail({
+        throw {
           _tag: 'StatsFeedFailure',
           feed: 'app-store',
           appKey: 'ios-1',
           message: 'report not ready',
           cause: null,
-        } satisfies StatsFeedFailure);
+        };
       }
-      return EffectModule.succeed({ status: 'skipped', reason: 'not built yet' });
+
+      return { status: 'skipped' as const, reason: 'not built yet' };
     },
   };
+
   return { STATS_FEED_PLUGINS: [iosFeed] };
 });
 
@@ -48,10 +49,19 @@ const ALL_APPS_REQUEST: StatsCommandRequest = {
   json: false,
 };
 
+type CommandOutcome =
+  | { readonly _tag: 'Right' }
+  | { readonly _tag: 'Left'; readonly left: unknown };
+
 describe('statsReportProgram', () => {
   let homeDirectory: string;
+
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    useLaunchDirectories({
+      homeDirectory,
+      workingDirectory: join(homeDirectory, 'work'),
+    });
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(STATS_PORTFOLIO_FILE));
     writeStatsMonthFiles(homeDirectory, 'ios-1', [
       {
@@ -62,23 +72,32 @@ describe('statsReportProgram', () => {
         currency: null,
       },
     ]);
+    makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
   });
+
   afterEach(() => {
+    useStatsCredentials(null);
+    resetLogger();
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
   const run = async (request: StatsCommandRequest) => {
     const lines: string[] = [];
-    const outcome = await Effect.runPromise(
-      statsReportProgram(request).pipe(
-        Effect.either,
-        Effect.provide(makeLaunchLoggerTest(lines)),
-        Effect.provide(makeStatsCredentialsTest()),
-        Effect.provide(makeHttpClientTest([])),
-        Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      ),
-    );
+    useLoggerSink(function writeLine(text: string) {
+      lines.push(text);
+    });
+
+    var outcome: CommandOutcome;
+
+    try {
+      await statsReportProgram(request);
+      outcome = { _tag: 'Right' };
+    } catch (left) {
+      outcome = { _tag: 'Left', left };
+    }
+
     return { outcome, lines };
   };
 

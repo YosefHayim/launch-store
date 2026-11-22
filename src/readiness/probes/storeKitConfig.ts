@@ -1,31 +1,87 @@
-import { Path } from '@effect/platform';
-import { Effect } from 'effect';
+import { relative } from 'node:path';
+import type { AppDescriptor } from '@/types/app.js';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
 } from '@/types/readiness.js';
-import { type SourceScanRequirements, walkAppSource } from '../sourceScan.js';
+import { walkAppSource } from '../sourceScan.js';
 import { declaredAppleProductIds } from './iapReadiness.js';
 import { OMITTED_PROBE } from './credentialsSkip.js';
-/** Return the first StoreKit configuration path found under an app directory. */
-const findStoreKitConfig = (
-  appDirectory: string,
-): Effect.Effect<string | null, never, SourceScanRequirements> => {
-  return Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    let matchedConfigPath: string | null = null;
-    yield* walkAppSource(appDirectory, (filePath, fileExtension) =>
-      Effect.sync(() => {
-        if (fileExtension !== '.storekit') return false;
-        matchedConfigPath = pathService.relative(appDirectory, filePath);
-        return true;
-      }),
-    );
-    return matchedConfigPath;
-  });
-};
+
+type ScopedApp = { name: string; identifier: string; directory: string };
+
+function hasBundleId(app: AppDescriptor): app is AppDescriptor & { bundleId: string } {
+  return app.bundleId != null;
+}
+
+function scopedProductApp(
+  readinessContext: ReadinessContext,
+  app: AppDescriptor & { bundleId: string },
+): ScopedApp | null {
+  const declaresProducts =
+    declaredAppleProductIds(readinessContext.config.products?.[app.bundleId]).length > 0;
+
+  if (declaresProducts == false) {
+    return null;
+  }
+
+  return { name: app.name, identifier: app.bundleId, directory: app.dir };
+}
+
+function readScopedApp(readinessContext: ReadinessContext, app: AppDescriptor): ScopedApp | null {
+  if (hasBundleId(app)) {
+    return scopedProductApp(readinessContext, app);
+  }
+
+  return null;
+}
+
+async function findStoreKitConfig(appDirectory: string): Promise<string | null> {
+  let matchedConfigPath: string | null = null;
+
+  async function inspectStoreKitFile(filePath: string, fileExtension: string): Promise<boolean> {
+    const isStoreKit = fileExtension == '.storekit';
+
+    if (isStoreKit == false) {
+      return false;
+    }
+
+    matchedConfigPath = relative(appDirectory, filePath);
+
+    return true;
+  }
+
+  await walkAppSource(appDirectory, inspectStoreKitFile);
+
+  return matchedConfigPath;
+}
+
+function isConfigMissing(configPath: string | null): configPath is null {
+  return configPath == null;
+}
+
+async function readStoreKitConfig(app: ScopedApp): Promise<AppReadiness> {
+  const configPath = await findStoreKitConfig(app.directory);
+
+  if (isConfigMissing(configPath)) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'warn',
+      detail: 'no .storekit configuration file found',
+      hint: 'add a StoreKit configuration file in Xcode to test purchases on the simulator before submitting',
+    };
+  }
+
+  return {
+    app: app.name,
+    identifier: app.identifier,
+    status: 'ok',
+    detail: `StoreKit config present (${configPath})`,
+  };
+}
 
 /** Check that product-selling iOS apps include a StoreKit test configuration. */
 export const storeKitConfigProbe = {
@@ -33,58 +89,28 @@ export const storeKitConfigProbe = {
   title: 'StoreKit config file present',
   store: 'appstore',
   categories: ['iap'],
-  /**
-   * Verify that each product-selling iOS app has a local StoreKit config file.
-   *
-   * @param readinessContext - Loaded config and selected apps for the readiness run.
-   * @returns An Effect that succeeds with one StoreKit-config finding per in-scope app.
-   */
-  check(
-    readinessContext: ReadinessContext,
-  ): Effect.Effect<ProbeResult, never, SourceScanRequirements> {
-    return Effect.gen(function* () {
-      const scopedApps: { name: string; identifier: string; directory: string }[] = [];
-      for (const configuredApp of readinessContext.apps) {
-        if (configuredApp.bundleId === undefined) continue;
-        const declaresProducts =
-          declaredAppleProductIds(readinessContext.config.products?.[configuredApp.bundleId])
-            .length > 0;
-        if (!declaresProducts) continue;
-        scopedApps.push({
-          name: configuredApp.name,
-          identifier: configuredApp.bundleId,
-          directory: configuredApp.dir,
-        });
+  async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
+    const scopedApps: ScopedApp[] = [];
+
+    for (const configuredApp of readinessContext.apps) {
+      const scopedApp = readScopedApp(readinessContext, configuredApp);
+      const isOutsideScope = scopedApp == null;
+
+      if (isOutsideScope) {
+        continue;
       }
-      if (scopedApps.length === 0) return OMITTED_PROBE;
-      const appFindings = yield* Effect.forEach(
-        scopedApps,
-        ({
-          name,
-          identifier,
-          directory,
-        }): Effect.Effect<AppReadiness, never, SourceScanRequirements> =>
-          Effect.gen(function* () {
-            const configPath = yield* findStoreKitConfig(directory);
-            if (configPath !== null) {
-              return {
-                app: name,
-                identifier,
-                status: 'ok',
-                detail: `StoreKit config present (${configPath})`,
-              };
-            }
-            return {
-              app: name,
-              identifier,
-              status: 'warn',
-              detail: 'no .storekit configuration file found',
-              hint: 'add a StoreKit configuration file in Xcode to test purchases on the simulator before submitting',
-            };
-          }),
-        { concurrency: 'unbounded' },
-      );
-      return { state: 'checked', apps: appFindings };
-    });
+
+      scopedApps.push(scopedApp);
+    }
+
+    const isNothingSelected = scopedApps.length == 0;
+
+    if (isNothingSelected) {
+      return OMITTED_PROBE;
+    }
+
+    const findings = await Promise.all(scopedApps.map(readStoreKitConfig));
+
+    return { state: 'checked', apps: findings };
   },
 } satisfies ReadinessProbe;

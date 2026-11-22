@@ -1,74 +1,121 @@
 import type {
   AppReadiness,
+  AscReadinessApi,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
 } from '@/types/readiness.js';
-import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
+
+type AgeRatingDeclaration = Readonly<{
+  attributes: Record<string, string | boolean>;
+}> | null;
+
+function isAppleAccountMissing(api: AscReadinessApi | null): api is null {
+  return api == null;
+}
+
+function isAppRecordMissing(appId: string | null): appId is null {
+  return appId == null;
+}
+
+function isAppInfoMissing(appInfoId: string | null): appInfoId is null {
+  return appInfoId == null;
+}
+
+function isDeclarationMissing(declaration: AgeRatingDeclaration): declaration is null {
+  return declaration == null;
+}
+
+async function readAgeRating(
+  api: AscReadinessApi,
+  app: { name: string; identifier: string },
+): Promise<AppReadiness> {
+  const appId = await api.getAppId(app.identifier);
+
+  if (isAppRecordMissing(appId)) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'warn',
+      detail: "can't verify - no app record yet",
+      hint: 'create the app record first (see the app-record check)',
+    };
+  }
+
+  const appInfoId = await api.getEditableAppInfoId(appId);
+
+  if (isAppInfoMissing(appInfoId)) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'warn',
+      detail: "can't verify - no editable app version",
+      hint: 'create a new version in App Store Connect, then re-run',
+    };
+  }
+
+  const declaration = await api.getAgeRatingDeclaration(appInfoId);
+
+  if (isDeclarationMissing(declaration)) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'blocker',
+      detail: 'age-rating questionnaire not completed',
+      hint: 'answer it in App Store Connect -> App Information -> Age Rating before submitting',
+    };
+  }
+
+  const hasAnswers = Object.keys(declaration.attributes).length > 0;
+
+  if (hasAnswers) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'ok',
+      detail: 'age-rating questionnaire completed',
+    };
+  }
+
+  return {
+    app: app.name,
+    identifier: app.identifier,
+    status: 'blocker',
+    detail: 'age-rating questionnaire not completed',
+    hint: 'answer it in App Store Connect -> App Information -> Age Rating before submitting',
+  };
+}
+
 /** The App Store Connect age-rating-declaration readiness probe - a listing-completeness and submit blocker. */
 export const ageRatingProbe = {
   id: 'apple-age-rating',
   title: 'Age rating completed',
   store: 'appstore',
   categories: ['listing', 'submit'],
-  /**
-   * Verify that each selected iOS app has completed its age-rating questionnaire.
-   *
-   * @param readinessContext - Loaded config, selected apps, and App Store Connect resolver.
-   * @returns An Effect that succeeds with one age-rating finding per selected app.
-   */
-  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
-    return Effect.gen(function* () {
-      const apps = iosApps(readinessContext.apps);
-      if (apps.length === 0) return OMITTED_PROBE;
-      const api = yield* readinessContext.resolveAscApi();
-      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
-      const results: AppReadiness[] = yield* Effect.forEach(
-        apps,
-        ({ name, identifier }) =>
-          Effect.gen(function* () {
-            const appId = yield* api.getAppId(identifier);
-            if (!appId) {
-              return {
-                app: name,
-                identifier,
-                status: 'warn' as const,
-                detail: "can't verify - no app record yet",
-                hint: 'create the app record first (see the app-record check)',
-              };
-            }
-            const appInfoId = yield* api.getEditableAppInfoId(appId);
-            if (!appInfoId) {
-              return {
-                app: name,
-                identifier,
-                status: 'warn' as const,
-                detail: "can't verify - no editable app version",
-                hint: 'create a new version in App Store Connect, then re-run',
-              };
-            }
-            const declaration = yield* api.getAgeRatingDeclaration(appInfoId);
-            if (declaration && Object.keys(declaration.attributes).length > 0) {
-              return {
-                app: name,
-                identifier,
-                status: 'ok' as const,
-                detail: 'age-rating questionnaire completed',
-              };
-            }
-            return {
-              app: name,
-              identifier,
-              status: 'blocker' as const,
-              detail: 'age-rating questionnaire not completed',
-              hint: 'answer it in App Store Connect -> App Information -> Age Rating before submitting',
-            };
-          }),
-        { concurrency: 'unbounded' },
-      );
-      return { state: 'checked', apps: results };
-    });
+  async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
+    const apps = iosApps(readinessContext.apps);
+    const isNothingSelected = apps.length == 0;
+
+    if (isNothingSelected) {
+      return OMITTED_PROBE;
+    }
+
+    const api = await readinessContext.resolveAscApi();
+
+    if (isAppleAccountMissing(api)) {
+      return SKIPPED_NO_APPLE_ACCOUNT;
+    }
+
+    const appleApi = api;
+
+    function readRating(app: { name: string; identifier: string }): Promise<AppReadiness> {
+      return readAgeRating(appleApi, app);
+    }
+
+    const findings = await Promise.all(apps.map(readRating));
+
+    return { state: 'checked', apps: findings };
   },
 } satisfies ReadinessProbe;

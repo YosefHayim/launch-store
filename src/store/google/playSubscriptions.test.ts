@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { SubscriptionOfferResource, SubscriptionResource } from '../../types/googlePlay.js';
 import type { SubscriptionConfig } from '../../types/catalog.js';
@@ -57,49 +56,45 @@ const makeApi = (
     listOffersFailures: 0,
   };
   const api: PlaySubscriptionsApi = {
-    assertAppExists: () => {
-      if (options.reachable === false) return Effect.fail(new Error('No reachable Play app'));
-      return Effect.void;
+    async assertAppExists() {
+      if (options.reachable === false) throw new Error('No reachable Play app');
     },
-    listSubscriptions: () => Effect.succeed(existing),
-    createSubscription: (_packageName, subscription) => {
+    async listSubscriptions() {
+      return existing;
+    },
+    async createSubscription(_packageName, subscription) {
       if (options.createSubscriptionFailure !== undefined) {
-        return Effect.fail(new Error(options.createSubscriptionFailure));
+        throw new Error(options.createSubscriptionFailure);
       }
       if (options.failCreateSubscription === true) {
-        return Effect.fail(new Error('create subscription rejected'));
+        throw new Error('create subscription rejected');
       }
       calls.created.push(subscription);
-      return Effect.void;
     },
-    patchSubscription: (_packageName, subscription, updateMask) => {
+    async patchSubscription(_packageName, subscription, updateMask) {
       calls.patched.push({ subscription, updateMask });
-      return Effect.void;
     },
-    activateBasePlan: (_packageName, productId, basePlanId) => {
+    async activateBasePlan(_packageName, productId, basePlanId) {
       calls.activatedBasePlans.push({ productId, basePlanId });
-      return Effect.void;
     },
-    listSubscriptionOffers: (_packageName, productId, basePlanId) => {
+    async listSubscriptionOffers(_packageName, productId, basePlanId) {
       if (options.failListOffers === true) {
         calls.listOffersFailures += 1;
-        return Effect.fail(new Error('list offers unavailable'));
+        throw new Error('list offers unavailable');
       }
       let offers: SubscriptionOfferResource[] = [];
       const configuredOffers = options.offersByBasePlan?.[`${productId}/${basePlanId}`];
       if (configuredOffers !== undefined) offers = configuredOffers;
-      return Effect.succeed(offers);
+      return offers;
     },
-    createSubscriptionOffer: (_packageName, offer) => {
+    async createSubscriptionOffer(_packageName, offer) {
       if (options.failCreateOffer === true) {
-        return Effect.fail(new Error('create offer rejected'));
+        throw new Error('create offer rejected');
       }
       calls.createdOffers.push(offer);
-      return Effect.void;
     },
-    activateSubscriptionOffer: (_packageName, productId, basePlanId, offerId) => {
+    async activateSubscriptionOffer(_packageName, productId, basePlanId, offerId) {
       calls.activatedOffers.push({ productId, basePlanId, offerId });
-      return Effect.void;
     },
   };
   return { api, calls };
@@ -107,13 +102,13 @@ const makeApi = (
 
 /** Execute the offer builder at the test boundary. */
 const runOffer = (...offerInput: Parameters<typeof offerFromConfig>): SubscriptionOfferResource =>
-  Effect.runSync(offerFromConfig(...offerInput));
+  offerFromConfig(...offerInput);
 
 /** Execute the subscriptions reconciler at the test boundary. */
 const runReconcile = (
   api: PlaySubscriptionsApi,
   input: Parameters<typeof reconcilePlaySubscriptions>[1],
-) => Effect.runPromise(reconcilePlaySubscriptions(api, input));
+) => reconcilePlaySubscriptions(api, input);
 
 /** A minimal shared subscription config with a Play override. */
 const sub = (overrides: Partial<SubscriptionConfig> = {}): SubscriptionConfig => {
@@ -208,20 +203,16 @@ describe('offerFromConfig', () => {
   });
 
   it('rejects an offer that discounts nothing and one whose phases share no region', () => {
-    const emptyOfferFailure = Effect.runSync(
-      Effect.flip(offerFromConfig('p', 'bp', ['US'], { offerId: 'empty' })),
+    expect(() => offerFromConfig('p', 'bp', ['US'], { offerId: 'empty' })).toThrow(
+      /neither a free trial nor intro/,
     );
-    expect(emptyOfferFailure.message).toMatch(/neither a free trial nor intro/);
-    const splitRegionFailure = Effect.runSync(
-      Effect.flip(
-        offerFromConfig('p', 'bp', ['GB'], {
-          offerId: 'split',
-          freeTrialDuration: 'P1W',
-          introPrices: { US: { priceMicros: '1', currency: 'USD' } },
-        }),
-      ),
-    );
-    expect(splitRegionFailure.message).toMatch(/no region common/);
+    expect(() =>
+      offerFromConfig('p', 'bp', ['GB'], {
+        offerId: 'split',
+        freeTrialDuration: 'P1W',
+        introPrices: { US: { priceMicros: '1', currency: 'USD' } },
+      }),
+    ).toThrow(/no region common/);
   });
 });
 

@@ -1,6 +1,6 @@
-import { FileSystem, Path } from '@effect/platform';
-import type { PlatformError } from '@effect/platform/Error';
-import { Effect } from 'effect';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { pathExists } from '../path-exists.js';
 import type { MigrationResult } from '../types/migrate.js';
 
 type WriteOptions = Readonly<{
@@ -14,27 +14,41 @@ type WriteOutcome = Readonly<{
   readonly skipped: string[];
 }>;
 
+function shouldKeepExistingFile(artifactExists: boolean, isForced: boolean): boolean {
+  if (artifactExists == false) {
+    return false;
+  }
+
+  return isForced == false;
+}
+
 /** Write or classify migration artifacts under the requested output directory. */
-export const writeArtifacts = (
+export async function writeArtifacts(
   migration: MigrationResult,
   writeOptions: WriteOptions,
-): Effect.Effect<WriteOutcome, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const writtenArtifacts: string[] = [];
-    const skippedArtifacts: string[] = [];
-    for (const migrationArtifact of migration.artifacts) {
-      const artifactPath = pathService.join(writeOptions.outDir, migrationArtifact.path);
-      const artifactExists = yield* fileSystem.exists(artifactPath);
-      if (artifactExists && writeOptions.force !== true) {
-        skippedArtifacts.push(migrationArtifact.path);
-        continue;
-      }
-      if (writeOptions.dryRun !== true) {
-        yield* fileSystem.writeFileString(artifactPath, migrationArtifact.contents);
-      }
-      writtenArtifacts.push(migrationArtifact.path);
+): Promise<WriteOutcome> {
+  const writtenArtifacts: string[] = [];
+  const skippedArtifacts: string[] = [];
+
+  for (const migrationArtifact of migration.artifacts) {
+    const artifactPath = join(writeOptions.outDir, migrationArtifact.path);
+    const artifactExists = await pathExists(artifactPath);
+    const isForced = writeOptions.force == true;
+    const shouldKeepExisting = shouldKeepExistingFile(artifactExists, isForced);
+
+    if (shouldKeepExisting) {
+      skippedArtifacts.push(migrationArtifact.path);
+      continue;
     }
-    return { written: writtenArtifacts, skipped: skippedArtifacts };
-  });
+
+    const isDryRun = writeOptions.dryRun == true;
+
+    if (isDryRun == false) {
+      await writeFile(artifactPath, migrationArtifact.contents);
+    }
+
+    writtenArtifacts.push(migrationArtifact.path);
+  }
+
+  return { written: writtenArtifacts, skipped: skippedArtifacts };
+}

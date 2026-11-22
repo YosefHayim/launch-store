@@ -1,24 +1,23 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { describePlayRelease, PlayTracksCommandInputSchema } from './playTracksCommand.js';
 
 describe('PlayTracksCommandInputSchema', () => {
   it('decodes each Commander operation without unset option fields', () => {
     expect(
-      Schema.decodeUnknownSync(PlayTracksCommandInputSchema)({
+      PlayTracksCommandInputSchema({
         operation: 'status',
         json: false,
       }),
     ).toEqual({ operation: 'status', json: false });
     expect(
-      Schema.decodeUnknownSync(PlayTracksCommandInputSchema)({
+      PlayTracksCommandInputSchema({
         operation: 'promote',
         track: 'production',
         yes: true,
       }),
     ).toEqual({ operation: 'promote', track: 'production', yes: true });
     expect(
-      Schema.decodeUnknownSync(PlayTracksCommandInputSchema)({
+      PlayTracksCommandInputSchema({
         operation: 'promote',
         track: 'internal',
         versionCode: '8',
@@ -33,7 +32,7 @@ describe('PlayTracksCommandInputSchema', () => {
       yes: true,
     });
     expect(
-      Schema.decodeUnknownSync(PlayTracksCommandInputSchema)({
+      PlayTracksCommandInputSchema({
         operation: 'testers',
         track: 'internal',
         yes: false,
@@ -43,7 +42,7 @@ describe('PlayTracksCommandInputSchema', () => {
 
   it('rejects explicit undefined exact optional fields', () => {
     expect(() =>
-      Schema.decodeUnknownSync(PlayTracksCommandInputSchema)({
+      PlayTracksCommandInputSchema({
         operation: 'promote',
         app: undefined,
         track: 'production',

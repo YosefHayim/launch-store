@@ -1,11 +1,11 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { loadConfig } from '../config/config.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
 import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import { readLaunchDirectories } from '../services/platform/paths.js';
 import type { AppDescriptor } from '../types/app.js';
-import type { MigrationNote, MigrationResult } from '../types/migrate.js';
+import type { MigrationNote, MigrationNoteLevel, MigrationResult } from '../types/migrate.js';
 import { migrateEas } from './eas.js';
 import { migrateFastlane } from './fastlane.js';
 import { renderReport } from './report.js';
@@ -13,14 +13,12 @@ import { writeArtifacts } from './write.js';
 
 const REPORT_FILE = 'migration-report.md';
 
-export const MigrateCommandInputSchema = Schema.Struct({
-  source: Schema.Literal('eas', 'fastlane'),
-  force: Schema.Boolean,
-  dryRun: Schema.Boolean,
-  out: Schema.optional(Schema.String),
-});
-
-type MigrateCommandInput = Schema.Schema.Type<typeof MigrateCommandInputSchema>;
+export type MigrateCommandInput = {
+  source: 'eas' | 'fastlane';
+  force: boolean;
+  dryRun: boolean;
+  out?: string;
+};
 
 type MigrateCommandFailure = Readonly<{
   readonly _tag: 'MigrateCommandFailure';
@@ -29,127 +27,230 @@ type MigrateCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-const makeMigrateCommandFailure = Data.tagged<MigrateCommandFailure>('MigrateCommandFailure');
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
 
-type MigrateCommandRequirements = FileSystem.FileSystem | LaunchPathsService | Logger | Path.Path;
+  if (typeof candidate != 'object') {
+    return false;
+  }
 
-const readMigration = (
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
+  const field = record[fieldName];
+
+  if (typeof field != 'boolean') {
+    throw new Error(`${fieldName} must be a boolean`);
+  }
+
+  return field;
+}
+
+function readOptionalString(record: Record<string, unknown>, fieldName: string): string | null {
+  if (fieldName in record == false) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field == 'undefined') {
+    return null;
+  }
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  return field;
+}
+
+function readMigrationSource(record: Record<string, unknown>): MigrateCommandInput['source'] {
+  const field = record['source'];
+  const isEas = field == 'eas';
+
+  if (isEas) {
+    return 'eas';
+  }
+
+  const isFastlane = field == 'fastlane';
+
+  if (isFastlane) {
+    return 'fastlane';
+  }
+
+  throw new Error('source must be eas or fastlane');
+}
+
+export function decodeMigrateCommandInput(rawCommandInput: unknown): MigrateCommandInput {
+  if (isRecord(rawCommandInput) == false) {
+    throw new Error('Migrate command input must be an object.');
+  }
+
+  const commandInput: MigrateCommandInput = {
+    source: readMigrationSource(rawCommandInput),
+    force: readRequiredBoolean(rawCommandInput, 'force'),
+    dryRun: readRequiredBoolean(rawCommandInput, 'dryRun'),
+  };
+  const outputDirectory = readOptionalString(rawCommandInput, 'out');
+
+  if (outputDirectory != null) {
+    commandInput.out = outputDirectory;
+  }
+
+  return commandInput;
+}
+
+export const MigrateCommandInputSchema = decodeMigrateCommandInput;
+
+function makeMigrateCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause?: unknown;
+}): MigrateCommandFailure {
+  return { _tag: 'MigrateCommandFailure', ...fields };
+}
+
+async function readMigration(
   source: MigrateCommandInput['source'],
   workingDirectory: string,
   apps: AppDescriptor[],
-) => {
-  switch (source) {
-    case 'eas':
-      return migrateEas(workingDirectory, apps);
-    case 'fastlane':
-      return migrateFastlane(workingDirectory, apps);
+): Promise<MigrationResult> {
+  if (source == 'eas') {
+    return migrateEas(workingDirectory, apps);
   }
-};
 
-const printMigrationNotes = (
-  logger: Logger,
-  notes: readonly MigrationNote[],
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    for (const migrationNote of notes) {
-      switch (migrationNote.level) {
-        case 'mapped':
-          yield* logger.ok(migrationNote.message);
-          break;
-        case 'manual':
-          yield* logger.warn(migrationNote.message);
-          break;
-        case 'skipped':
-          yield* logger.skip(migrationNote.message);
-          break;
-        case 'info':
-          yield* logger.note(migrationNote.message);
-          break;
-      }
-    }
-  });
+  return migrateFastlane(workingDirectory, apps);
+}
 
-const previewMigration = (
-  logger: Logger,
-  migration: MigrationResult,
-  outputDirectory: string,
-  force: boolean,
-): Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const writeOutcome = yield* writeArtifacts(migration, {
-      outDir: outputDirectory,
-      force,
-      dryRun: true,
-    });
-    for (const writtenPath of writeOutcome.written) {
-      yield* logger.step('would write', writtenPath);
-    }
-    for (const skippedPath of writeOutcome.skipped) {
-      yield* logger.tip(`${skippedPath} exists - re-run with --force to overwrite`);
-    }
-    yield* logger.note(`Dry run - nothing written. ${REPORT_FILE} would summarize this migration.`);
-  });
+function printNote(logger: Logger, migrationNote: MigrationNote): void {
+  const level: MigrationNoteLevel = migrationNote.level;
 
-const persistMigration = (
+  if (level == 'mapped') {
+    logger.ok(migrationNote.message);
+    return;
+  }
+
+  if (level == 'manual') {
+    logger.warn(migrationNote.message);
+    return;
+  }
+
+  if (level == 'skipped') {
+    logger.skip(migrationNote.message);
+    return;
+  }
+
+  logger.note(migrationNote.message);
+}
+
+function printMigrationNotes(logger: Logger, notes: readonly MigrationNote[]): void {
+  for (const migrationNote of notes) {
+    printNote(logger, migrationNote);
+  }
+}
+
+async function previewMigration(
   logger: Logger,
   migration: MigrationResult,
   outputDirectory: string,
   force: boolean,
-): Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    yield* fileSystem.makeDirectory(outputDirectory, { recursive: true });
-    const writeOutcome = yield* writeArtifacts(migration, {
-      outDir: outputDirectory,
-      force,
-      dryRun: false,
-    });
-    const reportMarkdown = yield* renderReport(migration);
-    yield* fileSystem.writeFileString(
-      pathService.join(outputDirectory, REPORT_FILE),
-      reportMarkdown,
-    );
-    const receiptLines = [
-      ...writeOutcome.written.map((writtenPath) => `[OK] wrote ${writtenPath}`),
-      ...writeOutcome.skipped.map(
-        (skippedPath) => `[SKIP] kept ${skippedPath} (exists - use --force to overwrite)`,
-      ),
-      `[OK] wrote ${REPORT_FILE}`,
-    ];
-    let receiptTitle = 'Migrated';
-    if (writeOutcome.skipped.length > 0) receiptTitle = 'Migrated (some files kept)';
-    yield* logger.box(receiptTitle, receiptLines);
-    yield* logger.tip('Review the files, then run `launch doctor` to check your setup.');
+): Promise<void> {
+  const writeOutcome = await writeArtifacts(migration, {
+    outDir: outputDirectory,
+    force,
+    dryRun: true,
   });
 
-export const migrateCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, MigrateCommandFailure, MigrateCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(MigrateCommandInputSchema)(rawCommandInput);
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
-    const migration = yield* readMigration(
+  for (const writtenPath of writeOutcome.written) {
+    logger.step('would write', writtenPath);
+  }
+
+  for (const skippedPath of writeOutcome.skipped) {
+    logger.tip(`${skippedPath} exists - re-run with --force to overwrite`);
+  }
+
+  logger.note(`Dry run - nothing written. ${REPORT_FILE} would summarize this migration.`);
+}
+
+function wroteLine(writtenPath: string): string {
+  return `[OK] wrote ${writtenPath}`;
+}
+
+function keptLine(skippedPath: string): string {
+  return `[SKIP] kept ${skippedPath} (exists - use --force to overwrite)`;
+}
+
+async function persistMigration(
+  logger: Logger,
+  migration: MigrationResult,
+  outputDirectory: string,
+  force: boolean,
+): Promise<void> {
+  await mkdir(outputDirectory, { recursive: true });
+  const writeOutcome = await writeArtifacts(migration, {
+    outDir: outputDirectory,
+    force,
+    dryRun: false,
+  });
+  const reportMarkdown = renderReport(migration);
+
+  await writeFile(join(outputDirectory, REPORT_FILE), reportMarkdown);
+
+  const receiptLines = [
+    ...writeOutcome.written.map(wroteLine),
+    ...writeOutcome.skipped.map(keptLine),
+    `[OK] wrote ${REPORT_FILE}`,
+  ];
+  let receiptTitle = 'Migrated';
+  const keptExistingFiles = writeOutcome.skipped.length > 0;
+
+  if (keptExistingFiles) {
+    receiptTitle = 'Migrated (some files kept)';
+  }
+
+  logger.box(receiptTitle, receiptLines);
+  logger.tip('Review the files, then run `launch doctor` to check your setup.');
+}
+
+export async function migrateCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodeMigrateCommandInput(rawCommandInput);
+    const launchPaths = readLaunchDirectories();
+    const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+    const migration = await readMigration(
       commandInput.source,
       launchPaths.workingDirectory,
       loadedConfiguration.apps,
     );
-    const logger = yield* createLogger(false);
-    yield* printMigrationNotes(logger, migration.notes);
-    yield* logger.gap();
+    const logger = createLogger(false);
+
+    printMigrationNotes(logger, migration.notes);
+    logger.gap();
+
     let outputDirectory = launchPaths.workingDirectory;
-    if (commandInput.out !== undefined) outputDirectory = commandInput.out;
-    if (commandInput.dryRun) {
-      return yield* previewMigration(logger, migration, outputDirectory, commandInput.force);
+
+    if (commandInput.out != null) {
+      outputDirectory = commandInput.out;
     }
-    return yield* persistMigration(logger, migration, outputDirectory, commandInput.force);
-  }).pipe(
-    Effect.mapError((cause) =>
-      makeMigrateCommandFailure({
-        operation: 'migrate project configuration',
-        message: errorMessage(cause),
-        cause,
-      }),
-    ),
-  );
+
+    if (commandInput.dryRun) {
+      await previewMigration(logger, migration, outputDirectory, commandInput.force);
+      return;
+    }
+
+    await persistMigration(logger, migration, outputDirectory, commandInput.force);
+  } catch (cause) {
+    throw makeMigrateCommandFailure({
+      operation: 'migrate project configuration',
+      message: errorMessage(cause),
+      cause,
+    });
+  }
+}

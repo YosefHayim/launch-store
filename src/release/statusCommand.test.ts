@@ -1,23 +1,18 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { NodeHttpClient } from '@effect/platform-node';
-import { Effect, Layer, Schema } from 'effect';
-import { describe, expect, it, vi } from 'vitest';
-import { makeReleaseApiFake } from '@testkit/ascReleaseApi.testkit.js';
-import { makeFakeAscClient } from '@testkit/storeClients.testkit.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
-import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
-import { makeLaunchLoggerTest } from '../services/platform/logger.js';
-import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
-import { CommandExitSchema, type CommandExit } from '../terminal/commandExit.js';
-import type { AppStoreVersionResource, BuildResource } from '../types/appleCatalog.js';
+import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { resetLogger, useLoggerSink } from '@/services/platform/logger.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
+import { useAppleStoreClientFactory } from '@/services/stores/appleStoreClient.js';
+import { isCommandExit } from '@/terminal/commandExit.js';
+import type { AppStoreVersionResource, BuildResource } from '@/types/appleCatalog.js';
 import type { AscReleaseApi } from './appStoreRelease.js';
 import { type StatusCommandFlags, statusCommandProgram } from './statusCommand.js';
 
@@ -64,21 +59,101 @@ type StatusRun = Readonly<{
   logLines: string[];
 }>;
 
-const isCommandExitFailure = (failure: unknown): failure is CommandExit =>
-  Schema.is(CommandExitSchema)(failure);
+function outcomeOfFailure(failure: unknown): Omit<StatusRun, 'logLines'> {
+  if (isCommandExit(failure)) {
+    let failureMessage: string | null = null;
 
-const outcomeOfFailure = (failure: unknown): Omit<StatusRun, 'logLines'> => {
-  if (isCommandExitFailure(failure)) {
-    return { exitCode: failure.exitCode, failureMessage: failure.message ?? null };
+    if (failure.message != null) {
+      failureMessage = failure.message;
+    }
+
+    return { exitCode: failure.exitCode, failureMessage };
   }
-  return { exitCode: 1, failureMessage: errorMessage(failure) };
-};
 
-const runStatusCommand = async (
+  return { exitCode: 1, failureMessage: errorMessage(failure) };
+}
+
+function promiseValue<Value>(value: Value): Promise<Value> {
+  return Promise.resolve(value);
+}
+
+function makeReleaseApiFake(methodOverrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
+  const baseApi = {
+    getAppId: vi.fn(function readAppId() {
+      return promiseValue('app1');
+    }),
+    getLatestMarketingVersion: vi.fn(function readMarketingVersion() {
+      return promiseValue(null);
+    }),
+    listBuilds: vi.fn(function readBuilds() {
+      return promiseValue([]);
+    }),
+    findBuild: vi.fn(function readBuild() {
+      return promiseValue({ id: 'b-1', usesNonExemptEncryption: null });
+    }),
+    findBuildByVersion: vi.fn(function readBuildByVersion() {
+      return promiseValue(null);
+    }),
+    setBuildUsesNonExemptEncryption: vi.fn(function setEncryption() {
+      return promiseValue(undefined);
+    }),
+    listAppStoreVersions: vi.fn(function readVersions() {
+      return promiseValue([liveVersion()]);
+    }),
+    createAppStoreVersion: vi.fn(function createVersion() {
+      return promiseValue(liveVersion());
+    }),
+    updateAppStoreVersion: vi.fn(function updateVersion() {
+      return promiseValue(undefined);
+    }),
+    selectBuildForVersion: vi.fn(function selectBuild() {
+      return promiseValue(undefined);
+    }),
+    listAppStoreVersionLocalizations: vi.fn(function readLocalizations() {
+      return promiseValue([]);
+    }),
+    createAppStoreVersionLocalization: vi.fn(function createLocalization() {
+      return promiseValue({ id: 'loc-new', locale: 'en-US' });
+    }),
+    updateAppStoreVersionLocalization: vi.fn(function updateLocalization() {
+      return promiseValue(undefined);
+    }),
+    getPhasedRelease: vi.fn(function readPhasedRelease() {
+      return promiseValue(null);
+    }),
+    createPhasedRelease: vi.fn(function createPhasedRelease() {
+      return promiseValue({ id: 'ph-new', phasedReleaseState: 'ACTIVE' });
+    }),
+    deletePhasedRelease: vi.fn(function deletePhasedRelease() {
+      return promiseValue(undefined);
+    }),
+    listReviewSubmissions: vi.fn(function readReviews() {
+      return promiseValue([]);
+    }),
+    createReviewSubmission: vi.fn(function createReview() {
+      return promiseValue({ id: 'rs1', state: 'READY_FOR_REVIEW' });
+    }),
+    addReviewSubmissionItem: vi.fn(function addReviewItem() {
+      return promiseValue(undefined);
+    }),
+    submitReviewSubmission: vi.fn(function submitReview() {
+      return promiseValue(undefined);
+    }),
+    getReviewSubmission: vi.fn(function readReview() {
+      return promiseValue({ id: 'rs1', state: 'WAITING_FOR_REVIEW' });
+    }),
+    createAppStoreVersionReleaseRequest: vi.fn(function releaseVersion() {
+      return promiseValue(undefined);
+    }),
+  } satisfies AscReleaseApi;
+  return { ...baseApi, ...methodOverrides };
+}
+
+async function runStatusCommand(
   flags: StatusCommandFlags,
   appleReleaseApi: AscReleaseApi,
   appJsonText = APP_JSON_TEXT,
-): Promise<StatusRun> => {
+): Promise<StatusRun> {
   const homeDirectory = createTemporaryHomeDirectory();
   const logLines: string[] = [];
 
@@ -87,36 +162,43 @@ const runStatusCommand = async (
     mkdirSync(workDirectory, { recursive: true });
     writeFileSync(join(workDirectory, 'app.json'), appJsonText);
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE_TEXT);
-
-    const appleStoreClientTest = Layer.succeed(AppleStoreClientService, {
-      createClient: () => Effect.succeed(appleReleaseApi),
-      createEffectClient: () => Effect.succeed(makeFakeAscClient([])),
-      createReleaseAttributesClient: () => Effect.succeed(makeFakeAscClient([])),
+    useLaunchDirectories({ homeDirectory, workingDirectory: workDirectory });
+    useSecretStore(new Map([[`asc-p8:${ASC_KEY_ID}`, P8_SECRET]]));
+    useLoggerSink(function writeLine(text: string) {
+      logLines.push(text);
     });
-    const statusProgram = statusCommandProgram(flags).pipe(
-      Effect.match({
-        onSuccess: () => ({ exitCode: 0, failureMessage: null }),
-        onFailure: outcomeOfFailure,
-      }),
-      Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      Effect.provide(NodeHttpClient.layer),
-      Effect.provide(makeLaunchEnvironmentTest({})),
-      Effect.provide(makeLaunchSecretStoreTest(new Map([[`asc-p8:${ASC_KEY_ID}`, P8_SECRET]]))),
-      Effect.provide(makeLaunchLoggerTest(logLines)),
-      Effect.provide(appleStoreClientTest),
-    );
+    useAppleStoreClientFactory(function createClient() {
+      return appleReleaseApi as ReturnType<
+        typeof import('@/services/stores/appleStoreClient.js').AppleStoreClientService.createClient
+      >;
+    });
 
-    const outcome = await Effect.runPromise(statusProgram);
-    return { ...outcome, logLines };
+    try {
+      await statusCommandProgram(flags);
+      return { exitCode: 0, failureMessage: null, logLines };
+    } catch (failure) {
+      return { ...outcomeOfFailure(failure), logLines };
+    }
   } finally {
+    resetLaunchDirectories();
+    resetSecretStore();
+    resetLogger();
+    useAppleStoreClientFactory(null);
     removeTemporaryHomeDirectory(homeDirectory);
   }
-};
+}
+
+afterEach(function resetStatusDoubles() {
+  resetLaunchDirectories();
+  resetSecretStore();
+  resetLogger();
+  useAppleStoreClientFactory(null);
+});
 
 describe('statusCommandProgram - plain status', () => {
   it('prints the status line and exits 0 when the version is live', async () => {
     const api = makeReleaseApiFake({
-      listAppStoreVersions: vi.fn(() => Effect.succeed([liveVersion()])),
+      listAppStoreVersions: vi.fn(() => Promise.resolve([liveVersion()])),
     });
 
     const run = await runStatusCommand({}, api);
@@ -128,7 +210,7 @@ describe('statusCommandProgram - plain status', () => {
   it('annotates an attached build that is still processing', async () => {
     const api = makeReleaseApiFake({
       listAppStoreVersions: vi.fn(() =>
-        Effect.succeed([
+        Promise.resolve([
           liveVersion({ appStoreState: 'IN_REVIEW', attachedBuildProcessingState: 'PROCESSING' }),
         ]),
       ),
@@ -140,9 +222,9 @@ describe('statusCommandProgram - plain status', () => {
   });
 
   it('never lists builds without --builds', async () => {
-    const listBuilds = vi.fn(() => Effect.succeed([makeBuild()]));
+    const listBuilds = vi.fn(() => Promise.resolve([makeBuild()]));
     const api = makeReleaseApiFake({
-      listAppStoreVersions: vi.fn(() => Effect.succeed([liveVersion()])),
+      listAppStoreVersions: vi.fn(() => Promise.resolve([liveVersion()])),
       listBuilds,
     });
 
@@ -153,9 +235,9 @@ describe('statusCommandProgram - plain status', () => {
 
   it('lists each recent build in its own row with --builds, looking up the app id once', async () => {
     const api = makeReleaseApiFake({
-      listAppStoreVersions: vi.fn(() => Effect.succeed([liveVersion()])),
+      listAppStoreVersions: vi.fn(() => Promise.resolve([liveVersion()])),
       listBuilds: vi.fn(() =>
-        Effect.succeed([
+        Promise.resolve([
           makeBuild({ id: 'b-43', version: '43', uploadedDate: '2026-11-03T10:00:00Z' }),
           makeBuild({ id: 'b-42', version: '42', uploadedDate: '2026-10-20T10:00:00Z' }),
         ]),
@@ -221,7 +303,7 @@ describe('statusCommandProgram - usage errors', () => {
 describe('statusCommandProgram - --watch and --build', () => {
   it('exits with the verdict code when the first read is already terminal', async () => {
     const api = makeReleaseApiFake({
-      listAppStoreVersions: vi.fn(() => Effect.succeed([liveVersion()])),
+      listAppStoreVersions: vi.fn(() => Promise.resolve([liveVersion()])),
     });
 
     const run = await runStatusCommand({ watch: true }, api);
@@ -231,7 +313,7 @@ describe('statusCommandProgram - --watch and --build', () => {
 
   it('reports the build as ready once App Store Connect reports it VALID', async () => {
     const api = makeReleaseApiFake({
-      findBuildByVersion: vi.fn(() => Effect.succeed(makeBuild({ processingState: 'VALID' }))),
+      findBuildByVersion: vi.fn(() => Promise.resolve(makeBuild({ processingState: 'VALID' }))),
     });
 
     const run = await runStatusCommand({ build: '42', watch: true }, api);
@@ -242,7 +324,7 @@ describe('statusCommandProgram - --watch and --build', () => {
 
   it('fails with exit 1 when App Store Connect rejects the build', async () => {
     const api = makeReleaseApiFake({
-      findBuildByVersion: vi.fn(() => Effect.succeed(makeBuild({ processingState: 'FAILED' }))),
+      findBuildByVersion: vi.fn(() => Promise.resolve(makeBuild({ processingState: 'FAILED' }))),
     });
 
     const run = await runStatusCommand({ build: '42', watch: true }, api);
@@ -253,7 +335,7 @@ describe('statusCommandProgram - --watch and --build', () => {
 
   it('prints ok true with the build under --json when the build is VALID', async () => {
     const api = makeReleaseApiFake({
-      findBuildByVersion: vi.fn(() => Effect.succeed(makeBuild({ processingState: 'VALID' }))),
+      findBuildByVersion: vi.fn(() => Promise.resolve(makeBuild({ processingState: 'VALID' }))),
     });
 
     const run = await runStatusCommand({ build: '42', watch: true, json: true }, api);
@@ -263,7 +345,7 @@ describe('statusCommandProgram - --watch and --build', () => {
 
   it('prints ok false with the error under --json when the build is rejected', async () => {
     const api = makeReleaseApiFake({
-      findBuildByVersion: vi.fn(() => Effect.succeed(makeBuild({ processingState: 'INVALID' }))),
+      findBuildByVersion: vi.fn(() => Promise.resolve(makeBuild({ processingState: 'INVALID' }))),
     });
 
     const run = await runStatusCommand({ build: '42', watch: true, json: true }, api);

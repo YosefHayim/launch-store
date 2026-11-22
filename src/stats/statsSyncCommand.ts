@@ -1,16 +1,11 @@
-import { Effect } from 'effect';
-import { LaunchLogger, type Logger } from '../services/platform/logger.js';
-import { makeCommandExit, type CommandExit } from '../terminal/commandExit.js';
-import {
-  endWithUsageFailure,
-  makeUsageFailure,
-  type UsageFailure,
-} from '../terminal/usageFailure.js';
+import { createLogger } from '../services/platform/logger.js';
+import { makeCommandExit } from '../terminal/commandExit.js';
+import { makeUsageFailure, type UsageFailure } from '../terminal/usageFailure.js';
 import type { AppFeedSyncReport } from '../types/stats.js';
-import { DEFAULT_SYNC_DAYS, MAX_SYNC_DAYS } from './dateRange.js';
-import { syncStats, type StatsSyncRequirements } from './syncStats.js';
 import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
 import type { InvalidAppKeyFailure } from '../services/platform/paths.js';
+import { DEFAULT_SYNC_DAYS, MAX_SYNC_DAYS } from './dateRange.js';
+import { syncStats } from './syncStats.js';
 import type { SyncLockFailure } from './syncLock.js';
 
 interface StatsSyncCommandRequest {
@@ -21,71 +16,175 @@ interface StatsSyncCommandRequest {
 
 type StatsSyncCommandFailure = InvalidAppKeyFailure | DocumentFileFailure | SyncLockFailure;
 
+// A whole number written with digits only.
 const DAYS_PATTERN = /^[0-9]+$/;
 
-export const parseDaysFlag = (
-  daysFlag: string | undefined,
-): Effect.Effect<number, UsageFailure> => {
-  const isDaysFlagMissing = daysFlag === undefined;
-  if (isDaysFlagMissing) return Effect.succeed(DEFAULT_SYNC_DAYS);
+function isUsageFailure(cause: unknown): cause is UsageFailure {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'UsageFailure';
+}
+
+function isStatsAppNotFound(
+  cause: unknown,
+): cause is { _tag: 'StatsAppNotFoundFailure'; message: string } {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  if (cause._tag != 'StatsAppNotFoundFailure') {
+    return false;
+  }
+
+  if ('message' in cause == false) {
+    return false;
+  }
+
+  return typeof cause.message == 'string';
+}
+
+function finishUsageFailure(usageFailure: UsageFailure, isJson: boolean): never {
+  const logger = createLogger(false);
+  const isJsonOutput = isJson;
+
+  if (isJsonOutput) {
+    logger.line(JSON.stringify({ ok: false, error: usageFailure.message }));
+  }
+
+  const isHumanOutput = isJsonOutput == false;
+
+  if (isHumanOutput) {
+    logger.error(usageFailure.message);
+  }
+
+  throw makeCommandExit({ exitCode: 2, message: usageFailure.message });
+}
+
+function isDaysInRange(daysFlag: string): boolean {
   const isWholeNumber = DAYS_PATTERN.test(daysFlag);
+
+  if (isWholeNumber == false) {
+    return false;
+  }
+
   const days = Number(daysFlag);
-  const isInRange = days >= 1 && days <= MAX_SYNC_DAYS;
-  if (isWholeNumber && isInRange) return Effect.succeed(days);
-  const daysFailure = makeUsageFailure({
+  const isBelowOne = days < 1;
+
+  if (isBelowOne) {
+    return false;
+  }
+
+  return days <= MAX_SYNC_DAYS;
+}
+
+export function parseDaysFlag(daysFlag: string | undefined): number {
+  const isDaysFlagMissing = daysFlag == null;
+
+  if (isDaysFlagMissing) {
+    return DEFAULT_SYNC_DAYS;
+  }
+
+  const isFlagValid = isDaysInRange(daysFlag);
+
+  if (isFlagValid) {
+    return Number(daysFlag);
+  }
+
+  throw makeUsageFailure({
     message: `--days must be a whole number from 1 to ${MAX_SYNC_DAYS}.`,
   });
-  return Effect.fail(daysFailure);
-};
+}
 
-const describeAppFeed = (appFeed: AppFeedSyncReport): string => {
-  const hasMessage = appFeed.message !== null;
+function describeAppFeed(appFeed: AppFeedSyncReport): string {
+  const hasMessage = appFeed.message != null;
+
   if (hasMessage) {
     return `${appFeed.appKey} ${appFeed.feed}: ${appFeed.status} (${appFeed.message})`;
   }
+
   return `${appFeed.appKey} ${appFeed.feed}: ${appFeed.status}`;
-};
+}
 
-const pickAppName = (appFlag: string | undefined): string | null => {
-  const isAppFlagMissing = appFlag === undefined;
-  if (isAppFlagMissing) return null;
+function pickAppName(appFlag: string | undefined): string | null {
+  const isAppFlagMissing = appFlag == null;
+
+  if (isAppFlagMissing) {
+    return null;
+  }
+
   return appFlag;
-};
+}
 
-export const statsSyncProgram = (
-  request: StatsSyncCommandRequest,
-): Effect.Effect<void, CommandExit | StatsSyncCommandFailure, StatsSyncRequirements | Logger> =>
-  Effect.gen(function* () {
-    const logger = yield* LaunchLogger;
-    const days = yield* parseDaysFlag(request.days);
+function isFeedFailed(appFeed: AppFeedSyncReport): boolean {
+  return appFeed.status == 'failed';
+}
+
+function readNotFoundMessage(cause: unknown): string | null {
+  if (isStatsAppNotFound(cause) == false) {
+    return null;
+  }
+
+  return cause.message;
+}
+
+export async function statsSyncProgram(request: StatsSyncCommandRequest): Promise<void> {
+  const logger = createLogger(false);
+
+  try {
+    const days = parseDaysFlag(request.days);
     const appName = pickAppName(request.app);
-    const report = yield* syncStats({ appName, days }).pipe(
-      Effect.catchTag('StatsAppNotFoundFailure', (notFound) => {
-        const notFoundFailure = makeUsageFailure({ message: notFound.message });
-        return Effect.fail(notFoundFailure);
-      }),
-    );
-    const isHumanOutput = !request.isJson;
+    const report = await syncStats({ appName, days });
+    const isHumanOutput = request.isJson == false;
+
     if (request.isJson) {
-      const reportLine = JSON.stringify({ ok: true, ...report });
-      yield* logger.line(reportLine).pipe(Effect.orDie);
+      logger.line(JSON.stringify({ ok: true, ...report }));
     }
+
     if (isHumanOutput) {
       for (const appFeed of report.appFeeds) {
-        yield* logger.line(describeAppFeed(appFeed)).pipe(Effect.orDie);
+        logger.line(describeAppFeed(appFeed));
       }
     }
-    const hasFeedFailed = report.appFeeds.some((appFeed) => appFeed.status === 'failed');
+
+    const hasFeedFailed = report.appFeeds.some(isFeedFailed);
+
     if (hasFeedFailed) {
-      const failedFeedExitCode = 1;
-      const failedFeedExit = makeCommandExit({
-        exitCode: failedFeedExitCode,
+      throw makeCommandExit({
+        exitCode: 1,
         message: 'At least one stats feed failed.',
       });
-      return yield* Effect.fail(failedFeedExit);
     }
-  }).pipe(
-    Effect.catchTag('UsageFailure', (usageFailure) =>
-      endWithUsageFailure(usageFailure, request.isJson),
-    ),
-  );
+  } catch (cause) {
+    const notFoundMessage = readNotFoundMessage(cause);
+
+    if (notFoundMessage != null) {
+      throw finishUsageFailure(makeUsageFailure({ message: notFoundMessage }), request.isJson);
+    }
+
+    if (isUsageFailure(cause)) {
+      throw finishUsageFailure(cause, request.isJson);
+    }
+
+    throw cause;
+  }
+}
+
+export type { StatsSyncCommandFailure, StatsSyncCommandRequest };

@@ -1,4 +1,3 @@
-import { Data, Effect } from 'effect';
 import type {
   BundleIdCapabilityResource,
   BundleIdResource,
@@ -26,113 +25,95 @@ import { appRecordMissing } from '../shared/reconcile.js';
  * `AppStoreConnectClient` so unit tests supply a hand fake without the live client.
  */
 export type AscCatalogApi = {
-  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
-  findBundleId(identifier: string): Effect.Effect<BundleIdResource | null, unknown>;
-  listBundleIdCapabilities(
-    bundleIdResourceId: string,
-  ): Effect.Effect<BundleIdCapabilityResource[], unknown>;
+  getAppId(bundleId: string): Promise<string | null>;
+  findBundleId(identifier: string): Promise<BundleIdResource | null>;
+  listBundleIdCapabilities(bundleIdResourceId: string): Promise<BundleIdCapabilityResource[]>;
   enableCapability(
     bundleIdResourceId: string,
     capabilityType: string,
-  ): Effect.Effect<BundleIdCapabilityResource, unknown>;
-  disableCapability(capabilityId: string): Effect.Effect<void, unknown>;
-  listInAppPurchases(appId: string): Effect.Effect<InAppPurchaseResource[], unknown>;
+  ): Promise<BundleIdCapabilityResource>;
+  disableCapability(capabilityId: string): Promise<void>;
+  listInAppPurchases(appId: string): Promise<InAppPurchaseResource[]>;
   createInAppPurchase(
     appId: string,
-    input: {
+    purchase: {
       productId: string;
       name: string;
       inAppPurchaseType: string;
     },
-  ): Effect.Effect<InAppPurchaseResource, unknown>;
-  listInAppPurchaseLocalizations(iapId: string): Effect.Effect<LocalizationResource[], unknown>;
+  ): Promise<InAppPurchaseResource>;
+  listInAppPurchaseLocalizations(iapId: string): Promise<LocalizationResource[]>;
   createInAppPurchaseLocalization(
     iapId: string,
-    input: {
+    localization: {
       locale: string;
       name: string;
       description?: string | undefined;
     },
-  ): Effect.Effect<LocalizationResource, unknown>;
-  inAppPurchaseHasPrice(iapId: string): Effect.Effect<boolean, unknown>;
+  ): Promise<LocalizationResource>;
+  inAppPurchaseHasPrice(iapId: string): Promise<boolean>;
   findInAppPurchasePricePoint(
     iapId: string,
     territory: string,
     customerPrice: number,
-  ): Effect.Effect<PricePointResource | null, unknown>;
+  ): Promise<PricePointResource | null>;
   createInAppPurchasePriceSchedule(
     iapId: string,
     baseTerritory: string,
     pricePointId: string,
-  ): Effect.Effect<void, unknown>;
-  listSubscriptionGroups(appId: string): Effect.Effect<SubscriptionGroupResource[], unknown>;
-  createSubscriptionGroup(
-    appId: string,
-    referenceName: string,
-  ): Effect.Effect<SubscriptionGroupResource, unknown>;
-  listSubscriptionGroupLocalizations(
-    groupId: string,
-  ): Effect.Effect<LocalizationResource[], unknown>;
+  ): Promise<void>;
+  listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]>;
+  createSubscriptionGroup(appId: string, referenceName: string): Promise<SubscriptionGroupResource>;
+  listSubscriptionGroupLocalizations(groupId: string): Promise<LocalizationResource[]>;
   createSubscriptionGroupLocalization(
     groupId: string,
-    input: {
+    localization: {
       locale: string;
       name: string;
     },
-  ): Effect.Effect<LocalizationResource, unknown>;
-  listSubscriptions(groupId: string): Effect.Effect<SubscriptionResource[], unknown>;
+  ): Promise<LocalizationResource>;
+  listSubscriptions(groupId: string): Promise<SubscriptionResource[]>;
   createSubscription(
     groupId: string,
-    input: {
+    subscription: {
       productId: string;
       name: string;
       subscriptionPeriod: string;
       groupLevel: number;
     },
-  ): Effect.Effect<SubscriptionResource, unknown>;
-  listSubscriptionLocalizations(
-    subscriptionId: string,
-  ): Effect.Effect<LocalizationResource[], unknown>;
+  ): Promise<SubscriptionResource>;
+  listSubscriptionLocalizations(subscriptionId: string): Promise<LocalizationResource[]>;
   createSubscriptionLocalization(
     subscriptionId: string,
-    input: {
+    localization: {
       locale: string;
       name: string;
       description?: string | undefined;
     },
-  ): Effect.Effect<LocalizationResource, unknown>;
-  subscriptionHasPrice(subscriptionId: string): Effect.Effect<boolean, unknown>;
+  ): Promise<LocalizationResource>;
+  subscriptionHasPrice(subscriptionId: string): Promise<boolean>;
   findSubscriptionPricePoint(
     subscriptionId: string,
     territory: string,
     customerPrice: number,
-  ): Effect.Effect<PricePointResource | null, unknown>;
-  createSubscriptionPrice(
-    subscriptionId: string,
-    pricePointId: string,
-  ): Effect.Effect<void, unknown>;
-  getEditableAppInfoId(appId: string): Effect.Effect<string | null, unknown>;
-  listAppInfoLocalizations(appInfoId: string): Effect.Effect<ListingLocalization[], unknown>;
+  ): Promise<PricePointResource | null>;
+  createSubscriptionPrice(subscriptionId: string, pricePointId: string): Promise<void>;
+  getEditableAppInfoId(appId: string): Promise<string | null>;
+  listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]>;
   createAppInfoLocalization(
     appInfoId: string,
     locale: string,
     fields: Record<string, string>,
-  ): Effect.Effect<void, unknown>;
-  updateAppInfoLocalization(
-    localizationId: string,
-    fields: Record<string, string>,
-  ): Effect.Effect<void, unknown>;
-  getEditableVersionId(appId: string): Effect.Effect<string | null, unknown>;
-  listVersionLocalizations(versionId: string): Effect.Effect<ListingLocalization[], unknown>;
+  ): Promise<void>;
+  updateAppInfoLocalization(localizationId: string, fields: Record<string, string>): Promise<void>;
+  getEditableVersionId(appId: string): Promise<string | null>;
+  listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
   createVersionLocalization(
     versionId: string,
     locale: string,
     fields: Record<string, string>,
-  ): Effect.Effect<void, unknown>;
-  updateVersionLocalization(
-    localizationId: string,
-    fields: Record<string, string>,
-  ): Effect.Effect<void, unknown>;
+  ): Promise<void>;
+  updateVersionLocalization(localizationId: string, fields: Record<string, string>): Promise<void>;
 };
 
 /** Full catalog reconcile inputs (capabilities + products + optional listing). */
@@ -160,9 +141,9 @@ type CatalogPricePointFailure = Readonly<{
   readonly message: string;
 }>;
 
-const makeCatalogPricePointFailure = Data.tagged<CatalogPricePointFailure>(
-  'CatalogPricePointFailure',
-);
+function makeCatalogPricePointFailure(message: string): CatalogPricePointFailure {
+  return { _tag: 'CatalogPricePointFailure', message };
+}
 
 /** Stand-in parent id when a create was planned only (dry-run) so dependent plan lines still chain. */
 export const DRY_RUN_ID = '(dry-run)';
@@ -189,371 +170,683 @@ type CatalogReconcileContext = ActionLog & {
 };
 
 /** True when an action completed or was intentionally planned (safe parent for dependent work). */
-export const succeededOrPlanned = (status: ActionStatus): boolean => {
-  if (status === 'applied') return true;
-  return status === 'planned';
-};
+export function succeededOrPlanned(status: ActionStatus): boolean {
+  if (status == 'applied') {
+    return true;
+  }
+
+  return status == 'planned';
+}
 
 /**
  * Plan an action, then apply it unless dry-run. Destructive writes stay skipped without
  * `allowDestructive`. Write failures mark the action `failed` and do not abort the walk.
  */
-export const act = <CreatedResource>(
+export async function act<CreatedResource>(
   actionLog: ActionLog,
   description: string,
   destructive: boolean,
-  performWrite: () => Effect.Effect<CreatedResource, unknown>,
-): Effect.Effect<{
+  performWrite: () => Promise<CreatedResource>,
+): Promise<{
   status: ActionStatus;
   actionValue?: CreatedResource;
-}> => {
+}> {
   const plannedAction: PlannedAction = { description, destructive, status: 'planned' };
   actionLog.actions.push(plannedAction);
-  if (actionLog.dryRun) return Effect.succeed({ status: plannedAction.status });
-  if (destructive && !actionLog.allowDestructive) {
-    plannedAction.status = 'skipped';
-    return Effect.succeed({ status: 'skipped' });
-  }
-  return performWrite().pipe(
-    Effect.match({
-      onFailure: (writeFailure) => {
-        plannedAction.status = 'failed';
-        plannedAction.error = errorMessage(writeFailure);
-        return { status: 'failed' as const };
-      },
-      onSuccess: (createdResource) => {
-        plannedAction.status = 'applied';
-        return { status: 'applied' as const, actionValue: createdResource };
-      },
-    }),
-  );
-};
 
-const skipAction = (actionLog: ActionLog, description: string): void => {
+  const isDryRun = actionLog.dryRun == true;
+
+  if (isDryRun) {
+    return { status: plannedAction.status };
+  }
+
+  const isDestructive = destructive == true;
+
+  if (isDestructive) {
+    const allowsDestructive = actionLog.allowDestructive == true;
+
+    if (allowsDestructive == false) {
+      plannedAction.status = 'skipped';
+      return { status: 'skipped' };
+    }
+  }
+
+  try {
+    const createdResource = await performWrite();
+    plannedAction.status = 'applied';
+    return { status: 'applied', actionValue: createdResource };
+  } catch (writeFailure) {
+    plannedAction.status = 'failed';
+    plannedAction.error = errorMessage(writeFailure);
+    return { status: 'failed' };
+  }
+}
+
+function skipAction(actionLog: ActionLog, description: string): void {
   actionLog.actions.push({ description, destructive: false, status: 'skipped' });
-};
+}
 
 /** Parent id after a create act: live id, dry-run placeholder, or undefined when create failed. */
-const parentIdAfterCreate = <CreatedResource extends { readonly id: string }>(createAction: {
+function parentIdAfterCreate<CreatedResource extends { readonly id: string }>(createAction: {
   readonly status: ActionStatus;
   readonly actionValue?: CreatedResource;
-}): string | undefined => {
-  if (!succeededOrPlanned(createAction.status)) return undefined;
-  if (createAction.actionValue !== undefined) return createAction.actionValue.id;
-  return DRY_RUN_ID;
-};
+}): string | undefined {
+  const canChain = succeededOrPlanned(createAction.status);
 
-const territoryForPrice = (productPrice: ProductPrice): string => {
-  if (productPrice.baseTerritory !== undefined) return productPrice.baseTerritory;
+  if (canChain == false) {
+    return undefined;
+  }
+
+  const createdResource = createAction.actionValue;
+  const hasCreatedResource = createdResource != null;
+
+  if (hasCreatedResource) {
+    return createdResource.id;
+  }
+
+  return DRY_RUN_ID;
+}
+
+function territoryForPrice(productPrice: ProductPrice): string {
+  const baseTerritory = productPrice.baseTerritory;
+  const hasBaseTerritory = baseTerritory != null;
+
+  if (hasBaseTerritory) {
+    return baseTerritory;
+  }
+
   return DEFAULT_TERRITORY;
-};
+}
+
+function readUnpricedProduct(
+  productPrice: ProductPrice | undefined,
+  alreadyPriced: boolean,
+): ProductPrice | null {
+  if (productPrice == null) {
+    return null;
+  }
+
+  if (alreadyPriced) {
+    return null;
+  }
+
+  return productPrice;
+}
 
 /** Plan/apply the first price for a product that still lacks one. */
-const assignInitialPrice = (
+async function assignInitialPrice(
   catalogContext: CatalogReconcileContext,
   description: string,
   missingPriceMessage: string,
-  findPricePoint: () => Effect.Effect<PricePointResource | null, unknown>,
-  writePrice: (pricePointId: string) => Effect.Effect<void, unknown>,
-) =>
-  act(catalogContext, description, false, () =>
-    Effect.gen(function* () {
-      const pricePoint = yield* findPricePoint();
-      if (!pricePoint) {
-        return yield* Effect.fail(makeCatalogPricePointFailure({ message: missingPriceMessage }));
-      }
-      yield* writePrice(pricePoint.id);
-    }),
-  );
+  findPricePoint: () => Promise<PricePointResource | null>,
+  writePrice: (pricePointId: string) => Promise<void>,
+): Promise<{ status: ActionStatus }> {
+  async function writeInitialPrice(): Promise<void> {
+    const pricePoint = await findPricePoint();
+    const isPricePointMissing = pricePoint == null;
 
-const requireAppStoreRecordId = (
-  api: AscCatalogApi,
-  bundleId: string,
-): Effect.Effect<string, unknown> =>
-  Effect.gen(function* () {
-    const appId = yield* api.getAppId(bundleId);
-    if (!appId) return yield* Effect.fail(appRecordMissing(bundleId, 'sync'));
-    return appId;
-  });
+    if (isPricePointMissing) {
+      throw makeCatalogPricePointFailure(missingPriceMessage);
+    }
 
-const emptyCatalogContext = (
+    await writePrice(pricePoint.id);
+  }
+
+  return act(catalogContext, description, false, writeInitialPrice);
+}
+
+function readAppStoreRecordId(appId: string | null): string | null {
+  if (appId == null) {
+    return null;
+  }
+
+  if (appId == '') {
+    return null;
+  }
+
+  return appId;
+}
+
+async function requireAppStoreRecordId(api: AscCatalogApi, bundleId: string): Promise<string> {
+  const appId = await api.getAppId(bundleId);
+  const recordId = readAppStoreRecordId(appId);
+
+  if (recordId == null) {
+    throw appRecordMissing(bundleId, 'sync');
+  }
+
+  return recordId;
+}
+
+function emptyCatalogContext(
   api: AscCatalogApi,
   dryRun: boolean,
   allowDestructive: boolean,
-): CatalogReconcileContext => ({
-  api,
-  actions: [],
-  dryRun,
-  allowDestructive,
-});
+): CatalogReconcileContext {
+  return {
+    api,
+    actions: [],
+    dryRun,
+    allowDestructive,
+  };
+}
 
 /**
  * Full catalog reconcile in dependency order: capabilities, IAPs, subscription groups, then listing.
  * Plan: `dryRun: true`. Apply: `dryRun: false` (destructive gated by `allowDestructive`).
  * Fails only when the ASC app record is missing; every other miss is a per-action status.
  */
-export const reconcileApp = (
+export async function reconcileApp(
   api: AscCatalogApi,
-  input: ReconcileInput,
-): Effect.Effect<ReconcileReport, unknown> =>
-  Effect.gen(function* () {
-    const catalogContext = emptyCatalogContext(api, input.dryRun, input.allowDestructive);
-    const appId = yield* requireAppStoreRecordId(api, input.bundleId);
-    yield* reconcileCapabilities(catalogContext, input.bundleId, input.capabilities);
-    let desiredInAppPurchases: readonly InAppPurchaseConfig[] = [];
-    if (input.products.inAppPurchases !== undefined) {
-      desiredInAppPurchases = input.products.inAppPurchases;
-    }
-    yield* reconcileInAppPurchases(catalogContext, appId, desiredInAppPurchases);
-    let desiredSubscriptionGroups: NonNullable<AppProducts['subscriptionGroups']> = [];
-    if (input.products.subscriptionGroups !== undefined) {
-      desiredSubscriptionGroups = input.products.subscriptionGroups;
-    }
-    yield* reconcileSubscriptionGroups(catalogContext, appId, desiredSubscriptionGroups);
-    if (input.listing) yield* reconcileListing(catalogContext, appId, input.listing);
-    return { bundleId: input.bundleId, actions: catalogContext.actions };
-  });
+  reconcileInput: ReconcileInput,
+): Promise<ReconcileReport> {
+  const catalogContext = emptyCatalogContext(
+    api,
+    reconcileInput.dryRun,
+    reconcileInput.allowDestructive,
+  );
+  const appId = await requireAppStoreRecordId(api, reconcileInput.bundleId);
+  await reconcileCapabilities(catalogContext, reconcileInput.bundleId, reconcileInput.capabilities);
+
+  let desiredInAppPurchases: readonly InAppPurchaseConfig[] = [];
+  const declaredPurchases = reconcileInput.products.inAppPurchases;
+  const hasDeclaredPurchases = declaredPurchases != null;
+
+  if (hasDeclaredPurchases) {
+    desiredInAppPurchases = declaredPurchases;
+  }
+
+  await reconcileInAppPurchases(catalogContext, appId, desiredInAppPurchases);
+
+  let desiredSubscriptionGroups: NonNullable<AppProducts['subscriptionGroups']> = [];
+  const declaredGroups = reconcileInput.products.subscriptionGroups;
+  const hasDeclaredGroups = declaredGroups != null;
+
+  if (hasDeclaredGroups) {
+    desiredSubscriptionGroups = declaredGroups;
+  }
+
+  await reconcileSubscriptionGroups(catalogContext, appId, desiredSubscriptionGroups);
+
+  const listing = reconcileInput.listing;
+  const hasListing = listing != null;
+
+  if (hasListing) {
+    await reconcileListing(catalogContext, appId, listing);
+  }
+
+  return { bundleId: reconcileInput.bundleId, actions: catalogContext.actions };
+}
 
 /**
  * Listing-only reconcile for `launch plan listing` / snapshot - never double-counts catalog
  * surfaces. Listing is create/patch only, so `allowDestructive` is always false.
  */
-export const reconcileAppListing = (
+export async function reconcileAppListing(
   api: AscCatalogApi,
-  input: ListingReconcileInput,
-): Effect.Effect<ReconcileReport, unknown> =>
-  Effect.gen(function* () {
-    const catalogContext = emptyCatalogContext(api, input.dryRun, false);
-    const appId = yield* requireAppStoreRecordId(api, input.bundleId);
-    yield* reconcileListing(catalogContext, appId, input.listing);
-    return { bundleId: input.bundleId, actions: catalogContext.actions };
-  });
+  listingInput: ListingReconcileInput,
+): Promise<ReconcileReport> {
+  const catalogContext = emptyCatalogContext(api, listingInput.dryRun, false);
+  const appId = await requireAppStoreRecordId(api, listingInput.bundleId);
+  await reconcileListing(catalogContext, appId, listingInput.listing);
+  return { bundleId: listingInput.bundleId, actions: catalogContext.actions };
+}
 
-const reconcileCapabilities = (
+function capabilityNoun(desiredCount: number): string {
+  const isSingleCapability = desiredCount == 1;
+
+  if (isSingleCapability) {
+    return 'capability';
+  }
+
+  return 'capabilities';
+}
+
+function noteUnregisteredBundle(
   catalogContext: CatalogReconcileContext,
   bundleId: string,
   desiredCapabilities: CapabilityType[],
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const bundleIdResource = yield* catalogContext.api.findBundleId(bundleId);
-    if (!bundleIdResource) {
-      if (desiredCapabilities.length > 0) {
-        let capabilityNoun = 'capabilities';
-        if (desiredCapabilities.length === 1) capabilityNoun = 'capability';
-        skipAction(
-          catalogContext,
-          `bundle id ${bundleId} is not registered yet - run a build (or \`launch creds\`) to register it before syncing ${desiredCapabilities.length} ${capabilityNoun}`,
-        );
-      }
-      return;
-    }
-    const liveCapabilities = yield* catalogContext.api.listBundleIdCapabilities(
-      bundleIdResource.id,
-    );
-    const liveCapabilityTypes = new Set(
-      liveCapabilities.map((capability) => capability.capabilityType),
-    );
-    for (const capability of desiredCapabilities) {
-      if (liveCapabilityTypes.has(capability)) continue;
-      yield* act(catalogContext, `enable capability ${capability}`, false, () =>
-        catalogContext.api.enableCapability(bundleIdResource.id, capability),
-      );
-    }
-    const desiredCapabilityTypes = new Set<string>(desiredCapabilities);
-    for (const liveCapability of liveCapabilities) {
-      if (desiredCapabilityTypes.has(liveCapability.capabilityType)) continue;
-      if (ALWAYS_ENABLED_CAPABILITIES.has(liveCapability.capabilityType)) continue;
-      yield* act(catalogContext, `disable capability ${liveCapability.capabilityType}`, true, () =>
-        catalogContext.api.disableCapability(liveCapability.id),
-      );
-    }
-  });
+): void {
+  const hasDesiredCapabilities = desiredCapabilities.length > 0;
 
-const reconcileInAppPurchases = (
+  if (hasDesiredCapabilities == false) {
+    return;
+  }
+
+  skipAction(
+    catalogContext,
+    `bundle id ${bundleId} is not registered yet - run a build (or \`launch creds\`) to register it before syncing ${desiredCapabilities.length} ${capabilityNoun(desiredCapabilities.length)}`,
+  );
+}
+
+function readCapabilityType(capability: BundleIdCapabilityResource): string {
+  return capability.capabilityType;
+}
+
+async function reconcileCapabilities(
+  catalogContext: CatalogReconcileContext,
+  bundleId: string,
+  desiredCapabilities: CapabilityType[],
+): Promise<void> {
+  const bundleIdResource = await catalogContext.api.findBundleId(bundleId);
+  const isBundleMissing = bundleIdResource == null;
+
+  if (isBundleMissing) {
+    noteUnregisteredBundle(catalogContext, bundleId, desiredCapabilities);
+    return;
+  }
+
+  const liveCapabilities = await catalogContext.api.listBundleIdCapabilities(bundleIdResource.id);
+  const liveCapabilityTypes = new Set(liveCapabilities.map(readCapabilityType));
+
+  for (const capability of desiredCapabilities) {
+    const isAlreadyEnabled = liveCapabilityTypes.has(capability);
+
+    if (isAlreadyEnabled) {
+      continue;
+    }
+
+    await act(
+      catalogContext,
+      `enable capability ${capability}`,
+      false,
+      function enableCapability() {
+        return catalogContext.api.enableCapability(bundleIdResource.id, capability);
+      },
+    );
+  }
+
+  const desiredCapabilityTypes = new Set<string>(desiredCapabilities);
+
+  for (const liveCapability of liveCapabilities) {
+    const isDesired = desiredCapabilityTypes.has(liveCapability.capabilityType);
+
+    if (isDesired) {
+      continue;
+    }
+
+    const isAlwaysEnabled = ALWAYS_ENABLED_CAPABILITIES.has(liveCapability.capabilityType);
+
+    if (isAlwaysEnabled) {
+      continue;
+    }
+
+    await act(
+      catalogContext,
+      `disable capability ${liveCapability.capabilityType}`,
+      true,
+      function disableCapability() {
+        return catalogContext.api.disableCapability(liveCapability.id);
+      },
+    );
+  }
+}
+
+function readLocale(localization: { readonly locale: string }): string {
+  return localization.locale;
+}
+
+type PurchaseBinding = {
+  purchaseId: string;
+  existingLocales: Set<string>;
+  alreadyPriced: boolean;
+};
+
+async function bindInAppPurchase(
+  catalogContext: CatalogReconcileContext,
+  appId: string,
+  desiredPurchase: InAppPurchaseConfig,
+  existingPurchase: InAppPurchaseResource | undefined,
+): Promise<PurchaseBinding | null> {
+  if (existingPurchase != null) {
+    const purchaseId = existingPurchase.id;
+    const localizations = await catalogContext.api.listInAppPurchaseLocalizations(purchaseId);
+    const alreadyPriced = await catalogContext.api.inAppPurchaseHasPrice(purchaseId);
+
+    return {
+      purchaseId,
+      existingLocales: new Set(localizations.map(readLocale)),
+      alreadyPriced,
+    };
+  }
+
+  const createAction = await act(
+    catalogContext,
+    `create in-app purchase ${desiredPurchase.productId} (${desiredPurchase.type})`,
+    false,
+    function createPurchase() {
+      return catalogContext.api.createInAppPurchase(appId, {
+        productId: desiredPurchase.productId,
+        name: desiredPurchase.referenceName,
+        inAppPurchaseType: desiredPurchase.type,
+      });
+    },
+  );
+  const createdId = parentIdAfterCreate(createAction);
+  const isCreateMissing = createdId == null;
+
+  if (isCreateMissing) {
+    return null;
+  }
+
+  return {
+    purchaseId: createdId,
+    existingLocales: new Set(),
+    alreadyPriced: false,
+  };
+}
+
+async function reconcileInAppPurchases(
   catalogContext: CatalogReconcileContext,
   appId: string,
   desiredPurchases: readonly InAppPurchaseConfig[],
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    if (desiredPurchases.length === 0) return;
-    const livePurchases = yield* catalogContext.api.listInAppPurchases(appId);
-    for (const desiredPurchase of desiredPurchases) {
-      const existingPurchase = livePurchases.find(
-        (livePurchase) => livePurchase.productId === desiredPurchase.productId,
-      );
-      let purchaseId: string;
-      let existingLocales: Set<string>;
-      let alreadyPriced: boolean;
-      if (existingPurchase) {
-        purchaseId = existingPurchase.id;
-        const localizations = yield* catalogContext.api.listInAppPurchaseLocalizations(purchaseId);
-        existingLocales = new Set(localizations.map((localization) => localization.locale));
-        alreadyPriced = yield* catalogContext.api.inAppPurchaseHasPrice(purchaseId);
-      } else {
-        const createAction = yield* act(
-          catalogContext,
-          `create in-app purchase ${desiredPurchase.productId} (${desiredPurchase.type})`,
-          false,
-          () =>
-            catalogContext.api.createInAppPurchase(appId, {
-              productId: desiredPurchase.productId,
-              name: desiredPurchase.referenceName,
-              inAppPurchaseType: desiredPurchase.type,
-            }),
-        );
-        const createdId = parentIdAfterCreate(createAction);
-        if (createdId === undefined) continue;
-        purchaseId = createdId;
-        existingLocales = new Set();
-        alreadyPriced = false;
-      }
-      for (const localization of desiredPurchase.localizations) {
-        if (existingLocales.has(localization.locale)) continue;
-        yield* act(
-          catalogContext,
-          `add IAP copy ${desiredPurchase.productId} [${localization.locale}]`,
-          false,
-          () => catalogContext.api.createInAppPurchaseLocalization(purchaseId, localization),
-        );
-      }
-      if (desiredPurchase.price && !alreadyPriced) {
-        const territory = territoryForPrice(desiredPurchase.price);
-        const customerPrice = desiredPurchase.price.customerPrice;
-        yield* assignInitialPrice(
-          catalogContext,
-          `set IAP price ${desiredPurchase.productId} = ${customerPrice} (${territory})`,
-          `No ${territory} price point matches ${customerPrice} for ${desiredPurchase.productId}.`,
-          () =>
-            catalogContext.api.findInAppPurchasePricePoint(purchaseId, territory, customerPrice),
-          (pricePointId) =>
-            catalogContext.api.createInAppPurchasePriceSchedule(
-              purchaseId,
-              territory,
-              pricePointId,
-            ),
-        );
-      }
-    }
-  });
+): Promise<void> {
+  const hasNoPurchases = desiredPurchases.length == 0;
 
-const reconcileSubscriptionGroups = (
+  if (hasNoPurchases) {
+    return;
+  }
+
+  const livePurchases = await catalogContext.api.listInAppPurchases(appId);
+
+  for (const desiredPurchase of desiredPurchases) {
+    function matchesProduct(livePurchase: InAppPurchaseResource): boolean {
+      return livePurchase.productId == desiredPurchase.productId;
+    }
+
+    const existingPurchase = livePurchases.find(matchesProduct);
+    const purchaseBinding = await bindInAppPurchase(
+      catalogContext,
+      appId,
+      desiredPurchase,
+      existingPurchase,
+    );
+    const isPurchaseMissing = purchaseBinding == null;
+
+    if (isPurchaseMissing) {
+      continue;
+    }
+
+    const purchaseId = purchaseBinding.purchaseId;
+
+    for (const localization of desiredPurchase.localizations) {
+      const hasLocale = purchaseBinding.existingLocales.has(localization.locale);
+
+      if (hasLocale) {
+        continue;
+      }
+
+      await act(
+        catalogContext,
+        `add IAP copy ${desiredPurchase.productId} [${localization.locale}]`,
+        false,
+        function createLocalization() {
+          return catalogContext.api.createInAppPurchaseLocalization(purchaseId, localization);
+        },
+      );
+    }
+
+    const priceToAssign = readUnpricedProduct(desiredPurchase.price, purchaseBinding.alreadyPriced);
+    const hasPriceToAssign = priceToAssign != null;
+
+    if (hasPriceToAssign) {
+      const territory = territoryForPrice(priceToAssign);
+      const customerPrice = priceToAssign.customerPrice;
+      await assignInitialPrice(
+        catalogContext,
+        `set IAP price ${desiredPurchase.productId} = ${customerPrice} (${territory})`,
+        `No ${territory} price point matches ${customerPrice} for ${desiredPurchase.productId}.`,
+        function findPricePoint() {
+          return catalogContext.api.findInAppPurchasePricePoint(
+            purchaseId,
+            territory,
+            customerPrice,
+          );
+        },
+        function writePrice(pricePointId: string) {
+          return catalogContext.api.createInAppPurchasePriceSchedule(
+            purchaseId,
+            territory,
+            pricePointId,
+          );
+        },
+      );
+    }
+  }
+}
+
+type SubscriptionGroupBinding = {
+  groupId: string;
+  existingGroupLocales: Set<string>;
+  liveSubscriptions: SubscriptionResource[];
+};
+
+async function bindSubscriptionGroup(
+  catalogContext: CatalogReconcileContext,
+  appId: string,
+  referenceName: string,
+  existingGroup: SubscriptionGroupResource | undefined,
+): Promise<SubscriptionGroupBinding | null> {
+  if (existingGroup != null) {
+    const groupId = existingGroup.id;
+    const groupLocalizations = await catalogContext.api.listSubscriptionGroupLocalizations(groupId);
+    const liveSubscriptions = await catalogContext.api.listSubscriptions(groupId);
+
+    return {
+      groupId,
+      existingGroupLocales: new Set(groupLocalizations.map(readLocale)),
+      liveSubscriptions,
+    };
+  }
+
+  const createAction = await act(
+    catalogContext,
+    `create subscription group "${referenceName}"`,
+    false,
+    function createGroup() {
+      return catalogContext.api.createSubscriptionGroup(appId, referenceName);
+    },
+  );
+  const createdId = parentIdAfterCreate(createAction);
+  const isCreateMissing = createdId == null;
+
+  if (isCreateMissing) {
+    return null;
+  }
+
+  return {
+    groupId: createdId,
+    existingGroupLocales: new Set(),
+    liveSubscriptions: [],
+  };
+}
+
+async function reconcileSubscriptionGroups(
   catalogContext: CatalogReconcileContext,
   appId: string,
   desiredGroups: NonNullable<AppProducts['subscriptionGroups']>,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    if (desiredGroups.length === 0) return;
-    const liveGroups = yield* catalogContext.api.listSubscriptionGroups(appId);
-    for (const desiredGroup of desiredGroups) {
-      const existingGroup = liveGroups.find(
-        (liveGroup) => liveGroup.referenceName === desiredGroup.referenceName,
-      );
-      let groupId: string;
-      let existingGroupLocales: Set<string>;
-      let liveSubscriptions: SubscriptionResource[];
-      if (existingGroup) {
-        groupId = existingGroup.id;
-        const groupLocalizations =
-          yield* catalogContext.api.listSubscriptionGroupLocalizations(groupId);
-        existingGroupLocales = new Set(
-          groupLocalizations.map((localization) => localization.locale),
-        );
-        liveSubscriptions = yield* catalogContext.api.listSubscriptions(groupId);
-      } else {
-        const createAction = yield* act(
-          catalogContext,
-          `create subscription group "${desiredGroup.referenceName}"`,
-          false,
-          () => catalogContext.api.createSubscriptionGroup(appId, desiredGroup.referenceName),
-        );
-        const createdId = parentIdAfterCreate(createAction);
-        if (createdId === undefined) continue;
-        groupId = createdId;
-        existingGroupLocales = new Set();
-        liveSubscriptions = [];
-      }
-      for (const localization of desiredGroup.localizations) {
-        if (existingGroupLocales.has(localization.locale)) continue;
-        yield* act(
-          catalogContext,
-          `add group name "${desiredGroup.referenceName}" [${localization.locale}]`,
-          false,
-          () => catalogContext.api.createSubscriptionGroupLocalization(groupId, localization),
-        );
-      }
-      // Config order is the level ranking: first subscription is level 1, next is 2, ...
-      for (const [index, subscription] of desiredGroup.subscriptions.entries()) {
-        yield* reconcileSubscription(
-          catalogContext,
-          groupId,
-          liveSubscriptions,
-          subscription,
-          index + 1,
-        );
-      }
-    }
-  });
+): Promise<void> {
+  const hasNoGroups = desiredGroups.length == 0;
 
-const reconcileSubscription = (
+  if (hasNoGroups) {
+    return;
+  }
+
+  const liveGroups = await catalogContext.api.listSubscriptionGroups(appId);
+
+  for (const desiredGroup of desiredGroups) {
+    function matchesGroup(liveGroup: SubscriptionGroupResource): boolean {
+      return liveGroup.referenceName == desiredGroup.referenceName;
+    }
+
+    const existingGroup = liveGroups.find(matchesGroup);
+    const groupBinding = await bindSubscriptionGroup(
+      catalogContext,
+      appId,
+      desiredGroup.referenceName,
+      existingGroup,
+    );
+    const isGroupMissing = groupBinding == null;
+
+    if (isGroupMissing) {
+      continue;
+    }
+
+    const groupId = groupBinding.groupId;
+
+    for (const localization of desiredGroup.localizations) {
+      const hasLocale = groupBinding.existingGroupLocales.has(localization.locale);
+
+      if (hasLocale) {
+        continue;
+      }
+
+      await act(
+        catalogContext,
+        `add group name "${desiredGroup.referenceName}" [${localization.locale}]`,
+        false,
+        function createGroupLocalization() {
+          return catalogContext.api.createSubscriptionGroupLocalization(groupId, localization);
+        },
+      );
+    }
+
+    // Config order is the level ranking: first subscription is level 1, next is 2, ...
+    for (const [index, subscription] of desiredGroup.subscriptions.entries()) {
+      await reconcileSubscription(
+        catalogContext,
+        groupId,
+        groupBinding.liveSubscriptions,
+        subscription,
+        index + 1,
+      );
+    }
+  }
+}
+
+type SubscriptionBinding = {
+  subscriptionId: string;
+  existingLocales: Set<string>;
+  alreadyPriced: boolean;
+};
+
+async function bindSubscription(
   catalogContext: CatalogReconcileContext,
   groupId: string,
   liveSubscriptions: SubscriptionResource[],
   desiredSubscription: SubscriptionConfig,
   groupLevel: number,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const existingSubscription = liveSubscriptions.find(
-      (liveSubscription) => liveSubscription.productId === desiredSubscription.productId,
+): Promise<SubscriptionBinding | null> {
+  function matchesSubscription(liveSubscription: SubscriptionResource): boolean {
+    return liveSubscription.productId == desiredSubscription.productId;
+  }
+
+  const existingSubscription = liveSubscriptions.find(matchesSubscription);
+
+  if (existingSubscription != null) {
+    const subscriptionId = existingSubscription.id;
+    const localizations = await catalogContext.api.listSubscriptionLocalizations(subscriptionId);
+    const alreadyPriced = await catalogContext.api.subscriptionHasPrice(subscriptionId);
+
+    return {
+      subscriptionId,
+      existingLocales: new Set(localizations.map(readLocale)),
+      alreadyPriced,
+    };
+  }
+
+  const createAction = await act(
+    catalogContext,
+    `create subscription ${desiredSubscription.productId} (${desiredSubscription.subscriptionPeriod})`,
+    false,
+    function createSubscription() {
+      return catalogContext.api.createSubscription(groupId, {
+        productId: desiredSubscription.productId,
+        name: desiredSubscription.referenceName,
+        subscriptionPeriod: desiredSubscription.subscriptionPeriod,
+        groupLevel,
+      });
+    },
+  );
+  const createdId = parentIdAfterCreate(createAction);
+  const isCreateMissing = createdId == null;
+
+  if (isCreateMissing) {
+    return null;
+  }
+
+  return {
+    subscriptionId: createdId,
+    existingLocales: new Set(),
+    alreadyPriced: false,
+  };
+}
+
+async function reconcileSubscription(
+  catalogContext: CatalogReconcileContext,
+  groupId: string,
+  liveSubscriptions: SubscriptionResource[],
+  desiredSubscription: SubscriptionConfig,
+  groupLevel: number,
+): Promise<void> {
+  const subscriptionBinding = await bindSubscription(
+    catalogContext,
+    groupId,
+    liveSubscriptions,
+    desiredSubscription,
+    groupLevel,
+  );
+  const isSubscriptionMissing = subscriptionBinding == null;
+
+  if (isSubscriptionMissing) {
+    return;
+  }
+
+  const subscriptionId = subscriptionBinding.subscriptionId;
+
+  for (const localization of desiredSubscription.localizations) {
+    const hasLocale = subscriptionBinding.existingLocales.has(localization.locale);
+
+    if (hasLocale) {
+      continue;
+    }
+
+    await act(
+      catalogContext,
+      `add subscription copy ${desiredSubscription.productId} [${localization.locale}]`,
+      false,
+      function createSubscriptionLocalization() {
+        return catalogContext.api.createSubscriptionLocalization(subscriptionId, localization);
+      },
     );
-    let subscriptionId: string;
-    let existingLocales: Set<string>;
-    let alreadyPriced: boolean;
-    if (existingSubscription) {
-      subscriptionId = existingSubscription.id;
-      const localizations = yield* catalogContext.api.listSubscriptionLocalizations(subscriptionId);
-      existingLocales = new Set(localizations.map((localization) => localization.locale));
-      alreadyPriced = yield* catalogContext.api.subscriptionHasPrice(subscriptionId);
-    } else {
-      const createAction = yield* act(
-        catalogContext,
-        `create subscription ${desiredSubscription.productId} (${desiredSubscription.subscriptionPeriod})`,
-        false,
-        () =>
-          catalogContext.api.createSubscription(groupId, {
-            productId: desiredSubscription.productId,
-            name: desiredSubscription.referenceName,
-            subscriptionPeriod: desiredSubscription.subscriptionPeriod,
-            groupLevel,
-          }),
-      );
-      const createdId = parentIdAfterCreate(createAction);
-      if (createdId === undefined) return;
-      subscriptionId = createdId;
-      existingLocales = new Set();
-      alreadyPriced = false;
-    }
-    for (const localization of desiredSubscription.localizations) {
-      if (existingLocales.has(localization.locale)) continue;
-      yield* act(
-        catalogContext,
-        `add subscription copy ${desiredSubscription.productId} [${localization.locale}]`,
-        false,
-        () => catalogContext.api.createSubscriptionLocalization(subscriptionId, localization),
-      );
-    }
-    if (desiredSubscription.price && !alreadyPriced) {
-      const territory = territoryForPrice(desiredSubscription.price);
-      const customerPrice = desiredSubscription.price.customerPrice;
-      yield* assignInitialPrice(
-        catalogContext,
-        `set subscription price ${desiredSubscription.productId} = ${customerPrice} (${territory})`,
-        `No ${territory} price point matches ${customerPrice} for ${desiredSubscription.productId}.`,
-        () =>
-          catalogContext.api.findSubscriptionPricePoint(subscriptionId, territory, customerPrice),
-        (pricePointId) => catalogContext.api.createSubscriptionPrice(subscriptionId, pricePointId),
-      );
-    }
-  });
+  }
+
+  const priceToAssign = readUnpricedProduct(
+    desiredSubscription.price,
+    subscriptionBinding.alreadyPriced,
+  );
+  const hasPriceToAssign = priceToAssign != null;
+
+  if (hasPriceToAssign) {
+    const territory = territoryForPrice(priceToAssign);
+    const customerPrice = priceToAssign.customerPrice;
+    await assignInitialPrice(
+      catalogContext,
+      `set subscription price ${desiredSubscription.productId} = ${customerPrice} (${territory})`,
+      `No ${territory} price point matches ${customerPrice} for ${desiredSubscription.productId}.`,
+      function findPricePoint() {
+        return catalogContext.api.findSubscriptionPricePoint(
+          subscriptionId,
+          territory,
+          customerPrice,
+        );
+      },
+      function writePrice(pricePointId: string) {
+        return catalogContext.api.createSubscriptionPrice(subscriptionId, pricePointId);
+      },
+    );
+  }
+}
 
 /** Apple field length caps; over-limit fields become skipped plan lines, never sent. */
 const LISTING_LIMITS: Record<string, number> = {
@@ -572,74 +865,160 @@ type RoutedListing = {
   version: Record<string, string>;
 };
 
-/** Map one locale's store config into ASC app-info vs version field sets. */
-const routeListing = (localeListing: AppleLocaleInfo): RoutedListing => {
-  const appInfo: Record<string, string> = {};
-  if (localeListing.title) appInfo['name'] = localeListing.title;
-  if (localeListing.subtitle) appInfo['subtitle'] = localeListing.subtitle;
-  if (localeListing.privacyPolicyUrl) appInfo['privacyPolicyUrl'] = localeListing.privacyPolicyUrl;
-  const version: Record<string, string> = {};
-  if (localeListing.description) version['description'] = localeListing.description;
-  if (localeListing.keywords !== undefined && localeListing.keywords.length > 0) {
-    version['keywords'] = localeListing.keywords.join(',');
+function readPresentText(fieldText: string | undefined): string | null {
+  if (fieldText == null) {
+    return null;
   }
-  if (localeListing.releaseNotes) version['whatsNew'] = localeListing.releaseNotes;
-  if (localeListing.promotionalText) version['promotionalText'] = localeListing.promotionalText;
-  if (localeListing.supportUrl) version['supportUrl'] = localeListing.supportUrl;
-  if (localeListing.marketingUrl) version['marketingUrl'] = localeListing.marketingUrl;
-  return { appInfo, version };
-};
 
-const validateListingFields = (
+  if (fieldText == '') {
+    return null;
+  }
+
+  return fieldText;
+}
+
+function assignPresentText(
   fields: Record<string, string>,
-): {
+  fieldName: string,
+  fieldText: string | undefined,
+): void {
+  const presentText = readPresentText(fieldText);
+  const hasText = presentText != null;
+
+  if (hasText == false) {
+    return;
+  }
+
+  fields[fieldName] = presentText;
+}
+
+function readKeywordList(keywords: readonly string[] | undefined): string | null {
+  if (keywords == null) {
+    return null;
+  }
+
+  if (keywords.length == 0) {
+    return null;
+  }
+
+  return keywords.join(',');
+}
+
+/** Map one locale's store config into ASC app-info vs version field sets. */
+function routeListing(localeListing: AppleLocaleInfo): RoutedListing {
+  const appInfo: Record<string, string> = {};
+  assignPresentText(appInfo, 'name', localeListing.title);
+  assignPresentText(appInfo, 'subtitle', localeListing.subtitle);
+  assignPresentText(appInfo, 'privacyPolicyUrl', localeListing.privacyPolicyUrl);
+
+  const version: Record<string, string> = {};
+  assignPresentText(version, 'description', localeListing.description);
+
+  const keywordList = readKeywordList(localeListing.keywords);
+  const hasKeywords = keywordList != null;
+
+  if (hasKeywords) {
+    version['keywords'] = keywordList;
+  }
+
+  assignPresentText(version, 'whatsNew', localeListing.releaseNotes);
+  assignPresentText(version, 'promotionalText', localeListing.promotionalText);
+  assignPresentText(version, 'supportUrl', localeListing.supportUrl);
+  assignPresentText(version, 'marketingUrl', localeListing.marketingUrl);
+  return { appInfo, version };
+}
+
+function listingLimitError(fieldName: string, fieldText: string): string | null {
+  const limit = LISTING_LIMITS[fieldName];
+
+  if (limit == null) {
+    return null;
+  }
+
+  const isOverLimit = fieldText.length > limit;
+
+  if (isOverLimit == false) {
+    return null;
+  }
+
+  return `${fieldName} is ${fieldText.length} chars (max ${limit})`;
+}
+
+function validateListingFields(fields: Record<string, string>): {
   valid: Record<string, string>;
-  errors: string[];
-} => {
+  fieldErrors: string[];
+} {
   const valid: Record<string, string> = {};
-  const errors: string[] = [];
+  const fieldErrors: string[] = [];
+
   for (const [fieldName, fieldText] of Object.entries(fields)) {
-    const limit = LISTING_LIMITS[fieldName];
-    if (limit !== undefined && fieldText.length > limit) {
-      errors.push(`${fieldName} is ${fieldText.length} chars (max ${limit})`);
-    } else {
+    const limitError = listingLimitError(fieldName, fieldText);
+    const isOverLimit = limitError != null;
+
+    if (isOverLimit) {
+      fieldErrors.push(limitError);
+    }
+
+    if (isOverLimit == false) {
       valid[fieldName] = fieldText;
     }
   }
-  return { valid, errors };
-};
 
-const changedListingFields = (
+  return { valid, fieldErrors };
+}
+
+function changedListingFields(
   desiredFields: Record<string, string>,
   liveFields: Record<string, string>,
-): Record<string, string> => {
+): Record<string, string> {
   const changed: Record<string, string> = {};
+
   for (const [fieldName, desiredText] of Object.entries(desiredFields)) {
-    if (liveFields[fieldName] !== desiredText) changed[fieldName] = desiredText;
+    const isUnchanged = liveFields[fieldName] == desiredText;
+
+    if (isUnchanged == false) {
+      changed[fieldName] = desiredText;
+    }
   }
+
   return changed;
-};
+}
 
-const fieldPreview = (fieldText: string | undefined): string => {
-  if (fieldText === undefined) return '(unset)';
+function fieldPreview(fieldText: string | undefined): string {
+  if (fieldText == null) {
+    return '(unset)';
+  }
+
   let previewText = fieldText;
-  if (fieldText.length > 24) previewText = `${fieldText.slice(0, 24)}...`;
-  return `"${previewText}"`;
-};
+  const isLong = fieldText.length > 24;
 
-const describeFieldChanges = (
+  if (isLong) {
+    previewText = `${fieldText.slice(0, 24)}...`;
+  }
+
+  return `"${previewText}"`;
+}
+
+function describeFieldChanges(
   changed: Record<string, string>,
   liveFields: Record<string, string>,
-): string => {
-  return Object.keys(changed)
-    .map((key) => `${key} ${fieldPreview(liveFields[key])}->${fieldPreview(changed[key])}`)
-    .join(', ');
-};
+): string {
+  const descriptions: string[] = [];
 
-const listingLevelLabel = (level: ListingLevel): string => {
-  if (level === 'appInfo') return 'App Info';
+  for (const key of Object.keys(changed)) {
+    descriptions.push(`${key} ${fieldPreview(liveFields[key])}->${fieldPreview(changed[key])}`);
+  }
+
+  return descriptions.join(', ');
+}
+
+function listingLevelLabel(level: ListingLevel): string {
+  if (level == 'appInfo') {
+    return 'App Info';
+  }
+
   return 'App Store version';
-};
+}
 
 type ListingLevelWork = {
   level: ListingLevel;
@@ -648,112 +1027,198 @@ type ListingLevelWork = {
   parentId: string | null;
   liveLocalization: ListingLocalization | undefined;
   requiredKey?: string;
-  createLocalization: (
-    parentId: string,
-    fields: Record<string, string>,
-  ) => Effect.Effect<void, unknown>;
-  updateLocalization: (
-    localizationId: string,
-    fields: Record<string, string>,
-  ) => Effect.Effect<void, unknown>;
+  createLocalization: (parentId: string, fields: Record<string, string>) => Promise<void>;
+  updateLocalization: (localizationId: string, fields: Record<string, string>) => Promise<void>;
 };
 
-const reconcileListingLevel = (
+function readParentId(parentId: string | null): string | null {
+  if (parentId == null) {
+    return null;
+  }
+
+  if (parentId == '') {
+    return null;
+  }
+
+  return parentId;
+}
+
+function isRequiredKeyAbsent(
+  requiredKey: string | undefined,
+  valid: Record<string, string>,
+): boolean {
+  if (requiredKey == null) {
+    return false;
+  }
+
+  return Object.hasOwn(valid, requiredKey) == false;
+}
+
+async function updateLiveListing(
   catalogContext: CatalogReconcileContext,
   levelWork: ListingLevelWork,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const { valid, errors } = validateListingFields(levelWork.desiredFields);
-    for (const error of errors) {
-      skipAction(
-        catalogContext,
-        `listing [${levelWork.locale}] ${listingLevelLabel(levelWork.level)}: ${error} - skipped`,
-      );
-    }
-    if (Object.keys(valid).length === 0) return;
-    const parentId = levelWork.parentId;
-    if (!parentId) {
-      skipAction(
-        catalogContext,
-        `listing [${levelWork.locale}] ${listingLevelLabel(levelWork.level)}: no editable ${listingLevelLabel(levelWork.level)} to update - prepare one in App Store Connect`,
-      );
-      return;
-    }
-    if (levelWork.liveLocalization) {
-      const changed = changedListingFields(valid, levelWork.liveLocalization.fields);
-      if (Object.keys(changed).length === 0) return;
-      const { id, fields } = levelWork.liveLocalization;
-      yield* act(
-        catalogContext,
-        `update listing [${levelWork.locale}] ${listingLevelLabel(levelWork.level)}: ${describeFieldChanges(changed, fields)}`,
-        false,
-        () => levelWork.updateLocalization(id, changed),
-      );
-      return;
-    }
-    if (levelWork.requiredKey && !(levelWork.requiredKey in valid)) {
-      skipAction(
-        catalogContext,
-        `listing [${levelWork.locale}] ${listingLevelLabel(levelWork.level)}: needs ${levelWork.requiredKey} to create the locale - skipped`,
-      );
-      return;
-    }
-    yield* act(
-      catalogContext,
-      `create listing [${levelWork.locale}] ${listingLevelLabel(levelWork.level)}: ${Object.keys(valid).join(', ')}`,
-      false,
-      () => levelWork.createLocalization(parentId, valid),
-    );
-  });
+  liveLocalization: ListingLocalization,
+  valid: Record<string, string>,
+): Promise<void> {
+  const changed = changedListingFields(valid, liveLocalization.fields);
+  const hasChanges = Object.keys(changed).length > 0;
 
-const reconcileListing = (
+  if (hasChanges == false) {
+    return;
+  }
+
+  const localizationId = liveLocalization.id;
+  const liveFields = liveLocalization.fields;
+  await act(
+    catalogContext,
+    `update listing [${levelWork.locale}] ${listingLevelLabel(levelWork.level)}: ${describeFieldChanges(changed, liveFields)}`,
+    false,
+    function updateLocalization() {
+      return levelWork.updateLocalization(localizationId, changed);
+    },
+  );
+}
+
+async function reconcileListingLevel(
+  catalogContext: CatalogReconcileContext,
+  levelWork: ListingLevelWork,
+): Promise<void> {
+  const checkedFields = validateListingFields(levelWork.desiredFields);
+  const levelLabel = listingLevelLabel(levelWork.level);
+
+  for (const fieldError of checkedFields.fieldErrors) {
+    skipAction(
+      catalogContext,
+      `listing [${levelWork.locale}] ${levelLabel}: ${fieldError} - skipped`,
+    );
+  }
+
+  const hasValidFields = Object.keys(checkedFields.valid).length > 0;
+
+  if (hasValidFields == false) {
+    return;
+  }
+
+  const parentId = readParentId(levelWork.parentId);
+  const isParentMissing = parentId == null;
+
+  if (isParentMissing) {
+    skipAction(
+      catalogContext,
+      `listing [${levelWork.locale}] ${levelLabel}: no editable ${levelLabel} to update - prepare one in App Store Connect`,
+    );
+    return;
+  }
+
+  const liveLocalization = levelWork.liveLocalization;
+  const hasLiveLocalization = liveLocalization != null;
+
+  if (hasLiveLocalization) {
+    await updateLiveListing(catalogContext, levelWork, liveLocalization, checkedFields.valid);
+    return;
+  }
+
+  const requiredKeyIsAbsent = isRequiredKeyAbsent(levelWork.requiredKey, checkedFields.valid);
+
+  if (requiredKeyIsAbsent) {
+    skipAction(
+      catalogContext,
+      `listing [${levelWork.locale}] ${levelLabel}: needs ${levelWork.requiredKey} to create the locale - skipped`,
+    );
+    return;
+  }
+
+  const validFields = checkedFields.valid;
+  await act(
+    catalogContext,
+    `create listing [${levelWork.locale}] ${levelLabel}: ${Object.keys(validFields).join(', ')}`,
+    false,
+    function createLocalization() {
+      return levelWork.createLocalization(parentId, validFields);
+    },
+  );
+}
+
+function readLocalizationByLocale(
+  localizations: readonly ListingLocalization[],
+): Map<string, ListingLocalization> {
+  const localizationByLocale = new Map<string, ListingLocalization>();
+
+  for (const localization of localizations) {
+    localizationByLocale.set(localization.locale, localization);
+  }
+
+  return localizationByLocale;
+}
+
+async function reconcileListing(
   catalogContext: CatalogReconcileContext,
   appId: string,
   listing: AppleStoreConfig,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const locales = Object.entries(listing.info);
-    if (locales.length === 0) return;
-    const appInfoId = yield* catalogContext.api.getEditableAppInfoId(appId);
-    const versionId = yield* catalogContext.api.getEditableVersionId(appId);
-    let appInfoLocales: ListingLocalization[] = [];
-    if (appInfoId !== null) {
-      appInfoLocales = yield* catalogContext.api.listAppInfoLocalizations(appInfoId);
+): Promise<void> {
+  const locales = Object.entries(listing.info);
+  const hasNoLocales = locales.length == 0;
+
+  if (hasNoLocales) {
+    return;
+  }
+
+  const appInfoId = await catalogContext.api.getEditableAppInfoId(appId);
+  const versionId = await catalogContext.api.getEditableVersionId(appId);
+  let appInfoLocales: ListingLocalization[] = [];
+  const hasAppInfo = appInfoId != null;
+
+  if (hasAppInfo) {
+    appInfoLocales = await catalogContext.api.listAppInfoLocalizations(appInfoId);
+  }
+
+  let versionLocales: ListingLocalization[] = [];
+  const hasVersion = versionId != null;
+
+  if (hasVersion) {
+    versionLocales = await catalogContext.api.listVersionLocalizations(versionId);
+  }
+
+  const appInfoByLocale = readLocalizationByLocale(appInfoLocales);
+  const versionByLocale = readLocalizationByLocale(versionLocales);
+
+  for (const [locale, localeListing] of locales) {
+    const routed = routeListing(localeListing);
+
+    function createAppInfoLocalization(parentId: string, fields: Record<string, string>) {
+      return catalogContext.api.createAppInfoLocalization(parentId, locale, fields);
     }
-    let versionLocales: ListingLocalization[] = [];
-    if (versionId !== null) {
-      versionLocales = yield* catalogContext.api.listVersionLocalizations(versionId);
+
+    function updateAppInfoLocalization(localizationId: string, fields: Record<string, string>) {
+      return catalogContext.api.updateAppInfoLocalization(localizationId, fields);
     }
-    const appInfoByLocale = new Map(
-      appInfoLocales.map((localization) => [localization.locale, localization]),
-    );
-    const versionByLocale = new Map(
-      versionLocales.map((localization) => [localization.locale, localization]),
-    );
-    for (const [locale, localeListing] of locales) {
-      const routed = routeListing(localeListing);
-      yield* reconcileListingLevel(catalogContext, {
-        level: 'appInfo',
-        locale,
-        desiredFields: routed.appInfo,
-        parentId: appInfoId,
-        liveLocalization: appInfoByLocale.get(locale),
-        requiredKey: 'name',
-        createLocalization: (parentId, fields) =>
-          catalogContext.api.createAppInfoLocalization(parentId, locale, fields),
-        updateLocalization: (localizationId, fields) =>
-          catalogContext.api.updateAppInfoLocalization(localizationId, fields),
-      });
-      yield* reconcileListingLevel(catalogContext, {
-        level: 'version',
-        locale,
-        desiredFields: routed.version,
-        parentId: versionId,
-        liveLocalization: versionByLocale.get(locale),
-        createLocalization: (parentId, fields) =>
-          catalogContext.api.createVersionLocalization(parentId, locale, fields),
-        updateLocalization: (localizationId, fields) =>
-          catalogContext.api.updateVersionLocalization(localizationId, fields),
-      });
+
+    function createVersionLocalization(parentId: string, fields: Record<string, string>) {
+      return catalogContext.api.createVersionLocalization(parentId, locale, fields);
     }
-  });
+
+    function updateVersionLocalization(localizationId: string, fields: Record<string, string>) {
+      return catalogContext.api.updateVersionLocalization(localizationId, fields);
+    }
+
+    await reconcileListingLevel(catalogContext, {
+      level: 'appInfo',
+      locale,
+      desiredFields: routed.appInfo,
+      parentId: appInfoId,
+      liveLocalization: appInfoByLocale.get(locale),
+      requiredKey: 'name',
+      createLocalization: createAppInfoLocalization,
+      updateLocalization: updateAppInfoLocalization,
+    });
+    await reconcileListingLevel(catalogContext, {
+      level: 'version',
+      locale,
+      desiredFields: routed.version,
+      parentId: versionId,
+      liveLocalization: versionByLocale.get(locale),
+      createLocalization: createVersionLocalization,
+      updateLocalization: updateVersionLocalization,
+    });
+  }
+}

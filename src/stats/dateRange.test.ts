@@ -1,4 +1,3 @@
-import { Effect, TestClock, TestContext } from 'effect';
 import { describe, expect, test } from 'vitest';
 import {
   createLastDaysRange,
@@ -41,15 +40,8 @@ describe('createLastDaysRange', () => {
 });
 
 describe('readYesterdayUtc', () => {
-  test('is the day before the clock date in UTC', async () => {
-    const program = Effect.gen(function* () {
-      yield* TestClock.setTime(Date.parse('2026-10-29T00:30:00.000Z'));
-      return yield* readYesterdayUtc();
-    });
-
-    const yesterday = await Effect.runPromise(
-      program.pipe(Effect.provide(TestContext.TestContext)),
-    );
+  test('is the day before the clock date in UTC', () => {
+    const yesterday = readYesterdayUtc(Date.parse('2026-10-29T00:30:00.000Z'));
 
     expect(yesterday).toBe('2026-10-28');
   });

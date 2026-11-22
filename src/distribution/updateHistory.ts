@@ -1,4 +1,3 @@
-import { Data, Effect, Schema } from 'effect';
 import type { CodeSigner } from '../credentials/codeSign.js';
 import type { StorageProvider } from '../types/providers.js';
 import {
@@ -13,188 +12,369 @@ import {
   type UpdateManifest,
 } from './otaManifest.js';
 
-const ManifestAssetSchema = Schema.mutable(
-  Schema.Struct({
-    key: Schema.String,
-    contentType: Schema.String,
-    url: Schema.String,
-    fileExtension: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
-
-const UpdateManifestSchema: Schema.Schema<UpdateManifest> = Schema.mutable(
-  Schema.Struct({
-    id: Schema.String,
-    createdAt: Schema.String,
-    runtimeVersion: Schema.String,
-    launchAsset: ManifestAssetSchema,
-    assets: Schema.mutable(Schema.Array(ManifestAssetSchema)),
-    metadata: Schema.Record({ key: Schema.String, value: Schema.Never }),
-    extra: Schema.Record({ key: Schema.String, value: Schema.Never }),
-  }),
-);
-
-const UpdateHistoryEntrySchema: Schema.Schema<UpdateHistoryEntry> = Schema.mutable(
-  Schema.Struct({
-    id: Schema.String,
-    runtimeVersion: Schema.String,
-    createdAt: Schema.String,
-    active: Schema.Boolean,
-    signed: Schema.Boolean,
-    kind: Schema.Literal('publish', 'rollback'),
-  }),
-);
-
-const UpdateHistorySchema = Schema.mutable(Schema.Array(UpdateHistoryEntrySchema));
-
-const StoredRollbackDirectiveSchema: Schema.Schema<StoredRollbackDirective> = Schema.mutable(
-  Schema.Struct({
-    active: Schema.Boolean,
-    body: Schema.String,
-    signature: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
-
-/** A persisted update snapshot is absent or does not match the manifest contract. */
 type UpdateHistoryFailure = Readonly<{
   readonly _tag: 'UpdateHistoryFailure';
   readonly message: string;
 }>;
 
-const makeUpdateHistoryFailure = Data.tagged<UpdateHistoryFailure>('UpdateHistoryFailure');
+function makeUpdateHistoryFailure(message: string): UpdateHistoryFailure {
+  return { _tag: 'UpdateHistoryFailure', message };
+}
 
-/** Decode JSON text with the schema that owns its persisted shape. */
-const decodeJson = <DecodedValue, EncodedValue>(
-  jsonText: string,
-  schema: Schema.Schema<DecodedValue, EncodedValue>,
-): Effect.Effect<DecodedValue, unknown> => Schema.decodeUnknown(Schema.parseJson(schema))(jsonText);
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (candidate == null) {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function readString(record: Record<string, unknown>, fieldName: string): string {
+  const field = record[fieldName];
+
+  if (typeof field != 'string') {
+    throw new Error(`Missing ${fieldName}.`);
+  }
+
+  return field;
+}
+
+function readOptionalString(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | null | undefined {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return undefined;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field == 'string') {
+    return field;
+  }
+
+  return null;
+}
+
+function parseJson(jsonText: string): unknown {
+  return JSON.parse(jsonText);
+}
+
+function readManifestAsset(candidate: unknown): UpdateManifest['launchAsset'] {
+  if (isRecord(candidate) == false) {
+    throw new Error('Manifest asset is malformed.');
+  }
+
+  const asset: UpdateManifest['launchAsset'] = {
+    key: readString(candidate, 'key'),
+    contentType: readString(candidate, 'contentType'),
+    url: readString(candidate, 'url'),
+  };
+  const fileExtension = readOptionalString(candidate, 'fileExtension');
+
+  if (fileExtension === null) {
+    throw new Error('Manifest asset extension is malformed.');
+  }
+
+  if (fileExtension == null) {
+    return asset;
+  }
+
+  return { ...asset, fileExtension };
+}
+
+function isEmptyRecord(candidate: unknown): boolean {
+  if (isRecord(candidate) == false) {
+    return false;
+  }
+
+  return Object.keys(candidate).length == 0;
+}
+
+function decodeManifest(jsonText: string): UpdateManifest {
+  const parsed = parseJson(jsonText);
+
+  if (isRecord(parsed) == false) {
+    throw new Error('Update manifest is malformed.');
+  }
+
+  if (isEmptyRecord(parsed['metadata']) == false) {
+    throw new Error('Update manifest metadata is malformed.');
+  }
+
+  if (isEmptyRecord(parsed['extra']) == false) {
+    throw new Error('Update manifest extra is malformed.');
+  }
+
+  if (Array.isArray(parsed['assets']) == false) {
+    throw new Error('Update manifest assets are malformed.');
+  }
+
+  const assets = parsed['assets'].map(readManifestAsset);
+
+  return {
+    id: readString(parsed, 'id'),
+    createdAt: readString(parsed, 'createdAt'),
+    runtimeVersion: readString(parsed, 'runtimeVersion'),
+    launchAsset: readManifestAsset(parsed['launchAsset']),
+    assets,
+    metadata: {},
+    extra: {},
+  };
+}
+
+function decodeHistoryEntry(candidate: unknown): UpdateHistoryEntry {
+  if (isRecord(candidate) == false) {
+    throw new Error('History entry is malformed.');
+  }
+
+  const kind = readString(candidate, 'kind');
+  const isPublish = kind == 'publish';
+  const isRollback = kind == 'rollback';
+
+  if (isPublish == false) {
+    if (isRollback == false) {
+      throw new Error('History entry kind is malformed.');
+    }
+  }
+
+  if (typeof candidate['active'] != 'boolean') {
+    throw new Error('History entry active flag is malformed.');
+  }
+
+  if (typeof candidate['signed'] != 'boolean') {
+    throw new Error('History entry signed flag is malformed.');
+  }
+
+  const historyKind: UpdateHistoryEntry['kind'] = isPublish ? 'publish' : 'rollback';
+
+  return {
+    id: readString(candidate, 'id'),
+    runtimeVersion: readString(candidate, 'runtimeVersion'),
+    createdAt: readString(candidate, 'createdAt'),
+    active: candidate['active'],
+    signed: candidate['signed'],
+    kind: historyKind,
+  };
+}
+
+function decodeHistory(jsonText: string): UpdateHistoryEntry[] {
+  const parsed = parseJson(jsonText);
+
+  if (Array.isArray(parsed) == false) {
+    throw new Error('Update history is malformed.');
+  }
+
+  return parsed.map(decodeHistoryEntry);
+}
+
+function decodeRollbackDirective(jsonText: string): StoredRollbackDirective | null {
+  try {
+    const parsed = parseJson(jsonText);
+
+    if (isRecord(parsed) == false) {
+      return null;
+    }
+
+    if (typeof parsed['active'] != 'boolean') {
+      return null;
+    }
+
+    if (typeof parsed['body'] != 'string') {
+      return null;
+    }
+
+    const signature = readOptionalString(parsed, 'signature');
+
+    if (signature === null) {
+      return null;
+    }
+
+    const directive: StoredRollbackDirective = { active: parsed['active'], body: parsed['body'] };
+
+    if (signature == null) {
+      return directive;
+    }
+
+    return { ...directive, signature };
+  } catch (cause) {
+    const isMalformed = cause != null;
+
+    if (isMalformed) {
+      return null;
+    }
+
+    return null;
+  }
+}
 
 /** Read the per-channel platform history, treating only absent state as empty. */
-export const readHistory = (
+export async function readHistory(
   storage: StorageProvider,
   channel: string,
   platform: string,
-): Effect.Effect<UpdateHistoryEntry[], unknown> =>
-  Effect.gen(function* () {
-    const historyBytes = yield* storage.getObject(historyIndexKey(channel, platform));
-    if (historyBytes === null) return [];
-    return yield* decodeJson(historyBytes.toString('utf8'), UpdateHistorySchema);
-  });
+): Promise<UpdateHistoryEntry[]> {
+  const historyBytes = await storage.getObject(historyIndexKey(channel, platform));
+
+  if (historyBytes == null) {
+    return [];
+  }
+
+  return decodeHistory(historyBytes.toString('utf8'));
+}
 
 /** Clear the active flag for entries with one runtime version. */
-export const deactivateRuntimeVersion = (
+export function deactivateRuntimeVersion(
   entries: UpdateHistoryEntry[],
   runtimeVersion: string,
-): UpdateHistoryEntry[] =>
-  entries.map((entry) => {
-    if (entry.runtimeVersion !== runtimeVersion) return entry;
-    if (!entry.active) return entry;
+): UpdateHistoryEntry[] {
+  return entries.map(function deactivate(entry) {
+    if (entry.runtimeVersion != runtimeVersion) {
+      return entry;
+    }
+
+    if (entry.active == false) {
+      return entry;
+    }
+
     return { ...entry, active: false };
   });
+}
 
 /** Find the newest, exact, or short-prefix history entry named by a CLI reference. */
-export const findHistoryEntry = <HistoryEntry extends UpdateHistoryEntry>(
+export function findHistoryEntry<HistoryEntry extends UpdateHistoryEntry>(
   entries: HistoryEntry[],
   reference: string,
-): HistoryEntry | undefined => {
-  if (reference === 'latest') return entries[0];
-  const exactEntry = entries.find((entry) => entry.id === reference);
-  if (exactEntry !== undefined) return exactEntry;
-  return entries.find((entry) => entry.id.startsWith(reference));
-};
+): HistoryEntry | undefined {
+  if (reference == 'latest') {
+    return entries[0];
+  }
 
-/** Persist the complete history index as readable JSON. */
-const writeHistory = (
+  const exactEntry = entries.find(function sameId(entry) {
+    return entry.id == reference;
+  });
+
+  if (exactEntry != null) {
+    return exactEntry;
+  }
+
+  return entries.find(function startsWithReference(entry) {
+    return entry.id.startsWith(reference);
+  });
+}
+
+async function writeHistory(
   storage: StorageProvider,
   channel: string,
   platform: string,
   entries: readonly UpdateHistoryEntry[],
-): Effect.Effect<void, unknown> =>
-  storage
-    .putObject(
-      historyIndexKey(channel, platform),
-      JSON.stringify(entries, null, 2),
-      'application/json',
-    )
-    .pipe(Effect.asVoid);
+): Promise<void> {
+  await storage.putObject(
+    historyIndexKey(channel, platform),
+    JSON.stringify(entries, null, 2),
+    'application/json',
+  );
+}
 
-/** Prepend an active entry to already-read history, deactivating its runtime version. */
-const writePublishedHistory = (
+async function writePublishedHistory(
   storage: StorageProvider,
   channel: string,
   platform: string,
   existingHistory: UpdateHistoryEntry[],
   entry: UpdateHistoryEntry,
-): Effect.Effect<void, unknown> => {
+): Promise<void> {
   const updatedHistory = deactivateRuntimeVersion(existingHistory, entry.runtimeVersion);
-  return writeHistory(storage, channel, platform, [entry, ...updatedHistory]);
-};
+
+  await writeHistory(storage, channel, platform, [entry, ...updatedHistory]);
+}
 
 /** Make a newly published entry active and prepend it to history. */
-export const recordPublish = (
+export async function recordPublish(
   storage: StorageProvider,
   channel: string,
   platform: string,
   entry: UpdateHistoryEntry,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const existingHistory = yield* readHistory(storage, channel, platform);
-    yield* writePublishedHistory(storage, channel, platform, existingHistory, entry);
-  });
+): Promise<void> {
+  const existingHistory = await readHistory(storage, channel, platform);
+
+  await writePublishedHistory(storage, channel, platform, existingHistory, entry);
+}
 
 /** Deactivate the rollback-to-embedded directive for one runtime version. */
-export const clearRollbackDirective = (
+export async function clearRollbackDirective(
   storage: StorageProvider,
   channel: string,
   platform: string,
   runtimeVersion: string,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const directiveKey = rollbackDirectiveKey(channel, platform, runtimeVersion);
-    const directiveBytes = yield* storage.getObject(directiveKey);
-    if (directiveBytes === null) return;
+): Promise<void> {
+  const directiveKey = rollbackDirectiveKey(channel, platform, runtimeVersion);
+  const directiveBytes = await storage.getObject(directiveKey);
 
-    const storedDirective = yield* decodeJson(
-      directiveBytes.toString('utf8'),
-      StoredRollbackDirectiveSchema,
-    ).pipe(Effect.option);
-    if (storedDirective._tag === 'Some' && !storedDirective.value.active) return;
+  if (directiveBytes == null) {
+    return;
+  }
 
+  const storedDirective = decodeRollbackDirective(directiveBytes.toString('utf8'));
+
+  if (storedDirective == null) {
     const clearedDirective: StoredRollbackDirective = { active: false, body: '' };
-    yield* storage.putObject(
+
+    await storage.putObject(
       directiveKey,
       JSON.stringify(clearedDirective, null, 2),
       'application/json',
     );
-  });
 
-/** Write the active manifest, its immutable snapshot, and optional signature. */
-const writeActiveManifest = (
+    return;
+  }
+
+  if (storedDirective.active == false) {
+    return;
+  }
+
+  const clearedDirective: StoredRollbackDirective = { active: false, body: '' };
+
+  await storage.putObject(
+    directiveKey,
+    JSON.stringify(clearedDirective, null, 2),
+    'application/json',
+  );
+}
+
+async function writeActiveManifest(
   storage: StorageProvider,
   channel: string,
   platform: string,
   updateManifest: UpdateManifest,
   signer: CodeSigner | null,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const manifestText = JSON.stringify(updateManifest);
-    yield* storage.putObject(
-      manifestKey(channel, platform, updateManifest.runtimeVersion),
-      manifestText,
-      'application/json',
-    );
-    yield* storage.putObject(
-      historySnapshotKey(channel, platform, updateManifest.runtimeVersion, updateManifest.id),
-      manifestText,
-      'application/json',
-    );
-    if (signer === null) return;
-    yield* storage.putObject(
-      manifestSignatureKey(channel, platform, updateManifest.runtimeVersion),
-      signer.sign(manifestText),
-      'text/plain',
-    );
-  });
+): Promise<void> {
+  const manifestText = JSON.stringify(updateManifest);
+
+  await storage.putObject(
+    manifestKey(channel, platform, updateManifest.runtimeVersion),
+    manifestText,
+    'application/json',
+  );
+  await storage.putObject(
+    historySnapshotKey(channel, platform, updateManifest.runtimeVersion, updateManifest.id),
+    manifestText,
+    'application/json',
+  );
+
+  if (signer == null) {
+    return;
+  }
+
+  await storage.putObject(
+    manifestSignatureKey(channel, platform, updateManifest.runtimeVersion),
+    signer.sign(manifestText),
+    'text/plain',
+  );
+}
 
 type ActivateUpdateInput = Readonly<{
   readonly storage: StorageProvider;
@@ -209,25 +389,26 @@ type ActivateUpdateInput = Readonly<{
  * Persist the active manifest + snapshot, record history, and clear any rollback-to-embedded
  * directive. Shared by first publish and snapshot republish.
  */
-export const activateUpdate = (
-  input: ActivateUpdateInput,
-): Effect.Effect<UpdateHistoryEntry, unknown> =>
-  Effect.gen(function* () {
-    const { storage, channel, platform, updateManifest, kind, signer } = input;
-    const existingHistory = yield* readHistory(storage, channel, platform);
-    yield* writeActiveManifest(storage, channel, platform, updateManifest, signer);
-    const historyEntry: UpdateHistoryEntry = {
-      id: updateManifest.id,
-      runtimeVersion: updateManifest.runtimeVersion,
-      createdAt: updateManifest.createdAt,
-      active: true,
-      signed: signer !== null,
-      kind,
-    };
-    yield* writePublishedHistory(storage, channel, platform, existingHistory, historyEntry);
-    yield* clearRollbackDirective(storage, channel, platform, updateManifest.runtimeVersion);
-    return historyEntry;
-  });
+export async function activateUpdate(input: ActivateUpdateInput): Promise<UpdateHistoryEntry> {
+  const { storage, channel, platform, updateManifest, kind, signer } = input;
+  const existingHistory = await readHistory(storage, channel, platform);
+
+  await writeActiveManifest(storage, channel, platform, updateManifest, signer);
+
+  const historyEntry: UpdateHistoryEntry = {
+    id: updateManifest.id,
+    runtimeVersion: updateManifest.runtimeVersion,
+    createdAt: updateManifest.createdAt,
+    active: true,
+    signed: signer != null,
+    kind,
+  };
+
+  await writePublishedHistory(storage, channel, platform, existingHistory, historyEntry);
+  await clearRollbackDirective(storage, channel, platform, updateManifest.runtimeVersion);
+
+  return historyEntry;
+}
 
 type RepublishUpdateInput = Readonly<{
   readonly storage: StorageProvider;
@@ -239,53 +420,53 @@ type RepublishUpdateInput = Readonly<{
   readonly signer: CodeSigner | null;
 }>;
 
-/** Outcome of republishing an immutable snapshot as the active update. */
 type RepublishedUpdate = Readonly<{
   readonly manifest: UpdateManifest;
   readonly entry: UpdateHistoryEntry;
 }>;
 
 /** Republish an immutable snapshot as the active rollback update. */
-export const republishUpdate = (
-  input: RepublishUpdateInput,
-): Effect.Effect<RepublishedUpdate, unknown> =>
-  Effect.gen(function* () {
-    const { storage, channel, platform, target, newId, createdAt, signer } = input;
-    const snapshotKey = historySnapshotKey(channel, platform, target.runtimeVersion, target.id);
-    const snapshotBytes = yield* storage.getObject(snapshotKey);
-    if (snapshotBytes === null) {
-      return yield* Effect.fail(
-        makeUpdateHistoryFailure({
-          message: `No snapshot for update ${target.id} (runtime ${target.runtimeVersion}).`,
-        }),
-      );
+export async function republishUpdate(input: RepublishUpdateInput): Promise<RepublishedUpdate> {
+  const { storage, channel, platform, target, newId, createdAt, signer } = input;
+  const snapshotKey = historySnapshotKey(channel, platform, target.runtimeVersion, target.id);
+  const snapshotBytes = await storage.getObject(snapshotKey);
+
+  if (snapshotBytes == null) {
+    throw makeUpdateHistoryFailure(
+      `No snapshot for update ${target.id} (runtime ${target.runtimeVersion}).`,
+    );
+  }
+
+  let previousManifest: UpdateManifest;
+
+  try {
+    previousManifest = decodeManifest(snapshotBytes.toString('utf8'));
+  } catch (cause) {
+    const isMalformed = cause != null;
+
+    if (isMalformed) {
+      throw makeUpdateHistoryFailure(`Snapshot for update ${target.id} is malformed.`);
     }
 
-    const previousManifest = yield* decodeJson(
-      snapshotBytes.toString('utf8'),
-      UpdateManifestSchema,
-    ).pipe(
-      Effect.mapError(() =>
-        makeUpdateHistoryFailure({
-          message: `Snapshot for update ${target.id} is malformed.`,
-        }),
-      ),
-    );
-    const updateManifest: UpdateManifest = {
-      ...previousManifest,
-      id: newId,
-      createdAt,
-    };
-    const historyEntry = yield* activateUpdate({
-      storage,
-      channel,
-      platform,
-      updateManifest,
-      kind: 'rollback',
-      signer,
-    });
-    return { manifest: updateManifest, entry: historyEntry };
+    throw makeUpdateHistoryFailure(`Snapshot for update ${target.id} is malformed.`);
+  }
+
+  const updateManifest: UpdateManifest = {
+    ...previousManifest,
+    id: newId,
+    createdAt,
+  };
+  const historyEntry = await activateUpdate({
+    storage,
+    channel,
+    platform,
+    updateManifest,
+    kind: 'rollback',
+    signer,
   });
+
+  return { manifest: updateManifest, entry: historyEntry };
+}
 
 type SetRollbackToEmbeddedInput = Readonly<{
   readonly storage: StorageProvider;
@@ -297,26 +478,24 @@ type SetRollbackToEmbeddedInput = Readonly<{
 }>;
 
 /** Publish a rollback directive that sends clients to the embedded bundle. */
-export const setRollbackToEmbedded = (
-  input: SetRollbackToEmbeddedInput,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const { storage, channel, platform, runtimeVersion, commitTime, signer } = input;
-    const directiveText = JSON.stringify(assembleRollbackDirective(commitTime));
-    let storedDirective: StoredRollbackDirective = {
-      active: true,
-      body: directiveText,
-    };
-    if (signer !== null) {
-      storedDirective = {
-        ...storedDirective,
-        signature: signer.sign(directiveText),
-      };
-    }
+export async function setRollbackToEmbedded(input: SetRollbackToEmbeddedInput): Promise<void> {
+  const { storage, channel, platform, runtimeVersion, commitTime, signer } = input;
+  const directiveText = JSON.stringify(assembleRollbackDirective(commitTime));
+  let storedDirective: StoredRollbackDirective = {
+    active: true,
+    body: directiveText,
+  };
 
-    yield* storage.putObject(
-      rollbackDirectiveKey(channel, platform, runtimeVersion),
-      JSON.stringify(storedDirective, null, 2),
-      'application/json',
-    );
-  });
+  if (signer != null) {
+    storedDirective = {
+      ...storedDirective,
+      signature: signer.sign(directiveText),
+    };
+  }
+
+  await storage.putObject(
+    rollbackDirectiveKey(channel, platform, runtimeVersion),
+    JSON.stringify(storedDirective, null, 2),
+    'application/json',
+  );
+}

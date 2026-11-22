@@ -1,12 +1,11 @@
-import { Data, Effect } from 'effect';
-import { appRecordMissingMessage } from '../services/stores/appleStoreClient.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
+import { appRecordMissingMessage } from '@/services/stores/appleStoreClient.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
 import type {
   AppStoreVersionResource,
   BuildResource,
   ReviewSubmissionResource,
-} from '../types/appleCatalog.js';
-import type { ReleaseType } from '../types/storeSurface.js';
+} from '@/types/appleCatalog.js';
+import type { ReleaseType } from '@/types/storeSurface.js';
 
 const BUILD_AND_RELEASE_STEP = 'run `launch build ios`, then release that build.';
 
@@ -16,27 +15,21 @@ const BUILD_AND_RELEASE_STEP = 'run `launch build ios`, then release that build.
  * it structurally.
  */
 export type AscReleaseApi = {
-  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
+  getAppId(bundleId: string): Promise<string | null>;
   /** Used by release command / release-train; kept on the surface for structural client typing. */
-  getLatestMarketingVersion(bundleId: string): Effect.Effect<string | null, unknown>;
-  listBuilds(appId: string, limit?: number): Effect.Effect<BuildResource[], unknown>;
+  getLatestMarketingVersion(bundleId: string): Promise<string | null>;
+  listBuilds(appId: string, limit?: number): Promise<BuildResource[]>;
   findBuild(
     bundleId: string,
     buildNumber: number,
-  ): Effect.Effect<{ id: string; usesNonExemptEncryption: boolean | null } | null, unknown>;
+  ): Promise<{ id: string; usesNonExemptEncryption: boolean | null } | null>;
   findBuildByVersion(
     appId: string,
     buildNumber: number,
     marketingVersion?: string,
-  ): Effect.Effect<BuildResource | null, unknown>;
-  setBuildUsesNonExemptEncryption(
-    buildId: string,
-    usesNonExemptEncryption: boolean,
-  ): Effect.Effect<void, unknown>;
-  listAppStoreVersions(
-    appId: string,
-    platform: string,
-  ): Effect.Effect<AppStoreVersionResource[], unknown>;
+  ): Promise<BuildResource | null>;
+  setBuildUsesNonExemptEncryption(buildId: string, usesNonExemptEncryption: boolean): Promise<void>;
+  listAppStoreVersions(appId: string, platform: string): Promise<AppStoreVersionResource[]>;
   createAppStoreVersion(
     appId: string,
     createInput: {
@@ -45,7 +38,7 @@ export type AscReleaseApi = {
       releaseType?: string;
       earliestReleaseDate?: string;
     },
-  ): Effect.Effect<AppStoreVersionResource, unknown>;
+  ): Promise<AppStoreVersionResource>;
   updateAppStoreVersion(
     versionId: string,
     versionUpdate: {
@@ -54,37 +47,26 @@ export type AscReleaseApi = {
       versionString?: string;
       copyright?: string;
     },
-  ): Effect.Effect<void, unknown>;
-  selectBuildForVersion(versionId: string, buildId: string): Effect.Effect<void, unknown>;
+  ): Promise<void>;
+  selectBuildForVersion(versionId: string, buildId: string): Promise<void>;
   listAppStoreVersionLocalizations(
     versionId: string,
-  ): Effect.Effect<ReadonlyArray<{ id: string; locale: string; whatsNew?: string }>, unknown>;
+  ): Promise<ReadonlyArray<{ id: string; locale: string; whatsNew?: string }>>;
   createAppStoreVersionLocalization(
     versionId: string,
     localizationInput: { locale: string; whatsNew: string },
-  ): Effect.Effect<unknown, unknown>;
-  updateAppStoreVersionLocalization(
-    localizationId: string,
-    whatsNew: string,
-  ): Effect.Effect<void, unknown>;
-  getPhasedRelease(
-    versionId: string,
-  ): Effect.Effect<{ id: string; phasedReleaseState: string } | null, unknown>;
-  createPhasedRelease(versionId: string): Effect.Effect<unknown, unknown>;
-  deletePhasedRelease(phasedReleaseId: string): Effect.Effect<void, unknown>;
-  listReviewSubmissions(
-    appId: string,
-    platform: string,
-  ): Effect.Effect<ReviewSubmissionResource[], unknown>;
-  createReviewSubmission(
-    appId: string,
-    platform: string,
-  ): Effect.Effect<ReviewSubmissionResource, unknown>;
-  addReviewSubmissionItem(submissionId: string, versionId: string): Effect.Effect<void, unknown>;
-  submitReviewSubmission(submissionId: string): Effect.Effect<void, unknown>;
-  getReviewSubmission(submissionId: string): Effect.Effect<ReviewSubmissionResource, unknown>;
+  ): Promise<unknown>;
+  updateAppStoreVersionLocalization(localizationId: string, whatsNew: string): Promise<void>;
+  getPhasedRelease(versionId: string): Promise<{ id: string; phasedReleaseState: string } | null>;
+  createPhasedRelease(versionId: string): Promise<unknown>;
+  deletePhasedRelease(phasedReleaseId: string): Promise<void>;
+  listReviewSubmissions(appId: string, platform: string): Promise<ReviewSubmissionResource[]>;
+  createReviewSubmission(appId: string, platform: string): Promise<ReviewSubmissionResource>;
+  addReviewSubmissionItem(submissionId: string, versionId: string): Promise<void>;
+  submitReviewSubmission(submissionId: string): Promise<void>;
+  getReviewSubmission(submissionId: string): Promise<ReviewSubmissionResource>;
   /** Used by release-train go-live; kept on the surface for structural client typing. */
-  createAppStoreVersionReleaseRequest(versionId: string): Effect.Effect<void, unknown>;
+  createAppStoreVersionReleaseRequest(versionId: string): Promise<void>;
 };
 
 type AppStoreReleaseFailure = Readonly<{
@@ -94,18 +76,38 @@ type AppStoreReleaseFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-const makeAppStoreReleaseFailure = Data.tagged<AppStoreReleaseFailure>('AppStoreReleaseFailure');
+function makeAppStoreReleaseFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): AppStoreReleaseFailure {
+  return {
+    _tag: 'AppStoreReleaseFailure',
+    operation: fields.operation,
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
 
-const releaseFailure = (
+function releaseFailure(
   operation: string,
   cause: unknown,
   explicitMessage?: string,
-): AppStoreReleaseFailure => {
+): AppStoreReleaseFailure {
   let message = explicitMessage;
-  if (message === undefined) message = errorMessage(cause);
-  if (message.length === 0) message = `${operation} failed.`;
+
+  if (message == null) {
+    message = errorMessage(cause);
+  }
+
+  const isMessageEmpty = message.length == 0;
+
+  if (isMessageEmpty) {
+    message = `${operation} failed.`;
+  }
+
   return makeAppStoreReleaseFailure({ operation, message, cause });
-};
+}
 
 /** Apple platform filter/create value for App Store versions. iOS is all v1 covers. */
 export const IOS_PLATFORM = 'IOS';
@@ -121,7 +123,7 @@ export const IOS_PLATFORM = 'IOS';
 type ReleasePhase = 'editable' | 'submitted' | 'pending-release' | 'live' | 'blocked';
 
 /** Classify a version's `appStoreState` into the action the release flow may take. Pure. */
-export const nextReleaseAction = (appStoreState: string): ReleasePhase => {
+export function nextReleaseAction(appStoreState: string): ReleasePhase {
   switch (appStoreState) {
     case 'PREPARE_FOR_SUBMISSION':
     case 'DEVELOPER_REJECTED':
@@ -146,13 +148,18 @@ export const nextReleaseAction = (appStoreState: string): ReleasePhase => {
     default:
       return 'blocked';
   }
-};
+}
+
+function isLiveVersion(storeVersion: Readonly<{ appStoreState: string }>): boolean {
+  return nextReleaseAction(storeVersion.appStoreState) == 'live';
+}
 
 /** Whether any of the app's versions has ever gone live - false while the app is on its first version. */
-export const hasReleasedVersion = (
+export function hasReleasedVersion(
   storeVersions: ReadonlyArray<Readonly<{ appStoreState: string }>>,
-): boolean =>
-  storeVersions.some((storeVersion) => nextReleaseAction(storeVersion.appStoreState) === 'live');
+): boolean {
+  return storeVersions.some(isLiveVersion);
+}
 
 /** Terminal-or-transient read of where a submitted version stands (`launch status` / watch). */
 export type ReleaseVerdict = {
@@ -163,7 +170,7 @@ export type ReleaseVerdict = {
 };
 
 /** Map a version's `appStoreState` to a {@link ReleaseVerdict} (`--watch` / exit-code contract). Pure. */
-export const classifyVerdict = (appStoreState: string): ReleaseVerdict => {
+export function classifyVerdict(appStoreState: string): ReleaseVerdict {
   switch (appStoreState) {
     case 'READY_FOR_SALE':
     case 'READY_FOR_DISTRIBUTION':
@@ -219,7 +226,12 @@ export const classifyVerdict = (appStoreState: string): ReleaseVerdict => {
       };
     default: {
       let label = appStoreState;
-      if (label.length === 0) label = 'no App Store version yet';
+      const isLabelEmpty = label.length == 0;
+
+      if (isLabelEmpty) {
+        label = 'no App Store version yet';
+      }
+
       return {
         label,
         state: 'unknown',
@@ -228,7 +240,7 @@ export const classifyVerdict = (appStoreState: string): ReleaseVerdict => {
       };
     }
   }
-};
+}
 
 /** Everything {@link releaseApp} needs for one submission (config + flags resolved by the command). */
 export type ReleaseInput = {
@@ -289,94 +301,138 @@ type SelectedReleaseVersion = Readonly<{
   idempotentState?: string;
 }>;
 
+type PerformedReleaseAction<ActionValue> = {
+  status: ReleaseActionStatus;
+  actionValue?: ActionValue;
+};
+
 /**
  * Record a step and, unless dry-run, perform it. Failures are captured on the action (status
  * `failed`) rather than propagated so the walk keeps going and the summary reports every failure.
- * Returns the terminal status plus the run's value (e.g. a created resource), undefined on dry-run
- * or failure - callers fall back to {@link DRY_RUN_ID} for a not-yet-created version id.
  */
-const performReleaseAction = <ActionValue>(
+async function performReleaseAction<ActionValue>(
   releaseContext: ReleaseContext,
   description: string,
-  runAction: () => Effect.Effect<ActionValue, unknown>,
-): Effect.Effect<{
-  status: ReleaseActionStatus;
-  actionValue?: ActionValue;
-}> => {
-  const releaseAction: {
-    description: string;
-    status: ReleaseActionStatus;
-    error?: string;
-    note?: string;
-  } = { description, status: 'planned' };
+  runAction: () => Promise<ActionValue>,
+): Promise<PerformedReleaseAction<ActionValue>> {
+  const releaseAction: ReleaseAction = { description, status: 'planned' };
   releaseContext.actions.push(releaseAction);
-  if (releaseContext.dryRun) return Effect.succeed({ status: 'planned' });
-  return runAction().pipe(
-    Effect.match({
-      onSuccess: (actionValue) => {
-        releaseAction.status = 'applied';
-        return { status: 'applied' as const, actionValue };
-      },
-      onFailure: (cause) => {
-        releaseAction.status = 'failed';
-        releaseAction.error = errorMessage(cause);
-        return { status: 'failed' as const };
-      },
-    }),
-  );
-};
 
-const requireValidStoreBuild = (
-  storeBuild: BuildResource,
-): Effect.Effect<void, AppStoreReleaseFailure> => {
-  if (storeBuild.processingState !== 'VALID') {
+  if (releaseContext.dryRun) {
+    return { status: 'planned' };
+  }
+
+  try {
+    const actionValue = await runAction();
+    releaseAction.status = 'applied';
+    return { status: 'applied', actionValue };
+  } catch (cause) {
+    releaseAction.status = 'failed';
+    releaseAction.error = errorMessage(cause);
+    return { status: 'failed' };
+  }
+}
+
+function requireValidStoreBuild(storeBuild: BuildResource): void {
+  const isValid = storeBuild.processingState == 'VALID';
+
+  if (isValid == false) {
     let processingState = storeBuild.processingState;
-    if (processingState === null) processingState = 'still processing';
-    return Effect.fail(
-      releaseFailure(
-        'validate App Store build',
-        storeBuild,
-        `Build ${storeBuild.version} is ${processingState} on App Store Connect - wait for it to finish (\`launch status\`), then re-run.`,
-      ),
-    );
-  }
-  if (storeBuild.expired) {
-    return Effect.fail(
-      releaseFailure(
-        'validate App Store build',
-        storeBuild,
-        `Build ${storeBuild.version} has expired on App Store Connect - upload a fresh build first.`,
-      ),
-    );
-  }
-  return Effect.void;
-};
+    const isStateMissing = processingState == null;
 
-/** Apple refuses a build whose marketing version is already live, so stop before any write. */
-const checkBuildCanJoinVersion = (
-  storeBuild: BuildResource,
-  storeVersions: ReadonlyArray<AppStoreVersionResource>,
-): Effect.Effect<void, AppStoreReleaseFailure> => {
-  const buildMarketingVersion = storeBuild.marketingVersion;
-  const isBuildMarketingVersionUnknown = buildMarketingVersion == null;
-  if (isBuildMarketingVersionUnknown) return Effect.void;
+    if (isStateMissing) {
+      processingState = 'still processing';
+    }
 
-  const liveVersion = storeVersions.find(
-    (storeVersion) =>
-      storeVersion.versionString === buildMarketingVersion &&
-      nextReleaseAction(storeVersion.appStoreState) === 'live',
-  );
-  const isNoLiveVersionFound = liveVersion == null;
-  if (isNoLiveVersionFound) return Effect.void;
-
-  return Effect.fail(
-    releaseFailure(
+    throw releaseFailure(
       'validate App Store build',
       storeBuild,
-      `Build ${storeBuild.version} (version ${buildMarketingVersion}) cannot join a new App Store version: App Store version ${liveVersion.versionString} is already live. Next step: create a worktree from tag ios/${buildMarketingVersion}-${storeBuild.version}, set a new marketing version there, ${BUILD_AND_RELEASE_STEP}`,
-    ),
+      `Build ${storeBuild.version} is ${processingState} on App Store Connect - wait for it to finish (\`launch status\`), then re-run.`,
+    );
+  }
+
+  if (storeBuild.expired) {
+    throw releaseFailure(
+      'validate App Store build',
+      storeBuild,
+      `Build ${storeBuild.version} has expired on App Store Connect - upload a fresh build first.`,
+    );
+  }
+}
+
+function isLiveMarketingVersion(
+  buildMarketingVersion: string,
+  storeVersion: AppStoreVersionResource,
+): boolean {
+  const isSameVersion = storeVersion.versionString == buildMarketingVersion;
+
+  if (isSameVersion == false) {
+    return false;
+  }
+
+  return nextReleaseAction(storeVersion.appStoreState) == 'live';
+}
+
+function findLiveMarketingVersion(
+  marketingVersion: string,
+  storeVersions: ReadonlyArray<AppStoreVersionResource>,
+): AppStoreVersionResource | undefined {
+  function matchesLiveMarketingVersion(storeVersion: AppStoreVersionResource): boolean {
+    return isLiveMarketingVersion(marketingVersion, storeVersion);
+  }
+
+  return storeVersions.find(matchesLiveMarketingVersion);
+}
+
+/** Apple refuses a build whose marketing version is already live, so stop before any write. */
+function checkBuildCanJoinVersion(
+  storeBuild: BuildResource,
+  storeVersions: ReadonlyArray<AppStoreVersionResource>,
+): void {
+  const buildMarketingVersion = storeBuild.marketingVersion;
+  const isBuildMarketingVersionUnknown = buildMarketingVersion == null;
+
+  if (isBuildMarketingVersionUnknown) {
+    return;
+  }
+
+  const liveVersion = findLiveMarketingVersion(buildMarketingVersion, storeVersions);
+  const isNoLiveVersionFound = liveVersion == null;
+
+  if (isNoLiveVersionFound) {
+    return;
+  }
+
+  throw releaseFailure(
+    'validate App Store build',
+    storeBuild,
+    `Build ${storeBuild.version} (version ${buildMarketingVersion}) cannot join a new App Store version: App Store version ${liveVersion.versionString} is already live. Next step: create a worktree from tag ios/${buildMarketingVersion}-${storeBuild.version}, set a new marketing version there, ${BUILD_AND_RELEASE_STEP}`,
   );
-};
+}
+
+function isAlreadySubmitted(releasePhase: ReleasePhase): boolean {
+  if (releasePhase == 'submitted') {
+    return true;
+  }
+
+  return releasePhase == 'pending-release';
+}
+
+function wasSubmittedForReview(isAttachOnly: boolean, dryRun: boolean): boolean {
+  if (isAttachOnly) {
+    return false;
+  }
+
+  return dryRun == false;
+}
+
+function releaseStateAfterRun(isAttachOnly: boolean, currentState: string): string {
+  if (isAttachOnly) {
+    return currentState;
+  }
+
+  return 'WAITING_FOR_REVIEW';
+}
 
 /**
  * Drive one App Store version to "submitted for review", idempotently. Reuses, retargets, or creates
@@ -387,64 +443,81 @@ const checkBuildCanJoinVersion = (
  * build not VALID/expired, build's marketing version already live, version already live); every other
  * step is captured per-action so one failure never aborts the rest.
  */
-export const releaseApp = (
+export async function releaseApp(
   appleReleaseApi: AscReleaseApi,
   releaseInput: ReleaseInput,
-): Effect.Effect<ReleaseReport, AppStoreReleaseFailure> =>
-  Effect.gen(function* () {
-    const releaseContext: ReleaseContext = {
-      appleReleaseApi,
-      actions: [],
-      dryRun: releaseInput.dryRun,
-    };
-    const appId = yield* appleReleaseApi
-      .getAppId(releaseInput.bundleId)
-      .pipe(Effect.mapError((cause) => releaseFailure('find App Store app', cause)));
-    if (appId === null) {
-      return yield* Effect.fail(
-        releaseFailure(
-          'find App Store app',
-          releaseInput.bundleId,
-          appRecordMissingMessage(releaseInput.bundleId),
-        ),
-      );
-    }
-    const storeBuild = releaseInput.build;
+): Promise<ReleaseReport> {
+  const releaseContext: ReleaseContext = {
+    appleReleaseApi,
+    actions: [],
+    dryRun: releaseInput.dryRun,
+  };
+  let appId: string | null;
 
-    const hasStoreBuild = storeBuild != null;
-    const isAttachOnly = releaseInput.attachOnly;
-    if (hasStoreBuild) {
-      yield* requireValidStoreBuild(storeBuild);
-    }
+  try {
+    appId = await appleReleaseApi.getAppId(releaseInput.bundleId);
+  } catch (cause) {
+    throw releaseFailure('find App Store app', cause);
+  }
 
-    const storeVersions = yield* appleReleaseApi
-      .listAppStoreVersions(appId, releaseInput.platform)
-      .pipe(Effect.mapError((cause) => releaseFailure('list App Store versions', cause)));
-    if (hasStoreBuild) {
-      yield* checkBuildCanJoinVersion(storeBuild, storeVersions);
-    }
+  const foundAppId = appId;
+  const isAppMissing = foundAppId == null;
 
-    const selectedVersion = yield* selectReleaseVersion(releaseContext, releaseInput, {
-      appId,
-      storeVersions,
+  if (isAppMissing) {
+    throw releaseFailure(
+      'find App Store app',
+      releaseInput.bundleId,
+      appRecordMissingMessage(releaseInput.bundleId),
+    );
+  }
+
+  const storeBuild = releaseInput.build;
+  const hasStoreBuild = storeBuild != null;
+
+  if (hasStoreBuild) {
+    requireValidStoreBuild(storeBuild);
+  }
+
+  let storeVersions: AppStoreVersionResource[];
+
+  try {
+    storeVersions = await appleReleaseApi.listAppStoreVersions(foundAppId, releaseInput.platform);
+  } catch (cause) {
+    throw releaseFailure('list App Store versions', cause);
+  }
+
+  if (hasStoreBuild) {
+    checkBuildCanJoinVersion(storeBuild, storeVersions);
+  }
+
+  const selectedVersion = await selectReleaseVersion(releaseContext, releaseInput, {
+    appId: foundAppId,
+    storeVersions,
+  });
+  const isAlreadyInReview = selectedVersion.idempotentState != null;
+
+  if (isAlreadyInReview) {
+    releaseContext.actions.push({
+      description: `version ${selectedVersion.versionString} already ${selectedVersion.idempotentState} - nothing to submit`,
+      status: 'skipped',
     });
-    if (selectedVersion.idempotentState !== undefined) {
-      releaseContext.actions.push({
-        description: `version ${selectedVersion.versionString} already ${selectedVersion.idempotentState} - nothing to submit`,
-        status: 'skipped',
-      });
-      return {
-        bundleId: releaseInput.bundleId,
-        versionId: selectedVersion.versionId,
-        versionString: selectedVersion.versionString,
-        appStoreState: selectedVersion.idempotentState,
-        submitted: false,
-        alreadyInReview: true,
-        actions: releaseContext.actions,
-      };
-    }
-    const versionId = selectedVersion.versionId;
-    if (!releaseContext.dryRun && versionId === DRY_RUN_ID) {
+    return {
+      bundleId: releaseInput.bundleId,
+      versionId: selectedVersion.versionId,
+      versionString: selectedVersion.versionString,
+      appStoreState: selectedVersion.idempotentState,
+      submitted: false,
+      alreadyInReview: true,
+      actions: releaseContext.actions,
+    };
+  }
+
+  const versionId = selectedVersion.versionId;
+  const isCreateMissing = versionId == DRY_RUN_ID;
+  const isRealRun = releaseContext.dryRun == false;
+
+  if (isRealRun) {
+    if (isCreateMissing) {
       return {
         bundleId: releaseInput.bundleId,
         versionId,
@@ -455,11 +528,14 @@ export const releaseApp = (
         actions: releaseContext.actions,
       };
     }
+  }
 
-    const isBuildAlreadyAttached =
-      hasStoreBuild && selectedVersion.attachedBuildId === storeBuild.id;
-    const isAttachNoOp = isAttachOnly && isBuildAlreadyAttached;
-    if (isAttachNoOp) {
+  const isAttachOnly = releaseInput.attachOnly;
+  const isBuildAlreadyAttached = isAttachedBuild(hasStoreBuild, selectedVersion, storeBuild);
+  const isAttachNoOp = isAttachOnly;
+
+  if (isAttachNoOp) {
+    if (isBuildAlreadyAttached) {
       releaseContext.actions.push({
         description: `build already attached to version ${selectedVersion.versionString} - nothing to change`,
         status: 'skipped',
@@ -474,84 +550,160 @@ export const releaseApp = (
         actions: releaseContext.actions,
       };
     }
-    if (hasStoreBuild) {
-      yield* performReleaseAction(releaseContext, `attach build ${storeBuild.version}`, () =>
-        appleReleaseApi.selectBuildForVersion(versionId, storeBuild.id),
-      );
-      yield* applyExportCompliance(
-        releaseContext,
-        releaseInput.bundleId,
-        storeBuild,
-        releaseInput.usesNonExemptEncryption,
-      );
-    }
-    yield* applyReleaseNotes(
+  }
+
+  if (hasStoreBuild) {
+    await performReleaseAction(
       releaseContext,
-      versionId,
-      releaseInput.whatsNew,
-      selectedVersion.appReleasedBefore,
+      `attach build ${storeBuild.version}`,
+      function attachBuild() {
+        return appleReleaseApi.selectBuildForVersion(versionId, storeBuild.id);
+      },
     );
-    let releaseTypeDescription = `set release type ${releaseInput.releaseType}`;
-    const versionUpdate: { releaseType: string; earliestReleaseDate?: string; copyright?: string } =
-      { releaseType: releaseInput.releaseType };
-    if (releaseInput.earliestReleaseDate !== undefined) {
-      releaseTypeDescription += ` @ ${releaseInput.earliestReleaseDate}`;
-      versionUpdate.earliestReleaseDate = releaseInput.earliestReleaseDate;
-    }
-    const copyright = releaseInput.copyright;
-    if (copyright !== undefined && copyright.length > 0) {
-      releaseTypeDescription += `, copyright "${copyright}"`;
+    await applyExportCompliance(
+      releaseContext,
+      releaseInput.bundleId,
+      storeBuild,
+      releaseInput.usesNonExemptEncryption,
+    );
+  }
+
+  await applyReleaseNotes(
+    releaseContext,
+    versionId,
+    releaseInput.whatsNew,
+    selectedVersion.appReleasedBefore,
+  );
+  const versionUpdate = readVersionUpdate(releaseInput);
+  await performReleaseAction(releaseContext, versionUpdate.description, function updateVersion() {
+    return appleReleaseApi.updateAppStoreVersion(versionId, versionUpdate.versionUpdate);
+  });
+  await applyPhasedRelease(releaseContext, versionId, releaseInput.phasedRelease);
+
+  if (isAttachOnly == false) {
+    await submitForReview(releaseContext, foundAppId, versionId, releaseInput.platform);
+  }
+
+  return {
+    bundleId: releaseInput.bundleId,
+    versionId,
+    versionString: selectedVersion.versionString,
+    appStoreState: releaseStateAfterRun(isAttachOnly, selectedVersion.appStoreState),
+    submitted: wasSubmittedForReview(isAttachOnly, releaseInput.dryRun),
+    alreadyInReview: false,
+    actions: releaseContext.actions,
+  };
+}
+
+function isAttachedBuild(
+  hasStoreBuild: boolean,
+  selectedVersion: SelectedReleaseVersion,
+  storeBuild: BuildResource | null,
+): boolean {
+  if (hasStoreBuild == false) {
+    return false;
+  }
+
+  if (storeBuild == null) {
+    return false;
+  }
+
+  return selectedVersion.attachedBuildId == storeBuild.id;
+}
+
+function readVersionUpdate(releaseInput: ReleaseInput): {
+  description: string;
+  versionUpdate: { releaseType: string; earliestReleaseDate?: string; copyright?: string };
+} {
+  let description = `set release type ${releaseInput.releaseType}`;
+  const versionUpdate: { releaseType: string; earliestReleaseDate?: string; copyright?: string } = {
+    releaseType: releaseInput.releaseType,
+  };
+  const earliestReleaseDate = releaseInput.earliestReleaseDate;
+
+  if (earliestReleaseDate != null) {
+    description += ` @ ${earliestReleaseDate}`;
+    versionUpdate.earliestReleaseDate = earliestReleaseDate;
+  }
+
+  const copyright = releaseInput.copyright;
+
+  if (copyright != null) {
+    const hasCopyrightText = copyright.length > 0;
+
+    if (hasCopyrightText) {
+      description += `, copyright "${copyright}"`;
       versionUpdate.copyright = copyright;
     }
-    yield* performReleaseAction(releaseContext, releaseTypeDescription, () =>
-      appleReleaseApi.updateAppStoreVersion(versionId, versionUpdate),
-    );
-    yield* applyPhasedRelease(releaseContext, versionId, releaseInput.phasedRelease);
+  }
 
-    const isSubmitting = !isAttachOnly;
-    if (isSubmitting) {
-      yield* submitForReview(releaseContext, appId, versionId, releaseInput.platform);
-    }
+  return { description, versionUpdate };
+}
 
-    return {
-      bundleId: releaseInput.bundleId,
-      versionId,
-      versionString: selectedVersion.versionString,
-      appStoreState: isAttachOnly ? selectedVersion.appStoreState : 'WAITING_FOR_REVIEW',
-      submitted: !isAttachOnly && !releaseInput.dryRun,
-      alreadyInReview: false,
-      actions: releaseContext.actions,
-    };
-  });
+function hasConflictStatus(cause: object): boolean {
+  const hasStatus = 'status' in cause;
 
-const isExportComplianceAlreadySetError = (cause: unknown): boolean => {
-  if (!(cause instanceof Error)) return false;
+  if (hasStatus == false) {
+    return true;
+  }
+
+  const status = cause.status;
+  return status == 409;
+}
+
+function isExportComplianceAlreadySetError(cause: unknown): boolean {
+  const isError = cause instanceof Error;
+
+  if (isError == false) {
+    return false;
+  }
+
   const message = cause.message.toLowerCase();
-  let alreadySet = message.includes('cannot update when the value is already set');
-  if (!alreadySet) alreadySet = message.includes('already set') && message.includes('409');
-  if (!alreadySet) return false;
-  if (!('status' in cause)) return true;
-  return cause.status === 409;
-};
+  const cannotUpdate = message.includes('cannot update when the value is already set');
+
+  if (cannotUpdate) {
+    return hasConflictStatus(cause);
+  }
+
+  const mentionsAlreadySet = message.includes('already set');
+
+  if (mentionsAlreadySet == false) {
+    return false;
+  }
+
+  const mentionsConflict = message.includes('409');
+
+  if (mentionsConflict == false) {
+    return false;
+  }
+
+  return hasConflictStatus(cause);
+}
 
 /** Declare export compliance only when App Store Connect has not already stored the desired answer. */
-const applyExportCompliance = (
+async function applyExportCompliance(
   releaseContext: ReleaseContext,
   bundleId: string,
   storeBuild: BuildResource,
   usesNonExemptEncryption: boolean,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const description = `declare export compliance (usesNonExemptEncryption=${String(usesNonExemptEncryption)})`;
-    const buildNumber = Number.parseInt(storeBuild.version, 10);
-    if (!Number.isNaN(buildNumber)) {
-      const currentBuild = yield* releaseContext.appleReleaseApi
-        .findBuild(bundleId, buildNumber)
-        .pipe(Effect.catchAll(() => Effect.succeed(null)));
-      if (
-        currentBuild !== null &&
-        currentBuild.usesNonExemptEncryption === usesNonExemptEncryption
-      ) {
+): Promise<void> {
+  const description = `declare export compliance (usesNonExemptEncryption=${String(usesNonExemptEncryption)})`;
+  const buildNumber = Number.parseInt(storeBuild.version, 10);
+  const isBuildNumber = Number.isNaN(buildNumber) == false;
+
+  if (isBuildNumber) {
+    let currentBuild: { id: string; usesNonExemptEncryption: boolean | null } | null = null;
+
+    try {
+      currentBuild = await releaseContext.appleReleaseApi.findBuild(bundleId, buildNumber);
+    } catch {
+      currentBuild = null;
+    }
+
+    if (currentBuild != null) {
+      const isAlreadyAnswered = currentBuild.usesNonExemptEncryption == usesNonExemptEncryption;
+
+      if (isAlreadyAnswered) {
         releaseContext.actions.push({
           description,
           status: 'skipped',
@@ -560,35 +712,46 @@ const applyExportCompliance = (
         return;
       }
     }
-    if (releaseContext.dryRun) {
-      releaseContext.actions.push({ description, status: 'planned' });
+  }
+
+  if (releaseContext.dryRun) {
+    releaseContext.actions.push({ description, status: 'planned' });
+    return;
+  }
+
+  try {
+    await releaseContext.appleReleaseApi.setBuildUsesNonExemptEncryption(
+      storeBuild.id,
+      usesNonExemptEncryption,
+    );
+    releaseContext.actions.push({ description, status: 'applied' });
+  } catch (cause) {
+    const isAlreadySet = isExportComplianceAlreadySetError(cause);
+
+    if (isAlreadySet) {
+      releaseContext.actions.push({
+        description,
+        status: 'skipped',
+        note: 'already answered on this build',
+      });
       return;
     }
-    yield* releaseContext.appleReleaseApi
-      .setBuildUsesNonExemptEncryption(storeBuild.id, usesNonExemptEncryption)
-      .pipe(
-        Effect.match({
-          onSuccess: () => {
-            releaseContext.actions.push({ description, status: 'applied' });
-          },
-          onFailure: (cause) => {
-            if (isExportComplianceAlreadySetError(cause)) {
-              releaseContext.actions.push({
-                description,
-                status: 'skipped',
-                note: 'already answered on this build',
-              });
-              return;
-            }
-            releaseContext.actions.push({
-              description,
-              status: 'failed',
-              error: errorMessage(cause),
-            });
-          },
-        }),
-      );
-  });
+
+    releaseContext.actions.push({
+      description,
+      status: 'failed',
+      error: errorMessage(cause),
+    });
+  }
+}
+
+function matchingVersion(versionString: string, storeVersion: AppStoreVersionResource): boolean {
+  return storeVersion.versionString == versionString;
+}
+
+function isEditableVersion(storeVersion: AppStoreVersionResource): boolean {
+  return nextReleaseAction(storeVersion.appStoreState) == 'editable';
+}
 
 /**
  * Resolve the version to act on: reuse the one already at this version string (no-op if already
@@ -596,231 +759,343 @@ const applyExportCompliance = (
  * one. Returns its id ({@link DRY_RUN_ID} when create was only planned or failed) plus
  * `idempotentState` when the caller should stop (already submitted/approved).
  */
-const selectReleaseVersion = (
+async function selectReleaseVersion(
   releaseContext: ReleaseContext,
   releaseInput: ReleaseInput,
-  {
-    appId,
-    storeVersions,
-  }: Readonly<{ appId: string; storeVersions: ReadonlyArray<AppStoreVersionResource> }>,
-): Effect.Effect<SelectedReleaseVersion, AppStoreReleaseFailure> =>
-  Effect.gen(function* () {
-    const appReleasedBefore = hasReleasedVersion(storeVersions);
-    const matchingVersion = storeVersions.find(
-      (storeVersion) => storeVersion.versionString === releaseInput.versionString,
-    );
-    if (matchingVersion !== undefined) {
-      const releasePhase = nextReleaseAction(matchingVersion.appStoreState);
-      if (releasePhase === 'live') {
-        return yield* Effect.fail(
-          releaseFailure(
-            'select App Store version',
-            matchingVersion,
-            `Version ${releaseInput.versionString} is already on the App Store (${matchingVersion.appStoreState}). Next step: set a new marketing version in app.json, ${BUILD_AND_RELEASE_STEP}`,
-          ),
-        );
-      }
-      if (releasePhase === 'blocked') {
-        return yield* Effect.fail(
-          releaseFailure(
-            'select App Store version',
-            matchingVersion,
-            `Version ${releaseInput.versionString} is in state ${matchingVersion.appStoreState}, which launch will not change. Resolve it in App Store Connect, then release again.`,
-          ),
-        );
-      }
-      if (['submitted', 'pending-release'].includes(releasePhase)) {
-        return {
-          versionId: matchingVersion.id,
-          versionString: matchingVersion.versionString,
-          appStoreState: matchingVersion.appStoreState,
-          attachedBuildId: matchingVersion.attachedBuildId,
-          appReleasedBefore,
-          idempotentState: matchingVersion.appStoreState,
-        };
-      }
-      return {
-        versionId: matchingVersion.id,
-        versionString: matchingVersion.versionString,
-        appStoreState: matchingVersion.appStoreState,
-        attachedBuildId: matchingVersion.attachedBuildId,
-        appReleasedBefore,
-      };
-    }
-    const editableVersion = storeVersions.find(
-      (storeVersion) => nextReleaseAction(storeVersion.appStoreState) === 'editable',
-    );
-    if (editableVersion !== undefined) {
-      yield* performReleaseAction(
-        releaseContext,
-        `retarget open version to ${releaseInput.versionString}`,
-        () =>
-          releaseContext.appleReleaseApi.updateAppStoreVersion(editableVersion.id, {
-            versionString: releaseInput.versionString,
-          }),
-      );
-      return {
-        versionId: editableVersion.id,
-        versionString: releaseInput.versionString,
-        appStoreState: editableVersion.appStoreState,
-        attachedBuildId: editableVersion.attachedBuildId,
-        appReleasedBefore,
-      };
-    }
-    const createInput: {
-      versionString: string;
-      platform: string;
-      releaseType: string;
-      earliestReleaseDate?: string;
-    } = {
-      versionString: releaseInput.versionString,
-      platform: releaseInput.platform,
-      releaseType: releaseInput.releaseType,
-    };
-    if (releaseInput.earliestReleaseDate !== undefined) {
-      createInput.earliestReleaseDate = releaseInput.earliestReleaseDate;
-    }
-    const createdVersion = yield* performReleaseAction(
+  versionLookup: Readonly<{ appId: string; storeVersions: ReadonlyArray<AppStoreVersionResource> }>,
+): Promise<SelectedReleaseVersion> {
+  const appReleasedBefore = hasReleasedVersion(versionLookup.storeVersions);
+
+  function hasMatchingVersion(storeVersion: AppStoreVersionResource): boolean {
+    return matchingVersion(releaseInput.versionString, storeVersion);
+  }
+
+  const foundVersion = versionLookup.storeVersions.find(hasMatchingVersion);
+  const hasFoundVersion = foundVersion != null;
+
+  if (hasFoundVersion) {
+    return reuseMatchingVersion(foundVersion, releaseInput, appReleasedBefore);
+  }
+
+  const editableVersion = versionLookup.storeVersions.find(isEditableVersion);
+  const hasEditableVersion = editableVersion != null;
+
+  if (hasEditableVersion) {
+    await performReleaseAction(
       releaseContext,
-      `create App Store version ${releaseInput.versionString}`,
-      () => releaseContext.appleReleaseApi.createAppStoreVersion(appId, createInput),
+      `retarget open version to ${releaseInput.versionString}`,
+      function retargetVersion() {
+        return releaseContext.appleReleaseApi.updateAppStoreVersion(editableVersion.id, {
+          versionString: releaseInput.versionString,
+        });
+      },
     );
-    let versionId = DRY_RUN_ID;
-    if (createdVersion.actionValue !== undefined) versionId = createdVersion.actionValue.id;
     return {
-      versionId,
+      versionId: editableVersion.id,
       versionString: releaseInput.versionString,
-      appStoreState: 'PREPARE_FOR_SUBMISSION',
+      appStoreState: editableVersion.appStoreState,
+      attachedBuildId: editableVersion.attachedBuildId,
       appReleasedBefore,
     };
-  });
+  }
+
+  const createInput: {
+    versionString: string;
+    platform: string;
+    releaseType: string;
+    earliestReleaseDate?: string;
+  } = {
+    versionString: releaseInput.versionString,
+    platform: releaseInput.platform,
+    releaseType: releaseInput.releaseType,
+  };
+  const earliestReleaseDate = releaseInput.earliestReleaseDate;
+
+  if (earliestReleaseDate != null) {
+    createInput.earliestReleaseDate = earliestReleaseDate;
+  }
+
+  const createdVersion = await performReleaseAction(
+    releaseContext,
+    `create App Store version ${releaseInput.versionString}`,
+    function createVersion() {
+      return releaseContext.appleReleaseApi.createAppStoreVersion(versionLookup.appId, createInput);
+    },
+  );
+  let versionId = DRY_RUN_ID;
+  const createdResource = createdVersion.actionValue;
+
+  if (createdResource != null) {
+    versionId = createdResource.id;
+  }
+
+  return {
+    versionId,
+    versionString: releaseInput.versionString,
+    appStoreState: 'PREPARE_FOR_SUBMISSION',
+    appReleasedBefore,
+  };
+}
+
+function reuseMatchingVersion(
+  matchingStoreVersion: AppStoreVersionResource,
+  releaseInput: ReleaseInput,
+  appReleasedBefore: boolean,
+): SelectedReleaseVersion {
+  const releasePhase = nextReleaseAction(matchingStoreVersion.appStoreState);
+  const isLive = releasePhase == 'live';
+
+  if (isLive) {
+    throw releaseFailure(
+      'select App Store version',
+      matchingStoreVersion,
+      `Version ${releaseInput.versionString} is already on the App Store (${matchingStoreVersion.appStoreState}). Next step: set a new marketing version in app.json, ${BUILD_AND_RELEASE_STEP}`,
+    );
+  }
+
+  const isBlocked = releasePhase == 'blocked';
+
+  if (isBlocked) {
+    throw releaseFailure(
+      'select App Store version',
+      matchingStoreVersion,
+      `Version ${releaseInput.versionString} is in state ${matchingStoreVersion.appStoreState}, which launch will not change. Resolve it in App Store Connect, then release again.`,
+    );
+  }
+
+  const selectedVersion: SelectedReleaseVersion = {
+    versionId: matchingStoreVersion.id,
+    versionString: matchingStoreVersion.versionString,
+    appStoreState: matchingStoreVersion.appStoreState,
+    attachedBuildId: matchingStoreVersion.attachedBuildId,
+    appReleasedBefore,
+  };
+  const isIdempotent = isAlreadySubmitted(releasePhase);
+
+  if (isIdempotent == false) {
+    return selectedVersion;
+  }
+
+  return { ...selectedVersion, idempotentState: matchingStoreVersion.appStoreState };
+}
+
+type VersionLocalization = { id: string; locale: string; whatsNew?: string };
 
 /**
  * Write each locale's release notes, creating the localization or updating its `whatsNew`. Skipped on
  * an app's first version: Apple refuses `whatsNew` there (409 "cannot be edited at this time").
  */
-const applyReleaseNotes = (
+async function applyReleaseNotes(
   releaseContext: ReleaseContext,
   versionId: string,
   whatsNew: Record<string, string>,
   appReleasedBefore: boolean,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const localeEntries = Object.entries(whatsNew);
-    if (localeEntries.length === 0) return;
-    const allNotesDescription = `set release notes for ${localeEntries.length} locale(s)`;
-    if (!appReleasedBefore) {
-      releaseContext.actions.push({
-        description: allNotesDescription,
-        status: 'skipped',
-        note: "first version - Apple shows What's New only on updates",
-      });
-      return;
+): Promise<void> {
+  const localeEntries = Object.entries(whatsNew);
+  const hasNoNotes = localeEntries.length == 0;
+
+  if (hasNoNotes) {
+    return;
+  }
+
+  const allNotesDescription = `set release notes for ${localeEntries.length} locale(s)`;
+
+  if (appReleasedBefore == false) {
+    releaseContext.actions.push({
+      description: allNotesDescription,
+      status: 'skipped',
+      note: "first version - Apple shows What's New only on updates",
+    });
+    return;
+  }
+
+  const isVersionUncreated = versionId == DRY_RUN_ID;
+
+  if (isVersionUncreated) {
+    releaseContext.actions.push({ description: allNotesDescription, status: 'planned' });
+    return;
+  }
+
+  let existingLocalizations: ReadonlyArray<VersionLocalization> = [];
+
+  try {
+    existingLocalizations =
+      await releaseContext.appleReleaseApi.listAppStoreVersionLocalizations(versionId);
+  } catch {
+    existingLocalizations = [];
+  }
+
+  for (const [locale, releaseNotes] of localeEntries) {
+    function hasLocale(localization: VersionLocalization): boolean {
+      return localization.locale == locale;
     }
-    if (versionId === DRY_RUN_ID) {
-      releaseContext.actions.push({ description: allNotesDescription, status: 'planned' });
-      return;
-    }
-    const existingLocalizations = yield* releaseContext.appleReleaseApi
-      .listAppStoreVersionLocalizations(versionId)
-      .pipe(Effect.catchAll(() => Effect.succeed([])));
-    yield* Effect.forEach(
-      localeEntries,
-      ([locale, releaseNotes]) => {
-        const existingLocalization = existingLocalizations.find(
-          (localization) => localization.locale === locale,
-        );
-        if (existingLocalization !== undefined) {
-          return performReleaseAction(releaseContext, `set release notes [${locale}]`, () =>
-            releaseContext.appleReleaseApi.updateAppStoreVersionLocalization(
-              existingLocalization.id,
-              releaseNotes,
-            ),
+
+    const existingLocalization = existingLocalizations.find(hasLocale);
+
+    if (existingLocalization != null) {
+      await performReleaseAction(
+        releaseContext,
+        `set release notes [${locale}]`,
+        function updateNotes() {
+          return releaseContext.appleReleaseApi.updateAppStoreVersionLocalization(
+            existingLocalization.id,
+            releaseNotes,
           );
-        }
-        return performReleaseAction(releaseContext, `set release notes [${locale}]`, () =>
-          releaseContext.appleReleaseApi.createAppStoreVersionLocalization(versionId, {
-            locale,
-            whatsNew: releaseNotes,
-          }),
-        );
+        },
+      );
+      continue;
+    }
+
+    await performReleaseAction(
+      releaseContext,
+      `set release notes [${locale}]`,
+      function createNotes() {
+        return releaseContext.appleReleaseApi.createAppStoreVersionLocalization(versionId, {
+          locale,
+          whatsNew: releaseNotes,
+        });
       },
-      { concurrency: 1, discard: true },
     );
-  });
+  }
+}
 
 /** Align the version's phased-release schedule with the requested opt-in (create or remove). */
-const applyPhasedRelease = (
+async function applyPhasedRelease(
   releaseContext: ReleaseContext,
   versionId: string,
   phasedReleaseRequested: boolean,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    if (versionId === DRY_RUN_ID) {
-      if (phasedReleaseRequested) {
-        releaseContext.actions.push({ description: 'enable phased release', status: 'planned' });
-      }
-      return;
+): Promise<void> {
+  const isVersionUncreated = versionId == DRY_RUN_ID;
+
+  if (isVersionUncreated) {
+    if (phasedReleaseRequested) {
+      releaseContext.actions.push({ description: 'enable phased release', status: 'planned' });
     }
-    const existingPhasedRelease = yield* releaseContext.appleReleaseApi
-      .getPhasedRelease(versionId)
-      .pipe(Effect.catchAll(() => Effect.succeed(null)));
-    if (phasedReleaseRequested && existingPhasedRelease === null) {
-      yield* performReleaseAction(releaseContext, 'enable phased release', () =>
-        releaseContext.appleReleaseApi.createPhasedRelease(versionId),
-      );
-      return;
-    }
-    if (!phasedReleaseRequested && existingPhasedRelease !== null) {
-      yield* performReleaseAction(
+
+    return;
+  }
+
+  let existingPhasedRelease: { id: string; phasedReleaseState: string } | null = null;
+
+  try {
+    existingPhasedRelease = await releaseContext.appleReleaseApi.getPhasedRelease(versionId);
+  } catch {
+    existingPhasedRelease = null;
+  }
+
+  const isPhasedReleaseMissing = existingPhasedRelease == null;
+
+  if (phasedReleaseRequested) {
+    if (isPhasedReleaseMissing) {
+      await performReleaseAction(
         releaseContext,
-        'disable phased release (immediate 100% rollout)',
-        () => releaseContext.appleReleaseApi.deletePhasedRelease(existingPhasedRelease.id),
+        'enable phased release',
+        function enablePhasedRelease() {
+          return releaseContext.appleReleaseApi.createPhasedRelease(versionId);
+        },
       );
+      return;
     }
-  });
+  }
+
+  if (phasedReleaseRequested) {
+    return;
+  }
+
+  if (existingPhasedRelease == null) {
+    return;
+  }
+
+  const phasedReleaseId = existingPhasedRelease.id;
+  await performReleaseAction(
+    releaseContext,
+    'disable phased release (immediate 100% rollout)',
+    function disablePhasedRelease() {
+      return releaseContext.appleReleaseApi.deletePhasedRelease(phasedReleaseId);
+    },
+  );
+}
+
+function isReadyForReview(submission: ReviewSubmissionResource): boolean {
+  return submission.state == 'READY_FOR_REVIEW';
+}
+
+function isDuplicateReviewItem(cause: unknown): boolean {
+  const failureText = errorMessage(cause);
+  // Apple says the version is already on the submission.
+  return /already|duplicat|exist/i.test(failureText);
+}
 
 /** Reuse an addable (`READY_FOR_REVIEW`) review submission or open one, add the version, and submit. */
-const submitForReview = (
+async function submitForReview(
   releaseContext: ReleaseContext,
   appId: string,
   versionId: string,
   platform: string,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const reviewSubmissions = yield* releaseContext.appleReleaseApi
-      .listReviewSubmissions(appId, platform)
-      .pipe(Effect.catchAll(() => Effect.succeed([])));
-    const openSubmission = reviewSubmissions.find(
-      (submission) => submission.state === 'READY_FOR_REVIEW',
+): Promise<void> {
+  let reviewSubmissions: ReviewSubmissionResource[] = [];
+
+  try {
+    reviewSubmissions = await releaseContext.appleReleaseApi.listReviewSubmissions(appId, platform);
+  } catch {
+    reviewSubmissions = [];
+  }
+
+  const openSubmission = reviewSubmissions.find(isReadyForReview);
+  let submissionId = DRY_RUN_ID;
+
+  if (openSubmission != null) {
+    submissionId = openSubmission.id;
+  }
+
+  if (openSubmission == null) {
+    const createdSubmission = await performReleaseAction(
+      releaseContext,
+      'open review submission',
+      function openReview() {
+        return releaseContext.appleReleaseApi.createReviewSubmission(appId, platform);
+      },
     );
-    let submissionId: string;
-    if (openSubmission !== undefined) {
-      submissionId = openSubmission.id;
-    } else {
-      const createdSubmission = yield* performReleaseAction(
-        releaseContext,
-        'open review submission',
-        () => releaseContext.appleReleaseApi.createReviewSubmission(appId, platform),
-      );
-      submissionId = DRY_RUN_ID;
-      if (createdSubmission.actionValue !== undefined) {
-        submissionId = createdSubmission.actionValue.id;
-      }
+    const createdResource = createdSubmission.actionValue;
+
+    if (createdResource != null) {
+      submissionId = createdResource.id;
     }
-    const addVersion = () =>
-      releaseContext.appleReleaseApi.addReviewSubmissionItem(submissionId, versionId).pipe(
-        Effect.catchAll((cause) => {
-          const failureText = errorMessage(cause);
-          if (/already|duplicat|exist/i.test(failureText)) return Effect.void;
-          return Effect.fail(cause);
-        }),
-      );
-    yield* performReleaseAction(releaseContext, 'add version to review submission', addVersion);
-    yield* performReleaseAction(releaseContext, 'submit for App Store review', () =>
-      releaseContext.appleReleaseApi.submitReviewSubmission(submissionId),
-    );
-  });
+  }
+
+  await performReleaseAction(
+    releaseContext,
+    'add version to review submission',
+    function addVersion() {
+      return addReviewItem(releaseContext.appleReleaseApi, submissionId, versionId);
+    },
+  );
+  await performReleaseAction(
+    releaseContext,
+    'submit for App Store review',
+    function submitReview() {
+      return releaseContext.appleReleaseApi.submitReviewSubmission(submissionId);
+    },
+  );
+}
+
+async function addReviewItem(
+  appleReleaseApi: AscReleaseApi,
+  submissionId: string,
+  versionId: string,
+): Promise<void> {
+  try {
+    await appleReleaseApi.addReviewSubmissionItem(submissionId, versionId);
+  } catch (cause) {
+    const isAlreadyAdded = isDuplicateReviewItem(cause);
+
+    if (isAlreadyAdded) {
+      return;
+    }
+
+    throw cause;
+  }
+}
 
 /** Live read of where an app's current release stands - backs `launch status` and the watch loop. */
 export type ReleaseStatus = {
@@ -837,165 +1112,252 @@ export type ReleaseStatus = {
  * Read the most relevant version (in-flight over live) plus build processing and phased-release
  * state, and classify a verdict. Fails when the app record is missing.
  */
-export const readReleaseStatus = (
+export async function readReleaseStatus(
   appleReleaseApi: AscReleaseApi,
   bundleId: string,
   platform: string,
-): Effect.Effect<ReleaseStatus, AppStoreReleaseFailure> =>
-  Effect.gen(function* () {
-    const appId = yield* readAppStoreAppId(appleReleaseApi, bundleId);
-    return yield* readReleaseStatusForApp(appleReleaseApi, appId, bundleId, platform);
-  });
+): Promise<ReleaseStatus> {
+  const appId = await readAppStoreAppId(appleReleaseApi, bundleId);
+  return readReleaseStatusForApp(appleReleaseApi, appId, bundleId, platform);
+}
 
-export const readAppStoreAppId = (
+export async function readAppStoreAppId(
   appleReleaseApi: AscReleaseApi,
   bundleId: string,
-): Effect.Effect<string, AppStoreReleaseFailure> =>
-  Effect.gen(function* () {
-    const appId = yield* appleReleaseApi
-      .getAppId(bundleId)
-      .pipe(Effect.mapError((cause) => releaseFailure('find App Store app', cause)));
-    const isThereNoAppRecord = appId === null;
-    if (isThereNoAppRecord) {
-      return yield* Effect.fail(
-        releaseFailure(
-          'find App Store app',
-          bundleId,
-          appRecordMissingMessage(bundleId, 'launch status'),
-        ),
-      );
-    }
-    return appId;
-  });
+): Promise<string> {
+  let appId: string | null;
 
-export const readReleaseStatusForApp = (
+  try {
+    appId = await appleReleaseApi.getAppId(bundleId);
+  } catch (cause) {
+    throw releaseFailure('find App Store app', cause);
+  }
+
+  const foundAppId = appId;
+  const isThereNoAppRecord = foundAppId == null;
+
+  if (isThereNoAppRecord) {
+    throw releaseFailure(
+      'find App Store app',
+      bundleId,
+      appRecordMissingMessage(bundleId, 'launch status'),
+    );
+  }
+
+  return foundAppId;
+}
+
+export async function readReleaseStatusForApp(
   appleReleaseApi: AscReleaseApi,
   appId: string,
   bundleId: string,
   platform: string,
-): Effect.Effect<ReleaseStatus, AppStoreReleaseFailure> =>
-  Effect.gen(function* () {
-    const storeVersions = yield* appleReleaseApi
-      .listAppStoreVersions(appId, platform)
-      .pipe(Effect.mapError((cause) => releaseFailure('list App Store versions', cause)));
-    const currentVersion = pickCurrentVersion(storeVersions);
-    const isThereNoCurrentVersion = currentVersion === null;
-    if (isThereNoCurrentVersion) {
-      return {
-        bundleId,
-        versionString: null,
-        appStoreState: null,
-        buildNumber: null,
-        buildProcessingState: null,
-        phasedReleaseState: null,
-        verdict: classifyVerdict(''),
-      };
-    }
-    const phasedRelease = yield* appleReleaseApi
-      .getPhasedRelease(currentVersion.id)
-      .pipe(Effect.mapError((cause) => releaseFailure('read App Store release status', cause)));
-    const buildNumber = currentVersion.attachedBuildNumber ?? null;
-    const buildProcessingState = currentVersion.attachedBuildProcessingState ?? null;
-    const phasedReleaseState = phasedRelease?.phasedReleaseState ?? null;
+): Promise<ReleaseStatus> {
+  let storeVersions: AppStoreVersionResource[];
+
+  try {
+    storeVersions = await appleReleaseApi.listAppStoreVersions(appId, platform);
+  } catch (cause) {
+    throw releaseFailure('list App Store versions', cause);
+  }
+
+  const currentVersion = pickCurrentVersion(storeVersions);
+  const isThereNoCurrentVersion = currentVersion == null;
+
+  if (isThereNoCurrentVersion) {
     return {
       bundleId,
-      versionString: currentVersion.versionString,
-      appStoreState: currentVersion.appStoreState,
-      buildNumber,
-      buildProcessingState,
-      phasedReleaseState,
-      verdict: classifyVerdict(currentVersion.appStoreState),
+      versionString: null,
+      appStoreState: null,
+      buildNumber: null,
+      buildProcessingState: null,
+      phasedReleaseState: null,
+      verdict: classifyVerdict(''),
     };
-  });
+  }
+
+  let phasedRelease: { id: string; phasedReleaseState: string } | null;
+
+  try {
+    phasedRelease = await appleReleaseApi.getPhasedRelease(currentVersion.id);
+  } catch (cause) {
+    throw releaseFailure('read App Store release status', cause);
+  }
+
+  let buildNumber: string | null = null;
+  const attachedBuildNumber = currentVersion.attachedBuildNumber;
+
+  if (attachedBuildNumber != null) {
+    buildNumber = attachedBuildNumber;
+  }
+
+  let buildProcessingState: string | null = null;
+  const attachedBuildProcessingState = currentVersion.attachedBuildProcessingState;
+
+  if (attachedBuildProcessingState != null) {
+    buildProcessingState = attachedBuildProcessingState;
+  }
+
+  let phasedReleaseState: string | null = null;
+
+  if (phasedRelease != null) {
+    phasedReleaseState = phasedRelease.phasedReleaseState;
+  }
+
+  return {
+    bundleId,
+    versionString: currentVersion.versionString,
+    appStoreState: currentVersion.appStoreState,
+    buildNumber,
+    buildProcessingState,
+    phasedReleaseState,
+    verdict: classifyVerdict(currentVersion.appStoreState),
+  };
+}
+
+function isInFlightVersion(storeVersion: AppStoreVersionResource): boolean {
+  return nextReleaseAction(storeVersion.appStoreState) != 'live';
+}
 
 /** Version a developer cares about now: in-flight (editable/submitted/pending) over live. */
-export const pickCurrentVersion = (
+export function pickCurrentVersion(
   storeVersions: AppStoreVersionResource[],
-): AppStoreVersionResource | null => {
-  const inFlightVersion = storeVersions.find(
-    (storeVersion) => nextReleaseAction(storeVersion.appStoreState) !== 'live',
-  );
-  if (inFlightVersion !== undefined) return inFlightVersion;
+): AppStoreVersionResource | null {
+  const inFlightVersion = storeVersions.find(isInFlightVersion);
+
+  if (inFlightVersion != null) {
+    return inFlightVersion;
+  }
+
   const latestVersion = storeVersions[0];
-  if (latestVersion === undefined) return null;
+
+  if (latestVersion == null) {
+    return null;
+  }
+
   return latestVersion;
-};
+}
 
 /** Options for {@link waitForValidBuild}: injectable sleep keeps the poll loop unit-testable. */
 type WaitOptions = {
   intervalMs?: number;
   timeoutMs?: number;
-  sleep?: (milliseconds: number) => Effect.Effect<void>;
-  onTick?: (processingState: string) => Effect.Effect<void>;
+  sleep?: (milliseconds: number) => Promise<void>;
+  onTick?: (processingState: string) => Promise<void> | void;
   // Picks this version's build when another version reused the same build number.
   marketingVersion?: string;
 };
+
+function sleepMilliseconds(milliseconds: number): Promise<void> {
+  return new Promise(function wakeAfterDelay(wakeUp) {
+    setTimeout(wakeUp, milliseconds);
+  });
+}
+
+function isRejectedProcessing(processingState: string): boolean {
+  if (processingState == 'INVALID') {
+    return true;
+  }
+
+  return processingState == 'FAILED';
+}
 
 /**
  * Poll a freshly uploaded build until processing reaches `VALID`. Fails on `INVALID`, `FAILED` or timeout.
  * Returns the chosen build so the caller can hand it to {@link releaseApp}.
  */
-export const waitForValidBuild = (
+export async function waitForValidBuild(
   appleReleaseApi: AscReleaseApi,
   appId: string,
   buildNumber: number,
   options: WaitOptions = {},
-): Effect.Effect<BuildResource, AppStoreReleaseFailure> =>
-  Effect.gen(function* () {
-    let intervalMs = 15_000;
-    if (options.intervalMs !== undefined) intervalMs = options.intervalMs;
-    let timeoutMs = 30 * 60_000;
-    if (options.timeoutMs !== undefined) timeoutMs = options.timeoutMs;
-    let sleepBetweenPolls = (milliseconds: number): Effect.Effect<void> =>
-      Effect.sleep(milliseconds);
-    if (options.sleep !== undefined) sleepBetweenPolls = options.sleep;
-    let waited = 0;
-    const { onTick, marketingVersion } = options;
-    const timeoutMinutes = Math.round(timeoutMs / 60_000);
-    for (;;) {
-      const storeBuild = yield* appleReleaseApi
-        .findBuildByVersion(appId, buildNumber, marketingVersion)
-        .pipe(Effect.mapError((cause) => releaseFailure('read App Store build', cause)));
-      const processingState = storeBuild?.processingState ?? 'PROCESSING';
-      const isProgressReported = onTick !== undefined;
-      if (isProgressReported) yield* onTick(processingState);
+): Promise<BuildResource> {
+  let intervalMs = 15_000;
 
-      const isBuildValid = storeBuild !== null && processingState === 'VALID';
-      if (isBuildValid) return storeBuild;
+  if (options.intervalMs != null) {
+    intervalMs = options.intervalMs;
+  }
 
-      const isProcessingRejected = processingState === 'INVALID' || processingState === 'FAILED';
-      if (isProcessingRejected) {
-        return yield* Effect.fail(
-          releaseFailure(
-            'wait for App Store build',
-            storeBuild,
-            `Build ${buildNumber} failed App Store Connect processing (${processingState}) - check the email Apple sent.`,
-          ),
-        );
-      }
+  const defaultTimeoutMs = 30 * 60_000;
+  let timeoutMs = defaultTimeoutMs;
 
-      const isTimedOut = waited >= timeoutMs;
-      const isBuildMissingAtTimeout = isTimedOut && storeBuild === null;
-      if (isBuildMissingAtTimeout) {
-        return yield* Effect.fail(
-          releaseFailure(
-            'wait for App Store build',
-            storeBuild,
-            `Build ${buildNumber} was not found on App Store Connect after ${timeoutMinutes} min - check that the upload finished.`,
-          ),
-        );
-      }
-      if (isTimedOut) {
-        return yield* Effect.fail(
-          releaseFailure(
-            'wait for App Store build',
-            storeBuild,
-            `Build ${buildNumber} is still ${processingState} after ${timeoutMinutes} min. Re-run \`launch release ios --build ${buildNumber}\` once \`launch status\` shows it VALID.`,
-          ),
-        );
-      }
+  if (options.timeoutMs != null) {
+    timeoutMs = options.timeoutMs;
+  }
 
-      yield* sleepBetweenPolls(intervalMs);
-      waited += intervalMs;
+  let sleepBetweenPolls = sleepMilliseconds;
+
+  if (options.sleep != null) {
+    sleepBetweenPolls = options.sleep;
+  }
+
+  let waited = 0;
+  const timeoutMinutes = Math.round(timeoutMs / 60_000);
+
+  for (;;) {
+    let storeBuild: BuildResource | null;
+
+    try {
+      storeBuild = await appleReleaseApi.findBuildByVersion(
+        appId,
+        buildNumber,
+        options.marketingVersion,
+      );
+    } catch (cause) {
+      throw releaseFailure('read App Store build', cause);
     }
-  });
+
+    let processingState = 'PROCESSING';
+
+    if (storeBuild != null) {
+      processingState = storeBuild.processingState;
+    }
+
+    const onTick = options.onTick;
+    const isProgressReported = onTick != null;
+
+    if (isProgressReported) {
+      await onTick(processingState);
+    }
+
+    const isProcessingValid = processingState == 'VALID';
+
+    if (storeBuild != null) {
+      if (isProcessingValid) {
+        return storeBuild;
+      }
+    }
+
+    const isProcessingRejected = isRejectedProcessing(processingState);
+
+    if (isProcessingRejected) {
+      throw releaseFailure(
+        'wait for App Store build',
+        storeBuild,
+        `Build ${buildNumber} failed App Store Connect processing (${processingState}) - check the email Apple sent.`,
+      );
+    }
+
+    const isTimedOut = waited >= timeoutMs;
+    const isBuildMissing = storeBuild == null;
+
+    if (isTimedOut) {
+      if (isBuildMissing) {
+        throw releaseFailure(
+          'wait for App Store build',
+          storeBuild,
+          `Build ${buildNumber} was not found on App Store Connect after ${timeoutMinutes} min - check that the upload finished.`,
+        );
+      }
+
+      throw releaseFailure(
+        'wait for App Store build',
+        storeBuild,
+        `Build ${buildNumber} is still ${processingState} after ${timeoutMinutes} min. Re-run \`launch release ios --build ${buildNumber}\` once \`launch status\` shows it VALID.`,
+      );
+    }
+
+    await sleepBetweenPolls(intervalMs);
+    waited += intervalMs;
+  }
+}

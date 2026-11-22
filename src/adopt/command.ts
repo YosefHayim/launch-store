@@ -1,20 +1,15 @@
-import { FileSystem, Path, Terminal } from '@effect/platform';
-import type { CommandExecutor } from '@effect/platform/CommandExecutor';
-import { Data, Effect, Schema } from 'effect';
+import { join, relative, sep } from 'node:path';
+import { pathExists } from '../path-exists.js';
 import { loadConfig } from '../config/config.js';
 import { loadActiveAscKey } from '../credentials/accounts.js';
-import {
-  AppleStoreClientService,
-  type AppleStoreClientService as AppleStoreClientRequirements,
-} from '../services/stores/appleStoreClient.js';
-import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
 import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
-import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
+import { readLaunchDirectories } from '../services/platform/paths.js';
+import { LaunchPrompt } from '../services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '../services/platform/progress.js';
 import { pullAppleListing } from '../store/shared/metadataCommand.js';
-import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.js';
 import type { AdoptCatalogApi, Fidelity } from '../types/adopt.js';
 import type { AppDescriptor } from '../types/app.js';
 import {
@@ -26,14 +21,89 @@ import {
 } from './orchestrator.js';
 import { listAdopters, registerBuiltinAdopters } from './registry.js';
 
-export const AdoptCommandInputSchema = Schema.Struct({
-  all: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  dryRun: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-  yes: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-});
+export type AdoptCommandInput = {
+  all: boolean;
+  app?: string;
+  dryRun: boolean;
+  yes: boolean;
+};
 
-export type AdoptCommandInput = Schema.Schema.Type<typeof AdoptCommandInputSchema>;
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readBooleanFlag(
+  record: Record<string, unknown>,
+  fieldName: string,
+  fallback: boolean,
+): boolean {
+  if (fieldName in record == false) {
+    return fallback;
+  }
+
+  const field = record[fieldName];
+
+  if (field == null) {
+    return fallback;
+  }
+
+  if (typeof field != 'boolean') {
+    throw new Error(`${fieldName} must be a boolean`);
+  }
+
+  return field;
+}
+
+function readOptionalString(record: Record<string, unknown>, fieldName: string): string | null {
+  if (fieldName in record == false) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (field == null) {
+    return null;
+  }
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  return field;
+}
+
+export function decodeAdoptCommandInput(rawCommandInput: unknown): AdoptCommandInput {
+  if (isRecord(rawCommandInput) == false) {
+    throw new Error('Adopt command input must be an object.');
+  }
+
+  const commandInput: AdoptCommandInput = {
+    all: readBooleanFlag(rawCommandInput, 'all', false),
+    dryRun: readBooleanFlag(rawCommandInput, 'dryRun', false),
+    yes: readBooleanFlag(rawCommandInput, 'yes', false),
+  };
+  const appName = readOptionalString(rawCommandInput, 'app');
+
+  if (appName != null) {
+    commandInput.app = appName;
+  }
+
+  return commandInput;
+}
+
+export const AdoptCommandInputSchema = decodeAdoptCommandInput;
 
 /** The adopt command could not read or apply existing App Store state. */
 type AdoptCommandFailure = Readonly<{
@@ -43,83 +113,113 @@ type AdoptCommandFailure = Readonly<{
   cause: unknown;
 }>;
 
-const makeAdoptCommandFailure = Data.tagged<AdoptCommandFailure>('AdoptCommandFailure');
+function makeAdoptCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): AdoptCommandFailure {
+  return { _tag: 'AdoptCommandFailure', ...fields };
+}
 
-const AdoptCommandFailureSchema: Schema.Schema<AdoptCommandFailure> = Schema.Struct({
-  _tag: Schema.Literal('AdoptCommandFailure'),
-  operation: Schema.String,
-  message: Schema.String,
-  cause: Schema.Unknown,
-});
+function isAdoptCommandFailure(cause: unknown): cause is AdoptCommandFailure {
+  if (cause == null) {
+    return false;
+  }
 
-type AdoptCommandRequirements =
-  | AppleStoreClientRequirements
-  | CommandExecutor
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchPromptService
-  | LaunchSecretStoreService
-  | Logger
-  | Path.Path
-  | Terminal.Terminal;
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'AdoptCommandFailure';
+}
 
 /** Normalize one adopt failure into the command error channel. */
-const adoptFailure = (
+function adoptFailure(
   operation: string,
   cause: unknown,
   explicitMessage?: string,
-): AdoptCommandFailure => {
+): AdoptCommandFailure {
   let message = errorMessage(cause);
-  if (explicitMessage !== undefined) message = explicitMessage;
+
+  if (explicitMessage != null) {
+    message = explicitMessage;
+  }
+
   return makeAdoptCommandFailure({ operation, message, cause });
-};
+}
+
+function trimAppName(appName: string): string {
+  return appName.trim();
+}
+
+function isNamedApp(appName: string): boolean {
+  return appName.length > 0;
+}
 
 /** Select every discovered app or the comma-separated handles passed through --app. */
-export const selectAdoptApps = (
+export function selectAdoptApps(
   discoveredApps: readonly AppDescriptor[],
   appSelector: string | undefined,
-): Effect.Effect<AppDescriptor[], AdoptCommandFailure> => {
-  if (appSelector === undefined) return Effect.succeed([...discoveredApps]);
-  const requestedNames = appSelector
-    .split(',')
-    .map((appName) => appName.trim())
-    .filter((appName) => appName.length > 0);
+): AppDescriptor[] {
+  if (appSelector == null) {
+    return [...discoveredApps];
+  }
+
+  const requestedNames = appSelector.split(',').map(trimAppName).filter(isNamedApp);
   const appsByName = new Map(
-    discoveredApps.map((discoveredApp) => [discoveredApp.name, discoveredApp]),
+    discoveredApps.map(function appByName(discoveredApp: AppDescriptor) {
+      return [discoveredApp.name, discoveredApp] as const;
+    }),
   );
   const selectedApps: AppDescriptor[] = [];
+
   for (const requestedName of requestedNames) {
     const selectedApp = appsByName.get(requestedName);
-    if (selectedApp !== undefined) {
+
+    if (selectedApp != null) {
       selectedApps.push(selectedApp);
       continue;
     }
+
     let discoveredNames = 'none';
-    if (discoveredApps.length > 0)
-      discoveredNames = discoveredApps.map((discoveredApp) => discoveredApp.name).join(', ');
-    return Effect.fail(
-      adoptFailure(
-        'select apps to adopt',
-        requestedName,
-        `Unknown app "${requestedName}". Discovered apps: ${discoveredNames}.`,
-      ),
+
+    if (discoveredApps.length > 0) {
+      discoveredNames = discoveredApps
+        .map(function appNameOf(discoveredApp: AppDescriptor) {
+          return discoveredApp.name;
+        })
+        .join(', ');
+    }
+
+    throw adoptFailure(
+      'select apps to adopt',
+      requestedName,
+      `Unknown app "${requestedName}". Discovered apps: ${discoveredNames}.`,
     );
   }
-  return Effect.succeed(selectedApps);
-};
+
+  return selectedApps;
+}
+
+function countConfigWrites(targetPlan: TargetPlan): number {
+  return targetPlan.writes.filter(function isConfigWrite(plannedWrite) {
+    return plannedWrite.change.home != 'keychain';
+  }).length;
+}
 
 /** Count planned writes that modify local configuration (keychain reports are detect-only). */
-export const countAdoptMutations = (targetPlans: readonly TargetPlan[]): number =>
-  targetPlans.reduce(
-    (mutationTotal, targetPlan) =>
-      mutationTotal +
-      targetPlan.writes.filter((plannedWrite) => plannedWrite.change.home !== 'keychain').length,
-    0,
-  );
+export function countAdoptMutations(targetPlans: readonly TargetPlan[]): number {
+  return targetPlans.reduce(function addMutations(mutationTotal, targetPlan) {
+    return mutationTotal + countConfigWrites(targetPlan);
+  }, 0);
+}
 
 /** ASCII marker for one planned write's fidelity tier. */
-export const adoptFidelityMarker = (fidelity: Fidelity): string => {
+export function adoptFidelityMarker(fidelity: Fidelity): string {
   switch (fidelity) {
     case 'importable':
       return '+';
@@ -128,7 +228,7 @@ export const adoptFidelityMarker = (fidelity: Fidelity): string => {
     case 'detect':
       return '-';
   }
-};
+}
 
 /** Minimal path ops used to detect a shared monorepo app root. */
 type SharedAppRootPath = Readonly<{
@@ -137,177 +237,250 @@ type SharedAppRootPath = Readonly<{
 }>;
 
 /** Shared monorepo app-root segment for a generated Launch configuration, if unique. */
-export const detectSharedAppRoot = (
+export function detectSharedAppRoot(
   selectedApps: readonly AppDescriptor[],
   workingDirectory: string,
   pathService: SharedAppRootPath,
-): string | null => {
+): string | null {
   const rootSegments = new Set<string>();
+
   for (const selectedApp of selectedApps) {
     const relativeAppPath = pathService.relative(workingDirectory, selectedApp.dir);
-    if (relativeAppPath === '') return null;
+
+    if (relativeAppPath == '') {
+      return null;
+    }
+
     const firstSegment = relativeAppPath.split(pathService.sep)[0];
-    if (firstSegment !== undefined && firstSegment.length > 0) rootSegments.add(firstSegment);
+
+    if (firstSegment == null) {
+      continue;
+    }
+
+    if (firstSegment.length == 0) {
+      continue;
+    }
+
+    rootSegments.add(firstSegment);
   }
-  if (rootSegments.size !== 1) return null;
+
+  if (rootSegments.size != 1) {
+    return null;
+  }
+
   const sharedSegment = [...rootSegments][0];
-  if (sharedSegment === undefined) return null;
+
+  if (sharedSegment == null) {
+    return null;
+  }
+
   return `.${pathService.sep}${sharedSegment}`;
-};
+}
 
 /** Print one app's adopt plan. */
-const printTargetPlan = (logger: Logger, targetPlan: TargetPlan): Effect.Effect<void, unknown> => {
+function printTargetPlan(logger: Logger, targetPlan: TargetPlan): void {
   const planLines: string[] = [];
+
   for (const plannedWrite of targetPlan.writes) {
     planLines.push(`${adoptFidelityMarker(plannedWrite.fidelity)} ${plannedWrite.description}`);
-    if (plannedWrite.note !== undefined) planLines.push(`    -> ${plannedWrite.note}`);
+
+    if (plannedWrite.note != null) {
+      planLines.push(`    -> ${plannedWrite.note}`);
+    }
   }
-  for (const adopterFailure of targetPlan.errors)
+
+  for (const adopterFailure of targetPlan.errors) {
     planLines.push(`x ${adopterFailure.domain}: ${adopterFailure.message}`);
-  if (planLines.length === 0) planLines.push('nothing to adopt');
-  return logger.notice(
+  }
+
+  const hasNoLines = planLines.length == 0;
+
+  if (hasNoLines) {
+    planLines.push('nothing to adopt');
+  }
+
+  logger.notice(
     `${targetPlan.detected.target.app.name} (${targetPlan.detected.target.bundleId}) - ${targetPlan.detected.signal}`,
     ...planLines,
   );
-};
+}
 
 /** Print the files and listing state changed by adoption. */
-const printAdoptReceipt = (
+function printAdoptReceipt(
   logger: Logger,
   workingDirectory: string,
   adoptionSummary: AdoptApplyResult,
-): Effect.Effect<void, unknown, Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const receiptLines: string[] = [];
-    if (adoptionSummary.configWritten !== undefined) {
-      receiptLines.push(
-        `OK wrote ${pathService.relative(workingDirectory, adoptionSummary.configWritten)} (review the imported products)`,
-      );
-    }
-    for (const patchedApp of adoptionSummary.appJsonPatched) {
-      receiptLines.push(
-        `OK ${patchedApp.app}: added ${patchedApp.added.length} entitlement(s) to ${pathService.relative(workingDirectory, patchedApp.configPath)}`,
-      );
-    }
-    for (const pulledListing of adoptionSummary.listingsPulled)
-      receiptLines.push(`OK ${pulledListing}: pulled App Store listing -> store.config.json`);
-    for (const failedListing of adoptionSummary.listingErrors)
-      receiptLines.push(`x ${failedListing.app}: listing pull failed - ${failedListing.message}`);
-    if (receiptLines.length > 0) {
-      let receiptTitle = 'Adopted';
-      if (adoptionSummary.listingErrors.length > 0) receiptTitle = 'Adopted with errors';
-      yield* logger.box(receiptTitle, receiptLines);
-    }
-    if (adoptionSummary.configBlock !== undefined) {
-      yield* logger.notice(
-        'launch.config.ts already exists - add this `products` block, then run `launch sync`:',
-        adoptionSummary.configBlock,
-      );
-    }
-    for (const dynamicConfigBlock of adoptionSummary.appJsonBlocks) {
-      yield* logger.notice(
-        `${dynamicConfigBlock.app}: ${pathService.relative(workingDirectory, dynamicConfigBlock.configPath)} is dynamic - paste this into your config:`,
-        dynamicConfigBlock.block,
-      );
-    }
-  });
+): void {
+  const receiptLines: string[] = [];
 
-/** Run the schema-decoded adopt command through shared services. */
-export const adoptCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, AdoptCommandFailure | CommandExit, AdoptCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(AdoptCommandInputSchema)(rawCommandInput);
-    const launchPaths = yield* LaunchPaths;
-    const logger = yield* createLogger(false);
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
-    const selectedApps = yield* selectAdoptApps(loadedConfiguration.apps, commandInput.app);
-    if (selectedApps.length === 0) {
-      yield* logger.note('No apps discovered. Run `launch init` or check your appRoots first.');
+  if (adoptionSummary.configWritten != null) {
+    receiptLines.push(
+      `OK wrote ${relative(workingDirectory, adoptionSummary.configWritten)} (review the imported products)`,
+    );
+  }
+
+  for (const patchedApp of adoptionSummary.appJsonPatched) {
+    receiptLines.push(
+      `OK ${patchedApp.app}: added ${patchedApp.added.length} entitlement(s) to ${relative(workingDirectory, patchedApp.configPath)}`,
+    );
+  }
+
+  for (const pulledListing of adoptionSummary.listingsPulled) {
+    receiptLines.push(`OK ${pulledListing}: pulled App Store listing -> store.config.json`);
+  }
+
+  for (const failedListing of adoptionSummary.listingErrors) {
+    receiptLines.push(`x ${failedListing.app}: listing pull failed - ${failedListing.message}`);
+  }
+
+  const hasReceipt = receiptLines.length > 0;
+
+  if (hasReceipt) {
+    let receiptTitle = 'Adopted';
+
+    if (adoptionSummary.listingErrors.length > 0) {
+      receiptTitle = 'Adopted with errors';
+    }
+
+    logger.box(receiptTitle, receiptLines);
+  }
+
+  if (adoptionSummary.configBlock != null) {
+    logger.notice(
+      'launch.config.ts already exists - add this `products` block, then run `launch sync`:',
+      adoptionSummary.configBlock,
+    );
+  }
+
+  for (const dynamicConfigBlock of adoptionSummary.appJsonBlocks) {
+    logger.notice(
+      `${dynamicConfigBlock.app}: ${relative(workingDirectory, dynamicConfigBlock.configPath)} is dynamic - paste this into your config:`,
+      dynamicConfigBlock.block,
+    );
+  }
+}
+
+function skippedLine(skippedApp: { app: { name: string }; reason: string }): string {
+  return `- ${skippedApp.app.name}: ${skippedApp.reason}`;
+}
+
+/** Run the decoded adopt command through shared services. */
+export async function adoptCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodeAdoptCommandInput(rawCommandInput);
+    const launchPaths = readLaunchDirectories();
+    const logger = createLogger(false);
+    const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+    const selectedApps = selectAdoptApps(loadedConfiguration.apps, commandInput.app);
+    const hasNoApps = selectedApps.length == 0;
+
+    if (hasNoApps) {
+      logger.note('No apps discovered. Run `launch init` or check your appRoots first.');
       return;
     }
-    const ascKey = yield* loadActiveAscKey();
-    if (ascKey === null) {
-      return yield* Effect.fail(
-        adoptFailure(
-          'load active Apple account',
-          'missing-active-account',
-          'No active Apple account. Run `launch creds set-key` first.',
-        ),
+
+    const ascKey = await loadActiveAscKey();
+
+    if (ascKey == null) {
+      throw adoptFailure(
+        'load active Apple account',
+        'missing-active-account',
+        'No active Apple account. Run `launch creds set-key` first.',
       );
     }
-    const appleStoreClients = yield* AppleStoreClientService;
-    const appleCatalog: AdoptCatalogApi = yield* appleStoreClients.createEffectClient(ascKey);
-    const launchConfigPath = pathService.join(launchPaths.workingDirectory, 'launch.config.ts');
-    const hasLaunchConfig = yield* fileSystem.exists(launchConfigPath);
-    yield* Effect.sync(registerBuiltinAdopters);
-    const detection = yield* detectTargets(appleCatalog, selectedApps, {
+
+    const appleCatalog: AdoptCatalogApi = AppleStoreClientService.createEffectClient(ascKey);
+    const launchConfigPath = join(launchPaths.workingDirectory, 'launch.config.ts');
+    const hasLaunchConfig = await pathExists(launchConfigPath);
+    registerBuiltinAdopters();
+    const detection = await detectTargets(appleCatalog, selectedApps, {
       keyId: ascKey.keyId,
       cwd: launchPaths.workingDirectory,
       hasLaunchConfig,
     });
-    if (detection.skipped.length > 0) {
-      yield* logger.notice(
-        'Skipped',
-        ...detection.skipped.map((skippedApp) => `- ${skippedApp.app.name}: ${skippedApp.reason}`),
-      );
+    const hasSkippedApps = detection.skipped.length > 0;
+
+    if (hasSkippedApps) {
+      logger.notice('Skipped', ...detection.skipped.map(skippedLine));
     }
-    if (detection.detected.length === 0) {
-      yield* logger.note(
+
+    const hasNoDetectedApps = detection.detected.length == 0;
+
+    if (hasNoDetectedApps) {
+      logger.note(
         'No adoptable apps - none of the discovered apps have an App Store Connect record yet.',
       );
       return;
     }
-    const targetPlans = yield* planTargets(appleCatalog, detection, listAdopters());
-    yield* logger.gap();
-    for (const targetPlan of targetPlans) yield* printTargetPlan(logger, targetPlan);
+
+    const targetPlans = await planTargets(appleCatalog, detection, listAdopters());
+    logger.gap();
+
+    for (const targetPlan of targetPlans) {
+      printTargetPlan(logger, targetPlan);
+    }
+
     const mutationCount = countAdoptMutations(targetPlans);
-    yield* logger.gap();
-    if (mutationCount === 0) {
-      yield* logger.note('Nothing to import - the detect-only findings need no config changes.');
+    logger.gap();
+    const hasNoMutations = mutationCount == 0;
+
+    if (hasNoMutations) {
+      logger.note('Nothing to import - the detect-only findings need no config changes.');
       return;
     }
-    yield* logger.note(`${mutationCount} import(s) across ${targetPlans.length} app(s).`);
+
+    logger.note(`${mutationCount} import(s) across ${targetPlans.length} app(s).`);
+
     if (commandInput.dryRun) {
-      yield* logger.note('Dry run - nothing imported. Re-run without --dry-run to apply.');
+      logger.note('Dry run - nothing imported. Re-run without --dry-run to apply.');
       return;
     }
-    if (!commandInput.yes) {
-      const terminal = yield* Terminal.Terminal;
-      if (!(yield* terminal.isTTY)) {
-        return yield* Effect.fail(
-          adoptFailure(
-            'confirm adoption',
-            'confirmation-required',
-            'Refusing to import without confirmation. Re-run with --yes or --dry-run.',
-          ),
+
+    if (commandInput.yes == false) {
+      const isInteractive = checkTerminalIsInteractive();
+
+      if (isInteractive == false) {
+        throw adoptFailure(
+          'confirm adoption',
+          'confirmation-required',
+          'Refusing to import without confirmation. Re-run with --yes or --dry-run.',
         );
       }
-      const launchPrompt = yield* LaunchPrompt;
-      const confirmed = yield* launchPrompt.confirm(
+
+      const confirmed = await LaunchPrompt.confirm(
         `Import ${mutationCount} change(s) into your local config?`,
       );
-      if (!confirmed) {
-        yield* launchPrompt.cancel('Aborted - nothing imported.');
+
+      if (confirmed == false) {
+        LaunchPrompt.cancel('Aborted - nothing imported.');
         return;
       }
     }
-    const adoptionSummary = yield* applyAdopt(targetPlans, {
+
+    const adoptionSummary = await applyAdopt(targetPlans, {
       cwd: launchPaths.workingDirectory,
       hasLaunchConfig,
-      appRoot: detectSharedAppRoot(selectedApps, launchPaths.workingDirectory, pathService),
-      pullListing: (bundleId, configPath) => pullAppleListing(bundleId, configPath, false),
+      appRoot: detectSharedAppRoot(selectedApps, launchPaths.workingDirectory, { relative, sep }),
+      pullListing(bundleId, configPath) {
+        return pullAppleListing(bundleId, configPath, false);
+      },
     });
-    yield* logger.gap();
-    yield* printAdoptReceipt(logger, launchPaths.workingDirectory, adoptionSummary);
-    if (adoptionSummary.listingErrors.length > 0) yield* completeCommand(1);
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (Schema.is(CommandExitSchema)(cause)) return cause;
-      if (Schema.is(AdoptCommandFailureSchema)(cause)) return cause;
-      return adoptFailure('adopt existing app', cause);
-    }),
-  );
+    logger.gap();
+    printAdoptReceipt(logger, launchPaths.workingDirectory, adoptionSummary);
+    const hasListingErrors = adoptionSummary.listingErrors.length > 0;
+
+    if (hasListingErrors) {
+      completeCommand(1);
+    }
+  } catch (cause) {
+    if (isCommandExit(cause)) {
+      throw cause;
+    }
+
+    if (isAdoptCommandFailure(cause)) {
+      throw cause;
+    }
+
+    throw adoptFailure('adopt existing app', cause);
+  }
+}

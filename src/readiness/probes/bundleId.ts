@@ -1,49 +1,73 @@
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@/types/readiness.js';
-import { Effect } from 'effect';
+import type {
+  AppReadiness,
+  AscReadinessApi,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+} from '@/types/readiness.js';
 import { iosApps } from '../appScopes.js';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
+
+function isAppleAccountMissing(api: AscReadinessApi | null): api is null {
+  return api == null;
+}
+
+function isBundleUnregistered(bundle: Readonly<{ id: string }> | null): bundle is null {
+  return bundle == null;
+}
+
+async function readBundleRegistration(
+  api: AscReadinessApi,
+  app: { name: string; identifier: string },
+): Promise<AppReadiness> {
+  const bundle = await api.findBundleId(app.identifier);
+
+  if (isBundleUnregistered(bundle)) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'blocker',
+      detail: 'Bundle ID not registered in the Developer portal',
+      hint: 'run `launch sync` to register the App ID before building for distribution',
+    };
+  }
+
+  return {
+    app: app.name,
+    identifier: app.identifier,
+    status: 'ok',
+    detail: 'registered in the Developer portal',
+  };
+}
+
 /** The Apple Bundle ID (App ID) registration readiness probe. */
 export const bundleIdProbe = {
   id: 'apple-bundle-id',
   title: 'Apple Bundle ID registered',
   store: 'appstore',
   categories: ['signing', 'submit'],
-  /**
-   * Verify that every selected iOS app has a registered Apple Bundle ID.
-   *
-   * @param readinessContext - Loaded config, selected apps, and App Store Connect resolver.
-   * @returns An Effect that succeeds with one Bundle ID finding per selected app.
-   */
-  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
-    return Effect.gen(function* () {
-      const apps = iosApps(readinessContext.apps);
-      if (apps.length === 0) return OMITTED_PROBE;
-      const api = yield* readinessContext.resolveAscApi();
-      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
-      const results = yield* Effect.forEach(
-        apps,
-        ({ name, identifier }) =>
-          Effect.gen(function* () {
-            const bundleId = yield* api.findBundleId(identifier);
-            if (bundleId) {
-              return {
-                app: name,
-                identifier,
-                status: 'ok' as const,
-                detail: 'registered in the Developer portal',
-              };
-            }
-            return {
-              app: name,
-              identifier,
-              status: 'blocker' as const,
-              detail: 'Bundle ID not registered in the Developer portal',
-              hint: 'run `launch sync` to register the App ID before building for distribution',
-            };
-          }),
-        { concurrency: 'unbounded' },
-      );
-      return { state: 'checked', apps: results };
-    });
+  async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
+    const apps = iosApps(readinessContext.apps);
+    const isNothingSelected = apps.length == 0;
+
+    if (isNothingSelected) {
+      return OMITTED_PROBE;
+    }
+
+    const api = await readinessContext.resolveAscApi();
+
+    if (isAppleAccountMissing(api)) {
+      return SKIPPED_NO_APPLE_ACCOUNT;
+    }
+
+    const appleApi = api;
+
+    function readBundle(app: { name: string; identifier: string }): Promise<AppReadiness> {
+      return readBundleRegistration(appleApi, app);
+    }
+
+    const findings = await Promise.all(apps.map(readBundle));
+
+    return { state: 'checked', apps: findings };
   },
 } satisfies ReadinessProbe;

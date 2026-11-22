@@ -1,6 +1,4 @@
-import { Path } from '@effect/platform';
-import { NodeContext } from '@effect/platform-node';
-import { Clock, Duration, Effect } from 'effect';
+import { basename } from 'node:path';
 import type { BuildUploadProblem } from '@/types/appleCatalog.js';
 import type { ResolvedBuildContext } from '@/types/config.js';
 import type { BuildCredentials } from '@/types/credentials.js';
@@ -11,133 +9,181 @@ import {
   type Submitter,
 } from '@/types/providers.js';
 import {
-  AppleStoreClientLive,
   AppleStoreClientService,
   appRecordMissingMessage,
-  type EffectAppStoreConnectClient,
 } from '@/services/stores/appleStoreClient.js';
 import { toAscPlatform } from '@/services/stores/platform.js';
+import type { AppStoreConnectClient } from '@/apple/ascClient.js';
 
 const PROVIDER = 'app-store-connect';
-/** How long Apple may take to accept a delivered binary before the submit gives up waiting. */
-const BUILD_UPLOAD_WAIT = Duration.minutes(30);
-/** Apple's codes for a version train that no longer takes builds (closed, or below an approved version). */
+const BUILD_UPLOAD_WAIT_MILLISECONDS = 30 * 60 * 1000;
+const POLL_INTERVAL_MILLISECONDS = 5 * 1000;
 const CLOSED_VERSION_TRAIN_CODES = new Set(['90062', '90186', '90478']);
 
-const describeProblems = (problems: readonly BuildUploadProblem[]): string =>
-  problems.map((problem) => `- ${problem.description} (${problem.code})`).join('\n');
+function describeProblem(problem: BuildUploadProblem): string {
+  return `- ${problem.description} (${problem.code})`;
+}
 
-/** Turn Apple's rejection reasons into one actionable message, with a fix for the common closed-train case. */
-const rejectionMessage = (version: string, problems: readonly BuildUploadProblem[]): string => {
-  const problemList = describeProblems(problems);
-  const isClosedTrain = problems.some((problem) => CLOSED_VERSION_TRAIN_CODES.has(problem.code));
+function isClosedTrainCode(problem: BuildUploadProblem): boolean {
+  return CLOSED_VERSION_TRAIN_CODES.has(problem.code);
+}
+
+function rejectionMessage(version: string, problems: readonly BuildUploadProblem[]): string {
+  const problemList = problems.map(describeProblem).join('\n');
+  const isClosedTrain = problems.some(isClosedTrainCode);
+
   if (isClosedTrain) {
     return `App Store Connect no longer takes builds for version ${version}. Bump the app version (expo.version or CFBundleShortVersionString), rebuild, and submit again.\n${problemList}`;
   }
-  if (problems.length === 0) return 'App Store Connect rejected the build upload without a reason.';
-  return `App Store Connect rejected the build upload:\n${problemList}`;
-};
 
-/** Poll the build upload until Apple accepts or rejects the delivered binary, or `uploadWait` has passed. */
-const waitForBuildUpload = (
-  appStoreClient: EffectAppStoreConnectClient,
+  const hasNoProblems = problems.length == 0;
+
+  if (hasNoProblems) {
+    return 'App Store Connect rejected the build upload without a reason.';
+  }
+
+  return `App Store Connect rejected the build upload:\n${problemList}`;
+}
+
+function describeWait(waitMilliseconds: number): string {
+  const waitMinutes = waitMilliseconds / 60_000;
+  const isWholeMinutes = waitMinutes == Math.floor(waitMinutes);
+
+  if (isWholeMinutes) {
+    const isOneMinute = waitMinutes == 1;
+
+    if (isOneMinute) {
+      return '1 minute';
+    }
+
+    return `${waitMinutes} minutes`;
+  }
+
+  const waitSeconds = waitMilliseconds / 1000;
+  const isOneSecond = waitSeconds == 1;
+
+  if (isOneSecond) {
+    return '1 second';
+  }
+
+  return `${waitSeconds} seconds`;
+}
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise(function wake(finish) {
+    setTimeout(finish, milliseconds);
+  });
+}
+
+async function waitForBuildUpload(
+  appStoreClient: AppStoreConnectClient,
   buildUploadId: string,
   version: string,
-  pollInterval: Duration.DurationInput,
-  uploadWait: Duration.DurationInput,
-) =>
-  Effect.gen(function* () {
-    const startedAt = yield* Clock.currentTimeMillis;
-    const deadline = startedAt + Duration.toMillis(uploadWait);
-    let checkedAt = startedAt;
-    while (checkedAt < deadline) {
-      const uploadStatus = yield* appStoreClient.getBuildUploadStatus(buildUploadId);
-      if (uploadStatus.state === 'COMPLETE') return;
-      const isRejected = [uploadStatus.state, uploadStatus.fileState].includes('FAILED');
-      if (isRejected) {
-        return yield* Effect.fail(
-          makeStoreUploadFailure({
-            provider: PROVIDER,
-            message: rejectionMessage(version, uploadStatus.errors),
-          }),
-        );
-      }
-      yield* Effect.sleep(pollInterval);
-      checkedAt = yield* Clock.currentTimeMillis;
-    }
-    return yield* Effect.fail(
-      makeStoreUploadFailure({
-        provider: PROVIDER,
-        message: `App Store Connect is still processing build upload ${buildUploadId} after ${Duration.format(uploadWait)}. Check TestFlight before uploading again.`,
-      }),
-    );
-  });
+  pollIntervalMilliseconds: number,
+  uploadWaitMilliseconds: number,
+): Promise<void> {
+  const startedAt = Date.now();
+  const deadline = startedAt + uploadWaitMilliseconds;
+  let checkedAt = startedAt;
 
-/** The App Store Connect submitter, polling the build upload at `pollInterval` until Apple answers or `uploadWait` has passed. */
-export const makeAppStoreConnectSubmitter = (
-  pollInterval: Duration.DurationInput,
-  uploadWait: Duration.DurationInput,
-): Submitter => ({
-  name: PROVIDER,
-  submit(
-    artifact: SubmitArtifact,
-    buildCredentials: BuildCredentials,
-    buildContext: ResolvedBuildContext,
-  ) {
-    if (buildCredentials.platform !== 'ios') {
-      return Effect.fail(
-        makeProviderInputFailure({
-          provider: PROVIDER,
-          message: 'The app-store-connect submitter handles Apple platforms only.',
-        }),
-      );
+  while (checkedAt < deadline) {
+    const uploadStatus = await appStoreClient.getBuildUploadStatus(buildUploadId);
+    const isComplete = uploadStatus.state == 'COMPLETE';
+
+    if (isComplete) {
+      return;
     }
-    const bundleId = buildContext.app.bundleId;
-    if (bundleId === undefined) {
-      return Effect.fail(
-        makeProviderInputFailure({
-          provider: PROVIDER,
-          message: `No bundle identifier for ${buildContext.app.name}. Set ios.bundleIdentifier in app.json.`,
-        }),
-      );
+
+    const isRejected = [uploadStatus.state, uploadStatus.fileState].includes('FAILED');
+
+    if (isRejected) {
+      throw makeStoreUploadFailure({
+        provider: PROVIDER,
+        message: rejectionMessage(version, uploadStatus.errors),
+      });
     }
-    return Effect.gen(function* () {
-      const ascPlatform = yield* toAscPlatform(buildContext.platform);
-      const appleStoreClients = yield* AppleStoreClientService;
-      const appStoreClient = yield* appleStoreClients.createEffectClient(buildCredentials.ascKey);
-      const appId = yield* appStoreClient.getAppId(bundleId);
-      if (appId === null) {
-        return yield* Effect.fail(
-          makeProviderInputFailure({
-            provider: PROVIDER,
-            message: appRecordMissingMessage(bundleId, `launch build ${buildContext.platform}`),
-          }),
-        );
-      }
-      const buildUploadId = yield* appStoreClient.createBuildUpload(
-        appId,
-        artifact.version,
-        artifact.buildNumber,
-        ascPlatform,
+
+    await sleep(pollIntervalMilliseconds);
+    checkedAt = Date.now();
+  }
+
+  throw makeStoreUploadFailure({
+    provider: PROVIDER,
+    message: `App Store Connect is still processing build upload ${buildUploadId} after ${describeWait(uploadWaitMilliseconds)}. Check TestFlight before uploading again.`,
+  });
+}
+
+async function submitAppleBuild(
+  artifact: SubmitArtifact,
+  buildCredentials: BuildCredentials,
+  buildContext: ResolvedBuildContext,
+  pollIntervalMilliseconds: number,
+  uploadWaitMilliseconds: number,
+): Promise<void> {
+  const isAppleCredential = buildCredentials.platform == 'ios';
+
+  if (isAppleCredential == false) {
+    throw makeProviderInputFailure({
+      provider: PROVIDER,
+      message: 'The app-store-connect submitter handles Apple platforms only.',
+    });
+  }
+
+  const bundleId = buildContext.app.bundleId;
+
+  if (bundleId == null) {
+    throw makeProviderInputFailure({
+      provider: PROVIDER,
+      message: `No bundle identifier for ${buildContext.app.name}. Set ios.bundleIdentifier in app.json.`,
+    });
+  }
+
+  const ascPlatform = toAscPlatform(buildContext.platform);
+  const appStoreClient = AppleStoreClientService.createEffectClient(buildCredentials.ascKey);
+  const appId = await appStoreClient.getAppId(bundleId);
+
+  if (appId == null) {
+    throw makeProviderInputFailure({
+      provider: PROVIDER,
+      message: appRecordMissingMessage(bundleId, `launch build ${buildContext.platform}`),
+    });
+  }
+
+  const buildUploadId = await appStoreClient.createBuildUpload(
+    appId,
+    artifact.version,
+    artifact.buildNumber,
+    ascPlatform,
+  );
+  await appStoreClient.uploadBuildFile(buildUploadId, basename(artifact.path), artifact.path);
+  await waitForBuildUpload(
+    appStoreClient,
+    buildUploadId,
+    artifact.version,
+    pollIntervalMilliseconds,
+    uploadWaitMilliseconds,
+  );
+}
+
+export function makeAppStoreConnectSubmitter(
+  pollIntervalMilliseconds: number,
+  uploadWaitMilliseconds: number,
+): Submitter {
+  return {
+    name: PROVIDER,
+    submit(artifact, buildCredentials, buildContext) {
+      return submitAppleBuild(
+        artifact,
+        buildCredentials,
+        buildContext,
+        pollIntervalMilliseconds,
+        uploadWaitMilliseconds,
       );
-      const pathService = yield* Path.Path;
-      yield* appStoreClient.uploadBuildFile(
-        buildUploadId,
-        pathService.basename(artifact.path),
-        artifact.path,
-      );
-      yield* waitForBuildUpload(
-        appStoreClient,
-        buildUploadId,
-        artifact.version,
-        pollInterval,
-        uploadWait,
-      );
-    }).pipe(Effect.provide(AppleStoreClientLive), Effect.provide(NodeContext.layer));
-  },
-});
+    },
+  };
+}
 
 export const appStoreConnectSubmitter = makeAppStoreConnectSubmitter(
-  Duration.seconds(5),
-  BUILD_UPLOAD_WAIT,
+  POLL_INTERVAL_MILLISECONDS,
+  BUILD_UPLOAD_WAIT_MILLISECONDS,
 );

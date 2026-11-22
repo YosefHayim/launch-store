@@ -1,16 +1,18 @@
-import { Effect } from 'effect';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
-import { makeFakeAscClient, makeFakePlayReportingClient } from '@testkit/storeClients.testkit.js';
-import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
-import type { StatsCredentialsShape } from '../types/stats.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import {
+  makeStatsCredentialsTest,
+  useStatsCredentials,
+  type AppStoreStatsClient,
+  type PlayVitalsReader,
+} from '../stats/statsCredentials.js';
 import { discoverApps } from './discoverApps.js';
 
 const ACCOUNTS_FILE = JSON.stringify({
@@ -21,9 +23,49 @@ const ACCOUNTS_FILE = JSON.stringify({
   ],
 });
 
+interface FakeAscApp {
+  readonly id: string;
+  readonly name: string;
+  readonly bundleId: string | null;
+}
+
+interface FakePlayApp {
+  readonly packageName: string;
+  readonly displayName: string;
+}
+
+function makeAscClient(appsOrFailure: readonly FakeAscApp[] | Error): AppStoreStatsClient {
+  const client = {
+    async listApps() {
+      if (appsOrFailure instanceof Error) {
+        throw appsOrFailure;
+      }
+
+      return appsOrFailure;
+    },
+  };
+
+  return client as unknown as AppStoreStatsClient;
+}
+
+function makePlayClient(appsOrFailure: readonly FakePlayApp[] | Error): PlayVitalsReader {
+  const client = {
+    async listApps() {
+      if (appsOrFailure instanceof Error) {
+        throw appsOrFailure;
+      }
+
+      return appsOrFailure;
+    },
+  };
+
+  return client as unknown as PlayVitalsReader;
+}
+
 describe('discoverApps', () => {
   let homeDirectory: string;
-  beforeEach(() => {
+
+  beforeEach(function setDiscoverHome() {
     homeDirectory = createTemporaryHomeDirectory();
     const project = join(homeDirectory, 'work');
     mkdirSync(project, { recursive: true });
@@ -31,34 +73,32 @@ describe('discoverApps', () => {
       join(project, 'app.json'),
       JSON.stringify({ expo: { name: 'Play', slug: 'play', android: { package: 'com.play' } } }),
     );
-  });
-  afterEach(() => {
-    removeTemporaryHomeDirectory(homeDirectory);
+    useLaunchDirectories({ homeDirectory, workingDirectory: project });
   });
 
-  const discover = (credentials: Partial<StatsCredentialsShape>) =>
-    Effect.runPromise(
-      discoverApps().pipe(
-        Effect.provide(makeStatsCredentialsTest(credentials)),
-        Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      ),
-    );
+  afterEach(function resetDiscoverHome() {
+    useStatsCredentials(null);
+    resetLaunchDirectories();
+    removeTemporaryHomeDirectory(homeDirectory);
+  });
 
   test('lists the apps of every account and the Play account', async () => {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
 
-    const report = await discover({
-      ascClientForAccount: (keyId) => {
-        if (keyId === 'KEYA') {
-          return Effect.succeed(makeFakeAscClient([{ id: '1', name: 'One', bundleId: 'com.one' }]));
-        }
-        return Effect.succeed(makeFakeAscClient([{ id: '2', name: 'Two', bundleId: null }]));
-      },
-      playReportingClient: () =>
-        Effect.succeed(
-          makeFakePlayReportingClient([{ packageName: 'com.play', displayName: 'Play' }]),
-        ),
-    });
+    async function ascClientForAccount(keyId: string): Promise<AppStoreStatsClient | null> {
+      if (keyId == 'KEYA') {
+        return makeAscClient([{ id: '1', name: 'One', bundleId: 'com.one' }]);
+      }
+
+      return makeAscClient([{ id: '2', name: 'Two', bundleId: null }]);
+    }
+
+    async function playReportingClient(): Promise<PlayVitalsReader | null> {
+      return makePlayClient([{ packageName: 'com.play', displayName: 'Play' }]);
+    }
+
+    makeStatsCredentialsTest({ ascClientForAccount, playReportingClient });
+    const report = await discoverApps();
 
     expect(report.apps.map((app) => [app.key, app.accountLabel])).toEqual([
       ['ios-1', 'alpha'],
@@ -86,9 +126,12 @@ describe('discoverApps', () => {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
     const sharedApp = [{ id: '1', name: 'Shared', bundleId: 'com.shared' }];
 
-    const report = await discover({
-      ascClientForAccount: () => Effect.succeed(makeFakeAscClient(sharedApp)),
-    });
+    async function ascClientForAccount(): Promise<AppStoreStatsClient | null> {
+      return makeAscClient(sharedApp);
+    }
+
+    makeStatsCredentialsTest({ ascClientForAccount });
+    const report = await discoverApps();
 
     expect(report.apps.map((app) => app.accountLabel)).toEqual(['alpha']);
   });
@@ -96,12 +139,16 @@ describe('discoverApps', () => {
   test('turns a failing account into a warning and still lists the others', async () => {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
 
-    const report = await discover({
-      ascClientForAccount: (keyId) => {
-        if (keyId === 'KEYA') return Effect.succeed(makeFakeAscClient(new Error('401 revoked')));
-        return Effect.succeed(makeFakeAscClient([{ id: '2', name: 'Two', bundleId: null }]));
-      },
-    });
+    async function ascClientForAccount(keyId: string): Promise<AppStoreStatsClient | null> {
+      if (keyId == 'KEYA') {
+        return makeAscClient(new Error('401 revoked'));
+      }
+
+      return makeAscClient([{ id: '2', name: 'Two', bundleId: null }]);
+    }
+
+    makeStatsCredentialsTest({ ascClientForAccount });
+    const report = await discoverApps();
 
     expect(report.apps.map((app) => app.key)).toEqual(['ios-2']);
     expect(report.warnings).toEqual([{ accountLabel: 'alpha', message: '401 revoked' }]);
@@ -111,25 +158,28 @@ describe('discoverApps', () => {
 
   test('warns when an account has no saved key', async () => {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
-
-    const report = await discover({});
+    makeStatsCredentialsTest();
+    const report = await discoverApps();
 
     expect(report.warnings.map((warning) => warning.accountLabel)).toEqual(['alpha', 'beta']);
     expect(report.warnings[0]?.message).toContain('no saved key');
   });
 
   test('turns a failing Play account into a warning', async () => {
-    const report = await discover({
-      playReportingClient: () =>
-        Effect.succeed(makeFakePlayReportingClient(new Error('403 denied'))),
-    });
+    async function playReportingClient(): Promise<PlayVitalsReader | null> {
+      return makePlayClient(new Error('403 denied'));
+    }
+
+    makeStatsCredentialsTest({ playReportingClient });
+    const report = await discoverApps();
 
     expect(report.warnings).toEqual([{ accountLabel: 'google-play', message: '403 denied' }]);
     expect(report.attemptedAccountCount).toBe(1);
   });
 
   test('does not count the Play source when no service account is saved', async () => {
-    const report = await discover({});
+    makeStatsCredentialsTest();
+    const report = await discoverApps();
 
     expect(report).toEqual({
       apps: [],

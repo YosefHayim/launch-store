@@ -1,95 +1,51 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
-import { discoverScreenshotsAt, type LocalScreenshot } from '../listing/screenshots/assets.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { discoverScreenshotsAt, type LocalScreenshot } from '@/listing/screenshots/assets.js';
+import { pathExists } from '@/path-exists.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
 import {
   groupBy,
   reconcileOwnerScreenshots,
   type ScreenshotSetApi,
   type ScreenshotSetOwner,
-} from '../store/apple/ascScreenshots.js';
-import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from '../store/apple/ascSync.js';
-import { appRecordMissing, plan, type ReconcileContext } from '../store/shared/reconcile.js';
+} from '@/store/apple/ascScreenshots.js';
+import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from '@/store/apple/ascSync.js';
+import { appRecordMissing, plan } from '@/store/shared/reconcile.js';
 import type {
   ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,
   ReviewSubmissionResource,
   ScreenshotSetResource,
   VersionExperimentResource,
-} from '../types/appleCatalog.js';
-import type { PlannedAction } from '../types/reconcile.js';
+} from '@/types/appleCatalog.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 
 const DEFAULT_PLATFORM = 'IOS';
 const NEW_EXPERIMENT_STATE = 'PREPARE_FOR_SUBMISSION';
 const SUBMITTABLE_STATES = new Set([NEW_EXPERIMENT_STATE, 'READY_FOR_REVIEW', 'REJECTED']);
 const STARTABLE_STATES = new Set(['ACCEPTED', 'APPROVED']);
+const NAME_MESSAGE =
+  'experiments.config.json: experiment and treatment names must be non-empty strings.';
+const TRAFFIC_MESSAGE = 'experiments.config.json: trafficProportion must be a positive number.';
+const MINIMUM_EXPERIMENTS_MESSAGE =
+  'experiments.config.json must declare at least one entry under "experiments".';
 
-const ExperimentsDocumentSchema = Schema.Record({
-  key: Schema.String,
-  value: Schema.Unknown,
-});
-const ExperimentNameSchema = Schema.String.pipe(
-  Schema.nonEmptyString({
-    message: () =>
-      'experiments.config.json: experiment and treatment names must be non-empty strings.',
-  }),
-);
-const TrafficProportionSchema = Schema.Number.annotations({
-  message: () => 'experiments.config.json: trafficProportion must be a positive number.',
-}).pipe(
-  Schema.finite({
-    message: () => 'experiments.config.json: trafficProportion must be a positive number.',
-  }),
-  Schema.positive({
-    message: () => 'experiments.config.json: trafficProportion must be a positive number.',
-  }),
-);
+interface TreatmentConfig {
+  name: string;
+  appIconName?: string;
+  screenshots?: string;
+}
 
-const TreatmentConfigSchema = Schema.mutable(
-  Schema.Struct({
-    name: ExperimentNameSchema,
-    appIconName: Schema.optionalWith(Schema.String, { exact: true }),
-    screenshots: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
+interface ExperimentConfig {
+  name: string;
+  trafficProportion: number;
+  platform?: string;
+  treatments?: TreatmentConfig[];
+}
 
-type TreatmentConfig = Schema.Schema.Type<typeof TreatmentConfigSchema>;
-
-const ExperimentConfigSchema = Schema.mutable(
-  Schema.Struct({
-    name: ExperimentNameSchema,
-    trafficProportion: TrafficProportionSchema,
-    platform: Schema.optionalWith(Schema.String, { exact: true }),
-    treatments: Schema.optionalWith(Schema.mutable(Schema.Array(TreatmentConfigSchema)), {
-      exact: true,
-    }),
-  }),
-);
-
-type ExperimentConfig = Schema.Schema.Type<typeof ExperimentConfigSchema>;
-
-const VersionExperimentsConfigSchema = Schema.mutable(
-  Schema.Struct({
-    experiments: Schema.mutable(Schema.Array(ExperimentConfigSchema)).pipe(
-      Schema.minItems(1, {
-        message: () =>
-          'experiments.config.json must declare at least one entry under "experiments".',
-      }),
-      Schema.filter((declaredExperiments) => {
-        const experimentNames = new Set<string>();
-        for (const declaredExperiment of declaredExperiments) {
-          if (experimentNames.has(declaredExperiment.name)) {
-            return `experiments.config.json: duplicate experiment name "${declaredExperiment.name}".`;
-          }
-          experimentNames.add(declaredExperiment.name);
-        }
-        return true;
-      }),
-    ),
-  }),
-);
-
-export type VersionExperimentsConfig = Schema.Schema.Type<typeof VersionExperimentsConfigSchema>;
+export interface VersionExperimentsConfig {
+  experiments: ExperimentConfig[];
+}
 
 /** Experiments decoding or reconciliation failed. */
 type VersionExperimentsFailure = Readonly<{
@@ -99,15 +55,11 @@ type VersionExperimentsFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-const makeVersionExperimentsFailure = Data.tagged<VersionExperimentsFailure>(
-  'VersionExperimentsFailure',
-);
-
 /** Store API calls used by product-page experiment reconciliation. */
 export type AscExperimentsApi = ScreenshotSetApi &
   Readonly<{
-    getAppId: (bundleId: string) => Effect.Effect<string | null, unknown>;
-    listVersionExperiments: (appId: string) => Effect.Effect<VersionExperimentResource[], unknown>;
+    getAppId: (bundleId: string) => Promise<string | null>;
+    listVersionExperiments: (appId: string) => Promise<VersionExperimentResource[]>;
     createVersionExperiment: (
       appId: string,
       experimentInput: {
@@ -115,42 +67,34 @@ export type AscExperimentsApi = ScreenshotSetApi &
         platform: string;
         trafficProportion: number;
       },
-    ) => Effect.Effect<VersionExperimentResource, unknown>;
-    listExperimentTreatments: (
-      experimentId: string,
-    ) => Effect.Effect<ExperimentTreatmentResource[], unknown>;
+    ) => Promise<VersionExperimentResource>;
+    listExperimentTreatments: (experimentId: string) => Promise<ExperimentTreatmentResource[]>;
     createExperimentTreatment: (
       experimentId: string,
       treatmentInput: { name: string; appIconName?: string },
-    ) => Effect.Effect<ExperimentTreatmentResource, unknown>;
-    startVersionExperiment: (experimentId: string) => Effect.Effect<void, unknown>;
+    ) => Promise<ExperimentTreatmentResource>;
+    startVersionExperiment: (experimentId: string) => Promise<void>;
     listExperimentTreatmentLocalizations: (
       treatmentId: string,
-    ) => Effect.Effect<ExperimentTreatmentLocalizationResource[], unknown>;
+    ) => Promise<ExperimentTreatmentLocalizationResource[]>;
     createExperimentTreatmentLocalization: (
       treatmentId: string,
       locale: string,
-    ) => Effect.Effect<ExperimentTreatmentLocalizationResource, unknown>;
+    ) => Promise<ExperimentTreatmentLocalizationResource>;
     listTreatmentScreenshotSets: (
       treatmentLocalizationId: string,
-    ) => Effect.Effect<ScreenshotSetResource[], unknown>;
+    ) => Promise<ScreenshotSetResource[]>;
     createTreatmentScreenshotSet: (
       treatmentLocalizationId: string,
       displayType: string,
-    ) => Effect.Effect<ScreenshotSetResource, unknown>;
-    listReviewSubmissions: (
-      appId: string,
-      platform: string,
-    ) => Effect.Effect<ReviewSubmissionResource[], unknown>;
-    createReviewSubmission: (
-      appId: string,
-      platform: string,
-    ) => Effect.Effect<ReviewSubmissionResource, unknown>;
+    ) => Promise<ScreenshotSetResource>;
+    listReviewSubmissions: (appId: string, platform: string) => Promise<ReviewSubmissionResource[]>;
+    createReviewSubmission: (appId: string, platform: string) => Promise<ReviewSubmissionResource>;
     addExperimentReviewSubmissionItem: (
       submissionId: string,
       experimentId: string,
-    ) => Effect.Effect<void, unknown>;
-    submitReviewSubmission: (submissionId: string) => Effect.Effect<void, unknown>;
+    ) => Promise<void>;
+    submitReviewSubmission: (submissionId: string) => Promise<void>;
   }>;
 
 /**
@@ -181,377 +125,707 @@ type EnsuredLocalization = Readonly<{
   existed: boolean;
 }>;
 
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
 /** Convert an underlying failure to the experiments channel. */
-const versionExperimentsFailure = (
+function versionExperimentsFailure(
   operation: string,
   cause: unknown,
   explicitMessage?: string,
-): VersionExperimentsFailure => {
-  let message = explicitMessage;
-  if (message === undefined) message = errorMessage(cause);
-  if (message.length === 0) message = `${operation} failed.`;
-  return makeVersionExperimentsFailure({ operation, message, cause });
-};
+): VersionExperimentsFailure {
+  const providedMessage = explicitMessage ?? errorMessage(cause);
+  const hasText = providedMessage.length > 0;
+  const message = hasText ? providedMessage : `${operation} failed.`;
+
+  return { _tag: 'VersionExperimentsFailure', operation, message, cause };
+}
+
+function failConfigFields(cause: unknown, message: string): never {
+  throw versionExperimentsFailure('decode experiments config fields', cause, message);
+}
+
+function readExperimentName(field: unknown): string {
+  if (typeof field != 'string') {
+    failConfigFields(field, NAME_MESSAGE);
+  }
+
+  const isEmpty = field.length == 0;
+
+  if (isEmpty) {
+    failConfigFields(field, NAME_MESSAGE);
+  }
+
+  return field;
+}
+
+function readTrafficProportion(field: unknown): number {
+  if (typeof field != 'number') {
+    failConfigFields(field, TRAFFIC_MESSAGE);
+  }
+
+  const isFiniteNumber = Number.isFinite(field);
+
+  if (isFiniteNumber == false) {
+    failConfigFields(field, TRAFFIC_MESSAGE);
+  }
+
+  const isPositive = field > 0;
+
+  if (isPositive == false) {
+    failConfigFields(field, TRAFFIC_MESSAGE);
+  }
+
+  return field;
+}
+
+function readExactOptionalString(record: Record<string, unknown>, key: string): string | undefined {
+  const keyIsAbsent = Object.hasOwn(record, key) == false;
+
+  if (keyIsAbsent) {
+    return undefined;
+  }
+
+  const field = record[key];
+
+  if (typeof field != 'string') {
+    failConfigFields(field, `experiments.config.json: ${key} must be a string.`);
+  }
+
+  return field;
+}
+
+function readTreatmentRecord(rawTreatment: Record<string, unknown>): TreatmentConfig {
+  const treatment: TreatmentConfig = { name: readExperimentName(rawTreatment['name']) };
+  const appIconName = readExactOptionalString(rawTreatment, 'appIconName');
+  const screenshots = readExactOptionalString(rawTreatment, 'screenshots');
+
+  if (appIconName != null) {
+    treatment.appIconName = appIconName;
+  }
+
+  if (screenshots != null) {
+    treatment.screenshots = screenshots;
+  }
+
+  return treatment;
+}
+
+function readTreatment(rawTreatment: unknown): TreatmentConfig {
+  if (isRecord(rawTreatment)) {
+    return readTreatmentRecord(rawTreatment);
+  }
+
+  return failConfigFields(
+    rawTreatment,
+    'experiments.config.json: a treatment must be a JSON object.',
+  );
+}
+
+function readTreatments(field: unknown): TreatmentConfig[] {
+  if (Array.isArray(field)) {
+    const treatments: TreatmentConfig[] = [];
+
+    for (const rawTreatment of field) {
+      treatments.push(readTreatment(rawTreatment));
+    }
+
+    return treatments;
+  }
+
+  return failConfigFields(field, 'experiments.config.json: treatments must be a list.');
+}
+
+function readExperimentRecord(rawExperiment: Record<string, unknown>): ExperimentConfig {
+  const experiment: ExperimentConfig = {
+    name: readExperimentName(rawExperiment['name']),
+    trafficProportion: readTrafficProportion(rawExperiment['trafficProportion']),
+  };
+  const platform = readExactOptionalString(rawExperiment, 'platform');
+  const treatmentsAreAbsent = Object.hasOwn(rawExperiment, 'treatments') == false;
+
+  if (platform != null) {
+    experiment.platform = platform;
+  }
+
+  if (treatmentsAreAbsent) {
+    return experiment;
+  }
+
+  experiment.treatments = readTreatments(rawExperiment['treatments']);
+
+  return experiment;
+}
+
+function readExperiment(rawExperiment: unknown): ExperimentConfig {
+  if (isRecord(rawExperiment)) {
+    return readExperimentRecord(rawExperiment);
+  }
+
+  return failConfigFields(
+    rawExperiment,
+    'experiments.config.json: an experiment must be a JSON object.',
+  );
+}
+
+function readExperiments(rawDocument: Record<string, unknown>): ExperimentConfig[] {
+  const experimentsAreAbsent = Object.hasOwn(rawDocument, 'experiments') == false;
+
+  if (experimentsAreAbsent) {
+    failConfigFields(rawDocument, MINIMUM_EXPERIMENTS_MESSAGE);
+  }
+
+  const field = rawDocument['experiments'];
+
+  if (Array.isArray(field)) {
+    return readExperimentList(field);
+  }
+
+  return failConfigFields(field, MINIMUM_EXPERIMENTS_MESSAGE);
+}
+
+function readExperimentList(field: unknown[]): ExperimentConfig[] {
+  const minimumExperimentCount = 1;
+  const isEmpty = field.length < minimumExperimentCount;
+
+  if (isEmpty) {
+    failConfigFields(field, MINIMUM_EXPERIMENTS_MESSAGE);
+  }
+
+  const experiments: ExperimentConfig[] = [];
+  const experimentNames = new Set<string>();
+
+  for (const rawExperiment of field) {
+    const experiment = readExperiment(rawExperiment);
+    const isDuplicate = experimentNames.has(experiment.name);
+
+    if (isDuplicate) {
+      failConfigFields(
+        experiment.name,
+        `experiments.config.json: duplicate experiment name "${experiment.name}".`,
+      );
+    }
+
+    experimentNames.add(experiment.name);
+    experiments.push(experiment);
+  }
+
+  return experiments;
+}
+
+function readExperimentPlatform(desiredExperiment: ExperimentConfig): string {
+  if (desiredExperiment.platform != null) {
+    return desiredExperiment.platform;
+  }
+
+  return DEFAULT_PLATFORM;
+}
+
+function readExperimentId(ensuredExperiment: EnsuredExperiment): string {
+  if (ensuredExperiment.experimentId != null) {
+    return ensuredExperiment.experimentId;
+  }
+
+  return DRY_RUN_ID;
+}
+
+function readTreatmentId(ensuredTreatment: EnsuredTreatment): string {
+  if (ensuredTreatment.treatmentId != null) {
+    return ensuredTreatment.treatmentId;
+  }
+
+  return DRY_RUN_ID;
+}
+
+function readExperimentState(existingExperiment: VersionExperimentResource | undefined): string {
+  if (existingExperiment != null) {
+    return existingExperiment.state;
+  }
+
+  return NEW_EXPERIMENT_STATE;
+}
+
+function canListExistingTreatments(ensuredExperiment: EnsuredExperiment): boolean {
+  if (ensuredExperiment.existed == false) {
+    return false;
+  }
+
+  return ensuredExperiment.experimentId != null;
+}
+
+function treatmentWasNotCreated(ensuredTreatment: EnsuredTreatment, dryRun: boolean): boolean {
+  if (ensuredTreatment.treatmentId != null) {
+    return false;
+  }
+
+  return dryRun == false;
+}
+
+function isLocalizationOnlyPlanned(dryRun: boolean, existed: boolean): boolean {
+  if (dryRun == false) {
+    return false;
+  }
+
+  return existed == false;
+}
+
+function actionFailed(plannedAction: PlannedAction): boolean {
+  return plannedAction.status == 'failed';
+}
+
+function screenshotLocale(screenshot: LocalScreenshot): string {
+  return screenshot.locale;
+}
+
+function isReadyForReview(reviewSubmission: ReviewSubmissionResource): boolean {
+  return reviewSubmission.state == 'READY_FOR_REVIEW';
+}
 
 /** Read an experiment by name or create it when absent. */
-const ensureExperiment = (
-  reconcileContext: ReconcileContext,
+async function ensureExperiment(
+  actionLog: ActionLog,
   appleExperimentsApi: AscExperimentsApi,
   appId: string,
   desiredExperiment: ExperimentConfig,
   existingExperiment: VersionExperimentResource | undefined,
-): Effect.Effect<EnsuredExperiment> => {
-  if (existingExperiment !== undefined) {
-    return Effect.succeed({
+): Promise<EnsuredExperiment> {
+  if (existingExperiment != null) {
+    return {
       experimentId: existingExperiment.id,
       existed: true,
-    });
+    };
   }
+
   const plannedAction = plan(
-    reconcileContext,
+    actionLog,
     `create experiment "${desiredExperiment.name}" (${desiredExperiment.trafficProportion}% traffic)`,
   );
-  if (reconcileContext.dryRun) {
-    return Effect.succeed({ experimentId: null, existed: false });
+
+  if (actionLog.dryRun) {
+    return { experimentId: null, existed: false };
   }
-  let platform = DEFAULT_PLATFORM;
-  if (desiredExperiment.platform !== undefined) {
-    platform = desiredExperiment.platform;
-  }
-  return appleExperimentsApi
-    .createVersionExperiment(appId, {
+
+  const platform = readExperimentPlatform(desiredExperiment);
+
+  try {
+    const createdExperiment = await appleExperimentsApi.createVersionExperiment(appId, {
       name: desiredExperiment.name,
       platform,
       trafficProportion: desiredExperiment.trafficProportion,
-    })
-    .pipe(
-      Effect.match({
-        onSuccess: (createdExperiment) => {
-          plannedAction.status = 'applied';
-          return { experimentId: createdExperiment.id, existed: false };
-        },
-        onFailure: (creationFailure) => {
-          plannedAction.status = 'failed';
-          plannedAction.error = errorMessage(creationFailure);
-          return { experimentId: null, existed: false };
-        },
-      }),
-    );
-};
+    });
+    plannedAction.status = 'applied';
+
+    return { experimentId: createdExperiment.id, existed: false };
+  } catch (creationFailure) {
+    plannedAction.status = 'failed';
+    plannedAction.error = errorMessage(creationFailure);
+
+    return { experimentId: null, existed: false };
+  }
+}
 
 /** Record an action that cannot run, with the reason in its description. */
-const skipAction = (actionLog: ActionLog, description: string): void => {
+function skipAction(actionLog: ActionLog, description: string): void {
   const plannedAction = plan(actionLog, description);
   plannedAction.status = 'skipped';
-};
+}
 
 /** Read a treatment by name or create it; the id stays null while only planned or when creation failed. */
-const ensureTreatment = (
-  reconcileContext: ReconcileContext,
+async function ensureTreatment(
+  actionLog: ActionLog,
   appleExperimentsApi: AscExperimentsApi,
   desiredExperiment: ExperimentConfig,
   ensuredExperiment: EnsuredExperiment,
   desiredTreatment: TreatmentConfig,
   existingTreatmentId: string | undefined,
-): Effect.Effect<EnsuredTreatment> => {
-  if (existingTreatmentId !== undefined) {
-    return Effect.succeed({ treatmentId: existingTreatmentId, existed: true });
+): Promise<EnsuredTreatment> {
+  if (existingTreatmentId != null) {
+    return { treatmentId: existingTreatmentId, existed: true };
   }
+
   const missingTreatment: EnsuredTreatment = { treatmentId: null, existed: false };
   const plannedAction = plan(
-    reconcileContext,
+    actionLog,
     `create treatment "${desiredTreatment.name}" on experiment "${desiredExperiment.name}"`,
   );
-  if (reconcileContext.dryRun) return Effect.succeed(missingTreatment);
-  if (ensuredExperiment.experimentId === null) {
-    plannedAction.status = 'skipped';
-    return Effect.succeed(missingTreatment);
+
+  if (actionLog.dryRun) {
+    return missingTreatment;
   }
+
+  if (ensuredExperiment.experimentId == null) {
+    plannedAction.status = 'skipped';
+
+    return missingTreatment;
+  }
+
   const treatmentInput: { name: string; appIconName?: string } = {
     name: desiredTreatment.name,
   };
-  if (desiredTreatment.appIconName !== undefined) {
+
+  if (desiredTreatment.appIconName != null) {
     treatmentInput.appIconName = desiredTreatment.appIconName;
   }
-  return appleExperimentsApi
-    .createExperimentTreatment(ensuredExperiment.experimentId, treatmentInput)
-    .pipe(
-      Effect.match({
-        onSuccess: (createdTreatment) => {
-          plannedAction.status = 'applied';
-          return { treatmentId: createdTreatment.id, existed: false };
-        },
-        onFailure: (creationFailure) => {
-          plannedAction.status = 'failed';
-          plannedAction.error = errorMessage(creationFailure);
-          return missingTreatment;
-        },
-      }),
+
+  try {
+    const createdTreatment = await appleExperimentsApi.createExperimentTreatment(
+      ensuredExperiment.experimentId,
+      treatmentInput,
     );
-};
+    plannedAction.status = 'applied';
+
+    return { treatmentId: createdTreatment.id, existed: false };
+  } catch (creationFailure) {
+    plannedAction.status = 'failed';
+    plannedAction.error = errorMessage(creationFailure);
+
+    return missingTreatment;
+  }
+}
 
 /** Read a treatment locale or add it; null when adding it failed. */
-const ensureTreatmentLocalization = (
+async function ensureTreatmentLocalization(
   actionLog: ActionLog,
   appleExperimentsApi: AscExperimentsApi,
   treatmentName: string,
   treatmentId: string,
   locale: string,
   existingLocalizationId: string | undefined,
-): Effect.Effect<EnsuredLocalization | null> =>
-  Effect.gen(function* () {
-    if (existingLocalizationId !== undefined) {
-      return { localizationId: existingLocalizationId, existed: true };
-    }
-    const createAction = yield* act(
-      actionLog,
-      `add locale ${locale} to treatment "${treatmentName}"`,
-      false,
-      () => appleExperimentsApi.createExperimentTreatmentLocalization(treatmentId, locale),
-    );
-    if (!succeededOrPlanned(createAction.status)) return null;
-    let localizationId = DRY_RUN_ID;
-    if (createAction.actionValue !== undefined) localizationId = createAction.actionValue.id;
-    return { localizationId, existed: false };
-  });
+): Promise<EnsuredLocalization | null> {
+  if (existingLocalizationId != null) {
+    return { localizationId: existingLocalizationId, existed: true };
+  }
+
+  function createLocalization(): Promise<ExperimentTreatmentLocalizationResource> {
+    return appleExperimentsApi.createExperimentTreatmentLocalization(treatmentId, locale);
+  }
+
+  const createAction = await act(
+    actionLog,
+    `add locale ${locale} to treatment "${treatmentName}"`,
+    false,
+    createLocalization,
+  );
+  const didNotSucceed = succeededOrPlanned(createAction.status) == false;
+
+  if (didNotSucceed) {
+    return null;
+  }
+
+  if (createAction.actionValue != null) {
+    return { localizationId: createAction.actionValue.id, existed: false };
+  }
+
+  return { localizationId: DRY_RUN_ID, existed: false };
+}
 
 /** A locale that is only planned has no sets to read yet. */
-const listTreatmentLocaleSets = (
+async function listTreatmentLocaleSets(
   actionLog: ActionLog,
   appleExperimentsApi: AscExperimentsApi,
   ensuredLocalization: EnsuredLocalization,
-): Effect.Effect<ScreenshotSetResource[], unknown> => {
-  const plannedOnly = actionLog.dryRun && !ensuredLocalization.existed;
-  if (plannedOnly) return Effect.succeed([]);
+): Promise<ScreenshotSetResource[]> {
+  const plannedOnly = isLocalizationOnlyPlanned(actionLog.dryRun, ensuredLocalization.existed);
+
+  if (plannedOnly) {
+    return [];
+  }
+
   return appleExperimentsApi.listTreatmentScreenshotSets(ensuredLocalization.localizationId);
-};
+}
 
 /** Add missing treatment locales, then upload each locale's screenshots Apple doesn't have yet. */
-const reconcileTreatmentScreenshots = (
+async function reconcileTreatmentScreenshots(
   actionLog: ActionLog,
   appleExperimentsApi: AscExperimentsApi,
   treatmentName: string,
   ensuredTreatment: EnsuredTreatment,
   screenshots: readonly LocalScreenshot[],
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const treatmentFailed = ensuredTreatment.treatmentId === null && !actionLog.dryRun;
-    if (treatmentFailed) return;
-    let treatmentId = DRY_RUN_ID;
-    if (ensuredTreatment.treatmentId !== null) treatmentId = ensuredTreatment.treatmentId;
-    const localizationIdsByLocale = new Map<string, string>();
-    if (ensuredTreatment.existed) {
-      const existingLocalizations =
-        yield* appleExperimentsApi.listExperimentTreatmentLocalizations(treatmentId);
-      for (const existingLocalization of existingLocalizations) {
-        localizationIdsByLocale.set(existingLocalization.locale, existingLocalization.id);
-      }
+): Promise<void> {
+  const treatmentFailed = treatmentWasNotCreated(ensuredTreatment, actionLog.dryRun);
+
+  if (treatmentFailed) {
+    return;
+  }
+
+  const treatmentId = readTreatmentId(ensuredTreatment);
+  const localizationIdsByLocale = new Map<string, string>();
+
+  if (ensuredTreatment.existed) {
+    const existingLocalizations =
+      await appleExperimentsApi.listExperimentTreatmentLocalizations(treatmentId);
+
+    for (const existingLocalization of existingLocalizations) {
+      localizationIdsByLocale.set(existingLocalization.locale, existingLocalization.id);
     }
-    const screenshotsByLocale = groupBy(screenshots, (screenshot) => screenshot.locale);
-    for (const [locale, localeScreenshots] of screenshotsByLocale) {
-      const ensuredLocalization = yield* ensureTreatmentLocalization(
-        actionLog,
-        appleExperimentsApi,
-        treatmentName,
-        treatmentId,
-        locale,
-        localizationIdsByLocale.get(locale),
+  }
+
+  const screenshotsByLocale = groupBy(screenshots, screenshotLocale);
+
+  for (const [locale, localeScreenshots] of screenshotsByLocale) {
+    const ensuredLocalization = await ensureTreatmentLocalization(
+      actionLog,
+      appleExperimentsApi,
+      treatmentName,
+      treatmentId,
+      locale,
+      localizationIdsByLocale.get(locale),
+    );
+    if (ensuredLocalization == null) {
+      continue;
+    }
+
+    const savedLocalization = ensuredLocalization;
+
+    function listSets(): Promise<ScreenshotSetResource[]> {
+      return listTreatmentLocaleSets(actionLog, appleExperimentsApi, savedLocalization);
+    }
+
+    function createSet(displayType: string): Promise<ScreenshotSetResource> {
+      return appleExperimentsApi.createTreatmentScreenshotSet(
+        savedLocalization.localizationId,
+        displayType,
       );
-      if (ensuredLocalization === null) continue;
-      const setOwner: ScreenshotSetOwner = {
-        locale,
-        listSets: () =>
-          listTreatmentLocaleSets(actionLog, appleExperimentsApi, ensuredLocalization),
-        createSet: (displayType) =>
-          appleExperimentsApi.createTreatmentScreenshotSet(
-            ensuredLocalization.localizationId,
-            displayType,
-          ),
-        exact: true,
-      };
-      yield* reconcileOwnerScreenshots(appleExperimentsApi, actionLog, setOwner, localeScreenshots);
     }
-  });
+
+    const setOwner: ScreenshotSetOwner = {
+      locale,
+      listSets,
+      createSet,
+      exact: true,
+    };
+
+    await reconcileOwnerScreenshots(appleExperimentsApi, actionLog, setOwner, localeScreenshots);
+  }
+}
+
+function readDeclaredTreatments(desiredExperiment: ExperimentConfig): TreatmentConfig[] {
+  if (desiredExperiment.treatments != null) {
+    return desiredExperiment.treatments;
+  }
+
+  return [];
+}
 
 /** Create declared treatments that are not already present, then sync their screenshots. */
-const reconcileTreatments = (
+async function reconcileTreatments(
   actionLog: ActionLog,
   appleExperimentsApi: AscExperimentsApi,
   reconciliationInput: ExperimentsReconcileInput,
   desiredExperiment: ExperimentConfig,
   ensuredExperiment: EnsuredExperiment,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    let desiredTreatments: TreatmentConfig[] = [];
-    if (desiredExperiment.treatments !== undefined) {
-      desiredTreatments = desiredExperiment.treatments;
+): Promise<void> {
+  const desiredTreatments = readDeclaredTreatments(desiredExperiment);
+
+  const treatmentIdsByName = new Map<string, string>();
+  const shouldListTreatments = canListExistingTreatments(ensuredExperiment);
+
+  if (shouldListTreatments) {
+    const existingTreatments = await appleExperimentsApi.listExperimentTreatments(
+      readExperimentId(ensuredExperiment),
+    );
+
+    for (const existingTreatment of existingTreatments) {
+      treatmentIdsByName.set(existingTreatment.name, existingTreatment.id);
     }
-    const treatmentIdsByName = new Map<string, string>();
-    if (ensuredExperiment.existed && ensuredExperiment.experimentId !== null) {
-      const existingTreatments = yield* appleExperimentsApi.listExperimentTreatments(
-        ensuredExperiment.experimentId,
-      );
-      for (const existingTreatment of existingTreatments) {
-        treatmentIdsByName.set(existingTreatment.name, existingTreatment.id);
-      }
+  }
+
+  for (const desiredTreatment of desiredTreatments) {
+    const ensuredTreatment = await ensureTreatment(
+      actionLog,
+      appleExperimentsApi,
+      desiredExperiment,
+      ensuredExperiment,
+      desiredTreatment,
+      treatmentIdsByName.get(desiredTreatment.name),
+    );
+    const screenshotsFolder = desiredTreatment.screenshots;
+
+    if (screenshotsFolder == null) {
+      continue;
     }
-    for (const desiredTreatment of desiredTreatments) {
-      const ensuredTreatment = yield* ensureTreatment(
-        actionLog,
-        appleExperimentsApi,
-        desiredExperiment,
-        ensuredExperiment,
-        desiredTreatment,
-        treatmentIdsByName.get(desiredTreatment.name),
-      );
-      if (desiredTreatment.screenshots === undefined) continue;
-      const treatmentScreenshots = reconciliationInput.treatmentScreenshots.get(
-        desiredTreatment.screenshots,
-      );
-      if (treatmentScreenshots === undefined) continue;
-      yield* reconcileTreatmentScreenshots(
-        actionLog,
-        appleExperimentsApi,
-        desiredTreatment.name,
-        ensuredTreatment,
-        treatmentScreenshots,
-      );
+
+    const treatmentScreenshots = reconciliationInput.treatmentScreenshots.get(screenshotsFolder);
+
+    if (treatmentScreenshots == null) {
+      continue;
     }
-  });
+
+    await reconcileTreatmentScreenshots(
+      actionLog,
+      appleExperimentsApi,
+      desiredTreatment.name,
+      ensuredTreatment,
+      treatmentScreenshots,
+    );
+  }
+}
 
 /** Reuse an open (`READY_FOR_REVIEW`) review submission for the platform, or open a new one. */
-const openReviewSubmission = (
+async function openReviewSubmission(
   appleExperimentsApi: AscExperimentsApi,
   appId: string,
   platform: string,
-): Effect.Effect<ReviewSubmissionResource, unknown> =>
-  Effect.gen(function* () {
-    const reviewSubmissions = yield* appleExperimentsApi.listReviewSubmissions(appId, platform);
-    const openSubmission = reviewSubmissions.find(
-      (reviewSubmission) => reviewSubmission.state === 'READY_FOR_REVIEW',
-    );
-    if (openSubmission !== undefined) return openSubmission;
-    return yield* appleExperimentsApi.createReviewSubmission(appId, platform);
-  });
+): Promise<ReviewSubmissionResource> {
+  const reviewSubmissions = await appleExperimentsApi.listReviewSubmissions(appId, platform);
+  const openSubmission = reviewSubmissions.find(isReadyForReview);
+
+  if (openSubmission != null) {
+    return openSubmission;
+  }
+
+  return appleExperimentsApi.createReviewSubmission(appId, platform);
+}
 
 /** Add the experiment to a review submission and submit it to Apple. */
-const sendExperimentToReview = (
+async function sendExperimentToReview(
   appleExperimentsApi: AscExperimentsApi,
   appId: string,
   platform: string,
   experimentId: string,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const reviewSubmission = yield* openReviewSubmission(appleExperimentsApi, appId, platform);
-    yield* appleExperimentsApi.addExperimentReviewSubmissionItem(reviewSubmission.id, experimentId);
-    yield* appleExperimentsApi.submitReviewSubmission(reviewSubmission.id);
-  });
+): Promise<void> {
+  const reviewSubmission = await openReviewSubmission(appleExperimentsApi, appId, platform);
+
+  await appleExperimentsApi.addExperimentReviewSubmissionItem(reviewSubmission.id, experimentId);
+  await appleExperimentsApi.submitReviewSubmission(reviewSubmission.id);
+}
 
 /** Submit an experiment for App Review when its state allows it and nothing before it failed. */
-const submitExperiment = (
+async function submitExperiment(
   actionLog: ActionLog,
   appleExperimentsApi: AscExperimentsApi,
   appId: string,
   desiredExperiment: ExperimentConfig,
   ensuredExperiment: EnsuredExperiment,
   existingExperiment: VersionExperimentResource | undefined,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const description = `submit experiment "${desiredExperiment.name}" for App Review`;
-    let state = NEW_EXPERIMENT_STATE;
-    if (existingExperiment !== undefined) state = existingExperiment.state;
-    if (!SUBMITTABLE_STATES.has(state)) {
-      skipAction(actionLog, `${description}: it is already ${state}`);
-      return;
-    }
-    const earlierChangeFailed = actionLog.actions.some(
-      (plannedAction) => plannedAction.status === 'failed',
-    );
-    if (earlierChangeFailed) {
-      skipAction(actionLog, `${description}: an earlier change failed - fix it, then re-run`);
-      return;
-    }
-    let platform = DEFAULT_PLATFORM;
-    if (desiredExperiment.platform !== undefined) platform = desiredExperiment.platform;
-    let experimentId = DRY_RUN_ID;
-    if (ensuredExperiment.experimentId !== null) experimentId = ensuredExperiment.experimentId;
-    yield* act(actionLog, description, false, () =>
-      sendExperimentToReview(appleExperimentsApi, appId, platform, experimentId),
-    );
-  });
+): Promise<void> {
+  const description = `submit experiment "${desiredExperiment.name}" for App Review`;
+  const state = readExperimentState(existingExperiment);
+  const cannotSubmit = SUBMITTABLE_STATES.has(state) == false;
+
+  if (cannotSubmit) {
+    skipAction(actionLog, `${description}: it is already ${state}`);
+
+    return;
+  }
+
+  const earlierChangeFailed = actionLog.actions.some(actionFailed);
+
+  if (earlierChangeFailed) {
+    skipAction(actionLog, `${description}: an earlier change failed - fix it, then re-run`);
+
+    return;
+  }
+
+  const platform = readExperimentPlatform(desiredExperiment);
+  const experimentId = readExperimentId(ensuredExperiment);
+
+  function submitForReview(): Promise<void> {
+    return sendExperimentToReview(appleExperimentsApi, appId, platform, experimentId);
+  }
+
+  await act(actionLog, description, false, submitForReview);
+}
 
 /** Start an experiment Apple approved that has not started yet. */
-const startExperiment = (
+async function startExperiment(
   actionLog: ActionLog,
   appleExperimentsApi: AscExperimentsApi,
   desiredExperiment: ExperimentConfig,
   existingExperiment: VersionExperimentResource | undefined,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const description = `start experiment "${desiredExperiment.name}"`;
-    if (existingExperiment === undefined) {
-      skipAction(actionLog, `${description}: submit it and wait for Apple's approval first`);
-      return;
-    }
-    if (existingExperiment.startDate !== undefined) {
-      skipAction(
-        actionLog,
-        `${description}: it already started on ${existingExperiment.startDate}`,
-      );
-      return;
-    }
-    if (!STARTABLE_STATES.has(existingExperiment.state)) {
-      skipAction(
-        actionLog,
-        `${description}: it is ${existingExperiment.state} - Apple must approve it first`,
-      );
-      return;
-    }
-    yield* act(actionLog, description, false, () =>
-      appleExperimentsApi.startVersionExperiment(existingExperiment.id),
+): Promise<void> {
+  const description = `start experiment "${desiredExperiment.name}"`;
+  if (existingExperiment == null) {
+    skipAction(actionLog, `${description}: submit it and wait for Apple's approval first`);
+
+    return;
+  }
+
+  const approvedExperiment = existingExperiment;
+  const alreadyStarted = approvedExperiment.startDate != null;
+
+  if (alreadyStarted) {
+    skipAction(actionLog, `${description}: it already started on ${approvedExperiment.startDate}`);
+
+    return;
+  }
+
+  const cannotStart = STARTABLE_STATES.has(approvedExperiment.state) == false;
+
+  if (cannotStart) {
+    skipAction(
+      actionLog,
+      `${description}: it is ${approvedExperiment.state} - Apple must approve it first`,
     );
-  });
+
+    return;
+  }
+
+  function startApprovedExperiment(): Promise<void> {
+    return appleExperimentsApi.startVersionExperiment(approvedExperiment.id);
+  }
+
+  await act(actionLog, description, false, startApprovedExperiment);
+}
 
 /** Reconcile product-page experiments for one App Store app. */
-export const reconcileVersionExperiments = (
+export async function reconcileVersionExperiments(
   appleExperimentsApi: AscExperimentsApi,
   reconciliationInput: ExperimentsReconcileInput,
-): Effect.Effect<{ bundleId: string; actions: PlannedAction[] }, VersionExperimentsFailure> =>
-  Effect.gen(function* () {
+): Promise<{ bundleId: string; actions: PlannedAction[] }> {
+  try {
     const actionLog: ActionLog = {
       actions: [],
       dryRun: reconciliationInput.dryRun,
       allowDestructive: false,
     };
-    const appId = yield* appleExperimentsApi.getAppId(reconciliationInput.bundleId);
-    if (appId === null) {
-      return yield* Effect.fail(appRecordMissing(reconciliationInput.bundleId, 'experiments'));
+    const appId = await appleExperimentsApi.getAppId(reconciliationInput.bundleId);
+
+    if (appId == null) {
+      throw appRecordMissing(reconciliationInput.bundleId, 'experiments');
     }
-    const existingExperiments = yield* appleExperimentsApi.listVersionExperiments(appId);
+
+    const existingExperiments = await appleExperimentsApi.listVersionExperiments(appId);
+
+    function experimentName(existingExperiment: VersionExperimentResource): string {
+      return existingExperiment.name;
+    }
+
     const experimentsByName = new Map(
-      existingExperiments.map((existingExperiment) => [
-        existingExperiment.name,
-        existingExperiment,
-      ]),
+      existingExperiments.map(function pairExperiment(existingExperiment) {
+        return [experimentName(existingExperiment), existingExperiment] as const;
+      }),
     );
+
     for (const desiredExperiment of reconciliationInput.config.experiments) {
       const existingExperiment = experimentsByName.get(desiredExperiment.name);
-      const ensuredExperiment = yield* ensureExperiment(
+      const ensuredExperiment = await ensureExperiment(
         actionLog,
         appleExperimentsApi,
         appId,
         desiredExperiment,
         existingExperiment,
       );
-      yield* reconcileTreatments(
+
+      await reconcileTreatments(
         actionLog,
         appleExperimentsApi,
         reconciliationInput,
         desiredExperiment,
         ensuredExperiment,
       );
+
       if (reconciliationInput.submit) {
-        yield* submitExperiment(
+        await submitExperiment(
           actionLog,
           appleExperimentsApi,
           appId,
@@ -560,8 +834,9 @@ export const reconcileVersionExperiments = (
           existingExperiment,
         );
       }
+
       if (reconciliationInput.start) {
-        yield* startExperiment(
+        await startExperiment(
           actionLog,
           appleExperimentsApi,
           desiredExperiment,
@@ -569,136 +844,155 @@ export const reconcileVersionExperiments = (
         );
       }
     }
+
     return {
       bundleId: reconciliationInput.bundleId,
       actions: actionLog.actions,
     };
-  }).pipe(
-    Effect.mapError((cause) => versionExperimentsFailure('reconcile version experiments', cause)),
-  );
+  } catch (error) {
+    throw versionExperimentsFailure('reconcile version experiments', error);
+  }
+}
 
 /** Every distinct `screenshots` folder the treatments declare. */
-const declaredScreenshotFolders = (experimentsConfig: VersionExperimentsConfig): string[] => {
-  const screenshotFolders = experimentsConfig.experiments.flatMap((declaredExperiment) => {
-    if (declaredExperiment.treatments === undefined) return [];
-    return declaredExperiment.treatments.flatMap((declaredTreatment) => {
-      if (declaredTreatment.screenshots === undefined) return [];
-      return [declaredTreatment.screenshots];
-    });
-  });
+function declaredScreenshotFolders(experimentsConfig: VersionExperimentsConfig): string[] {
+  const screenshotFolders: string[] = [];
+
+  for (const declaredExperiment of experimentsConfig.experiments) {
+    const declaredTreatments = declaredExperiment.treatments;
+    const treatmentsAreUndeclared = declaredTreatments == null;
+
+    if (treatmentsAreUndeclared) {
+      continue;
+    }
+
+    for (const declaredTreatment of declaredTreatments) {
+      const screenshotsFolder = declaredTreatment.screenshots;
+      const folderIsUndeclared = screenshotsFolder == null;
+
+      if (folderIsUndeclared) {
+        continue;
+      }
+
+      screenshotFolders.push(screenshotsFolder);
+    }
+  }
+
   return [...new Set(screenshotFolders)];
-};
+}
 
 /**
  * Read each treatment's screenshots folder, resolved from the config file's folder and laid out like
  * the listing's `<locale>/<DISPLAY_TYPE>/*.png`. Keyed by the folder exactly as the config declares it.
  */
-export const discoverTreatmentScreenshots = (
+export async function discoverTreatmentScreenshots(
   configPath: string,
   experimentsConfig: VersionExperimentsConfig,
-): Effect.Effect<
-  ReadonlyMap<string, readonly LocalScreenshot[]>,
-  VersionExperimentsFailure,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const configDirectory = pathService.dirname(configPath);
-    const treatmentScreenshots = new Map<string, readonly LocalScreenshot[]>();
-    for (const screenshotsFolder of declaredScreenshotFolders(experimentsConfig)) {
-      const folderPath = pathService.resolve(configDirectory, screenshotsFolder);
-      const folderExists = yield* fileSystem
-        .exists(folderPath)
-        .pipe(
-          Effect.mapError((cause) =>
-            versionExperimentsFailure('inspect treatment screenshots', cause),
-          ),
-        );
-      if (!folderExists) {
-        return yield* Effect.fail(
-          versionExperimentsFailure(
-            'read treatment screenshots',
-            folderPath,
-            `No treatment screenshots folder at ${folderPath}.`,
-          ),
-        );
-      }
-      const folderScreenshots = yield* discoverScreenshotsAt(folderPath).pipe(
-        Effect.mapError((cause) => versionExperimentsFailure('read treatment screenshots', cause)),
-      );
-      treatmentScreenshots.set(screenshotsFolder, folderScreenshots);
+): Promise<ReadonlyMap<string, readonly LocalScreenshot[]>> {
+  const configDirectory = dirname(configPath);
+  const treatmentScreenshots = new Map<string, readonly LocalScreenshot[]>();
+
+  for (const screenshotsFolder of declaredScreenshotFolders(experimentsConfig)) {
+    const folderPath = resolve(configDirectory, screenshotsFolder);
+    var folderExists = false;
+
+    try {
+      folderExists = await pathExists(folderPath);
+    } catch (error) {
+      throw versionExperimentsFailure('inspect treatment screenshots', error);
     }
-    return treatmentScreenshots;
-  });
+
+    const folderIsMissing = folderExists == false;
+
+    if (folderIsMissing) {
+      throw versionExperimentsFailure(
+        'read treatment screenshots',
+        folderPath,
+        `No treatment screenshots folder at ${folderPath}.`,
+      );
+    }
+
+    try {
+      const folderScreenshots = await discoverScreenshotsAt(folderPath);
+      treatmentScreenshots.set(screenshotsFolder, folderScreenshots);
+    } catch (error) {
+      throw versionExperimentsFailure('read treatment screenshots', error);
+    }
+  }
+
+  return treatmentScreenshots;
+}
 
 /** Decode an untrusted experiments.config.json document. */
-export const parseVersionExperimentsConfig = (
+export async function parseVersionExperimentsConfig(
   rawDocument: unknown,
-): Effect.Effect<VersionExperimentsConfig, VersionExperimentsFailure> =>
-  Effect.gen(function* () {
-    const experimentsDocument = yield* Schema.decodeUnknown(ExperimentsDocumentSchema)(
-      rawDocument,
-    ).pipe(
-      Effect.mapError((cause) =>
-        versionExperimentsFailure(
-          'decode experiments config document',
-          cause,
-          'experiments.config.json must be a JSON object.',
-        ),
-      ),
-    );
-    return yield* Schema.decodeUnknown(VersionExperimentsConfigSchema)(experimentsDocument).pipe(
-      Effect.mapError((cause) =>
-        versionExperimentsFailure('decode experiments config fields', cause, errorMessage(cause)),
-      ),
-    );
-  });
+): Promise<VersionExperimentsConfig> {
+  if (isRecord(rawDocument)) {
+    return { experiments: readExperiments(rawDocument) };
+  }
 
-/** Read and decode experiments.config.json through Effect Platform. */
-export const loadVersionExperimentsConfig = (
+  throw versionExperimentsFailure(
+    'decode experiments config document',
+    rawDocument,
+    'experiments.config.json must be a JSON object.',
+  );
+}
+
+/** Read and decode experiments.config.json. */
+export async function loadVersionExperimentsConfig(
   configPath: string,
-): Effect.Effect<VersionExperimentsConfig, VersionExperimentsFailure, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const configExists = yield* fileSystem
-      .exists(configPath)
-      .pipe(
-        Effect.mapError((cause) => versionExperimentsFailure('inspect experiments config', cause)),
-      );
-    if (!configExists) {
-      return yield* Effect.fail(
-        versionExperimentsFailure(
-          'read experiments config',
-          configPath,
-          `No experiments config at ${configPath}. Create one (see \`launch experiments --help\`) or pass --config.`,
-        ),
-      );
-    }
-    const configSource = yield* fileSystem
-      .readFileString(configPath)
-      .pipe(
-        Effect.mapError((cause) => versionExperimentsFailure('read experiments config', cause)),
-      );
-    const rawDocument = yield* Schema.decodeUnknown(Schema.parseJson())(configSource).pipe(
-      Effect.mapError((cause) =>
-        versionExperimentsFailure(
-          'parse experiments config JSON',
-          cause,
-          `Invalid JSON in ${configPath}.`,
-        ),
-      ),
+): Promise<VersionExperimentsConfig> {
+  var configExists = false;
+
+  try {
+    configExists = await pathExists(configPath);
+  } catch (error) {
+    throw versionExperimentsFailure('inspect experiments config', error);
+  }
+
+  const configIsMissing = configExists == false;
+
+  if (configIsMissing) {
+    throw versionExperimentsFailure(
+      'read experiments config',
+      configPath,
+      `No experiments config at ${configPath}. Create one (see \`launch experiments --help\`) or pass --config.`,
     );
-    return yield* parseVersionExperimentsConfig(rawDocument);
-  });
+  }
+
+  var configSource = '';
+
+  try {
+    configSource = await readFile(configPath, 'utf8');
+  } catch (error) {
+    throw versionExperimentsFailure('read experiments config', error);
+  }
+
+  var rawDocument: unknown;
+
+  try {
+    rawDocument = JSON.parse(configSource);
+  } catch (error) {
+    throw versionExperimentsFailure(
+      'parse experiments config JSON',
+      error,
+      `Invalid JSON in ${configPath}.`,
+    );
+  }
+
+  return parseVersionExperimentsConfig(rawDocument);
+}
 
 /** Count applied, failed, and skipped experiment actions. */
-export const summarizeExperiments = (
-  plannedActions: PlannedAction[],
-): Readonly<{ applied: number; failed: number; skipped: number }> => {
+export function summarizeExperiments(plannedActions: PlannedAction[]): Readonly<{
+  applied: number;
+  failed: number;
+  skipped: number;
+}> {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
+
   for (const plannedAction of plannedActions) {
     switch (plannedAction.status) {
       case 'applied':
@@ -714,5 +1008,6 @@ export const summarizeExperiments = (
         break;
     }
   }
+
   return { applied, failed, skipped };
-};
+}

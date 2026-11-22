@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
   BetaAppReviewSubmissionResource,
@@ -33,9 +32,9 @@ const VALID_BUILD: BuildResource = {
 };
 
 /** Create a hand fake that records beta-review writes. */
-const makeAppleStore = (
+function makeAppleStore(
   state: Partial<State>,
-): Readonly<{ appleStore: AscBetaReviewApi; calls: Calls }> => {
+): Readonly<{ appleStore: AscBetaReviewApi; calls: Calls }> {
   const storedState: State = {
     builds: [VALID_BUILD],
     localizations: [],
@@ -44,34 +43,42 @@ const makeAppleStore = (
   };
   const calls: Calls = { created: [], updated: [], submitted: [] };
   const appleStore: AscBetaReviewApi = {
-    listBuilds: () => Effect.succeed(storedState.builds),
-    listBetaBuildLocalizations: () => Effect.succeed(storedState.localizations),
-    createBetaBuildLocalization: (buildId, locale, whatsNew) =>
-      Effect.sync(() => {
-        calls.created.push({ buildId, locale, whatsNew });
-      }),
-    updateBetaBuildLocalization: (localizationId, whatsNew) =>
-      Effect.sync(() => {
-        calls.updated.push({ localizationId, whatsNew });
-      }),
-    getBetaAppReviewSubmission: () => Effect.succeed(storedState.submission),
-    createBetaAppReviewSubmission: (buildId) => {
-      if (storedState.submissionFailure !== undefined) {
-        return Effect.fail(new Error(storedState.submissionFailure));
+    listBuilds: function listBuilds() {
+      return Promise.resolve(storedState.builds);
+    },
+    listBetaBuildLocalizations: function listLocalizations() {
+      return Promise.resolve(storedState.localizations);
+    },
+    createBetaBuildLocalization: function createLocalization(buildId, locale, whatsNew) {
+      calls.created.push({ buildId, locale, whatsNew });
+      return Promise.resolve();
+    },
+    updateBetaBuildLocalization: function updateLocalization(localizationId, whatsNew) {
+      calls.updated.push({ localizationId, whatsNew });
+      return Promise.resolve();
+    },
+    getBetaAppReviewSubmission: function readSubmission() {
+      return Promise.resolve(storedState.submission);
+    },
+    createBetaAppReviewSubmission: function submitBuild(buildId) {
+      const hasSubmissionFailure = storedState.submissionFailure != null;
+
+      if (hasSubmissionFailure) {
+        return Promise.reject(new Error(storedState.submissionFailure));
       }
-      return Effect.sync(() => {
-        calls.submitted.push(buildId);
-      });
+
+      calls.submitted.push(buildId);
+      return Promise.resolve();
     },
   };
   return { appleStore, calls };
-};
+}
 
 const WHAT_TO_TEST = { 'en-US': 'Bug fixes.' };
 
 describe('parseBetaReviewConfig', () => {
   it('decodes a non-empty localized note map', () => {
-    expect(Effect.runSync(parseBetaReviewConfig({ whatToTest: WHAT_TO_TEST }))).toEqual({
+    expect(parseBetaReviewConfig({ whatToTest: WHAT_TO_TEST })).toEqual({
       whatToTest: WHAT_TO_TEST,
     });
   });
@@ -83,7 +90,7 @@ describe('parseBetaReviewConfig', () => {
       { whatToTest: {} },
       { whatToTest: { 'en-US': '' } },
     ]) {
-      expect(() => Effect.runSync(parseBetaReviewConfig(invalidConfiguration))).toThrow();
+      expect(() => parseBetaReviewConfig(invalidConfiguration)).toThrow();
     }
   });
 });
@@ -91,14 +98,12 @@ describe('parseBetaReviewConfig', () => {
 describe('reconcileBetaReview', () => {
   it('sets a new note and submits the build for review', async () => {
     const { appleStore, calls } = makeAppleStore({});
-    const report = await Effect.runPromise(
-      reconcileBetaReview(appleStore, {
-        appId: 'app-1',
-        whatToTest: WHAT_TO_TEST,
-        submitForReview: true,
-        dryRun: false,
-      }),
-    );
+    const report = await reconcileBetaReview(appleStore, {
+      appId: 'app-1',
+      whatToTest: WHAT_TO_TEST,
+      submitForReview: true,
+      dryRun: false,
+    });
     expect(report.buildVersion).toBe('42');
     expect(calls.created).toEqual([
       { buildId: 'build-1', locale: 'en-US', whatsNew: 'Bug fixes.' },
@@ -111,28 +116,24 @@ describe('reconcileBetaReview', () => {
     const changed = makeAppleStore({
       localizations: [{ id: 'loc-1', locale: 'en-US', whatsNew: 'Old notes.' }],
     });
-    await Effect.runPromise(
-      reconcileBetaReview(changed.appleStore, {
-        appId: 'app-1',
-        whatToTest: WHAT_TO_TEST,
-        submitForReview: false,
-        dryRun: false,
-      }),
-    );
+    await reconcileBetaReview(changed.appleStore, {
+      appId: 'app-1',
+      whatToTest: WHAT_TO_TEST,
+      submitForReview: false,
+      dryRun: false,
+    });
     expect(changed.calls.created).toHaveLength(0);
     expect(changed.calls.updated).toEqual([{ localizationId: 'loc-1', whatsNew: 'Bug fixes.' }]);
 
     const identical = makeAppleStore({
       localizations: [{ id: 'loc-1', locale: 'en-US', whatsNew: 'Bug fixes.' }],
     });
-    const report = await Effect.runPromise(
-      reconcileBetaReview(identical.appleStore, {
-        appId: 'app-1',
-        whatToTest: WHAT_TO_TEST,
-        submitForReview: false,
-        dryRun: false,
-      }),
-    );
+    const report = await reconcileBetaReview(identical.appleStore, {
+      appId: 'app-1',
+      whatToTest: WHAT_TO_TEST,
+      submitForReview: false,
+      dryRun: false,
+    });
     expect(identical.calls.updated).toHaveLength(0);
     expect(report.actions).toHaveLength(0);
   });
@@ -141,14 +142,12 @@ describe('reconcileBetaReview', () => {
     const { appleStore, calls } = makeAppleStore({
       submission: { id: 'sub-1', state: 'IN_REVIEW' },
     });
-    const report = await Effect.runPromise(
-      reconcileBetaReview(appleStore, {
-        appId: 'app-1',
-        whatToTest: {},
-        submitForReview: true,
-        dryRun: false,
-      }),
-    );
+    const report = await reconcileBetaReview(appleStore, {
+      appId: 'app-1',
+      whatToTest: {},
+      submitForReview: true,
+      dryRun: false,
+    });
     expect(calls.submitted).toHaveLength(0);
     expect(summarizeBetaReview(report.actions)).toEqual({ applied: 0, failed: 0, skipped: 1 });
     expect(report.actions[0]?.description).toContain('in review');
@@ -160,39 +159,33 @@ describe('reconcileBetaReview', () => {
       { id: 'build-1', version: '42', processingState: 'VALID', expired: true },
     ];
     const { appleStore, calls } = makeAppleStore({ builds });
-    const report = await Effect.runPromise(
-      reconcileBetaReview(appleStore, {
-        appId: 'app-1',
-        buildVersion: '43',
-        whatToTest: WHAT_TO_TEST,
-        submitForReview: false,
-        dryRun: false,
-      }),
-    );
+    const report = await reconcileBetaReview(appleStore, {
+      appId: 'app-1',
+      buildVersion: '43',
+      whatToTest: WHAT_TO_TEST,
+      submitForReview: false,
+      dryRun: false,
+    });
     expect(report.buildVersion).toBe('43');
     expect(calls.created[0]?.buildId).toBe('build-2');
     await expect(
-      Effect.runPromise(
-        reconcileBetaReview(appleStore, {
-          appId: 'app-1',
-          buildVersion: '42',
-          whatToTest: {},
-          submitForReview: false,
-          dryRun: false,
-        }),
-      ),
-    ).rejects.toThrow(/expired/);
+      reconcileBetaReview(appleStore, {
+        appId: 'app-1',
+        buildVersion: '42',
+        whatToTest: {},
+        submitForReview: false,
+        dryRun: false,
+      }),
+    ).rejects.toMatchObject({ message: expect.stringContaining('expired') });
     await expect(
-      Effect.runPromise(
-        reconcileBetaReview(appleStore, {
-          appId: 'app-1',
-          buildVersion: '99',
-          whatToTest: {},
-          submitForReview: false,
-          dryRun: false,
-        }),
-      ),
-    ).rejects.toThrow(/No build 99/);
+      reconcileBetaReview(appleStore, {
+        appId: 'app-1',
+        buildVersion: '99',
+        whatToTest: {},
+        submitForReview: false,
+        dryRun: false,
+      }),
+    ).rejects.toMatchObject({ message: expect.stringContaining('No build 99') });
   });
 
   it('picks the newest valid build when no version is given', async () => {
@@ -203,14 +196,12 @@ describe('reconcileBetaReview', () => {
         { id: 'old', version: '42', processingState: 'VALID', expired: false },
       ],
     });
-    const report = await Effect.runPromise(
-      reconcileBetaReview(appleStore, {
-        appId: 'app-1',
-        whatToTest: {},
-        submitForReview: false,
-        dryRun: false,
-      }),
-    );
+    const report = await reconcileBetaReview(appleStore, {
+      appId: 'app-1',
+      whatToTest: {},
+      submitForReview: false,
+      dryRun: false,
+    });
     expect(report.buildVersion).toBe('43');
   });
 
@@ -219,27 +210,25 @@ describe('reconcileBetaReview', () => {
       builds: [{ id: 'p', version: '1', processingState: 'PROCESSING', expired: false }],
     });
     await expect(
-      Effect.runPromise(
-        reconcileBetaReview(appleStore, {
-          appId: 'app-1',
-          whatToTest: {},
-          submitForReview: true,
-          dryRun: false,
-        }),
-      ),
-    ).rejects.toThrow(/No VALID, non-expired build/);
+      reconcileBetaReview(appleStore, {
+        appId: 'app-1',
+        whatToTest: {},
+        submitForReview: true,
+        dryRun: false,
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('No VALID, non-expired build'),
+    });
   });
 
   it('plans without writes on a dry run', async () => {
     const { appleStore, calls } = makeAppleStore({});
-    const report = await Effect.runPromise(
-      reconcileBetaReview(appleStore, {
-        appId: 'app-1',
-        whatToTest: WHAT_TO_TEST,
-        submitForReview: true,
-        dryRun: true,
-      }),
-    );
+    const report = await reconcileBetaReview(appleStore, {
+      appId: 'app-1',
+      whatToTest: WHAT_TO_TEST,
+      submitForReview: true,
+      dryRun: true,
+    });
     expect(calls.created).toHaveLength(0);
     expect(calls.submitted).toHaveLength(0);
     expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
@@ -248,14 +237,12 @@ describe('reconcileBetaReview', () => {
 
   it('captures a submission failure after applying notes', async () => {
     const { appleStore } = makeAppleStore({ submissionFailure: 'build is still processing' });
-    const report = await Effect.runPromise(
-      reconcileBetaReview(appleStore, {
-        appId: 'app-1',
-        whatToTest: WHAT_TO_TEST,
-        submitForReview: true,
-        dryRun: false,
-      }),
-    );
+    const report = await reconcileBetaReview(appleStore, {
+      appId: 'app-1',
+      whatToTest: WHAT_TO_TEST,
+      submitForReview: true,
+      dryRun: false,
+    });
     expect(summarizeBetaReview(report.actions)).toEqual({ applied: 1, failed: 1, skipped: 0 });
     expect(report.actions.find((action) => action.status === 'failed')?.error).toBe(
       'build is still processing',

@@ -1,4 +1,3 @@
-import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { expectDefined } from '@testkit/assertions.testkit.js';
 import type { CodeSigner } from '../credentials/codeSign.js';
@@ -27,60 +26,65 @@ type MemoryStorage = StorageProvider &
     readonly objects: Map<string, string>;
   }>;
 
-/** Build an in-memory object store with Effect-returning provider methods. */
-const makeMemoryStorage = (): MemoryStorage => {
+function makeMemoryStorage(): MemoryStorage {
   const objects = new Map<string, string>();
+
   return {
     objects,
     name: 'memory',
-    put: () => Effect.dieMessage('unused'),
-    list: () => Effect.succeed([]),
-    url: () => Effect.succeed(''),
-    putObject: (objectKey, objectContents) =>
-      Effect.sync(() => {
-        objects.set(objectKey, objectContents.toString());
-        return { id: objectKey, location: `memory://${objectKey}` };
-      }),
-    getObject: (objectKey) =>
-      Effect.sync(() => {
-        const storedText = objects.get(objectKey);
-        if (storedText === undefined) return null;
-        return Buffer.from(storedText);
-      }),
+    put: () => Promise.reject(new Error('unused')),
+    list: () => Promise.resolve([]),
+    url: () => Promise.resolve(''),
+    putObject: (objectKey, objectContents) => {
+      objects.set(objectKey, objectContents.toString());
+
+      return Promise.resolve({ id: objectKey, location: `memory://${objectKey}` });
+    },
+    getObject: (objectKey) => {
+      const storedText = objects.get(objectKey);
+
+      if (storedText == null) {
+        return Promise.resolve(null);
+      }
+
+      return Promise.resolve(Buffer.from(storedText));
+    },
     publicUrl: (objectKey) => `https://cdn/${objectKey}`,
   };
-};
+}
 
 const fixedSigner: CodeSigner = {
   certPath: '/tmp/cert.pem',
   sign: () => 'sig="FAKE", keyid="main", alg="rsa-v1_5-sha256"',
 };
 
-/** Build a history entry with concise overrides for each scenario. */
-const makeHistoryEntry = (overrides: Partial<UpdateHistoryEntry> = {}): UpdateHistoryEntry => ({
-  id: 'old-id',
-  runtimeVersion: '1.0.0',
-  createdAt: '2026-06-13T00:00:00.000Z',
-  active: true,
-  signed: false,
-  kind: 'publish',
-  ...overrides,
-});
+function makeHistoryEntry(overrides: Partial<UpdateHistoryEntry> = {}): UpdateHistoryEntry {
+  return {
+    id: 'old-id',
+    runtimeVersion: '1.0.0',
+    createdAt: '2026-06-13T00:00:00.000Z',
+    active: true,
+    signed: false,
+    kind: 'publish',
+    ...overrides,
+  };
+}
 
-/** Build a persisted manifest snapshot for rollback tests. */
-const makeManifest = (manifestId: string): UpdateManifest => ({
-  id: manifestId,
-  createdAt: '2026-06-13T00:00:00.000Z',
-  runtimeVersion: '1.0.0',
-  launchAsset: {
-    key: 'bundle.hbc',
-    contentType: 'application/javascript',
-    url: 'https://cdn/bundle.hbc',
-  },
-  assets: [],
-  metadata: {},
-  extra: {},
-});
+function makeManifest(manifestId: string): UpdateManifest {
+  return {
+    id: manifestId,
+    createdAt: '2026-06-13T00:00:00.000Z',
+    runtimeVersion: '1.0.0',
+    launchAsset: {
+      key: 'bundle.hbc',
+      contentType: 'application/javascript',
+      url: 'https://cdn/bundle.hbc',
+    },
+    assets: [],
+    metadata: {},
+    extra: {},
+  };
+}
 
 describe('history lookup', () => {
   it('deactivates only active entries for the selected runtime version', () => {
@@ -105,13 +109,9 @@ describe('history lookup', () => {
 describe('recordPublish', () => {
   it('prepends the publish and deactivates the previous matching runtime', async () => {
     const storage = makeMemoryStorage();
-    await Effect.runPromise(
-      recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'first' })),
-    );
-    await Effect.runPromise(
-      recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'second' })),
-    );
-    const historyEntries = await Effect.runPromise(readHistory(storage, 'production', 'ios'));
+    await recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'first' }));
+    await recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'second' }));
+    const historyEntries = await readHistory(storage, 'production', 'ios');
     expect(historyEntries.map((historyEntry) => historyEntry.id)).toEqual(['second', 'first']);
     expect(historyEntries.find((historyEntry) => historyEntry.id === 'second')?.active).toBe(true);
     expect(historyEntries.find((historyEntry) => historyEntry.id === 'first')?.active).toBe(false);
@@ -119,27 +119,21 @@ describe('recordPublish', () => {
 
   it('keeps active entries for other runtime versions', async () => {
     const storage = makeMemoryStorage();
-    await Effect.runPromise(
-      recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'runtime-one' })),
+    await recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'runtime-one' }));
+    await recordPublish(
+      storage,
+      'production',
+      'ios',
+      makeHistoryEntry({ id: 'runtime-two', runtimeVersion: '2.0.0' }),
     );
-    await Effect.runPromise(
-      recordPublish(
-        storage,
-        'production',
-        'ios',
-        makeHistoryEntry({ id: 'runtime-two', runtimeVersion: '2.0.0' }),
-      ),
-    );
-    const historyEntries = await Effect.runPromise(readHistory(storage, 'production', 'ios'));
+    const historyEntries = await readHistory(storage, 'production', 'ios');
     expect(historyEntries.every((historyEntry) => historyEntry.active)).toBe(true);
   });
 
   it('preserves malformed history and refuses to overwrite it', async () => {
     const storage = makeMemoryStorage();
     storage.objects.set('updates/production/ios/history.json', '{broken');
-    await expect(
-      Effect.runPromise(recordPublish(storage, 'production', 'ios', makeHistoryEntry())),
-    ).rejects.toThrow();
+    await expect(recordPublish(storage, 'production', 'ios', makeHistoryEntry())).rejects.toThrow();
     expect(storage.objects.get('updates/production/ios/history.json')).toBe('{broken');
   });
 });
@@ -148,15 +142,16 @@ describe('activateUpdate', () => {
   it('leaves the active manifest untouched when history is malformed', async () => {
     const storage = makeMemoryStorage();
     storage.objects.set('updates/production/ios/history.json', '{broken');
-    const activation = activateUpdate({
-      storage,
-      channel: 'production',
-      platform: 'ios',
-      updateManifest: makeManifest('new-id'),
-      kind: 'publish',
-      signer: null,
-    });
-    await expect(Effect.runPromise(activation)).rejects.toThrow();
+    await expect(
+      activateUpdate({
+        storage,
+        channel: 'production',
+        platform: 'ios',
+        updateManifest: makeManifest('new-id'),
+        kind: 'publish',
+        signer: null,
+      }),
+    ).rejects.toThrow();
     expect(storage.objects.has(manifestKey('production', 'ios', '1.0.0'))).toBe(false);
   });
 });
@@ -170,24 +165,18 @@ describe('republishUpdate', () => {
       historySnapshotKey(channel, platform, '1.0.0', 'old-id'),
       JSON.stringify(makeManifest('old-id')),
     );
-    await Effect.runPromise(
-      recordPublish(storage, channel, platform, makeHistoryEntry({ id: 'old-id' })),
-    );
-    await Effect.runPromise(
-      recordPublish(storage, channel, platform, makeHistoryEntry({ id: 'bad-id' })),
-    );
+    await recordPublish(storage, channel, platform, makeHistoryEntry({ id: 'old-id' }));
+    await recordPublish(storage, channel, platform, makeHistoryEntry({ id: 'bad-id' }));
 
-    const republishedUpdate = await Effect.runPromise(
-      republishUpdate({
-        storage,
-        channel,
-        platform,
-        target: makeHistoryEntry({ id: 'old-id' }),
-        newId: 'rollback-id',
-        createdAt: '2026-06-14T12:00:00.000Z',
-        signer: fixedSigner,
-      }),
-    );
+    const republishedUpdate = await republishUpdate({
+      storage,
+      channel,
+      platform,
+      target: makeHistoryEntry({ id: 'old-id' }),
+      newId: 'rollback-id',
+      createdAt: '2026-06-14T12:00:00.000Z',
+      signer: fixedSigner,
+    });
 
     expect(republishedUpdate.manifest.id).toBe('rollback-id');
     expect(republishedUpdate.manifest.launchAsset.url).toBe('https://cdn/bundle.hbc');
@@ -196,9 +185,7 @@ describe('republishUpdate', () => {
       storage.objects.get(manifestKey(channel, platform, '1.0.0')),
       'active manifest',
     );
-    const activeManifest = Schema.decodeUnknownSync(Schema.Struct({ id: Schema.String }))(
-      JSON.parse(activeManifestText),
-    );
+    const activeManifest = JSON.parse(activeManifestText) as { id: string };
     expect(activeManifest.id).toBe('rollback-id');
     expect(storage.objects.has(historySnapshotKey(channel, platform, '1.0.0', 'rollback-id'))).toBe(
       true,
@@ -206,14 +193,14 @@ describe('republishUpdate', () => {
     expect(storage.objects.get(manifestSignatureKey(channel, platform, '1.0.0'))).toContain(
       'sig="FAKE"',
     );
-    const historyEntries = await Effect.runPromise(readHistory(storage, channel, platform));
+    const historyEntries = await readHistory(storage, channel, platform);
     expect(historyEntries[0]?.id).toBe('rollback-id');
     expect(historyEntries.find((historyEntry) => historyEntry.id === 'bad-id')?.active).toBe(false);
   });
 
   it('fails with a typed error when the target snapshot is absent', async () => {
     const storage = makeMemoryStorage();
-    const republishAttempt = await Effect.runPromise(
+    await expect(
       republishUpdate({
         storage,
         channel: 'production',
@@ -222,39 +209,31 @@ describe('republishUpdate', () => {
         newId: 'rollback-id',
         createdAt: '2026-06-14T12:00:00.000Z',
         signer: null,
-      }).pipe(Effect.either),
-    );
-    expect(republishAttempt).toMatchObject({
-      _tag: 'Left',
-      left: { _tag: 'UpdateHistoryFailure' },
-    });
+      }),
+    ).rejects.toMatchObject({ _tag: 'UpdateHistoryFailure' });
   });
 });
 
 describe('rollback directive', () => {
   it('writes an active signed directive', async () => {
     const storage = makeMemoryStorage();
-    await Effect.runPromise(
-      setRollbackToEmbedded({
-        storage,
-        channel: 'production',
-        platform: 'ios',
-        runtimeVersion: '1.0.0',
-        commitTime: '2026-06-14T12:00:00.000Z',
-        signer: fixedSigner,
-      }),
-    );
+    await setRollbackToEmbedded({
+      storage,
+      channel: 'production',
+      platform: 'ios',
+      runtimeVersion: '1.0.0',
+      commitTime: '2026-06-14T12:00:00.000Z',
+      signer: fixedSigner,
+    });
     const directiveText = expectDefined(
       storage.objects.get(rollbackDirectiveKey('production', 'ios', '1.0.0')),
       'rollback directive',
     );
-    const storedDirective = Schema.decodeUnknownSync(
-      Schema.Struct({
-        active: Schema.Boolean,
-        signature: Schema.String,
-        body: Schema.String,
-      }),
-    )(JSON.parse(directiveText));
+    const storedDirective = JSON.parse(directiveText) as {
+      active: boolean;
+      signature: string;
+      body: string;
+    };
     expect(storedDirective.active).toBe(true);
     expect(storedDirective.signature).toContain('sig="FAKE"');
     expect(JSON.parse(storedDirective.body)).toEqual({
@@ -265,25 +244,21 @@ describe('rollback directive', () => {
 
   it('deactivates an active directive and does nothing when absent', async () => {
     const storage = makeMemoryStorage();
-    await Effect.runPromise(clearRollbackDirective(storage, 'production', 'ios', '1.0.0'));
+    await clearRollbackDirective(storage, 'production', 'ios', '1.0.0');
     const directiveKey = rollbackDirectiveKey('production', 'ios', '1.0.0');
     expect(storage.objects.has(directiveKey)).toBe(false);
 
-    await Effect.runPromise(
-      setRollbackToEmbedded({
-        storage,
-        channel: 'production',
-        platform: 'ios',
-        runtimeVersion: '1.0.0',
-        commitTime: '2026-06-14T12:00:00.000Z',
-        signer: null,
-      }),
-    );
-    await Effect.runPromise(clearRollbackDirective(storage, 'production', 'ios', '1.0.0'));
+    await setRollbackToEmbedded({
+      storage,
+      channel: 'production',
+      platform: 'ios',
+      runtimeVersion: '1.0.0',
+      commitTime: '2026-06-14T12:00:00.000Z',
+      signer: null,
+    });
+    await clearRollbackDirective(storage, 'production', 'ios', '1.0.0');
     const clearedText = expectDefined(storage.objects.get(directiveKey), 'cleared directive');
-    const clearedDirective = Schema.decodeUnknownSync(Schema.Struct({ active: Schema.Boolean }))(
-      JSON.parse(clearedText),
-    );
+    const clearedDirective = JSON.parse(clearedText) as { active: boolean };
     expect(clearedDirective.active).toBe(false);
   });
 });

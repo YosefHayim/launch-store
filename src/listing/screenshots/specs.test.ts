@@ -1,6 +1,4 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,8 +9,6 @@ import {
   validatePlayDimensions,
 } from './specs.js';
 const tmpDirs: string[] = [];
-const runScreenshotCheck = (screenshotCheck: ReturnType<typeof checkScreenshotFile>) =>
-  Effect.runPromise(screenshotCheck.pipe(Effect.provide(NodeContext.layer)));
 afterEach(() => {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
@@ -91,23 +87,17 @@ describe('canonicalDimensions', () => {
 });
 describe('checkScreenshotFile', () => {
   it('measures and passes an in-spec iOS screenshot', async () => {
-    const check = await runScreenshotCheck(
-      checkScreenshotFile('ios', 'APP_IPHONE_67', writePng(1290, 2796)),
-    );
+    const check = await checkScreenshotFile('ios', 'APP_IPHONE_67', writePng(1290, 2796));
     expect(check).toEqual({ measured: true, width: 1290, height: 2796, verdict: { ok: true } });
   });
   it('measures and flags an off-spec iOS screenshot', async () => {
-    const check = await runScreenshotCheck(
-      checkScreenshotFile('ios', 'APP_IPHONE_67', writePng(1080, 1920)),
-    );
+    const check = await checkScreenshotFile('ios', 'APP_IPHONE_67', writePng(1080, 1920));
     expect(check.measured).toBe(true);
     if (!check.measured) return;
     expect(check.verdict.ok).toBe(false);
   });
   it("validates an Android screenshot against Play's constraint", async () => {
-    const check = await runScreenshotCheck(
-      checkScreenshotFile('android', 'phone', writePng(1080, 1920)),
-    );
+    const check = await checkScreenshotFile('android', 'phone', writePng(1080, 1920));
     expect(check.measured && check.verdict.ok).toBe(true);
   });
   it("reports measured:false for a file whose pixels can't be read", async () => {
@@ -115,14 +105,12 @@ describe('checkScreenshotFile', () => {
     tmpDirs.push(dir);
     const path = join(dir, 'not-an-image.png');
     writeFileSync(path, 'just some text, not a PNG');
-    expect(await runScreenshotCheck(checkScreenshotFile('ios', 'APP_IPHONE_67', path))).toEqual({
+    expect(await checkScreenshotFile('ios', 'APP_IPHONE_67', path)).toEqual({
       measured: false,
     });
   });
   it('validates a tvOS screenshot against the Apple Apple-TV spec (not Play)', async () => {
-    const check = await runScreenshotCheck(
-      checkScreenshotFile('tvos', 'APP_APPLE_TV', writePng(1920, 1080)),
-    );
+    const check = await checkScreenshotFile('tvos', 'APP_APPLE_TV', writePng(1920, 1080));
     expect(check.measured && check.verdict.ok).toBe(true);
   });
 });

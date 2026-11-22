@@ -1,13 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import type { PortfolioFile } from '../types/portfolio.js';
 import {
   createEmptyPortfolioFile,
@@ -17,10 +16,17 @@ import {
 } from './portfolioStore.js';
 
 let homeDirectory: string;
-beforeEach(() => {
+
+beforeEach(function setPortfolioHome() {
   homeDirectory = createTemporaryHomeDirectory();
+  useLaunchDirectories({
+    homeDirectory,
+    workingDirectory: join(homeDirectory, 'work'),
+  });
 });
-afterEach(() => {
+
+afterEach(function resetPortfolioHome() {
+  resetLaunchDirectories();
   removeTemporaryHomeDirectory(homeDirectory);
 });
 
@@ -57,9 +63,7 @@ describe('createEmptyPortfolioFile', () => {
 
 describe('loadPortfolioFile', () => {
   test('returns null when portfolio.json does not exist', async () => {
-    const loaded = await Effect.runPromise(
-      loadPortfolioFile().pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
-    );
+    const loaded = await loadPortfolioFile();
 
     expect(loaded).toBeNull();
   });
@@ -71,9 +75,7 @@ describe('loadPortfolioFile', () => {
       '{"version":1,"discoveredAt":null,"apps":[],"tags":[]}',
     );
 
-    const loaded = await Effect.runPromise(
-      loadPortfolioFile().pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
-    );
+    const loaded = await loadPortfolioFile();
 
     expect(loaded?.playReportsBucket).toBeNull();
   });
@@ -81,24 +83,14 @@ describe('loadPortfolioFile', () => {
   test('fails when portfolio.json is broken', async () => {
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', '{"version":2}');
 
-    const failure = await Effect.runPromise(
-      loadPortfolioFile().pipe(Effect.flip, Effect.provide(makeLaunchHomeTest(homeDirectory))),
-    );
-
-    expect(failure._tag).toBe('DocumentFileFailure');
+    await expect(loadPortfolioFile()).rejects.toMatchObject({ _tag: 'DocumentFileFailure' });
   });
 });
 
 describe('savePortfolioFile', () => {
   test('writes portfolio.json under ~/.launch and reads it back the same', async () => {
-    const program = Effect.gen(function* () {
-      yield* savePortfolioFile(savedFile);
-      return yield* loadPortfolioFile();
-    });
-
-    const loaded = await Effect.runPromise(
-      program.pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
-    );
+    await savePortfolioFile(savedFile);
+    const loaded = await loadPortfolioFile();
 
     expect(loaded).toEqual(savedFile);
     const savedFileText = readFileSync(join(homeDirectory, '.launch', 'portfolio.json'), 'utf8');

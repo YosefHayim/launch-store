@@ -1,13 +1,51 @@
-import { Schema } from 'effect';
 import type { PrivacySurface } from '../types/privacy.js';
-const ExpoConfigSectionSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown });
-const ExpoIosPrivacySchema = Schema.Record({ key: Schema.String, value: Schema.Unknown });
-const ExpoAndroidPrivacySchema = Schema.Record({ key: Schema.String, value: Schema.Unknown });
-const ExpoInfoPlistSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown });
-const ExpoPrivacyManifestSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown });
-const CollectedDataTypeSchema = Schema.Struct({
-  NSPrivacyCollectedDataType: Schema.optional(Schema.String),
-});
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  const isObject = typeof candidate == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  if (candidate == null) {
+    return false;
+  }
+
+  const isArray = Array.isArray(candidate);
+
+  if (isArray) {
+    return false;
+  }
+
+  return true;
+}
+
+function recordOrNull(candidate: unknown): Record<string, unknown> | null {
+  const isRecordValue = isRecord(candidate);
+
+  if (isRecordValue) {
+    return candidate;
+  }
+
+  return null;
+}
+
+function readCollectedDataType(entry: unknown): string | null {
+  const record = recordOrNull(entry);
+
+  if (record == null) {
+    return null;
+  }
+
+  const dataType = record['NSPrivacyCollectedDataType'];
+  const isString = typeof dataType == 'string';
+
+  if (isString == false) {
+    return null;
+  }
+
+  return dataType;
+}
 /** `<key>NS...UsageDescription</key>` with its `<string>` value - captures empty and self-closing values too. */
 const USAGE_DESCRIPTION_RE =
   /<key>(NS\w*UsageDescription)<\/key>\s*(?:<string>([^<]*)<\/string>|<string\s*\/>)/g;
@@ -78,12 +116,10 @@ const collectedDataTypesFrom = (manifestEntries: unknown): string[] => {
   if (!Array.isArray(manifestEntries)) return [];
   const types: string[] = [];
   for (const entry of manifestEntries) {
-    const decodedDataType = Schema.decodeUnknownEither(CollectedDataTypeSchema)(entry);
-    if (
-      decodedDataType._tag === 'Right' &&
-      decodedDataType.right.NSPrivacyCollectedDataType !== undefined
-    ) {
-      types.push(decodedDataType.right.NSPrivacyCollectedDataType);
+    const dataType = readCollectedDataType(entry);
+
+    if (dataType != null) {
+      types.push(dataType);
     }
   }
   return unique(types);
@@ -127,39 +163,61 @@ export const surfaceFromNative = (files: {
  * `ios.privacyManifests`, and permissions from `android.permissions`.
  */
 export const surfaceFromExpoConfig = (config: Record<string, unknown>): PrivacySurface => {
-  const decodedExpo = Schema.decodeUnknownEither(ExpoConfigSectionSchema)(config['expo']);
+  const decodedExpo = recordOrNull(config['expo']);
   let expo = config;
-  if (decodedExpo._tag === 'Right') expo = decodedExpo.right;
-  const decodedIos = Schema.decodeUnknownEither(ExpoIosPrivacySchema)(expo['ios']);
-  const decodedAndroid = Schema.decodeUnknownEither(ExpoAndroidPrivacySchema)(expo['android']);
-  let ios: Record<string, unknown> = {};
-  if (decodedIos._tag === 'Right') ios = decodedIos.right;
-  let android: Record<string, unknown> = {};
-  if (decodedAndroid._tag === 'Right') android = decodedAndroid.right;
-  const usageDescriptions: Record<string, string> = {};
-  const decodedInfoPlist = Schema.decodeUnknownEither(ExpoInfoPlistSchema)(ios['infoPlist']);
-  let infoPlist: Record<string, unknown> = {};
-  if (decodedInfoPlist._tag === 'Right') infoPlist = decodedInfoPlist.right;
-  for (const [privacyKey, privacyText] of Object.entries(infoPlist)) {
-    if (/^NS\w*UsageDescription$/.test(privacyKey) && typeof privacyText === 'string')
-      usageDescriptions[privacyKey] = privacyText.trim();
+
+  if (decodedExpo != null) {
+    expo = decodedExpo;
   }
-  const decodedManifest = Schema.decodeUnknownEither(ExpoPrivacyManifestSchema)(
-    ios['privacyManifests'],
-  );
-  let manifest: Record<string, unknown> | undefined;
-  if (decodedManifest._tag === 'Right') manifest = decodedManifest.right;
+
+  const decodedIos = recordOrNull(expo['ios']);
+  const decodedAndroid = recordOrNull(expo['android']);
+  let ios: Record<string, unknown> = {};
+
+  if (decodedIos != null) {
+    ios = decodedIos;
+  }
+
+  let android: Record<string, unknown> = {};
+
+  if (decodedAndroid != null) {
+    android = decodedAndroid;
+  }
+
+  const usageDescriptions: Record<string, string> = {};
+  const infoPlist = recordOrNull(ios['infoPlist']) ?? {};
+
+  for (const [privacyKey, privacyText] of Object.entries(infoPlist)) {
+    // Apple purpose strings are keys like NSCameraUsageDescription
+    const isUsageKey = /^NS\w*UsageDescription$/.test(privacyKey);
+    const isUsageText = typeof privacyText == 'string';
+
+    if (isUsageKey == false) {
+      continue;
+    }
+
+    if (isUsageText == false) {
+      continue;
+    }
+
+    usageDescriptions[privacyKey] = privacyText.trim();
+  }
+
+  const manifest = recordOrNull(ios['privacyManifests']);
+  const hasManifest = manifest != null;
   let collectedDataTypes: string[] = [];
   let trackingDomains: string[] = [];
-  if (manifest) {
+
+  if (hasManifest) {
     collectedDataTypes = collectedDataTypesFrom(manifest['NSPrivacyCollectedDataTypes']);
     trackingDomains = unique(stringArray(manifest['NSPrivacyTrackingDomains']));
   }
+
   return {
     usageDescriptions,
-    hasManifest: manifest !== undefined,
+    hasManifest,
     collectedDataTypes,
-    tracking: manifest?.['NSPrivacyTracking'] === true,
+    tracking: manifest?.['NSPrivacyTracking'] == true,
     trackingDomains,
     androidPermissions: unique(stringArray(android['permissions'])),
   };

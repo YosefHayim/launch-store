@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
   GameCenterAchievementCreate,
@@ -74,24 +73,24 @@ const makeGameCenterApi = (
     leaderboardLocales: [],
   };
   const api: AscGameCenterApi = {
-    getAppId: () => Effect.succeed(fakeState.appId),
+    getAppId: () => Promise.resolve(fakeState.appId),
     getGameCenterDetail: () => {
-      if (fakeState.detailId === null) return Effect.succeed(null);
-      return Effect.succeed({ id: fakeState.detailId });
+      if (fakeState.detailId === null) return Promise.resolve(null);
+      return Promise.resolve({ id: fakeState.detailId });
     },
     createGameCenterDetail: () => {
-      if (fakeState.enableFailure !== null) return Effect.fail(fakeState.enableFailure);
+      if (fakeState.enableFailure !== null) return Promise.reject(fakeState.enableFailure);
       writes.detailCreated++;
-      return Effect.succeed({ id: 'detail-new' });
+      return Promise.resolve({ id: 'detail-new' });
     },
-    listGameCenterAchievements: () => Effect.succeed(fakeState.achievements),
+    listGameCenterAchievements: () => Promise.resolve(fakeState.achievements),
     createGameCenterAchievement: (detailId, achievement) => {
       writes.achievements.push({ detailId, achievement });
-      return Effect.succeed({ id: 'ach-new', versionId: fakeState.achievementVersionId });
+      return Promise.resolve({ id: 'ach-new', versionId: fakeState.achievementVersionId });
     },
     createGameCenterAchievementLocalization: (versionId, localization) => {
       if (fakeState.achievementLocalizationFailure !== null) {
-        return Effect.fail(fakeState.achievementLocalizationFailure);
+        return Promise.reject(fakeState.achievementLocalizationFailure);
       }
       writes.achievementLocales.push({
         versionId,
@@ -100,12 +99,12 @@ const makeGameCenterApi = (
         beforeEarnedDescription: localization.beforeEarnedDescription,
         afterEarnedDescription: localization.afterEarnedDescription,
       });
-      return Effect.void;
+      return Promise.resolve();
     },
-    listGameCenterLeaderboards: () => Effect.succeed(fakeState.leaderboards),
+    listGameCenterLeaderboards: () => Promise.resolve(fakeState.leaderboards),
     createGameCenterLeaderboard: (detailId, leaderboard) => {
       writes.leaderboards.push({ detailId, leaderboard });
-      return Effect.succeed({ id: 'lb-new', versionId: fakeState.leaderboardVersionId });
+      return Promise.resolve({ id: 'lb-new', versionId: fakeState.leaderboardVersionId });
     },
     createGameCenterLeaderboardLocalization: (versionId, localization) => {
       writes.leaderboardLocales.push({
@@ -113,7 +112,7 @@ const makeGameCenterApi = (
         locale: localization.locale,
         name: localization.name,
       });
-      return Effect.void;
+      return Promise.resolve();
     },
   };
   return { api, writes };
@@ -123,7 +122,7 @@ const makeGameCenterApi = (
 const runReconcile = (
   api: AscGameCenterApi,
   reconcileInput: Parameters<typeof reconcileGameCenter>[1],
-) => Effect.runPromise(reconcileGameCenter(api, reconcileInput));
+) => reconcileGameCenter(api, reconcileInput);
 
 const SAMPLE_CONFIG: GameCenterConfig = {
   achievements: [
@@ -148,8 +147,7 @@ const SAMPLE_CONFIG: GameCenterConfig = {
   ],
 };
 
-const decodeGameCenterConfig = (rawDocument: unknown) =>
-  Effect.runSync(parseGameCenterConfig(rawDocument));
+const decodeGameCenterConfig = (rawDocument: unknown) => parseGameCenterConfig(rawDocument);
 
 describe('parseGameCenterConfig', () => {
   it('parses achievements and leaderboards', () => {
@@ -346,7 +344,7 @@ describe('reconcileGameCenter', () => {
 
   it("captures a failed create and skips that item's localization", async () => {
     const { api, writes } = makeGameCenterApi({});
-    api.createGameCenterLeaderboard = () => Effect.fail(new Error('vendor id taken'));
+    api.createGameCenterLeaderboard = () => Promise.reject(new Error('vendor id taken'));
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: SAMPLE_CONFIG,

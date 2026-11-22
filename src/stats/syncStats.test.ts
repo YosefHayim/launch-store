@@ -1,24 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { makeHttpClientTest } from '@testkit/httpClient.testkit.js';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
 import { makeFakeAscClient } from '@testkit/storeClients.testkit.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import type { PortfolioFile } from '../types/portfolio.js';
-import type {
-  AppCoverage,
-  FeedFetchReply,
-  StatsCredentialsShape,
-  StatsFeedFailure,
-  StatsFeedPlugin,
-} from '../types/stats.js';
-import { makeStatsCredentialsTest } from './statsCredentials.js';
+import type { AppCoverage, FeedFetchReply, StatsFeedFailure } from '../types/stats.js';
+import type { StatsCredentialsApi } from './statsCredentials.js';
+import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.js';
 import { syncStats } from './syncStats.js';
 
 const fakeFeed = vi.hoisted(() => ({
@@ -26,23 +19,45 @@ const fakeFeed = vi.hoisted(() => ({
   askedRanges: [] as unknown[],
 }));
 
-vi.mock('./feedRegistry.js', async () => {
-  const { Effect: EffectModule } = await import('effect');
-  const iosFeed: StatsFeedPlugin = {
-    feed: 'app-store',
-    isApplicable: (app) => app.platform === 'ios',
-    fetchDays: (request) => {
+vi.mock('./feedRegistry.js', () => {
+  function isTaggedFailure(reply: unknown): boolean {
+    if (reply == null) {
+      return false;
+    }
+
+    if (typeof reply != 'object') {
+      return false;
+    }
+
+    return '_tag' in reply;
+  }
+
+  const iosFeed = {
+    feed: 'app-store' as const,
+    isApplicable(app: { platform: string }) {
+      return app.platform == 'ios';
+    },
+    async fetchDays(request: { range: unknown }) {
       fakeFeed.askedRanges.push(request.range);
-      const reply = fakeFeed.reply as FeedFetchReply | StatsFeedFailure;
-      if ('_tag' in reply) return EffectModule.fail(reply);
-      return EffectModule.succeed(reply);
+      const reply = fakeFeed.reply;
+
+      if (isTaggedFailure(reply)) {
+        throw reply;
+      }
+
+      return reply;
     },
   };
-  const androidFeed: StatsFeedPlugin = {
-    feed: 'google-play',
-    isApplicable: (app) => app.platform === 'android',
-    fetchDays: () => EffectModule.succeed({ status: 'skipped', reason: 'not built yet' }),
+  const androidFeed = {
+    feed: 'google-play' as const,
+    isApplicable(app: { platform: string }) {
+      return app.platform == 'android';
+    },
+    async fetchDays() {
+      return { status: 'skipped' as const, reason: 'not built yet' };
+    },
   };
+
   return { STATS_FEED_PLUGINS: [iosFeed, androidFeed] };
 });
 
@@ -89,29 +104,35 @@ const FETCHED_REPLY: FeedFetchReply = {
 
 describe('syncStats', () => {
   let homeDirectory: string;
+
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    useLaunchDirectories({
+      homeDirectory,
+      workingDirectory: join(homeDirectory, 'work'),
+    });
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(PORTFOLIO_FILE));
     fakeFeed.reply = FETCHED_REPLY;
     fakeFeed.askedRanges = [];
   });
+
   afterEach(() => {
+    useStatsCredentials(null);
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
   const sync = (
     appName: string | null,
     days: number,
-    credentials: Partial<StatsCredentialsShape> = {},
-  ) =>
-    Effect.runPromise(
-      syncStats({ appName, days }).pipe(
-        Effect.provide(makeStatsCredentialsTest(credentials)),
-        Effect.provide(makeHttpClientTest([])),
-        Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      ),
-    );
+    credentials: Partial<StatsCredentialsApi> = {},
+  ) => {
+    makeStatsCredentialsTest(credentials);
+
+    return syncStats({ appName, days });
+  };
+
   const readCoverage = (appKey: string): AppCoverage =>
     JSON.parse(
       readFileSync(join(homeDirectory, '.launch', 'stats', appKey, 'coverage.json'), 'utf8'),
@@ -222,24 +243,27 @@ describe('syncStats', () => {
     );
 
     const report = await sync('fresh', 5, {
-      ascClientForAccount: () =>
-        Effect.succeed(makeFakeAscClient([{ id: '9', name: 'Fresh App', bundleId: null }])),
+      async ascClientForAccount() {
+        return makeFakeAscClient([{ id: '9', name: 'Fresh App', bundleId: null }]);
+      },
     });
 
     expect(report.appFeeds.map((appFeed) => appFeed.appKey)).toEqual(['ios-9']);
   });
 
   test('fails with the known app names when the app does not exist anywhere', async () => {
-    const failure = await Effect.runPromise(
-      syncStats({ appName: 'zzz', days: 5 }).pipe(
-        Effect.flip,
-        Effect.provide(makeStatsCredentialsTest()),
-        Effect.provide(makeHttpClientTest([])),
-        Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      ),
-    );
+    makeStatsCredentialsTest();
+
+    var failure: unknown;
+
+    try {
+      await syncStats({ appName: 'zzz', days: 5 });
+      throw new Error('expected a failure');
+    } catch (cause) {
+      failure = cause;
+    }
 
     expect(failure).toMatchObject({ _tag: 'StatsAppNotFoundFailure' });
-    expect(failure.message).toContain('No app matched "zzz".');
+    expect((failure as { message: string }).message).toContain('No app matched "zzz".');
   });
 });

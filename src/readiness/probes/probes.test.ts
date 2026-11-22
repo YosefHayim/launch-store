@@ -1,10 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { HttpClient, HttpClientError, HttpClientResponse } from '@effect/platform';
-import { NodeContext } from '@effect/platform-node';
 import { describe, expect, it, vi } from 'vitest';
-import { Effect } from 'effect';
 import { agreementsProbe } from './agreements.js';
 import { appRecordProbe } from './appRecord.js';
 import { subscriptionGroupProbe } from './subscriptionGroup.js';
@@ -57,113 +54,54 @@ const app = (overrides: Partial<AppDescriptor> = {}): AppDescriptor => {
 /** A read-only ASC fake - only the methods readiness reads exist, so a write is impossible by construction. */
 const ascApi = (overrides: Partial<AscReadinessApi> = {}): AscReadinessApi => {
   return {
-    getAppId: vi.fn(() =>
-      Effect.try({ try: () => 'app-1', catch: (probeFailure) => probeFailure }),
-    ),
-    checkRequiredAgreements: vi.fn(() =>
-      Effect.try({ try: () => true, catch: (probeFailure) => probeFailure }),
-    ),
-    listSubscriptionGroups: vi.fn(() =>
-      Effect.try({ try: () => [{ id: 'g1' }], catch: (probeFailure) => probeFailure }),
-    ),
-    findBundleId: vi.fn(() =>
-      Effect.try({ try: () => ({ id: 'b1' }), catch: (probeFailure) => probeFailure }),
-    ),
+    getAppId: vi.fn(() => Promise.resolve('app-1')),
+    checkRequiredAgreements: vi.fn(() => Promise.resolve(true)),
+    listSubscriptionGroups: vi.fn(() => Promise.resolve([{ id: 'g1' }])),
+    findBundleId: vi.fn(() => Promise.resolve({ id: 'b1' })),
     listDistributionCertificates: vi.fn(() =>
-      Effect.try({
-        try: () => [{ id: 'c1', expirationDate: '2099-01-01T00:00:00Z' }],
-        catch: (probeFailure) => probeFailure,
-      }),
+      Promise.resolve([{ id: 'c1', expirationDate: '2099-01-01T00:00:00Z' }]),
     ),
-    listInAppPurchases: vi.fn(() =>
-      Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-    ),
-    listSubscriptions: vi.fn(() =>
-      Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-    ),
-    listSandboxTesters: vi.fn(() =>
-      Effect.try({ try: () => [{ id: 't1' }], catch: (probeFailure) => probeFailure }),
-    ),
-    findInAppPurchasePricePoint: vi.fn(() =>
-      Effect.try({ try: () => ({ id: 'ipp' }), catch: (probeFailure) => probeFailure }),
-    ),
-    findSubscriptionPricePoint: vi.fn(() =>
-      Effect.try({ try: () => ({ id: 'spp' }), catch: (probeFailure) => probeFailure }),
-    ),
-    listSubscriptionOfferCodes: vi.fn(() =>
-      Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-    ),
-    getEditableAppInfoId: vi.fn(() =>
-      Effect.try({ try: () => 'appinfo-1', catch: (probeFailure) => probeFailure }),
-    ),
+    listInAppPurchases: vi.fn(() => Promise.resolve([])),
+    listSubscriptions: vi.fn(() => Promise.resolve([])),
+    listSandboxTesters: vi.fn(() => Promise.resolve([{ id: 't1' }])),
+    findInAppPurchasePricePoint: vi.fn(() => Promise.resolve({ id: 'ipp' })),
+    findSubscriptionPricePoint: vi.fn(() => Promise.resolve({ id: 'spp' })),
+    listSubscriptionOfferCodes: vi.fn(() => Promise.resolve([])),
+    getEditableAppInfoId: vi.fn(() => Promise.resolve('appinfo-1')),
     getAgeRatingDeclaration: vi.fn(() =>
-      Effect.try({
-        try: () => ({
-          attributes: { violenceCartoonOrFantasy: false },
-        }),
-        catch: (probeFailure) => probeFailure,
+      Promise.resolve({
+        attributes: { violenceCartoonOrFantasy: false },
       }),
     ),
     listAccountDeletionUrls: vi.fn(() =>
-      Effect.try({
-        try: () => [{ locale: 'en-US', url: 'https://x.example/delete' }],
-        catch: (probeFailure) => probeFailure,
-      }),
+      Promise.resolve([{ locale: 'en-US', url: 'https://x.example/delete' }]),
     ),
-    listAppStoreVersions: vi.fn(() =>
-      Effect.try({
-        try: () => [{ appStoreState: 'READY_FOR_SALE' }],
-        catch: (probeFailure) => probeFailure,
-      }),
-    ),
+    listAppStoreVersions: vi.fn(() => Promise.resolve([{ appStoreState: 'READY_FOR_SALE' }])),
     findEditableAppStoreVersion: vi.fn(() =>
-      Effect.try({
-        try: () => ({ id: 'ver-1', copyright: '2026 Acme' }),
-        catch: (probeFailure) => probeFailure,
-      }),
+      Promise.resolve({ id: 'ver-1', copyright: '2026 Acme' }),
     ),
     getAppStoreReviewDetail: vi.fn(() =>
-      Effect.try({
-        try: () => ({ attributes: { demoAccountRequired: false } }),
-        catch: (probeFailure) => probeFailure,
-      }),
+      Promise.resolve({ attributes: { demoAccountRequired: false } }),
     ),
     listBundleIdCapabilities: vi.fn(() =>
-      Effect.try({
-        try: () => [{ capabilityType: 'PUSH_NOTIFICATIONS' }],
-        catch: (probeFailure) => probeFailure,
-      }),
+      Promise.resolve([{ capabilityType: 'PUSH_NOTIFICATIONS' }]),
     ),
     listAppStoreVersionLocalizations: vi.fn(() =>
-      Effect.try({
-        try: () => [{ id: 'loc-1', locale: 'en-US' }],
-        catch: (probeFailure) => probeFailure,
-      }),
+      Promise.resolve([{ id: 'loc-1', locale: 'en-US' }]),
     ),
     listScreenshotSets: vi.fn(() =>
-      Effect.try({
-        try: () => [{ id: 'set-1', screenshotDisplayType: 'APP_IPHONE_67' }],
-        catch: (probeFailure) => probeFailure,
-      }),
+      Promise.resolve([{ id: 'set-1', screenshotDisplayType: 'APP_IPHONE_67' }]),
     ),
-    listScreenshots: vi.fn(() =>
-      Effect.try({ try: () => [{ id: 'shot-1' }], catch: (probeFailure) => probeFailure }),
-    ),
+    listScreenshots: vi.fn(() => Promise.resolve([{ id: 'shot-1' }])),
     ...overrides,
   };
 };
 /** A read-only Play fake, mirroring {@link ascApi}. */
 const playApi = (overrides: Partial<PlayReadinessApi> = {}): PlayReadinessApi => {
   return {
-    assertAppExists: vi.fn(() =>
-      Effect.try({ try: () => undefined, catch: (probeFailure) => probeFailure }),
-    ),
-    getLatestVersionCode: vi.fn(() =>
-      Effect.try({ try: () => 42, catch: (probeFailure) => probeFailure }),
-    ),
-    listTracks: vi.fn(() =>
-      Effect.try({ try: () => [{ track: 'internal' }], catch: (probeFailure) => probeFailure }),
-    ),
+    assertAppExists: vi.fn(() => Promise.resolve(undefined)),
+    getLatestVersionCode: vi.fn(() => Promise.resolve(42)),
+    listTracks: vi.fn(() => Promise.resolve([{ track: 'internal' }])),
     ...overrides,
   };
 };
@@ -181,8 +119,8 @@ const createReadinessContext = (args: {
   return {
     config: config(args.products),
     apps: args.apps,
-    resolveAscApi: () => Effect.succeed(appleStore),
-    resolvePlayApi: () => Effect.succeed(googleStore),
+    resolveAscApi: () => Promise.resolve(appleStore),
+    resolvePlayApi: () => Promise.resolve(googleStore),
   };
 };
 /** The per-app status + identifier of a `checked` result (empty for any other state). */
@@ -196,31 +134,21 @@ const findings = (
   return probeResult.apps.map(({ status, identifier }) => ({ status, identifier }));
 };
 
-/** Build an HTTP test client that returns one fixed status. */
-const statusHttpClient = (httpStatus: number): HttpClient.HttpClient =>
-  HttpClient.make((listingRequest) =>
-    Effect.succeed(
-      HttpClientResponse.fromWeb(listingRequest, new Response(null, { status: httpStatus })),
-    ),
-  );
-
-const defaultHttpClient = statusHttpClient(200);
-
-/** Run a readiness probe with deterministic platform services. */
-const checkProbe = (
+/** Run a readiness probe. */
+function checkProbe(
   probe: ReadinessProbe,
   readinessContext: ReadinessContext,
-  httpClient: HttpClient.HttpClient = defaultHttpClient,
-): Promise<ProbeResult> => {
-  return Effect.runPromise(
-    probe
-      .check(readinessContext)
-      .pipe(
-        Effect.provideService(HttpClient.HttpClient, httpClient),
-        Effect.provide(NodeContext.layer),
-      ),
-  );
-};
+): Promise<ProbeResult> {
+  return probe.check(readinessContext);
+}
+
+function stubFetchStatus(httpStatus: number): void {
+  async function fetchListing(): Promise<Response> {
+    return new Response(null, { status: httpStatus });
+  }
+
+  vi.stubGlobal('fetch', vi.fn(fetchListing));
+}
 /** An app selling one priced IAP - shared by the pricing and sandbox-tester probes. */
 const withPricedIap: LaunchConfig['products'] = {
   'com.x': {
@@ -287,7 +215,7 @@ describe('appRecordProbe', () => {
     );
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
     const api = ascApi({
-      getAppId: vi.fn(() => Effect.try({ try: () => null, catch: (probeFailure) => probeFailure })),
+      getAppId: vi.fn(() => Promise.resolve(null)),
     });
     const missing = await checkProbe(
       appRecordProbe,
@@ -323,9 +251,7 @@ describe('agreementsProbe', () => {
     );
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'account-wide' }]);
     const missing = ascApi({
-      checkRequiredAgreements: vi.fn(() =>
-        Effect.try({ try: () => false, catch: (probeFailure) => probeFailure }),
-      ),
+      checkRequiredAgreements: vi.fn(() => Promise.resolve(false)),
     });
     const blocked = await checkProbe(
       agreementsProbe,
@@ -336,12 +262,11 @@ describe('agreementsProbe', () => {
   it('propagates an unexpected read failure so the orchestrator records it as errored', async () => {
     const broken = ascApi({
       checkRequiredAgreements: vi.fn(() =>
-        Effect.try({
-          try: () => {
+        Promise.resolve(
+          (() => {
             throw new Error('network down');
-          },
-          catch: (probeFailure) => probeFailure,
-        }),
+          })(),
+        ),
       ),
     });
     await expect(
@@ -365,9 +290,7 @@ describe('subscriptionGroupProbe', () => {
   });
   it('blocks when the declared group is absent and passes when present', async () => {
     const empty = ascApi({
-      listSubscriptionGroups: vi.fn(() =>
-        Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-      ),
+      listSubscriptionGroups: vi.fn(() => Promise.resolve([])),
     });
     const missing = await checkProbe(
       subscriptionGroupProbe,
@@ -390,7 +313,7 @@ describe('subscriptionGroupProbe', () => {
   });
   it("warns instead of blocking when the app record isn't there to check against", async () => {
     const api = ascApi({
-      getAppId: vi.fn(() => Effect.try({ try: () => null, catch: (probeFailure) => probeFailure })),
+      getAppId: vi.fn(() => Promise.resolve(null)),
     });
     const probeResult = await checkProbe(
       subscriptionGroupProbe,
@@ -432,10 +355,7 @@ describe('iapProductsProbe', () => {
   it('passes a present product, blocks a missing one and a MISSING_METADATA one', async () => {
     const present = ascApi({
       listInAppPurchases: vi.fn(() =>
-        Effect.try({
-          try: () => [{ productId: 'com.x.coins', state: 'READY_TO_SUBMIT' }],
-          catch: (probeFailure) => probeFailure,
-        }),
+        Promise.resolve([{ productId: 'com.x.coins', state: 'READY_TO_SUBMIT' }]),
       ),
     });
     expect(
@@ -451,9 +371,7 @@ describe('iapProductsProbe', () => {
       ),
     ).toEqual([{ status: 'ok', identifier: 'com.x.coins' }]);
     const absent = ascApi({
-      listInAppPurchases: vi.fn(() =>
-        Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-      ),
+      listInAppPurchases: vi.fn(() => Promise.resolve([])),
     });
     expect(
       findings(
@@ -469,10 +387,7 @@ describe('iapProductsProbe', () => {
     ).toEqual([{ status: 'blocker', identifier: 'com.x.coins' }]);
     const incomplete = ascApi({
       listInAppPurchases: vi.fn(() =>
-        Effect.try({
-          try: () => [{ productId: 'com.x.coins', state: 'MISSING_METADATA' }],
-          catch: (probeFailure) => probeFailure,
-        }),
+        Promise.resolve([{ productId: 'com.x.coins', state: 'MISSING_METADATA' }]),
       ),
     });
     expect(
@@ -490,7 +405,7 @@ describe('iapProductsProbe', () => {
   });
   it("warns instead of blocking when the app record isn't there to check against", async () => {
     const noApp = ascApi({
-      getAppId: vi.fn(() => Effect.try({ try: () => null, catch: (probeFailure) => probeFailure })),
+      getAppId: vi.fn(() => Promise.resolve(null)),
     });
     const probeResult = await checkProbe(
       iapProductsProbe,
@@ -531,10 +446,7 @@ describe('subscriptionsProbe', () => {
   it("passes a present subscription, blocks a missing one (across the app's groups)", async () => {
     const present = ascApi({
       listSubscriptions: vi.fn(() =>
-        Effect.try({
-          try: () => [{ productId: 'com.x.pro', state: 'READY_TO_SUBMIT' }],
-          catch: (probeFailure) => probeFailure,
-        }),
+        Promise.resolve([{ productId: 'com.x.pro', state: 'READY_TO_SUBMIT' }]),
       ),
     });
     expect(
@@ -550,9 +462,7 @@ describe('subscriptionsProbe', () => {
       ),
     ).toEqual([{ status: 'ok', identifier: 'com.x.pro' }]);
     const absent = ascApi({
-      listSubscriptions: vi.fn(() =>
-        Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-      ),
+      listSubscriptions: vi.fn(() => Promise.resolve([])),
     });
     expect(
       findings(
@@ -594,9 +504,7 @@ describe('bundleIdProbe', () => {
     );
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
     const api = ascApi({
-      findBundleId: vi.fn(() =>
-        Effect.try({ try: () => null, catch: (probeFailure) => probeFailure }),
-      ),
+      findBundleId: vi.fn(() => Promise.resolve(null)),
     });
     const missing = await checkProbe(
       bundleIdProbe,
@@ -632,9 +540,7 @@ describe('distributionCertProbe', () => {
     );
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'team-wide' }]);
     const none = ascApi({
-      listDistributionCertificates: vi.fn(() =>
-        Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-      ),
+      listDistributionCertificates: vi.fn(() => Promise.resolve([])),
     });
     const blockedNone = await checkProbe(
       distributionCertProbe,
@@ -643,10 +549,7 @@ describe('distributionCertProbe', () => {
     expect(findings(blockedNone)).toEqual([{ status: 'blocker', identifier: 'team-wide' }]);
     const expired = ascApi({
       listDistributionCertificates: vi.fn(() =>
-        Effect.try({
-          try: () => [{ id: 'c1', expirationDate: '2000-01-01T00:00:00Z' }],
-          catch: (probeFailure) => probeFailure,
-        }),
+        Promise.resolve([{ id: 'c1', expirationDate: '2000-01-01T00:00:00Z' }]),
       ),
     });
     const blockedExpired = await checkProbe(
@@ -657,9 +560,7 @@ describe('distributionCertProbe', () => {
   });
   it('treats a certificate with no recorded expiry as usable', async () => {
     const undated = ascApi({
-      listDistributionCertificates: vi.fn(() =>
-        Effect.try({ try: () => [{ id: 'c1' }], catch: (probeFailure) => probeFailure }),
-      ),
+      listDistributionCertificates: vi.fn(() => Promise.resolve([{ id: 'c1' }])),
     });
     const ok = await checkProbe(
       distributionCertProbe,
@@ -704,12 +605,11 @@ describe('playAppProbe', () => {
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
     const denied = playApi({
       assertAppExists: vi.fn(() =>
-        Effect.try({
-          try: () => {
+        Promise.resolve(
+          (() => {
             throw new Error('app not found');
-          },
-          catch: (probeFailure) => probeFailure,
-        }),
+          })(),
+        ),
       ),
     });
     const blocked = await checkProbe(
@@ -727,9 +627,7 @@ describe('playFirstUploadProbe', () => {
     );
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
     const none = playApi({
-      getLatestVersionCode: vi.fn(() =>
-        Effect.try({ try: () => 0, catch: (probeFailure) => probeFailure }),
-      ),
+      getLatestVersionCode: vi.fn(() => Promise.resolve(0)),
     });
     const blocked = await checkProbe(
       playFirstUploadProbe,
@@ -738,12 +636,11 @@ describe('playFirstUploadProbe', () => {
     expect(findings(blocked)).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
     const broken = playApi({
       getLatestVersionCode: vi.fn(() =>
-        Effect.try({
-          try: () => {
+        Promise.resolve(
+          (() => {
             throw new Error('nope');
-          },
-          catch: (probeFailure) => probeFailure,
-        }),
+          })(),
+        ),
       ),
     });
     const warned = await checkProbe(
@@ -761,9 +658,7 @@ describe('playInternalTrackProbe', () => {
     );
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
     const noTrack = playApi({
-      listTracks: vi.fn(() =>
-        Effect.try({ try: () => [{ track: 'production' }], catch: (probeFailure) => probeFailure }),
-      ),
+      listTracks: vi.fn(() => Promise.resolve([{ track: 'production' }])),
     });
     const warned = await checkProbe(
       playInternalTrackProbe,
@@ -798,9 +693,7 @@ describe('iapPricingProbe', () => {
   it('passes a valid price point, blocks an invalid one', async () => {
     const live = [{ id: 'iap1', productId: 'com.x.coins', state: 'READY_TO_SUBMIT' }];
     const valid = ascApi({
-      listInAppPurchases: vi.fn(() =>
-        Effect.try({ try: () => live, catch: (probeFailure) => probeFailure }),
-      ),
+      listInAppPurchases: vi.fn(() => Promise.resolve(live)),
     });
     expect(
       findings(
@@ -815,12 +708,8 @@ describe('iapPricingProbe', () => {
       ),
     ).toEqual([{ status: 'ok', identifier: 'com.x.coins' }]);
     const invalid = ascApi({
-      listInAppPurchases: vi.fn(() =>
-        Effect.try({ try: () => live, catch: (probeFailure) => probeFailure }),
-      ),
-      findInAppPurchasePricePoint: vi.fn(() =>
-        Effect.try({ try: () => null, catch: (probeFailure) => probeFailure }),
-      ),
+      listInAppPurchases: vi.fn(() => Promise.resolve(live)),
+      findInAppPurchasePricePoint: vi.fn(() => Promise.resolve(null)),
     });
     expect(
       findings(
@@ -846,7 +735,7 @@ describe('iapPricingProbe', () => {
     );
     expect(findings(notLive)).toEqual([{ status: 'warn', identifier: 'com.x.coins' }]);
     const noApp = ascApi({
-      getAppId: vi.fn(() => Effect.try({ try: () => null, catch: (probeFailure) => probeFailure })),
+      getAppId: vi.fn(() => Promise.resolve(null)),
     });
     const probeResult = await checkProbe(
       iapPricingProbe,
@@ -885,12 +774,8 @@ describe('subscriptionOffersProbe', () => {
   it('passes a present offer code, warns on a missing one', async () => {
     const live = [{ id: 's1', productId: 'com.x.pro', state: 'READY_TO_SUBMIT' }];
     const present = ascApi({
-      listSubscriptions: vi.fn(() =>
-        Effect.try({ try: () => live, catch: (probeFailure) => probeFailure }),
-      ),
-      listSubscriptionOfferCodes: vi.fn(() =>
-        Effect.try({ try: () => [{ name: 'LAUNCH50' }], catch: (probeFailure) => probeFailure }),
-      ),
+      listSubscriptions: vi.fn(() => Promise.resolve(live)),
+      listSubscriptionOfferCodes: vi.fn(() => Promise.resolve([{ name: 'LAUNCH50' }])),
     });
     expect(
       findings(
@@ -905,12 +790,8 @@ describe('subscriptionOffersProbe', () => {
       ),
     ).toEqual([{ status: 'ok', identifier: 'com.x.pro-LAUNCH50' }]);
     const missing = ascApi({
-      listSubscriptions: vi.fn(() =>
-        Effect.try({ try: () => live, catch: (probeFailure) => probeFailure }),
-      ),
-      listSubscriptionOfferCodes: vi.fn(() =>
-        Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-      ),
+      listSubscriptions: vi.fn(() => Promise.resolve(live)),
+      listSubscriptionOfferCodes: vi.fn(() => Promise.resolve([])),
     });
     expect(
       findings(
@@ -971,9 +852,7 @@ describe('sandboxTestersProbe', () => {
     );
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'account-wide' }]);
     const none = ascApi({
-      listSandboxTesters: vi.fn(() =>
-        Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-      ),
+      listSandboxTesters: vi.fn(() => Promise.resolve([])),
     });
     const warned = await checkProbe(
       sandboxTestersProbe,
@@ -1116,9 +995,7 @@ describe('ageRatingProbe', () => {
     );
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
     const empty = ascApi({
-      getAgeRatingDeclaration: vi.fn(() =>
-        Effect.try({ try: () => ({ attributes: {} }), catch: (probeFailure) => probeFailure }),
-      ),
+      getAgeRatingDeclaration: vi.fn(() => Promise.resolve({ attributes: {} })),
     });
     expect(
       findings(
@@ -1129,9 +1006,7 @@ describe('ageRatingProbe', () => {
       ),
     ).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
     const untouched = ascApi({
-      getAgeRatingDeclaration: vi.fn(() =>
-        Effect.try({ try: () => null, catch: (probeFailure) => probeFailure }),
-      ),
+      getAgeRatingDeclaration: vi.fn(() => Promise.resolve(null)),
     });
     expect(
       findings(
@@ -1144,7 +1019,7 @@ describe('ageRatingProbe', () => {
   });
   it("warns instead of blocking when there's no app record or no editable version to read", async () => {
     const noApp = ascApi({
-      getAppId: vi.fn(() => Effect.try({ try: () => null, catch: (probeFailure) => probeFailure })),
+      getAppId: vi.fn(() => Promise.resolve(null)),
     });
     expect(
       findings(
@@ -1155,9 +1030,7 @@ describe('ageRatingProbe', () => {
       ),
     ).toEqual([{ status: 'warn', identifier: 'com.x' }]);
     const noInfo = ascApi({
-      getEditableAppInfoId: vi.fn(() =>
-        Effect.try({ try: () => null, catch: (probeFailure) => probeFailure }),
-      ),
+      getEditableAppInfoId: vi.fn(() => Promise.resolve(null)),
     });
     expect(
       findings(
@@ -1195,12 +1068,7 @@ describe('accountDeletionProbe', () => {
     );
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
     const none = ascApi({
-      listAccountDeletionUrls: vi.fn(() =>
-        Effect.try({
-          try: () => [{ locale: 'en-US', url: '' }],
-          catch: (probeFailure) => probeFailure,
-        }),
-      ),
+      listAccountDeletionUrls: vi.fn(() => Promise.resolve([{ locale: 'en-US', url: '' }])),
     });
     expect(
       findings(
@@ -1213,7 +1081,7 @@ describe('accountDeletionProbe', () => {
   });
   it("warns when there's no app record or no editable app info to read", async () => {
     const noApp = ascApi({
-      getAppId: vi.fn(() => Effect.try({ try: () => null, catch: (probeFailure) => probeFailure })),
+      getAppId: vi.fn(() => Promise.resolve(null)),
     });
     expect(
       findings(
@@ -1252,11 +1120,8 @@ describe('demoAccountProbe', () => {
     expect(findings(notRequired)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
     const provided = ascApi({
       getAppStoreReviewDetail: vi.fn(() =>
-        Effect.try({
-          try: () => ({
-            attributes: { demoAccountRequired: true, demoAccountName: 'review@x.example' },
-          }),
-          catch: (probeFailure) => probeFailure,
+        Promise.resolve({
+          attributes: { demoAccountRequired: true, demoAccountName: 'review@x.example' },
         }),
       ),
     });
@@ -1272,10 +1137,7 @@ describe('demoAccountProbe', () => {
   it('blocks when sign-in is required but no demo account name is set', async () => {
     const missing = ascApi({
       getAppStoreReviewDetail: vi.fn(() =>
-        Effect.try({
-          try: () => ({ attributes: { demoAccountRequired: true } }),
-          catch: (probeFailure) => probeFailure,
-        }),
+        Promise.resolve({ attributes: { demoAccountRequired: true } }),
       ),
     });
     expect(
@@ -1289,9 +1151,7 @@ describe('demoAccountProbe', () => {
   });
   it('warns when App Review details, the app record, or an editable version are missing', async () => {
     const noDetail = ascApi({
-      getAppStoreReviewDetail: vi.fn(() =>
-        Effect.try({ try: () => null, catch: (probeFailure) => probeFailure }),
-      ),
+      getAppStoreReviewDetail: vi.fn(() => Promise.resolve(null)),
     });
     expect(
       findings(
@@ -1302,9 +1162,7 @@ describe('demoAccountProbe', () => {
       ),
     ).toEqual([{ status: 'warn', identifier: 'com.x' }]);
     const noVersion = ascApi({
-      findEditableAppStoreVersion: vi.fn(() =>
-        Effect.try({ try: () => null, catch: (probeFailure) => probeFailure }),
-      ),
+      findEditableAppStoreVersion: vi.fn(() => Promise.resolve(null)),
     });
     expect(
       findings(
@@ -1346,9 +1204,7 @@ describe('profileEntitlementsProbe', () => {
     );
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
     const missing = ascApi({
-      listBundleIdCapabilities: vi.fn(() =>
-        Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-      ),
+      listBundleIdCapabilities: vi.fn(() => Promise.resolve([])),
     });
     const blocked = await checkProbe(
       profileEntitlementsProbe,
@@ -1359,9 +1215,7 @@ describe('profileEntitlementsProbe', () => {
   });
   it("warns when the App ID isn't registered yet", async () => {
     const noBundle = ascApi({
-      findBundleId: vi.fn(() =>
-        Effect.try({ try: () => null, catch: (probeFailure) => probeFailure }),
-      ),
+      findBundleId: vi.fn(() => Promise.resolve(null)),
     });
     expect(
       findings(
@@ -1402,10 +1256,7 @@ describe('screenshotsProbe', () => {
   it('warns when iPhone screenshots exist but not for the required class, blocks when none exist', async () => {
     const otherClass = ascApi({
       listScreenshotSets: vi.fn(() =>
-        Effect.try({
-          try: () => [{ id: 'set-1', screenshotDisplayType: 'APP_IPHONE_65' }],
-          catch: (probeFailure) => probeFailure,
-        }),
+        Promise.resolve([{ id: 'set-1', screenshotDisplayType: 'APP_IPHONE_65' }]),
       ),
     });
     expect(
@@ -1417,9 +1268,7 @@ describe('screenshotsProbe', () => {
       ),
     ).toEqual([{ status: 'warn', identifier: 'com.x' }]);
     const noShots = ascApi({
-      listScreenshots: vi.fn(() =>
-        Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-      ),
+      listScreenshots: vi.fn(() => Promise.resolve([])),
     });
     expect(
       findings(
@@ -1430,9 +1279,7 @@ describe('screenshotsProbe', () => {
       ),
     ).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
     const noSets = ascApi({
-      listScreenshotSets: vi.fn(() =>
-        Effect.try({ try: () => [], catch: (probeFailure) => probeFailure }),
-      ),
+      listScreenshotSets: vi.fn(() => Promise.resolve([])),
     });
     expect(
       findings(
@@ -1445,7 +1292,7 @@ describe('screenshotsProbe', () => {
   });
   it("warns when there's no app record or no editable version to read", async () => {
     const noApp = ascApi({
-      getAppId: vi.fn(() => Effect.try({ try: () => null, catch: (probeFailure) => probeFailure })),
+      getAppId: vi.fn(() => Promise.resolve(null)),
     });
     expect(
       findings(
@@ -1485,61 +1332,56 @@ describe('listingUrlsProbe', () => {
   it('passes a 2xx URL and blocks a non-2xx one', async () => {
     const dir = appDirWithPrivacyUrl('https://x.example/privacy');
     try {
+      stubFetchStatus(200);
       const ok = await checkProbe(
         listingUrlsProbe,
         createReadinessContext({ apps: [app({ bundleId: 'com.x', dir })] }),
-        statusHttpClient(200),
       );
       expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'https://x.example/privacy' }]);
     } finally {
+      vi.unstubAllGlobals();
       rmSync(dir, { recursive: true, force: true });
     }
     const dir2 = appDirWithPrivacyUrl('https://x.example/gone');
     try {
+      stubFetchStatus(404);
       const blocked = await checkProbe(
         listingUrlsProbe,
         createReadinessContext({ apps: [app({ bundleId: 'com.x', dir: dir2 })] }),
-        statusHttpClient(404),
       );
       expect(findings(blocked)).toEqual([
         { status: 'blocker', identifier: 'https://x.example/gone' },
       ]);
     } finally {
+      vi.unstubAllGlobals();
       rmSync(dir2, { recursive: true, force: true });
     }
   });
   it('propagates a fetch failure so the orchestrator records it as errored', async () => {
     const dir = appDirWithPrivacyUrl('https://x.example/privacy');
-    const failingHttpClient = HttpClient.make((listingRequest) =>
-      Effect.fail(
-        new HttpClientError.RequestError({
-          request: listingRequest,
-          reason: 'Transport',
-          description: 'ENOTFOUND',
-        }),
-      ),
-    );
+
+    async function failFetch(): Promise<Response> {
+      throw new Error('ENOTFOUND');
+    }
+
+    vi.stubGlobal('fetch', vi.fn(failFetch));
+
     try {
       await expect(
         checkProbe(
           listingUrlsProbe,
           createReadinessContext({ apps: [app({ bundleId: 'com.x', dir })] }),
-          failingHttpClient,
         ),
       ).rejects.toThrow('ENOTFOUND');
     } finally {
+      vi.unstubAllGlobals();
       rmSync(dir, { recursive: true, force: true });
     }
   });
 });
 describe('versionCopyrightProbe', () => {
   const emptyCopyright = ascApi({
-    findEditableAppStoreVersion: vi.fn(() =>
-      Effect.try({
-        try: () => ({ id: 'ver-1', copyright: '' }),
-        catch: (probeFailure) => probeFailure,
-      }),
-    ),
+    findEditableAppStoreVersion: vi.fn(() => Promise.resolve({ id: 'ver-1', copyright: '' })),
   });
   it('passes when the editable version has a copyright', async () => {
     const ok = await checkProbe(
@@ -1578,10 +1420,7 @@ describe('appPrivacyProbe', () => {
   it('lists App Privacy as a manual step for a first version', async () => {
     const firstVersionOnly = ascApi({
       listAppStoreVersions: vi.fn(() =>
-        Effect.try({
-          try: () => [{ appStoreState: 'PREPARE_FOR_SUBMISSION' }],
-          catch: (probeFailure) => probeFailure,
-        }),
+        Promise.resolve([{ appStoreState: 'PREPARE_FOR_SUBMISSION' }]),
       ),
     });
     const firstVersion = await checkProbe(

@@ -1,8 +1,7 @@
-import { FileSystem, Path } from '@effect/platform';
-import type { PlatformError } from '@effect/platform/Error';
-import { Clock, Data, Effect } from 'effect';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { errorMessage } from '../services/platform/errorMessage.js';
-import { locateStatsDirectory, type LaunchPathsService } from '../services/platform/paths.js';
+import { locateStatsDirectory } from '../services/platform/paths.js';
 
 const SYNC_LOCK_STALE_AFTER_MILLISECONDS = 5 * 60 * 1000;
 
@@ -12,69 +11,98 @@ export type SyncLockFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-const makeSyncLockFailure = Data.tagged<SyncLockFailure>('SyncLockFailure');
-
-type SyncLockRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
+function makeSyncLockFailure(fields: { message: string; cause: unknown }): SyncLockFailure {
+  return { _tag: 'SyncLockFailure', message: fields.message, cause: fields.cause };
+}
 
 // A lock older than the limit belongs to a crashed sync.
-export const isSyncLockStale = (lockedAt: string, nowMilliseconds: number): boolean => {
+export function isSyncLockStale(lockedAt: string, nowMilliseconds: number): boolean {
   const lockedAtMilliseconds = Date.parse(lockedAt);
   const isTimeUnreadable = Number.isNaN(lockedAtMilliseconds);
-  if (isTimeUnreadable) return true;
+
+  if (isTimeUnreadable) {
+    return true;
+  }
+
   return nowMilliseconds - lockedAtMilliseconds > SYNC_LOCK_STALE_AFTER_MILLISECONDS;
-};
+}
 
-const isAlreadyExistsError = (error: PlatformError): boolean =>
-  error._tag === 'SystemError' && error.reason === 'AlreadyExists';
+function isAlreadyExistsError(cause: unknown): boolean {
+  if (cause == null) {
+    return false;
+  }
 
-const createLockFile = (
-  fileSystem: FileSystem.FileSystem,
-  lockFilePath: string,
-  nowMilliseconds: number,
-) =>
-  fileSystem.writeFileString(lockFilePath, new Date(nowMilliseconds).toISOString(), {
-    flag: 'wx',
-  });
+  if (typeof cause != 'object') {
+    return false;
+  }
 
-const acquireSyncLock = (): Effect.Effect<string, SyncLockFailure, SyncLockRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const statsDirectory = yield* locateStatsDirectory();
-    const lockFilePath = pathService.join(statsDirectory, 'sync.lock');
-    const nowMilliseconds = yield* Clock.currentTimeMillis;
-    yield* fileSystem.makeDirectory(statsDirectory, { recursive: true });
-    const isLockTaken = yield* createLockFile(fileSystem, lockFilePath, nowMilliseconds).pipe(
-      Effect.as(false),
-      Effect.catchIf(isAlreadyExistsError, () => Effect.succeed(true)),
-    );
-    const isLockFree = !isLockTaken;
-    if (isLockFree) return lockFilePath;
-    const lockedAt = yield* fileSystem.readFileString(lockFilePath);
-    const isLockOld = isSyncLockStale(lockedAt, nowMilliseconds);
-    const isAnotherSyncRunning = !isLockOld;
-    if (isAnotherSyncRunning) {
-      return yield* Effect.fail(new Error(`Another stats sync is running (started ${lockedAt}).`));
+  if ('code' in cause == false) {
+    return false;
+  }
+
+  return cause.code == 'EEXIST';
+}
+
+async function claimLockFile(lockFilePath: string, nowMilliseconds: number): Promise<boolean> {
+  try {
+    await writeFile(lockFilePath, new Date(nowMilliseconds).toISOString(), { flag: 'wx' });
+
+    return true;
+  } catch (cause) {
+    if (isAlreadyExistsError(cause)) {
+      return false;
     }
-    yield* fileSystem.remove(lockFilePath, { force: true });
-    yield* createLockFile(fileSystem, lockFilePath, nowMilliseconds);
+
+    throw cause;
+  }
+}
+
+async function claimSyncLock(): Promise<string> {
+  const statsDirectory = locateStatsDirectory();
+  const lockFilePath = join(statsDirectory, 'sync.lock');
+  const nowMilliseconds = Date.now();
+
+  await mkdir(statsDirectory, { recursive: true });
+  const isLockClaimed = await claimLockFile(lockFilePath, nowMilliseconds);
+
+  if (isLockClaimed) {
     return lockFilePath;
-  }).pipe(
-    Effect.mapError((cause) =>
-      makeSyncLockFailure({
-        message: `Could not lock the stats sync: ${errorMessage(cause)}`,
-        cause,
-      }),
-    ),
-  );
+  }
 
-const releaseSyncLock = (lockFilePath: string): Effect.Effect<void, never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    yield* fileSystem.remove(lockFilePath, { force: true });
-  }).pipe(Effect.orDie);
+  const lockedAt = await readFile(lockFilePath, 'utf8');
+  const isLockOld = isSyncLockStale(lockedAt, nowMilliseconds);
 
-export const holdSyncLock = <Success, Failure, Requirements>(
-  syncProgram: Effect.Effect<Success, Failure, Requirements>,
-): Effect.Effect<Success, Failure | SyncLockFailure, Requirements | SyncLockRequirements> =>
-  Effect.acquireUseRelease(acquireSyncLock(), () => syncProgram, releaseSyncLock);
+  if (isLockOld == false) {
+    throw new Error(`Another stats sync is running (started ${lockedAt}).`);
+  }
+
+  await rm(lockFilePath, { force: true });
+  const isStaleLockClaimed = await claimLockFile(lockFilePath, nowMilliseconds);
+
+  if (isStaleLockClaimed == false) {
+    throw new Error(`Another stats sync is running (started ${lockedAt}).`);
+  }
+
+  return lockFilePath;
+}
+
+async function acquireSyncLock(): Promise<string> {
+  try {
+    return await claimSyncLock();
+  } catch (cause) {
+    throw makeSyncLockFailure({
+      message: `Could not lock the stats sync: ${errorMessage(cause)}`,
+      cause,
+    });
+  }
+}
+
+export async function holdSyncLock<Success>(syncWork: () => Promise<Success>): Promise<Success> {
+  const lockFilePath = await acquireSyncLock();
+
+  try {
+    return await syncWork();
+  } finally {
+    await rm(lockFilePath, { force: true });
+  }
+}

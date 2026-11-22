@@ -1,70 +1,34 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { rmSync } from 'node:fs';
-import { Effect, Layer } from 'effect';
-import { NodeContext } from '@effect/platform-node';
-import type { AccountRecord, AccountsFile } from '../types/credentials.js';
-import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
+import { useSecretStore, resetSecretStore } from '@/services/credentials/secretStore.js';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '@/services/platform/environment.js';
 import {
-  makeLaunchSecretStoreTest,
-  type LaunchSecretStoreService,
-} from '../services/credentials/secretStore.js';
+  resetLaunchDirectories,
+  resolveAccountsFilePath,
+  resolveCredentialsDirectory,
+  useLaunchDirectories,
+} from '@/services/platform/paths.js';
+import type { AccountRecord, AccountsFile } from '../types/credentials.js';
+
 const secrets = vi.hoisted(() => ({ store: new Map<string, string>() }));
-// Redirect HOME before any import evaluates `core/paths.js`, so the real module's `~/.launch` (and
-// `accounts.json`) resolve under a throwaway dir. node:os `homedir()` honors $HOME / %USERPROFILE%.
-const home = vi.hoisted(() => {
-  let temporaryDirectory = process.env['TMPDIR'];
-  if (temporaryDirectory === undefined) temporaryDirectory = '/tmp';
-  const dir = `${temporaryDirectory}/launch-accounts-test-${process.pid}`;
-  process.env['HOME'] = dir;
-  process.env['USERPROFILE'] = dir;
-  return { dir };
-});
-vi.mock('./storedSecret.js', () => ({
-  setSecret: (account: string, secretValue: string) =>
-    Effect.sync(() => void secrets.store.set(account, secretValue)),
-  getSecret: (account: string) => {
-    const storedSecret = secrets.store.get(account);
-    if (storedSecret === undefined) return Effect.succeed(null);
-    return Effect.succeed(storedSecret);
-  },
-  deleteSecret: (account: string) => Effect.sync(() => void secrets.store.delete(account)),
-}));
+const homeDirectory = mkdtempSync(join(tmpdir(), 'launch-accounts-test-'));
+
 vi.mock('./appleSigning.js', () => ({
-  migrateLegacySigningIndex: vi.fn(() => Effect.void),
+  migrateLegacySigningIndex: vi.fn(() => Promise.resolve()),
   p12PasswordAccount: (keyId: string) => `dist-cert-p12-password:${keyId}`,
 }));
-import {
-  ACCOUNTS_FILE,
-  CREDENTIALS_DIR,
-  makeLaunchPathsTest,
-  type LaunchPathsService,
-} from '../services/platform/paths.js';
-/** Run an account program with an isolated secret-store capability. */
-const runAccountEffect = <TValue, TError>(
-  accountEffect: Effect.Effect<
-    TValue,
-    TError,
-    LaunchPathsService | LaunchSecretStoreService | NodeContext.NodeContext
-  >,
-): Promise<TValue> => {
-  return Effect.runPromise(
-    accountEffect.pipe(
-      Effect.provide(NodeContext.layer),
-      Effect.provide(makeLaunchPathsTest(home.dir, home.dir)),
-      Effect.provide(makeLaunchSecretStoreTest()),
-    ),
-  );
-};
-/** Load the active key with the given environment, the way `launch` store commands do. */
-const loadActiveKeyWith = (environmentVariables: Readonly<Record<string, string>>) =>
-  Effect.runPromise(
-    loadActiveAscKey().pipe(
-      Effect.provide(makeLaunchEnvironmentTest(environmentVariables).pipe(Layer.orDie)),
-      Effect.provide(NodeContext.layer),
-      Effect.provide(makeLaunchPathsTest(home.dir, home.dir)),
-      Effect.provide(makeLaunchSecretStoreTest()),
-    ),
-  );
+
+function runAccountEffect<Value>(accountWork: Promise<Value>): Promise<Value> {
+  return accountWork;
+}
+
+function loadActiveKeyWith(environmentVariables: Readonly<Record<string, string | undefined>>) {
+  useLaunchEnvironment(environmentVariables);
+
+  return loadActiveAscKey();
+}
 import {
   addAccount,
   decideBuildAccount,
@@ -104,11 +68,17 @@ const file = (active: string | null, ...labels: [string, string][]): AccountsFil
 };
 beforeEach(() => {
   secrets.store.clear();
-  rmSync(ACCOUNTS_FILE, { force: true });
-  rmSync(CREDENTIALS_DIR, { recursive: true, force: true });
+  useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
+  useSecretStore(secrets.store);
+  resetLaunchEnvironment();
+  rmSync(resolveAccountsFilePath(), { force: true });
+  rmSync(resolveCredentialsDirectory(), { recursive: true, force: true });
 });
 afterAll(() => {
-  rmSync(home.dir, { recursive: true, force: true });
+  resetLaunchDirectories();
+  resetSecretStore();
+  resetLaunchEnvironment();
+  rmSync(homeDirectory, { recursive: true, force: true });
 });
 describe('encodeP8 / decodeP8', () => {
   it('round-trips a multi-line PEM through base64 unchanged', () => {
@@ -304,24 +274,20 @@ describe('loadActiveAscKey', () => {
   });
   it('fails when ASC_ACCOUNT matches no account', async () => {
     await addTwoAccounts();
-    await expect(loadActiveKeyWith({ ASC_ACCOUNT: 'nobody' })).rejects.toThrow(
-      /No Apple account matching.*nobody/,
-    );
+    await expect(loadActiveKeyWith({ ASC_ACCOUNT: 'nobody' })).rejects.toMatchObject({
+      message: expect.stringMatching(/No Apple account matching.*nobody/),
+    });
   });
 });
 describe('loadAscKeyForAccount', () => {
-  const loadKeyForAccountWith = (
+  function loadKeyForAccountWith(
     accountSelector: string | undefined,
-    environmentVariables: Readonly<Record<string, string>>,
-  ) =>
-    Effect.runPromise(
-      loadAscKeyForAccount(accountSelector).pipe(
-        Effect.provide(makeLaunchEnvironmentTest(environmentVariables).pipe(Layer.orDie)),
-        Effect.provide(NodeContext.layer),
-        Effect.provide(makeLaunchPathsTest(home.dir, home.dir)),
-        Effect.provide(makeLaunchSecretStoreTest()),
-      ),
-    );
+    environmentVariables: Readonly<Record<string, string | undefined>>,
+  ) {
+    useLaunchEnvironment(environmentVariables);
+
+    return loadAscKeyForAccount(accountSelector);
+  }
 
   it('loads the account the flag names, even when another account is active', async () => {
     await addTwoAccounts();
@@ -350,9 +316,9 @@ describe('loadAscKeyForAccount', () => {
   it('fails when the flag matches no account', async () => {
     await addTwoAccounts();
 
-    await expect(loadKeyForAccountWith('nobody', {})).rejects.toThrow(
-      /No Apple account matching.*nobody/,
-    );
+    await expect(loadKeyForAccountWith('nobody', {})).rejects.toMatchObject({
+      message: expect.stringMatching(/No Apple account matching.*nobody/),
+    });
   });
 });
 
@@ -417,6 +383,8 @@ describe('setAccountVendorNumber', () => {
   });
 
   it('fails for an unknown key id', async () => {
-    await expect(runAccountEffect(setAccountVendorNumber('NOPE', '1'))).rejects.toThrow();
+    await expect(runAccountEffect(setAccountVendorNumber('NOPE', '1'))).rejects.toMatchObject({
+      _tag: 'AccountFailure',
+    });
   });
 });

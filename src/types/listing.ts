@@ -1,4 +1,3 @@
-import type { Effect } from 'effect';
 import type { AppleLocaleInfo } from '../store/shared/storeConfig.js';
 /**
  * Everything a generator needs to draft one locale's listing. Seeded from the app's own config so the
@@ -29,9 +28,9 @@ export type DraftListing = Readonly<{
  * default Anthropic-backed generator and trivially by a test fake, so the command and the applier are
  * testable without a network. `name` is a stable label for logs/UX (e.g. `anthropic`, `fake`).
  */
-export type ListingGenerator<Requirements = never> = {
+export type ListingGenerator = {
   readonly name: string;
-  generate(brief: ListingBrief): Effect.Effect<DraftListing, unknown, Requirements>;
+  generate(brief: ListingBrief): Promise<DraftListing>;
 };
 /**
  * One locale's generated-and-clamped draft, ready to preview and (on confirmation) apply. `warnings`

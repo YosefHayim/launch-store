@@ -1,4 +1,3 @@
-import { Data, Effect } from 'effect';
 import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import type { MutableDeep } from '../../types/mutable.js';
@@ -16,87 +15,104 @@ type AppRecordFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeAppRecordFailure = Data.tagged<AppRecordFailure>('AppRecordFailure');
+export function makeAppRecordFailure(fields: {
+  bundleId: string;
+  message: string;
+}): AppRecordFailure {
+  return { _tag: 'AppRecordFailure', ...fields };
+}
 
 /** Record and optionally apply one non-destructive action. */
-export const act = (
+export async function act(
   reconcileContext: ReconcileContext,
   description: string,
-  runAction: () => Effect.Effect<void, unknown>,
-): Effect.Effect<void> => {
+  runAction: () => Promise<void>,
+): Promise<void> {
   const plannedAction: MutableDeep<PlannedAction> = {
     description,
     destructive: false,
     status: 'planned',
   };
   reconcileContext.actions.push(plannedAction);
-  if (reconcileContext.dryRun) return Effect.void;
-  return runAction().pipe(
-    Effect.match({
-      onSuccess: () => {
-        plannedAction.status = 'applied';
-      },
-      onFailure: (actionFailure) => {
-        plannedAction.status = 'failed';
-        plannedAction.error = errorMessage(actionFailure);
-      },
-    }),
-  );
-};
+
+  if (reconcileContext.dryRun) {
+    return;
+  }
+
+  try {
+    await runAction();
+    plannedAction.status = 'applied';
+  } catch (actionFailure) {
+    plannedAction.status = 'failed';
+    plannedAction.error = errorMessage(actionFailure);
+  }
+}
 
 /** Record a planned action and return its mutable status handle. */
-export const plan = (
+export function plan(
   reconcileContext: ReconcileContext,
   description: string,
-): MutableDeep<PlannedAction> => {
+): MutableDeep<PlannedAction> {
   const plannedAction: MutableDeep<PlannedAction> = {
     description,
     destructive: false,
     status: 'planned',
   };
   reconcileContext.actions.push(plannedAction);
+
   return plannedAction;
-};
+}
 
 /** Describe the missing app record for a write command. */
-export const appRecordMissing = (bundleId: string, commandName: string): AppRecordFailure => {
+export function appRecordMissing(bundleId: string, commandName: string): AppRecordFailure {
   return makeAppRecordFailure({
     bundleId,
     message:
       `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
       `(Apple has no API to create the app record), then re-run \`launch ${commandName}\`.`,
   });
-};
+}
 
 /** Describe the missing app record for a read command. */
-export const appRecordNotFound = (bundleId: string): AppRecordFailure => {
+export function appRecordNotFound(bundleId: string): AppRecordFailure {
   return makeAppRecordFailure({
     bundleId,
     message:
       `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this account ` +
       `can access the app (Apple has no API to create an app record - it's created once in App Store Connect).`,
   });
-};
+}
 
 /** Record a sub-area that cannot be reconciled yet. */
-export const skip = (reconcileContext: ReconcileContext, description: string): void => {
+export function skip(reconcileContext: ReconcileContext, description: string): void {
   reconcileContext.actions.push({ description, destructive: false, status: 'skipped' });
-};
+}
+
 /** Tally a reconcile report's action statuses for the run-summary footer (applied / failed / skipped). */
-export const summarize = (
-  actions: readonly PlannedAction[],
-): {
+export function summarize(actions: readonly PlannedAction[]): {
   applied: number;
   failed: number;
   skipped: number;
-} => {
+} {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
+
   for (const action of actions) {
-    if (action.status === 'applied') applied++;
-    else if (action.status === 'failed') failed++;
-    else if (action.status === 'skipped') skipped++;
+    if (action.status == 'applied') {
+      applied += 1;
+      continue;
+    }
+
+    if (action.status == 'failed') {
+      failed += 1;
+      continue;
+    }
+
+    if (action.status == 'skipped') {
+      skipped += 1;
+    }
   }
+
   return { applied, failed, skipped };
-};
+}

@@ -1,214 +1,461 @@
-import type { ParseError } from 'effect/ParseResult';
-import { FileSystem, Path } from '@effect/platform';
-import type { PlatformError } from '@effect/platform/Error';
-import { Effect, Schema } from 'effect';
-import {
-  resolveArtifactIndexFilePath,
-  type LaunchPathsService,
-} from '../services/platform/paths.js';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { pathExists } from '../path-exists.js';
+import { resolveArtifactIndexFilePath } from '../services/platform/paths.js';
+import type { Platform } from '../types/app.js';
 import type {
   BuildArtifact,
   PruneOptions,
   PruneResult,
   PrunedArtifact,
+  SizeReport,
 } from '../types/artifacts.js';
-import { ArtifactIndexSchema } from '../types/artifacts.js';
 import type { LaunchConfig } from '../types/config.js';
 import type { MutableDeep } from '../types/mutable.js';
 
 export const DEFAULT_RETENTION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const ARTIFACT_PLATFORMS: readonly Platform[] = ['ios', 'android', 'tvos', 'macos', 'visionos'];
 
-export type ArtifactIndexRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
+function resolveArtifactIndexPath(indexPath: string | undefined): string {
+  const hasIndexPath = indexPath != null;
 
-const resolveArtifactIndexPath = (
-  indexPath: string | undefined,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> => {
-  if (indexPath !== undefined) return Effect.succeed(indexPath);
+  if (hasIndexPath) {
+    return indexPath;
+  }
+
   return resolveArtifactIndexFilePath();
-};
+}
 
-export const readArtifactIndex = (
-  indexPath?: string,
-): Effect.Effect<readonly BuildArtifact[], PlatformError | ParseError, ArtifactIndexRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const artifactIndexPath = yield* resolveArtifactIndexPath(indexPath);
-    const artifactIndexSource = yield* fileSystem.readFileString(artifactIndexPath).pipe(
-      Effect.catchIf(
-        (failure) => failure._tag === 'SystemError' && failure.reason === 'NotFound',
-        () => Effect.succeed(null),
-      ),
-    );
-    if (artifactIndexSource === null) return [];
-    return yield* Schema.decodeUnknown(Schema.parseJson(ArtifactIndexSchema))(artifactIndexSource);
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  const isObject = typeof candidate == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  return candidate != null;
+}
+
+function isPlatform(candidate: unknown): candidate is Platform {
+  return ARTIFACT_PLATFORMS.some(function platformMatches(platform: Platform): boolean {
+    return platform == candidate;
   });
+}
+
+function readArtifactString(field: unknown): string {
+  const fieldIsString = typeof field == 'string';
+
+  if (fieldIsString == false) {
+    throw new Error('Artifact index row is invalid.');
+  }
+
+  return field;
+}
+
+function decodeSizeReport(candidate: unknown): SizeReport {
+  const isSizeRecord = isRecord(candidate);
+
+  if (isSizeRecord == false) {
+    throw new Error('Artifact index size report is invalid.');
+  }
+
+  const artifactBytes = candidate['artifactBytes'];
+  const bytesAreNumber = typeof artifactBytes == 'number';
+
+  if (bytesAreNumber == false) {
+    throw new Error('Artifact index size report is invalid.');
+  }
+
+  const entries = candidate['entries'];
+  const entriesAreList = Array.isArray(entries);
+
+  if (entriesAreList == false) {
+    throw new Error('Artifact index size report is invalid.');
+  }
+
+  return { artifactBytes, entries };
+}
+
+function decodeBuildArtifact(candidate: unknown): BuildArtifact {
+  const isArtifactRecord = isRecord(candidate);
+
+  if (isArtifactRecord == false) {
+    throw new Error('Artifact index row is invalid.');
+  }
+
+  const platform = candidate['platform'];
+  const platformIsKnown = isPlatform(platform);
+
+  if (platformIsKnown == false) {
+    throw new Error('Artifact index row is invalid.');
+  }
+
+  const pathText = readArtifactString(candidate['path']);
+  const appName = readArtifactString(candidate['appName']);
+  const profile = readArtifactString(candidate['profile']);
+  const version = readArtifactString(candidate['version']);
+  const createdAt = readArtifactString(candidate['createdAt']);
+  const buildNumber = candidate['buildNumber'];
+  const clean = candidate['clean'];
+  const buildNumberIsNumber = typeof buildNumber == 'number';
+
+  if (buildNumberIsNumber == false) {
+    throw new Error('Artifact index row is invalid.');
+  }
+
+  const cleanIsBoolean = typeof clean == 'boolean';
+
+  if (cleanIsBoolean == false) {
+    throw new Error('Artifact index row is invalid.');
+  }
+
+  const buildArtifact: BuildArtifact = {
+    path: pathText,
+    platform,
+    appName,
+    profile,
+    version,
+    buildNumber,
+    sizeReport: decodeSizeReport(candidate['sizeReport']),
+    clean,
+    createdAt,
+  };
+  const hasPrunedAt = Object.hasOwn(candidate, 'prunedAt');
+
+  if (hasPrunedAt == false) {
+    return buildArtifact;
+  }
+
+  const prunedAt = candidate['prunedAt'];
+  const prunedAtIsMissing = prunedAt == null;
+
+  if (prunedAtIsMissing) {
+    return buildArtifact;
+  }
+
+  const prunedAtIsString = typeof prunedAt == 'string';
+
+  if (prunedAtIsString == false) {
+    throw new Error('Artifact index row is invalid.');
+  }
+
+  return { ...buildArtifact, prunedAt };
+}
+
+function parseArtifactIndexText(encodedIndex: string): unknown {
+  try {
+    return JSON.parse(encodedIndex);
+  } catch (cause) {
+    throw new Error('Artifact index is not valid JSON.', { cause });
+  }
+}
+
+function isUnknownList(candidate: unknown): candidate is readonly unknown[] {
+  return Array.isArray(candidate);
+}
+
+function decodeArtifactIndex(encodedIndex: string): readonly BuildArtifact[] {
+  const parsedIndex = parseArtifactIndexText(encodedIndex);
+  const isList = isUnknownList(parsedIndex);
+
+  if (isList == false) {
+    throw new Error('Artifact index must be a list.');
+  }
+
+  return parsedIndex.map(decodeBuildArtifact);
+}
+
+export async function readArtifactIndex(indexPath?: string): Promise<readonly BuildArtifact[]> {
+  const artifactIndexPath = resolveArtifactIndexPath(indexPath);
+  const indexExists = await pathExists(artifactIndexPath);
+
+  if (indexExists == false) {
+    return [];
+  }
+
+  const artifactIndexSource = await readFile(artifactIndexPath, 'utf8');
+
+  return decodeArtifactIndex(artifactIndexSource);
+}
 
 /** Persist the artifact index, creating its parent directory first. */
-export const writeArtifactIndex = (
+export async function writeArtifactIndex(
   artifactIndex: readonly BuildArtifact[],
   indexPath?: string,
-): Effect.Effect<void, PlatformError, ArtifactIndexRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const artifactIndexPath = yield* resolveArtifactIndexPath(indexPath);
-    yield* fileSystem.makeDirectory(pathService.dirname(artifactIndexPath), { recursive: true });
-    yield* fileSystem.writeFileString(artifactIndexPath, JSON.stringify(artifactIndex, null, 2));
-  });
+): Promise<void> {
+  const artifactIndexPath = resolveArtifactIndexPath(indexPath);
+  await mkdir(path.dirname(artifactIndexPath), { recursive: true });
+  await writeFile(artifactIndexPath, JSON.stringify(artifactIndex, null, 2));
+}
 
 /** Automatic post-store retention window from config (default 30; 0 disables). */
-export const resolveRetentionDays = (launchConfig: LaunchConfig): number => {
-  if (launchConfig.artifactRetentionDays === undefined) return DEFAULT_RETENTION_DAYS;
-  return launchConfig.artifactRetentionDays;
-};
+export function resolveRetentionDays(launchConfig: LaunchConfig): number {
+  const configuredRetentionDays = launchConfig.artifactRetentionDays;
+  const isUnset = configuredRetentionDays == null;
+
+  if (isUnset) {
+    return DEFAULT_RETENTION_DAYS;
+  }
+
+  return configuredRetentionDays;
+}
 
 /**
  * Explicit `builds prune` window: CLI override wins; config when positive; default when unset or 0
  * so an explicit prune still does work when auto-sweep is disabled.
  */
-export const resolveCommandRetentionDays = (
+export function resolveCommandRetentionDays(
   launchConfig: LaunchConfig,
   retentionDaysOverride?: number,
-): number => {
-  if (retentionDaysOverride !== undefined) return retentionDaysOverride;
+): number {
+  const hasOverride = retentionDaysOverride != null;
+
+  if (hasOverride) {
+    return retentionDaysOverride;
+  }
+
   const configuredRetentionDays = launchConfig.artifactRetentionDays;
-  if (configuredRetentionDays === undefined) return DEFAULT_RETENTION_DAYS;
-  if (configuredRetentionDays > 0) return configuredRetentionDays;
+  const isUnset = configuredRetentionDays == null;
+
+  if (isUnset) {
+    return DEFAULT_RETENTION_DAYS;
+  }
+
+  const isPositive = configuredRetentionDays > 0;
+
+  if (isPositive) {
+    return configuredRetentionDays;
+  }
+
   return DEFAULT_RETENTION_DAYS;
-};
+}
 
-const artifactAgeDays = (buildArtifact: BuildArtifact, currentTime: number): number | null => {
+function artifactAgeDays(buildArtifact: BuildArtifact, currentTime: number): number | null {
   const createdTime = Date.parse(buildArtifact.createdAt);
-  if (Number.isNaN(createdTime)) return null;
-  return (currentTime - createdTime) / DAY_MS;
-};
+  const createdTimeIsInvalid = Number.isNaN(createdTime);
 
-const artifactGroupKey = (buildArtifact: BuildArtifact): string =>
-  `${buildArtifact.appName}:${buildArtifact.platform}`;
+  if (createdTimeIsInvalid) {
+    return null;
+  }
+
+  return (currentTime - createdTime) / DAY_MS;
+}
+
+function artifactGroupKey(buildArtifact: BuildArtifact): string {
+  return `${buildArtifact.appName}:${buildArtifact.platform}`;
+}
 
 /** Newest artifact per app+platform group (by createdAt). */
-const newestArtifactByGroup = (
+function newestArtifactByGroup(
   artifactIndex: readonly BuildArtifact[],
-): Map<string, BuildArtifact> => {
+): Map<string, BuildArtifact> {
   const newestByGroup = new Map<string, BuildArtifact>();
+
   for (const buildArtifact of artifactIndex) {
     const groupKey = artifactGroupKey(buildArtifact);
     const currentNewest = newestByGroup.get(groupKey);
-    if (currentNewest === undefined) {
+    const hasNewest = currentNewest != null;
+
+    if (hasNewest == false) {
       newestByGroup.set(groupKey, buildArtifact);
       continue;
     }
+
     const candidateCreated = Date.parse(buildArtifact.createdAt);
     const newestCreated = Date.parse(currentNewest.createdAt);
-    if (candidateCreated > newestCreated) {
+    const candidateIsNewer = candidateCreated > newestCreated;
+
+    if (candidateIsNewer) {
       newestByGroup.set(groupKey, buildArtifact);
     }
   }
+
   return newestByGroup;
-};
+}
+
+function shouldPruneArtifact(
+  buildArtifact: BuildArtifact,
+  pruneOptions: Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'>,
+  isGroupNewest: boolean,
+  ageInDays: number | null,
+): boolean {
+  const retentionIsPositive = pruneOptions.retentionDays > 0;
+
+  if (retentionIsPositive == false) {
+    return false;
+  }
+
+  const isAlreadyPruned = buildArtifact.prunedAt != null;
+
+  if (isAlreadyPruned) {
+    return false;
+  }
+
+  if (isGroupNewest) {
+    return false;
+  }
+
+  const hasAppFilter = pruneOptions.app != null;
+
+  if (hasAppFilter) {
+    const appMatches = buildArtifact.appName == pruneOptions.app;
+
+    if (appMatches == false) {
+      return false;
+    }
+  }
+
+  const hasPlatformFilter = pruneOptions.platform != null;
+
+  if (hasPlatformFilter) {
+    const platformMatches = buildArtifact.platform == pruneOptions.platform;
+
+    if (platformMatches == false) {
+      return false;
+    }
+  }
+
+  const hasAge = ageInDays != null;
+
+  if (hasAge == false) {
+    return false;
+  }
+
+  return ageInDays > pruneOptions.retentionDays;
+}
 
 /** Split an artifact index by retention + keep-newest-per-app+platform policy. */
-export const planPrune = (
+export function planPrune(
   artifactIndex: readonly BuildArtifact[],
   pruneOptions: Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'>,
-): { prune: BuildArtifact[]; keep: BuildArtifact[] } => {
+): { prune: BuildArtifact[]; keep: BuildArtifact[] } {
   const newestByGroup = newestArtifactByGroup(artifactIndex);
   const artifactsToPrune: BuildArtifact[] = [];
   const artifactsToKeep: BuildArtifact[] = [];
+
   for (const buildArtifact of artifactIndex) {
     const ageInDays = artifactAgeDays(buildArtifact, pruneOptions.now);
-    let matchesApp = true;
-    if (pruneOptions.app !== undefined) matchesApp = buildArtifact.appName === pruneOptions.app;
-    let matchesPlatform = true;
-    if (pruneOptions.platform !== undefined) {
-      matchesPlatform = buildArtifact.platform === pruneOptions.platform;
+    const isGroupNewest = newestByGroup.get(artifactGroupKey(buildArtifact)) == buildArtifact;
+    const shouldPrune = shouldPruneArtifact(buildArtifact, pruneOptions, isGroupNewest, ageInDays);
+
+    if (shouldPrune) {
+      artifactsToPrune.push(buildArtifact);
+      continue;
     }
-    const isGroupNewest = newestByGroup.get(artifactGroupKey(buildArtifact)) === buildArtifact;
-    const shouldPrune =
-      pruneOptions.retentionDays > 0 &&
-      buildArtifact.prunedAt === undefined &&
-      !isGroupNewest &&
-      matchesApp &&
-      matchesPlatform &&
-      ageInDays !== null &&
-      ageInDays > pruneOptions.retentionDays;
-    if (shouldPrune) artifactsToPrune.push(buildArtifact);
-    else artifactsToKeep.push(buildArtifact);
+
+    artifactsToKeep.push(buildArtifact);
   }
+
   return { prune: artifactsToPrune, keep: artifactsToKeep };
-};
+}
 
-const prunedArtifactEntry = (
-  buildArtifact: BuildArtifact,
-  artifactBytes: number,
-): PrunedArtifact => ({
-  app: buildArtifact.appName,
-  platform: buildArtifact.platform,
-  version: buildArtifact.version,
-  buildNumber: buildArtifact.buildNumber,
-  bytes: artifactBytes,
-  path: buildArtifact.path,
-});
+function prunedArtifactEntry(buildArtifact: BuildArtifact, artifactBytes: number): PrunedArtifact {
+  return {
+    app: buildArtifact.appName,
+    platform: buildArtifact.platform,
+    version: buildArtifact.version,
+    buildNumber: buildArtifact.buildNumber,
+    bytes: artifactBytes,
+    path: buildArtifact.path,
+  };
+}
 
-const readArtifactBytes = (
-  buildArtifact: BuildArtifact,
-): Effect.Effect<number, PlatformError, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    if (!(yield* fileSystem.exists(buildArtifact.path))) {
-      return buildArtifact.sizeReport.artifactBytes;
-    }
-    return Number((yield* fileSystem.stat(buildArtifact.path)).size);
-  });
+async function readArtifactBytes(buildArtifact: BuildArtifact): Promise<number> {
+  const artifactExists = await pathExists(buildArtifact.path);
+
+  if (artifactExists == false) {
+    return buildArtifact.sizeReport.artifactBytes;
+  }
+
+  const artifactStat = await stat(buildArtifact.path);
+
+  return Number(artifactStat.size);
+}
 
 /** Stamp prunedAt on pruned rows without mutating the source index entries. */
-const stampPrunedArtifacts = (
+function stampPrunedArtifacts(
   artifactIndex: readonly BuildArtifact[],
   prunedArtifacts: readonly BuildArtifact[],
   prunedAt: string,
-): BuildArtifact[] => {
-  // planPrune returns the same object refs that live in the index.
+): BuildArtifact[] {
   const prunedIdentity = new Set<BuildArtifact>(prunedArtifacts);
-  return artifactIndex.map((buildArtifact) => {
-    if (!prunedIdentity.has(buildArtifact)) return buildArtifact;
+
+  return artifactIndex.map(function stampOne(buildArtifact: BuildArtifact): BuildArtifact {
+    const wasPruned = prunedIdentity.has(buildArtifact);
+
+    if (wasPruned == false) {
+      return buildArtifact;
+    }
+
     return { ...buildArtifact, prunedAt };
   });
-};
+}
+
+function shouldWritePrunedIndex(isDryRun: boolean, prunedCount: number): boolean {
+  if (isDryRun) {
+    return false;
+  }
+
+  return prunedCount > 0;
+}
 
 /** Delete eligible artifacts and record the sweep in the artifact index. */
-export const runArtifactPrune = (
+export async function runArtifactPrune(
   pruneOptions: PruneOptions & { indexPath?: string },
-): Effect.Effect<PruneResult, PlatformError | ParseError, ArtifactIndexRequirements> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const artifactIndex = yield* readArtifactIndex(pruneOptions.indexPath);
-    const policyInput: MutableDeep<
-      Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'>
-    > = {
+): Promise<PruneResult> {
+  const artifactIndex = await readArtifactIndex(pruneOptions.indexPath);
+  const policyInput: MutableDeep<Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'>> =
+    {
       now: pruneOptions.now,
       retentionDays: pruneOptions.retentionDays,
     };
-    if (pruneOptions.app !== undefined) policyInput.app = pruneOptions.app;
-    if (pruneOptions.platform !== undefined) policyInput.platform = pruneOptions.platform;
-    const artifactsToPrune = planPrune(artifactIndex, policyInput).prune;
-    const prunedEntries: PrunedArtifact[] = [];
-    let freedBytes = 0;
-    let dryRun = false;
-    if (pruneOptions.dryRun !== undefined) dryRun = pruneOptions.dryRun;
-    const prunedAt = new Date(pruneOptions.now).toISOString();
-    for (const buildArtifact of artifactsToPrune) {
-      const artifactBytes = yield* readArtifactBytes(buildArtifact);
-      prunedEntries.push(prunedArtifactEntry(buildArtifact, artifactBytes));
-      freedBytes += artifactBytes;
-      if (dryRun) continue;
-      if (yield* fileSystem.exists(buildArtifact.path)) {
-        yield* fileSystem.remove(buildArtifact.path);
-      }
+  const hasApp = pruneOptions.app != null;
+
+  if (hasApp) {
+    policyInput.app = pruneOptions.app;
+  }
+
+  const hasPlatform = pruneOptions.platform != null;
+
+  if (hasPlatform) {
+    policyInput.platform = pruneOptions.platform;
+  }
+
+  const artifactsToPrune = planPrune(artifactIndex, policyInput).prune;
+  const prunedEntries: PrunedArtifact[] = [];
+  let freedBytes = 0;
+  let dryRun = false;
+  const dryRunIsSet = pruneOptions.dryRun != null;
+
+  if (dryRunIsSet) {
+    dryRun = pruneOptions.dryRun;
+  }
+
+  const prunedAt = new Date(pruneOptions.now).toISOString();
+
+  for (const buildArtifact of artifactsToPrune) {
+    const artifactBytes = await readArtifactBytes(buildArtifact);
+    prunedEntries.push(prunedArtifactEntry(buildArtifact, artifactBytes));
+    freedBytes += artifactBytes;
+
+    if (dryRun) {
+      continue;
     }
-    if (!dryRun && prunedEntries.length > 0) {
-      const writtenIndex = stampPrunedArtifacts(artifactIndex, artifactsToPrune, prunedAt);
-      yield* writeArtifactIndex(writtenIndex, pruneOptions.indexPath);
+
+    const artifactExists = await pathExists(buildArtifact.path);
+
+    if (artifactExists) {
+      await rm(buildArtifact.path);
     }
-    return { pruned: prunedEntries, freedBytes, dryRun };
-  });
+  }
+
+  const shouldStampIndex = shouldWritePrunedIndex(dryRun, prunedEntries.length);
+
+  if (shouldStampIndex) {
+    const writtenIndex = stampPrunedArtifacts(artifactIndex, artifactsToPrune, prunedAt);
+    await writeArtifactIndex(writtenIndex, pruneOptions.indexPath);
+  }
+
+  return { pruned: prunedEntries, freedBytes, dryRun };
+}

@@ -1,5 +1,6 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Effect } from 'effect';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { pathExists } from '../path-exists.js';
 
 /**
  * One build target discovered in a generated Xcode project's `project.pbxproj` - a target name paired
@@ -186,33 +187,49 @@ export const splitMainAndExtensions = (
  * Locate the `*.xcodeproj/project.pbxproj` inside a generated native project directory (e.g. `ios/`),
  * or null when the project hasn't been generated yet (pre-prebuild). Reads only the directory listing.
  */
-export const findPbxproj = (
-  nativeDirectory: string,
-): Effect.Effect<string | null, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    if (!(yield* fileSystem.exists(nativeDirectory))) return null;
-    const directoryEntries = yield* fileSystem.readDirectory(nativeDirectory);
-    const projectDirectory = directoryEntries.find((entryName) => entryName.endsWith('.xcodeproj'));
-    if (projectDirectory === undefined) return null;
-    const projectFile = pathService.join(nativeDirectory, projectDirectory, 'project.pbxproj');
-    if (!(yield* fileSystem.exists(projectFile))) return null;
-    return projectFile;
-  });
+function isXcodeProject(directoryName: string): boolean {
+  return directoryName.endsWith('.xcodeproj');
+}
 
-export const discoverExtensionBundleIds = (
+export async function findPbxproj(nativeDirectory: string): Promise<string | null> {
+  const directoryExists = await pathExists(nativeDirectory);
+
+  if (directoryExists == false) {
+    return null;
+  }
+
+  const directoryEntries = await readdir(nativeDirectory);
+  const projectDirectory = directoryEntries.find(isXcodeProject);
+
+  if (projectDirectory == null) {
+    return null;
+  }
+
+  const projectFile = join(nativeDirectory, projectDirectory, 'project.pbxproj');
+  const projectExists = await pathExists(projectFile);
+
+  if (projectExists == false) {
+    return null;
+  }
+
+  return projectFile;
+}
+
+export async function discoverExtensionBundleIds(
   nativeDirectory: string,
   mainBundleId?: string,
-): Effect.Effect<string[], unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const projectFile = yield* findPbxproj(nativeDirectory);
-    if (projectFile === null) return [];
-    const projectText = yield* fileSystem.readFileString(projectFile);
-    const targets = parsePbxprojTargets(projectText);
-    return splitMainAndExtensions(targets, mainBundleId).extensions;
-  });
+): Promise<string[]> {
+  const projectFile = await findPbxproj(nativeDirectory);
+
+  if (projectFile == null) {
+    return [];
+  }
+
+  const projectText = await readFile(projectFile, 'utf8');
+  const targets = parsePbxprojTargets(projectText);
+
+  return splitMainAndExtensions(targets, mainBundleId).extensions;
+}
 export const multiTargetSigningWarnings = (
   readiness: readonly TargetSigningReadiness[],
 ): string[] => {
@@ -382,17 +399,24 @@ export const stampManualSigningIntoPbxproj = (
   }
   return out.join('\n');
 };
-export const writeManualSigningToProject = (
+export async function writeManualSigningToProject(
   nativeDirectory: string,
   signing: ManualSigningTargets,
-): Effect.Effect<boolean, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const projectFile = yield* findPbxproj(nativeDirectory);
-    if (projectFile === null) return false;
-    const originalProject = yield* fileSystem.readFileString(projectFile);
-    const stampedProject = stampManualSigningIntoPbxproj(originalProject, signing);
-    if (stampedProject === originalProject) return false;
-    yield* fileSystem.writeFileString(projectFile, stampedProject);
-    return true;
-  });
+): Promise<boolean> {
+  const projectFile = await findPbxproj(nativeDirectory);
+
+  if (projectFile == null) {
+    return false;
+  }
+
+  const originalProject = await readFile(projectFile, 'utf8');
+  const stampedProject = stampManualSigningIntoPbxproj(originalProject, signing);
+
+  if (stampedProject == originalProject) {
+    return false;
+  }
+
+  await writeFile(projectFile, stampedProject);
+
+  return true;
+}

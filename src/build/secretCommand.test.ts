@@ -1,11 +1,10 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { SecretCommandInputSchema } from './secretCommand.js';
+import { decodeSecretCommandInput } from './secretCommand.js';
 
 describe('SecretCommandInputSchema', () => {
   it('decodes the set boundary with an explicit value', () => {
     expect(
-      Schema.decodeUnknownSync(SecretCommandInputSchema)({
+      decodeSecretCommandInput({
         action: 'set',
         name: 'API_TOKEN',
         value: 'secret',
@@ -22,8 +21,6 @@ describe('SecretCommandInputSchema', () => {
   });
 
   it('rejects an unknown secret action', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(SecretCommandInputSchema)({ action: 'show-values' }),
-    ).toThrow();
+    expect(() => decodeSecretCommandInput({ action: 'show-values' })).toThrow();
   });
 });

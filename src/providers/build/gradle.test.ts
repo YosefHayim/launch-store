@@ -1,12 +1,8 @@
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { ResolvedBuildContext } from '@/types/config.js';
 import type { BuildCredentials } from '@/types/credentials.js';
-import { LaunchEnvironmentTest } from '@/services/platform/environment.js';
-import { makeLaunchLoggerTest } from '@/services/platform/logger.js';
-import { makeLaunchPathsTest } from '@/services/platform/paths.js';
 import { gradleBuildArguments, makeGradleBuildEngine, parseBundletoolSize } from './gradle.js';
+
 describe('gradleBuildArguments - signed release build', () => {
   const keystore = {
     path: '/keys/upload.jks',
@@ -14,6 +10,7 @@ describe('gradleBuildArguments - signed release build', () => {
     storePassword: 'store-secret',
     keyPassword: 'key-secret',
   };
+
   it('reuses cached task outputs and signs with the upload key', () => {
     expect(gradleBuildArguments(':app:bundleRelease', false, keystore)).toEqual([
       ':app:bundleRelease',
@@ -22,6 +19,7 @@ describe('gradleBuildArguments - signed release build', () => {
       '-Pandroid.injected.signing.key.alias=upload',
     ]);
   });
+
   it('prepends the clean task for a from-scratch build', () => {
     const cleanArguments = gradleBuildArguments(':app:assembleRelease', true, keystore);
     expect(cleanArguments.slice(0, 3)).toEqual([
@@ -31,6 +29,7 @@ describe('gradleBuildArguments - signed release build', () => {
     ]);
   });
 });
+
 describe('parseBundletoolSize - honest worst-case download from get-size total', () => {
   it('reads MIN/MAX from a single-row total', () => {
     expect(parseBundletoolSize('MIN,MAX\n1048576,2097152')).toEqual({
@@ -38,6 +37,7 @@ describe('parseBundletoolSize - honest worst-case download from get-size total',
       maxBytes: 2097152,
     });
   });
+
   it('takes the largest MAX and smallest MIN across device dimensions', () => {
     const csv = [
       'SDK,ABI,SCREEN_DENSITY,LANGUAGE,MIN,MAX',
@@ -47,11 +47,13 @@ describe('parseBundletoolSize - honest worst-case download from get-size total',
     ].join('\n');
     expect(parseBundletoolSize(csv)).toEqual({ minBytes: 3000000, maxBytes: 6000000 });
   });
+
   it('degrades to zeros on unrecognized output rather than throwing', () => {
     expect(parseBundletoolSize('totally unrelated')).toEqual({ minBytes: 0, maxBytes: 0 });
     expect(parseBundletoolSize('')).toEqual({ minBytes: 0, maxBytes: 0 });
   });
 });
+
 describe('gradleBuildEngine - dry-run rehearses without building or signing', () => {
   const buildContext = {
     platform: 'android',
@@ -68,36 +70,22 @@ describe('gradleBuildEngine - dry-run rehearses without building or signing', ()
     forceClean: false,
   } satisfies ResolvedBuildContext;
   const buildCredentials: BuildCredentials = { platform: 'android', serviceAccountJson: '' };
+
   it('returns a zero-byte report and never touches the keystore', async () => {
-    const { artifactPath, sizeReport } = await Effect.runPromise(
-      makeGradleBuildEngine().pipe(
-        Effect.flatMap((buildEngine) => buildEngine.buildArtifact(buildContext, buildCredentials)),
-        Effect.provide(LaunchEnvironmentTest),
-        Effect.provide(makeLaunchLoggerTest([])),
-        Effect.provide(makeLaunchPathsTest('/tmp', '/repo')),
-        Effect.provide(NodeContext.layer),
-      ),
-    );
-    expect(artifactPath).toBe('(dry-run, not built)');
-    expect(sizeReport).toEqual({ artifactBytes: 0, entries: [] });
+    const buildEngine = makeGradleBuildEngine();
+    const builtArtifact = await buildEngine.buildArtifact(buildContext, buildCredentials);
+    expect(builtArtifact.artifactPath).toBe('(dry-run, not built)');
+    expect(builtArtifact.sizeReport).toEqual({ artifactBytes: 0, entries: [] });
   });
+
   it('rejects iOS credentials (wrong platform) outside dry-run', async () => {
     const realBuildContext = { ...buildContext, dryRun: false };
+    const buildEngine = makeGradleBuildEngine();
     await expect(
-      Effect.runPromise(
-        makeGradleBuildEngine().pipe(
-          Effect.flatMap((buildEngine) =>
-            buildEngine.buildArtifact(realBuildContext, {
-              platform: 'ios',
-              ascKey: { keyId: 'x', issuerId: 'y', p8: '' },
-            }),
-          ),
-          Effect.provide(LaunchEnvironmentTest),
-          Effect.provide(makeLaunchLoggerTest([])),
-          Effect.provide(makeLaunchPathsTest('/tmp', '/repo')),
-          Effect.provide(NodeContext.layer),
-        ),
-      ),
+      buildEngine.buildArtifact(realBuildContext, {
+        platform: 'ios',
+        ascKey: { keyId: 'x', issuerId: 'y', p8: '' },
+      }),
     ).rejects.toThrow(/Android only/);
   });
 });

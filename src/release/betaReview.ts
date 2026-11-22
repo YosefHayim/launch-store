@@ -1,29 +1,18 @@
-import { FileSystem } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
+import { readFile } from 'node:fs/promises';
+import { pathExists } from '@/path-exists.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { plan, skip, type ReconcileContext } from '@/store/shared/reconcile.js';
 import type {
   BetaAppReviewSubmissionResource,
   BetaBuildLocalizationResource,
   BetaReviewState,
   BuildResource,
-} from '../types/appleCatalog.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { plan, skip, type ReconcileContext } from '../store/shared/reconcile.js';
-import type { PlannedAction } from '../types/reconcile.js';
+} from '@/types/appleCatalog.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 
-const WhatToTestSchema = Schema.Record({
-  key: Schema.String,
-  value: Schema.String.pipe(Schema.minLength(1)),
-}).pipe(
-  Schema.filter((localizedNotes) => Object.keys(localizedNotes).length > 0, {
-    message: () => 'whatToTest must declare at least one locale.',
-  }),
-);
-
-const BetaReviewConfigSchema = Schema.Struct({
-  whatToTest: WhatToTestSchema,
-});
-
-type BetaReviewConfig = Schema.Schema.Type<typeof BetaReviewConfigSchema>;
+type BetaReviewConfig = {
+  readonly whatToTest: Record<string, string>;
+};
 
 type BetaReviewFailure = Readonly<{
   readonly _tag: 'BetaReviewFailure';
@@ -32,26 +21,38 @@ type BetaReviewFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-const makeBetaReviewFailure = Data.tagged<BetaReviewFailure>('BetaReviewFailure');
+function makeBetaReviewFailure(fields: {
+  operation: string;
+  message: string;
+  cause?: unknown;
+}): BetaReviewFailure {
+  if (fields.cause == null) {
+    return { _tag: 'BetaReviewFailure', operation: fields.operation, message: fields.message };
+  }
+
+  return {
+    _tag: 'BetaReviewFailure',
+    operation: fields.operation,
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
 
 export type AscBetaReviewApi = Readonly<{
-  readonly listBuilds: (appId: string, limit?: number) => Effect.Effect<BuildResource[], unknown>;
+  readonly listBuilds: (appId: string, limit?: number) => Promise<BuildResource[]>;
   readonly listBetaBuildLocalizations: (
     buildId: string,
-  ) => Effect.Effect<BetaBuildLocalizationResource[], unknown>;
+  ) => Promise<BetaBuildLocalizationResource[]>;
   readonly createBetaBuildLocalization: (
     buildId: string,
     locale: string,
     whatsNew: string,
-  ) => Effect.Effect<void, unknown>;
-  readonly updateBetaBuildLocalization: (
-    localizationId: string,
-    whatsNew: string,
-  ) => Effect.Effect<void, unknown>;
+  ) => Promise<void>;
+  readonly updateBetaBuildLocalization: (localizationId: string, whatsNew: string) => Promise<void>;
   readonly getBetaAppReviewSubmission: (
     buildId: string,
-  ) => Effect.Effect<BetaAppReviewSubmissionResource | null, unknown>;
-  readonly createBetaAppReviewSubmission: (buildId: string) => Effect.Effect<void, unknown>;
+  ) => Promise<BetaAppReviewSubmissionResource | null>;
+  readonly createBetaAppReviewSubmission: (buildId: string) => Promise<void>;
 }>;
 
 export type BetaReviewReconcileInput = Readonly<{
@@ -68,7 +69,7 @@ type BetaReviewReport = Readonly<{
 }>;
 
 /** Return human wording for Apple's Beta App Review state. */
-const describeState = (state: BetaReviewState | undefined): string => {
+function describeState(state: BetaReviewState | undefined): string {
   switch (state) {
     case 'WAITING_FOR_REVIEW':
       return 'waiting for review';
@@ -78,218 +79,351 @@ const describeState = (state: BetaReviewState | undefined): string => {
       return 'rejected';
     case 'APPROVED':
       return 'approved';
-    default:
+    case undefined:
       return 'submitted';
   }
-};
+}
+
+function isEligibleLatestBuild(availableBuild: BuildResource): boolean {
+  const isValid = availableBuild.processingState == 'VALID';
+
+  if (isValid == false) {
+    return false;
+  }
+
+  const isExpired = availableBuild.expired == true;
+  return isExpired == false;
+}
+
+function selectRequestedBuild(
+  availableBuilds: BuildResource[],
+  requestedVersion: string,
+): BuildResource {
+  function hasRequestedVersion(availableBuild: BuildResource): boolean {
+    return availableBuild.version == requestedVersion;
+  }
+
+  const matchedBuild = availableBuilds.find(hasRequestedVersion);
+  const isBuildMissing = matchedBuild == null;
+
+  if (isBuildMissing) {
+    throw makeBetaReviewFailure({
+      operation: 'select TestFlight build',
+      message: `No build ${requestedVersion} for this app. Upload it first, or omit --build to use the latest.`,
+    });
+  }
+
+  const isExpired = matchedBuild.expired == true;
+
+  if (isExpired) {
+    throw makeBetaReviewFailure({
+      operation: 'select TestFlight build',
+      message: `Build ${requestedVersion} has expired (TestFlight's 90-day limit) and cannot be submitted.`,
+    });
+  }
+
+  return matchedBuild;
+}
 
 /** Select the requested build or the newest valid, non-expired build. */
-const selectBuild = (
+function selectBuild(
   availableBuilds: BuildResource[],
   requestedVersion: string | undefined,
-): Effect.Effect<BuildResource, BetaReviewFailure> => {
-  if (requestedVersion !== undefined) {
-    const matchedBuild = availableBuilds.find(
-      (availableBuild) => availableBuild.version === requestedVersion,
-    );
-    if (matchedBuild === undefined) {
-      return Effect.fail(
-        makeBetaReviewFailure({
-          operation: 'select TestFlight build',
-          message: `No build ${requestedVersion} for this app. Upload it first, or omit --build to use the latest.`,
-        }),
-      );
-    }
-    if (matchedBuild.expired) {
-      return Effect.fail(
-        makeBetaReviewFailure({
-          operation: 'select TestFlight build',
-          message: `Build ${requestedVersion} has expired (TestFlight's 90-day limit) and cannot be submitted.`,
-        }),
-      );
-    }
-    return Effect.succeed(matchedBuild);
+): BuildResource {
+  const hasRequestedVersion = requestedVersion != null;
+
+  if (hasRequestedVersion) {
+    return selectRequestedBuild(availableBuilds, requestedVersion);
   }
-  const latestBuild = availableBuilds.find(
-    (availableBuild) =>
-      availableBuild.processingState === 'VALID' && availableBuild.expired !== true,
-  );
-  if (latestBuild !== undefined) return Effect.succeed(latestBuild);
-  return Effect.fail(
-    makeBetaReviewFailure({
+
+  const latestBuild = availableBuilds.find(isEligibleLatestBuild);
+  const isLatestMissing = latestBuild == null;
+
+  if (isLatestMissing) {
+    throw makeBetaReviewFailure({
       operation: 'select TestFlight build',
       message:
         'No VALID, non-expired build to release. Upload a build and wait for processing to finish.',
-    }),
-  );
-};
+    });
+  }
+
+  return latestBuild;
+}
 
 /** Apply one write while retaining per-action failures in the reconciliation report. */
-const applyPlannedAction = (
+async function applyPlannedAction(
   action: PlannedAction,
-  actionWrite: Effect.Effect<void, unknown>,
-): Effect.Effect<void> =>
-  actionWrite.pipe(
-    Effect.match({
-      onFailure: (cause) => {
-        action.status = 'failed';
-        action.error = errorMessage(cause);
-      },
-      onSuccess: () => {
-        action.status = 'applied';
-      },
-    }),
+  actionWrite: Promise<void>,
+): Promise<void> {
+  try {
+    await actionWrite;
+    action.status = 'applied';
+  } catch (cause) {
+    action.status = 'failed';
+    action.error = errorMessage(cause);
+  }
+}
+
+async function writeLocalizationNote(
+  action: PlannedAction,
+  appleStore: AscBetaReviewApi,
+  buildId: string,
+  locale: string,
+  noteText: string,
+  currentLocalization: BetaBuildLocalizationResource | undefined,
+): Promise<void> {
+  const isNewLocalization = currentLocalization == null;
+
+  if (isNewLocalization) {
+    await applyPlannedAction(
+      action,
+      appleStore.createBetaBuildLocalization(buildId, locale, noteText),
+    );
+    return;
+  }
+
+  await applyPlannedAction(
+    action,
+    appleStore.updateBetaBuildLocalization(currentLocalization.id, noteText),
   );
+}
+
+function localizationNote(localization: BetaBuildLocalizationResource | undefined): string {
+  if (localization == null) {
+    return '';
+  }
+
+  if (localization.whatsNew == null) {
+    return '';
+  }
+
+  return localization.whatsNew;
+}
 
 /** Reconcile localized What-to-Test notes serially for App Store rate limits. */
-const reconcileNotes = (
+async function reconcileNotes(
   reconciliation: ReconcileContext,
   appleStore: AscBetaReviewApi,
   buildId: string,
   localizedNotes: Record<string, string>,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const existingLocalizations = new Map(
-      (yield* appleStore.listBetaBuildLocalizations(buildId)).map((localization) => [
-        localization.locale,
-        localization,
-      ]),
-    );
-    for (const [locale, noteText] of Object.entries(localizedNotes)) {
-      const currentLocalization = existingLocalizations.get(locale);
-      let currentText = '';
-      if (currentLocalization?.whatsNew !== undefined) {
-        currentText = currentLocalization.whatsNew;
-      }
-      if (currentText === noteText) continue;
-      let description = `set "What to Test" (${locale})`;
-      if (currentLocalization !== undefined) description = `update "What to Test" (${locale})`;
-      const action = plan(reconciliation, description);
-      if (reconciliation.dryRun) continue;
-      if (currentLocalization !== undefined) {
-        yield* applyPlannedAction(
-          action,
-          appleStore.updateBetaBuildLocalization(currentLocalization.id, noteText),
-        );
-        continue;
-      }
-      yield* applyPlannedAction(
-        action,
-        appleStore.createBetaBuildLocalization(buildId, locale, noteText),
-      );
+): Promise<void> {
+  const existingLocalizations = await appleStore.listBetaBuildLocalizations(buildId);
+
+  function localizationEntry(
+    localization: BetaBuildLocalizationResource,
+  ): readonly [string, BetaBuildLocalizationResource] {
+    return [localization.locale, localization];
+  }
+
+  const localizationsByLocale = new Map(existingLocalizations.map(localizationEntry));
+
+  for (const [locale, noteText] of Object.entries(localizedNotes)) {
+    const currentLocalization = localizationsByLocale.get(locale);
+    const currentText = localizationNote(currentLocalization);
+    const isUnchanged = currentText == noteText;
+
+    if (isUnchanged) {
+      continue;
     }
-  });
+
+    let description = `set "What to Test" (${locale})`;
+    const hasLocalization = currentLocalization != null;
+
+    if (hasLocalization) {
+      description = `update "What to Test" (${locale})`;
+    }
+
+    const action = plan(reconciliation, description);
+
+    if (reconciliation.dryRun) {
+      continue;
+    }
+
+    await writeLocalizationNote(action, appleStore, buildId, locale, noteText, currentLocalization);
+  }
+}
 
 /** Reconcile the Beta App Review submission while retaining an API failure as an action failure. */
-const reconcileSubmission = (
+async function reconcileSubmission(
   reconciliation: ReconcileContext,
   appleStore: AscBetaReviewApi,
   buildId: string,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const existingSubmission = yield* appleStore.getBetaAppReviewSubmission(buildId);
-    if (existingSubmission !== null) {
-      skip(
-        reconciliation,
-        `submit for Beta App Review: build already submitted (${describeState(existingSubmission.state)})`,
-      );
-      return;
-    }
-    const action = plan(reconciliation, 'submit for Beta App Review');
-    if (reconciliation.dryRun) return;
-    yield* applyPlannedAction(action, appleStore.createBetaAppReviewSubmission(buildId));
-  });
+): Promise<void> {
+  const existingSubmission = await appleStore.getBetaAppReviewSubmission(buildId);
+  const isAlreadySubmitted = existingSubmission != null;
+
+  if (isAlreadySubmitted) {
+    skip(
+      reconciliation,
+      `submit for Beta App Review: build already submitted (${describeState(existingSubmission.state)})`,
+    );
+    return;
+  }
+
+  const action = plan(reconciliation, 'submit for Beta App Review');
+
+  if (reconciliation.dryRun) {
+    return;
+  }
+
+  await applyPlannedAction(action, appleStore.createBetaAppReviewSubmission(buildId));
+}
 
 /** Reconcile one build's localized notes and optional Beta App Review submission. */
-export const reconcileBetaReview = (
+export async function reconcileBetaReview(
   appleStore: AscBetaReviewApi,
   reconciliationInput: BetaReviewReconcileInput,
-): Effect.Effect<BetaReviewReport, unknown> =>
-  Effect.gen(function* () {
-    const reconciliation: ReconcileContext = {
-      actions: [],
-      dryRun: reconciliationInput.dryRun,
-    };
-    const buildScanLimit = 50;
-    const availableBuilds = yield* appleStore.listBuilds(reconciliationInput.appId, buildScanLimit);
-    const selectedBuild = yield* selectBuild(availableBuilds, reconciliationInput.buildVersion);
-    yield* reconcileNotes(
-      reconciliation,
-      appleStore,
-      selectedBuild.id,
-      reconciliationInput.whatToTest,
-    );
-    if (reconciliationInput.submitForReview) {
-      yield* reconcileSubmission(reconciliation, appleStore, selectedBuild.id);
-    }
-    return { buildVersion: selectedBuild.version, actions: reconciliation.actions };
-  });
+): Promise<BetaReviewReport> {
+  const reconciliation: ReconcileContext = {
+    actions: [],
+    dryRun: reconciliationInput.dryRun,
+  };
+  const buildScanLimit = 50;
+  const availableBuilds = await appleStore.listBuilds(reconciliationInput.appId, buildScanLimit);
+  const selectedBuild = selectBuild(availableBuilds, reconciliationInput.buildVersion);
 
-/** Decode an unknown TestFlight configuration through the Effect Schema boundary. */
-export const parseBetaReviewConfig = (
-  rawConfiguration: unknown,
-): Effect.Effect<BetaReviewConfig, BetaReviewFailure> =>
-  Schema.decodeUnknown(BetaReviewConfigSchema)(rawConfiguration).pipe(
-    Effect.mapError((cause) =>
-      makeBetaReviewFailure({
-        operation: 'decode TestFlight config',
-        message: `Invalid testflight.config.json: ${errorMessage(cause)}`,
-        cause,
-      }),
-    ),
+  await reconcileNotes(
+    reconciliation,
+    appleStore,
+    selectedBuild.id,
+    reconciliationInput.whatToTest,
   );
 
-/** Read and decode a TestFlight configuration file. */
-export const loadBetaReviewConfig = (
-  configPath: string,
-): Effect.Effect<BetaReviewConfig, BetaReviewFailure, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const configExists = yield* fileSystem.exists(configPath).pipe(
-      Effect.mapError((cause) =>
-        makeBetaReviewFailure({
-          operation: 'inspect TestFlight config',
-          message: `Could not inspect ${configPath}.`,
-          cause,
-        }),
-      ),
-    );
-    if (!configExists) {
-      return yield* Effect.fail(
-        makeBetaReviewFailure({
-          operation: 'read TestFlight config',
-          message: `No TestFlight config at ${configPath}. Add a "whatToTest" map, or pass --whats-new <text>.`,
-        }),
-      );
+  if (reconciliationInput.submitForReview) {
+    await reconcileSubmission(reconciliation, appleStore, selectedBuild.id);
+  }
+
+  return { buildVersion: selectedBuild.version, actions: reconciliation.actions };
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  return typeof candidate == 'object';
+}
+
+function isNoteText(noteText: unknown): noteText is string {
+  if (typeof noteText != 'string') {
+    return false;
+  }
+
+  return noteText.length > 0;
+}
+
+/** Decode an unknown TestFlight configuration. */
+export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConfig {
+  const isObject = isRecord(rawConfiguration);
+
+  if (isObject == false) {
+    throw makeBetaReviewFailure({
+      operation: 'decode TestFlight config',
+      message: 'Invalid testflight.config.json: expected an object.',
+      cause: rawConfiguration,
+    });
+  }
+
+  const localizedNotes = rawConfiguration['whatToTest'];
+  const isNoteMap = isRecord(localizedNotes);
+
+  if (isNoteMap == false) {
+    throw makeBetaReviewFailure({
+      operation: 'decode TestFlight config',
+      message: 'Invalid testflight.config.json: whatToTest must be an object.',
+      cause: rawConfiguration,
+    });
+  }
+
+  const locales = Object.keys(localizedNotes);
+  const hasNoLocales = locales.length == 0;
+
+  if (hasNoLocales) {
+    throw makeBetaReviewFailure({
+      operation: 'decode TestFlight config',
+      message: 'Invalid testflight.config.json: whatToTest must declare at least one locale.',
+      cause: rawConfiguration,
+    });
+  }
+
+  const whatToTest: Record<string, string> = {};
+
+  for (const locale of locales) {
+    const noteText = localizedNotes[locale];
+    const isValidNote = isNoteText(noteText);
+
+    if (isValidNote == false) {
+      throw makeBetaReviewFailure({
+        operation: 'decode TestFlight config',
+        message: `Invalid testflight.config.json: whatToTest.${locale} must be a non-empty string.`,
+        cause: rawConfiguration,
+      });
     }
-    const configurationText = yield* fileSystem.readFileString(configPath).pipe(
-      Effect.mapError((cause) =>
-        makeBetaReviewFailure({
-          operation: 'read TestFlight config',
-          message: `Could not read ${configPath}.`,
-          cause,
-        }),
-      ),
-    );
-    const rawConfiguration = yield* Schema.decode(Schema.parseJson())(configurationText).pipe(
-      Effect.mapError((cause) =>
-        makeBetaReviewFailure({
-          operation: 'parse TestFlight config',
-          message: `Invalid JSON in ${configPath}.`,
-          cause,
-        }),
-      ),
-    );
-    return yield* parseBetaReviewConfig(rawConfiguration);
-  });
+
+    whatToTest[locale] = noteText;
+  }
+
+  return { whatToTest };
+}
+
+/** Read and decode a TestFlight configuration file. */
+export async function loadBetaReviewConfig(configPath: string): Promise<BetaReviewConfig> {
+  let configExists = false;
+
+  try {
+    configExists = await pathExists(configPath);
+  } catch (cause) {
+    throw makeBetaReviewFailure({
+      operation: 'inspect TestFlight config',
+      message: `Could not inspect ${configPath}.`,
+      cause,
+    });
+  }
+
+  if (configExists == false) {
+    throw makeBetaReviewFailure({
+      operation: 'read TestFlight config',
+      message: `No TestFlight config at ${configPath}. Add a "whatToTest" map, or pass --whats-new <text>.`,
+    });
+  }
+
+  let configurationText = '';
+
+  try {
+    configurationText = await readFile(configPath, 'utf8');
+  } catch (cause) {
+    throw makeBetaReviewFailure({
+      operation: 'read TestFlight config',
+      message: `Could not read ${configPath}.`,
+      cause,
+    });
+  }
+
+  let rawConfiguration: unknown;
+
+  try {
+    rawConfiguration = JSON.parse(configurationText);
+  } catch (cause) {
+    throw makeBetaReviewFailure({
+      operation: 'parse TestFlight config',
+      message: `Invalid JSON in ${configPath}.`,
+      cause,
+    });
+  }
+
+  return parseBetaReviewConfig(rawConfiguration);
+}
 
 /** Count applied, failed, and skipped beta-review actions. */
-export const summarizeBetaReview = (
-  actions: PlannedAction[],
-): Readonly<{ applied: number; failed: number; skipped: number }> => {
+export function summarizeBetaReview(actions: PlannedAction[]): Readonly<{
+  applied: number;
+  failed: number;
+  skipped: number;
+}> {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
+
   for (const action of actions) {
     switch (action.status) {
       case 'applied':
@@ -305,5 +439,6 @@ export const summarizeBetaReview = (
         break;
     }
   }
+
   return { applied, failed, skipped };
-};
+}

@@ -1,28 +1,76 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { pathExists } from '../path-exists.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import { createLogger } from '../services/platform/logger.js';
+import { readLaunchDirectories } from '../services/platform/paths.js';
 
-const WORKFLOW_SEGMENTS = ['.github', 'workflows', 'launch.yml'] as const;
-const WORKFLOW_PATH = WORKFLOW_SEGMENTS.join('/');
+const WORKFLOW_PATH = '.github/workflows/launch.yml';
 
-const CiCommandInputSchema = Schema.Struct({
-  android: Schema.Boolean,
-  force: Schema.Boolean,
-});
-
-type CiCommandFailure = Readonly<{
-  readonly _tag: 'CiCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause?: unknown;
+type CiCommandInput = Readonly<{
+  android: boolean;
+  force: boolean;
 }>;
 
-const makeCiCommandFailure = Data.tagged<CiCommandFailure>('CiCommandFailure');
+type CiCommandFailure = Readonly<{
+  _tag: 'CiCommandFailure';
+  operation: string;
+  message: string;
+  cause?: unknown;
+}>;
 
-/** Render the generated workflow's credential instructions. */
-const workflowHeader = (includeAndroid: boolean): string => {
+function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function decodeCiCommandInput(rawCommandInput: unknown): CiCommandInput {
+  if (isPlainRecord(rawCommandInput)) {
+    return readCiCommandInput(rawCommandInput);
+  }
+
+  throw new Error('CI command input must be an object');
+}
+
+function readCiCommandInput(rawCommandInput: Record<string, unknown>): CiCommandInput {
+  const android = rawCommandInput['android'];
+  const force = rawCommandInput['force'];
+
+  if (typeof android != 'boolean') {
+    throw new Error('CI command android must be a boolean');
+  }
+
+  if (typeof force != 'boolean') {
+    throw new Error('CI command force must be a boolean');
+  }
+
+  return { android, force };
+}
+
+function isCiCommandFailure(cause: unknown): cause is CiCommandFailure {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'CiCommandFailure';
+}
+
+function workflowHeader(includeAndroid: boolean): string {
   const headerLines = [
     '# Launch - build and ship to the App Store / Play from CI.',
     '#',
@@ -34,6 +82,7 @@ const workflowHeader = (includeAndroid: boolean): string => {
     '#   ASC_ISSUER_ID        the issuer id shown on that same page',
     '#   ASC_API_KEY_BASE64   base64 of your AuthKey_*.p8: base64 -i AuthKey_XXXX.p8 | pbcopy',
   ];
+
   if (includeAndroid) {
     headerLines.push(
       '#   LAUNCH_APP_NAME               Actions variable: configured app name',
@@ -44,8 +93,9 @@ const workflowHeader = (includeAndroid: boolean): string => {
       '#   ANDROID_KEY_PASSWORD          the key password (often the same)',
     );
   }
+
   return headerLines.join('\n');
-};
+}
 
 const WORKFLOW_TRIGGERS = `name: launch
 on:
@@ -123,56 +173,63 @@ const ANDROID_JOB = `
           ANDROID_KEYSTORE_PASSWORD: \${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_PASSWORD: \${{ secrets.ANDROID_KEY_PASSWORD }}`;
 
-/** Render the complete GitHub Actions workflow. */
-export const workflowYaml = (includeAndroid: boolean): string => {
+export function workflowYaml(includeAndroid: boolean): string {
   let workflowJobs = IOS_JOB;
-  if (includeAndroid) workflowJobs = `${IOS_JOB}\n${ANDROID_JOB}`;
-  return `${workflowHeader(includeAndroid)}\n\n${WORKFLOW_TRIGGERS}\n${workflowJobs}\n`;
-};
 
-/** Write the CI workflow and explain its required repository secrets. */
-export const ciCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<
-  void,
-  CiCommandFailure,
-  FileSystem.FileSystem | LaunchPathsService | Logger | Path.Path
-> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(CiCommandInputSchema)(rawCommandInput);
-    const launchPaths = yield* LaunchPaths;
-    const pathService = yield* Path.Path;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const workflowPath = pathService.join(launchPaths.workingDirectory, ...WORKFLOW_SEGMENTS);
-    if ((yield* fileSystem.exists(workflowPath)) && !commandInput.force) {
-      return yield* Effect.fail(
-        makeCiCommandFailure({
-          operation: 'write CI workflow',
-          message: `${WORKFLOW_PATH} already exists. Re-run with --force to overwrite it.`,
-        }),
-      );
+  if (includeAndroid) {
+    workflowJobs = `${IOS_JOB}\n${ANDROID_JOB}`;
+  }
+
+  return `${workflowHeader(includeAndroid)}\n\n${WORKFLOW_TRIGGERS}\n${workflowJobs}\n`;
+}
+
+function shouldRefuseOverwrite(workflowExists: boolean, force: boolean): boolean {
+  if (workflowExists == false) {
+    return false;
+  }
+
+  return force == false;
+}
+
+export async function ciCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodeCiCommandInput(rawCommandInput);
+    const workflowPath = join(readLaunchDirectories().workingDirectory, WORKFLOW_PATH);
+    const workflowExists = await pathExists(workflowPath);
+    const refuseOverwrite = shouldRefuseOverwrite(workflowExists, commandInput.force);
+
+    if (refuseOverwrite) {
+      throw {
+        _tag: 'CiCommandFailure',
+        operation: 'write CI workflow',
+        message: `${WORKFLOW_PATH} already exists. Re-run with --force to overwrite it.`,
+      } satisfies CiCommandFailure;
     }
-    yield* fileSystem.makeDirectory(pathService.dirname(workflowPath), { recursive: true });
-    yield* fileSystem.writeFileString(workflowPath, workflowYaml(commandInput.android));
-    const logger = yield* createLogger(false);
-    yield* logger.ok(`Wrote ${WORKFLOW_PATH}`);
-    yield* logger.line(
-      '\nSet these repository secrets (Settings -> Secrets and variables -> Actions):',
-    );
-    yield* logger.line('  - ASC_KEY_ID, ASC_ISSUER_ID');
-    yield* logger.line('  - ASC_API_KEY_BASE64    base64 -i AuthKey_XXXX.p8 | pbcopy');
+
+    await mkdir(dirname(workflowPath), { recursive: true });
+    await writeFile(workflowPath, workflowYaml(commandInput.android));
+    const logger = createLogger(false);
+    logger.ok(`Wrote ${WORKFLOW_PATH}`);
+    logger.line('\nSet these repository secrets (Settings -> Secrets and variables -> Actions):');
+    logger.line('  - ASC_KEY_ID, ASC_ISSUER_ID');
+    logger.line('  - ASC_API_KEY_BASE64    base64 -i AuthKey_XXXX.p8 | pbcopy');
+
     if (commandInput.android) {
-      yield* logger.line('  - PLAY_SERVICE_ACCOUNT_BASE64, ANDROID_KEYSTORE_BASE64');
-      yield* logger.line('  - ANDROID_KEY_ALIAS, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD');
+      logger.line('  - PLAY_SERVICE_ACCOUNT_BASE64, ANDROID_KEYSTORE_BASE64');
+      logger.line('  - ANDROID_KEY_ALIAS, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD');
     }
-    yield* logger.line('\nThen push a v* tag or use Run workflow to build and ship.');
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (cause._tag === 'CiCommandFailure') return cause;
-      return makeCiCommandFailure({
-        operation: 'scaffold CI workflow',
-        message: errorMessage(cause),
-        cause,
-      });
-    }),
-  );
+
+    logger.line('\nThen push a v* tag or use Run workflow to build and ship.');
+  } catch (cause) {
+    if (isCiCommandFailure(cause)) {
+      throw cause;
+    }
+
+    throw {
+      _tag: 'CiCommandFailure',
+      operation: 'scaffold CI workflow',
+      message: errorMessage(cause),
+      cause,
+    } satisfies CiCommandFailure;
+  }
+}

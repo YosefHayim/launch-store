@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
   AppClipDefaultExperienceResource,
@@ -60,16 +59,16 @@ const makeApi = (
   };
   let nextId = 0;
   const api: AscAppClipsApi = {
-    getAppId: () => Effect.succeed(full.appId),
+    getAppId: () => Promise.resolve(full.appId),
     findEditableAppStoreVersion: () => {
-      if (full.editableVersionId === null) return Effect.succeed(null);
-      return Effect.succeed({ id: full.editableVersionId });
+      if (full.editableVersionId === null) return Promise.resolve(null);
+      return Promise.resolve({ id: full.editableVersionId });
     },
-    listAppClips: () => Effect.succeed(full.clips),
+    listAppClips: () => Promise.resolve(full.clips),
     listAppClipDefaultExperiences: (appClipId) => {
       let experiences: AppClipDefaultExperienceResource[] = [];
       if (full.experiences[appClipId] !== undefined) experiences = full.experiences[appClipId];
-      return Effect.succeed(experiences);
+      return Promise.resolve(experiences);
     },
     createAppClipDefaultExperience: (appClipId, versionId, action) => {
       const createdExperience: Calls['createdExperiences'][number] = {
@@ -78,40 +77,39 @@ const makeApi = (
       };
       if (action !== undefined) createdExperience.action = action;
       calls.createdExperiences.push(createdExperience);
-      return Effect.succeed({ id: `exp-new-${++nextId}` });
+      return Promise.resolve({ id: `exp-new-${++nextId}` });
     },
     updateAppClipDefaultExperienceAction: (experienceId, action) => {
       calls.updatedActions.push({ experienceId, action });
-      return Effect.void;
+      return Promise.resolve();
     },
     listAppClipDefaultExperienceLocalizations: (experienceId) => {
       let localizations: AppClipLocalizationResource[] = [];
       if (full.localizations[experienceId] !== undefined) {
         localizations = full.localizations[experienceId];
       }
-      return Effect.succeed(localizations);
+      return Promise.resolve(localizations);
     },
     createAppClipDefaultExperienceLocalization: (experienceId, locale, subtitle) => {
       calls.createdLocalizations.push({ experienceId, locale, subtitle });
-      return Effect.void;
+      return Promise.resolve();
     },
     updateAppClipDefaultExperienceLocalization: (localizationId, subtitle) => {
       calls.updatedLocalizations.push({ localizationId, subtitle });
-      return Effect.void;
+      return Promise.resolve();
     },
   };
   return { api, calls };
 };
 /** Execute the App Clips reconciler at the test boundary. */
 const runReconcile = (api: AscAppClipsApi, input: Parameters<typeof reconcileAppClips>[1]) =>
-  Effect.runPromise(reconcileAppClips(api, input));
+  reconcileAppClips(api, input);
 const ONE_CLIP: AppClipsConfig = {
   clips: {
     'com.acme.app.Clip': { action: 'OPEN', localizations: { 'en-US': { subtitle: 'Order now' } } },
   },
 };
-const decodeAppClipsConfig = (rawDocument: unknown) =>
-  Effect.runSync(parseAppClipsConfig(rawDocument));
+const decodeAppClipsConfig = (rawDocument: unknown) => parseAppClipsConfig(rawDocument);
 describe('parseAppClipsConfig', () => {
   it('parses a clip with an action and localizations', () => {
     const config = decodeAppClipsConfig(ONE_CLIP);
@@ -249,7 +247,7 @@ describe('reconcileAppClips', () => {
   });
   it("captures a failed experience create and skips that clip's subtitles", async () => {
     const { api, calls } = makeApi({ clips: [clip] });
-    api.createAppClipDefaultExperience = () => Effect.fail(new Error('boom'));
+    api.createAppClipDefaultExperience = () => Promise.reject(new Error('boom'));
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: ONE_CLIP,

@@ -1,9 +1,8 @@
 import type { BuildArtifact, SizeReport } from '../types/artifacts.js';
-import { Data, Effect } from 'effect';
 import type { LaunchConfig } from '../types/config.js';
 import type { AccountRecord, AscKey, BuildCredentials } from '../types/credentials.js';
 import type { ComputeHost } from '../types/providers.js';
-import type { AllocateRequest, RemoteTarget } from '../types/remote.js';
+import type { AllocateRequest, AwsConfig, HostHandle, RemoteTarget } from '../types/remote.js';
 import {
   receiptDestination,
   renderReceipt,
@@ -22,7 +21,7 @@ import { getComputeHost } from '../services/providerSupport/registry.js';
 import { resolveStorageProvider } from '../distribution/storage.js';
 import type { Logger } from '../services/platform/logger.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
-import { ARTIFACTS_DIR } from '../services/platform/paths.js';
+import { resolveArtifactsDirectory } from '../services/platform/paths.js';
 import { autoReleaseAt, costBanner } from './cost.js';
 import { clearLiveHost, getLiveHost, setLiveHost } from '../distribution/cloudState.js';
 import { ensureRemoteSigningAssets } from '../credentials/appleSigning.js';
@@ -37,274 +36,438 @@ import {
   syncProject,
   uploadSigningMaterial,
 } from './remoteBuild.js';
-/** Resolve the compute host backend for a remote target. */
-const hostFor = (remote: RemoteTarget) => {
-  let hostName = 'byo-ssh';
-  if (remote.kind === 'aws') hostName = 'aws-ec2-mac';
-  return getComputeHost(hostName);
-};
 
-/** Remote build setup or orchestration failed before a valid artifact was produced. */
+function hostFor(remote: RemoteTarget): ComputeHost {
+  let hostName = 'byo-ssh';
+
+  if (remote.kind == 'aws') {
+    hostName = 'aws-ec2-mac';
+  }
+
+  return getComputeHost(hostName);
+}
+
 type RemotePipelineFailure = Readonly<{
   readonly _tag: 'RemotePipelineFailure';
   readonly message: string;
 }>;
-const makeRemotePipelineFailure = Data.tagged<RemotePipelineFailure>('RemotePipelineFailure');
 
-/** Reuse the live paid-window host (if one of this provider is still up) or allocate a fresh one. */
-const acquireHost = (
+function makeRemotePipelineFailure(fields: { message: string }): RemotePipelineFailure {
+  return { _tag: 'RemotePipelineFailure', message: fields.message };
+}
+
+function isAwsMissingConfig(remote: RemoteTarget, launchConfig: LaunchConfig): boolean {
+  if (remote.kind != 'aws') {
+    return false;
+  }
+
+  return launchConfig.aws == null;
+}
+
+function awsSettings(remote: RemoteTarget, launchConfig: LaunchConfig): AwsConfig | undefined {
+  if (remote.kind != 'aws') {
+    return undefined;
+  }
+
+  return launchConfig.aws;
+}
+
+function isCcacheEnabled(ccache: boolean | undefined): boolean {
+  return ccache != false;
+}
+
+async function reuseLiveHost(host: ComputeHost, log: Logger): Promise<HostHandle | null> {
+  const live = await getLiveHost();
+
+  if (live == null) {
+    return null;
+  }
+
+  if (live.provider != host.name) {
+    return null;
+  }
+
+  const status = await host.status(live);
+
+  if (status != null) {
+    log.step('acquire host', `reusing live host - ${costBanner(live)}`);
+    return live;
+  }
+
+  await clearLiveHost();
+
+  return null;
+}
+
+function noteHostProgress(log: Logger): (message: string) => void {
+  return function noteProgress(message: string): void {
+    log.note(message);
+  };
+}
+
+async function acquireHost(
   host: ComputeHost,
   remote: RemoteTarget,
-  config: LaunchConfig,
+  launchConfig: LaunchConfig,
   log: Logger,
   launchPrompt: LaunchPromptService,
-) =>
-  Effect.gen(function* () {
-    const live = yield* getLiveHost();
-    if (live?.provider === host.name) {
-      const status = yield* host.status(live);
-      if (status) {
-        yield* log.step('acquire host', `reusing live host - ${costBanner(live)}`);
-        return live;
-      }
-      yield* clearLiveHost();
-    }
-    if (remote.kind === 'aws' && !config.aws) {
-      return yield* Effect.fail(
-        makeRemotePipelineFailure({
-          message:
-            'AWS remote builds need an `aws: { region: ... }` block in launch.config.ts. Run `launch cloud setup`.',
-        }),
-      );
-    }
-    const request: MutableDeep<AllocateRequest> = {
-      confirm: (message) => interactiveConfirm(launchPrompt, message),
-      onProgress: (message) => {
-        Effect.runFork(log.note(message));
-      },
-    };
-    if (remote.kind === 'aws' && config.aws !== undefined) request.aws = config.aws;
-    if (remote.kind === 'ssh') request.sshTarget = remote.target;
-    const handle = yield* host.allocate(request);
-    yield* setLiveHost(handle);
-    let acquiredDescription = 'connected';
-    if (host.name === 'aws-ec2-mac') {
-      let instanceId = handle.instanceId;
-      if (instanceId === undefined) instanceId = 'instance';
-      acquiredDescription = `allocated ${instanceId}`;
-    }
-    yield* log.step('acquire host', acquiredDescription, 'ec2-mac');
-    return handle;
-  });
-/** Rehearse the remote flow without touching AWS, SSH, or the account (mirrors the local dry-run). */
-const rehearse = (prepared: PreparedBuild, options: BuildRunOptions, buildNumber: number) =>
-  Effect.gen(function* () {
-    const { app, log } = prepared;
-    yield* log.step(
-      'acquire host',
-      'would reuse the live paid-window host, or allocate one (typed cost consent first)',
-    );
-    yield* log.step(
-      'sync',
-      "would sync the project into the host's persistent work tree (warm node_modules/ios/Pods)",
-    );
-    yield* log.step(
-      'upload creds',
-      'would upload .p12/profile into a per-run ephemeral keychain on the host',
-    );
-    yield* log.step(
-      'build',
-      'would run xcodebuild archive and -exportArchive on the host (incremental unless native deps changed or --clean)',
-    );
-    yield* log.step('pull', 'would pull the .ipa home to ~/.launch/artifacts');
-    yield* log.step(
-      'shred',
-      'would shred the secrets (keychain + creds), keeping the warm work tree for next time',
-    );
-    if (options.submit) {
-      yield* log.step('submit', 'would upload the pulled .ipa to TestFlight', 'testflight');
-    }
-    yield* log.step(
-      'host',
-      'would keep the host for the paid window; auto-release scheduled near 23.5h',
-    );
-    yield* log.gap();
-    let appVersion = app.version;
-    if (appVersion === undefined) appVersion = '0.0.0';
-    yield* log.note(`Done. ${app.name} ${appVersion} (${buildNumber}) - dry-run, nothing changed`);
-  });
-/**
- * Build (and optionally submit) on a remote Mac. Reuses {@link PreparedBuild} from the front half.
- * Shred always runs (success or failure); the AWS host is kept alive for the already-paid window.
- */
-export const runRemoteBuild = (prepared: PreparedBuild, options: BuildRunOptions) =>
-  Effect.gen(function* () {
-    const { config, app, profile, env, log } = prepared;
-    const launchPrompt = yield* LaunchPrompt;
-    const remote = options.remote;
-    if (!remote)
-      return yield* Effect.fail(
-        makeRemotePipelineFailure({ message: 'runRemoteBuild called without a remote target.' }),
-      );
-    const bundleId = app.bundleId;
-    if (!bundleId)
-      return yield* Effect.fail(
-        makeRemotePipelineFailure({
-          message: `No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`,
-        }),
-      );
-    const { dryRun } = options;
-    // C1. Resolve the Apple account + signing material locally (cross-platform), and the build number via ASC.
-    let remoteDescription = 'SSH remote Mac';
-    if (remote.kind === 'ssh') remoteDescription = `SSH ${remote.target}`;
-    if (remote.kind === 'aws') remoteDescription = 'AWS EC2 Mac (your account)';
-    yield* log.step('remote', remoteDescription, 'remote-build');
-    let ascKey: AscKey = DRY_RUN_KEY;
-    let account: AccountRecord | undefined;
-    if (!dryRun) {
-      account = yield* resolveIosAccount(options, log);
-      const loaded = yield* loadAscKeyById(account.keyId);
-      if (!loaded)
-        return yield* Effect.fail(
-          makeRemotePipelineFailure({
-            message: `Apple account "${account.label}" has no stored key. Re-import: launch creds set-key`,
-          }),
-        );
-      ascKey = loaded;
-    }
-    let credentialsDescription = `key ${ascKey.keyId}`;
-    if (dryRun) credentialsDescription = 'dry-run (no key needed)';
-    yield* log.step('credentials', credentialsDescription, 'asc-api-key');
-    const signing = yield* ensureRemoteSigningAssets({
-      // Remote builds are iOS-only in v1: the host bootstrap script is iOS-shaped and a guard rejects
-      // `--remote` for the other Apple platforms before reaching here, so signing is always iOS.
-      platform: 'ios',
-      bundleId,
-      appName: app.name,
-      ascKey,
-      log,
-      dryRun,
-      confirmCreate: (message) => interactiveConfirm(launchPrompt, message),
+): Promise<HostHandle> {
+  const reused = await reuseLiveHost(host, log);
+
+  if (reused != null) {
+    return reused;
+  }
+
+  if (isAwsMissingConfig(remote, launchConfig)) {
+    throw makeRemotePipelineFailure({
+      message:
+        'AWS remote builds need an `aws: { region: ... }` block in launch.config.ts. Run `launch cloud setup`.',
     });
-    let buildNumber: number;
-    if (dryRun) {
-      buildNumber = yield* nextBuildNumber(ascKey, bundleId, dryRun);
-    } else {
-      buildNumber = yield* withSpinner('Checking last build number on App Store Connect', () =>
-        nextBuildNumber(ascKey, bundleId, dryRun),
-      );
+  }
+
+  function confirmSpend(message: string): Promise<boolean> {
+    return interactiveConfirm(launchPrompt, message);
+  }
+
+  const request: MutableDeep<AllocateRequest> = {
+    confirm: confirmSpend,
+    onProgress: noteHostProgress(log),
+  };
+  const aws = awsSettings(remote, launchConfig);
+
+  if (aws != null) {
+    request.aws = aws;
+  }
+
+  if (remote.kind == 'ssh') {
+    request.sshTarget = remote.target;
+  }
+
+  const handle = await host.allocate(request);
+
+  await setLiveHost(handle);
+
+  log.step('acquire host', acquiredHostDescription(host, handle), 'ec2-mac');
+
+  return handle;
+}
+
+async function rehearse(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+  buildNumber: number,
+): Promise<void> {
+  const app = prepared.app;
+  const log = prepared.log;
+
+  log.step(
+    'acquire host',
+    'would reuse the live paid-window host, or allocate one (typed cost consent first)',
+  );
+  log.step(
+    'sync',
+    "would sync the project into the host's persistent work tree (warm node_modules/ios/Pods)",
+  );
+  log.step(
+    'upload creds',
+    'would upload .p12/profile into a per-run ephemeral keychain on the host',
+  );
+  log.step(
+    'build',
+    'would run xcodebuild archive and -exportArchive on the host (incremental unless native deps changed or --clean)',
+  );
+  log.step('pull', 'would pull the .ipa home to ~/.launch/artifacts');
+  log.step(
+    'shred',
+    'would shred the secrets (keychain + creds), keeping the warm work tree for next time',
+  );
+
+  if (buildOptions.submit) {
+    log.step('submit', 'would upload the pulled .ipa to TestFlight', 'testflight');
+  }
+
+  log.step('host', 'would keep the host for the paid window; auto-release scheduled near 23.5h');
+  log.gap();
+
+  let appVersion = app.version;
+
+  if (appVersion == null) {
+    appVersion = '0.0.0';
+  }
+
+  log.note(`Done. ${app.name} ${appVersion} (${buildNumber}) - dry-run, nothing changed`);
+}
+
+function remoteDescriptionFor(remote: RemoteTarget): string {
+  if (remote.kind == 'ssh') {
+    return `SSH ${remote.target}`;
+  }
+
+  return 'AWS EC2 Mac (your account)';
+}
+
+function acquiredHostDescription(host: ComputeHost, handle: HostHandle): string {
+  if (host.name != 'aws-ec2-mac') {
+    return 'connected';
+  }
+
+  let instanceId = 'instance';
+
+  if (handle.instanceId != null) {
+    instanceId = handle.instanceId;
+  }
+
+  return `allocated ${instanceId}`;
+}
+
+function doctorPlan(remote: RemoteTarget): { mode: 'install' | 'assert'; description: string } {
+  if (remote.kind == 'aws') {
+    return { mode: 'install', description: 'host toolchain verified (gaps installed)' };
+  }
+
+  return { mode: 'assert', description: 'host toolchain verified' };
+}
+
+async function loadLiveAscKey(
+  buildOptions: BuildRunOptions,
+  log: Logger,
+  isDryRun: boolean,
+): Promise<{ ascKey: AscKey; account: AccountRecord | undefined }> {
+  if (isDryRun) {
+    return { ascKey: DRY_RUN_KEY, account: undefined };
+  }
+
+  const account = await resolveIosAccount(buildOptions, log);
+  const loaded = await loadAscKeyById(account.keyId);
+
+  if (loaded == null) {
+    throw makeRemotePipelineFailure({
+      message: `Apple account "${account.label}" has no stored key. Re-import: launch creds set-key`,
+    });
+  }
+
+  return { ascKey: loaded, account };
+}
+
+function requireIosBundleId(bundleId: string | undefined, appName: string): string {
+  const bundleIsMissing = bundleId == null;
+
+  if (bundleIsMissing) {
+    throw makeRemotePipelineFailure({
+      message: `No iOS bundle identifier for ${appName}. Set ios.bundleIdentifier in app.json.`,
+    });
+  }
+
+  const bundleIsBlank = bundleId == '';
+
+  if (bundleIsBlank) {
+    throw makeRemotePipelineFailure({
+      message: `No iOS bundle identifier for ${appName}. Set ios.bundleIdentifier in app.json.`,
+    });
+  }
+
+  return bundleId;
+}
+
+/**
+ * Build on a remote Mac. Shred always runs. An AWS host stays up for the paid window.
+ */
+export async function runRemoteBuild(
+  prepared: PreparedBuild,
+  buildOptions: BuildRunOptions,
+): Promise<void> {
+  const launchConfig = prepared.config;
+  const app = prepared.app;
+  const profile = prepared.profile;
+  const environmentValues = prepared.env;
+  const log = prepared.log;
+  const launchPrompt = LaunchPrompt;
+  const remote = buildOptions.remote;
+
+  if (remote == null) {
+    throw makeRemotePipelineFailure({ message: 'runRemoteBuild called without a remote target.' });
+  }
+
+  const bundleId = requireIosBundleId(app.bundleId, app.name);
+
+  const isDryRun = buildOptions.dryRun == true;
+
+  log.step('remote', remoteDescriptionFor(remote), 'remote-build');
+
+  const loadedKey = await loadLiveAscKey(buildOptions, log, isDryRun);
+  const ascKey = loadedKey.ascKey;
+  const account = loadedKey.account;
+  let credentialsDescription = `key ${ascKey.keyId}`;
+
+  if (isDryRun) {
+    credentialsDescription = 'dry-run (no key needed)';
+  }
+
+  log.step('credentials', credentialsDescription, 'asc-api-key');
+
+  function confirmCreate(message: string): Promise<boolean> {
+    return interactiveConfirm(launchPrompt, message);
+  }
+
+  const signing = await ensureRemoteSigningAssets({
+    platform: 'ios',
+    bundleId,
+    appName: app.name,
+    ascKey,
+    log,
+    dryRun: isDryRun,
+    confirmCreate,
+  });
+
+  async function readNextBuildNumber(): Promise<number> {
+    const buildNumber = await nextBuildNumber(ascKey, bundleId, isDryRun);
+
+    return buildNumber;
+  }
+
+  let buildNumber: number;
+
+  if (isDryRun) {
+    buildNumber = await readNextBuildNumber();
+  } else {
+    buildNumber = await withSpinner(
+      'Checking last build number on App Store Connect',
+      readNextBuildNumber,
+    );
+  }
+
+  let buildNumberDescription = String(buildNumber);
+
+  if (isDryRun) {
+    buildNumberDescription = `would set next build number (~${buildNumber})`;
+  }
+
+  log.step('build number', buildNumberDescription, 'build-number');
+
+  if (isDryRun) {
+    await rehearse(prepared, buildOptions, buildNumber);
+    return;
+  }
+
+  const host = hostFor(remote);
+  const handle = await acquireHost(host, remote, launchConfig, log, launchPrompt);
+
+  log.note(costBanner(handle));
+
+  const inputs: RemoteBuildInputs = {
+    appName: app.name,
+    bundleId,
+    signing,
+    buildNumber,
+    forceClean: buildOptions.forceClean == true,
+    prebuildAlways: launchConfig.prebuild == 'always',
+    ccacheEnabled: isCcacheEnabled(buildOptions.ccache),
+    env: environmentValues,
+  };
+  let appVersion = app.version;
+
+  if (appVersion == null) {
+    appVersion = '0.0.0';
+  }
+
+  const session = await openRemoteSession(handle.ssh, app.name);
+  let pulled: { ipaPath: string; sizeReport: SizeReport } | null = null;
+
+  try {
+    log.note('Syncing the project to the host...');
+    await syncProject(session, app.dir);
+    log.step('sync', "project synced to the host's warm work tree");
+    log.note('Checking the host toolchain...');
+
+    const doctor = doctorPlan(remote);
+
+    await runDoctorOnHost(session, doctor.mode);
+    log.step('doctor', doctor.description);
+    await uploadSigningMaterial(session, inputs);
+    log.step('upload creds', 'uploaded into an ephemeral keychain on the host');
+    log.note('Building on the host (archive + sign + export; this can take a while)...');
+
+    const built = await runBuildOnHost(session, inputs);
+    let buildKind = 'incremental (cache warm)';
+
+    if (built.cleanBuilt) {
+      buildKind = 'clean (from scratch)';
     }
-    let buildNumberDescription = String(buildNumber);
-    if (dryRun) buildNumberDescription = `would set next build number (~${buildNumber})`;
-    yield* log.step('build number', buildNumberDescription, 'build-number');
-    if (dryRun) {
-      yield* rehearse(prepared, options, buildNumber);
-      return;
-    }
-    // C2. Acquire (reuse or allocate) the host.
-    const host = yield* hostFor(remote);
-    const handle = yield* acquireHost(host, remote, config, log, launchPrompt);
-    yield* log.note(costBanner(handle));
-    const inputs: RemoteBuildInputs = {
+
+    log.step('build', `${buildKind} - built on the host`, 'incremental-build');
+
+    pulled = await pullArtifact(session, app.name, resolveArtifactsDirectory());
+    await reportSize(pulled.sizeReport, log);
+
+    const artifact: BuildArtifact = {
+      path: pulled.ipaPath,
+      platform: 'ios',
       appName: app.name,
-      bundleId,
-      signing,
-      buildNumber,
-      forceClean: options.forceClean === true,
-      prebuildAlways: config.prebuild === 'always',
-      ccacheEnabled: options.ccache !== false,
-      env,
-    };
-    let appVersion = app.version;
-    if (appVersion === undefined) appVersion = '0.0.0';
-    const session = yield* openRemoteSession(handle.ssh, app.name);
-    let pulled: { ipaPath: string; sizeReport: SizeReport } | null = null;
-    try {
-      // C4 + spine. Sync source into the persistent tree, upload transient creds, build on the host.
-      yield* log.note('Syncing the project to the host...');
-      yield* syncProject(session, app.dir);
-      yield* log.step('sync', "project synced to the host's warm work tree");
-      // The remote twin of `launch doctor`: install gaps on our AWS host, assert (never mutate) a BYO host.
-      yield* log.note('Checking the host toolchain...');
-      let doctorMode: 'install' | 'assert' = 'assert';
-      let doctorDescription = 'host toolchain verified';
-      if (remote.kind === 'aws') {
-        doctorMode = 'install';
-        doctorDescription = 'host toolchain verified (gaps installed)';
-      }
-      yield* runDoctorOnHost(session, doctorMode);
-      yield* log.step('doctor', doctorDescription);
-      yield* uploadSigningMaterial(session, inputs);
-      yield* log.step('upload creds', 'uploaded into an ephemeral keychain on the host');
-      yield* log.note('Building on the host (archive + sign + export; this can take a while)...');
-      const { cleanBuilt } = yield* runBuildOnHost(session, inputs);
-      let buildKind = 'incremental (cache warm)';
-      if (cleanBuilt) buildKind = 'clean (from scratch)';
-      yield* log.step('build', `${buildKind} - built on the host`, 'incremental-build');
-      // C5. Pull the artifact home, show its size, and store it for `launch release`.
-      pulled = yield* pullArtifact(session, app.name, ARTIFACTS_DIR);
-      yield* reportSize(pulled.sizeReport, log);
-      const artifact: BuildArtifact = {
-        path: pulled.ipaPath,
-        platform: 'ios',
-        appName: app.name,
-        profile: profile.name,
-        version: appVersion,
-        buildNumber,
-        sizeReport: pulled.sizeReport,
-        // The host decides clean-vs-incremental from its own warm tree and reports it back.
-        clean: cleanBuilt,
-        createdAt: new Date().toISOString(),
-      };
-      const storageProvider = yield* resolveStorageProvider(config);
-      const stored = yield* storageProvider.put(artifact);
-      yield* log.step('store', stored.location);
-    } finally {
-      // C6. Shred the host session on every exit path (success or build failure).
-      try {
-        yield* shredHost(session);
-        yield* log.step(
-          'shred',
-          'secrets shredded (keychain + creds); warm work tree kept for the next build',
-        );
-      } catch {
-        yield* log.warn('Could not fully shred the host session - check the host manually.');
-      }
-    }
-    // Reaching here means the try block completed, so the pulled artifact is set.
-    if (pulled === null) {
-      return yield* Effect.fail(
-        makeRemotePipelineFailure({
-          message: 'Remote build completed without pulling the .ipa home.',
-        }),
-      );
-    }
-    // C7. Upload the pulled .ipa through the same store submitters as the local spine (the secrets are
-    // already shredded off the host), surface Apple-side processing, the host disposition, then the receipt.
-    if (options.submit) {
-      const credentials: BuildCredentials = { platform: 'ios', ascKey };
-      const submitArtifact = { path: pulled.ipaPath, version: appVersion, buildNumber };
-      yield* uploadIosBuild(prepared, options, submitArtifact, pulled.sizeReport, credentials);
-      yield* reportProcessing(ascKey, bundleId, buildNumber, log);
-    }
-    // Keep AWS hosts alive for the already-paid window; auto-release is scheduled near 23.5h.
-    if (handle.provider === 'aws-ec2-mac') {
-      yield* log.note(
-        `Host kept alive for the paid window (run \`launch cloud teardown\` when done; ` +
-          `it auto-releases near ${new Date(autoReleaseAt(handle.allocatedAt)).toLocaleTimeString()}).`,
-      );
-    }
-    // Backfill the account's Team ID + app names from Apple now that we have a live key in hand.
-    if (account) yield* refreshIdentityIfStale(account, ascKey);
-    let link: string | undefined;
-    if (options.submit) link = yield* resolveAscBuildLink(ascKey, bundleId);
-    yield* renderReceipt({
-      app,
+      profile: profile.name,
       version: appVersion,
       buildNumber,
-      report: pulled.sizeReport,
-      destination: receiptDestination('ios', options),
-      link,
-      log,
+      sizeReport: pulled.sizeReport,
+      clean: built.cleanBuilt,
+      createdAt: new Date().toISOString(),
+    };
+    const storageProvider = await resolveStorageProvider(launchConfig);
+    const stored = await storageProvider.put(artifact);
+
+    log.step('store', stored.location);
+  } finally {
+    try {
+      await shredHost(session);
+      log.step(
+        'shred',
+        'secrets shredded (keychain + creds); warm work tree kept for the next build',
+      );
+    } catch (error) {
+      const shredFailed = error != null;
+
+      if (shredFailed) {
+        log.warn('Could not fully shred the host session - check the host manually.');
+      }
+    }
+  }
+
+  if (pulled == null) {
+    throw makeRemotePipelineFailure({
+      message: 'Remote build completed without pulling the .ipa home.',
     });
+  }
+
+  if (buildOptions.submit) {
+    const credentials: BuildCredentials = { platform: 'ios', ascKey };
+    const submitArtifact = { path: pulled.ipaPath, version: appVersion, buildNumber };
+
+    await uploadIosBuild(prepared, buildOptions, submitArtifact, pulled.sizeReport, credentials);
+    await reportProcessing(ascKey, bundleId, buildNumber, log);
+  }
+
+  if (handle.provider == 'aws-ec2-mac') {
+    log.note(
+      `Host kept alive for the paid window (run \`launch cloud teardown\` when done; ` +
+        `it auto-releases near ${new Date(autoReleaseAt(handle.allocatedAt)).toLocaleTimeString()}).`,
+    );
+  }
+
+  if (account != null) {
+    await refreshIdentityIfStale(account, ascKey);
+  }
+
+  let link: string | undefined;
+
+  if (buildOptions.submit) {
+    link = await resolveAscBuildLink(ascKey, bundleId);
+  }
+
+  await renderReceipt({
+    app,
+    version: appVersion,
+    buildNumber,
+    report: pulled.sizeReport,
+    destination: receiptDestination('ios', buildOptions),
+    link,
+    log,
   });
+}

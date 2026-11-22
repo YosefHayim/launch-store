@@ -1,4 +1,3 @@
-import { Context, Effect, Layer } from 'effect';
 import {
   formatAccountSummary,
   getActiveKeyId,
@@ -7,10 +6,10 @@ import {
   loadAscKeyById,
 } from '../../credentials/accounts.js';
 import {
+  describeMissingPlayServiceAccount,
   describeStoredAndroidCredentials,
   loadCachedKeystore,
   loadServiceAccount,
-  describeMissingPlayServiceAccount,
 } from '../../credentials/androidKeystore.js';
 import {
   describeStoredCredentials,
@@ -33,101 +32,73 @@ type AndroidCredentialStatus = Readonly<{
   readonly hasServiceAccount: boolean;
 }>;
 
-/** Local credential reads needed by a credentials provider. */
-export type LocalCredentialsStoreService = Readonly<{
-  readonly loadAppleKey: (keyId?: string) => Effect.Effect<AscKey | null, unknown>;
-  readonly loadAppleSigningAssets: (
+function accountIsUnresolved(teamId: string | undefined, appCount: number): boolean {
+  if (teamId == null) {
+    return appCount == 0;
+  }
+
+  if (teamId.length == 0) {
+    return appCount == 0;
+  }
+
+  return false;
+}
+
+function countApps(apps: readonly string[] | undefined): number {
+  if (apps == null) {
+    return 0;
+  }
+
+  return apps.length;
+}
+
+export const LocalCredentialsStore = {
+  async loadAppleKey(keyId?: string): Promise<AscKey | null> {
+    if (keyId != null) {
+      return loadAscKeyById(keyId);
+    }
+
+    return loadActiveAscKey();
+  },
+  loadAppleSigningAssets(
     keyId: string,
     bundleId: string,
     extensions?: readonly string[],
-  ) => Effect.Effect<SigningAssets | null, unknown>;
-  readonly describeMissingPlayServiceAccount: (appName: string) => Effect.Effect<string, unknown>;
-  readonly loadPlayServiceAccount: (packageName: string) => Effect.Effect<string | null, unknown>;
-  readonly loadAndroidKeystore: (
-    packageName: string,
-  ) => Effect.Effect<KeystoreAssets | null, unknown>;
-  readonly listAppleAccountStatuses: () => Effect.Effect<
-    readonly AppleCredentialAccountStatus[],
-    unknown
-  >;
-  readonly readAndroidCredentialStatus: (
-    packageName: string,
-  ) => Effect.Effect<AndroidCredentialStatus, unknown>;
-}>;
+  ): Promise<SigningAssets | null> {
+    return loadCachedSigningAssets(keyId, bundleId, extensions);
+  },
+  describeMissingPlayServiceAccount(appName: string): Promise<string> {
+    return describeMissingPlayServiceAccount(appName);
+  },
+  loadPlayServiceAccount(packageName: string): Promise<string | null> {
+    return loadServiceAccount(packageName);
+  },
+  loadAndroidKeystore(packageName: string): Promise<KeystoreAssets | null> {
+    return loadCachedKeystore(packageName);
+  },
+  async listAppleAccountStatuses(): Promise<readonly AppleCredentialAccountStatus[]> {
+    const appleAccounts = await listAccounts();
+    const activeKeyId = await getActiveKeyId();
+    const statuses: AppleCredentialAccountStatus[] = [];
 
-export const LocalCredentialsStore = Context.GenericTag<LocalCredentialsStoreService>(
-  'launch-store/LocalCredentialsStore',
-);
+    for (const appleAccount of appleAccounts) {
+      const storedCredentials = await describeStoredCredentials(appleAccount.keyId);
+      statuses.push({
+        keyId: appleAccount.keyId,
+        label: appleAccount.label,
+        summary: formatAccountSummary(appleAccount, { includeLabel: false }),
+        active: appleAccount.keyId == activeKeyId,
+        unresolved: accountIsUnresolved(appleAccount.teamId, countApps(appleAccount.apps)),
+        certificateSerial: storedCredentials.certSerial,
+        profileCount: storedCredentials.bundleIds.length,
+      });
+    }
 
-type LocalCredentialsStoreRequirements =
-  | Effect.Effect.Context<ReturnType<typeof describeStoredAndroidCredentials>>
-  | Effect.Effect.Context<ReturnType<typeof describeStoredCredentials>>
-  | Effect.Effect.Context<ReturnType<typeof getActiveKeyId>>
-  | Effect.Effect.Context<ReturnType<typeof listAccounts>>
-  | Effect.Effect.Context<ReturnType<typeof loadActiveAscKey>>
-  | Effect.Effect.Context<ReturnType<typeof loadAscKeyById>>
-  | Effect.Effect.Context<ReturnType<typeof loadCachedKeystore>>
-  | Effect.Effect.Context<ReturnType<typeof loadCachedSigningAssets>>
-  | Effect.Effect.Context<ReturnType<typeof loadServiceAccount>>
-  | Effect.Effect.Context<ReturnType<typeof describeMissingPlayServiceAccount>>;
-
-const accountIsUnresolved = (teamId: string | undefined, appCount: number): boolean => {
-  if (teamId !== undefined && teamId.length > 0) return false;
-  return appCount === 0;
+    return statuses;
+  },
+  readAndroidCredentialStatus(packageName: string): Promise<AndroidCredentialStatus> {
+    return describeStoredAndroidCredentials(packageName);
+  },
 };
 
-/** Connect the local credential facade to the account registry, signing cache, and secret store. */
-export const LocalCredentialsStoreLive: Layer.Layer<
-  LocalCredentialsStoreService,
-  never,
-  LocalCredentialsStoreRequirements
-> = Layer.effect(
-  LocalCredentialsStore,
-  Effect.gen(function* () {
-    const credentialStoreContext = yield* Effect.context<LocalCredentialsStoreRequirements>();
-    return {
-      loadAppleKey: (keyId) => {
-        if (keyId !== undefined) {
-          return loadAscKeyById(keyId).pipe(Effect.provide(credentialStoreContext));
-        }
-        return loadActiveAscKey().pipe(Effect.provide(credentialStoreContext));
-      },
-      loadAppleSigningAssets: (keyId, bundleId, extensions) =>
-        loadCachedSigningAssets(keyId, bundleId, extensions).pipe(
-          Effect.provide(credentialStoreContext),
-        ),
-      describeMissingPlayServiceAccount: (appName) =>
-        describeMissingPlayServiceAccount(appName).pipe(Effect.provide(credentialStoreContext)),
-      loadPlayServiceAccount: (packageName: string) =>
-        loadServiceAccount(packageName).pipe(Effect.provide(credentialStoreContext)),
-      loadAndroidKeystore: (packageName: string) =>
-        loadCachedKeystore(packageName).pipe(Effect.provide(credentialStoreContext)),
-      listAppleAccountStatuses: () =>
-        Effect.gen(function* () {
-          const appleAccounts = yield* listAccounts();
-          const activeKeyId = yield* getActiveKeyId();
-          return yield* Effect.forEach(
-            appleAccounts,
-            (appleAccount) =>
-              Effect.gen(function* () {
-                const storedCredentials = yield* describeStoredCredentials(appleAccount.keyId);
-                let appCount = 0;
-                if (appleAccount.apps !== undefined) appCount = appleAccount.apps.length;
-                return {
-                  keyId: appleAccount.keyId,
-                  label: appleAccount.label,
-                  summary: formatAccountSummary(appleAccount, { includeLabel: false }),
-                  active: appleAccount.keyId === activeKeyId,
-                  unresolved: accountIsUnresolved(appleAccount.teamId, appCount),
-                  certificateSerial: storedCredentials.certSerial,
-                  profileCount: storedCredentials.bundleIds.length,
-                };
-              }),
-            { concurrency: 1 },
-          );
-        }).pipe(Effect.provide(credentialStoreContext)),
-      readAndroidCredentialStatus: (packageName: string) =>
-        describeStoredAndroidCredentials(packageName).pipe(Effect.provide(credentialStoreContext)),
-    } satisfies LocalCredentialsStoreService;
-  }),
-);
+export type LocalCredentialsStoreService = typeof LocalCredentialsStore;

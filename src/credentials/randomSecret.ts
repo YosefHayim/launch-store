@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { Effect } from 'effect';
 
-export const randomHexSecret = (byteCount: number): Effect.Effect<string> =>
-  Effect.sync(() => randomBytes(byteCount).toString('hex'));
+export function randomHexSecret(byteCount: number): string {
+  return randomBytes(byteCount).toString('hex');
+}

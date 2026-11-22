@@ -1,4 +1,3 @@
-import { Effect, Schema } from 'effect';
 import {
   APP_CLIP_ACTIONS,
   type AppClipActionValue,
@@ -14,108 +13,44 @@ import type {
   AppClipLocalizationConfig,
   AppClipsConfig,
 } from '../../types/storeSurface.js';
-import {
-  decodeStoreSurfaceConfig,
-  loadStoreSurfaceConfig,
-  type StoreSurfaceConfigFailure,
-} from '../shared/surfaceConfig.js';
+import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.js';
 
-const AppClipLocalizationSchema = Schema.mutable(
-  Schema.Struct({
-    subtitle: Schema.String.annotations({
-      message: () => 'appclips.config.json: subtitle must be a string.',
-    }),
-  }),
-);
-
-const AppClipConfigSchema = Schema.mutable(
-  Schema.Struct({
-    action: Schema.optionalWith(
-      Schema.Literal(...APP_CLIP_ACTIONS).annotations({
-        message: () => 'appclips.config.json: action must be one of OPEN / VIEW / PLAY.',
-      }),
-      { exact: true },
-    ),
-    localizations: Schema.optionalWith(
-      Schema.mutable(Schema.Record({ key: Schema.String, value: AppClipLocalizationSchema })),
-      { exact: true },
-    ),
-  }),
-).pipe(
-  Schema.filter((appClipConfig) => {
-    if (appClipConfig.action !== undefined) return true;
-    if (appClipConfig.localizations !== undefined) return true;
-    return 'appclips.config.json: a clip declares nothing - set an action and/or localizations.';
-  }),
-);
-
-const AppClipsConfigSchema = Schema.mutable(
-  Schema.Struct({
-    clips: Schema.mutable(Schema.Record({ key: Schema.String, value: AppClipConfigSchema })).pipe(
-      Schema.filter((declaredClips) => {
-        if (Object.keys(declaredClips).length > 0) return true;
-        return 'appclips.config.json must declare at least one App Clip under "clips" (keyed by clip bundle id).';
-      }),
-    ),
-  }),
-);
-
-const AppClipsConfigSpec = {
-  documentName: 'appclips.config.json',
-  displayName: 'App Clips config',
-  missingMessage: (configPath: string) =>
-    `No App Clips config at ${configPath}. Create one (see \`launch app-clips --help\`) or pass --config.`,
-  schema: AppClipsConfigSchema,
-};
+const APP_CLIPS_DOCUMENT_NAME = 'appclips.config.json';
 /** Platform whose editable App Store version the default experience releases with. */
 const DEFAULT_PLATFORM = 'IOS';
+
 /**
- * The exact slice of {@link AppStoreConnectClient} the App Clips reconciler depends on. Declaring it here
- * (rather than taking the concrete client) keeps the diff logic unit-testable with a hand-rolled fake;
- * `AppStoreConnectClient` satisfies it structurally, mirroring {@link AscReleaseApi} in `releaseAttrs.ts`.
+ * The exact slice of App Store Connect the App Clips reconciler depends on. Declaring it here
+ * keeps the diff logic unit-testable with a hand-rolled fake.
  */
 export type AscAppClipsApi = {
-  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
-  findEditableAppStoreVersion(
-    appId: string,
-    platform: string,
-  ): Effect.Effect<
-    {
-      id: string;
-    } | null,
-    unknown
-  >;
-  listAppClips(appId: string): Effect.Effect<AppClipResource[], unknown>;
-  listAppClipDefaultExperiences(
-    appClipId: string,
-  ): Effect.Effect<AppClipDefaultExperienceResource[], unknown>;
+  getAppId(bundleId: string): Promise<string | null>;
+  findEditableAppStoreVersion(appId: string, platform: string): Promise<{ id: string } | null>;
+  listAppClips(appId: string): Promise<AppClipResource[]>;
+  listAppClipDefaultExperiences(appClipId: string): Promise<AppClipDefaultExperienceResource[]>;
   createAppClipDefaultExperience(
     appClipId: string,
     versionId: string,
     action?: AppClipActionValue,
-  ): Effect.Effect<
-    {
-      id: string;
-    },
-    unknown
-  >;
+  ): Promise<{ id: string }>;
   updateAppClipDefaultExperienceAction(
     experienceId: string,
     action: AppClipActionValue,
-  ): Effect.Effect<void, unknown>;
+  ): Promise<void>;
   listAppClipDefaultExperienceLocalizations(
     experienceId: string,
-  ): Effect.Effect<AppClipLocalizationResource[], unknown>;
+  ): Promise<AppClipLocalizationResource[]>;
   createAppClipDefaultExperienceLocalization(
     experienceId: string,
     locale: string,
     subtitle: string,
-  ): Effect.Effect<void, unknown>;
+  ): Promise<void>;
   updateAppClipDefaultExperienceLocalization(
     localizationId: string,
     subtitle: string,
-  ): Effect.Effect<void, unknown>;
+  ): Promise<void>;
 };
+
 /** Inputs to reconcile one app's App Clip cards. */
 type AppClipsReconcileInput = {
   bundleId: string;
@@ -123,114 +58,217 @@ type AppClipsReconcileInput = {
   platform?: string;
   dryRun: boolean;
 };
-/**
- * The outcome of ensuring a clip's default experience exists for the editable version: an `id` (it
- * existed or was created and we can reconcile its localizations now), `planned` (a dry-run create - its
- * localizations are planned but not diffed), or `failed` (an apply-time create error - skip its rest).
- */
-type EnsuredExperience =
-  | {
-      id: string;
+
+type EnsuredExperience = { id: string } | { planned: true } | { failed: true };
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function isListedText<Literal extends string>(
+  candidate: unknown,
+  allowed: readonly Literal[],
+): candidate is Literal {
+  if (typeof candidate != 'string') {
+    return false;
+  }
+
+  for (const allowedText of allowed) {
+    const isMatch = allowedText == candidate;
+
+    if (isMatch) {
+      return true;
     }
-  | {
-      planned: true;
+  }
+
+  return false;
+}
+
+function readSubtitle(entry: unknown): string {
+  const isSubtitleRecord = isRecord(entry);
+
+  if (isSubtitleRecord == false) {
+    throw new Error(`${APP_CLIPS_DOCUMENT_NAME}: subtitle must be a string.`);
+  }
+
+  const subtitle = entry['subtitle'];
+  const isText = typeof subtitle == 'string';
+
+  if (isText == false) {
+    throw new Error(`${APP_CLIPS_DOCUMENT_NAME}: subtitle must be a string.`);
+  }
+
+  return subtitle;
+}
+
+function readLocalizations(
+  record: Record<string, unknown>,
+): Record<string, AppClipLocalizationConfig> | null {
+  const hasLocalizations = Object.hasOwn(record, 'localizations');
+
+  if (hasLocalizations == false) {
+    return null;
+  }
+
+  const localizationsField = record['localizations'];
+  const isLocalizationRecord = isRecord(localizationsField);
+
+  if (isLocalizationRecord == false) {
+    throw new Error(`${APP_CLIPS_DOCUMENT_NAME}: localizations must be an object.`);
+  }
+
+  const localizations: Record<string, AppClipLocalizationConfig> = {};
+
+  for (const locale of Object.keys(localizationsField)) {
+    localizations[locale] = { subtitle: readSubtitle(localizationsField[locale]) };
+  }
+
+  return localizations;
+}
+
+function readClip(entry: unknown): AppClipConfig {
+  const isClipRecord = isRecord(entry);
+
+  if (isClipRecord == false) {
+    throw new Error(`${APP_CLIPS_DOCUMENT_NAME}: clip entries must be JSON objects.`);
+  }
+
+  const clip: {
+    action?: AppClipActionValue;
+    localizations?: Record<string, AppClipLocalizationConfig>;
+  } = {};
+  const hasAction = Object.hasOwn(entry, 'action');
+
+  if (hasAction) {
+    const action = entry['action'];
+    const isAction = isListedText(action, APP_CLIP_ACTIONS);
+
+    if (isAction == false) {
+      throw new Error(`${APP_CLIPS_DOCUMENT_NAME}: action must be one of OPEN / VIEW / PLAY.`);
     }
-  | {
-      failed: true;
-    };
-/**
- * Reconcile one app's declared App Clip cards. Throws only for a precondition the user must fix (no ASC
- * app record); everything else is captured per-action so a single failure never aborts the run. A clip
- * with no matching `appClip` (build not uploaded yet) or no editable version is skipped with a reason.
- */
-export const reconcileAppClips = (
-  api: AscAppClipsApi,
-  input: AppClipsReconcileInput,
-): Effect.Effect<ReconcileReport, unknown> =>
-  Effect.gen(function* () {
-    const reconcileContext: ReconcileContext = { actions: [], dryRun: input.dryRun };
-    const appId = yield* api.getAppId(input.bundleId);
-    if (!appId) return yield* Effect.fail(appRecordMissing(input.bundleId, 'app-clips'));
-    let platform = DEFAULT_PLATFORM;
-    if (input.platform !== undefined) platform = input.platform;
-    const editable = yield* api.findEditableAppStoreVersion(appId, platform);
-    if (!editable) {
-      skip(
-        reconcileContext,
-        'App Clips: no editable App Store version (create/select a version first)',
-      );
-      return { bundleId: input.bundleId, actions: reconcileContext.actions };
-    }
-    const clips = yield* api.listAppClips(appId);
-    const clipsByBundleId = new Map<string, AppClipResource>();
-    for (const clip of clips) {
-      if (clip.bundleId !== undefined) clipsByBundleId.set(clip.bundleId, clip);
-    }
-    for (const [clipBundleId, declared] of Object.entries(input.config.clips)) {
-      const clip = clipsByBundleId.get(clipBundleId);
-      if (!clip) {
-        skip(
-          reconcileContext,
-          `App Clip ${clipBundleId}: no clip record yet - upload a build with this App Clip target first`,
-        );
-        continue;
-      }
-      yield* reconcileClip(reconcileContext, api, clip, clipBundleId, editable.id, declared);
-    }
-    return { bundleId: input.bundleId, actions: reconcileContext.actions };
-  });
-/** Reconcile one clip's default experience (action) and its card localizations against the editable version. */
-const reconcileClip = (
-  reconcileContext: ReconcileContext,
-  api: AscAppClipsApi,
-  clip: AppClipResource,
-  clipBundleId: string,
-  versionId: string,
-  declared: AppClipConfig,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const experiences = yield* api.listAppClipDefaultExperiences(clip.id);
-    const existing = experiences.find((experience) => experience.versionId === versionId);
-    const ensured = yield* ensureExperience(
-      reconcileContext,
-      api,
-      clip,
-      clipBundleId,
-      versionId,
-      existing,
-      declared.action,
+
+    clip.action = action;
+  }
+
+  const localizations = readLocalizations(entry);
+  const hasLocalizations = localizations != null;
+
+  if (hasLocalizations) {
+    clip.localizations = localizations;
+  }
+
+  const declaresAction = clip.action != null;
+
+  if (declaresAction) {
+    return clip;
+  }
+
+  const declaresLocalizations = clip.localizations != null;
+
+  if (declaresLocalizations) {
+    return clip;
+  }
+
+  throw new Error(
+    `${APP_CLIPS_DOCUMENT_NAME}: a clip declares nothing - set an action and/or localizations.`,
+  );
+}
+
+function decodeAppClipsDocument(rawDocument: unknown): AppClipsConfig {
+  const documentRecord = rawDocument as Record<string, unknown>;
+  const clipsField = documentRecord['clips'];
+  const isClipRecord = isRecord(clipsField);
+
+  if (isClipRecord == false) {
+    throw new Error(
+      `${APP_CLIPS_DOCUMENT_NAME} must declare at least one App Clip under "clips" (keyed by clip bundle id).`,
     );
-    let declaredLocalizations: Record<string, AppClipLocalizationConfig> = {};
-    if (declared.localizations !== undefined) declaredLocalizations = declared.localizations;
-    if ('id' in ensured) {
-      yield* reconcileLocalizations(
-        reconcileContext,
-        api,
-        ensured.id,
-        clipBundleId,
-        declaredLocalizations,
-      );
-    } else if ('planned' in ensured) {
-      for (const locale of Object.keys(declaredLocalizations)) {
-        reconcileContext.actions.push({
-          description: `set ${clipBundleId} card subtitle (${locale})`,
-          destructive: false,
-          status: 'planned',
-        });
-      }
-    } else if (Object.keys(declaredLocalizations).length > 0) {
-      skip(
-        reconcileContext,
-        `App Clip ${clipBundleId}: skipped card subtitles - its default experience could not be created`,
-      );
-    }
-  });
+  }
+
+  const clipBundleIds = Object.keys(clipsField);
+  const hasClips = clipBundleIds.length > 0;
+
+  if (hasClips == false) {
+    throw new Error(
+      `${APP_CLIPS_DOCUMENT_NAME} must declare at least one App Clip under "clips" (keyed by clip bundle id).`,
+    );
+  }
+
+  const clips: Record<string, AppClipConfig> = {};
+
+  for (const clipBundleId of clipBundleIds) {
+    clips[clipBundleId] = readClip(clipsField[clipBundleId]);
+  }
+
+  return { clips };
+}
+
+function missingAppClipsMessage(configPath: string): string {
+  return `No App Clips config at ${configPath}. Create one (see \`launch app-clips --help\`) or pass --config.`;
+}
+
+const appClipsConfigSpec = {
+  documentName: APP_CLIPS_DOCUMENT_NAME,
+  displayName: 'App Clips config',
+  missingMessage: missingAppClipsMessage,
+  decodeDocument: decodeAppClipsDocument,
+};
+
+function isReadyExperience(ensured: EnsuredExperience): ensured is { id: string } {
+  return 'id' in ensured;
+}
+
+function isPlannedExperience(ensured: EnsuredExperience): ensured is { planned: true } {
+  return 'planned' in ensured;
+}
+
+function matchesVersion(versionId: string, experience: AppClipDefaultExperienceResource): boolean {
+  return experience.versionId == versionId;
+}
+
+function localizationByLocale(
+  localization: AppClipLocalizationResource,
+): [string, AppClipLocalizationResource] {
+  return [localization.locale, localization];
+}
+
+function needsActionUpdate(
+  existingAction: AppClipActionValue | undefined,
+  declaredAction: AppClipActionValue | undefined,
+): boolean {
+  if (declaredAction == null) {
+    return false;
+  }
+
+  return existingAction != declaredAction;
+}
+
+async function applyWrite(plannedAction: PlannedAction, write: () => Promise<void>): Promise<void> {
+  try {
+    await write();
+    plannedAction.status = 'applied';
+  } catch (writeFailure) {
+    plannedAction.status = 'failed';
+    plannedAction.error = errorMessage(writeFailure);
+  }
+}
+
 /**
- * Ensure a clip has a default experience for the editable version, reconciling its `action`. Returns an
- * {@link EnsuredExperience} so the caller knows whether localizations can be diffed (id), are only planned
- * (dry-run create), or must be skipped (apply-time create failure).
+ * Ensure a clip has a default experience for the editable version, reconciling its action.
  */
-const ensureExperience = (
+async function ensureExperience(
   reconcileContext: ReconcileContext,
   api: AscAppClipsApi,
   clip: AppClipResource,
@@ -238,110 +276,252 @@ const ensureExperience = (
   versionId: string,
   existing: AppClipDefaultExperienceResource | undefined,
   action: AppClipActionValue | undefined,
-): Effect.Effect<EnsuredExperience, unknown> =>
-  Effect.gen(function* () {
-    if (existing) {
-      if (action !== undefined && existing.action !== action) {
-        const updateAction = plan(reconcileContext, `set ${clipBundleId} card action = ${action}`);
-        if (!reconcileContext.dryRun) {
-          yield* api.updateAppClipDefaultExperienceAction(existing.id, action).pipe(
-            Effect.match({
-              onFailure: (writeFailure) => {
-                updateAction.status = 'failed';
-                updateAction.error = errorMessage(writeFailure);
-              },
-              onSuccess: () => {
-                updateAction.status = 'applied';
-              },
-            }),
+): Promise<EnsuredExperience> {
+  const hasExperience = existing != null;
+
+  if (hasExperience) {
+    const currentActionText = existing.action;
+    const isKnownAction = isListedText(currentActionText, APP_CLIP_ACTIONS);
+    const currentAction = isKnownAction ? currentActionText : undefined;
+    const shouldUpdateAction = needsActionUpdate(currentAction, action);
+
+    if (shouldUpdateAction) {
+      const declaredAction = action;
+      const updateAction = plan(
+        reconcileContext,
+        `set ${clipBundleId} card action = ${declaredAction}`,
+      );
+      const isDryRun = reconcileContext.dryRun == true;
+
+      if (isDryRun == false) {
+        await applyWrite(updateAction, function updateCardAction() {
+          return api.updateAppClipDefaultExperienceAction(
+            existing.id,
+            declaredAction as AppClipActionValue,
           );
-        }
+        });
       }
-      return { id: existing.id };
     }
-    let actionDetail = '';
-    if (action !== undefined) actionDetail = ` (action=${action})`;
-    const create: PlannedAction = {
-      description: `create ${clipBundleId} App Clip default experience${actionDetail}`,
-      destructive: false,
-      status: 'planned',
-    };
-    reconcileContext.actions.push(create);
-    if (reconcileContext.dryRun) return { planned: true };
-    return yield* api.createAppClipDefaultExperience(clip.id, versionId, action).pipe(
-      Effect.match({
-        onFailure: (writeFailure): EnsuredExperience => {
-          create.status = 'failed';
-          create.error = errorMessage(writeFailure);
-          return { failed: true };
-        },
-        onSuccess: (created): EnsuredExperience => {
-          create.status = 'applied';
-          return { id: created.id };
-        },
-      }),
-    );
-  });
-/** Create missing card locales and update any whose subtitle differs (no action when already in sync). */
-const reconcileLocalizations = (
+
+    return { id: existing.id };
+  }
+
+  let actionDetail = '';
+  const hasAction = action != null;
+
+  if (hasAction) {
+    actionDetail = ` (action=${action})`;
+  }
+
+  const create: PlannedAction = {
+    description: `create ${clipBundleId} App Clip default experience${actionDetail}`,
+    destructive: false,
+    status: 'planned',
+  };
+  reconcileContext.actions.push(create);
+  const isDryRun = reconcileContext.dryRun == true;
+
+  if (isDryRun) {
+    return { planned: true };
+  }
+
+  try {
+    const created = await api.createAppClipDefaultExperience(clip.id, versionId, action);
+    create.status = 'applied';
+    return { id: created.id };
+  } catch (writeFailure) {
+    create.status = 'failed';
+    create.error = errorMessage(writeFailure);
+    return { failed: true };
+  }
+}
+
+/** Create missing card locales and update any whose subtitle differs. */
+async function reconcileLocalizations(
   reconcileContext: ReconcileContext,
   api: AscAppClipsApi,
   experienceId: string,
   clipBundleId: string,
   declared: Record<string, AppClipLocalizationConfig>,
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const localizations = yield* api.listAppClipDefaultExperienceLocalizations(experienceId);
-    const existing = new Map(localizations.map((loc) => [loc.locale, loc]));
-    for (const [locale, localization] of Object.entries(declared)) {
-      const current = existing.get(locale);
-      if (!current) {
-        const createAction = plan(
-          reconcileContext,
-          `set ${clipBundleId} card subtitle (${locale})`,
-        );
-        if (!reconcileContext.dryRun)
-          yield* api
-            .createAppClipDefaultExperienceLocalization(experienceId, locale, localization.subtitle)
-            .pipe(
-              Effect.match({
-                onFailure: (writeFailure) => {
-                  createAction.status = 'failed';
-                  createAction.error = errorMessage(writeFailure);
-                },
-                onSuccess: () => {
-                  createAction.status = 'applied';
-                },
-              }),
-            );
-      } else if (current.subtitle !== localization.subtitle) {
-        const updateAction = plan(
-          reconcileContext,
-          `update ${clipBundleId} card subtitle (${locale})`,
-        );
-        if (!reconcileContext.dryRun)
-          yield* api
-            .updateAppClipDefaultExperienceLocalization(current.id, localization.subtitle)
-            .pipe(
-              Effect.match({
-                onFailure: (writeFailure) => {
-                  updateAction.status = 'failed';
-                  updateAction.error = errorMessage(writeFailure);
-                },
-                onSuccess: () => {
-                  updateAction.status = 'applied';
-                },
-              }),
-            );
-      }
-    }
-  });
-/** Decode an untrusted App Clips config document. */
-export const parseAppClipsConfig = (
-  rawDocument: unknown,
-): Effect.Effect<AppClipsConfig, StoreSurfaceConfigFailure> =>
-  decodeStoreSurfaceConfig(rawDocument, AppClipsConfigSpec);
+): Promise<void> {
+  const localizations = await api.listAppClipDefaultExperienceLocalizations(experienceId);
+  const existing = new Map(localizations.map(localizationByLocale));
 
-/** Read and decode appclips.config.json through Effect Platform. */
-export const loadAppClipsConfig = (configPath: string) =>
-  loadStoreSurfaceConfig(configPath, AppClipsConfigSpec);
+  for (const [locale, localization] of Object.entries(declared)) {
+    const current = existing.get(locale);
+    const isMissing = current == null;
+
+    if (isMissing) {
+      const createAction = plan(reconcileContext, `set ${clipBundleId} card subtitle (${locale})`);
+      const isDryRun = reconcileContext.dryRun == true;
+
+      if (isDryRun == false) {
+        await applyWrite(createAction, function createSubtitle() {
+          return api.createAppClipDefaultExperienceLocalization(
+            experienceId,
+            locale,
+            localization.subtitle,
+          );
+        });
+      }
+
+      continue;
+    }
+
+    const subtitleDiffers = current.subtitle != localization.subtitle;
+
+    if (subtitleDiffers == false) {
+      continue;
+    }
+
+    const updateAction = plan(reconcileContext, `update ${clipBundleId} card subtitle (${locale})`);
+    const isDryRun = reconcileContext.dryRun == true;
+
+    if (isDryRun) {
+      continue;
+    }
+
+    await applyWrite(updateAction, function updateSubtitle() {
+      return api.updateAppClipDefaultExperienceLocalization(current.id, localization.subtitle);
+    });
+  }
+}
+
+/** Reconcile one clip's default experience and its card localizations against the editable version. */
+async function reconcileClip(
+  reconcileContext: ReconcileContext,
+  api: AscAppClipsApi,
+  clip: AppClipResource,
+  clipBundleId: string,
+  versionId: string,
+  declared: AppClipConfig,
+): Promise<void> {
+  const experiences = await api.listAppClipDefaultExperiences(clip.id);
+  const existing = experiences.find(function matchesEditableVersion(experience) {
+    return matchesVersion(versionId, experience);
+  });
+  const ensured = await ensureExperience(
+    reconcileContext,
+    api,
+    clip,
+    clipBundleId,
+    versionId,
+    existing,
+    declared.action,
+  );
+  let declaredLocalizations: Record<string, AppClipLocalizationConfig> = {};
+  const hasDeclaredLocalizations = declared.localizations != null;
+
+  if (hasDeclaredLocalizations) {
+    declaredLocalizations = declared.localizations;
+  }
+
+  if (isReadyExperience(ensured)) {
+    await reconcileLocalizations(
+      reconcileContext,
+      api,
+      ensured.id,
+      clipBundleId,
+      declaredLocalizations,
+    );
+    return;
+  }
+
+  if (isPlannedExperience(ensured)) {
+    for (const locale of Object.keys(declaredLocalizations)) {
+      reconcileContext.actions.push({
+        description: `set ${clipBundleId} card subtitle (${locale})`,
+        destructive: false,
+        status: 'planned',
+      });
+    }
+
+    return;
+  }
+
+  const hasLocalizations = Object.keys(declaredLocalizations).length > 0;
+
+  if (hasLocalizations) {
+    skip(
+      reconcileContext,
+      `App Clip ${clipBundleId}: skipped card subtitles - its default experience could not be created`,
+    );
+  }
+}
+
+/**
+ * Reconcile one app's declared App Clip cards. Throws only for a precondition the user must fix (no ASC
+ * app record); everything else is captured per-action so a single failure never aborts the run.
+ */
+export async function reconcileAppClips(
+  api: AscAppClipsApi,
+  reconcileInput: AppClipsReconcileInput,
+): Promise<ReconcileReport> {
+  const reconcileContext: ReconcileContext = { actions: [], dryRun: reconcileInput.dryRun };
+  const appId = await api.getAppId(reconcileInput.bundleId);
+  const isAppMissing = appId == null;
+
+  if (isAppMissing) {
+    throw appRecordMissing(reconcileInput.bundleId, 'app-clips');
+  }
+
+  const requestedPlatform = reconcileInput.platform;
+  const hasPlatform = requestedPlatform != null;
+  let platform = DEFAULT_PLATFORM;
+
+  if (hasPlatform) {
+    platform = requestedPlatform;
+  }
+
+  const editable = await api.findEditableAppStoreVersion(appId, platform);
+  const hasEditableVersion = editable != null;
+
+  if (hasEditableVersion == false) {
+    skip(
+      reconcileContext,
+      'App Clips: no editable App Store version (create/select a version first)',
+    );
+    return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
+  }
+
+  const clips = await api.listAppClips(appId);
+  const clipsByBundleId = new Map<string, AppClipResource>();
+
+  for (const clip of clips) {
+    const clipBundleId = clip.bundleId;
+    const hasBundleId = clipBundleId != null;
+
+    if (hasBundleId == false) {
+      continue;
+    }
+
+    clipsByBundleId.set(clipBundleId, clip);
+  }
+
+  for (const [clipBundleId, declared] of Object.entries(reconcileInput.config.clips)) {
+    const clip = clipsByBundleId.get(clipBundleId);
+    const isClipMissing = clip == null;
+
+    if (isClipMissing) {
+      skip(
+        reconcileContext,
+        `App Clip ${clipBundleId}: no clip record yet - upload a build with this App Clip target first`,
+      );
+      continue;
+    }
+
+    await reconcileClip(reconcileContext, api, clip, clipBundleId, editable.id, declared);
+  }
+
+  return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
+}
+
+/** Decode an untrusted App Clips config document. */
+export function parseAppClipsConfig(rawDocument: unknown): AppClipsConfig {
+  return decodeStoreSurfaceConfig(rawDocument, appClipsConfigSpec);
+}
+
+/** Read and decode appclips.config.json. */
+export function loadAppClipsConfig(configPath: string): Promise<AppClipsConfig> {
+  return loadStoreSurfaceConfig(configPath, appClipsConfigSpec);
+}

@@ -1,4 +1,3 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { Car } from '../types/releaseTrain.js';
 import {
@@ -22,7 +21,7 @@ const BASE_OPTIONS = {
 describe('ReleaseTrainCommandInputSchema', () => {
   it('decodes a start request with exact optional flags', () => {
     expect(
-      Schema.decodeUnknownSync(ReleaseTrainCommandInputSchema)({
+      ReleaseTrainCommandInputSchema({
         action: 'start',
         options: {
           ...BASE_OPTIONS,
@@ -44,7 +43,7 @@ describe('ReleaseTrainCommandInputSchema', () => {
 
   it('decodes a status request with a train id', () => {
     expect(
-      Schema.decodeUnknownSync(ReleaseTrainCommandInputSchema)({
+      ReleaseTrainCommandInputSchema({
         action: 'status',
         id: 'demo-ab12',
         options: { ...BASE_OPTIONS, watch: true, json: false },
@@ -57,13 +56,15 @@ describe('ReleaseTrainCommandInputSchema', () => {
   });
 
   it('rejects explicit undefined exact optionals', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(ReleaseTrainCommandInputSchema)({
+    function decodeExplicitUndefined(): void {
+      ReleaseTrainCommandInputSchema({
         action: 'start',
         id: undefined,
         options: { ...BASE_OPTIONS },
-      }),
-    ).toThrow();
+      });
+    }
+
+    expect(decodeExplicitUndefined).toThrow();
   });
 });
 

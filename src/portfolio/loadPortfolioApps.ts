@@ -1,61 +1,72 @@
-import type { FileSystem, Path } from '@effect/platform';
-import { Clock, Effect } from 'effect';
-import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
-import type { LaunchPathsService } from '../services/platform/paths.js';
-import type { StatsCredentialsShape } from '../types/stats.js';
 import type { PortfolioFile, PortfolioLoad, PortfolioLoadMode } from '../types/portfolio.js';
 import { discoverApps } from './discoverApps.js';
-import { keepCachedAppsOfFailedAccounts, joinTags } from './portfolioLogic.js';
+import { joinTags, keepCachedAppsOfFailedAccounts } from './portfolioLogic.js';
 import { loadPortfolioFile, pickSavedPortfolioFile, savePortfolioFile } from './portfolioStore.js';
 
-type LoadPortfolioRequirements =
-  | FileSystem.FileSystem
-  | LaunchPathsService
-  | Path.Path
-  | StatsCredentialsShape;
-
-const isEveryAccountFailed = (attemptedAccountCount: number, failedAccountCount: number): boolean =>
-  attemptedAccountCount > 0 && failedAccountCount === attemptedAccountCount;
-
-export const loadPortfolioApps = (
+function isCacheUsable(
   mode: PortfolioLoadMode,
-): Effect.Effect<PortfolioLoad, DocumentFileFailure, LoadPortfolioRequirements> =>
-  Effect.gen(function* () {
-    const cachedFile = yield* loadPortfolioFile();
-    const isCacheUsable = mode === 'cache-first' && cachedFile !== null;
-    if (isCacheUsable) {
-      return { apps: joinTags(cachedFile.apps, cachedFile.tags), warnings: [], isFromCache: true };
-    }
-    const report = yield* discoverApps();
-    const savedFile = pickSavedPortfolioFile(cachedFile);
-    const isDiscoveryUseless = isEveryAccountFailed(
-      report.attemptedAccountCount,
-      report.failedAccountLabels.length,
-    );
-    if (isDiscoveryUseless) {
-      return {
-        apps: joinTags(savedFile.apps, savedFile.tags),
-        warnings: report.warnings,
-        isFromCache: true,
-      };
-    }
-    const apps = keepCachedAppsOfFailedAccounts(
-      report.apps,
-      savedFile.apps,
-      report.failedAccountLabels,
-    );
-    const discoveredAtMilliseconds = yield* Clock.currentTimeMillis;
-    const refreshedFile: PortfolioFile = {
-      version: 1,
-      discoveredAt: new Date(discoveredAtMilliseconds).toISOString(),
-      apps,
-      tags: savedFile.tags,
-      playReportsBucket: savedFile.playReportsBucket,
-    };
-    yield* savePortfolioFile(refreshedFile);
+  cachedFile: PortfolioFile | null,
+): cachedFile is PortfolioFile {
+  if (mode != 'cache-first') {
+    return false;
+  }
+
+  return cachedFile != null;
+}
+
+function isEveryAccountFailed(attemptedAccountCount: number, failedAccountCount: number): boolean {
+  if (attemptedAccountCount == 0) {
+    return false;
+  }
+
+  return failedAccountCount == attemptedAccountCount;
+}
+
+export async function loadPortfolioApps(mode: PortfolioLoadMode): Promise<PortfolioLoad> {
+  const cachedFile = await loadPortfolioFile();
+
+  if (isCacheUsable(mode, cachedFile)) {
     return {
-      apps: joinTags(apps, refreshedFile.tags),
-      warnings: report.warnings,
-      isFromCache: false,
+      apps: joinTags(cachedFile.apps, cachedFile.tags),
+      warnings: [],
+      isFromCache: true,
     };
-  });
+  }
+
+  const report = await discoverApps();
+  const savedFile = pickSavedPortfolioFile(cachedFile);
+  const isDiscoveryUseless = isEveryAccountFailed(
+    report.attemptedAccountCount,
+    report.failedAccountLabels.length,
+  );
+
+  if (isDiscoveryUseless) {
+    return {
+      apps: joinTags(savedFile.apps, savedFile.tags),
+      warnings: report.warnings,
+      isFromCache: true,
+    };
+  }
+
+  const apps = keepCachedAppsOfFailedAccounts(
+    report.apps,
+    savedFile.apps,
+    report.failedAccountLabels,
+  );
+  const discoveredAtMilliseconds = Date.now();
+  const refreshedFile: PortfolioFile = {
+    version: 1,
+    discoveredAt: new Date(discoveredAtMilliseconds).toISOString(),
+    apps,
+    tags: savedFile.tags,
+    playReportsBucket: savedFile.playReportsBucket,
+  };
+
+  await savePortfolioFile(refreshedFile);
+
+  return {
+    apps: joinTags(apps, refreshedFile.tags),
+    warnings: report.warnings,
+    isFromCache: false,
+  };
+}

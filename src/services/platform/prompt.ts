@@ -1,220 +1,310 @@
-import { Context, Data, Effect, Layer } from 'effect';
 import { Prompts } from '../../prompts.js';
-import { createLogger, type Logger } from './logger.js';
+import { createLogger } from './logger.js';
 
 const prompts = new Prompts();
 
 type PromptSelectionFailure = Readonly<{
-  readonly _tag: 'PromptSelectionFailure';
-  readonly message: string;
-  readonly cause?: unknown;
+  _tag: 'PromptSelectionFailure';
+  message: string;
+  cause?: unknown;
 }>;
 
-const makePromptSelectionFailure = Data.tagged<PromptSelectionFailure>('PromptSelectionFailure');
+function makePromptSelectionFailure(fields: {
+  message: string;
+  cause?: unknown;
+}): PromptSelectionFailure {
+  return { _tag: 'PromptSelectionFailure', message: fields.message, cause: fields.cause };
+}
 
-type PromptChoice<TSelection> = {
-  readonly selection: TSelection;
-  readonly label: string;
-  readonly hint?: string;
+type PromptChoice<Selection> = {
+  selection: Selection;
+  label: string;
+  hint?: string;
 };
 
-type PromptSelectionRequest<TSelection> = {
-  readonly message: string;
-  readonly choices: readonly PromptChoice<TSelection>[];
-  readonly searchThreshold?: number;
-  readonly initialSelection?: TSelection;
+type PromptSelectionRequest<Selection> = {
+  message: string;
+  choices: readonly PromptChoice<Selection>[];
+  searchThreshold?: number;
+  initialSelection?: Selection;
 };
 
-type PromptMultiSelectionRequest<TSelection> = Readonly<{
-  readonly message: string;
-  readonly choices: readonly PromptChoice<TSelection>[];
-  readonly initialSelections?: readonly TSelection[];
+type PromptMultiSelectionRequest<Selection> = Readonly<{
+  message: string;
+  choices: readonly PromptChoice<Selection>[];
+  initialSelections?: readonly Selection[];
 }>;
 
-type NonInteractivePolicy<TSelection> =
+type NonInteractivePolicy<Selection> =
   | {
-      readonly kind: 'require';
-      readonly flagHint: string;
+      kind: 'require';
+      flagHint: string;
     }
   | {
-      readonly kind: 'fallback';
-      readonly selection: TSelection;
-      readonly note?: string;
+      kind: 'fallback';
+      selection: Selection;
+      note?: string;
     };
 
-export type PickOneArgs<TSelection> = PromptSelectionRequest<TSelection> & {
-  readonly canPrompt: boolean;
-  readonly nonInteractive: NonInteractivePolicy<TSelection>;
+export type PickOneArgs<Selection> = PromptSelectionRequest<Selection> & {
+  canPrompt: boolean;
+  nonInteractive: NonInteractivePolicy<Selection>;
 };
 
-export type LaunchPromptService = Readonly<{
-  readonly confirm: (message: string) => Effect.Effect<boolean, PromptSelectionFailure>;
-  readonly requiredText: (message: string) => Effect.Effect<string, PromptSelectionFailure>;
-  readonly requiredSecret: (message: string) => Effect.Effect<string, PromptSelectionFailure>;
-  readonly select: <TSelection>(
-    request: PromptSelectionRequest<TSelection>,
-  ) => Effect.Effect<TSelection, PromptSelectionFailure>;
-  readonly selectMany: <TSelection>(
-    request: PromptMultiSelectionRequest<TSelection>,
-  ) => Effect.Effect<readonly TSelection[] | null, PromptSelectionFailure>;
-  readonly cancel: (message: string) => Effect.Effect<void>;
+export type PromptAnswers = Readonly<{
+  confirmation?: boolean;
+  text?: string;
+  secret?: string;
+  selectionIndex?: number;
+  selectionIndexes?: readonly number[];
 }>;
 
-type LaunchPromptTestAnswers = Readonly<{
-  readonly confirmation?: boolean;
-  readonly text?: string;
-  readonly secret?: string;
-  readonly selectionIndex?: number;
-  readonly selectionIndexes?: readonly number[];
-}>;
+const JSON_PROMPT_MESSAGE =
+  'This step needs an answer, but --json never prompts. Pass the flag that answers it (for example --yes to confirm).';
 
-export const LaunchPrompt = Context.GenericTag<LaunchPromptService>('launch-store/Prompt');
+let promptAnswers: PromptAnswers | null = null;
+let jsonPrompts = false;
 
-const requireEnteredText = (
-  enteredText: string | null,
-): Effect.Effect<string, PromptSelectionFailure> => {
+export function usePromptAnswers(answers: PromptAnswers | null): void {
+  promptAnswers = answers;
+  jsonPrompts = false;
+}
+
+export function useJsonPrompts(enabled: boolean): void {
+  jsonPrompts = enabled;
+}
+
+export function resetPrompts(): void {
+  promptAnswers = null;
+  jsonPrompts = false;
+}
+
+function requireEnteredText(enteredText: string | null): string {
   if (enteredText == null) {
-    return Effect.fail(makePromptSelectionFailure({ message: 'Prompt cancelled.' }));
+    throw makePromptSelectionFailure({ message: 'Prompt cancelled.' });
   }
 
   const isBlank = enteredText.trim() == '';
 
   if (isBlank) {
-    return Effect.fail(makePromptSelectionFailure({ message: 'A value is required.' }));
+    throw makePromptSelectionFailure({ message: 'A value is required.' });
   }
 
-  return Effect.succeed(enteredText);
-};
+  return enteredText;
+}
 
-export const LaunchPromptLive = Layer.succeed(LaunchPrompt, {
-  confirm: (message) =>
-    Effect.tryPromise({
-      try: () => prompts.confirm(message),
-      catch: (cause) =>
-        makePromptSelectionFailure({ message: 'The confirmation prompt failed.', cause }),
-    }),
-  requiredText: (message) =>
-    Effect.tryPromise({
-      try: () => prompts.text(message),
-      catch: (cause) => makePromptSelectionFailure({ message: 'The text prompt failed.', cause }),
-    }).pipe(Effect.flatMap(requireEnteredText)),
-  requiredSecret: (message) =>
-    Effect.tryPromise({
-      try: () => prompts.secret(message),
-      catch: (cause) => makePromptSelectionFailure({ message: 'The secret prompt failed.', cause }),
-    }).pipe(Effect.flatMap(requireEnteredText)),
-  select: (request) =>
-    Effect.tryPromise({
-      try: () => prompts.select(request),
-      catch: (cause) =>
-        makePromptSelectionFailure({ message: 'The selection prompt failed.', cause }),
-    }).pipe(
-      Effect.flatMap((selection) => {
-        if (selection == null) {
-          return Effect.fail(makePromptSelectionFailure({ message: 'Selection cancelled.' }));
-        }
-        return Effect.succeed(selection);
-      }),
-    ),
-  selectMany: (request) =>
-    Effect.tryPromise({
-      try: () => prompts.selectMany(request),
-      catch: (cause) =>
-        makePromptSelectionFailure({ message: 'The multi-selection prompt failed.', cause }),
-    }),
-  cancel: (message) =>
-    Effect.sync(() => {
-      prompts.cancel(message);
-    }),
-});
+function failJsonPrompt(): never {
+  throw makePromptSelectionFailure({ message: JSON_PROMPT_MESSAGE });
+}
 
-const JSON_PROMPT_MESSAGE =
-  'This step needs an answer, but --json never prompts. Pass the flag that answers it (for example --yes to confirm).';
+function isTaggedFailure(cause: unknown): boolean {
+  if (cause == null) {
+    return false;
+  }
 
-const failJsonPrompt = () =>
-  Effect.fail(makePromptSelectionFailure({ message: JSON_PROMPT_MESSAGE }));
+  if (typeof cause != 'object') {
+    return false;
+  }
 
-/** `--json` prompt service: every question fails with a message that names the flag to pass. */
-export const LaunchPromptJson = Layer.succeed(LaunchPrompt, {
-  confirm: failJsonPrompt,
-  requiredText: failJsonPrompt,
-  requiredSecret: failJsonPrompt,
-  select: failJsonPrompt,
-  selectMany: failJsonPrompt,
-  cancel: () => Effect.void,
-});
+  return '_tag' in cause;
+}
 
-export const makeLaunchPromptTest = (
-  answers: LaunchPromptTestAnswers = {},
-): Layer.Layer<LaunchPromptService> => {
-  let confirmation = true;
-  if (answers.confirmation !== undefined) confirmation = answers.confirmation;
-  let enteredText = 'test-text';
-  if (answers.text !== undefined) enteredText = answers.text;
-  let enteredSecret = 'test-secret';
-  if (answers.secret !== undefined) enteredSecret = answers.secret;
-  let selectionIndex = 0;
-  if (answers.selectionIndex !== undefined) selectionIndex = answers.selectionIndex;
-  let selectionIndexes: readonly number[] = [];
-  if (answers.selectionIndexes !== undefined) selectionIndexes = answers.selectionIndexes;
+async function askConfirm(message: string): Promise<boolean> {
+  if (jsonPrompts) {
+    failJsonPrompt();
+  }
 
-  return Layer.succeed(LaunchPrompt, {
-    confirm: () => Effect.succeed(confirmation),
-    requiredText: () => Effect.succeed(enteredText),
-    requiredSecret: () => Effect.succeed(enteredSecret),
-    select: <TSelection>(request: PromptSelectionRequest<TSelection>) => {
-      const selectedChoice = request.choices[selectionIndex];
-      if (selectedChoice === undefined)
-        return Effect.fail(
-          makePromptSelectionFailure({ message: 'The test selection index is unavailable.' }),
-        );
-      return Effect.succeed(selectedChoice.selection);
-    },
-    selectMany: <TSelection>(request: PromptMultiSelectionRequest<TSelection>) => {
-      const selections: TSelection[] = [];
-      for (const requestedIndex of selectionIndexes) {
-        const selectedChoice = request.choices[requestedIndex];
-        if (selectedChoice === undefined) {
-          return Effect.fail(
-            makePromptSelectionFailure({
-              message: 'A test multi-selection index is unavailable.',
-            }),
-          );
-        }
-        selections.push(selectedChoice.selection);
-      }
-      return Effect.succeed(selections);
-    },
-    cancel: () => Effect.void,
-  });
-};
+  if (promptAnswers != null) {
+    let confirmation = true;
 
-export const pickOne = <TSelection>(
-  request: PickOneArgs<TSelection>,
-): Effect.Effect<TSelection, PromptSelectionFailure, LaunchPromptService | Logger> =>
-  Effect.gen(function* () {
-    if (!request.canPrompt) {
-      if (request.nonInteractive.kind === 'fallback') {
-        if (request.nonInteractive.note !== undefined) {
-          const logger = yield* createLogger(false);
-          yield* logger.line(request.nonInteractive.note).pipe(
-            Effect.mapError((cause) =>
-              makePromptSelectionFailure({
-                message: 'The prompt note could not be written.',
-                cause,
-              }),
-            ),
-          );
-        }
-        return request.nonInteractive.selection;
-      }
-      return yield* Effect.fail(
-        makePromptSelectionFailure({
-          message: `${request.message} ${request.nonInteractive.flagHint}`,
-        }),
-      );
+    if (promptAnswers.confirmation != null) {
+      confirmation = promptAnswers.confirmation;
     }
 
-    const launchPrompt = yield* LaunchPrompt;
-    return yield* launchPrompt.select(request);
-  });
+    return confirmation;
+  }
+
+  try {
+    return await prompts.confirm(message);
+  } catch (cause) {
+    throw makePromptSelectionFailure({ message: 'The confirmation prompt failed.', cause });
+  }
+}
+
+async function askText(message: string, failureMessage: string): Promise<string> {
+  if (jsonPrompts) {
+    failJsonPrompt();
+  }
+
+  if (promptAnswers != null) {
+    let enteredText = 'test-text';
+
+    if (promptAnswers.text != null) {
+      enteredText = promptAnswers.text;
+    }
+
+    return requireEnteredText(enteredText);
+  }
+
+  try {
+    const enteredText = await prompts.text(message);
+    return requireEnteredText(enteredText);
+  } catch (cause) {
+    const isAlreadyTagged = isTaggedFailure(cause);
+
+    if (isAlreadyTagged) {
+      throw cause;
+    }
+
+    throw makePromptSelectionFailure({ message: failureMessage, cause });
+  }
+}
+
+async function askSecret(message: string): Promise<string> {
+  if (jsonPrompts) {
+    failJsonPrompt();
+  }
+
+  if (promptAnswers != null) {
+    let enteredSecret = 'test-secret';
+
+    if (promptAnswers.secret != null) {
+      enteredSecret = promptAnswers.secret;
+    }
+
+    return requireEnteredText(enteredSecret);
+  }
+
+  try {
+    const enteredSecret = await prompts.secret(message);
+    return requireEnteredText(enteredSecret);
+  } catch (cause) {
+    const isAlreadyTagged = isTaggedFailure(cause);
+
+    if (isAlreadyTagged) {
+      throw cause;
+    }
+
+    throw makePromptSelectionFailure({ message: 'The secret prompt failed.', cause });
+  }
+}
+
+export const LaunchPrompt = {
+  confirm: askConfirm,
+  requiredText(message: string): Promise<string> {
+    return askText(message, 'The text prompt failed.');
+  },
+  requiredSecret: askSecret,
+  async select<Selection>(request: PromptSelectionRequest<Selection>): Promise<Selection> {
+    if (jsonPrompts) {
+      failJsonPrompt();
+    }
+
+    if (promptAnswers != null) {
+      let selectionIndex = 0;
+
+      if (promptAnswers.selectionIndex != null) {
+        selectionIndex = promptAnswers.selectionIndex;
+      }
+
+      const selectedChoice = request.choices[selectionIndex];
+
+      if (selectedChoice == null) {
+        throw makePromptSelectionFailure({ message: 'The test selection index is unavailable.' });
+      }
+
+      return selectedChoice.selection;
+    }
+
+    try {
+      const selection = await prompts.select(request);
+
+      if (selection == null) {
+        throw makePromptSelectionFailure({ message: 'Selection cancelled.' });
+      }
+
+      return selection;
+    } catch (cause) {
+      const isAlreadyTagged = isTaggedFailure(cause);
+
+      if (isAlreadyTagged) {
+        throw cause;
+      }
+
+      throw makePromptSelectionFailure({ message: 'The selection prompt failed.', cause });
+    }
+  },
+  async selectMany<Selection>(
+    request: PromptMultiSelectionRequest<Selection>,
+  ): Promise<readonly Selection[] | null> {
+    if (jsonPrompts) {
+      failJsonPrompt();
+    }
+
+    if (promptAnswers != null) {
+      let selectionIndexes: readonly number[] = [];
+
+      if (promptAnswers.selectionIndexes != null) {
+        selectionIndexes = promptAnswers.selectionIndexes;
+      }
+
+      const selections: Selection[] = [];
+
+      for (const requestedIndex of selectionIndexes) {
+        const selectedChoice = request.choices[requestedIndex];
+
+        if (selectedChoice == null) {
+          throw makePromptSelectionFailure({
+            message: 'A test multi-selection index is unavailable.',
+          });
+        }
+
+        selections.push(selectedChoice.selection);
+      }
+
+      return selections;
+    }
+
+    try {
+      return await prompts.selectMany(request);
+    } catch (cause) {
+      throw makePromptSelectionFailure({ message: 'The multi-selection prompt failed.', cause });
+    }
+  },
+  cancel(message: string): void {
+    if (jsonPrompts) {
+      return;
+    }
+
+    if (promptAnswers != null) {
+      return;
+    }
+
+    prompts.cancel(message);
+  },
+};
+
+export type LaunchPromptService = typeof LaunchPrompt;
+
+export async function pickOne<Selection>(request: PickOneArgs<Selection>): Promise<Selection> {
+  const isInteractive = request.canPrompt;
+
+  if (isInteractive) {
+    return LaunchPrompt.select(request);
+  }
+
+  const policy = request.nonInteractive;
+  const isFallback = policy.kind == 'fallback';
+
+  if (isFallback == false) {
+    throw makePromptSelectionFailure({
+      message: `${request.message} ${policy.flagHint}`,
+    });
+  }
+
+  if (policy.note != null) {
+    createLogger(false).line(policy.note);
+  }
+
+  return policy.selection;
+}

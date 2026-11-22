@@ -1,388 +1,630 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { errorMessage } from '../../services/platform/errorMessage.js';
-import {
-  LaunchEnvironment,
-  type LaunchEnvironmentService,
-} from '../../services/platform/environment.js';
+import { readLaunchEnvironment } from '../../services/platform/environment.js';
 import { createLogger, type Logger } from '../../services/platform/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../../services/platform/paths.js';
+import { readLaunchDirectories } from '../../services/platform/paths.js';
 import type { FinanceReportQuery, SalesReportQuery } from '../../types/appleCatalog.js';
-import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
-import {
-  type AnalyticsQuery,
-  collectAnalyticsSegments,
-  decompressReport,
-  eachDate,
-  parseTsv,
-} from './reports.js';
-import {
-  resolveStoreBundleId,
-  type StoreAppSelectionRequirements,
-} from '../shared/selectStoreApp.js';
+import { loadActiveAppleStore } from './appleStoreCommand.js';
+import { collectAnalyticsSegments, decompressReport, eachDate, parseTsv } from './reports.js';
+import { resolveStoreBundleId } from '../shared/selectStoreApp.js';
 import type { MutableDeep } from '../../types/mutable.js';
 
-const SalesReportsCommandInputSchema = Schema.Struct({
-  operation: Schema.Literal('sales'),
-  vendorNumber: Schema.optional(Schema.String),
-  date: Schema.optional(Schema.String),
-  from: Schema.optional(Schema.String),
-  to: Schema.optional(Schema.String),
-  frequency: Schema.String,
-  reportType: Schema.String,
-  subType: Schema.String,
-  version: Schema.optional(Schema.String),
-  out: Schema.String,
-  json: Schema.Boolean,
-});
+type SalesReportsCommandInput = {
+  operation: 'sales';
+  vendorNumber?: string;
+  date?: string;
+  from?: string;
+  to?: string;
+  frequency: string;
+  reportType: string;
+  subType: string;
+  version?: string;
+  out: string;
+  json: boolean;
+};
 
-const FinanceReportsCommandInputSchema = Schema.Struct({
-  operation: Schema.Literal('finance'),
-  vendorNumber: Schema.optional(Schema.String),
-  date: Schema.optional(Schema.String),
-  region: Schema.String,
-  reportType: Schema.String,
-  out: Schema.String,
-  json: Schema.Boolean,
-});
+type FinanceReportsCommandInput = {
+  operation: 'finance';
+  vendorNumber?: string;
+  date?: string;
+  region: string;
+  reportType: string;
+  out: string;
+  json: boolean;
+};
 
-const AnalyticsReportsCommandInputSchema = Schema.Struct({
-  operation: Schema.Literal('analytics'),
-  app: Schema.optional(Schema.String),
-  accessType: Schema.String,
-  category: Schema.optional(Schema.String),
-  name: Schema.optional(Schema.String),
-  granularity: Schema.String,
-  date: Schema.optional(Schema.String),
-  out: Schema.String,
-});
+type AnalyticsReportsCommandInput = {
+  operation: 'analytics';
+  app?: string;
+  accessType: string;
+  category?: string;
+  name?: string;
+  granularity: string;
+  date?: string;
+  out: string;
+};
 
-const ReportsCommandInputSchema = Schema.Union(
-  SalesReportsCommandInputSchema,
-  FinanceReportsCommandInputSchema,
-  AnalyticsReportsCommandInputSchema,
-);
+type ReportsCommandInput =
+  | SalesReportsCommandInput
+  | FinanceReportsCommandInput
+  | AnalyticsReportsCommandInput;
 
-type ReportsCommandInput = Schema.Schema.Type<typeof ReportsCommandInputSchema>;
+type ReportsOperation = ReportsCommandInput['operation'];
 
 type ReportsCommandFailure = Readonly<{
   readonly _tag: 'ReportsCommandFailure';
-  readonly operation: ReportsCommandInput['operation'];
+  readonly operation: ReportsOperation;
   readonly message: string;
   readonly cause?: unknown;
 }>;
 
-const makeReportsCommandFailure = Data.tagged<ReportsCommandFailure>('ReportsCommandFailure');
-
-type ReportsCommandRequirements =
-  | ActiveAppleStoreRequirements
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | Logger
-  | Path.Path
-  | StoreAppSelectionRequirements;
+function makeReportsCommandFailure(fields: {
+  operation: ReportsOperation;
+  message: string;
+  cause?: unknown;
+}): ReportsCommandFailure {
+  return { _tag: 'ReportsCommandFailure', ...fields };
+}
 
 type WrittenReport = Readonly<{
   reportPath: string;
   reportEntryCount: number;
 }>;
 
+const VENDOR_NUMBER_MESSAGE =
+  'Vendor number required. Pass --vendor-number <N> or set ASC_VENDOR_NUMBER ' +
+  '(find it in App Store Connect -> Payments and Financial Reports).';
+
+function readCommandRecord(rawCommandInput: unknown): Record<string, unknown> {
+  if (rawCommandInput == null) {
+    throw new Error('Reports command input must be an object.');
+  }
+
+  const isObject = typeof rawCommandInput == 'object';
+
+  if (isObject == false) {
+    throw new Error('Reports command input must be an object.');
+  }
+
+  const isArray = Array.isArray(rawCommandInput);
+
+  if (isArray) {
+    throw new Error('Reports command input must be an object.');
+  }
+
+  return rawCommandInput as Record<string, unknown>;
+}
+
+function readRequiredString(record: Record<string, unknown>, field: string): string {
+  const fieldText = record[field];
+  const isString = typeof fieldText == 'string';
+
+  if (isString == false) {
+    throw new Error(`Expected ${field} to be a string.`);
+  }
+
+  return fieldText;
+}
+
+function readRequiredBoolean(record: Record<string, unknown>, field: string): boolean {
+  const fieldFlag = record[field];
+  const isBoolean = typeof fieldFlag == 'boolean';
+
+  if (isBoolean == false) {
+    throw new Error(`Expected ${field} to be a boolean.`);
+  }
+
+  return fieldFlag;
+}
+
+function readOptionalString(record: Record<string, unknown>, field: string): string | undefined {
+  const hasField = Object.hasOwn(record, field);
+
+  if (hasField == false) {
+    return undefined;
+  }
+
+  const fieldText = record[field];
+  const isOmitted = typeof fieldText == 'undefined';
+
+  if (isOmitted) {
+    return undefined;
+  }
+
+  const isString = typeof fieldText == 'string';
+
+  if (isString == false) {
+    throw new Error(`Expected ${field} to be a string.`);
+  }
+
+  return fieldText;
+}
+
+function assignOptionalString<Target extends object>(
+  target: Target,
+  field: keyof Target,
+  fieldText: string | undefined,
+): void {
+  if (fieldText == null) {
+    return;
+  }
+
+  target[field] = fieldText as Target[keyof Target];
+}
+
+function decodeSalesReportsCommand(record: Record<string, unknown>): SalesReportsCommandInput {
+  const salesCommand: SalesReportsCommandInput = {
+    operation: 'sales',
+    frequency: readRequiredString(record, 'frequency'),
+    reportType: readRequiredString(record, 'reportType'),
+    subType: readRequiredString(record, 'subType'),
+    out: readRequiredString(record, 'out'),
+    json: readRequiredBoolean(record, 'json'),
+  };
+  assignOptionalString(salesCommand, 'vendorNumber', readOptionalString(record, 'vendorNumber'));
+  assignOptionalString(salesCommand, 'date', readOptionalString(record, 'date'));
+  assignOptionalString(salesCommand, 'from', readOptionalString(record, 'from'));
+  assignOptionalString(salesCommand, 'to', readOptionalString(record, 'to'));
+  assignOptionalString(salesCommand, 'version', readOptionalString(record, 'version'));
+  return salesCommand;
+}
+
+function decodeFinanceReportsCommand(record: Record<string, unknown>): FinanceReportsCommandInput {
+  const financeCommand: FinanceReportsCommandInput = {
+    operation: 'finance',
+    region: readRequiredString(record, 'region'),
+    reportType: readRequiredString(record, 'reportType'),
+    out: readRequiredString(record, 'out'),
+    json: readRequiredBoolean(record, 'json'),
+  };
+  assignOptionalString(financeCommand, 'vendorNumber', readOptionalString(record, 'vendorNumber'));
+  assignOptionalString(financeCommand, 'date', readOptionalString(record, 'date'));
+  return financeCommand;
+}
+
+function decodeAnalyticsReportsCommand(
+  record: Record<string, unknown>,
+): AnalyticsReportsCommandInput {
+  const analyticsCommand: AnalyticsReportsCommandInput = {
+    operation: 'analytics',
+    accessType: readRequiredString(record, 'accessType'),
+    granularity: readRequiredString(record, 'granularity'),
+    out: readRequiredString(record, 'out'),
+  };
+  assignOptionalString(analyticsCommand, 'app', readOptionalString(record, 'app'));
+  assignOptionalString(analyticsCommand, 'category', readOptionalString(record, 'category'));
+  assignOptionalString(analyticsCommand, 'name', readOptionalString(record, 'name'));
+  assignOptionalString(analyticsCommand, 'date', readOptionalString(record, 'date'));
+  return analyticsCommand;
+}
+
+function decodeReportsCommandInput(rawCommandInput: unknown): ReportsCommandInput {
+  const record = readCommandRecord(rawCommandInput);
+  const operation = readRequiredString(record, 'operation');
+
+  if (operation == 'sales') {
+    return decodeSalesReportsCommand(record);
+  }
+
+  if (operation == 'finance') {
+    return decodeFinanceReportsCommand(record);
+  }
+
+  if (operation == 'analytics') {
+    return decodeAnalyticsReportsCommand(record);
+  }
+
+  throw new Error('Unknown reports command.');
+}
+
+function readReportsOperation(rawCommandInput: unknown): ReportsOperation | null {
+  try {
+    return decodeReportsCommandInput(rawCommandInput).operation;
+  } catch (cause) {
+    return null;
+  }
+}
+
 /** Select the explicit vendor number, falling back to the decoded environment setting. */
-const selectVendorNumber = (
-  explicitVendorNumber: string | undefined,
-): Effect.Effect<string, ReportsCommandFailure, LaunchEnvironmentService> =>
-  Effect.gen(function* () {
-    const environment = yield* LaunchEnvironment;
-    let vendorNumber = environment.values.appleVendorNumber;
-    if (explicitVendorNumber !== undefined) vendorNumber = explicitVendorNumber;
-    if (vendorNumber === undefined) {
-      return yield* Effect.fail(
-        makeReportsCommandFailure({
-          operation: 'sales',
-          message:
-            'Vendor number required. Pass --vendor-number <N> or set ASC_VENDOR_NUMBER ' +
-            '(find it in App Store Connect -> Payments and Financial Reports).',
-        }),
-      );
-    }
-    if (vendorNumber.trim().length === 0) {
-      return yield* Effect.fail(
-        makeReportsCommandFailure({
-          operation: 'sales',
-          message:
-            'Vendor number required. Pass --vendor-number <N> or set ASC_VENDOR_NUMBER ' +
-            '(find it in App Store Connect -> Payments and Financial Reports).',
-        }),
-      );
-    }
-    return vendorNumber;
-  });
+function selectVendorNumber(explicitVendorNumber: string | undefined): string {
+  const environment = readLaunchEnvironment();
+  let vendorNumber = environment.values.appleVendorNumber;
+  const hasExplicitVendorNumber = explicitVendorNumber != null;
+
+  if (hasExplicitVendorNumber) {
+    vendorNumber = explicitVendorNumber;
+  }
+
+  if (vendorNumber == null) {
+    throw makeReportsCommandFailure({
+      operation: 'sales',
+      message: VENDOR_NUMBER_MESSAGE,
+    });
+  }
+
+  const isVendorNumberBlank = vendorNumber.trim().length == 0;
+
+  if (isVendorNumberBlank) {
+    throw makeReportsCommandFailure({
+      operation: 'sales',
+      message: VENDOR_NUMBER_MESSAGE,
+    });
+  }
+
+  return vendorNumber;
+}
 
 /** Convert a relative output directory into a path rooted at the current project. */
-const projectOutputDirectory = (
-  outputDirectory: string,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const pathService = yield* Path.Path;
-    if (pathService.isAbsolute(outputDirectory)) return outputDirectory;
-    return pathService.join(launchPaths.workingDirectory, outputDirectory);
-  });
+function projectOutputDirectory(outputDirectory: string): string {
+  const launchPaths = readLaunchDirectories();
+  const isAbsolute = path.isAbsolute(outputDirectory);
+
+  if (isAbsolute) {
+    return outputDirectory;
+  }
+
+  return path.join(launchPaths.workingDirectory, outputDirectory);
+}
 
 /** Convert an Apple report name into a filesystem-safe stem. */
-const reportNameSlug = (reportName: string): string => {
-  const reportSlug = reportName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  if (reportSlug.length === 0) return 'report';
+function reportNameSlug(reportName: string): string {
+  // Turns every run of characters other than letters and digits into one dash.
+  const dashedName = reportName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  // Trims dashes from the start and end of the slug.
+  const reportSlug = dashedName.replace(/^-+|-+$/g, '');
+  const isSlugEmpty = reportSlug.length == 0;
+
+  if (isSlugEmpty) {
+    return 'report';
+  }
+
   return reportSlug;
-};
+}
 
 /** Write decompressed report text as raw TSV or parsed JSON. */
-const writeReport = (
+async function writeReport(
   outputDirectory: string,
   fileStem: string,
   reportText: string,
   writeJson: boolean,
-): Effect.Effect<WrittenReport, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    yield* fileSystem.makeDirectory(outputDirectory, { recursive: true });
-    const parsedReport = parseTsv(reportText);
-    if (writeJson) {
-      const reportPath = pathService.join(outputDirectory, `${fileStem}.json`);
-      yield* fileSystem.writeFileString(
-        reportPath,
-        `${JSON.stringify(parsedReport.rows, null, 2)}\n`,
-      );
-      return { reportPath, reportEntryCount: parsedReport.rows.length };
-    }
-    const reportPath = pathService.join(outputDirectory, `${fileStem}.tsv`);
-    let persistedText = reportText;
-    if (!persistedText.endsWith('\n')) persistedText = `${persistedText}\n`;
-    yield* fileSystem.writeFileString(reportPath, persistedText);
+): Promise<WrittenReport> {
+  await mkdir(outputDirectory, { recursive: true });
+  const parsedReport = parseTsv(reportText);
+  const shouldWriteJson = writeJson == true;
+
+  if (shouldWriteJson) {
+    const reportPath = path.join(outputDirectory, `${fileStem}.json`);
+    await writeFile(reportPath, `${JSON.stringify(parsedReport.rows, null, 2)}\n`);
     return { reportPath, reportEntryCount: parsedReport.rows.length };
-  });
+  }
+
+  const reportPath = path.join(outputDirectory, `${fileStem}.tsv`);
+  let persistedText = reportText;
+  const needsTrailingNewline = persistedText.endsWith('\n') == false;
+
+  if (needsTrailingNewline) {
+    persistedText = `${persistedText}\n`;
+  }
+
+  await writeFile(reportPath, persistedText);
+  return { reportPath, reportEntryCount: parsedReport.rows.length };
+}
+
+function isMissingReportPeriod(emptyPeriodOnNotFound: boolean, message: string): boolean {
+  if (emptyPeriodOnNotFound == false) {
+    return false;
+  }
+
+  return message.includes('(404)');
+}
 
 /** Download, decompress, persist, and report one Apple report file. */
-const downloadReport = (
+async function downloadReport(
   logger: Logger,
   fileStem: string,
   writeJson: boolean,
   outputDirectory: string,
-  downloadBytes: Effect.Effect<Buffer, unknown>,
+  downloadBytes: Promise<Buffer>,
   emptyPeriodOnNotFound: boolean,
-): Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const compressedBytes = yield* downloadBytes;
-    const reportText = yield* Effect.try({
-      try: () => decompressReport(compressedBytes),
-      catch: (cause) => cause,
-    });
-    const writtenReport = yield* writeReport(outputDirectory, fileStem, reportText, writeJson);
+): Promise<void> {
+  try {
+    const compressedBytes = await downloadBytes;
+    const reportText = decompressReport(compressedBytes);
+    const writtenReport = await writeReport(outputDirectory, fileStem, reportText, writeJson);
     let pluralSuffix = 's';
-    if (writtenReport.reportEntryCount === 1) pluralSuffix = '';
-    yield* logger.step(
+    const isSingleRow = writtenReport.reportEntryCount == 1;
+
+    if (isSingleRow) {
+      pluralSuffix = '';
+    }
+
+    logger.step(
       fileStem,
       `${writtenReport.reportEntryCount} row${pluralSuffix} -> ${writtenReport.reportPath}`,
     );
-  }).pipe(
-    Effect.catchAll((cause) => {
-      const message = errorMessage(cause);
-      if (emptyPeriodOnNotFound && message.includes('(404)')) {
-        return logger.note(`${fileStem}: no data for this period.`);
-      }
-      return Effect.fail(cause);
-    }),
-  );
+  } catch (cause) {
+    const message = errorMessage(cause);
+    const isEmptyPeriod = isMissingReportPeriod(emptyPeriodOnNotFound, message);
 
-/** Validate the sales date selector and enumerate every requested daily report. */
-const selectSalesDates = (
-  commandInput: Schema.Schema.Type<typeof SalesReportsCommandInputSchema>,
-): Effect.Effect<string[], ReportsCommandFailure> => {
-  if (commandInput.from !== undefined && commandInput.to !== undefined) {
-    const firstReportDate = commandInput.from;
-    const lastReportDate = commandInput.to;
-    return eachDate(firstReportDate, lastReportDate).pipe(
-      Effect.mapError((cause) =>
-        makeReportsCommandFailure({ operation: 'sales', message: cause.message, cause }),
-      ),
-    );
-  }
-  if (commandInput.from !== undefined) {
-    return Effect.fail(
-      makeReportsCommandFailure({
-        operation: 'sales',
-        message: '--from requires a matching --to date.',
-      }),
-    );
-  }
-  if (commandInput.to !== undefined) {
-    return Effect.fail(
-      makeReportsCommandFailure({
-        operation: 'sales',
-        message: '--to requires a matching --from date.',
-      }),
-    );
-  }
-  if (commandInput.date !== undefined) return Effect.succeed([commandInput.date]);
-  return Effect.fail(
-    makeReportsCommandFailure({
-      operation: 'sales',
-      message: 'A date is required. Pass --date <YYYY-MM-DD> or a --from/--to range.',
-    }),
-  );
-};
-
-/** Download the requested Sales and Trends reports serially. */
-const downloadSalesReports = (
-  commandInput: Schema.Schema.Type<typeof SalesReportsCommandInputSchema>,
-): Effect.Effect<void, unknown, ReportsCommandRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const vendorNumber = yield* selectVendorNumber(commandInput.vendorNumber);
-    const reportDates = yield* selectSalesDates(commandInput);
-    const outputDirectory = yield* projectOutputDirectory(commandInput.out);
-    const appleStore = yield* loadActiveAppleStore();
-    yield* Effect.forEach(
-      reportDates,
-      (reportDate) => {
-        const reportQuery: MutableDeep<SalesReportQuery> = {
-          vendorNumber,
-          frequency: commandInput.frequency,
-          reportType: commandInput.reportType,
-          reportSubType: commandInput.subType,
-          reportDate,
-        };
-        if (commandInput.version !== undefined) reportQuery.version = commandInput.version;
-        return downloadReport(
-          logger,
-          `sales-${commandInput.frequency}-${reportDate}`,
-          commandInput.json,
-          outputDirectory,
-          appleStore.getSalesReport(reportQuery),
-          true,
-        );
-      },
-      { concurrency: 1, discard: true },
-    );
-  });
-
-/** Download one Apple finance report for its fiscal period. */
-const downloadFinanceReport = (
-  commandInput: Schema.Schema.Type<typeof FinanceReportsCommandInputSchema>,
-): Effect.Effect<void, unknown, ReportsCommandRequirements> =>
-  Effect.gen(function* () {
-    if (commandInput.date === undefined) {
-      return yield* Effect.fail(
-        makeReportsCommandFailure({
-          operation: 'finance',
-          message: 'A fiscal period is required. Pass --date <YYYY-MM>.',
-        }),
-      );
-    }
-    const logger = yield* createLogger(false);
-    const vendorNumber = yield* selectVendorNumber(commandInput.vendorNumber);
-    const outputDirectory = yield* projectOutputDirectory(commandInput.out);
-    const appleStore = yield* loadActiveAppleStore();
-    const reportQuery: MutableDeep<FinanceReportQuery> = {
-      vendorNumber,
-      reportDate: commandInput.date,
-      regionCode: commandInput.region,
-      reportType: commandInput.reportType,
-    };
-    yield* downloadReport(
-      logger,
-      `finance-${commandInput.region}-${commandInput.date}`,
-      commandInput.json,
-      outputDirectory,
-      appleStore.getFinanceReport(reportQuery),
-      true,
-    );
-  });
-
-/** Request and download every matching App Store analytics segment. */
-const downloadAnalyticsReports = (
-  commandInput: Schema.Schema.Type<typeof AnalyticsReportsCommandInputSchema>,
-): Effect.Effect<void, unknown, ReportsCommandRequirements> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const bundleId = yield* resolveStoreBundleId(commandInput.app);
-    const outputDirectory = yield* projectOutputDirectory(commandInput.out);
-    const appleStore = yield* loadActiveAppleStore();
-    const analyticsQuery: AnalyticsQuery = {
-      bundleId,
-      accessType: commandInput.accessType,
-      granularity: commandInput.granularity,
-    };
-    if (commandInput.category !== undefined) analyticsQuery.category = commandInput.category;
-    if (commandInput.name !== undefined) analyticsQuery.name = commandInput.name;
-    if (commandInput.date !== undefined) analyticsQuery.processingDate = commandInput.date;
-    const analyticsCollection = yield* collectAnalyticsSegments(appleStore, analyticsQuery);
-    if (analyticsCollection.downloads.length === 0) {
-      if (analyticsCollection.requestCreated) {
-        yield* logger.note(
-          'Analytics report requested. Apple generally generates it within two days; rerun this command to download it.',
-        );
-        return;
-      }
-      yield* logger.note('No analytics segments matched the selected filters.');
+    if (isEmptyPeriod) {
+      logger.note(`${fileStem}: no data for this period.`);
       return;
     }
-    let segmentIndex = 0;
-    yield* Effect.forEach(
-      analyticsCollection.downloads,
-      (segmentDownload) => {
-        let processingDate = 'all';
-        if (segmentDownload.processingDate.length > 0) {
-          processingDate = segmentDownload.processingDate;
-        }
-        const fileStem = `analytics-${reportNameSlug(segmentDownload.reportName)}-${processingDate}-${segmentIndex}`;
-        segmentIndex += 1;
-        return downloadReport(
-          logger,
-          fileStem,
-          false,
-          outputDirectory,
-          appleStore.downloadAnalyticsSegment(segmentDownload.url),
-          false,
-        );
-      },
-      { concurrency: 1, discard: true },
-    );
-    yield* logger.step(
-      'analytics',
-      `downloaded ${analyticsCollection.downloads.length} segment(s) from ${analyticsCollection.reportCount} report(s)`,
-    );
-  });
 
-/** Run an Apple sales, finance, or analytics reporting operation. */
-export const reportsCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, ReportsCommandFailure, ReportsCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(ReportsCommandInputSchema)(rawCommandInput);
-    switch (commandInput.operation) {
-      case 'sales':
-        return yield* downloadSalesReports(commandInput);
-      case 'finance':
-        return yield* downloadFinanceReport(commandInput);
-      case 'analytics':
-        return yield* downloadAnalyticsReports(commandInput);
+    throw cause;
+  }
+}
+
+function hasSalesDateRange(commandInput: SalesReportsCommandInput): boolean {
+  if (commandInput.from == null) {
+    return false;
+  }
+
+  return commandInput.to != null;
+}
+
+function hasOnlySalesFrom(commandInput: SalesReportsCommandInput): boolean {
+  if (commandInput.from == null) {
+    return false;
+  }
+
+  return commandInput.to == null;
+}
+
+function hasOnlySalesTo(commandInput: SalesReportsCommandInput): boolean {
+  if (commandInput.to == null) {
+    return false;
+  }
+
+  return commandInput.from == null;
+}
+
+/** Validate the sales date selector and enumerate every requested daily report. */
+function selectSalesDates(commandInput: SalesReportsCommandInput): string[] {
+  const hasRange = hasSalesDateRange(commandInput);
+
+  if (hasRange) {
+    const firstReportDate = commandInput.from;
+    const lastReportDate = commandInput.to;
+
+    if (firstReportDate == null) {
+      throw makeReportsCommandFailure({
+        operation: 'sales',
+        message: '--from requires a matching --to date.',
+      });
     }
-  }).pipe(
-    Effect.mapError((cause) => {
-      let operation: ReportsCommandInput['operation'] = 'sales';
-      if (Schema.is(ReportsCommandInputSchema)(rawCommandInput)) {
-        operation = rawCommandInput.operation;
-      }
-      return makeReportsCommandFailure({
-        operation,
+
+    if (lastReportDate == null) {
+      throw makeReportsCommandFailure({
+        operation: 'sales',
+        message: '--to requires a matching --from date.',
+      });
+    }
+
+    try {
+      return eachDate(firstReportDate, lastReportDate);
+    } catch (cause) {
+      throw makeReportsCommandFailure({
+        operation: 'sales',
         message: errorMessage(cause),
         cause,
       });
-    }),
+    }
+  }
+
+  const hasFromOnly = hasOnlySalesFrom(commandInput);
+
+  if (hasFromOnly) {
+    throw makeReportsCommandFailure({
+      operation: 'sales',
+      message: '--from requires a matching --to date.',
+    });
+  }
+
+  const hasToOnly = hasOnlySalesTo(commandInput);
+
+  if (hasToOnly) {
+    throw makeReportsCommandFailure({
+      operation: 'sales',
+      message: '--to requires a matching --from date.',
+    });
+  }
+
+  const reportDate = commandInput.date;
+  const hasReportDate = reportDate != null;
+
+  if (hasReportDate) {
+    return [reportDate];
+  }
+
+  throw makeReportsCommandFailure({
+    operation: 'sales',
+    message: 'A date is required. Pass --date <YYYY-MM-DD> or a --from/--to range.',
+  });
+}
+
+/** Download the requested Sales and Trends reports serially. */
+async function downloadSalesReports(commandInput: SalesReportsCommandInput): Promise<void> {
+  const logger = createLogger(false);
+  const vendorNumber = selectVendorNumber(commandInput.vendorNumber);
+  const reportDates = selectSalesDates(commandInput);
+  const outputDirectory = projectOutputDirectory(commandInput.out);
+  const appleStore = await loadActiveAppleStore();
+
+  for (const reportDate of reportDates) {
+    const reportQuery: MutableDeep<SalesReportQuery> = {
+      vendorNumber,
+      frequency: commandInput.frequency,
+      reportType: commandInput.reportType,
+      reportSubType: commandInput.subType,
+      reportDate,
+    };
+    const reportVersion = commandInput.version;
+    const hasReportVersion = reportVersion != null;
+
+    if (hasReportVersion) {
+      reportQuery.version = reportVersion;
+    }
+
+    await downloadReport(
+      logger,
+      `sales-${commandInput.frequency}-${reportDate}`,
+      commandInput.json,
+      outputDirectory,
+      appleStore.getSalesReport(reportQuery),
+      true,
+    );
+  }
+}
+
+/** Download one Apple finance report for its fiscal period. */
+async function downloadFinanceReport(commandInput: FinanceReportsCommandInput): Promise<void> {
+  const fiscalPeriod = commandInput.date;
+  const isFiscalPeriodMissing = fiscalPeriod == null;
+
+  if (isFiscalPeriodMissing) {
+    throw makeReportsCommandFailure({
+      operation: 'finance',
+      message: 'A fiscal period is required. Pass --date <YYYY-MM>.',
+    });
+  }
+
+  const logger = createLogger(false);
+  const vendorNumber = selectVendorNumber(commandInput.vendorNumber);
+  const outputDirectory = projectOutputDirectory(commandInput.out);
+  const appleStore = await loadActiveAppleStore();
+  const reportQuery: MutableDeep<FinanceReportQuery> = {
+    vendorNumber,
+    reportDate: fiscalPeriod,
+    regionCode: commandInput.region,
+    reportType: commandInput.reportType,
+  };
+  await downloadReport(
+    logger,
+    `finance-${commandInput.region}-${fiscalPeriod}`,
+    commandInput.json,
+    outputDirectory,
+    appleStore.getFinanceReport(reportQuery),
+    true,
   );
+}
+
+function noteMissingAnalytics(logger: Logger, requestCreated: boolean): void {
+  if (requestCreated) {
+    logger.note(
+      'Analytics report requested. Apple generally generates it within two days; rerun this command to download it.',
+    );
+    return;
+  }
+
+  logger.note('No analytics segments matched the selected filters.');
+}
+
+/** Request and download every matching App Store analytics segment. */
+async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInput): Promise<void> {
+  const logger = createLogger(false);
+  const bundleId = await resolveStoreBundleId(commandInput.app);
+  const outputDirectory = projectOutputDirectory(commandInput.out);
+  const appleStore = await loadActiveAppleStore();
+  const analyticsQuery: {
+    bundleId: string;
+    accessType: string;
+    granularity: string;
+    category?: string;
+    name?: string;
+    processingDate?: string;
+  } = {
+    bundleId,
+    accessType: commandInput.accessType,
+    granularity: commandInput.granularity,
+  };
+  const category = commandInput.category;
+  const hasCategory = category != null;
+
+  if (hasCategory) {
+    analyticsQuery.category = category;
+  }
+
+  const reportName = commandInput.name;
+  const hasReportName = reportName != null;
+
+  if (hasReportName) {
+    analyticsQuery.name = reportName;
+  }
+
+  const processingDate = commandInput.date;
+  const hasProcessingDate = processingDate != null;
+
+  if (hasProcessingDate) {
+    analyticsQuery.processingDate = processingDate;
+  }
+
+  const analyticsCollection = await collectAnalyticsSegments(appleStore, analyticsQuery);
+  const hasNoDownloads = analyticsCollection.downloads.length == 0;
+
+  if (hasNoDownloads) {
+    noteMissingAnalytics(logger, analyticsCollection.requestCreated);
+    return;
+  }
+
+  let segmentIndex = 0;
+
+  for (const segmentDownload of analyticsCollection.downloads) {
+    let processingDateLabel = 'all';
+    const hasSegmentDate = segmentDownload.processingDate.length > 0;
+
+    if (hasSegmentDate) {
+      processingDateLabel = segmentDownload.processingDate;
+    }
+
+    const fileStem = `analytics-${reportNameSlug(segmentDownload.reportName)}-${processingDateLabel}-${segmentIndex}`;
+    segmentIndex += 1;
+    await downloadReport(
+      logger,
+      fileStem,
+      false,
+      outputDirectory,
+      appleStore.downloadAnalyticsSegment(segmentDownload.url),
+      false,
+    );
+  }
+
+  logger.step(
+    'analytics',
+    `downloaded ${analyticsCollection.downloads.length} segment(s) from ${analyticsCollection.reportCount} report(s)`,
+  );
+}
+
+/** Run an Apple sales, finance, or analytics reporting operation. */
+export async function reportsCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodeReportsCommandInput(rawCommandInput);
+
+    if (commandInput.operation == 'sales') {
+      await downloadSalesReports(commandInput);
+      return;
+    }
+
+    if (commandInput.operation == 'finance') {
+      await downloadFinanceReport(commandInput);
+      return;
+    }
+
+    await downloadAnalyticsReports(commandInput);
+  } catch (cause) {
+    let operation: ReportsOperation = 'sales';
+    const decodedOperation = readReportsOperation(rawCommandInput);
+    const hasOperation = decodedOperation != null;
+
+    if (hasOperation) {
+      operation = decodedOperation;
+    }
+
+    throw makeReportsCommandFailure({
+      operation,
+      message: errorMessage(cause),
+      cause,
+    });
+  }
+}

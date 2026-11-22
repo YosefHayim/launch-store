@@ -1,24 +1,28 @@
-import { Effect, Layer } from 'effect';
+import { generateKeyPairSync } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
-import { makeFakeAscClient, makeFakePlayReportingClient } from '@testkit/storeClients.testkit.js';
-import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
-import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
-import { makeGoogleAccessTokenTest } from '../services/stores/googleAccessToken.js';
-import { GoogleReportingClientService } from '../services/stores/googleReportingClient.js';
-import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
+import { makeFakeAscClient } from '@testkit/storeClients.testkit.js';
+import { PlayReportingClient } from '@google/playReporting.js';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.js';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import { useAppleStoreClientFactory } from '../services/stores/appleStoreClient.js';
+import {
+  resetGoogleAccessToken,
+  useGoogleAccessTokenFixture,
+} from '../services/stores/googleAccessToken.js';
 import type { ServiceAccount } from '../types/credentials.js';
+import type { PlayVitalsReader } from './statsCredentials.js';
 import {
   makeStatsCredentialsTest,
-  StatsCredentials,
   StatsCredentialsLive,
+  useStatsCredentials,
 } from './statsCredentials.js';
 
 const SERVICE_ACCOUNT: ServiceAccount = {
@@ -35,140 +39,157 @@ const ACCOUNTS_FILE = JSON.stringify({
   ],
 });
 
+function createServiceAccountJson(): string {
+  const keyPair = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const exportedKey = keyPair.privateKey.export({ type: 'pkcs8', format: 'pem' });
+  const privateKey = exportedKey.toString();
+
+  return JSON.stringify({
+    client_email: 'robot@project.iam.gserviceaccount.com',
+    private_key: privateKey,
+    token_uri: 'http://127.0.0.1:1/token',
+  });
+}
+
 describe('makeStatsCredentialsTest', () => {
-  const readCredentials = (overrides = {}) =>
-    Effect.runPromise(StatsCredentials.pipe(Effect.provide(makeStatsCredentialsTest(overrides))));
+  afterEach(() => {
+    useStatsCredentials(null);
+  });
 
   test('answers null for every method by default', async () => {
-    const credentials = await readCredentials();
+    const credentials = makeStatsCredentialsTest();
 
-    expect(await Effect.runPromise(credentials.ascClientForAccount('KEYA'))).toBeNull();
-    expect(await Effect.runPromise(credentials.vendorNumberForAccount('KEYA'))).toBeNull();
-    expect(await Effect.runPromise(credentials.playServiceAccount('com.example.app'))).toBeNull();
-    expect(await Effect.runPromise(credentials.playReportingClient('com.example.app'))).toBeNull();
-    expect(await Effect.runPromise(credentials.playReportsBucket())).toBeNull();
-    expect(
-      await Effect.runPromise(credentials.googleAccessToken(['scope'], 'com.example.app')),
-    ).toBeNull();
+    expect(await credentials.ascClientForAccount('KEYA')).toBeNull();
+    expect(await credentials.vendorNumberForAccount('KEYA')).toBeNull();
+    expect(await credentials.playServiceAccount('com.example.app')).toBeNull();
+    expect(await credentials.playReportingClient('com.example.app')).toBeNull();
+    expect(await credentials.playReportsBucket()).toBeNull();
+    expect(await credentials.googleAccessToken(['scope'], 'com.example.app')).toBeNull();
   });
 
   test('uses the answer a test passes in', async () => {
-    const playClient = makeFakePlayReportingClient([]);
-
-    const credentials = await readCredentials({
-      playReportingClient: () => Effect.succeed(playClient),
+    const playClient: PlayVitalsReader = {
+      async vitalsTimeline() {
+        throw new Error('unused');
+      },
+    };
+    const credentials = makeStatsCredentialsTest({
+      async playReportingClient() {
+        return playClient;
+      },
     });
 
-    expect(await Effect.runPromise(credentials.playReportingClient('com.example.app'))).toBe(
-      playClient,
-    );
+    expect(await credentials.playReportingClient('com.example.app')).toBe(playClient);
   });
 });
 
 describe('StatsCredentialsLive', () => {
   let homeDirectory: string;
+  const ascClient = makeFakeAscClient([]);
+
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    useLaunchDirectories({
+      homeDirectory,
+      workingDirectory: join(homeDirectory, 'work'),
+    });
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
+    useStatsCredentials(null);
   });
+
   afterEach(() => {
+    useStatsCredentials(null);
+    useAppleStoreClientFactory(null);
+    resetGoogleAccessToken();
+    resetSecretStore();
+    resetLaunchEnvironment();
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
-  const ascClient = makeFakeAscClient([]);
-  const playClient = makeFakePlayReportingClient([]);
-
-  const readCredentials = (
+  function installLiveFixtures(
     storedSecrets: Map<string, string>,
     environmentVariables: Record<string, string | undefined> = {},
-  ) => {
-    const dependencies = Layer.mergeAll(
-      makeLaunchHomeTest(homeDirectory),
-      makeLaunchSecretStoreTest(storedSecrets),
-      makeLaunchEnvironmentTest(environmentVariables),
-      makeGoogleAccessTokenTest(SERVICE_ACCOUNT, 'token-1'),
-      Layer.succeed(AppleStoreClientService, {
-        createClient: () => Effect.die('unused'),
-        createEffectClient: () => Effect.succeed(ascClient),
-        createReleaseAttributesClient: () => Effect.die('unused'),
-      }),
-      Layer.succeed(GoogleReportingClientService, {
-        createClient: () => Effect.succeed(playClient),
-      }),
-    );
-    return Effect.runPromise(
-      StatsCredentials.pipe(Effect.provide(StatsCredentialsLive), Effect.provide(dependencies)),
-    );
-  };
+  ): void {
+    useSecretStore(storedSecrets);
+    useLaunchEnvironment(environmentVariables);
+    useGoogleAccessTokenFixture(SERVICE_ACCOUNT, 'token-1');
+    useAppleStoreClientFactory(function createAscClient() {
+      return ascClient;
+    });
+  }
+
   const encodedP8 = Buffer.from(
     '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----',
   ).toString('base64');
 
   test('builds the App Store client of the account that owns the key id', async () => {
-    const credentials = await readCredentials(new Map([['asc-p8:KEYB', encodedP8]]));
+    installLiveFixtures(new Map([['asc-p8:KEYB', encodedP8]]));
 
-    const builtClient = await Effect.runPromise(credentials.ascClientForAccount('KEYB'));
+    const builtClient = await StatsCredentialsLive.ascClientForAccount('KEYB');
 
     expect(builtClient).toBe(ascClient);
   });
 
   test('answers null for an account with no saved key and for an unknown account', async () => {
-    const credentials = await readCredentials(new Map());
+    installLiveFixtures(new Map());
 
-    expect(await Effect.runPromise(credentials.ascClientForAccount('KEYA'))).toBeNull();
-    expect(await Effect.runPromise(credentials.ascClientForAccount('NOPE'))).toBeNull();
+    expect(await StatsCredentialsLive.ascClientForAccount('KEYA')).toBeNull();
+    expect(await StatsCredentialsLive.ascClientForAccount('NOPE')).toBeNull();
   });
 
   test('reads the vendor number of the account, then the environment, then null', async () => {
-    const withEnvironment = await readCredentials(new Map(), { ASC_VENDOR_NUMBER: '999' });
-    const withoutEnvironment = await readCredentials(new Map());
+    installLiveFixtures(new Map(), { ASC_VENDOR_NUMBER: '999' });
 
-    expect(await Effect.runPromise(withEnvironment.vendorNumberForAccount('KEYA'))).toBe('111');
-    expect(await Effect.runPromise(withEnvironment.vendorNumberForAccount('KEYB'))).toBe('999');
-    expect(await Effect.runPromise(withoutEnvironment.vendorNumberForAccount('KEYB'))).toBeNull();
+    expect(await StatsCredentialsLive.vendorNumberForAccount('KEYA')).toBe('111');
+    expect(await StatsCredentialsLive.vendorNumberForAccount('KEYB')).toBe('999');
+
+    useLaunchEnvironment({});
+
+    expect(await StatsCredentialsLive.vendorNumberForAccount('KEYB')).toBeNull();
   });
 
   test('has no Play account, client or token when no service account is saved', async () => {
-    const credentials = await readCredentials(new Map());
+    installLiveFixtures(new Map());
 
-    expect(await Effect.runPromise(credentials.playServiceAccount('com.example.app'))).toBeNull();
-    expect(await Effect.runPromise(credentials.playReportingClient('com.example.app'))).toBeNull();
-    expect(
-      await Effect.runPromise(credentials.googleAccessToken(['scope'], 'com.example.app')),
-    ).toBeNull();
+    expect(await StatsCredentialsLive.playServiceAccount('com.example.app')).toBeNull();
+    expect(await StatsCredentialsLive.playReportingClient('com.example.app')).toBeNull();
+    expect(await StatsCredentialsLive.googleAccessToken(['scope'], 'com.example.app')).toBeNull();
   });
 
   test('reads the Play account, builds the reporting client and gets a token when one is saved', async () => {
-    const credentials = await readCredentials(
-      new Map([['play-service-account:com.example.app', JSON.stringify(SERVICE_ACCOUNT)]]),
+    installLiveFixtures(
+      new Map([['play-service-account:com.example.app', createServiceAccountJson()]]),
     );
 
-    expect(await Effect.runPromise(credentials.playServiceAccount('com.example.app'))).toEqual(
+    expect(await StatsCredentialsLive.playServiceAccount('com.example.app')).toEqual(
       SERVICE_ACCOUNT,
     );
-    expect(await Effect.runPromise(credentials.playReportingClient('com.example.app'))).toBe(
-      playClient,
+    expect(await StatsCredentialsLive.playReportingClient('com.example.app')).toBeInstanceOf(
+      PlayReportingClient,
     );
-    expect(
-      await Effect.runPromise(credentials.googleAccessToken(['scope'], 'com.example.app')),
-    ).toBe('token-1');
+    expect(await StatsCredentialsLive.googleAccessToken(['scope'], 'com.example.app')).toBe(
+      'token-1',
+    );
   });
 
   test('uses only the requested app slot and ignores an unscoped key', async () => {
-    const credentials = await readCredentials(
+    installLiveFixtures(
       new Map([
         ['play-service-account:com.example.app', JSON.stringify(SERVICE_ACCOUNT)],
         ['play-service-account', JSON.stringify(SERVICE_ACCOUNT)],
       ]),
     );
-    expect(await Effect.runPromise(credentials.playServiceAccount('com.example.app'))).toEqual(
+
+    expect(await StatsCredentialsLive.playServiceAccount('com.example.app')).toEqual(
       SERVICE_ACCOUNT,
     );
-    expect(await Effect.runPromise(credentials.playServiceAccount('com.example.other'))).toBeNull();
-    expect(await Effect.runPromise(credentials.playServiceAccount(null))).toBeNull();
+    expect(await StatsCredentialsLive.playServiceAccount('com.example.other')).toBeNull();
+    expect(await StatsCredentialsLive.playServiceAccount(null)).toBeNull();
   });
 
   test('maps an iOS app to its uniquely matched configured Android package', async () => {
+    installLiveFixtures(new Map());
     const project = join(homeDirectory, 'work');
     mkdirSync(project, { recursive: true });
     writeFileSync(
@@ -181,7 +202,6 @@ describe('StatsCredentialsLive', () => {
         },
       }),
     );
-    const credentials = await readCredentials(new Map());
     const app = {
       key: 'ios-1',
       platform: 'ios' as const,
@@ -194,17 +214,16 @@ describe('StatsCredentialsLive', () => {
       owner: null,
       ga4PropertyId: null,
     };
-    expect(await Effect.runPromise(credentials.googlePackageForApp(app))).toBe(
-      'com.example.android',
-    );
+
+    expect(await StatsCredentialsLive.googlePackageForApp(app)).toBe('com.example.android');
     expect(
-      await Effect.runPromise(credentials.googlePackageForApp({ ...app, bundleId: 'unknown' })),
+      await StatsCredentialsLive.googlePackageForApp({ ...app, bundleId: 'unknown' }),
     ).toBeNull();
   });
 
   test('reads the Play reports bucket from portfolio.json, or null when none is saved', async () => {
-    const credentials = await readCredentials(new Map());
-    const bucketBefore = await Effect.runPromise(credentials.playReportsBucket());
+    installLiveFixtures(new Map());
+    const bucketBefore = await StatsCredentialsLive.playReportsBucket();
     writeLaunchHomeFile(
       homeDirectory,
       'portfolio.json',
@@ -217,7 +236,7 @@ describe('StatsCredentialsLive', () => {
       }),
     );
 
-    const bucketAfter = await Effect.runPromise(credentials.playReportsBucket());
+    const bucketAfter = await StatsCredentialsLive.playReportsBucket();
 
     expect(bucketBefore).toBeNull();
     expect(bucketAfter).toBe('pubsite_prod_rev_123');

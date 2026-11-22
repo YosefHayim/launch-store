@@ -1,22 +1,13 @@
-import { Terminal } from '@effect/platform';
-import { Data, Effect } from 'effect';
 import {
   loadServiceAccount,
   describeMissingPlayServiceAccount,
 } from '../../credentials/androidKeystore.js';
-import {
-  GoogleStoreClientService,
-  type EffectGooglePlayClient,
-  type GoogleStoreClientService as GoogleStoreClientRequirements,
-} from '../../services/stores/googleStoreClient.js';
-import type { LaunchSecretStoreService } from '../../services/credentials/secretStore.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
-import {
-  makeStoreAppSelectionFailure,
-  selectStoreApp,
-  type StoreAppSelectionFailure,
-  type StoreAppSelectionRequirements,
-} from '../shared/selectStoreApp.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
+import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
+import { LaunchPrompt } from '../../services/platform/prompt.js';
+import { GoogleStoreClientService } from '../../services/stores/googleStoreClient.js';
+import type { GooglePlayClient } from '../../google/playClient.js';
+import { makeStoreAppSelectionFailure, selectStoreApp } from '../shared/selectStoreApp.js';
 
 /** Loading the Play service account or creating its transport client failed. */
 type ActiveGoogleStoreFailure = Readonly<{
@@ -24,73 +15,75 @@ type ActiveGoogleStoreFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeActiveGoogleStoreFailure = Data.tagged<ActiveGoogleStoreFailure>(
-  'ActiveGoogleStoreFailure',
-);
 
-export type ActiveGoogleStoreRequirements =
-  | GoogleStoreClientRequirements
-  | LaunchSecretStoreService;
+function makeActiveGoogleStoreFailure(fields: {
+  message: string;
+  cause: unknown;
+}): ActiveGoogleStoreFailure {
+  return { _tag: 'ActiveGoogleStoreFailure', ...fields };
+}
 
-/** Load the keychain-backed Play service account and create its Effect transport client. */
-export const loadActiveGoogleStore = (
+export type ActiveGoogleStoreRequirements = unknown;
+
+/** Load the keychain-backed Play service account and create its transport client. */
+export async function loadActiveGoogleStore(
   packageName: string,
   appName: string,
-): Effect.Effect<EffectGooglePlayClient, ActiveGoogleStoreFailure, ActiveGoogleStoreRequirements> =>
-  Effect.gen(function* () {
-    const serviceAccountJson = yield* loadServiceAccount(packageName).pipe(
-      Effect.mapError((cause) =>
-        makeActiveGoogleStoreFailure({
-          message: 'Could not load the Play service account.',
-          cause,
-        }),
-      ),
-    );
-    if (serviceAccountJson === null) {
-      return yield* Effect.fail(
-        makeActiveGoogleStoreFailure({
-          message: yield* describeMissingPlayServiceAccount(appName).pipe(
-            Effect.mapError((cause) =>
-              makeActiveGoogleStoreFailure({
-                message: 'Could not read legacy Play credentials.',
-                cause,
-              }),
-            ),
-          ),
-          cause: 'missing-service-account',
-        }),
-      );
+): Promise<GooglePlayClient> {
+  let serviceAccountJson: string | null = null;
+
+  try {
+    serviceAccountJson = await loadServiceAccount(packageName);
+  } catch (cause) {
+    throw makeActiveGoogleStoreFailure({
+      message: 'Could not load the Play service account.',
+      cause,
+    });
+  }
+
+  if (serviceAccountJson == null) {
+    let missingMessage = '';
+
+    try {
+      missingMessage = await describeMissingPlayServiceAccount(appName);
+    } catch (cause) {
+      throw makeActiveGoogleStoreFailure({
+        message: 'Could not read legacy Play credentials.',
+        cause,
+      });
     }
-    const googleStoreClients = yield* GoogleStoreClientService;
-    return yield* googleStoreClients.createEffectClient(serviceAccountJson).pipe(
-      Effect.mapError((cause) =>
-        makeActiveGoogleStoreFailure({
-          message: 'Could not create the Google Play client.',
-          cause,
-        }),
-      ),
-    );
-  });
+
+    throw makeActiveGoogleStoreFailure({
+      message: missingMessage,
+      cause: 'missing-service-account',
+    });
+  }
+
+  try {
+    return GoogleStoreClientService.createEffectClient(serviceAccountJson);
+  } catch (cause) {
+    throw makeActiveGoogleStoreFailure({
+      message: 'Could not create the Google Play client.',
+      cause,
+    });
+  }
+}
 
 /** Resolve the selected app's Google Play package name. */
-export const resolveGoogleStoreApp = (
+export async function resolveGoogleStoreApp(
   appSelector: string | undefined,
-): Effect.Effect<
-  { packageName: string; appName: string },
-  StoreAppSelectionFailure,
-  StoreAppSelectionRequirements
-> =>
-  Effect.gen(function* () {
-    const selectedApp = yield* selectStoreApp(appSelector);
-    if (selectedApp.packageName !== undefined)
-      return { packageName: selectedApp.packageName, appName: selectedApp.name };
-    return yield* Effect.fail(
-      makeStoreAppSelectionFailure({
-        message: `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
-        cause: selectedApp,
-      }),
-    );
+): Promise<{ packageName: string; appName: string }> {
+  const selectedApp = await selectStoreApp(appSelector);
+
+  if (selectedApp.packageName != null) {
+    return { packageName: selectedApp.packageName, appName: selectedApp.name };
+  }
+
+  throw makeStoreAppSelectionFailure({
+    message: `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
+    cause: selectedApp,
   });
+}
 
 /** A Google Play command confirmation failed or was unavailable. */
 type GoogleStoreConfirmationFailure = Readonly<{
@@ -98,41 +91,58 @@ type GoogleStoreConfirmationFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeGoogleStoreConfirmationFailure = Data.tagged<GoogleStoreConfirmationFailure>(
-  'GoogleStoreConfirmationFailure',
-);
+
+function makeGoogleStoreConfirmationFailure(fields: {
+  message: string;
+  cause: unknown;
+}): GoogleStoreConfirmationFailure {
+  return { _tag: 'GoogleStoreConfirmationFailure', ...fields };
+}
+
+function confirmationCauseMessage(cause: unknown): string {
+  if (hasMessage(cause)) {
+    return cause.message;
+  }
+
+  return 'Google Play confirmation failed.';
+}
 
 /** Confirm an outward-facing Google Play write. */
-export const confirmGoogleStoreWrite = (
-  confirmationMessage: string,
+export async function confirmGoogleStoreWrite(
+  confirmationMessageText: string,
   assumeYes: boolean,
   refusalMessage: string,
   cancellationMessage: string,
-): Effect.Effect<
-  boolean,
-  GoogleStoreConfirmationFailure,
-  LaunchPromptService | Terminal.Terminal
-> =>
-  Effect.gen(function* () {
-    if (assumeYes) return true;
-    const terminal = yield* Terminal.Terminal;
-    if (!(yield* terminal.isTTY)) {
-      return yield* Effect.fail(
-        makeGoogleStoreConfirmationFailure({
-          message: refusalMessage,
-          cause: 'confirmation-required',
-        }),
-      );
-    }
-    const prompt = yield* LaunchPrompt;
-    const confirmed = yield* prompt
-      .confirm(confirmationMessage)
-      .pipe(
-        Effect.mapError((cause) =>
-          makeGoogleStoreConfirmationFailure({ message: cause.message, cause }),
-        ),
-      );
-    if (confirmed) return true;
-    yield* prompt.cancel(cancellationMessage);
-    return false;
-  });
+): Promise<boolean> {
+  if (assumeYes) {
+    return true;
+  }
+
+  const terminalIsInteractive = checkTerminalIsInteractive();
+
+  if (terminalIsInteractive == false) {
+    throw makeGoogleStoreConfirmationFailure({
+      message: refusalMessage,
+      cause: 'confirmation-required',
+    });
+  }
+
+  let confirmed = false;
+
+  try {
+    confirmed = await LaunchPrompt.confirm(confirmationMessageText);
+  } catch (cause) {
+    throw makeGoogleStoreConfirmationFailure({
+      message: confirmationCauseMessage(cause),
+      cause,
+    });
+  }
+
+  if (confirmed) {
+    return true;
+  }
+
+  LaunchPrompt.cancel(cancellationMessage);
+
+  return false;
+}

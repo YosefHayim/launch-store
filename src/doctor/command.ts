@@ -1,198 +1,389 @@
-import { Data, Effect, Schema } from 'effect';
-import { ensureToolchain } from '../config/toolchain.js';
-import { errorMessage, hasMessage } from '../services/platform/errorMessage.js';
-import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { isApplePlatform, parsePlatform } from '../services/stores/platform.js';
-import type { LaunchPromptService } from '../services/platform/prompt.js';
-import { createAscClientResolver } from '../store/shared/storeClients.js';
+import { ensureToolchain } from '@/config/toolchain.js';
+import { hasMessage, errorMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { isApplePlatform, parsePlatform } from '@/services/stores/platform.js';
+import type { EffectAppStoreConnectClient } from '@/services/stores/appleStoreClient.js';
+import { createAscClientResolver } from '@/store/shared/storeClients.js';
 import {
   summarizeExportComplianceResult,
   type ExportComplianceResult,
-} from '../store/apple/exportCompliance.js';
-import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../types/doctor.js';
-import { buildDoctorContext, type DoctorRuntimeRequirements } from './context.js';
+} from '@/store/apple/exportCompliance.js';
+import type { EncryptionDeclarationResource } from '@/types/appleCatalog.js';
+import { completeCommand } from '@/terminal/commandExit.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '@/types/doctor.js';
+import { buildDoctorContext } from './context.js';
 import { inspectDoctor } from './inspect.js';
 
-export const DoctorCommandInputSchema = Schema.Struct({
-  platform: Schema.optionalWith(Schema.String, { exact: true }),
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  fix: Schema.Boolean,
-  yes: Schema.Boolean,
-  json: Schema.Boolean,
-});
-
-export type DoctorCommandInput = Schema.Schema.Type<typeof DoctorCommandInputSchema>;
-
-/** A doctor command step failed. */
-type DoctorCommandFailure = Readonly<{
-  readonly _tag: 'DoctorCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-const makeDoctorCommandFailure = Data.tagged<DoctorCommandFailure>('DoctorCommandFailure');
-
-type DoctorCommandRequirements = DoctorRuntimeRequirements | LaunchPromptService | Logger;
-
-/** Convert a dependency failure into the doctor command channel. */
-const doctorFailure = (operation: string, cause: unknown): DoctorCommandFailure => {
-  let message = `${operation} failed.`;
-  if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') message = causeMessage;
-  }
-  return makeDoctorCommandFailure({ operation, message, cause });
+export type DoctorCommandInput = {
+  platform?: string;
+  app?: string;
+  fix: boolean;
+  yes: boolean;
+  json: boolean;
 };
 
+type DoctorCommandFailure = Readonly<{
+  _tag: 'DoctorCommandFailure';
+  operation: string;
+  message: string;
+  cause: unknown;
+}>;
+
+function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function isBoolean(field: unknown): field is boolean {
+  return typeof field == 'boolean';
+}
+
+function isText(field: unknown): field is string {
+  return typeof field == 'string';
+}
+
+function readBooleanField(record: Record<string, unknown>, fieldName: string): boolean {
+  const field = record[fieldName];
+
+  if (isBoolean(field)) {
+    return field;
+  }
+
+  throw new Error(`${fieldName} must be a boolean`);
+}
+
+function readOptionalTextField(record: Record<string, unknown>, fieldName: string): string | null {
+  const isPresent = Object.hasOwn(record, fieldName);
+
+  if (isPresent == false) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (isText(field)) {
+    return field;
+  }
+
+  throw new Error(`${fieldName} must be a string`);
+}
+
+function readDoctorCommandFields(record: Record<string, unknown>): DoctorCommandInput {
+  const fix = readBooleanField(record, 'fix');
+  const yes = readBooleanField(record, 'yes');
+  const json = readBooleanField(record, 'json');
+  const platform = readOptionalTextField(record, 'platform');
+  const app = readOptionalTextField(record, 'app');
+  let commandInput: DoctorCommandInput = { fix, yes, json };
+
+  if (platform != null) {
+    commandInput = { ...commandInput, platform };
+  }
+
+  if (app != null) {
+    commandInput = { ...commandInput, app };
+  }
+
+  return commandInput;
+}
+
+/** Read the doctor command boundary, rejecting explicit undefined optionals. */
+export function DoctorCommandInputSchema(rawCommandInput: unknown): DoctorCommandInput {
+  if (isPlainRecord(rawCommandInput)) {
+    return readDoctorCommandFields(rawCommandInput);
+  }
+
+  throw new Error('doctor command input must be an object');
+}
+
+function readNonEmptyText(text: string): string | null {
+  const isEmpty = text.length == 0;
+
+  if (isEmpty) {
+    return null;
+  }
+
+  return text;
+}
+
+function readCauseMessage(cause: unknown): string | null {
+  if (hasMessage(cause)) {
+    return cause.message;
+  }
+
+  if (isText(cause)) {
+    return readNonEmptyText(cause);
+  }
+
+  return null;
+}
+
+function doctorFailure(operation: string, cause: unknown): DoctorCommandFailure {
+  let message = `${operation} failed.`;
+  const causeMessage = readCauseMessage(cause);
+
+  if (causeMessage != null) {
+    message = causeMessage;
+  }
+
+  return { _tag: 'DoctorCommandFailure', operation, message, cause };
+}
+
+function readHintText(doctorCheck: DoctorCheck): string {
+  const isOk = doctorCheck.status == 'ok';
+
+  if (isOk) {
+    return '';
+  }
+
+  if (doctorCheck.hint == null) {
+    return '';
+  }
+
+  return `  - ${doctorCheck.hint}`;
+}
+
+function indentDetailLine(detailLine: string): string {
+  const isIndented = detailLine.startsWith(' ');
+
+  if (isIndented) {
+    return detailLine;
+  }
+
+  return `  ${detailLine}`;
+}
+
 /** Render one doctor check as one or more ASCII lines. */
-export const renderDoctorCheckLines = (doctorCheck: DoctorCheck): string[] => {
+export function renderDoctorCheckLines(doctorCheck: DoctorCheck): string[] {
   const statusLabels: Record<DoctorCheck['status'], string> = {
     ok: 'OK',
     fail: 'x',
     info: '-',
   };
-  let hintText = '';
-  if (doctorCheck.status !== 'ok' && doctorCheck.hint !== undefined) {
-    hintText = `  - ${doctorCheck.hint}`;
+  const statusLabel = statusLabels[doctorCheck.status];
+  const renderedLines = [`${statusLabel} ${doctorCheck.title}${readHintText(doctorCheck)}`];
+
+  if (doctorCheck.detail == null) {
+    return renderedLines;
   }
-  const renderedLines = [`${statusLabels[doctorCheck.status]} ${doctorCheck.title}${hintText}`];
-  if (doctorCheck.detail !== undefined) {
-    for (const detailLine of doctorCheck.detail.split('\n')) {
-      if (detailLine.startsWith(' ')) renderedLines.push(detailLine);
-      if (!detailLine.startsWith(' ')) renderedLines.push(`  ${detailLine}`);
-    }
+
+  const detailLines = doctorCheck.detail.split('\n');
+
+  for (const detailLine of detailLines) {
+    renderedLines.push(indentDetailLine(detailLine));
   }
+
   return renderedLines;
-};
+}
 
-/** Print a doctor report in check order. */
-const renderDoctorReport = (doctorReport: DoctorReport): Effect.Effect<void, unknown, Logger> =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    for (const doctorCheck of doctorReport.checks) {
-      for (const renderedLine of renderDoctorCheckLines(doctorCheck)) {
-        yield* logger.line(renderedLine);
-      }
+function showDoctorReport(doctorReport: DoctorReport): void {
+  const logger = createLogger(false);
+
+  for (const doctorCheck of doctorReport.checks) {
+    for (const renderedLine of renderDoctorCheckLines(doctorCheck)) {
+      logger.line(renderedLine);
     }
-  });
+  }
+}
 
-/** Resolve every Apple build platform to the shared iOS doctor path. */
-const resolveDoctorPlatform = (
-  platformText: string | undefined,
-): Effect.Effect<DoctorPlatform, DoctorCommandFailure> =>
-  Effect.gen(function* () {
-    let requestedPlatform = 'ios';
-    if (platformText !== undefined) requestedPlatform = platformText;
-    const parsedPlatform = yield* parsePlatform(requestedPlatform).pipe(
-      Effect.mapError((cause) => doctorFailure('parse doctor platform', cause)),
-    );
-    if (isApplePlatform(parsedPlatform)) return 'ios';
-    return 'android';
-  });
+function readDoctorPlatform(platformText: string | undefined): DoctorPlatform {
+  let requestedPlatform = 'ios';
 
-/** Reconcile one build's export-compliance answer through the Effect client. */
-const reconcileDoctorExportCompliance = (
+  if (platformText != null) {
+    requestedPlatform = platformText;
+  }
+
+  const parsedPlatform = parsePlatform(requestedPlatform);
+  const isApple = isApplePlatform(parsedPlatform);
+
+  if (isApple) {
+    return 'ios';
+  }
+
+  return 'android';
+}
+
+function isApprovedDeclaration(encryptionDeclaration: EncryptionDeclarationResource): boolean {
+  return encryptionDeclaration.state == 'APPROVED';
+}
+
+async function reconcileDoctorExportCompliance(
   appleStore: EffectAppStoreConnectClient,
   app: AppDescriptor,
   buildNumber: number,
-): Effect.Effect<ExportComplianceResult, unknown> =>
-  Effect.gen(function* () {
-    if (app.bundleId === undefined) return { status: 'undeclared' };
-    if (app.usesNonExemptEncryption === undefined) return { status: 'undeclared' };
-    const uploadedBuild = yield* appleStore.findBuild(app.bundleId, buildNumber);
-    if (uploadedBuild === null) return { status: 'build-not-found', buildNumber };
-    if (uploadedBuild.usesNonExemptEncryption === app.usesNonExemptEncryption) {
-      return {
-        status: 'already-answered',
-        usesNonExemptEncryption: app.usesNonExemptEncryption,
-      };
+): Promise<ExportComplianceResult> {
+  if (app.bundleId == null) {
+    return { status: 'undeclared' };
+  }
+
+  if (app.usesNonExemptEncryption == null) {
+    return { status: 'undeclared' };
+  }
+
+  const uploadedBuild = await appleStore.findBuild(app.bundleId, buildNumber);
+
+  if (uploadedBuild == null) {
+    return { status: 'build-not-found', buildNumber };
+  }
+
+  const answerMatches = uploadedBuild.usesNonExemptEncryption == app.usesNonExemptEncryption;
+
+  if (answerMatches) {
+    return {
+      status: 'already-answered',
+      usesNonExemptEncryption: app.usesNonExemptEncryption,
+    };
+  }
+
+  const isExempt = app.usesNonExemptEncryption == false;
+
+  if (isExempt) {
+    await appleStore.setBuildUsesNonExemptEncryption(uploadedBuild.id, false);
+
+    return { status: 'answered', usesNonExemptEncryption: false };
+  }
+
+  const encryptionDeclarations = await appleStore.listEncryptionDeclarations(app.bundleId);
+  const approvedDeclaration = encryptionDeclarations.find(isApprovedDeclaration);
+
+  if (approvedDeclaration != null) {
+    await appleStore.linkBuildToDeclaration(approvedDeclaration.id, uploadedBuild.id);
+
+    return { status: 'reused-declaration', declarationId: approvedDeclaration.id };
+  }
+
+  await appleStore.setBuildUsesNonExemptEncryption(uploadedBuild.id, true);
+
+  return { status: 'needs-declaration' };
+}
+
+async function readComplianceLine(
+  appleStore: EffectAppStoreConnectClient,
+  selectedApp: AppDescriptor,
+): Promise<string | null> {
+  if (selectedApp.bundleId == null) {
+    return null;
+  }
+
+  if (selectedApp.usesNonExemptEncryption == null) {
+    return null;
+  }
+
+  try {
+    const buildNumber = await appleStore.getLatestBuildNumber(selectedApp.bundleId);
+    const isMissingBuild = buildNumber == 0;
+
+    if (isMissingBuild) {
+      return null;
     }
-    if (!app.usesNonExemptEncryption) {
-      yield* appleStore.setBuildUsesNonExemptEncryption(uploadedBuild.id, false);
-      return { status: 'answered', usesNonExemptEncryption: false };
-    }
-    const encryptionDeclarations = yield* appleStore.listEncryptionDeclarations(app.bundleId);
-    const approvedDeclaration = encryptionDeclarations.find(
-      (encryptionDeclaration) => encryptionDeclaration.state === 'APPROVED',
+
+    const complianceOutcome = await reconcileDoctorExportCompliance(
+      appleStore,
+      selectedApp,
+      buildNumber,
     );
-    if (approvedDeclaration !== undefined) {
-      yield* appleStore.linkBuildToDeclaration(approvedDeclaration.id, uploadedBuild.id);
-      return { status: 'reused-declaration', declarationId: approvedDeclaration.id };
-    }
-    yield* appleStore.setBuildUsesNonExemptEncryption(uploadedBuild.id, true);
-    return { status: 'needs-declaration' };
-  });
+    const summary = summarizeExportComplianceResult(complianceOutcome);
 
-/** Best-effort export-compliance repair for selected iOS apps. */
-const fixExportCompliance = (
-  selectedApps: readonly AppDescriptor[],
-): Effect.Effect<void, unknown, DoctorCommandRequirements> =>
-  Effect.gen(function* () {
-    const resolveAppleStore = createAscClientResolver();
-    const appleStore = yield* resolveAppleStore().pipe(Effect.catchAll(() => Effect.succeed(null)));
-    if (appleStore === null) return;
-    const logger = yield* createLogger(false);
-    for (const selectedApp of selectedApps) {
-      const bundleId = selectedApp.bundleId;
-      if (bundleId === undefined) continue;
-      if (selectedApp.usesNonExemptEncryption === undefined) continue;
-      const complianceLine = yield* Effect.gen(function* () {
-        const buildNumber = yield* appleStore.getLatestBuildNumber(bundleId);
-        if (buildNumber === 0) return undefined;
-        const complianceOutcome = yield* reconcileDoctorExportCompliance(
-          appleStore,
-          selectedApp,
-          buildNumber,
-        );
-        return `  -> ${selectedApp.name} build ${buildNumber}: ${summarizeExportComplianceResult(complianceOutcome)}`;
-      }).pipe(
-        Effect.catchAll((cause) =>
-          Effect.succeed(
-            `  -> ${selectedApp.name}: could not reconcile export compliance - ${errorMessage(cause)}`,
-          ),
-        ),
-      );
-      if (complianceLine !== undefined) yield* logger.line(complianceLine);
-    }
-  });
+    return `  -> ${selectedApp.name} build ${buildNumber}: ${summary}`;
+  } catch (error) {
+    const failureText = errorMessage(error);
 
-/** Run doctor inspection and return whether all required checks passed. */
-const runDoctorProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<boolean, DoctorCommandFailure, DoctorCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(DoctorCommandInputSchema)(
-      rawCommandInput,
-    ).pipe(Effect.mapError((cause) => doctorFailure('decode doctor command input', cause)));
-    const doctorPlatform = yield* resolveDoctorPlatform(commandInput.platform);
-    const doctorContext = yield* buildDoctorContext(doctorPlatform, commandInput.app);
-    if (commandInput.json) {
-      const doctorReport = yield* inspectDoctor(doctorContext);
-      const logger = yield* createLogger(false);
-      yield* logger.line(JSON.stringify(doctorReport, null, 2));
-      return doctorReport.ok;
+    return `  -> ${selectedApp.name}: could not reconcile export compliance - ${failureText}`;
+  }
+}
+
+async function fixExportCompliance(selectedApps: readonly AppDescriptor[]): Promise<void> {
+  const resolveAppleStore = createAscClientResolver();
+  let appleStore: EffectAppStoreConnectClient | null = null;
+
+  try {
+    appleStore = await resolveAppleStore();
+  } catch {
+    // Export-compliance fix is best-effort when the Apple client cannot be opened.
+    return;
+  }
+
+  if (appleStore == null) {
+    return;
+  }
+
+  const logger = createLogger(false);
+
+  for (const selectedApp of selectedApps) {
+    const complianceLine = await readComplianceLine(appleStore, selectedApp);
+
+    if (complianceLine == null) {
+      continue;
     }
-    if (doctorPlatform === 'ios' && commandInput.fix) {
-      yield* ensureToolchain({ assumeYes: commandInput.yes });
+
+    logger.line(complianceLine);
+  }
+}
+
+function isIosFix(doctorPlatform: DoctorPlatform, shouldFix: boolean): boolean {
+  const isIos = doctorPlatform == 'ios';
+
+  if (isIos == false) {
+    return false;
+  }
+
+  return shouldFix;
+}
+
+async function showDoctorJson(doctorContext: DoctorContext): Promise<boolean> {
+  const doctorReport = await inspectDoctor(doctorContext);
+  const logger = createLogger(false);
+  const jsonIndent = 2;
+  logger.line(JSON.stringify(doctorReport, null, jsonIndent));
+
+  return doctorReport.ok;
+}
+
+async function runDoctorProgram(rawCommandInput: unknown): Promise<boolean> {
+  try {
+    const commandInput = DoctorCommandInputSchema(rawCommandInput);
+    const doctorPlatform = readDoctorPlatform(commandInput.platform);
+    const doctorContext = await buildDoctorContext(doctorPlatform, commandInput.app);
+    const isJson = commandInput.json;
+
+    if (isJson) {
+      return await showDoctorJson(doctorContext);
     }
-    const doctorReport = yield* inspectDoctor(doctorContext);
-    yield* renderDoctorReport(doctorReport);
-    if (doctorPlatform === 'ios' && commandInput.fix) {
-      yield* fixExportCompliance(doctorContext.apps);
+
+    const shouldFixIos = isIosFix(doctorPlatform, commandInput.fix);
+
+    if (shouldFixIos) {
+      await ensureToolchain({ assumeYes: commandInput.yes });
     }
+
+    const doctorReport = await inspectDoctor(doctorContext);
+    showDoctorReport(doctorReport);
+
+    if (shouldFixIos) {
+      await fixExportCompliance(doctorContext.apps);
+    }
+
     return doctorReport.ok;
-  }).pipe(Effect.mapError((cause) => doctorFailure('run doctor', cause)));
+  } catch (error) {
+    throw doctorFailure('run doctor', error);
+  }
+}
 
 /** Run doctor and request exit one when a required check fails. */
-export const doctorCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, CommandExit | DoctorCommandFailure, DoctorCommandRequirements> =>
-  Effect.gen(function* () {
-    const doctorPassed = yield* runDoctorProgram(rawCommandInput);
-    if (!doctorPassed) yield* completeCommand(1);
-  });
+export async function doctorCommandProgram(rawCommandInput: unknown): Promise<void> {
+  const doctorPassed = await runDoctorProgram(rawCommandInput);
+
+  if (doctorPassed) {
+    return;
+  }
+
+  completeCommand(1);
+}

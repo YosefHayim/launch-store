@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import type { PlannedAction } from '../../types/reconcile.js';
 import {
@@ -10,34 +9,51 @@ import {
   skip,
   summarize,
 } from './reconcile.js';
+
 /** A fresh apply-mode context (dryRun off) for each test. */
-const applyContext = (): ReconcileContext => {
+function applyContext(): ReconcileContext {
   return { actions: [], dryRun: false };
-};
+}
+
 describe('act', () => {
   it('records the action and runs it, marking it applied on success', async () => {
     const reconcileContext = applyContext();
-    const runAction = vi.fn(() => Effect.void);
-    await Effect.runPromise(act(reconcileContext, 'create thing', runAction));
-    expect(runAction).toHaveBeenCalledOnce();
+
+    async function runAction(): Promise<void> {
+      return undefined;
+    }
+
+    const runActionMock = vi.fn(runAction);
+    await act(reconcileContext, 'create thing', runActionMock);
+    expect(runActionMock).toHaveBeenCalledOnce();
     expect(reconcileContext.actions).toEqual([
       { description: 'create thing', destructive: false, status: 'applied' },
     ]);
   });
+
   it('records a planned action and performs no work in a dry-run', async () => {
     const reconcileContext: ReconcileContext = { actions: [], dryRun: true };
-    const runAction = vi.fn(() => Effect.void);
-    await Effect.runPromise(act(reconcileContext, 'create thing', runAction));
-    expect(runAction).not.toHaveBeenCalled();
+
+    async function runAction(): Promise<void> {
+      return undefined;
+    }
+
+    const runActionMock = vi.fn(runAction);
+    await act(reconcileContext, 'create thing', runActionMock);
+    expect(runActionMock).not.toHaveBeenCalled();
     expect(reconcileContext.actions).toEqual([
       { description: 'create thing', destructive: false, status: 'planned' },
     ]);
   });
+
   it('captures a thrown error on the action instead of propagating it', async () => {
     const reconcileContext = applyContext();
-    await Effect.runPromise(
-      act(reconcileContext, 'create thing', () => Effect.fail(new Error('boom'))),
-    );
+
+    async function failAction(): Promise<void> {
+      throw new Error('boom');
+    }
+
+    await act(reconcileContext, 'create thing', failAction);
     expect(reconcileContext.actions[0]).toEqual({
       description: 'create thing',
       destructive: false,
@@ -46,6 +62,7 @@ describe('act', () => {
     });
   });
 });
+
 describe('plan', () => {
   it('appends a planned action and returns its handle so the caller can update its status', () => {
     const reconcileContext = applyContext();
@@ -59,6 +76,7 @@ describe('plan', () => {
     expect(reconcileContext.actions[0]?.status).toBe('applied');
   });
 });
+
 describe('appRecordMissing', () => {
   it('names the bundle id and the exact command to re-run after creating the app', () => {
     expect(appRecordMissing('com.acme.app', 'accessibility').message).toBe(
@@ -67,6 +85,7 @@ describe('appRecordMissing', () => {
     );
   });
 });
+
 describe('appRecordNotFound', () => {
   it('asks the read-path caller to confirm the bundle id and access, with no create-then-retry remedy', () => {
     expect(appRecordNotFound('com.acme.app').message).toBe(
@@ -75,6 +94,7 @@ describe('appRecordNotFound', () => {
     );
   });
 });
+
 describe('skip', () => {
   it('appends a skipped action with the given reason', () => {
     const reconcileContext = applyContext();
@@ -84,6 +104,7 @@ describe('skip', () => {
     ]);
   });
 });
+
 describe('summarize', () => {
   it('tallies actions by status', () => {
     const actions: PlannedAction[] = [
@@ -95,6 +116,7 @@ describe('summarize', () => {
     ];
     expect(summarize(actions)).toEqual({ applied: 2, failed: 1, skipped: 1 });
   });
+
   it('returns zeros for an empty report', () => {
     expect(summarize([])).toEqual({ applied: 0, failed: 0, skipped: 0 });
   });

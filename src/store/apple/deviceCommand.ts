@@ -1,23 +1,21 @@
-import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
+import { createLogger } from '../../services/platform/logger.js';
 import type { DeviceResource } from '../../types/appleCatalog.js';
-import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
+import { loadActiveAppleStore } from './appleStoreCommand.js';
 import { hasMessage } from '../../services/platform/errorMessage.js';
 
-const DeviceAddInputSchema = Schema.Struct({
-  operation: Schema.Literal('add'),
-  udid: Schema.String,
-  name: Schema.optionalWith(Schema.String, { exact: true }),
-});
+type DeviceAddInput = Readonly<{
+  operation: 'add';
+  udid: string;
+  name?: string;
+}>;
 
-const DeviceListInputSchema = Schema.Struct({
-  operation: Schema.Literal('list'),
-});
+type DeviceListInput = Readonly<{
+  operation: 'list';
+}>;
 
-export const DeviceCommandInputSchema = Schema.Union(DeviceAddInputSchema, DeviceListInputSchema);
+type DeviceCommandInput = DeviceAddInput | DeviceListInput;
 
-type DeviceCommandInput = Schema.Schema.Type<typeof DeviceCommandInputSchema>;
-export type DeviceAddInput = Schema.Schema.Type<typeof DeviceAddInputSchema>;
+export type { DeviceAddInput };
 
 /** A device command step failed. */
 type DeviceCommandFailure = Readonly<{
@@ -26,24 +24,104 @@ type DeviceCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeDeviceCommandFailure = Data.tagged<DeviceCommandFailure>('DeviceCommandFailure');
 
-type DeviceCommandRequirements = ActiveAppleStoreRequirements | Logger;
+function makeDeviceCommandFailure(fields: {
+  operation: DeviceCommandInput['operation'];
+  message: string;
+  cause: unknown;
+}): DeviceCommandFailure {
+  return { _tag: 'DeviceCommandFailure', ...fields };
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  const isObject = typeof candidate == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  if (candidate == null) {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
+  const field = record[fieldName];
+  const isString = typeof field == 'string';
+
+  if (isString == false) {
+    throw new Error(`Expected ${fieldName} to be a string.`);
+  }
+
+  return field;
+}
+
+/** Decode one device command. Rejects an explicit undefined exact optional name. */
+export function DeviceCommandInputSchema(rawCommandInput: unknown): DeviceCommandInput {
+  const isObject = isRecord(rawCommandInput);
+
+  if (isObject == false) {
+    throw new Error('Device command input must be an object.');
+  }
+
+  const operation = rawCommandInput['operation'];
+  const isAdd = operation == 'add';
+
+  if (isAdd) {
+    const udid = readRequiredString(rawCommandInput, 'udid');
+    const hasName = Object.hasOwn(rawCommandInput, 'name');
+
+    if (hasName == false) {
+      return { operation: 'add', udid };
+    }
+
+    const name = readRequiredString(rawCommandInput, 'name');
+    return { operation: 'add', udid, name };
+  }
+
+  const isList = operation == 'list';
+
+  if (isList) {
+    return { operation: 'list' };
+  }
+
+  throw new Error('Device command operation must be add or list.');
+}
+
+function readNonEmptyText(cause: unknown): string | null {
+  const isNotText = typeof cause != 'string';
+
+  if (isNotText) return null;
+
+  const isEmpty = cause.length == 0;
+
+  if (isEmpty) return null;
+
+  return cause;
+}
+
+function readCauseMessage(cause: unknown, fallback: string): string {
+  const textMessage = readNonEmptyText(cause);
+
+  if (textMessage != null) return textMessage;
+
+  const hasCauseMessage = hasMessage(cause);
+
+  if (hasCauseMessage) return cause.message;
+
+  return fallback;
+}
 
 /** Convert a dependency failure into the device command channel. */
-const deviceCommandFailure = (
+function deviceCommandFailure(
   operation: DeviceCommandInput['operation'],
   cause: unknown,
-): DeviceCommandFailure => {
-  let message = `Device ${operation} failed.`;
-  if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') message = causeMessage;
-  }
+): DeviceCommandFailure {
+  const message = readCauseMessage(cause, `Device ${operation} failed.`);
   return makeDeviceCommandFailure({ operation, message, cause });
-};
+}
 
 /** Render one registered device for the list view. */
 export const renderRegisteredDevice = (registeredDevice: DeviceResource): string => {
@@ -53,54 +131,62 @@ export const renderRegisteredDevice = (registeredDevice: DeviceResource): string
 };
 
 /** Register one device for ad-hoc distribution. */
-const addDevice = (
-  commandInput: DeviceAddInput,
-): Effect.Effect<void, DeviceCommandFailure, DeviceCommandRequirements> =>
-  Effect.gen(function* () {
-    const appleStore = yield* loadActiveAppleStore();
+async function addDevice(commandInput: DeviceAddInput): Promise<void> {
+  try {
+    const appleStore = await loadActiveAppleStore();
     let deviceName = commandInput.udid;
     if (commandInput.name !== undefined) deviceName = commandInput.name;
-    const registeredDevice = yield* appleStore.registerDevice(commandInput.udid, deviceName);
-    const logger = yield* createLogger(false);
-    yield* logger.line(`OK Registered ${registeredDevice.name} (${registeredDevice.udid})`);
-    yield* logger.line(
-      "- It'll be included on the next `launch build ios --distribution internal`.",
-    );
-  }).pipe(Effect.mapError((cause) => deviceCommandFailure('add', cause)));
+    const registeredDevice = await appleStore.registerDevice(commandInput.udid, deviceName);
+    const logger = createLogger(false);
+    logger.line(`OK Registered ${registeredDevice.name} (${registeredDevice.udid})`);
+    logger.line("- It'll be included on the next `launch build ios --distribution internal`.");
+  } catch (cause) {
+    throw deviceCommandFailure('add', cause);
+  }
+}
 
 /** List devices registered for ad-hoc distribution. */
-const listDevices = (): Effect.Effect<void, DeviceCommandFailure, DeviceCommandRequirements> =>
-  Effect.gen(function* () {
-    const appleStore = yield* loadActiveAppleStore();
-    const registeredDevices = yield* appleStore.listDevices();
-    const logger = yield* createLogger(false);
-    if (registeredDevices.length === 0) {
-      yield* logger.line('No registered devices. Add one with `launch device add <udid> [name]`.');
+async function listDevices(): Promise<void> {
+  try {
+    const appleStore = await loadActiveAppleStore();
+    const registeredDevices = await appleStore.listDevices();
+    const logger = createLogger(false);
+    const isDeviceListEmpty = registeredDevices.length == 0;
+
+    if (isDeviceListEmpty) {
+      logger.line('No registered devices. Add one with `launch device add <udid> [name]`.');
       return;
     }
+
     for (const registeredDevice of registeredDevices) {
-      yield* logger.line(renderRegisteredDevice(registeredDevice));
+      logger.line(renderRegisteredDevice(registeredDevice));
     }
-    yield* logger.line(`\n${registeredDevices.length} device(s).`);
-  }).pipe(Effect.mapError((cause) => deviceCommandFailure('list', cause)));
+
+    logger.line(`\n${registeredDevices.length} device(s).`);
+  } catch (cause) {
+    throw deviceCommandFailure('list', cause);
+  }
+}
 
 /** Dispatch one decoded device operation. */
-const runDeviceOperation = (
-  commandInput: DeviceCommandInput,
-): Effect.Effect<void, DeviceCommandFailure, DeviceCommandRequirements> => {
+async function runDeviceOperation(commandInput: DeviceCommandInput): Promise<void> {
   switch (commandInput.operation) {
     case 'add':
       return addDevice(commandInput);
     case 'list':
       return listDevices();
   }
-};
+}
 
 /** Run one schema-decoded device command. */
-export const deviceCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, DeviceCommandFailure, DeviceCommandRequirements> =>
-  Schema.decodeUnknown(DeviceCommandInputSchema)(rawCommandInput).pipe(
-    Effect.mapError((cause) => deviceCommandFailure('list', cause)),
-    Effect.flatMap(runDeviceOperation),
-  );
+export async function deviceCommandProgram(rawCommandInput: unknown): Promise<void> {
+  let commandInput: DeviceCommandInput;
+
+  try {
+    commandInput = DeviceCommandInputSchema(rawCommandInput);
+  } catch (cause) {
+    throw deviceCommandFailure('list', cause);
+  }
+
+  await runDeviceOperation(commandInput);
+}

@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { runPlanner } from './planner.testkit.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -84,10 +83,10 @@ const makeCtx = (api: AscCatalogApi | null, appDir: string): PlanContext => {
     // Widen the catalog-only fake to the full surface API the context now exposes; the listing methods
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
     resolveAscApi: () => {
-      if (api === null) return Effect.succeed(null);
-      return Effect.succeed(makeAscApiFake(api));
+      if (api === null) return Promise.resolve(null);
+      return Promise.resolve(makeAscApiFake(api));
     },
-    resolvePlayApi: () => Effect.succeed(null),
+    resolvePlayApi: () => Promise.resolve(null),
   };
 };
 describe('listingPlanner', () => {

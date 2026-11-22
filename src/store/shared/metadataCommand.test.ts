@@ -1,35 +1,15 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
-import { makeAscCatalogApiFake } from '@testkit/ascCatalogApi.testkit.js';
-import { Effect, Schema, unsafeCoerce } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  AppleStoreClientService,
-  type EffectAppStoreConnectClient,
-} from '../../services/stores/appleStoreClient.js';
-import {
-  type EffectGooglePlayClient,
-  GoogleStoreClientService,
-} from '../../services/stores/googleStoreClient.js';
-import { makeLaunchLoggerTest } from '../../services/platform/logger.js';
-import { makeLaunchPathsTest } from '../../services/platform/paths.js';
-import { makeLaunchPromptTest } from '../../services/platform/prompt.js';
-import { makeLaunchSecretStoreTest } from '../../services/credentials/secretStore.js';
+import { loadActiveAscKey } from '../../credentials/accounts.js';
+import { loadServiceAccount } from '../../credentials/androidKeystore.js';
+import { resetLogger, useLoggerSink } from '../../services/platform/logger.js';
+import { AppleStoreClientService } from '../../services/stores/appleStoreClient.js';
+import { GoogleStoreClientService } from '../../services/stores/googleStoreClient.js';
 import type { AppDescriptor } from '../../types/app.js';
 import type { LaunchConfig } from '../../types/config.js';
 import type { PlayListing } from '../../types/googlePlay.js';
-
-vi.mock('./selectStoreApp.js', () => ({ loadStoreAppContext: vi.fn() }));
-vi.mock('../../credentials/accounts.js', () => ({ loadActiveAscKey: vi.fn() }));
-vi.mock('../../credentials/androidKeystore.js', () => ({
-  loadServiceAccount: vi.fn(),
-  describeMissingPlayServiceAccount: () => Effect.succeed('No Play service account.'),
-}));
-
-import { loadActiveAscKey } from '../../credentials/accounts.js';
-import { loadServiceAccount } from '../../credentials/androidKeystore.js';
 import {
   assertListingPlatform,
   metadataCommandProgram,
@@ -37,6 +17,13 @@ import {
   pullAppleListing,
 } from './metadataCommand.js';
 import { loadStoreAppContext } from './selectStoreApp.js';
+
+vi.mock('./selectStoreApp.js', () => ({ loadStoreAppContext: vi.fn() }));
+vi.mock('../../credentials/accounts.js', () => ({ loadActiveAscKey: vi.fn() }));
+vi.mock('../../credentials/androidKeystore.js', () => ({
+  loadServiceAccount: vi.fn(),
+  describeMissingPlayServiceAccount: vi.fn(async () => 'No Play service account.'),
+}));
 
 const stubLaunchConfig: LaunchConfig = {
   profiles: {},
@@ -49,86 +36,74 @@ const stubLaunchConfig: LaunchConfig = {
 const ascKey = { keyId: 'KEY', issuerId: 'ISS', p8: 'pem' };
 const serviceAccountJson = '{"type":"service_account"}';
 
-const makeApp = (
-  appOverrides: Partial<AppDescriptor> & Pick<AppDescriptor, 'dir'>,
-): AppDescriptor => ({
-  name: 'demo',
-  configPath: join(appOverrides.dir, 'app.json'),
-  ...appOverrides,
-});
+function makeApp(appOverrides: Partial<AppDescriptor> & Pick<AppDescriptor, 'dir'>): AppDescriptor {
+  return {
+    name: 'demo',
+    configPath: join(appOverrides.dir, 'app.json'),
+    ...appOverrides,
+  };
+}
 
-const makePlayClientFake = () => ({
-  listListings: vi.fn(() => Effect.succeed<PlayListing[]>([])),
-  updateListings: vi.fn(
-    (_packageName: string, _listings: readonly PlayListing[]): Effect.Effect<void, Error> =>
-      Effect.void,
-  ),
-});
+function makeAppleReads() {
+  async function readAppId(): Promise<string | null> {
+    return 'app1';
+  }
 
-let ascCatalogApi = makeAscCatalogApiFake();
-let playClientFake = makePlayClientFake();
-const currentListingLookups = {
-  getCurrentAppInfoId: vi.fn(() => Effect.succeed('appinfo1')),
-  getCurrentVersionId: vi.fn(() => Effect.succeed('version1')),
-};
-const createEffectAppleClient = vi.fn((_ascKey: unknown) => {
-  const ascClientFake = { ...ascCatalogApi, ...currentListingLookups };
-  return Effect.succeed(unsafeCoerce<unknown, EffectAppStoreConnectClient>(ascClientFake));
-});
-const createEffectPlayClient = vi.fn((_serviceAccountJson: string) =>
-  Effect.succeed(unsafeCoerce<unknown, EffectGooglePlayClient>(playClientFake)),
-);
-
-const appleStoreClientTest = unsafeCoerce<unknown, AppleStoreClientService>({
-  createEffectClient: createEffectAppleClient,
-});
-const googleStoreClientTest = unsafeCoerce<unknown, GoogleStoreClientService>({
-  createEffectClient: createEffectPlayClient,
-});
-
-const resetStoreFakes = (): void => {
-  ascCatalogApi = makeAscCatalogApiFake();
-  playClientFake = makePlayClientFake();
-};
-
-const runMetadata = <Success, Failure, Requirements>(
-  program: Effect.Effect<Success, Failure, Requirements>,
-  workingDirectory: string,
-  terminalWrites: string[],
-): Promise<Success> =>
-  Effect.runPromise(
-    unsafeCoerce<Effect.Effect<Success, Failure, Requirements>, Effect.Effect<Success, Failure>>(
-      program.pipe(
-        Effect.provideService(AppleStoreClientService, appleStoreClientTest),
-        Effect.provideService(GoogleStoreClientService, googleStoreClientTest),
-        Effect.provide(NodeContext.layer),
-        Effect.provide(makeLaunchPathsTest(workingDirectory, workingDirectory)),
-        Effect.provide(makeLaunchLoggerTest(terminalWrites)),
-        Effect.provide(makeLaunchPromptTest()),
-        Effect.provide(makeLaunchSecretStoreTest()),
-      ),
+  return {
+    getAppId: vi.fn(readAppId),
+    getCurrentAppInfoId: vi.fn(async () => 'appinfo1'),
+    getCurrentVersionId: vi.fn(async () => 'version1'),
+    getEditableAppInfoId: vi.fn(async () => 'appinfo1'),
+    getEditableVersionId: vi.fn(async () => 'version1'),
+    listAppInfoLocalizations: vi.fn(
+      async () => [] as { id: string; locale: string; fields: Record<string, string> }[],
     ),
-  );
+    listVersionLocalizations: vi.fn(
+      async () => [] as { id: string; locale: string; fields: Record<string, string> }[],
+    ),
+    createAppInfoLocalization: vi.fn(async () => undefined),
+    createVersionLocalization: vi.fn(async () => undefined),
+    updateAppInfoLocalization: vi.fn(async () => undefined),
+    updateVersionLocalization: vi.fn(async () => undefined),
+  };
+}
 
-const flipMetadata = <Success, Failure, Requirements>(
-  program: Effect.Effect<Success, Failure, Requirements>,
-  workingDirectory: string,
-  terminalWrites: string[] = [],
-): Promise<Failure> => runMetadata(Effect.flip(program), workingDirectory, terminalWrites);
+function makePlayClientFake() {
+  return {
+    listListings: vi.fn(async () => [] as PlayListing[]),
+    updateListings: vi.fn(
+      async (_packageName: string, _listings: readonly PlayListing[]) => undefined,
+    ),
+  };
+}
+
+let appleReads = makeAppleReads();
+let playClientFake = makePlayClientFake();
+const createEffectAppleClient = vi.spyOn(AppleStoreClientService, 'createEffectClient');
+const createEffectPlayClient = vi.spyOn(GoogleStoreClientService, 'createEffectClient');
+
+function installStoreFakes(): void {
+  appleReads = makeAppleReads();
+  playClientFake = makePlayClientFake();
+  createEffectAppleClient.mockReset();
+  createEffectAppleClient.mockImplementation(function createAppleClient() {
+    return appleReads as never;
+  });
+  createEffectPlayClient.mockReset();
+  createEffectPlayClient.mockReturnValue(playClientFake as never);
+}
 
 describe('MetadataCommandInputSchema', () => {
   it('decodes a pull with omitted optional selectors', () => {
-    expect(
-      Schema.decodeUnknownSync(MetadataCommandInputSchema)({
-        operation: 'pull',
-        dryRun: true,
-      }),
-    ).toEqual({ operation: 'pull', dryRun: true });
+    expect(MetadataCommandInputSchema({ operation: 'pull', dryRun: true })).toEqual({
+      operation: 'pull',
+      dryRun: true,
+    });
   });
 
   it('rejects an explicit undefined exact optional platform', () => {
     expect(() =>
-      Schema.decodeUnknownSync(MetadataCommandInputSchema)({
+      MetadataCommandInputSchema({
         operation: 'push',
         platform: undefined,
         dryRun: false,
@@ -139,14 +114,15 @@ describe('MetadataCommandInputSchema', () => {
 
 describe('assertListingPlatform', () => {
   it('allows the iOS and Android listing adapters', () => {
-    expect(Effect.runSync(assertListingPlatform('ios'))).toBeUndefined();
-    expect(Effect.runSync(assertListingPlatform('android'))).toBeUndefined();
+    expect(() => assertListingPlatform('ios')).not.toThrow();
+    expect(() => assertListingPlatform('android')).not.toThrow();
   });
 
   it('rejects unsupported Apple listing targets', () => {
     for (const platform of ['tvos', 'macos', 'visionos'] as const) {
-      const platformFailure = Effect.runSync(Effect.flip(assertListingPlatform(platform)));
-      expect(platformFailure.message).toMatch(/syncs the iOS and Android store listing only/);
+      expect(() => assertListingPlatform(platform)).toThrow(
+        /syncs the iOS and Android store listing only/,
+      );
     }
   });
 });
@@ -157,28 +133,41 @@ describe('metadataCommandProgram', () => {
   let configPath = '';
   let terminalWrites: string[] = [];
 
-  const writeStoreConfig = (storeConfig: unknown): void => {
+  function writeStoreConfig(storeConfig: unknown): void {
     writeFileSync(configPath, `${JSON.stringify(storeConfig, null, 2)}\n`);
-  };
+  }
 
-  const readStoreConfig = (): unknown => JSON.parse(readFileSync(configPath, 'utf8'));
+  function readStoreConfig(): unknown {
+    return JSON.parse(readFileSync(configPath, 'utf8'));
+  }
 
-  const runCommand = (
+  function runCommand(operation: 'pull' | 'push', platform: 'ios' | 'android', dryRun: boolean) {
+    return metadataCommandProgram({ operation, platform, dryRun, config: configPath });
+  }
+
+  async function failCommand(
     operation: 'pull' | 'push',
     platform: 'ios' | 'android',
     dryRun: boolean,
-  ): Promise<void> =>
-    runMetadata(
-      metadataCommandProgram({ operation, platform, dryRun, config: configPath }),
-      workspaceDirectory,
-      terminalWrites,
-    );
+  ) {
+    try {
+      await runCommand(operation, platform, dryRun);
+    } catch (error) {
+      return error;
+    }
 
-  const failCommand = (operation: 'pull' | 'push', platform: 'ios' | 'android', dryRun: boolean) =>
-    flipMetadata(
-      metadataCommandProgram({ operation, platform, dryRun, config: configPath }),
-      workspaceDirectory,
-    );
+    throw new Error('expected the metadata command to fail');
+  }
+
+  async function failRawCommand(rawCommandInput: unknown) {
+    try {
+      await metadataCommandProgram(rawCommandInput);
+    } catch (error) {
+      return error;
+    }
+
+    throw new Error('expected the metadata command to fail');
+  }
 
   beforeEach(() => {
     workspaceDirectory = mkdtempSync(join(tmpdir(), 'launch-metadata-cmd-'));
@@ -186,29 +175,28 @@ describe('metadataCommandProgram', () => {
     mkdirSync(appDirectory, { recursive: true });
     configPath = join(appDirectory, 'store.config.json');
     terminalWrites = [];
+    useLoggerSink(function captureTerminal(text: string) {
+      terminalWrites.push(text);
+    });
     vi.clearAllMocks();
-    resetStoreFakes();
-    vi.mocked(loadStoreAppContext).mockReturnValue(
-      Effect.succeed({
-        config: stubLaunchConfig,
-        app: makeApp({
-          dir: appDirectory,
-          bundleId: 'com.demo.app',
-          packageName: 'com.demo.app',
-        }),
+    installStoreFakes();
+    vi.mocked(loadStoreAppContext).mockResolvedValue({
+      config: stubLaunchConfig,
+      app: makeApp({
+        dir: appDirectory,
+        bundleId: 'com.demo.app',
+        packageName: 'com.demo.app',
       }),
-    );
+    });
   });
 
   afterEach(() => {
+    resetLogger();
     rmSync(workspaceDirectory, { recursive: true, force: true });
   });
 
   it('fails decode before contacting the store', async () => {
-    const commandFailure = await flipMetadata(
-      metadataCommandProgram({ operation: 'pull' }),
-      workspaceDirectory,
-    );
+    const commandFailure = await failRawCommand({ operation: 'pull' });
     expect(commandFailure).toMatchObject({
       _tag: 'MetadataCommandFailure',
       operation: 'decode metadata command input',
@@ -217,25 +205,27 @@ describe('metadataCommandProgram', () => {
   });
 
   it('rejects listing platforms without a store listing API', async () => {
-    const commandFailure = await flipMetadata(
-      metadataCommandProgram({ operation: 'pull', platform: 'tvos', dryRun: true }),
-      workspaceDirectory,
-    );
-    expect(commandFailure.message).toMatch(/iOS and Android store listing only/);
+    const commandFailure = await failRawCommand({
+      operation: 'pull',
+      platform: 'tvos',
+      dryRun: true,
+    });
+    expect(commandFailure).toMatchObject({
+      message: expect.stringMatching(/iOS and Android store listing only/),
+    });
     expect(loadStoreAppContext).not.toHaveBeenCalled();
   });
 
   it('requires a bundle identifier before App Store pull', async () => {
-    vi.mocked(loadStoreAppContext).mockReturnValue(
-      Effect.succeed({
-        config: stubLaunchConfig,
-        app: makeApp({ dir: appDirectory, name: 'no-bundle' }),
-      }),
-    );
-    const commandFailure = await flipMetadata(
-      metadataCommandProgram({ operation: 'pull', platform: 'ios', dryRun: true }),
-      workspaceDirectory,
-    );
+    vi.mocked(loadStoreAppContext).mockResolvedValue({
+      config: stubLaunchConfig,
+      app: makeApp({ dir: appDirectory, name: 'no-bundle' }),
+    });
+    const commandFailure = await failRawCommand({
+      operation: 'pull',
+      platform: 'ios',
+      dryRun: true,
+    });
     expect(commandFailure).toMatchObject({
       operation: 'resolve App Store listing',
       message: expect.stringMatching(/bundle identifier/),
@@ -243,16 +233,15 @@ describe('metadataCommandProgram', () => {
   });
 
   it('requires an Android package before Play pull', async () => {
-    vi.mocked(loadStoreAppContext).mockReturnValue(
-      Effect.succeed({
-        config: stubLaunchConfig,
-        app: makeApp({ dir: appDirectory, name: 'no-package' }),
-      }),
-    );
-    const commandFailure = await flipMetadata(
-      metadataCommandProgram({ operation: 'pull', platform: 'android', dryRun: true }),
-      workspaceDirectory,
-    );
+    vi.mocked(loadStoreAppContext).mockResolvedValue({
+      config: stubLaunchConfig,
+      app: makeApp({ dir: appDirectory, name: 'no-package' }),
+    });
+    const commandFailure = await failRawCommand({
+      operation: 'pull',
+      platform: 'android',
+      dryRun: true,
+    });
     expect(commandFailure).toMatchObject({
       operation: 'resolve Play listing',
       message: expect.stringMatching(/android\.package/),
@@ -260,7 +249,7 @@ describe('metadataCommandProgram', () => {
   });
 
   it('fails App Store pull when no active Apple account is configured', async () => {
-    vi.mocked(loadActiveAscKey).mockReturnValue(Effect.succeed(null));
+    vi.mocked(loadActiveAscKey).mockResolvedValue(null);
     const commandFailure = await failCommand('pull', 'ios', true);
     expect(commandFailure).toMatchObject({
       operation: 'load active Apple account',
@@ -270,7 +259,7 @@ describe('metadataCommandProgram', () => {
   });
 
   it('fails Play pull when no service account is configured', async () => {
-    vi.mocked(loadServiceAccount).mockReturnValue(Effect.succeed(null));
+    vi.mocked(loadServiceAccount).mockResolvedValue(null);
     const commandFailure = await failCommand('pull', 'android', true);
     expect(commandFailure).toMatchObject({
       operation: 'load Play service account',
@@ -301,29 +290,27 @@ describe('metadataCommandProgram', () => {
 
   it('refuses push when store.config.json is missing', async () => {
     const commandFailure = await failCommand('push', 'ios', true);
-    expect(commandFailure.message).toMatch(/No store\.config\.json/);
-    expect(commandFailure.message).toMatch(/launch metadata pull/);
+    expect(commandFailure).toMatchObject({
+      message: expect.stringMatching(/No store\.config\.json/),
+    });
+    expect(commandFailure).toMatchObject({
+      message: expect.stringMatching(/launch metadata pull/),
+    });
   });
 
   describe('App Store pull', () => {
     beforeEach(() => {
-      vi.mocked(loadActiveAscKey).mockReturnValue(Effect.succeed(ascKey));
-      ascCatalogApi = makeAscCatalogApiFake({
-        listAppInfoLocalizations: vi.fn(() =>
-          Effect.succeed([
-            { id: 'ai-en', locale: 'en-US', fields: { name: 'Demo', subtitle: 'Sub' } },
-          ]),
-        ),
-        listVersionLocalizations: vi.fn(() =>
-          Effect.succeed([
-            {
-              id: 'v-en',
-              locale: 'en-US',
-              fields: { description: 'A demo app', keywords: 'fast, local', whatsNew: 'v1' },
-            },
-          ]),
-        ),
-      });
+      vi.mocked(loadActiveAscKey).mockResolvedValue(ascKey);
+      appleReads.listAppInfoLocalizations.mockResolvedValue([
+        { id: 'ai-en', locale: 'en-US', fields: { name: 'Demo', subtitle: 'Sub' } },
+      ]);
+      appleReads.listVersionLocalizations.mockResolvedValue([
+        {
+          id: 'v-en',
+          locale: 'en-US',
+          fields: { description: 'A demo app', keywords: 'fast, local', whatsNew: 'v1' },
+        },
+      ]);
     });
 
     it('reads the live listing and merges it into store.config.json', async () => {
@@ -354,6 +341,7 @@ describe('metadataCommandProgram', () => {
         apple: { info: { 'en-US': { title: 'Demo' } }, categories: ['GAMES'] },
       });
     });
+
     it('dry-run reads the store and reports locales without writing the config', async () => {
       await runCommand('pull', 'ios', true);
       expect(existsSync(configPath)).toBe(false);
@@ -361,25 +349,23 @@ describe('metadataCommandProgram', () => {
     });
 
     it('fails when the app has no App Store Connect record', async () => {
-      ascCatalogApi = makeAscCatalogApiFake({ getAppId: vi.fn(() => Effect.succeed(null)) });
+      appleReads.getAppId.mockResolvedValue(null);
       const commandFailure = await failCommand('pull', 'ios', false);
-      expect(commandFailure.message).toMatch(/No App Store Connect app for com\.demo\.app/);
+      expect(commandFailure).toMatchObject({
+        message: expect.stringMatching(/No App Store Connect app for com\.demo\.app/),
+      });
       expect(existsSync(configPath)).toBe(false);
     });
 
     it('is callable for adopt-style pulls', async () => {
-      await runMetadata(
-        pullAppleListing('com.demo.app', configPath, false),
-        workspaceDirectory,
-        terminalWrites,
-      );
+      await pullAppleListing('com.demo.app', configPath, false);
       expect(existsSync(configPath)).toBe(true);
     });
   });
 
   describe('App Store push', () => {
     beforeEach(() => {
-      vi.mocked(loadActiveAscKey).mockReturnValue(Effect.succeed(ascKey));
+      vi.mocked(loadActiveAscKey).mockResolvedValue(ascKey);
       writeStoreConfig({
         apple: { info: { 'en-US': { title: 'Demo', description: 'A demo app' } } },
       });
@@ -391,46 +377,46 @@ describe('metadataCommandProgram', () => {
       expect(output).toMatch(/planned: create listing \[en-US\] App Info/);
       expect(output).toMatch(/planned: create listing \[en-US\] App Store version/);
       expect(output).toMatch(/nothing was written to App Store Connect/);
-      expect(ascCatalogApi.createAppInfoLocalization).not.toHaveBeenCalled();
-      expect(ascCatalogApi.createVersionLocalization).not.toHaveBeenCalled();
+      expect(appleReads.createAppInfoLocalization).not.toHaveBeenCalled();
+      expect(appleReads.createVersionLocalization).not.toHaveBeenCalled();
     });
 
     it('writes the listing through the App Store Connect client', async () => {
       await runCommand('push', 'ios', false);
-      expect(ascCatalogApi.createAppInfoLocalization).toHaveBeenCalledWith('appinfo1', 'en-US', {
+      expect(appleReads.createAppInfoLocalization).toHaveBeenCalledWith('appinfo1', 'en-US', {
         name: 'Demo',
       });
-      expect(ascCatalogApi.createVersionLocalization).toHaveBeenCalledWith('version1', 'en-US', {
+      expect(appleReads.createVersionLocalization).toHaveBeenCalledWith('version1', 'en-US', {
         description: 'A demo app',
       });
       expect(terminalWrites.join('')).toMatch(/pushed App Store listing for com\.demo\.app/);
     });
 
     it('fails when the app has no App Store Connect record', async () => {
-      ascCatalogApi = makeAscCatalogApiFake({ getAppId: vi.fn(() => Effect.succeed(null)) });
+      appleReads.getAppId.mockResolvedValue(null);
       const commandFailure = await failCommand('push', 'ios', false);
-      expect(commandFailure.message).toMatch(/No App Store Connect app|app record/i);
-      expect(ascCatalogApi.createAppInfoLocalization).not.toHaveBeenCalled();
+      expect(commandFailure).toMatchObject({
+        message: expect.stringMatching(/No App Store Connect app|app record/i),
+      });
+      expect(appleReads.createAppInfoLocalization).not.toHaveBeenCalled();
     });
 
     it('fails when a listing write fails', async () => {
-      ascCatalogApi = makeAscCatalogApiFake({
-        createAppInfoLocalization: vi.fn(() => Effect.fail(new Error('rejected by Apple'))),
-      });
+      appleReads.createAppInfoLocalization.mockRejectedValue(new Error('rejected by Apple'));
       const commandFailure = await failCommand('push', 'ios', false);
-      expect(commandFailure.message).toMatch(/rejected by Apple/);
+      expect(commandFailure).toMatchObject({
+        message: expect.stringMatching(/rejected by Apple/),
+      });
     });
   });
 
   describe('Play pull', () => {
     beforeEach(() => {
-      vi.mocked(loadServiceAccount).mockReturnValue(Effect.succeed(serviceAccountJson));
-      playClientFake.listListings.mockReturnValue(
-        Effect.succeed([
-          { language: 'en-US', title: 'Demo', shortDescription: 'short', fullDescription: 'full' },
-          { language: 'de-DE' },
-        ]),
-      );
+      vi.mocked(loadServiceAccount).mockResolvedValue(serviceAccountJson);
+      playClientFake.listListings.mockResolvedValue([
+        { language: 'en-US', title: 'Demo', shortDescription: 'short', fullDescription: 'full' },
+        { language: 'de-DE' },
+      ]);
     });
 
     it('reads the live listings and merges them into store.config.json', async () => {
@@ -455,7 +441,7 @@ describe('metadataCommandProgram', () => {
 
   describe('Play push', () => {
     beforeEach(() => {
-      vi.mocked(loadServiceAccount).mockReturnValue(Effect.succeed(serviceAccountJson));
+      vi.mocked(loadServiceAccount).mockResolvedValue(serviceAccountJson);
       writeStoreConfig({
         android: {
           info: {
@@ -487,7 +473,7 @@ describe('metadataCommandProgram', () => {
     });
 
     it('fails when the Play update fails', async () => {
-      playClientFake.updateListings.mockReturnValue(Effect.fail(new Error('Play said no')));
+      playClientFake.updateListings.mockRejectedValue(new Error('Play said no'));
       const commandFailure = await failCommand('push', 'android', false);
       expect(commandFailure).toMatchObject({
         operation: 'upload Play listings',

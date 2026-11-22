@@ -1,7 +1,4 @@
-import type { HttpClient } from '@effect/platform';
-import type { Effect } from 'effect';
-import type { PlayReportingClient } from '@google/playReporting.js';
-import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
+import type { AppStoreStatsClient, PlayVitalsReader } from '../stats/statsCredentials.js';
 import type { PortfolioApp } from './portfolio.js';
 import type { ServiceAccount } from './credentials.js';
 
@@ -84,26 +81,16 @@ export type StatsCredentialsFailure = Readonly<{
 }>;
 
 export interface StatsCredentialsShape {
-  readonly ascClientForAccount: (
-    accountKeyId: string,
-  ) => Effect.Effect<EffectAppStoreConnectClient | null, StatsCredentialsFailure>;
-  readonly vendorNumberForAccount: (
-    accountKeyId: string,
-  ) => Effect.Effect<string | null, StatsCredentialsFailure>;
-  readonly googlePackageForApp: (
-    app: PortfolioApp,
-  ) => Effect.Effect<string | null, StatsCredentialsFailure>;
-  readonly playServiceAccount: (
-    packageName: string | null,
-  ) => Effect.Effect<ServiceAccount | null, StatsCredentialsFailure>;
-  readonly playReportingClient: (
-    packageName: string | null,
-  ) => Effect.Effect<PlayReportingClient | null, StatsCredentialsFailure>;
-  readonly playReportsBucket: () => Effect.Effect<string | null, StatsCredentialsFailure>;
+  readonly ascClientForAccount: (accountKeyId: string) => Promise<AppStoreStatsClient | null>;
+  readonly vendorNumberForAccount: (accountKeyId: string) => Promise<string | null>;
+  readonly googlePackageForApp: (app: PortfolioApp) => Promise<string | null>;
+  readonly playServiceAccount: (packageName: string | null) => Promise<ServiceAccount | null>;
+  readonly playReportingClient: (packageName: string | null) => Promise<PlayVitalsReader | null>;
+  readonly playReportsBucket: () => Promise<string | null>;
   readonly googleAccessToken: (
     scopes: readonly string[],
     packageName: string | null,
-  ) => Effect.Effect<string | null, StatsCredentialsFailure>;
+  ) => Promise<string | null>;
 }
 
 interface FeedFetchRequest {
@@ -132,9 +119,7 @@ export type StatsFeedFailure = Readonly<{
 export interface StatsFeedPlugin {
   readonly feed: StatsFeed;
   readonly isApplicable: (app: PortfolioApp) => boolean;
-  readonly fetchDays: (
-    request: FeedFetchRequest,
-  ) => Effect.Effect<FeedFetchReply, StatsFeedFailure, HttpClient.HttpClient>;
+  readonly fetchDays: (request: FeedFetchRequest) => Promise<FeedFetchReply>;
 }
 
 export interface AppFeedSyncReport {

@@ -1,4 +1,3 @@
-import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   parsePlayReviewRating,
@@ -9,14 +8,14 @@ import {
 describe('PlayReviewsCommandInputSchema', () => {
   it('decodes list and reply inputs without unset option fields', () => {
     expect(
-      Schema.decodeUnknownSync(PlayReviewsCommandInputSchema)({
+      PlayReviewsCommandInputSchema({
         operation: 'list',
         unanswered: false,
         json: true,
       }),
     ).toEqual({ operation: 'list', unanswered: false, json: true });
     expect(
-      Schema.decodeUnknownSync(PlayReviewsCommandInputSchema)({
+      PlayReviewsCommandInputSchema({
         operation: 'reply',
         reviewId: 'review-1',
         yes: false,
@@ -26,7 +25,7 @@ describe('PlayReviewsCommandInputSchema', () => {
 
   it('rejects explicit undefined exact optional fields', () => {
     expect(() =>
-      Schema.decodeUnknownSync(PlayReviewsCommandInputSchema)({
+      PlayReviewsCommandInputSchema({
         operation: 'list',
         rating: undefined,
         unanswered: false,
@@ -37,9 +36,9 @@ describe('PlayReviewsCommandInputSchema', () => {
 });
 
 describe('Play review presentation', () => {
-  it('validates ratings through the tagged Effect channel', () => {
-    expect(Effect.runSync(parsePlayReviewRating(' 4 '))).toBe(4);
-    expect(() => Effect.runSync(parsePlayReviewRating('4.5'))).toThrow(/1-5/);
+  it('validates ratings through the tagged command channel', () => {
+    expect(parsePlayReviewRating(' 4 ')).toBe(4);
+    expect(() => parsePlayReviewRating('4.5')).toThrow(/1-5/);
   });
 
   it('renders an answered review with clean ASCII status text', () => {

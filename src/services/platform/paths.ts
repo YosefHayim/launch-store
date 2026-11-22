@@ -1,299 +1,175 @@
 import { createHash } from 'node:crypto';
-import * as FileSystem from '@effect/platform/FileSystem';
-import type * as PlatformError from '@effect/platform/Error';
-import * as Path from '@effect/platform/Path';
-import { Context, Data, Effect, Layer } from 'effect';
+import { mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 const APP_KEY_PATTERN = /^(ios|android)-[A-Za-z0-9._]+$/;
 
-export type LaunchPathsService = Readonly<{
-  readonly homeDirectory: string;
-  readonly workingDirectory: string;
+export type LaunchDirectories = Readonly<{
+  homeDirectory: string;
+  workingDirectory: string;
 }>;
 
-export const LaunchPaths = Context.GenericTag<LaunchPathsService>('launch-store/Paths');
-
-export const makeLaunchPathsLive = (
-  homeDirectory: string,
-  workingDirectory: string,
-): Layer.Layer<LaunchPathsService> =>
-  Layer.succeed(LaunchPaths, {
-    homeDirectory,
-    workingDirectory,
-  });
-
-export const makeLaunchPathsTest = (
-  homeDirectory: string,
-  workingDirectory: string,
-): Layer.Layer<LaunchPathsService> =>
-  Layer.succeed(LaunchPaths, {
-    homeDirectory,
-    workingDirectory,
-  });
-/** Root of Launch's local state directory. */
-export const LAUNCH_HOME = `${homedir()}/.launch`;
-/** Where built artifacts are copied by the local storage provider. */
-export const ARTIFACTS_DIR = `${LAUNCH_HOME}/artifacts`;
-/** Full tee'd logs of long external tools (xcodebuild, gradle, prebuild). */
-/** JSON index of stored artifacts (newest-first history). */
-export const ARTIFACT_INDEX = `${ARTIFACTS_DIR}/index.json`;
-/** Registry of onboarded Apple accounts (non-secret: Key IDs, Issuer IDs, labels only). */
-export const ACCOUNTS_FILE = `${LAUNCH_HOME}/accounts.json`;
-/** Non-secret signing metadata + the encrypted `.p12` backup (chmod 600). */
-export const CREDENTIALS_DIR = `${LAUNCH_HOME}/credentials`;
-/** Legacy single-account signing index (kept for first-run migration). */
-export const CREDENTIALS_INDEX = `${CREDENTIALS_DIR}/index.json`;
-/** Where macOS/Xcode looks for installed provisioning profiles. */
-export const PROVISIONING_PROFILES_DIR = `${homedir()}/Library/MobileDevice/Provisioning Profiles`;
-/** Vault index of imported APNs auth keys (non-secret metadata only). */
-export const PUSH_KEYS_FILE = `${LAUNCH_HOME}/push-keys.json`;
-const sanitizePathIdentifier = (identifier: string, fallbackIdentifier: string): string => {
-  const sanitizedIdentifier = identifier.replace(/[^A-Za-z0-9_-]/g, '');
-  if (sanitizedIdentifier.length === 0) return fallbackIdentifier;
-  return sanitizedIdentifier;
+let launchDirectories: LaunchDirectories = {
+  homeDirectory: homedir(),
+  workingDirectory: process.cwd(),
 };
-export const resolveLaunchHomeDirectory = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const pathService = yield* Path.Path;
-    return pathService.join(launchPaths.homeDirectory, '.launch');
-  });
-export const resolveAccountsFilePath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'accounts.json');
-  });
-export const resolveCredentialsDirectory = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'credentials');
-  });
-export const resolveAndroidCredentialsDirectory = (
-  packageName: string,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const credentialsDirectory = yield* resolveCredentialsDirectory();
-    const packageDigest = createHash('sha256').update(packageName).digest('hex');
-    return pathService.join(credentialsDirectory, 'android', packageDigest);
-  });
-export const resolveAndroidCredentialsIndexPath = (
-  packageName: string,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveAndroidCredentialsDirectory(packageName), 'android.json');
-  });
-/** Legacy, unscoped Android index used only by explicit adoption. */
-export const resolveLegacyAndroidCredentialsIndexPath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveCredentialsDirectory(), 'android.json');
-  });
 
-export const resolveProvisioningProfilesDirectory = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const pathService = yield* Path.Path;
-    return pathService.join(
-      launchPaths.homeDirectory,
-      'Library',
-      'MobileDevice',
-      'Provisioning Profiles',
-    );
-  });
-export const resolvePushKeysFilePath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'push-keys.json');
-  });
-export const resolveStateFilePath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'state.json');
-  });
-export const resolveCloudStateFilePath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'cloud.json');
-  });
-export const resolveLastRunFilePath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'last-run.json');
-  });
-export const resolveLogsDirectory = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'logs');
-  });
-export const resolveSecretsFilePath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'secrets.json');
-  });
-export const resolveArtifactsDirectory = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'artifacts');
-  });
-export const resolveArtifactIndexFilePath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveArtifactsDirectory(), 'index.json');
-  });
-export const resolveReleaseTrainsDirectory = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'release-trains');
-  });
-export const resolveSnapshotsDirectory = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'snapshots');
-  });
-export const resolveUpdateStateFilePath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'update.json');
-  });
-export const resolveAccountCredentialsDirectory = (
-  keyId: string,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    return pathService.join(
-      yield* resolveCredentialsDirectory(),
-      sanitizePathIdentifier(keyId, 'default'),
-    );
-  });
-export const resolveReleaseTrainFilePath = (
-  trainId: string,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const safeTrainId = sanitizePathIdentifier(trainId, 'train');
-    return pathService.join(yield* resolveReleaseTrainsDirectory(), `${safeTrainId}.json`);
-  });
-export const resolveSnapshotFilePath = (
-  snapshotName: string,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const safeSnapshotName = sanitizePathIdentifier(snapshotName, 'snapshot');
-    return pathService.join(yield* resolveSnapshotsDirectory(), `${safeSnapshotName}.json`);
-  });
-export const ensureDirectoryExists = (
-  directoryPath: string,
-): Effect.Effect<string, PlatformError.PlatformError, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    yield* fileSystem.makeDirectory(directoryPath, { recursive: true });
-    return directoryPath;
-  });
+export function useLaunchDirectories(directories: LaunchDirectories): void {
+  launchDirectories = directories;
+}
+
+export function resetLaunchDirectories(): void {
+  launchDirectories = {
+    homeDirectory: homedir(),
+    workingDirectory: process.cwd(),
+  };
+}
+
+export function readLaunchDirectories(): LaunchDirectories {
+  return launchDirectories;
+}
+
+export type LaunchPathsService = LaunchDirectories;
+
+export const LAUNCH_HOME = `${homedir()}/.launch`;
+export const ARTIFACTS_DIR = `${LAUNCH_HOME}/artifacts`;
+export const ARTIFACT_INDEX = `${ARTIFACTS_DIR}/index.json`;
+export const ACCOUNTS_FILE = `${LAUNCH_HOME}/accounts.json`;
+export const CREDENTIALS_DIR = `${LAUNCH_HOME}/credentials`;
+export const CREDENTIALS_INDEX = `${CREDENTIALS_DIR}/index.json`;
+export const PROVISIONING_PROFILES_DIR = `${homedir()}/Library/MobileDevice/Provisioning Profiles`;
+export const PUSH_KEYS_FILE = `${LAUNCH_HOME}/push-keys.json`;
+
+function sanitizePathIdentifier(identifier: string, fallbackIdentifier: string): string {
+  const sanitizedIdentifier = identifier.replace(/[^A-Za-z0-9_-]/g, '');
+
+  if (sanitizedIdentifier.length == 0) {
+    return fallbackIdentifier;
+  }
+
+  return sanitizedIdentifier;
+}
+
+export function resolveLaunchHomeDirectory(): string {
+  return join(launchDirectories.homeDirectory, '.launch');
+}
+
+export function resolveAccountsFilePath(): string {
+  return join(resolveLaunchHomeDirectory(), 'accounts.json');
+}
+
+export function resolveCredentialsDirectory(): string {
+  return join(resolveLaunchHomeDirectory(), 'credentials');
+}
+
+export function resolveAndroidCredentialsDirectory(packageName: string): string {
+  const packageDigest = createHash('sha256').update(packageName).digest('hex');
+
+  return join(resolveCredentialsDirectory(), 'android', packageDigest);
+}
+
+export function resolveAndroidCredentialsIndexPath(packageName: string): string {
+  return join(resolveAndroidCredentialsDirectory(packageName), 'android.json');
+}
+
+export function resolveLegacyAndroidCredentialsIndexPath(): string {
+  return join(resolveCredentialsDirectory(), 'android.json');
+}
+
+export function resolveProvisioningProfilesDirectory(): string {
+  return join(launchDirectories.homeDirectory, 'Library', 'MobileDevice', 'Provisioning Profiles');
+}
+
+export function resolvePushKeysFilePath(): string {
+  return join(resolveLaunchHomeDirectory(), 'push-keys.json');
+}
+
+export function resolveStateFilePath(): string {
+  return join(resolveLaunchHomeDirectory(), 'state.json');
+}
+
+export function resolveCloudStateFilePath(): string {
+  return join(resolveLaunchHomeDirectory(), 'cloud.json');
+}
+
+export function resolveLastRunFilePath(): string {
+  return join(resolveLaunchHomeDirectory(), 'last-run.json');
+}
+
+export function resolveLogsDirectory(): string {
+  return join(resolveLaunchHomeDirectory(), 'logs');
+}
+
+export function resolveSecretsFilePath(): string {
+  return join(resolveLaunchHomeDirectory(), 'secrets.json');
+}
+
+export function resolveArtifactsDirectory(): string {
+  return join(resolveLaunchHomeDirectory(), 'artifacts');
+}
+
+export function resolveArtifactIndexFilePath(): string {
+  return join(resolveArtifactsDirectory(), 'index.json');
+}
+
+export function resolveReleaseTrainsDirectory(): string {
+  return join(resolveLaunchHomeDirectory(), 'release-trains');
+}
+
+export function resolveSnapshotsDirectory(): string {
+  return join(resolveLaunchHomeDirectory(), 'snapshots');
+}
+
+export function resolveUpdateStateFilePath(): string {
+  return join(resolveLaunchHomeDirectory(), 'update.json');
+}
+
+export function resolveAccountCredentialsDirectory(keyId: string): string {
+  return join(resolveCredentialsDirectory(), sanitizePathIdentifier(keyId, 'default'));
+}
+
+export function resolveReleaseTrainFilePath(trainId: string): string {
+  const safeTrainId = sanitizePathIdentifier(trainId, 'train');
+
+  return join(resolveReleaseTrainsDirectory(), `${safeTrainId}.json`);
+}
+
+export function resolveSnapshotFilePath(snapshotName: string): string {
+  const safeSnapshotName = sanitizePathIdentifier(snapshotName, 'snapshot');
+
+  return join(resolveSnapshotsDirectory(), `${safeSnapshotName}.json`);
+}
+
+export async function ensureDirectoryExists(directoryPath: string): Promise<string> {
+  await mkdir(directoryPath, { recursive: true });
+
+  return directoryPath;
+}
+
 export type InvalidAppKeyFailure = Readonly<{
-  readonly _tag: 'InvalidAppKeyFailure';
-  readonly message: string;
+  _tag: 'InvalidAppKeyFailure';
+  message: string;
 }>;
-const makeInvalidAppKeyFailure = Data.tagged<InvalidAppKeyFailure>('InvalidAppKeyFailure');
-export const locateStatsDirectory = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const launchHomeDirectory = yield* resolveLaunchHomeDirectory();
-    return pathService.join(launchHomeDirectory, 'stats');
-  });
-export const locateAppStatsDirectory = (
-  appKey: string,
-): Effect.Effect<string, InvalidAppKeyFailure, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const isAppKeyValid = APP_KEY_PATTERN.test(appKey);
-    const isAppKeyInvalid = !isAppKeyValid;
-    if (isAppKeyInvalid) {
-      const invalidKeyFailure = makeInvalidAppKeyFailure({
-        message: `"${appKey}" is not a valid app key.`,
-      });
-      return yield* Effect.fail(invalidKeyFailure);
-    }
-    const pathService = yield* Path.Path;
-    const statsDirectory = yield* locateStatsDirectory();
-    return pathService.join(statsDirectory, appKey);
-  });
-export const locatePortfolioFilePath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const launchHomeDirectory = yield* resolveLaunchHomeDirectory();
-    return pathService.join(launchHomeDirectory, 'portfolio.json');
-  });
+
+export function makeInvalidAppKeyFailure(message: string): InvalidAppKeyFailure {
+  return { _tag: 'InvalidAppKeyFailure', message };
+}
+
+export function locateStatsDirectory(): string {
+  return join(resolveLaunchHomeDirectory(), 'stats');
+}
+
+export function locateAppStatsDirectory(appKey: string): string {
+  const isAppKeyValid = APP_KEY_PATTERN.test(appKey);
+
+  if (isAppKeyValid == false) {
+    throw makeInvalidAppKeyFailure(`"${appKey}" is not a valid app key.`);
+  }
+
+  return join(locateStatsDirectory(), appKey);
+}
+
+export function locatePortfolioFilePath(): string {
+  return join(resolveLaunchHomeDirectory(), 'portfolio.json');
+}

@@ -1,17 +1,19 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
-import { makeFakeAscClient } from '@testkit/storeClients.testkit.js';
-import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
-import type { PortfolioFile, PortfolioLoadMode } from '../types/portfolio.js';
-import type { StatsCredentialsShape } from '../types/stats.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import {
+  makeStatsCredentialsTest,
+  useStatsCredentials,
+  type AppStoreStatsClient,
+  type StatsCredentialsApi,
+} from '../stats/statsCredentials.js';
+import type { PortfolioFile, PortfolioLoad, PortfolioLoadMode } from '../types/portfolio.js';
 import { loadPortfolioApps } from './loadPortfolioApps.js';
 
 const ACCOUNTS_FILE = JSON.stringify({
@@ -51,33 +53,74 @@ const CACHED_FILE: PortfolioFile = {
   playReportsBucket: null,
 };
 
+interface FakeAscApp {
+  readonly id: string;
+  readonly name: string;
+  readonly bundleId: string | null;
+}
+
+function makeAscClient(appsOrFailure: readonly FakeAscApp[] | Error): AppStoreStatsClient {
+  const client = {
+    async listApps() {
+      if (appsOrFailure instanceof Error) {
+        throw appsOrFailure;
+      }
+
+      return appsOrFailure;
+    },
+  };
+
+  return client as unknown as AppStoreStatsClient;
+}
+
+function freshStoreId(keyId: string): string {
+  if (keyId == 'KEYA') {
+    return '1';
+  }
+
+  return '2';
+}
+
+async function ascClientForFreshApps(keyId: string): Promise<AppStoreStatsClient | null> {
+  const storeId = freshStoreId(keyId);
+
+  return makeAscClient([{ id: storeId, name: `Fresh ${keyId}`, bundleId: null }]);
+}
+
+const answerWithFreshApps: Partial<StatsCredentialsApi> = {
+  ascClientForAccount: ascClientForFreshApps,
+};
+
 describe('loadPortfolioApps', () => {
   let homeDirectory: string;
-  beforeEach(() => {
+
+  beforeEach(function setPortfolioHome() {
     homeDirectory = createTemporaryHomeDirectory();
+    useLaunchDirectories({
+      homeDirectory,
+      workingDirectory: join(homeDirectory, 'work'),
+    });
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
   });
-  afterEach(() => {
+
+  afterEach(function resetPortfolioHome() {
+    useStatsCredentials(null);
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
-  const load = (mode: PortfolioLoadMode, credentials: Partial<StatsCredentialsShape>) =>
-    Effect.runPromise(
-      loadPortfolioApps(mode).pipe(
-        Effect.provide(makeStatsCredentialsTest(credentials)),
-        Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      ),
-    );
-  const readSavedFile = (): PortfolioFile =>
-    JSON.parse(readFileSync(join(homeDirectory, '.launch', 'portfolio.json'), 'utf8'));
-  const answerWithFreshApps: Partial<StatsCredentialsShape> = {
-    ascClientForAccount: (keyId) =>
-      Effect.succeed(
-        makeFakeAscClient([
-          { id: keyId === 'KEYA' ? '1' : '2', name: `Fresh ${keyId}`, bundleId: null },
-        ]),
-      ),
-  };
+  async function load(
+    mode: PortfolioLoadMode,
+    credentials: Partial<StatsCredentialsApi>,
+  ): Promise<PortfolioLoad> {
+    makeStatsCredentialsTest(credentials);
+
+    return loadPortfolioApps(mode);
+  }
+
+  function readSavedFile(): PortfolioFile {
+    return JSON.parse(readFileSync(join(homeDirectory, '.launch', 'portfolio.json'), 'utf8'));
+  }
 
   test('cache-first uses the saved file without asking the stores', async () => {
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(CACHED_FILE));
@@ -113,12 +156,15 @@ describe('loadPortfolioApps', () => {
   test('discover keeps the cached apps of an account that failed and warns', async () => {
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(CACHED_FILE));
 
-    const portfolioLoad = await load('discover', {
-      ascClientForAccount: (keyId) => {
-        if (keyId === 'KEYB') return Effect.succeed(makeFakeAscClient(new Error('401')));
-        return Effect.succeed(makeFakeAscClient([{ id: '1', name: 'Fresh One', bundleId: null }]));
-      },
-    });
+    async function ascClientForAccount(keyId: string): Promise<AppStoreStatsClient | null> {
+      if (keyId == 'KEYB') {
+        return makeAscClient(new Error('401'));
+      }
+
+      return makeAscClient([{ id: '1', name: 'Fresh One', bundleId: null }]);
+    }
+
+    const portfolioLoad = await load('discover', { ascClientForAccount });
 
     expect(portfolioLoad.apps.map((app) => app.name)).toEqual(['Fresh One', 'Cached Two']);
     expect(portfolioLoad.warnings.map((warning) => warning.accountLabel)).toEqual(['beta']);
@@ -128,9 +174,11 @@ describe('loadPortfolioApps', () => {
   test('discover answers from the saved file and does not overwrite it when every store fails', async () => {
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(CACHED_FILE));
 
-    const portfolioLoad = await load('discover', {
-      ascClientForAccount: () => Effect.succeed(makeFakeAscClient(new Error('offline'))),
-    });
+    async function ascClientForAccount(): Promise<AppStoreStatsClient | null> {
+      return makeAscClient(new Error('offline'));
+    }
+
+    const portfolioLoad = await load('discover', { ascClientForAccount });
 
     expect(portfolioLoad.isFromCache).toBe(true);
     expect(portfolioLoad.warnings).toHaveLength(2);

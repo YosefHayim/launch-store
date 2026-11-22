@@ -4,7 +4,6 @@ import {
   type androidpublisher_v3,
 } from '@googleapis/androidpublisher';
 import type { Readable } from 'node:stream';
-import { Data, Effect, Option, Schema } from 'effect';
 import type { ServiceAccount } from '../types/credentials.js';
 import type { MutableDeep } from '../types/mutable.js';
 
@@ -53,7 +52,31 @@ export type GooglePlayApiError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeGooglePlayApiError = Data.tagged<GooglePlayApiError>('GooglePlayApiError');
+function makeGooglePlayApiError(fields: {
+  readonly operation: string;
+  readonly statusCode?: number;
+  readonly message: string;
+  readonly cause: unknown;
+}): GooglePlayApiError {
+  const isStatusMissing = fields.statusCode == null;
+
+  if (isStatusMissing) {
+    return {
+      _tag: 'GooglePlayApiError',
+      operation: fields.operation,
+      message: fields.message,
+      cause: fields.cause,
+    };
+  }
+
+  return {
+    _tag: 'GooglePlayApiError',
+    operation: fields.operation,
+    statusCode: fields.statusCode,
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
 /** Raised when a package has no Play app record or the service account cannot reach it. */
 export type PlayAppNotFoundError = Readonly<{
   readonly _tag: 'PlayAppNotFoundError';
@@ -61,16 +84,34 @@ export type PlayAppNotFoundError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makePlayAppNotFoundError = Data.tagged<PlayAppNotFoundError>('PlayAppNotFoundError');
+function makePlayAppNotFoundError(fields: {
+  readonly packageName: string;
+  readonly message: string;
+  readonly cause: unknown;
+}): PlayAppNotFoundError {
+  return {
+    _tag: 'PlayAppNotFoundError',
+    packageName: fields.packageName,
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
 /** A service-account key could not be decoded into the fields Google auth requires. */
 type ServiceAccountParseError = Readonly<{
   readonly _tag: 'ServiceAccountParseError';
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeServiceAccountParseError = Data.tagged<ServiceAccountParseError>(
-  'ServiceAccountParseError',
-);
+function makeServiceAccountParseError(fields: {
+  readonly message: string;
+  readonly cause: unknown;
+}): ServiceAccountParseError {
+  return {
+    _tag: 'ServiceAccountParseError',
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
 /** Read the numeric status exposed by a generated-client failure, when present. */
 const googleFailureStatus = (cause: unknown): number | undefined => {
   if (typeof cause !== 'object') return;
@@ -160,6 +201,10 @@ const normalizeTrackRelease = (
   }
   return release;
 };
+function isText(text: string | null | undefined): text is string {
+  return text != null;
+}
+
 /** Retain a non-empty generated page token and collapse null/empty values to undefined. */
 export const nonEmptyPageToken = (token: string | null | undefined): string | undefined => {
   if (typeof token !== 'string') return;
@@ -171,21 +216,26 @@ export const nonEmptyPageToken = (token: string | null | undefined): string | un
  * Callers supply the page load, item projection, and next-token extraction so product,
  * subscription, offer, and review lists share one pagination loop.
  */
-const collectGeneratedPages = <TPage, TCollected>(
-  loadPage: (pageToken: string | undefined) => Effect.Effect<TPage, GooglePlayApiError>,
-  collectedFromPage: (page: TPage) => readonly TCollected[],
-  nextTokenFromPage: (page: TPage) => string | null | undefined,
-): Effect.Effect<TCollected[], GooglePlayApiError> =>
-  Effect.gen(function* () {
-    const collected: TCollected[] = [];
-    let pageToken: string | undefined;
-    do {
-      const page = yield* loadPage(pageToken);
-      for (const pageEntry of collectedFromPage(page)) collected.push(pageEntry);
-      pageToken = nonEmptyPageToken(nextTokenFromPage(page));
-    } while (pageToken !== undefined);
-    return collected;
-  });
+async function collectGeneratedPages<Page, Collected>(
+  loadPage: (pageToken: string | undefined) => Promise<Page>,
+  collectedFromPage: (page: Page) => readonly Collected[],
+  nextTokenFromPage: (page: Page) => string | null | undefined,
+): Promise<Collected[]> {
+  const collected: Collected[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const page = await loadPage(pageToken);
+
+    for (const pageEntry of collectedFromPage(page)) {
+      collected.push(pageEntry);
+    }
+
+    pageToken = nonEmptyPageToken(nextTokenFromPage(page));
+  } while (pageToken != null);
+
+  return collected;
+}
 /** Project generated track releases into the {@link PlayRelease} slice Launch reads and writes. */
 const releasesFromGoogleTrack = (
   googleReleases: androidpublisher_v3.Schema$TrackRelease[] | null | undefined,
@@ -430,62 +480,140 @@ const normalizeSubscriptionOffer = (
   if (offerTags !== undefined) offer.offerTags = offerTags;
   return offer;
 };
-const ServiceAccountKeySchema = Schema.Struct({
-  client_email: Schema.String.pipe(Schema.minLength(1)),
-  private_key: Schema.String.pipe(Schema.minLength(1)),
-  private_key_id: Schema.optional(Schema.String.pipe(Schema.minLength(1))),
-  token_uri: Schema.optional(Schema.String.pipe(Schema.minLength(1))),
-});
+const SERVICE_ACCOUNT_JSON_MESSAGE =
+  'Service-account key is not valid JSON. Pass the JSON file Google Cloud issued.';
+const SERVICE_ACCOUNT_FIELDS_MESSAGE =
+  'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key (not an OAuth client or an API key).';
 
-const GoogleErrorDocumentSchema = Schema.Struct({
-  error: Schema.optional(
-    Schema.Union(
-      Schema.String,
-      Schema.Struct({
-        message: Schema.optional(Schema.String),
-        status: Schema.optional(Schema.String),
-      }),
-    ),
-  ),
-  error_description: Schema.optional(Schema.String),
-});
+function isServiceAccountRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  return typeof candidate == 'object';
+}
+
+function readServiceAccountField(record: Record<string, unknown>, key: string): string | null {
+  const field = record[key];
+
+  if (typeof field != 'string') {
+    return null;
+  }
+
+  if (field.length == 0) {
+    return null;
+  }
+
+  return field;
+}
+
+function isGooglePlayApiError(cause: unknown): cause is GooglePlayApiError {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'GooglePlayApiError';
+}
+
+function isServiceAccountParseError(cause: unknown): cause is ServiceAccountParseError {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'ServiceAccountParseError';
+}
+
+export function readServiceAccount(serviceAccountJson: string): ServiceAccount {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(serviceAccountJson);
+  } catch (cause) {
+    throw makeServiceAccountParseError({
+      message: SERVICE_ACCOUNT_JSON_MESSAGE,
+      cause,
+    });
+  }
+
+  if (isServiceAccountRecord(parsed) == false) {
+    throw makeServiceAccountParseError({
+      message: SERVICE_ACCOUNT_FIELDS_MESSAGE,
+      cause: parsed,
+    });
+  }
+
+  const clientEmail = readServiceAccountField(parsed, 'client_email');
+
+  if (clientEmail == null) {
+    throw makeServiceAccountParseError({
+      message: SERVICE_ACCOUNT_FIELDS_MESSAGE,
+      cause: parsed,
+    });
+  }
+
+  const privateKey = readServiceAccountField(parsed, 'private_key');
+
+  if (privateKey == null) {
+    throw makeServiceAccountParseError({
+      message: SERVICE_ACCOUNT_FIELDS_MESSAGE,
+      cause: parsed,
+    });
+  }
+
+  let tokenUri = 'https://oauth2.googleapis.com/token';
+  const customTokenUri = readServiceAccountField(parsed, 'token_uri');
+
+  if (customTokenUri != null) {
+    tokenUri = customTokenUri;
+  }
+
+  const serviceAccount: MutableDeep<ServiceAccount> = {
+    clientEmail,
+    privateKey,
+    tokenUri,
+  };
+  const privateKeyId = readServiceAccountField(parsed, 'private_key_id');
+
+  if (privateKeyId != null) {
+    serviceAccount.privateKeyId = privateKeyId;
+  }
+
+  return serviceAccount;
+}
 
 /** Decode a Google Cloud service-account key once at the transport boundary. */
-export const parseServiceAccount = (
-  serviceAccountJson: string,
-): Effect.Effect<ServiceAccount, ServiceAccountParseError> =>
-  Schema.decodeUnknown(Schema.parseJson())(serviceAccountJson).pipe(
-    Effect.mapError((cause) =>
-      makeServiceAccountParseError({
-        message: 'Service-account key is not valid JSON. Pass the JSON file Google Cloud issued.',
-        cause,
-      }),
-    ),
-    Effect.flatMap((decodedJson) =>
-      Schema.decodeUnknown(ServiceAccountKeySchema)(decodedJson).pipe(
-        Effect.mapError((cause) =>
-          makeServiceAccountParseError({
-            message:
-              'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key (not an OAuth client or an API key).',
-            cause,
-          }),
-        ),
-      ),
-    ),
-    Effect.map((serviceAccountKey) => {
-      let tokenUri = 'https://oauth2.googleapis.com/token';
-      if (serviceAccountKey.token_uri !== undefined) tokenUri = serviceAccountKey.token_uri;
-      const serviceAccount: MutableDeep<ServiceAccount> = {
-        clientEmail: serviceAccountKey.client_email,
-        privateKey: serviceAccountKey.private_key,
-        tokenUri,
-      };
-      if (serviceAccountKey.private_key_id !== undefined) {
-        serviceAccount.privateKeyId = serviceAccountKey.private_key_id;
-      }
-      return serviceAccount;
-    }),
-  );
+export function parseServiceAccount(serviceAccountJson: string): ServiceAccount {
+  try {
+    return readServiceAccount(serviceAccountJson);
+  } catch (cause) {
+    const isParseError = isServiceAccountParseError(cause);
+
+    if (isParseError) {
+      throw cause;
+    }
+
+    throw makeServiceAccountParseError({
+      message: SERVICE_ACCOUNT_JSON_MESSAGE,
+      cause,
+    });
+  }
+}
 
 type AndroidPublisher = androidpublisher_v3.Androidpublisher;
 
@@ -544,60 +672,75 @@ export class GooglePlayClient {
     );
     this.publisher = androidpublisher({ version: 'v3', auth: googleAuthentication });
   }
-  /** Convert the official generated client's Promise-shaped request into one Effect. */
-  private executeGeneratedRequest<TGoogleShape>(
+  /** Run one generated Android Publisher request and tag a failure. */
+  private async executeGeneratedRequest<GoogleShape>(
     operation: string,
     invoke: () => PromiseLike<{
-      data: TGoogleShape;
+      data: GoogleShape;
     }>,
-  ): Effect.Effect<TGoogleShape, GooglePlayApiError> {
-    return Effect.tryPromise({
-      try: invoke,
-      catch: (cause) => {
-        const statusCode = googleFailureStatus(cause);
-        const message = `Google Play ${operation} failed: ${googleFailureMessage(cause)}`;
-        if (statusCode === undefined) return makeGooglePlayApiError({ operation, message, cause });
-        return makeGooglePlayApiError({ operation, statusCode, message, cause });
-      },
-    }).pipe(Effect.map((completedRequest) => completedRequest.data));
+  ): Promise<GoogleShape> {
+    try {
+      const completedRequest = await invoke();
+      return completedRequest.data;
+    } catch (cause) {
+      const statusCode = googleFailureStatus(cause);
+      const message = `Google Play ${operation} failed: ${googleFailureMessage(cause)}`;
+      const isStatusMissing = statusCode == null;
+
+      if (isStatusMissing) {
+        throw makeGooglePlayApiError({ operation, message, cause });
+      }
+
+      throw makeGooglePlayApiError({ operation, statusCode, message, cause });
+    }
   }
   /** Open a transactional edit (no changes committed); returns its id. A 404 means the app doesn't exist. */
-  private createEdit(packageName: string): Effect.Effect<string, GooglePlayApiError> {
-    return this.executeGeneratedRequest('create edit', () =>
+  private async createEdit(packageName: string): Promise<string> {
+    const editCreation = await this.executeGeneratedRequest('create edit', () =>
       this.publisher.edits.insert({ packageName }),
-    ).pipe(
-      Effect.flatMap((editCreation) => {
-        if (typeof editCreation.id === 'string') return Effect.succeed(editCreation.id);
-        return Effect.fail(
-          makeGooglePlayApiError({
-            operation: 'create edit',
-            message: 'Google Play create edit failed: the generated client returned no edit id.',
-            cause: editCreation,
-          }),
-        );
-      }),
     );
+    if (isText(editCreation.id)) {
+      return editCreation.id;
+    }
+
+    throw makeGooglePlayApiError({
+      operation: 'create edit',
+      message: 'Google Play create edit failed: the generated client returned no edit id.',
+      cause: editCreation,
+    });
   }
   /** Commit an edit, applying every change made inside it atomically. */
-  private commitEdit(packageName: string, editId: string): Effect.Effect<void, GooglePlayApiError> {
-    return this.executeGeneratedRequest('commit edit', () =>
+  private async commitEdit(packageName: string, editId: string): Promise<void> {
+    await this.executeGeneratedRequest('commit edit', () =>
       this.publisher.edits.commit({ packageName, editId }),
-    ).pipe(Effect.asVoid);
+    );
   }
   /** Abandon an edit so no transaction is left dangling (best-effort; callers ignore failures). */
-  private deleteEdit(packageName: string, editId: string): Effect.Effect<void, GooglePlayApiError> {
-    return this.executeGeneratedRequest('delete edit', () =>
+  private async deleteEdit(packageName: string, editId: string): Promise<void> {
+    await this.executeGeneratedRequest('delete edit', () =>
       this.publisher.edits.delete({ packageName, editId }),
-    ).pipe(Effect.asVoid);
+    );
+  }
+  /** Drop a failed abandon so it cannot hide the read or write that already finished. */
+  private async abandonEdit(packageName: string, editId: string): Promise<void> {
+    try {
+      await this.deleteEdit(packageName, editId);
+    } catch (abandonError) {
+      void abandonError;
+    }
   }
   /** Open a throwaway edit for a read, run `read`, then always abandon it (reads never commit). */
-  private withReadEdit<T, ReadFailure, ReadRequirements>(
+  private async withReadEdit<ReadResult>(
     packageName: string,
-    read: (editId: string) => Effect.Effect<T, ReadFailure, ReadRequirements>,
-  ): Effect.Effect<T, GooglePlayApiError | ReadFailure, ReadRequirements> {
-    return Effect.acquireUseRelease(this.createEdit(packageName), read, (editId) =>
-      this.deleteEdit(packageName, editId).pipe(Effect.ignore),
-    );
+    read: (editId: string) => Promise<ReadResult>,
+  ): Promise<ReadResult> {
+    const editId = await this.createEdit(packageName);
+
+    try {
+      return await read(editId);
+    } finally {
+      await this.abandonEdit(packageName, editId);
+    }
   }
   /**
    * Run edit-scoped **writes** transactionally: open an edit, apply changes via `apply`, then COMMIT so
@@ -606,125 +749,141 @@ export class GooglePlayClient {
    * reconcilers (tracks, testers, country availability, listings) build on. Returns whatever `apply`
    * returns. The Play API requires every track/listing change to live inside such an edit.
    */
-  withEdit<T, ApplyFailure, ApplyRequirements>(
+  async withEdit<Applied>(
     packageName: string,
-    apply: (editId: string) => Effect.Effect<T, ApplyFailure, ApplyRequirements>,
-  ): Effect.Effect<T, GooglePlayApiError | ApplyFailure, ApplyRequirements> {
-    return this.createEdit(packageName).pipe(
-      Effect.flatMap((editId) =>
-        apply(editId).pipe(
-          Effect.tap(() => this.commitEdit(packageName, editId)),
-          Effect.onError(() => this.deleteEdit(packageName, editId).pipe(Effect.ignore)),
-        ),
-      ),
-    );
+    apply: (editId: string) => Promise<Applied>,
+  ): Promise<Applied> {
+    const editId = await this.createEdit(packageName);
+
+    try {
+      const applied = await apply(editId);
+      await this.commitEdit(packageName, editId);
+      return applied;
+    } catch (applyError) {
+      await this.abandonEdit(packageName, editId);
+      throw applyError;
+    }
   }
   /**
    * Return the highest `versionCode` already uploaded for an app, or 0 if none exist yet. The caller
    * bumps this for the next upload (parallels {@link AppStoreConnectClient.getLatestBuildNumber}).
    */
-  getLatestVersionCode(packageName: string): Effect.Effect<number, GooglePlayApiError> {
-    return this.withReadEdit(packageName, (editId) =>
-      Effect.gen(this, function* () {
-        const bundlePage = yield* this.executeGeneratedRequest('list bundles', () =>
-          this.publisher.edits.bundles.list({ packageName, editId }),
-        );
-        const codes: number[] = [];
-        if (Array.isArray(bundlePage.bundles)) {
-          for (const bundle of bundlePage.bundles) {
-            if (typeof bundle.versionCode === 'number') codes.push(bundle.versionCode);
+  async getLatestVersionCode(packageName: string): Promise<number> {
+    const readLatestVersionCode = async (editId: string): Promise<number> => {
+      const bundlePage = await this.executeGeneratedRequest('list bundles', () =>
+        this.publisher.edits.bundles.list({ packageName, editId }),
+      );
+      const codes: number[] = [];
+      const bundles = bundlePage.bundles;
+
+      if (Array.isArray(bundles)) {
+        for (const bundle of bundles) {
+          const versionCode = bundle.versionCode;
+          const isVersionCode = typeof versionCode == 'number';
+
+          if (isVersionCode) {
+            codes.push(versionCode);
           }
         }
-        if (codes.length === 0) return 0;
-        return Math.max(...codes);
-      }),
-    );
+      }
+
+      const hasNoCodes = codes.length == 0;
+
+      if (hasNoCodes) {
+        return 0;
+      }
+
+      return Math.max(...codes);
+    };
+
+    return this.withReadEdit(packageName, readLatestVersionCode);
   }
   /** Read the releases currently on a track (for status reporting); empty array when the track is unused. */
-  getTrackReleases(
-    packageName: string,
-    track: string,
-  ): Effect.Effect<PlayRelease[], GooglePlayApiError> {
-    return this.withReadEdit(packageName, (editId) =>
-      this.executeGeneratedRequest('get track', () =>
+  async getTrackReleases(packageName: string, track: string): Promise<PlayRelease[]> {
+    const readTrackReleases = async (editId: string): Promise<PlayRelease[]> => {
+      const trackSnapshot = await this.executeGeneratedRequest('get track', () =>
         this.publisher.edits.tracks.get({ packageName, editId, track }),
-      ).pipe(Effect.map((trackSnapshot) => releasesFromGoogleTrack(trackSnapshot.releases))),
-    );
+      );
+      return releasesFromGoogleTrack(trackSnapshot.releases);
+    };
+
+    return this.withReadEdit(packageName, readTrackReleases);
   }
   /** Read every track and its releases (for `launch play-tracks status`). */
-  listTracks(packageName: string): Effect.Effect<PlayTrackInfo[], GooglePlayApiError> {
-    return this.withReadEdit(packageName, (editId) =>
-      this.executeGeneratedRequest('list tracks', () =>
+  async listTracks(packageName: string): Promise<PlayTrackInfo[]> {
+    const readTracks = async (editId: string): Promise<PlayTrackInfo[]> => {
+      const trackCatalog = await this.executeGeneratedRequest('list tracks', () =>
         this.publisher.edits.tracks.list({ packageName, editId }),
-      ).pipe(
-        Effect.map((trackCatalog) => {
-          const tracks: PlayTrackInfo[] = [];
-          if (!Array.isArray(trackCatalog.tracks)) return tracks;
-          for (const googleTrack of trackCatalog.tracks) {
-            if (typeof googleTrack.track !== 'string') continue;
+      );
+      const tracks: PlayTrackInfo[] = [];
+      const googleTracks = trackCatalog.tracks;
+
+      if (Array.isArray(googleTracks)) {
+        for (const googleTrack of googleTracks) {
+          const trackName = googleTrack.track;
+          const hasTrackName = typeof trackName == 'string';
+
+          if (hasTrackName) {
             tracks.push({
-              track: googleTrack.track,
+              track: trackName,
               releases: releasesFromGoogleTrack(googleTrack.releases),
             });
           }
-          return tracks;
-        }),
-      ),
-    );
+        }
+      }
+
+      return tracks;
+    };
+
+    return this.withReadEdit(packageName, readTracks);
   }
   /**
    * Replace a track's releases in one committed edit - the promote/rollout/halt write. Play supersedes
    * any prior release on the track, so a single new release is the standard request. Transactional via
    * {@link withEdit}: a failure abandons the edit, leaving the live track untouched.
    */
-  setTrackReleases(
+  async setTrackReleases(
     packageName: string,
     track: string,
     releases: readonly PlayRelease[],
-  ): Effect.Effect<void, GooglePlayApiError> {
-    return this.withEdit(packageName, (editId) =>
-      this.executeGeneratedRequest('update track', () =>
+  ): Promise<void> {
+    const writeTrackReleases = async (editId: string): Promise<void> => {
+      await this.executeGeneratedRequest('update track', () =>
         this.publisher.edits.tracks.update({
           packageName,
           editId,
           track,
           requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Track>({ track, releases }),
         }),
-      ).pipe(Effect.asVoid),
-    );
+      );
+    };
+
+    await this.withEdit(packageName, writeTrackReleases);
   }
   /**
    * Upload an AAB and release it on a track in one committed edit. The release names the versionCode
    * Play assigned the upload, and a failure abandons both, so a bundle never lands without its release.
    */
-  uploadBundleToTrack(
+  async uploadBundleToTrack(
     packageName: string,
     bundleStream: Readable,
     track: string,
     release: Omit<PlayRelease, 'versionCodes'>,
-  ): Effect.Effect<number, GooglePlayApiError> {
-    return this.withEdit(packageName, (editId) =>
-      Effect.gen(this, function* () {
-        const uploadedBundle = yield* this.executeGeneratedRequest('upload bundle', () =>
-          this.publisher.edits.bundles.upload({
-            packageName,
-            editId,
-            media: { mimeType: 'application/octet-stream', body: bundleStream },
-          }),
-        );
-        const versionCode = uploadedBundle.versionCode;
-        if (typeof versionCode !== 'number') {
-          return yield* Effect.fail(
-            makeGooglePlayApiError({
-              operation: 'upload bundle',
-              message:
-                'Google Play upload bundle failed: the generated client returned no versionCode.',
-              cause: uploadedBundle,
-            }),
-          );
-        }
+  ): Promise<number> {
+    const uploadAndRelease = async (editId: string): Promise<number> => {
+      const uploadedBundle = await this.executeGeneratedRequest('upload bundle', () =>
+        this.publisher.edits.bundles.upload({
+          packageName,
+          editId,
+          media: { mimeType: 'application/octet-stream', body: bundleStream },
+        }),
+      );
+      const versionCode = uploadedBundle.versionCode;
+      const hasVersionCode = typeof versionCode == 'number';
+
+      if (hasVersionCode) {
         const trackRelease: PlayRelease = { ...release, versionCodes: [String(versionCode)] };
-        yield* this.executeGeneratedRequest('update track', () =>
+        await this.executeGeneratedRequest('update track', () =>
           this.publisher.edits.tracks.update({
             packageName,
             editId,
@@ -736,180 +895,219 @@ export class GooglePlayClient {
           }),
         );
         return versionCode;
-      }),
-    );
+      }
+
+      throw makeGooglePlayApiError({
+        operation: 'upload bundle',
+        message: 'Google Play upload bundle failed: the generated client returned no versionCode.',
+        cause: uploadedBundle,
+      });
+    };
+
+    return this.withEdit(packageName, uploadAndRelease);
   }
   /** Read the Google Groups configured as testers for a track (closed/internal testing). */
-  getTesters(packageName: string, track: string): Effect.Effect<string[], GooglePlayApiError> {
-    return this.withReadEdit(packageName, (editId) =>
-      this.executeGeneratedRequest('get testers', () =>
+  async getTesters(packageName: string, track: string): Promise<string[]> {
+    const readTesters = async (editId: string): Promise<string[]> => {
+      const testerGroupSet = await this.executeGeneratedRequest('get testers', () =>
         this.publisher.edits.testers.get({ packageName, editId, track }),
-      ).pipe(
-        Effect.map((testerGroupSet) => {
-          if (!Array.isArray(testerGroupSet.googleGroups)) return [];
-          return testerGroupSet.googleGroups;
-        }),
-      ),
-    );
+      );
+      const googleGroups = testerGroupSet.googleGroups;
+
+      if (Array.isArray(googleGroups)) {
+        return googleGroups;
+      }
+
+      return [];
+    };
+
+    return this.withReadEdit(packageName, readTesters);
   }
   /** Set the Google Groups allowed to test a track, in one committed edit. */
-  setTesters(
+  async setTesters(
     packageName: string,
     track: string,
     googleGroups: readonly string[],
-  ): Effect.Effect<void, GooglePlayApiError> {
-    return this.withEdit(packageName, (editId) =>
-      this.executeGeneratedRequest('update testers', () =>
+  ): Promise<void> {
+    const writeTesters = async (editId: string): Promise<void> => {
+      await this.executeGeneratedRequest('update testers', () =>
         this.publisher.edits.testers.update({
           packageName,
           editId,
           track,
           requestBody: { googleGroups: [...googleGroups] },
         }),
-      ).pipe(Effect.asVoid),
-    );
+      );
+    };
+
+    await this.withEdit(packageName, writeTesters);
   }
   /** Read every localized store listing (title, short and full description, video) of an app. */
-  listListings(packageName: string): Effect.Effect<PlayListing[], GooglePlayApiError> {
-    return this.withReadEdit(packageName, (editId) =>
-      this.executeGeneratedRequest('list listings', () =>
+  async listListings(packageName: string): Promise<PlayListing[]> {
+    const readListings = async (editId: string): Promise<PlayListing[]> => {
+      const listingCatalog = await this.executeGeneratedRequest('list listings', () =>
         this.publisher.edits.listings.list({ packageName, editId }),
-      ).pipe(
-        Effect.map((listingCatalog) => {
-          const listings: PlayListing[] = [];
-          if (!Array.isArray(listingCatalog.listings)) return listings;
-          for (const googleListing of listingCatalog.listings) {
-            const listing = listingFromGoogle(googleListing);
-            if (listing !== undefined) listings.push(listing);
+      );
+      const listings: PlayListing[] = [];
+      const googleListings = listingCatalog.listings;
+
+      if (Array.isArray(googleListings)) {
+        for (const googleListing of googleListings) {
+          const listing = listingFromGoogle(googleListing);
+
+          if (listing != null) {
+            listings.push(listing);
           }
-          return listings;
-        }),
-      ),
-    );
+        }
+      }
+
+      return listings;
+    };
+
+    return this.withReadEdit(packageName, readListings);
   }
   /**
    * Patch the given localized store listings inside ONE committed edit, so every language lands together or
    * none does. Patch keeps fields the listing does not mention (for example the video) untouched.
    */
-  updateListings(
-    packageName: string,
-    listings: readonly PlayListing[],
-  ): Effect.Effect<void, GooglePlayApiError> {
-    return this.withEdit(packageName, (editId) =>
-      Effect.forEach(
-        listings,
-        (listing) =>
-          this.executeGeneratedRequest('update listing', () =>
-            this.publisher.edits.listings.patch({
-              packageName,
-              editId,
-              language: listing.language,
-              requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Listing>(listing),
-            }),
-          ),
-        { discard: true },
-      ),
-    );
+  async updateListings(packageName: string, listings: readonly PlayListing[]): Promise<void> {
+    const writeListings = async (editId: string): Promise<void> => {
+      for (const listing of listings) {
+        await this.executeGeneratedRequest('update listing', () =>
+          this.publisher.edits.listings.patch({
+            packageName,
+            editId,
+            language: listing.language,
+            requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Listing>(listing),
+          }),
+        );
+      }
+    };
+
+    await this.withEdit(packageName, writeListings);
   }
   /** Read a track's country availability. Read-only - Play exposes no API to change it. */
-  getCountryAvailability(
+  async getCountryAvailability(
     packageName: string,
     track: string,
-  ): Effect.Effect<PlayCountryAvailability, GooglePlayApiError> {
-    return this.withReadEdit(packageName, (editId) =>
-      Effect.gen(this, function* () {
-        const countryAvailability = yield* this.executeGeneratedRequest(
-          'get country availability',
-          () => this.publisher.edits.countryavailability.get({ packageName, editId, track }),
-        );
-        const countries: { countryCode: string }[] = [];
-        if (Array.isArray(countryAvailability.countries)) {
-          for (const googleCountry of countryAvailability.countries) {
-            if (typeof googleCountry.countryCode !== 'string') continue;
-            countries.push({ countryCode: googleCountry.countryCode });
+  ): Promise<PlayCountryAvailability> {
+    const readCountryAvailability = async (editId: string): Promise<PlayCountryAvailability> => {
+      const countryAvailability = await this.executeGeneratedRequest(
+        'get country availability',
+        () => this.publisher.edits.countryavailability.get({ packageName, editId, track }),
+      );
+      const countries: { countryCode: string }[] = [];
+      const googleCountries = countryAvailability.countries;
+
+      if (Array.isArray(googleCountries)) {
+        for (const googleCountry of googleCountries) {
+          const countryCode = googleCountry.countryCode;
+          const hasCountryCode = typeof countryCode == 'string';
+
+          if (hasCountryCode) {
+            countries.push({ countryCode });
           }
         }
-        const availability: MutableDeep<PlayCountryAvailability> = { countries };
-        if (typeof countryAvailability.restOfWorld === 'boolean') {
-          availability.restOfWorld = countryAvailability.restOfWorld;
-        }
-        return availability;
-      }),
-    );
+      }
+
+      const availability: MutableDeep<PlayCountryAvailability> = { countries };
+      const restOfWorld = countryAvailability.restOfWorld;
+      const hasRestOfWorld = typeof restOfWorld == 'boolean';
+
+      if (hasRestOfWorld) {
+        availability.restOfWorld = restOfWorld;
+      }
+
+      return availability;
+    };
+
+    return this.withReadEdit(packageName, readCountryAvailability);
   }
   /**
    * Confirm the service account can reach the app's Play record, failing with {@link PlayAppNotFoundError}
    * when it can't - the detect-and-deep-link probe for `launch doctor` (Play can't create the app).
    */
-  assertAppExists(
-    packageName: string,
-  ): Effect.Effect<void, PlayAppNotFoundError | GooglePlayApiError> {
-    return this.createEdit(packageName).pipe(
-      Effect.mapError((cause) =>
-        makePlayAppNotFoundError({
-          packageName,
-          message:
-            `No reachable Play app for ${packageName} - ${cause.message}. Create it once in Play Console ` +
-            `(the API can't), and grant the service account access under Users & Permissions.`,
-          cause,
-        }),
-      ),
-      Effect.flatMap((editId) => this.deleteEdit(packageName, editId).pipe(Effect.ignore)),
-    );
+  async assertAppExists(packageName: string): Promise<void> {
+    let editId: string;
+
+    try {
+      editId = await this.createEdit(packageName);
+    } catch (cause) {
+      const isPlayFailure = isGooglePlayApiError(cause);
+
+      if (isPlayFailure == false) {
+        throw cause;
+      }
+
+      throw makePlayAppNotFoundError({
+        packageName,
+        message:
+          `No reachable Play app for ${packageName} - ${cause.message}. Create it once in Play Console ` +
+          `(the API can't), and grant the service account access under Users & Permissions.`,
+        cause,
+      });
+    }
+
+    await this.abandonEdit(packageName, editId);
   }
   /**
    * List the app's in-app **managed products** (`inappproducts`). Not edit-scoped - the products API is a
    * direct CRUD surface (unlike tracks/listings). Pages through Google's token pagination in full.
    */
-  listInAppProducts(
-    packageName: string,
-  ): Effect.Effect<InAppProductResource[], GooglePlayApiError> {
-    return collectGeneratedPages(
-      (pageToken) => {
-        const listParameters: androidpublisher_v3.Params$Resource$Inappproducts$List = {
-          packageName,
-        };
-        if (pageToken !== undefined) listParameters.token = pageToken;
-        return this.executeGeneratedRequest('list in-app products', () =>
-          this.publisher.inappproducts.list(listParameters),
-        );
-      },
-      (productPage) => {
-        const products: InAppProductResource[] = [];
-        if (!Array.isArray(productPage.inappproduct)) return products;
-        for (const googleProduct of productPage.inappproduct) {
+  async listInAppProducts(packageName: string): Promise<InAppProductResource[]> {
+    const loadProductPage = (pageToken: string | undefined) => {
+      const listParameters: androidpublisher_v3.Params$Resource$Inappproducts$List = {
+        packageName,
+      };
+      if (isText(pageToken)) {
+        listParameters.token = pageToken;
+      }
+
+      return this.executeGeneratedRequest('list in-app products', () =>
+        this.publisher.inappproducts.list(listParameters),
+      );
+    };
+    const productsFromPage = (
+      productPage: Awaited<ReturnType<typeof loadProductPage>>,
+    ): InAppProductResource[] => {
+      const products: InAppProductResource[] = [];
+      const googleProducts = productPage.inappproduct;
+
+      if (Array.isArray(googleProducts)) {
+        for (const googleProduct of googleProducts) {
           const product = normalizeInAppProduct(googleProduct);
-          if (product !== undefined) products.push(product);
+
+          if (product != null) {
+            products.push(product);
+          }
         }
-        return products;
-      },
-      (productPage) => productPage.tokenPagination?.nextPageToken,
-    );
+      }
+
+      return products;
+    };
+    const nextTokenFromPage = (productPage: Awaited<ReturnType<typeof loadProductPage>>) =>
+      productPage.tokenPagination?.nextPageToken;
+
+    return collectGeneratedPages(loadProductPage, productsFromPage, nextTokenFromPage);
   }
   /** Create a new in-app managed product (POST). The product carries its `sku`. */
-  insertInAppProduct(
-    packageName: string,
-    product: InAppProductResource,
-  ): Effect.Effect<void, GooglePlayApiError> {
-    return this.executeGeneratedRequest('insert in-app product', () =>
+  async insertInAppProduct(packageName: string, product: InAppProductResource): Promise<void> {
+    await this.executeGeneratedRequest('insert in-app product', () =>
       this.publisher.inappproducts.insert({
         packageName,
         requestBody: { ...product, packageName },
       }),
-    ).pipe(Effect.asVoid);
+    );
   }
   /** Update an existing in-app managed product by SKU (PUT). */
-  updateInAppProduct(
-    packageName: string,
-    product: InAppProductResource,
-  ): Effect.Effect<void, GooglePlayApiError> {
-    return this.executeGeneratedRequest('update in-app product', () =>
+  async updateInAppProduct(packageName: string, product: InAppProductResource): Promise<void> {
+    await this.executeGeneratedRequest('update in-app product', () =>
       this.publisher.inappproducts.update({
         packageName,
         sku: product.sku,
         requestBody: { ...product, packageName },
       }),
-    ).pipe(Effect.asVoid);
+    );
   }
   /**
    * Convert a single base price into Google's **recommended local price for every Play market** via
@@ -919,70 +1117,84 @@ export class GooglePlayClient {
    * carries the USD/EUR fallback for markets without a local currency. `productTaxCategoryCode`, when
    * given, factors the matching tax rates into the conversion.
    */
-  convertRegionPrices(
+  async convertRegionPrices(
     packageName: string,
     price: PlayMoneyUnits,
     productTaxCategoryCode?: string,
-  ): Effect.Effect<ConvertedPrices, GooglePlayApiError> {
+  ): Promise<ConvertedPrices> {
     const priceRequest: androidpublisher_v3.Schema$ConvertRegionPricesRequest = { price };
-    if (productTaxCategoryCode !== undefined) {
+    if (isText(productTaxCategoryCode)) {
       priceRequest.productTaxCategoryCode = productTaxCategoryCode;
     }
-    return this.executeGeneratedRequest('convert region prices', () =>
+
+    const priceConversion = await this.executeGeneratedRequest('convert region prices', () =>
       this.publisher.monetization.convertRegionPrices({
         packageName,
         requestBody: priceRequest,
       }),
-    ).pipe(
-      Effect.map((priceConversion) => {
-        const regions: ConvertedRegionPrice[] = [];
-        const regionPrices = priceConversion.convertedRegionPrices;
-        if (regionPrices !== null && regionPrices !== undefined) {
-          for (const googlePrice of Object.values(regionPrices)) {
-            if (typeof googlePrice.regionCode !== 'string') continue;
-            regions.push({
-              regionCode: googlePrice.regionCode,
-              price: normalizeMoney(googlePrice.price),
-            });
-          }
-        }
-        regions.sort((leftPrice, rightPrice) =>
-          leftPrice.regionCode.localeCompare(rightPrice.regionCode),
-        );
-        const convertedPrices: MutableDeep<ConvertedPrices> = { regions };
-        const fallbackPrice = priceConversion.convertedOtherRegionsPrice;
-        if (fallbackPrice !== undefined) {
-          convertedPrices.otherRegions = {
-            usdPrice: normalizeMoney(fallbackPrice.usdPrice),
-            eurPrice: normalizeMoney(fallbackPrice.eurPrice),
-          };
-        }
-        return convertedPrices;
-      }),
     );
+    const regions: ConvertedRegionPrice[] = [];
+    const regionPrices = priceConversion.convertedRegionPrices;
+
+    if (regionPrices != null) {
+      for (const googlePrice of Object.values(regionPrices)) {
+        const regionCode = googlePrice.regionCode;
+        const hasRegionCode = typeof regionCode == 'string';
+
+        if (hasRegionCode) {
+          regions.push({
+            regionCode,
+            price: normalizeMoney(googlePrice.price),
+          });
+        }
+      }
+    }
+
+    regions.sort((leftPrice, rightPrice) =>
+      leftPrice.regionCode.localeCompare(rightPrice.regionCode),
+    );
+    const convertedPrices: MutableDeep<ConvertedPrices> = { regions };
+    const fallbackPrice = priceConversion.convertedOtherRegionsPrice;
+
+    if (fallbackPrice != null) {
+      convertedPrices.otherRegions = {
+        usdPrice: normalizeMoney(fallbackPrice.usdPrice),
+        eurPrice: normalizeMoney(fallbackPrice.eurPrice),
+      };
+    }
+
+    return convertedPrices;
   }
   /** List the app's subscription products (`monetization.subscriptions`), paging in full. */
-  listSubscriptions(
-    packageName: string,
-  ): Effect.Effect<SubscriptionResource[], GooglePlayApiError> {
+  async listSubscriptions(packageName: string): Promise<SubscriptionResource[]> {
     return collectGeneratedPages(
       (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Monetization$Subscriptions$List =
           {
             packageName,
           };
-        if (pageToken !== undefined) listParameters.pageToken = pageToken;
+        if (isText(pageToken)) {
+          listParameters.pageToken = pageToken;
+        }
+
         return this.executeGeneratedRequest('list subscriptions', () =>
           this.publisher.monetization.subscriptions.list(listParameters),
         );
       },
       (subscriptionPage) => {
         const subscriptions: SubscriptionResource[] = [];
-        if (!Array.isArray(subscriptionPage.subscriptions)) return subscriptions;
-        for (const googleSubscription of subscriptionPage.subscriptions) {
-          const subscription = normalizeSubscription(googleSubscription);
-          if (subscription !== undefined) subscriptions.push(subscription);
+        const googleSubscriptions = subscriptionPage.subscriptions;
+
+        if (Array.isArray(googleSubscriptions)) {
+          for (const googleSubscription of googleSubscriptions) {
+            const subscription = normalizeSubscription(googleSubscription);
+
+            if (subscription != null) {
+              subscriptions.push(subscription);
+            }
+          }
         }
+
         return subscriptions;
       },
       (subscriptionPage) => subscriptionPage.nextPageToken,
@@ -992,11 +1204,8 @@ export class GooglePlayClient {
    * Create a subscription with its base plans (which Play creates in DRAFT - activate them separately).
    * `regionsVersion.version` is required; the product id is sent in the query and request document.
    */
-  createSubscription(
-    packageName: string,
-    subscription: SubscriptionResource,
-  ): Effect.Effect<void, GooglePlayApiError> {
-    return this.executeGeneratedRequest('create subscription', () =>
+  async createSubscription(packageName: string, subscription: SubscriptionResource): Promise<void> {
+    await this.executeGeneratedRequest('create subscription', () =>
       this.publisher.monetization.subscriptions.create({
         packageName,
         productId: subscription.productId,
@@ -1006,19 +1215,19 @@ export class GooglePlayClient {
           packageName,
         }),
       }),
-    ).pipe(Effect.asVoid);
+    );
   }
   /**
    * Patch a subscription's masked fields (PATCH with an `updateMask` - Play requires field-level updates).
    * The masked fields are replaced by `subscription`, so the reconciler sends a merged document
    * (e.g. existing listings + the changed ones) to stay additive.
    */
-  patchSubscription(
+  async patchSubscription(
     packageName: string,
     subscription: SubscriptionResource,
     updateMask: string,
-  ): Effect.Effect<void, GooglePlayApiError> {
-    return this.executeGeneratedRequest('patch subscription', () =>
+  ): Promise<void> {
+    await this.executeGeneratedRequest('patch subscription', () =>
       this.publisher.monetization.subscriptions.patch({
         packageName,
         productId: subscription.productId,
@@ -1029,60 +1238,76 @@ export class GooglePlayClient {
           packageName,
         }),
       }),
-    ).pipe(Effect.asVoid);
+    );
   }
   /** Activate a base plan (DRAFT -> ACTIVE), making it purchasable. Idempotent on an already-active plan. */
-  activateBasePlan(
+  async activateBasePlan(
     packageName: string,
     productId: string,
     basePlanId: string,
-  ): Effect.Effect<void, GooglePlayApiError> {
-    return this.executeGeneratedRequest('activate base plan', () =>
+  ): Promise<void> {
+    await this.executeGeneratedRequest('activate base plan', () =>
       this.publisher.monetization.subscriptions.basePlans.activate({
         packageName,
         productId,
         basePlanId,
         requestBody: { packageName, productId, basePlanId },
       }),
-    ).pipe(Effect.asVoid);
+    );
   }
   /** List the offers on one base plan, paging in full. */
-  listSubscriptionOffers(
+  async listSubscriptionOffers(
     packageName: string,
     productId: string,
     basePlanId: string,
-  ): Effect.Effect<SubscriptionOfferResource[], GooglePlayApiError> {
+  ): Promise<SubscriptionOfferResource[]> {
     return collectGeneratedPages(
       (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Monetization$Subscriptions$Baseplans$Offers$List =
           { packageName, productId, basePlanId };
-        if (pageToken !== undefined) listParameters.pageToken = pageToken;
+        if (isText(pageToken)) {
+          listParameters.pageToken = pageToken;
+        }
+
         return this.executeGeneratedRequest('list subscription offers', () =>
           this.publisher.monetization.subscriptions.basePlans.offers.list(listParameters),
         );
       },
       (offerPage) => {
         const offers: SubscriptionOfferResource[] = [];
-        if (!Array.isArray(offerPage.subscriptionOffers)) return offers;
-        for (const googleOffer of offerPage.subscriptionOffers) {
-          const offer = normalizeSubscriptionOffer(googleOffer);
-          if (offer !== undefined) offers.push(offer);
+        const googleOffers = offerPage.subscriptionOffers;
+
+        if (Array.isArray(googleOffers)) {
+          for (const googleOffer of googleOffers) {
+            const offer = normalizeSubscriptionOffer(googleOffer);
+
+            if (offer != null) {
+              offers.push(offer);
+            }
+          }
         }
+
         return offers;
       },
       (offerPage) => offerPage.nextPageToken,
     );
   }
   /** Create a subscription offer (in DRAFT - activate it separately). `regionsVersion.version` is required. */
-  createSubscriptionOffer(
+  async createSubscriptionOffer(
     packageName: string,
     offer: SubscriptionOfferResource,
-  ): Effect.Effect<void, GooglePlayApiError> {
+  ): Promise<void> {
     let productId = '';
     let basePlanId = '';
-    if (offer.productId !== undefined) productId = offer.productId;
-    if (offer.basePlanId !== undefined) basePlanId = offer.basePlanId;
-    return this.executeGeneratedRequest('create subscription offer', () =>
+    if (isText(offer.productId)) {
+      productId = offer.productId;
+    }
+
+    if (isText(offer.basePlanId)) {
+      basePlanId = offer.basePlanId;
+    }
+
+    await this.executeGeneratedRequest('create subscription offer', () =>
       this.publisher.monetization.subscriptions.basePlans.offers.create({
         packageName,
         productId,
@@ -1094,16 +1319,16 @@ export class GooglePlayClient {
           packageName,
         }),
       }),
-    ).pipe(Effect.asVoid);
+    );
   }
   /** Activate a subscription offer (DRAFT -> ACTIVE), making it available. */
-  activateSubscriptionOffer(
+  async activateSubscriptionOffer(
     packageName: string,
     productId: string,
     basePlanId: string,
     offerId: string,
-  ): Effect.Effect<void, GooglePlayApiError> {
-    return this.executeGeneratedRequest('activate subscription offer', () =>
+  ): Promise<void> {
+    await this.executeGeneratedRequest('activate subscription offer', () =>
       this.publisher.monetization.subscriptions.basePlans.offers.activate({
         packageName,
         productId,
@@ -1111,123 +1336,319 @@ export class GooglePlayClient {
         offerId,
         requestBody: { packageName, productId, basePlanId, offerId },
       }),
-    ).pipe(Effect.asVoid);
+    );
   }
   /**
    * List the app's customer reviews (flattened to {@link PlayReview}), paging in full. `translationLanguage`
    * asks Play to machine-translate review text into that BCP-47 language. Only reviews with text from the
    * last ~week are returned - a Play platform limit, not Launch's.
    */
-  listReviews(
+  async listReviews(
     packageName: string,
     options: Readonly<{
       translationLanguage?: string;
     }> = {},
-  ): Effect.Effect<PlayReview[], GooglePlayApiError> {
+  ): Promise<PlayReview[]> {
     return collectGeneratedPages(
       (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Reviews$List = { packageName };
-        if (options.translationLanguage !== undefined) {
+        if (isText(options.translationLanguage)) {
           listParameters.translationLanguage = options.translationLanguage;
         }
-        if (pageToken !== undefined) listParameters.token = pageToken;
+
+        if (isText(pageToken)) {
+          listParameters.token = pageToken;
+        }
+
         return this.executeGeneratedRequest('list reviews', () =>
           this.publisher.reviews.list(listParameters),
         );
       },
       (reviewPage) => {
         const reviews: PlayReview[] = [];
-        if (!Array.isArray(reviewPage.reviews)) return reviews;
-        for (const googleReview of reviewPage.reviews) {
-          const review = normalizeReview(googleReview);
-          if (review !== undefined) reviews.push(review);
+        const googleReviews = reviewPage.reviews;
+
+        if (Array.isArray(googleReviews)) {
+          for (const googleReview of googleReviews) {
+            const review = normalizeReview(googleReview);
+
+            if (review != null) {
+              reviews.push(review);
+            }
+          }
         }
+
         return reviews;
       },
       (reviewPage) => reviewPage.tokenPagination?.nextPageToken,
     );
   }
   /** Fetch one review by id (flattened to {@link PlayReview}), or null when it doesn't exist / is too old. */
-  getReview(
-    packageName: string,
-    reviewId: string,
-  ): Effect.Effect<PlayReview | null, GooglePlayApiError> {
-    return this.executeGeneratedRequest('get review', () =>
-      this.publisher.reviews.get({ packageName, reviewId }),
-    ).pipe(
-      Effect.map((googleReview) => {
-        const review = normalizeReview(googleReview);
-        if (review === undefined) return null;
-        return review;
-      }),
-      Effect.catchTag('GooglePlayApiError', (requestFailure) => {
-        if (requestFailure.statusCode === 404) return Effect.succeed(null);
-        return Effect.fail(requestFailure);
-      }),
-    );
+  async getReview(packageName: string, reviewId: string): Promise<PlayReview | null> {
+    try {
+      const googleReview = await this.executeGeneratedRequest('get review', () =>
+        this.publisher.reviews.get({ packageName, reviewId }),
+      );
+      const review = normalizeReview(googleReview);
+      const isReviewMissing = review == null;
+
+      if (isReviewMissing) {
+        return null;
+      }
+
+      return review;
+    } catch (requestFailure) {
+      const isPlayFailure = isGooglePlayApiError(requestFailure);
+
+      if (isPlayFailure == false) {
+        throw requestFailure;
+      }
+
+      const isMissingReview = requestFailure.statusCode == 404;
+
+      if (isMissingReview) {
+        return null;
+      }
+
+      throw requestFailure;
+    }
   }
   /**
    * Post (or replace) the public developer reply to a review. Play's reply endpoint is an upsert - it
    * edits an existing reply in place - and only accepts reviews from the last ~week.
    */
-  replyToReview(
+  async replyToReview(
     packageName: string,
     reviewId: string,
     replyText: string,
-  ): Effect.Effect<PlayReplyResult, GooglePlayApiError> {
-    return this.executeGeneratedRequest('reply to review', () =>
+  ): Promise<PlayReplyResult> {
+    const replyConfirmation = await this.executeGeneratedRequest('reply to review', () =>
       this.publisher.reviews.reply({
         packageName,
         reviewId,
         requestBody: { replyText },
       }),
-    ).pipe(
-      Effect.map((replyConfirmation) => {
-        let storedReplyText = replyText;
-        if (typeof replyConfirmation.result?.replyText === 'string') {
-          storedReplyText = replyConfirmation.result.replyText;
-        }
-        const reply: MutableDeep<PlayReplyResult> = { replyText: storedReplyText };
-        const lastEdited = timestampToIso(replyConfirmation.result?.lastEdited);
-        if (lastEdited !== undefined) reply.lastEdited = lastEdited;
-        return reply;
-      }),
     );
+    let storedReplyText = replyText;
+    const confirmedReplyText = replyConfirmation.result?.replyText;
+    if (isText(confirmedReplyText)) {
+      storedReplyText = confirmedReplyText;
+    }
+
+    const reply: MutableDeep<PlayReplyResult> = { replyText: storedReplyText };
+    const lastEdited = timestampToIso(replyConfirmation.result?.lastEdited);
+
+    if (isText(lastEdited)) {
+      reply.lastEdited = lastEdited;
+    }
+
+    return reply;
   }
 }
+interface GoogleErrorObject {
+  message?: string;
+  status?: string;
+}
+
+interface GoogleErrorDocument {
+  error?: string | GoogleErrorObject;
+  error_description?: string;
+}
+
+function isGoogleErrorRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function isNonEmptyText(text: unknown): text is string {
+  if (typeof text != 'string') {
+    return false;
+  }
+
+  return text.length > 0;
+}
+
+function readRawPlayError(googleErrorText: string): string {
+  const hasErrorText = googleErrorText.length > 0;
+
+  if (hasErrorText) {
+    return googleErrorText;
+  }
+
+  return 'no response body';
+}
+
+function readDirectErrorText(googleError: GoogleErrorDocument['error']): string {
+  if (typeof googleError == 'string') {
+    return googleError;
+  }
+
+  if (googleError == null) {
+    return '';
+  }
+
+  if (isNonEmptyText(googleError.message)) {
+    return googleError.message;
+  }
+
+  if (typeof googleError.status == 'string') {
+    return googleError.status;
+  }
+
+  return '';
+}
+
+function readGoogleErrorMessage(googleErrorDocument: GoogleErrorDocument): string {
+  const directMessage = readDirectErrorText(googleErrorDocument.error);
+
+  if (isNonEmptyText(directMessage)) {
+    return directMessage;
+  }
+
+  if (isNonEmptyText(googleErrorDocument.error_description)) {
+    return googleErrorDocument.error_description;
+  }
+
+  return '';
+}
+
+interface ReadStringOutcome {
+  status: 'missing' | 'invalid' | 'present';
+  text: string;
+}
+
+function readOptionalErrorString(record: Record<string, unknown>, key: string): ReadStringOutcome {
+  const hasKey = Object.hasOwn(record, key);
+
+  if (hasKey == false) {
+    return { status: 'missing', text: '' };
+  }
+
+  const field = record[key];
+  const isStringField = typeof field == 'string';
+
+  if (isStringField == false) {
+    return { status: 'invalid', text: '' };
+  }
+
+  return { status: 'present', text: field };
+}
+
+function parseGoogleErrorText(googleErrorText: string): unknown {
+  try {
+    return JSON.parse(googleErrorText);
+  } catch (cause) {
+    void cause;
+    return null;
+  }
+}
+
+function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument | null {
+  const parsed = parseGoogleErrorText(googleErrorText);
+  const isRecord = isGoogleErrorRecord(parsed);
+
+  if (isRecord == false) {
+    return null;
+  }
+
+  const document: GoogleErrorDocument = {};
+  const errorDescription = readOptionalErrorString(parsed, 'error_description');
+  const isDescriptionInvalid = errorDescription.status == 'invalid';
+
+  if (isDescriptionInvalid) {
+    return null;
+  }
+
+  const isDescriptionPresent = errorDescription.status == 'present';
+
+  if (isDescriptionPresent) {
+    document.error_description = errorDescription.text;
+  }
+
+  const hasError = Object.hasOwn(parsed, 'error');
+
+  if (hasError == false) {
+    return document;
+  }
+
+  const errorField = parsed['error'];
+  const isStringError = typeof errorField == 'string';
+
+  if (isStringError) {
+    document.error = errorField;
+    return document;
+  }
+
+  const isObjectError = isGoogleErrorRecord(errorField);
+
+  if (isObjectError == false) {
+    return null;
+  }
+
+  const message = readOptionalErrorString(errorField, 'message');
+  const isMessageInvalid = message.status == 'invalid';
+
+  if (isMessageInvalid) {
+    return null;
+  }
+
+  const status = readOptionalErrorString(errorField, 'status');
+  const isStatusInvalid = status.status == 'invalid';
+
+  if (isStatusInvalid) {
+    return null;
+  }
+
+  const errorObject: GoogleErrorObject = {};
+  const isMessagePresent = message.status == 'present';
+
+  if (isMessagePresent) {
+    errorObject.message = message.text;
+  }
+
+  const isStatusPresent = status.status == 'present';
+
+  if (isStatusPresent) {
+    errorObject.status = status.text;
+  }
+
+  document.error = errorObject;
+  return document;
+}
+
 /**
  * Extract Google's human-readable error detail, falling back to the raw transport text.
  * Recognizes the sensitive/high-risk permission rejection and appends the fix, so the CLI doesn't just
  * echo a 403 - it tells you the release was blocked on a permission declaration.
  */
-export const describePlayErrors = (googleErrorText: string): string => {
-  const emptyBodyMessage = 'no response body';
-  const decodedErrorDocument = Schema.decodeUnknownOption(
-    Schema.parseJson(GoogleErrorDocumentSchema),
-  )(googleErrorText);
-  if (Option.isNone(decodedErrorDocument)) {
-    if (googleErrorText.length > 0) return googleErrorText;
-    return emptyBodyMessage;
+export function describePlayErrors(googleErrorText: string): string {
+  const googleErrorDocument = readGoogleErrorDocument(googleErrorText);
+  const isDocumentMissing = googleErrorDocument == null;
+
+  if (isDocumentMissing) {
+    return readRawPlayError(googleErrorText);
   }
-  const googleErrorDocument = decodedErrorDocument.value;
-  const googleError = googleErrorDocument.error;
-  let message = '';
-  if (typeof googleError === 'string') message = googleError;
-  if (typeof googleError === 'object' && googleError !== null) {
-    if (typeof googleError.message === 'string') message = googleError.message;
-    if (message.length === 0 && typeof googleError.status === 'string') {
-      message = googleError.status;
-    }
+
+  const message = readGoogleErrorMessage(googleErrorDocument);
+  const isMessageEmpty = message.length == 0;
+
+  if (isMessageEmpty) {
+    return readRawPlayError(googleErrorText);
   }
-  if (message.length === 0 && typeof googleErrorDocument.error_description === 'string') {
-    message = googleErrorDocument.error_description;
-  }
-  if (message.length === 0) {
-    if (googleErrorText.length > 0) return googleErrorText;
-    return emptyBodyMessage;
-  }
-  if (/sensitive|high.?risk|permissions? declaration/i.test(message)) {
+
+  // Matches a sensitive or high-risk permission rejection, including a permissions declaration.
+  const isSensitivePermission = /sensitive|high.?risk|permissions? declaration/i.test(message);
+
+  if (isSensitivePermission) {
     return `${message} - a sensitive/high-risk permission likely needs pre-approval (a Permissions Declaration) in Play Console before this release is accepted.`;
   }
+
   return message;
-};
+}

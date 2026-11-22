@@ -1,38 +1,9 @@
-import { Effect, Layer, unsafeCoerce } from 'effect';
-import { describe, expect, it, vi } from 'vitest';
-import {
-  type AppleStoreClientService,
-  AppleStoreClientService as AppleStoreClients,
-  makeAppleTransportFailure,
-  type EffectAppStoreConnectClient,
-} from './appleStoreClient.js';
-import {
-  AppStoreIdentityLive,
-  AppStoreIdentityService,
-  type AppStoreIdentityService as AppStoreIdentityTestService,
-} from './appStoreIdentity.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AppStoreConnectClient } from '@apple/ascClient.js';
+import { makeAppleTransportFailure, useAppleStoreClientFactory } from './appleStoreClient.js';
+import { AppStoreIdentityService } from './appStoreIdentity.js';
 
 const ascKey = { keyId: 'key', issuerId: 'issuer', p8: 'secret' };
-
-const identityProgram = (
-  appStoreClient: Pick<
-    EffectAppStoreConnectClient,
-    'assertReady' | 'resolveTeamId' | 'listAppNames'
-  >,
-): Effect.Effect<AppStoreIdentityTestService> => {
-  const clientFactory = unsafeCoerce<
-    Pick<AppleStoreClientService, 'createEffectClient'>,
-    AppleStoreClientService
-  >({
-    createEffectClient: () =>
-      Effect.succeed(
-        unsafeCoerce<typeof appStoreClient, EffectAppStoreConnectClient>(appStoreClient),
-      ),
-  });
-  const appleTransportTest = Layer.succeed(AppleStoreClients, clientFactory);
-  const identityTest = AppStoreIdentityLive.pipe(Layer.provide(appleTransportTest));
-  return AppStoreIdentityService.pipe(Effect.provide(identityTest));
-};
 
 const failure = makeAppleTransportFailure({
   message: 'Unauthorized',
@@ -40,18 +11,41 @@ const failure = makeAppleTransportFailure({
   status: 401,
 });
 
+afterEach(function resetAppleClient() {
+  useAppleStoreClientFactory(null);
+});
+
+function installClient(methods: {
+  assertReady: () => Promise<void>;
+  resolveTeamId: () => Promise<string | null>;
+  listAppNames: () => Promise<string[]>;
+}): void {
+  useAppleStoreClientFactory(function createClient() {
+    const client = Object.create(AppStoreConnectClient.prototype);
+    client.assertReady = methods.assertReady;
+    client.resolveTeamId = methods.resolveTeamId;
+    client.listAppNames = methods.listAppNames;
+
+    return client;
+  });
+}
+
 describe('AppStoreIdentityService', () => {
   it('verifies the key before returning its best-effort identity', async () => {
-    const assertReady = vi.fn(() => Effect.void);
-    const identityService = await Effect.runPromise(
-      identityProgram({
-        assertReady,
-        resolveTeamId: () => Effect.succeed('TEAM1'),
-        listAppNames: () => Effect.succeed(['One', 'Two']),
-      }),
-    );
+    const assertReady = vi.fn(async function ready() {
+      return undefined;
+    });
+    installClient({
+      assertReady,
+      resolveTeamId: async function resolveTeamId() {
+        return 'TEAM1';
+      },
+      listAppNames: async function listAppNames() {
+        return ['One', 'Two'];
+      },
+    });
 
-    await expect(Effect.runPromise(identityService.verifyCredentials(ascKey))).resolves.toEqual({
+    await expect(AppStoreIdentityService.verifyCredentials(ascKey)).resolves.toEqual({
       teamId: 'TEAM1',
       apps: ['One', 'Two'],
     });
@@ -59,32 +53,38 @@ describe('AppStoreIdentityService', () => {
   });
 
   it('keeps verification failures in the typed error channel', async () => {
-    const identityService = await Effect.runPromise(
-      identityProgram({
-        assertReady: () => Effect.fail(failure),
-        resolveTeamId: () => Effect.succeed('TEAM1'),
-        listAppNames: () => Effect.succeed(['One']),
-      }),
-    );
+    installClient({
+      assertReady: async function failReady() {
+        throw failure;
+      },
+      resolveTeamId: async function resolveTeamId() {
+        return 'TEAM1';
+      },
+      listAppNames: async function listAppNames() {
+        return ['One'];
+      },
+    });
 
-    await expect(
-      Effect.runPromise(identityService.verifyCredentials(ascKey).pipe(Effect.flip)),
-    ).resolves.toMatchObject({
+    await expect(AppStoreIdentityService.verifyCredentials(ascKey)).rejects.toMatchObject({
       _tag: 'AppleTransportFailure',
       status: 401,
     });
   });
 
   it('does not reject a verified key when identity discovery is unavailable', async () => {
-    const identityService = await Effect.runPromise(
-      identityProgram({
-        assertReady: () => Effect.void,
-        resolveTeamId: () => Effect.fail(failure),
-        listAppNames: () => Effect.fail(failure),
-      }),
-    );
+    installClient({
+      assertReady: async function ready() {
+        return undefined;
+      },
+      resolveTeamId: async function failTeam() {
+        throw failure;
+      },
+      listAppNames: async function failApps() {
+        throw failure;
+      },
+    });
 
-    await expect(Effect.runPromise(identityService.verifyCredentials(ascKey))).resolves.toEqual({
+    await expect(AppStoreIdentityService.verifyCredentials(ascKey)).resolves.toEqual({
       teamId: null,
       apps: [],
     });

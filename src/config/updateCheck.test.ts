@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { Effect } from 'effect';
 import {
   autoUpgradeBlockedReason,
   isNewer,
@@ -95,35 +94,31 @@ const makeDeps = (
     environmentVariables: {},
     isTTY: true,
     scriptPath: '/usr/local/lib/node_modules/launch-store/dist/cli/index.js',
-    resolveInstaller: () =>
-      Effect.sync((): GlobalInstaller | null => {
-        calls.resolveInstaller++;
-        return 'npm';
-      }),
-    readState: () => null,
-    writeState: (state) => {
-      return Effect.sync(() => {
-        calls.writes.push(state);
-      });
+    async resolveInstaller(): Promise<GlobalInstaller | null> {
+      calls.resolveInstaller += 1;
+
+      return 'npm';
     },
-    fetchLatest: () =>
-      Effect.sync(() => {
-        calls.fetch++;
-        return '0.2.0';
-      }),
-    upgrade: (): Effect.Effect<UpgradeResult> =>
-      Effect.sync(() => {
-        calls.upgrade++;
-        return 'upgraded';
-      }),
-    reexec: () =>
-      Effect.sync(() => {
-        calls.reexec++;
-      }),
-    notify: (message) =>
-      Effect.sync(() => {
-        calls.notes.push(message);
-      }),
+    readState: () => null,
+    async writeState(state) {
+      calls.writes.push(state);
+    },
+    async fetchLatest() {
+      calls.fetch += 1;
+
+      return '0.2.0';
+    },
+    async upgrade(): Promise<UpgradeResult> {
+      calls.upgrade += 1;
+
+      return 'upgraded';
+    },
+    async reexec() {
+      calls.reexec += 1;
+    },
+    async notify(message) {
+      calls.notes.push(message);
+    },
     ...overrides,
   };
   return { deps, calls };
@@ -131,18 +126,22 @@ const makeDeps = (
 describe('maybeAutoUpgrade', () => {
   it('does nothing when blocked (e.g. CI) - no fetch, no upgrade', async () => {
     const { deps, calls } = makeDeps({ environmentVariables: { CI: '1' } });
-    await Effect.runPromise(maybeAutoUpgrade(deps));
+    await maybeAutoUpgrade(deps);
     expect(calls.fetch).toBe(0);
     expect(calls.upgrade).toBe(0);
   });
   it('does nothing when checked recently (throttled)', async () => {
     const { deps, calls } = makeDeps({ readState: () => ({ lastCheckedAt: 10000000000 }) });
-    await Effect.runPromise(maybeAutoUpgrade(deps));
+    await maybeAutoUpgrade(deps);
     expect(calls.fetch).toBe(0);
   });
   it("records the check but doesn't upgrade when already current", async () => {
-    const { deps, calls } = makeDeps({ fetchLatest: () => Effect.succeed('0.1.0') });
-    await Effect.runPromise(maybeAutoUpgrade(deps));
+    const { deps, calls } = makeDeps({
+      async fetchLatest() {
+        return '0.1.0';
+      },
+    });
+    await maybeAutoUpgrade(deps);
     expect(calls.writes).toHaveLength(1);
     expect(calls.resolveInstaller).toBe(0);
     expect(calls.upgrade).toBe(0);
@@ -150,41 +149,55 @@ describe('maybeAutoUpgrade', () => {
   });
   it('upgrades and re-execs when a newer version exists', async () => {
     const { deps, calls } = makeDeps();
-    await Effect.runPromise(maybeAutoUpgrade(deps));
+    await maybeAutoUpgrade(deps);
     expect(calls.upgrade).toBe(1);
     expect(calls.reexec).toBe(1);
   });
   it("notifies (and does not re-exec) when the global dir isn't writable", async () => {
-    const { deps, calls } = makeDeps({ upgrade: () => Effect.succeed('eacces') });
-    await Effect.runPromise(maybeAutoUpgrade(deps));
+    const { deps, calls } = makeDeps({
+      async upgrade() {
+        return 'eacces';
+      },
+    });
+    await maybeAutoUpgrade(deps);
     expect(calls.reexec).toBe(0);
     expect(calls.notes.some((note) => note.includes('sudo npm install -g'))).toBe(true);
   });
   it('upgrades, relaunches, and names pnpm for a pnpm install', async () => {
     const usedInstallers: GlobalInstaller[] = [];
     const { deps, calls } = makeDeps({
-      resolveInstaller: () => Effect.succeed('pnpm'),
-      upgrade: (installer) =>
-        Effect.sync(() => {
-          usedInstallers.push(installer);
-          return 'failed';
-        }),
+      async resolveInstaller() {
+        return 'pnpm';
+      },
+      async upgrade(installer) {
+        usedInstallers.push(installer);
+
+        return 'failed';
+      },
     });
-    await Effect.runPromise(maybeAutoUpgrade(deps));
+    await maybeAutoUpgrade(deps);
     expect(usedInstallers).toEqual(['pnpm']);
     expect(calls.reexec).toBe(0);
     expect(calls.notes).toEqual(['launch 0.2.0 is available - pnpm add -g launch-store@0.2.0']);
   });
   it('only notifies for a project or npx install', async () => {
-    const { deps, calls } = makeDeps({ resolveInstaller: () => Effect.succeed(null) });
-    await Effect.runPromise(maybeAutoUpgrade(deps));
+    const { deps, calls } = makeDeps({
+      async resolveInstaller() {
+        return null;
+      },
+    });
+    await maybeAutoUpgrade(deps);
     expect(calls.upgrade).toBe(0);
     expect(calls.reexec).toBe(0);
     expect(calls.notes).toEqual(['launch 0.2.0 is available - you have 0.1.0']);
   });
   it('records the check and stays quiet when offline (fetch returns null)', async () => {
-    const { deps, calls } = makeDeps({ fetchLatest: () => Effect.succeed(null) });
-    await Effect.runPromise(maybeAutoUpgrade(deps));
+    const { deps, calls } = makeDeps({
+      async fetchLatest() {
+        return null;
+      },
+    });
+    await maybeAutoUpgrade(deps);
     expect(calls.writes).toHaveLength(1);
     expect(calls.upgrade).toBe(0);
   });

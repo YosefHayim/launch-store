@@ -1,4 +1,3 @@
-import { Data, Effect } from 'effect';
 import type {
   NewUserInvitation,
   UserInvitationResource,
@@ -8,11 +7,11 @@ import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** App Store Connect operations needed for team membership. */
 export type AscTeamApi = Readonly<{
-  listUsers: () => Effect.Effect<UserResource[], unknown>;
-  listUserInvitations: () => Effect.Effect<UserInvitationResource[], unknown>;
-  inviteUser: (newInvitation: NewUserInvitation) => Effect.Effect<UserInvitationResource, unknown>;
-  deleteUser: (userId: string) => Effect.Effect<void, unknown>;
-  cancelUserInvitation: (invitationId: string) => Effect.Effect<void, unknown>;
+  listUsers: () => Promise<UserResource[]>;
+  listUserInvitations: () => Promise<UserInvitationResource[]>;
+  inviteUser: (newInvitation: NewUserInvitation) => Promise<UserInvitationResource>;
+  deleteUser: (userId: string) => Promise<void>;
+  cancelUserInvitation: (invitationId: string) => Promise<void>;
 }>;
 
 const DEPRECATED_ROLE_PERMISSION = 'ACCESS_TO_REPORTS';
@@ -58,147 +57,218 @@ type TeamFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeTeamFailure = Data.tagged<TeamFailure>('TeamFailure');
+
+function makeTeamFailure(fields: {
+  operation: TeamFailure['operation'];
+  message: string;
+  cause: unknown;
+}): TeamFailure {
+  return { _tag: 'TeamFailure', ...fields };
+}
+
+function readNonEmptyText(cause: unknown): string | null {
+  const isNotText = typeof cause != 'string';
+
+  if (isNotText) return null;
+
+  const isEmpty = cause.length == 0;
+
+  if (isEmpty) return null;
+
+  return cause;
+}
+
+function readCauseMessage(cause: unknown, fallback: string): string {
+  const textMessage = readNonEmptyText(cause);
+
+  if (textMessage != null) return textMessage;
+
+  const hasCauseMessage = hasMessage(cause);
+
+  if (hasCauseMessage) return cause.message;
+
+  return fallback;
+}
 
 /** Convert a team dependency failure to the typed domain channel. */
-const teamFailure = (operation: TeamFailure['operation'], cause: unknown): TeamFailure => {
-  let message = `Team ${operation} failed.`;
-  if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') message = causeMessage;
-  }
+function teamFailure(operation: TeamFailure['operation'], cause: unknown): TeamFailure {
+  const message = readCauseMessage(cause, `Team ${operation} failed.`);
   return makeTeamFailure({ operation, message, cause });
-};
+}
 
 /** Read accepted members and pending invitations together. */
-export const getTeam = (teamClient: AscTeamApi): Effect.Effect<Team, TeamFailure> =>
-  Effect.all(
-    {
-      members: teamClient.listUsers(),
-      invitations: teamClient.listUserInvitations(),
-    },
-    { concurrency: 'unbounded' },
-  ).pipe(Effect.mapError((cause) => teamFailure('list', cause)));
+export async function getTeam(teamClient: AscTeamApi): Promise<Team> {
+  try {
+    const membersPromise = teamClient.listUsers();
+    const invitationsPromise = teamClient.listUserInvitations();
+    const [members, invitations] = await Promise.all([membersPromise, invitationsPromise]);
+    return { members, invitations };
+  } catch (cause) {
+    throw teamFailure('list', cause);
+  }
+}
 
 /** Normalize comma-separated role fragments into Apple's canonical role names. */
-const normalizeRoles = (declaredRoles: readonly string[]): string[] => {
+function normalizeRoles(declaredRoles: readonly string[]): string[] {
   const normalizedRoles = new Set<string>();
   for (const declaredRole of declaredRoles) {
     const normalizedRole = declaredRole.trim().toUpperCase();
-    if (normalizedRole.length > 0) normalizedRoles.add(normalizedRole);
+    const hasRoleText = normalizedRole.length > 0;
+
+    if (hasRoleText) {
+      normalizedRoles.add(normalizedRole);
+    }
   }
   return [...normalizedRoles];
-};
+}
+
+function isUnknownRole(normalizedRole: string): boolean {
+  const isKnownRole = KNOWN_USER_ROLES.includes(normalizedRole);
+  return isKnownRole == false;
+}
+
+function hasMemberEmail(normalizedEmail: string): (teamMember: UserResource) => boolean {
+  return function memberHasEmail(teamMember: UserResource): boolean {
+    return teamMember.username.toLowerCase() === normalizedEmail;
+  };
+}
+
+function hasInvitationEmail(
+  normalizedEmail: string,
+): (pendingInvitation: UserInvitationResource) => boolean {
+  return function invitationHasEmail(pendingInvitation: UserInvitationResource): boolean {
+    return pendingInvitation.email.toLowerCase() === normalizedEmail;
+  };
+}
 
 /** Validate and invite a new App Store Connect team member. */
-export const inviteTeamMember = (
+export async function inviteTeamMember(
   teamClient: AscTeamApi,
   inviteRequest: InviteRequest,
-): Effect.Effect<UserInvitationResource, TeamFailure> =>
-  Effect.gen(function* () {
-    const email = inviteRequest.email.trim();
-    if (email.length === 0) {
-      return yield* Effect.fail(
-        teamFailure('invite', 'An email is required to invite a team member.'),
-      );
-    }
-    const normalizedRoles = normalizeRoles(inviteRequest.roles);
-    if (normalizedRoles.length === 0) {
-      return yield* Effect.fail(
-        teamFailure(
-          'invite',
-          `At least one role is required. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
-        ),
-      );
-    }
-    if (normalizedRoles.includes(DEPRECATED_ROLE_PERMISSION)) {
-      return yield* Effect.fail(
-        teamFailure(
-          'invite',
-          `${DEPRECATED_ROLE_PERMISSION} is deprecated by Apple (App Store Connect API 4.3). Report access comes with the Sales, Marketing, App Manager, and Developer roles: use one of them. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
-        ),
-      );
-    }
-    const unknownRoles = normalizedRoles.filter(
-      (normalizedRole) => !KNOWN_USER_ROLES.includes(normalizedRole),
+): Promise<UserInvitationResource> {
+  const email = inviteRequest.email.trim();
+  const isEmailMissing = email.length === 0;
+
+  if (isEmailMissing) {
+    throw teamFailure('invite', 'An email is required to invite a team member.');
+  }
+
+  const normalizedRoles = normalizeRoles(inviteRequest.roles);
+  const isRoleListEmpty = normalizedRoles.length === 0;
+
+  if (isRoleListEmpty) {
+    throw teamFailure(
+      'invite',
+      `At least one role is required. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
     );
-    if (unknownRoles.length > 0) {
-      return yield* Effect.fail(
-        teamFailure(
-          'invite',
-          `Unknown role(s): ${unknownRoles.join(', ')}. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
-        ),
-      );
-    }
-    const currentTeam = yield* getTeam(teamClient).pipe(
-      Effect.mapError((cause) => teamFailure('invite', cause)),
+  }
+
+  const usesDeprecatedRole = normalizedRoles.includes(DEPRECATED_ROLE_PERMISSION);
+
+  if (usesDeprecatedRole) {
+    throw teamFailure(
+      'invite',
+      `${DEPRECATED_ROLE_PERMISSION} is deprecated by Apple (App Store Connect API 4.3). Report access comes with the Sales, Marketing, App Manager, and Developer roles: use one of them. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
     );
-    const normalizedEmail = email.toLowerCase();
-    if (
-      currentTeam.members.some(
-        (teamMember) => teamMember.username.toLowerCase() === normalizedEmail,
-      )
-    ) {
-      return yield* Effect.fail(teamFailure('invite', `${email} is already a team member.`));
-    }
-    if (
-      currentTeam.invitations.some(
-        (pendingInvitation) => pendingInvitation.email.toLowerCase() === normalizedEmail,
-      )
-    ) {
-      return yield* Effect.fail(
-        teamFailure('invite', `${email} already has a pending invitation.`),
-      );
-    }
-    let allAppsVisible = true;
-    if (inviteRequest.allAppsVisible !== undefined) {
-      allAppsVisible = inviteRequest.allAppsVisible;
-    }
-    let provisioningAllowed = false;
-    if (inviteRequest.provisioningAllowed !== undefined) {
-      provisioningAllowed = inviteRequest.provisioningAllowed;
-    }
-    return yield* teamClient
-      .inviteUser({
-        email,
-        firstName: inviteRequest.firstName.trim(),
-        lastName: inviteRequest.lastName.trim(),
-        roles: normalizedRoles,
-        allAppsVisible,
-        provisioningAllowed,
-      })
-      .pipe(Effect.mapError((cause) => teamFailure('invite', cause)));
-  });
+  }
+
+  const unknownRoles = normalizedRoles.filter(isUnknownRole);
+  const hasUnknownRoles = unknownRoles.length > 0;
+
+  if (hasUnknownRoles) {
+    throw teamFailure(
+      'invite',
+      `Unknown role(s): ${unknownRoles.join(', ')}. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
+    );
+  }
+
+  let currentTeam: Team;
+
+  try {
+    currentTeam = await getTeam(teamClient);
+  } catch (cause) {
+    throw teamFailure('invite', cause);
+  }
+
+  const normalizedEmail = email.toLowerCase();
+  const memberHasEmail = hasMemberEmail(normalizedEmail);
+  const isAlreadyMember = currentTeam.members.some(memberHasEmail);
+
+  if (isAlreadyMember) {
+    throw teamFailure('invite', `${email} is already a team member.`);
+  }
+
+  const invitationHasEmail = hasInvitationEmail(normalizedEmail);
+  const hasPendingInvitation = currentTeam.invitations.some(invitationHasEmail);
+
+  if (hasPendingInvitation) {
+    throw teamFailure('invite', `${email} already has a pending invitation.`);
+  }
+
+  let allAppsVisible = true;
+  if (inviteRequest.allAppsVisible !== undefined) {
+    allAppsVisible = inviteRequest.allAppsVisible;
+  }
+  let provisioningAllowed = false;
+  if (inviteRequest.provisioningAllowed !== undefined) {
+    provisioningAllowed = inviteRequest.provisioningAllowed;
+  }
+
+  try {
+    return await teamClient.inviteUser({
+      email,
+      firstName: inviteRequest.firstName.trim(),
+      lastName: inviteRequest.lastName.trim(),
+      roles: normalizedRoles,
+      allAppsVisible,
+      provisioningAllowed,
+    });
+  } catch (cause) {
+    throw teamFailure('invite', cause);
+  }
+}
 
 /** Revoke a member or cancel a pending invitation matched by email. */
-export const removeTeamMember = (
+export async function removeTeamMember(
   teamClient: AscTeamApi,
   email: string,
-): Effect.Effect<RemoveOutcome, TeamFailure> =>
-  Effect.gen(function* () {
-    const normalizedEmail = email.trim().toLowerCase();
-    const currentTeam = yield* getTeam(teamClient).pipe(
-      Effect.mapError((cause) => teamFailure('remove', cause)),
-    );
-    const matchingMember = currentTeam.members.find(
-      (teamMember) => teamMember.username.toLowerCase() === normalizedEmail,
-    );
-    if (matchingMember !== undefined) {
-      yield* teamClient
-        .deleteUser(matchingMember.id)
-        .pipe(Effect.mapError((cause) => teamFailure('remove', cause)));
-      return { kind: 'member', user: matchingMember };
+): Promise<RemoveOutcome> {
+  const normalizedEmail = email.trim().toLowerCase();
+  let currentTeam: Team;
+
+  try {
+    currentTeam = await getTeam(teamClient);
+  } catch (cause) {
+    throw teamFailure('remove', cause);
+  }
+
+  const memberHasEmail = hasMemberEmail(normalizedEmail);
+  const matchingMember = currentTeam.members.find(memberHasEmail);
+  const hasMatchingMember = matchingMember !== undefined;
+
+  if (hasMatchingMember) {
+    try {
+      await teamClient.deleteUser(matchingMember.id);
+    } catch (cause) {
+      throw teamFailure('remove', cause);
     }
-    const matchingInvitation = currentTeam.invitations.find(
-      (pendingInvitation) => pendingInvitation.email.toLowerCase() === normalizedEmail,
-    );
-    if (matchingInvitation !== undefined) {
-      yield* teamClient
-        .cancelUserInvitation(matchingInvitation.id)
-        .pipe(Effect.mapError((cause) => teamFailure('remove', cause)));
-      return { kind: 'invitation', invitation: matchingInvitation };
+
+    return { kind: 'member', user: matchingMember };
+  }
+
+  const invitationHasEmail = hasInvitationEmail(normalizedEmail);
+  const matchingInvitation = currentTeam.invitations.find(invitationHasEmail);
+  const hasMatchingInvitation = matchingInvitation !== undefined;
+
+  if (hasMatchingInvitation) {
+    try {
+      await teamClient.cancelUserInvitation(matchingInvitation.id);
+    } catch (cause) {
+      throw teamFailure('remove', cause);
     }
-    return { kind: 'none' };
-  });
+
+    return { kind: 'invitation', invitation: matchingInvitation };
+  }
+
+  return { kind: 'none' };
+}

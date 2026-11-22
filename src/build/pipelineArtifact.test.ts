@@ -1,11 +1,10 @@
-import { FileSystem } from '@effect/platform';
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { LaunchEnvironmentTest } from '../services/platform/environment.js';
-import { LaunchLogger, makeLaunchLoggerTest } from '../services/platform/logger.js';
-import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { createLogger, resetLogger, useLoggerSink } from '../services/platform/logger.js';
 import { runWithProgress } from '../services/platform/progress.js';
+import { nativeProjectDirName } from '../services/stores/platform.js';
 import type { Platform } from '../types/app.js';
 import type { SizeReport } from '../types/artifacts.js';
 import type { PrebuildMode, ResolvedBuildContext } from '../types/config.js';
@@ -23,7 +22,7 @@ import {
 // A non-dry-run prebuild records its command here instead of spawning npx.
 vi.mock('../services/platform/progress.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../services/platform/progress.js')>();
-  return { ...actual, runWithProgress: vi.fn(() => Effect.void) };
+  return { ...actual, runWithProgress: vi.fn(async () => ({ elapsedMs: 0, steps: 0 })) };
 });
 
 const MB = 1024 * 1024;
@@ -183,44 +182,68 @@ type NativeProjectCase = Readonly<{
   dryRun?: boolean;
 }>;
 
-const nativeProjectContext = (platform: Platform, dryRun: boolean): ResolvedBuildContext => ({
-  platform,
-  app: { name: 'Demo', dir: '/repo/apps/demo', configPath: '/repo/apps/demo/app.json' },
-  profile: { name: 'production' },
-  env: {},
-  explain: false,
-  dryRun,
-  forceClean: false,
-});
+let nativeAppDirectory = '';
 
-/** Run the matching ensure step against a stubbed `exists` (dry-run unless asked); return the logged text. */
-const nativeProjectLog = async (nativeCase: NativeProjectCase): Promise<string> => {
+function nativeProjectContext(platform: Platform, dryRun: boolean): ResolvedBuildContext {
+  return {
+    platform,
+    app: {
+      name: 'Demo',
+      dir: nativeAppDirectory,
+      configPath: join(nativeAppDirectory, 'app.json'),
+    },
+    profile: { name: 'production' },
+    env: {},
+    explain: false,
+    dryRun,
+    forceClean: false,
+  };
+}
+
+function committedNativeDirectory(platform: Platform): string {
+  const isAndroid = platform == 'android';
+
+  if (isAndroid) {
+    return 'android';
+  }
+
+  return nativeProjectDirName(platform);
+}
+
+/** Run the matching ensure step against a real native directory; return the logged text. */
+async function nativeProjectLog(nativeCase: NativeProjectCase): Promise<string> {
   const lines: string[] = [];
-  const fileSystem = FileSystem.layerNoop({
-    exists: () => Effect.succeed(nativeCase.nativeDirExists),
+
+  useLoggerSink(function keepLine(text: string): void {
+    lines.push(text);
   });
-  let dryRun = true;
-  if (nativeCase.dryRun === false) dryRun = false;
-  const program = Effect.gen(function* () {
-    const log = yield* LaunchLogger;
+  nativeAppDirectory = mkdtempSync(join(tmpdir(), 'launch-native-'));
+
+  try {
+    const dryRun = nativeCase.dryRun != false;
     const buildContext = nativeProjectContext(nativeCase.platform, dryRun);
-    if (nativeCase.platform === 'android') {
-      yield* ensureAndroidProject(buildContext, log, nativeCase.prebuild);
-      return;
+    const log = createLogger(false);
+
+    if (nativeCase.nativeDirExists) {
+      mkdirSync(join(nativeAppDirectory, committedNativeDirectory(nativeCase.platform)), {
+        recursive: true,
+      });
     }
-    yield* ensureNativeProject(buildContext, log, nativeCase.prebuild);
-  });
-  await Effect.runPromise(
-    program.pipe(
-      Effect.provide(makeLaunchLoggerTest(lines)),
-      Effect.provide(fileSystem),
-      Effect.provide(makeLaunchPathsTest('/home/demo', '/repo')),
-      Effect.provide(LaunchEnvironmentTest),
-      Effect.provide(NodeContext.layer),
-    ),
-  );
-  return lines.join('');
-};
+
+    const isAndroid = nativeCase.platform == 'android';
+
+    if (isAndroid) {
+      await ensureAndroidProject(buildContext, log, nativeCase.prebuild);
+      return lines.join('');
+    }
+
+    await ensureNativeProject(buildContext, log, nativeCase.prebuild);
+    return lines.join('');
+  } finally {
+    resetLogger();
+    rmSync(nativeAppDirectory, { recursive: true, force: true });
+  }
+}
 
 describe('native project prebuild mode', () => {
   beforeEach(() => {
@@ -288,7 +311,7 @@ describe('native project prebuild mode', () => {
     expect(runWithProgress).toHaveBeenCalledWith(
       'npx',
       ['expo', 'prebuild', '--platform', 'ios', '--clean'],
-      expect.objectContaining({ cwd: '/repo/apps/demo' }),
+      expect.objectContaining({ cwd: nativeAppDirectory }),
     );
   });
 
@@ -302,7 +325,7 @@ describe('native project prebuild mode', () => {
     expect(runWithProgress).toHaveBeenCalledWith(
       'npx',
       ['expo', 'prebuild', '--platform', 'android', '--clean'],
-      expect.objectContaining({ cwd: '/repo/apps/demo' }),
+      expect.objectContaining({ cwd: nativeAppDirectory }),
     );
   });
 

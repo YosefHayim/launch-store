@@ -1,11 +1,10 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { VersionExperimentsCommandInputSchema } from './versionExperimentsCommand.js';
+import { decodeVersionExperimentsCommandInput } from './versionExperimentsCommand.js';
 
-describe('VersionExperimentsCommandInputSchema', () => {
+describe('decodeVersionExperimentsCommandInput', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {
     expect(
-      Schema.decodeUnknownSync(VersionExperimentsCommandInputSchema)({
+      decodeVersionExperimentsCommandInput({
         config: 'experiments.config.json',
         submit: true,
         start: false,
@@ -23,7 +22,7 @@ describe('VersionExperimentsCommandInputSchema', () => {
 
   it('rejects an explicit undefined exact optional app', () => {
     expect(() =>
-      Schema.decodeUnknownSync(VersionExperimentsCommandInputSchema)({
+      decodeVersionExperimentsCommandInput({
         app: undefined,
         config: 'experiments.config.json',
         submit: false,
@@ -31,6 +30,6 @@ describe('VersionExperimentsCommandInputSchema', () => {
         dryRun: false,
         yes: false,
       }),
-    ).toThrow();
+    ).toThrowError(expect.objectContaining({ _tag: 'VersionExperimentsCommandFailure' }));
   });
 });

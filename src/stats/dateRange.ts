@@ -1,4 +1,3 @@
-import { Clock, Effect } from 'effect';
 import type { DateRange } from '../types/stats.js';
 
 export const REFRESH_TAIL_DAYS = 3;
@@ -33,11 +32,9 @@ export const createLastDaysRange = (lastDate: string, dayCount: number): DateRan
   to: lastDate,
 });
 
-export const readYesterdayUtc = (): Effect.Effect<string> =>
-  Effect.gen(function* () {
-    const nowMilliseconds = yield* Clock.currentTimeMillis;
-    return new Date(nowMilliseconds - DAY_MILLISECONDS).toISOString().slice(0, 10);
-  });
+export function readYesterdayUtc(nowMilliseconds: number = Date.now()): string {
+  return new Date(nowMilliseconds - DAY_MILLISECONDS).toISOString().slice(0, 10);
+}
 
 export const isSyncedAtStale = (lastSyncedAt: string, nowMilliseconds: number): boolean => {
   const lastSyncedMilliseconds = Date.parse(lastSyncedAt);

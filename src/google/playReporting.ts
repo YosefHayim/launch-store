@@ -3,7 +3,6 @@ import {
   playdeveloperreporting,
   type playdeveloperreporting_v1beta1,
 } from '@googleapis/playdeveloperreporting';
-import { Data, Effect } from 'effect';
 import type { ServiceAccount } from '../types/credentials.js';
 import type {
   PlayVitalsMetric,
@@ -100,6 +99,18 @@ const metricNumber = (
   if (Number.isNaN(metricValue)) return;
   return metricValue;
 };
+function isListed<Row>(candidate: readonly Row[] | null | undefined): candidate is readonly Row[] {
+  return Array.isArray(candidate);
+}
+
+function isText(text: string | null | undefined): text is string {
+  return text != null;
+}
+
+function isNumber(candidate: number | null | undefined): candidate is number {
+  return typeof candidate == 'number';
+}
+
 /** A generated Play Developer Reporting request failed. */
 export type PlayReportingApiError = Readonly<{
   readonly _tag: 'PlayReportingApiError';
@@ -107,7 +118,18 @@ export type PlayReportingApiError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makePlayReportingApiError = Data.tagged<PlayReportingApiError>('PlayReportingApiError');
+function makePlayReportingApiError(fields: {
+  readonly operation: string;
+  readonly message: string;
+  readonly cause: unknown;
+}): PlayReportingApiError {
+  return {
+    _tag: 'PlayReportingApiError',
+    operation: fields.operation,
+    message: fields.message,
+    cause: fields.cause,
+  };
+}
 const PLAY_APPS_PAGE_SIZE = 1000;
 export type PlayReportingApp = Readonly<{ packageName: string; displayName: string }>;
 const createAppsSearchRequest = (
@@ -174,77 +196,87 @@ export class PlayReportingClient {
       auth: googleAuthentication,
     });
   }
-  /** Convert the official generated client's Promise-shaped request into one Effect. */
-  private executeGeneratedRequest<TGoogleShape>(
+  /** Run one generated Play Developer Reporting request and tag a failure. */
+  private async executeGeneratedRequest<GoogleShape>(
     operation: string,
     invoke: () => PromiseLike<{
-      data: TGoogleShape;
+      data: GoogleShape;
     }>,
-  ): Effect.Effect<TGoogleShape, PlayReportingApiError> {
-    return Effect.tryPromise({
-      try: invoke,
-      catch: (cause) => {
-        let failureText = String(cause);
-        if (cause instanceof Error) failureText = cause.message;
-        return makePlayReportingApiError({
-          operation,
-          message: `Play Developer Reporting ${operation} failed: ${describePlayErrors(failureText)}`,
-          cause,
-        });
-      },
-    }).pipe(Effect.map((completedRequest) => completedRequest.data));
+  ): Promise<GoogleShape> {
+    try {
+      const completedRequest = await invoke();
+      return completedRequest.data;
+    } catch (cause) {
+      let failureText = String(cause);
+      const isError = cause instanceof Error;
+
+      if (isError) {
+        failureText = cause.message;
+      }
+
+      throw makePlayReportingApiError({
+        operation,
+        message: `Play Developer Reporting ${operation} failed: ${describePlayErrors(failureText)}`,
+        cause,
+      });
+    }
   }
-  listApps(): Effect.Effect<PlayReportingApp[], PlayReportingApiError> {
-    return Effect.gen(this, function* () {
-      const apps: PlayReportingApp[] = [];
-      let pageToken: string | undefined;
-      do {
-        const searchRequest = createAppsSearchRequest(pageToken);
-        const appsPage = yield* this.executeGeneratedRequest('search accessible apps', () =>
-          this.reporting.apps.search(searchRequest),
-        );
-        const googleApps = appsPage.apps;
-        const hasGoogleApps = Array.isArray(googleApps);
-        if (hasGoogleApps) apps.push(...listReadableApps(googleApps));
-        pageToken = nonEmptyPageToken(appsPage.nextPageToken);
-      } while (pageToken !== undefined);
-      return apps;
-    });
+  async listApps(): Promise<PlayReportingApp[]> {
+    const apps: PlayReportingApp[] = [];
+    let pageToken: string | undefined;
+
+    do {
+      const searchRequest = createAppsSearchRequest(pageToken);
+      const appsPage = await this.executeGeneratedRequest('search accessible apps', () =>
+        this.reporting.apps.search(searchRequest),
+      );
+      const googleApps = appsPage.apps;
+      const hasGoogleApps = Array.isArray(googleApps);
+
+      if (hasGoogleApps) {
+        apps.push(...listReadableApps(googleApps));
+      }
+
+      pageToken = nonEmptyPageToken(appsPage.nextPageToken);
+    } while (pageToken != null);
+
+    return apps;
   }
   /**
    * Read the latest DAILY day Google has finished aggregating for a metric set, as ISO `YYYY-MM-DD`,
    * or null when no freshness is published yet (a brand-new app). Used to bound the default query
    * window so a request never reaches past available data.
    */
-  latestDailyDate(
-    packageName: string,
-    metric: PlayVitalsMetric,
-  ): Effect.Effect<string | null, PlayReportingApiError> {
-    return Effect.gen(this, function* () {
-      const { resource } = METRIC_SETS[metric];
-      const name = `apps/${packageName}/${resource}`;
-      let metricSet:
-        | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1CrashRateMetricSet
-        | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1AnrRateMetricSet;
-      switch (metric) {
-        case 'crash':
-          metricSet = yield* this.executeGeneratedRequest('get crash-rate freshness', () =>
-            this.reporting.vitals.crashrate.get({ name }),
-          );
-          break;
-        case 'anr':
-          metricSet = yield* this.executeGeneratedRequest('get ANR-rate freshness', () =>
-            this.reporting.vitals.anrrate.get({ name }),
-          );
-          break;
-      }
-      const dailyFreshness = metricSet.freshnessInfo?.freshnesses?.find(
-        (freshness) => freshness.aggregationPeriod === 'DAILY',
-      );
-      const latestDate = dateTimeToIso(dailyFreshness?.latestEndTime);
-      if (latestDate === undefined) return null;
+  async latestDailyDate(packageName: string, metric: PlayVitalsMetric): Promise<string | null> {
+    const { resource } = METRIC_SETS[metric];
+    const name = `apps/${packageName}/${resource}`;
+    let metricSet:
+      | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1CrashRateMetricSet
+      | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1AnrRateMetricSet;
+
+    switch (metric) {
+      case 'crash':
+        metricSet = await this.executeGeneratedRequest('get crash-rate freshness', () =>
+          this.reporting.vitals.crashrate.get({ name }),
+        );
+        break;
+      case 'anr':
+        metricSet = await this.executeGeneratedRequest('get ANR-rate freshness', () =>
+          this.reporting.vitals.anrrate.get({ name }),
+        );
+        break;
+    }
+
+    const dailyFreshness = metricSet.freshnessInfo?.freshnesses?.find(
+      (freshness) => freshness.aggregationPeriod === 'DAILY',
+    );
+    const latestDate = dateTimeToIso(dailyFreshness?.latestEndTime);
+
+    if (isText(latestDate)) {
       return latestDate;
-    });
+    }
+
+    return null;
   }
   /**
    * Fetch one vital's full DAILY timeline: bound the window by the metric set's freshness (via `:get`,
@@ -252,30 +284,22 @@ export class PlayReportingClient {
    * call `launch play-reports vitals` makes per metric - the freshness->window->query orchestration that
    * belongs in the client, not the CLI.
    */
-  vitalsTimeline(
+  async vitalsTimeline(
     packageName: string,
     metric: PlayVitalsMetric,
     days: number,
-  ): Effect.Effect<VitalsTimeline, PlayReportingApiError> {
-    return Effect.gen(this, function* () {
-      const latestDate = yield* this.latestDailyDate(packageName, metric);
-      const window = vitalsWindowFromLatestDate(latestDate, days);
-      const rows = yield* this.queryVitals(metric, packageName, window);
-      return { metric, window, rows };
-    });
+  ): Promise<VitalsTimeline> {
+    const latestDate = await this.latestDailyDate(packageName, metric);
+    const window = vitalsWindowFromLatestDate(latestDate, days);
+    const rows = await this.queryVitals(metric, packageName, window);
+    return { metric, window, rows };
   }
   /** Query the crash-rate metric set over a DAILY window, returning normalized rows. */
-  queryCrashRate(
-    packageName: string,
-    window: VitalsWindow,
-  ): Effect.Effect<PlayVitalsRow[], PlayReportingApiError> {
+  async queryCrashRate(packageName: string, window: VitalsWindow): Promise<PlayVitalsRow[]> {
     return this.queryVitals('crash', packageName, window);
   }
   /** Query the ANR-rate metric set over a DAILY window, returning normalized rows. */
-  queryAnrRate(
-    packageName: string,
-    window: VitalsWindow,
-  ): Effect.Effect<PlayVitalsRow[], PlayReportingApiError> {
+  async queryAnrRate(packageName: string, window: VitalsWindow): Promise<PlayVitalsRow[]> {
     return this.queryVitals('anr', packageName, window);
   }
   /**
@@ -283,60 +307,82 @@ export class PlayReportingClient {
    * `nextPageToken` in full. No dimensions are requested, so each row is one day aggregated across
    * the whole user base - the headline timeline `launch play-reports vitals` shows.
    */
-  private queryVitals(
+  private async queryVitals(
     metric: PlayVitalsMetric,
     packageName: string,
     window: VitalsWindow,
-  ): Effect.Effect<PlayVitalsRow[], PlayReportingApiError> {
-    return Effect.gen(this, function* () {
-      const metricSet = METRIC_SETS[metric];
-      const entries: PlayVitalsRow[] = [];
-      let pageToken: string | undefined;
-      do {
-        const queryRequest: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1QueryCrashRateMetricSetRequest =
-          {
-            timelineSpec: {
-              aggregationPeriod: 'DAILY',
-              startTime: isoToDateParts(window.startDate),
-              endTime: isoToDateParts(window.endDate),
-            },
-            metrics: [metricSet.rate, metricSet.userPerceivedRate, metricSet.distinctUsers],
-          };
-        if (pageToken !== undefined) queryRequest.pageToken = pageToken;
-        const name = `apps/${packageName}/${metricSet.resource}`;
-        let metricPage:
-          | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1QueryCrashRateMetricSetResponse
-          | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1QueryAnrRateMetricSetResponse;
-        switch (metric) {
-          case 'crash':
-            metricPage = yield* this.executeGeneratedRequest('query crash-rate timeline', () =>
-              this.reporting.vitals.crashrate.query({ name, requestBody: queryRequest }),
-            );
-            break;
-          case 'anr':
-            metricPage = yield* this.executeGeneratedRequest('query ANR-rate timeline', () =>
-              this.reporting.vitals.anrrate.query({ name, requestBody: queryRequest }),
-            );
-            break;
-        }
-        if (Array.isArray(metricPage.rows)) {
-          for (const metricEntry of metricPage.rows) {
-            const date = dateTimeToIso(metricEntry.startTime);
-            if (date === undefined) continue;
+  ): Promise<PlayVitalsRow[]> {
+    const metricSet = METRIC_SETS[metric];
+    const entries: PlayVitalsRow[] = [];
+    let pageToken: string | undefined;
+
+    do {
+      const queryRequest: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1QueryCrashRateMetricSetRequest =
+        {
+          timelineSpec: {
+            aggregationPeriod: 'DAILY',
+            startTime: isoToDateParts(window.startDate),
+            endTime: isoToDateParts(window.endDate),
+          },
+          metrics: [metricSet.rate, metricSet.userPerceivedRate, metricSet.distinctUsers],
+        };
+      if (isText(pageToken)) {
+        queryRequest.pageToken = pageToken;
+      }
+
+      const name = `apps/${packageName}/${metricSet.resource}`;
+      let metricPage:
+        | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1QueryCrashRateMetricSetResponse
+        | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1QueryAnrRateMetricSetResponse;
+
+      switch (metric) {
+        case 'crash':
+          metricPage = await this.executeGeneratedRequest('query crash-rate timeline', () =>
+            this.reporting.vitals.crashrate.query({ name, requestBody: queryRequest }),
+          );
+          break;
+        case 'anr':
+          metricPage = await this.executeGeneratedRequest('query ANR-rate timeline', () =>
+            this.reporting.vitals.anrrate.query({ name, requestBody: queryRequest }),
+          );
+          break;
+      }
+
+      const metricRows = metricPage.rows;
+
+      if (isListed(metricRows)) {
+        for (const metricEntry of metricRows) {
+          const date = dateTimeToIso(metricEntry.startTime);
+
+          if (isText(date)) {
             const normalized: MutableDeep<PlayVitalsRow> = { metric, date };
             const rate = metricNumber(metricEntry, metricSet.rate);
-            if (rate !== undefined) normalized.rate = rate;
+
+            if (isNumber(rate)) {
+              normalized.rate = rate;
+            }
+
             const userPerceivedRate = metricNumber(metricEntry, metricSet.userPerceivedRate);
-            if (userPerceivedRate !== undefined) normalized.userPerceivedRate = userPerceivedRate;
+
+            if (isNumber(userPerceivedRate)) {
+              normalized.userPerceivedRate = userPerceivedRate;
+            }
+
             const distinctUsers = metricNumber(metricEntry, metricSet.distinctUsers);
-            if (distinctUsers !== undefined) normalized.distinctUsers = distinctUsers;
+
+            if (isNumber(distinctUsers)) {
+              normalized.distinctUsers = distinctUsers;
+            }
+
             entries.push(normalized);
           }
         }
-        pageToken = nonEmptyPageToken(metricPage.nextPageToken);
-      } while (pageToken !== undefined);
-      entries.sort((leftEntry, rightEntry) => leftEntry.date.localeCompare(rightEntry.date));
-      return entries;
-    });
+      }
+
+      pageToken = nonEmptyPageToken(metricPage.nextPageToken);
+    } while (pageToken != null);
+
+    entries.sort((leftEntry, rightEntry) => leftEntry.date.localeCompare(rightEntry.date));
+    return entries;
   }
 }

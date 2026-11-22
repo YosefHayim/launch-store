@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
   AccessibilityDeclarationResource,
@@ -40,15 +39,15 @@ const makeApi = (
   const full: State = { appId: 'app-1', declarations: [], ...state };
   const calls: Calls = { created: [], updated: [] };
   const api: AscAccessibilityApi = {
-    getAppId: () => Effect.succeed(full.appId),
-    listAccessibilityDeclarations: () => Effect.succeed(full.declarations),
+    getAppId: () => Promise.resolve(full.appId),
+    listAccessibilityDeclarations: () => Promise.resolve(full.declarations),
     createAccessibilityDeclaration: (_appId, deviceFamily, support) => {
       calls.created.push({ deviceFamily, support });
-      return Effect.succeed({ id: 'decl-new', deviceFamily, state: 'DRAFT', support });
+      return Promise.resolve({ id: 'decl-new', deviceFamily, state: 'DRAFT', support });
     },
     updateAccessibilityDeclaration: (id, changes) => {
       calls.updated.push({ id, changes });
-      return Effect.void;
+      return Promise.resolve();
     },
   };
   return { api, calls };
@@ -57,7 +56,7 @@ const makeApi = (
 const runReconcile = (
   api: AscAccessibilityApi,
   input: Parameters<typeof reconcileAccessibility>[1],
-) => Effect.runPromise(reconcileAccessibility(api, input));
+) => reconcileAccessibility(api, input);
 /** The nine-flag payload Launch writes for `{ supportsVoiceover, supportsCaptions }` true, all others false. */
 const FULL_IPHONE: AccessibilitySupport = {
   supportsAudioDescriptions: false,
@@ -81,8 +80,7 @@ const declaration = (
 ): AccessibilityDeclarationResource => {
   return { id: 'decl-1', state: 'PUBLISHED', support: {}, ...partial };
 };
-const decodeAccessibilityConfig = (rawDocument: unknown) =>
-  Effect.runSync(parseAccessibilityConfig(rawDocument));
+const decodeAccessibilityConfig = (rawDocument: unknown) => parseAccessibilityConfig(rawDocument);
 describe('parseAccessibilityConfig', () => {
   it('parses declarations and the publish flag', () => {
     const config = decodeAccessibilityConfig({ publish: true, ...CONFIG });
@@ -224,7 +222,8 @@ describe('reconcileAccessibility', () => {
   });
   it("captures a failed create and skips that family's publish", async () => {
     const { api } = makeApi({});
-    api.createAccessibilityDeclaration = () => Effect.fail(new Error('device family not eligible'));
+    api.createAccessibilityDeclaration = () =>
+      Promise.reject(new Error('device family not eligible'));
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: { ...CONFIG, publish: true },

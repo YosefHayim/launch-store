@@ -1,4 +1,3 @@
-import type { Effect } from 'effect';
 import type { AppDescriptor } from './app.js';
 import type { LaunchConfig } from './config.js';
 import type { AscCatalogApi } from '../store/apple/ascSync.js';
@@ -118,8 +117,8 @@ export type SurfacePlan =
 export type PlanContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
-  resolveAscApi(): Effect.Effect<AscSurfacesApi | null, unknown>;
-  resolvePlayApi(packageName?: string): Effect.Effect<PlayCatalogApi | null, unknown>;
+  resolveAscApi(): Promise<AscSurfacesApi | null>;
+  resolvePlayApi(packageName?: string): Promise<PlayCatalogApi | null>;
 }>;
 /**
  * One config-as-code surface's planner. {@link plan} is **read-only**: it resolves live state and returns
@@ -130,8 +129,5 @@ export type PlanContext = Readonly<{
 export type SurfacePlanner = Readonly<{
   id: string;
   store: PlanStore;
-  plan(
-    planContext: PlanContext,
-  ): Effect.Effect<SurfacePlan, unknown, FileSystem.FileSystem | Path.Path>;
+  plan(planContext: PlanContext): Promise<SurfacePlan>;
 }>;
-import type { FileSystem, Path } from '@effect/platform';

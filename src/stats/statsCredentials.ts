@@ -1,192 +1,507 @@
-import type { FileSystem, Path } from '@effect/platform';
-import { Context, Data, Effect, Layer } from 'effect';
-import { listAccounts, loadAscKeyById } from '../credentials/accounts.js';
-import { loadPortfolioFile } from '../portfolio/portfolioStore.js';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { loadConfig } from '../config/config.js';
-import { loadServiceAccount } from '../credentials/androidKeystore.js';
-import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
-import {
-  LaunchEnvironment,
-  type LaunchEnvironmentService,
-} from '../services/platform/environment.js';
+import { listAccounts, loadAscKeyById } from '../credentials/accounts.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
-import {
-  GoogleAccessToken,
-  type GoogleAccessTokenService,
-} from '../services/stores/googleAccessToken.js';
+import { readLaunchEnvironment } from '../services/platform/environment.js';
+import { readDocumentFile } from '../services/platform/atomicDocumentFile.js';
+import { locatePortfolioFilePath, readLaunchDirectories } from '../services/platform/paths.js';
+import { LaunchSecretStore } from '../services/credentials/secretStore.js';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
+import { GoogleAccessToken } from '../services/stores/googleAccessToken.js';
 import { GoogleReportingClientService } from '../services/stores/googleReportingClient.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
-import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
-import type { StatsCredentialsFailure, StatsCredentialsShape } from '../types/stats.js';
+import { pathExists } from '../path-exists.js';
+import type {
+  AnalyticsReportInstanceResource,
+  AnalyticsReportRequestResource,
+  AnalyticsReportResource,
+  AnalyticsReportSegmentResource,
+  CustomerReviewResource,
+  SalesReportQuery,
+} from '../types/appleCatalog.js';
+import type { AccountRecord, ServiceAccount } from '../types/credentials.js';
+import type { PortfolioApp } from '../types/portfolio.js';
+import type { StatsCredentialsFailure } from '../types/stats.js';
+import type { PlayVitalsMetric, VitalsTimeline } from '../types/vitals.js';
 
-export const StatsCredentials = Context.GenericTag<StatsCredentialsShape>(
-  'launch-store/StatsCredentials',
-);
+export interface AppStoreStatsClient {
+  getSalesReport(query: SalesReportQuery): Promise<Buffer>;
+  listAnalyticsReportRequests(
+    appId: string,
+    accessType: string,
+  ): Promise<AnalyticsReportRequestResource[]>;
+  createAnalyticsReportRequest(
+    appId: string,
+    accessType: string,
+  ): Promise<AnalyticsReportRequestResource>;
+  listAnalyticsReports(
+    requestId: string,
+    filters?: { category?: string; name?: string },
+  ): Promise<AnalyticsReportResource[]>;
+  listAnalyticsReportInstances(
+    reportId: string,
+    filters?: { granularity?: string; processingDate?: string },
+  ): Promise<AnalyticsReportInstanceResource[]>;
+  listAnalyticsReportSegments(instanceId: string): Promise<AnalyticsReportSegmentResource[]>;
+  downloadAnalyticsSegment(url: string): Promise<Buffer>;
+  listCustomerReviews(
+    appId: string,
+    filters?: { rating?: number; territory?: string },
+  ): Promise<CustomerReviewResource[]>;
+}
 
-const makeStatsCredentialsFailure = Data.tagged<StatsCredentialsFailure>('StatsCredentialsFailure');
+export interface PlayVitalsReader {
+  vitalsTimeline(
+    packageName: string,
+    metric: PlayVitalsMetric,
+    days: number,
+  ): Promise<VitalsTimeline>;
+}
 
-const createCredentialsFailure = (operation: string, cause: unknown): StatsCredentialsFailure =>
-  makeStatsCredentialsFailure({
+export interface StatsCredentialsApi {
+  ascClientForAccount(accountKeyId: string): Promise<AppStoreStatsClient | null>;
+  vendorNumberForAccount(accountKeyId: string): Promise<string | null>;
+  googlePackageForApp(app: PortfolioApp): Promise<string | null>;
+  playServiceAccount(packageName: string | null): Promise<ServiceAccount | null>;
+  playReportingClient(packageName: string | null): Promise<PlayVitalsReader | null>;
+  playReportsBucket(): Promise<string | null>;
+  googleAccessToken(scopes: readonly string[], packageName: string | null): Promise<string | null>;
+}
+
+interface ConfiguredApp {
+  readonly bundleId?: string;
+  readonly packageName?: string;
+}
+
+function makeStatsCredentialsFailure(fields: {
+  message: string;
+  cause: unknown;
+}): StatsCredentialsFailure {
+  return { _tag: 'StatsCredentialsFailure', message: fields.message, cause: fields.cause };
+}
+
+function createCredentialsFailure(operation: string, cause: unknown): StatsCredentialsFailure {
+  return makeStatsCredentialsFailure({
     message: `Could not ${operation}: ${errorMessage(cause)}`,
     cause,
   });
+}
 
-type StatsCredentialsLiveRequirements =
-  | AppleStoreClientService
-  | FileSystem.FileSystem
-  | GoogleAccessTokenService
-  | GoogleReportingClientService
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchSecretStoreService
-  | Path.Path;
+function isStatsCredentialsFailure(cause: unknown): cause is StatsCredentialsFailure {
+  if (cause == null) {
+    return false;
+  }
 
-export const StatsCredentialsLive = Layer.effect(
-  StatsCredentials,
-  Effect.gen(function* () {
-    const capturedServices = yield* Effect.context<StatsCredentialsLiveRequirements>();
-    const appleStoreClients = yield* AppleStoreClientService;
-    const environment = yield* LaunchEnvironment;
-    const googleAccessToken = yield* GoogleAccessToken;
-    const googleReportingClients = yield* GoogleReportingClientService;
-    const launchPaths = yield* LaunchPaths;
+  if (typeof cause != 'object') {
+    return false;
+  }
 
-    const loadSavedServiceAccountKey = (packageName: string) =>
-      loadServiceAccount(packageName).pipe(
-        Effect.provide(capturedServices),
-        Effect.mapError((cause) =>
-          createCredentialsFailure('load the Play service account', cause),
-        ),
-      );
+  if ('_tag' in cause == false) {
+    return false;
+  }
 
-    const googlePackageForApp: StatsCredentialsShape['googlePackageForApp'] = (app) =>
-      Effect.gen(function* () {
-        if (app.packageName !== null) return app.packageName;
-        if (app.bundleId === null) return null;
-        const configuration = yield* loadConfig(launchPaths.workingDirectory);
-        const matches = configuration.apps.filter(
-          (candidate) => candidate.bundleId === app.bundleId && candidate.packageName !== undefined,
-        );
-        if (matches.length !== 1) return null;
-        const matched = matches[0];
-        if (matched === undefined || matched.packageName === undefined) return null;
-        return matched.packageName;
-      }).pipe(
-        Effect.provide(capturedServices),
-        Effect.mapError((cause) =>
-          createCredentialsFailure('resolve the app Google credentials', cause),
-        ),
-      );
+  return cause._tag == 'StatsCredentialsFailure';
+}
 
-    const playServiceAccount: StatsCredentialsShape['playServiceAccount'] = (packageName) =>
-      Effect.gen(function* () {
-        if (packageName === null) return null;
-        const savedServiceAccountKey = yield* loadSavedServiceAccountKey(packageName);
-        const isKeyMissing = savedServiceAccountKey === null;
-        if (isKeyMissing) return null;
-        return yield* googleAccessToken
-          .readServiceAccount(savedServiceAccountKey)
-          .pipe(
-            Effect.mapError((cause) =>
-              createCredentialsFailure('read the Play service account', cause),
-            ),
-          );
-      });
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
 
-    const playReportingClient: StatsCredentialsShape['playReportingClient'] = (packageName) =>
-      Effect.gen(function* () {
-        if (packageName === null) return null;
-        const savedServiceAccountKey = yield* loadSavedServiceAccountKey(packageName);
-        const isKeyMissing = savedServiceAccountKey === null;
-        if (isKeyMissing) return null;
-        return yield* googleReportingClients
-          .createClient(savedServiceAccountKey)
-          .pipe(
-            Effect.mapError((cause) =>
-              createCredentialsFailure('create the Play reporting client', cause),
-            ),
-          );
-      });
+  return typeof candidate == 'object';
+}
 
-    const ascClientForAccount: StatsCredentialsShape['ascClientForAccount'] = (accountKeyId) =>
-      Effect.gen(function* () {
-        const ascKey = yield* loadAscKeyById(accountKeyId);
-        const isKeyMissing = ascKey === null;
-        if (isKeyMissing) return null;
-        return yield* appleStoreClients.createEffectClient(ascKey);
-      }).pipe(
-        Effect.provide(capturedServices),
-        Effect.mapError((cause) =>
-          createCredentialsFailure('load the App Store Connect key', cause),
-        ),
-      );
+function decodeStoredServiceAccount(storedKey: string): string {
+  const decodedKey = Buffer.from(storedKey, 'base64').toString('utf8');
+  const isJson = decodedKey.trimStart().startsWith('{');
 
-    const vendorNumberForAccount: StatsCredentialsShape['vendorNumberForAccount'] = (
-      accountKeyId,
-    ) =>
-      Effect.gen(function* () {
-        const accounts = yield* listAccounts();
-        const account = accounts.find((candidate) => candidate.keyId === accountKeyId);
-        const hasAccountVendorNumber = account !== undefined && account.vendorNumber !== undefined;
-        if (hasAccountVendorNumber) return account.vendorNumber;
-        const environmentVendorNumber = environment.values.appleVendorNumber;
-        const hasEnvironmentVendorNumber = environmentVendorNumber !== undefined;
-        if (hasEnvironmentVendorNumber) return environmentVendorNumber;
-        return null;
-      }).pipe(
-        Effect.provide(capturedServices),
-        Effect.mapError((cause) => createCredentialsFailure('read the vendor number', cause)),
-      );
+  if (isJson) {
+    return decodedKey;
+  }
 
-    const playReportsBucket: StatsCredentialsShape['playReportsBucket'] = () =>
-      Effect.gen(function* () {
-        const portfolioFile = yield* loadPortfolioFile();
-        if (portfolioFile === null) return null;
-        return portfolioFile.playReportsBucket;
-      }).pipe(
-        Effect.provide(capturedServices),
-        Effect.mapError((cause) => createCredentialsFailure('read the Play reports bucket', cause)),
-      );
+  return storedKey;
+}
 
-    const readGoogleAccessToken: StatsCredentialsShape['googleAccessToken'] = (
-      scopes,
-      packageName,
-    ) =>
-      Effect.gen(function* () {
-        const serviceAccount = yield* playServiceAccount(packageName);
-        const isServiceAccountMissing = serviceAccount === null;
-        if (isServiceAccountMissing) return null;
-        return yield* googleAccessToken
-          .createAccessToken(serviceAccount, scopes)
-          .pipe(
-            Effect.mapError((cause) =>
-              createCredentialsFailure('get a Google access token', cause),
-            ),
-          );
-      });
+async function readSavedServiceAccountKey(packageName: string): Promise<string | null> {
+  const storedKey = await LaunchSecretStore.readSecret(`play-service-account:${packageName}`);
 
-    return {
-      ascClientForAccount,
-      vendorNumberForAccount,
-      googlePackageForApp,
-      playServiceAccount,
-      playReportingClient,
-      playReportsBucket,
-      googleAccessToken: readGoogleAccessToken,
-    } satisfies StatsCredentialsShape;
-  }),
-);
+  if (storedKey == null) {
+    return null;
+  }
 
-export const makeStatsCredentialsTest = (
-  overrides: Partial<StatsCredentialsShape> = {},
-): Layer.Layer<StatsCredentialsShape> =>
-  Layer.succeed(StatsCredentials, {
-    ascClientForAccount: () => Effect.succeed(null),
-    vendorNumberForAccount: () => Effect.succeed(null),
-    googlePackageForApp: (app) => Effect.succeed(app.packageName),
-    playServiceAccount: () => Effect.succeed(null),
-    playReportingClient: () => Effect.succeed(null),
-    playReportsBucket: () => Effect.succeed(null),
-    googleAccessToken: () => Effect.succeed(null),
+  if (storedKey == '') {
+    return null;
+  }
+
+  return decodeStoredServiceAccount(storedKey);
+}
+
+function readEnvironmentVendorNumber(): string | null {
+  const environmentVendorNumber = readLaunchEnvironment().values.appleVendorNumber;
+
+  if (environmentVendorNumber == null) {
+    return null;
+  }
+
+  return environmentVendorNumber;
+}
+
+async function ascClientForAccount(accountKeyId: string): Promise<AppStoreStatsClient | null> {
+  try {
+    const ascKey = await loadAscKeyById(accountKeyId);
+
+    if (ascKey == null) {
+      return null;
+    }
+
+    return AppleStoreClientService.createClient(ascKey);
+  } catch (cause) {
+    if (isStatsCredentialsFailure(cause)) {
+      throw cause;
+    }
+
+    throw createCredentialsFailure('load the App Store Connect key', cause);
+  }
+}
+
+async function vendorNumberForAccount(accountKeyId: string): Promise<string | null> {
+  try {
+    const accounts = await listAccounts();
+
+    function hasKeyId(account: AccountRecord): boolean {
+      return account.keyId == accountKeyId;
+    }
+
+    const account = accounts.find(hasKeyId);
+
+    if (account == null) {
+      return readEnvironmentVendorNumber();
+    }
+
+    if (account.vendorNumber != null) {
+      return account.vendorNumber;
+    }
+
+    return readEnvironmentVendorNumber();
+  } catch (cause) {
+    if (isStatsCredentialsFailure(cause)) {
+      throw cause;
+    }
+
+    throw createCredentialsFailure('read the vendor number', cause);
+  }
+}
+
+function readConfiguredApp(parsed: unknown): ConfiguredApp | null {
+  if (isRecord(parsed) == false) {
+    return null;
+  }
+
+  let expoConfig = parsed['expo'];
+
+  if (isRecord(expoConfig) == false) {
+    expoConfig = parsed;
+  }
+
+  if (isRecord(expoConfig) == false) {
+    return null;
+  }
+
+  const ios = expoConfig['ios'];
+  const android = expoConfig['android'];
+  const configuredApp: { bundleId?: string; packageName?: string } = {};
+
+  if (isRecord(ios)) {
+    if (typeof ios['bundleIdentifier'] == 'string') {
+      configuredApp.bundleId = ios['bundleIdentifier'];
+    }
+  }
+
+  if (isRecord(android)) {
+    if (typeof android['package'] == 'string') {
+      configuredApp.packageName = android['package'];
+    }
+  }
+
+  return configuredApp;
+}
+
+async function readAppsFromWorkingDirectory(
+  workingDirectory: string,
+): Promise<readonly ConfiguredApp[]> {
+  const appFilePath = join(workingDirectory, 'app.json');
+  const isAppFilePresent = await pathExists(appFilePath);
+
+  if (isAppFilePresent == false) {
+    return [];
+  }
+
+  const appText = await readFile(appFilePath, 'utf8');
+  const configuredApp = readConfiguredApp(JSON.parse(appText));
+
+  if (configuredApp == null) {
+    return [];
+  }
+
+  return [configuredApp];
+}
+
+function readConfiguredApps(launchConfiguration: unknown): readonly ConfiguredApp[] | null {
+  if (isRecord(launchConfiguration) == false) {
+    return null;
+  }
+
+  if (Array.isArray(launchConfiguration['apps']) == false) {
+    return null;
+  }
+
+  return launchConfiguration['apps'];
+}
+
+async function loadConfiguredApps(workingDirectory: string): Promise<readonly ConfiguredApp[]> {
+  const loaded = loadConfig(workingDirectory);
+  const isPromise = loaded instanceof Promise;
+
+  if (isPromise) {
+    const launchConfiguration = await loaded;
+    const configuredApps = readConfiguredApps(launchConfiguration);
+
+    if (configuredApps != null) {
+      return configuredApps;
+    }
+  }
+
+  return readAppsFromWorkingDirectory(workingDirectory);
+}
+
+function pickUniquePackageName(
+  configuredApps: readonly ConfiguredApp[],
+  bundleId: string,
+): string | null {
+  function matchesBundle(candidate: ConfiguredApp): boolean {
+    if (candidate.bundleId != bundleId) {
+      return false;
+    }
+
+    return candidate.packageName != null;
+  }
+
+  const matches = configuredApps.filter(matchesBundle);
+
+  if (matches.length != 1) {
+    return null;
+  }
+
+  const matched = matches[0];
+
+  if (matched == null) {
+    return null;
+  }
+
+  if (matched.packageName == null) {
+    return null;
+  }
+
+  return matched.packageName;
+}
+
+async function googlePackageForApp(app: PortfolioApp): Promise<string | null> {
+  try {
+    if (app.packageName != null) {
+      return app.packageName;
+    }
+
+    if (app.bundleId == null) {
+      return null;
+    }
+
+    const workingDirectory = readLaunchDirectories().workingDirectory;
+    const configuredApps = await loadConfiguredApps(workingDirectory);
+
+    return pickUniquePackageName(configuredApps, app.bundleId);
+  } catch (cause) {
+    if (isStatsCredentialsFailure(cause)) {
+      throw cause;
+    }
+
+    throw createCredentialsFailure('resolve the app Google credentials', cause);
+  }
+}
+
+async function playServiceAccount(packageName: string | null): Promise<ServiceAccount | null> {
+  try {
+    if (packageName == null) {
+      return null;
+    }
+
+    const savedServiceAccountKey = await readSavedServiceAccountKey(packageName);
+
+    if (savedServiceAccountKey == null) {
+      return null;
+    }
+
+    return GoogleAccessToken.readServiceAccount(savedServiceAccountKey);
+  } catch (cause) {
+    if (isStatsCredentialsFailure(cause)) {
+      throw cause;
+    }
+
+    throw createCredentialsFailure('read the Play service account', cause);
+  }
+}
+
+async function playReportingClient(packageName: string | null): Promise<PlayVitalsReader | null> {
+  try {
+    if (packageName == null) {
+      return null;
+    }
+
+    const savedServiceAccountKey = await readSavedServiceAccountKey(packageName);
+
+    if (savedServiceAccountKey == null) {
+      return null;
+    }
+
+    return GoogleReportingClientService.createClient(savedServiceAccountKey);
+  } catch (cause) {
+    if (isStatsCredentialsFailure(cause)) {
+      throw cause;
+    }
+
+    throw createCredentialsFailure('create the Play reporting client', cause);
+  }
+}
+
+function decodePlayReportsBucket(documentText: string): string | null {
+  const parsed: unknown = JSON.parse(documentText);
+
+  if (isRecord(parsed) == false) {
+    throw new Error('Portfolio file is not an object.');
+  }
+
+  const bucket = parsed['playReportsBucket'];
+
+  if (bucket == null) {
+    return null;
+  }
+
+  if (typeof bucket != 'string') {
+    throw new Error('Play reports bucket is not a string.');
+  }
+
+  return bucket;
+}
+
+async function playReportsBucket(): Promise<string | null> {
+  try {
+    return await readDocumentFile(locatePortfolioFilePath(), decodePlayReportsBucket);
+  } catch (cause) {
+    if (isStatsCredentialsFailure(cause)) {
+      throw cause;
+    }
+
+    throw createCredentialsFailure('read the Play reports bucket', cause);
+  }
+}
+
+async function googleAccessToken(
+  scopes: readonly string[],
+  packageName: string | null,
+): Promise<string | null> {
+  try {
+    const serviceAccount = await playServiceAccount(packageName);
+
+    if (serviceAccount == null) {
+      return null;
+    }
+
+    return await GoogleAccessToken.createAccessToken(serviceAccount, scopes);
+  } catch (cause) {
+    if (isStatsCredentialsFailure(cause)) {
+      throw cause;
+    }
+
+    throw createCredentialsFailure('get a Google access token', cause);
+  }
+}
+
+export const StatsCredentialsLive: StatsCredentialsApi = {
+  ascClientForAccount,
+  vendorNumberForAccount,
+  googlePackageForApp,
+  playServiceAccount,
+  playReportingClient,
+  playReportsBucket,
+  googleAccessToken,
+};
+
+let credentialsFixture: StatsCredentialsApi | null = null;
+
+export function useStatsCredentials(credentials: StatsCredentialsApi | null): void {
+  credentialsFixture = credentials;
+}
+
+function readActiveCredentials(): StatsCredentialsApi {
+  if (credentialsFixture != null) {
+    return credentialsFixture;
+  }
+
+  return StatsCredentialsLive;
+}
+
+export const StatsCredentials: StatsCredentialsApi = {
+  ascClientForAccount(accountKeyId) {
+    return readActiveCredentials().ascClientForAccount(accountKeyId);
+  },
+  vendorNumberForAccount(accountKeyId) {
+    return readActiveCredentials().vendorNumberForAccount(accountKeyId);
+  },
+  googlePackageForApp(app) {
+    return readActiveCredentials().googlePackageForApp(app);
+  },
+  playServiceAccount(packageName) {
+    return readActiveCredentials().playServiceAccount(packageName);
+  },
+  playReportingClient(packageName) {
+    return readActiveCredentials().playReportingClient(packageName);
+  },
+  playReportsBucket() {
+    return readActiveCredentials().playReportsBucket();
+  },
+  googleAccessToken(scopes, packageName) {
+    return readActiveCredentials().googleAccessToken(scopes, packageName);
+  },
+};
+
+export function makeStatsCredentialsTest(
+  overrides: Partial<StatsCredentialsApi> = {},
+): StatsCredentialsApi {
+  const credentials: StatsCredentialsApi = {
+    async ascClientForAccount() {
+      return null;
+    },
+    async vendorNumberForAccount() {
+      return null;
+    },
+    async googlePackageForApp(app) {
+      return app.packageName;
+    },
+    async playServiceAccount() {
+      return null;
+    },
+    async playReportingClient() {
+      return null;
+    },
+    async playReportsBucket() {
+      return null;
+    },
+    async googleAccessToken() {
+      return null;
+    },
     ...overrides,
-  } satisfies StatsCredentialsShape);
+  };
+
+  useStatsCredentials(credentials);
+
+  return credentials;
+}

@@ -1,12 +1,10 @@
-import { redactText } from './redact.js';
-import { HttpClient, HttpClientRequest } from '@effect/platform';
-import { Effect } from 'effect';
 import type { Platform } from '../../types/app.js';
 import type { LaunchConfig } from '../../types/config.js';
 import type { NotifyConfig } from '../../types/storeSurface.js';
-import { executeCommandQuietly, provideNodeCommandServices } from './exec.js';
 import { errorMessage } from './errorMessage.js';
+import { executeCommandQuietly } from './exec.js';
 import { createLogger, type Logger } from './logger.js';
+import { redactText } from './redact.js';
 /** Fields every {@link NotifyEvent} carries, regardless of which transition fired it. */
 type NotifyEventBase = {
   app: string;
@@ -123,59 +121,102 @@ export const notifyEnv = (event: NotifyEvent): Record<string, string> => {
   }
   return env;
 };
+function isSuccessfulStatus(status: number): boolean {
+  if (status < 200) {
+    return false;
+  }
+
+  if (status >= 300) {
+    return false;
+  }
+
+  return true;
+}
+
+function hasNotifyText(text: string | undefined): text is string {
+  if (text == null) {
+    return false;
+  }
+
+  return text.length > 0;
+}
+
 /** POST one notification document and reduce every delivery failure to a warning. */
-const postWebhook = (url: string, event: NotifyEvent, logger: Logger) =>
-  Effect.gen(function* () {
-    const webhookRequest = yield* HttpClientRequest.post(url).pipe(
-      HttpClientRequest.bodyJson(notificationDocument(event)),
-    );
-    const webhookResponse = yield* HttpClient.execute(webhookRequest);
-    if (webhookResponse.status >= 200 && webhookResponse.status < 300) return;
-    yield* logger.warn(`Notification webhook returned ${webhookResponse.status}.`);
-  }).pipe(
-    Effect.catchAll((cause) =>
-      logger
-        .warn(`Notification webhook failed: ${errorMessage(cause)}`)
-        .pipe(Effect.catchAll(() => Effect.void)),
-    ),
-  );
+async function postWebhook(url: string, event: NotifyEvent, logger: Logger): Promise<void> {
+  try {
+    const webhookReply = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(notificationDocument(event)),
+    });
+    const delivered = isSuccessfulStatus(webhookReply.status);
+
+    if (delivered) {
+      return;
+    }
+
+    logger.warn(`Notification webhook returned ${webhookReply.status}.`);
+  } catch (error) {
+    logger.warn(`Notification webhook failed: ${errorMessage(error)}`);
+  }
+}
+
 /**
- * Run the shell hook with the event in its environment, like a git hook. Routed through
- * `core/exec.ts` (`shell: false`, explicit `["-c", command]` argv) rather than `child_process.exec`,
- * so Node never spawns a shell over a concatenated string - the AGENTS.md rule. The command is the
- * user's own `launch.config.ts` value, and event data reaches it only as `LAUNCH_*` environment vars,
- * never spliced into the command string, so there is no injection path from Launch-controlled data.
- * Output is drained (not printed) to keep the post-run summary clean; a non-zero exit or spawn error
- * is reported, never thrown - a notification must not fail a build that already ran.
+ * Run the shell hook with the event in its environment. The command is the user's own
+ * `launch.config.ts` value, and event data reaches it only as `LAUNCH_*` environment vars,
+ * never spliced into the command string. A non-zero exit is reported, never thrown.
  */
-const runHook = (
-  command: string,
-  event: NotifyEvent,
-  logger: Logger,
-): Effect.Effect<void, unknown> =>
-  provideNodeCommandServices(
-    executeCommandQuietly('/bin/sh', ['-c', command], {
+async function runHook(command: string, event: NotifyEvent, logger: Logger): Promise<void> {
+  try {
+    await executeCommandQuietly('/bin/sh', ['-c', command], {
       environmentOverrides: notifyEnv(event),
-    }),
-  ).pipe(
-    Effect.catchAll((cause) => logger.warn(`Notification command failed: ${errorMessage(cause)}`)),
-  );
+    });
+  } catch (error) {
+    logger.warn(`Notification command failed: ${errorMessage(error)}`);
+  }
+}
+
 /**
  * Fire the configured notifications for `event`. A no-op when neither a `webhookUrl` nor a `command` is
  * set, or when `notify.events` is declared and doesn't include this event's transition. The webhook and
- * the shell hook run concurrently; both are best-effort, so this resolves even when one (or both) fail -
- * a notification must never break a build, review, or rollout that already happened.
+ * the shell hook run together; both are best-effort, so this resolves even when one (or both) fail.
  */
-export const notify = (config: LaunchConfig, event: NotifyEvent) =>
-  Effect.gen(function* () {
-    const notifyConfig: NotifyConfig | undefined = config.notify;
-    if (!notifyConfig?.webhookUrl && !notifyConfig?.command) return;
-    if (notifyConfig.events && !notifyConfig.events.includes(event.event)) return;
-    const logger = yield* createLogger(false);
-    const notificationEffects: Effect.Effect<void, unknown, HttpClient.HttpClient>[] = [];
-    if (notifyConfig.webhookUrl)
-      notificationEffects.push(postWebhook(notifyConfig.webhookUrl, event, logger));
-    if (notifyConfig.command)
-      notificationEffects.push(runHook(notifyConfig.command, event, logger));
-    yield* Effect.all(notificationEffects, { concurrency: 'unbounded', discard: true });
-  });
+export async function notify(launchConfig: LaunchConfig, event: NotifyEvent): Promise<void> {
+  const notifyConfig: NotifyConfig | undefined = launchConfig.notify;
+  const hasWebhook = hasNotifyText(notifyConfig?.webhookUrl);
+  const hasCommand = hasNotifyText(notifyConfig?.command);
+
+  if (hasWebhook == false) {
+    if (hasCommand == false) {
+      return;
+    }
+  }
+
+  if (notifyConfig == null) {
+    return;
+  }
+
+  if (notifyConfig.events != null) {
+    const includesEvent = notifyConfig.events.includes(event.event);
+
+    if (includesEvent == false) {
+      return;
+    }
+  }
+
+  const logger = createLogger(false);
+  const sends: Promise<void>[] = [];
+
+  const webhookUrl = notifyConfig.webhookUrl;
+  const command = notifyConfig.command;
+
+  if (hasNotifyText(webhookUrl)) {
+    sends.push(postWebhook(webhookUrl, event, logger));
+  }
+
+  if (hasNotifyText(command)) {
+    sends.push(runHook(command, event, logger));
+  }
+
+  await Promise.all(sends);
+}

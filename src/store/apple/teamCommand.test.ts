@@ -1,14 +1,14 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { renderTeam, TeamCommandInputSchema } from './teamCommand.js';
 
 describe('TeamCommandInputSchema', () => {
   it('decodes every Commander operation', () => {
+    expect(TeamCommandInputSchema({ operation: 'list', json: false })).toEqual({
+      operation: 'list',
+      json: false,
+    });
     expect(
-      Schema.decodeUnknownSync(TeamCommandInputSchema)({ operation: 'list', json: false }),
-    ).toEqual({ operation: 'list', json: false });
-    expect(
-      Schema.decodeUnknownSync(TeamCommandInputSchema)({
+      TeamCommandInputSchema({
         operation: 'invite',
         email: 'new@acme.com',
         first: 'Pat',
@@ -27,7 +27,7 @@ describe('TeamCommandInputSchema', () => {
       yes: false,
     });
     expect(
-      Schema.decodeUnknownSync(TeamCommandInputSchema)({
+      TeamCommandInputSchema({
         operation: 'remove',
         email: 'old@acme.com',
         yes: true,

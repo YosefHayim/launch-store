@@ -1,29 +1,26 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Effect, Schema } from 'effect';
-import type { Platform } from '../types/app.js';
-import type { AscKey, SigningAssets } from '../types/credentials.js';
-import type { MutableDeep } from '../types/mutable.js';
-import type { Logger } from '../services/platform/logger.js';
-import {
-  adHocProfileType,
-  appStoreProfileType,
-  platformLabel,
-} from '../services/stores/platform.js';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { basename, join } from 'node:path';
+import { pathExists } from '@/path-exists.js';
+import type { Logger } from '@/services/platform/logger.js';
 import {
   resolveAccountCredentialsDirectory,
   resolveCredentialsDirectory,
   resolveProvisioningProfilesDirectory,
-  type LaunchPathsService,
-} from '../services/platform/paths.js';
-import { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.js';
-import type { ProfileResource } from '../types/appleCatalog.js';
-import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
+} from '@/services/platform/paths.js';
+import { AppleCredentialsClientFactory } from '@/services/stores/appleCredentialsClient.js';
 import {
-  CredentialsIndexSchema,
+  adHocProfileType,
+  appStoreProfileType,
+  platformLabel,
+} from '@/services/stores/platform.js';
+import type { Platform } from '@/types/app.js';
+import type { ProfileResource } from '@/types/appleCatalog.js';
+import type { AscKey, SigningAssets } from '@/types/credentials.js';
+import {
+  decodeCredentialsIndex,
   makeAppleSigningFailure,
   readIndex,
   type AppleSigningFailure,
-  type AppleSigningPlatform,
 } from './appleSigningIndex.js';
 import {
   DISTRIBUTION_CERT_NAME,
@@ -51,30 +48,27 @@ type EnsureSigningOptions = {
   ascKey: AscKey;
   log: Logger;
   dryRun: boolean;
-  confirmCreate: (message: string) => Effect.Effect<boolean, unknown>;
+  confirmCreate: (message: string) => Promise<boolean>;
   extensions?: string[];
 };
 
 /** Summarize what signing material is cached locally for one account, for `launch creds status`. */
-export const describeStoredCredentials = (
-  keyId: string,
-): Effect.Effect<
-  {
-    certSerial: string | null;
-    bundleIds: string[];
-  },
-  never,
-  FileSystem.FileSystem | LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const index = yield* readIndex(keyId);
-    let certSerial: string | null = null;
-    if (index.certificate !== undefined) certSerial = index.certificate.serial;
-    return {
-      certSerial,
-      bundleIds: Object.keys(index.profiles),
-    };
-  });
+export async function describeStoredCredentials(keyId: string): Promise<{
+  certSerial: string | null;
+  bundleIds: string[];
+}> {
+  const index = await readIndex(keyId);
+  let certSerial: string | null = null;
+
+  if (index.certificate != null) {
+    certSerial = index.certificate.serial;
+  }
+
+  return {
+    certSerial,
+    bundleIds: Object.keys(index.profiles),
+  };
+}
 
 /**
  * Return cached signing assets for a bundle id without any network call - the build's silent-reuse
@@ -86,76 +80,103 @@ export const describeStoredCredentials = (
  * re-provisions the whole set rather than exporting an `.ipa` that can't sign its widget/share target.
  * Each present extension's `bundleId -> profileName` is folded into {@link SigningAssets.extensionProfiles}.
  */
-export const loadCachedSigningAssets = (
+export async function loadCachedSigningAssets(
   keyId: string,
   bundleId: string,
   extensions: readonly string[] = [],
-): Effect.Effect<
-  SigningAssets | null,
-  never,
-  FileSystem.FileSystem | LaunchPathsService | Path.Path
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const index = yield* readIndex(keyId);
-    const cert = index.certificate;
-    const profile = index.profiles[bundleId];
-    if (!cert) return null;
-    if (!profile) return null;
-    const provisioningProfilesDirectory = yield* resolveProvisioningProfilesDirectory();
-    const installedProfile = pathService.join(
-      provisioningProfilesDirectory,
-      `${profile.uuid}.mobileprovision`,
-    );
-    if (!(yield* fileSystem.exists(cert.p12Path).pipe(Effect.orElseSucceed(() => false))))
+): Promise<SigningAssets | null> {
+  const index = await readIndex(keyId);
+  const cert = index.certificate;
+  const profile = index.profiles[bundleId];
+
+  if (cert == null) {
+    return null;
+  }
+
+  if (profile == null) {
+    return null;
+  }
+
+  const provisioningProfilesDirectory = resolveProvisioningProfilesDirectory();
+  const installedProfile = join(provisioningProfilesDirectory, `${profile.uuid}.mobileprovision`);
+  const isCertificatePresent = await pathExists(cert.p12Path);
+
+  if (isCertificatePresent == false) {
+    return null;
+  }
+
+  const isProfilePresent = await pathExists(installedProfile);
+
+  if (isProfilePresent == false) {
+    return null;
+  }
+
+  const extensionProfiles: Record<string, string> = {};
+
+  for (const extensionId of extensions) {
+    const extensionProfile = index.profiles[extensionId];
+
+    if (extensionProfile == null) {
       return null;
-    if (!(yield* fileSystem.exists(installedProfile).pipe(Effect.orElseSucceed(() => false))))
-      return null;
-    const extensionProfiles: Record<string, string> = {};
-    for (const ext of extensions) {
-      const extProfile = index.profiles[ext];
-      if (!extProfile) return null;
-      if (
-        !(yield* fileSystem
-          .exists(
-            pathService.join(provisioningProfilesDirectory, `${extProfile.uuid}.mobileprovision`),
-          )
-          .pipe(Effect.orElseSucceed(() => false)))
-      )
-        return null;
-      extensionProfiles[ext] = extProfile.name;
     }
-    const signingAssets: MutableDeep<SigningAssets> = {
-      bundleId,
-      teamId: profile.teamId,
-      certName: DISTRIBUTION_CERT_NAME,
-      certSerial: cert.serial,
-      profileName: profile.name,
-      profileUuid: profile.uuid,
-      profilePath: installedProfile,
-    };
-    if (extensions.length > 0) signingAssets.extensionProfiles = extensionProfiles;
+
+    const extensionProfilePath = join(
+      provisioningProfilesDirectory,
+      `${extensionProfile.uuid}.mobileprovision`,
+    );
+    const isExtensionProfilePresent = await pathExists(extensionProfilePath);
+
+    if (isExtensionProfilePresent == false) {
+      return null;
+    }
+
+    extensionProfiles[extensionId] = extensionProfile.name;
+  }
+
+  const signingAssets: SigningAssets = {
+    bundleId,
+    teamId: profile.teamId,
+    certName: DISTRIBUTION_CERT_NAME,
+    certSerial: cert.serial,
+    profileName: profile.name,
+    profileUuid: profile.uuid,
+    profilePath: installedProfile,
+  };
+  const hasExtensions = extensions.length > 0;
+
+  if (hasExtensions == false) {
     return signingAssets;
-  });
+  }
+
+  return { ...signingAssets, extensionProfiles };
+}
 
 /** A SigningAssets stand-in for `--dry-run`, so the rest of the pipeline can run unchanged. */
-const dryRunAssets = (
-  bundleId: string,
-): Effect.Effect<SigningAssets, never, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const provisioningProfilesDirectory = yield* resolveProvisioningProfilesDirectory();
-    return {
-      bundleId,
-      teamId: 'DRYRUNTEAM',
-      certName: DISTRIBUTION_CERT_NAME,
-      certSerial: 'DRYRUN000000',
-      profileName: `Launch_${bundleId}_AppStore`,
-      profileUuid: '00000000-0000-0000-0000-000000000000',
-      profilePath: pathService.join(provisioningProfilesDirectory, 'dry-run.mobileprovision'),
-    };
-  });
+function dryRunAssets(bundleId: string): SigningAssets {
+  const provisioningProfilesDirectory = resolveProvisioningProfilesDirectory();
+
+  return {
+    bundleId,
+    teamId: 'DRYRUNTEAM',
+    certName: DISTRIBUTION_CERT_NAME,
+    certSerial: 'DRYRUN000000',
+    profileName: `Launch_${bundleId}_AppStore`,
+    profileUuid: '00000000-0000-0000-0000-000000000000',
+    profilePath: join(provisioningProfilesDirectory, 'dry-run.mobileprovision'),
+  };
+}
+
+function extensionList(signingOptions: EnsureSigningOptions): string[] {
+  if (signingOptions.extensions == null) {
+    return [];
+  }
+
+  return signingOptions.extensions;
+}
+
+function dryRunExtensionName(extensionId: string): [string, string] {
+  return [extensionId, `Launch_${extensionId}_AppStore`];
+}
 
 /**
  * Resolve a bundle's signing assets, reusing what already exists and creating only what's missing.
@@ -168,86 +189,111 @@ const dryRunAssets = (
  * gated by {@link EnsureSigningOptions.confirmCreate}. Idempotent: a second run with everything in place
  * performs no writes and no creations.
  */
-export const ensureSigningCredentials = (
-  options: EnsureSigningOptions,
-): Effect.Effect<
-  SigningAssets,
-  AppleSigningFailure | unknown,
-  AppleCredentialsClientFactory | AppleSigningPlatform | LaunchSecretStoreService
-> =>
-  Effect.gen(function* () {
-    const { platform, bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
-    let extensions = options.extensions;
-    if (extensions === undefined) extensions = [];
-    if (dryRun) {
-      yield* log.note(
-        `[dry-run] would ensure App ID, distribution certificate, and App Store profile for ${bundleId}`,
+export async function ensureSigningCredentials(
+  signingOptions: EnsureSigningOptions,
+): Promise<SigningAssets> {
+  const extensions = extensionList(signingOptions);
+
+  if (signingOptions.dryRun) {
+    signingOptions.log.note(
+      `[dry-run] would ensure App ID, distribution certificate, and App Store profile for ${signingOptions.bundleId}`,
+    );
+
+    for (const extensionId of extensions) {
+      signingOptions.log.note(
+        `[dry-run] would ensure App ID + App Store profile for extension ${extensionId} (same cert)`,
       );
-      for (const ext of extensions) {
-        yield* log.note(
-          `[dry-run] would ensure App ID + App Store profile for extension ${ext} (same cert)`,
-        );
-      }
-      const assets = yield* dryRunAssets(bundleId);
-      if (extensions.length === 0) return assets;
-      return {
-        ...assets,
-        extensionProfiles: Object.fromEntries(
-          extensions.map((ext) => [ext, `Launch_${ext}_AppStore`]),
-        ),
-      };
     }
-    const keyId = ascKey.keyId;
-    const appleCredentialsClientFactory = yield* AppleCredentialsClientFactory;
-    const client = yield* appleCredentialsClientFactory.createClient(ascKey);
-    const index = yield* readIndex(keyId);
-    // 1. Distribution certificate: reuse the cached one if Apple still lists it, else create one. One cert
-    // signs every bundle in the team, so it's resolved once and shared by the main app and each extension.
-    const { cert, freshCert } = yield* ensureDistributionCertificate({
-      client,
-      keyId,
-      index,
-      confirmCreate,
-      log,
-      importToKeychain: true,
-      warnAtCertCap: true,
-      createConfirmMessage:
-        'Create a new distribution certificate (generates a private key on this Mac)?',
-    });
-    // 2. App ID + App Store profile for the main bundle (reuse by name unless a fresh cert was minted).
-    const main = yield* ensureAppStoreProfileForBundle({
-      client,
-      keyId,
-      index,
-      platform,
-      bundleId,
-      appName,
-      cert,
-      freshCert,
-      confirmCreate,
-      log,
-    });
-    // 3. Each embedded extension: its own App ID + App Store profile, signed by the SAME cert. Collected
-    // into the export-options map so xcodebuild signs every bundle in the .ipa, not just the main app.
-    const extensionProfiles: Record<string, string> = {};
-    for (const ext of extensions) {
-      const provisioned = yield* ensureAppStoreProfileForBundle({
-        client,
-        keyId,
-        index,
-        platform,
-        bundleId: ext,
-        appName: `${appName} (extension)`,
-        cert,
-        freshCert,
-        confirmCreate,
-        log,
-      });
-      extensionProfiles[ext] = provisioned.profileName;
+
+    const assets = dryRunAssets(signingOptions.bundleId);
+
+    if (extensions.length == 0) {
+      return assets;
     }
-    if (Object.keys(extensionProfiles).length === 0) return main;
-    return { ...main, extensionProfiles };
+
+    return {
+      ...assets,
+      extensionProfiles: Object.fromEntries(extensions.map(dryRunExtensionName)),
+    };
+  }
+
+  const keyId = signingOptions.ascKey.keyId;
+  const client = await AppleCredentialsClientFactory.createClient(signingOptions.ascKey);
+  const index = await readIndex(keyId);
+  // One cert signs every bundle in the team, so it's resolved once and shared.
+  const ensuredCertificate = await ensureDistributionCertificate({
+    client,
+    keyId,
+    index,
+    confirmCreate: signingOptions.confirmCreate,
+    log: signingOptions.log,
+    importToKeychain: true,
+    warnAtCertCap: true,
+    createConfirmMessage:
+      'Create a new distribution certificate (generates a private key on this Mac)?',
   });
+  const main = await ensureAppStoreProfileForBundle({
+    client,
+    keyId,
+    index,
+    platform: signingOptions.platform,
+    bundleId: signingOptions.bundleId,
+    appName: signingOptions.appName,
+    cert: ensuredCertificate.cert,
+    freshCert: ensuredCertificate.freshCert,
+    confirmCreate: signingOptions.confirmCreate,
+    log: signingOptions.log,
+  });
+  const extensionProfiles: Record<string, string> = {};
+
+  for (const extensionId of extensions) {
+    const provisioned = await ensureAppStoreProfileForBundle({
+      client,
+      keyId,
+      index,
+      platform: signingOptions.platform,
+      bundleId: extensionId,
+      appName: `${signingOptions.appName} (extension)`,
+      cert: ensuredCertificate.cert,
+      freshCert: ensuredCertificate.freshCert,
+      confirmCreate: signingOptions.confirmCreate,
+      log: signingOptions.log,
+    });
+    extensionProfiles[extensionId] = provisioned.profileName;
+  }
+
+  const hasExtensionProfiles = Object.keys(extensionProfiles).length > 0;
+
+  if (hasExtensionProfiles == false) {
+    return main;
+  }
+
+  return { ...main, extensionProfiles };
+}
+
+const AD_HOC_UNAVAILABLE_MESSAGE =
+  'has no ad-hoc provisioning profile. Submit to the store or choose another platform.';
+
+function readAdHocProfileType(platform: Platform): 'IOS_APP_ADHOC' | 'TVOS_APP_ADHOC' {
+  let profileType: ReturnType<typeof adHocProfileType>;
+
+  try {
+    profileType = adHocProfileType(platform);
+  } catch (cause) {
+    throw makeAppleSigningFailure({
+      message: `${platformLabel(platform)} ${AD_HOC_UNAVAILABLE_MESSAGE}`,
+      cause,
+    });
+  }
+
+  if (profileType == null) {
+    throw makeAppleSigningFailure({
+      message: `${platformLabel(platform)} ${AD_HOC_UNAVAILABLE_MESSAGE}`,
+    });
+  }
+
+  return profileType;
+}
 
 /**
  * Resolve signing assets for an ad-hoc (internal-distribution) build - the install-link twin of
@@ -259,101 +305,100 @@ export const ensureSigningCredentials = (
  * this recreates the profile on every run rather than reusing a stale one - the cheap, always-correct
  * choice. Throws with an actionable message when no devices are registered (`launch device add`).
  */
-export const ensureAdHocSigningCredentials = (
-  options: EnsureSigningOptions,
-): Effect.Effect<
-  SigningAssets,
-  AppleSigningFailure | unknown,
-  AppleCredentialsClientFactory | AppleSigningPlatform | LaunchSecretStoreService
-> =>
-  Effect.gen(function* () {
-    const { platform, bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
-    // macOS has no ad-hoc provisioning profile type in App Store Connect, so internal (install-link)
-    // distribution doesn't apply to it. Fail loud and early - even in dry-run - rather than minting an
-    // App Store profile that can't sign an ad-hoc build.
-    const profileType = yield* adHocProfileType(platform).pipe(
-      Effect.mapError((cause) =>
-        makeAppleSigningFailure({
-          message: `${platformLabel(platform)} has no ad-hoc provisioning profile. Submit to the store or choose another platform.`,
-          cause,
-        }),
-      ),
+export async function ensureAdHocSigningCredentials(
+  signingOptions: EnsureSigningOptions,
+): Promise<SigningAssets> {
+  const profileType = readAdHocProfileType(signingOptions.platform);
+
+  if (signingOptions.dryRun) {
+    signingOptions.log.note(
+      `[dry-run] would ensure App ID + distribution cert + an ad-hoc profile over registered devices for ${signingOptions.bundleId}`,
     );
-    if (profileType === undefined) {
-      return yield* Effect.fail(
-        makeAppleSigningFailure({
-          message: `${platformLabel(platform)} has no ad-hoc provisioning profile. Submit to the store or choose another platform.`,
-        }),
-      );
-    }
-    if (dryRun) {
-      yield* log.note(
-        `[dry-run] would ensure App ID + distribution cert + an ad-hoc profile over registered devices for ${bundleId}`,
-      );
-      return { ...(yield* dryRunAssets(bundleId)), profileName: `Launch_${bundleId}_AdHoc` };
-    }
-    const keyId = ascKey.keyId;
-    const appleCredentialsClientFactory = yield* AppleCredentialsClientFactory;
-    const client = yield* appleCredentialsClientFactory.createClient(ascKey);
-    const index = yield* readIndex(keyId);
-    // 1. App ID - same prerequisite as the App Store path.
-    const bundle = yield* ensureRegisteredBundleId({
-      client,
-      platform,
-      bundleId,
-      appName,
-      confirmCreate,
-      log,
-      declineMessage: `App ID ${bundleId} is not registered. Re-run and confirm, or register it in the portal.`,
-    });
-    // 2. Distribution certificate - reuse the cached one (importing the .p12) or create one.
-    // Ad-hoc historically skips the cert-cap warning (devices fail first when the team is empty).
-    const { cert } = yield* ensureDistributionCertificate({
-      client,
-      keyId,
-      index,
-      confirmCreate,
-      log,
-      importToKeychain: true,
-      warnAtCertCap: false,
-      createConfirmMessage:
-        'Create a new distribution certificate (generates a private key on this Mac)?',
-    });
-    // 3. Every registered, enabled device goes on the profile (disabled devices don't count to Apple).
-    const devices = (yield* client.listDevices()).filter((device) => device.status !== 'DISABLED');
-    if (devices.length === 0) {
-      return yield* Effect.fail(
-        makeAppleSigningFailure({
-          message:
-            'No registered devices for an ad-hoc build. Add one with `launch device add <udid> [name]` and retry.',
-        }),
-      );
-    }
-    yield* log.step('devices', `${devices.length} registered device(s) on the ad-hoc profile`);
-    // 4. Ad-hoc profile - recreate each run so it tracks the current device set exactly.
-    const profileName = `Launch_${bundleId}_AdHoc`;
-    const existing = yield* client.findProfileByName(profileName);
-    if (existing) yield* client.deleteProfile(existing.id);
-    const profile = yield* client.createAdHocProfile(
-      profileName,
-      bundle.id,
-      cert.id,
-      devices.map((device) => device.id),
-      profileType,
-    );
-    const installed = yield* installProfile(keyId, `${bundleId}.adhoc`, profile.profileContent);
-    yield* log.step('profile', `created ${profileName} (ad-hoc)`, 'provisioning-profile');
-    const teamId = resolveProfileTeamId(installed.teamId, bundle.seedId);
-    return {
-      bundleId,
-      teamId,
-      certName: DISTRIBUTION_CERT_NAME,
-      certSerial: cert.serial,
-      profileName: installed.name,
-      profileUuid: installed.uuid,
-      profilePath: installed.installedPath,
-    };
+    const assets = dryRunAssets(signingOptions.bundleId);
+
+    return { ...assets, profileName: `Launch_${signingOptions.bundleId}_AdHoc` };
+  }
+
+  const keyId = signingOptions.ascKey.keyId;
+  const client = await AppleCredentialsClientFactory.createClient(signingOptions.ascKey);
+  const index = await readIndex(keyId);
+  const bundle = await ensureRegisteredBundleId({
+    client,
+    platform: signingOptions.platform,
+    bundleId: signingOptions.bundleId,
+    appName: signingOptions.appName,
+    confirmCreate: signingOptions.confirmCreate,
+    log: signingOptions.log,
+    declineMessage: `App ID ${signingOptions.bundleId} is not registered. Re-run and confirm, or register it in the portal.`,
   });
+  const ensuredCertificate = await ensureDistributionCertificate({
+    client,
+    keyId,
+    index,
+    confirmCreate: signingOptions.confirmCreate,
+    log: signingOptions.log,
+    importToKeychain: true,
+    warnAtCertCap: false,
+    createConfirmMessage:
+      'Create a new distribution certificate (generates a private key on this Mac)?',
+  });
+  const devices = await client.listDevices();
+
+  function isEnabledDevice(device: { status?: string }): boolean {
+    return device.status != 'DISABLED';
+  }
+
+  const enabledDevices = devices.filter(isEnabledDevice);
+  const hasNoDevices = enabledDevices.length == 0;
+
+  if (hasNoDevices) {
+    throw makeAppleSigningFailure({
+      message:
+        'No registered devices for an ad-hoc build. Add one with `launch device add <udid> [name]` and retry.',
+    });
+  }
+
+  signingOptions.log.step(
+    'devices',
+    `${enabledDevices.length} registered device(s) on the ad-hoc profile`,
+  );
+
+  const profileName = `Launch_${signingOptions.bundleId}_AdHoc`;
+  const existing = await client.findProfileByName(profileName);
+
+  if (existing != null) {
+    await client.deleteProfile(existing.id);
+  }
+
+  function deviceId(device: { id: string }): string {
+    return device.id;
+  }
+
+  const profile = await client.createAdHocProfile(
+    profileName,
+    bundle.id,
+    ensuredCertificate.cert.id,
+    enabledDevices.map(deviceId),
+    profileType,
+  );
+  const installed = await installProfile(
+    keyId,
+    `${signingOptions.bundleId}.adhoc`,
+    profile.profileContent,
+  );
+  signingOptions.log.step('profile', `created ${profileName} (ad-hoc)`, 'provisioning-profile');
+  const teamId = resolveProfileTeamId(installed.teamId, bundle.seedId);
+
+  return {
+    bundleId: signingOptions.bundleId,
+    teamId,
+    certName: DISTRIBUTION_CERT_NAME,
+    certSerial: ensuredCertificate.cert.serial,
+    profileName: installed.name,
+    profileUuid: installed.uuid,
+    profilePath: installed.installedPath,
+  };
+}
 
 /**
  * Local files + identifiers needed to sign on a REMOTE Mac, produced by {@link ensureRemoteSigningAssets}.
@@ -384,90 +429,129 @@ export type RemoteSigningBundle = {
  * imports the `.p12` into a throwaway keychain and reads the profile itself. Touches only the ASC API
  * and openssl, so it runs on Windows/Linux.
  */
-export const ensureRemoteSigningAssets = (
-  options: EnsureSigningOptions,
-): Effect.Effect<
-  RemoteSigningBundle,
-  AppleSigningFailure | unknown,
-  AppleCredentialsClientFactory | AppleSigningPlatform | LaunchSecretStoreService
-> =>
-  Effect.gen(function* () {
-    const { platform, bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
-    if (dryRun) {
-      const pathService = yield* Path.Path;
-      const credentialsDirectory = yield* resolveAccountCredentialsDirectory(ascKey.keyId);
-      yield* log.note(
-        `[dry-run] would ensure App ID + distribution .p12 + App Store profile for ${bundleId}, ready to upload`,
-      );
-      return {
-        bundleId,
-        certName: DISTRIBUTION_CERT_NAME,
-        certSerial: 'DRYRUN000000',
-        teamId: 'DRYRUNTEAM',
-        profileName: `Launch_${bundleId}_AppStore`,
-        p12Path: pathService.join(credentialsDirectory, 'dry-run.p12'),
-        p12Password: 'dry-run',
-        profilePath: pathService.join(credentialsDirectory, 'dry-run.mobileprovision'),
-      };
-    }
-    const keyId = ascKey.keyId;
-    const appleCredentialsClientFactory = yield* AppleCredentialsClientFactory;
-    const client = yield* appleCredentialsClientFactory.createClient(ascKey);
-    const index = yield* readIndex(keyId);
-    // 1. App ID must exist before a profile can reference it.
-    const bundle = yield* ensureRegisteredBundleId({
-      client,
-      platform,
-      bundleId,
-      appName,
-      confirmCreate,
-      log,
-      declineMessage: `App ID ${bundleId} is not registered. Re-run and confirm, or register it in the portal.`,
-    });
-    // 2. Distribution cert as a local .p12 - reuse the cached one, else mint with openssl (no keychain import).
-    const { cert, freshCert, password } = yield* ensureDistributionCertificate({
-      client,
-      keyId,
-      index,
-      confirmCreate,
-      log,
-      importToKeychain: false,
-      warnAtCertCap: true,
-      createConfirmMessage:
-        'Create a new distribution certificate (generates a private key on this machine)?',
-    });
-    // 3. App Store profile - reuse by name unless a fresh cert was minted; save the bytes to upload.
-    const profileName = `Launch_${bundleId}_AppStore`;
-    const existingProfile = yield* client.findProfileByName(profileName);
-    let profile: ProfileResource;
-    if (existingProfile && !freshCert) {
-      profile = existingProfile;
-      yield* log.step('profile', `reusing ${profileName}`, 'provisioning-profile');
-    } else {
-      if (existingProfile) yield* client.deleteProfile(existingProfile.id);
-      const profileType = yield* appStoreProfileType(platform);
-      profile = yield* client.createAppStoreProfile(profileName, bundle.id, cert.id, profileType);
-      yield* log.step('profile', `created ${profileName}`, 'provisioning-profile');
-    }
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const credentialsDirectory = yield* resolveAccountCredentialsDirectory(keyId);
-    yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
-    const profilePath = pathService.join(credentialsDirectory, `${bundleId}.mobileprovision`);
-    yield* fileSystem.writeFile(profilePath, Buffer.from(profile.profileContent, 'base64'));
-    let teamId = bundle.seedId;
-    if (teamId === undefined) teamId = '';
+export async function ensureRemoteSigningAssets(
+  signingOptions: EnsureSigningOptions,
+): Promise<RemoteSigningBundle> {
+  if (signingOptions.dryRun) {
+    const credentialsDirectory = resolveAccountCredentialsDirectory(signingOptions.ascKey.keyId);
+    signingOptions.log.note(
+      `[dry-run] would ensure App ID + distribution .p12 + App Store profile for ${signingOptions.bundleId}, ready to upload`,
+    );
+
     return {
-      bundleId,
+      bundleId: signingOptions.bundleId,
       certName: DISTRIBUTION_CERT_NAME,
-      certSerial: cert.serial,
-      teamId,
-      profileName,
-      p12Path: cert.p12Path,
-      p12Password: password,
-      profilePath,
+      certSerial: 'DRYRUN000000',
+      teamId: 'DRYRUNTEAM',
+      profileName: `Launch_${signingOptions.bundleId}_AppStore`,
+      p12Path: join(credentialsDirectory, 'dry-run.p12'),
+      p12Password: 'dry-run',
+      profilePath: join(credentialsDirectory, 'dry-run.mobileprovision'),
     };
+  }
+
+  const keyId = signingOptions.ascKey.keyId;
+  const client = await AppleCredentialsClientFactory.createClient(signingOptions.ascKey);
+  const index = await readIndex(keyId);
+  const bundle = await ensureRegisteredBundleId({
+    client,
+    platform: signingOptions.platform,
+    bundleId: signingOptions.bundleId,
+    appName: signingOptions.appName,
+    confirmCreate: signingOptions.confirmCreate,
+    log: signingOptions.log,
+    declineMessage: `App ID ${signingOptions.bundleId} is not registered. Re-run and confirm, or register it in the portal.`,
   });
+  const ensuredCertificate = await ensureDistributionCertificate({
+    client,
+    keyId,
+    index,
+    confirmCreate: signingOptions.confirmCreate,
+    log: signingOptions.log,
+    importToKeychain: false,
+    warnAtCertCap: true,
+    createConfirmMessage:
+      'Create a new distribution certificate (generates a private key on this machine)?',
+  });
+  const profile = await resolveRemoteProfile({
+    client,
+    bundleIdResourceId: bundle.id,
+    certId: ensuredCertificate.cert.id,
+    freshCert: ensuredCertificate.freshCert,
+    platform: signingOptions.platform,
+    bundleId: signingOptions.bundleId,
+    log: signingOptions.log,
+  });
+  const credentialsDirectory = resolveAccountCredentialsDirectory(keyId);
+  await mkdir(credentialsDirectory, { recursive: true });
+  const profilePath = join(credentialsDirectory, `${signingOptions.bundleId}.mobileprovision`);
+  await writeFile(profilePath, Buffer.from(profile.profileContent, 'base64'));
+  let teamId = '';
+
+  if (bundle.seedId != null) {
+    teamId = bundle.seedId;
+  }
+
+  return {
+    bundleId: signingOptions.bundleId,
+    certName: DISTRIBUTION_CERT_NAME,
+    certSerial: ensuredCertificate.cert.serial,
+    teamId,
+    profileName: `Launch_${signingOptions.bundleId}_AppStore`,
+    p12Path: ensuredCertificate.cert.p12Path,
+    p12Password: ensuredCertificate.password,
+    profilePath,
+  };
+}
+
+async function resolveRemoteProfile(remoteProfile: {
+  client: Awaited<ReturnType<typeof AppleCredentialsClientFactory.createClient>>;
+  bundleIdResourceId: string;
+  certId: string;
+  freshCert: boolean;
+  platform: Platform;
+  bundleId: string;
+  log: Logger;
+}): Promise<ProfileResource> {
+  const profileName = `Launch_${remoteProfile.bundleId}_AppStore`;
+  const existingProfile = await remoteProfile.client.findProfileByName(profileName);
+
+  if (existingProfile == null) {
+    return createRemoteProfile(remoteProfile, profileName);
+  }
+
+  if (remoteProfile.freshCert == false) {
+    remoteProfile.log.step('profile', `reusing ${profileName}`, 'provisioning-profile');
+
+    return existingProfile;
+  }
+
+  await remoteProfile.client.deleteProfile(existingProfile.id);
+
+  return createRemoteProfile(remoteProfile, profileName);
+}
+
+async function createRemoteProfile(
+  remoteProfile: {
+    client: Awaited<ReturnType<typeof AppleCredentialsClientFactory.createClient>>;
+    bundleIdResourceId: string;
+    certId: string;
+    platform: Platform;
+    log: Logger;
+  },
+  profileName: string,
+): Promise<ProfileResource> {
+  const profileType = appStoreProfileType(remoteProfile.platform);
+  const profile = await remoteProfile.client.createAppStoreProfile(
+    profileName,
+    remoteProfile.bundleIdResourceId,
+    remoteProfile.certId,
+    profileType,
+  );
+  remoteProfile.log.step('profile', `created ${profileName}`, 'provisioning-profile');
+
+  return profile;
+}
 
 /**
  * Move a pre-multi-account signing index (the flat `~/.launch/credentials/index.json` plus the `.p12`
@@ -477,55 +561,105 @@ export const ensureRemoteSigningAssets = (
  * move just leaves that account to re-provision on its next build. Called once by the account-registry
  * migration; see `core/accounts.ts`.
  */
-export const migrateLegacySigningIndex = (
-  keyId: string,
-): Effect.Effect<void, unknown, FileSystem.FileSystem | LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const credentialsDirectory = yield* resolveCredentialsDirectory();
-    const legacyIndexPath = pathService.join(credentialsDirectory, 'index.json');
-    if (!(yield* fileSystem.exists(legacyIndexPath))) return;
-    const index = yield* fileSystem.readFileString(legacyIndexPath).pipe(
-      Effect.flatMap((indexText) => Effect.try(() => JSON.parse(indexText))),
-      Effect.flatMap(Schema.decodeUnknown(CredentialsIndexSchema)),
-      Effect.catchAll(() => Effect.succeed(null)),
-    );
-    if (index === null) return;
-    const destinationDirectory = yield* resolveAccountCredentialsDirectory(keyId);
-    yield* fileSystem.makeDirectory(destinationDirectory, { recursive: true });
-    const moveInto = (sourcePath: string | undefined): Effect.Effect<string | undefined, never> =>
-      Effect.gen(function* () {
-        if (sourcePath === undefined) return undefined;
-        if (!(yield* fileSystem.exists(sourcePath).pipe(Effect.orElseSucceed(() => false))))
-          return sourcePath;
-        const destinationPath = pathService.join(
-          destinationDirectory,
-          pathService.basename(sourcePath),
-        );
-        return yield* fileSystem.rename(sourcePath, destinationPath).pipe(
-          Effect.as(destinationPath),
-          Effect.orElseSucceed(() => sourcePath),
-        );
-      });
-    if (index.certificate) {
-      const movedCertificatePath = yield* moveInto(index.certificate.p12Path);
-      if (movedCertificatePath !== undefined) index.certificate.p12Path = movedCertificatePath;
+export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
+  const credentialsDirectory = resolveCredentialsDirectory();
+  const legacyIndexPath = join(credentialsDirectory, 'index.json');
+  const hasLegacyIndex = await pathExists(legacyIndexPath);
+
+  if (hasLegacyIndex == false) {
+    return;
+  }
+
+  let indexText: string;
+
+  try {
+    indexText = await readFile(legacyIndexPath, 'utf8');
+  } catch (error) {
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      return;
     }
-    yield* Effect.forEach(
-      Object.values(index.profiles),
-      (profileRecord) =>
-        Effect.gen(function* () {
-          const movedProfilePath = yield* moveInto(profileRecord.path);
-          if (movedProfilePath !== undefined) profileRecord.path = movedProfilePath;
-        }),
-      { concurrency: 1, discard: true },
-    );
-    yield* fileSystem.writeFileString(
-      pathService.join(destinationDirectory, 'index.json'),
-      JSON.stringify(index, null, 2),
-    );
-    yield* fileSystem
-      .remove(legacyIndexPath, { force: true })
-      .pipe(Effect.catchAll(() => Effect.void));
-  });
+
+    return;
+  }
+
+  let parsedIndex: unknown;
+
+  try {
+    parsedIndex = JSON.parse(indexText);
+  } catch (error) {
+    const isMalformed = error != null;
+
+    if (isMalformed) {
+      return;
+    }
+
+    return;
+  }
+
+  const index = decodeCredentialsIndex(parsedIndex);
+
+  if (index == null) {
+    return;
+  }
+
+  const destinationDirectory = resolveAccountCredentialsDirectory(keyId);
+  await mkdir(destinationDirectory, { recursive: true });
+
+  async function moveInto(sourcePath: string | undefined): Promise<string | undefined> {
+    if (sourcePath == null) {
+      return undefined;
+    }
+
+    const isPresent = await pathExists(sourcePath);
+
+    if (isPresent == false) {
+      return sourcePath;
+    }
+
+    const destinationPath = join(destinationDirectory, basename(sourcePath));
+
+    try {
+      await rename(sourcePath, destinationPath);
+
+      return destinationPath;
+    } catch (error) {
+      const isRenameFailure = error != null;
+
+      if (isRenameFailure) {
+        return sourcePath;
+      }
+
+      return sourcePath;
+    }
+  }
+
+  if (index.certificate != null) {
+    const movedCertificatePath = await moveInto(index.certificate.p12Path);
+
+    if (movedCertificatePath != null) {
+      index.certificate.p12Path = movedCertificatePath;
+    }
+  }
+
+  for (const profileRecord of Object.values(index.profiles)) {
+    const movedProfilePath = await moveInto(profileRecord.path);
+
+    if (movedProfilePath != null) {
+      profileRecord.path = movedProfilePath;
+    }
+  }
+
+  await writeFile(join(destinationDirectory, 'index.json'), JSON.stringify(index, null, 2));
+
+  try {
+    await rm(legacyIndexPath, { force: true });
+  } catch (error) {
+    const isAlreadyGone = error != null;
+
+    if (isAlreadyGone == false) {
+      throw error;
+    }
+  }
+}

@@ -1,231 +1,437 @@
-import { FileSystem, type Terminal } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
-import type { LaunchPromptService } from '../../services/platform/prompt.js';
+import { readFile } from 'node:fs/promises';
+import { hasMessage } from '../../services/platform/errorMessage.js';
+import { createLogger } from '../../services/platform/logger.js';
 import type { PlayReview } from '../../types/googlePlay.js';
-import { listPlayReviews, replyToPlayReview, type PlayReviewFilters } from './playReviews.js';
 import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,
-  type ActiveGoogleStoreRequirements,
   resolveGoogleStoreApp,
 } from './googleStoreCommand.js';
-import type { StoreAppSelectionRequirements } from '../shared/selectStoreApp.js';
-import { hasMessage } from '../../services/platform/errorMessage.js';
+import { listPlayReviews, replyToPlayReview, type PlayReviewFilters } from './playReviews.js';
 
-const PlayReviewsListInputSchema = Schema.Struct({
-  operation: Schema.Literal('list'),
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  rating: Schema.optionalWith(Schema.String, { exact: true }),
-  unanswered: Schema.Boolean,
-  lang: Schema.optionalWith(Schema.String, { exact: true }),
-  json: Schema.Boolean,
-});
+export type PlayReviewsListInput = {
+  operation: 'list';
+  app?: string;
+  rating?: string;
+  unanswered: boolean;
+  lang?: string;
+  json: boolean;
+};
 
-const PlayReviewsReplyInputSchema = Schema.Struct({
-  operation: Schema.Literal('reply'),
-  reviewId: Schema.String,
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  message: Schema.optionalWith(Schema.String, { exact: true }),
-  file: Schema.optionalWith(Schema.String, { exact: true }),
-  yes: Schema.Boolean,
-});
+export type PlayReviewsReplyInput = {
+  operation: 'reply';
+  reviewId: string;
+  app?: string;
+  message?: string;
+  file?: string;
+  yes: boolean;
+};
 
-export const PlayReviewsCommandInputSchema = Schema.Union(
-  PlayReviewsListInputSchema,
-  PlayReviewsReplyInputSchema,
-);
+type PlayReviewsCommandInput = PlayReviewsListInput | PlayReviewsReplyInput;
 
-type PlayReviewsCommandInput = Schema.Schema.Type<typeof PlayReviewsCommandInputSchema>;
-export type PlayReviewsListInput = Schema.Schema.Type<typeof PlayReviewsListInputSchema>;
-export type PlayReviewsReplyInput = Schema.Schema.Type<typeof PlayReviewsReplyInputSchema>;
-
-/** A Play reviews command step failed. */
 type PlayReviewsCommandFailure = Readonly<{
   readonly _tag: 'PlayReviewsCommandFailure';
   readonly operation: PlayReviewsCommandInput['operation'];
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makePlayReviewsCommandFailure = Data.tagged<PlayReviewsCommandFailure>(
-  'PlayReviewsCommandFailure',
-);
 
-type PlayReviewsCommandRequirements =
-  | ActiveGoogleStoreRequirements
-  | FileSystem.FileSystem
-  | LaunchPromptService
-  | Logger
-  | StoreAppSelectionRequirements
-  | Terminal.Terminal;
+function makePlayReviewsCommandFailure(fields: {
+  operation: PlayReviewsCommandInput['operation'];
+  message: string;
+  cause: unknown;
+}): PlayReviewsCommandFailure {
+  return { _tag: 'PlayReviewsCommandFailure', ...fields };
+}
 
-/** Convert a dependency failure into the Play reviews command channel. */
-const playReviewsFailure = (
+function playReviewsFailure(
   operation: PlayReviewsCommandInput['operation'],
   cause: unknown,
-): PlayReviewsCommandFailure => {
+): PlayReviewsCommandFailure {
   let message = `Play reviews ${operation} failed.`;
-  if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') message = causeMessage;
+
+  if (typeof cause == 'string') {
+    const isBlank = cause.length == 0;
+
+    if (isBlank == false) {
+      message = cause;
+    }
   }
+
+  if (hasMessage(cause)) {
+    message = cause.message;
+  }
+
   return makePlayReviewsCommandFailure({ operation, message, cause });
-};
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
+  const field = record[fieldName];
+
+  if (typeof field != 'boolean') {
+    throw new Error(`${fieldName} must be a boolean`);
+  }
+
+  return field;
+}
+
+function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
+  const field = record[fieldName];
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  return field;
+}
+
+function readExactOptionalString(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | null {
+  if (Object.hasOwn(record, fieldName) == false) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  return field;
+}
+
+function copyOptionalString(
+  record: Record<string, unknown>,
+  fieldName: string,
+  target: { app?: string; rating?: string; lang?: string; message?: string; file?: string },
+): void {
+  const text = readExactOptionalString(record, fieldName);
+
+  if (text == null) {
+    return;
+  }
+
+  if (fieldName == 'app') {
+    target.app = text;
+    return;
+  }
+
+  if (fieldName == 'rating') {
+    target.rating = text;
+    return;
+  }
+
+  if (fieldName == 'lang') {
+    target.lang = text;
+    return;
+  }
+
+  if (fieldName == 'message') {
+    target.message = text;
+    return;
+  }
+
+  if (fieldName == 'file') {
+    target.file = text;
+  }
+}
+
+function decodeListInput(record: Record<string, unknown>): PlayReviewsListInput {
+  const commandInput: PlayReviewsListInput = {
+    operation: 'list',
+    unanswered: readRequiredBoolean(record, 'unanswered'),
+    json: readRequiredBoolean(record, 'json'),
+  };
+
+  copyOptionalString(record, 'app', commandInput);
+  copyOptionalString(record, 'rating', commandInput);
+  copyOptionalString(record, 'lang', commandInput);
+
+  return commandInput;
+}
+
+function decodeReplyInput(record: Record<string, unknown>): PlayReviewsReplyInput {
+  const commandInput: PlayReviewsReplyInput = {
+    operation: 'reply',
+    reviewId: readRequiredString(record, 'reviewId'),
+    yes: readRequiredBoolean(record, 'yes'),
+  };
+
+  copyOptionalString(record, 'app', commandInput);
+  copyOptionalString(record, 'message', commandInput);
+  copyOptionalString(record, 'file', commandInput);
+
+  return commandInput;
+}
+
+export function decodePlayReviewsCommandInput(rawCommandInput: unknown): PlayReviewsCommandInput {
+  if (isRecord(rawCommandInput) == false) {
+    throw new Error('Play reviews command input must be an object.');
+  }
+
+  const operation = rawCommandInput['operation'];
+
+  if (operation == 'list') {
+    return decodeListInput(rawCommandInput);
+  }
+
+  if (operation == 'reply') {
+    return decodeReplyInput(rawCommandInput);
+  }
+
+  throw new Error('Play reviews operation must be list or reply.');
+}
+
+export const PlayReviewsCommandInputSchema = decodePlayReviewsCommandInput;
+
+function rejectRating(ratingText: string): never {
+  throw makePlayReviewsCommandFailure({
+    operation: 'list',
+    message: `--rating must be a whole number 1-5 (got "${ratingText}").`,
+    cause: ratingText,
+  });
+}
 
 /** Parse and validate an optional one-to-five-star Play review filter. */
-export const parsePlayReviewRating = (
-  ratingText: string | undefined,
-): Effect.Effect<number | undefined, PlayReviewsCommandFailure> => {
-  if (ratingText === undefined) return Effect.succeed(undefined);
-  const trimmedRating = ratingText.trim();
-  const parsedRating = Number(trimmedRating);
-  if (/^\d+$/.test(trimmedRating) && parsedRating >= 1 && parsedRating <= 5) {
-    return Effect.succeed(parsedRating);
+export function parsePlayReviewRating(ratingText: string | undefined): number | undefined {
+  if (ratingText == null) {
+    return undefined;
   }
-  return Effect.fail(
-    makePlayReviewsCommandFailure({
-      operation: 'list',
-      message: `--rating must be a whole number 1-5 (got "${ratingText}").`,
-      cause: ratingText,
-    }),
-  );
-};
+
+  const trimmedRating = ratingText.trim();
+  const isWholeNumber = /^\d+$/.test(trimmedRating);
+
+  if (isWholeNumber == false) {
+    return rejectRating(ratingText);
+  }
+
+  const parsedRating = Number(trimmedRating);
+  const isTooSmall = parsedRating < 1;
+
+  if (isTooSmall) {
+    return rejectRating(ratingText);
+  }
+
+  const isTooLarge = parsedRating > 5;
+
+  if (isTooLarge) {
+    return rejectRating(ratingText);
+  }
+
+  return parsedRating;
+}
+
+function pushReviewDetail(reviewDetails: string[], detail: string | undefined): void {
+  if (detail == null) {
+    return;
+  }
+
+  reviewDetails.push(detail);
+}
 
 /** Render one Play customer review as a copy-pasteable text block. */
-export const renderPlayReview = (playReview: PlayReview): string => {
+export function renderPlayReview(playReview: PlayReview): string {
   const reviewDetails: string[] = [];
-  if (playReview.reviewerLanguage !== undefined) {
-    reviewDetails.push(playReview.reviewerLanguage);
-  }
-  if (playReview.lastModified !== undefined) {
+
+  pushReviewDetail(reviewDetails, playReview.reviewerLanguage);
+
+  if (playReview.lastModified != null) {
     reviewDetails.push(playReview.lastModified.slice(0, 10));
   }
-  if (playReview.appVersionName !== undefined) {
+
+  if (playReview.appVersionName != null) {
     reviewDetails.push(`v${playReview.appVersionName}`);
   }
-  if (playReview.authorName !== undefined) reviewDetails.push(`by ${playReview.authorName}`);
-  if (playReview.answered) reviewDetails.push('OK answered');
-  if (!playReview.answered) reviewDetails.push('- unanswered');
+
+  if (playReview.authorName != null) {
+    reviewDetails.push(`by ${playReview.authorName}`);
+  }
+
+  if (playReview.answered) {
+    reviewDetails.push('OK answered');
+  }
+
+  if (playReview.answered == false) {
+    reviewDetails.push('- unanswered');
+  }
+
   const reviewLines = [
     `${playReview.reviewId}  ${playReview.rating}/5`,
     `  ${reviewDetails.join('  ')}`,
   ];
-  if (playReview.text !== undefined) reviewLines.push(`  ${playReview.text}`);
-  if (playReview.developerReply !== undefined) {
+
+  if (playReview.text != null) {
+    reviewLines.push(`  ${playReview.text}`);
+  }
+
+  if (playReview.developerReply != null) {
     reviewLines.push(`  -> reply: ${playReview.developerReply}`);
   }
+
   return reviewLines.join('\n');
-};
+}
 
-/** Resolve a developer reply from inline text or a file. */
-const readPlayReplyText = (
-  commandInput: PlayReviewsReplyInput,
-): Effect.Effect<string, PlayReviewsCommandFailure, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    if (commandInput.file !== undefined) {
-      const fileSystem = yield* FileSystem.FileSystem;
-      return yield* fileSystem.readFileString(commandInput.file).pipe(
-        Effect.map((fileText) => fileText.trim()),
-        Effect.mapError((cause) => playReviewsFailure('reply', cause)),
-      );
-    }
-    if (commandInput.message !== undefined) return commandInput.message;
-    return yield* Effect.fail(
-      makePlayReviewsCommandFailure({
-        operation: 'reply',
-        message: 'A reply body is required. Pass -m/--message <text> or --file <path>.',
-        cause: 'missing-reply',
-      }),
-    );
-  });
+async function readPlayReplyText(commandInput: PlayReviewsReplyInput): Promise<string> {
+  if (commandInput.file != null) {
+    const fileText = await readFile(commandInput.file, 'utf8');
 
-/** List and render the selected app's recent Play reviews. */
-const listRecentPlayReviews = (
-  commandInput: PlayReviewsListInput,
-): Effect.Effect<void, PlayReviewsCommandFailure, PlayReviewsCommandRequirements> =>
-  Effect.gen(function* () {
-    const rating = yield* parsePlayReviewRating(commandInput.rating);
-    const { packageName, appName } = yield* resolveGoogleStoreApp(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore(packageName, appName);
-    let reviewFilters: PlayReviewFilters = { unansweredOnly: commandInput.unanswered };
-    if (rating !== undefined) reviewFilters = { ...reviewFilters, rating };
-    if (commandInput.lang !== undefined) {
-      reviewFilters = { ...reviewFilters, translationLanguage: commandInput.lang };
-    }
-    const matchingReviews = yield* listPlayReviews(googleStore, packageName, reviewFilters);
-    const logger = yield* createLogger(false);
-    if (commandInput.json) {
-      yield* logger.line(JSON.stringify(matchingReviews, null, 2));
-      return;
-    }
-    if (matchingReviews.length === 0) {
-      yield* logger.line(
-        'No reviews match. Try removing a filter, or check back later (Play shows only recent reviews).',
-      );
-      return;
-    }
-    yield* logger.line(matchingReviews.map(renderPlayReview).join('\n\n'));
-    let reviewSuffix = 's';
-    if (matchingReviews.length === 1) reviewSuffix = '';
-    yield* logger.line(`\n${matchingReviews.length} review${reviewSuffix}.`);
-  }).pipe(Effect.mapError((cause) => playReviewsFailure('list', cause)));
-
-/** Confirm and post or replace a Play developer reply. */
-const replyToRecentPlayReview = (
-  commandInput: PlayReviewsReplyInput,
-): Effect.Effect<void, PlayReviewsCommandFailure, PlayReviewsCommandRequirements> =>
-  Effect.gen(function* () {
-    const replyText = yield* readPlayReplyText(commandInput);
-    const { packageName, appName } = yield* resolveGoogleStoreApp(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore(packageName, appName);
-    const existingReview = yield* googleStore.getReview(packageName, commandInput.reviewId);
-    let confirmationVerb = 'Post a public reply to';
-    if (existingReview?.answered) {
-      confirmationVerb = 'Replace the existing reply to';
-    }
-    const confirmed = yield* confirmGoogleStoreWrite(
-      `${confirmationVerb} review ${commandInput.reviewId}?`,
-      commandInput.yes,
-      'Refusing to post without confirmation. Re-run with --yes (non-interactive).',
-      'Aborted - nothing posted.',
-    );
-    if (!confirmed) return;
-    const replyOutcome = yield* replyToPlayReview(
-      googleStore,
-      packageName,
-      commandInput.reviewId,
-      replyText,
-      existingReview,
-    );
-    let operationLabel = 'reply posted';
-    if (replyOutcome.replaced) operationLabel = 'reply replaced';
-    const logger = yield* createLogger(false);
-    let editedDetail: string | undefined;
-    if (replyOutcome.reply.lastEdited !== undefined) {
-      editedDetail = `edited: ${replyOutcome.reply.lastEdited}`;
-    }
-    yield* logger.step(operationLabel, editedDetail);
-  }).pipe(Effect.mapError((cause) => playReviewsFailure('reply', cause)));
-
-/** Dispatch one decoded Play reviews operation. */
-const runPlayReviewsOperation = (
-  commandInput: PlayReviewsCommandInput,
-): Effect.Effect<void, PlayReviewsCommandFailure, PlayReviewsCommandRequirements> => {
-  switch (commandInput.operation) {
-    case 'list':
-      return listRecentPlayReviews(commandInput);
-    case 'reply':
-      return replyToRecentPlayReview(commandInput);
+    return fileText.trim();
   }
-};
+
+  if (commandInput.message != null) {
+    return commandInput.message;
+  }
+
+  throw makePlayReviewsCommandFailure({
+    operation: 'reply',
+    message: 'A reply body is required. Pass -m/--message <text> or --file <path>.',
+    cause: 'missing-reply',
+  });
+}
+
+async function listRecentPlayReviews(commandInput: PlayReviewsListInput): Promise<void> {
+  const rating = parsePlayReviewRating(commandInput.rating);
+  const selectedApp = await resolveGoogleStoreApp(commandInput.app);
+  const googleStore = await loadActiveGoogleStore(selectedApp.packageName, selectedApp.appName);
+  let reviewFilters: PlayReviewFilters = { unansweredOnly: commandInput.unanswered };
+
+  if (rating != null) {
+    reviewFilters = { ...reviewFilters, rating };
+  }
+
+  if (commandInput.lang != null) {
+    reviewFilters = { ...reviewFilters, translationLanguage: commandInput.lang };
+  }
+
+  const matchingReviews = await listPlayReviews(
+    googleStore,
+    selectedApp.packageName,
+    reviewFilters,
+  );
+  const logger = createLogger(false);
+
+  if (commandInput.json) {
+    logger.line(JSON.stringify(matchingReviews, null, 2));
+    return;
+  }
+
+  if (matchingReviews.length == 0) {
+    logger.line(
+      'No reviews match. Try removing a filter, or check back later (Play shows only recent reviews).',
+    );
+    return;
+  }
+
+  function renderOneReview(playReview: PlayReview): string {
+    return renderPlayReview(playReview);
+  }
+
+  logger.line(matchingReviews.map(renderOneReview).join('\n\n'));
+  let reviewSuffix = 's';
+
+  if (matchingReviews.length == 1) {
+    reviewSuffix = '';
+  }
+
+  logger.line(`\n${matchingReviews.length} review${reviewSuffix}.`);
+}
+
+function hasExistingReply(existingReview: PlayReview | null): boolean {
+  if (existingReview == null) {
+    return false;
+  }
+
+  return existingReview.answered;
+}
+
+async function replyToRecentPlayReview(commandInput: PlayReviewsReplyInput): Promise<void> {
+  const replyText = await readPlayReplyText(commandInput);
+  const selectedApp = await resolveGoogleStoreApp(commandInput.app);
+  const googleStore = await loadActiveGoogleStore(selectedApp.packageName, selectedApp.appName);
+  const existingReview = await googleStore.getReview(
+    selectedApp.packageName,
+    commandInput.reviewId,
+  );
+  let confirmationVerb = 'Post a public reply to';
+
+  if (hasExistingReply(existingReview)) {
+    confirmationVerb = 'Replace the existing reply to';
+  }
+
+  const confirmed = await confirmGoogleStoreWrite(
+    `${confirmationVerb} review ${commandInput.reviewId}?`,
+    commandInput.yes,
+    'Refusing to post without confirmation. Re-run with --yes (non-interactive).',
+    'Aborted - nothing posted.',
+  );
+
+  if (confirmed == false) {
+    return;
+  }
+
+  const replyOutcome = await replyToPlayReview(
+    googleStore,
+    selectedApp.packageName,
+    commandInput.reviewId,
+    replyText,
+    existingReview,
+  );
+  let operationLabel = 'reply posted';
+
+  if (replyOutcome.replaced) {
+    operationLabel = 'reply replaced';
+  }
+
+  const logger = createLogger(false);
+  let editedDetail: string | undefined;
+
+  if (replyOutcome.reply.lastEdited != null) {
+    editedDetail = `edited: ${replyOutcome.reply.lastEdited}`;
+  }
+
+  logger.step(operationLabel, editedDetail);
+}
+
+async function runPlayReviewsOperation(commandInput: PlayReviewsCommandInput): Promise<void> {
+  if (commandInput.operation == 'list') {
+    await listRecentPlayReviews(commandInput);
+    return;
+  }
+
+  await replyToRecentPlayReview(commandInput);
+}
 
 /** Run one schema-decoded Play reviews operation. */
-export const playReviewsCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, PlayReviewsCommandFailure, PlayReviewsCommandRequirements> =>
-  Schema.decodeUnknown(PlayReviewsCommandInputSchema)(rawCommandInput).pipe(
-    Effect.mapError((cause) => playReviewsFailure('list', cause)),
-    Effect.flatMap(runPlayReviewsOperation),
-  );
+export async function playReviewsCommandProgram(rawCommandInput: unknown): Promise<void> {
+  let commandInput: PlayReviewsCommandInput;
+
+  try {
+    commandInput = decodePlayReviewsCommandInput(rawCommandInput);
+  } catch (cause) {
+    throw playReviewsFailure('list', cause);
+  }
+
+  try {
+    await runPlayReviewsOperation(commandInput);
+  } catch (cause) {
+    throw playReviewsFailure(commandInput.operation, cause);
+  }
+}

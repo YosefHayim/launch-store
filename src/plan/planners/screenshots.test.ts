@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { runPlanner } from './planner.testkit.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -54,8 +53,8 @@ const makeCtx = (api: AscSurfacesApi | null, app: AppDescriptor): PlanContext =>
   return {
     config,
     apps: [app],
-    resolveAscApi: () => Effect.succeed(api),
-    resolvePlayApi: () => Effect.succeed(null),
+    resolveAscApi: () => Promise.resolve(api),
+    resolvePlayApi: () => Promise.resolve(null),
   };
 };
 /** A fake whose editable version carries an en-US localization, so a local screenshot plans an upload. */

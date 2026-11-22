@@ -1,17 +1,11 @@
-import { Effect } from 'effect';
-import { parseOwnerFlag, parsePlatformFlag } from '../portfolio/appsCommand.js';
-import { LaunchLogger, type Logger } from '../services/platform/logger.js';
-import type { CommandExit } from '../terminal/commandExit.js';
-import {
-  endWithUsageFailure,
-  makeUsageFailure,
-  type UsageFailure,
-} from '../terminal/usageFailure.js';
+import type { AppOwner, PortfolioPlatform } from '../types/portfolio.js';
+import { createLogger } from '../services/platform/logger.js';
+import { makeCommandExit } from '../terminal/commandExit.js';
+import { makeUsageFailure, type UsageFailure } from '../terminal/usageFailure.js';
 import type { AppStatsReport, StatsReport } from '../types/statsReport.js';
 import { parseDaysFlag } from './statsSyncCommand.js';
-import { createStatsReport, type StatsReportFailure } from './statsReport.js';
+import { createStatsReport } from './statsReport.js';
 import { describeAppStats } from './statsReportText.js';
-import type { StatsSyncRequirements } from './syncStats.js';
 
 export interface StatsCommandRequest {
   readonly platform: string | undefined;
@@ -21,61 +15,157 @@ export interface StatsCommandRequest {
   readonly json: boolean;
 }
 
-const showAppReport = (appReport: AppStatsReport): Effect.Effect<void, never, Logger> =>
-  Effect.gen(function* () {
-    const logger = yield* LaunchLogger;
-    for (const line of describeAppStats(appReport)) {
-      yield* logger.line(line).pipe(Effect.orDie);
-    }
-  });
+function isUsageFailure(cause: unknown): cause is UsageFailure {
+  if (cause == null) {
+    return false;
+  }
 
-const showReport = (report: StatsReport): Effect.Effect<void, never, Logger> =>
-  Effect.gen(function* () {
-    const logger = yield* LaunchLogger;
-    const hasNoApps = report.apps.length === 0;
-    if (hasNoApps) yield* logger.note('No apps found.').pipe(Effect.orDie);
-    for (const appReport of report.apps) yield* showAppReport(appReport);
-    if (report.isStale) {
-      yield* logger
-        .warn('Some numbers are old: a sync did not finish. Run `launch stats sync` to see why.')
-        .pipe(Effect.orDie);
-    }
-  });
+  if (typeof cause != 'object') {
+    return false;
+  }
 
-const readAppName = (appText: string | undefined): string | null => {
-  if (appText === undefined) return null;
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'UsageFailure';
+}
+
+function isAppNotFound(cause: unknown): cause is { message: string } {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  if (cause._tag != 'StatsReportAppNotFoundFailure') {
+    return false;
+  }
+
+  if ('message' in cause == false) {
+    return false;
+  }
+
+  return typeof cause.message == 'string';
+}
+
+function finishUsageFailure(usageFailure: UsageFailure, isJson: boolean): never {
+  const logger = createLogger(false);
+
+  if (isJson) {
+    logger.line(JSON.stringify({ ok: false, error: usageFailure.message }));
+  }
+
+  const isHumanOutput = isJson == false;
+
+  if (isHumanOutput) {
+    logger.error(usageFailure.message);
+  }
+
+  throw makeCommandExit({ exitCode: 2, message: usageFailure.message });
+}
+
+function readPlatformFlag(platformFlag: string | undefined): PortfolioPlatform | null {
+  if (platformFlag == null) {
+    return null;
+  }
+
+  if (platformFlag == 'ios') {
+    return 'ios';
+  }
+
+  if (platformFlag == 'android') {
+    return 'android';
+  }
+
+  throw makeUsageFailure({ message: '--platform must be ios or android.' });
+}
+
+function readOwnerFlag(ownerFlag: string | undefined): AppOwner | null {
+  if (ownerFlag == null) {
+    return null;
+  }
+
+  if (ownerFlag == 'mine') {
+    return 'mine';
+  }
+
+  if (ownerFlag == 'client') {
+    return 'client';
+  }
+
+  throw makeUsageFailure({ message: '--owner must be mine or client.' });
+}
+
+function readAppName(appText: string | undefined): string | null {
+  if (appText == null) {
+    return null;
+  }
+
   return appText;
-};
+}
+
+function showAppReport(appReport: AppStatsReport): void {
+  const logger = createLogger(false);
+
+  for (const line of describeAppStats(appReport)) {
+    logger.line(line);
+  }
+}
+
+function showReport(report: StatsReport): void {
+  const logger = createLogger(false);
+  const hasNoApps = report.apps.length == 0;
+
+  if (hasNoApps) {
+    logger.note('No apps found.');
+  }
+
+  for (const appReport of report.apps) {
+    showAppReport(appReport);
+  }
+
+  if (report.isStale) {
+    logger.warn('Some numbers are old: a sync did not finish. Run `launch stats sync` to see why.');
+  }
+}
 
 /** `launch stats`: read the saved numbers of the apps, after refreshing the old ones. */
-export const statsReportProgram = (
-  request: StatsCommandRequest,
-): Effect.Effect<
-  void,
-  CommandExit | Exclude<StatsReportFailure, { _tag: 'StatsReportAppNotFoundFailure' }>,
-  StatsSyncRequirements | Logger
-> =>
-  Effect.gen(function* () {
-    const logger = yield* LaunchLogger;
-    const platform = yield* parsePlatformFlag(request.platform);
-    const owner = yield* parseOwnerFlag(request.owner);
-    const days = yield* parseDaysFlag(request.days);
-    const report = yield* createStatsReport({
+export async function statsReportProgram(request: StatsCommandRequest): Promise<void> {
+  const logger = createLogger(false);
+
+  try {
+    const platform = readPlatformFlag(request.platform);
+    const owner = readOwnerFlag(request.owner);
+    const days = parseDaysFlag(request.days);
+    const report = await createStatsReport({
       platform,
       owner,
       appName: readAppName(request.app),
       days,
-    }).pipe(
-      Effect.catchTag('StatsReportAppNotFoundFailure', (notFound) =>
-        Effect.fail<UsageFailure>(makeUsageFailure({ message: notFound.message })),
-      ),
-    );
+    });
+
     if (request.json) {
-      return yield* logger.line(JSON.stringify({ ok: true, ...report })).pipe(Effect.orDie);
+      logger.line(JSON.stringify({ ok: true, ...report }));
+      return;
     }
-    yield* showReport(report);
-  }).pipe(
-    Effect.catchTag('UsageFailure', (usageFailure) =>
-      endWithUsageFailure(usageFailure, request.json),
-    ),
-  );
+
+    showReport(report);
+  } catch (cause) {
+    if (isAppNotFound(cause)) {
+      throw finishUsageFailure(makeUsageFailure({ message: cause.message }), request.json);
+    }
+
+    if (isUsageFailure(cause)) {
+      throw finishUsageFailure(cause, request.json);
+    }
+
+    throw cause;
+  }
+}

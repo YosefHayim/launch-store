@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { runPlanner } from './planner.testkit.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -39,8 +38,8 @@ const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext =>
   return {
     config,
     apps: [ALPHA],
-    resolveAscApi: () => Effect.succeed(api),
-    resolvePlayApi: () => Effect.succeed(null),
+    resolveAscApi: () => Promise.resolve(api),
+    resolvePlayApi: () => Promise.resolve(null),
   };
 };
 const DECLARED = { pages: [{ name: 'page1' }] };

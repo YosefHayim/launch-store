@@ -1,10 +1,23 @@
-import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect } from 'effect';
-import { captureCommandOutput, provideNodeCommandServices } from '../services/platform/exec.js';
-import { LaunchPaths } from '../services/platform/paths.js';
-/** Outcome of an {@link ensureArtifactDirIgnored} attempt. */
+import { readFile, writeFile } from 'node:fs/promises';
+import { isAbsolute, join, relative, sep } from 'node:path';
+import { pathExists } from '../path-exists.js';
+import { captureCommandOutput } from '../services/platform/exec.js';
+import { readLaunchDirectories } from '../services/platform/paths.js';
+
+type GitignoreChange = { added: false } | { added: true; entry: string };
+
+type GitignoreFailure = Readonly<{
+  _tag: 'GitignoreFailure';
+  path: string;
+  cause: unknown;
+}>;
+
+function makeGitignoreFailure(path: string, cause: unknown): GitignoreFailure {
+  return { _tag: 'GitignoreFailure', path, cause };
+}
+
 // A git hook exports GIT_DIR, and then `git -C <dir>` treats <dir> as that repo. Drop it so discovery follows the directory.
-function runGit(directory: string, gitArguments: readonly string[]) {
+async function runGit(directory: string, gitArguments: readonly string[]): Promise<string> {
   return captureCommandOutput('env', [
     '-u',
     'GIT_DIR',
@@ -18,63 +31,134 @@ function runGit(directory: string, gitArguments: readonly string[]) {
 }
 
 /** The git work-tree root containing `dir`, or null when `dir` isn't inside a repo (or git is absent). */
-const repoRoot = (dir: string): Effect.Effect<string | null> =>
-  provideNodeCommandServices(runGit(dir, ['rev-parse', '--show-toplevel'])).pipe(
-    Effect.catchAll(() => Effect.succeed(null)),
-  );
+async function repoRoot(directory: string): Promise<string | null> {
+  try {
+    return await runGit(directory, ['rev-parse', '--show-toplevel']);
+  } catch (error) {
+    const gitIsUnavailable = error != null;
+
+    if (gitIsUnavailable) {
+      return null;
+    }
+
+    return null;
+  }
+}
+
 /** Whether git already ignores `dir` (by any pattern). `check-ignore -q` exits 0 when ignored, 1 otherwise. */
-const alreadyIgnored = (root: string, dir: string): Effect.Effect<boolean> =>
-  provideNodeCommandServices(runGit(root, ['check-ignore', '-q', '--', dir])).pipe(
-    Effect.as(true),
-    Effect.catchAll(() => Effect.succeed(false)),
-  );
-type GitignoreFailure = Readonly<{
-  readonly _tag: 'GitignoreFailure';
-  readonly path: string;
-  readonly cause: unknown;
-}>;
-const makeGitignoreFailure = Data.tagged<GitignoreFailure>('GitignoreFailure');
+async function alreadyIgnored(root: string, directory: string): Promise<boolean> {
+  try {
+    await runGit(root, ['check-ignore', '-q', '--', directory]);
+
+    return true;
+  } catch (error) {
+    const isNotIgnored = error != null;
+
+    if (isNotIgnored) {
+      return false;
+    }
+
+    return false;
+  }
+}
+
+function ignoreGap(existingText: string): string {
+  const isEmpty = existingText.length == 0;
+
+  if (isEmpty) {
+    return '';
+  }
+
+  const alreadyHasBlankLine = existingText.endsWith('\n\n');
+
+  if (alreadyHasBlankLine) {
+    return '';
+  }
+
+  return '\n';
+}
+
 /**
  * Ensure `resolvedDir` (an absolute artifact directory) is git-ignored when it lives inside the project's
  * repo. `projectDir` is where the repo is located from - defaults to the current directory (which is the
  * project root, since `launch` loads its config from there). Returns whether an entry was added.
  */
-export const ensureArtifactDirIgnored = (resolvedDir: string, requestedProjectDirectory?: string) =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    let projectDirectory = requestedProjectDirectory;
-    if (projectDirectory === undefined) projectDirectory = (yield* LaunchPaths).workingDirectory;
-    const root = yield* repoRoot(projectDirectory);
-    if (!root) return { added: false };
-    const rel = pathService.relative(root, resolvedDir);
-    if (rel === '') return { added: false };
-    if (rel.startsWith('..')) return { added: false };
-    if (pathService.isAbsolute(rel)) return { added: false };
-    if (yield* alreadyIgnored(root, resolvedDir)) return { added: false };
-    // Anchored, NO trailing slash: a directory-only (`foo/`) pattern only matches via `check-ignore` once
-    // the directory exists on disk, so it would re-append every run before the first build creates the dir.
-    // The anchored form matches whether the dir exists yet or not - keeping this idempotent - and still
-    // ignores the directory and everything under it (binaries + `objects/`).
-    const entry = `/${rel.split(pathService.sep).join('/')}`;
-    const gitignorePath = pathService.join(root, '.gitignore');
-    let existing = '';
-    const gitignoreExists = yield* fileSystem
-      .exists(gitignorePath)
-      .pipe(Effect.mapError((cause) => makeGitignoreFailure({ path: gitignorePath, cause })));
+export async function ensureArtifactDirIgnored(
+  resolvedDir: string,
+  requestedProjectDirectory?: string,
+): Promise<GitignoreChange> {
+  let projectDirectory = readLaunchDirectories().workingDirectory;
+
+  if (requestedProjectDirectory != null) {
+    projectDirectory = requestedProjectDirectory;
+  }
+
+  const root = await repoRoot(projectDirectory);
+  const hasNoRepo = root == null;
+
+  if (hasNoRepo) {
+    return { added: false };
+  }
+
+  const relativePath = relative(root, resolvedDir);
+  const isRepoRoot = relativePath == '';
+
+  if (isRepoRoot) {
+    return { added: false };
+  }
+
+  const leavesTheRepo = relativePath.startsWith('..');
+
+  if (leavesTheRepo) {
+    return { added: false };
+  }
+
+  const isOutsidePath = isAbsolute(relativePath);
+
+  if (isOutsidePath) {
+    return { added: false };
+  }
+
+  const isIgnored = await alreadyIgnored(root, resolvedDir);
+
+  if (isIgnored) {
+    return { added: false };
+  }
+
+  // Anchored, NO trailing slash: a directory-only (`foo/`) pattern only matches via `check-ignore` once
+  // the directory exists on disk, so it would re-append every run before the first build creates the dir.
+  const entry = `/${relativePath.split(sep).join('/')}`;
+  const gitignorePath = join(root, '.gitignore');
+  let existing = '';
+
+  try {
+    const gitignoreExists = await pathExists(gitignorePath);
+
     if (gitignoreExists) {
-      existing = yield* fileSystem
-        .readFileString(gitignorePath)
-        .pipe(Effect.mapError((cause) => makeGitignoreFailure({ path: gitignorePath, cause })));
+      existing = await readFile(gitignorePath, 'utf8');
     }
-    let base = existing;
-    if (base.length > 0 && !base.endsWith('\n')) base = `${base}\n`;
-    let gap = '\n';
-    if (base.length === 0) gap = '';
-    else if (base.endsWith('\n\n')) gap = '';
-    /** Marker comment that headers Launch's auto-added ignore entry, so it's recognizable and removable by hand. */
-    yield* fileSystem
-      .writeFileString(gitignorePath, `${base}${gap}# launch build artifacts\n${entry}\n`)
-      .pipe(Effect.mapError((cause) => makeGitignoreFailure({ path: gitignorePath, cause })));
-    return { added: true, entry };
-  });
+  } catch (cause) {
+    throw makeGitignoreFailure(gitignorePath, cause);
+  }
+
+  let base = existing;
+  const needsTrailingNewline = base.length > 0;
+
+  if (needsTrailingNewline) {
+    const endsWithNewline = base.endsWith('\n');
+
+    if (endsWithNewline == false) {
+      base = `${base}\n`;
+    }
+  }
+
+  const gap = ignoreGap(base);
+
+  try {
+    await writeFile(gitignorePath, `${base}${gap}# launch build artifacts\n${entry}\n`);
+  } catch (cause) {
+    throw makeGitignoreFailure(gitignorePath, cause);
+  }
+
+  return { added: true, entry };
+}

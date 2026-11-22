@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { FileSystem, Path } from '@effect/platform';
-import { Clock, Data, Effect, Schema } from 'effect';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { CodeSigner } from '../credentials/codeSign.js';
 import type { Logger } from '../services/platform/logger.js';
+import { pathExists } from '../path-exists.js';
 import type { StorageProvider } from '../types/providers.js';
 import { assembleManifest, contentTypeFor, type ManifestAsset } from './otaManifest.js';
 import { activateUpdate } from './updateHistory.js';
@@ -21,75 +22,145 @@ export type ExportMetadata = {
   >;
 };
 
-const ExportMetadataSchema: Schema.Schema<ExportMetadata> = Schema.mutable(
-  Schema.Struct({
-    fileMetadata: Schema.mutable(
-      Schema.Record({
-        key: Schema.String,
-        value: Schema.mutable(
-          Schema.Struct({
-            bundle: Schema.String,
-            assets: Schema.mutable(
-              Schema.Array(
-                Schema.mutable(
-                  Schema.Struct({
-                    path: Schema.String,
-                    ext: Schema.String,
-                  }),
-                ),
-              ),
-            ),
-          }),
-        ),
-      }),
-    ),
-  }),
-);
-
-/** Expo export metadata is missing or does not match the expected contract. */
 export type OtaPublishFailure = Readonly<{
   readonly _tag: 'OtaPublishFailure';
   readonly message: string;
 }>;
 
-const makeOtaPublishFailure = Data.tagged<OtaPublishFailure>('OtaPublishFailure');
+function makeOtaPublishFailure(message: string): OtaPublishFailure {
+  return { _tag: 'OtaPublishFailure', message };
+}
 
-/** Read and validate metadata.json from an Expo export directory. */
-export const readExportMetadata = (
-  exportDirectory: string,
-): Effect.Effect<ExportMetadata, OtaPublishFailure, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const metadataFilePath = pathService.join(exportDirectory, 'metadata.json');
-    const metadataExists = yield* fileSystem
-      .exists(metadataFilePath)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!metadataExists) {
-      return yield* Effect.fail(
-        makeOtaPublishFailure({
-          message: `No metadata.json in ${exportDirectory}; Expo export may not have completed.`,
-        }),
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (candidate == null) {
+    return false;
+  }
+
+  return Array.isArray(candidate) == false;
+}
+
+function decodeExportMetadata(metadataText: string, metadataFilePath: string): ExportMetadata {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(metadataText);
+  } catch (cause) {
+    const isUnreadable = cause != null;
+
+    if (isUnreadable) {
+      throw makeOtaPublishFailure(
+        `${metadataFilePath} does not contain valid Expo export metadata.`,
       );
     }
 
-    const metadataText = yield* fileSystem.readFileString(metadataFilePath).pipe(
-      Effect.mapError(() =>
-        makeOtaPublishFailure({
-          message: `Could not read ${metadataFilePath}.`,
-        }),
-      ),
-    );
-    return yield* Schema.decodeUnknown(Schema.parseJson(ExportMetadataSchema))(metadataText).pipe(
-      Effect.mapError(() =>
-        makeOtaPublishFailure({
-          message: `${metadataFilePath} does not contain valid Expo export metadata.`,
-        }),
-      ),
-    );
-  });
+    throw makeOtaPublishFailure(`${metadataFilePath} does not contain valid Expo export metadata.`);
+  }
 
-/** Inputs required to publish one platform update. */
+  if (isRecord(parsed) == false) {
+    throw makeOtaPublishFailure(`${metadataFilePath} does not contain valid Expo export metadata.`);
+  }
+
+  if (isRecord(parsed['fileMetadata']) == false) {
+    throw makeOtaPublishFailure(`${metadataFilePath} does not contain valid Expo export metadata.`);
+  }
+
+  const fileMetadata: ExportMetadata['fileMetadata'] = {};
+
+  for (const platformName of Object.keys(parsed['fileMetadata'])) {
+    const platformMetadata = parsed['fileMetadata'][platformName];
+
+    if (isRecord(platformMetadata) == false) {
+      throw makeOtaPublishFailure(
+        `${metadataFilePath} does not contain valid Expo export metadata.`,
+      );
+    }
+
+    if (typeof platformMetadata['bundle'] != 'string') {
+      throw makeOtaPublishFailure(
+        `${metadataFilePath} does not contain valid Expo export metadata.`,
+      );
+    }
+
+    if (Array.isArray(platformMetadata['assets']) == false) {
+      throw makeOtaPublishFailure(
+        `${metadataFilePath} does not contain valid Expo export metadata.`,
+      );
+    }
+
+    const assets: ExportMetadata['fileMetadata'][string]['assets'] = [];
+
+    for (const asset of platformMetadata['assets']) {
+      if (isRecord(asset) == false) {
+        throw makeOtaPublishFailure(
+          `${metadataFilePath} does not contain valid Expo export metadata.`,
+        );
+      }
+
+      if (typeof asset['path'] != 'string') {
+        throw makeOtaPublishFailure(
+          `${metadataFilePath} does not contain valid Expo export metadata.`,
+        );
+      }
+
+      if (typeof asset['ext'] != 'string') {
+        throw makeOtaPublishFailure(
+          `${metadataFilePath} does not contain valid Expo export metadata.`,
+        );
+      }
+
+      assets.push({ path: asset['path'], ext: asset['ext'] });
+    }
+
+    fileMetadata[platformName] = { bundle: platformMetadata['bundle'], assets };
+  }
+
+  return { fileMetadata };
+}
+
+/** Read and validate metadata.json from an Expo export directory. */
+export async function readExportMetadata(exportDirectory: string): Promise<ExportMetadata> {
+  const metadataFilePath = join(exportDirectory, 'metadata.json');
+  const metadataExists = await pathExists(metadataFilePath);
+
+  if (metadataExists == false) {
+    throw makeOtaPublishFailure(
+      `No metadata.json in ${exportDirectory}; Expo export may not have completed.`,
+    );
+  }
+
+  try {
+    const metadataText = await readFile(metadataFilePath, 'utf8');
+
+    return decodeExportMetadata(metadataText, metadataFilePath);
+  } catch (cause) {
+    if (isOtaPublishFailure(cause)) {
+      throw cause;
+    }
+
+    throw makeOtaPublishFailure(`Could not read ${metadataFilePath}.`);
+  }
+}
+
+function isOtaPublishFailure(cause: unknown): cause is OtaPublishFailure {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'OtaPublishFailure';
+}
+
 type OtaPublishInput = Readonly<{
   readonly storage: StorageProvider;
   readonly distDir: string;
@@ -100,7 +171,6 @@ type OtaPublishInput = Readonly<{
   readonly signer: CodeSigner | null;
 }>;
 
-/** Details produced by one platform publish. */
 type OtaPublishDetails = Readonly<{
   readonly published: boolean;
   readonly manifestId?: string;
@@ -109,77 +179,83 @@ type OtaPublishDetails = Readonly<{
   readonly prefix: string;
 }>;
 
-/** Create a random RFC 4122 version-4 UUID for one published update. */
-const createUpdateId = (): Effect.Effect<string> => Effect.sync(() => randomUUID());
+async function uploadExportFile(
+  publishInput: OtaPublishInput,
+  relativeFilePath: string,
+  fileExtension?: string,
+): Promise<ManifestAsset> {
+  const objectPrefix = `updates/${publishInput.channel}/${publishInput.platform}/${publishInput.runtimeVersion}`;
+  const objectKey = `${objectPrefix}/${relativeFilePath}`;
+  const assetBytes = await readFile(join(publishInput.distDir, relativeFilePath));
+  const contentType = contentTypeFor(relativeFilePath);
+
+  await publishInput.storage.putObject(objectKey, assetBytes, contentType);
+
+  const manifestAsset: ManifestAsset = {
+    key: relativeFilePath,
+    contentType,
+    url: publishInput.storage.publicUrl(objectKey),
+  };
+
+  if (fileExtension == null) {
+    return manifestAsset;
+  }
+
+  return { ...manifestAsset, fileExtension: `.${fileExtension}` };
+}
 
 /** Publish one platform bundle, its assets, active manifest, and history snapshot. */
-export const publishOtaPlatform = (
+export async function publishOtaPlatform(
   publishInput: OtaPublishInput,
   logger: Logger,
-): Effect.Effect<OtaPublishDetails, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const { storage, distDir, metadata, platform, channel, runtimeVersion, signer } = publishInput;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const objectPrefix = `updates/${channel}/${platform}/${runtimeVersion}`;
-    const platformMetadata = metadata.fileMetadata[platform];
-    if (platformMetadata === undefined) {
-      yield* logger.warn(`No ${platform} bundle in the export; skipping.`);
-      return { published: false, assetCount: 0, prefix: objectPrefix };
-    }
+): Promise<OtaPublishDetails> {
+  const { storage, metadata, platform, channel, runtimeVersion, signer } = publishInput;
+  const objectPrefix = `updates/${channel}/${platform}/${runtimeVersion}`;
+  const platformMetadata = metadata.fileMetadata[platform];
 
-    const uploadExportFile = (
-      relativeFilePath: string,
-      fileExtension?: string,
-    ): Effect.Effect<ManifestAsset, unknown, Path.Path> =>
-      Effect.gen(function* () {
-        const objectKey = `${objectPrefix}/${relativeFilePath}`;
-        const assetBytes = yield* fileSystem.readFile(pathService.join(distDir, relativeFilePath));
-        const contentType = yield* contentTypeFor(relativeFilePath);
-        yield* storage.putObject(objectKey, Buffer.from(assetBytes), contentType);
-        const manifestAsset: ManifestAsset = {
-          key: relativeFilePath,
-          contentType,
-          url: storage.publicUrl(objectKey),
-        };
-        if (fileExtension === undefined) return manifestAsset;
-        return { ...manifestAsset, fileExtension: `.${fileExtension}` };
-      });
+  if (platformMetadata == null) {
+    logger.warn(`No ${platform} bundle in the export; skipping.`);
 
-    const launchAsset = yield* uploadExportFile(platformMetadata.bundle);
-    const manifestAssets = yield* Effect.forEach(
-      platformMetadata.assets,
-      (exportedAsset) => uploadExportFile(exportedAsset.path, exportedAsset.ext),
-      { concurrency: 'unbounded' },
-    );
-    const manifestId = yield* createUpdateId();
-    const epochMilliseconds = yield* Clock.currentTimeMillis;
-    const createdAt = new Date(epochMilliseconds).toISOString();
-    const updateManifest = assembleManifest({
-      id: manifestId,
-      createdAt,
-      runtimeVersion,
-      launchAsset,
-      assets: manifestAssets,
-    });
-    yield* activateUpdate({
-      storage,
-      channel,
-      platform,
-      updateManifest,
-      kind: 'publish',
-      signer,
-    });
-    yield* logger.step(
-      'update',
-      `${platform} - ${manifestAssets.length} asset(s) -> ${objectPrefix}/`,
-      'ota-update',
-    );
-    return {
-      published: true,
-      manifestId,
-      createdAt,
-      assetCount: manifestAssets.length,
-      prefix: objectPrefix,
-    };
+    return { published: false, assetCount: 0, prefix: objectPrefix };
+  }
+
+  const launchAsset = await uploadExportFile(publishInput, platformMetadata.bundle);
+
+  function uploadAsset(exportedAsset: { path: string; ext: string }): Promise<ManifestAsset> {
+    return uploadExportFile(publishInput, exportedAsset.path, exportedAsset.ext);
+  }
+
+  const manifestAssets = await Promise.all(platformMetadata.assets.map(uploadAsset));
+
+  const manifestId = randomUUID();
+  const createdAt = new Date().toISOString();
+  const updateManifest = assembleManifest({
+    id: manifestId,
+    createdAt,
+    runtimeVersion,
+    launchAsset,
+    assets: manifestAssets,
   });
+
+  await activateUpdate({
+    storage,
+    channel,
+    platform,
+    updateManifest,
+    kind: 'publish',
+    signer,
+  });
+  logger.step(
+    'update',
+    `${platform} - ${manifestAssets.length} asset(s) -> ${objectPrefix}/`,
+    'ota-update',
+  );
+
+  return {
+    published: true,
+    manifestId,
+    createdAt,
+    assetCount: manifestAssets.length,
+    prefix: objectPrefix,
+  };
+}

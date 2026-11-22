@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { Effect } from 'effect';
+import { afterEach, describe, expect, it } from 'vitest';
+import { formatElapsed } from './elapsed.js';
+import { resetLogger, useJsonHumanWriter, useLoggerSink } from './logger.js';
 import {
   formatProgressLine,
   gradleProgressStep,
@@ -9,8 +10,10 @@ import {
   withSpinner,
   xcodeProgressStep,
 } from './progress.js';
-import { formatElapsed } from './elapsed.js';
-import { makeLaunchLoggerJsonTest, makeLaunchLoggerTest } from './logger.js';
+
+afterEach(function resetLoggerSink() {
+  resetLogger();
+});
 describe('selectProgressMode - only a real interactive TTY gets the spinner', () => {
   it('uses the spinner on an interactive, non-CI TTY without --verbose', () => {
     expect(selectProgressMode(true, {}, false)).toBe('spinner');
@@ -86,32 +89,36 @@ describe('isInteractive - prompt only on a real, non-CI TTY', () => {
 });
 describe('withSpinner - silent network steps degrade cleanly off-TTY', () => {
   it('runs the task and returns its result (no spinner without a TTY)', async () => {
-    await expect(
-      Effect.runPromise(
-        withSpinner('looking up', () => Effect.succeed(42)).pipe(
-          Effect.provide(makeLaunchLoggerTest([])),
-        ),
-      ),
-    ).resolves.toBe(42);
+    async function lookup(): Promise<number> {
+      return 42;
+    }
+
+    const lookedUp = await withSpinner('looking up', lookup);
+    expect(lookedUp).toBe(42);
   });
   it('propagates a task rejection', async () => {
-    await expect(
-      Effect.runPromise(
-        withSpinner('looking up', () => Effect.fail(new Error('boom'))).pipe(
-          Effect.provide(makeLaunchLoggerTest([])),
-        ),
-      ),
-    ).rejects.toThrow('boom');
+    async function failLookup(): Promise<number> {
+      throw new Error('boom');
+    }
+
+    await expect(withSpinner('looking up', failLookup)).rejects.toThrow('boom');
   });
 });
 describe('withSpinner - progress events under --json', () => {
   it('emits start then done with the elapsed time', async () => {
     const eventLines: string[] = [];
-    await Effect.runPromise(
-      withSpinner('looking up', () => Effect.succeed(42)).pipe(
-        Effect.provide(makeLaunchLoggerJsonTest(eventLines, [])),
-      ),
-    );
+    useLoggerSink(function writeEvent(text: string) {
+      eventLines.push(text);
+    });
+    useJsonHumanWriter(function writeHuman() {
+      return undefined;
+    });
+
+    async function lookup(): Promise<number> {
+      return 42;
+    }
+
+    await withSpinner('looking up', lookup);
     const events = eventLines.map((eventLine) => JSON.parse(eventLine));
     expect(events[0]).toEqual({ event: 'progress', label: 'looking up', status: 'start' });
     expect(events[1]).toMatchObject({ event: 'progress', label: 'looking up', status: 'done' });
@@ -120,12 +127,18 @@ describe('withSpinner - progress events under --json', () => {
   it('emits start then fail when the task fails', async () => {
     const eventLines: string[] = [];
     const humanLines: string[] = [];
-    await Effect.runPromise(
-      withSpinner('looking up', () => Effect.fail(new Error('boom'))).pipe(
-        Effect.ignore,
-        Effect.provide(makeLaunchLoggerJsonTest(eventLines, humanLines)),
-      ),
-    );
+    useLoggerSink(function writeEvent(text: string) {
+      eventLines.push(text);
+    });
+    useJsonHumanWriter(function writeHuman(text: string) {
+      humanLines.push(text);
+    });
+
+    async function failLookup(): Promise<number> {
+      throw new Error('boom');
+    }
+
+    await expect(withSpinner('looking up', failLookup)).rejects.toThrow('boom');
     const events = eventLines.map((eventLine) => JSON.parse(eventLine));
     expect(events).toEqual([
       { event: 'progress', label: 'looking up', status: 'start' },

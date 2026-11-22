@@ -1,9 +1,7 @@
-// Stores build-secret coordinates on disk while values remain in the OS secret store.
-
-import { FileSystem, Path } from '@effect/platform';
-import { Effect, Schema } from 'effect';
-import { deleteSecret, getSecret, setSecret } from '../credentials/storedSecret.js';
-import { type LaunchPathsService, resolveSecretsFilePath } from '../services/platform/paths.js';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { LaunchSecretStore } from '../services/credentials/secretStore.js';
+import { resolveSecretsFilePath } from '../services/platform/paths.js';
 
 /** Non-secret coordinates for one app/profile environment secret. */
 export type SecretRef = Readonly<{
@@ -14,123 +12,249 @@ export type SecretRef = Readonly<{
 
 type SecretsIndex = Readonly<{ secrets: readonly SecretRef[] }>;
 
-const SecretRefSchema = Schema.Struct({
-  app: Schema.String,
-  profile: Schema.NullOr(Schema.String),
-  name: Schema.String,
-});
-const SecretsIndexSchema = Schema.Struct({ secrets: Schema.Array(SecretRefSchema) });
+const EMPTY_SECRETS_INDEX: SecretsIndex = { secrets: [] };
 
 /** Resolve the secret-store account for one scoped build secret. */
-const secretAccount = (secretReference: SecretRef): string => {
+function secretAccount(secretReference: SecretRef): string {
   let profile = '*';
-  if (secretReference.profile !== null) profile = secretReference.profile;
+  const hasProfile = secretReference.profile != null;
+
+  if (hasProfile) {
+    profile = secretReference.profile;
+  }
+
   return `build-secret:${secretReference.app}:${profile}:${secretReference.name}`;
-};
+}
 
 /** Compare two secret coordinates by their natural key. */
-const sameSecret = (left: SecretRef, right: SecretRef): boolean =>
-  left.app === right.app && left.profile === right.profile && left.name === right.name;
+function sameSecret(left: SecretRef, right: SecretRef): boolean {
+  const isSameApp = left.app == right.app;
+
+  if (isSameApp == false) {
+    return false;
+  }
+
+  const isSameProfile = left.profile == right.profile;
+
+  if (isSameProfile == false) {
+    return false;
+  }
+
+  return left.name == right.name;
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  const isObject = typeof candidate == 'object';
+
+  if (isObject == false) {
+    return false;
+  }
+
+  return candidate != null;
+}
+
+function decodeSecretRef(candidate: unknown): SecretRef | null {
+  const isSecretRecord = isRecord(candidate);
+
+  if (isSecretRecord == false) {
+    return null;
+  }
+
+  const appName = candidate['app'];
+  const appIsString = typeof appName == 'string';
+
+  if (appIsString == false) {
+    return null;
+  }
+
+  const secretName = candidate['name'];
+  const nameIsString = typeof secretName == 'string';
+
+  if (nameIsString == false) {
+    return null;
+  }
+
+  const hasProfile = Object.hasOwn(candidate, 'profile');
+
+  if (hasProfile == false) {
+    return null;
+  }
+
+  const profile = candidate['profile'];
+  const profileIsNull = profile == null;
+  const profileIsString = typeof profile == 'string';
+
+  if (profileIsNull) {
+    return { app: appName, profile: null, name: secretName };
+  }
+
+  if (profileIsString == false) {
+    return null;
+  }
+
+  return { app: appName, profile, name: secretName };
+}
+
+function decodeSecretsIndex(decoded: unknown): SecretsIndex | null {
+  const isIndexRecord = isRecord(decoded);
+
+  if (isIndexRecord == false) {
+    return null;
+  }
+
+  const secretList = decoded['secrets'];
+  const isList = Array.isArray(secretList);
+
+  if (isList == false) {
+    return null;
+  }
+
+  const secretReferences: SecretRef[] = [];
+
+  for (const candidate of secretList) {
+    const secretReference = decodeSecretRef(candidate);
+    const isValid = secretReference != null;
+
+    if (isValid == false) {
+      return null;
+    }
+
+    secretReferences.push(secretReference);
+  }
+
+  return { secrets: secretReferences };
+}
 
 /** Read and decode the non-secret index, degrading missing or malformed files to an empty index. */
-const readIndex = (): Effect.Effect<
-  SecretsIndex,
-  never,
-  FileSystem.FileSystem | Path.Path | LaunchPathsService
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const indexPath = yield* resolveSecretsFilePath();
-    const encodedIndex = yield* fileSystem
-      .readFileString(indexPath)
-      .pipe(Effect.catchAll(() => Effect.succeed(null)));
-    if (encodedIndex === null) return { secrets: [] };
-    const decodedIndex = yield* Effect.try({
-      try: () => JSON.parse(encodedIndex),
-      catch: () => null,
-    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
-    if (decodedIndex === null) return { secrets: [] };
-    const schemaOutcome = Schema.decodeUnknownEither(SecretsIndexSchema)(decodedIndex);
-    if (schemaOutcome._tag === 'Left') return { secrets: [] };
-    return schemaOutcome.right;
-  });
+async function readIndex(): Promise<SecretsIndex> {
+  const indexPath = resolveSecretsFilePath();
+
+  try {
+    var encodedIndex = await readFile(indexPath, 'utf8');
+  } catch {
+    return EMPTY_SECRETS_INDEX;
+  }
+
+  try {
+    var decodedIndex: unknown = JSON.parse(encodedIndex);
+  } catch {
+    return EMPTY_SECRETS_INDEX;
+  }
+
+  const secretIndex = decodeSecretsIndex(decodedIndex);
+  const isInvalid = secretIndex == null;
+
+  if (isInvalid) {
+    return EMPTY_SECRETS_INDEX;
+  }
+
+  return secretIndex;
+}
 
 /** Persist the non-secret index, creating its parent directory first. */
-const writeIndex = (secretIndex: SecretsIndex) =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const indexPath = yield* resolveSecretsFilePath();
-    yield* fileSystem.makeDirectory(pathService.dirname(indexPath), { recursive: true });
-    yield* fileSystem.writeFileString(indexPath, JSON.stringify(secretIndex, null, 2));
-  });
+async function writeIndex(secretIndex: SecretsIndex): Promise<void> {
+  const indexPath = resolveSecretsFilePath();
+  await mkdir(path.dirname(indexPath), { recursive: true });
+  await writeFile(indexPath, JSON.stringify(secretIndex, null, 2));
+}
+
+function belongsToApp(appName: string): (secretReference: SecretRef) => boolean {
+  return function secretBelongsToApp(secretReference: SecretRef): boolean {
+    return secretReference.app == appName;
+  };
+}
 
 /** List recorded secret coordinates, optionally restricted to one app. */
-export const listSecretRefs = (appName?: string) =>
-  readIndex().pipe(
-    Effect.map((secretIndex) => {
-      if (appName === undefined) return secretIndex.secrets;
-      return secretIndex.secrets.filter((secretReference) => secretReference.app === appName);
-    }),
-  );
+export async function listSecretRefs(appName?: string): Promise<readonly SecretRef[]> {
+  const secretIndex = await readIndex();
+  const hasAppFilter = appName != null;
+
+  if (hasAppFilter == false) {
+    return secretIndex.secrets;
+  }
+
+  return secretIndex.secrets.filter(belongsToApp(appName));
+}
+
+function matchesReference(secretReference: SecretRef): (existingReference: SecretRef) => boolean {
+  return function existingMatches(existingReference: SecretRef): boolean {
+    return sameSecret(existingReference, secretReference);
+  };
+}
 
 /** Store a secret value and add its coordinates to the index once. */
-export const setBuildSecret = (secretReference: SecretRef, secretValue: string) =>
-  Effect.gen(function* () {
-    yield* setSecret(secretAccount(secretReference), secretValue);
-    const secretIndex = yield* readIndex();
-    if (
-      secretIndex.secrets.some((existingReference) =>
-        sameSecret(existingReference, secretReference),
-      )
-    ) {
-      return;
-    }
-    yield* writeIndex({ secrets: [...secretIndex.secrets, secretReference] });
-  });
+export async function setBuildSecret(
+  secretReference: SecretRef,
+  secretText: string,
+): Promise<void> {
+  await LaunchSecretStore.storeSecret(secretAccount(secretReference), secretText);
+  const secretIndex = await readIndex();
+  const alreadyRecorded = secretIndex.secrets.some(matchesReference(secretReference));
+
+  if (alreadyRecorded) {
+    return;
+  }
+
+  await writeIndex({ secrets: [...secretIndex.secrets, secretReference] });
+}
+
+function isDifferentSecret(secretReference: SecretRef): (existingReference: SecretRef) => boolean {
+  return function existingDiffers(existingReference: SecretRef): boolean {
+    return sameSecret(existingReference, secretReference) == false;
+  };
+}
 
 /** Delete a secret value and remove its coordinates from the index. */
-export const removeBuildSecret = (secretReference: SecretRef) =>
-  Effect.gen(function* () {
-    yield* deleteSecret(secretAccount(secretReference));
-    const secretIndex = yield* readIndex();
-    const remainingReferences = secretIndex.secrets.filter(
-      (existingReference) => !sameSecret(existingReference, secretReference),
-    );
-    const existed = remainingReferences.length !== secretIndex.secrets.length;
-    if (existed) yield* writeIndex({ secrets: remainingReferences });
-    return existed;
-  });
+export async function removeBuildSecret(secretReference: SecretRef): Promise<boolean> {
+  await LaunchSecretStore.deleteSecret(secretAccount(secretReference));
+  const secretIndex = await readIndex();
+  const remainingReferences = secretIndex.secrets.filter(isDifferentSecret(secretReference));
+  const existed = remainingReferences.length != secretIndex.secrets.length;
+
+  if (existed) {
+    await writeIndex({ secrets: remainingReferences });
+  }
+
+  return existed;
+}
+
+function isAppWide(secretReference: SecretRef): boolean {
+  return secretReference.profile == null;
+}
+
+function matchesProfile(profileName: string): (secretReference: SecretRef) => boolean {
+  return function profileMatches(secretReference: SecretRef): boolean {
+    return secretReference.profile == profileName;
+  };
+}
 
 /** Select app-wide secrets first and profile-specific overrides second. */
-export const effectiveRefs = (
+export function effectiveRefs(
   secretReferences: readonly SecretRef[],
   appName: string,
   profileName: string,
-): readonly SecretRef[] => {
-  const appReferences = secretReferences.filter(
-    (secretReference) => secretReference.app === appName,
-  );
-  return [
-    ...appReferences.filter((secretReference) => secretReference.profile === null),
-    ...appReferences.filter((secretReference) => secretReference.profile === profileName),
-  ];
-};
+): readonly SecretRef[] {
+  const appReferences = secretReferences.filter(belongsToApp(appName));
+
+  return [...appReferences.filter(isAppWide), ...appReferences.filter(matchesProfile(profileName))];
+}
 
 /** Resolve keychain values for one build, with profile-specific values overriding app-wide values. */
-export const resolveBuildSecrets = (appName: string, profileName: string) =>
-  Effect.gen(function* () {
-    const secretReferences = yield* listSecretRefs();
-    const environmentValues: Record<string, string> = {};
-    yield* Effect.forEach(
-      effectiveRefs(secretReferences, appName, profileName),
-      (secretReference) =>
-        getSecret(secretAccount(secretReference)).pipe(
-          Effect.tap((secretValue) => {
-            if (secretValue !== null) environmentValues[secretReference.name] = secretValue;
-          }),
-        ),
-      { concurrency: 1, discard: true },
-    );
-    return environmentValues;
-  });
+export async function resolveBuildSecrets(
+  appName: string,
+  profileName: string,
+): Promise<Record<string, string>> {
+  const secretReferences = await listSecretRefs();
+  const environmentValues: Record<string, string> = {};
+
+  for (const secretReference of effectiveRefs(secretReferences, appName, profileName)) {
+    const secretText = await LaunchSecretStore.readSecret(secretAccount(secretReference));
+    const hasSecret = secretText != null;
+
+    if (hasSecret) {
+      environmentValues[secretReference.name] = secretText;
+    }
+  }
+
+  return environmentValues;
+}

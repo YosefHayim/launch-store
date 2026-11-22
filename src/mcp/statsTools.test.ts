@@ -1,9 +1,7 @@
-import { Effect } from 'effect';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { makeHttpClientTest } from '@testkit/httpClient.testkit.js';
 import {
   createTemporaryHomeDirectory,
-  makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
@@ -12,44 +10,80 @@ import {
   STATS_PORTFOLIO_FILE,
   writeStatsMonthFiles,
 } from '@testkit/statsHome.testkit.js';
-import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
-import type { StatsFeedFailure, StatsFeedPlugin } from '../types/stats.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import { makeStatsCredentialsTest, useStatsCredentials } from '../stats/statsCredentials.js';
+import type { McpToolResult } from '../types/mcp.js';
 import { dispatch } from './server.js';
 import { STATS_TOOLS } from './statsTools.js';
+import type { McpTool } from '../types/mcp.js';
 
 const fakeFeed = vi.hoisted(() => ({ isFailing: false }));
 
-vi.mock('../stats/feedRegistry.js', async () => {
-  const { Effect: EffectModule } = await import('effect');
-  const iosFeed: StatsFeedPlugin = {
-    feed: 'app-store',
-    isApplicable: (app) => app.platform === 'ios',
-    fetchDays: () => {
-      if (fakeFeed.isFailing) {
-        return EffectModule.fail({
+vi.mock('../stats/feedRegistry.js', () => {
+  const iosFeed = {
+    feed: 'app-store' as const,
+    isApplicable(app: { platform: string }) {
+      return app.platform == 'ios';
+    },
+    async fetchDays() {
+      const isFailing = fakeFeed.isFailing;
+
+      if (isFailing) {
+        throw {
           _tag: 'StatsFeedFailure',
           feed: 'app-store',
           appKey: 'ios-1',
           message: 'report not ready',
           cause: null,
-        } satisfies StatsFeedFailure);
+        };
       }
-      return EffectModule.succeed({ status: 'skipped', reason: 'not built yet' });
+
+      return { status: 'skipped' as const, reason: 'not built yet' };
     },
   };
+
   return { STATS_FEED_PLUGINS: [iosFeed] };
 });
 
-const findTool = (toolName: string) => {
-  const foundTool = STATS_TOOLS.find((statsTool) => statsTool.name === toolName);
-  if (foundTool === undefined) throw new Error(`missing tool ${toolName}`);
+function findTool(toolName: string): McpTool {
+  const foundTool = STATS_TOOLS.find(function isNamedTool(statsTool: McpTool): boolean {
+    return statsTool.name == toolName;
+  });
+
+  if (foundTool == null) {
+    throw new Error(`missing tool ${toolName}`);
+  }
+
   return foundTool;
-};
+}
+
+function appKey(app: { key: string }): string {
+  return app.key;
+}
+
+function readReport(toolOutput: McpToolResult): {
+  days: number;
+  isStale: boolean;
+  apps: { key: string; totals: unknown[] }[];
+} {
+  const textBlock = toolOutput.content[0];
+
+  if (textBlock == null) {
+    throw new Error('missing tool text');
+  }
+
+  return JSON.parse(textBlock.text);
+}
 
 describe('STATS_TOOLS', () => {
   let homeDirectory: string;
+
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    useLaunchDirectories({
+      homeDirectory,
+      workingDirectory: join(homeDirectory, 'work'),
+    });
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', JSON.stringify(STATS_PORTFOLIO_FILE));
     writeStatsMonthFiles(homeDirectory, 'ios-1', [
       {
@@ -60,26 +94,29 @@ describe('STATS_TOOLS', () => {
         currency: null,
       },
     ]);
+    makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
   });
+
   afterEach(() => {
+    useStatsCredentials(null);
+    resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
-  const callTool = (toolName: string, toolArguments: Record<string, unknown>) =>
-    Effect.runPromise(
-      dispatch(findTool(toolName), toolArguments).pipe(
-        Effect.provide(makeStatsCredentialsTest()),
-        Effect.provide(makeHttpClientTest([])),
-        Effect.provide(makeLaunchHomeTest(homeDirectory)),
-      ),
-    );
-
-  const readReport = (toolOutput: Awaited<ReturnType<typeof callTool>>) =>
-    JSON.parse(toolOutput.content[0]?.text ?? '');
+  function callTool(
+    toolName: string,
+    toolArguments: Record<string, unknown>,
+  ): Promise<McpToolResult> {
+    return dispatch(findTool(toolName), toolArguments);
+  }
 
   test('lists exactly the two read-tier stats tools', () => {
-    expect(STATS_TOOLS.map((statsTool) => [statsTool.name, statsTool.capability])).toEqual([
+    expect(
+      STATS_TOOLS.map(function toolIdentity(statsTool: McpTool): [string, string] {
+        return [statsTool.name, statsTool.capability];
+      }),
+    ).toEqual([
       ['stats_portfolio', 'read'],
       ['stats_app', 'read'],
     ]);
@@ -87,9 +124,9 @@ describe('STATS_TOOLS', () => {
 
   test('stats_portfolio returns the report of all apps', async () => {
     const toolOutput = await callTool('stats_portfolio', { days: 7 });
+    const report = readReport(toolOutput);
 
     expect(toolOutput.isError).toBeUndefined();
-    const report = readReport(toolOutput);
     expect(report.days).toBe(7);
     expect(report.apps).toHaveLength(2);
   });
@@ -97,15 +134,15 @@ describe('STATS_TOOLS', () => {
   test('stats_portfolio narrows by platform and owner', async () => {
     const toolOutput = await callTool('stats_portfolio', { platform: 'ios', owner: 'mine' });
 
-    expect(readReport(toolOutput).apps.map((app: { key: string }) => app.key)).toEqual(['ios-1']);
+    expect(readReport(toolOutput).apps.map(appKey)).toEqual(['ios-1']);
   });
 
   test('stats_app returns one app found by name', async () => {
     const toolOutput = await callTool('stats_app', { app: 'cal friend' });
-
     const report = readReport(toolOutput);
+
     expect(report.days).toBe(30);
-    expect(report.apps.map((app: { key: string }) => app.key)).toEqual(['ios-1']);
+    expect(report.apps.map(appKey)).toEqual(['ios-1']);
   });
 
   test('stats_app without an app is an invalid-arguments error', async () => {
@@ -126,10 +163,17 @@ describe('STATS_TOOLS', () => {
     fakeFeed.isFailing = true;
 
     const toolOutput = await callTool('stats_portfolio', {});
+    const report = readReport(toolOutput);
 
     expect(toolOutput.isError).toBeUndefined();
-    const report = readReport(toolOutput);
     expect(report.isStale).toBe(true);
-    expect(report.apps[0].totals.length).toBeGreaterThan(0);
+
+    const firstApp = report.apps[0];
+
+    if (firstApp == null) {
+      throw new Error('missing app');
+    }
+
+    expect(firstApp.totals.length).toBeGreaterThan(0);
   });
 });

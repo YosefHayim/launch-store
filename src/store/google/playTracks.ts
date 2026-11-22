@@ -1,15 +1,11 @@
-import { Data, Effect, Schema } from 'effect';
 import type { PlayRelease } from '../../types/googlePlay.js';
 import type { MutableDeep } from '../../types/mutable.js';
 
 /** Play release statuses accepted by the Android Publisher API. */
 export const RELEASE_STATUSES = ['draft', 'inProgress', 'halted', 'completed'] as const;
 
-/** Schema for a Play track release status. */
-const PlayReleaseStatusSchema = Schema.Literal(...RELEASE_STATUSES);
-
 /** A validated Play track release status. */
-export type PlayReleaseStatus = Schema.Schema.Type<typeof PlayReleaseStatusSchema>;
+export type PlayReleaseStatus = (typeof RELEASE_STATUSES)[number];
 
 /** One localized Play release note. */
 export type ReleaseNote = Readonly<{
@@ -33,135 +29,240 @@ type PlayReleaseInputFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-const makePlayReleaseInputFailure = Data.tagged<PlayReleaseInputFailure>('PlayReleaseInputFailure');
+function makePlayReleaseInputFailure(fields: {
+  message: string;
+  cause: unknown;
+}): PlayReleaseInputFailure {
+  return { _tag: 'PlayReleaseInputFailure', ...fields };
+}
 
-const ReleaseNotesDocumentSchema = Schema.Record({ key: Schema.String, value: Schema.String });
+function releaseNoteFromEntry(languageAndText: [string, string]): ReleaseNote {
+  const [language, noteText] = languageAndText;
 
-/** Convert a decoded language-to-copy document to the Android Publisher release-note shape. */
-const releaseNotesFromDocument = (
+  return { language, text: noteText };
+}
+
+function releaseNotesFromDocument(
   releaseNotesDocument: Readonly<Record<string, string>>,
-): readonly ReleaseNote[] =>
-  Object.entries(releaseNotesDocument).map(([language, noteText]) => ({
-    language,
-    text: noteText,
-  }));
+): readonly ReleaseNote[] {
+  return Object.entries(releaseNotesDocument).map(releaseNoteFromEntry);
+}
 
-/** Create the shared failure for invalid release-note documents. */
-const releaseNotesFailure = (cause: unknown): PlayReleaseInputFailure =>
-  makePlayReleaseInputFailure({
+function releaseNotesFailure(cause: unknown): PlayReleaseInputFailure {
+  return makePlayReleaseInputFailure({
     message:
       'Release notes must be a JSON object mapping language codes to text, e.g. { "en-US": "..." }.',
     cause,
   });
+}
 
-export const isReleaseStatus = (
-  releaseStatusText: string,
-): releaseStatusText is PlayReleaseStatus => Schema.is(PlayReleaseStatusSchema)(releaseStatusText);
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
 
-export const buildRelease = (
-  releaseInput: ReleaseInput,
-): Effect.Effect<PlayRelease, PlayReleaseInputFailure> => {
-  if (releaseInput.versionCodes.length === 0) {
-    return Effect.fail(
-      makePlayReleaseInputFailure({
-        message: 'A release needs at least one version code.',
-        cause: releaseInput.versionCodes,
-      }),
-    );
+  if (typeof candidate != 'object') {
+    return false;
   }
-  let allowsFraction = false;
-  if (releaseInput.status === 'inProgress') allowsFraction = true;
-  if (releaseInput.status === 'halted') allowsFraction = true;
-  if (releaseInput.status === 'inProgress' && releaseInput.userFraction === undefined) {
-    return Effect.fail(
-      makePlayReleaseInputFailure({
-        message:
-          'An "inProgress" staged rollout needs a rollout fraction (--rollout, 0-1 exclusive).',
-        cause: releaseInput,
-      }),
-    );
+
+  if (Array.isArray(candidate)) {
+    return false;
   }
-  if (!allowsFraction && releaseInput.userFraction !== undefined) {
-    return Effect.fail(
-      makePlayReleaseInputFailure({
-        message: `A "${releaseInput.status}" release can't carry a rollout fraction (only "inProgress" or "halted" can).`,
-        cause: releaseInput,
-      }),
-    );
+
+  return true;
+}
+
+function decodeReleaseNotesDocument(
+  releaseNotesDocument: unknown,
+): Readonly<Record<string, string>> {
+  if (isRecord(releaseNotesDocument) == false) {
+    throw releaseNotesFailure(releaseNotesDocument);
   }
-  if (releaseInput.userFraction !== undefined && releaseInput.userFraction <= 0) {
-    return Effect.fail(
-      makePlayReleaseInputFailure({
-        message: `The rollout fraction must be between 0 and 1 (exclusive); got ${releaseInput.userFraction}.`,
-        cause: releaseInput.userFraction,
-      }),
-    );
+
+  const notes: Record<string, string> = {};
+
+  for (const [language, noteText] of Object.entries(releaseNotesDocument)) {
+    if (typeof noteText != 'string') {
+      throw releaseNotesFailure(releaseNotesDocument);
+    }
+
+    notes[language] = noteText;
   }
-  if (releaseInput.userFraction !== undefined && releaseInput.userFraction >= 1) {
-    return Effect.fail(
-      makePlayReleaseInputFailure({
-        message: `The rollout fraction must be between 0 and 1 (exclusive); got ${releaseInput.userFraction}.`,
-        cause: releaseInput.userFraction,
-      }),
-    );
+
+  return notes;
+}
+
+export function isReleaseStatus(releaseStatusText: string): releaseStatusText is PlayReleaseStatus {
+  return RELEASE_STATUSES.some(function statusMatches(releaseStatus: PlayReleaseStatus) {
+    return releaseStatus == releaseStatusText;
+  });
+}
+
+function allowsRolloutFraction(releaseStatus: PlayReleaseStatus): boolean {
+  if (releaseStatus == 'inProgress') {
+    return true;
   }
+
+  return releaseStatus == 'halted';
+}
+
+function copyReleaseNote(releaseNote: ReleaseNote): ReleaseNote {
+  return { ...releaseNote };
+}
+
+function requireStagedFraction(releaseInput: ReleaseInput): void {
+  const isStagedRollout = releaseInput.status == 'inProgress';
+
+  if (isStagedRollout == false) {
+    return;
+  }
+
+  if (releaseInput.userFraction != null) {
+    return;
+  }
+
+  throw makePlayReleaseInputFailure({
+    message: 'An "inProgress" staged rollout needs a rollout fraction (--rollout, 0-1 exclusive).',
+    cause: releaseInput,
+  });
+}
+
+function rejectForbiddenFraction(releaseInput: ReleaseInput): void {
+  const rolloutIsAllowed = allowsRolloutFraction(releaseInput.status);
+
+  if (rolloutIsAllowed) {
+    return;
+  }
+
+  if (releaseInput.userFraction == null) {
+    return;
+  }
+
+  throw makePlayReleaseInputFailure({
+    message: `A "${releaseInput.status}" release can't carry a rollout fraction (only "inProgress" or "halted" can).`,
+    cause: releaseInput,
+  });
+}
+
+function rejectOutOfRangeFraction(userFraction: number | undefined): void {
+  if (userFraction == null) {
+    return;
+  }
+
+  const fractionIsTooLow = userFraction <= 0;
+
+  if (fractionIsTooLow) {
+    throw makePlayReleaseInputFailure({
+      message: `The rollout fraction must be between 0 and 1 (exclusive); got ${userFraction}.`,
+      cause: userFraction,
+    });
+  }
+
+  const fractionIsTooHigh = userFraction >= 1;
+
+  if (fractionIsTooHigh) {
+    throw makePlayReleaseInputFailure({
+      message: `The rollout fraction must be between 0 and 1 (exclusive); got ${userFraction}.`,
+      cause: userFraction,
+    });
+  }
+}
+
+function attachReleaseNotes(
+  playRelease: MutableDeep<PlayRelease>,
+  releaseNotes: readonly ReleaseNote[] | undefined,
+): void {
+  if (releaseNotes == null) {
+    return;
+  }
+
+  const hasNotes = releaseNotes.length > 0;
+
+  if (hasNotes == false) {
+    return;
+  }
+
+  playRelease.releaseNotes = releaseNotes.map(copyReleaseNote);
+}
+
+export function buildRelease(releaseInput: ReleaseInput): PlayRelease {
+  const hasNoVersionCodes = releaseInput.versionCodes.length == 0;
+
+  if (hasNoVersionCodes) {
+    throw makePlayReleaseInputFailure({
+      message: 'A release needs at least one version code.',
+      cause: releaseInput.versionCodes,
+    });
+  }
+
+  requireStagedFraction(releaseInput);
+  rejectForbiddenFraction(releaseInput);
+  rejectOutOfRangeFraction(releaseInput.userFraction);
+
   const playRelease: MutableDeep<PlayRelease> = {
     status: releaseInput.status,
     versionCodes: [...releaseInput.versionCodes],
   };
-  if (releaseInput.name !== undefined) playRelease.name = releaseInput.name;
-  if (releaseInput.userFraction !== undefined) {
+
+  if (releaseInput.name != null) {
+    playRelease.name = releaseInput.name;
+  }
+
+  if (releaseInput.userFraction != null) {
     playRelease.userFraction = releaseInput.userFraction;
   }
-  if (releaseInput.releaseNotes !== undefined && releaseInput.releaseNotes.length > 0) {
-    playRelease.releaseNotes = releaseInput.releaseNotes.map((releaseNote) => ({ ...releaseNote }));
-  }
-  return Effect.succeed(playRelease);
-};
 
-export const parseRollout = (
-  rolloutText: string,
-): Effect.Effect<number, PlayReleaseInputFailure> => {
+  attachReleaseNotes(playRelease, releaseInput.releaseNotes);
+
+  return playRelease;
+}
+
+export function parseRollout(rolloutText: string): number {
   const rolloutFraction = Number(rolloutText);
-  if (!Number.isFinite(rolloutFraction)) {
-    return Effect.fail(
-      makePlayReleaseInputFailure({
-        message: `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
-        cause: rolloutText,
-      }),
-    );
-  }
-  if (rolloutFraction <= 0) {
-    return Effect.fail(
-      makePlayReleaseInputFailure({
-        message: `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
-        cause: rolloutText,
-      }),
-    );
-  }
-  if (rolloutFraction >= 1) {
-    return Effect.fail(
-      makePlayReleaseInputFailure({
-        message: `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
-        cause: rolloutText,
-      }),
-    );
-  }
-  return Effect.succeed(rolloutFraction);
-};
+  const fractionIsUnusable = Number.isFinite(rolloutFraction) == false;
 
-export const parseReleaseNotes = (
-  releaseNotesDocument: unknown,
-): Effect.Effect<readonly ReleaseNote[], PlayReleaseInputFailure> =>
-  Schema.decodeUnknown(ReleaseNotesDocumentSchema)(releaseNotesDocument).pipe(
-    Effect.map(releaseNotesFromDocument),
-    Effect.mapError(releaseNotesFailure),
-  );
+  if (fractionIsUnusable) {
+    throw makePlayReleaseInputFailure({
+      message: `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
+      cause: rolloutText,
+    });
+  }
 
-export const parseReleaseNotesJson = (
-  releaseNotesText: string,
-): Effect.Effect<readonly ReleaseNote[], PlayReleaseInputFailure> =>
-  Schema.decodeUnknown(Schema.parseJson(ReleaseNotesDocumentSchema))(releaseNotesText).pipe(
-    Effect.map(releaseNotesFromDocument),
-    Effect.mapError(releaseNotesFailure),
-  );
+  const fractionIsTooLow = rolloutFraction <= 0;
+
+  if (fractionIsTooLow) {
+    throw makePlayReleaseInputFailure({
+      message: `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
+      cause: rolloutText,
+    });
+  }
+
+  const fractionIsTooHigh = rolloutFraction >= 1;
+
+  if (fractionIsTooHigh) {
+    throw makePlayReleaseInputFailure({
+      message: `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
+      cause: rolloutText,
+    });
+  }
+
+  return rolloutFraction;
+}
+
+export function parseReleaseNotes(releaseNotesDocument: unknown): readonly ReleaseNote[] {
+  const notes = decodeReleaseNotesDocument(releaseNotesDocument);
+
+  return releaseNotesFromDocument(notes);
+}
+
+export function parseReleaseNotesJson(releaseNotesText: string): readonly ReleaseNote[] {
+  let parsedNotes: unknown = null;
+
+  try {
+    parsedNotes = JSON.parse(releaseNotesText);
+  } catch (cause) {
+    throw releaseNotesFailure(cause);
+  }
+
+  return parseReleaseNotes(parsedNotes);
+}

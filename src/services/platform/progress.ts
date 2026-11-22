@@ -1,14 +1,15 @@
-import { FileSystem, Path, Terminal } from '@effect/platform';
-import { Clock, Effect } from 'effect';
-import { executeCommand, executeCommandQuietly } from './exec.js';
-import { resolveLogsDirectory } from './paths.js';
+import { mkdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { stdout } from 'node:process';
 import { diagnoseBuildLog, formatDiagnoses } from '../../build/buildDiagnostics.js';
 import { currentBuildLog } from '../../build/buildLog.js';
 import type { BuildEstimate } from '../../build/buildFingerprint.js';
-import { createLogger } from './logger.js';
 import { formatElapsed } from './elapsed.js';
+import { executeCommand, executeCommandQuietly } from './exec.js';
+import { readLaunchEnvironment } from './environment.js';
 import { isJsonOutput } from './jsonOutputMode.js';
-import { LaunchEnvironment, type LaunchEnvironmentService } from './environment.js';
+import { createLogger } from './logger.js';
+import { resolveLogsDirectory } from './paths.js';
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */
 let streamRawOutput = false;
 /** Set by the CLI's `--verbose` flag - makes every {@link runWithProgress} stream the full tool output. */
@@ -23,7 +24,7 @@ export const setVerboseOutput = (verbose: boolean): void => {
  */
 export const selectProgressMode = (
   isTTY: boolean,
-  env: NodeJS.ProcessEnv,
+  env: Readonly<Record<string, string | undefined>>,
   verbose: boolean,
   json = false,
 ): 'spinner' | 'stream' => {
@@ -143,121 +144,166 @@ const logStamp = (epochMilliseconds: number): string => {
  * the full log on disk (falling back to the in-memory tail if it can't be read), since the real cause
  * sometimes precedes the trailing lines.
  */
-const reportFailure = (label: string, tail: readonly string[], logFile: string) =>
-  Effect.gen(function* () {
-    const lines = [
-      `${label} failed. Last lines:`,
-      ...tail.map((line) => `  ${line}`),
-      '',
-      `Full log: ${logFile}`,
-    ];
-    let logText = tail.join('\n');
-    const fileSystem = yield* FileSystem.FileSystem;
-    logText = yield* fileSystem
-      .readFileString(logFile)
-      .pipe(Effect.catchAll(() => Effect.succeed(logText)));
-    const diagnosis = formatDiagnoses(diagnoseBuildLog(logText));
-    if (diagnosis) lines.push('', diagnosis);
-    const logger = yield* createLogger(false);
-    yield* logger.progressFail(label, lines.join('\n'));
-  });
+async function reportFailure(
+  label: string,
+  tail: readonly string[],
+  logFile: string,
+): Promise<void> {
+  const lines = [
+    `${label} failed. Last lines:`,
+    ...tail.map(function indentLine(line: string) {
+      return `  ${line}`;
+    }),
+    '',
+    `Full log: ${logFile}`,
+  ];
+  let logText = tail.join('\n');
+
+  try {
+    logText = await readFile(logFile, 'utf8');
+  } catch (error) {
+    const isUnreadable = error != null;
+
+    if (isUnreadable) {
+      logText = tail.join('\n');
+    }
+  }
+
+  const diagnosis = formatDiagnoses(diagnoseBuildLog(logText));
+
+  if (diagnosis) {
+    lines.push('', diagnosis);
+  }
+
+  createLogger(false).progressFail(label, lines.join('\n'));
+}
+
+async function pickProgressLogFile(label: string): Promise<string> {
+  const buildLog = currentBuildLog();
+
+  if (buildLog != null) {
+    return buildLog;
+  }
+
+  const logsDirectory = resolveLogsDirectory();
+  await mkdir(logsDirectory, { recursive: true });
+  const logTimestamp = Date.now();
+
+  return join(logsDirectory, `${logSlug(label)}-${logStamp(logTimestamp)}.log`);
+}
+
+type ProgressCommandOptions = {
+  workingDirectory?: string;
+  environmentOverrides?: Record<string, string>;
+};
+
+function commandOptionsFromProgress(options: ProgressRunOptions): ProgressCommandOptions {
+  const commandOptions: ProgressCommandOptions = {};
+
+  if (options.cwd != null) {
+    commandOptions.workingDirectory = options.cwd;
+  }
+
+  if (options.env != null) {
+    commandOptions.environmentOverrides = options.env;
+  }
+
+  return commandOptions;
+}
+
+export type ProgressRun = {
+  elapsedMs: number;
+  steps: number;
+};
+
 /**
  * Run a long external tool under a spinner (or stream it raw - see {@link selectProgressMode}).
  *
- * In spinner mode the full output is tee'd to a per-run file under {@link LOGS_DIR}; the spinner
+ * In spinner mode the full output is tee'd to a per-run file under the logs directory; the spinner
  * shows the live step from `parseStep` and a running clock; on failure the tail and log path are
- * printed before the error propagates. In stream mode it is exactly {@link run} (inherited stdio).
+ * printed before the error propagates. In stream mode the child inherits stdio.
  */
-export const runWithProgress = (
+export async function runWithProgress(
   command: string,
   args: readonly string[],
   options: ProgressRunOptions,
-) =>
-  Effect.gen(function* () {
-    const { label, parseStep, ...progressCommandOptions } = options;
-    const commandOptions: {
-      workingDirectory?: string;
-      environmentOverrides?: Record<string, string>;
-    } = {};
-    if (progressCommandOptions.cwd !== undefined) {
-      commandOptions.workingDirectory = progressCommandOptions.cwd;
+): Promise<ProgressRun> {
+  const commandOptions = commandOptionsFromProgress(options);
+  const environment = readLaunchEnvironment();
+  const terminalIsInteractive = stdout.isTTY == true;
+  const progressMode = selectProgressMode(
+    terminalIsInteractive,
+    environment.rawVariables,
+    streamRawOutput,
+    isJsonOutput(),
+  );
+
+  if (progressMode == 'stream') {
+    const startedAt = Date.now();
+    await executeCommand(command, args, commandOptions);
+    const completedAt = Date.now();
+
+    return { elapsedMs: completedAt - startedAt, steps: 0 };
+  }
+
+  const logFile = await pickProgressLogFile(options.label);
+  const startedAt = Date.now();
+  const tail: string[] = [];
+  let steps = 0;
+  const logger = createLogger(false);
+  logger.progressStart(options.label);
+
+  function rememberLine(line: string): void {
+    tail.push(line);
+    const tailLines = 40;
+
+    if (tail.length > tailLines) {
+      tail.shift();
     }
-    if (progressCommandOptions.env !== undefined) {
-      commandOptions.environmentOverrides = progressCommandOptions.env;
+
+    if (options.parseStep == null) {
+      return;
     }
-    const environment = yield* LaunchEnvironment;
-    const terminal = yield* Terminal.Terminal;
-    const terminalIsInteractive = yield* terminal.isTTY;
-    if (
-      selectProgressMode(
-        terminalIsInteractive,
-        environment.rawVariables,
-        streamRawOutput,
-        isJsonOutput(),
-      ) === 'stream'
-    ) {
-      // Raw streaming (CI / piped / --verbose): no bar, but still time the run so the duration EMA learns.
-      // Output isn't parsed here, so step count is 0 - the caller carries the prior step total forward.
-      const startedAt = yield* Clock.currentTimeMillis;
-      yield* executeCommand(command, args, commandOptions);
-      const completedAt = yield* Clock.currentTimeMillis;
-      return { elapsedMs: completedAt - startedAt, steps: 0 };
+
+    const nextStep = options.parseStep(line);
+
+    if (nextStep == null) {
+      return;
     }
-    // A build in progress claims the per-build log (redacted, keyed by build id); standalone steps
-    // (e.g. prebuild, before the id is known) use a redacted transient stamped file.
-    const buildLog = currentBuildLog();
-    let logFile = buildLog;
-    if (logFile === null) {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const logsDirectory = yield* resolveLogsDirectory();
-      yield* fileSystem.makeDirectory(logsDirectory, { recursive: true });
-      const path = yield* Path.Path;
-      const logTimestamp = yield* Clock.currentTimeMillis;
-      logFile = path.join(logsDirectory, `${logSlug(label)}-${logStamp(logTimestamp)}.log`);
+
+    if (nextStep.length == 0) {
+      return;
     }
-    const startedAt = yield* Clock.currentTimeMillis;
-    const tail: string[] = [];
-    let steps = 0;
-    const logger = yield* createLogger(false);
-    yield* logger.progressStart(label);
-    yield* executeCommandQuietly(command, args, {
+
+    steps += 1;
+  }
+
+  try {
+    await executeCommandQuietly(command, args, {
       ...commandOptions,
       logFilePath: logFile,
-      onLine: (line) => {
-        tail.push(line);
-        const tailLines = 40;
-        if (tail.length > tailLines) tail.shift();
-        const next = parseStep?.(line);
-        if (next) steps++;
-      },
-    }).pipe(
-      Effect.tap(() =>
-        Clock.currentTimeMillis.pipe(
-          Effect.flatMap((completedAt) => logger.progressDone(label, completedAt - startedAt)),
-        ),
-      ),
-      Effect.tapError(() => reportFailure(label, tail, logFile)),
-    );
-    const completedAt = yield* Clock.currentTimeMillis;
+      onLine: rememberLine,
+    });
+    const completedAt = Date.now();
+    logger.progressDone(options.label, completedAt - startedAt);
+
     return { elapsedMs: completedAt - startedAt, steps };
-  });
-/**
- * Whether we can safely prompt the user: a real interactive TTY that isn't a CI runner. Drives the
- * pre-upload confirmation - in CI or a pipe we never block on stdin; we proceed and log instead. Args
- * default to the live process but are injectable so the decision is unit-testable (like
- * {@link selectProgressMode}).
- */
-export const checkTerminalIsInteractive: Effect.Effect<
-  boolean,
-  never,
-  Terminal.Terminal | LaunchEnvironmentService
-> = Effect.gen(function* () {
-  const terminal = yield* Terminal.Terminal;
-  const environment = yield* LaunchEnvironment;
-  const isTTY = yield* terminal.isTTY;
-  return isInteractiveTerminal(isTTY, environment.rawVariables);
-});
-export const isInteractiveTerminal = (isTTY: boolean, environment: NodeJS.ProcessEnv): boolean => {
+  } catch (error) {
+    await reportFailure(options.label, tail, logFile);
+    throw error;
+  }
+}
+
+/** A real interactive TTY that is not a CI runner. In CI or a pipe we never block on stdin. */
+export function checkTerminalIsInteractive(): boolean {
+  const terminalIsInteractive = stdout.isTTY == true;
+
+  return isInteractiveTerminal(terminalIsInteractive, readLaunchEnvironment().rawVariables);
+}
+export const isInteractiveTerminal = (
+  isTTY: boolean,
+  environment: Readonly<Record<string, string | undefined>>,
+): boolean => {
   if (!isTTY) return false;
   return environment['CI'] === undefined;
 };
@@ -268,20 +314,22 @@ export const isInteractiveTerminal = (isTTY: boolean, environment: NodeJS.Proces
  * `--verbose`), so logs and scripts stay clean. Unlike {@link runWithProgress} it drives no child
  * process; it just awaits `task` while telling the user what's happening.
  */
-export const withSpinner = <T, TError, TRequirements>(
+export async function withSpinner<TaskResult>(
   label: string,
-  task: () => Effect.Effect<T, TError, TRequirements>,
-) =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const startedAt = yield* Clock.currentTimeMillis;
-    yield* logger.progressStart(label);
-    return yield* task().pipe(
-      Effect.tap(() =>
-        Clock.currentTimeMillis.pipe(
-          Effect.flatMap((completedAt) => logger.progressDone(label, completedAt - startedAt)),
-        ),
-      ),
-      Effect.tapError(() => logger.progressFail(label, `${label} failed`)),
-    );
-  });
+  task: () => Promise<TaskResult>,
+): Promise<TaskResult> {
+  const logger = createLogger(false);
+  const startedAt = Date.now();
+  logger.progressStart(label);
+
+  try {
+    const taskResult = await task();
+    const completedAt = Date.now();
+    logger.progressDone(label, completedAt - startedAt);
+
+    return taskResult;
+  } catch (error) {
+    logger.progressFail(label, `${label} failed`);
+    throw error;
+  }
+}

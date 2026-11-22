@@ -1,49 +1,41 @@
-import { Context, Effect, Layer, Redacted } from 'effect';
 import { decodeLaunchEnvironment, type LaunchEnvironmentValues } from '../../config/environment.js';
 
 export type LaunchEnvironmentService = Readonly<{
-  readonly values: LaunchEnvironmentValues;
-  readonly rawVariables: Readonly<Record<string, string | undefined>>;
-  readonly readSecret: (
-    environmentVariableName: string,
-  ) => Effect.Effect<Redacted.Redacted<string> | undefined>;
+  values: LaunchEnvironmentValues;
+  rawVariables: Readonly<Record<string, string | undefined>>;
+  readSecret: (environmentVariableName: string) => string | null;
 }>;
 
-export const LaunchEnvironment = Context.GenericTag<LaunchEnvironmentService>(
-  'launch-store/LaunchEnvironment',
-);
+let environmentVariables: Readonly<Record<string, string | undefined>> = process.env;
 
-/** Build an environment layer from an explicit variable map. */
-const makeLaunchEnvironmentLayer = (
-  environmentVariables: Readonly<Record<string, string | undefined>>,
-): Layer.Layer<LaunchEnvironmentService, unknown> => {
-  return Layer.effect(
-    LaunchEnvironment,
-    decodeLaunchEnvironment(environmentVariables).pipe(
-      Effect.map(
-        (values): LaunchEnvironmentService => ({
-          values,
-          rawVariables: environmentVariables,
-          readSecret: (environmentVariableName) =>
-            Effect.sync(() => {
-              const secretValue = environmentVariables[environmentVariableName];
-              if (secretValue === undefined) return undefined;
-              if (secretValue === '') return undefined;
-              return Redacted.make(secretValue);
-            }),
-        }),
-      ),
-    ),
-  );
-};
+export function useLaunchEnvironment(
+  variables: Readonly<Record<string, string | undefined>>,
+): void {
+  environmentVariables = variables;
+}
 
-export const LaunchEnvironmentLive = makeLaunchEnvironmentLayer(process.env);
+export function resetLaunchEnvironment(): void {
+  environmentVariables = process.env;
+}
 
-export const LaunchEnvironmentTest = makeLaunchEnvironmentLayer({});
+function readSecret(environmentVariableName: string): string | null {
+  const secretText = environmentVariables[environmentVariableName];
 
-/** Build a deterministic environment layer from explicit test variables. */
-export const makeLaunchEnvironmentTest = (
-  environmentVariables: Readonly<Record<string, string | undefined>>,
-): Layer.Layer<LaunchEnvironmentService, unknown> => {
-  return makeLaunchEnvironmentLayer(environmentVariables);
-};
+  if (secretText == null) {
+    return null;
+  }
+
+  if (secretText == '') {
+    return null;
+  }
+
+  return secretText;
+}
+
+export function readLaunchEnvironment(): LaunchEnvironmentService {
+  return {
+    values: decodeLaunchEnvironment(environmentVariables),
+    rawVariables: environmentVariables,
+    readSecret,
+  };
+}

@@ -1,11 +1,10 @@
-import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { GameCenterCommandInputSchema } from './gameCenterCommand.js';
 
 describe('GameCenterCommandInputSchema', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {
     expect(
-      Schema.decodeUnknownSync(GameCenterCommandInputSchema)({
+      GameCenterCommandInputSchema({
         config: 'gamecenter.config.json',
         explicitConfig: false,
         dryRun: true,
@@ -21,7 +20,7 @@ describe('GameCenterCommandInputSchema', () => {
 
   it('rejects an explicit undefined exact optional app', () => {
     expect(() =>
-      Schema.decodeUnknownSync(GameCenterCommandInputSchema)({
+      GameCenterCommandInputSchema({
         app: undefined,
         config: 'gamecenter.config.json',
         explicitConfig: false,

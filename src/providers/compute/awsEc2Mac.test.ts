@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_INSTANCE_TYPE,
@@ -137,21 +136,30 @@ describe('awsFailure / requireAws', () => {
     expect(failure.message).toBe('friendly detail');
   });
 
-  it('requires an aws config block on allocate requests', async () => {
-    const missing = await Effect.runPromise(
-      requireAws({
-        confirm: () => Effect.succeed(true),
-      }).pipe(Effect.flip),
-    );
-    expect(missing._tag).toBe('AwsComputeFailure');
-    expect(missing.message).toMatch(/AWS settings missing/);
+  it('requires an aws config block on allocate requests', () => {
+    let failure: unknown = null;
 
-    const present = await Effect.runPromise(
+    try {
       requireAws({
-        aws: { region: 'us-east-1' },
-        confirm: () => Effect.succeed(true),
-      }),
-    );
+        confirm() {
+          return Promise.resolve(true);
+        },
+      });
+    } catch (caught) {
+      failure = caught;
+    }
+
+    expect(failure).toMatchObject({
+      _tag: 'AwsComputeFailure',
+      message: expect.stringMatching(/AWS settings missing/),
+    });
+
+    const present = requireAws({
+      aws: { region: 'us-east-1' },
+      confirm() {
+        return Promise.resolve(true);
+      },
+    });
     expect(present.region).toBe('us-east-1');
   });
 });

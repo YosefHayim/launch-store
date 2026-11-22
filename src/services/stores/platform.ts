@@ -1,25 +1,26 @@
-import { Data, Effect } from 'effect';
 import type { Platform } from '../../types/app.js';
-/** App Store Connect platform attribute on app-store versions, builds, and review submissions. */
-type AscPlatform = 'IOS' | 'TV_OS' | 'MAC_OS' | 'VISION_OS';
-/** App Store Connect bundle-id platform - narrower than {@link AscPlatform}: tvOS/visionOS register as iOS-family, so there is no `TV_OS`/`VISION_OS` here. */
-type AscBundleIdPlatform = 'IOS' | 'MAC_OS';
-/** App Store Connect signing-profile type (e.g. `IOS_APP_STORE`, `TVOS_APP_STORE`, `MAC_APP_STORE`). */
-type AscAppStoreProfileType = 'IOS_APP_STORE' | 'TVOS_APP_STORE' | 'MAC_APP_STORE';
-type AscAdHocProfileType = 'IOS_APP_ADHOC' | 'TVOS_APP_ADHOC';
+
 type PlatformMappingFailure = Readonly<{
   readonly _tag: 'PlatformMappingFailure';
   readonly operation: string;
   readonly platform: string;
   readonly message: string;
 }>;
-const makePlatformMappingFailure = Data.tagged<PlatformMappingFailure>('PlatformMappingFailure');
-const unsupportedPlatform = (
-  operation: string,
-  platform: string,
-  message: string,
-): Effect.Effect<never, PlatformMappingFailure> =>
-  Effect.fail(makePlatformMappingFailure({ operation, platform, message }));
+function makePlatformMappingFailure(fields: {
+  operation: string;
+  platform: string;
+  message: string;
+}): PlatformMappingFailure {
+  return {
+    _tag: 'PlatformMappingFailure',
+    operation: fields.operation,
+    platform: fields.platform,
+    message: fields.message,
+  };
+}
+function unsupportedPlatform(operation: string, platform: string, message: string): never {
+  throw makePlatformMappingFailure({ operation, platform, message });
+}
 /** The four Apple build platforms - all built with Xcode on macOS, signed with one team, submitted to App Store Connect. */
 export const APPLE_PLATFORMS: ReadonlySet<Platform> = new Set<Platform>([
   'ios',
@@ -56,9 +57,7 @@ export const platformLabel = (platform: Platform): string => {
  * Parse a user-supplied `<platform>` argument into a {@link Platform}, throwing an actionable error on an
  * unknown value. Centralizes the validation every platform-taking command shares.
  */
-export const parsePlatform = (
-  platformText: string,
-): Effect.Effect<Platform, PlatformMappingFailure> => {
+export const parsePlatform = (platformText: string) => {
   const match = PLATFORMS.find((platform) => platform === platformText);
   if (!match)
     return unsupportedPlatform(
@@ -66,25 +65,23 @@ export const parsePlatform = (
       platformText,
       `Unknown platform "${platformText}". Use one of: ${PLATFORMS.join(', ')}.`,
     );
-  return Effect.succeed(match);
+  return match;
 };
 /**
  * The App Store Connect platform attribute for a build platform - the value Apple expects in
  * `filter[platform]` and on `appStoreVersions` / `reviewSubmissions`. Throws for Android, which has no
  * App Store Connect platform, so callers must only reach this on the Apple path.
  */
-export const toAscPlatform = (
-  platform: Platform,
-): Effect.Effect<AscPlatform, PlatformMappingFailure> => {
+export const toAscPlatform = (platform: Platform) => {
   switch (platform) {
     case 'ios':
-      return Effect.succeed('IOS');
+      return 'IOS';
     case 'tvos':
-      return Effect.succeed('TV_OS');
+      return 'TV_OS';
     case 'macos':
-      return Effect.succeed('MAC_OS');
+      return 'MAC_OS';
     case 'visionos':
-      return Effect.succeed('VISION_OS');
+      return 'VISION_OS';
     case 'android':
       return unsupportedPlatform(
         'map App Store Connect platform',
@@ -98,16 +95,14 @@ export const toAscPlatform = (
  * {@link toAscPlatform}: tvOS and visionOS bundle ids register as iOS-family (`IOS`); only macOS is
  * `MAC_OS`. Throws for Android.
  */
-export const toBundleIdPlatform = (
-  platform: Platform,
-): Effect.Effect<AscBundleIdPlatform, PlatformMappingFailure> => {
+export const toBundleIdPlatform = (platform: Platform) => {
   switch (platform) {
     case 'ios':
     case 'tvos':
     case 'visionos':
-      return Effect.succeed('IOS');
+      return 'IOS';
     case 'macos':
-      return Effect.succeed('MAC_OS');
+      return 'MAC_OS';
     case 'android':
       return unsupportedPlatform(
         'map bundle identifier platform',
@@ -121,17 +116,15 @@ export const toBundleIdPlatform = (
  * its bundle ids are iOS-family - so it signs with the iOS App Store profile. Throws for Android, which has
  * no Apple signing profile.
  */
-export const appStoreProfileType = (
-  platform: Platform,
-): Effect.Effect<AscAppStoreProfileType, PlatformMappingFailure> => {
+export const appStoreProfileType = (platform: Platform) => {
   switch (platform) {
     case 'ios':
     case 'visionos':
-      return Effect.succeed('IOS_APP_STORE');
+      return 'IOS_APP_STORE';
     case 'tvos':
-      return Effect.succeed('TVOS_APP_STORE');
+      return 'TVOS_APP_STORE';
     case 'macos':
-      return Effect.succeed('MAC_APP_STORE');
+      return 'MAC_APP_STORE';
     case 'android':
       return unsupportedPlatform(
         'map App Store profile type',
@@ -145,17 +138,15 @@ export const appStoreProfileType = (
  * which has no ad-hoc distribution (non-store macOS uses Developer ID - a different model). visionOS reuses
  * the iOS ad-hoc type. Throws for Android.
  */
-export const adHocProfileType = (
-  platform: Platform,
-): Effect.Effect<AscAdHocProfileType | undefined, PlatformMappingFailure> => {
+export const adHocProfileType = (platform: Platform) => {
   switch (platform) {
     case 'ios':
     case 'visionos':
-      return Effect.succeed('IOS_APP_ADHOC');
+      return 'IOS_APP_ADHOC';
     case 'tvos':
-      return Effect.succeed('TVOS_APP_ADHOC');
+      return 'TVOS_APP_ADHOC';
     case 'macos':
-      return Effect.succeed(undefined);
+      return undefined;
     case 'android':
       return unsupportedPlatform(
         'map ad hoc profile type',
@@ -168,18 +159,16 @@ export const adHocProfileType = (
  * The `xcodebuild archive` destination for an Apple platform. Always a generic device destination, so an
  * archive never targets a simulator. Throws for Android, which does not use Xcode.
  */
-export const archiveDestination = (
-  platform: Platform,
-): Effect.Effect<string, PlatformMappingFailure> => {
+export const archiveDestination = (platform: Platform) => {
   switch (platform) {
     case 'ios':
-      return Effect.succeed('generic/platform=iOS');
+      return 'generic/platform=iOS';
     case 'tvos':
-      return Effect.succeed('generic/platform=tvOS');
+      return 'generic/platform=tvOS';
     case 'macos':
-      return Effect.succeed('generic/platform=macOS');
+      return 'generic/platform=macOS';
     case 'visionos':
-      return Effect.succeed('generic/platform=visionOS');
+      return 'generic/platform=visionOS';
     case 'android':
       return unsupportedPlatform(
         'map Xcode destination',
@@ -195,17 +184,15 @@ export const archiveDestination = (
  * Expo prebuild only generates `ios` - the other directories must be committed by the app, which the
  * `ensureNativeProject` gate enforces. Throws for Android (its native project is `android/`, built by Gradle).
  */
-export const nativeProjectDirName = (
-  platform: Platform,
-): Effect.Effect<string, PlatformMappingFailure> => {
+export const nativeProjectDirName = (platform: Platform) => {
   switch (platform) {
     case 'ios':
     case 'tvos':
-      return Effect.succeed('ios');
+      return 'ios';
     case 'macos':
-      return Effect.succeed('macos');
+      return 'macos';
     case 'visionos':
-      return Effect.succeed('visionos');
+      return 'visionos';
     case 'android':
       return unsupportedPlatform(
         'map native project directory',
@@ -219,18 +206,16 @@ export const nativeProjectDirName = (
  * actionable hint in the `ensureNativeProject` gate when that project is missing. iOS needs none (Expo
  * prebuild generates it). Throws for Android (built by Gradle, not this path).
  */
-export const nativeTargetHint = (
-  platform: Platform,
-): Effect.Effect<string, PlatformMappingFailure> => {
+export const nativeTargetHint = (platform: Platform) => {
   switch (platform) {
     case 'ios':
-      return Effect.succeed('expo prebuild');
+      return 'expo prebuild';
     case 'tvos':
-      return Effect.succeed('react-native-tvos');
+      return 'react-native-tvos';
     case 'macos':
-      return Effect.succeed('react-native-macos');
+      return 'react-native-macos';
     case 'visionos':
-      return Effect.succeed('@callstack/react-native-visionos');
+      return '@callstack/react-native-visionos';
     case 'android':
       return unsupportedPlatform(
         'map native target hint',
@@ -244,16 +229,14 @@ export const nativeTargetHint = (
  * platforms (iOS, tvOS, visionOS), `pkg` for a macOS App Store build (Apple wraps a Mac app in an installer
  * package). Drives the post-build artifact discovery. Throws for Android.
  */
-export const appleArtifactExtension = (
-  platform: Platform,
-): Effect.Effect<'ipa' | 'pkg', PlatformMappingFailure> => {
+export const appleArtifactExtension = (platform: Platform) => {
   switch (platform) {
     case 'ios':
     case 'tvos':
     case 'visionos':
-      return Effect.succeed('ipa');
+      return 'ipa';
     case 'macos':
-      return Effect.succeed('pkg');
+      return 'pkg';
     case 'android':
       return unsupportedPlatform(
         'map Apple artifact extension',

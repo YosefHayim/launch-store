@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
   CustomProductPageLocalizationResource,
@@ -47,21 +46,21 @@ const makeApi = (
   };
   const calls: Calls = { createdPages: [], createdLocs: [], updatedLocs: [] };
   const api: AscCustomPagesApi = {
-    getAppId: () => Effect.succeed(full.appId),
-    listCustomProductPages: () => Effect.succeed(full.pages),
+    getAppId: () => Promise.resolve(full.appId),
+    listCustomProductPages: () => Promise.resolve(full.pages),
     createCustomProductPage: (_appId, name) => {
       calls.createdPages.push(name);
-      return Effect.succeed({ id: 'page-new', name });
+      return Promise.resolve({ id: 'page-new', name });
     },
-    listCustomProductPageVersions: () => Effect.succeed(full.versions),
-    listCustomProductPageLocalizations: () => Effect.succeed(full.localizations),
+    listCustomProductPageVersions: () => Promise.resolve(full.versions),
+    listCustomProductPageLocalizations: () => Promise.resolve(full.localizations),
     createCustomProductPageLocalization: (versionId, locale, promotionalText) => {
       calls.createdLocs.push({ versionId, locale, promotionalText });
-      return Effect.void;
+      return Promise.resolve();
     },
     updateCustomProductPageLocalization: (id, promotionalText) => {
       calls.updatedLocs.push({ id, promotionalText });
-      return Effect.void;
+      return Promise.resolve();
     },
   };
   return { api, calls };
@@ -70,12 +69,12 @@ const makeApi = (
 const runReconcile = (
   api: AscCustomPagesApi,
   input: Parameters<typeof reconcileCustomProductPages>[1],
-) => Effect.runPromise(reconcileCustomProductPages(api, input));
+) => reconcileCustomProductPages(api, input);
 const CONFIG: CustomProductPagesConfig = {
   pages: [{ name: 'Spring Sale', promotionalText: { 'en-US': '50% off this week!' } }],
 };
 const decodeCustomProductPagesConfig = (rawDocument: unknown) =>
-  Effect.runSync(parseCustomProductPagesConfig(rawDocument));
+  parseCustomProductPagesConfig(rawDocument);
 describe('parseCustomProductPagesConfig', () => {
   it('parses pages with promotional text', () => {
     const config = decodeCustomProductPagesConfig(CONFIG);
@@ -166,7 +165,7 @@ describe('reconcileCustomProductPages', () => {
   });
   it("skips a page's promotional text when the page create failed", async () => {
     const { api } = makeApi({});
-    api.createCustomProductPage = () => Effect.fail(new Error('page name taken'));
+    api.createCustomProductPage = () => Promise.reject(new Error('page name taken'));
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: CONFIG,

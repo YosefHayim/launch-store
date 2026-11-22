@@ -5,7 +5,6 @@ import type {
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
 } from '../../types/appleCatalog.js';
-import { Data, Effect } from 'effect';
 import { appRecordNotFound } from '../shared/reconcile.js';
 /** Decompress an Apple report to UTF-8 text. */
 export const decompressReport = (bytes: Buffer): string => {
@@ -45,128 +44,156 @@ type ReportDateFailure = Readonly<{
   readonly message: string;
 }>;
 
-const makeReportDateFailure = Data.tagged<ReportDateFailure>('ReportDateFailure');
+function makeReportDateFailure(message: string): ReportDateFailure {
+  return { _tag: 'ReportDateFailure', message };
+}
+
 /**
  * Parse a strict `YYYY-MM-DD` into a UTC timestamp, rejecting both a malformed format and an
  * out-of-range calendar date. `Date.parse`/`Date.UTC` silently *normalize* an overflow (e.g.
  * `2026-06-31` -> July 1), which would download the wrong day; the round-trip check below catches that
  * and fails loudly instead.
  */
-const parseYmd = (date: string): Effect.Effect<number, ReportDateFailure> => {
+function parseYmd(date: string): number {
+  // Four-digit year, two-digit month, two-digit day, nothing else.
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  if (match === null) {
-    return Effect.fail(
-      makeReportDateFailure({ message: `Invalid date "${date}" (use YYYY-MM-DD).` }),
-    );
+  const isFormatWrong = match == null;
+
+  if (isFormatWrong) {
+    throw makeReportDateFailure(`Invalid date "${date}" (use YYYY-MM-DD).`);
   }
+
   const yearText = match[1];
   const monthText = match[2];
   const dayText = match[3];
-  if (yearText === undefined) {
-    return Effect.fail(
-      makeReportDateFailure({ message: `Invalid date "${date}" (use YYYY-MM-DD).` }),
-    );
+  const isYearMissing = yearText == null;
+
+  if (isYearMissing) {
+    throw makeReportDateFailure(`Invalid date "${date}" (use YYYY-MM-DD).`);
   }
-  if (monthText === undefined) {
-    return Effect.fail(
-      makeReportDateFailure({ message: `Invalid date "${date}" (use YYYY-MM-DD).` }),
-    );
+
+  const isMonthMissing = monthText == null;
+
+  if (isMonthMissing) {
+    throw makeReportDateFailure(`Invalid date "${date}" (use YYYY-MM-DD).`);
   }
-  if (dayText === undefined) {
-    return Effect.fail(
-      makeReportDateFailure({ message: `Invalid date "${date}" (use YYYY-MM-DD).` }),
-    );
+
+  const isDayMissing = dayText == null;
+
+  if (isDayMissing) {
+    throw makeReportDateFailure(`Invalid date "${date}" (use YYYY-MM-DD).`);
   }
+
   const year = Number(yearText);
   const month = Number(monthText);
   const day = Number(dayText);
   const ms = Date.UTC(year, month - 1, day);
   const back = new Date(ms);
-  if (back.getUTCFullYear() !== year) {
-    return Effect.fail(makeReportDateFailure({ message: `Invalid calendar date "${date}".` }));
+  const isYearWrong = back.getUTCFullYear() !== year;
+
+  if (isYearWrong) {
+    throw makeReportDateFailure(`Invalid calendar date "${date}".`);
   }
-  if (back.getUTCMonth() !== month - 1) {
-    return Effect.fail(makeReportDateFailure({ message: `Invalid calendar date "${date}".` }));
+
+  const isMonthWrong = back.getUTCMonth() !== month - 1;
+
+  if (isMonthWrong) {
+    throw makeReportDateFailure(`Invalid calendar date "${date}".`);
   }
-  if (back.getUTCDate() !== day) {
-    return Effect.fail(makeReportDateFailure({ message: `Invalid calendar date "${date}".` }));
+
+  const isDayWrong = back.getUTCDate() !== day;
+
+  if (isDayWrong) {
+    throw makeReportDateFailure(`Invalid calendar date "${date}".`);
   }
-  return Effect.succeed(ms);
-};
+
+  return ms;
+}
+
 /**
  * Every calendar date from `from` to `to` inclusive as `YYYY-MM-DD`, for downloading a span of DAILY
  * reports in one command. Pure UTC arithmetic, so it's deterministic regardless of host timezone.
  * Throws on a malformed/out-of-range bound or an inverted range, so a typo fails loudly rather than
  * looping or silently doing nothing.
  */
-export const eachDate = (from: string, to: string): Effect.Effect<string[], ReportDateFailure> =>
-  Effect.gen(function* () {
-    const start = yield* parseYmd(from);
-    const end = yield* parseYmd(to);
-    if (end < start) {
-      return yield* Effect.fail(
-        makeReportDateFailure({ message: `Date range end ${to} is before start ${from}.` }),
-      );
-    }
-    const dates: string[] = [];
-    for (let day = start; day <= end; day += DAY_MS) {
-      dates.push(new Date(day).toISOString().slice(0, 10));
-    }
-    return dates;
-  });
+export function eachDate(from: string, to: string): string[] {
+  const start = parseYmd(from);
+  const end = parseYmd(to);
+  const isRangeInverted = end < start;
+
+  if (isRangeInverted) {
+    throw makeReportDateFailure(`Date range end ${to} is before start ${from}.`);
+  }
+
+  const dates: string[] = [];
+
+  for (let day = start; day <= end; day += DAY_MS) {
+    dates.push(new Date(day).toISOString().slice(0, 10));
+  }
+
+  return dates;
+}
+
 /** The exact slice of {@link AppStoreConnectClient} the analytics walk depends on. */
 export type AscReportsApi = {
-  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
+  getAppId(bundleId: string): Promise<string | null>;
   listAnalyticsReportRequests(
     appId: string,
     accessType: string,
-  ): Effect.Effect<AnalyticsReportRequestResource[], unknown>;
+  ): Promise<AnalyticsReportRequestResource[]>;
   createAnalyticsReportRequest(
     appId: string,
     accessType: string,
-  ): Effect.Effect<AnalyticsReportRequestResource, unknown>;
+  ): Promise<AnalyticsReportRequestResource>;
   listAnalyticsReports(
     requestId: string,
     filters: {
       category?: string;
       name?: string;
     },
-  ): Effect.Effect<AnalyticsReportResource[], unknown>;
+  ): Promise<AnalyticsReportResource[]>;
   listAnalyticsReportInstances(
     reportId: string,
     filters: {
       granularity?: string;
       processingDate?: string;
     },
-  ): Effect.Effect<AnalyticsReportInstanceResource[], unknown>;
-  listAnalyticsReportSegments(
-    instanceId: string,
-  ): Effect.Effect<AnalyticsReportSegmentResource[], unknown>;
+  ): Promise<AnalyticsReportInstanceResource[]>;
+  listAnalyticsReportSegments(instanceId: string): Promise<AnalyticsReportSegmentResource[]>;
 };
 /** Result of {@link ensureAnalyticsRequest}: the request to use and whether this call created it. */
 type EnsuredRequest = {
   request: AnalyticsReportRequestResource;
   created: boolean;
 };
+
+function isUsableRequest(analyticsRequest: AnalyticsReportRequestResource): boolean {
+  const isStopped = analyticsRequest.stoppedDueToInactivity == true;
+  return isStopped == false;
+}
+
 /**
  * Find a usable analytics report request for an app, creating one if none exists. Reuses the first
  * request that Apple hasn't stopped for inactivity, so re-runs are idempotent and don't pile up
  * duplicate ONGOING requests.
  */
-export const ensureAnalyticsRequest = (
+export async function ensureAnalyticsRequest(
   api: AscReportsApi,
   appId: string,
   accessType: string,
-): Effect.Effect<EnsuredRequest, unknown> =>
-  Effect.gen(function* () {
-    const existingRequests = yield* api.listAnalyticsReportRequests(appId, accessType);
-    const usableRequest = existingRequests.find(
-      (analyticsRequest) => !analyticsRequest.stoppedDueToInactivity,
-    );
-    if (usableRequest !== undefined) return { request: usableRequest, created: false };
-    const createdRequest = yield* api.createAnalyticsReportRequest(appId, accessType);
-    return { request: createdRequest, created: true };
-  });
+): Promise<EnsuredRequest> {
+  const existingRequests = await api.listAnalyticsReportRequests(appId, accessType);
+  const usableRequest = existingRequests.find(isUsableRequest);
+  const hasUsableRequest = usableRequest !== undefined;
+
+  if (hasUsableRequest) {
+    return { request: usableRequest, created: false };
+  }
+
+  const createdRequest = await api.createAnalyticsReportRequest(appId, accessType);
+  return { request: createdRequest, created: true };
+}
+
 /** What to pull: the app, the access type, and the report/instance filters. */
 export type AnalyticsQuery = {
   bundleId: string;
@@ -197,59 +224,64 @@ type AnalyticsCollection = {
  * caller downloads + writes the segments; this function does no I/O beyond the API reads, so the walk
  * is unit-testable with a fake {@link AscReportsApi}.
  */
-export const collectAnalyticsSegments = (
+export async function collectAnalyticsSegments(
   api: AscReportsApi,
   query: AnalyticsQuery,
-): Effect.Effect<AnalyticsCollection, unknown> =>
-  Effect.gen(function* () {
-    const appId = yield* api.getAppId(query.bundleId);
-    if (appId === null) return yield* Effect.fail(appRecordNotFound(query.bundleId));
-    const ensuredRequest = yield* ensureAnalyticsRequest(api, appId, query.accessType);
-    const reportFilters: { category?: string; name?: string } = {};
-    if (query.category !== undefined) reportFilters.category = query.category;
-    if (query.name !== undefined) reportFilters.name = query.name;
-    const analyticsReports = yield* api.listAnalyticsReports(
-      ensuredRequest.request.id,
-      reportFilters,
+): Promise<AnalyticsCollection> {
+  const appId = await api.getAppId(query.bundleId);
+  const isAppMissing = appId == null;
+
+  if (isAppMissing) {
+    throw appRecordNotFound(query.bundleId);
+  }
+
+  const ensuredRequest = await ensureAnalyticsRequest(api, appId, query.accessType);
+  const reportFilters: { category?: string; name?: string } = {};
+  if (query.category !== undefined) reportFilters.category = query.category;
+  if (query.name !== undefined) reportFilters.name = query.name;
+  const analyticsReports = await api.listAnalyticsReports(ensuredRequest.request.id, reportFilters);
+  const segmentDownloads: SegmentDownload[] = [];
+
+  for (const analyticsReport of analyticsReports) {
+    const instanceFilters: { granularity?: string; processingDate?: string } = {
+      granularity: query.granularity,
+    };
+    if (query.processingDate !== undefined) {
+      instanceFilters.processingDate = query.processingDate;
+    }
+    const reportInstances = await api.listAnalyticsReportInstances(
+      analyticsReport.id,
+      instanceFilters,
     );
-    const segmentDownloads: SegmentDownload[] = [];
-    for (const analyticsReport of analyticsReports) {
-      const instanceFilters: { granularity?: string; processingDate?: string } = {
-        granularity: query.granularity,
-      };
-      if (query.processingDate !== undefined) {
-        instanceFilters.processingDate = query.processingDate;
-      }
-      const reportInstances = yield* api.listAnalyticsReportInstances(
-        analyticsReport.id,
-        instanceFilters,
-      );
-      for (const reportInstance of reportInstances) {
-        const reportSegments = yield* api.listAnalyticsReportSegments(reportInstance.id);
-        for (const reportSegment of reportSegments) {
-          let category = '';
-          if (analyticsReport.category !== undefined) category = analyticsReport.category;
-          let processingDate = '';
-          if (reportInstance.processingDate !== undefined) {
-            processingDate = reportInstance.processingDate;
-          }
-          const segmentDownload: SegmentDownload = {
-            reportName: analyticsReport.name,
-            category,
-            granularity: reportInstance.granularity,
-            processingDate,
-            url: reportSegment.url,
-          };
-          if (reportSegment.checksum !== undefined) {
-            segmentDownload.checksum = reportSegment.checksum;
-          }
-          segmentDownloads.push(segmentDownload);
+
+    for (const reportInstance of reportInstances) {
+      const reportSegments = await api.listAnalyticsReportSegments(reportInstance.id);
+
+      for (const reportSegment of reportSegments) {
+        let category = '';
+        if (analyticsReport.category !== undefined) category = analyticsReport.category;
+        let processingDate = '';
+        if (reportInstance.processingDate !== undefined) {
+          processingDate = reportInstance.processingDate;
         }
+        const segmentDownload: SegmentDownload = {
+          reportName: analyticsReport.name,
+          category,
+          granularity: reportInstance.granularity,
+          processingDate,
+          url: reportSegment.url,
+        };
+        if (reportSegment.checksum !== undefined) {
+          segmentDownload.checksum = reportSegment.checksum;
+        }
+        segmentDownloads.push(segmentDownload);
       }
     }
-    return {
-      requestCreated: ensuredRequest.created,
-      reportCount: analyticsReports.length,
-      downloads: segmentDownloads,
-    };
-  });
+  }
+
+  return {
+    requestCreated: ensuredRequest.created,
+    reportCount: analyticsReports.length,
+    downloads: segmentDownloads,
+  };
+}

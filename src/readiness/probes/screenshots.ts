@@ -6,116 +6,162 @@ import type {
   ReadinessProbe,
 } from '@/types/readiness.js';
 import { REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES } from '@/listing/screenshots/specs.js';
-import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
-const populatedIphoneDisplayTypes = (
+
+type EditableVersion = Readonly<{
+  id: string;
+  copyright: string;
+}> | null;
+
+type ScreenshotSet = Readonly<{
+  id: string;
+  screenshotDisplayType: string;
+}>;
+
+function isAppleAccountMissing(api: AscReadinessApi | null): api is null {
+  return api == null;
+}
+
+function isAppRecordMissing(appId: string | null): appId is null {
+  return appId == null;
+}
+
+function isVersionMissing(version: EditableVersion): version is null {
+  return version == null;
+}
+
+function isIphoneSet(screenshotSet: ScreenshotSet): boolean {
+  return screenshotSet.screenshotDisplayType.startsWith('APP_IPHONE');
+}
+
+function isPresentDisplayType(displayType: string | null): displayType is string {
+  return displayType != null;
+}
+
+async function populatedIphoneDisplayTypes(
   api: AscReadinessApi,
   versionId: string,
-): Effect.Effect<Set<string>, unknown> => {
-  return Effect.gen(function* () {
-    const localizations = yield* api.listAppStoreVersionLocalizations(versionId);
-    const setsPerLocale = yield* Effect.forEach(
-      localizations,
-      (localization) => api.listScreenshotSets(localization.id),
-      { concurrency: 'unbounded' },
-    );
-    /** Apple's display-type prefix for every iPhone screenshot class (e.g. `APP_IPHONE_67`, `APP_IPHONE_65`). */
-    const iphoneSets = setsPerLocale
-      .flat()
-      .filter((set) => set.screenshotDisplayType.startsWith('APP_IPHONE'));
-    const populatedDisplayTypes = yield* Effect.forEach(
-      iphoneSets,
-      (screenshotSet) =>
-        api.listScreenshots(screenshotSet.id).pipe(
-          Effect.map((screenshots) => {
-            if (screenshots.length > 0) return screenshotSet.screenshotDisplayType;
-            return undefined;
-          }),
-        ),
-      { concurrency: 'unbounded' },
-    );
-    return new Set(
-      populatedDisplayTypes.filter(
-        (displayType): displayType is string => displayType !== undefined,
-      ),
-    );
-  });
-};
+): Promise<Set<string>> {
+  const localizations = await api.listAppStoreVersionLocalizations(versionId);
+
+  function listSets(localization: { id: string }): Promise<readonly ScreenshotSet[]> {
+    return api.listScreenshotSets(localization.id);
+  }
+
+  const setsPerLocale = await Promise.all(localizations.map(listSets));
+  const iphoneSets = setsPerLocale.flat().filter(isIphoneSet);
+
+  async function readPopulatedDisplayType(screenshotSet: ScreenshotSet): Promise<string | null> {
+    const screenshots = await api.listScreenshots(screenshotSet.id);
+    const hasScreenshots = screenshots.length > 0;
+
+    if (hasScreenshots) {
+      return screenshotSet.screenshotDisplayType;
+    }
+
+    return null;
+  }
+
+  const populatedDisplayTypes = await Promise.all(iphoneSets.map(readPopulatedDisplayType));
+
+  return new Set(populatedDisplayTypes.filter(isPresentDisplayType));
+}
+
+async function readScreenshots(
+  api: AscReadinessApi,
+  app: { name: string; identifier: string },
+): Promise<AppReadiness> {
+  const appId = await api.getAppId(app.identifier);
+
+  if (isAppRecordMissing(appId)) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'warn',
+      detail: "can't verify - no app record yet",
+      hint: 'create the app record first (see the app-record check)',
+    };
+  }
+
+  const version = await api.findEditableAppStoreVersion(appId, 'IOS');
+
+  if (isVersionMissing(version)) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'warn',
+      detail: "can't verify - no editable app version",
+      hint: 'create a new version in App Store Connect, then re-run',
+    };
+  }
+
+  const populated = await populatedIphoneDisplayTypes(api, version.id);
+
+  function hasRequiredDisplayType(displayType: string): boolean {
+    return populated.has(displayType);
+  }
+
+  const hasEveryRequired = REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES.every(hasRequiredDisplayType);
+
+  if (hasEveryRequired) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'ok',
+      detail: '6.7" iPhone screenshots uploaded',
+    };
+  }
+
+  const hasSomeIphoneShots = populated.size > 0;
+
+  if (hasSomeIphoneShots) {
+    return {
+      app: app.name,
+      identifier: app.identifier,
+      status: 'warn',
+      detail: 'iPhone screenshots present, but none for the required 6.7" class',
+      hint: 'upload at least one 6.7" iPhone screenshot (App Store Connect -> the version -> Previews and Screenshots)',
+    };
+  }
+
+  return {
+    app: app.name,
+    identifier: app.identifier,
+    status: 'blocker',
+    detail: 'no iPhone screenshots uploaded',
+    hint: 'add iPhone screenshots (App Store Connect -> the version -> Previews and Screenshots) before submitting',
+  };
+}
+
 /** The App Store Connect iPhone-screenshot readiness probe - a listing-completeness check and submit blocker. */
 export const screenshotsProbe = {
   id: 'apple-screenshots',
   title: 'iPhone screenshots uploaded',
   store: 'appstore',
   categories: ['listing', 'submit'],
-  /**
-   * Verify that each selected iOS app has required iPhone screenshots uploaded.
-   *
-   * @param readinessContext - Loaded config, selected apps, and App Store Connect resolver.
-   * @returns An Effect that succeeds with one screenshot finding per selected app.
-   */
-  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
-    return Effect.gen(function* () {
-      const apps = iosApps(readinessContext.apps);
-      if (apps.length === 0) return OMITTED_PROBE;
-      const api = yield* readinessContext.resolveAscApi();
-      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
-      const results: AppReadiness[] = yield* Effect.forEach(
-        apps,
-        ({ name, identifier }) =>
-          Effect.gen(function* () {
-            const appId = yield* api.getAppId(identifier);
-            if (!appId) {
-              return {
-                app: name,
-                identifier,
-                status: 'warn' as const,
-                detail: "can't verify - no app record yet",
-                hint: 'create the app record first (see the app-record check)',
-              };
-            }
-            const version = yield* api.findEditableAppStoreVersion(appId, 'IOS');
-            if (!version) {
-              return {
-                app: name,
-                identifier,
-                status: 'warn' as const,
-                detail: "can't verify - no editable app version",
-                hint: 'create a new version in App Store Connect, then re-run',
-              };
-            }
-            const populated = yield* populatedIphoneDisplayTypes(api, version.id);
-            if (
-              REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES.every((displayType) =>
-                populated.has(displayType),
-              )
-            ) {
-              return {
-                app: name,
-                identifier,
-                status: 'ok' as const,
-                detail: '6.7" iPhone screenshots uploaded',
-              };
-            }
-            if (populated.size > 0)
-              return {
-                app: name,
-                identifier,
-                status: 'warn' as const,
-                detail: 'iPhone screenshots present, but none for the required 6.7" class',
-                hint: 'upload at least one 6.7" iPhone screenshot (App Store Connect -> the version -> Previews and Screenshots)',
-              };
-            return {
-              app: name,
-              identifier,
-              status: 'blocker' as const,
-              detail: 'no iPhone screenshots uploaded',
-              hint: 'add iPhone screenshots (App Store Connect -> the version -> Previews and Screenshots) before submitting',
-            };
-          }),
-        { concurrency: 'unbounded' },
-      );
-      return { state: 'checked', apps: results };
-    });
+  async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
+    const apps = iosApps(readinessContext.apps);
+    const isNothingSelected = apps.length == 0;
+
+    if (isNothingSelected) {
+      return OMITTED_PROBE;
+    }
+
+    const api = await readinessContext.resolveAscApi();
+
+    if (isAppleAccountMissing(api)) {
+      return SKIPPED_NO_APPLE_ACCOUNT;
+    }
+
+    const appleApi = api;
+
+    function readShots(app: { name: string; identifier: string }): Promise<AppReadiness> {
+      return readScreenshots(appleApi, app);
+    }
+
+    const findings = await Promise.all(apps.map(readShots));
+
+    return { state: 'checked', apps: findings };
   },
 } satisfies ReadinessProbe;

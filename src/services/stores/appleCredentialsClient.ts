@@ -1,4 +1,3 @@
-import { Context, Effect, Layer } from 'effect';
 import type {
   BundleIdCapabilityResource as AscBundleIdCapabilityResource,
   BundleIdResource as AscBundleIdResource,
@@ -12,10 +11,7 @@ import type {
   ProfileResource,
 } from '../../types/appleCatalog.js';
 import type { AscKey } from '../../types/credentials.js';
-import {
-  type AppleStoreClientService as AppleStoreClientRequirements,
-  AppleStoreClientService,
-} from './appleStoreClient.js';
+import { AppleStoreClientService } from './appleStoreClient.js';
 
 type AppleDeviceResource = Readonly<{
   readonly id: string;
@@ -25,42 +21,36 @@ type AppleDeviceResource = Readonly<{
 }>;
 
 export type AppleCredentialsClient = Readonly<{
-  readonly findBundleId: (identifier: string) => Effect.Effect<BundleIdResource | null, unknown>;
-  readonly createBundleId: (
+  findBundleId: (identifier: string) => Promise<BundleIdResource | null>;
+  createBundleId: (
     identifier: string,
     name: string,
     platform: 'IOS' | 'MAC_OS',
-  ) => Effect.Effect<BundleIdResource, unknown>;
-  readonly listDistributionCertificates: () => Effect.Effect<CertificateResource[], unknown>;
-  readonly createCertificate: (csrContent: string) => Effect.Effect<CertificateResource, unknown>;
-  readonly findProfileByName: (name: string) => Effect.Effect<ProfileResource | null, unknown>;
-  readonly createAppStoreProfile: (
+  ) => Promise<BundleIdResource>;
+  listDistributionCertificates: () => Promise<CertificateResource[]>;
+  createCertificate: (csrContent: string) => Promise<CertificateResource>;
+  findProfileByName: (name: string) => Promise<ProfileResource | null>;
+  createAppStoreProfile: (
     name: string,
     bundleIdResourceId: string,
     certificateId: string,
     profileType: 'IOS_APP_STORE' | 'TVOS_APP_STORE' | 'MAC_APP_STORE',
-  ) => Effect.Effect<ProfileResource, unknown>;
-  readonly deleteProfile: (profileId: string) => Effect.Effect<void, unknown>;
-  readonly listDevices: () => Effect.Effect<AppleDeviceResource[], unknown>;
-  readonly createAdHocProfile: (
+  ) => Promise<ProfileResource>;
+  deleteProfile: (profileId: string) => Promise<void>;
+  listDevices: () => Promise<AppleDeviceResource[]>;
+  createAdHocProfile: (
     name: string,
     bundleIdResourceId: string,
     certificateId: string,
     deviceIds: readonly string[],
     profileType: 'IOS_APP_ADHOC' | 'TVOS_APP_ADHOC',
-  ) => Effect.Effect<ProfileResource, unknown>;
-  readonly listBundleIdCapabilities: (
-    bundleIdResourceId: string,
-  ) => Effect.Effect<BundleIdCapabilityResource[], unknown>;
+  ) => Promise<ProfileResource>;
+  listBundleIdCapabilities: (bundleIdResourceId: string) => Promise<BundleIdCapabilityResource[]>;
 }>;
 
 export type AppleCredentialsClientFactory = Readonly<{
-  readonly createClient: (ascKey: AscKey) => Effect.Effect<AppleCredentialsClient, unknown>;
+  createClient: (ascKey: AscKey) => Promise<AppleCredentialsClient>;
 }>;
-
-export const AppleCredentialsClientFactory = Context.GenericTag<AppleCredentialsClientFactory>(
-  'launch-store/AppleCredentialsClientFactory',
-);
 
 /** Translate the Apple transport shape without leaking explicit `undefined` fields into the domain. */
 const toDomainBundleId = (bundleIdentifier: AscBundleIdResource): BundleIdResource => {
@@ -120,58 +110,60 @@ const toDomainCapability = (
   };
 };
 
-export const AppleCredentialsClientLive: Layer.Layer<
-  AppleCredentialsClientFactory,
-  never,
-  AppleStoreClientRequirements
-> = Layer.effect(
-  AppleCredentialsClientFactory,
-  Effect.gen(function* () {
-    const appleStoreClients = yield* AppleStoreClientService;
-    return {
-      createClient: (ascKey) =>
-        Effect.gen(function* () {
-          const appStoreClient = yield* appleStoreClients.createEffectClient(ascKey);
-          return {
-            findBundleId: (identifier) =>
-              appStoreClient.findBundleId(identifier).pipe(Effect.map(toOptionalDomainBundleId)),
-            createBundleId: (identifier, name, platform) =>
-              appStoreClient
-                .createBundleId(identifier, name, platform)
-                .pipe(Effect.map(toDomainBundleId)),
-            listDistributionCertificates: () =>
-              appStoreClient
-                .listDistributionCertificates()
-                .pipe(Effect.map((certificates) => certificates.map(toDomainCertificate))),
-            createCertificate: (csrContent) =>
-              appStoreClient.createCertificate(csrContent).pipe(Effect.map(toDomainCertificate)),
-            findProfileByName: (name) => appStoreClient.findProfileByName(name),
-            createAppStoreProfile: (name, bundleIdResourceId, certificateId, profileType) =>
-              appStoreClient.createAppStoreProfile(
-                name,
-                bundleIdResourceId,
-                certificateId,
-                profileType,
-              ),
-            deleteProfile: (profileId) => appStoreClient.deleteProfile(profileId),
-            listDevices: () =>
-              appStoreClient
-                .listDevices()
-                .pipe(Effect.map((devices) => devices.map(toDomainDevice))),
-            createAdHocProfile: (name, bundleIdResourceId, certificateId, deviceIds, profileType) =>
-              appStoreClient.createAdHocProfile(
-                name,
-                bundleIdResourceId,
-                certificateId,
-                deviceIds,
-                profileType,
-              ),
-            listBundleIdCapabilities: (bundleIdResourceId) =>
-              appStoreClient
-                .listBundleIdCapabilities(bundleIdResourceId)
-                .pipe(Effect.map((capabilities) => capabilities.map(toDomainCapability))),
-          } satisfies AppleCredentialsClient;
-        }),
-    } satisfies AppleCredentialsClientFactory;
-  }),
-);
+async function createAppleCredentialsClient(ascKey: AscKey): Promise<AppleCredentialsClient> {
+  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+
+  return {
+    async findBundleId(identifier) {
+      const bundleIdentifier = await appStoreClient.findBundleId(identifier);
+      return toOptionalDomainBundleId(bundleIdentifier);
+    },
+    async createBundleId(identifier, name, platform) {
+      const bundleIdentifier = await appStoreClient.createBundleId(identifier, name, platform);
+      return toDomainBundleId(bundleIdentifier);
+    },
+    async listDistributionCertificates() {
+      const certificates = await appStoreClient.listDistributionCertificates();
+      return certificates.map(toDomainCertificate);
+    },
+    async createCertificate(csrContent) {
+      const certificate = await appStoreClient.createCertificate(csrContent);
+      return toDomainCertificate(certificate);
+    },
+    findProfileByName(name) {
+      return appStoreClient.findProfileByName(name);
+    },
+    createAppStoreProfile(name, bundleIdResourceId, certificateId, profileType) {
+      return appStoreClient.createAppStoreProfile(
+        name,
+        bundleIdResourceId,
+        certificateId,
+        profileType,
+      );
+    },
+    deleteProfile(profileId) {
+      return appStoreClient.deleteProfile(profileId);
+    },
+    async listDevices() {
+      const devices = await appStoreClient.listDevices();
+      return devices.map(toDomainDevice);
+    },
+    createAdHocProfile(name, bundleIdResourceId, certificateId, deviceIds, profileType) {
+      return appStoreClient.createAdHocProfile(
+        name,
+        bundleIdResourceId,
+        certificateId,
+        deviceIds,
+        profileType,
+      );
+    },
+    async listBundleIdCapabilities(bundleIdResourceId) {
+      const capabilities = await appStoreClient.listBundleIdCapabilities(bundleIdResourceId);
+      return capabilities.map(toDomainCapability);
+    },
+  };
+}
+
+export const AppleCredentialsClientFactory = {
+  createClient: createAppleCredentialsClient,
+};

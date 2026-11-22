@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import type {
   NewUserInvitation,
@@ -10,17 +9,17 @@ import { getTeam, inviteTeamMember, removeTeamMember, type AscTeamApi } from './
 /** Build an empty Effect-native team client with optional method replacements. */
 const makeTeamClient = (methodOverrides: Partial<AscTeamApi> = {}): AscTeamApi => {
   const defaultClient: AscTeamApi = {
-    listUsers: vi.fn().mockReturnValue(Effect.succeed([])),
-    listUserInvitations: vi.fn().mockReturnValue(Effect.succeed([])),
+    listUsers: vi.fn().mockReturnValue(Promise.resolve([])),
+    listUserInvitations: vi.fn().mockReturnValue(Promise.resolve([])),
     inviteUser: vi.fn().mockImplementation((newInvitation: NewUserInvitation) =>
-      Effect.succeed({
+      Promise.resolve({
         id: 'inv-new',
         email: newInvitation.email,
         roles: newInvitation.roles,
       }),
     ),
-    deleteUser: vi.fn().mockReturnValue(Effect.void),
-    cancelUserInvitation: vi.fn().mockReturnValue(Effect.void),
+    deleteUser: vi.fn().mockReturnValue(Promise.resolve()),
+    cancelUserInvitation: vi.fn().mockReturnValue(Promise.resolve()),
   };
   return { ...defaultClient, ...methodOverrides };
 };
@@ -48,10 +47,10 @@ const pendingInvitation = (
 describe('getTeam', () => {
   it('returns members and pending invitations together', async () => {
     const teamClient = makeTeamClient({
-      listUsers: vi.fn().mockReturnValue(Effect.succeed([teamMember()])),
-      listUserInvitations: vi.fn().mockReturnValue(Effect.succeed([pendingInvitation()])),
+      listUsers: vi.fn().mockReturnValue(Promise.resolve([teamMember()])),
+      listUserInvitations: vi.fn().mockReturnValue(Promise.resolve([pendingInvitation()])),
     });
-    const currentTeam = await Effect.runPromise(getTeam(teamClient));
+    const currentTeam = await getTeam(teamClient);
     expect(currentTeam.members).toHaveLength(1);
     expect(currentTeam.invitations).toHaveLength(1);
   });
@@ -60,14 +59,12 @@ describe('getTeam', () => {
 describe('inviteTeamMember', () => {
   it('invites with normalized roles and default permissions', async () => {
     const teamClient = makeTeamClient();
-    const createdInvitation = await Effect.runPromise(
-      inviteTeamMember(teamClient, {
-        email: 'new@acme.com',
-        firstName: ' Pat ',
-        lastName: ' Lee ',
-        roles: ['developer', 'Developer', ' app_manager '],
-      }),
-    );
+    const createdInvitation = await inviteTeamMember(teamClient, {
+      email: 'new@acme.com',
+      firstName: ' Pat ',
+      lastName: ' Lee ',
+      roles: ['developer', 'Developer', ' app_manager '],
+    });
     expect(teamClient.inviteUser).toHaveBeenCalledWith({
       email: 'new@acme.com',
       firstName: 'Pat',
@@ -81,15 +78,13 @@ describe('inviteTeamMember', () => {
 
   it('passes through a provisioning override', async () => {
     const teamClient = makeTeamClient();
-    await Effect.runPromise(
-      inviteTeamMember(teamClient, {
-        email: 'new@acme.com',
-        firstName: 'Pat',
-        lastName: 'Lee',
-        roles: ['DEVELOPER'],
-        provisioningAllowed: true,
-      }),
-    );
+    await inviteTeamMember(teamClient, {
+      email: 'new@acme.com',
+      firstName: 'Pat',
+      lastName: 'Lee',
+      roles: ['DEVELOPER'],
+      provisioningAllowed: true,
+    });
     expect(teamClient.inviteUser).toHaveBeenCalledWith(
       expect.objectContaining({ provisioningAllowed: true }),
     );
@@ -97,53 +92,45 @@ describe('inviteTeamMember', () => {
 
   it('rejects an empty email', async () => {
     await expect(
-      Effect.runPromise(
-        inviteTeamMember(makeTeamClient(), {
-          email: '  ',
-          firstName: 'Pat',
-          lastName: 'Lee',
-          roles: ['DEVELOPER'],
-        }),
-      ),
+      inviteTeamMember(makeTeamClient(), {
+        email: '  ',
+        firstName: 'Pat',
+        lastName: 'Lee',
+        roles: ['DEVELOPER'],
+      }),
     ).rejects.toThrow(/email is required/);
   });
 
   it('rejects when no roles are given', async () => {
     await expect(
-      Effect.runPromise(
-        inviteTeamMember(makeTeamClient(), {
-          email: 'new@acme.com',
-          firstName: 'Pat',
-          lastName: 'Lee',
-          roles: ['  '],
-        }),
-      ),
+      inviteTeamMember(makeTeamClient(), {
+        email: 'new@acme.com',
+        firstName: 'Pat',
+        lastName: 'Lee',
+        roles: ['  '],
+      }),
     ).rejects.toThrow(/At least one role is required/);
   });
 
   it('rejects the deprecated ACCESS_TO_REPORTS permission and names the roles to use', async () => {
     await expect(
-      Effect.runPromise(
-        inviteTeamMember(makeTeamClient(), {
-          email: 'new@acme.com',
-          firstName: 'Pat',
-          lastName: 'Lee',
-          roles: ['SALES', 'ACCESS_TO_REPORTS'],
-        }),
-      ),
+      inviteTeamMember(makeTeamClient(), {
+        email: 'new@acme.com',
+        firstName: 'Pat',
+        lastName: 'Lee',
+        roles: ['SALES', 'ACCESS_TO_REPORTS'],
+      }),
     ).rejects.toThrow(/ACCESS_TO_REPORTS is deprecated by Apple.*Sales, Marketing, App Manager/);
   });
 
   it('rejects an unknown role with the valid list', async () => {
     await expect(
-      Effect.runPromise(
-        inviteTeamMember(makeTeamClient(), {
-          email: 'new@acme.com',
-          firstName: 'Pat',
-          lastName: 'Lee',
-          roles: ['WIZARD'],
-        }),
-      ),
+      inviteTeamMember(makeTeamClient(), {
+        email: 'new@acme.com',
+        firstName: 'Pat',
+        lastName: 'Lee',
+        roles: ['WIZARD'],
+      }),
     ).rejects.toThrow(/Unknown role\(s\): WIZARD/);
   });
 
@@ -151,17 +138,15 @@ describe('inviteTeamMember', () => {
     const teamClient = makeTeamClient({
       listUsers: vi
         .fn()
-        .mockReturnValue(Effect.succeed([teamMember({ username: 'Jane@Acme.com' })])),
+        .mockReturnValue(Promise.resolve([teamMember({ username: 'Jane@Acme.com' })])),
     });
     await expect(
-      Effect.runPromise(
-        inviteTeamMember(teamClient, {
-          email: 'jane@acme.com',
-          firstName: 'Jane',
-          lastName: 'Doe',
-          roles: ['ADMIN'],
-        }),
-      ),
+      inviteTeamMember(teamClient, {
+        email: 'jane@acme.com',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        roles: ['ADMIN'],
+      }),
     ).rejects.toThrow(/already a team member/);
     expect(teamClient.inviteUser).not.toHaveBeenCalled();
   });
@@ -170,17 +155,15 @@ describe('inviteTeamMember', () => {
     const teamClient = makeTeamClient({
       listUserInvitations: vi
         .fn()
-        .mockReturnValue(Effect.succeed([pendingInvitation({ email: 'john@acme.com' })])),
+        .mockReturnValue(Promise.resolve([pendingInvitation({ email: 'john@acme.com' })])),
     });
     await expect(
-      Effect.runPromise(
-        inviteTeamMember(teamClient, {
-          email: 'john@acme.com',
-          firstName: 'John',
-          lastName: 'Roe',
-          roles: ['DEVELOPER'],
-        }),
-      ),
+      inviteTeamMember(teamClient, {
+        email: 'john@acme.com',
+        firstName: 'John',
+        lastName: 'Roe',
+        roles: ['DEVELOPER'],
+      }),
     ).rejects.toThrow(/already has a pending invitation/);
     expect(teamClient.inviteUser).not.toHaveBeenCalled();
   });
@@ -191,9 +174,9 @@ describe('removeTeamMember', () => {
     const teamClient = makeTeamClient({
       listUsers: vi
         .fn()
-        .mockReturnValue(Effect.succeed([teamMember({ id: 'u9', username: 'jane@acme.com' })])),
+        .mockReturnValue(Promise.resolve([teamMember({ id: 'u9', username: 'jane@acme.com' })])),
     });
-    const removeOutcome = await Effect.runPromise(removeTeamMember(teamClient, 'JANE@acme.com'));
+    const removeOutcome = await removeTeamMember(teamClient, 'JANE@acme.com');
     expect(removeOutcome).toEqual({
       kind: 'member',
       user: expect.objectContaining({ id: 'u9' }),
@@ -206,9 +189,11 @@ describe('removeTeamMember', () => {
     const teamClient = makeTeamClient({
       listUserInvitations: vi
         .fn()
-        .mockReturnValue(Effect.succeed([pendingInvitation({ id: 'i9', email: 'john@acme.com' })])),
+        .mockReturnValue(
+          Promise.resolve([pendingInvitation({ id: 'i9', email: 'john@acme.com' })]),
+        ),
     });
-    const removeOutcome = await Effect.runPromise(removeTeamMember(teamClient, 'john@acme.com'));
+    const removeOutcome = await removeTeamMember(teamClient, 'john@acme.com');
     expect(removeOutcome).toEqual({
       kind: 'invitation',
       invitation: expect.objectContaining({ id: 'i9' }),
@@ -219,7 +204,7 @@ describe('removeTeamMember', () => {
 
   it('reports none when nothing matches', async () => {
     const teamClient = makeTeamClient();
-    const removeOutcome = await Effect.runPromise(removeTeamMember(teamClient, 'ghost@acme.com'));
+    const removeOutcome = await removeTeamMember(teamClient, 'ghost@acme.com');
     expect(removeOutcome).toEqual({ kind: 'none' });
     expect(teamClient.deleteUser).not.toHaveBeenCalled();
     expect(teamClient.cancelUserInvitation).not.toHaveBeenCalled();

@@ -1,42 +1,39 @@
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { mkdtempSync, rmSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { expectDefined } from '@testkit/assertions.testkit.js';
 import {
   ARTIFACTS_DIR,
   ARTIFACT_INDEX,
   CREDENTIALS_DIR,
   CREDENTIALS_INDEX,
-  PROVISIONING_PROFILES_DIR,
   LAUNCH_HOME,
+  PROVISIONING_PROFILES_DIR,
   ensureDirectoryExists,
   locateAppStatsDirectory,
   locatePortfolioFilePath,
   locateStatsDirectory,
-  makeLaunchPathsTest,
+  resetLaunchDirectories,
   resolveAccountCredentialsDirectory,
-  type LaunchPathsService,
+  useLaunchDirectories,
 } from './paths.js';
-/** Execute a path service test with the official Node platform services. */
-const executeTestProgram = <TValue, TError>(
-  program: Effect.Effect<TValue, TError, LaunchPathsService | NodeContext.NodeContext>,
-): Promise<TValue> =>
-  Effect.runPromise(
-    program.pipe(
-      Effect.provide(NodeContext.layer),
-      Effect.provide(makeLaunchPathsTest(homedir(), process.cwd())),
-    ),
-  );
+
 const tempDirs: string[] = [];
-afterEach(() => {
+
+afterEach(function removeTempDirectories() {
+  resetLaunchDirectories();
+
   while (tempDirs.length > 0) {
-    rmSync(expectDefined(tempDirs.pop(), 'temp dir'), { recursive: true, force: true });
+    const directory = tempDirs.pop();
+
+    if (directory == null) {
+      return;
+    }
+
+    rmSync(directory, { recursive: true, force: true });
   }
 });
+
 describe('paths - one canonical layout for ~/.launch', () => {
   it('nests all local state under ~/.launch', () => {
     expect(LAUNCH_HOME.endsWith('.launch')).toBe(true);
@@ -49,48 +46,52 @@ describe('paths - one canonical layout for ~/.launch', () => {
       join('Library', 'MobileDevice', 'Provisioning Profiles'),
     );
   });
-  it('creates directories through Effect Platform FileSystem', async () => {
+  it('creates directories through the file system', async () => {
     const rootDirectory = mkdtempSync(join(tmpdir(), 'launch-effect-paths-'));
     tempDirs.push(rootDirectory);
     const nestedDirectory = join(rootDirectory, 'a', 'b', 'c');
-    await expect(executeTestProgram(ensureDirectoryExists(nestedDirectory))).resolves.toBe(
-      nestedDirectory,
-    );
+    await expect(ensureDirectoryExists(nestedDirectory)).resolves.toBe(nestedDirectory);
     expect(statSync(nestedDirectory).isDirectory()).toBe(true);
   });
-  it('builds account paths through Effect Platform Path', async () => {
-    const accountDirectory = await executeTestProgram(resolveAccountCredentialsDirectory('KEY/42'));
-    expect(accountDirectory).toBe(join(CREDENTIALS_DIR, 'KEY42'));
+  it('builds account paths from the home directory', () => {
+    const accountDirectory = resolveAccountCredentialsDirectory('KEY/42');
+    expect(accountDirectory).toBe(join(homedir(), '.launch', 'credentials', 'KEY42'));
   });
 });
+
 describe('stats paths', () => {
-  const homeDirectory = join('/test-home');
-  const runWithHome = <Success, Failure>(
-    program: Effect.Effect<Success, Failure, LaunchPathsService | NodeContext.NodeContext>,
-  ) =>
-    Effect.runPromise(
-      program.pipe(
-        Effect.provide(NodeContext.layer),
-        Effect.provide(makeLaunchPathsTest(homeDirectory, '/workspace')),
-      ),
-    );
+  const homeDirectory = '/test-home';
 
-  it('puts the stats folder and portfolio file under ~/.launch', async () => {
-    expect(await runWithHome(locateStatsDirectory())).toBe(join(homeDirectory, '.launch', 'stats'));
-    expect(await runWithHome(locatePortfolioFilePath())).toBe(
-      join(homeDirectory, '.launch', 'portfolio.json'),
+  function useTestHome(): void {
+    useLaunchDirectories({ homeDirectory, workingDirectory: '/workspace' });
+  }
+
+  it('puts the stats folder and portfolio file under ~/.launch', () => {
+    useTestHome();
+    expect(locateStatsDirectory()).toBe(join(homeDirectory, '.launch', 'stats'));
+    expect(locatePortfolioFilePath()).toBe(join(homeDirectory, '.launch', 'portfolio.json'));
+  });
+
+  it('puts the stats of one app in its own folder', () => {
+    useTestHome();
+    expect(locateAppStatsDirectory('android-com.acme.app')).toBe(
+      join(homeDirectory, '.launch', 'stats', 'android-com.acme.app'),
     );
   });
 
-  it('puts the stats of one app in its own folder', async () => {
-    const appDirectory = await runWithHome(locateAppStatsDirectory('android-com.acme.app'));
+  it('refuses an app key that could leave the stats folder', () => {
+    useTestHome();
+    let failure: unknown = null;
 
-    expect(appDirectory).toBe(join(homeDirectory, '.launch', 'stats', 'android-com.acme.app'));
-  });
+    try {
+      locateAppStatsDirectory('ios-../../etc');
+    } catch (caught) {
+      failure = caught;
+    }
 
-  it('refuses an app key that could leave the stats folder', async () => {
-    await expect(runWithHome(locateAppStatsDirectory('ios-../../etc'))).rejects.toThrow(
-      'not a valid app key',
-    );
+    expect(failure).toMatchObject({
+      _tag: 'InvalidAppKeyFailure',
+      message: expect.stringContaining('not a valid app key'),
+    });
   });
 });

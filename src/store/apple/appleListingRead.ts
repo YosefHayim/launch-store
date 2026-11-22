@@ -1,16 +1,14 @@
-import { Effect } from 'effect';
 import type { ListingLocalization } from '../../types/appleCatalog.js';
-import type { JsonValue, SnapshotAscApi } from '../../types/snapshot.js';
+import type { JsonValue } from '../../types/snapshot.js';
 import type { AppleLocaleInfo, AppleStoreConfig } from '../shared/storeConfig.js';
 
 /** The App Store Connect reads needed to assemble one app's live listing. */
-type AppleListingReadApi = Pick<
-  SnapshotAscApi,
-  | 'getCurrentAppInfoId'
-  | 'getCurrentVersionId'
-  | 'listAppInfoLocalizations'
-  | 'listVersionLocalizations'
->;
+type AppleListingReadApi = Readonly<{
+  getCurrentAppInfoId: (appId: string) => Promise<string | null>;
+  getCurrentVersionId: (appId: string) => Promise<string | null>;
+  listAppInfoLocalizations: (appInfoId: string) => Promise<readonly ListingLocalization[]>;
+  listVersionLocalizations: (versionId: string) => Promise<readonly ListingLocalization[]>;
+}>;
 
 /** One locale's merged App Store field map, keyed by Apple's field names. */
 type AppleLocaleFields = Readonly<{
@@ -18,43 +16,76 @@ type AppleLocaleFields = Readonly<{
   fields: Record<string, string>;
 }>;
 
+function compareLocaleNames(
+  leftLocale: readonly [string, Record<string, string>],
+  rightLocale: readonly [string, Record<string, string>],
+): number {
+  return leftLocale[0].localeCompare(rightLocale[0]);
+}
+
+function toLocaleFields(localeEntry: readonly [string, Record<string, string>]): AppleLocaleFields {
+  return { locale: localeEntry[0], fields: localeEntry[1] };
+}
+
 /**
  * Merge the app-level and version-level listing localizations into one record per locale. App-info fields
  * (name/subtitle/privacy URL) and version fields (description/keywords/...) are disjoint, so a plain spread by
  * locale composes the full listing; the result is sorted by locale for a deterministic capture.
  */
-export const readAppleLocaleFields = (
+export async function readAppleLocaleFields(
   api: AppleListingReadApi,
   appId: string,
-): Effect.Effect<AppleLocaleFields[], unknown> =>
-  Effect.gen(function* () {
-    const byLocale = new Map<string, Record<string, string>>();
-    const merge = (localizations: readonly ListingLocalization[]): void => {
-      for (const localization of localizations) {
-        byLocale.set(localization.locale, {
-          ...byLocale.get(localization.locale),
-          ...localization.fields,
-        });
-      }
-    };
-    const appInfoId = yield* api.getCurrentAppInfoId(appId);
-    if (appInfoId) merge(yield* api.listAppInfoLocalizations(appInfoId));
-    const versionId = yield* api.getCurrentVersionId(appId);
-    if (versionId) merge(yield* api.listVersionLocalizations(versionId));
-    return [...byLocale.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([locale, fields]) => ({ locale, fields }));
-  });
+): Promise<AppleLocaleFields[]> {
+  const byLocale = new Map<string, Record<string, string>>();
+
+  function merge(localizations: readonly ListingLocalization[]): void {
+    for (const localization of localizations) {
+      const existingFields = byLocale.get(localization.locale);
+      byLocale.set(localization.locale, {
+        ...existingFields,
+        ...localization.fields,
+      });
+    }
+  }
+
+  const appInfoId = await api.getCurrentAppInfoId(appId);
+  const isAppInfoMissing = appInfoId == null;
+
+  if (isAppInfoMissing) {
+    // App-info localizations are optional for this capture.
+  } else {
+    const appInfoLocalizations = await api.listAppInfoLocalizations(appInfoId);
+    merge(appInfoLocalizations);
+  }
+
+  const versionId = await api.getCurrentVersionId(appId);
+  const isVersionMissing = versionId == null;
+
+  if (isVersionMissing) {
+    // Version localizations are optional for this capture.
+  } else {
+    const versionLocalizations = await api.listVersionLocalizations(versionId);
+    merge(versionLocalizations);
+  }
+
+  const localeEntries = [...byLocale.entries()];
+  const sortedLocaleEntries = localeEntries.sort(compareLocaleNames);
+  return sortedLocaleEntries.map(toLocaleFields);
+}
 
 /** Read a string-valued field from a captured listing's `fields` map, or undefined when absent/non-string. */
-const fieldString = (
+function fieldString(
   fields: Readonly<{ [key: string]: JsonValue }>,
   key: string,
-): string | undefined => {
+): string | undefined {
   const listingField = fields[key];
-  if (typeof listingField === 'string') return listingField;
+
+  if (typeof listingField === 'string') {
+    return listingField;
+  }
+
   return undefined;
-};
+}
 
 /**
  * Invert one locale's Apple-named fields back into an {@link AppleLocaleInfo} - the mirror of
@@ -91,16 +122,21 @@ export const toLocaleInfo = (fields: Readonly<{ [key: string]: JsonValue }>): Ap
 };
 
 /** Read an app's live App Store listing as the `apple` section of store.config.json. */
-export const readAppleListing = (
+export async function readAppleListing(
   api: AppleListingReadApi,
   appId: string,
-): Effect.Effect<AppleStoreConfig, unknown> =>
-  Effect.gen(function* () {
-    const localeFields = yield* readAppleLocaleFields(api, appId);
-    const localeInfoByLocale: Record<string, AppleLocaleInfo> = {};
-    for (const { locale, fields } of localeFields) {
-      const localeInfo = toLocaleInfo(fields);
-      if (Object.keys(localeInfo).length > 0) localeInfoByLocale[locale] = localeInfo;
+): Promise<AppleStoreConfig> {
+  const localeFields = await readAppleLocaleFields(api, appId);
+  const localeInfoByLocale: Record<string, AppleLocaleInfo> = {};
+
+  for (const { locale, fields } of localeFields) {
+    const localeInfo = toLocaleInfo(fields);
+    const hasLocaleFields = Object.keys(localeInfo).length > 0;
+
+    if (hasLocaleFields) {
+      localeInfoByLocale[locale] = localeInfo;
     }
-    return { info: localeInfoByLocale };
-  });
+  }
+
+  return { info: localeInfoByLocale };
+}

@@ -1,190 +1,258 @@
-import type { Terminal } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
-import type { LaunchPromptService } from '../../services/platform/prompt.js';
-import { completeCommand, type CommandExit } from '../../terminal/commandExit.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
+import { createLogger } from '../../services/platform/logger.js';
+import { completeCommand } from '../../terminal/commandExit.js';
 import type { SubscriptionConfig } from '../../types/catalog.js';
-import { loadActiveGoogleStore, type ActiveGoogleStoreRequirements } from './googleStoreCommand.js';
+import { loadStoreAppContext } from '../shared/selectStoreApp.js';
+import { loadActiveGoogleStore } from './googleStoreCommand.js';
 import {
   confirmPlayCatalogWrite,
   renderAppliedPlayCatalogAction,
   renderPlayCatalogAction,
 } from './playCatalogCommand.js';
 import { reconcilePlaySubscriptions, summarizePlaySubscriptions } from './playSubscriptions.js';
-import {
-  loadStoreAppContext,
-  type StoreAppSelectionRequirements,
-} from '../shared/selectStoreApp.js';
-import { hasMessage } from '../../services/platform/errorMessage.js';
 
-export const PlaySubscriptionsCommandInputSchema = Schema.Struct({
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  dryRun: Schema.Boolean,
-  yes: Schema.Boolean,
-});
+export type PlaySubscriptionsCommandInput = {
+  app?: string;
+  dryRun: boolean;
+  yes: boolean;
+};
 
-export type PlaySubscriptionsCommandInput = Schema.Schema.Type<
-  typeof PlaySubscriptionsCommandInputSchema
->;
-
-/** A Play subscriptions command step failed. */
 type PlaySubscriptionsCommandFailure = Readonly<{
   readonly _tag: 'PlaySubscriptionsCommandFailure';
   readonly operation: string;
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makePlaySubscriptionsCommandFailure = Data.tagged<PlaySubscriptionsCommandFailure>(
-  'PlaySubscriptionsCommandFailure',
-);
 
-type PlaySubscriptionsCommandRequirements =
-  | ActiveGoogleStoreRequirements
-  | LaunchPromptService
-  | Logger
-  | StoreAppSelectionRequirements
-  | Terminal.Terminal;
+function makePlaySubscriptionsCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause: unknown;
+}): PlaySubscriptionsCommandFailure {
+  return { _tag: 'PlaySubscriptionsCommandFailure', ...fields };
+}
 
-/** Convert any command dependency failure into the Play subscriptions channel. */
-const subscriptionsFailure = (
-  operation: string,
-  cause: unknown,
-): PlaySubscriptionsCommandFailure => {
+function subscriptionsFailure(operation: string, cause: unknown): PlaySubscriptionsCommandFailure {
   let message = `${operation} failed.`;
-  if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (hasMessage(cause)) message = cause.message;
-  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
-    const causeMessage = cause.message;
-    if (typeof causeMessage === 'string') message = causeMessage;
-  }
-  return makePlaySubscriptionsCommandFailure({ operation, message, cause });
-};
 
-/** Resolve the selected package and its Play-enabled subscriptions. */
-const resolveSubscriptionsTarget = (
-  appSelector: string | undefined,
-): Effect.Effect<
-  Readonly<{ appName: string; packageName: string; subscriptions: SubscriptionConfig[] }>,
-  PlaySubscriptionsCommandFailure,
-  StoreAppSelectionRequirements
-> =>
-  Effect.gen(function* () {
-    const storeAppContext = yield* loadStoreAppContext(appSelector).pipe(
-      Effect.mapError((cause) => subscriptionsFailure('select app', cause)),
+  if (typeof cause == 'string') {
+    const isBlank = cause.length == 0;
+
+    if (isBlank == false) {
+      message = cause;
+    }
+  }
+
+  if (hasMessage(cause)) {
+    message = cause.message;
+  }
+
+  return makePlaySubscriptionsCommandFailure({ operation, message, cause });
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  if (typeof candidate != 'object') {
+    return false;
+  }
+
+  if (Array.isArray(candidate)) {
+    return false;
+  }
+
+  return true;
+}
+
+function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
+  const field = record[fieldName];
+
+  if (typeof field != 'boolean') {
+    throw new Error(`${fieldName} must be a boolean`);
+  }
+
+  return field;
+}
+
+function readExactOptionalString(
+  record: Record<string, unknown>,
+  fieldName: string,
+): string | null {
+  if (fieldName in record == false) {
+    return null;
+  }
+
+  const field = record[fieldName];
+
+  if (typeof field != 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  return field;
+}
+
+export function decodePlaySubscriptionsCommandInput(
+  rawCommandInput: unknown,
+): PlaySubscriptionsCommandInput {
+  if (isRecord(rawCommandInput) == false) {
+    throw new Error('Play subscriptions command input must be an object.');
+  }
+
+  const commandInput: PlaySubscriptionsCommandInput = {
+    dryRun: readRequiredBoolean(rawCommandInput, 'dryRun'),
+    yes: readRequiredBoolean(rawCommandInput, 'yes'),
+  };
+  const appName = readExactOptionalString(rawCommandInput, 'app');
+
+  if (appName != null) {
+    commandInput.app = appName;
+  }
+
+  return commandInput;
+}
+
+export const PlaySubscriptionsCommandInputSchema = decodePlaySubscriptionsCommandInput;
+
+async function resolveSubscriptionsTarget(appSelector: string | undefined): Promise<{
+  appName: string;
+  packageName: string;
+  subscriptions: SubscriptionConfig[];
+}> {
+  const storeAppContext = await loadStoreAppContext(appSelector);
+  const selectedApp = storeAppContext.app;
+
+  if (selectedApp.packageName == null) {
+    throw subscriptionsFailure(
+      'resolve Android application id',
+      `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
     );
-    const selectedApp = storeAppContext.app;
-    if (selectedApp.packageName === undefined) {
-      return yield* Effect.fail(
-        subscriptionsFailure(
-          'resolve Android application id',
-          `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
-        ),
-      );
-    }
-    if (selectedApp.bundleId === undefined) {
-      return yield* Effect.fail(
-        subscriptionsFailure(
-          'resolve product catalog',
-          `No iOS bundle identifier for ${selectedApp.name} - the product catalog is keyed by bundle id; set ios.bundleIdentifier.`,
-        ),
-      );
-    }
-    const declaredSubscriptions: SubscriptionConfig[] = [];
-    const productCatalog = storeAppContext.config.products;
-    if (productCatalog !== undefined) {
-      const appCatalog = productCatalog[selectedApp.bundleId];
-      if (appCatalog !== undefined && appCatalog.subscriptionGroups !== undefined) {
-        for (const subscriptionGroup of appCatalog.subscriptionGroups) {
-          for (const subscription of subscriptionGroup.subscriptions) {
-            if (subscription.play !== undefined) declaredSubscriptions.push(subscription);
+  }
+
+  if (selectedApp.bundleId == null) {
+    throw subscriptionsFailure(
+      'resolve product catalog',
+      `No iOS bundle identifier for ${selectedApp.name} - the product catalog is keyed by bundle id; set ios.bundleIdentifier.`,
+    );
+  }
+
+  const declaredSubscriptions: SubscriptionConfig[] = [];
+  const productCatalog = storeAppContext.config.products;
+
+  if (productCatalog != null) {
+    const appCatalog = productCatalog[selectedApp.bundleId];
+    const subscriptionGroups = appCatalog?.subscriptionGroups ?? null;
+
+    if (subscriptionGroups != null) {
+      for (const subscriptionGroup of subscriptionGroups) {
+        for (const subscription of subscriptionGroup.subscriptions) {
+          if (subscription.play != null) {
+            declaredSubscriptions.push(subscription);
           }
         }
       }
     }
-    return {
-      appName: selectedApp.name,
-      packageName: selectedApp.packageName,
-      subscriptions: declaredSubscriptions,
-    };
-  });
+  }
 
-/** Decode, plan, confirm, and apply Play subscriptions. */
-const executePlaySubscriptions = (
-  rawCommandInput: unknown,
-): Effect.Effect<number, PlaySubscriptionsCommandFailure, PlaySubscriptionsCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(PlaySubscriptionsCommandInputSchema)(
-      rawCommandInput,
-    ).pipe(Effect.mapError((cause) => subscriptionsFailure('decode command input', cause)));
-    const subscriptionsTarget = yield* resolveSubscriptionsTarget(commandInput.app);
-    const logger = yield* createLogger(false);
-    if (subscriptionsTarget.subscriptions.length === 0) {
-      yield* logger.gap();
-      yield* logger.skip(
-        `${subscriptionsTarget.packageName}: no subscriptions carry a play override - nothing to reconcile`,
-      );
-      return 0;
-    }
-    const googleStore = yield* loadActiveGoogleStore(
-      subscriptionsTarget.packageName,
-      subscriptionsTarget.appName,
+  return {
+    appName: selectedApp.name,
+    packageName: selectedApp.packageName,
+    subscriptions: declaredSubscriptions,
+  };
+}
+
+function isPlanned(plannedAction: { status: string }): boolean {
+  return plannedAction.status == 'planned';
+}
+
+function catalogLine(plannedAction: Parameters<typeof renderPlayCatalogAction>[0]): string {
+  return renderPlayCatalogAction(plannedAction);
+}
+
+function appliedLine(appliedAction: Parameters<typeof renderAppliedPlayCatalogAction>[0]): string {
+  return renderAppliedPlayCatalogAction(appliedAction);
+}
+
+async function executePlaySubscriptions(rawCommandInput: unknown): Promise<number> {
+  const commandInput = decodePlaySubscriptionsCommandInput(rawCommandInput);
+  const subscriptionsTarget = await resolveSubscriptionsTarget(commandInput.app);
+  const logger = createLogger(false);
+
+  if (subscriptionsTarget.subscriptions.length == 0) {
+    logger.gap();
+    logger.skip(
+      `${subscriptionsTarget.packageName}: no subscriptions carry a play override - nothing to reconcile`,
     );
-    const subscriptionsPlan = yield* reconcilePlaySubscriptions(googleStore, {
-      packageName: subscriptionsTarget.packageName,
-      serviceAccountEmail: googleStore.serviceAccountEmail,
-      subscriptions: subscriptionsTarget.subscriptions,
-      dryRun: true,
-    });
-    const plannedActions = subscriptionsPlan.actions.filter(
-      (plannedAction) => plannedAction.status === 'planned',
-    );
-    yield* logger.gap();
-    if (subscriptionsPlan.actions.length === 0) {
-      yield* logger.ok(`${subscriptionsTarget.packageName}: Play subscriptions already in sync`);
-      return 0;
-    }
-    yield* logger.notice(
-      subscriptionsTarget.packageName,
-      ...subscriptionsPlan.actions.map(renderPlayCatalogAction),
-    );
-    yield* logger.gap();
-    yield* logger.note(
-      `${plannedActions.length} change(s) for ${subscriptionsTarget.packageName}.`,
-    );
-    if (commandInput.dryRun) {
-      yield* logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
-      return 0;
-    }
-    const confirmed = yield* confirmPlayCatalogWrite(
-      `Apply ${plannedActions.length} Play subscription change(s) to ${subscriptionsTarget.packageName}?`,
-      commandInput.yes,
-    );
-    if (!confirmed) return 0;
-    const appliedSubscriptions = yield* reconcilePlaySubscriptions(googleStore, {
-      packageName: subscriptionsTarget.packageName,
-      serviceAccountEmail: googleStore.serviceAccountEmail,
-      subscriptions: subscriptionsTarget.subscriptions,
-      dryRun: false,
-    });
-    const subscriptionsSummary = summarizePlaySubscriptions(appliedSubscriptions.actions);
-    let receiptTitle = 'Applied';
-    if (subscriptionsSummary.failed > 0) receiptTitle = 'Applied with errors';
-    yield* logger.box(
-      receiptTitle,
-      appliedSubscriptions.actions.map(renderAppliedPlayCatalogAction),
-    );
-    return subscriptionsSummary.failed;
-  }).pipe(Effect.mapError((cause) => subscriptionsFailure('reconcile Play subscriptions', cause)));
+    return 0;
+  }
+
+  const googleStore = await loadActiveGoogleStore(
+    subscriptionsTarget.packageName,
+    subscriptionsTarget.appName,
+  );
+  const subscriptionsPlan = await reconcilePlaySubscriptions(googleStore, {
+    packageName: subscriptionsTarget.packageName,
+    serviceAccountEmail: googleStore.serviceAccountEmail,
+    subscriptions: subscriptionsTarget.subscriptions,
+    dryRun: true,
+  });
+  const plannedActions = subscriptionsPlan.actions.filter(isPlanned);
+
+  logger.gap();
+
+  if (subscriptionsPlan.actions.length == 0) {
+    logger.ok(`${subscriptionsTarget.packageName}: Play subscriptions already in sync`);
+    return 0;
+  }
+
+  logger.notice(subscriptionsTarget.packageName, ...subscriptionsPlan.actions.map(catalogLine));
+  logger.gap();
+  logger.note(`${plannedActions.length} change(s) for ${subscriptionsTarget.packageName}.`);
+
+  if (commandInput.dryRun) {
+    logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+    return 0;
+  }
+
+  const confirmed = await confirmPlayCatalogWrite(
+    `Apply ${plannedActions.length} Play subscription change(s) to ${subscriptionsTarget.packageName}?`,
+    commandInput.yes,
+  );
+
+  if (confirmed == false) {
+    return 0;
+  }
+
+  const appliedSubscriptions = await reconcilePlaySubscriptions(googleStore, {
+    packageName: subscriptionsTarget.packageName,
+    serviceAccountEmail: googleStore.serviceAccountEmail,
+    subscriptions: subscriptionsTarget.subscriptions,
+    dryRun: false,
+  });
+  const subscriptionsSummary = summarizePlaySubscriptions(appliedSubscriptions.actions);
+  let receiptTitle = 'Applied';
+
+  if (subscriptionsSummary.failed > 0) {
+    receiptTitle = 'Applied with errors';
+  }
+
+  logger.box(receiptTitle, appliedSubscriptions.actions.map(appliedLine));
+
+  return subscriptionsSummary.failed;
+}
 
 /** Run the schema-decoded Play subscriptions command. */
-export const playSubscriptionsCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<
-  void,
-  CommandExit | PlaySubscriptionsCommandFailure,
-  PlaySubscriptionsCommandRequirements
-> =>
-  Effect.gen(function* () {
-    const failureCount = yield* executePlaySubscriptions(rawCommandInput);
-    if (failureCount > 0) yield* completeCommand(1);
-  });
+export async function playSubscriptionsCommandProgram(rawCommandInput: unknown): Promise<void> {
+  let failureCount = 0;
+
+  try {
+    failureCount = await executePlaySubscriptions(rawCommandInput);
+  } catch (cause) {
+    throw subscriptionsFailure('reconcile Play subscriptions', cause);
+  }
+
+  if (failureCount > 0) {
+    completeCommand(1);
+  }
+}

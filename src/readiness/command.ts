@@ -1,62 +1,40 @@
-import type { FileSystem, HttpClient, Path } from '@effect/platform';
-import { Data, Effect, Schema } from 'effect';
-import { loadConfig } from '../config/config.js';
-import type { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import type { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
-import type { LaunchEnvironmentService } from '../services/platform/environment.js';
-import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
-import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.js';
-import { selectApps } from '../store/shared/syncJobs.js';
-import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
+import { loadConfig } from '@/config/config.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { createLogger, type Logger } from '@/services/platform/logger.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import { createAscClientResolver, createPlayClientResolver } from '@/store/shared/storeClients.js';
+import { selectApps } from '@/store/shared/syncJobs.js';
+import { completeCommand, isCommandExit } from '@/terminal/commandExit.js';
 import type {
   AppReadiness,
   ProbeReport,
   ReadinessContext,
   ReadinessOutcome,
   ReadinessStore,
-} from '../types/readiness.js';
+} from '@/types/readiness.js';
 import { READINESS_EXIT, runProbes } from './orchestrator.js';
 import { registerBuiltinProbes, selectReadinessProbes } from './registry.js';
 
-/** The two strings that let each readiness command keep its own terminal voice. */
+type ReadinessCategory = 'account' | 'iap' | 'listing' | 'privacy' | 'signing' | 'submit';
+
 type ReadinessReportLabels = Readonly<{
-  readonly summary: string;
-  readonly empty: string;
+  summary: string;
+  empty: string;
 }>;
 
-/** Shared input for audit, store doctor, and IAP doctor. */
-const ReadinessCommandInputSchema = Schema.Struct({
-  category: Schema.Literal('account', 'iap', 'listing', 'privacy', 'signing', 'submit'),
-  labels: Schema.Struct({
-    summary: Schema.String,
-    empty: Schema.String,
-  }),
-  app: Schema.optionalWith(Schema.String, { exact: true }),
-  json: Schema.optionalWith(Schema.Boolean, { exact: true }),
-});
+type ReadinessCommandInput = Readonly<{
+  category: ReadinessCategory;
+  labels: ReadinessReportLabels;
+  app: string | null;
+  json: boolean;
+}>;
 
-/** A configuration or store-client read failed before the probes could report readiness. */
 type ReadinessCommandFailure = Readonly<{
-  readonly _tag: 'ReadinessCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause?: unknown;
+  _tag: 'ReadinessCommandFailure';
+  operation: string;
+  message: string;
+  cause?: unknown;
 }>;
-const makeReadinessCommandFailure = Data.tagged<ReadinessCommandFailure>('ReadinessCommandFailure');
-
-type ReadinessCommandRequirements =
-  | AppleStoreClientService
-  | FileSystem.FileSystem
-  | GoogleStoreClientService
-  | HttpClient.HttpClient
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchSecretStoreService
-  | Logger
-  | Path.Path;
 
 const READINESS_STORES: readonly ReadinessStore[] = ['appstore', 'play'];
 
@@ -65,173 +43,317 @@ const STORE_LABELS: Readonly<Record<ReadinessStore, string>> = {
   play: 'Google Play',
 };
 
-/** Convert an unknown command dependency failure into the readiness command's tagged failure. */
-const commandFailure = (operation: string, cause: unknown): ReadinessCommandFailure =>
-  makeReadinessCommandFailure({
+const READINESS_CATEGORIES: readonly ReadinessCategory[] = [
+  'account',
+  'iap',
+  'listing',
+  'privacy',
+  'signing',
+  'submit',
+];
+
+function makeReadinessCommandFailure(fields: {
+  operation: string;
+  message: string;
+  cause?: unknown;
+}): ReadinessCommandFailure {
+  return { _tag: 'ReadinessCommandFailure', ...fields };
+}
+
+function commandFailure(operation: string, cause: unknown): ReadinessCommandFailure {
+  return makeReadinessCommandFailure({
     operation,
     message: errorMessage(cause),
     cause,
   });
+}
 
-/** Map one terminal write into the readiness command's failure channel. */
-const writeLog = (
-  operation: string,
-  logWrite: ReturnType<Logger['line']>,
-): Effect.Effect<void, ReadinessCommandFailure> =>
-  logWrite.pipe(Effect.mapError((cause) => commandFailure(operation, cause)));
+function isReadinessCommandFailure(cause: unknown): cause is ReadinessCommandFailure {
+  if (cause == null) {
+    return false;
+  }
+
+  if (typeof cause != 'object') {
+    return false;
+  }
+
+  if ('_tag' in cause == false) {
+    return false;
+  }
+
+  return cause._tag == 'ReadinessCommandFailure';
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
+
+  return typeof candidate == 'object';
+}
+
+function isReadinessCategory(candidate: unknown): candidate is ReadinessCategory {
+  if (typeof candidate != 'string') {
+    return false;
+  }
+
+  function isThisCategory(category: ReadinessCategory): boolean {
+    return category == candidate;
+  }
+
+  return READINESS_CATEGORIES.some(isThisCategory);
+}
+
+function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
+  const field = record[fieldName];
+  const isString = typeof field == 'string';
+
+  if (isString == false) {
+    throw commandFailure('decode readiness command', `Expected ${fieldName} to be a string.`);
+  }
+
+  return field;
+}
+
+function readOptionalString(record: Record<string, unknown>, fieldName: string): string | null {
+  const isAbsent = Object.hasOwn(record, fieldName) == false;
+
+  if (isAbsent) {
+    return null;
+  }
+
+  return readRequiredString(record, fieldName);
+}
+
+function readOptionalBoolean(record: Record<string, unknown>, fieldName: string): boolean {
+  const isAbsent = Object.hasOwn(record, fieldName) == false;
+
+  if (isAbsent) {
+    return false;
+  }
+
+  const field = record[fieldName];
+  const isBoolean = typeof field == 'boolean';
+
+  if (isBoolean == false) {
+    throw commandFailure('decode readiness command', `Expected ${fieldName} to be a boolean.`);
+  }
+
+  return field;
+}
+
+function readReadinessCategory(candidate: unknown): ReadinessCategory {
+  if (isReadinessCategory(candidate)) {
+    return candidate;
+  }
+
+  throw commandFailure('decode readiness command', 'Readiness category is not recognized.');
+}
+
+function decodeReadinessCommandInput(rawCommandInput: unknown): ReadinessCommandInput {
+  const isObject = isRecord(rawCommandInput);
+
+  if (isObject == false) {
+    throw commandFailure('decode readiness command', 'Readiness command input must be an object.');
+  }
+
+  const category = readReadinessCategory(rawCommandInput['category']);
+  const labelsField = rawCommandInput['labels'];
+  const hasLabels = isRecord(labelsField);
+
+  if (hasLabels == false) {
+    throw commandFailure('decode readiness command', 'Readiness labels must be an object.');
+  }
+
+  return {
+    category,
+    labels: {
+      summary: readRequiredString(labelsField, 'summary'),
+      empty: readRequiredString(labelsField, 'empty'),
+    },
+    app: readOptionalString(rawCommandInput, 'app'),
+    json: readOptionalBoolean(rawCommandInput, 'json'),
+  };
+}
 
 /** Human store name for a report header. */
-export const readinessStoreLabel = (store: ReadinessStore): string => STORE_LABELS[store];
+export function readinessStoreLabel(store: ReadinessStore): string {
+  return STORE_LABELS[store];
+}
 
 /** Build the human summary detail after probe tallies (without the command-specific prefix). */
-export const formatReadinessSummaryDetail = (readinessOutcome: ReadinessOutcome): string => {
+export function formatReadinessSummaryDetail(readinessOutcome: ReadinessOutcome): string {
   const summaryParts: string[] = [];
-  if (readinessOutcome.blockerCount > 0) {
+  const hasBlockers = readinessOutcome.blockerCount > 0;
+
+  if (hasBlockers) {
     summaryParts.push(`${readinessOutcome.blockerCount} blocker(s)`);
   }
-  if (readinessOutcome.errorCount > 0) {
+
+  const hasUnreadable = readinessOutcome.errorCount > 0;
+
+  if (hasUnreadable) {
     summaryParts.push(`${readinessOutcome.errorCount} unreadable`);
   }
-  if (readinessOutcome.warnCount > 0) {
+
+  const hasWarnings = readinessOutcome.warnCount > 0;
+
+  if (hasWarnings) {
     summaryParts.push(`${readinessOutcome.warnCount} warning(s)`);
   }
-  if (readinessOutcome.skippedCount > 0) {
+
+  const hasSkipped = readinessOutcome.skippedCount > 0;
+
+  if (hasSkipped) {
     summaryParts.push(`${readinessOutcome.skippedCount} skipped`);
   }
-  if (summaryParts.length === 0) return 'all clear';
+
+  const isAllClear = summaryParts.length == 0;
+
+  if (isAllClear) {
+    return 'all clear';
+  }
+
   return summaryParts.join(' - ');
-};
+}
 
-/** Optional tip line when a finding or skip carries a hint. */
-const writeOptionalHint = (
-  hint: string | undefined,
-  operation: string,
-  logger: Logger,
-): Effect.Effect<void, ReadinessCommandFailure> => {
-  if (hint === undefined) return Effect.void;
-  return writeLog(operation, logger.tip(hint));
-};
+function writeOptionalHint(hint: string | undefined, logger: Logger): void {
+  const isHintMissing = hint == null;
 
-/** Render one app finding inside a checked probe report. */
-const renderAppReadiness = (
-  logger: Logger,
-  title: string,
-  appReadiness: AppReadiness,
-): Effect.Effect<void, ReadinessCommandFailure> => {
+  if (isHintMissing) {
+    return;
+  }
+
+  logger.tip(hint);
+}
+
+function renderAppReadiness(logger: Logger, title: string, appReadiness: AppReadiness): void {
   const reportLine = `${title} - ${appReadiness.app}: ${appReadiness.detail}`;
+
   switch (appReadiness.status) {
     case 'ok':
-      return writeLog(
-        'render clear readiness probe',
-        logger.step(title, `${appReadiness.app}: ${appReadiness.detail}`),
-      );
+      logger.step(title, `${appReadiness.app}: ${appReadiness.detail}`);
+      return;
     case 'warn':
-      return Effect.gen(function* () {
-        yield* writeLog('render readiness warning', logger.warn(reportLine));
-        yield* writeOptionalHint(appReadiness.hint, 'render readiness warning hint', logger);
-      });
+      logger.warn(reportLine);
+      writeOptionalHint(appReadiness.hint, logger);
+      return;
     case 'blocker':
-      return Effect.gen(function* () {
-        yield* writeLog('render readiness blocker', logger.error(reportLine));
-        yield* writeOptionalHint(appReadiness.hint, 'render readiness blocker hint', logger);
-      });
+      logger.error(reportLine);
+      writeOptionalHint(appReadiness.hint, logger);
+      return;
   }
-};
+}
 
-/** Render one probe's report through the shared terminal logger. */
-const renderProbeReport = (
-  logger: Logger,
-  probeReport: ProbeReport,
-): Effect.Effect<void, ReadinessCommandFailure> =>
-  Effect.gen(function* () {
-    const { outcome, title } = probeReport;
-    switch (outcome.state) {
-      case 'skipped':
-        yield* writeLog(
-          'render skipped readiness probe',
-          logger.warn(`${title}: skipped - ${outcome.reason}`),
-        );
-        yield* writeOptionalHint(outcome.hint, 'render readiness probe hint', logger);
-        return;
-      case 'errored':
-        yield* writeLog(
-          'render unreadable readiness probe',
-          logger.error(`${title}: ${outcome.error}`),
-        );
-        return;
-      case 'checked':
-        for (const appReadiness of outcome.apps) {
-          yield* renderAppReadiness(logger, title, appReadiness);
-        }
-        return;
-      case 'omitted':
-        return;
-    }
-  });
+function renderProbeReport(logger: Logger, probeReport: ProbeReport): void {
+  const { outcome, title } = probeReport;
 
-/** Render a readiness outcome grouped by store with its command-specific summary. */
-const renderReadinessOutcome = (
+  switch (outcome.state) {
+    case 'skipped':
+      logger.warn(`${title}: skipped - ${outcome.reason}`);
+      writeOptionalHint(outcome.hint, logger);
+      return;
+    case 'errored':
+      logger.error(`${title}: ${outcome.error}`);
+      return;
+    case 'checked':
+      for (const appReadiness of outcome.apps) {
+        renderAppReadiness(logger, title, appReadiness);
+      }
+      return;
+    case 'omitted':
+      return;
+  }
+}
+
+function belongsToStore(store: ReadinessStore) {
+  return function isStoreReport(probeReport: ProbeReport): boolean {
+    return probeReport.store == store;
+  };
+}
+
+function renderReadinessOutcome(
   logger: Logger,
   readinessOutcome: ReadinessOutcome,
   labels: ReadinessReportLabels,
-): Effect.Effect<void, ReadinessCommandFailure> =>
-  Effect.gen(function* () {
-    if (readinessOutcome.reports.length === 0) {
-      yield* writeLog('render empty readiness report', logger.note(labels.empty));
-      return;
+): void {
+  const isReportEmpty = readinessOutcome.reports.length == 0;
+
+  if (isReportEmpty) {
+    logger.note(labels.empty);
+    return;
+  }
+
+  for (const store of READINESS_STORES) {
+    const storeReports = readinessOutcome.reports.filter(belongsToStore(store));
+    const isStoreEmpty = storeReports.length == 0;
+
+    if (isStoreEmpty) {
+      continue;
     }
-    for (const store of READINESS_STORES) {
-      const storeReports = readinessOutcome.reports.filter(
-        (probeReport) => probeReport.store === store,
-      );
-      if (storeReports.length === 0) continue;
-      yield* writeLog('render readiness store', logger.note(readinessStoreLabel(store)));
-      for (const probeReport of storeReports) yield* renderProbeReport(logger, probeReport);
+
+    logger.note(readinessStoreLabel(store));
+
+    for (const probeReport of storeReports) {
+      renderProbeReport(logger, probeReport);
     }
-    yield* writeLog('render readiness summary', logger.gap());
-    const summary = `${labels.summary}: ${formatReadinessSummaryDetail(readinessOutcome)}`;
-    if (readinessOutcome.exitCode === READINESS_EXIT.ok) {
-      yield* writeLog('render clear readiness summary', logger.note(summary));
-      return;
-    }
-    yield* writeLog('render blocked readiness summary', logger.error(summary));
-  });
+  }
+
+  logger.gap();
+  const summary = `${labels.summary}: ${formatReadinessSummaryDetail(readinessOutcome)}`;
+  const isClear = readinessOutcome.exitCode == READINESS_EXIT.ok;
+
+  if (isClear) {
+    logger.note(summary);
+    return;
+  }
+
+  logger.error(summary);
+}
 
 /** Run the selected readiness probe family and emit its human or JSON report. */
-export const readinessCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, CommandExit | ReadinessCommandFailure, ReadinessCommandRequirements> =>
-  Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(ReadinessCommandInputSchema)(rawCommandInput);
-    const launchPaths = yield* LaunchPaths;
-    const logger = yield* createLogger(false);
-    yield* Effect.sync(registerBuiltinProbes);
-    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
-    const selectedApps = yield* selectApps(loadedConfiguration.apps, commandInput.app);
-    const ascClient = yield* createAscClientResolver()();
-    const playClient = yield* createPlayClientResolver();
+export async function readinessCommandProgram(rawCommandInput: unknown): Promise<void> {
+  try {
+    const commandInput = decodeReadinessCommandInput(rawCommandInput);
+    const launchDirectories = readLaunchDirectories();
+    const logger = createLogger(false);
+    registerBuiltinProbes();
+    const loadedConfiguration = await loadConfig(launchDirectories.workingDirectory);
+    const selectedApps = await selectApps(loadedConfiguration.apps, commandInput.app ?? undefined);
+    const resolveAscClient = createAscClientResolver();
+    const ascClient = await resolveAscClient();
+    const resolvePlayClient = await createPlayClientResolver();
+
     const readinessContext: ReadinessContext = {
       config: loadedConfiguration.config,
       apps: selectedApps,
-      resolveAscApi: () => Effect.succeed(ascClient),
-      resolvePlayApi: playClient,
+      resolveAscApi: async function resolveAscApi() {
+        return ascClient;
+      },
+      resolvePlayApi: resolvePlayClient,
     };
-    const readinessOutcome = yield* runProbes(
+    const readinessOutcome = await runProbes(
       readinessContext,
       selectReadinessProbes(commandInput.category),
     );
-    if (commandInput.json === true) {
-      yield* writeLog(
-        'render readiness JSON',
-        logger.line(JSON.stringify(readinessOutcome, null, 2)),
-      );
+    const isJson = commandInput.json == true;
+
+    if (isJson) {
+      logger.line(JSON.stringify(readinessOutcome, null, 2));
     } else {
-      yield* renderReadinessOutcome(logger, readinessOutcome, commandInput.labels);
+      renderReadinessOutcome(logger, readinessOutcome, commandInput.labels);
     }
-    yield* completeCommand(readinessOutcome.exitCode);
-  }).pipe(
-    Effect.mapError((cause) => {
-      if (Schema.is(CommandExitSchema)(cause)) return cause;
-      return commandFailure('run readiness checks', cause);
-    }),
-  );
+
+    completeCommand(readinessOutcome.exitCode);
+  } catch (cause) {
+    if (isCommandExit(cause)) {
+      throw cause;
+    }
+
+    if (isReadinessCommandFailure(cause)) {
+      throw cause;
+    }
+
+    throw commandFailure('run readiness checks', cause);
+  }
+}

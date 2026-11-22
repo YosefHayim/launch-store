@@ -1,25 +1,16 @@
-import { NodeContext } from '@effect/platform-node';
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { configTemplate, detectAppRoot } from './configScaffold.js';
 import type { AppDescriptor } from '../types/app.js';
 const app = (dir: string): AppDescriptor => ({ name: 'x', dir, configPath: `${dir}/app.json` });
-const runScaffoldEffect = <Success, Failure>(
-  scaffoldEffect: Effect.Effect<Success, Failure, NodeContext.NodeContext>,
-): Success => Effect.runSync(scaffoldEffect.pipe(Effect.provide(NodeContext.layer)));
 describe('detectAppRoot', () => {
   it('returns the single shared subdir when every app lives under one', () => {
-    expect(
-      runScaffoldEffect(detectAppRoot([app('/repo/apps/a'), app('/repo/apps/b')], '/repo')),
-    ).toBe('./apps');
+    expect(detectAppRoot([app('/repo/apps/a'), app('/repo/apps/b')], '/repo')).toBe('./apps');
   });
   it('returns null when an app sits at the repo root', () => {
-    expect(runScaffoldEffect(detectAppRoot([app('/repo')], '/repo'))).toBeNull();
+    expect(detectAppRoot([app('/repo')], '/repo')).toBeNull();
   });
   it('returns null when apps span more than one top-level subdir', () => {
-    expect(
-      runScaffoldEffect(detectAppRoot([app('/repo/apps/a'), app('/repo/packages/b')], '/repo')),
-    ).toBeNull();
+    expect(detectAppRoot([app('/repo/apps/a'), app('/repo/packages/b')], '/repo')).toBeNull();
   });
 });
 describe('configTemplate', () => {

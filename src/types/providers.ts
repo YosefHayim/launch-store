@@ -1,4 +1,3 @@
-import { Data, type Effect } from 'effect';
 import type {
   BuildArtifact,
   PruneOptions,
@@ -22,7 +21,16 @@ export type ProviderInputFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeProviderInputFailure = Data.tagged<ProviderInputFailure>('ProviderInputFailure');
+export function makeProviderInputFailure(fields: {
+  provider: string;
+  message: string;
+}): ProviderInputFailure {
+  return {
+    _tag: 'ProviderInputFailure',
+    provider: fields.provider,
+    message: fields.message,
+  };
+}
 
 /** A store refused an upload or never finished taking it; the message carries the store's own reasons. */
 export type StoreUploadFailure = Readonly<{
@@ -31,7 +39,16 @@ export type StoreUploadFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeStoreUploadFailure = Data.tagged<StoreUploadFailure>('StoreUploadFailure');
+export function makeStoreUploadFailure(fields: {
+  provider: string;
+  message: string;
+}): StoreUploadFailure {
+  return {
+    _tag: 'StoreUploadFailure',
+    provider: fields.provider,
+    message: fields.message,
+  };
+}
 /**
  * Resolves and persists the credentials a build needs, for whichever platform the context names.
  *
@@ -42,10 +59,8 @@ export const makeStoreUploadFailure = Data.tagged<StoreUploadFailure>('StoreUplo
  */
 export type CredentialsProvider = Readonly<{
   readonly name: string;
-  resolveBuildCredentials(
-    buildContext: ResolvedBuildContext,
-  ): Effect.Effect<BuildCredentials, unknown>;
-  status(packageNames?: readonly string[]): Effect.Effect<string, unknown>;
+  resolveBuildCredentials(buildContext: ResolvedBuildContext): Promise<BuildCredentials>;
+  status(packageNames?: readonly string[]): Promise<string>;
 }>;
 /**
  * Compiles and signs the native project into a distributable artifact.
@@ -58,37 +73,35 @@ export type BuildEngine = Readonly<{
   buildArtifact(
     buildContext: ResolvedBuildContext,
     buildCredentials: BuildCredentials,
-  ): Effect.Effect<
+  ): Promise<
     Readonly<{
       artifactPath: string;
       sizeReport: SizeReport;
       cleanBuilt: boolean;
-    }>,
-    unknown
+    }>
   >;
 }>;
 
 /** Runs a hosted build service that owns its authentication, build number, and optional submission. */
 export type HostedBuildProvider = Readonly<{
   readonly name: string;
-  describeCli(): Effect.Effect<string, unknown>;
-  authenticate(): Effect.Effect<string, unknown>;
+  describeCli(): Promise<string>;
+  authenticate(): Promise<string>;
   build(
     buildContext: ResolvedBuildContext,
     profileName: string,
-  ): Effect.Effect<
+  ): Promise<
     Readonly<{
       artifactPath: string;
       sizeReport: SizeReport;
       buildNumber: number;
-    }>,
-    unknown
+    }>
   >;
   submit(
     buildContext: ResolvedBuildContext,
     artifactPath: string,
     profileName: string,
-  ): Effect.Effect<void, unknown>;
+  ): Promise<void>;
 }>;
 /**
  * Persists build artifacts and hands back a retrievable location.
@@ -100,17 +113,17 @@ export type HostedBuildProvider = Readonly<{
  */
 export type StorageProvider = Readonly<{
   readonly name: string;
-  put(artifact: BuildArtifact): Effect.Effect<StoredArtifact, unknown>;
-  list(): Effect.Effect<readonly BuildArtifact[], unknown>;
-  url(id: string): Effect.Effect<string, unknown>;
+  put(artifact: BuildArtifact): Promise<StoredArtifact>;
+  list(): Promise<readonly BuildArtifact[]>;
+  url(id: string): Promise<string>;
   putObject(
     key: string,
     objectContents: Buffer | string,
     contentType: string,
-  ): Effect.Effect<StoredArtifact, unknown>;
-  getObject(key: string): Effect.Effect<Buffer | null, unknown>;
+  ): Promise<StoredArtifact>;
+  getObject(key: string): Promise<Buffer | null>;
   publicUrl(key: string): string;
-  prune?(options: PruneOptions): Effect.Effect<PruneResult, unknown>;
+  prune?(options: PruneOptions): Promise<PruneResult>;
 }>;
 
 export type StorageProviderOptions = Readonly<{
@@ -122,7 +135,7 @@ export type StorageProviderResolver = Readonly<{
   readonly name: string;
   readonly resolveStorageProvider: (
     providerOptions: StorageProviderOptions,
-  ) => Effect.Effect<StorageProvider, unknown>;
+  ) => Promise<StorageProvider>;
 }>;
 /** The built binary a submitter uploads, with the version and build number stamped into it. */
 export type SubmitArtifact = Pick<BuildArtifact, 'path' | 'version' | 'buildNumber'>;
@@ -139,7 +152,7 @@ export type Submitter = Readonly<{
     artifact: SubmitArtifact,
     buildCredentials: BuildCredentials,
     buildContext: ResolvedBuildContext,
-  ): Effect.Effect<void, unknown>;
+  ): Promise<void>;
 }>;
 /**
  * Generic OS-native secret storage - the cross-platform widening of the macOS-only Keychain.
@@ -159,8 +172,8 @@ export type Submitter = Readonly<{
  */
 export type ComputeHost = Readonly<{
   readonly name: string;
-  allocate(request: AllocateRequest): Effect.Effect<HostHandle, unknown>;
-  status(handle: HostHandle): Effect.Effect<HostStatus | null, unknown>;
-  teardown(handle: HostHandle): Effect.Effect<void, unknown>;
-  doctor?(awsConfiguration: AwsConfig): Effect.Effect<CloudDoctorReport, unknown>;
+  allocate(request: AllocateRequest): Promise<HostHandle>;
+  status(handle: HostHandle): Promise<HostStatus | null>;
+  teardown(handle: HostHandle): Promise<void>;
+  doctor?(awsConfiguration: AwsConfig): Promise<CloudDoctorReport>;
 }>;

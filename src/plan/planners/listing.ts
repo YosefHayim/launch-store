@@ -1,78 +1,105 @@
-import { Effect } from 'effect';
 import { reconcileAppListing, type AscCatalogApi } from '@/store/apple/ascSync.js';
-import { buildJobs, hasListing } from '@/store/shared/syncJobs.js';
+import { buildJobs, hasListing, type SyncJob } from '@/store/shared/syncJobs.js';
 import type { AppleStoreConfig } from '@/store/shared/storeConfig.js';
 import { errorMessage } from '@/services/platform/errorMessage.js';
 import type { AppPlan, PlanContext, SurfacePlanner } from '@/types/plan.js';
-/** Surface id - also the value users pass as `launch plan listing`. */
+
 const SURFACE = 'listing';
-/** One app's listing-plan target: the job's bundle id paired with its present (non-empty) listing. */
+
+function isAppleAccountMissing(api: AscCatalogApi | null): api is null {
+  return api == null;
+}
+
 type ListingTarget = {
   app: string;
   bundleId: string;
   listing: AppleStoreConfig;
 };
-/** Plan one app's listing in dry-run, capturing a precondition failure (e.g. no ASC record) as `error`. */
-const planTarget = (api: AscCatalogApi, target: ListingTarget): Effect.Effect<AppPlan> =>
-  reconcileAppListing(api, {
-    bundleId: target.bundleId,
-    listing: target.listing,
-    dryRun: true,
-  }).pipe(
-    Effect.match({
-      onSuccess: (report): AppPlan => ({
-        app: target.app,
-        identifier: target.bundleId,
-        actions: report.actions,
-      }),
-      onFailure: (reconciliationFailure): AppPlan => ({
-        app: target.app,
-        identifier: target.bundleId,
-        actions: [],
-        error: errorMessage(reconciliationFailure),
-      }),
-    }),
-  );
-/**
- * The listing planner. Omits itself when no app declares a non-empty `store.config.json` listing; reports
- * a skip with an actionable hint when an Apple account isn't configured (the `--check` gate turns that
- * into an error); otherwise returns the per-app diff. Apps are planned concurrently and isolated - one
- * app's precondition failure is recorded on its {@link AppPlan} and never aborts the rest.
- */
+
+async function planTarget(api: AscCatalogApi, target: ListingTarget): Promise<AppPlan> {
+  try {
+    const report = await reconcileAppListing(api, {
+      bundleId: target.bundleId,
+      listing: target.listing,
+      dryRun: true,
+    });
+
+    return {
+      app: target.app,
+      identifier: target.bundleId,
+      actions: report.actions,
+    };
+  } catch (reconciliationFailure) {
+    return {
+      app: target.app,
+      identifier: target.bundleId,
+      actions: [],
+      error: errorMessage(reconciliationFailure),
+    };
+  }
+}
+
+function listingTarget(job: SyncJob): ListingTarget | null {
+  const listing = job.listing;
+
+  if (hasListing(listing)) {
+    return { app: job.app.name, bundleId: job.bundleId, listing };
+  }
+
+  return null;
+}
+
 export const listingPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan(planContext: PlanContext) {
-    return Effect.gen(function* () {
-      const jobs = yield* buildJobs(planContext.apps, planContext.config);
-      const targets = jobs.flatMap((job) => {
-        if (hasListing(job.listing)) {
-          return [{ app: job.app.name, bundleId: job.bundleId, listing: job.listing }];
-        }
-        return [];
-      });
-      if (targets.length === 0) return { surface: SURFACE, store: 'appstore', state: 'omitted' };
-      const api = yield* planContext.resolveAscApi();
-      if (!api) {
-        return {
-          surface: SURFACE,
-          store: 'appstore',
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
+  async plan(planContext: PlanContext) {
+    const jobs = await buildJobs(planContext.apps, planContext.config);
+    const targets: ListingTarget[] = [];
+
+    for (const job of jobs) {
+      const target = listingTarget(job);
+      const isMissing = target == null;
+
+      if (isMissing) {
+        continue;
       }
-      const apps = yield* Effect.forEach(targets, (target) => planTarget(api, target), {
-        concurrency: 'unbounded',
-      });
+
+      targets.push(target);
+    }
+
+    const isNothingDeclared = targets.length == 0;
+
+    if (isNothingDeclared) {
+      return { surface: SURFACE, store: 'appstore', state: 'omitted' };
+    }
+
+    const api = await planContext.resolveAscApi();
+
+    if (isAppleAccountMissing(api)) {
       return {
         surface: SURFACE,
         store: 'appstore',
-        state: 'planned',
-        scope: 'app',
-        direction: 'two-way',
-        apps,
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
       };
-    });
+    }
+
+    const appleApi = api;
+
+    function planListing(target: ListingTarget): Promise<AppPlan> {
+      return planTarget(appleApi, target);
+    }
+
+    const apps = await Promise.all(targets.map(planListing));
+
+    return {
+      surface: SURFACE,
+      store: 'appstore',
+      state: 'planned',
+      scope: 'app',
+      direction: 'two-way',
+      apps,
+    };
   },
 };

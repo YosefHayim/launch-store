@@ -1,6 +1,3 @@
-import { HttpClient, HttpClientResponse } from '@effect/platform';
-import { Effect, Layer } from 'effect';
-
 interface HttpClientSequenceReply {
   readonly status: number;
   readonly document: unknown;
@@ -20,66 +17,85 @@ export interface HttpClientSentRequest {
 }
 
 interface HttpClientSequenceTest {
-  readonly layer: Layer.Layer<HttpClient.HttpClient>;
   readonly sentRequests: HttpClientSentRequest[];
+  answer(call: HttpClientSentRequest): Response;
 }
 
-const readSentDocument = (requestPayload: {
-  readonly _tag: string;
-  readonly body?: unknown;
-}): string | null => {
-  if (requestPayload._tag !== 'Uint8Array') return null;
-  return new TextDecoder().decode(requestPayload.body as Uint8Array);
-};
+function isMissing(candidate: unknown): candidate is null | undefined {
+  return candidate == null;
+}
 
-const readAuthorization = (authorization: string | undefined): string | null => {
-  if (authorization === undefined) return null;
-  return authorization;
-};
+function findRoute(
+  routes: readonly HttpClientSequenceRoute[],
+  method: string,
+  url: string,
+): HttpClientSequenceRoute | undefined {
+  function isRequestedRoute(route: HttpClientSequenceRoute): boolean {
+    const isDifferentMethod = route.method != method;
 
-const readAnsweredCount = (answeredCounts: Map<string, number>, routeKey: string): number => {
+    if (isDifferentMethod) {
+      return false;
+    }
+
+    return route.url == url;
+  }
+
+  return routes.find(isRequestedRoute);
+}
+
+function readAnsweredCount(answeredCounts: Map<string, number>, routeKey: string): number {
   const answeredCount = answeredCounts.get(routeKey);
-  if (answeredCount === undefined) return 0;
+
+  if (isMissing(answeredCount)) {
+    return 0;
+  }
+
   return answeredCount;
-};
+}
+
+function readReply(
+  route: HttpClientSequenceRoute,
+  answeredCount: number,
+  routeKey: string,
+): HttpClientSequenceReply {
+  const lastReplyIndex = route.replies.length - 1;
+  const replyIndex = Math.min(answeredCount, lastReplyIndex);
+  const reply = route.replies[replyIndex];
+
+  if (isMissing(reply)) {
+    throw new Error(`Route ${routeKey} has no replies`);
+  }
+
+  return reply;
+}
 
 /** Each route answers its replies in order (the last one repeats); every request is recorded. */
-export const makeHttpClientSequenceTest = (
+export function makeHttpClientSequenceTest(
   routes: readonly HttpClientSequenceRoute[],
-): HttpClientSequenceTest => {
+): HttpClientSequenceTest {
   const sentRequests: HttpClientSentRequest[] = [];
   const answeredCounts = new Map<string, number>();
-  const layer = Layer.succeed(
-    HttpClient.HttpClient,
-    HttpClient.make((request) => {
-      const routeKey = `${request.method} ${request.url}`;
-      sentRequests.push({
-        method: request.method,
-        url: request.url,
-        authorization: readAuthorization(request.headers['authorization']),
-        sentDocument: readSentDocument(request.body),
-      });
-      const requestedRoute = routes.find(
-        (route) => route.method === request.method && route.url === request.url,
-      );
-      if (requestedRoute === undefined) {
-        return Effect.die(new Error(`No test route for ${routeKey}`));
-      }
-      const answeredCount = readAnsweredCount(answeredCounts, routeKey);
-      answeredCounts.set(routeKey, answeredCount + 1);
-      const lastReplyIndex = requestedRoute.replies.length - 1;
-      const reply = requestedRoute.replies[Math.min(answeredCount, lastReplyIndex)];
-      if (reply === undefined) return Effect.die(new Error(`Route ${routeKey} has no replies`));
-      return Effect.succeed(
-        HttpClientResponse.fromWeb(
-          request,
-          new Response(JSON.stringify(reply.document), {
-            status: reply.status,
-            headers: { 'content-type': 'application/json' },
-          }),
-        ),
-      );
-    }),
-  );
-  return { layer, sentRequests };
-};
+
+  function answer(call: HttpClientSentRequest): Response {
+    const routeKey = `${call.method} ${call.url}`;
+    sentRequests.push(call);
+
+    const requestedRoute = findRoute(routes, call.method, call.url);
+
+    if (isMissing(requestedRoute)) {
+      throw new Error(`No test route for ${routeKey}`);
+    }
+
+    const answeredCount = readAnsweredCount(answeredCounts, routeKey);
+    answeredCounts.set(routeKey, answeredCount + 1);
+    const reply = readReply(requestedRoute, answeredCount, routeKey);
+    const replyDocument = JSON.stringify(reply.document);
+
+    return new Response(replyDocument, {
+      status: reply.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  return { sentRequests, answer };
+}

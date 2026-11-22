@@ -1,10 +1,4 @@
-// Resolves locally stored Apple and Android build credentials.
-
-import { Data, Effect } from 'effect';
-import {
-  type AppleCredentialAccountStatus,
-  LocalCredentialsStore,
-} from '@/services/credentials/localCredentialsStore.js';
+import { LocalCredentialsStore } from '@/services/credentials/localCredentialsStore.js';
 import { isApplePlatform } from '@/services/stores/platform.js';
 import type { ResolvedBuildContext } from '@/types/config.js';
 import type { BuildCredentials } from '@/types/credentials.js';
@@ -16,138 +10,240 @@ type MissingCredentialsFailure = Readonly<{
   readonly message: string;
 }>;
 
-const makeMissingCredentialsFailure = Data.tagged<MissingCredentialsFailure>(
-  'MissingCredentialsFailure',
-);
+type AppleAccountStatus = Awaited<
+  ReturnType<typeof LocalCredentialsStore.listAppleAccountStatuses>
+>[number];
 
-/** Resolve an Apple key and any reusable signing assets for one build. */
-const resolveAppleCredentials = (
-  buildContext: ResolvedBuildContext,
-  credentialStore: typeof LocalCredentialsStore.Service,
-) =>
-  Effect.gen(function* () {
-    const ascKey = yield* credentialStore.loadAppleKey(buildContext.account);
-    if (ascKey === null) {
-      return yield* Effect.fail(
-        makeMissingCredentialsFailure({
-          platform: 'apple',
-          message: 'No App Store Connect API key found. Import one with: launch creds set-key',
-        }),
-      );
-    }
-    const appleCredentials: BuildCredentials = { platform: 'ios', ascKey };
-    if (!buildContext.app.bundleId) return appleCredentials;
-    const signingAssets = yield* credentialStore.loadAppleSigningAssets(
-      ascKey.keyId,
-      buildContext.app.bundleId,
-      buildContext.app.iosExtensions,
-    );
-    if (signingAssets === null) return appleCredentials;
-    return { ...appleCredentials, signing: signingAssets };
-  });
+type AndroidCredentialStatus = Awaited<
+  ReturnType<typeof LocalCredentialsStore.readAndroidCredentialStatus>
+>;
 
-/** Resolve a Play service account and any reusable upload keystore. */
-const resolveAndroidCredentials = (
-  credentialStore: typeof LocalCredentialsStore.Service,
-  buildContext: ResolvedBuildContext,
-) =>
-  Effect.gen(function* () {
-    const packageName = buildContext.app.packageName;
-    if (!packageName)
-      return yield* Effect.fail(
-        makeMissingCredentialsFailure({
-          platform: 'android',
-          message: 'Set android.package before resolving Android credentials.',
-        }),
-      );
-    const serviceAccountJson = yield* credentialStore.loadPlayServiceAccount(packageName);
-    if (serviceAccountJson === null) {
-      return yield* Effect.fail(
-        makeMissingCredentialsFailure({
-          platform: 'android',
-          message: yield* credentialStore.describeMissingPlayServiceAccount(buildContext.app.name),
-        }),
-      );
-    }
-    const androidCredentials: BuildCredentials = { platform: 'android', serviceAccountJson };
-    const keystoreAssets = yield* credentialStore.loadAndroidKeystore(packageName);
-    if (keystoreAssets === null) return androidCredentials;
-    return { ...androidCredentials, keystore: keystoreAssets };
-  });
+type CredentialsReader = Pick<
+  typeof LocalCredentialsStore,
+  | 'loadAppleKey'
+  | 'loadAppleSigningAssets'
+  | 'describeMissingPlayServiceAccount'
+  | 'loadPlayServiceAccount'
+  | 'loadAndroidKeystore'
+  | 'listAppleAccountStatuses'
+  | 'readAndroidCredentialStatus'
+>;
 
-const formatAppleAccountStatus = (accountStatus: AppleCredentialAccountStatus): string => {
-  let marker = '';
-  if (accountStatus.active) marker = ' <- active';
-  let certificate = 'no cert';
-  if (accountStatus.certificateSerial !== null) {
-    certificate = `cert ${accountStatus.certificateSerial}`;
+let credentialsReader: CredentialsReader | null = null;
+
+export function useCredentialsReader(reader: CredentialsReader | null): void {
+  credentialsReader = reader;
+}
+
+function readCredentials(): CredentialsReader {
+  if (credentialsReader != null) {
+    return credentialsReader;
   }
-  let profiles = 'no profiles';
-  if (accountStatus.profileCount > 0) profiles = `${accountStatus.profileCount} profile(s)`;
-  let unresolved = '';
-  if (accountStatus.unresolved) unresolved = ' - unresolved - run `launch creds refresh`';
-  return `  - ${accountStatus.label}${marker} - ${accountStatus.summary}${unresolved} - ${certificate} - ${profiles}`;
-};
 
-/** Render the Apple portion of the credential status report. */
-const appleStatus = (credentialStore: typeof LocalCredentialsStore.Service) =>
-  Effect.gen(function* () {
-    const accountStatuses = yield* credentialStore.listAppleAccountStatuses();
-    if (accountStatuses.length === 0) {
-      return 'iOS: no Apple account imported (add one with `launch creds set-key`).';
-    }
-    const accountLines: string[] = [];
-    for (const accountStatus of accountStatuses) {
-      accountLines.push(formatAppleAccountStatus(accountStatus));
-    }
-    return [`iOS accounts (${accountStatuses.length}):`, ...accountLines].join('\n');
-  });
+  return LocalCredentialsStore;
+}
 
-/** Render the Android portion of the credential status report. */
-const androidStatus = (
-  credentialStore: typeof LocalCredentialsStore.Service,
-  packageName: string,
-) =>
-  credentialStore.readAndroidCredentialStatus(packageName).pipe(
-    Effect.map(({ keystoreAlias, hasServiceAccount }) => {
-      if (!hasServiceAccount && !keystoreAlias) {
-        return 'Android: no service account or upload keystore yet.';
-      }
-      let serviceAccount = 'no service account yet';
-      if (hasServiceAccount) serviceAccount = 'service account present';
-      let keystore = 'no upload keystore yet';
-      if (keystoreAlias) keystore = `upload keystore (alias ${keystoreAlias})`;
-      return `Android: ${serviceAccount}; ${keystore}.`;
-    }),
+function makeMissingCredentialsFailure(fields: {
+  platform: 'apple' | 'android';
+  message: string;
+}): MissingCredentialsFailure {
+  return { _tag: 'MissingCredentialsFailure', ...fields };
+}
+
+async function resolveAppleCredentials(
+  buildContext: ResolvedBuildContext,
+  credentialStore: CredentialsReader,
+): Promise<BuildCredentials> {
+  const ascKey = await credentialStore.loadAppleKey(buildContext.account);
+
+  if (ascKey == null) {
+    throw makeMissingCredentialsFailure({
+      platform: 'apple',
+      message: 'No App Store Connect API key found. Import one with: launch creds set-key',
+    });
+  }
+
+  const appleCredentials: BuildCredentials = { platform: 'ios', ascKey };
+  const bundleId = buildContext.app.bundleId;
+  const hasNoBundleId = bundleId == null;
+
+  if (hasNoBundleId) {
+    return appleCredentials;
+  }
+
+  const isBlankBundleId = bundleId == '';
+
+  if (isBlankBundleId) {
+    return appleCredentials;
+  }
+
+  const signingAssets = await credentialStore.loadAppleSigningAssets(
+    ascKey.keyId,
+    bundleId,
+    buildContext.app.iosExtensions,
   );
 
-const statusReport = (
-  credentialStore: typeof LocalCredentialsStore.Service,
-  packageNames: readonly string[] = [],
-) =>
-  Effect.gen(function* () {
-    const apple = yield* appleStatus(credentialStore);
-    const android = yield* Effect.forEach(packageNames, (packageName) =>
-      androidStatus(credentialStore, packageName).pipe(
-        Effect.map((status) => `${packageName}: ${status}`),
-      ),
-    );
-    return [apple, ...android].join('\n');
-  });
+  if (signingAssets == null) {
+    return appleCredentials;
+  }
 
-/** Acquire local services once and return a leaf-like provider for the registry. */
-export const makeLocalCredentialsProvider = () =>
-  Effect.gen(function* () {
-    const credentialStore = yield* LocalCredentialsStore;
-    return {
-      name: 'local',
-      resolveBuildCredentials: (buildContext): Effect.Effect<BuildCredentials, unknown> =>
-        Effect.gen(function* () {
-          if (isApplePlatform(buildContext.platform)) {
-            return yield* resolveAppleCredentials(buildContext, credentialStore);
-          }
-          return yield* resolveAndroidCredentials(credentialStore, buildContext);
-        }),
-      status: (packageNames) => statusReport(credentialStore, packageNames),
-    } satisfies CredentialsProvider;
-  });
+  return { ...appleCredentials, signing: signingAssets };
+}
+
+async function resolveAndroidCredentials(
+  credentialStore: CredentialsReader,
+  buildContext: ResolvedBuildContext,
+): Promise<BuildCredentials> {
+  const packageName = buildContext.app.packageName;
+
+  if (packageName == null) {
+    throw makeMissingCredentialsFailure({
+      platform: 'android',
+      message: 'Set android.package before resolving Android credentials.',
+    });
+  }
+
+  const isBlankPackageName = packageName == '';
+
+  if (isBlankPackageName) {
+    throw makeMissingCredentialsFailure({
+      platform: 'android',
+      message: 'Set android.package before resolving Android credentials.',
+    });
+  }
+
+  const serviceAccountJson = await credentialStore.loadPlayServiceAccount(packageName);
+
+  if (serviceAccountJson == null) {
+    const message = await credentialStore.describeMissingPlayServiceAccount(buildContext.app.name);
+
+    throw makeMissingCredentialsFailure({
+      platform: 'android',
+      message,
+    });
+  }
+
+  const androidCredentials: BuildCredentials = { platform: 'android', serviceAccountJson };
+  const keystoreAssets = await credentialStore.loadAndroidKeystore(packageName);
+
+  if (keystoreAssets == null) {
+    return androidCredentials;
+  }
+
+  return { ...androidCredentials, keystore: keystoreAssets };
+}
+
+function formatAppleAccountStatus(accountStatus: AppleAccountStatus): string {
+  let marker = '';
+
+  if (accountStatus.active) {
+    marker = ' <- active';
+  }
+
+  let certificate = 'no cert';
+
+  if (accountStatus.certificateSerial != null) {
+    certificate = `cert ${accountStatus.certificateSerial}`;
+  }
+
+  let profiles = 'no profiles';
+
+  if (accountStatus.profileCount > 0) {
+    profiles = `${accountStatus.profileCount} profile(s)`;
+  }
+
+  let unresolved = '';
+
+  if (accountStatus.unresolved) {
+    unresolved = ' - unresolved - run `launch creds refresh`';
+  }
+
+  return `  - ${accountStatus.label}${marker} - ${accountStatus.summary}${unresolved} - ${certificate} - ${profiles}`;
+}
+
+async function appleStatus(credentialStore: CredentialsReader): Promise<string> {
+  const accountStatuses = await credentialStore.listAppleAccountStatuses();
+
+  if (accountStatuses.length == 0) {
+    return 'iOS: no Apple account imported (add one with `launch creds set-key`).';
+  }
+
+  const accountLines: string[] = [];
+
+  for (const accountStatus of accountStatuses) {
+    accountLines.push(formatAppleAccountStatus(accountStatus));
+  }
+
+  return [`iOS accounts (${accountStatuses.length}):`, ...accountLines].join('\n');
+}
+
+function isAndroidCredentialEmpty(status: AndroidCredentialStatus): boolean {
+  if (status.hasServiceAccount) {
+    return false;
+  }
+
+  return status.keystoreAlias == null;
+}
+
+function describeAndroidCredentialStatus(status: AndroidCredentialStatus): string {
+  if (isAndroidCredentialEmpty(status)) {
+    return 'Android: no service account or upload keystore yet.';
+  }
+
+  let serviceAccount = 'no service account yet';
+
+  if (status.hasServiceAccount) {
+    serviceAccount = 'service account present';
+  }
+
+  let keystore = 'no upload keystore yet';
+
+  if (status.keystoreAlias != null) {
+    keystore = `upload keystore (alias ${status.keystoreAlias})`;
+  }
+
+  return `Android: ${serviceAccount}; ${keystore}.`;
+}
+
+async function androidStatus(
+  credentialStore: CredentialsReader,
+  packageName: string,
+): Promise<string> {
+  const status = await credentialStore.readAndroidCredentialStatus(packageName);
+
+  return describeAndroidCredentialStatus(status);
+}
+
+async function statusReport(
+  credentialStore: CredentialsReader,
+  packageNames: readonly string[] = [],
+): Promise<string> {
+  const apple = await appleStatus(credentialStore);
+  const androidLines: string[] = [];
+
+  for (const packageName of packageNames) {
+    const status = await androidStatus(credentialStore, packageName);
+    androidLines.push(`${packageName}: ${status}`);
+  }
+
+  return [apple, ...androidLines].join('\n');
+}
+
+export function makeLocalCredentialsProvider(): CredentialsProvider {
+  return {
+    name: 'local',
+    async resolveBuildCredentials(buildContext): Promise<BuildCredentials> {
+      const credentialStore = readCredentials();
+      const isApple = isApplePlatform(buildContext.platform);
+
+      if (isApple) {
+        return resolveAppleCredentials(buildContext, credentialStore);
+      }
+
+      return resolveAndroidCredentials(credentialStore, buildContext);
+    },
+    status(packageNames) {
+      return statusReport(readCredentials(), packageNames);
+    },
+  };
+}

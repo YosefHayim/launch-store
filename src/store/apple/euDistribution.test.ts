@@ -1,4 +1,3 @@
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { AlternativeDistributionDomainResource } from '../../types/appleCatalog.js';
 import { summarize } from '../shared/reconcile.js';
@@ -23,25 +22,24 @@ const makeApi = (
     referenceName: string;
   }[] = [];
   const api: AscEuDistributionApi = {
-    listAlternativeDistributionDomains: () => Effect.succeed(existing),
+    listAlternativeDistributionDomains: () => Promise.resolve(existing),
     createAlternativeDistributionDomain: (domain, referenceName) => {
       created.push({ domain, referenceName });
-      return Effect.void;
+      return Promise.resolve();
     },
   };
   return { api, created };
 };
 /** Execute the EU-distribution reconciler at the test boundary. */
 const runReconcile = (api: AscEuDistributionApi, config: EuDistributionConfig, dryRun: boolean) =>
-  Effect.runPromise(reconcileEuDistributionDomains(api, config, dryRun));
+  reconcileEuDistributionDomains(api, config, dryRun);
 const CONFIG: EuDistributionConfig = {
   domains: [
     { domain: 'downloads.acme.com', referenceName: 'Acme Downloads' },
     { domain: 'cdn.acme.com', referenceName: 'Acme CDN' },
   ],
 };
-const decodeEuDistributionConfig = (rawDocument: unknown) =>
-  Effect.runSync(parseEuDistributionConfig(rawDocument));
+const decodeEuDistributionConfig = (rawDocument: unknown) => parseEuDistributionConfig(rawDocument);
 describe('parseEuDistributionConfig', () => {
   it('parses an array of domains', () => {
     expect(decodeEuDistributionConfig(CONFIG)).toEqual(CONFIG);
@@ -88,8 +86,8 @@ describe('reconcileEuDistributionDomains', () => {
   it('captures a failed create without aborting the rest of the walk', async () => {
     const { api } = makeApi([]);
     api.createAlternativeDistributionDomain = (domain) => {
-      if (domain === 'downloads.acme.com') return Effect.fail(new Error('invalid domain'));
-      return Effect.void;
+      if (domain === 'downloads.acme.com') return Promise.reject(new Error('invalid domain'));
+      return Promise.resolve();
     };
     const actions = await runReconcile(api, CONFIG, false);
     const summary = summarize(actions);

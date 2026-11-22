@@ -1,70 +1,184 @@
-import type { FileSystem, Path } from '@effect/platform';
-import { Effect, Schema } from 'effect';
 import {
   readDocumentFile,
   writeDocumentFileAtomically,
-  type DocumentFileFailure,
 } from '../services/platform/atomicDocumentFile.js';
-import { locatePortfolioFilePath, type LaunchPathsService } from '../services/platform/paths.js';
-import type { PortfolioFile } from '../types/portfolio.js';
+import { locatePortfolioFilePath } from '../services/platform/paths.js';
+import type {
+  AppOwner,
+  DiscoveredApp,
+  PortfolioFile,
+  PortfolioPlatform,
+} from '../types/portfolio.js';
 
-const OwnerSchema = Schema.Literal('mine', 'client');
+export function createEmptyPortfolioFile(): PortfolioFile {
+  return {
+    version: 1,
+    discoveredAt: null,
+    apps: [],
+    tags: [],
+    playReportsBucket: null,
+  };
+}
 
-const DiscoveredAppSchema = Schema.Struct({
-  key: Schema.String,
-  platform: Schema.Literal('ios', 'android'),
-  storeId: Schema.String,
-  name: Schema.String,
-  bundleId: Schema.NullOr(Schema.String),
-  packageName: Schema.NullOr(Schema.String),
-  accountKeyId: Schema.NullOr(Schema.String),
-  accountLabel: Schema.String,
-});
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  if (candidate == null) {
+    return false;
+  }
 
-const AppTagSchema = Schema.Struct({
-  appKey: Schema.String,
-  owner: Schema.NullOr(OwnerSchema),
-  ga4PropertyId: Schema.NullOr(Schema.String),
-});
+  if (typeof candidate != 'object') {
+    return false;
+  }
 
-const PortfolioFileSchema = Schema.Struct({
-  version: Schema.Literal(1),
-  discoveredAt: Schema.NullOr(Schema.String),
-  apps: Schema.Array(DiscoveredAppSchema),
-  tags: Schema.Array(AppTagSchema),
-  playReportsBucket: Schema.optionalWith(Schema.NullOr(Schema.String), { default: () => null }),
-});
+  if (Array.isArray(candidate)) {
+    return false;
+  }
 
-type PortfolioStoreRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
+  return true;
+}
 
-export const createEmptyPortfolioFile = (): PortfolioFile => ({
-  version: 1,
-  discoveredAt: null,
-  apps: [],
-  tags: [],
-  playReportsBucket: null,
-});
+function readRequiredString(document: Record<string, unknown>, fieldName: string): string {
+  const field = document[fieldName];
 
-export const loadPortfolioFile = (): Effect.Effect<
-  PortfolioFile | null,
-  DocumentFileFailure,
-  PortfolioStoreRequirements
-> =>
-  Effect.gen(function* () {
-    const portfolioFilePath = yield* locatePortfolioFilePath();
-    return yield* readDocumentFile(portfolioFilePath, PortfolioFileSchema);
-  });
+  if (typeof field != 'string') {
+    throw new Error(`Expected ${fieldName} to be a string.`);
+  }
 
-export const pickSavedPortfolioFile = (cachedFile: PortfolioFile | null): PortfolioFile => {
-  const isFileMissing = cachedFile === null;
-  if (isFileMissing) return createEmptyPortfolioFile();
+  return field;
+}
+
+function readStringOrNull(document: Record<string, unknown>, fieldName: string): string | null {
+  const field = document[fieldName];
+
+  if (field == null) {
+    return null;
+  }
+
+  if (typeof field != 'string') {
+    throw new Error(`Expected ${fieldName} to be a string or null.`);
+  }
+
+  return field;
+}
+
+function readPlatform(document: Record<string, unknown>): PortfolioPlatform {
+  const platform = document['platform'];
+
+  if (platform == 'ios') {
+    return 'ios';
+  }
+
+  if (platform == 'android') {
+    return 'android';
+  }
+
+  throw new Error('An app platform is not ios or android.');
+}
+
+function readOwner(owner: unknown): AppOwner | null {
+  if (owner == null) {
+    return null;
+  }
+
+  if (owner == 'mine') {
+    return 'mine';
+  }
+
+  if (owner == 'client') {
+    return 'client';
+  }
+
+  throw new Error('An app owner is not mine or client.');
+}
+
+function decodeDiscoveredApp(appDocument: unknown): DiscoveredApp {
+  if (isRecord(appDocument) == false) {
+    throw new Error('A portfolio app is not an object.');
+  }
+
+  return {
+    key: readRequiredString(appDocument, 'key'),
+    platform: readPlatform(appDocument),
+    storeId: readRequiredString(appDocument, 'storeId'),
+    name: readRequiredString(appDocument, 'name'),
+    bundleId: readStringOrNull(appDocument, 'bundleId'),
+    packageName: readStringOrNull(appDocument, 'packageName'),
+    accountKeyId: readStringOrNull(appDocument, 'accountKeyId'),
+    accountLabel: readRequiredString(appDocument, 'accountLabel'),
+  };
+}
+
+function decodeAppTag(tagDocument: unknown): PortfolioFile['tags'][number] {
+  if (isRecord(tagDocument) == false) {
+    throw new Error('A portfolio tag is not an object.');
+  }
+
+  return {
+    appKey: readRequiredString(tagDocument, 'appKey'),
+    owner: readOwner(tagDocument['owner']),
+    ga4PropertyId: readStringOrNull(tagDocument, 'ga4PropertyId'),
+  };
+}
+
+function readPlayReportsBucket(document: Record<string, unknown>): string | null {
+  const hasBucket = 'playReportsBucket' in document;
+
+  if (hasBucket == false) {
+    return null;
+  }
+
+  return readStringOrNull(document, 'playReportsBucket');
+}
+
+function decodePortfolioFile(documentText: string): PortfolioFile {
+  const parsed: unknown = JSON.parse(documentText);
+
+  if (isRecord(parsed) == false) {
+    throw new Error('Portfolio file is not an object.');
+  }
+
+  const version = parsed['version'];
+
+  if (typeof version != 'number') {
+    throw new Error('Portfolio file version is not 1.');
+  }
+
+  if (version != 1) {
+    throw new Error('Portfolio file version is not 1.');
+  }
+
+  if (Array.isArray(parsed['apps']) == false) {
+    throw new Error('Portfolio apps are not a list.');
+  }
+
+  if (Array.isArray(parsed['tags']) == false) {
+    throw new Error('Portfolio tags are not a list.');
+  }
+
+  return {
+    version: 1,
+    discoveredAt: readStringOrNull(parsed, 'discoveredAt'),
+    apps: parsed['apps'].map(decodeDiscoveredApp),
+    tags: parsed['tags'].map(decodeAppTag),
+    playReportsBucket: readPlayReportsBucket(parsed),
+  };
+}
+
+export async function loadPortfolioFile(): Promise<PortfolioFile | null> {
+  const portfolioFilePath = locatePortfolioFilePath();
+
+  return readDocumentFile(portfolioFilePath, decodePortfolioFile);
+}
+
+export function pickSavedPortfolioFile(cachedFile: PortfolioFile | null): PortfolioFile {
+  if (cachedFile == null) {
+    return createEmptyPortfolioFile();
+  }
+
   return cachedFile;
-};
+}
 
-export const savePortfolioFile = (
-  portfolioFile: PortfolioFile,
-): Effect.Effect<void, DocumentFileFailure, PortfolioStoreRequirements> =>
-  Effect.gen(function* () {
-    const portfolioFilePath = yield* locatePortfolioFilePath();
-    yield* writeDocumentFileAtomically(portfolioFilePath, portfolioFile);
-  });
+export async function savePortfolioFile(portfolioFile: PortfolioFile): Promise<void> {
+  const portfolioFilePath = locatePortfolioFilePath();
+
+  await writeDocumentFileAtomically(portfolioFilePath, portfolioFile);
+}

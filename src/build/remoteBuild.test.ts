@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Effect } from 'effect';
-import { NodeContext } from '@effect/platform-node';
 import { readFileSync, statSync } from 'node:fs';
 import { scpUp, sshRun } from '../services/platform/ssh.js';
 import { type RemoteBuildInputs, remoteBuildEnvironment, runBuildOnHost } from './remoteBuild.js';
@@ -57,11 +55,11 @@ describe('remoteBuildEnvironment', () => {
 });
 
 vi.mock('../services/platform/ssh.js', () => ({
-  scpUp: vi.fn(() => Effect.void),
-  sshRun: vi.fn(() => Effect.void),
-  sshCapture: vi.fn(() => Effect.succeed('0')),
-  scpDown: vi.fn(() => Effect.void),
-  rsyncUp: vi.fn(() => Effect.void),
+  scpUp: vi.fn(async () => undefined),
+  sshRun: vi.fn(async () => undefined),
+  sshCapture: vi.fn(async () => '0'),
+  scpDown: vi.fn(async () => undefined),
+  rsyncUp: vi.fn(async () => undefined),
 }));
 beforeEach(() => {
   vi.clearAllMocks();
@@ -70,24 +68,26 @@ beforeEach(() => {
 describe('remote credential transport', () => {
   it('uses a protected environment file rather than secret-bearing SSH arguments', async () => {
     const environmentDocuments: string[] = [];
-    vi.mocked(scpUp).mockImplementation((_target, localPath, remotePath) =>
-      Effect.sync(() => {
-        if (remotePath.endsWith('/environment.sh')) {
-          environmentDocuments.push(readFileSync(localPath, 'utf8'));
-          expect(statSync(localPath).mode & 0o077).toBe(0);
+    vi.mocked(scpUp).mockImplementation(
+      async function captureEnvironment(_target, localPath, remotePath) {
+        const isEnvironmentFile = remotePath.endsWith('/environment.sh');
+
+        if (isEnvironmentFile == false) {
+          return;
         }
-      }),
+
+        environmentDocuments.push(readFileSync(localPath, 'utf8'));
+        expect(statSync(localPath).mode & 0o077).toBe(0);
+      },
     );
-    await Effect.runPromise(
-      runBuildOnHost(
-        {
-          target: { user: 'builder', host: 'example.invalid', port: 22 },
-          workDirectory: '/tmp/work',
-          credentialsDirectory: '/tmp/creds',
-          keychainPassword: 'dummy-keychain-password',
-        },
-        remoteInputs({ env: { BACKEND_TOKEN: "dummy'quoted-token" } }),
-      ).pipe(Effect.provide(NodeContext.layer)),
+    await runBuildOnHost(
+      {
+        target: { user: 'builder', host: 'example.invalid', port: 22 },
+        workDirectory: '/tmp/work',
+        credentialsDirectory: '/tmp/creds',
+        keychainPassword: 'dummy-keychain-password',
+      },
+      remoteInputs({ env: { BACKEND_TOKEN: "dummy'quoted-token" } }),
     );
     const environmentDocument = environmentDocuments.join('');
     expect(environmentDocument).toContain('export KEYCHAIN_PASSWORD=');
