@@ -1,8 +1,8 @@
 import { createReadStream } from 'node:fs';
 import { androidpublisher, auth as googleAuth } from '@googleapis/androidpublisher';
 import type { androidpublisher_v3 } from '@googleapis/androidpublisher';
-import { AndroidKeystore } from '@/credentials/android-keystore.js';
-import { Keychain } from '@/credentials/keychain.js';
+import { AndroidKeystore } from './credentials/android-keystore.ts';
+import { Keychain } from './credentials/keychain.ts';
 
 export class GooglePlay {
   private readonly publishers = new Map<string, androidpublisher_v3.Androidpublisher>();

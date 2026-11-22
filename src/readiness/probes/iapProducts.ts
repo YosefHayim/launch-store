@@ -4,11 +4,11 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import type { InAppPurchaseConfig } from '@/types/catalog.js';
-import { iosApps } from '../appScopes.js';
-import { gradeDeclaredProduct } from './iapReadiness.js';
-import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
+} from '../../types/readiness.ts';
+import type { InAppPurchaseConfig } from '../../types/catalog.ts';
+import { iosApps } from '../appScopes.ts';
+import { gradeDeclaredProduct } from './iapReadiness.ts';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.ts';
 
 function isAppleAccountMissing(api: AscReadinessApi | null): api is null {
   return api == null;

@@ -12,7 +12,7 @@ import {
   isReleasable,
   releasableAt,
   usd,
-} from './cost.js';
+} from './cost.ts';
 const HOUR_MS = 60 * 60 * 1000;
 const allocatedAt = '2026-06-14T00:00:00.000Z';
 describe('EC2 Mac cost model (verified AWS figures)', () => {

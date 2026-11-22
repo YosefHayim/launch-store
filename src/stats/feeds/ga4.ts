@@ -1,10 +1,10 @@
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { PortfolioApp } from '../../types/portfolio.js';
-import type { DateRange, FeedFetchReply, StatsFeedFailure } from '../../types/stats.js';
-import type { StatsCredentialsApi } from '../statsCredentials.js';
-import { isGa4SkipSignal, readProjectIdFromClientEmail, type Ga4Session } from './ga4Client.js';
-import { loadGa4Report } from './ga4Report.js';
-import { findAppStream, listAllAppStreams, listAppStreams } from './ga4Streams.js';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { PortfolioApp } from '../../types/portfolio.ts';
+import type { DateRange, FeedFetchReply, StatsFeedFailure } from '../../types/stats.ts';
+import type { StatsCredentialsApi } from '../statsCredentials.ts';
+import { isGa4SkipSignal, readProjectIdFromClientEmail, type Ga4Session } from './ga4Client.ts';
+import { loadGa4Report } from './ga4Report.ts';
+import { findAppStream, listAllAppStreams, listAppStreams } from './ga4Streams.ts';
 
 interface Ga4Target {
   readonly propertyId: string;

@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import { InitCommandInputSchema, runInitProgram } from './initCommand.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { InitCommandInputSchema, runInitProgram } from './initCommand.ts';
 
 afterEach(() => {
   resetLaunchDirectories();

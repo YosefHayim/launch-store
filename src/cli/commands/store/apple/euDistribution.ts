@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { euDistributionCommandProgram } from './euDistributionCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../../command.ts';
+import { euDistributionCommandProgram } from './euDistributionCommand.ts';
+import { runCliProgram } from '../../../runCliProgram.ts';
 
 type EuDistributionOptions = Readonly<{
   config: string;

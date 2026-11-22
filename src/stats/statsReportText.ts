@@ -1,6 +1,6 @@
-import type { StatsMetric } from '../types/stats.js';
-import type { AppStatsReport, MetricTotal } from '../types/statsReport.js';
-import { listProceedsTotals, pickHeadlineTotals, readHeadlineTotal } from './statsReportLogic.js';
+import type { StatsMetric } from '../types/stats.ts';
+import type { AppStatsReport, MetricTotal } from '../types/statsReport.ts';
+import { listProceedsTotals, pickHeadlineTotals, readHeadlineTotal } from './statsReportLogic.ts';
 
 const DOWNLOAD_METRICS: readonly StatsMetric[] = ['downloads', 'installs'];
 const USAGE_METRICS: readonly StatsMetric[] = ['sessions', 'activeUsers'];

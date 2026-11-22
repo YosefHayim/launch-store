@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '../path-exists.js';
-import { resolveSnapshotFilePath, resolveSnapshotsDirectory } from '../services/platform/paths.js';
+import { pathExists } from '../path-exists.ts';
+import { resolveSnapshotFilePath, resolveSnapshotsDirectory } from '../services/platform/paths.ts';
 import type {
   AppEntities,
   CaptureOutcome,
@@ -9,7 +9,7 @@ import type {
   JsonValue,
   Snapshot,
   SnapshotEntity,
-} from '../types/snapshot.js';
+} from '../types/snapshot.ts';
 
 function isRecord(candidate: unknown): candidate is Record<string, unknown> {
   if (typeof candidate != 'object') {

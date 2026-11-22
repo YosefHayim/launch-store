@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { InAppProductResource } from '../../types/googlePlay.js';
-import type { InAppPurchaseConfig } from '../../types/catalog.js';
-import { expectArrayElement } from '@testkit/assertions.testkit.js';
+import type { InAppProductResource } from '../../types/googlePlay.ts';
+import type { InAppPurchaseConfig } from '../../types/catalog.ts';
+import { expectArrayElement } from '../../testkit/assertions.testkit.ts';
 import {
   type PlayProductsApi,
   productInSync,
   reconcilePlayProducts,
   summarizePlayProducts,
   toPlayProduct,
-} from './playProducts.js';
+} from './playProducts.ts';
 
 type Calls = {
   inserts: InAppProductResource[];

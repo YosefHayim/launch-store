@@ -4,10 +4,10 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import { hasReleasedVersion } from '@/release/appStoreRelease.js';
-import { iosApps } from '../appScopes.js';
-import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
+} from '../../types/readiness.ts';
+import { hasReleasedVersion } from '../../release/appStoreRelease.ts';
+import { iosApps } from '../appScopes.ts';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.ts';
 
 function isAppleAccountMissing(api: AscReadinessApi | null): api is null {
   return api == null;

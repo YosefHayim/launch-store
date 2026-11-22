@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { AppDescriptor, BuildProfile } from '../types/app.js';
-import type { LaunchConfig } from '../types/config.js';
-import { previewBuild } from './buildPreview.js';
+import type { AppDescriptor, BuildProfile } from '../types/app.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import { previewBuild } from './buildPreview.ts';
 /** A bare config with the fields the preview reads; the rest of LaunchConfig is irrelevant here. */
 const config = (overrides: Partial<LaunchConfig> = {}): LaunchConfig => {
   const profiles: Record<string, BuildProfile> = {

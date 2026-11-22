@@ -1,8 +1,8 @@
-import { LocalCredentialsStore } from '@/services/credentials/localCredentialsStore.js';
-import { isApplePlatform } from '@/services/stores/platform.js';
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials } from '@/types/credentials.js';
-import type { CredentialsProvider } from '@/types/providers.js';
+import { LocalCredentialsStore } from '../../services/credentials/localCredentialsStore.ts';
+import { isApplePlatform } from '../../services/stores/platform.ts';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials } from '../../types/credentials.ts';
+import type { CredentialsProvider } from '../../types/providers.ts';
 
 type MissingCredentialsFailure = Readonly<{
   readonly _tag: 'MissingCredentialsFailure';

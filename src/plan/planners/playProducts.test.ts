@@ -1,10 +1,10 @@
-import { runPlanner } from './planner.testkit.js';
+import { runPlanner } from './planner.testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
-import { playProductsPlanner } from './playProducts.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { AppProducts, InAppPurchaseConfig } from '@/types/catalog.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { PlanContext, PlayCatalogApi } from '@/types/plan.js';
+import { playProductsPlanner } from './playProducts.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { AppProducts, InAppPurchaseConfig } from '../../types/catalog.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { PlanContext, PlayCatalogApi } from '../../types/plan.ts';
 /** A fully-stubbed {@link PlayCatalogApi}: reads default to "nothing exists yet", writes resolve to void. */
 const makePlayApi = (overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi => {
   const base: PlayCatalogApi = {

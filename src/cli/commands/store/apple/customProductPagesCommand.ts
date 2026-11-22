@@ -1,21 +1,21 @@
-import { createLogger } from '@/services/platform/logger.js';
-import { completeCommand } from '@/terminal/commandExit.js';
+import { createLogger } from '../../../../services/platform/logger.ts';
+import { completeCommand } from '../../../../terminal/commandExit.ts';
 import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
   resolveStoreSurfaceSection,
-} from './appStoreSurfaceCommand.js';
-import { loadActiveAppleStore } from './appleStoreCommand.js';
+} from './appStoreSurfaceCommand.ts';
+import { loadActiveAppleStore } from './appleStoreCommand.ts';
 import {
   parseCustomProductPagesConfig,
   reconcileCustomProductPages,
   summarizeCustomPages,
   type CustomProductPagesConfig,
-} from '@/store/apple/customProductPages.js';
-import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
-import { hasMessage } from '@/services/platform/errorMessage.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+} from '../../../../store/apple/customProductPages.ts';
+import { loadStoreAppContext } from '../../../../store/shared/selectStoreApp.ts';
+import { hasMessage } from '../../../../services/platform/errorMessage.ts';
+import type { PlannedAction } from '../../../../types/reconcile.ts';
 
 export type CustomProductPagesCommandInput = {
   app?: string;

@@ -1,25 +1,25 @@
 import { readFile } from 'node:fs/promises';
-import { pathExists } from '@/path-exists.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { createLogger, type Logger } from '@/services/platform/logger.js';
-import { LaunchPrompt } from '@/services/platform/prompt.js';
-import type { EffectAppStoreConnectClient } from '@/services/stores/appleStoreClient.js';
-import { loadActiveAppleStore } from '@/cli/commands/store/apple/appleStoreCommand.js';
-import { selectStoreApp } from '@/store/shared/selectStoreApp.js';
-import type { BetaFeedback, BetaFeedbackKind } from '@/types/app.js';
-import type { BetaGroupResource, BetaTesterResource } from '@/types/appleCatalog.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+import { pathExists } from '../path-exists.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.ts';
+import { loadActiveAppleStore } from '../cli/commands/store/apple/appleStoreCommand.ts';
+import { selectStoreApp } from '../store/shared/selectStoreApp.ts';
+import type { BetaFeedback, BetaFeedbackKind } from '../types/app.ts';
+import type { BetaGroupResource, BetaTesterResource } from '../types/appleCatalog.ts';
+import type { PlannedAction } from '../types/reconcile.ts';
 import {
   loadBetaReviewConfig,
   reconcileBetaReview,
   summarizeBetaReview,
   type BetaReviewReconcileInput,
-} from './betaReview.js';
+} from './betaReview.ts';
 import {
   downloadFeedbackAttachments,
   listBetaFeedback,
   type FeedbackFilters,
-} from './testflightFeedback.js';
+} from './testflightFeedback.ts';
 
 const FEEDBACK_KINDS: readonly BetaFeedbackKind[] = ['crash', 'screenshot'];
 const TESTFLIGHT_OPERATIONS = [

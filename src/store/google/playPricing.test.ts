@@ -4,7 +4,7 @@ import {
   parsePlayPrice,
   PlayPricingCommandInputSchema,
   renderRecommendedPrices,
-} from './playPricing.js';
+} from './playPricing.ts';
 
 describe('parsePlayPrice', () => {
   it('normalizes decimal money to whole units and nanos', () => {

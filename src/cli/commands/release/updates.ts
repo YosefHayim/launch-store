@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { updatesCommandProgram } from '@/config/updatesCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { updatesCommandProgram } from '../../../config/updatesCommand.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 type ListOptions = Readonly<{
   channel: string;

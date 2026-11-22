@@ -3,7 +3,7 @@ import {
   downloadBucketObject,
   failBucketRead,
   listBucketObjectNames,
-} from './playReportsBucketClient.js';
+} from './playReportsBucketClient.ts';
 
 const BUCKET_URL = 'https://storage.googleapis.com/storage/v1/b/pubsite_prod_rev_1/o';
 const LIST_URL = `${BUCKET_URL}?prefix=earnings%2Fearnings_&fields=items(name),nextPageToken`;

@@ -83,7 +83,7 @@ import type {
   VersionExperimentResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '@/types/appleCatalog.js';
+} from '../../types/appleCatalog.ts';
 import type {
   ProvisioningProfileType,
   LocaleCopy,
@@ -92,8 +92,8 @@ import type {
   VersionStates,
   AppleResource,
   UploadOperation,
-} from './shared.js';
-import type { components } from '@/apple-api-types.js';
+} from './shared.ts';
+import type { components } from '../../apple-api-types.ts';
 
 export interface AscHost {
   token(): Promise<string>;

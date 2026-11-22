@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRelease, isReleaseStatus, parseReleaseNotes, parseRollout } from './playTracks.js';
+import { buildRelease, isReleaseStatus, parseReleaseNotes, parseRollout } from './playTracks.ts';
 
 describe('isReleaseStatus', () => {
   it("recognizes Play's statuses and rejects others", () => {

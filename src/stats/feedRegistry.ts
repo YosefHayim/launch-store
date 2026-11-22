@@ -1,7 +1,7 @@
-import type { StatsFeedPlugin } from '../types/stats.js';
-import { appStoreFeed } from './feeds/appStore.js';
-import { ga4Feed } from './feeds/ga4.js';
-import { googlePlayFeed } from './feeds/googlePlay.js';
+import type { StatsFeedPlugin } from '../types/stats.ts';
+import { appStoreFeed } from './feeds/appStore.ts';
+import { ga4Feed } from './feeds/ga4.ts';
+import { googlePlayFeed } from './feeds/googlePlay.ts';
 
 export const STATS_FEED_PLUGINS: readonly StatsFeedPlugin[] = [
   appStoreFeed,

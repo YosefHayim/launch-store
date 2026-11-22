@@ -1,14 +1,14 @@
 import { isAbsolute, join, resolve } from 'node:path';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { pathExists } from '../path-exists.js';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { pathExists } from '../path-exists.ts';
 import {
   getStorageProvider,
   getStorageProviderResolver,
-} from '../services/providerSupport/registry.js';
-import type { Platform } from '../types/app.js';
-import type { BuildArtifact } from '../types/artifacts.js';
-import type { LaunchConfig } from '../types/config.js';
-import { makeProviderInputFailure, type StorageProvider } from '../types/providers.js';
+} from '../services/providerSupport/registry.ts';
+import type { Platform } from '../types/app.ts';
+import type { BuildArtifact } from '../types/artifacts.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import { makeProviderInputFailure, type StorageProvider } from '../types/providers.ts';
 
 type ArtifactDirectoryFailure = Readonly<{
   readonly _tag: 'ArtifactDirectoryFailure';

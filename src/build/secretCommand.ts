@@ -1,14 +1,14 @@
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { LaunchPrompt } from '../services/platform/prompt.js';
-import { checkTerminalIsInteractive } from '../services/platform/progress.js';
-import { selectStoreApp } from '../store/shared/selectStoreApp.js';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
+import { selectStoreApp } from '../store/shared/selectStoreApp.ts';
 import {
   listSecretRefs,
   removeBuildSecret,
   setBuildSecret,
   type SecretRef,
-} from './buildSecrets.js';
+} from './buildSecrets.ts';
 
 type SecretListInput = Readonly<{
   action: 'list' | 'status';

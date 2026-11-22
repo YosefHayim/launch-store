@@ -1,7 +1,7 @@
-import { pathExists } from '@/path-exists.js';
-import { readAvailabilityConfig, reconcileAvailability } from '@/store/apple/availability.js';
-import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '@/types/plan.js';
+import { pathExists } from '../../path-exists.ts';
+import { readAvailabilityConfig, reconcileAvailability } from '../../store/apple/availability.ts';
+import { planAppStoreSurface } from './appStoreSurface.ts';
+import type { SurfacePlanner } from '../../types/plan.ts';
 
 const SURFACE = 'availability';
 

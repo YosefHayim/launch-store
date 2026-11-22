@@ -1,8 +1,8 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../cli/command.ts';
 import { stdout } from 'node:process';
-import { readLaunchEnvironment } from '../services/platform/environment.js';
-import { createLogger } from '../services/platform/logger.js';
-import type { Shell } from '../types/remote.js';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import type { Shell } from '../types/remote.ts';
 import {
   completionScript,
   detectShell,
@@ -10,7 +10,7 @@ import {
   makeCompletionFailure,
   parseShell,
   resolveCompletions,
-} from './completion.js';
+} from './completion.ts';
 
 type CompletionCommandInput =
   | Readonly<{ operation: 'install'; shell: string | undefined }>

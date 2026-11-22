@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cleanDescription, renderConfigDocs } from './configDocs.js';
-import type { JsonSchema } from '../config/jsonSchema.js';
+import { cleanDescription, renderConfigDocs } from './configDocs.ts';
+import type { JsonSchema } from '../config/jsonSchema.ts';
 describe('cleanDescription', () => {
   it("strips a bare {@link} down to the symbol's last segment", () => {
     expect(cleanDescription('See {@link ReleaseConfig.earliestReleaseDate}.')).toBe(

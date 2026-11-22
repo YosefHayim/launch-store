@@ -1,8 +1,8 @@
-import { loadPortfolioApps } from '../portfolio/loadPortfolioApps.js';
-import { findAppsByName, joinTags } from '../portfolio/portfolioLogic.js';
-import { readDocumentFile } from '../services/platform/atomicDocumentFile.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { locatePortfolioFilePath } from '../services/platform/paths.js';
+import { loadPortfolioApps } from '../portfolio/loadPortfolioApps.ts';
+import { findAppsByName, joinTags } from '../portfolio/portfolioLogic.ts';
+import { readDocumentFile } from '../services/platform/atomicDocumentFile.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { locatePortfolioFilePath } from '../services/platform/paths.ts';
 import type {
   AppOwner,
   DiscoveredApp,
@@ -11,7 +11,7 @@ import type {
   PortfolioLoad,
   PortfolioLoadMode,
   PortfolioPlatform,
-} from '../types/portfolio.js';
+} from '../types/portfolio.ts';
 import type {
   AppCoverage,
   AppFeedSyncReport,
@@ -20,7 +20,7 @@ import type {
   FeedFetchReply,
   StatsSyncReport,
   StatsSyncRequest,
-} from '../types/stats.js';
+} from '../types/stats.ts';
 import {
   createNotesMessage,
   findFeedCoverage,
@@ -28,13 +28,13 @@ import {
   markFeedCoverageSkipped,
   mergeFeedCoverage,
   subtractCoverage,
-} from './coverageLogic.js';
-import { loadAppCoverage, saveAppCoverage } from './coverageStore.js';
-import { createLastDaysRange, readYesterdayUtc } from './dateRange.js';
-import { STATS_FEED_PLUGINS } from './feedRegistry.js';
-import { StatsCredentials } from './statsCredentials.js';
-import { saveDailyStats } from './statsStore.js';
-import { holdSyncLock } from './syncLock.js';
+} from './coverageLogic.ts';
+import { loadAppCoverage, saveAppCoverage } from './coverageStore.ts';
+import { createLastDaysRange, readYesterdayUtc } from './dateRange.ts';
+import { STATS_FEED_PLUGINS } from './feedRegistry.ts';
+import { StatsCredentials } from './statsCredentials.ts';
+import { saveDailyStats } from './statsStore.ts';
+import { holdSyncLock } from './syncLock.ts';
 
 type StatsAppNotFoundFailure = Readonly<{
   readonly _tag: 'StatsAppNotFoundFailure';

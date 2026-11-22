@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SandboxTesterResource } from '../../types/appleCatalog.js';
-import { clearPurchaseHistory, listSandboxTesters, type AscSandboxApi } from './sandbox.js';
+import type { SandboxTesterResource } from '../../types/appleCatalog.ts';
+import { clearPurchaseHistory, listSandboxTesters, type AscSandboxApi } from './sandbox.ts';
 
 function makeApi(testers: SandboxTesterResource[] = []): AscSandboxApi {
   return {

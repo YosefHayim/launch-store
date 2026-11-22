@@ -1,11 +1,11 @@
-import { findAppsByName } from '../portfolio/portfolioLogic.js';
-import type { PortfolioApp } from '../types/portfolio.js';
-import type { AppFeedSyncReport, StatsFreshness } from '../types/stats.js';
-import { findFeedCoverage, isFeedCoverageStale } from './coverageLogic.js';
-import { loadAppCoverage } from './coverageStore.js';
-import { DEFAULT_SYNC_DAYS } from './dateRange.js';
-import { STATS_FEED_PLUGINS } from './feedRegistry.js';
-import { loadStatsPortfolio, syncStats } from './syncStats.js';
+import { findAppsByName } from '../portfolio/portfolioLogic.ts';
+import type { PortfolioApp } from '../types/portfolio.ts';
+import type { AppFeedSyncReport, StatsFreshness } from '../types/stats.ts';
+import { findFeedCoverage, isFeedCoverageStale } from './coverageLogic.ts';
+import { loadAppCoverage } from './coverageStore.ts';
+import { DEFAULT_SYNC_DAYS } from './dateRange.ts';
+import { STATS_FEED_PLUGINS } from './feedRegistry.ts';
+import { loadStatsPortfolio, syncStats } from './syncStats.ts';
 
 function isFeedFailed(appFeed: AppFeedSyncReport): boolean {
   return appFeed.status == 'failed';

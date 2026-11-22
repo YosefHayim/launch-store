@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PlayReplyResult, PlayReview } from '../../types/googlePlay.js';
-import { type PlayReviewsApi, listPlayReviews, replyToPlayReview } from './playReviews.js';
+import type { PlayReplyResult, PlayReview } from '../../types/googlePlay.ts';
+import { type PlayReviewsApi, listPlayReviews, replyToPlayReview } from './playReviews.ts';
 
 type PlayReviewsCalls = {
   readonly listOptions: { translationLanguage?: string }[];

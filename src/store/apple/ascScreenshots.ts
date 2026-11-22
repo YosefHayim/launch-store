@@ -7,17 +7,17 @@ import type {
   ScreenshotSetResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-} from '../../types/appleCatalog.js';
-import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from './ascSync.js';
-import type { PlannedAction } from '../../types/reconcile.js';
+} from '../../types/appleCatalog.ts';
+import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from './ascSync.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
 import {
   MAX_PREVIEWS_PER_SET,
   MAX_SCREENSHOTS_PER_SET,
   type LocalAsset,
   type LocalPreview,
   type LocalScreenshot,
-} from '../../listing/screenshots/assets.js';
-import { appleDisplayTypeLabel, applePreviewTypeLabel } from '../../listing/screenshots/targets.js';
+} from '../../listing/screenshots/assets.ts';
+import { appleDisplayTypeLabel, applePreviewTypeLabel } from '../../listing/screenshots/targets.ts';
 /**
  * The slice of {@link AppStoreConnectClient} the screenshot reconciler depends on. Declared here (rather
  * than taking the concrete client) so the reconcile logic is unit-testable against a hand-rolled fake.

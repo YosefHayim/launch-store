@@ -1,15 +1,15 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadConfig, readResolvedConfig } from '../config/config.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { pathExists } from '@/path-exists.js';
-import { selectApps } from '../store/shared/syncJobs.js';
-import { completeCommand } from '../terminal/commandExit.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { PrivacySurface } from '../types/privacy.js';
-import { surfaceFromExpoConfig, surfaceFromNative } from './parse.js';
-import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from './reconcile.js';
+import { loadConfig, readResolvedConfig } from '../config/config.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { pathExists } from '../path-exists.ts';
+import { selectApps } from '../store/shared/syncJobs.ts';
+import { completeCommand } from '../terminal/commandExit.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { PrivacySurface } from '../types/privacy.ts';
+import { surfaceFromExpoConfig, surfaceFromNative } from './parse.ts';
+import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from './reconcile.ts';
 
 /** Options accepted by the privacy scan command program. */
 type PrivacyCommandOptions = {

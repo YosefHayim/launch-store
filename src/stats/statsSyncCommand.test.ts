@@ -4,16 +4,16 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import type { PortfolioFile } from '../types/portfolio.js';
-import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.js';
-import { parseDaysFlag, statsSyncProgram } from './statsSyncCommand.js';
+} from '../testkit/launchHome.testkit.ts';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import type { PortfolioFile } from '../types/portfolio.ts';
+import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.ts';
+import { parseDaysFlag, statsSyncProgram } from './statsSyncCommand.ts';
 
 const fakeFeed = vi.hoisted(() => ({ isFailing: false }));
 
-vi.mock('./feedRegistry.js', () => {
+vi.mock('./feedRegistry.ts', () => {
   const iosFeed = {
     feed: 'app-store' as const,
     isApplicable(app: { platform: string }) {

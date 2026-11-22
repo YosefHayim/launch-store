@@ -1,11 +1,11 @@
-import type { AscKey } from '@/types/credentials.js';
-import type { MutableDeep } from '@/types/mutable.js';
-import type { components } from '@/apple-api-types.js';
+import type { AscKey } from '../../types/credentials.ts';
+import type { MutableDeep } from '../../types/mutable.ts';
+import type { components } from '../../apple-api-types.ts';
 import { createHash } from 'node:crypto';
-import { signAppStoreConnectToken } from '@/apple/app-store-token.js';
+import { signAppStoreConnectToken } from '../app-store-token.ts';
 import { open, readFile, stat, type FileHandle } from 'node:fs/promises';
-import { makeStoreUploadFailure, type StoreUploadFailure } from '@/types/providers.js';
-import { retryAppleTransportRequest } from '@/apple/transportHelpers.js';
+import { makeStoreUploadFailure, type StoreUploadFailure } from '../../types/providers.ts';
+import { retryAppleTransportRequest } from '../transportHelpers.ts';
 import {
   type AccessibilityDeclarationResource,
   type AccessibilitySupport,
@@ -21,7 +21,7 @@ import {
   type PhasedReleaseResource,
   type PricePointResource,
   ACCESSIBILITY_SUPPORT_KEYS,
-} from '@/types/appleCatalog.js';
+} from '../../types/appleCatalog.ts';
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;

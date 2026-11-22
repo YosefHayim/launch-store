@@ -1,15 +1,15 @@
 import path from 'node:path';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { loadStoreAppContext } from '../store/shared/selectStoreApp.js';
-import type { Platform } from '../types/app.js';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { loadStoreAppContext } from '../store/shared/selectStoreApp.ts';
+import type { Platform } from '../types/app.ts';
 import {
   type BuildState,
   type CleanDecision,
   gatherIosFingerprint,
   readBuildState,
   resolveClean,
-} from './buildFingerprint.js';
+} from './buildFingerprint.ts';
 
 type FingerprintCommandInput = Readonly<{
   app?: string;

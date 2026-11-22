@@ -1,9 +1,9 @@
-import { parseOwnerFlag, parsePlatformFlag } from '../portfolio/appsCommand.js';
-import { createStatsReport } from '../stats/statsReport.js';
-import { parseDaysFlag } from '../stats/statsSyncCommand.js';
-import type { McpTool, McpToolResult } from '../types/mcp.js';
-import type { StatsReportRequest } from '../types/statsReport.js';
-import { jsonToolOutput, optionalString, requiredString } from './tools.js';
+import { parseOwnerFlag, parsePlatformFlag } from '../portfolio/appsCommand.ts';
+import { createStatsReport } from '../stats/statsReport.ts';
+import { parseDaysFlag } from '../stats/statsSyncCommand.ts';
+import type { McpTool, McpToolResult } from '../types/mcp.ts';
+import type { StatsReportRequest } from '../types/statsReport.ts';
+import { jsonToolOutput, optionalString, requiredString } from './tools.ts';
 
 const DAYS_DESCRIPTION = 'how many days back to show, 1 to 365 (default 30)';
 

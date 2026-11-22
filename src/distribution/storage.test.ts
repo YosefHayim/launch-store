@@ -2,21 +2,21 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { ARTIFACTS_DIR } from '../services/platform/paths.js';
+import { ARTIFACTS_DIR } from '../services/platform/paths.ts';
 import {
   getStorageProvider,
   registerStorageProvider,
   registerStorageProviderResolver,
-} from '../services/providerSupport/registry.js';
-import type { BuildArtifact } from '../types/artifacts.js';
-import type { LaunchConfig, StorageConfig } from '../types/config.js';
-import type { StorageProvider, StorageProviderOptions } from '../types/providers.js';
+} from '../services/providerSupport/registry.ts';
+import type { BuildArtifact } from '../types/artifacts.ts';
+import type { LaunchConfig, StorageConfig } from '../types/config.ts';
+import type { StorageProvider, StorageProviderOptions } from '../types/providers.ts';
 import {
   ensureArtifactPresent,
   isCloudStorage,
   resolveArtifactDir,
   resolveStorageProvider,
-} from './storage.js';
+} from './storage.ts';
 
 function makeStorageProvider(name: string, publicBaseUrl = 'file://test'): StorageProvider {
   return {

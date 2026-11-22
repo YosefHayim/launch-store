@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { AppProducts } from '@/types/catalog.js';
+import type { AppProducts } from '../../../../types/catalog.ts';
 import {
   hasOffersWork,
   OffersCommandInputSchema,
   renderOfferAction,
   renderOfferCodeState,
-} from './offersCommand.js';
+} from './offersCommand.ts';
 
 describe('OffersCommandInputSchema', () => {
   it('decodes reconciliation with an omitted app selector', () => {

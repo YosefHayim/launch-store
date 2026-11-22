@@ -1,24 +1,24 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadConfig, readResolvedConfig } from '@/config/config.js';
-import { pathExists } from '@/path-exists.js';
-import { readLastApp } from '@/distribution/lastRun.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { createLogger } from '@/services/platform/logger.js';
-import { readLaunchDirectories } from '@/services/platform/paths.js';
-import { LaunchPrompt } from '@/services/platform/prompt.js';
-import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import { loadConfig, readResolvedConfig } from '../config/config.ts';
+import { pathExists } from '../path-exists.ts';
+import { readLastApp } from '../distribution/lastRun.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import type {
   AndroidLocaleInfo,
   AndroidStoreConfig,
   AppleLocaleInfo,
   AppleStoreConfig,
   StoreConfig,
-} from '@/store/shared/storeConfig.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { DraftListing, ListingBrief, LocaleDraft } from '@/types/listing.js';
-import { applyDraft, briefFor, clampDraft, renderDraftPreview } from './apply.js';
-import { createAnthropicListingGenerator } from './generator.js';
+} from '../store/shared/storeConfig.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { DraftListing, ListingBrief, LocaleDraft } from '../types/listing.ts';
+import { applyDraft, briefFor, clampDraft, renderDraftPreview } from './apply.ts';
+import { createAnthropicListingGenerator } from './generator.ts';
 
 export interface AiListingInput {
   app?: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderTeam, TeamCommandInputSchema } from './teamCommand.js';
+import { renderTeam, TeamCommandInputSchema } from './teamCommand.ts';
 
 describe('TeamCommandInputSchema', () => {
   it('decodes every Commander operation', () => {

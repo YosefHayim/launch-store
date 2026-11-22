@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { explainTopic, isGlossaryTopic, listTopics } from './glossary.js';
+import { explainTopic, isGlossaryTopic, listTopics } from './glossary.ts';
 describe('glossary - the single source for --explain and docs', () => {
   it('lists every documented topic', () => {
     const topics = listTopics();

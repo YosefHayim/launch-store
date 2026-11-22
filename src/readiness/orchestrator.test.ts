@@ -4,8 +4,8 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../types/readiness.js';
-import { READINESS_EXIT, readinessExitCode, runProbes, tallyProbeReports } from './orchestrator.js';
+} from '../types/readiness.ts';
+import { READINESS_EXIT, readinessExitCode, runProbes, tallyProbeReports } from './orchestrator.ts';
 
 /** A context whose resolvers are never reached - the fake probes below don't call them. */
 const readinessContext: ReadinessContext = {

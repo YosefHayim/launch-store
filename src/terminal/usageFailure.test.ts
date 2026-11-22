@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
-import { endWithUsageFailure, makeUsageFailure } from './usageFailure.js';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { endWithUsageFailure, makeUsageFailure } from './usageFailure.ts';
 
 afterEach(function resetUsageLogger() {
   resetLogger();

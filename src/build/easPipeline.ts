@@ -1,9 +1,9 @@
-import type { BuildArtifact } from '../types/artifacts.js';
-import { confirmUpload, reportSize, renderReceipt } from './pipelineArtifact.js';
-import { resolveSizeBudgetMB } from './pipelineProviders.js';
-import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
-import { resolveStorageProvider } from '../distribution/storage.js';
-import { getHostedBuildProvider } from '../services/providerSupport/registry.js';
+import type { BuildArtifact } from '../types/artifacts.ts';
+import { confirmUpload, reportSize, renderReceipt } from './pipelineArtifact.ts';
+import { resolveSizeBudgetMB } from './pipelineProviders.ts';
+import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.ts';
+import { resolveStorageProvider } from '../distribution/storage.ts';
+import { getHostedBuildProvider } from '../services/providerSupport/registry.ts';
 
 function readAppVersion(version: string | undefined): string {
   const versionIsMissing = version == null;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { workflowYaml } from './ciCommand.js';
+import { workflowYaml } from './ciCommand.ts';
 
 describe('workflowYaml', () => {
   it('targets macOS with the unattended iOS ship sequence', () => {

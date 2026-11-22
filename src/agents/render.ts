@@ -1,11 +1,11 @@
-import { BASE_CONTEXT, CONSUMER_SKILLS } from './registry.js';
+import { BASE_CONTEXT, CONSUMER_SKILLS } from './registry.ts';
 import type {
   BaseContext,
   ConsumerSkill,
   ContributorSkill,
   GeneratedAgentFile,
   SkillStep,
-} from '../types/agents.js';
+} from '../types/agents.ts';
 
 /** HTML-comment fences around the managed Launch section in shared consumer docs. */
 export const MANAGED_START = '<!-- launch:start -->';

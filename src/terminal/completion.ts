@@ -1,13 +1,13 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import type { Command } from '@/cli/command.js';
-import { loadConfig } from '../config/config.js';
-import { pathExists } from '../path-exists.js';
-import { listSurfacePlanners, registerBuiltinPlanners } from '../plan/registry.js';
-import { readLaunchEnvironment } from '../services/platform/environment.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { listSnapshots } from '../snapshot/store.js';
-import type { Shell } from '../types/remote.js';
+import type { Command } from '../cli/command.ts';
+import { loadConfig } from '../config/config.ts';
+import { pathExists } from '../path-exists.ts';
+import { listSurfacePlanners, registerBuiltinPlanners } from '../plan/registry.ts';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { listSnapshots } from '../snapshot/store.ts';
+import type { Shell } from '../types/remote.ts';
 /** The shells `launch completion` supports, in the order help lists them; the first is the default fallback. */
 export const SHELLS: readonly Shell[] = ['bash', 'zsh', 'fish'] as const;
 /**

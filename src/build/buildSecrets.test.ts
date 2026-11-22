@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveRefs, type SecretRef } from './buildSecrets.js';
+import { effectiveRefs, type SecretRef } from './buildSecrets.ts';
 const ref = (app: string, profile: string | null, name: string): SecretRef => ({
   app,
   profile,

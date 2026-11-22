@@ -3,7 +3,7 @@ import type {
   LEADERBOARD_FORMATTERS,
   LEADERBOARD_SORT_TYPES,
   LEADERBOARD_SUBMISSION_TYPES,
-} from './appleCatalog.js';
+} from './appleCatalog.ts';
 /** How an approved iOS build reaches the public App Store. */
 export type ReleaseType = 'AFTER_APPROVAL' | 'MANUAL' | 'SCHEDULED';
 /** iOS public-release policy under `LaunchConfig.release`. */

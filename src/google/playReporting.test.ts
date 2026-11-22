@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseServiceAccount } from './playClient.js';
+import { parseServiceAccount } from './playClient.ts';
 import {
   PlayReportingClient,
   type PlayReportingTransport,
   vitalsWindowFromLatestDate,
-} from './playReporting.js';
+} from './playReporting.ts';
 /** Minimal valid service-account JSON for adapter construction. */
 const makeServiceAccountJson = (): string => {
   return JSON.stringify({

@@ -4,7 +4,7 @@ import {
   bundletoolBuildApksArgs,
   bundletoolInstallApksArgs,
   devicectlInstallArgs,
-} from './runCommand.js';
+} from './runCommand.ts';
 
 describe('adbInstallArgs', () => {
   it('reinstalls without a serial when none is given', () => {

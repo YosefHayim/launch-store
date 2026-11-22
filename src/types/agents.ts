@@ -3,7 +3,7 @@
  * arguments. `path` is the exact command words after `launch` that MUST resolve in the live program
  * (e.g. `["metadata", "pull"]`, or just `["creds"]`); `args` are the positional values/action words that
  * follow (e.g. `["set-key"]`, `["ios"]`) and are NOT checked as commands. The rendered line is
- * `launch <path...> <args...>`. Splitting this way lets {@link import("./validate.js").findUnknownCommands}
+ * `launch <path...> <args...>`. Splitting this way lets {@link import("../agents/validate.ts").findUnknownCommands}
  * catch both a renamed top-level command and a renamed subcommand, while leaving action words like
  * `creds set-key` (where `set-key` is an argument, not a subcommand) correctly unvalidated.
  */
@@ -68,7 +68,7 @@ export type BaseContext = Readonly<{
  *
  * Unlike a {@link ConsumerSkill}, the `steps` are free-form markdown (npm scripts, file edits, prose) - a
  * contributor recipe describes the repo's own workflow, not the `launch` CLI surface, so there is no live
- * program command to validate them against (and {@link import("./validate.js").findUnknownCommands} only
+ * program command to validate them against (and {@link import("../agents/validate.ts").findUnknownCommands} only
  * walks {@link ConsumerSkill}s). `AGENTS.md` stays the canonical prose; these add Claude-native, intent-
  * triggered task recipes on top of it.
  */

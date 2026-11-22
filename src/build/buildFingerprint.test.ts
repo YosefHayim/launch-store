@@ -12,7 +12,7 @@ import {
   resolveClean,
   updateEstimate,
   writeBuildState,
-} from './buildFingerprint.js';
+} from './buildFingerprint.ts';
 
 const FINGERPRINT_PARTS: FingerprintParts = {
   podfileLock: 'PODS:\n  - Reanimated (4.1.6)\n',

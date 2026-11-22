@@ -1,5 +1,5 @@
-import { PlayReportingClient } from '@google/playReporting.js';
-import { readServiceAccount } from '@google/playClient.js';
+import { PlayReportingClient } from '../../google/playReporting.ts';
+import { readServiceAccount } from '../../google/playClient.ts';
 
 type GoogleReportingClientFailure = Readonly<{
   _tag: 'GoogleReportingClientFailure';

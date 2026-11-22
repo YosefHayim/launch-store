@@ -1,15 +1,15 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { pathExists } from '@/path-exists.js';
-import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
-import { readLaunchEnvironment } from '@/services/platform/environment.js';
+import { pathExists } from '../path-exists.ts';
+import { LaunchSecretStore } from '../services/credentials/secretStore.ts';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import {
   resolveAccountCredentialsDirectory,
   resolveAccountsFilePath,
   resolveLaunchHomeDirectory,
-} from '@/services/platform/paths.js';
-import { AppStoreIdentityService } from '@/services/stores/appStoreIdentity.js';
-import type { AccountRecord, AccountsFile, AscKey } from '@/types/credentials.js';
-import { migrateLegacySigningIndex, p12PasswordAccount } from './appleSigning.js';
+} from '../services/platform/paths.ts';
+import { AppStoreIdentityService } from '../services/stores/appStoreIdentity.ts';
+import type { AccountRecord, AccountsFile, AscKey } from '../types/credentials.ts';
+import { migrateLegacySigningIndex, p12PasswordAccount } from './appleSigning.ts';
 
 /** Secret-store account holding one Apple account's `.p8` PEM, namespaced by Key ID. */
 function p8Account(keyId: string): string {

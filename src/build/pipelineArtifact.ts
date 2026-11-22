@@ -1,41 +1,41 @@
-import { ccacheOfferDeclined, markCcacheOfferDeclined } from '../config/firstRun.js';
-import { ensureArtifactDirIgnored } from '../config/gitignore.js';
-import { ensureCcacheInstalled } from '../config/toolchain.js';
-import { resolveArtifactDir, resolveStorageProvider } from '../distribution/storage.js';
-import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
-import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.js';
-import type { Logger } from '../services/platform/logger.js';
+import { ccacheOfferDeclined, markCcacheOfferDeclined } from '../config/firstRun.ts';
+import { ensureArtifactDirIgnored } from '../config/gitignore.ts';
+import { ensureCcacheInstalled } from '../config/toolchain.ts';
+import { resolveArtifactDir, resolveStorageProvider } from '../distribution/storage.ts';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.ts';
+import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.ts';
+import type { Logger } from '../services/platform/logger.ts';
 import {
   nativeProjectDirName,
   nativeTargetHint,
   platformLabel,
-} from '../services/stores/platform.js';
+} from '../services/stores/platform.ts';
 import {
   checkTerminalIsInteractive,
   runWithProgress,
   withSpinner,
-} from '../services/platform/progress.js';
-import { LaunchPrompt } from '../services/platform/prompt.js';
-import { makeCommandExit } from '../terminal/commandExit.js';
-import { buildConsoleUrl } from '../terminal/consoleLinks.js';
-import type { GlossaryTopic } from '../terminal/glossary.js';
-import type { AppDescriptor, Platform, PlayTrack } from '../types/app.js';
-import type { BuildArtifact, SizeReport } from '../types/artifacts.js';
-import type { LaunchConfig, PrebuildMode, ResolvedBuildContext } from '../types/config.js';
-import type { AppleCredentials, BuildCredentials } from '../types/credentials.js';
-import type { SubmitArtifact } from '../types/providers.js';
-import { pathExists } from '../path-exists.js';
+} from '../services/platform/progress.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { makeCommandExit } from '../terminal/commandExit.ts';
+import { buildConsoleUrl } from '../terminal/consoleLinks.ts';
+import type { GlossaryTopic } from '../terminal/glossary.ts';
+import type { AppDescriptor, Platform, PlayTrack } from '../types/app.ts';
+import type { BuildArtifact, SizeReport } from '../types/artifacts.ts';
+import type { LaunchConfig, PrebuildMode, ResolvedBuildContext } from '../types/config.ts';
+import type { AppleCredentials, BuildCredentials } from '../types/credentials.ts';
+import type { SubmitArtifact } from '../types/providers.ts';
+import { pathExists } from '../path-exists.ts';
 import { join } from 'node:path';
-import { resolveRetentionDays } from './artifactRetention.js';
-import { beginBuildLog, buildLogId, endBuildLog } from './buildLog.js';
-import { mb, resolveSizeBudgetMB, submitToStores } from './pipelineProviders.js';
+import { resolveRetentionDays } from './artifactRetention.ts';
+import { beginBuildLog, buildLogId, endBuildLog } from './buildLog.ts';
+import { mb, resolveSizeBudgetMB, submitToStores } from './pipelineProviders.ts';
 import type {
   BuildOutput,
   BuildRunOptions,
   ConfirmUploadOptions,
   PreparedBuild,
   ReceiptOptions,
-} from './pipelineTypes.js';
+} from './pipelineTypes.ts';
 
 const BYTES_PER_KILOBYTE = 1024;
 const BYTES_PER_MEGABYTE = BYTES_PER_KILOBYTE * BYTES_PER_KILOBYTE;

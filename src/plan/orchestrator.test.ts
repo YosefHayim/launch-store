@@ -5,10 +5,10 @@ import {
   planExitCode,
   runPlanners,
   tallyPlanSurfaces,
-} from './orchestrator.js';
-import type { LaunchConfig } from '../types/config.js';
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types/plan.js';
-import type { PlannedAction } from '../types/reconcile.js';
+} from './orchestrator.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types/plan.ts';
+import type { PlannedAction } from '../types/reconcile.ts';
 
 /** Minimal context - fake planners ignore it. */
 const makeCtx = (): PlanContext => {

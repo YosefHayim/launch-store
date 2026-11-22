@@ -4,8 +4,8 @@ import type {
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from '@/types/snapshot.js';
-import { iosApps } from '@/readiness/appScopes.js';
+} from '../../types/snapshot.ts';
+import { iosApps } from '../../readiness/appScopes.ts';
 
 function toEntity(capabilityType: string): SnapshotEntity {
   return { key: capabilityType, summary: `capability ${capabilityType}`, data: { capabilityType } };

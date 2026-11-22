@@ -4,9 +4,9 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import { iosApps } from '../appScopes.js';
-import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
+} from '../../types/readiness.ts';
+import { iosApps } from '../appScopes.ts';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.ts';
 
 type AgeRatingDeclaration = Readonly<{
   attributes: Record<string, string | boolean>;

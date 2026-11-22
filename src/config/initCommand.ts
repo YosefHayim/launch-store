@@ -1,20 +1,20 @@
 import { writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
-import { Prompts } from '../prompts.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { LaunchPrompt } from '../services/platform/prompt.js';
-import type { AppDescriptor } from '../types/app.js';
-import { pathExists } from '../path-exists.js';
-import { loadConfig } from './config.js';
+import { Prompts } from '../prompts.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import { pathExists } from '../path-exists.ts';
+import { loadConfig } from './config.ts';
 import {
   configTemplate,
   DEFAULT_IN_REPO_ARTIFACT_DIR,
   detectAppRoot,
   ENV_EXAMPLE_TEMPLATE,
-} from './configScaffold.js';
-import { ensureArtifactDirIgnored } from './gitignore.js';
+} from './configScaffold.ts';
+import { ensureArtifactDirIgnored } from './gitignore.ts';
 
 type InitCommandInput = Readonly<{
   workingDirectory?: string;

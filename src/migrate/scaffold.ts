@@ -1,8 +1,8 @@
 import { join } from 'node:path';
-import { ENV_EXAMPLE_TEMPLATE } from '../config/configScaffold.js';
-import { pathExists } from '../path-exists.js';
-import { serializeStoreConfig, type StoreConfig } from '../store/shared/storeConfig.js';
-import type { MigrationArtifact, MigrationNote } from '../types/migrate.js';
+import { ENV_EXAMPLE_TEMPLATE } from '../config/configScaffold.ts';
+import { pathExists } from '../path-exists.ts';
+import { serializeStoreConfig, type StoreConfig } from '../store/shared/storeConfig.ts';
+import type { MigrationArtifact, MigrationNote } from '../types/migrate.ts';
 
 /** Fill-in-the-blanks `store.config.json` skeleton (EAS metadata schema for iOS). */
 const STORE_CONFIG_SKELETON: StoreConfig = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describePlayRelease, PlayTracksCommandInputSchema } from './playTracksCommand.js';
+import { describePlayRelease, PlayTracksCommandInputSchema } from './playTracksCommand.ts';
 
 describe('PlayTracksCommandInputSchema', () => {
   it('decodes each Commander operation without unset option fields', () => {

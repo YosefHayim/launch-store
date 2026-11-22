@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { installLandingPage, iosInstallManifestPlist, itmsServicesUrl } from './installManifest.js';
+import { installLandingPage, iosInstallManifestPlist, itmsServicesUrl } from './installManifest.ts';
 describe('iosInstallManifestPlist', () => {
   it('embeds the ipa url, bundle id, and version in the software-package shape iOS requires', () => {
     const plist = iosInstallManifestPlist({

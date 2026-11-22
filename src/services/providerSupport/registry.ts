@@ -6,7 +6,7 @@ import type {
   StorageProvider,
   StorageProviderResolver,
   Submitter,
-} from '../../types/providers.js';
+} from '../../types/providers.ts';
 
 const credentialsProviders = new Map<string, CredentialsProvider>();
 const buildEngines = new Map<string, BuildEngine>();

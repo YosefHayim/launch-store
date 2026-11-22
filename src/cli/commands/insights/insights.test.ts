@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildInsightsReport } from '@/insights/aggregate.js';
-import { renderInsights } from '@/insights/command.js';
-import type { ReviewDatum } from '@/types/insights.js';
+import { buildInsightsReport } from '../../../insights/aggregate.ts';
+import { renderInsights } from '../../../insights/command.ts';
+import type { ReviewDatum } from '../../../types/insights.ts';
 /** Build a review datum with sensible defaults so tests state only what they exercise. */
 const review = (over: Partial<ReviewDatum> = {}): ReviewDatum => {
   return { store: 'appstore', rating: 5, answered: false, ...over };

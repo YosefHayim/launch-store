@@ -1,6 +1,6 @@
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { openUrl, resolveOpenUrl } from './consoleLinks.js';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { openUrl, resolveOpenUrl } from './consoleLinks.ts';
 
 export interface OpenCommandInput {
   target?: string;

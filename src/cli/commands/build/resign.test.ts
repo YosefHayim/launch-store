@@ -1,6 +1,6 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { registerResignCommand } from './resign.js';
+import { registerResignCommand } from './resign.ts';
 
 describe('registerResignCommand', () => {
   it('attaches build:resign with the documented option surface', () => {

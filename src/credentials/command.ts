@@ -1,27 +1,27 @@
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { pathExists } from '@/path-exists.js';
-import { loadConfig } from '@/config/config.js';
+import { pathExists } from '../path-exists.ts';
+import { loadConfig } from '../config/config.ts';
 import {
   readDocumentFile,
   writeDocumentFileAtomically,
-} from '@/services/platform/atomicDocumentFile.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { readLaunchEnvironment } from '@/services/platform/environment.js';
-import { createLogger, type Logger } from '@/services/platform/logger.js';
-import { locatePortfolioFilePath, readLaunchDirectories } from '@/services/platform/paths.js';
-import { LaunchPrompt } from '@/services/platform/prompt.js';
+} from '../services/platform/atomicDocumentFile.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { locatePortfolioFilePath, readLaunchDirectories } from '../services/platform/paths.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
 import {
   AppStoreIdentityService,
   type AppStoreIdentity,
-} from '@/services/stores/appStoreIdentity.js';
-import { GoogleStoreClientService } from '@/services/stores/googleStoreClient.js';
-import { parsePlatform } from '@/services/stores/platform.js';
-import { pickSavedPortfolioFile } from '@/portfolio/portfolioStore.js';
-import { parsePlayReportsBucket } from '@/stats/playReportsBucket.js';
-import type { AppDescriptor, Platform } from '@/types/app.js';
-import type { AccountRecord, AscKey } from '@/types/credentials.js';
-import type { PortfolioFile } from '@/types/portfolio.js';
+} from '../services/stores/appStoreIdentity.ts';
+import { GoogleStoreClientService } from '../services/stores/googleStoreClient.ts';
+import { parsePlatform } from '../services/stores/platform.ts';
+import { pickSavedPortfolioFile } from '../portfolio/portfolioStore.ts';
+import { parsePlayReportsBucket } from '../stats/playReportsBucket.ts';
+import type { AppDescriptor, Platform } from '../types/app.ts';
+import type { AccountRecord, AscKey } from '../types/credentials.ts';
+import type { PortfolioFile } from '../types/portfolio.ts';
 import {
   addAccount,
   formatAccountSummary,
@@ -35,17 +35,17 @@ import {
   setAccountVendorNumber,
   setActiveKeyId,
   updateAccountIdentity,
-} from './accounts.js';
+} from './accounts.ts';
 import {
   adoptLegacyAndroidCredentials,
   describeStoredAndroidCredentials,
   ensureUploadKeystore,
   storeServiceAccount,
   type KeystoreImport,
-} from './androidKeystore.js';
-import { describeStoredCredentials, ensureSigningCredentials } from './appleSigning.js';
-import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './keyFiles.js';
-import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './pushKeyStore.js';
+} from './androidKeystore.ts';
+import { describeStoredCredentials, ensureSigningCredentials } from './appleSigning.ts';
+import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './keyFiles.ts';
+import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './pushKeyStore.ts';
 
 const CREDENTIAL_ACTIONS = [
   'status',

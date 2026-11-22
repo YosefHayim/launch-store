@@ -1,27 +1,27 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { pathExists } from '@/path-exists.js';
-import type { Logger } from '@/services/platform/logger.js';
+import { pathExists } from '../path-exists.ts';
+import type { Logger } from '../services/platform/logger.ts';
 import {
   resolveAccountCredentialsDirectory,
   resolveCredentialsDirectory,
   resolveProvisioningProfilesDirectory,
-} from '@/services/platform/paths.js';
-import { AppleCredentialsClientFactory } from '@/services/stores/appleCredentialsClient.js';
+} from '../services/platform/paths.ts';
+import { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.ts';
 import {
   adHocProfileType,
   appStoreProfileType,
   platformLabel,
-} from '@/services/stores/platform.js';
-import type { Platform } from '@/types/app.js';
-import type { ProfileResource } from '@/types/appleCatalog.js';
-import type { AscKey, SigningAssets } from '@/types/credentials.js';
-import { decodeCredentialsIndex, makeAppleSigningFailure, readIndex } from './appleSigningIndex.js';
+} from '../services/stores/platform.ts';
+import type { Platform } from '../types/app.ts';
+import type { ProfileResource } from '../types/appleCatalog.ts';
+import type { AscKey, SigningAssets } from '../types/credentials.ts';
+import { decodeCredentialsIndex, makeAppleSigningFailure, readIndex } from './appleSigningIndex.ts';
 import {
   DISTRIBUTION_CERT_NAME,
   ensureDistributionCertificate,
   p12PasswordAccount,
-} from './appleSigningCerts.js';
+} from './appleSigningCerts.ts';
 import {
   ensureAppStoreProfileForBundle,
   ensureRegisteredBundleId,
@@ -29,7 +29,7 @@ import {
   profileStaleAgainstCapabilities,
   resolveProfileTeamId,
   staleCachedSigningTargets,
-} from './appleSigningProfiles.js';
+} from './appleSigningProfiles.ts';
 
 export { p12PasswordAccount };
 export { profileStaleAgainstCapabilities, staleCachedSigningTargets };

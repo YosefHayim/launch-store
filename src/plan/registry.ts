@@ -1,19 +1,19 @@
-import type { SurfacePlanner } from '../types/plan.js';
-import { accessibilityPlanner } from './planners/accessibility.js';
-import { appClipsPlanner } from './planners/appClips.js';
-import { availabilityPlanner } from './planners/availability.js';
-import { catalogPlanner } from './planners/catalog.js';
-import { customPagesPlanner } from './planners/customPages.js';
-import { euDistributionPlanner } from './planners/euDistribution.js';
-import { experimentsPlanner } from './planners/experiments.js';
-import { gameCenterPlanner } from './planners/gameCenter.js';
-import { listingPlanner } from './planners/listing.js';
-import { offersPlanner } from './planners/offers.js';
-import { playProductsPlanner } from './planners/playProducts.js';
-import { playSubscriptionsPlanner } from './planners/playSubscriptions.js';
-import { releaseConfigPlanner } from './planners/releaseConfig.js';
-import { screenshotsPlanner } from './planners/screenshots.js';
-import { walletPlanner } from './planners/wallet.js';
+import type { SurfacePlanner } from '../types/plan.ts';
+import { accessibilityPlanner } from './planners/accessibility.ts';
+import { appClipsPlanner } from './planners/appClips.ts';
+import { availabilityPlanner } from './planners/availability.ts';
+import { catalogPlanner } from './planners/catalog.ts';
+import { customPagesPlanner } from './planners/customPages.ts';
+import { euDistributionPlanner } from './planners/euDistribution.ts';
+import { experimentsPlanner } from './planners/experiments.ts';
+import { gameCenterPlanner } from './planners/gameCenter.ts';
+import { listingPlanner } from './planners/listing.ts';
+import { offersPlanner } from './planners/offers.ts';
+import { playProductsPlanner } from './planners/playProducts.ts';
+import { playSubscriptionsPlanner } from './planners/playSubscriptions.ts';
+import { releaseConfigPlanner } from './planners/releaseConfig.ts';
+import { screenshotsPlanner } from './planners/screenshots.ts';
+import { walletPlanner } from './planners/wallet.ts';
 
 /** Registered planners keyed by surface id; re-register replaces (idempotent wiring). */
 const PLANNERS = new Map<string, SurfacePlanner>();

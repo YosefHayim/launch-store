@@ -1,18 +1,18 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { SizeReport } from '../types/artifacts.js';
-import type { SigningAssets } from '../types/credentials.js';
-import type { SshTarget } from '../types/remote.js';
-import type { RemoteSigningBundle } from '../credentials/appleSigning.js';
-import { randomHexSecret } from '../credentials/randomSecret.js';
-import { rsyncUp, scpDown, scpUp, sshCapture, sshRun } from '../services/platform/ssh.js';
-import { remoteToolchainPreflight } from '../config/toolchain.js';
+import type { SizeReport } from '../types/artifacts.ts';
+import type { SigningAssets } from '../types/credentials.ts';
+import type { SshTarget } from '../types/remote.ts';
+import type { RemoteSigningBundle } from '../credentials/appleSigning.ts';
+import { randomHexSecret } from '../credentials/randomSecret.ts';
+import { rsyncUp, scpDown, scpUp, sshCapture, sshRun } from '../services/platform/ssh.ts';
+import { remoteToolchainPreflight } from '../config/toolchain.ts';
 import {
   assertDeviceArtifact,
   exportOptionsPlist,
   parseThinningReport,
-} from '../services/providerSupport/appleArtifact.js';
+} from '../services/providerSupport/appleArtifact.ts';
 
 /**
  * What never leaves your machine in the source archive: dependencies and native build dirs are

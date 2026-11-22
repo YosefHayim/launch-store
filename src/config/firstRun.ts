@@ -1,10 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { pathExists } from '../path-exists.js';
+import { pathExists } from '../path-exists.ts';
 import {
   ensureDirectoryExists,
   resolveLaunchHomeDirectory,
   resolveStateFilePath,
-} from '../services/platform/paths.js';
+} from '../services/platform/paths.ts';
 
 type FirstRunState = {
   ccacheOfferDeclinedAt?: string;

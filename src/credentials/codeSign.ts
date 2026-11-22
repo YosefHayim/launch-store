@@ -2,10 +2,10 @@ import { createSign } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
-import { captureCommandOutput } from '@/services/platform/exec.js';
-import type { Logger } from '@/services/platform/logger.js';
-import { resolveCredentialsDirectory } from '@/services/platform/paths.js';
+import { LaunchSecretStore } from '../services/credentials/secretStore.ts';
+import { captureCommandOutput } from '../services/platform/exec.ts';
+import type { Logger } from '../services/platform/logger.ts';
+import { resolveCredentialsDirectory } from '../services/platform/paths.ts';
 
 const PRIVATE_KEY_ACCOUNT = 'ota-code-signing-key';
 

@@ -1,17 +1,17 @@
 import { spawn } from 'node:child_process';
 import { realpath } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { pathExists } from '../path-exists.js';
-import { readLaunchEnvironment } from '../services/platform/environment.js';
-import { captureCommandOutput, type CommandFailed } from '../services/platform/exec.js';
-import { createLogger } from '../services/platform/logger.js';
+import { pathExists } from '../path-exists.ts';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
+import { captureCommandOutput, type CommandFailed } from '../services/platform/exec.ts';
+import { createLogger } from '../services/platform/logger.ts';
 import {
   ensureDirectoryExists,
   readLaunchDirectories,
   resolveUpdateStateFilePath,
-} from '../services/platform/paths.js';
-import { mergeChildEnv } from '../terminal/locale.js';
-import { isCommandExit, makeCommandExit } from '../terminal/commandExit.js';
+} from '../services/platform/paths.ts';
+import { mergeChildEnv } from '../terminal/locale.ts';
+import { isCommandExit, makeCommandExit } from '../terminal/commandExit.ts';
 import { readFile, writeFile } from 'node:fs/promises';
 
 const PACKAGE_NAME = 'launch-store';

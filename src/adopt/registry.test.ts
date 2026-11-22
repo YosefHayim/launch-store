@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Adopter } from '../types/adopt.js';
-import { listAdopters, registerAdopter, registerBuiltinAdopters } from './registry.js';
+import type { Adopter } from '../types/adopt.ts';
+import { listAdopters, registerAdopter, registerBuiltinAdopters } from './registry.ts';
 
 describe('adopter registry', () => {
   it('registers the four built-in adopters, smallest-blast-radius first', () => {

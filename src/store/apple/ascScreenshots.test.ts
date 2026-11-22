@@ -7,12 +7,12 @@ import {
   type ScreenshotReconcileInput,
   type ScreenshotsApi,
   type SubscriptionReviewScreenshot,
-} from './ascScreenshots.js';
+} from './ascScreenshots.ts';
 import type {
   LocalAsset,
   LocalPreview,
   LocalScreenshot,
-} from '../../listing/screenshots/assets.js';
+} from '../../listing/screenshots/assets.ts';
 
 const effectMethods = <Api extends object>(api: Api): Api => {
   return api;

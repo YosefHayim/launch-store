@@ -1,7 +1,7 @@
-import type { AppDescriptor, BuildProfile } from '../types/app.js';
-import { pickOne, type PickOneArgs } from '../services/platform/prompt.js';
-import { readLastApp } from '../distribution/lastRun.js';
-import { resolveBuildSecrets } from './buildSecrets.js';
+import type { AppDescriptor, BuildProfile } from '../types/app.ts';
+import { pickOne, type PickOneArgs } from '../services/platform/prompt.ts';
+import { readLastApp } from '../distribution/lastRun.ts';
+import { resolveBuildSecrets } from './buildSecrets.ts';
 import {
   ENV_SOURCE,
   formatEnvTable,
@@ -9,12 +9,12 @@ import {
   resolveEnv,
   secretLookingKeys,
   type ResolvedEnv,
-} from '../config/env.js';
-import { loadConfig } from '../config/config.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { checkTerminalIsInteractive } from '../services/platform/progress.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
-import type { BuildRunOptions } from './pipelineTypes.js';
+} from '../config/env.ts';
+import { loadConfig } from '../config/config.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import type { BuildRunOptions } from './pipelineTypes.ts';
 
 /** App selection failed before a build could start. */
 export type AppSelectionFailure = Readonly<{

@@ -1,14 +1,14 @@
 import { stdin } from 'node:process';
-import { costBanner, formatAge, isReleasable, releasableAt, usd } from '../build/cost.js';
-import { loadConfig } from '../config/config.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { LaunchPrompt } from '../services/platform/prompt.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { getComputeHost } from '../services/providerSupport/registry.js';
-import { completeCommand, isCommandExit } from '../terminal/commandExit.js';
-import type { AwsConfig, HostHandle } from '../types/remote.js';
-import { clearLiveHost, getAmiId, getLiveHost } from './cloudState.js';
+import { costBanner, formatAge, isReleasable, releasableAt, usd } from '../build/cost.ts';
+import { loadConfig } from '../config/config.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { getComputeHost } from '../services/providerSupport/registry.ts';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.ts';
+import type { AwsConfig, HostHandle } from '../types/remote.ts';
+import { clearLiveHost, getAmiId, getLiveHost } from './cloudState.ts';
 
 const CLOUD_OPERATIONS = ['setup', 'status', 'teardown', 'doctor'] as const;
 

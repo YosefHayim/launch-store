@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { AppStatsReport, MetricTotal } from '../types/statsReport.js';
+import type { AppStatsReport, MetricTotal } from '../types/statsReport.ts';
 import {
   describeAppStats,
   describeCount,
@@ -7,7 +7,7 @@ import {
   describeOwner,
   describeProceeds,
   describeRating,
-} from './statsReportText.js';
+} from './statsReportText.ts';
 
 const total = (overrides: Partial<MetricTotal>): MetricTotal => ({
   feed: 'app-store',

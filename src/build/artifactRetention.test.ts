@@ -2,8 +2,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { BuildArtifact } from '../types/artifacts.js';
-import type { LaunchConfig } from '../types/config.js';
+import type { BuildArtifact } from '../types/artifacts.ts';
+import type { LaunchConfig } from '../types/config.ts';
 import {
   DEFAULT_RETENTION_DAYS,
   planPrune,
@@ -12,7 +12,7 @@ import {
   resolveRetentionDays,
   runArtifactPrune,
   writeArtifactIndex,
-} from './artifactRetention.js';
+} from './artifactRetention.ts';
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** A fixed reference "now" so age math is deterministic (no wall clock in the tests). */
 const NOW = Date.parse('2026-06-15T00:00:00.000Z');

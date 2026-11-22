@@ -4,9 +4,9 @@ import {
   buildAdoptedConfig,
   renderEntitlementsBlock,
   serializeProductsSection,
-} from './configWriter.js';
-import type { ProductPiece } from '../types/adopt.js';
-import type { InAppPurchaseConfig, SubscriptionGroupConfig } from '../types/catalog.js';
+} from './configWriter.ts';
+import type { ProductPiece } from '../types/adopt.ts';
+import type { InAppPurchaseConfig, SubscriptionGroupConfig } from '../types/catalog.ts';
 const IAP: InAppPurchaseConfig = {
   productId: 'com.acme.coins',
   referenceName: 'Coins',

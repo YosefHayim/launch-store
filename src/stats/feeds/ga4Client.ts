@@ -1,5 +1,5 @@
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { StatsFeedFailure } from '../../types/stats.js';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { StatsFeedFailure } from '../../types/stats.ts';
 
 export const ANALYTICS_ADMIN_URL = 'https://analyticsadmin.googleapis.com/v1beta';
 export const ANALYTICS_DATA_URL = 'https://analyticsdata.googleapis.com/v1beta';

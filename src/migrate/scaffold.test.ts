@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ENV_EXAMPLE_TEMPLATE } from '../config/configScaffold.js';
-import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
+import { ENV_EXAMPLE_TEMPLATE } from '../config/configScaffold.ts';
+import { buildEnvExample, scaffoldStoreConfig } from './scaffold.ts';
 
 describe('scaffoldStoreConfig', () => {
   let dir: string;

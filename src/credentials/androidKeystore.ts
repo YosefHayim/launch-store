@@ -10,18 +10,18 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pathExists } from '@/path-exists.js';
-import { randomHexSecret } from './randomSecret.js';
-import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
-import { captureCommandOutput } from '@/services/platform/exec.js';
-import type { Logger } from '@/services/platform/logger.js';
+import { pathExists } from '../path-exists.ts';
+import { randomHexSecret } from './randomSecret.ts';
+import { LaunchSecretStore } from '../services/credentials/secretStore.ts';
+import { captureCommandOutput } from '../services/platform/exec.ts';
+import type { Logger } from '../services/platform/logger.ts';
 import {
   resolveAndroidCredentialsDirectory,
   resolveAndroidCredentialsIndexPath,
   resolveCredentialsDirectory,
   resolveLegacyAndroidCredentialsIndexPath,
-} from '@/services/platform/paths.js';
-import type { KeystoreAssets } from '@/types/credentials.js';
+} from '../services/platform/paths.ts';
+import type { KeystoreAssets } from '../types/credentials.ts';
 
 const SERVICE_ACCOUNT_SECRET = 'play-service-account';
 const KEYSTORE_STORE_PASSWORD = 'android-keystore-store-password';

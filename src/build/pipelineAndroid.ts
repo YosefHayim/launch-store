@@ -1,17 +1,17 @@
-import type { AndroidCredentials, BuildCredentials } from '../types/credentials.js';
-import { makeProviderInputFailure } from '../types/providers.js';
-import { getBuildEngine, getCredentialsProvider } from '../services/providerSupport/registry.js';
-import { rememberLastRun } from '../distribution/lastRun.js';
-import { withSpinner } from '../services/platform/progress.js';
-import { distributeArtifact } from '../distribution/distribute.js';
-import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
+import type { AndroidCredentials, BuildCredentials } from '../types/credentials.ts';
+import { makeProviderInputFailure } from '../types/providers.ts';
+import { getBuildEngine, getCredentialsProvider } from '../services/providerSupport/registry.ts';
+import { rememberLastRun } from '../distribution/lastRun.ts';
+import { withSpinner } from '../services/platform/progress.ts';
+import { distributeArtifact } from '../distribution/distribute.ts';
+import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.ts';
 import {
   resolveBuildEngineName,
   resolveSizeBudgetMB,
   submitToStores,
-} from './pipelineProviders.js';
-import { resolveKeystore } from './pipelineSigning.js';
-import { nextVersionCode, setAndroidVersionCode } from './pipelineVersion.js';
+} from './pipelineProviders.ts';
+import { resolveKeystore } from './pipelineSigning.ts';
+import { nextVersionCode, setAndroidVersionCode } from './pipelineVersion.ts';
 import {
   confirmUpload,
   ensureAndroidProject,
@@ -21,10 +21,10 @@ import {
   reportSize,
   runBuildStep,
   storeArtifact,
-} from './pipelineArtifact.js';
-import type { Logger } from '../services/platform/logger.js';
-import type { AndroidReleaseNote, AppDescriptor, PlayTrack } from '../types/app.js';
-import type { SizeReport } from '../types/artifacts.js';
+} from './pipelineArtifact.ts';
+import type { Logger } from '../services/platform/logger.ts';
+import type { AndroidReleaseNote, AppDescriptor, PlayTrack } from '../types/app.ts';
+import type { SizeReport } from '../types/artifacts.ts';
 
 function isAndroidBuildCredentials(
   credentials: BuildCredentials,

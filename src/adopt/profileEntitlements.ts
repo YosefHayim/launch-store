@@ -1,9 +1,9 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { captureCommandOutput } from '../services/platform/exec.js';
-import { checkIsMacOperatingSystem } from '../services/platform/os.js';
-import type { EntitlementValue } from '../types/adopt.js';
+import { captureCommandOutput } from '../services/platform/exec.ts';
+import { checkIsMacOperatingSystem } from '../services/platform/os.ts';
+import type { EntitlementValue } from '../types/adopt.ts';
 
 function isEntitlementValue(candidate: unknown): candidate is EntitlementValue {
   if (typeof candidate == 'string') {

@@ -1,7 +1,7 @@
-import type { Command } from '@/cli/command.js';
-import { statsReportProgram } from '@/stats/statsCommand.js';
-import { statsSyncProgram } from '@/stats/statsSyncCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { statsReportProgram } from '../../../stats/statsCommand.ts';
+import { statsSyncProgram } from '../../../stats/statsSyncCommand.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 export const registerStatsCommand = (program: Command): void => {
   const stats = program

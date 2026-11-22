@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AppStoreVersionResource, BuildResource } from '../types/appleCatalog.js';
+import type { AppStoreVersionResource, BuildResource } from '../types/appleCatalog.ts';
 import {
   classifyVerdict,
   IOS_PLATFORM,
@@ -10,7 +10,7 @@ import {
   waitForValidBuild,
   type AscReleaseApi,
   type ReleaseInput,
-} from './appStoreRelease.js';
+} from './appStoreRelease.ts';
 
 const LIVE_VERSION = {
   id: 'v-live',

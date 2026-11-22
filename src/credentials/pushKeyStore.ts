@@ -1,8 +1,8 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { pathExists } from '@/path-exists.js';
-import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
-import { resolveLaunchHomeDirectory, resolvePushKeysFilePath } from '@/services/platform/paths.js';
-import { decodeP8, encodeP8 } from './accounts.js';
+import { pathExists } from '../path-exists.ts';
+import { LaunchSecretStore } from '../services/credentials/secretStore.ts';
+import { resolveLaunchHomeDirectory, resolvePushKeysFilePath } from '../services/platform/paths.ts';
+import { decodeP8, encodeP8 } from './accounts.ts';
 
 /**
  * One imported APNs authentication key (`.p8`) in Launch's push-key vault (`~/.launch/push-keys.json`).

@@ -1,5 +1,5 @@
-import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
-import { readLaunchEnvironment } from '@/services/platform/environment.js';
+import { LaunchSecretStore } from '../services/credentials/secretStore.ts';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
 
 const ENV_PREFIX = 'env:';
 const KEYCHAIN_PREFIX = 'keychain:';

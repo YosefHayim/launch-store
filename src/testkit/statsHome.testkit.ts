@@ -1,6 +1,6 @@
-import { writeLaunchHomeFile } from '@testkit/launchHome.testkit.js';
-import type { PortfolioFile } from '../types/portfolio.js';
-import type { DailyStat } from '../types/stats.js';
+import { writeLaunchHomeFile } from './launchHome.testkit.ts';
+import type { PortfolioFile } from '../types/portfolio.ts';
+import type { DailyStat } from '../types/stats.ts';
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
 

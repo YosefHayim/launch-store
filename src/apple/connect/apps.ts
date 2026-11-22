@@ -3,9 +3,9 @@ import type {
   AgeRatingValue,
   AppInfoResource,
   ListingLocalization,
-} from '@/types/appleCatalog.js';
-import type { AscHost } from './host.js';
-import type { ResourceList, AppInfoStates } from './shared.js';
+} from '../../types/appleCatalog.ts';
+import type { AscHost } from './host.ts';
+import type { ResourceList, AppInfoStates } from './shared.ts';
 import {
   REQUIRED_AGREEMENTS_ERROR_CODE,
   EDITABLE_APPINFO_STATES,
@@ -16,7 +16,7 @@ import {
   pickListingFields,
   EDITABLE_METADATA_STATES,
   summarizeAppleApp,
-} from './shared.js';
+} from './shared.ts';
 
 export class ConnectApps {
   constructor(private readonly client: AscHost) {}

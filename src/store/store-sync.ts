@@ -1,9 +1,9 @@
-import { AppStoreConnect } from '@/apple/app-store-connect.js';
-import { GooglePlay } from '@/google-play.js';
-import { Prompts } from '@/prompts.js';
-import { AppleListing } from '@/store/apple/listing.js';
-import { PlayProducts } from '@/store/google/products.js';
-import { planStore, type StoreChange, type StoreSnapshot } from '@/store/plan-store.js';
+import { AppStoreConnect } from '../apple/app-store-connect.ts';
+import { GooglePlay } from '../google-play.ts';
+import { Prompts } from '../prompts.ts';
+import { AppleListing } from './apple/listing.ts';
+import { PlayProducts } from './google/products.ts';
+import { planStore, type StoreChange, type StoreSnapshot } from './plan-store.ts';
 
 interface SyncRequest {
   desired: StoreSnapshot;

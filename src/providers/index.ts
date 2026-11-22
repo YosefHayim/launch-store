@@ -6,19 +6,19 @@ import {
   registerStorageProvider,
   registerStorageProviderResolver,
   registerSubmitter,
-} from '../services/providerSupport/registry.js';
-import { makeLocalCredentialsProvider } from './credentials/local.js';
-import { makeLocalStorageProviderResolver } from './storage/local.js';
-import { makeS3StorageProviderResolver } from './storage/s3.js';
-import { makeSupabaseStorageProviderResolver } from './storage/supabase.js';
-import { makeXcodeBuildEngine } from './build/xcode.js';
-import { makeGradleBuildEngine } from './build/gradle.js';
-import { easHostedBuildProvider } from './build/eas.js';
-import { appStoreConnectSubmitter } from './submit/appStoreConnect.js';
-import { googlePlaySubmitter } from './submit/googlePlay.js';
-import { easSubmitter } from './submit/eas.js';
-import { makeAwsEc2MacComputeHost } from './compute/awsEc2Mac.js';
-import { byoSshComputeHost } from './compute/byoSsh.js';
+} from '../services/providerSupport/registry.ts';
+import { makeLocalCredentialsProvider } from './credentials/local.ts';
+import { makeLocalStorageProviderResolver } from './storage/local.ts';
+import { makeS3StorageProviderResolver } from './storage/s3.ts';
+import { makeSupabaseStorageProviderResolver } from './storage/supabase.ts';
+import { makeXcodeBuildEngine } from './build/xcode.ts';
+import { makeGradleBuildEngine } from './build/gradle.ts';
+import { easHostedBuildProvider } from './build/eas.ts';
+import { appStoreConnectSubmitter } from './submit/appStoreConnect.ts';
+import { googlePlaySubmitter } from './submit/googlePlay.ts';
+import { easSubmitter } from './submit/eas.ts';
+import { makeAwsEc2MacComputeHost } from './compute/awsEc2Mac.ts';
+import { byoSshComputeHost } from './compute/byoSsh.ts';
 
 /**
  * Register every provider that ships with Launch.

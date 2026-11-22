@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigCommandInputSchema } from './configCommand.js';
+import { ConfigCommandInputSchema } from './configCommand.ts';
 
 describe('ConfigCommandInputSchema', () => {
   it('decodes schema and validation operations', () => {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync, statSync } from 'node:fs';
-import { scpUp, sshRun } from '../services/platform/ssh.js';
-import { type RemoteBuildInputs, remoteBuildEnvironment, runBuildOnHost } from './remoteBuild.js';
+import { scpUp, sshRun } from '../services/platform/ssh.ts';
+import { type RemoteBuildInputs, remoteBuildEnvironment, runBuildOnHost } from './remoteBuild.ts';
 
 const remoteInputs = (overrides: Partial<RemoteBuildInputs> = {}): RemoteBuildInputs => ({
   appName: 'Demo',
@@ -54,7 +54,7 @@ describe('remoteBuildEnvironment', () => {
   });
 });
 
-vi.mock('../services/platform/ssh.js', () => ({
+vi.mock('../services/platform/ssh.ts', () => ({
   scpUp: vi.fn(async () => undefined),
   sshRun: vi.fn(async () => undefined),
   sshCapture: vi.fn(async () => '0'),

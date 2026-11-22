@@ -4,10 +4,10 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { androidApps } from '../appScopes.js';
-import { OMITTED_PROBE, SKIPPED_NO_PLAY_ACCOUNT } from './credentialsSkip.js';
+} from '../../types/readiness.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import { androidApps } from '../appScopes.ts';
+import { OMITTED_PROBE, SKIPPED_NO_PLAY_ACCOUNT } from './credentialsSkip.ts';
 
 type ScopedApp = { name: string; identifier: string };
 

@@ -1,11 +1,11 @@
 import { join } from 'node:path';
-import { pathExists } from '../path-exists.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { detectHostOperatingSystem } from '../services/platform/os.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { installServer, type McpClient } from './install.js';
-import { startMcpServer } from './server.js';
+import { pathExists } from '../path-exists.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { detectHostOperatingSystem } from '../services/platform/os.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { installServer, type McpClient } from './install.ts';
+import { startMcpServer } from './server.ts';
 
 const ALL_CLIENTS: readonly McpClient[] = ['claude-code', 'cursor', 'claude-desktop'];
 

@@ -1,10 +1,10 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { CONSUMER_SKILLS } from '@/agents/registry.js';
-import { findUnknownCommands } from '@/agents/validate.js';
-import { expectArrayElement } from '@testkit/assertions.testkit.js';
-import { buildProgram } from '@cli/program.js';
-import { registerAgentsCommand, registeredCommandTree } from './agents.js';
+import { CONSUMER_SKILLS } from '../../../agents/registry.ts';
+import { findUnknownCommands } from '../../../agents/validate.ts';
+import { expectArrayElement } from '../../../testkit/assertions.testkit.ts';
+import { buildProgram } from '../../program.ts';
+import { registerAgentsCommand, registeredCommandTree } from './agents.ts';
 
 const agentsCommand = () => {
   const program = new Command();

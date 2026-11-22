@@ -1,4 +1,4 @@
-import type { AppStoreConnect } from '@/apple/app-store-connect.js';
+import type { AppStoreConnect } from '../../apple/app-store-connect.ts';
 
 export class AppleVersion {
   constructor(private readonly apple: AppStoreConnect) {}

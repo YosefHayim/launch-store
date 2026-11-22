@@ -6,13 +6,13 @@ import type {
   BetaFeedbackCrashSubmissionResource,
   BetaFeedbackScreenshotSubmissionResource,
   BuildResource,
-} from '@/types/appleCatalog.js';
-import type { BetaFeedback } from '@/types/app.js';
+} from '../types/appleCatalog.ts';
+import type { BetaFeedback } from '../types/app.ts';
 import {
   type AscFeedbackApi,
   downloadFeedbackAttachments,
   listBetaFeedback,
-} from './testflightFeedback.js';
+} from './testflightFeedback.ts';
 
 type AppleStoreOptions = Readonly<{
   appIds?: Record<string, string>;

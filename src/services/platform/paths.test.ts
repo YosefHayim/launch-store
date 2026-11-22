@@ -16,7 +16,7 @@ import {
   resetLaunchDirectories,
   resolveAccountCredentialsDirectory,
   useLaunchDirectories,
-} from './paths.js';
+} from './paths.ts';
 
 const tempDirs: string[] = [];
 

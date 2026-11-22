@@ -1,35 +1,35 @@
 import { join } from 'node:path';
-import type { AppDescriptor, Distribution, Platform } from '../types/app.js';
+import type { AppDescriptor, Distribution, Platform } from '../types/app.ts';
 import type {
   AccountRecord,
   AndroidCredentials,
   AppleCredentials,
   SigningAssets,
-} from '../types/credentials.js';
+} from '../types/credentials.ts';
 import {
   formatAccountSummary,
   resolveBuildAccount,
   setActiveKeyId,
-} from '../credentials/accounts.js';
-import type { Logger } from '../services/platform/logger.js';
-import { checkTerminalIsInteractive } from '../services/platform/progress.js';
-import { readLaunchEnvironment } from '../services/platform/environment.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
-import { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.js';
+} from '../credentials/accounts.ts';
+import type { Logger } from '../services/platform/logger.ts';
+import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.ts';
+import { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.ts';
 import {
   ensureAdHocSigningCredentials,
   ensureSigningCredentials,
   staleCachedSigningTargets,
-} from '../credentials/appleSigning.js';
+} from '../credentials/appleSigning.ts';
 import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,
   signingPreflightWarnings,
-} from '../credentials/signingPreflight.js';
-import { ensureUploadKeystore } from '../credentials/androidKeystore.js';
-import { discoverExtensionBundleIds } from './appleTargets.js';
-import { nativeProjectDirName } from '../services/stores/platform.js';
-import type { BuildRunOptions } from './pipelineTypes.js';
+} from '../credentials/signingPreflight.ts';
+import { ensureUploadKeystore } from '../credentials/androidKeystore.ts';
+import { discoverExtensionBundleIds } from './appleTargets.ts';
+import { nativeProjectDirName } from '../services/stores/platform.ts';
+import type { BuildRunOptions } from './pipelineTypes.ts';
 
 async function pickAccount(
   launchPrompt: LaunchPromptService,

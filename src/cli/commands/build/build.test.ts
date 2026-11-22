@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import {
   type BuildCommandOptions,
   parseBuildCommandInput,
   parseSizeBudget,
-} from '@/build/buildCommandInput.js';
-import { registerBuildCommand } from './build.js';
+} from '../../../build/buildCommandInput.ts';
+import { registerBuildCommand } from './build.ts';
 const BASE_OPTIONS: BuildCommandOptions = {
   profile: 'production',
   explain: false,

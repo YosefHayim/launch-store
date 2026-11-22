@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { LaunchConfig } from '../types/config.js';
-import type { McpTool } from '../types/mcp.js';
-import type { McpCapability } from '../types/storeSurface.js';
-import { enabledCapabilities, gateTools } from './gate.js';
+import type { LaunchConfig } from '../types/config.ts';
+import type { McpTool } from '../types/mcp.ts';
+import type { McpCapability } from '../types/storeSurface.ts';
+import { enabledCapabilities, gateTools } from './gate.ts';
 
 function sampleLaunchConfig(capabilities?: readonly McpCapability[]): LaunchConfig {
   const launchConfig: LaunchConfig = {

@@ -1,14 +1,14 @@
 import { join } from 'node:path';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { loadStoreConfig, type AppleStoreConfig } from '@/store/shared/storeConfig.js';
-import type { AppDescriptor } from '@/types/app.js';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import { loadStoreConfig, type AppleStoreConfig } from '../../store/shared/storeConfig.ts';
+import type { AppDescriptor } from '../../types/app.ts';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import { OMITTED_PROBE } from './credentialsSkip.js';
+} from '../../types/readiness.ts';
+import { OMITTED_PROBE } from './credentialsSkip.ts';
 
 type ListingUrl = {
   app: string;

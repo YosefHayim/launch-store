@@ -1,9 +1,9 @@
-import type { InAppProductResource, PlayMoney } from '../../types/googlePlay.js';
-import type { InAppPurchaseConfig, PlayPriceConfig } from '../../types/catalog.js';
-import type { PlannedAction } from '../../types/reconcile.js';
-import { plan, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { MutableDeep } from '../../types/mutable.js';
+import type { InAppProductResource, PlayMoney } from '../../types/googlePlay.ts';
+import type { InAppPurchaseConfig, PlayPriceConfig } from '../../types/catalog.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
+import { plan, type ReconcileContext } from '../shared/reconcile.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { MutableDeep } from '../../types/mutable.ts';
 
 /**
  * The slice of GooglePlayClient the products reconciler depends on. Declared here (not the

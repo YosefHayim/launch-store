@@ -1,12 +1,12 @@
-import type { AscHost } from './host.js';
+import type { AscHost } from './host.ts';
 import type {
   BuildResource,
   BuildUploadStatus,
   EncryptionDeclarationResource,
-} from '@/types/appleCatalog.js';
-import type { ResourceList, BuildPage } from './shared.js';
-import type { components } from '@/apple-api-types.js';
-import { highestAppleMarketingVersion } from '@/apple/transportHelpers.js';
+} from '../../types/appleCatalog.ts';
+import type { ResourceList, BuildPage } from './shared.ts';
+import type { components } from '../../apple-api-types.ts';
+import { highestAppleMarketingVersion } from '../transportHelpers.ts';
 import {
   readTransportSize,
   BUILD_PAGE_QUERY,
@@ -14,7 +14,7 @@ import {
   buildUploadProblems,
   putAssetFile,
   toBuildResources,
-} from './shared.js';
+} from './shared.ts';
 
 export class ConnectBuilds {
   constructor(private readonly client: AscHost) {}

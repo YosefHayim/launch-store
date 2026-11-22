@@ -1,25 +1,25 @@
 import { randomUUID } from 'node:crypto';
-import { resolveCommandEnv, selectApp } from '../build/pipelineEnv.js';
-import { loadConfig, type LoadedConfig } from '../config/config.js';
-import { parseCliEnv, type ResolvedEnv } from '../config/env.js';
-import { resolveRuntimeVersion } from '../config/updateCommand.js';
-import { isCloudStorage } from '../distribution/storage.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { completeCommand, isCommandExit } from '../terminal/commandExit.js';
-import type { AppDescriptor, BuildProfile } from '../types/app.js';
-import type { LaunchConfig } from '../types/config.js';
-import type { Car, NativeCar, OtaCar, TrainPlatform, TrainRecord } from '../types/releaseTrain.js';
-import { createTrainRuntime, type TrainRuntime } from './builder.js';
-import { planTrainCars, type TrainCarPlanInput } from './engine.js';
-import { isOtaCar, isTrainPlatform } from './guards.js';
-import { advanceTrain, isTrainSettled, startTrain, trainExitCode } from './orchestrator.js';
+import { resolveCommandEnv, selectApp } from '../build/pipelineEnv.ts';
+import { loadConfig, type LoadedConfig } from '../config/config.ts';
+import { parseCliEnv, type ResolvedEnv } from '../config/env.ts';
+import { resolveRuntimeVersion } from '../config/updateCommand.ts';
+import { isCloudStorage } from '../distribution/storage.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.ts';
+import type { AppDescriptor, BuildProfile } from '../types/app.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import type { Car, NativeCar, OtaCar, TrainPlatform, TrainRecord } from '../types/releaseTrain.ts';
+import { createTrainRuntime, type TrainRuntime } from './builder.ts';
+import { planTrainCars, type TrainCarPlanInput } from './engine.ts';
+import { isOtaCar, isTrainPlatform } from './guards.ts';
+import { advanceTrain, isTrainSettled, startTrain, trainExitCode } from './orchestrator.ts';
 import {
   latestTrainRecord,
   listTrainRecords,
   readTrainRecord,
   writeTrainRecord,
-} from './record.js';
+} from './record.ts';
 
 type ReleaseTrainCommandOptions = {
   app?: string;

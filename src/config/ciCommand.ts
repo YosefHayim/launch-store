@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { pathExists } from '../path-exists.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
+import { pathExists } from '../path-exists.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
 
 const WORKFLOW_PATH = '.github/workflows/launch.yml';
 

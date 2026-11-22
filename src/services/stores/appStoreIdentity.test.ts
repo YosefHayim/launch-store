@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AppStoreConnectClient } from '@apple/ascClient.js';
-import { makeAppleTransportFailure, useAppleStoreClientFactory } from './appleStoreClient.js';
-import { AppStoreIdentityService } from './appStoreIdentity.js';
+import { AppStoreConnectClient } from '../../apple/ascClient.ts';
+import { makeAppleTransportFailure, useAppleStoreClientFactory } from './appleStoreClient.ts';
+import { AppStoreIdentityService } from './appStoreIdentity.ts';
 
 const ascKey = { keyId: 'key', issuerId: 'issuer', p8: 'secret' };
 

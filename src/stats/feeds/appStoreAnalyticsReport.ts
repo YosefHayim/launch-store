@@ -1,11 +1,11 @@
-import type { DailyStat, DateRange } from '../../types/stats.js';
+import type { DailyStat, DateRange } from '../../types/stats.ts';
 import type {
   AnalyticsAccessType,
   AnalyticsReportBatch,
   AnalyticsReportKind,
   ReportLine,
-} from './appStoreFeedTypes.js';
-import { readCell, roundMoney, sumColumn } from './reportCells.js';
+} from './appStoreFeedTypes.ts';
+import { readCell, roundMoney, sumColumn } from './reportCells.ts';
 
 const DATE_COLUMN = 'Date';
 

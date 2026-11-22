@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import type { HostHandle } from '../types/remote.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import type { HostHandle } from '../types/remote.ts';
 import {
   clearLiveHost,
   getAmiId,
@@ -11,7 +11,7 @@ import {
   readCloudState,
   setAmiId,
   setLiveHost,
-} from './cloudState.js';
+} from './cloudState.ts';
 
 const hostHandle: HostHandle = {
   provider: 'aws-ec2-mac',

@@ -2,13 +2,13 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createLogger, resetLogger, useLoggerSink } from '../services/platform/logger.js';
-import { runWithProgress } from '../services/platform/progress.js';
-import { nativeProjectDirName } from '../services/stores/platform.js';
-import type { Platform } from '../types/app.js';
-import type { SizeReport } from '../types/artifacts.js';
-import type { PrebuildMode, ResolvedBuildContext } from '../types/config.js';
-import type { BuildRunOptions } from './pipelineTypes.js';
+import { createLogger, resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { runWithProgress } from '../services/platform/progress.ts';
+import { nativeProjectDirName } from '../services/stores/platform.ts';
+import type { Platform } from '../types/app.ts';
+import type { SizeReport } from '../types/artifacts.ts';
+import type { PrebuildMode, ResolvedBuildContext } from '../types/config.ts';
+import type { BuildRunOptions } from './pipelineTypes.ts';
 import {
   ensureAndroidProject,
   ensureNativeProject,
@@ -17,11 +17,11 @@ import {
   sizeSummary,
   uploadSizeReadout,
   worstDownloadBytes,
-} from './pipelineArtifact.js';
+} from './pipelineArtifact.ts';
 
 // A non-dry-run prebuild records its command here instead of spawning npx.
-vi.mock('../services/platform/progress.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../services/platform/progress.js')>();
+vi.mock('../services/platform/progress.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/platform/progress.ts')>();
   return { ...actual, runWithProgress: vi.fn(async () => ({ elapsedMs: 0, steps: 0 })) };
 });
 

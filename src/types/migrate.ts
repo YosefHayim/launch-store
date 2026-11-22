@@ -23,7 +23,7 @@ export type MigrationArtifact = Readonly<{
 }>;
 /**
  * The outcome of one migration run: which toolchain it read, the artifacts to write, and the per-item
- * report. Returned by a source's migrate function (e.g. {@link import("./eas.js").migrateEas}) and
+ * report. Returned by a source's migrate function (e.g. {@link import("../migrate/eas.ts").migrateEas}) and
  * consumed by `report.ts` (render) and `write.ts` (persist) - both shared across every source.
  */
 export type MigrationResult = Readonly<{

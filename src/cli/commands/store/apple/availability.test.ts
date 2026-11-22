@@ -1,6 +1,6 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { registerAvailabilityCommand } from './availability.js';
+import { registerAvailabilityCommand } from './availability.ts';
 
 describe('registerAvailabilityCommand', () => {
   it('preserves the public availability options and config default', () => {

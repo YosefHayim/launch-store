@@ -1,15 +1,15 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { stdout } from 'node:process';
-import { diagnoseBuildLog, formatDiagnoses } from '../../build/buildDiagnostics.js';
-import { currentBuildLog } from '../../build/buildLog.js';
-import type { BuildEstimate } from '../../build/buildFingerprint.js';
-import { formatElapsed } from './elapsed.js';
-import { executeCommand, executeCommandQuietly } from './exec.js';
-import { readLaunchEnvironment } from './environment.js';
-import { isJsonOutput } from './jsonOutputMode.js';
-import { createLogger } from './logger.js';
-import { resolveLogsDirectory } from './paths.js';
+import { diagnoseBuildLog, formatDiagnoses } from '../../build/buildDiagnostics.ts';
+import { currentBuildLog } from '../../build/buildLog.ts';
+import type { BuildEstimate } from '../../build/buildFingerprint.ts';
+import { formatElapsed } from './elapsed.ts';
+import { executeCommand, executeCommandQuietly } from './exec.ts';
+import { readLaunchEnvironment } from './environment.ts';
+import { isJsonOutput } from './jsonOutputMode.ts';
+import { createLogger } from './logger.ts';
+import { resolveLogsDirectory } from './paths.ts';
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */
 let streamRawOutput = false;
 /** Set by the CLI's `--verbose` flag - makes every {@link runWithProgress} stream the full tool output. */

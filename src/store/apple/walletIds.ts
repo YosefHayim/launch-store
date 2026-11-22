@@ -1,9 +1,9 @@
-import type { MerchantIdResource, PassTypeIdResource } from '../../types/appleCatalog.js';
-import { plan, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { PlannedAction } from '../../types/reconcile.js';
-import type { WalletConfig, WalletIdConfig } from '../../types/storeSurface.js';
-import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.js';
+import type { MerchantIdResource, PassTypeIdResource } from '../../types/appleCatalog.ts';
+import { plan, type ReconcileContext } from '../shared/reconcile.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
+import type { WalletConfig, WalletIdConfig } from '../../types/storeSurface.ts';
+import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.ts';
 
 const WALLET_DOCUMENT_NAME = 'wallet.config.json';
 

@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { LaunchConfig } from '../types/config.js';
-import type { McpTool, McpToolResult } from '../types/mcp.js';
-import type { SurfacePlanner } from '../types/plan.js';
-import type { Snapshot } from '../types/snapshot.js';
-import type { McpCapability } from '../types/storeSurface.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import { gateTools } from './gate.js';
+import type { LaunchConfig } from '../types/config.ts';
+import type { McpTool, McpToolResult } from '../types/mcp.ts';
+import type { SurfacePlanner } from '../types/plan.ts';
+import type { Snapshot } from '../types/snapshot.ts';
+import type { McpCapability } from '../types/storeSurface.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { gateTools } from './gate.ts';
 import {
   ALL_TOOLS,
   chooseSurfacePlanners,
@@ -18,7 +18,7 @@ import {
   requiredString,
   summarizeSnapshots,
   WRITE_TOOLS,
-} from './tools.js';
+} from './tools.ts';
 
 function sampleLaunchConfig(capabilities: readonly McpCapability[]): LaunchConfig {
   return {

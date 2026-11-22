@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '../path-exists.js';
-import type { MigrationResult } from '../types/migrate.js';
+import { pathExists } from '../path-exists.ts';
+import type { MigrationResult } from '../types/migrate.ts';
 
 type WriteOptions = Readonly<{
   readonly outDir: string;

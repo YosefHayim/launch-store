@@ -1,9 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import {
-  type DeviceAddInput,
-  deviceCommandProgram,
-} from '@/cli/commands/store/apple/deviceCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { type DeviceAddInput, deviceCommandProgram } from '../store/apple/deviceCommand.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 /** Map the optional device name without passing an explicit undefined. */
 const toDeviceAddInput = (udid: string, name: string | undefined): DeviceAddInput => {

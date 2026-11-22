@@ -1,9 +1,9 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../../command.ts';
 import {
   type MetadataCommandInput,
   metadataCommandProgram,
-} from '@/store/shared/metadataCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+} from '../../../store/shared/metadataCommand.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 type MetadataOptions = Readonly<{
   readonly platform?: string;

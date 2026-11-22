@@ -1,10 +1,10 @@
-import type { SnapshotSource } from '../types/snapshot.js';
-import { appleProductsSource } from './sources/appleProducts.js';
-import { appleSubscriptionsSource } from './sources/appleSubscriptions.js';
-import { appleListingSource } from './sources/appleListing.js';
-import { appleCapabilitiesSource } from './sources/appleCapabilities.js';
-import { playProductsSource } from './sources/playProducts.js';
-import { playSubscriptionsSource } from './sources/playSubscriptions.js';
+import type { SnapshotSource } from '../types/snapshot.ts';
+import { appleProductsSource } from './sources/appleProducts.ts';
+import { appleSubscriptionsSource } from './sources/appleSubscriptions.ts';
+import { appleListingSource } from './sources/appleListing.ts';
+import { appleCapabilitiesSource } from './sources/appleCapabilities.ts';
+import { playProductsSource } from './sources/playProducts.ts';
+import { playSubscriptionsSource } from './sources/playSubscriptions.ts';
 /** Registered sources, keyed by id so re-registering one replaces it (idempotent built-in wiring). */
 const SOURCES = new Map<string, SnapshotSource>();
 /** Register (or replace) a snapshot source by its id. */

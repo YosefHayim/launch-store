@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { appleProductsSource } from './appleProducts.js';
-import { appleSubscriptionsSource } from './appleSubscriptions.js';
-import { appleListingSource } from './appleListing.js';
-import { appleCapabilitiesSource } from './appleCapabilities.js';
-import { playProductsSource } from './playProducts.js';
-import { playSubscriptionsSource } from './playSubscriptions.js';
-import { makeAscCatalogApiFake } from '@testkit/ascCatalogApi.testkit.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { PlayCatalogApi } from '@/types/plan.js';
+import { appleProductsSource } from './appleProducts.ts';
+import { appleSubscriptionsSource } from './appleSubscriptions.ts';
+import { appleListingSource } from './appleListing.ts';
+import { appleCapabilitiesSource } from './appleCapabilities.ts';
+import { playProductsSource } from './playProducts.ts';
+import { playSubscriptionsSource } from './playSubscriptions.ts';
+import { makeAscCatalogApiFake } from '../../testkit/ascCatalogApi.testkit.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { PlayCatalogApi } from '../../types/plan.ts';
 import type {
   AppEntities,
   RestoreContext,
@@ -17,7 +17,7 @@ import type {
   SnapshotContext,
   SnapshotPlayApi,
   SnapshotSource,
-} from '@/types/snapshot.js';
+} from '../../types/snapshot.ts';
 const CONFIG: LaunchConfig = {
   profiles: {},
   credentials: 'local',

@@ -1,6 +1,6 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { registerReleaseTrainCommand } from './releaseTrain.js';
+import { registerReleaseTrainCommand } from './releaseTrain.ts';
 
 describe('registerReleaseTrainCommand', () => {
   it('registers the release-train actions and selectors', () => {

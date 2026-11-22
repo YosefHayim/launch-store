@@ -2,15 +2,15 @@ import type {
   AppEventAttributes,
   AppEventLocalizationAttributes,
   ResourceSingle,
-} from './shared.js';
+} from './shared.ts';
 import type {
   AppEventLocalizationInput,
   AppEventLocalizationResource,
   AppEventResource,
   NewAppEvent,
-} from '@/types/appleCatalog.js';
-import type { AscHost } from './host.js';
-import { toAppEvent, toAppEventLocalization } from './shared.js';
+} from '../../types/appleCatalog.ts';
+import type { AscHost } from './host.ts';
+import { toAppEvent, toAppEventLocalization } from './shared.ts';
 
 export class ConnectEvents {
   constructor(private readonly client: AscHost) {}

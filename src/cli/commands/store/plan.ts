@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { type PlanCommandInput, planCommandProgram } from '@/plan/command.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { type PlanCommandInput, planCommandProgram } from '../../../plan/command.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 type PlanOptions = Readonly<{
   readonly app?: string;

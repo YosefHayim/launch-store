@@ -7,7 +7,7 @@ import {
   parseServiceAccount,
   serviceAccountJwtOptions,
   type GooglePlayTransport,
-} from './playClient.js';
+} from './playClient.ts';
 /** Minimal valid service-account JSON for adapter construction. */
 const makeServiceAccountJson = (): string => {
   return JSON.stringify({

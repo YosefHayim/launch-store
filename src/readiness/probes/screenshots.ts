@@ -4,10 +4,10 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import { REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES } from '@/listing/screenshots/specs.js';
-import { iosApps } from '../appScopes.js';
-import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
+} from '../../types/readiness.ts';
+import { REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES } from '../../listing/screenshots/specs.ts';
+import { iosApps } from '../appScopes.ts';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.ts';
 
 type EditableVersion = Readonly<{
   id: string;

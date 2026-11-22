@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UTF8_LOCALE, isUtf8ShellLocale, mergeChildEnv, shellLocaleDoctorCheck } from './locale.js';
+import { UTF8_LOCALE, isUtf8ShellLocale, mergeChildEnv, shellLocaleDoctorCheck } from './locale.ts';
 describe('mergeChildEnv', () => {
   it('forces UTF-8 locale over broken shell defaults', () => {
     const env = mergeChildEnv({});

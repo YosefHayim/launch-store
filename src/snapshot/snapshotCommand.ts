@@ -1,18 +1,18 @@
 import { writeFile } from 'node:fs/promises';
-import { loadConfig } from '../config/config.js';
-import { loadActiveAscKey } from '../credentials/accounts.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
+import { loadConfig } from '../config/config.ts';
+import { loadActiveAscKey } from '../credentials/accounts.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
 import {
   AppleStoreClientService,
   type EffectAppStoreConnectClient,
-} from '../services/stores/appleStoreClient.js';
-import { createPlayClientResolver } from '../store/shared/storeClients.js';
-import { selectApps } from '../store/shared/syncJobs.js';
-import { completeCommand, isCommandExit } from '../terminal/commandExit.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { LaunchConfig } from '../types/config.js';
-import type { ActionStatus, PlannedAction } from '../types/reconcile.js';
+} from '../services/stores/appleStoreClient.ts';
+import { createPlayClientResolver } from '../store/shared/storeClients.ts';
+import { selectApps } from '../store/shared/syncJobs.ts';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import type { ActionStatus, PlannedAction } from '../types/reconcile.ts';
 import type {
   AppEntities,
   CaptureReport,
@@ -21,11 +21,11 @@ import type {
   SnapshotContext,
   SnapshotSource,
   SnapshotStore,
-} from '../types/snapshot.js';
-import { AUTO_SNAPSHOT_PREFIX } from './autoSnapshot.js';
-import { diffSnapshots, type DiffChange, type SnapshotDiff } from './diff.js';
-import { captureSnapshot, type CaptureResult } from './orchestrator.js';
-import { listSnapshotSources, registerBuiltinSources } from './registry.js';
+} from '../types/snapshot.ts';
+import { AUTO_SNAPSHOT_PREFIX } from './autoSnapshot.ts';
+import { diffSnapshots, type DiffChange, type SnapshotDiff } from './diff.ts';
+import { captureSnapshot, type CaptureResult } from './orchestrator.ts';
+import { listSnapshotSources, registerBuiltinSources } from './registry.ts';
 import {
   deleteSnapshot,
   listSnapshots,
@@ -33,7 +33,7 @@ import {
   planPrune,
   saveSnapshot,
   type PruneCriteria,
-} from './store.js';
+} from './store.ts';
 
 const LIVE_SNAPSHOT = 'live';
 const SNAPSHOT_STORES: readonly SnapshotStore[] = ['appstore', 'play'];

@@ -1,12 +1,12 @@
-import { errorMessage } from '@/services/platform/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
 import {
   reconcilePlaySubscriptions,
   type PlaySubscriptionsApi,
-} from '@/store/google/playSubscriptions.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { SubscriptionConfig, SubscriptionGroupConfig } from '@/types/catalog.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { AppPlan, PlanContext, PlayCatalogApi, SurfacePlanner } from '@/types/plan.js';
+} from '../../store/google/playSubscriptions.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { SubscriptionConfig, SubscriptionGroupConfig } from '../../types/catalog.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { AppPlan, PlanContext, PlayCatalogApi, SurfacePlanner } from '../../types/plan.ts';
 
 const SURFACE = 'play-subscriptions';
 

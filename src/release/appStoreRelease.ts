@@ -1,11 +1,11 @@
-import { appRecordMissingMessage } from '@/services/stores/appleStoreClient.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
+import { appRecordMissingMessage } from '../services/stores/appleStoreClient.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
 import type {
   AppStoreVersionResource,
   BuildResource,
   ReviewSubmissionResource,
-} from '@/types/appleCatalog.js';
-import type { ReleaseType } from '@/types/storeSurface.js';
+} from '../types/appleCatalog.ts';
+import type { ReleaseType } from '../types/storeSurface.ts';
 
 const BUILD_AND_RELEASE_STEP = 'run `launch build ios`, then release that build.';
 

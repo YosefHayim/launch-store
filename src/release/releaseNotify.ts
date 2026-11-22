@@ -1,5 +1,5 @@
-import type { ReleaseStatus, ReleaseVerdict } from './appStoreRelease.js';
-import type { NotifyEvent } from '../services/platform/notify.js';
+import type { ReleaseStatus, ReleaseVerdict } from './appStoreRelease.ts';
+import type { NotifyEvent } from '../services/platform/notify.ts';
 /**
  * Memory of what's already been notified, owned by the watch loop for its lifetime. Keyed per
  * `(app, version)` - a developer can ship a new version of the same app mid-session (e.g. resubmit

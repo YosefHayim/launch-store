@@ -1,4 +1,4 @@
-import type { ReportLine } from './appStoreFeedTypes.js';
+import type { ReportLine } from './appStoreFeedTypes.ts';
 
 const MONEY_ROUNDING_FACTOR = 100;
 

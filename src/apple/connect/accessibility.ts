@@ -1,11 +1,11 @@
-import type { AccessibilityDeclarationAttributes } from './shared.js';
+import type { AccessibilityDeclarationAttributes } from './shared.ts';
 import type {
   AccessibilityDeclarationResource,
   AccessibilitySupport,
   DeviceFamily,
-} from '@/types/appleCatalog.js';
-import type { AscHost } from './host.js';
-import { pickAccessibilitySupport } from './shared.js';
+} from '../../types/appleCatalog.ts';
+import type { AscHost } from './host.ts';
+import { pickAccessibilitySupport } from './shared.ts';
 
 export class ConnectAccessibility {
   constructor(private readonly client: AscHost) {}

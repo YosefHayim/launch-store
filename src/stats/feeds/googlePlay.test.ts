@@ -1,11 +1,11 @@
 import { crc32, deflateRawSync } from 'node:zlib';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { PortfolioApp } from '../../types/portfolio.js';
-import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.js';
-import type { DailyStat, FeedFetchReply } from '../../types/stats.js';
-import type { PlayVitalsReader, StatsCredentialsApi } from '../statsCredentials.js';
-import { makeStatsCredentialsTest, useStatsCredentials } from '../statsCredentials.js';
-import { googlePlayFeed } from './googlePlay.js';
+import type { PortfolioApp } from '../../types/portfolio.ts';
+import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.ts';
+import type { DailyStat, FeedFetchReply } from '../../types/stats.ts';
+import type { PlayVitalsReader, StatsCredentialsApi } from '../statsCredentials.ts';
+import { makeStatsCredentialsTest, useStatsCredentials } from '../statsCredentials.ts';
+import { googlePlayFeed } from './googlePlay.ts';
 
 const BUCKET = 'pubsite_prod_rev_1';
 const BUCKET_URL = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o`;

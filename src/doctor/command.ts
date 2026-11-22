@@ -1,19 +1,19 @@
-import { ensureToolchain } from '@/config/toolchain.js';
-import { hasMessage, errorMessage } from '@/services/platform/errorMessage.js';
-import { createLogger } from '@/services/platform/logger.js';
-import { isApplePlatform, parsePlatform } from '@/services/stores/platform.js';
-import type { EffectAppStoreConnectClient } from '@/services/stores/appleStoreClient.js';
-import { createAscClientResolver } from '@/store/shared/storeClients.js';
+import { ensureToolchain } from '../config/toolchain.ts';
+import { hasMessage, errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { isApplePlatform, parsePlatform } from '../services/stores/platform.ts';
+import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.ts';
+import { createAscClientResolver } from '../store/shared/storeClients.ts';
 import {
   summarizeExportComplianceResult,
   type ExportComplianceResult,
-} from '@/store/apple/exportCompliance.js';
-import type { EncryptionDeclarationResource } from '@/types/appleCatalog.js';
-import { completeCommand } from '@/terminal/commandExit.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '@/types/doctor.js';
-import { buildDoctorContext } from './context.js';
-import { inspectDoctor } from './inspect.js';
+} from '../store/apple/exportCompliance.ts';
+import type { EncryptionDeclarationResource } from '../types/appleCatalog.ts';
+import { completeCommand } from '../terminal/commandExit.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '../types/doctor.ts';
+import { buildDoctorContext } from './context.ts';
+import { inspectDoctor } from './inspect.ts';
 
 export type DoctorCommandInput = {
   platform?: string;

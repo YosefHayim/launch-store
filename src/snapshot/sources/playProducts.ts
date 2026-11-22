@@ -2,26 +2,26 @@ import type {
   InAppPurchaseConfig,
   PlayProductOverride,
   ProductLocalization,
-} from '@/types/catalog.js';
+} from '../../types/catalog.ts';
 import type {
   JsonValue,
   RestoreInput,
   SnapshotContext,
   SnapshotEntity,
   SnapshotSource,
-} from '@/types/snapshot.js';
-import type { InAppProductResource, PlayMoney } from '@/types/googlePlay.js';
-import type { PlannedAction } from '@/types/reconcile.js';
-import { reconcilePlayProducts } from '@/store/google/playProducts.js';
-import { androidApps } from '@/readiness/appScopes.js';
-import type { MutableDeep } from '@/types/mutable.js';
+} from '../../types/snapshot.ts';
+import type { InAppProductResource, PlayMoney } from '../../types/googlePlay.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
+import { reconcilePlayProducts } from '../../store/google/playProducts.ts';
+import { androidApps } from '../../readiness/appScopes.ts';
+import type { MutableDeep } from '../../types/mutable.ts';
 import {
   jsonRecord,
   restoreErrorMessage,
   skippedAction,
   stringField,
   toPriceConfig,
-} from './playRestore.js';
+} from './playRestore.ts';
 /** A Play money value as a normalized, serializable record (fields Play left unset are dropped). */
 const money = (playMoney: PlayMoney): JsonValue => {
   const moneyFields: Record<string, JsonValue> = {};
@@ -62,7 +62,7 @@ const toEntity = (product: InAppProductResource): SnapshotEntity => {
 /**
  * Invert a captured product's `listings` map back into the shared {@link ProductLocalization} list the
  * reconciler reads (title -> name, description -> description). The captured `defaultLanguage` is placed
- * first because {@link import("../../store/google/playProducts.js").toPlayProduct} derives the Play default language
+ * first because {@link import("../../store/google/playProducts.ts").toPlayProduct} derives the Play default language
  * from the first localization; the rest follow sorted for a deterministic restore. Listings with no title
  * are dropped - Play requires a title, so a title-less locale can't become a localization.
  */

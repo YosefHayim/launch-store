@@ -1,4 +1,4 @@
-import type { DateRange } from '../types/stats.js';
+import type { DateRange } from '../types/stats.ts';
 
 export const REFRESH_TAIL_DAYS = 3;
 export const MAX_SYNC_DAYS = 365;

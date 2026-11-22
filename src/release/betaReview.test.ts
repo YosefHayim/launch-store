@@ -3,13 +3,13 @@ import type {
   BetaAppReviewSubmissionResource,
   BetaBuildLocalizationResource,
   BuildResource,
-} from '../types/appleCatalog.js';
+} from '../types/appleCatalog.ts';
 import {
   type AscBetaReviewApi,
   parseBetaReviewConfig,
   reconcileBetaReview,
   summarizeBetaReview,
-} from './betaReview.js';
+} from './betaReview.ts';
 
 type Calls = {
   created: { buildId: string; locale: string; whatsNew: string }[];

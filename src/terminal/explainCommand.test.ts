@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
-import { explainCommandProgram } from './explainCommand.js';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { explainCommandProgram } from './explainCommand.ts';
 
 afterEach(function resetExplainLogger() {
   resetLogger();

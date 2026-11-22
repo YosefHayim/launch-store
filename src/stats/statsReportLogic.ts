@@ -5,11 +5,11 @@ import type {
   StatsFeed,
   StatsFreshness,
   StatsMetric,
-} from '../types/stats.js';
-import { METRIC_AGGREGATION, STATS_FEEDS } from '../types/stats.js';
-import type { DailyPoint, MetricSeries, MetricTotal } from '../types/statsReport.js';
-import { findFeedCoverage } from './coverageLogic.js';
-import { readMonthOfDate, shiftDate } from './dateRange.js';
+} from '../types/stats.ts';
+import { METRIC_AGGREGATION, STATS_FEEDS } from '../types/stats.ts';
+import type { DailyPoint, MetricSeries, MetricTotal } from '../types/statsReport.ts';
+import { findFeedCoverage } from './coverageLogic.ts';
+import { readMonthOfDate, shiftDate } from './dateRange.ts';
 
 const listMonthsFrom = (month: string, lastMonth: string): string[] => {
   const isPastLastMonth = month > lastMonth;

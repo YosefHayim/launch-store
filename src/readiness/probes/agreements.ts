@@ -4,9 +4,9 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import { iosApps } from '../appScopes.js';
-import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
+} from '../../types/readiness.ts';
+import { iosApps } from '../appScopes.ts';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.ts';
 
 /** Synthetic subject for the account-wide finding (agreements aren't scoped to a single app). */
 const ACCOUNT_SUBJECT = { app: 'Apple account', identifier: 'account-wide' } as const;

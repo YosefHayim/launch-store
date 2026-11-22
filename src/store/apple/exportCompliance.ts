@@ -1,4 +1,4 @@
-import type { EncryptionDeclarationResource } from '../../types/appleCatalog.js';
+import type { EncryptionDeclarationResource } from '../../types/appleCatalog.ts';
 /**
  * The slice of {@link AppStoreConnectClient} that {@link reconcileExportCompliance} needs. Declared as a
  * seam (not the whole client) so the reconcile is testable with a fake and the core layer stays

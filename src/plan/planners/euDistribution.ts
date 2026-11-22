@@ -1,11 +1,11 @@
-import { resolveSidecarConfig } from '@/config/config.js';
+import { resolveSidecarConfig } from '../../config/config.ts';
 import {
   loadEuDistributionConfig,
   reconcileEuDistributionDomains,
-} from '@/store/apple/euDistribution.js';
-import { planTeamSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '@/types/plan.js';
-import type { EuDistributionConfig } from '@/types/storeSurface.js';
+} from '../../store/apple/euDistribution.ts';
+import { planTeamSurface } from './appStoreSurface.ts';
+import type { SurfacePlanner } from '../../types/plan.ts';
+import type { EuDistributionConfig } from '../../types/storeSurface.ts';
 /** Surface id - also the value users pass as `launch plan eu-distribution`. */
 const SURFACE = 'eu-distribution';
 export const euDistributionPlanner: SurfacePlanner = {

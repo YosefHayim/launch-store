@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Command } from '@/cli/command.js';
-import { registerStatsCommand } from './stats.js';
+import { Command } from '../../command.ts';
+import { registerStatsCommand } from './stats.ts';
 
 const programCalls = vi.hoisted(() => ({
   report: vi.fn(() => 'report-program'),
   sync: vi.fn(() => 'sync-program'),
 }));
 
-vi.mock('@/stats/statsCommand.js', () => ({ statsReportProgram: programCalls.report }));
-vi.mock('@/stats/statsSyncCommand.js', () => ({ statsSyncProgram: programCalls.sync }));
-vi.mock('@cli/runCliProgram.js', () => ({ runCliProgram: vi.fn(async () => undefined) }));
+vi.mock('../../../stats/statsCommand.ts', () => ({ statsReportProgram: programCalls.report }));
+vi.mock('../../../stats/statsSyncCommand.ts', () => ({ statsSyncProgram: programCalls.sync }));
+vi.mock('../../runCliProgram.ts', () => ({ runCliProgram: vi.fn(async () => undefined) }));
 
 const parseStats = async (cliArguments: readonly string[]) => {
   const program = new Command();

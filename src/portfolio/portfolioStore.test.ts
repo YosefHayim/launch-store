@@ -5,15 +5,15 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import type { PortfolioFile } from '../types/portfolio.js';
+} from '../testkit/launchHome.testkit.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import type { PortfolioFile } from '../types/portfolio.ts';
 import {
   createEmptyPortfolioFile,
   loadPortfolioFile,
   pickSavedPortfolioFile,
   savePortfolioFile,
-} from './portfolioStore.js';
+} from './portfolioStore.ts';
 
 let homeDirectory: string;
 

@@ -10,7 +10,7 @@ import {
   rollbackDirectiveKey,
   updatesAppConfigSnippet,
   updatesWorkerScript,
-} from './otaManifest.js';
+} from './otaManifest.ts';
 
 describe('contentTypeFor', () => {
   it('maps known extensions and defaults unknown ones to octet-stream', () => {

@@ -1,9 +1,9 @@
-import type { AscHost } from './host.js';
+import type { AscHost } from './host.ts';
 import type {
   ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,
   VersionExperimentResource,
-} from '@/types/appleCatalog.js';
+} from '../../types/appleCatalog.ts';
 
 export class ConnectExperiments {
   constructor(private readonly client: AscHost) {}

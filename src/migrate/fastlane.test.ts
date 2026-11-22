@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { expectDefined } from '@testkit/assertions.testkit.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { MigrationArtifact, MigrationNote, MigrationNoteLevel } from '../types/migrate.js';
+import { expectDefined } from '../testkit/assertions.testkit.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { MigrationArtifact, MigrationNote, MigrationNoteLevel } from '../types/migrate.ts';
 import {
   laneLaunchCommands,
   migrateFastlane,
@@ -15,7 +15,7 @@ import {
   parseSupplyfile,
   readFastlaneSetup,
   readRubyString,
-} from './fastlane.js';
+} from './fastlane.ts';
 /** A realistic Appfile carrying both team ids, the Apple ID, and both platform identifiers. */
 const SAMPLE_APPFILE = [
   'app_identifier("com.acme.alpha")',

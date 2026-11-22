@@ -2,8 +2,8 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { StorageProvider } from '@/types/providers.js';
-import { makeLocalStorageProviderResolver } from './local.js';
+import type { StorageProvider } from '../../types/providers.ts';
+import { makeLocalStorageProviderResolver } from './local.ts';
 
 const temporaryRoots: string[] = [];
 

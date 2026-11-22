@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '@/path-exists.js';
-import { resolveAccountCredentialsDirectory } from '@/services/platform/paths.js';
+import { pathExists } from '../path-exists.ts';
+import { resolveAccountCredentialsDirectory } from '../services/platform/paths.ts';
 
 /** Persisted record of the distribution certificate Launch created and backed up. */
 export type CertRecord = {

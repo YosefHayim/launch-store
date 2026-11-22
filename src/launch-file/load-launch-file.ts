@@ -1,9 +1,9 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { LaunchConfig } from '@/types/config.js';
-import { importTypeScriptModule } from '@/config/import-typescript-module.js';
-import { CheckLaunchFile } from '@/launch-file/check-launch-file.js';
-import { pathExists } from '@/path-exists.js';
+import type { LaunchConfig } from '../types/config.ts';
+import { importTypeScriptModule } from '../config/import-typescript-module.ts';
+import { CheckLaunchFile } from './check-launch-file.ts';
+import { pathExists } from '../path-exists.ts';
 
 const LAUNCH_FILE_NAMES = ['launch.config.ts', 'launch.config.mjs', 'launch.config.js'];
 

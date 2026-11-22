@@ -1,9 +1,9 @@
-import type { AdoptCatalogApi, Adopter, PlannedWrite } from '../types/adopt.js';
+import type { AdoptCatalogApi, Adopter, PlannedWrite } from '../types/adopt.ts';
 import type {
   InAppPurchaseResource,
   LocalizationResource,
   SubscriptionResource,
-} from '../types/appleCatalog.js';
+} from '../types/appleCatalog.ts';
 import type {
   InAppPurchaseConfig,
   InAppPurchaseType,
@@ -11,8 +11,8 @@ import type {
   SubscriptionConfig,
   SubscriptionGroupConfig,
   SubscriptionPeriod,
-} from '../types/catalog.js';
-import type { MutableDeep } from '../types/mutable.js';
+} from '../types/catalog.ts';
+import type { MutableDeep } from '../types/mutable.ts';
 
 /** Narrow an App Store in-app purchase type to the modeled config union. */
 function parseInAppPurchaseType(purchaseType: string): InAppPurchaseType | null {

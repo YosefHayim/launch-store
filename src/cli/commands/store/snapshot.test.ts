@@ -1,6 +1,6 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { registerSnapshotCommand } from './snapshot.js';
+import { registerSnapshotCommand } from './snapshot.ts';
 
 /** Find one registered snapshot subcommand. */
 const snapshotSubcommand = (commandName: string) => {

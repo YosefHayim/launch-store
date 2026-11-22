@@ -5,7 +5,7 @@ import {
   renderBetaAction,
   renderFeedback,
   TestflightCommandInputSchema,
-} from './testflightCommand.js';
+} from './testflightCommand.ts';
 
 describe('parseTestersCsv', () => {
   it('parses and trims named tester rows', () => {

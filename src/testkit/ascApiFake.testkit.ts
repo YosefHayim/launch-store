@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { AscSurfacesApi } from '../types/plan.js';
+import type { AscSurfacesApi } from '../types/plan.ts';
 
 /**
  * A fully-stubbed AscSurfacesApi. Reads say the app exists and nothing is set up, so a

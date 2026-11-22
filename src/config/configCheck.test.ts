@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkAppConfig } from './configCheck.js';
+import { checkAppConfig } from './configCheck.ts';
 /** A minimal, footgun-free config so each test can perturb one field and assert on that finding alone. */
 const clean = {
   expo: {

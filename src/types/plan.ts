@@ -1,20 +1,20 @@
-import type { AppDescriptor } from './app.js';
-import type { LaunchConfig } from './config.js';
-import type { AscCatalogApi } from '../store/apple/ascSync.js';
-import type { PlannedAction } from './reconcile.js';
-import type { AscReleaseApi } from '../release/releaseAttrs.js';
-import type { AscGameCenterApi } from '../store/apple/gameCenter.js';
-import type { AscAppClipsApi } from '../store/apple/appClips.js';
-import type { AscAvailabilityApi } from '../store/apple/availability.js';
-import type { AscAccessibilityApi } from '../store/apple/accessibility.js';
-import type { AscExperimentsApi } from '../release/versionExperiments.js';
-import type { AscCustomPagesApi } from '../store/apple/customProductPages.js';
-import type { AscWalletApi } from '../store/apple/walletIds.js';
-import type { AscEuDistributionApi } from '../store/apple/euDistribution.js';
-import type { AscOffersApi } from '../store/apple/offers.js';
-import type { PreviewsApi, ScreenshotsApi } from '../store/apple/ascScreenshots.js';
-import type { PlayProductsApi } from '../store/google/playProducts.js';
-import type { PlaySubscriptionsApi } from '../store/google/playSubscriptions.js';
+import type { AppDescriptor } from './app.ts';
+import type { LaunchConfig } from './config.ts';
+import type { AscCatalogApi } from '../store/apple/ascSync.ts';
+import type { PlannedAction } from './reconcile.ts';
+import type { AscReleaseApi } from '../release/releaseAttrs.ts';
+import type { AscGameCenterApi } from '../store/apple/gameCenter.ts';
+import type { AscAppClipsApi } from '../store/apple/appClips.ts';
+import type { AscAvailabilityApi } from '../store/apple/availability.ts';
+import type { AscAccessibilityApi } from '../store/apple/accessibility.ts';
+import type { AscExperimentsApi } from '../release/versionExperiments.ts';
+import type { AscCustomPagesApi } from '../store/apple/customProductPages.ts';
+import type { AscWalletApi } from '../store/apple/walletIds.ts';
+import type { AscEuDistributionApi } from '../store/apple/euDistribution.ts';
+import type { AscOffersApi } from '../store/apple/offers.ts';
+import type { PreviewsApi, ScreenshotsApi } from '../store/apple/ascScreenshots.ts';
+import type { PlayProductsApi } from '../store/google/playProducts.ts';
+import type { PlaySubscriptionsApi } from '../store/google/playSubscriptions.ts';
 /** Which store a surface belongs to - drives credential resolution and how the diff is grouped. */
 export type PlanStore = 'appstore' | 'play';
 /**
@@ -123,7 +123,7 @@ export type PlanContext = Readonly<{
 /**
  * One config-as-code surface's planner. {@link plan} is **read-only**: it resolves live state and returns
  * the diff it *would* apply without performing any write, so the same call powers both `launch plan` and
- * the `launch drift` gate. Registered like a provider/adopter (see {@link import("./registry.js")}); the
+ * the `launch drift` gate. Registered like a provider/adopter (see {@link import("../plan/registry.ts")}); the
  * orchestrator resolves every registered planner and never names a concrete one.
  */
 export type SurfacePlanner = Readonly<{

@@ -1,4 +1,4 @@
-import type { JsonSchema } from '../config/jsonSchema.js';
+import type { JsonSchema } from '../config/jsonSchema.ts';
 
 // Escape backslashes first so they cannot hide a following markdown table delimiter.
 function escapeCell(cell: string): string {

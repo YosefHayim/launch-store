@@ -2,16 +2,16 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { CodeSigner } from '../credentials/codeSign.js';
-import { createLogger, resetLogger, useLoggerSink } from '../services/platform/logger.js';
-import type { StorageProvider } from '../types/providers.js';
+import type { CodeSigner } from '../credentials/codeSign.ts';
+import { createLogger, resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import type { StorageProvider } from '../types/providers.ts';
 import {
   historyIndexKey,
   historySnapshotKey,
   manifestKey,
   manifestSignatureKey,
-} from './otaManifest.js';
-import { type ExportMetadata, publishOtaPlatform, readExportMetadata } from './otaPublish.js';
+} from './otaManifest.ts';
+import { type ExportMetadata, publishOtaPlatform, readExportMetadata } from './otaPublish.ts';
 
 type MemoryStorage = StorageProvider &
   Readonly<{

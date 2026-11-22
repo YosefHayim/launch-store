@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import type { DailyStat, DateRange } from '../../types/stats.js';
-import { readPlayCsvTable } from './playCsvTable.js';
+import type { DailyStat, DateRange } from '../../types/stats.ts';
+import { readPlayCsvTable } from './playCsvTable.ts';
 import {
   findLastDayOfReportMonth,
   findLatestCsvDate,
@@ -11,7 +11,7 @@ import {
   readInstallStats,
   readRatingStats,
   readStorePerformanceStats,
-} from './playReportStats.js';
+} from './playReportStats.ts';
 
 const OCTOBER: DateRange = { from: '2026-10-01', to: '2026-10-31' };
 

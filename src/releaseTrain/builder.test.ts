@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { createLogger } from '../services/platform/logger.js';
-import type { AppDescriptor, BuildProfile } from '../types/app.js';
-import type { LaunchConfig } from '../types/config.js';
-import type { NativeCar, OtaCar } from '../types/releaseTrain.js';
+import { createLogger } from '../services/platform/logger.ts';
+import type { AppDescriptor, BuildProfile } from '../types/app.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import type { NativeCar, OtaCar } from '../types/releaseTrain.ts';
 import {
   createTrainRuntime,
   isStoredAndroidBuild,
   isUsableIosStoreBuild,
   marketingVersionMissingMessage,
   usableMarketingVersion,
-} from './builder.js';
+} from './builder.ts';
 
 function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
   return {

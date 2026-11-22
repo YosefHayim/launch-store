@@ -1,10 +1,10 @@
-import type { AscHost } from './host.js';
-import type { CustomerReviewPage } from './shared.js';
+import type { AscHost } from './host.ts';
+import type { CustomerReviewPage } from './shared.ts';
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
-} from '@/types/appleCatalog.js';
-import { toReviewResponse } from './shared.js';
+} from '../../types/appleCatalog.ts';
+import { toReviewResponse } from './shared.ts';
 
 export class ConnectReviews {
   constructor(private readonly client: AscHost) {}

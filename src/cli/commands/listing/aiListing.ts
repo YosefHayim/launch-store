@@ -1,7 +1,7 @@
-import type { Command } from '@/cli/command.js';
-import { aiListingCommandProgram, type AiListingInput } from '@/listing/aiListingCommand.js';
-import { aiGroup } from './ai.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { aiListingCommandProgram, type AiListingInput } from '../../../listing/aiListingCommand.ts';
+import { aiGroup } from './ai.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 /** Attach the `ai listing` subcommand. */
 export const registerAiListingCommand = (program: Command): void => {

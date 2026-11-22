@@ -1,8 +1,8 @@
-import type { BuildArtifact, SizeReport } from '../types/artifacts.js';
-import type { LaunchConfig } from '../types/config.js';
-import type { AccountRecord, AscKey, BuildCredentials } from '../types/credentials.js';
-import type { ComputeHost } from '../types/providers.js';
-import type { AllocateRequest, AwsConfig, HostHandle, RemoteTarget } from '../types/remote.js';
+import type { BuildArtifact, SizeReport } from '../types/artifacts.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import type { AccountRecord, AscKey, BuildCredentials } from '../types/credentials.ts';
+import type { ComputeHost } from '../types/providers.ts';
+import type { AllocateRequest, AwsConfig, HostHandle, RemoteTarget } from '../types/remote.ts';
 import {
   receiptDestination,
   renderReceipt,
@@ -10,22 +10,22 @@ import {
   reportSize,
   resolveAscBuildLink,
   uploadIosBuild,
-} from './pipelineArtifact.js';
-import { interactiveConfirm, resolveIosAccount } from './pipelineSigning.js';
-import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
-import { DRY_RUN_KEY } from './pipelineTypes.js';
-import { nextBuildNumber } from './pipelineVersion.js';
-import { loadAscKeyById, refreshIdentityIfStale } from '../credentials/accounts.js';
-import { withSpinner } from '../services/platform/progress.js';
-import { getComputeHost } from '../services/providerSupport/registry.js';
-import { resolveStorageProvider } from '../distribution/storage.js';
-import type { Logger } from '../services/platform/logger.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
-import { resolveArtifactsDirectory } from '../services/platform/paths.js';
-import { autoReleaseAt, costBanner } from './cost.js';
-import { clearLiveHost, getLiveHost, setLiveHost } from '../distribution/cloudState.js';
-import { ensureRemoteSigningAssets } from '../credentials/appleSigning.js';
-import type { MutableDeep } from '../types/mutable.js';
+} from './pipelineArtifact.ts';
+import { interactiveConfirm, resolveIosAccount } from './pipelineSigning.ts';
+import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.ts';
+import { DRY_RUN_KEY } from './pipelineTypes.ts';
+import { nextBuildNumber } from './pipelineVersion.ts';
+import { loadAscKeyById, refreshIdentityIfStale } from '../credentials/accounts.ts';
+import { withSpinner } from '../services/platform/progress.ts';
+import { getComputeHost } from '../services/providerSupport/registry.ts';
+import { resolveStorageProvider } from '../distribution/storage.ts';
+import type { Logger } from '../services/platform/logger.ts';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.ts';
+import { resolveArtifactsDirectory } from '../services/platform/paths.ts';
+import { autoReleaseAt, costBanner } from './cost.ts';
+import { clearLiveHost, getLiveHost, setLiveHost } from '../distribution/cloudState.ts';
+import { ensureRemoteSigningAssets } from '../credentials/appleSigning.ts';
+import type { MutableDeep } from '../types/mutable.ts';
 import {
   type RemoteBuildInputs,
   openRemoteSession,
@@ -35,7 +35,7 @@ import {
   shredHost,
   syncProject,
   uploadSigningMaterial,
-} from './remoteBuild.js';
+} from './remoteBuild.ts';
 
 function hostFor(remote: RemoteTarget): ComputeHost {
   let hostName = 'byo-ssh';

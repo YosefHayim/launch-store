@@ -1,17 +1,17 @@
 import { access, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { importTypeScriptModule } from './import-typescript-module.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { LaunchConfig, LaunchConfigInput } from '../types/config.js';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { importTypeScriptModule } from './import-typescript-module.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { LaunchConfig, LaunchConfigInput } from '../types/config.ts';
 import {
   DEFAULT_BUILD_ENGINE,
   DEFAULT_CREDENTIALS_PROVIDER,
   DEFAULT_STORAGE_PROVIDER,
   DEFAULT_SUBMITTER,
-} from '../types/config.js';
-import type { MutableDeep } from '../types/mutable.js';
+} from '../types/config.ts';
+import type { MutableDeep } from '../types/mutable.ts';
 
 /**
  * Absolute path to this package's public entry, so a config's `import { defineConfig } from "launch-store"`
@@ -20,7 +20,7 @@ import type { MutableDeep } from '../types/mutable.js';
 const SELF_ENTRY = fileURLToPath(new URL('../index.js', import.meta.url));
 
 export type { LaunchConfigInput };
-export { defineConfig } from '@/define-launch-file.js';
+export { defineConfig } from '../define-launch-file.ts';
 
 async function entryExists(candidatePath: string): Promise<boolean> {
   try {

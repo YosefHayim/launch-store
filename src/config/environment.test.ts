@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeLaunchEnvironment } from './environment.js';
+import { decodeLaunchEnvironment } from './environment.ts';
 
 describe('decodeLaunchEnvironment', () => {
   it('maps environment names to domain-facing properties', () => {

@@ -3,7 +3,7 @@ import {
   availabilityConfirmationMessage,
   AvailabilityCommandInputSchema,
   renderAvailabilityAction,
-} from './availabilityCommand.js';
+} from './availabilityCommand.ts';
 
 describe('AvailabilityCommandInputSchema', () => {
   it('decodes required defaults and rejects explicit undefined selectors', () => {

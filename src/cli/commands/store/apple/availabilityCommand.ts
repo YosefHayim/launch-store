@@ -1,12 +1,15 @@
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { createLogger } from '@/services/platform/logger.js';
-import { LaunchPrompt } from '@/services/platform/prompt.js';
-import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
-import { completeCommand, isCommandExit } from '@/terminal/commandExit.js';
-import type { PlannedAction } from '@/types/reconcile.js';
-import { loadActiveAppleStore } from './appleStoreCommand.js';
-import { readAvailabilityConfig, reconcileAvailability } from '@/store/apple/availability.js';
-import { resolveStoreBundleId } from '@/store/shared/selectStoreApp.js';
+import { errorMessage } from '../../../../services/platform/errorMessage.ts';
+import { createLogger } from '../../../../services/platform/logger.ts';
+import { LaunchPrompt } from '../../../../services/platform/prompt.ts';
+import { checkTerminalIsInteractive } from '../../../../services/platform/progress.ts';
+import { completeCommand, isCommandExit } from '../../../../terminal/commandExit.ts';
+import type { PlannedAction } from '../../../../types/reconcile.ts';
+import { loadActiveAppleStore } from './appleStoreCommand.ts';
+import {
+  readAvailabilityConfig,
+  reconcileAvailability,
+} from '../../../../store/apple/availability.ts';
+import { resolveStoreBundleId } from '../../../../store/shared/selectStoreApp.ts';
 
 export type AvailabilityCommandInput = {
   app?: string;

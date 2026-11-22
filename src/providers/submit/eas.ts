@@ -1,7 +1,7 @@
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials } from '@/types/credentials.js';
-import type { SubmitArtifact, Submitter } from '@/types/providers.js';
-import { easSubmit } from '../build/eas.js';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials } from '../../types/credentials.ts';
+import type { SubmitArtifact, Submitter } from '../../types/providers.ts';
+import { easSubmit } from '../build/eas.ts';
 export const easSubmitter: Submitter = {
   name: 'eas',
   submit(

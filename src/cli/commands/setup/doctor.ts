@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { type DoctorCommandInput, doctorCommandProgram } from '@/doctor/command.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { type DoctorCommandInput, doctorCommandProgram } from '../../../doctor/command.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 type DoctorOptions = Readonly<{
   readonly platform?: string;

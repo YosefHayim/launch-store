@@ -1,4 +1,4 @@
-import type { PlayReplyResult, PlayReview } from '../../types/googlePlay.js';
+import type { PlayReplyResult, PlayReview } from '../../types/googlePlay.ts';
 
 /** The Google Play review operations used by the reviews domain. */
 export type PlayReviewsApi = Readonly<{

@@ -9,8 +9,8 @@ import {
   inspectPackageSetup,
   packageManagerWarnings,
   parsePackageManagerField,
-} from './packageManager.js';
-import { expectDefined } from '@testkit/assertions.testkit.js';
+} from './packageManager.ts';
+import { expectDefined } from '../testkit/assertions.testkit.ts';
 const tmpDirs: string[] = [];
 async function runPackageManagerEffect<Success>(packageWork: Promise<Success>): Promise<Success> {
   return packageWork;

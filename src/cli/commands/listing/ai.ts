@@ -1,4 +1,4 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../../command.ts';
 /**
  * Find-or-create the shared `ai` parent command. Each `ai <sub>` registrar calls this so every subcommand
  * lands under one group regardless of which registrar runs first.

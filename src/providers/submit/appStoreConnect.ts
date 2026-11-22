@@ -1,19 +1,19 @@
 import { basename } from 'node:path';
-import type { BuildUploadProblem } from '@/types/appleCatalog.js';
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials } from '@/types/credentials.js';
+import type { BuildUploadProblem } from '../../types/appleCatalog.ts';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials } from '../../types/credentials.ts';
 import {
   makeProviderInputFailure,
   makeStoreUploadFailure,
   type SubmitArtifact,
   type Submitter,
-} from '@/types/providers.js';
+} from '../../types/providers.ts';
 import {
   AppleStoreClientService,
   appRecordMissingMessage,
-} from '@/services/stores/appleStoreClient.js';
-import { toAscPlatform } from '@/services/stores/platform.js';
-import type { AppStoreConnectClient } from '@/apple/ascClient.js';
+} from '../../services/stores/appleStoreClient.ts';
+import { toAscPlatform } from '../../services/stores/platform.ts';
+import type { AppStoreConnectClient } from '../../apple/ascClient.ts';
 
 const PROVIDER = 'app-store-connect';
 const BUILD_UPLOAD_WAIT_MILLISECONDS = 30 * 60 * 1000;

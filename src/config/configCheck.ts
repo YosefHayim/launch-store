@@ -1,7 +1,7 @@
 import { basename } from 'node:path';
-import { isApplePlatform } from '../services/stores/platform.js';
-import type { AppDescriptor, Platform } from '../types/app.js';
-import { readResolvedConfig } from './config.js';
+import { isApplePlatform } from '../services/stores/platform.ts';
+import type { AppDescriptor, Platform } from '../types/app.ts';
+import { readResolvedConfig } from './config.ts';
 
 type FindingSeverity = 'error' | 'warn';
 

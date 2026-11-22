@@ -4,8 +4,8 @@ import {
   registerBuiltinProbes,
   registerReadinessProbe,
   selectReadinessProbes,
-} from './registry.js';
-import type { ReadinessProbe } from '../types/readiness.js';
+} from './registry.ts';
+import type { ReadinessProbe } from '../types/readiness.ts';
 describe('readiness registry', () => {
   it('registers the built-in probes idempotently (re-registering replaces, never duplicates)', () => {
     registerBuiltinProbes();

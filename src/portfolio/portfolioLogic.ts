@@ -5,7 +5,7 @@ import type {
   DiscoveredApp,
   PortfolioApp,
   PortfolioPlatform,
-} from '../types/portfolio.js';
+} from '../types/portfolio.ts';
 
 export const createIosAppKey = (ascAppId: string): string => `ios-${ascAppId}`;
 

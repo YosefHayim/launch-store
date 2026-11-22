@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { AppleLocaleInfo, StoreConfig } from '../store/shared/storeConfig.js';
+import type { AppleLocaleInfo, StoreConfig } from '../store/shared/storeConfig.ts';
 import {
   applyDraft,
   briefFor,
   clampDraft,
   deriveAndroidLocale,
   renderDraftPreview,
-} from './apply.js';
-import type { DraftListing } from '../types/listing.js';
+} from './apply.ts';
+import type { DraftListing } from '../types/listing.ts';
 describe('clampDraft', () => {
   it('passes through fields within their limits and reports no warnings', () => {
     const { draft, warnings } = clampDraft({ title: 'Focus Timer', subtitle: 'Stay on task' });

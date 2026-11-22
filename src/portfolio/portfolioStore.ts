@@ -1,14 +1,14 @@
 import {
   readDocumentFile,
   writeDocumentFileAtomically,
-} from '../services/platform/atomicDocumentFile.js';
-import { locatePortfolioFilePath } from '../services/platform/paths.js';
+} from '../services/platform/atomicDocumentFile.ts';
+import { locatePortfolioFilePath } from '../services/platform/paths.ts';
 import type {
   AppOwner,
   DiscoveredApp,
   PortfolioFile,
   PortfolioPlatform,
-} from '../types/portfolio.js';
+} from '../types/portfolio.ts';
 
 export function createEmptyPortfolioFile(): PortfolioFile {
   return {

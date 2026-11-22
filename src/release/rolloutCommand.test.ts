@@ -3,7 +3,7 @@ import {
   decodeRolloutCommandInput,
   phasedStateForAction,
   rolloutNotifyStatus,
-} from './rolloutCommand.js';
+} from './rolloutCommand.ts';
 
 describe('rollout action mapping', () => {
   it('maps every action to Apple and notification states', () => {

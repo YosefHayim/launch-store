@@ -1,5 +1,5 @@
-import type { AppOwner, PortfolioPlatform } from './portfolio.js';
-import type { DateRange, MetricAggregation, StatsFeed, StatsMetric } from './stats.js';
+import type { AppOwner, PortfolioPlatform } from './portfolio.ts';
+import type { DateRange, MetricAggregation, StatsFeed, StatsMetric } from './stats.ts';
 
 export interface StatsReportRequest {
   readonly platform: PortfolioPlatform | null;

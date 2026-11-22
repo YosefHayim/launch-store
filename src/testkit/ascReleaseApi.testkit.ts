@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { AscReleaseApi } from '../release/appStoreRelease.js';
+import type { AscReleaseApi } from '../release/appStoreRelease.ts';
 
 export const LIVE_VERSION = {
   id: 'v-live',

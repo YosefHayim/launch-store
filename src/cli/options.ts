@@ -1,4 +1,4 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from './command.ts';
 /**
  * The parsed env flags shared by build/release/update. `env` is the raw repeated `--env KEY=VAL`
  * strings (commander collects them); `includeLocal` and `printEnv` are the two booleans. Each

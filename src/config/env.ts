@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '../path-exists.js';
+import { pathExists } from '../path-exists.ts';
 
 type CliEnvironmentFailure = Readonly<{
   _tag: 'CliEnvironmentFailure';

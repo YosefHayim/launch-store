@@ -1,10 +1,10 @@
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { pathExists } from '@/path-exists.js';
-import type { HostHandle, SshTarget } from '../types/remote.js';
+import { pathExists } from '../path-exists.ts';
+import type { HostHandle, SshTarget } from '../types/remote.ts';
 import {
   resolveCloudStateFilePath,
   resolveLaunchHomeDirectory,
-} from '../services/platform/paths.js';
+} from '../services/platform/paths.ts';
 
 type CloudState = {
   host?: HostHandle;

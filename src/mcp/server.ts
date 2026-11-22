@@ -1,15 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
-import { findLaunchConfig, loadConfig } from '../config/config.js';
-import { validate, type SchemaViolation } from '../config/jsonSchema.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { requireOptional } from '../services/platform/optionalDep.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import type { McpTool, McpToolResult } from '../types/mcp.js';
-import { gateTools } from './gate.js';
-import { STATS_TOOLS } from './statsTools.js';
-import { ALL_TOOLS } from './tools.js';
+import { findLaunchConfig, loadConfig } from '../config/config.ts';
+import { validate, type SchemaViolation } from '../config/jsonSchema.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { requireOptional } from '../services/platform/optionalDep.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import type { McpTool, McpToolResult } from '../types/mcp.ts';
+import { gateTools } from './gate.ts';
+import { STATS_TOOLS } from './statsTools.ts';
+import { ALL_TOOLS } from './tools.ts';
 
 type McpServerConstructor = typeof import('@modelcontextprotocol/sdk/server/index.js').Server;
 type McpStdioTransport =

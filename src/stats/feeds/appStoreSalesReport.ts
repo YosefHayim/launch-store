@@ -1,7 +1,7 @@
-import type { DailyStat } from '../../types/stats.js';
-import type { ReportLine, SalesReportKind } from './appStoreFeedTypes.js';
-import { findSalesReportKind } from './appStoreProductTypes.js';
-import { readCell, readNumberCell, readTotal, roundMoney } from './reportCells.js';
+import type { DailyStat } from '../../types/stats.ts';
+import type { ReportLine, SalesReportKind } from './appStoreFeedTypes.ts';
+import { findSalesReportKind } from './appStoreProductTypes.ts';
+import { readCell, readNumberCell, readTotal, roundMoney } from './reportCells.ts';
 
 const APPLE_IDENTIFIER_COLUMN = 'Apple Identifier';
 

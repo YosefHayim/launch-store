@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { registerBuildsCommand } from './builds.js';
+import { registerBuildsCommand } from './builds.ts';
 
 describe('registerBuildsCommand', () => {
   it('is the thin Commander registration entry for build history', () => {

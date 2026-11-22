@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { completeCommand, makeCommandExit } from '../terminal/commandExit.js';
-import { makeBuildCommandExecutionError } from '../build/buildCommandProgram.js';
-import { createLogger } from '../services/platform/logger.js';
-import { LaunchPrompt } from '../services/platform/prompt.js';
-import { setJsonOutput } from '../services/platform/jsonOutputMode.js';
-import { runJsonCliProgram } from './runCliProgram.js';
+import { completeCommand, makeCommandExit } from '../terminal/commandExit.ts';
+import { makeBuildCommandExecutionError } from '../build/buildCommandProgram.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { setJsonOutput } from '../services/platform/jsonOutputMode.ts';
+import { runJsonCliProgram } from './runCliProgram.ts';
 
 const SUMMARY = { command: 'build', platform: 'ios', dryRun: true, profile: 'production' } as const;
 

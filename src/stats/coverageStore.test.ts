@@ -4,10 +4,10 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import type { AppCoverage } from '../types/stats.js';
-import { createEmptyAppCoverage, loadAppCoverage, saveAppCoverage } from './coverageStore.js';
+} from '../testkit/launchHome.testkit.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import type { AppCoverage } from '../types/stats.ts';
+import { createEmptyAppCoverage, loadAppCoverage, saveAppCoverage } from './coverageStore.ts';
 
 let homeDirectory: string;
 

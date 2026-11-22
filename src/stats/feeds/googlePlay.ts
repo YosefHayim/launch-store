@@ -1,17 +1,17 @@
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { PortfolioApp } from '../../types/portfolio.js';
-import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.js';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { PortfolioApp } from '../../types/portfolio.ts';
+import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.ts';
 import type {
   DailyStat,
   DateRange,
   FeedFetchReply,
   StatsFeedFailure,
   StatsMetric,
-} from '../../types/stats.js';
-import { pickEarlierDate } from '../dateRange.js';
-import type { PlayVitalsReader, StatsCredentialsApi } from '../statsCredentials.js';
-import { readBucketReports } from './playBucketReports.js';
-import { STORAGE_READ_ONLY_SCOPE } from './playReportsBucketClient.js';
+} from '../../types/stats.ts';
+import { pickEarlierDate } from '../dateRange.ts';
+import type { PlayVitalsReader, StatsCredentialsApi } from '../statsCredentials.ts';
+import { readBucketReports } from './playBucketReports.ts';
+import { STORAGE_READ_ONLY_SCOPE } from './playReportsBucketClient.ts';
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
 const VITALS_METRICS: Readonly<Record<PlayVitalsMetric, StatsMetric>> = {

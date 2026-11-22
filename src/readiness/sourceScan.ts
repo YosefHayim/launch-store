@@ -1,8 +1,8 @@
 import type { Stats } from 'node:fs';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
-import { pathExists } from '@/path-exists.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
+import { pathExists } from '../path-exists.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
 
 const SOURCE_SCAN_SKIP_DIRECTORIES = new Set([
   'node_modules',

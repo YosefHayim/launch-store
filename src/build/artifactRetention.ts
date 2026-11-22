@@ -1,17 +1,17 @@
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { pathExists } from '../path-exists.js';
-import { resolveArtifactIndexFilePath } from '../services/platform/paths.js';
-import type { Platform } from '../types/app.js';
+import { pathExists } from '../path-exists.ts';
+import { resolveArtifactIndexFilePath } from '../services/platform/paths.ts';
+import type { Platform } from '../types/app.ts';
 import type {
   BuildArtifact,
   PruneOptions,
   PruneResult,
   PrunedArtifact,
   SizeReport,
-} from '../types/artifacts.js';
-import type { LaunchConfig } from '../types/config.js';
-import type { MutableDeep } from '../types/mutable.js';
+} from '../types/artifacts.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import type { MutableDeep } from '../types/mutable.ts';
 
 export const DEFAULT_RETENTION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;

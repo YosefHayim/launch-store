@@ -5,8 +5,8 @@ import type {
   AnalyticsReportSegmentResource,
   FinanceReportQuery,
   SalesReportQuery,
-} from '@/types/appleCatalog.js';
-import type { AscHost } from './host.js';
+} from '../../types/appleCatalog.ts';
+import type { AscHost } from './host.ts';
 import {
   BASE_URL,
   AscRequestError,
@@ -14,8 +14,8 @@ import {
   toReportRequest,
   describeErrors,
   parseErrorCodes,
-} from './shared.js';
-import { retryAppleTransportRequest } from '@/apple/transportHelpers.js';
+} from './shared.ts';
+import { retryAppleTransportRequest } from '../transportHelpers.ts';
 
 export class ConnectReports {
   constructor(private readonly client: AscHost) {}

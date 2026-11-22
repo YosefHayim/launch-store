@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { pathExists } from '../../path-exists.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
+import { pathExists } from '../../path-exists.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
 
 /** A store-surface JSON document could not be read or decoded. */
 export type StoreSurfaceConfigFailure = Readonly<{

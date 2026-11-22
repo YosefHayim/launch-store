@@ -4,22 +4,22 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
+} from '../testkit/launchHome.testkit.ts';
 import {
   readDateDaysAgo,
   STATS_PORTFOLIO_FILE,
   writeStatsMonthFiles,
-} from '@testkit/statsHome.testkit.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import { makeStatsCredentialsTest, useStatsCredentials } from '../stats/statsCredentials.js';
-import type { McpToolResult } from '../types/mcp.js';
-import { dispatch } from './server.js';
-import { STATS_TOOLS } from './statsTools.js';
-import type { McpTool } from '../types/mcp.js';
+} from '../testkit/statsHome.testkit.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { makeStatsCredentialsTest, useStatsCredentials } from '../stats/statsCredentials.ts';
+import type { McpToolResult } from '../types/mcp.ts';
+import { dispatch } from './server.ts';
+import { STATS_TOOLS } from './statsTools.ts';
+import type { McpTool } from '../types/mcp.ts';
 
 const fakeFeed = vi.hoisted(() => ({ isFailing: false }));
 
-vi.mock('../stats/feedRegistry.js', () => {
+vi.mock('../stats/feedRegistry.ts', () => {
   const iosFeed = {
     feed: 'app-store' as const,
     isApplicable(app: { platform: string }) {

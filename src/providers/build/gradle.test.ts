@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials } from '@/types/credentials.js';
-import { gradleBuildArguments, makeGradleBuildEngine, parseBundletoolSize } from './gradle.js';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials } from '../../types/credentials.ts';
+import { gradleBuildArguments, makeGradleBuildEngine, parseBundletoolSize } from './gradle.ts';
 
 describe('gradleBuildArguments - signed release build', () => {
   const keystore = {

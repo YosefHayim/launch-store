@@ -1,7 +1,7 @@
-import type { ReleaseVerdict } from '../release/appStoreRelease.js';
-import type { PlayRelease } from '../types/googlePlay.js';
-import type { NativeCarState, TrainPlatform } from '../types/releaseTrain.js';
-import type { OtaCarSpec } from './orchestrator.js';
+import type { ReleaseVerdict } from '../release/appStoreRelease.ts';
+import type { PlayRelease } from '../types/googlePlay.ts';
+import type { NativeCarState, TrainPlatform } from '../types/releaseTrain.ts';
+import type { OtaCarSpec } from './orchestrator.ts';
 
 /**
  * Map an App Store release verdict to a native car state.

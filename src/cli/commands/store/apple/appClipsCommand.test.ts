@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AppClipsCommandInputSchema } from './appClipsCommand.js';
+import { AppClipsCommandInputSchema } from './appClipsCommand.ts';
 
 describe('AppClipsCommandInputSchema', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {

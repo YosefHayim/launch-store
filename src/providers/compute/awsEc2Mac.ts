@@ -8,12 +8,12 @@ import {
   awsHostReleasableAt,
   getAwsGoldenAmiId,
   setAwsGoldenAmiId,
-} from '@/services/providerSupport/awsComputeSupport.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { LAUNCH_HOME } from '@/services/platform/paths.js';
-import { sshCapture, sshReachable } from '@/services/platform/ssh.js';
-import { pathExists } from '@/path-exists.js';
-import type { ComputeHost } from '@/types/providers.js';
+} from '../../services/providerSupport/awsComputeSupport.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import { LAUNCH_HOME } from '../../services/platform/paths.ts';
+import { sshCapture, sshReachable } from '../../services/platform/ssh.ts';
+import { pathExists } from '../../path-exists.ts';
+import type { ComputeHost } from '../../types/providers.ts';
 import type {
   AllocateRequest,
   AwsConfig,
@@ -21,7 +21,7 @@ import type {
   CloudDoctorReport,
   HostHandle,
   SshTarget,
-} from '@/types/remote.js';
+} from '../../types/remote.ts';
 import {
   type Ec2Client,
   type Ec2Module,
@@ -29,7 +29,7 @@ import {
   makeClient,
   requireAws,
   sendAwsRequest,
-} from './awsEc2MacClient.js';
+} from './awsEc2MacClient.ts';
 
 const KEY_NAME = 'launch-ec2-mac';
 const SG_NAME = 'launch-ec2-mac-sg';

@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { CodeSigner } from '../credentials/codeSign.js';
-import type { Logger } from '../services/platform/logger.js';
-import { pathExists } from '../path-exists.js';
-import type { StorageProvider } from '../types/providers.js';
-import { assembleManifest, contentTypeFor, type ManifestAsset } from './otaManifest.js';
-import { activateUpdate } from './updateHistory.js';
+import type { CodeSigner } from '../credentials/codeSign.ts';
+import type { Logger } from '../services/platform/logger.ts';
+import { pathExists } from '../path-exists.ts';
+import type { StorageProvider } from '../types/providers.ts';
+import { assembleManifest, contentTypeFor, type ManifestAsset } from './otaManifest.ts';
+import { activateUpdate } from './updateHistory.ts';
 
 /** The part of Expo export metadata required to publish bundles and assets. */
 export type ExportMetadata = {

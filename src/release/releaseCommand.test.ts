@@ -5,14 +5,14 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
-import { resetLogger, useLoggerSink } from '@/services/platform/logger.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
-import { useAppleStoreClientFactory } from '@/services/stores/appleStoreClient.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { BuildResource } from '../types/appleCatalog.js';
-import type { AscReleaseApi, ReleaseAction, ReleaseReport } from './appStoreRelease.js';
+} from '../testkit/launchHome.testkit.ts';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { useAppleStoreClientFactory } from '../services/stores/appleStoreClient.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { BuildResource } from '../types/appleCatalog.ts';
+import type { AscReleaseApi, ReleaseAction, ReleaseReport } from './appStoreRelease.ts';
 import {
   androidReleasePlanLines,
   countFailedReleaseActions,
@@ -27,7 +27,7 @@ import {
   resolveAndroidRollout,
   resolveVersionString,
   shouldNudgeRelease,
-} from './releaseCommand.js';
+} from './releaseCommand.ts';
 const storeBuild = (overrides: Partial<BuildResource> = {}): BuildResource => ({
   id: 'b-1',
   version: '42',
@@ -373,7 +373,7 @@ async function runReleaseCommand(commandRun: CommandRun): Promise<CommandOutcome
   });
   useAppleStoreClientFactory(function createClient() {
     return commandRun.releaseApi as ReturnType<
-      typeof import('@/services/stores/appleStoreClient.js').AppleStoreClientService.createClient
+      typeof import('../services/stores/appleStoreClient.ts').AppleStoreClientService.createClient
     >;
   });
 

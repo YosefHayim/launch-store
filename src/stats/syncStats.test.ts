@@ -5,21 +5,21 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { makeFakeAscClient } from '@testkit/storeClients.testkit.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import type { PortfolioFile } from '../types/portfolio.js';
-import type { AppCoverage, FeedFetchReply, StatsFeedFailure } from '../types/stats.js';
-import type { StatsCredentialsApi } from './statsCredentials.js';
-import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.js';
-import { syncStats } from './syncStats.js';
+} from '../testkit/launchHome.testkit.ts';
+import { makeFakeAscClient } from '../testkit/storeClients.testkit.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import type { PortfolioFile } from '../types/portfolio.ts';
+import type { AppCoverage, FeedFetchReply, StatsFeedFailure } from '../types/stats.ts';
+import type { StatsCredentialsApi } from './statsCredentials.ts';
+import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.ts';
+import { syncStats } from './syncStats.ts';
 
 const fakeFeed = vi.hoisted(() => ({
   reply: null as unknown,
   askedRanges: [] as unknown[],
 }));
 
-vi.mock('./feedRegistry.js', () => {
+vi.mock('./feedRegistry.ts', () => {
   function isTaggedFailure(reply: unknown): boolean {
     if (reply == null) {
       return false;

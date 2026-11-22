@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { ConsumerSkill } from '../types/agents.js';
+import type { ConsumerSkill } from '../types/agents.ts';
 import {
   commandPathIsRegistered,
   findUnknownCommands,
   formatUnknownSkillCommand,
   skillReferencedCommands,
   type RegisteredCommand,
-} from './validate.js';
+} from './validate.ts';
 
 const leaf = (name: string, aliases: readonly string[] = []): RegisteredCommand => ({
   name,

@@ -1,5 +1,5 @@
-import type { PlanContext, SurfacePlan, SurfacePlanner } from '@/types/plan.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+import type { PlanContext, SurfacePlan, SurfacePlanner } from '../types/plan.ts';
+import type { PlannedAction } from '../types/reconcile.ts';
 
 /**
  * Exit codes mirror `launch status` (worst-wins, error first):

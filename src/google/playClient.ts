@@ -4,8 +4,8 @@ import {
   type androidpublisher_v3,
 } from '@googleapis/androidpublisher';
 import type { Readable } from 'node:stream';
-import type { ServiceAccount } from '../types/credentials.js';
-import type { MutableDeep } from '../types/mutable.js';
+import type { ServiceAccount } from '../types/credentials.ts';
+import type { MutableDeep } from '../types/mutable.ts';
 import type {
   BasePlan,
   InAppProductResource,
@@ -22,12 +22,12 @@ import type {
   SubscriptionOfferPhase,
   SubscriptionOfferResource,
   SubscriptionResource,
-} from '../types/googlePlay.js';
+} from '../types/googlePlay.ts';
 import type {
   ConvertedPrices,
   ConvertedRegionPrice,
   PlayMoneyUnits,
-} from '../types/playPricing.js';
+} from '../types/playPricing.ts';
 
 /** Deep-clone a Launch boundary value into a mutable plain object for Google's generated client. */
 const mutableGoogleRequest = <GoogleRequest>(requestShape: unknown): GoogleRequest => {

@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
 import {
   assembleArchiveArguments,
   assembleExportArguments,
   computeParallelJobLimit,
   resolveCcacheEnvironment,
-} from './buildFlags.js';
-import type { ArchiveArgsInput } from './buildFlags.js';
+} from './buildFlags.ts';
+import type { ArchiveArgsInput } from './buildFlags.ts';
 
 const GB = 1024 ** 3;
 const BASE_ARCHIVE: ArchiveArgsInput = {

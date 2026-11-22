@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { Cli } from '../cli.js';
-import { runAutoUpgrade } from '../config/updateCheck.js';
-import { migrateLegacyAccounts } from '../credentials/accounts.js';
-import { registerBuiltins } from '../providers/index.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { isCommandExit } from '../terminal/commandExit.js';
+import { Cli } from '../cli.ts';
+import { runAutoUpgrade } from '../config/updateCheck.ts';
+import { migrateLegacyAccounts } from '../credentials/accounts.ts';
+import { registerBuiltins } from '../providers/index.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { isCommandExit } from '../terminal/commandExit.ts';
 
 const PACKAGE_MANIFEST_PATH = fileURLToPath(new URL('../../package.json', import.meta.url));
 

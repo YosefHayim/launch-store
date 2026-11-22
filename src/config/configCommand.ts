@@ -1,14 +1,14 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { renderConfigDocs } from '../docs/configDocs.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { completeCommand, isCommandExit } from '../terminal/commandExit.js';
-import type { LaunchConfig } from '../types/config.js';
-import { findLaunchConfig } from './config.js';
-import { loadConfigSchema, validateConfig } from './configSchema.js';
-import { checkConfigSemantics } from './configSemantics.js';
-import type { SchemaViolation } from './jsonSchema.js';
+import { renderConfigDocs } from '../docs/configDocs.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import { findLaunchConfig } from './config.ts';
+import { loadConfigSchema, validateConfig } from './configSchema.ts';
+import { checkConfigSemantics } from './configSemantics.ts';
+import type { SchemaViolation } from './jsonSchema.ts';
 
 type SchemaCommandInput = Readonly<{ operation: 'schema'; out?: string }>;
 type ValidateCommandInput = Readonly<{ operation: 'validate'; file?: string }>;

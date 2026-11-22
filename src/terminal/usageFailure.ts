@@ -1,5 +1,5 @@
-import { createLogger } from '../services/platform/logger.js';
-import { makeCommandExit } from './commandExit.js';
+import { createLogger } from '../services/platform/logger.ts';
+import { makeCommandExit } from './commandExit.ts';
 
 export type UsageFailure = Readonly<{
   readonly _tag: 'UsageFailure';

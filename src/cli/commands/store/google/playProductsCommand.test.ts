@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PlayProductsCommandInputSchema } from './playProductsCommand.js';
+import { PlayProductsCommandInputSchema } from './playProductsCommand.ts';
 
 describe('PlayProductsCommandInputSchema', () => {
   it('decodes the Commander boundary', () => {

@@ -1,14 +1,14 @@
 import { createReadStream } from 'node:fs';
-import type { AndroidReleaseNote, PlayTrack } from '@/types/app.js';
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials } from '@/types/credentials.js';
-import type { PlayRelease } from '@/types/googlePlay.js';
+import type { AndroidReleaseNote, PlayTrack } from '../../types/app.ts';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials } from '../../types/credentials.ts';
+import type { PlayRelease } from '../../types/googlePlay.ts';
 import {
   makeProviderInputFailure,
   type SubmitArtifact,
   type Submitter,
-} from '@/types/providers.js';
-import { GoogleStoreClientService } from '@/services/stores/googleStoreClient.js';
+} from '../../types/providers.ts';
+import { GoogleStoreClientService } from '../../services/stores/googleStoreClient.ts';
 
 function copyReleaseNote(releaseNote: AndroidReleaseNote): AndroidReleaseNote {
   return { ...releaseNote };

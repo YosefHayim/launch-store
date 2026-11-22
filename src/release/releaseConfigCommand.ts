@@ -1,16 +1,16 @@
 import { stdout } from 'node:process';
-import { selectApp } from '@/build/pipelineEnv.js';
-import { loadConfig } from '@/config/config.js';
-import { loadActiveAscKey } from '@/credentials/accounts.js';
-import { hasMessage } from '@/services/platform/errorMessage.js';
-import { createLogger } from '@/services/platform/logger.js';
-import { LaunchPrompt } from '@/services/platform/prompt.js';
-import { AppleStoreClientService } from '@/services/stores/appleStoreClient.js';
-import { resolveStoreSurfaceSection } from '@/cli/commands/store/apple/appStoreSurfaceCommand.js';
-import { summarize } from '@/store/shared/reconcile.js';
-import { completeCommand } from '@/terminal/commandExit.js';
-import type { PlannedAction } from '@/types/reconcile.js';
-import { parseReleaseConfig, reconcileRelease } from './releaseAttrs.js';
+import { selectApp } from '../build/pipelineEnv.ts';
+import { loadConfig } from '../config/config.ts';
+import { loadActiveAscKey } from '../credentials/accounts.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.ts';
+import { resolveStoreSurfaceSection } from '../cli/commands/store/apple/appStoreSurfaceCommand.ts';
+import { summarize } from '../store/shared/reconcile.ts';
+import { completeCommand } from '../terminal/commandExit.ts';
+import type { PlannedAction } from '../types/reconcile.ts';
+import { parseReleaseConfig, reconcileRelease } from './releaseAttrs.ts';
 
 /** Inputs resolved from Commander for App Store release-attribute reconciliation. */
 type ReleaseConfigCommandInput = Readonly<{

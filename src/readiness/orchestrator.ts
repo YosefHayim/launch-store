@@ -1,11 +1,11 @@
-import { errorMessage } from '@/services/platform/errorMessage.js';
+import { errorMessage } from '../services/platform/errorMessage.ts';
 import type {
   ProbeOutcome,
   ProbeReport,
   ReadinessContext,
   ReadinessOutcome,
   ReadinessProbe,
-} from '@/types/readiness.js';
+} from '../types/readiness.ts';
 
 /** Readiness exit codes, with unreadable state taking precedence over blockers. */
 export const READINESS_EXIT = { ok: 0, error: 1, blocker: 2 } as const;

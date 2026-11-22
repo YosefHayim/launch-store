@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseArtifactUrl, parseBuildNumber } from './eas.js';
+import { parseArtifactUrl, parseBuildNumber } from './eas.ts';
 // A trimmed-down shape of what `eas build --json` prints, with a leading log line eas sometimes emits.
 const easJson = `Building...
 [

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '@/cli/command.js';
-import { registerConfigCommand } from './config.js';
+import { Command } from '../../command.ts';
+import { registerConfigCommand } from './config.ts';
 /** Find the `config` group's named subcommand, asserting the group exists. */
 const subcommand = (name: string) => {
   const program = new Command();

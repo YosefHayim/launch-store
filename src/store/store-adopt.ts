@@ -1,15 +1,15 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '@/path-exists.js';
-import { AppStoreConnect } from '@/apple/app-store-connect.js';
-import { createLaunchFileScaffold } from '@/define-launch-file.js';
-import { GooglePlay } from '@/google-play.js';
-import { Prompts } from '@/prompts.js';
-import { ApplePrivacy } from '@/store/apple/privacy.js';
-import { AppleProducts } from '@/store/apple/products.js';
-import { AppleVersion } from '@/store/apple/version.js';
-import { PlayListing } from '@/store/google/listing.js';
-import { PlayTracks } from '@/store/google/tracks.js';
+import { pathExists } from '../path-exists.ts';
+import { AppStoreConnect } from '../apple/app-store-connect.ts';
+import { createLaunchFileScaffold } from '../define-launch-file.ts';
+import { GooglePlay } from '../google-play.ts';
+import { Prompts } from '../prompts.ts';
+import { ApplePrivacy } from './apple/privacy.ts';
+import { AppleProducts } from './apple/products.ts';
+import { AppleVersion } from './apple/version.ts';
+import { PlayListing } from './google/listing.ts';
+import { PlayTracks } from './google/tracks.ts';
 
 interface AdoptRequest {
   directory: string;

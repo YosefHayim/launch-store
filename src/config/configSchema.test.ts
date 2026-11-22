@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfigSchema, validateConfig } from './configSchema.js';
+import { loadConfigSchema, validateConfig } from './configSchema.ts';
 
 describe('loadConfigSchema', () => {
   it('loads the committed schema with only `profiles` required and named nested definitions', async () => {

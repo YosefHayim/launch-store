@@ -1,10 +1,10 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
-import { isEnvExcluded } from '../../config/env.js';
-import { mergeChildEnv } from '../../terminal/locale.js';
-import { readLaunchEnvironment } from './environment.js';
-import { isJsonOutput } from './jsonOutputMode.js';
-import { makeLogRedactor, redactText } from './redact.js';
+import { isEnvExcluded } from '../../config/env.ts';
+import { mergeChildEnv } from '../../terminal/locale.ts';
+import { readLaunchEnvironment } from './environment.ts';
+import { isJsonOutput } from './jsonOutputMode.ts';
+import { makeLogRedactor, redactText } from './redact.ts';
 
 export type CommandFailed = Readonly<{
   _tag: 'CommandFailed';

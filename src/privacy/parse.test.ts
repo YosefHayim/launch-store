@@ -5,7 +5,7 @@ import {
   parseUsageDescriptions,
   surfaceFromExpoConfig,
   surfaceFromNative,
-} from './parse.js';
+} from './parse.ts';
 const INFO_PLIST = `<?xml version="1.0"?>
 <plist version="1.0"><dict>
   <key>CFBundleName</key><string>MyApp</string>

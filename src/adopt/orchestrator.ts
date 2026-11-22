@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { writeAppEntitlements } from '../config/config.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
+import { writeAppEntitlements } from '../config/config.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
 import type {
   AdoptCatalogApi,
   AdoptTarget,
@@ -9,15 +9,15 @@ import type {
   EntitlementValue,
   PlannedWrite,
   ProductPiece,
-} from '../types/adopt.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { AppProducts } from '../types/catalog.js';
+} from '../types/adopt.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { AppProducts } from '../types/catalog.ts';
 import {
   aggregateProductPieces,
   buildAdoptedConfig,
   renderEntitlementsBlock,
   serializeProductsSection,
-} from './configWriter.js';
+} from './configWriter.ts';
 
 type SkippedApp = Readonly<{
   app: AppDescriptor;

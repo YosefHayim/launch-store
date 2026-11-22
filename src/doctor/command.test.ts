@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DoctorCommandInputSchema, renderDoctorCheckLines } from './command.js';
+import { DoctorCommandInputSchema, renderDoctorCheckLines } from './command.ts';
 
 describe('DoctorCommandInputSchema', function describeDoctorCommandInput() {
   it('decodes the Commander boundary with omitted selectors', function decodesOmittedSelectors() {

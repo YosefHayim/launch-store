@@ -1,9 +1,9 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../../../command.ts';
 import {
   type PlaySubscriptionsCommandInput,
   playSubscriptionsCommandProgram,
-} from './playSubscriptionsCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+} from './playSubscriptionsCommand.ts';
+import { runCliProgram } from '../../../runCliProgram.ts';
 
 type PlaySubscriptionsOptions = Readonly<{
   app?: string;

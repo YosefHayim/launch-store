@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { BuildArtifact } from '../types/artifacts.js';
-import type { KeystoreAssets } from '../types/credentials.js';
+import type { BuildArtifact } from '../types/artifacts.ts';
+import type { KeystoreAssets } from '../types/credentials.ts';
 import {
   androidResignSpec,
   assertResignablePlatform,
@@ -13,7 +13,7 @@ import {
   storedArtifactReference,
   unzipArgs,
   zipArgs,
-} from './resignCommand.js';
+} from './resignCommand.ts';
 
 const ipa: BuildArtifact = {
   path: '/store/sampleapp-1.2.0-42-ios.ipa',

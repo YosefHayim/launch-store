@@ -1,26 +1,26 @@
 import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { extractProfileEntitlements } from '@/adopt/profileEntitlements.js';
-import { captureCommandOutput } from '@/services/platform/exec.js';
-import type { Logger } from '@/services/platform/logger.js';
+import { extractProfileEntitlements } from '../adopt/profileEntitlements.ts';
+import { captureCommandOutput } from '../services/platform/exec.ts';
+import type { Logger } from '../services/platform/logger.ts';
 import {
   resolveAccountCredentialsDirectory,
   resolveProvisioningProfilesDirectory,
-} from '@/services/platform/paths.js';
-import type { AppleCredentialsClient } from '@/services/stores/appleCredentialsClient.js';
-import { appStoreProfileType, toBundleIdPlatform } from '@/services/stores/platform.js';
-import type { Platform } from '@/types/app.js';
-import type { BundleIdResource, ProfileResource } from '@/types/appleCatalog.js';
-import type { SigningAssets } from '@/types/credentials.js';
-import { staleProfileCapabilities } from './capabilities.js';
-import { DISTRIBUTION_CERT_NAME } from './appleSigningCerts.js';
+} from '../services/platform/paths.ts';
+import type { AppleCredentialsClient } from '../services/stores/appleCredentialsClient.ts';
+import { appStoreProfileType, toBundleIdPlatform } from '../services/stores/platform.ts';
+import type { Platform } from '../types/app.ts';
+import type { BundleIdResource, ProfileResource } from '../types/appleCatalog.ts';
+import type { SigningAssets } from '../types/credentials.ts';
+import { staleProfileCapabilities } from './capabilities.ts';
+import { DISTRIBUTION_CERT_NAME } from './appleSigningCerts.ts';
 import {
   makeAppleSigningFailure,
   type AppleSigningFailure,
   type CertRecord,
   type CredentialsIndex,
   writeIndex,
-} from './appleSigningIndex.js';
+} from './appleSigningIndex.ts';
 
 /** Pull a single `<key>...</key><string>...</string>` value out of a provisioning profile's plist XML. */
 function plistString(xml: string, key: string): string | null {

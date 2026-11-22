@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { CertificateResource, ProfileResource } from '../types/appleCatalog.js';
-import { planCertReports } from './certs.js';
+import type { CertificateResource, ProfileResource } from '../types/appleCatalog.ts';
+import { planCertReports } from './certs.ts';
 
 const certificate = (overrides: Partial<CertificateResource> = {}): CertificateResource => ({
   id: 'c1',

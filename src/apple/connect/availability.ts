@@ -1,8 +1,8 @@
-import type { AppAvailabilityResource } from '@/types/appleCatalog.js';
-import type { AscHost } from './host.js';
-import type { TerritoryAvailabilityRow, TerritoryAvailabilityPage } from './shared.js';
-import type { components } from '@/apple-api-types.js';
-import { AscAvailabilityUpdateError, TERRITORY_AVAILABILITY_UPDATE_CONCURRENCY } from './shared.js';
+import type { AppAvailabilityResource } from '../../types/appleCatalog.ts';
+import type { AscHost } from './host.ts';
+import type { TerritoryAvailabilityRow, TerritoryAvailabilityPage } from './shared.ts';
+import type { components } from '../../apple-api-types.ts';
+import { AscAvailabilityUpdateError, TERRITORY_AVAILABILITY_UPDATE_CONCURRENCY } from './shared.ts';
 
 export class ConnectAvailability {
   constructor(private readonly client: AscHost) {}

@@ -1,11 +1,11 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../cli/command.ts';
 import {
   Keychain,
   LEGACY_APPLE_PRIVATE_KEY_ACCOUNT,
   applePrivateKeyAccount,
   findActiveAccount,
   readSavedAccounts,
-} from '@/credentials/keychain.js';
+} from './keychain.ts';
 
 export class CredentialsCommand {
   constructor(private readonly keychain = new Keychain()) {}

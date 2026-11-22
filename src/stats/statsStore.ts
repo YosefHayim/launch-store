@@ -2,10 +2,10 @@ import { join } from 'node:path';
 import {
   readDocumentFile,
   writeDocumentFileAtomically,
-} from '../services/platform/atomicDocumentFile.js';
-import { locateAppStatsDirectory } from '../services/platform/paths.js';
-import type { DailyStat, StatsFeed, StatsMetric } from '../types/stats.js';
-import { groupStatsByMonth, mergeStats } from './statsLogic.js';
+} from '../services/platform/atomicDocumentFile.ts';
+import { locateAppStatsDirectory } from '../services/platform/paths.ts';
+import type { DailyStat, StatsFeed, StatsMetric } from '../types/stats.ts';
+import { groupStatsByMonth, mergeStats } from './statsLogic.ts';
 
 const STATS_FEEDS: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
 const STATS_METRICS: readonly StatsMetric[] = [

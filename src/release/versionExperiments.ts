@@ -1,24 +1,24 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { discoverScreenshotsAt, type LocalScreenshot } from '@/listing/screenshots/assets.js';
-import { pathExists } from '@/path-exists.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
+import { discoverScreenshotsAt, type LocalScreenshot } from '../listing/screenshots/assets.ts';
+import { pathExists } from '../path-exists.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
 import {
   groupBy,
   reconcileOwnerScreenshots,
   type ScreenshotSetApi,
   type ScreenshotSetOwner,
-} from '@/store/apple/ascScreenshots.js';
-import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from '@/store/apple/ascSync.js';
-import { appRecordMissing, plan } from '@/store/shared/reconcile.js';
+} from '../store/apple/ascScreenshots.ts';
+import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from '../store/apple/ascSync.ts';
+import { appRecordMissing, plan } from '../store/shared/reconcile.ts';
 import type {
   ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,
   ReviewSubmissionResource,
   ScreenshotSetResource,
   VersionExperimentResource,
-} from '@/types/appleCatalog.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+} from '../types/appleCatalog.ts';
+import type { PlannedAction } from '../types/reconcile.ts';
 
 const DEFAULT_PLATFORM = 'IOS';
 const NEW_EXPERIMENT_STATE = 'PREPARE_FOR_SUBMISSION';

@@ -4,7 +4,7 @@ import {
   MAX_VITALS_DAYS,
   parseVitalsDays,
   parseVitalsMetrics,
-} from './playReportsCommand.js';
+} from './playReportsCommand.ts';
 
 describe('parseVitalsMetrics', () => {
   it('shows both vitals when no metric flag is given', () => {

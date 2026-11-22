@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CloudCommandInputSchema } from './cloudCommand.js';
+import { CloudCommandInputSchema } from './cloudCommand.ts';
 
 describe('CloudCommandInputSchema', () => {
   it.each(['setup', 'status', 'teardown', 'doctor'] as const)(

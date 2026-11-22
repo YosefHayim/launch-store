@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { formatElapsed } from './elapsed.js';
-import { resetLogger, useJsonHumanWriter, useLoggerSink } from './logger.js';
+import { formatElapsed } from './elapsed.ts';
+import { resetLogger, useJsonHumanWriter, useLoggerSink } from './logger.ts';
 import {
   formatProgressLine,
   gradleProgressStep,
@@ -9,7 +9,7 @@ import {
   selectProgressMode,
   withSpinner,
   xcodeProgressStep,
-} from './progress.js';
+} from './progress.ts';
 
 afterEach(function resetLoggerSink() {
   resetLogger();

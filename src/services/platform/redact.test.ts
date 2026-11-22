@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeLogRedactor, redactLine, redactText } from './redact.js';
+import { makeLogRedactor, redactLine, redactText } from './redact.ts';
 describe('redactLine', () => {
   it('masks secret-looking assignments but leaves publishable ones', () => {
     expect(redactLine('API_TOKEN=abc123')).toBe('API_TOKEN=***');

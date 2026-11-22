@@ -3,22 +3,22 @@ import {
   listAccounts,
   loadAscKeyById,
   matchAccount,
-} from '../credentials/accounts.js';
+} from '../credentials/accounts.ts';
 import {
   describeStoredCredentials,
   ensureSigningCredentials,
   loadCachedSigningAssets,
-} from '../credentials/appleSigning.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { LaunchPrompt } from '../services/platform/prompt.js';
-import { Prompts } from '../prompts.js';
-import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
-import { parsePlatform } from '../services/stores/platform.js';
-import type { DeviceResource } from '../types/appleCatalog.js';
-import type { AccountRecord, AscKey, SigningAssets } from '../types/credentials.js';
-import { loadStoreAppContext } from '../store/shared/selectStoreApp.js';
-import { runSetup } from './setup.js';
+} from '../credentials/appleSigning.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { Prompts } from '../prompts.ts';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.ts';
+import { parsePlatform } from '../services/stores/platform.ts';
+import type { DeviceResource } from '../types/appleCatalog.ts';
+import type { AccountRecord, AscKey, SigningAssets } from '../types/credentials.ts';
+import { loadStoreAppContext } from '../store/shared/selectStoreApp.ts';
+import { runSetup } from './setup.ts';
 
 type SetupOperation = 'auto' | 'ios';
 

@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.js';
-import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
-import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import { resetPrompts } from '../services/platform/prompt.js';
-import { registerBuildEngine } from '../services/providerSupport/registry.js';
-import { prepareBuild, runBuild } from './pipeline.js';
-import { runEasBuild } from './easPipeline.js';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { resetPrompts } from '../services/platform/prompt.ts';
+import { registerBuildEngine } from '../services/providerSupport/registry.ts';
+import { prepareBuild, runBuild } from './pipeline.ts';
+import { runEasBuild } from './easPipeline.ts';
 // A dry-run must never shell out (no ssh/scp/rsync/aws) - make any spawn an immediate, obvious failure.
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(() => {

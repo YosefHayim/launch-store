@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { makeAppleTransportFailure } from '../../services/stores/appleStoreClient.js';
+import { makeAppleTransportFailure } from '../../services/stores/appleStoreClient.ts';
 import {
   formatPermissionLine,
   probeKeyPermissions,
   type AscPermissionProbeApi,
   type AscPermissionResult,
-} from './ascPermissions.js';
+} from './ascPermissions.ts';
 
 const makePermissionClient = (
   overrides: Partial<AscPermissionProbeApi> = {},

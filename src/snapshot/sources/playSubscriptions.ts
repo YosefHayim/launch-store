@@ -3,34 +3,34 @@ import type {
   PlaySubscriptionOverride,
   ProductLocalization,
   SubscriptionConfig,
-} from '@/types/catalog.js';
+} from '../../types/catalog.ts';
 import type {
   JsonValue,
   RestoreInput,
   SnapshotContext,
   SnapshotEntity,
   SnapshotSource,
-} from '@/types/snapshot.js';
+} from '../../types/snapshot.ts';
 import type {
   BasePlan,
   RegionalBasePlanConfig,
   SubscriptionListing,
   SubscriptionResource,
-} from '@/types/googlePlay.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+} from '../../types/googlePlay.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
 import {
   periodFromIso,
   reconcilePlaySubscriptions,
   unitsToMicros,
-} from '@/store/google/playSubscriptions.js';
-import { androidApps } from '@/readiness/appScopes.js';
+} from '../../store/google/playSubscriptions.ts';
+import { androidApps } from '../../readiness/appScopes.ts';
 import {
   jsonRecord,
   restoreErrorMessage,
   skippedAction,
   stringField,
   toPriceConfig,
-} from './playRestore.js';
+} from './playRestore.ts';
 /**
  * A base plan's per-region prices -> the snapshot's `{ priceMicros, currency }` money shape (the same form
  * the products source records), sorted by region for a deterministic capture. Play expresses subscription

@@ -1,4 +1,4 @@
-import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
+import { LaunchSecretStore } from '../services/credentials/secretStore.ts';
 
 /** Store (or overwrite) a secret for `account` in the host's native secret store. */
 export async function setSecret(account: string, secretText: string): Promise<void> {

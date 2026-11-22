@@ -1,11 +1,11 @@
-import type { AppCoverage, DateRange, FeedCoverage, StatsFeed } from '../types/stats.js';
+import type { AppCoverage, DateRange, FeedCoverage, StatsFeed } from '../types/stats.ts';
 import {
   isSyncedAtStale,
   pickEarlierDate,
   pickLaterDate,
   REFRESH_TAIL_DAYS,
   shiftDate,
-} from './dateRange.js';
+} from './dateRange.ts';
 
 export const findFeedCoverage = (
   appCoverage: AppCoverage,

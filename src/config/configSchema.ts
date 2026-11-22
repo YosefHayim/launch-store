@@ -1,5 +1,5 @@
-import type { JsonSchema, SchemaViolation } from './jsonSchema.js';
-import { loadPublishedConfigSchema, validateLaunchConfig } from './schema.js';
+import type { JsonSchema, SchemaViolation } from './jsonSchema.ts';
+import { loadPublishedConfigSchema, validateLaunchConfig } from './schema.ts';
 
 /** Load and cache the committed JSON Schema used by config commands and MCP tools. */
 export function loadConfigSchema(): JsonSchema {

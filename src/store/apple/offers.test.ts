@@ -13,9 +13,9 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../../types/appleCatalog.js';
-import type { AppProducts, SubscriptionConfig } from '../../types/catalog.js';
-import { appDeclaresOffers, reconcileOffers, type AscOffersApi } from './offers.js';
+} from '../../types/appleCatalog.ts';
+import type { AppProducts, SubscriptionConfig } from '../../types/catalog.ts';
+import { appDeclaresOffers, reconcileOffers, type AscOffersApi } from './offers.ts';
 /**
  * Hand-rolled {@link AscOffersApi} fake - records every create/reorder and serves configurable existing
  * state, so the reconciler's diff/plan logic is testable with no network (mirrors the ascSync tests).

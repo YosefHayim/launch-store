@@ -1,14 +1,14 @@
-import { loadConfig } from '../config/config.js';
-import { listAccounts } from '../credentials/accounts.js';
-import { listStoredAndroidPackages } from '../credentials/androidKeystore.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { StatsCredentials } from '../stats/statsCredentials.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { AccountRecord } from '../types/credentials.js';
-import type { DiscoveredApp, DiscoveryWarning } from '../types/portfolio.js';
-import { createAndroidAppKey, createIosAppKey, mergeDiscoveredApps } from './portfolioLogic.js';
-import { loadPortfolioFile } from './portfolioStore.js';
+import { loadConfig } from '../config/config.ts';
+import { listAccounts } from '../credentials/accounts.ts';
+import { listStoredAndroidPackages } from '../credentials/androidKeystore.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { StatsCredentials } from '../stats/statsCredentials.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { AccountRecord } from '../types/credentials.ts';
+import type { DiscoveredApp, DiscoveryWarning } from '../types/portfolio.ts';
+import { createAndroidAppKey, createIosAppKey, mergeDiscoveredApps } from './portfolioLogic.ts';
+import { loadPortfolioFile } from './portfolioStore.ts';
 
 interface DiscoveryReport {
   readonly apps: readonly DiscoveredApp[];

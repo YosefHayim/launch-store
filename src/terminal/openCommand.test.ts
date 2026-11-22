@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readOpenCommandInput } from './openCommand.js';
+import { readOpenCommandInput } from './openCommand.ts';
 
 describe('readOpenCommandInput', () => {
   it('keeps the target and optional selectors from Commander', () => {

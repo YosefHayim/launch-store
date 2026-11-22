@@ -1,4 +1,4 @@
-import type { AscHost } from './host.js';
+import type { AscHost } from './host.ts';
 import type {
   InAppPurchaseResource,
   IntroductoryOfferCreate,
@@ -15,7 +15,7 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '@/types/appleCatalog.js';
+} from '../../types/appleCatalog.ts';
 import type {
   VersionedLocalizationResources,
   ProductVersion,
@@ -23,8 +23,8 @@ import type {
   ResourceList,
   ResourceSingle,
   PromotedPurchasePage,
-} from './shared.js';
-import type { components } from '@/apple-api-types.js';
+} from './shared.ts';
+import type { components } from '../../apple-api-types.ts';
 import {
   IN_APP_PURCHASE_VERSION_RESOURCES,
   SUBSCRIPTION_VERSION_RESOURCES,
@@ -33,7 +33,7 @@ import {
   pickNewestVersion,
   inlinePriceId,
   matchPricePoint,
-} from './shared.js';
+} from './shared.ts';
 
 export class ConnectPurchases {
   constructor(private readonly client: AscHost) {}

@@ -10,7 +10,7 @@ import {
   splitMainAndExtensions,
   stampManualSigningIntoPbxproj,
   writeManualSigningToProject,
-} from './appleTargets.js';
+} from './appleTargets.ts';
 /** A minimal but realistic pbxproj for a main app plus one `@bacons/apple-targets` widget extension. */
 const APP_WITH_WIDGET = `// !$*UTF8*$!
 {

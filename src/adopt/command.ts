@@ -1,25 +1,25 @@
 import { join, relative, sep } from 'node:path';
-import { pathExists } from '../path-exists.js';
-import { loadConfig } from '../config/config.js';
-import { loadActiveAscKey } from '../credentials/accounts.js';
-import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { LaunchPrompt } from '../services/platform/prompt.js';
-import { checkTerminalIsInteractive } from '../services/platform/progress.js';
-import { pullAppleListing } from '../store/shared/metadataCommand.js';
-import { completeCommand, isCommandExit } from '../terminal/commandExit.js';
-import type { AdoptCatalogApi, Fidelity } from '../types/adopt.js';
-import type { AppDescriptor } from '../types/app.js';
+import { pathExists } from '../path-exists.ts';
+import { loadConfig } from '../config/config.ts';
+import { loadActiveAscKey } from '../credentials/accounts.ts';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
+import { pullAppleListing } from '../store/shared/metadataCommand.ts';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.ts';
+import type { AdoptCatalogApi, Fidelity } from '../types/adopt.ts';
+import type { AppDescriptor } from '../types/app.ts';
 import {
   applyAdopt,
   detectTargets,
   planTargets,
   type AdoptApplyResult,
   type TargetPlan,
-} from './orchestrator.js';
-import { listAdopters, registerBuiltinAdopters } from './registry.js';
+} from './orchestrator.ts';
+import { listAdopters, registerBuiltinAdopters } from './registry.ts';
 
 export type AdoptCommandInput = {
   all: boolean;

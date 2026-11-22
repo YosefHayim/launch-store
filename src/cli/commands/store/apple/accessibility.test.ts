@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderAccessibilityAction } from './accessibilityCommand.js';
+import { renderAccessibilityAction } from './accessibilityCommand.ts';
 describe('renderAction', () => {
   it('marks a planned or applied change with +', () => {
     expect(

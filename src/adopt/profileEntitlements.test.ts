@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { captureCommandOutput, makeCommandFailed } from '../services/platform/exec.js';
-import { extractProfileEntitlements } from './profileEntitlements.js';
+import { captureCommandOutput, makeCommandFailed } from '../services/platform/exec.ts';
+import { extractProfileEntitlements } from './profileEntitlements.ts';
 
-vi.mock('../services/platform/os.js', () => ({ checkIsMacOperatingSystem: () => true }));
-vi.mock('../services/platform/exec.js', async (importOriginal) => {
-  const commandServices = await importOriginal<typeof import('../services/platform/exec.js')>();
+vi.mock('../services/platform/os.ts', () => ({ checkIsMacOperatingSystem: () => true }));
+vi.mock('../services/platform/exec.ts', async (importOriginal) => {
+  const commandServices = await importOriginal<typeof import('../services/platform/exec.ts')>();
   return { ...commandServices, captureCommandOutput: vi.fn() };
 });
 

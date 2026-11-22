@@ -4,11 +4,11 @@ import type {
   GameCenterAchievementResource,
   GameCenterLeaderboardCreate,
   GameCenterLeaderboardResource,
-} from '../../types/appleCatalog.js';
-import { summarize } from '../shared/reconcile.js';
-import { type AscGameCenterApi, parseGameCenterConfig, reconcileGameCenter } from './gameCenter.js';
-import type { GameCenterConfig } from '../../types/storeSurface.js';
-import { expectArrayElement, expectDefined } from '@testkit/assertions.testkit.js';
+} from '../../types/appleCatalog.ts';
+import { summarize } from '../shared/reconcile.ts';
+import { type AscGameCenterApi, parseGameCenterConfig, reconcileGameCenter } from './gameCenter.ts';
+import type { GameCenterConfig } from '../../types/storeSurface.ts';
+import { expectArrayElement, expectDefined } from '../../testkit/assertions.testkit.ts';
 
 /** Records every write the reconciler makes, so a test can assert what was (and wasn't) sent. */
 type RecordedWrites = {

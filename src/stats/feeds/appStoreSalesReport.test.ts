@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { findAppSkus, summarizeSalesLines } from './appStoreSalesReport.js';
+import { findAppSkus, summarizeSalesLines } from './appStoreSalesReport.ts';
 
 const APP_ID = '6802289557';
 

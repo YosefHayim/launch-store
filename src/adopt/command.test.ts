@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { AppDescriptor } from '../types/app.js';
-import type { PlannedWrite } from '../types/adopt.js';
+import type { AppDescriptor } from '../types/app.ts';
+import type { PlannedWrite } from '../types/adopt.ts';
 import {
   adoptFidelityMarker,
   AdoptCommandInputSchema,
   countAdoptMutations,
   detectSharedAppRoot,
   selectAdoptApps,
-} from './command.js';
-import type { TargetPlan } from './orchestrator.js';
+} from './command.ts';
+import type { TargetPlan } from './orchestrator.ts';
 
 const discoveredApp = (appName: string, dir = `/workspace/${appName}`): AppDescriptor => ({
   name: appName,

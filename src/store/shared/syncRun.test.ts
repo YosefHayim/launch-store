@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { PlannedAction, ReconcileReport } from '../../types/reconcile.js';
-import type { SyncJob } from './syncJobs.js';
-import { mergeOutcomes, summarizeRun, type JobOutcome } from './syncRun.js';
+import type { PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
+import type { SyncJob } from './syncJobs.ts';
+import { mergeOutcomes, summarizeRun, type JobOutcome } from './syncRun.ts';
 /** A minimal valid {@link SyncJob} for one app - enough to carry an outcome through the pure projections. */
 const makeJob = (name: string, bundleId: string): SyncJob => {
   return {

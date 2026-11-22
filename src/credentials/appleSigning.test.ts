@@ -6,22 +6,22 @@ import {
   resetLaunchDirectories,
   resolveProvisioningProfilesDirectory,
   useLaunchDirectories,
-} from '@/services/platform/paths.js';
-import { createLogger } from '@/services/platform/logger.js';
+} from '../services/platform/paths.ts';
+import { createLogger } from '../services/platform/logger.ts';
 import {
   ensureAdHocSigningCredentials,
   loadCachedSigningAssets,
   profileStaleAgainstCapabilities,
   staleCachedSigningTargets,
-} from './appleSigning.js';
-import { extractProfileEntitlements } from '../adopt/profileEntitlements.js';
-import type { AscKey, SigningAssets } from '../types/credentials.js';
-import type { BundleIdCapabilityResource, ProfileResource } from '../types/appleCatalog.js';
-import type { AppleCredentialsClient } from '@/services/stores/appleCredentialsClient.js';
+} from './appleSigning.ts';
+import { extractProfileEntitlements } from '../adopt/profileEntitlements.ts';
+import type { AscKey, SigningAssets } from '../types/credentials.ts';
+import type { BundleIdCapabilityResource, ProfileResource } from '../types/appleCatalog.ts';
+import type { AppleCredentialsClient } from '../services/stores/appleCredentialsClient.ts';
 
 const home = { dir: mkdtempSync(join(tmpdir(), 'launch-credentials-test-')) };
 
-vi.mock('../adopt/profileEntitlements.js', () => ({
+vi.mock('../adopt/profileEntitlements.ts', () => ({
   extractProfileEntitlements: vi.fn(),
 }));
 

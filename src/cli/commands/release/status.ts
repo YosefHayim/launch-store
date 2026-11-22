@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { type StatusCommandFlags, statusCommandProgram } from '@/release/statusCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { type StatusCommandFlags, statusCommandProgram } from '../../../release/statusCommand.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 /** Attach the App Store status command. */
 export const registerStatusCommand = (program: Command): void => {

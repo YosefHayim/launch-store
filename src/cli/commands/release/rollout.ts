@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { rolloutCommandProgram } from '@/release/rolloutCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { rolloutCommandProgram } from '../../../release/rolloutCommand.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 type RolloutCommandOptions = Readonly<{ app?: string }>;
 

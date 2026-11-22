@@ -1,11 +1,11 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '../../path-exists.js';
+import { pathExists } from '../../path-exists.ts';
 import {
   decodeStoreSurfaceConfig,
   loadStoreSurfaceConfig,
   type StoreSurfaceConfigSpec,
-} from './surfaceConfig.js';
+} from './surfaceConfig.ts';
 
 /** App Store and Play listing metadata. */
 export type StoreConfig = {

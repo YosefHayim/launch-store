@@ -1,8 +1,8 @@
 // Probes App Store Connect features to explain which roles the active key can use.
 // The probe reads only; it never changes store state.
 
-import type { AppleTransportFailure } from '../../services/stores/appleStoreClient.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
+import type { AppleTransportFailure } from '../../services/stores/appleStoreClient.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
 
 /** App Store Connect reads that represent distinct role-gated feature groups. */
 export type AscPermissionProbeApi = Readonly<{

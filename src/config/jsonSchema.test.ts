@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type JsonSchema, validate } from './jsonSchema.js';
+import { type JsonSchema, validate } from './jsonSchema.ts';
 
 describe('validate', () => {
   it('flags a base-type mismatch and reports nothing valid alongside it', () => {

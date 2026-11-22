@@ -1,16 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadConfig } from '../config/config.js';
-import { listAccounts, loadAscKeyById } from '../credentials/accounts.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { readLaunchEnvironment } from '../services/platform/environment.js';
-import { readDocumentFile } from '../services/platform/atomicDocumentFile.js';
-import { locatePortfolioFilePath, readLaunchDirectories } from '../services/platform/paths.js';
-import { LaunchSecretStore } from '../services/credentials/secretStore.js';
-import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
-import { GoogleAccessToken } from '../services/stores/googleAccessToken.js';
-import { GoogleReportingClientService } from '../services/stores/googleReportingClient.js';
-import { pathExists } from '../path-exists.js';
+import { loadConfig } from '../config/config.ts';
+import { listAccounts, loadAscKeyById } from '../credentials/accounts.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
+import { readDocumentFile } from '../services/platform/atomicDocumentFile.ts';
+import { locatePortfolioFilePath, readLaunchDirectories } from '../services/platform/paths.ts';
+import { LaunchSecretStore } from '../services/credentials/secretStore.ts';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.ts';
+import { GoogleAccessToken } from '../services/stores/googleAccessToken.ts';
+import { GoogleReportingClientService } from '../services/stores/googleReportingClient.ts';
+import { pathExists } from '../path-exists.ts';
 import type {
   AnalyticsReportInstanceResource,
   AnalyticsReportRequestResource,
@@ -18,11 +18,11 @@ import type {
   AnalyticsReportSegmentResource,
   CustomerReviewResource,
   SalesReportQuery,
-} from '../types/appleCatalog.js';
-import type { AccountRecord, ServiceAccount } from '../types/credentials.js';
-import type { PortfolioApp } from '../types/portfolio.js';
-import type { StatsCredentialsFailure } from '../types/stats.js';
-import type { PlayVitalsMetric, VitalsTimeline } from '../types/vitals.js';
+} from '../types/appleCatalog.ts';
+import type { AccountRecord, ServiceAccount } from '../types/credentials.ts';
+import type { PortfolioApp } from '../types/portfolio.ts';
+import type { StatsCredentialsFailure } from '../types/stats.ts';
+import type { PlayVitalsMetric, VitalsTimeline } from '../types/vitals.ts';
 
 export interface AppStoreStatsClient {
   getSalesReport(query: SalesReportQuery): Promise<Buffer>;

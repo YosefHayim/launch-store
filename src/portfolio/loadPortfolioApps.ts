@@ -1,7 +1,7 @@
-import type { PortfolioFile, PortfolioLoad, PortfolioLoadMode } from '../types/portfolio.js';
-import { discoverApps } from './discoverApps.js';
-import { joinTags, keepCachedAppsOfFailedAccounts } from './portfolioLogic.js';
-import { loadPortfolioFile, pickSavedPortfolioFile, savePortfolioFile } from './portfolioStore.js';
+import type { PortfolioFile, PortfolioLoad, PortfolioLoadMode } from '../types/portfolio.ts';
+import { discoverApps } from './discoverApps.ts';
+import { joinTags, keepCachedAppsOfFailedAccounts } from './portfolioLogic.ts';
+import { loadPortfolioFile, pickSavedPortfolioFile, savePortfolioFile } from './portfolioStore.ts';
 
 function isCacheUsable(
   mode: PortfolioLoadMode,

@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { DEFAULT_VITALS_DAYS, playReportsCommandProgram } from './playReportsCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../../command.ts';
+import { DEFAULT_VITALS_DAYS, playReportsCommandProgram } from './playReportsCommand.ts';
+import { runCliProgram } from '../../../runCliProgram.ts';
 
 type VitalsOptions = Readonly<{
   app?: string;

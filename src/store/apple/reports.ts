@@ -4,8 +4,8 @@ import type {
   AnalyticsReportRequestResource,
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
-} from '../../types/appleCatalog.js';
-import { appRecordNotFound } from '../shared/reconcile.js';
+} from '../../types/appleCatalog.ts';
+import { appRecordNotFound } from '../shared/reconcile.ts';
 /** Decompress an Apple report to UTF-8 text. */
 export const decompressReport = (bytes: Buffer): string => {
   return gunzipSync(bytes).toString('utf8');

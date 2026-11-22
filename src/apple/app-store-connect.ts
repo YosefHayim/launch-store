@@ -1,5 +1,5 @@
-import type { components } from '@/apple-api-types.js';
-import { AppStoreToken } from '@/apple/app-store-token.js';
+import type { components } from '../apple-api-types.ts';
+import { AppStoreToken } from './app-store-token.ts';
 
 type AppList = components['schemas']['AppsResponse'];
 type BuildUploadResponse = components['schemas']['BuildUploadResponse'];

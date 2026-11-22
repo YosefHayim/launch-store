@@ -7,18 +7,18 @@ import type {
   PricePointResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-} from '../../types/appleCatalog.js';
-import type { CapabilityType } from '../../credentials/capabilities.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { AppleLocaleInfo, AppleStoreConfig } from '../shared/storeConfig.js';
+} from '../../types/appleCatalog.ts';
+import type { CapabilityType } from '../../credentials/capabilities.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { AppleLocaleInfo, AppleStoreConfig } from '../shared/storeConfig.ts';
 import type {
   AppProducts,
   InAppPurchaseConfig,
   ProductPrice,
   SubscriptionConfig,
-} from '../../types/catalog.js';
-import type { ActionStatus, PlannedAction, ReconcileReport } from '../../types/reconcile.js';
-import { appRecordMissing } from '../shared/reconcile.js';
+} from '../../types/catalog.ts';
+import type { ActionStatus, PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
+import { appRecordMissing } from '../shared/reconcile.ts';
 
 /**
  * ASC catalog surface the reconciler depends on. Structural subset of

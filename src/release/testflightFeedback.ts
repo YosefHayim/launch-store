@@ -5,8 +5,8 @@ import type {
   BetaFeedbackQuery,
   BetaFeedbackScreenshotSubmissionResource,
   BuildResource,
-} from '@/types/appleCatalog.js';
-import type { BetaFeedback, BetaFeedbackKind } from '@/types/app.js';
+} from '../types/appleCatalog.ts';
+import type { BetaFeedback, BetaFeedbackKind } from '../types/app.ts';
 
 export type AscFeedbackApi = Readonly<{
   readonly getAppId: (bundleId: string) => Promise<string | null>;

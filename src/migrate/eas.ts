@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { readResolvedConfig } from '../config/config.js';
-import { configTemplate, detectAppRoot } from '../config/configScaffold.js';
-import { pathExists } from '../path-exists.js';
-import type { AppDescriptor, BuildProfile, PlayTrack } from '../types/app.js';
+import { readResolvedConfig } from '../config/config.ts';
+import { configTemplate, detectAppRoot } from '../config/configScaffold.ts';
+import { pathExists } from '../path-exists.ts';
+import type { AppDescriptor, BuildProfile, PlayTrack } from '../types/app.ts';
 import type {
   EasBuildProfile,
   EasJson,
@@ -11,8 +11,8 @@ import type {
   MigrationArtifact,
   MigrationNote,
   MigrationResult,
-} from '../types/migrate.js';
-import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
+} from '../types/migrate.ts';
+import { buildEnvExample, scaffoldStoreConfig } from './scaffold.ts';
 
 type EasSubmitIos = NonNullable<EasSubmitProfile['ios']>;
 type EasSubmitAndroid = NonNullable<EasSubmitProfile['android']>;

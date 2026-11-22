@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import type { ServiceAccount } from '../../types/credentials.js';
+import type { ServiceAccount } from '../../types/credentials.ts';
 import {
   GoogleAccessToken,
   resetGoogleAccessToken,
   useGoogleAccessTokenFixture,
-} from './googleAccessToken.js';
+} from './googleAccessToken.ts';
 
 const SERVICE_ACCOUNT: ServiceAccount = {
   clientEmail: 'robot@project.iam.gserviceaccount.com',

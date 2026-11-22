@@ -1,21 +1,21 @@
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pathExists } from '@/path-exists.js';
-import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { captureCommandOutput } from '@/services/platform/exec.js';
-import type { Logger } from '@/services/platform/logger.js';
-import { resolveAccountCredentialsDirectory } from '@/services/platform/paths.js';
-import type { AppleCredentialsClient } from '@/services/stores/appleCredentialsClient.js';
-import type { CertificateResource } from '@/types/appleCatalog.js';
-import { randomHexSecret } from './randomSecret.js';
+import { pathExists } from '../path-exists.ts';
+import { LaunchSecretStore } from '../services/credentials/secretStore.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { captureCommandOutput } from '../services/platform/exec.ts';
+import type { Logger } from '../services/platform/logger.ts';
+import { resolveAccountCredentialsDirectory } from '../services/platform/paths.ts';
+import type { AppleCredentialsClient } from '../services/stores/appleCredentialsClient.ts';
+import type { CertificateResource } from '../types/appleCatalog.ts';
+import { randomHexSecret } from './randomSecret.ts';
 import {
   makeAppleSigningFailure,
   type CertRecord,
   type CredentialsIndex,
   writeIndex,
-} from './appleSigningIndex.js';
+} from './appleSigningIndex.ts';
 
 /** Xcode identity name used for App Store and ad-hoc distribution certificates. */
 export const DISTRIBUTION_CERT_NAME = 'Apple Distribution';

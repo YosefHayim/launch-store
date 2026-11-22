@@ -1,15 +1,15 @@
-import { runPlanner } from './planner.testkit.js';
+import { runPlanner } from './planner.testkit.ts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { listingPlanner } from './listing.js';
-import { makeAscApiFake } from '@testkit/ascApiFake.testkit.js';
-import type { AscCatalogApi } from '@/store/apple/ascSync.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { PlanContext } from '@/types/plan.js';
-import type { AppleLocaleInfo } from '@/store/shared/storeConfig.js';
+import { listingPlanner } from './listing.ts';
+import { makeAscApiFake } from '../../testkit/ascApiFake.testkit.ts';
+import type { AscCatalogApi } from '../../store/apple/ascSync.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { PlanContext } from '../../types/plan.ts';
+import type { AppleLocaleInfo } from '../../store/shared/storeConfig.ts';
 /** A fully-stubbed {@link AscCatalogApi}: reads default to "nothing exists yet", writes resolve to a created resource. */
 const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
   const base: AscCatalogApi = {

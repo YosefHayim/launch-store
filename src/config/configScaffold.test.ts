@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { configTemplate, detectAppRoot } from './configScaffold.js';
-import type { AppDescriptor } from '../types/app.js';
+import { configTemplate, detectAppRoot } from './configScaffold.ts';
+import type { AppDescriptor } from '../types/app.ts';
 const app = (dir: string): AppDescriptor => ({ name: 'x', dir, configPath: `${dir}/app.json` });
 describe('detectAppRoot', () => {
   it('returns the single shared subdir when every app lives under one', () => {

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { AppDescriptor, OpenTarget } from '../types/app.js';
+import type { AppDescriptor, OpenTarget } from '../types/app.ts';
 import {
   buildConsoleUrl,
   parseOpenTarget,
   resolveOpenPlatform,
   selectOpenApp,
-} from './consoleLinks.js';
-import { buildPlayPaymentsProfileUrl, buildPlayUsersAndPermissionsUrl } from './playConsoleUrls.js';
+} from './consoleLinks.ts';
+import { buildPlayPaymentsProfileUrl, buildPlayUsersAndPermissionsUrl } from './playConsoleUrls.ts';
 
 const APP_ID = '1490000000';
 

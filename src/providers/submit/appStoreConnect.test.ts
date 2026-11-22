@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { BuildUploadStatus } from '@/types/appleCatalog.js';
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials } from '@/types/credentials.js';
+import type { BuildUploadStatus } from '../../types/appleCatalog.ts';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials } from '../../types/credentials.ts';
 
 const ascFake = vi.hoisted(() => ({
   getAppId: vi.fn<(bundleId: string) => Promise<string | null>>(),
@@ -15,7 +15,7 @@ const ascFake = vi.hoisted(() => ({
   getBuildUploadStatus: vi.fn<(buildUploadId: string) => Promise<BuildUploadStatus>>(),
 }));
 
-vi.mock('@apple/ascClient.js', () => ({
+vi.mock('../../apple/ascClient.ts', () => ({
   AppStoreConnectClient: class {
     getAppId = ascFake.getAppId;
     createBuildUpload = ascFake.createBuildUpload;
@@ -24,7 +24,7 @@ vi.mock('@apple/ascClient.js', () => ({
   },
 }));
 
-const { makeAppStoreConnectSubmitter } = await import('./appStoreConnect.js');
+const { makeAppStoreConnectSubmitter } = await import('./appStoreConnect.ts');
 const submitter = makeAppStoreConnectSubmitter(1, 30 * 60 * 1000);
 const ipaPath = fileURLToPath(import.meta.url);
 const artifact = { path: ipaPath, version: '1.4.0', buildNumber: 42 };

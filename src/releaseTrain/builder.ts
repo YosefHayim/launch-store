@@ -1,17 +1,17 @@
 import { join } from 'node:path';
-import { resolveAndroidSubmitReleaseNotes, submitToStores } from '../build/pipelineProviders.js';
-import { loadActiveAscKey } from '../credentials/accounts.js';
+import { resolveAndroidSubmitReleaseNotes, submitToStores } from '../build/pipelineProviders.ts';
+import { loadActiveAscKey } from '../credentials/accounts.ts';
 import {
   describeMissingPlayServiceAccount,
   loadServiceAccount,
-} from '../credentials/androidKeystore.js';
-import { ensureCodeSigner, type CodeSigner } from '../credentials/codeSign.js';
-import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.js';
+} from '../credentials/androidKeystore.ts';
+import { ensureCodeSigner, type CodeSigner } from '../credentials/codeSign.ts';
+import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.ts';
 import {
   ensureArtifactPresent,
   isCloudStorage,
   resolveStorageProvider,
-} from '../distribution/storage.js';
+} from '../distribution/storage.ts';
 import {
   IOS_PLATFORM,
   pickCurrentVersion,
@@ -19,27 +19,27 @@ import {
   releaseApp,
   type AscReleaseApi,
   type ReleaseInput,
-} from '../release/appStoreRelease.js';
-import { resolveReleaseType, resolveWhatsNew } from '../release/releaseInputs.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { executeCommand, type CommandExecutionOptions } from '../services/platform/exec.js';
-import type { Logger } from '../services/platform/logger.js';
-import { getCredentialsProvider } from '../services/providerSupport/registry.js';
+} from '../release/appStoreRelease.ts';
+import { resolveReleaseType, resolveWhatsNew } from '../release/releaseInputs.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { executeCommand, type CommandExecutionOptions } from '../services/platform/exec.ts';
+import type { Logger } from '../services/platform/logger.ts';
+import { getCredentialsProvider } from '../services/providerSupport/registry.ts';
 import {
   AppleStoreClientService,
   appRecordMissingMessage,
-} from '../services/stores/appleStoreClient.js';
+} from '../services/stores/appleStoreClient.ts';
 import {
   GoogleStoreClientService,
   type EffectGooglePlayClient,
-} from '../services/stores/googleStoreClient.js';
-import type { AndroidReleaseOptions, AppDescriptor, BuildProfile } from '../types/app.js';
-import type { BuildArtifact } from '../types/artifacts.js';
-import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
-import type { CredentialsProvider } from '../types/providers.js';
-import type { NativeCar, NativeCarState, OtaCar } from '../types/releaseTrain.js';
-import { androidCarState, iosCarState } from './engine.js';
-import type { TrainEngine } from './orchestrator.js';
+} from '../services/stores/googleStoreClient.ts';
+import type { AndroidReleaseOptions, AppDescriptor, BuildProfile } from '../types/app.ts';
+import type { BuildArtifact } from '../types/artifacts.ts';
+import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
+import type { CredentialsProvider } from '../types/providers.ts';
+import type { NativeCar, NativeCarState, OtaCar } from '../types/releaseTrain.ts';
+import { androidCarState, iosCarState } from './engine.ts';
+import type { TrainEngine } from './orchestrator.ts';
 
 type TrainRuntimeFailure = Readonly<{
   _tag: 'TrainRuntimeFailure';

@@ -10,8 +10,8 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { captureCommandOutput } from '../services/platform/exec.js';
-import { ensureArtifactDirIgnored } from './gitignore.js';
+import { captureCommandOutput } from '../services/platform/exec.ts';
+import { ensureArtifactDirIgnored } from './gitignore.ts';
 /**
  * Exercise the auto-gitignore against a real git repo in a temp dir (git's own `check-ignore` decides
  * "already covered", so a mocked repo wouldn't prove anything). `realpathSync` resolves the macOS

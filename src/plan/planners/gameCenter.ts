@@ -1,8 +1,8 @@
-import { resolveSidecarConfig } from '@/config/config.js';
-import { loadGameCenterConfig, reconcileGameCenter } from '@/store/apple/gameCenter.js';
-import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '@/types/plan.js';
-import type { GameCenterConfig } from '@/types/storeSurface.js';
+import { resolveSidecarConfig } from '../../config/config.ts';
+import { loadGameCenterConfig, reconcileGameCenter } from '../../store/apple/gameCenter.ts';
+import { planAppStoreSurface } from './appStoreSurface.ts';
+import type { SurfacePlanner } from '../../types/plan.ts';
+import type { GameCenterConfig } from '../../types/storeSurface.ts';
 /** Surface id - also the value users pass as `launch plan game-center`. */
 const SURFACE = 'game-center';
 export const gameCenterPlanner: SurfacePlanner = {

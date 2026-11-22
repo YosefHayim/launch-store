@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSshTarget } from './byoSsh.js';
+import { parseSshTarget } from './byoSsh.ts';
 
 describe('parseSshTarget', () => {
   it('parses user@host with the default port', () => {

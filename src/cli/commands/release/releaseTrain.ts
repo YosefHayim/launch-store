@@ -1,7 +1,7 @@
-import type { Command } from '@/cli/command.js';
-import { releaseTrainCommandProgram } from '@/releaseTrain/command.js';
-import { addEnvFlags, type EnvFlags } from '@cli/options.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { releaseTrainCommandProgram } from '../../../releaseTrain/command.ts';
+import { addEnvFlags, type EnvFlags } from '../../options.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 type ReleaseTrainOptions = EnvFlags &
   Readonly<{

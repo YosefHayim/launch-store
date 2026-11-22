@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '@/cli/command.js';
-import { registerDoctorCommand } from './doctor.js';
+import { Command } from '../../command.ts';
+import { registerDoctorCommand } from './doctor.ts';
 describe('registerDoctorCommand', () => {
   it('attaches a `doctor` command with platform, app, fix, yes, and json options', () => {
     const program = new Command();

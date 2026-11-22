@@ -1,6 +1,6 @@
-import { isUsageError } from '@/cli/command.js';
-import { Program } from '@/program.js';
-import { DRIFT_MESSAGE } from '@/store/plan-store.js';
+import { isUsageError } from './cli/command.ts';
+import { Program } from './program.ts';
+import { DRIFT_MESSAGE } from './store/plan-store.ts';
 
 export class Cli {
   start = async (launchVersion: string): Promise<void> => {

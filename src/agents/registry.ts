@@ -1,4 +1,4 @@
-import type { BaseContext, ConsumerSkill, ContributorSkill, SkillStep } from '../types/agents.js';
+import type { BaseContext, ConsumerSkill, ContributorSkill, SkillStep } from '../types/agents.ts';
 
 /** Join markdown paragraphs used as skill / rule bodies. */
 const markdownBody = (sections: readonly string[]): string => sections.join('\n');

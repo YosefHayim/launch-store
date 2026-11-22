@@ -4,16 +4,16 @@ import type {
   PruneResult,
   SizeReport,
   StoredArtifact,
-} from './artifacts.js';
-import type { ResolvedBuildContext, StorageConfig } from './config.js';
-import type { BuildCredentials } from './credentials.js';
+} from './artifacts.ts';
+import type { ResolvedBuildContext, StorageConfig } from './config.ts';
+import type { BuildCredentials } from './credentials.ts';
 import type {
   AllocateRequest,
   AwsConfig,
   CloudDoctorReport,
   HostHandle,
   HostStatus,
-} from './remote.js';
+} from './remote.ts';
 
 export type ProviderInputFailure = Readonly<{
   readonly _tag: 'ProviderInputFailure';

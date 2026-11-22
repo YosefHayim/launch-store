@@ -1,10 +1,10 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../../../command.ts';
 import {
   reviewsCommandProgram,
   type ReviewReplyCommandInput,
   type ReviewsListCommandInput,
-} from './reviewsCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+} from './reviewsCommand.ts';
+import { runCliProgram } from '../../../runCliProgram.ts';
 
 /** Attach the `reviews` command group to the program. */
 export const registerReviewsCommand = (program: Command): void => {

@@ -4,16 +4,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
-    "baseUrl": ".",
     "types": ["node"],
-    "paths": {
-      "@/*": ["src/*"],
-      "@apple/*": ["src/apple/*"],
-      "@cli/*": ["src/cli/*"],
-      "@google/*": ["src/google/*"],
-      "@providers/*": ["src/providers/*"],
-      "@testkit/*": ["src/testkit/*"]
-    },
     "outDir": "dist",
 
     "strict": true,
@@ -29,6 +20,8 @@
     "allowUnusedLabels": false,
 
     "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "isolatedModules": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,

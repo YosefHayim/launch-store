@@ -1,16 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
-import { readLaunchEnvironment } from '@/services/platform/environment.js';
-import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
-import { decodeArtifactIndex } from './s3.js';
+import { readLaunchEnvironment } from '../../services/platform/environment.ts';
+import { LaunchSecretStore } from '../../services/credentials/secretStore.ts';
+import { decodeArtifactIndex } from './s3.ts';
 
-import type { BuildArtifact, StoredArtifact } from '@/types/artifacts.js';
-import type { StorageConfig } from '@/types/config.js';
+import type { BuildArtifact, StoredArtifact } from '../../types/artifacts.ts';
+import type { StorageConfig } from '../../types/config.ts';
 import {
   makeProviderInputFailure,
   type StorageProvider,
   type StorageProviderResolver,
-} from '@/types/providers.js';
+} from '../../types/providers.ts';
 
 const INDEX_OBJECT_KEY = 'artifacts/index.json';
 

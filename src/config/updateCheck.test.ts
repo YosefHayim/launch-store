@@ -8,7 +8,7 @@ import {
   type UpdateCheckDeps,
   type UpdateState,
   type UpgradeResult,
-} from './updateCheck.js';
+} from './updateCheck.ts';
 describe('isNewer', () => {
   it('compares dotted versions numerically', () => {
     expect(isNewer('0.2.0', '0.1.0')).toBe(true);

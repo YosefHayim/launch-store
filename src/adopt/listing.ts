@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import type { Adopter } from '../types/adopt.js';
+import type { Adopter } from '../types/adopt.ts';
 
 /** Plan the store.config listing pull for one adopted app. */
 export const listingAdopter: Adopter = {

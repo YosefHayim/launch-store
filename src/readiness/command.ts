@@ -1,19 +1,19 @@
-import { loadConfig } from '@/config/config.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { createLogger, type Logger } from '@/services/platform/logger.js';
-import { readLaunchDirectories } from '@/services/platform/paths.js';
-import { createAscClientResolver, createPlayClientResolver } from '@/store/shared/storeClients.js';
-import { selectApps } from '@/store/shared/syncJobs.js';
-import { completeCommand, isCommandExit } from '@/terminal/commandExit.js';
+import { loadConfig } from '../config/config.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.ts';
+import { selectApps } from '../store/shared/syncJobs.ts';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.ts';
 import type {
   AppReadiness,
   ProbeReport,
   ReadinessContext,
   ReadinessOutcome,
   ReadinessStore,
-} from '@/types/readiness.js';
-import { READINESS_EXIT, runProbes } from './orchestrator.js';
-import { registerBuiltinProbes, selectReadinessProbes } from './registry.js';
+} from '../types/readiness.ts';
+import { READINESS_EXIT, runProbes } from './orchestrator.ts';
+import { registerBuiltinProbes, selectReadinessProbes } from './registry.ts';
 
 type ReadinessCategory = 'account' | 'iap' | 'listing' | 'privacy' | 'signing' | 'submit';
 

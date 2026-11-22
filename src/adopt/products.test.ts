@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { AdoptCatalogApi, AdoptTarget } from '../types/adopt.js';
-import type { AppDescriptor } from '../types/app.js';
-import { productsAdopter } from './products.js';
+import type { AdoptCatalogApi, AdoptTarget } from '../types/adopt.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import { productsAdopter } from './products.ts';
 
 function ready<Value>(value: Value): Promise<Value> {
   return Promise.resolve(value);

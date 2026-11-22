@@ -1,10 +1,10 @@
-import type { LaunchConfig, LaunchConfigInput } from '@/types/config.js';
+import type { LaunchConfig, LaunchConfigInput } from './types/config.ts';
 import {
   DEFAULT_BUILD_ENGINE,
   DEFAULT_CREDENTIALS_PROVIDER,
   DEFAULT_STORAGE_PROVIDER,
   DEFAULT_SUBMITTER,
-} from '@/types/config.js';
+} from './types/config.ts';
 
 // Spread first so a typo'd key survives for `launch config validate` (issue #197).
 export function defineConfig(launchFile: LaunchConfigInput): LaunchConfig {

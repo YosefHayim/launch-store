@@ -6,7 +6,7 @@ import type {
   ReviewDatum,
   Sentiment,
   StarRating,
-} from '../types/insights.js';
+} from '../types/insights.ts';
 /** The star levels, fixed so the distribution always has all five keys (even at zero). */
 const STARS: readonly StarRating[] = [1, 2, 3, 4, 5];
 /** Round to one decimal place - the precision both the average rating and the trend report at. */

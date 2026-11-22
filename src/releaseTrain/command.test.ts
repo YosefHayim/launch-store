@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Car } from '../types/releaseTrain.js';
+import type { Car } from '../types/releaseTrain.ts';
 import {
   ReleaseTrainCommandInputSchema,
   carLabel,
@@ -7,7 +7,7 @@ import {
   carStatusLine,
   mintTrainId,
   trainAppSlug,
-} from './command.js';
+} from './command.ts';
 
 const NOW = '2026-06-16T00:00:00.000Z';
 const BASE_OPTIONS = {

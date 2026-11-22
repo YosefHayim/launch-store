@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { MerchantIdResource, PassTypeIdResource } from '../../types/appleCatalog.js';
-import { summarize } from '../shared/reconcile.js';
-import { type AscWalletApi, parseWalletConfig, reconcileWalletIds } from './walletIds.js';
-import type { WalletConfig } from '../../types/storeSurface.js';
+import type { MerchantIdResource, PassTypeIdResource } from '../../types/appleCatalog.ts';
+import { summarize } from '../shared/reconcile.ts';
+import { type AscWalletApi, parseWalletConfig, reconcileWalletIds } from './walletIds.ts';
+import type { WalletConfig } from '../../types/storeSurface.ts';
 /** A hand-rolled {@link AscWalletApi} - no network - serving `existing` and recording creates. */
 const makeApi = (existing: {
   merchantIds?: MerchantIdResource[];

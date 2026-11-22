@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseLaunchConfig, validateLaunchConfig } from './schema.js';
+import { parseLaunchConfig, validateLaunchConfig } from './schema.ts';
 
 describe('parseLaunchConfig', () => {
   it('fills provider defaults through Effect Schema', () => {

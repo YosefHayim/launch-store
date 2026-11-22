@@ -5,17 +5,17 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
-import { resetLogger, useLoggerSink } from '@/services/platform/logger.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
+} from '../testkit/launchHome.testkit.ts';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import {
   CredentialsCommandInputSchema,
   credentialSearchDirectories,
   credentialsCommandProgram,
   isCredentialDiscoveryFile,
   type CredentialsCommandFailure,
-} from './command.js';
+} from './command.ts';
 
 function isCredentialsFailure(cause: unknown): cause is CredentialsCommandFailure {
   if (typeof cause != 'object') {

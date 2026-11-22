@@ -7,8 +7,8 @@ import {
   pendingTodos,
   readinessMark,
   toolchainReadinessRows,
-} from './setup.js';
-import type { Tool } from './toolchain.js';
+} from './setup.ts';
+import type { Tool } from './toolchain.ts';
 /** A three-tool slice covering every branch: a required guide tool, a required brew tool, a recommended one. */
 const TOOLS: Tool[] = [
   {

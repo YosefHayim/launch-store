@@ -1,12 +1,12 @@
-import { isApplePlatform } from '../services/stores/platform.js';
-import type { AppDescriptor, Platform, PlayTrack } from '../types/app.js';
-import type { LaunchConfig } from '../types/config.js';
+import { isApplePlatform } from '../services/stores/platform.ts';
+import type { AppDescriptor, Platform, PlayTrack } from '../types/app.ts';
+import type { LaunchConfig } from '../types/config.ts';
 import {
   resolveAndroidRelease,
   resolveBuildEngineName,
   resolveSubmitterName,
-} from './pipelineProviders.js';
-import type { BuildRunOptions } from './pipelineTypes.js';
+} from './pipelineProviders.ts';
+import type { BuildRunOptions } from './pipelineTypes.ts';
 
 /** One app's resolved build decisions before native work starts. */
 type AppBuildPlan = Readonly<{

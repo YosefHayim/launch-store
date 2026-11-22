@@ -2,14 +2,14 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import type { AppDescriptor } from '@/types/app.js';
+import type { AppDescriptor } from '../types/app.ts';
 import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,
   resolveExtensionBundleIdsForApp,
   signingPreflightDoctorChecks,
   signingPreflightWarnings,
-} from './signingPreflight.js';
+} from './signingPreflight.ts';
 
 /** Minimal realistic pbxproj fixture - same shape as {@link appleTargets.test.ts}. */
 const APP_WITH_WIDGET_PBXPROJ = `// !$*UTF8*$!

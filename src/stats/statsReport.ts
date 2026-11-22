@@ -1,11 +1,11 @@
-import { filterPortfolioApps, findAppsByName } from '../portfolio/portfolioLogic.js';
-import type { PortfolioApp } from '../types/portfolio.js';
-import type { AppCoverage, DailyStat, DateRange, StatsFreshness } from '../types/stats.js';
-import type { AppStatsReport, StatsReport, StatsReportRequest } from '../types/statsReport.js';
-import { loadAppCoverage } from './coverageStore.js';
-import { createLastDaysRange, readYesterdayUtc } from './dateRange.js';
-import { ensureFreshStats } from './ensureFreshStats.js';
-import { loadMonthStats } from './statsStore.js';
+import { filterPortfolioApps, findAppsByName } from '../portfolio/portfolioLogic.ts';
+import type { PortfolioApp } from '../types/portfolio.ts';
+import type { AppCoverage, DailyStat, DateRange, StatsFreshness } from '../types/stats.ts';
+import type { AppStatsReport, StatsReport, StatsReportRequest } from '../types/statsReport.ts';
+import { loadAppCoverage } from './coverageStore.ts';
+import { createLastDaysRange, readYesterdayUtc } from './dateRange.ts';
+import { ensureFreshStats } from './ensureFreshStats.ts';
+import { loadMonthStats } from './statsStore.ts';
 import {
   createMetricSeries,
   foldMetricTotals,
@@ -13,8 +13,8 @@ import {
   keepStatsInRange,
   listAppMessages,
   listMonthsInRange,
-} from './statsReportLogic.js';
-import { loadStatsPortfolio } from './syncStats.js';
+} from './statsReportLogic.ts';
+import { loadStatsPortfolio } from './syncStats.ts';
 
 type StatsReportAppNotFoundFailure = Readonly<{
   readonly _tag: 'StatsReportAppNotFoundFailure';

@@ -1,28 +1,28 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadActiveAscKey } from '../../credentials/accounts.js';
+import { loadActiveAscKey } from '../../credentials/accounts.ts';
 import {
   describeMissingPlayServiceAccount,
   loadServiceAccount,
-} from '../../credentials/androidKeystore.js';
-import { pathExists } from '../../path-exists.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import { createLogger } from '../../services/platform/logger.js';
+} from '../../credentials/androidKeystore.ts';
+import { pathExists } from '../../path-exists.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import { createLogger } from '../../services/platform/logger.ts';
 import {
   AppleStoreClientService,
   type EffectAppStoreConnectClient,
-} from '../../services/stores/appleStoreClient.js';
+} from '../../services/stores/appleStoreClient.ts';
 import {
   type EffectGooglePlayClient,
   GoogleStoreClientService,
-} from '../../services/stores/googleStoreClient.js';
-import { isApplePlatform, parsePlatform, platformLabel } from '../../services/stores/platform.js';
-import type { AppDescriptor, Platform } from '../../types/app.js';
-import type { AscKey } from '../../types/credentials.js';
-import type { PlayListing } from '../../types/googlePlay.js';
-import { readAppleListing } from '../apple/appleListingRead.js';
-import { reconcileAppListing } from '../apple/ascSync.js';
-import { loadStoreAppContext } from './selectStoreApp.js';
+} from '../../services/stores/googleStoreClient.ts';
+import { isApplePlatform, parsePlatform, platformLabel } from '../../services/stores/platform.ts';
+import type { AppDescriptor, Platform } from '../../types/app.ts';
+import type { AscKey } from '../../types/credentials.ts';
+import type { PlayListing } from '../../types/googlePlay.ts';
+import { readAppleListing } from '../apple/appleListingRead.ts';
+import { reconcileAppListing } from '../apple/ascSync.ts';
+import { loadStoreAppContext } from './selectStoreApp.ts';
 import {
   loadStoreConfig,
   serializeStoreConfig,
@@ -30,8 +30,8 @@ import {
   type AndroidStoreConfig,
   type AppleStoreConfig,
   type StoreConfig,
-} from './storeConfig.js';
-import type { StoreSurfaceConfigFailure } from './surfaceConfig.js';
+} from './storeConfig.ts';
+import type { StoreSurfaceConfigFailure } from './surfaceConfig.ts';
 
 export type MetadataCommandInput = {
   operation: 'pull' | 'push';

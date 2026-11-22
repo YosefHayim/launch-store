@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeSecretCommandInput } from './secretCommand.js';
+import { decodeSecretCommandInput } from './secretCommand.ts';
 
 describe('SecretCommandInputSchema', () => {
   it('decodes the set boundary with an explicit value', () => {

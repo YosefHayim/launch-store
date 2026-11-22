@@ -2,18 +2,18 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
 import {
   resetLaunchDirectories,
   resolveAndroidCredentialsIndexPath,
   useLaunchDirectories,
-} from '@/services/platform/paths.js';
+} from '../services/platform/paths.ts';
 import {
   describeMissingPlayServiceAccount,
   describeStoredAndroidCredentials,
   loadServiceAccount,
   storeServiceAccount,
-} from './androidKeystore.js';
+} from './androidKeystore.ts';
 
 const secrets = new Map<string, string>();
 const homeDirectory = join(tmpdir(), `launch-android-credentials-test-${process.pid}`);

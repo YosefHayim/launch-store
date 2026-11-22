@@ -1,5 +1,5 @@
-import type { CodeSigner } from '../credentials/codeSign.js';
-import type { StorageProvider } from '../types/providers.js';
+import type { CodeSigner } from '../credentials/codeSign.ts';
+import type { StorageProvider } from '../types/providers.ts';
 import {
   assembleRollbackDirective,
   historyIndexKey,
@@ -10,7 +10,7 @@ import {
   type StoredRollbackDirective,
   type UpdateHistoryEntry,
   type UpdateManifest,
-} from './otaManifest.js';
+} from './otaManifest.ts';
 
 type UpdateHistoryFailure = Readonly<{
   readonly _tag: 'UpdateHistoryFailure';

@@ -1,10 +1,10 @@
-import { parseCliEnv } from '../config/env.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
-import { parsePlatform, PLATFORMS } from '../services/stores/platform.js';
-import type { BuildRunOptions } from './pipelineTypes.js';
-import type { Distribution, Platform, PlayTrack } from '../types/app.js';
-import type { RemoteTarget } from '../types/remote.js';
-import type { BumpKind } from '../release/version.js';
+import { parseCliEnv } from '../config/env.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import { parsePlatform, PLATFORMS } from '../services/stores/platform.ts';
+import type { BuildRunOptions } from './pipelineTypes.ts';
+import type { Distribution, Platform, PlayTrack } from '../types/app.ts';
+import type { RemoteTarget } from '../types/remote.ts';
+import type { BumpKind } from '../release/version.ts';
 
 /** Raw `launch build` options as Commander hands them to the action callback. */
 export type BuildCommandOptions = {

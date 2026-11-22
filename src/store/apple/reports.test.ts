@@ -5,7 +5,7 @@ import type {
   AnalyticsReportRequestResource,
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
-} from '../../types/appleCatalog.js';
+} from '../../types/appleCatalog.ts';
 import {
   collectAnalyticsSegments,
   decompressReport,
@@ -13,7 +13,7 @@ import {
   ensureAnalyticsRequest,
   parseTsv,
   type AscReportsApi,
-} from './reports.js';
+} from './reports.ts';
 
 function readThrownMessage(cause: unknown): string | null {
   const isMissing = cause == null;

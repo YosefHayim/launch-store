@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { errorMessage, hasMessage } from './errorMessage.js';
+import { errorMessage, hasMessage } from './errorMessage.ts';
 describe('errorMessage', () => {
   it("returns an Error's message verbatim", () => {
     expect(errorMessage(new Error('boom'))).toBe('boom');

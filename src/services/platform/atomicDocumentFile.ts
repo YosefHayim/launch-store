@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { pathExists } from '../../path-exists.js';
-import { errorMessage } from './errorMessage.js';
+import { pathExists } from '../../path-exists.ts';
+import { errorMessage } from './errorMessage.ts';
 
 export type DocumentFileFailure = Readonly<{
   _tag: 'DocumentFileFailure';

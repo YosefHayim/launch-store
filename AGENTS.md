@@ -78,7 +78,7 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 
 ### Rules Digest
 
-- **Commands are plain TypeScript.** They return `Promise` or a plain value and throw a readonly `{ _tag }` object. Imports use `@/`. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `src/release-command.ts` and `src/app-release.ts` stay in `src/`.
+- **Commands are plain TypeScript.** They return `Promise` or a plain value and throw a readonly `{ _tag }` object. Imports of this package's files are relative and end in `.ts` (`../types/app.ts`). TypeScript rewrites those to `.js` on emit. Do not add a path alias: the compiler will not rewrite it. A published package keeps the `.js` path it documents. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `src/release-command.ts` and `src/app-release.ts` stay in `src/`.
 - **New modules use function declarations.** An arrow only when a method is passed elsewhere and must keep `this`. Do not add `&&` or `||`. `??` and `?.` are allowed. Name each condition.
 - **Registration is thin.** `src/cli/program.ts` registers the commands. Prompts require a TTY or `--yes`. `--json` emits one object. Only the entry sets exit codes.
 - **JSON Schema is the config source.** Do not delete `schema/`.

@@ -2,9 +2,9 @@ import { join } from 'node:path';
 import {
   readDocumentFile,
   writeDocumentFileAtomically,
-} from '../services/platform/atomicDocumentFile.js';
-import { locateAppStatsDirectory } from '../services/platform/paths.js';
-import type { AppCoverage, FeedCoverage, StatsFeed } from '../types/stats.js';
+} from '../services/platform/atomicDocumentFile.ts';
+import { locateAppStatsDirectory } from '../services/platform/paths.ts';
+import type { AppCoverage, FeedCoverage, StatsFeed } from '../types/stats.ts';
 
 const COVERAGE_FEEDS: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
 

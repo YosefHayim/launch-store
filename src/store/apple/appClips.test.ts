@@ -3,10 +3,10 @@ import type {
   AppClipDefaultExperienceResource,
   AppClipLocalizationResource,
   AppClipResource,
-} from '../../types/appleCatalog.js';
-import { summarize } from '../shared/reconcile.js';
-import { type AscAppClipsApi, parseAppClipsConfig, reconcileAppClips } from './appClips.js';
-import type { AppClipsConfig } from '../../types/storeSurface.js';
+} from '../../types/appleCatalog.ts';
+import { summarize } from '../shared/reconcile.ts';
+import { type AscAppClipsApi, parseAppClipsConfig, reconcileAppClips } from './appClips.ts';
+import type { AppClipsConfig } from '../../types/storeSurface.ts';
 /** Records every write the reconciler makes, so a test can assert what was (and wasn't) sent. */
 type Calls = {
   createdExperiences: {

@@ -1,6 +1,6 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { registerUpdatesCommand } from './updates.js';
+import { registerUpdatesCommand } from './updates.ts';
 
 describe('registerUpdatesCommand', () => {
   it('registers list, view, and rollback under the updates family', () => {

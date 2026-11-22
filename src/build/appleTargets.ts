@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '../path-exists.js';
+import { pathExists } from '../path-exists.ts';
 
 /**
  * One build target discovered in a generated Xcode project's `project.pbxproj` - a target name paired
@@ -255,7 +255,7 @@ export const multiTargetSigningWarnings = (
 /**
  * The per-target manual-signing inputs stamped into a multi-target project before archiving: the one team
  * that signs every target, and each target's `bundleId -> profileName` (the main app plus every embedded
- * extension). Mirrors the {@link import("../services/providerSupport/appleArtifact.js").exportOptionsPlist} profile map so
+ * extension). Mirrors the {@link import("../services/providerSupport/appleArtifact.ts").exportOptionsPlist} profile map so
  * the archive and the export agree on which profile signs which bundle.
  */
 type ManualSigningTargets = {
@@ -330,7 +330,7 @@ const releaseConfigProfiles = (
  * (the input unchanged when no target matched a profile). Launch drops `PROVISIONING_PROFILE_SPECIFIER`
  * from the global `xcodebuild archive` settings - a workspace-wide specifier leaks onto the Pods library targets and
  * fails the Xcode 26 archive (issue #301), and would clobber an extension's bundle (issue #262); see
- * {@link import("./buildFlags.js").assembleArchiveArguments} - so each target's profile has to live in the
+ * {@link import("./buildFlags.ts").assembleArchiveArguments} - so each target's profile has to live in the
  * project, or `xcodebuild` fails the archive at exit 65 with "requires a provisioning profile ... Select a
  * provisioning profile in the Signing & Capabilities editor" for every target (issue #289).
  *

@@ -1,4 +1,4 @@
-import type { AscHost } from './host.js';
+import type { AscHost } from './host.ts';
 import type {
   GameCenterAchievementCreate,
   GameCenterAchievementResource,
@@ -6,9 +6,9 @@ import type {
   GameCenterLeaderboardCreate,
   GameCenterLeaderboardResource,
   LeaderboardFormatter,
-} from '@/types/appleCatalog.js';
-import type { ResourceSingle } from './shared.js';
-import type { components } from '@/apple-api-types.js';
+} from '../../types/appleCatalog.ts';
+import type { ResourceSingle } from './shared.ts';
+import type { components } from '../../apple-api-types.ts';
 
 export class ConnectGameCenter {
   constructor(private readonly client: AscHost) {}

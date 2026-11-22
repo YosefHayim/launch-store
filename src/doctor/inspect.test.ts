@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { LaunchConfig } from '@/types/config.js';
-import type { DoctorAscApi, DoctorCheck, DoctorContext, DoctorPlatform } from '@/types/doctor.js';
-import { inspectDoctor } from './inspect.js';
+import type { LaunchConfig } from '../types/config.ts';
+import type { DoctorAscApi, DoctorCheck, DoctorContext, DoctorPlatform } from '../types/doctor.ts';
+import { inspectDoctor } from './inspect.ts';
 
 const launchConfig: LaunchConfig = {
   profiles: {},

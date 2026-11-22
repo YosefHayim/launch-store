@@ -208,7 +208,33 @@ function typescriptSiblingUrl(specifier: string, parentURL: string | undefined):
   const existingPath = existingSourceFile(resolvedPath);
   const changed = existingPath != resolvedPath;
 
-  if (changed == false) {
+  if (changed) {
+    return pathToFileURL(existingPath).href;
+  }
+
+  return urlWhenSpecifierNamesTheFile(specifier, existingPath);
+}
+
+function urlWhenSpecifierNamesTheFile(specifier: string, existingPath: string): string | null {
+  const namesTypeScript = specifier.endsWith('.ts');
+
+  if (namesTypeScript) {
+    return urlForExistingFile(existingPath);
+  }
+
+  const namesTsx = specifier.endsWith('.tsx');
+
+  if (namesTsx) {
+    return urlForExistingFile(existingPath);
+  }
+
+  return null;
+}
+
+function urlForExistingFile(existingPath: string): string | null {
+  const fileIsThere = existsSync(existingPath);
+
+  if (fileIsThere == false) {
     return null;
   }
 

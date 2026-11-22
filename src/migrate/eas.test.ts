@@ -2,14 +2,14 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { expectDefined } from '@testkit/assertions.testkit.js';
-import type { AppDescriptor } from '../types/app.js';
+import { expectDefined } from '../testkit/assertions.testkit.ts';
+import type { AppDescriptor } from '../types/app.ts';
 import type {
   EasJson,
   MigrationArtifact,
   MigrationNote,
   MigrationNoteLevel,
-} from '../types/migrate.js';
+} from '../types/migrate.ts';
 import {
   collectEnvironmentKeys,
   credentialsSummaryFromJson,
@@ -21,7 +21,7 @@ import {
   notesFromEasConfiguration,
   notesFromExpoFacts,
   parseEasJson,
-} from './eas.js';
+} from './eas.ts';
 
 /** A realistic eas.json covering build profiles, env, submit credentials, and the cli block. */
 const SAMPLE_EAS = JSON.stringify({

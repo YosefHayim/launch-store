@@ -1,6 +1,6 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { registerAdoptCommand } from './adopt.js';
+import { registerAdoptCommand } from './adopt.ts';
 
 describe('registerAdoptCommand', () => {
   it('registers adopt with dry-run and confirmation flags', () => {

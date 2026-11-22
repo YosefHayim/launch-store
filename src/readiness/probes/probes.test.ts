@@ -2,39 +2,39 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { agreementsProbe } from './agreements.js';
-import { appRecordProbe } from './appRecord.js';
-import { subscriptionGroupProbe } from './subscriptionGroup.js';
-import { bundleIdProbe } from './bundleId.js';
-import { distributionCertProbe } from './distributionCert.js';
-import { exportComplianceProbe } from './exportCompliance.js';
-import { iapProductsProbe } from './iapProducts.js';
-import { iapCodeReferenceProbe } from './iapCodeReference.js';
-import { storeKitConfigProbe } from './storeKitConfig.js';
-import { subscriptionsProbe } from './subscriptions.js';
-import { iapPricingProbe } from './iapPricing.js';
-import { subscriptionOffersProbe } from './subscriptionOffers.js';
-import { sandboxTestersProbe } from './sandboxTesters.js';
-import { playAppProbe } from './playApp.js';
-import { playFirstUploadProbe } from './playFirstUpload.js';
-import { playInternalTrackProbe } from './playInternalTrack.js';
-import { ageRatingProbe } from './ageRating.js';
-import { listingUrlsProbe } from './listingUrls.js';
-import { accountDeletionProbe } from './accountDeletion.js';
-import { demoAccountProbe } from './demoAccount.js';
-import { profileEntitlementsProbe } from './profileEntitlements.js';
-import { screenshotsProbe } from './screenshots.js';
-import { versionCopyrightProbe } from './versionCopyright.js';
-import { appPrivacyProbe } from './appPrivacy.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
+import { agreementsProbe } from './agreements.ts';
+import { appRecordProbe } from './appRecord.ts';
+import { subscriptionGroupProbe } from './subscriptionGroup.ts';
+import { bundleIdProbe } from './bundleId.ts';
+import { distributionCertProbe } from './distributionCert.ts';
+import { exportComplianceProbe } from './exportCompliance.ts';
+import { iapProductsProbe } from './iapProducts.ts';
+import { iapCodeReferenceProbe } from './iapCodeReference.ts';
+import { storeKitConfigProbe } from './storeKitConfig.ts';
+import { subscriptionsProbe } from './subscriptions.ts';
+import { iapPricingProbe } from './iapPricing.ts';
+import { subscriptionOffersProbe } from './subscriptionOffers.ts';
+import { sandboxTestersProbe } from './sandboxTesters.ts';
+import { playAppProbe } from './playApp.ts';
+import { playFirstUploadProbe } from './playFirstUpload.ts';
+import { playInternalTrackProbe } from './playInternalTrack.ts';
+import { ageRatingProbe } from './ageRating.ts';
+import { listingUrlsProbe } from './listingUrls.ts';
+import { accountDeletionProbe } from './accountDeletion.ts';
+import { demoAccountProbe } from './demoAccount.ts';
+import { profileEntitlementsProbe } from './profileEntitlements.ts';
+import { screenshotsProbe } from './screenshots.ts';
+import { versionCopyrightProbe } from './versionCopyright.ts';
+import { appPrivacyProbe } from './appPrivacy.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
 import type {
   AscReadinessApi,
   PlayReadinessApi,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
+} from '../../types/readiness.ts';
 /** A minimal valid config; pass `products` to exercise the subscription-group scope. */
 const config = (products?: LaunchConfig['products']): LaunchConfig => {
   const launchConfig: LaunchConfig = {

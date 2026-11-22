@@ -2,10 +2,10 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { expectArrayElement } from '@testkit/assertions.testkit.js';
-import type { McpTool } from '../types/mcp.js';
-import { dispatch, pickServedTools } from './server.js';
-import { STATS_TOOLS } from './statsTools.js';
+import { expectArrayElement } from '../testkit/assertions.testkit.ts';
+import type { McpTool } from '../types/mcp.ts';
+import { dispatch, pickServedTools } from './server.ts';
+import { STATS_TOOLS } from './statsTools.ts';
 
 async function sampleHandler(): Promise<{ content: readonly { type: 'text'; text: string }[] }> {
   return { content: [{ type: 'text', text: 'ok' }] };

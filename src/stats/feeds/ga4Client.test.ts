@@ -4,7 +4,7 @@ import {
   createServiceDisabledReason,
   readGa4Error,
   readProjectIdFromClientEmail,
-} from './ga4Client.js';
+} from './ga4Client.ts';
 
 describe('readGa4Error', () => {
   test('reads a disabled API before a permission error', () => {

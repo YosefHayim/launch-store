@@ -1,24 +1,24 @@
-import { loadConfig } from '../config/config.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
-import type { EffectGooglePlayClient } from '../services/stores/googleStoreClient.js';
-import { listReviews } from '../store/apple/reviews.js';
-import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.js';
-import { selectApps } from '../store/shared/syncJobs.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { CustomerReviewResource } from '../types/appleCatalog.js';
-import type { PlayReview } from '../types/googlePlay.js';
+import { loadConfig } from '../config/config.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.ts';
+import type { EffectGooglePlayClient } from '../services/stores/googleStoreClient.ts';
+import { listReviews } from '../store/apple/reviews.ts';
+import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.ts';
+import { selectApps } from '../store/shared/syncJobs.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { CustomerReviewResource } from '../types/appleCatalog.ts';
+import type { PlayReview } from '../types/googlePlay.ts';
 import type {
   InsightsReport,
   InsightsStore,
   RatingSummary,
   ReviewDatum,
   StarRating,
-} from '../types/insights.js';
-import { buildInsightsReport, STARS } from './aggregate.js';
-import type { MutableDeep } from '../types/mutable.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
+} from '../types/insights.ts';
+import { buildInsightsReport, STARS } from './aggregate.ts';
+import type { MutableDeep } from '../types/mutable.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
 
 /** Options accepted by the cross-store insights command. */
 type InsightsCommandOptions = Readonly<{

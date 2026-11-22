@@ -1,13 +1,13 @@
-import { runPlanner } from './planner.testkit.js';
+import { runPlanner } from './planner.testkit.ts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { screenshotsPlanner } from './screenshots.js';
-import { makeAscApiFake } from '@testkit/ascApiFake.testkit.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
+import { screenshotsPlanner } from './screenshots.ts';
+import { makeAscApiFake } from '../../testkit/ascApiFake.testkit.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
 const tmpDirs: string[] = [];
 afterEach(() => {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });

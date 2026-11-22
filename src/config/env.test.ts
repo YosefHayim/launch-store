@@ -13,8 +13,8 @@ import {
   parseDotenv,
   resolveEnv,
   secretLookingKeys,
-} from './env.js';
-import { expectDefined } from '@testkit/assertions.testkit.js';
+} from './env.ts';
+import { expectDefined } from '../testkit/assertions.testkit.ts';
 const tempDirs: string[] = [];
 async function runEnvEffect<Success>(envWork: Promise<Success>): Promise<Success> {
   return envWork;

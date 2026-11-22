@@ -1,7 +1,7 @@
-import type { Command } from '@/cli/command.js';
-import { COMPLETE_SUBCOMMAND, SHELLS } from '@/terminal/completion.js';
-import { completionCommandProgram } from '@/terminal/completionCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { COMPLETE_SUBCOMMAND, SHELLS } from '../../../terminal/completion.ts';
+import { completionCommandProgram } from '../../../terminal/completionCommand.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 /** Attach the `completion` command group (print, install, and the hidden `__complete` callback) to the program. */
 export const registerCompletionCommand = (program: Command): void => {

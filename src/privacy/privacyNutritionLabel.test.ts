@@ -3,7 +3,7 @@ import {
   APP_PRIVACY_HELP_URL,
   APP_PRIVACY_STEPS,
   appPrivacyChecklist,
-} from './privacyNutritionLabel.js';
+} from './privacyNutritionLabel.ts';
 describe('appPrivacyChecklist', () => {
   it('emits a UI-only verdict, every numbered step, and the help link', () => {
     const lines = appPrivacyChecklist();

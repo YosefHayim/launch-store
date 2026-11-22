@@ -5,16 +5,16 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+} from '../testkit/launchHome.testkit.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import {
   makeStatsCredentialsTest,
   useStatsCredentials,
   type AppStoreStatsClient,
   type StatsCredentialsApi,
-} from '../stats/statsCredentials.js';
-import type { PortfolioFile, PortfolioLoad, PortfolioLoadMode } from '../types/portfolio.js';
-import { loadPortfolioApps } from './loadPortfolioApps.js';
+} from '../stats/statsCredentials.ts';
+import type { PortfolioFile, PortfolioLoad, PortfolioLoadMode } from '../types/portfolio.ts';
+import { loadPortfolioApps } from './loadPortfolioApps.ts';
 
 const ACCOUNTS_FILE = JSON.stringify({
   active: 'KEYA',

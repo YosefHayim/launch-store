@@ -2,11 +2,11 @@ import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-} from '../../types/appleCatalog.js';
-import { appRecordMissing, plan, skip, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { PlannedAction } from '../../types/reconcile.js';
-import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.js';
+} from '../../types/appleCatalog.ts';
+import { appRecordMissing, plan, skip, type ReconcileContext } from '../shared/reconcile.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
+import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.ts';
 
 /** Custom-product-page version states Apple still lets us edit localizations in. */
 const EDITABLE_VERSION_STATES = new Set(['PREPARE_FOR_SUBMISSION', 'REJECTED']);

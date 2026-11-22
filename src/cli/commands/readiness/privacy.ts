@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { privacyCommandProgram } from '@/privacy/command.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { privacyCommandProgram } from '../../../privacy/command.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 /** CLI options for `launch privacy scan`. */
 type PrivacyScanOptions = {

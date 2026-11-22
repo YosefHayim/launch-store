@@ -3,9 +3,9 @@ import type { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials } from '@/types/credentials.js';
-import type { PlayRelease } from '@/types/googlePlay.js';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials } from '../../types/credentials.ts';
+import type { PlayRelease } from '../../types/googlePlay.ts';
 
 const uploadBundleToTrack = vi.hoisted(() =>
   vi.fn<
@@ -22,8 +22,8 @@ const playUpload = vi.hoisted(() => {
   return { isRejected: false, bundleStreams };
 });
 
-vi.mock('@google/playClient.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@google/playClient.js')>()),
+vi.mock('../../google/playClient.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../google/playClient.ts')>()),
   readServiceAccount: () => ({
     client_email: 'robot@example.invalid',
     private_key: 'dummy',
@@ -49,7 +49,7 @@ vi.mock('@google/playClient.js', async (importOriginal) => ({
   },
 }));
 
-const { googlePlaySubmitter } = await import('./googlePlay.js');
+const { googlePlaySubmitter } = await import('./googlePlay.ts');
 const aabPath = fileURLToPath(import.meta.url);
 const artifact = { path: aabPath, version: '1.4.0', buildNumber: 7 };
 const credentials: BuildCredentials = { platform: 'android', serviceAccountJson: '{}' };

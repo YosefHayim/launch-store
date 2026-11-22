@@ -1,17 +1,17 @@
 import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { createTsv } from '@testkit/appStoreStatsClient.testkit.js';
-import type { PortfolioApp } from '../../types/portfolio.js';
-import type { DailyStat, DateRange, FeedFetchReply } from '../../types/stats.js';
-import type { AppStoreStatsClient } from '../statsCredentials.js';
-import { makeStatsCredentialsTest, useStatsCredentials } from '../statsCredentials.js';
+import { createTsv } from '../../testkit/appStoreStatsClient.testkit.ts';
+import type { PortfolioApp } from '../../types/portfolio.ts';
+import type { DailyStat, DateRange, FeedFetchReply } from '../../types/stats.ts';
+import type { AppStoreStatsClient } from '../statsCredentials.ts';
+import { makeStatsCredentialsTest, useStatsCredentials } from '../statsCredentials.ts';
 import {
   appStoreFeed,
   createAppStoreReply,
   isHistoryNeeded,
   pickStatsPath,
   readHttpStatus,
-} from './appStore.js';
+} from './appStore.ts';
 
 const APP_ID = '6802289557';
 const SHORT_RANGE: DateRange = { from: '2026-10-08', to: '2026-10-10' };

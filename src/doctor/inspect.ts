@@ -1,26 +1,26 @@
-import { checkApp, formatFinding } from '@/config/configCheck.js';
-import { inspectPackageSetup, packageManagerWarnings } from '@/config/packageManager.js';
-import { ANDROID_TOOLS, fixHint, REQUIRED_TOOLS, type Tool } from '@/config/toolchain.js';
+import { checkApp, formatFinding } from '../config/configCheck.ts';
+import { inspectPackageSetup, packageManagerWarnings } from '../config/packageManager.ts';
+import { ANDROID_TOOLS, fixHint, REQUIRED_TOOLS, type Tool } from '../config/toolchain.ts';
 import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,
   resolveExtensionBundleIdsForApp,
   signingPreflightDoctorChecks,
-} from '@/credentials/signingPreflight.js';
-import { appPrivacyChecklist } from '@/privacy/privacyNutritionLabel.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { formatPermissionLine, probeKeyPermissions } from '@/store/apple/ascPermissions.js';
-import { describeExportComplianceConfig } from '@/store/apple/exportCompliance.js';
-import { buildConsoleUrl } from '@/terminal/consoleLinks.js';
-import { shellLocaleDoctorCheck, type ShellLocaleEnv } from '@/terminal/locale.js';
-import type { AppDescriptor } from '@/types/app.js';
+} from '../credentials/signingPreflight.ts';
+import { appPrivacyChecklist } from '../privacy/privacyNutritionLabel.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { formatPermissionLine, probeKeyPermissions } from '../store/apple/ascPermissions.ts';
+import { describeExportComplianceConfig } from '../store/apple/exportCompliance.ts';
+import { buildConsoleUrl } from '../terminal/consoleLinks.ts';
+import { shellLocaleDoctorCheck, type ShellLocaleEnv } from '../terminal/locale.ts';
+import type { AppDescriptor } from '../types/app.ts';
 import type {
   DoctorAscApi,
   DoctorCheck,
   DoctorContext,
   DoctorPlatform,
   DoctorReport,
-} from '@/types/doctor.js';
+} from '../types/doctor.ts';
 
 function hasBundleId(app: AppDescriptor): boolean {
   return app.bundleId != null;

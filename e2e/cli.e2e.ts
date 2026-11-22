@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { captureCommandOutput, type CommandFailed } from '@/services/platform/exec.js';
+import { captureCommandOutput, type CommandFailed } from '../src/services/platform/exec.ts';
 /** Absolute path to the built CLI this suite exercises - `<root>/dist/cli/index.js`. */
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'cli', 'index.js');
 /** Run the built binary with an explicit argv and return its trimmed stdout (rejects on a non-zero exit). */

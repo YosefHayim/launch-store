@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { LaunchConfig } from '../types/config.js';
-import { checkConfigSemantics } from './configSemantics.js';
+import type { LaunchConfig } from '../types/config.ts';
+import { checkConfigSemantics } from './configSemantics.ts';
 /** A schema-valid baseline config (local storage, one production profile); override a slice per case. */
 const config = (overrides: Partial<LaunchConfig> = {}): LaunchConfig => {
   return {

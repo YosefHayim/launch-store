@@ -2,15 +2,15 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useSecretStore, resetSecretStore } from '@/services/credentials/secretStore.js';
-import { resetLaunchEnvironment, useLaunchEnvironment } from '@/services/platform/environment.js';
+import { useSecretStore, resetSecretStore } from '../services/credentials/secretStore.ts';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
 import {
   resetLaunchDirectories,
   resolveAccountsFilePath,
   resolveCredentialsDirectory,
   useLaunchDirectories,
-} from '@/services/platform/paths.js';
-import type { AccountRecord, AccountsFile } from '../types/credentials.js';
+} from '../services/platform/paths.ts';
+import type { AccountRecord, AccountsFile } from '../types/credentials.ts';
 import {
   addAccount,
   decideBuildAccount,
@@ -29,12 +29,12 @@ import {
   setAccountVendorNumber,
   setActiveKeyId,
   updateAccountIdentity,
-} from './accounts.js';
-import { migrateLegacySigningIndex } from './appleSigning.js';
+} from './accounts.ts';
+import { migrateLegacySigningIndex } from './appleSigning.ts';
 const secrets = vi.hoisted(() => ({ store: new Map<string, string>() }));
 const homeDirectory = mkdtempSync(join(tmpdir(), 'launch-accounts-test-'));
 
-vi.mock('./appleSigning.js', () => ({
+vi.mock('./appleSigning.ts', () => ({
   migrateLegacySigningIndex: vi.fn(() => Promise.resolve()),
   p12PasswordAccount: (keyId: string) => `dist-cert-p12-password:${keyId}`,
 }));

@@ -1,7 +1,10 @@
-import type { Command } from '@/cli/command.js';
-import { releaseCommandProgram, type ReleaseCommandOptions } from '@/release/releaseCommand.js';
-import { addEnvFlags } from '@cli/options.js';
-import { runCliProgram, runJsonCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import {
+  releaseCommandProgram,
+  type ReleaseCommandOptions,
+} from '../../../release/releaseCommand.ts';
+import { addEnvFlags } from '../../options.ts';
+import { runCliProgram, runJsonCliProgram } from '../../runCliProgram.ts';
 
 /** Attach the public release command. */
 export const registerReleaseCommand = (program: Command): void => {

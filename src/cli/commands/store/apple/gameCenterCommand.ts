@@ -1,17 +1,17 @@
-import { createLogger } from '@/services/platform/logger.js';
-import { completeCommand } from '@/terminal/commandExit.js';
-import type { GameCenterConfig } from '@/types/storeSurface.js';
+import { createLogger } from '../../../../services/platform/logger.ts';
+import { completeCommand } from '../../../../terminal/commandExit.ts';
+import type { GameCenterConfig } from '../../../../types/storeSurface.ts';
 import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
   resolveStoreSurfaceSection,
-} from './appStoreSurfaceCommand.js';
-import { loadActiveAppleStore } from './appleStoreCommand.js';
-import { parseGameCenterConfig, reconcileGameCenter } from '@/store/apple/gameCenter.js';
-import { summarize } from '@/store/shared/reconcile.js';
-import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
-import { hasMessage } from '@/services/platform/errorMessage.js';
+} from './appStoreSurfaceCommand.ts';
+import { loadActiveAppleStore } from './appleStoreCommand.ts';
+import { parseGameCenterConfig, reconcileGameCenter } from '../../../../store/apple/gameCenter.ts';
+import { summarize } from '../../../../store/shared/reconcile.ts';
+import { loadStoreAppContext } from '../../../../store/shared/selectStoreApp.ts';
+import { hasMessage } from '../../../../services/platform/errorMessage.ts';
 
 export type GameCenterCommandInput = Readonly<{
   app?: string;

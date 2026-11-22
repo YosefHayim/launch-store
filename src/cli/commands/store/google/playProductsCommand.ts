@@ -1,15 +1,18 @@
-import { hasMessage } from '@/services/platform/errorMessage.js';
-import { createLogger } from '@/services/platform/logger.js';
-import { completeCommand } from '@/terminal/commandExit.js';
-import type { InAppPurchaseConfig } from '@/types/catalog.js';
-import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
-import { loadActiveGoogleStore } from './googleStoreCommand.js';
+import { hasMessage } from '../../../../services/platform/errorMessage.ts';
+import { createLogger } from '../../../../services/platform/logger.ts';
+import { completeCommand } from '../../../../terminal/commandExit.ts';
+import type { InAppPurchaseConfig } from '../../../../types/catalog.ts';
+import { loadStoreAppContext } from '../../../../store/shared/selectStoreApp.ts';
+import { loadActiveGoogleStore } from './googleStoreCommand.ts';
 import {
   confirmPlayCatalogWrite,
   renderAppliedPlayCatalogAction,
   renderPlayCatalogAction,
-} from './playCatalogCommand.js';
-import { reconcilePlayProducts, summarizePlayProducts } from '@/store/google/playProducts.js';
+} from './playCatalogCommand.ts';
+import {
+  reconcilePlayProducts,
+  summarizePlayProducts,
+} from '../../../../store/google/playProducts.ts';
 
 export type PlayProductsCommandInput = {
   app?: string;

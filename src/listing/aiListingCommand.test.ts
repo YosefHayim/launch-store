@@ -2,18 +2,18 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetLogger, useLoggerSink } from '@/services/platform/logger.js';
-import type { AppDescriptor } from '@/types/app.js';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import type { AppDescriptor } from '../types/app.ts';
 import {
   parseListingTargets,
   readAiListingInput,
   resolveListingLocales,
   runAiListing,
-} from './aiListingCommand.js';
+} from './aiListingCommand.ts';
 
 let selectedApp: AppDescriptor;
 
-vi.mock('@/config/config.js', () => ({
+vi.mock('../config/config.ts', () => ({
   loadConfig: function loadConfig() {
     return Promise.resolve({ config: {}, apps: [selectedApp] });
   },

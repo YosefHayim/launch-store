@@ -1,9 +1,9 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../cli/command.ts';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { createLaunchFileScaffold } from '@/define-launch-file.js';
-import { pathExists } from '@/path-exists.js';
-import { Prompts } from '@/prompts.js';
+import { createLaunchFileScaffold } from '../define-launch-file.ts';
+import { pathExists } from '../path-exists.ts';
+import { Prompts } from '../prompts.ts';
 
 export class SetupCommand {
   constructor(private readonly prompts = new Prompts()) {}

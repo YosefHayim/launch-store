@@ -1,12 +1,12 @@
-import type { DailyStat, DateRange } from '../../types/stats.js';
-import { shiftDate } from '../dateRange.js';
-import { decodePlayCsvBytes, readPlayCsvTable, type PlayCsvTable } from './playCsvTable.js';
-import { readZipEntries } from './zip-archive.js';
+import type { DailyStat, DateRange } from '../../types/stats.ts';
+import { shiftDate } from '../dateRange.ts';
+import { decodePlayCsvBytes, readPlayCsvTable, type PlayCsvTable } from './playCsvTable.ts';
+import { readZipEntries } from './zip-archive.ts';
 import {
   downloadBucketObject,
   failBucketRead,
   listBucketObjectNames,
-} from './playReportsBucketClient.js';
+} from './playReportsBucketClient.ts';
 import {
   findLastDayOfReportMonth,
   findLatestCsvDate,
@@ -17,7 +17,7 @@ import {
   readInstallStats,
   readRatingStats,
   readStorePerformanceStats,
-} from './playReportStats.js';
+} from './playReportStats.ts';
 
 const DOWNLOAD_CONCURRENCY = 4;
 const EARNINGS_PREFIX = 'earnings/earnings_';

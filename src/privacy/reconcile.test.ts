@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from './reconcile.js';
-import type { PrivacySurface } from '../types/privacy.js';
+import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from './reconcile.ts';
+import type { PrivacySurface } from '../types/privacy.ts';
 /** A clean baseline surface; tests override only the fields they exercise. */
 const surface = (overrides: Partial<PrivacySurface> = {}): PrivacySurface => {
   return {

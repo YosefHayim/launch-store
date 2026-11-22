@@ -14,8 +14,8 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../../types/appleCatalog.js';
-import type { PlannedAction, ReconcileReport } from '../../types/reconcile.js';
+} from '../../types/appleCatalog.ts';
+import type { PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
 import type {
   AppProducts,
   IntroductoryOfferConfig,
@@ -24,16 +24,16 @@ import type {
   PromotionalOfferConfig,
   SubscriptionConfig,
   WinBackOfferConfig,
-} from '../../types/catalog.js';
-import type { MutableDeep } from '../../types/mutable.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
+} from '../../types/catalog.ts';
+import type { MutableDeep } from '../../types/mutable.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
 import {
   act,
   makeAppRecordFailure,
   plan,
   skip,
   type ReconcileContext,
-} from '../shared/reconcile.js';
+} from '../shared/reconcile.ts';
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the offers reconciler depends on. Declared here (not

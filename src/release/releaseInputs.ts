@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '@/path-exists.js';
-import type { ReleaseConfig, ReleaseType } from '@/types/storeSurface.js';
+import { pathExists } from '../path-exists.ts';
+import type { ReleaseConfig, ReleaseType } from '../types/storeSurface.ts';
 
 /**
  * The per-run CLI flags that override the configured release type for a single `launch release`.

@@ -1,5 +1,5 @@
 import { relative } from 'node:path';
-import type { AppDescriptor } from '../types/app.js';
+import type { AppDescriptor } from '../types/app.ts';
 
 /** Derive a single `appRoots` subdir when every discovered app lives under one (e.g. an `apps/` monorepo). */
 export function detectAppRoot(

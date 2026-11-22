@@ -3,15 +3,15 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
-import { createLogger } from '@/services/platform/logger.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import {
   adoptLegacyAndroidCredentials,
   ensureUploadKeystore,
   loadCachedKeystore,
   loadServiceAccount,
-} from './androidKeystore.js';
+} from './androidKeystore.ts';
 
 const directories: string[] = [];
 

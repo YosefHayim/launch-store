@@ -1,12 +1,12 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../../../command.ts';
 import {
   type PlayTracksPromoteInput,
   playTracksCommandProgram,
   type PlayTracksStatusInput,
   type PlayTracksTestersInput,
-} from './playTracksCommand.js';
-import { RELEASE_STATUSES } from '@/store/google/playTracks.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+} from './playTracksCommand.ts';
+import { RELEASE_STATUSES } from '../../../../store/google/playTracks.ts';
+import { runCliProgram } from '../../../runCliProgram.ts';
 
 type StatusOptions = Readonly<{
   readonly app?: string;

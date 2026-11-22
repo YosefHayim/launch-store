@@ -1,4 +1,4 @@
-import type { DoctorCheck } from '../types/doctor.js';
+import type { DoctorCheck } from '../types/doctor.ts';
 /** Locale variables xcodebuild and CocoaPods need to run with UTF-8. */
 export const UTF8_LOCALE = {
   LANG: 'en_US.UTF-8',

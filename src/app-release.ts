@@ -1,4 +1,4 @@
-import { Prompts } from '@/prompts.js';
+import { Prompts } from './prompts.ts';
 
 export class AppRelease {
   constructor(private readonly prompts = new Prompts()) {}

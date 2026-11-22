@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import type { PortfolioApp } from '../types/portfolio.js';
-import { STATS_FEED_PLUGINS } from './feedRegistry.js';
-import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.js';
+import type { PortfolioApp } from '../types/portfolio.ts';
+import { STATS_FEED_PLUGINS } from './feedRegistry.ts';
+import { makeStatsCredentialsTest, useStatsCredentials } from './statsCredentials.ts';
 
 const makeApp = (platform: 'ios' | 'android'): PortfolioApp => ({
   key: `${platform}-1`,

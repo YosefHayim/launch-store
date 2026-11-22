@@ -1,14 +1,14 @@
-import type { LaunchConfig } from '@/types/config.js';
-import type { ExpoApp } from '@/expo-app.js';
-import { readExpoApp } from '@/expo-app.js';
-import { AppStoreConnect } from '@/apple/app-store-connect.js';
-import { AppleSigning } from '@/credentials/apple-signing.js';
-import { GooglePlay } from '@/google-play.js';
-import { LoadLaunchFile } from '@/launch-file/load-launch-file.js';
-import { GradleBuild } from '@/build/gradle-build.js';
-import { SubmitToAppStore } from '@/build/submit-to-app-store.js';
-import { SubmitToPlay } from '@/build/submit-to-play.js';
-import { XcodeBuild } from '@/build/xcode-build.js';
+import type { LaunchConfig } from '../types/config.ts';
+import type { ExpoApp } from '../expo-app.ts';
+import { readExpoApp } from '../expo-app.ts';
+import { AppStoreConnect } from '../apple/app-store-connect.ts';
+import { AppleSigning } from '../credentials/apple-signing.ts';
+import { GooglePlay } from '../google-play.ts';
+import { LoadLaunchFile } from '../launch-file/load-launch-file.ts';
+import { GradleBuild } from './gradle-build.ts';
+import { SubmitToAppStore } from './submit-to-app-store.ts';
+import { SubmitToPlay } from './submit-to-play.ts';
+import { XcodeBuild } from './xcode-build.ts';
 
 export interface ShipBuild {
   platform: 'ios' | 'android';

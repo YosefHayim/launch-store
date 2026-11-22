@@ -2,10 +2,10 @@ import {
   discoverTreatmentScreenshots,
   parseVersionExperimentsConfig,
   reconcileVersionExperiments,
-} from '@/release/versionExperiments.js';
-import { resolveStoreSurfaceSection } from '@/cli/commands/store/apple/appStoreSurfaceCommand.js';
-import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '@/types/plan.js';
+} from '../../release/versionExperiments.ts';
+import { resolveStoreSurfaceSection } from '../../cli/commands/store/apple/appStoreSurfaceCommand.ts';
+import { planAppStoreSurface } from './appStoreSurface.ts';
+import type { SurfacePlanner } from '../../types/plan.ts';
 
 const SURFACE = 'experiments';
 

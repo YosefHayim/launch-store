@@ -1,19 +1,19 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '@/path-exists.js';
+import { pathExists } from '../path-exists.ts';
 import {
   parsePbxprojTargets,
   splitMainAndExtensions,
   multiTargetSigningWarnings,
   type TargetSigningReadiness,
-} from '@/build/appleTargets.js';
+} from '../build/appleTargets.ts';
 import {
   appGroupContainers,
   appGroupPortalNotice,
   mapEntitlementsToCapabilities,
-} from './capabilities.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { DoctorCheck } from '@/types/doctor.js';
+} from './capabilities.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { DoctorCheck } from '../types/doctor.ts';
 
 /** The read-only App Store Connect surface the signing preflight needs. */
 type SigningPreflightAscApi = {

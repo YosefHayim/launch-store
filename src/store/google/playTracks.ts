@@ -1,5 +1,5 @@
-import type { PlayRelease } from '../../types/googlePlay.js';
-import type { MutableDeep } from '../../types/mutable.js';
+import type { PlayRelease } from '../../types/googlePlay.ts';
+import type { MutableDeep } from '../../types/mutable.ts';
 
 /** Play release statuses accepted by the Android Publisher API. */
 export const RELEASE_STATUSES = ['draft', 'inProgress', 'halted', 'completed'] as const;

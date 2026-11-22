@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { resetLaunchEnvironment, useLaunchEnvironment } from '@/services/platform/environment.js';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
 import {
   buildListingPrompt,
   createAnthropicListingGenerator,
   parseDraftListing,
-} from './generator.js';
+} from './generator.ts';
 
 afterEach(function resetEnvironment() {
   resetLaunchEnvironment();

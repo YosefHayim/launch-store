@@ -1,9 +1,9 @@
-import type { AscHost } from './host.js';
+import type { AscHost } from './host.ts';
 import type {
   NewUserInvitation,
   UserInvitationResource,
   UserResource,
-} from '@/types/appleCatalog.js';
+} from '../../types/appleCatalog.ts';
 
 export class ConnectTeam {
   constructor(private readonly client: AscHost) {}

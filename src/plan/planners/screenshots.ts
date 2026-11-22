@@ -1,8 +1,8 @@
-import { reconcileAssetActions } from '@/store/shared/syncRun.js';
-import { buildJobs, type SyncJob } from '@/store/shared/syncJobs.js';
-import { checkScreenshotFile } from '@/listing/screenshots/specs.js';
-import type { PlannedAction } from '@/types/reconcile.js';
-import type { AppPlan, AscSurfacesApi, PlanContext, SurfacePlanner } from '@/types/plan.js';
+import { reconcileAssetActions } from '../../store/shared/syncRun.ts';
+import { buildJobs, type SyncJob } from '../../store/shared/syncJobs.ts';
+import { checkScreenshotFile } from '../../listing/screenshots/specs.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
+import type { AppPlan, AscSurfacesApi, PlanContext, SurfacePlanner } from '../../types/plan.ts';
 
 const SURFACE = 'screenshots';
 

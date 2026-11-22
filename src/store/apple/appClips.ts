@@ -4,16 +4,16 @@ import {
   type AppClipDefaultExperienceResource,
   type AppClipLocalizationResource,
   type AppClipResource,
-} from '../../types/appleCatalog.js';
-import type { PlannedAction, ReconcileReport } from '../../types/reconcile.js';
-import { appRecordMissing, plan, skip, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
+} from '../../types/appleCatalog.ts';
+import type { PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
+import { appRecordMissing, plan, skip, type ReconcileContext } from '../shared/reconcile.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
 import type {
   AppClipConfig,
   AppClipLocalizationConfig,
   AppClipsConfig,
-} from '../../types/storeSurface.js';
-import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.js';
+} from '../../types/storeSurface.ts';
+import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.ts';
 
 const APP_CLIPS_DOCUMENT_NAME = 'appclips.config.json';
 /** Platform whose editable App Store version the default experience releases with. */

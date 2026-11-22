@@ -1,5 +1,5 @@
-import { errorMessage } from '../services/platform/errorMessage.js';
-import type { MutableDeep } from '../types/mutable.js';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import type { MutableDeep } from '../types/mutable.ts';
 import type {
   Car,
   NativeCar,
@@ -8,8 +8,8 @@ import type {
   TrainPlatform,
   TrainRecord,
   TrainState,
-} from '../types/releaseTrain.js';
-import { isCarTerminal, isNativeCar, isOtaCar } from './guards.js';
+} from '../types/releaseTrain.ts';
+import { isCarTerminal, isNativeCar, isOtaCar } from './guards.ts';
 
 /** Store and OTA operations driven by the release-train state machine. */
 export type TrainEngine = Readonly<{

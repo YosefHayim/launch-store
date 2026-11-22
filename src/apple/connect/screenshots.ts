@@ -1,12 +1,12 @@
-import type { AscHost } from './host.js';
+import type { AscHost } from './host.ts';
 import type {
   PreviewResource,
   PreviewSetResource,
   ReviewScreenshotResource,
   ScreenshotResource,
   ScreenshotSetResource,
-} from '@/types/appleCatalog.js';
-import { readTransportFile, putAssetFile } from './shared.js';
+} from '../../types/appleCatalog.ts';
+import { readTransportFile, putAssetFile } from './shared.ts';
 
 export class ConnectScreenshots {
   constructor(private readonly client: AscHost) {}

@@ -8,10 +8,10 @@ import {
   resolveSidecarConfig,
   writeAppEntitlements,
   writeAppVersion,
-} from './config.js';
-import { validateConfig } from './configSchema.js';
-import type { AppDescriptor } from '../types/app.js';
-import { expectArrayElement, expectDefined } from '@testkit/assertions.testkit.js';
+} from './config.ts';
+import { validateConfig } from './configSchema.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.ts';
 const tempDirs: string[] = [];
 async function runConfigEffect<Success>(configWork: Promise<Success>): Promise<Success> {
   return configWork;

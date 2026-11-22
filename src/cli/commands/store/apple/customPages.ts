@@ -1,9 +1,9 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../../../command.ts';
 import {
   type CustomProductPagesCommandInput,
   customProductPagesCommandProgram,
-} from './customProductPagesCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+} from './customProductPagesCommand.ts';
+import { runCliProgram } from '../../../runCliProgram.ts';
 
 type CustomPagesOptions = Readonly<{
   readonly app?: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { randomHexSecret } from './randomSecret.js';
+import { randomHexSecret } from './randomSecret.ts';
 
 describe('credential password entropy', () => {
   it('returns different hex secrets on each call', () => {

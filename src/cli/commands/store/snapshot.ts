@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { snapshotCommandProgram } from '@/snapshot/snapshotCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { snapshotCommandProgram } from '../../../snapshot/snapshotCommand.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 const LIVE_SNAPSHOT = 'live';
 

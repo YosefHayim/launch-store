@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { releaseConfigCommandProgram } from '@/release/releaseConfigCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { releaseConfigCommandProgram } from '../../../release/releaseConfigCommand.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 type ReleaseConfigOptions = Readonly<{
   app?: string;

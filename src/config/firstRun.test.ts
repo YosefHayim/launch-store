@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import { readFirstRunState } from './firstRun.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { readFirstRunState } from './firstRun.ts';
 
 let temporaryHome: string;
 

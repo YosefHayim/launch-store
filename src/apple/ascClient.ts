@@ -83,32 +83,32 @@ import type {
   VersionExperimentResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '@/types/appleCatalog.js';
-import type { AscKey } from '@/types/credentials.js';
-import type { components } from '@/apple-api-types.js';
+} from '../types/appleCatalog.ts';
+import type { AscKey } from '../types/credentials.ts';
+import type { components } from '../apple-api-types.ts';
 import { platform as detectOperatingSystem } from 'node:os';
-import { retryAppleTransportRequest } from '@/apple/transportHelpers.js';
-import type { AscHost } from './connect/host.js';
-import { ConnectApps } from './connect/apps.js';
-import { ConnectBuilds } from './connect/builds.js';
-import { ConnectVersions } from './connect/versions.js';
-import { ConnectAppClips } from './connect/app-clips.js';
-import { ConnectSigning } from './connect/signing.js';
-import { ConnectSandbox } from './connect/sandbox.js';
-import { ConnectPurchases } from './connect/purchases.js';
-import { ConnectTestflight } from './connect/testflight.js';
-import { ConnectAccessibility } from './connect/accessibility.js';
-import { ConnectAvailability } from './connect/availability.js';
-import { ConnectCustomProductPages } from './connect/custom-product-pages.js';
-import { ConnectExperiments } from './connect/experiments.js';
-import { ConnectPricing } from './connect/pricing.js';
-import { ConnectReviews } from './connect/reviews.js';
-import { ConnectTeam } from './connect/team.js';
-import { ConnectReports } from './connect/reports.js';
-import { ConnectEvents } from './connect/events.js';
-import { ConnectScreenshots } from './connect/screenshots.js';
-import { ConnectDistribution } from './connect/distribution.js';
-import { ConnectGameCenter } from './connect/game-center.js';
+import { retryAppleTransportRequest } from './transportHelpers.ts';
+import type { AscHost } from './connect/host.ts';
+import { ConnectApps } from './connect/apps.ts';
+import { ConnectBuilds } from './connect/builds.ts';
+import { ConnectVersions } from './connect/versions.ts';
+import { ConnectAppClips } from './connect/app-clips.ts';
+import { ConnectSigning } from './connect/signing.ts';
+import { ConnectSandbox } from './connect/sandbox.ts';
+import { ConnectPurchases } from './connect/purchases.ts';
+import { ConnectTestflight } from './connect/testflight.ts';
+import { ConnectAccessibility } from './connect/accessibility.ts';
+import { ConnectAvailability } from './connect/availability.ts';
+import { ConnectCustomProductPages } from './connect/custom-product-pages.ts';
+import { ConnectExperiments } from './connect/experiments.ts';
+import { ConnectPricing } from './connect/pricing.ts';
+import { ConnectReviews } from './connect/reviews.ts';
+import { ConnectTeam } from './connect/team.ts';
+import { ConnectReports } from './connect/reports.ts';
+import { ConnectEvents } from './connect/events.ts';
+import { ConnectScreenshots } from './connect/screenshots.ts';
+import { ConnectDistribution } from './connect/distribution.ts';
+import { ConnectGameCenter } from './connect/game-center.ts';
 import {
   API_ORIGIN,
   BASE_URL,
@@ -124,7 +124,7 @@ import {
   clockSkewHint,
   describeErrors,
   parseErrorCodes,
-} from './connect/shared.js';
+} from './connect/shared.ts';
 import type {
   ProvisioningProfileType,
   LocaleCopy,
@@ -136,7 +136,7 @@ import type {
   PagedList,
   UploadOperation,
   AssetReservation,
-} from './connect/shared.js';
+} from './connect/shared.ts';
 
 export class AppStoreConnectClient implements AscHost {
   private readonly apps: ConnectApps;

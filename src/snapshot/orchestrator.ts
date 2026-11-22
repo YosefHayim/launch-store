@@ -4,8 +4,8 @@ import type {
   Snapshot,
   SnapshotContext,
   SnapshotSource,
-} from '../types/snapshot.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
+} from '../types/snapshot.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
 
 /**
  * Exit codes for `snapshot create`, mirroring the `launch plan` convention (error-or-clean):

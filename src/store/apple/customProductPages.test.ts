@@ -3,14 +3,14 @@ import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-} from '../../types/appleCatalog.js';
+} from '../../types/appleCatalog.ts';
 import {
   type AscCustomPagesApi,
   type CustomProductPagesConfig,
   parseCustomProductPagesConfig,
   reconcileCustomProductPages,
   summarizeCustomPages,
-} from './customProductPages.js';
+} from './customProductPages.ts';
 /** Records every write the reconciler makes. */
 type Calls = {
   createdPages: string[];

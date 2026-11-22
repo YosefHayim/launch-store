@@ -3,8 +3,8 @@ import type {
   NewUserInvitation,
   UserInvitationResource,
   UserResource,
-} from '../../types/appleCatalog.js';
-import { getTeam, inviteTeamMember, removeTeamMember, type AscTeamApi } from './team.js';
+} from '../../types/appleCatalog.ts';
+import { getTeam, inviteTeamMember, removeTeamMember, type AscTeamApi } from './team.ts';
 
 /** Build an empty Effect-native team client with optional method replacements. */
 const makeTeamClient = (methodOverrides: Partial<AscTeamApi> = {}): AscTeamApi => {

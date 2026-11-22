@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeVersionExperimentsCommandInput } from './versionExperimentsCommand.js';
+import { decodeVersionExperimentsCommandInput } from './versionExperimentsCommand.ts';
 
 describe('decodeVersionExperimentsCommandInput', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {

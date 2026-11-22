@@ -1,9 +1,9 @@
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '../path-exists.js';
-import type { AppDescriptor, Platform } from '../types/app.js';
-import type { AppleCredentials } from '../types/credentials.js';
-import { writeAppVersion } from '../config/config.js';
+import { pathExists } from '../path-exists.ts';
+import type { AppDescriptor, Platform } from '../types/app.ts';
+import type { AppleCredentials } from '../types/credentials.ts';
+import { writeAppVersion } from '../config/config.ts';
 import {
   compareVersions,
   formatVersion,
@@ -11,17 +11,17 @@ import {
   nextVersion,
   parseVersion,
   type BumpKind,
-} from '../release/version.js';
-import { readLastBump } from '../distribution/lastRun.js';
-import type { Logger } from '../services/platform/logger.js';
-import { executeCommand } from '../services/platform/exec.js';
-import { checkTerminalIsInteractive, withSpinner } from '../services/platform/progress.js';
-import { nativeProjectDirName } from '../services/stores/platform.js';
-import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
-import { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
-import { LaunchPrompt } from '../services/platform/prompt.js';
-import type { BuildRunOptions, BumpResolution } from './pipelineTypes.js';
-import type { MutableDeep } from '../types/mutable.js';
+} from '../release/version.ts';
+import { readLastBump } from '../distribution/lastRun.ts';
+import type { Logger } from '../services/platform/logger.ts';
+import { executeCommand } from '../services/platform/exec.ts';
+import { checkTerminalIsInteractive, withSpinner } from '../services/platform/progress.ts';
+import { nativeProjectDirName } from '../services/stores/platform.ts';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.ts';
+import { GoogleStoreClientService } from '../services/stores/googleStoreClient.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import type { BuildRunOptions, BumpResolution } from './pipelineTypes.ts';
+import type { MutableDeep } from '../types/mutable.ts';
 
 type BuildVersionFailure = Readonly<{
   readonly _tag: 'BuildVersionFailure';

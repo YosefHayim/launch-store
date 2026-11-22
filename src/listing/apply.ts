@@ -2,9 +2,9 @@ import type {
   AndroidLocaleInfo,
   AppleLocaleInfo,
   StoreConfig,
-} from '../store/shared/storeConfig.js';
-import type { DraftListing, ListingBrief, LocaleDraft } from '../types/listing.js';
-import type { MutableDeep } from '../types/mutable.js';
+} from '../store/shared/storeConfig.ts';
+import type { DraftListing, ListingBrief, LocaleDraft } from '../types/listing.ts';
+import type { MutableDeep } from '../types/mutable.ts';
 /**
  * App Store field limits, in characters. `keywords` is the limit on the *comma-joined* string (Apple
  * counts the serialized field, and `storeConfig` joins with `", "`), not the count of keywords.

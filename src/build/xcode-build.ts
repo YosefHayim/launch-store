@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { AppleSigningIdentity } from '@/credentials/apple-signing.js';
+import type { AppleSigningIdentity } from '../credentials/apple-signing.ts';
 
 interface ArchiveRequest {
   directory: string;

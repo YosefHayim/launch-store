@@ -2,8 +2,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { MigrationResult } from '../types/migrate.js';
-import { writeArtifacts } from './write.js';
+import type { MigrationResult } from '../types/migrate.ts';
+import { writeArtifacts } from './write.ts';
 
 /** A two-artifact result, overridable. */
 function migration(): MigrationResult {

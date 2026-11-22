@@ -7,7 +7,7 @@ import {
   resolveReleaseNotes,
   resolveReleaseType,
   resolveWhatsNew,
-} from './releaseInputs.js';
+} from './releaseInputs.ts';
 
 describe('resolveReleaseType - CLI flags override the configured default', () => {
   it('defaults to AFTER_APPROVAL with no config and no overrides', () => {

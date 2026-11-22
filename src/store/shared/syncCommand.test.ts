@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SyncCommandInputSchema } from './syncCommand.js';
+import { SyncCommandInputSchema } from './syncCommand.ts';
 
 describe('SyncCommandInputSchema', () => {
   it('decodes the complete Commander boundary', () => {

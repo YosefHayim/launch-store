@@ -5,15 +5,15 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+} from '../testkit/launchHome.testkit.ts';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import {
   makeStatsCredentialsTest,
   useStatsCredentials,
   type AppStoreStatsClient,
   type PlayVitalsReader,
-} from '../stats/statsCredentials.js';
+} from '../stats/statsCredentials.ts';
 import {
   appsListProgram,
   appsTagProgram,
@@ -21,7 +21,7 @@ import {
   parsePlatformFlag,
   parseTagRequest,
   type AppsTagRequest,
-} from './appsCommand.js';
+} from './appsCommand.ts';
 
 const ACCOUNTS_FILE = JSON.stringify({
   active: 'KEYA',

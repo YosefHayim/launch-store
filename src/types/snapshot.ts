@@ -1,10 +1,10 @@
-import type { ListingLocalization } from './appleCatalog.js';
-import type { InAppProductResource, SubscriptionResource } from './googlePlay.js';
-import type { AscCatalogApi } from '../store/apple/ascSync.js';
-import type { PlannedAction } from './reconcile.js';
-import type { AppDescriptor } from './app.js';
-import type { LaunchConfig } from './config.js';
-import type { PlayCatalogApi } from './plan.js';
+import type { ListingLocalization } from './appleCatalog.ts';
+import type { InAppProductResource, SubscriptionResource } from './googlePlay.ts';
+import type { AscCatalogApi } from '../store/apple/ascSync.ts';
+import type { PlannedAction } from './reconcile.ts';
+import type { AppDescriptor } from './app.ts';
+import type { LaunchConfig } from './config.ts';
+import type { PlayCatalogApi } from './plan.ts';
 /** Which store a source reads from - drives credential resolution and how a capture/diff is grouped. */
 export type SnapshotStore = 'appstore' | 'play';
 /**
@@ -41,7 +41,7 @@ export type AppEntities = Readonly<{
   entities: readonly SnapshotEntity[];
 }>;
 /**
- * What a source returns, as a discriminated union mirroring {@link import("./plan.js").SurfacePlan}:
+ * What a source returns, as a discriminated union mirroring {@link import("./plan.ts").SurfacePlan}:
  * - `omitted` - nothing in scope (e.g. no iOS apps); dropped from the record entirely.
  * - `skipped` - the store's credentials aren't configured, so live state couldn't be read; benign, but
  *   recorded with a reason so a partial snapshot never masquerades as complete.
@@ -98,7 +98,7 @@ export type Snapshot = Readonly<{
  * The read-only App Store Connect surface the snapshot sources share - exactly the methods they call,
  * nothing more. `AppStoreConnectClient` satisfies it structurally (every method already exists on it), so
  * the resolver from `core/storeClients.ts` is assignable here with no cast. Mirrors
- * {@link import("./readiness.js").AscReadinessApi}; grows by one method as each Apple source lands.
+ * {@link import("./readiness.ts").AscReadinessApi}; grows by one method as each Apple source lands.
  */
 export type SnapshotAscApi = Readonly<{
   getAppId(bundleId: string): Promise<string | null>;
@@ -188,7 +188,7 @@ type RestoreReport = Readonly<{
 }>;
 /**
  * One captured surface. {@link capture} is **read-only**: it resolves live state and serializes it, never
- * writing. Registered like a provider/planner (see {@link import("./registry.js")}); the orchestrator
+ * writing. Registered like a provider/planner (see {@link import("../snapshot/registry.ts")}); the orchestrator
  * resolves every registered source and never names a concrete one.
  *
  * {@link restore} is the optional write counterpart to {@link capture}: it pushes a saved capture back to

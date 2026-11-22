@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GameCenterCommandInputSchema } from './gameCenterCommand.js';
+import { GameCenterCommandInputSchema } from './gameCenterCommand.ts';
 
 describe('GameCenterCommandInputSchema', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {

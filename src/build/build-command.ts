@@ -1,5 +1,5 @@
-import type { Command } from '@/cli/command.js';
-import { BuildPipeline, type ShipBuild } from '@/build/build-pipeline.js';
+import type { Command } from '../cli/command.ts';
+import { BuildPipeline, type ShipBuild } from './build-pipeline.ts';
 
 interface BuildFlags {
   profile: string;

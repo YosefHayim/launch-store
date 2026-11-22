@@ -2,25 +2,25 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadActiveAscKey } from '../../credentials/accounts.js';
-import { loadServiceAccount } from '../../credentials/androidKeystore.js';
-import { resetLogger, useLoggerSink } from '../../services/platform/logger.js';
-import { AppleStoreClientService } from '../../services/stores/appleStoreClient.js';
-import { GoogleStoreClientService } from '../../services/stores/googleStoreClient.js';
-import type { AppDescriptor } from '../../types/app.js';
-import type { LaunchConfig } from '../../types/config.js';
-import type { PlayListing } from '../../types/googlePlay.js';
+import { loadActiveAscKey } from '../../credentials/accounts.ts';
+import { loadServiceAccount } from '../../credentials/androidKeystore.ts';
+import { resetLogger, useLoggerSink } from '../../services/platform/logger.ts';
+import { AppleStoreClientService } from '../../services/stores/appleStoreClient.ts';
+import { GoogleStoreClientService } from '../../services/stores/googleStoreClient.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { PlayListing } from '../../types/googlePlay.ts';
 import {
   assertListingPlatform,
   metadataCommandProgram,
   MetadataCommandInputSchema,
   pullAppleListing,
-} from './metadataCommand.js';
-import { loadStoreAppContext } from './selectStoreApp.js';
+} from './metadataCommand.ts';
+import { loadStoreAppContext } from './selectStoreApp.ts';
 
-vi.mock('./selectStoreApp.js', () => ({ loadStoreAppContext: vi.fn() }));
-vi.mock('../../credentials/accounts.js', () => ({ loadActiveAscKey: vi.fn() }));
-vi.mock('../../credentials/androidKeystore.js', () => ({
+vi.mock('./selectStoreApp.ts', () => ({ loadStoreAppContext: vi.fn() }));
+vi.mock('../../credentials/accounts.ts', () => ({ loadActiveAscKey: vi.fn() }));
+vi.mock('../../credentials/androidKeystore.ts', () => ({
   loadServiceAccount: vi.fn(),
   describeMissingPlayServiceAccount: vi.fn(async () => 'No Play service account.'),
 }));

@@ -1,16 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { resolveCommandEnv, selectApp, validateResolvedEnv } from '../build/pipelineEnv.js';
-import { ensureCodeSigner } from '../credentials/codeSign.js';
-import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.js';
-import { updatesAppConfigSnippet, updatesWorkerScript } from '../distribution/otaManifest.js';
-import { isCloudStorage, resolveStorageProvider } from '../distribution/storage.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
-import { executeCommand, type CommandExecutionOptions } from '../services/platform/exec.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import type { AppDescriptor } from '../types/app.js';
-import { loadConfig } from './config.js';
-import { formatEnvTable, parseCliEnv } from './env.js';
+import { resolveCommandEnv, selectApp, validateResolvedEnv } from '../build/pipelineEnv.ts';
+import { ensureCodeSigner } from '../credentials/codeSign.ts';
+import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.ts';
+import { updatesAppConfigSnippet, updatesWorkerScript } from '../distribution/otaManifest.ts';
+import { isCloudStorage, resolveStorageProvider } from '../distribution/storage.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import { executeCommand, type CommandExecutionOptions } from '../services/platform/exec.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import { loadConfig } from './config.ts';
+import { formatEnvTable, parseCliEnv } from './env.ts';
 
 type UpdateCommandInput = Readonly<{
   channel: string;

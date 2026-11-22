@@ -2,9 +2,9 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AdoptCatalogApi, AdoptTarget, Adopter, PlannedWrite } from '../types/adopt.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { InAppPurchaseConfig } from '../types/catalog.js';
+import type { AdoptCatalogApi, AdoptTarget, Adopter, PlannedWrite } from '../types/adopt.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { InAppPurchaseConfig } from '../types/catalog.ts';
 import {
   applyAdopt,
   type ApplyContext,
@@ -13,7 +13,7 @@ import {
   detectTargets,
   planTargets,
   type TargetPlan,
-} from './orchestrator.js';
+} from './orchestrator.ts';
 
 function ready<Value>(value: Value): Promise<Value> {
   return Promise.resolve(value);

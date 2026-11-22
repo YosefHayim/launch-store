@@ -1,16 +1,16 @@
 import type { Stats } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import type { AppDescriptor } from '@/types/app.js';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { AppDescriptor } from '../../types/app.ts';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import { walkAppSource } from '../sourceScan.js';
-import { declaredAppleProductIds } from './iapReadiness.js';
-import { OMITTED_PROBE } from './credentialsSkip.js';
+} from '../../types/readiness.ts';
+import { walkAppSource } from '../sourceScan.ts';
+import { declaredAppleProductIds } from './iapReadiness.ts';
+import { OMITTED_PROBE } from './credentialsSkip.ts';
 
 const scannableExtensions = new Set([
   '.js',

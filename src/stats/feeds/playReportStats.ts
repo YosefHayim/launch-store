@@ -1,6 +1,6 @@
-import type { DailyStat, DateRange, StatsMetric } from '../../types/stats.js';
-import { pickLaterDate, readMonthOfDate } from '../dateRange.js';
-import type { PlayCsvTable } from './playCsvTable.js';
+import type { DailyStat, DateRange, StatsMetric } from '../../types/stats.ts';
+import { pickLaterDate, readMonthOfDate } from '../dateRange.ts';
+import type { PlayCsvTable } from './playCsvTable.ts';
 
 interface PlayColumnMapping {
   readonly columnNames: readonly string[];

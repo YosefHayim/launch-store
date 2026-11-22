@@ -1,13 +1,13 @@
-import type { SubscriptionConfig } from '@/types/catalog.js';
+import type { SubscriptionConfig } from '../../types/catalog.ts';
 import type {
   AppReadiness,
   AscReadinessApi,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import { iosApps } from '../appScopes.js';
-import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
+} from '../../types/readiness.ts';
+import { iosApps } from '../appScopes.ts';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.ts';
 
 type LiveSubscription = Readonly<{
   id?: string;

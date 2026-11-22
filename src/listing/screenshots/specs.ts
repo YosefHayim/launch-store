@@ -1,7 +1,7 @@
-import { isApplePlatform } from '@/services/stores/platform.js';
-import type { Platform } from '@/types/app.js';
-import { readScreenshotDimensions } from './imageDimensions.js';
-import { APPLE_ASSET_TARGETS, findAppleScreenshotTarget } from './targets.js';
+import { isApplePlatform } from '../../services/stores/platform.ts';
+import type { Platform } from '../../types/app.ts';
+import { readScreenshotDimensions } from './imageDimensions.ts';
+import { APPLE_ASSET_TARGETS, findAppleScreenshotTarget } from './targets.ts';
 
 export const REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES: readonly string[] =
   APPLE_ASSET_TARGETS.filter((assetTarget) => assetTarget.readinessRequired === true).map(

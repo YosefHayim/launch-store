@@ -2,12 +2,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
-import { createLogger } from '@/services/platform/logger.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
-import { captureCommandOutput } from '../services/platform/exec.js';
-import { ensureUploadKeystore } from './androidKeystore.js';
-vi.mock('../services/platform/exec.js', () => ({
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { captureCommandOutput } from '../services/platform/exec.ts';
+import { ensureUploadKeystore } from './androidKeystore.ts';
+vi.mock('../services/platform/exec.ts', () => ({
   captureCommandOutput: vi.fn(function writeDummyKeystore(
     _executable: string,
     arguments_: readonly string[],

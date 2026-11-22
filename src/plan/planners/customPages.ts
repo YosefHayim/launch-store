@@ -1,10 +1,10 @@
-import { resolveSidecarConfig } from '@/config/config.js';
+import { resolveSidecarConfig } from '../../config/config.ts';
 import {
   loadCustomProductPagesConfig,
   reconcileCustomProductPages,
-} from '@/store/apple/customProductPages.js';
-import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '@/types/plan.js';
+} from '../../store/apple/customProductPages.ts';
+import { planAppStoreSurface } from './appStoreSurface.ts';
+import type { SurfacePlanner } from '../../types/plan.ts';
 /** Surface id - also the value users pass as `launch plan custom-pages`. */
 const SURFACE = 'custom-pages';
 export const customPagesPlanner: SurfacePlanner = {

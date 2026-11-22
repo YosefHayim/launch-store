@@ -7,7 +7,7 @@ import {
   checkScreenshotFile,
   validateAppleDimensions,
   validatePlayDimensions,
-} from './specs.js';
+} from './specs.ts';
 const tmpDirs: string[] = [];
 afterEach(() => {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });

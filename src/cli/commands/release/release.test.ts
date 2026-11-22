@@ -1,6 +1,6 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { registerReleaseCommand } from './release.js';
+import { registerReleaseCommand } from './release.ts';
 
 describe('registerReleaseCommand - the --json flag', () => {
   it('exposes --json, off by default', () => {

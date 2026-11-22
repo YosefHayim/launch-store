@@ -1,14 +1,14 @@
 import { readFile } from 'node:fs/promises';
-import { pathExists } from '@/path-exists.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { plan, skip, type ReconcileContext } from '@/store/shared/reconcile.js';
+import { pathExists } from '../path-exists.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { plan, skip, type ReconcileContext } from '../store/shared/reconcile.ts';
 import type {
   BetaAppReviewSubmissionResource,
   BetaBuildLocalizationResource,
   BetaReviewState,
   BuildResource,
-} from '@/types/appleCatalog.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+} from '../types/appleCatalog.ts';
+import type { PlannedAction } from '../types/reconcile.ts';
 
 type BetaReviewConfig = {
   readonly whatToTest: Record<string, string>;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { AppCoverage, FeedCoverage } from '../types/stats.js';
+import type { AppCoverage, FeedCoverage } from '../types/stats.ts';
 import {
   createNotesMessage,
   findFeedCoverage,
@@ -8,7 +8,7 @@ import {
   markFeedCoverageSkipped,
   mergeFeedCoverage,
   subtractCoverage,
-} from './coverageLogic.js';
+} from './coverageLogic.ts';
 
 const SYNCED_AT = '2026-10-29T08:00:00.000Z';
 const COVERED = { coveredFrom: '2026-10-01', coveredThrough: '2026-10-20' };

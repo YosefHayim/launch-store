@@ -1,8 +1,8 @@
-import type { AppStoreConnectClient } from '@/apple/ascClient.js';
-import { loadActiveAscKey } from '@/credentials/accounts.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { AppleStoreClientService } from '@/services/stores/appleStoreClient.js';
-import type { AscKey } from '@/types/credentials.js';
+import type { AppStoreConnectClient } from '../../../../apple/ascClient.ts';
+import { loadActiveAscKey } from '../../../../credentials/accounts.ts';
+import { errorMessage } from '../../../../services/platform/errorMessage.ts';
+import { AppleStoreClientService } from '../../../../services/stores/appleStoreClient.ts';
+import type { AscKey } from '../../../../types/credentials.ts';
 
 /** Loading the active Apple account or creating its transport client failed. */
 type ActiveAppleStoreFailure = Readonly<{

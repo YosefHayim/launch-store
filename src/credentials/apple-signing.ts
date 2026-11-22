@@ -1,4 +1,4 @@
-import { findActiveAccount, readSavedAccounts } from '@/credentials/keychain.js';
+import { findActiveAccount, readSavedAccounts } from './keychain.ts';
 
 export interface AppleSigningIdentity {
   teamId: string;

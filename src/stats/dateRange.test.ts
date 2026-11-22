@@ -7,7 +7,7 @@ import {
   readMonthOfDate,
   readYesterdayUtc,
   shiftDate,
-} from './dateRange.js';
+} from './dateRange.ts';
 
 describe('shiftDate', () => {
   test('moves forward across a month end', () => {

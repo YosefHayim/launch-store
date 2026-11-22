@@ -1,8 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
-import { pathExists } from '../path-exists.js';
-import { captureCommandOutput } from '../services/platform/exec.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
+import { pathExists } from '../path-exists.ts';
+import { captureCommandOutput } from '../services/platform/exec.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
 
 type GitignoreChange = { added: false } | { added: true; entry: string };
 

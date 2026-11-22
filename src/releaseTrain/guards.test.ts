@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isCarTerminal, isNativeCar, isOtaCar } from './guards.js';
-import type { Car } from '../types/releaseTrain.js';
+import { isCarTerminal, isNativeCar, isOtaCar } from './guards.ts';
+import type { Car } from '../types/releaseTrain.ts';
 const at = '2026-06-16T00:00:00.000Z';
 const ios = (state: 'building' | 'released' | 'failed'): Car => ({
   kind: 'ios',

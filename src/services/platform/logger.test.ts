@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { createLogger, resetLogger, useJsonHumanWriter, useLoggerSink } from './logger.js';
+import { createLogger, resetLogger, useJsonHumanWriter, useLoggerSink } from './logger.ts';
 
 afterEach(function resetLoggerSink() {
   resetLogger();

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { GooglePlayClient, type GooglePlayTransport } from '../../google/playClient.js';
-import { loadActiveAscKey } from '../../credentials/accounts.js';
-import { loadServiceAccount } from '../../credentials/androidKeystore.js';
-import { AppleStoreClientService } from '../../services/stores/appleStoreClient.js';
-import { GoogleStoreClientService } from '../../services/stores/googleStoreClient.js';
-import { createAscClientResolver, createPlayClientResolver } from './storeClients.js';
-vi.mock('../../credentials/accounts.js', () => ({ loadActiveAscKey: vi.fn() }));
-vi.mock('../../credentials/androidKeystore.js', () => ({ loadServiceAccount: vi.fn() }));
+import { AppStoreConnectClient } from '../../apple/ascClient.ts';
+import { GooglePlayClient, type GooglePlayTransport } from '../../google/playClient.ts';
+import { loadActiveAscKey } from '../../credentials/accounts.ts';
+import { loadServiceAccount } from '../../credentials/androidKeystore.ts';
+import { AppleStoreClientService } from '../../services/stores/appleStoreClient.ts';
+import { GoogleStoreClientService } from '../../services/stores/googleStoreClient.ts';
+import { createAscClientResolver, createPlayClientResolver } from './storeClients.ts';
+vi.mock('../../credentials/accounts.ts', () => ({ loadActiveAscKey: vi.fn() }));
+vi.mock('../../credentials/androidKeystore.ts', () => ({ loadServiceAccount: vi.fn() }));
 
 function playTransport(): GooglePlayTransport {
   return {

@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AppEventLocalizationInput, NewAppEvent } from '../../types/appleCatalog.js';
+import type { AppEventLocalizationInput, NewAppEvent } from '../../types/appleCatalog.ts';
 import {
   createEvent,
   deleteEvent,
   listEvents,
   localizeEvent,
   type AscAppEventsApi,
-} from './appEvents.js';
+} from './appEvents.ts';
 
 function readThrownMessage(cause: unknown): string | null {
   const isMissing = cause == null;

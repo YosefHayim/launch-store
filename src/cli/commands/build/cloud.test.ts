@@ -1,6 +1,6 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { registerCloudCommand } from './cloud.js';
+import { registerCloudCommand } from './cloud.ts';
 
 describe('registerCloudCommand', () => {
   it('keeps the cloud action argument and explicit teardown confirmation flag', () => {

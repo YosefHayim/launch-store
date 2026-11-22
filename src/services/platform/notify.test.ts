@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { notifyEnv, notifyMessage, notificationDocument, type NotifyEvent } from './notify.js';
+import { notifyEnv, notifyMessage, notificationDocument, type NotifyEvent } from './notify.ts';
 const success: NotifyEvent = {
   event: 'submit',
   status: 'success',

@@ -5,14 +5,14 @@ import {
   type AscCatalogApi,
   type ListingReconcileInput,
   type ReconcileInput,
-} from './ascSync.js';
-import type { AppleStoreConfig } from '../shared/storeConfig.js';
+} from './ascSync.ts';
+import type { AppleStoreConfig } from '../shared/storeConfig.ts';
 import type {
   AppProducts,
   InAppPurchaseConfig,
   SubscriptionGroupConfig,
-} from '../../types/catalog.js';
-import { expectArrayElement } from '@testkit/assertions.testkit.js';
+} from '../../types/catalog.ts';
+import { expectArrayElement } from '../../testkit/assertions.testkit.ts';
 
 /** Promise fake of {@link AscCatalogApi}. Reads default to "nothing exists yet"; writes resolve to a created resource. */
 const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {

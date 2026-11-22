@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { planStore } from '@/store/plan-store.js';
+import { planStore } from './plan-store.ts';
 
 const PRODUCT_ID = 'monthly';
 

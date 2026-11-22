@@ -1,6 +1,6 @@
-import type { AppTagChange } from '../types/portfolio.js';
-import { applyTagChange } from './portfolioLogic.js';
-import { loadPortfolioFile, pickSavedPortfolioFile, savePortfolioFile } from './portfolioStore.js';
+import type { AppTagChange } from '../types/portfolio.ts';
+import { applyTagChange } from './portfolioLogic.ts';
+import { loadPortfolioFile, pickSavedPortfolioFile, savePortfolioFile } from './portfolioStore.ts';
 
 export async function saveAppTags(appKeys: readonly string[], change: AppTagChange): Promise<void> {
   const savedFile = await loadPortfolioFile();

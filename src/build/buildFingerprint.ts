@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '../path-exists.js';
-import { captureCommandOutput } from '../services/platform/exec.js';
-import { ensureDirectoryExists, resolveLaunchHomeDirectory } from '../services/platform/paths.js';
-import type { Platform } from '../types/app.js';
+import { pathExists } from '../path-exists.ts';
+import { captureCommandOutput } from '../services/platform/exec.ts';
+import { ensureDirectoryExists, resolveLaunchHomeDirectory } from '../services/platform/paths.ts';
+import type { Platform } from '../types/app.ts';
 
 /** Native inputs that determine whether an iOS build cache is reusable. */
 export type FingerprintParts = Readonly<{

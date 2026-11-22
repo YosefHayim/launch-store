@@ -1,6 +1,6 @@
 import { gzipSync } from 'node:zlib';
 import { vi } from 'vitest';
-import type { AppStoreStatsClient } from '../stats/statsCredentials.js';
+import type { AppStoreStatsClient } from '../stats/statsCredentials.ts';
 import type {
   AnalyticsReportInstanceResource,
   AnalyticsReportRequestResource,
@@ -8,7 +8,7 @@ import type {
   AnalyticsReportSegmentResource,
   CustomerReviewResource,
   SalesReportQuery,
-} from '../types/appleCatalog.js';
+} from '../types/appleCatalog.ts';
 
 interface FakeAnalyticsInstance {
   readonly processingDate: string;

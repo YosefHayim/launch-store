@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { renderReport } from './report.js';
-import type { MigrationResult } from '../types/migrate.js';
+import { renderReport } from './report.ts';
+import type { MigrationResult } from '../types/migrate.ts';
 
 /** A result exercising every note level plus a couple of artifacts. */
 const RESULT: MigrationResult = {

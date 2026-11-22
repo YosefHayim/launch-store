@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { StorageProvider } from '../../types/providers.js';
+import type { StorageProvider } from '../../types/providers.ts';
 import {
   getBuildEngine,
   getStorageProvider,
   registerBuildEngine,
   registerStorageProvider,
-} from './registry.js';
+} from './registry.ts';
 
 function unusedStorageCall(): Promise<never> {
   return Promise.reject(new Error('not used'));

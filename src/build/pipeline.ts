@@ -1,27 +1,27 @@
-import { setCommandEnvironmentExclusions } from '../services/platform/exec.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { ResolvedBuildContext } from '../types/config.js';
-import type { MutableDeep } from '../types/mutable.js';
-import type { NotifyEvent } from '../services/platform/notify.js';
-import { notify } from '../services/platform/notify.js';
-import { loadConfig } from '../config/config.js';
-import { checkApp, formatFinding } from '../config/configCheck.js';
-import { ENV_SOURCE, envInjectionRows } from '../config/env.js';
-import { createLogger } from '../services/platform/logger.js';
-import { resolveStorageProvider } from '../distribution/storage.js';
-import type { BuildArtifact } from '../types/artifacts.js';
-import type { Platform } from '../types/app.js';
-import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
+import { setCommandEnvironmentExclusions } from '../services/platform/exec.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { ResolvedBuildContext } from '../types/config.ts';
+import type { MutableDeep } from '../types/mutable.ts';
+import type { NotifyEvent } from '../services/platform/notify.ts';
+import { notify } from '../services/platform/notify.ts';
+import { loadConfig } from '../config/config.ts';
+import { checkApp, formatFinding } from '../config/configCheck.ts';
+import { ENV_SOURCE, envInjectionRows } from '../config/env.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { resolveStorageProvider } from '../distribution/storage.ts';
+import type { BuildArtifact } from '../types/artifacts.ts';
+import type { Platform } from '../types/app.ts';
+import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.ts';
 import {
   resolveAndroidRelease,
   resolveAndroidSubmitReleaseNotes,
   resolveBuildTransport,
-} from './pipelineProviders.js';
-import { previewEnv, resolveCommandEnv, selectApp, validateResolvedEnv } from './pipelineEnv.js';
-import { receiptDestination, worstDownloadBytes } from './pipelineArtifact.js';
-import { runIosBuild } from './pipelineIos.js';
-import { runAndroidBuild } from './pipelineAndroid.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
+} from './pipelineProviders.ts';
+import { previewEnv, resolveCommandEnv, selectApp, validateResolvedEnv } from './pipelineEnv.ts';
+import { receiptDestination, worstDownloadBytes } from './pipelineArtifact.ts';
+import { runIosBuild } from './pipelineIos.ts';
+import { runAndroidBuild } from './pipelineAndroid.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
 
 /** App configuration failed the pre-build footgun check. */
 type BuildPreparationFailure = Readonly<{
@@ -539,13 +539,13 @@ async function dispatchBuild(
       await runLocalBuild(prepared, buildOptions);
       return;
     case 'remote': {
-      const remotePipeline = await import('./remotePipeline.js');
+      const remotePipeline = await import('./remotePipeline.ts');
 
       await remotePipeline.runRemoteBuild(prepared, { ...buildOptions, remote: choice.remote });
       return;
     }
     case 'eas': {
-      const easPipeline = await import('./easPipeline.js');
+      const easPipeline = await import('./easPipeline.ts');
 
       await easPipeline.runEasBuild(prepared, buildOptions);
       return;

@@ -1,4 +1,4 @@
-import type { PlayMoneyUnits } from './playPricing.js';
+import type { PlayMoneyUnits } from './playPricing.ts';
 
 export type PlayRelease = Readonly<{
   name?: string;

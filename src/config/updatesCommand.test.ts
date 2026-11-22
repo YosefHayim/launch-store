@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { UpdateManifest } from '../distribution/otaManifest.js';
+import type { UpdateManifest } from '../distribution/otaManifest.ts';
 import {
   formatUpdateDetail,
   formatUpdatesTable,
   platformsForUpdatesFilter,
   shortId,
   type UpdateRow,
-} from './updatesCommand.js';
+} from './updatesCommand.ts';
 
 /** Build one history row with concise overrides for each scenario. */
 const makeUpdateRow = (overrides: Partial<UpdateRow> = {}): UpdateRow => ({

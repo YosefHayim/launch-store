@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CustomProductPagesCommandInputSchema } from './customProductPagesCommand.js';
+import { CustomProductPagesCommandInputSchema } from './customProductPagesCommand.ts';
 
 describe('CustomProductPagesCommandInputSchema', () => {
   it('decodes the Commander boundary with an omitted app selector', () => {

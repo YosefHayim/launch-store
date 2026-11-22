@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeReleaseConfirmationRequired, resolveReleaseConfirmationMode } from './confirmation.js';
+import { makeReleaseConfirmationRequired, resolveReleaseConfirmationMode } from './confirmation.ts';
 
 describe('resolveReleaseConfirmationMode', () => {
   it('confirms immediately when --yes was passed', () => {

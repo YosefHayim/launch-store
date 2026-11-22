@@ -1,8 +1,8 @@
-import type { Adopter } from '../types/adopt.js';
-import { capabilitiesAdopter } from './capabilities.js';
-import { certsAdopter } from './certs.js';
-import { listingAdopter } from './listing.js';
-import { productsAdopter } from './products.js';
+import type { Adopter } from '../types/adopt.ts';
+import { capabilitiesAdopter } from './capabilities.ts';
+import { certsAdopter } from './certs.ts';
+import { listingAdopter } from './listing.ts';
+import { productsAdopter } from './products.ts';
 
 /** Registered adopters keyed by domain; re-registering one replaces it. */
 const ADOPTERS = new Map<string, Adopter>();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PlaySubscriptionsCommandInputSchema } from './playSubscriptionsCommand.js';
+import { PlaySubscriptionsCommandInputSchema } from './playSubscriptionsCommand.ts';
 
 describe('PlaySubscriptionsCommandInputSchema', () => {
   it('decodes the Commander boundary', () => {

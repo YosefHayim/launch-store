@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '@/cli/command.js';
-import { registerAuditCommand } from './audit.js';
+import { Command } from '../../command.ts';
+import { registerAuditCommand } from './audit.ts';
 describe('registerAuditCommand', () => {
   it('attaches a top-level `audit` command with its options', () => {
     const program = new Command();

@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
-} from '@testkit/launchHome.testkit.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import type { DailyStat } from '../types/stats.js';
-import { saveDailyStats } from './statsStore.js';
+} from '../testkit/launchHome.testkit.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import type { DailyStat } from '../types/stats.ts';
+import { saveDailyStats } from './statsStore.ts';
 
 function createStat(overrides: Partial<DailyStat>): DailyStat {
   return {

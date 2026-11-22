@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { DiscoveredApp } from '../types/portfolio.js';
+import type { DiscoveredApp } from '../types/portfolio.ts';
 import {
   applyTagChange,
   applyTagChangeToApp,
@@ -11,7 +11,7 @@ import {
   joinTags,
   keepCachedAppsOfFailedAccounts,
   mergeDiscoveredApps,
-} from './portfolioLogic.js';
+} from './portfolioLogic.ts';
 
 const createApp = (overrides: Partial<DiscoveredApp>): DiscoveredApp => ({
   key: 'ios-1',

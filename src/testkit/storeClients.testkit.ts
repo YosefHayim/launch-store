@@ -1,5 +1,5 @@
-import type { PlayReportingApp, PlayReportingClient } from '@google/playReporting.js';
-import type { AppStoreConnectClient } from '../apple/ascClient.js';
+import type { PlayReportingApp, PlayReportingClient } from '../google/playReporting.ts';
+import type { AppStoreConnectClient } from '../apple/ascClient.ts';
 
 interface FakeAscApp {
   readonly id: string;

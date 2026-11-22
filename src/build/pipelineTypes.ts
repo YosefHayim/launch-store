@@ -1,10 +1,10 @@
-import type { AppDescriptor, Distribution, Platform, PlayTrack } from '../types/app.js';
-import type { SizeReport } from '../types/artifacts.js';
-import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
-import type { MutableDeep } from '../types/mutable.js';
-import type { RemoteTarget } from '../types/remote.js';
-import type { Logger } from '../services/platform/logger.js';
-import type { BumpKind } from '../release/version.js';
+import type { AppDescriptor, Distribution, Platform, PlayTrack } from '../types/app.ts';
+import type { SizeReport } from '../types/artifacts.ts';
+import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
+import type { MutableDeep } from '../types/mutable.ts';
+import type { RemoteTarget } from '../types/remote.ts';
+import type { Logger } from '../services/platform/logger.ts';
+import type { BumpKind } from '../release/version.ts';
 /** Options for one `launch build` invocation. */
 export type BuildRunOptions = {
   platform: Platform;

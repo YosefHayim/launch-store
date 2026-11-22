@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseLaunchConfig, validateLaunchConfig } from '../config/schema.js';
+import { parseLaunchConfig, validateLaunchConfig } from '../config/schema.ts';
 import {
   DEFAULT_BUILD_ENGINE,
   DEFAULT_CREDENTIALS_PROVIDER,
   DEFAULT_STORAGE_PROVIDER,
   DEFAULT_SUBMITTER,
-} from './config.js';
+} from './config.ts';
 describe('LaunchConfig parse boundary', () => {
   it('fills the four provider defaults on parse, so a minimal config only declares profiles', () => {
     const parsed = parseLaunchConfig({ profiles: {} });

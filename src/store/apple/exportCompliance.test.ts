@@ -4,7 +4,7 @@ import {
   reconcileExportCompliance,
   summarizeExportComplianceResult,
   type ExportComplianceApi,
-} from './exportCompliance.js';
+} from './exportCompliance.ts';
 /** A fully-stubbed {@link ExportComplianceApi}: build exists & unanswered, no declarations, writes succeed. */
 const makeApi = (overrides: Partial<ExportComplianceApi> = {}): ExportComplianceApi => {
   return {

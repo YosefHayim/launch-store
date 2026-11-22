@@ -1,33 +1,33 @@
-import { parseBuildRollout } from '@/build/buildCommandInput.js';
-import { worstDownloadBytes } from '@/build/pipelineArtifact.js';
-import { resolveCommandEnv, selectApp } from '@/build/pipelineEnv.js';
-import { mb, submitToStores } from '@/build/pipelineProviders.js';
-import { resolveIosAccount } from '@/build/pipelineSigning.js';
-import { loadConfig } from '@/config/config.js';
-import { formatEnvTable, parseCliEnv } from '@/config/env.js';
-import { loadAscKeyById } from '@/credentials/accounts.js';
-import { ensureArtifactPresent, resolveStorageProvider } from '@/distribution/storage.js';
-import { errorMessage, hasMessage } from '@/services/platform/errorMessage.js';
-import { createLogger, type Logger } from '@/services/platform/logger.js';
-import { notify, type NotifyEvent } from '@/services/platform/notify.js';
-import { LaunchPrompt, pickOne } from '@/services/platform/prompt.js';
-import { getCredentialsProvider } from '@/services/providerSupport/registry.js';
+import { parseBuildRollout } from '../build/buildCommandInput.ts';
+import { worstDownloadBytes } from '../build/pipelineArtifact.ts';
+import { resolveCommandEnv, selectApp } from '../build/pipelineEnv.ts';
+import { mb, submitToStores } from '../build/pipelineProviders.ts';
+import { resolveIosAccount } from '../build/pipelineSigning.ts';
+import { loadConfig } from '../config/config.ts';
+import { formatEnvTable, parseCliEnv } from '../config/env.ts';
+import { loadAscKeyById } from '../credentials/accounts.ts';
+import { ensureArtifactPresent, resolveStorageProvider } from '../distribution/storage.ts';
+import { errorMessage, hasMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { notify, type NotifyEvent } from '../services/platform/notify.ts';
+import { LaunchPrompt, pickOne } from '../services/platform/prompt.ts';
+import { getCredentialsProvider } from '../services/providerSupport/registry.ts';
 import {
   AppleStoreClientService,
   appRecordMissingMessage,
-} from '@/services/stores/appleStoreClient.js';
+} from '../services/stores/appleStoreClient.ts';
 import {
   isApplePlatform,
   parsePlatform,
   platformLabel,
   toAscPlatform,
-} from '@/services/stores/platform.js';
-import { completeCommand, isCommandExit } from '@/terminal/commandExit.js';
-import type { AndroidReleaseOptions, AppDescriptor, BuildProfile, Platform } from '@/types/app.js';
-import type { BuildArtifact } from '@/types/artifacts.js';
-import type { BuildResource } from '@/types/appleCatalog.js';
-import type { LaunchConfig, ResolvedBuildContext } from '@/types/config.js';
-import type { ResolvedEnv } from '@/config/env.js';
+} from '../services/stores/platform.ts';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.ts';
+import type { AndroidReleaseOptions, AppDescriptor, BuildProfile, Platform } from '../types/app.ts';
+import type { BuildArtifact } from '../types/artifacts.ts';
+import type { BuildResource } from '../types/appleCatalog.ts';
+import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
+import type { ResolvedEnv } from '../config/env.ts';
 import {
   releaseApp,
   waitForValidBuild,
@@ -35,9 +35,9 @@ import {
   type ReleaseAction,
   type ReleaseInput,
   type ReleaseReport,
-} from './appStoreRelease.js';
-import { resolveReleaseConfirmationMode } from './confirmation.js';
-import { resolveReleaseType, resolveWhatsNew } from './releaseInputs.js';
+} from './appStoreRelease.ts';
+import { resolveReleaseConfirmationMode } from './confirmation.ts';
+import { resolveReleaseType, resolveWhatsNew } from './releaseInputs.ts';
 
 /** Parsed flags accepted by the public release command. */
 export type ReleaseCommandOptions = Readonly<{

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Snapshot } from '../types/snapshot.js';
+import type { Snapshot } from '../types/snapshot.ts';
 import {
   SnapshotCommandInputSchema,
   countEntities,
@@ -7,7 +7,7 @@ import {
   parsePruneCount,
   previewOnlyTitles,
   savedEntitiesFor,
-} from './snapshotCommand.js';
+} from './snapshotCommand.ts';
 
 /** Minimal snapshot fixture; override reports/name as needed. */
 const sampleSnapshot = (snapshotFields: Partial<Snapshot> = {}): Snapshot => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BuildArtifact, PrunedArtifact } from '../types/artifacts.js';
+import type { BuildArtifact, PrunedArtifact } from '../types/artifacts.ts';
 import {
   buildId,
   buildKindLabel,
@@ -13,7 +13,7 @@ import {
   parsePruneDays,
   pruneConfirmationBlocked,
   toBuildRow,
-} from './buildHistoryCommand.js';
+} from './buildHistoryCommand.ts';
 
 const MB = 1024 * 1024;
 

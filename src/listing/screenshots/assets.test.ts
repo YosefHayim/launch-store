@@ -10,7 +10,7 @@ import {
   hashFile,
   PREVIEWS_DIRNAME,
   SCREENSHOTS_DIRNAME,
-} from './assets.js';
+} from './assets.ts';
 import {
   APPLE_ASSET_TARGETS,
   appleDisplayTypeLabel,
@@ -18,7 +18,7 @@ import {
   findAppleAssetTarget,
   findApplePreviewTarget,
   findAppleScreenshotTarget,
-} from './targets.js';
+} from './targets.ts';
 const tmpDirs: string[] = [];
 const workDir = (): string => {
   const dir = mkdtempSync(join(tmpdir(), 'screenshot-assets-test-'));

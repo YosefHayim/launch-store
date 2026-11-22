@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LaunchSecretStore, resetSecretStore, useSecretStore } from './secretStore.js';
+import { LaunchSecretStore, resetSecretStore, useSecretStore } from './secretStore.ts';
 
 const fakeKeyring = vi.hoisted(() => ({
   storedPassword: null as string | null,

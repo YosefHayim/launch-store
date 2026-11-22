@@ -1,18 +1,18 @@
-import type { Command } from '@/cli/command.js';
-import { AppStoreConnect } from '@/apple/app-store-connect.js';
-import type { ExpoApp } from '@/expo-app.js';
-import { readExpoApp } from '@/expo-app.js';
-import { GooglePlay } from '@/google-play.js';
-import { LoadLaunchFile } from '@/launch-file/load-launch-file.js';
+import type { Command } from '../cli/command.ts';
+import { AppStoreConnect } from '../apple/app-store-connect.ts';
+import type { ExpoApp } from '../expo-app.ts';
+import { readExpoApp } from '../expo-app.ts';
+import { GooglePlay } from '../google-play.ts';
+import { LoadLaunchFile } from '../launch-file/load-launch-file.ts';
 import {
   DRIFT_MESSAGE,
   desiredProducts,
   planStore,
   type StoreProduct,
   type StoreSnapshot,
-} from '@/store/plan-store.js';
-import { StoreAdopt } from '@/store/store-adopt.js';
-import { StoreSync } from '@/store/store-sync.js';
+} from './plan-store.ts';
+import { StoreAdopt } from './store-adopt.ts';
+import { StoreSync } from './store-sync.ts';
 
 interface PlanFlags {
   check: boolean;

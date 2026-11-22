@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '@/cli/command.js';
-import { registerIapCommand } from './iapDoctor.js';
+import { Command } from '../../command.ts';
+import { registerIapCommand } from './iapDoctor.ts';
 describe('registerIapCommand', () => {
   it('attaches an `iap` group with a `doctor` subcommand and its options', () => {
     const program = new Command();

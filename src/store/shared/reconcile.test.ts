@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { PlannedAction } from '../../types/reconcile.js';
+import type { PlannedAction } from '../../types/reconcile.ts';
 import {
   act,
   appRecordMissing,
@@ -8,7 +8,7 @@ import {
   type ReconcileContext,
   skip,
   summarize,
-} from './reconcile.js';
+} from './reconcile.ts';
 
 /** A fresh apply-mode context (dryRun off) for each test. */
 function applyContext(): ReconcileContext {

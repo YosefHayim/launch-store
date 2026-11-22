@@ -1,17 +1,17 @@
 import { join } from 'node:path';
-import { loadConfig, type LoadedConfig } from '@/config/config.js';
-import type { LaunchEnvironmentValues } from '@/config/environment.js';
-import { pathExists } from '@/path-exists.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { readLaunchEnvironment } from '@/services/platform/environment.js';
-import { captureCommandOutput, checkCommandExists } from '@/services/platform/exec.js';
-import { detectHostOperatingSystem } from '@/services/platform/os.js';
-import { readLaunchDirectories } from '@/services/platform/paths.js';
-import { getCredentialsProvider } from '@/services/providerSupport/registry.js';
-import { createAscClientResolver, createPlayClientResolver } from '@/store/shared/storeClients.js';
-import { selectApps } from '@/store/shared/syncJobs.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { DoctorAscApi, DoctorContext, DoctorPlatform } from '@/types/doctor.js';
+import { loadConfig, type LoadedConfig } from '../config/config.ts';
+import type { LaunchEnvironmentValues } from '../config/environment.ts';
+import { pathExists } from '../path-exists.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
+import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.ts';
+import { detectHostOperatingSystem } from '../services/platform/os.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { getCredentialsProvider } from '../services/providerSupport/registry.ts';
+import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.ts';
+import { selectApps } from '../store/shared/syncJobs.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { DoctorAscApi, DoctorContext, DoctorPlatform } from '../types/doctor.ts';
 
 type DoctorContextFailure = Readonly<{
   _tag: 'DoctorContextFailure';

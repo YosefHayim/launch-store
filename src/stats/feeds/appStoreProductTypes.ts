@@ -1,4 +1,4 @@
-import type { SalesReportKind } from './appStoreFeedTypes.js';
+import type { SalesReportKind } from './appStoreFeedTypes.ts';
 
 // https://developer.apple.com/help/app-store-connect/reference/product-type-identifiers
 const PRODUCT_TYPE_IDS_BY_KIND: Readonly<Record<SalesReportKind, readonly string[]>> = {

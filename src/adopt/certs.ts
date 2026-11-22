@@ -1,6 +1,6 @@
-import { describeStoredCredentials } from '../credentials/appleSigning.js';
-import type { Adopter, PlannedWrite } from '../types/adopt.js';
-import type { CertificateResource, ProfileResource } from '../types/appleCatalog.js';
+import { describeStoredCredentials } from '../credentials/appleSigning.ts';
+import type { Adopter, PlannedWrite } from '../types/adopt.ts';
+import type { CertificateResource, ProfileResource } from '../types/appleCatalog.ts';
 
 type LocalSigningView = Readonly<{
   certSerial: string | null;

@@ -1,24 +1,24 @@
 import { mkdtemp, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import type { Platform } from '@/types/app.js';
-import type { SizeReportEntry } from '@/types/artifacts.js';
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials, SigningAssets } from '@/types/credentials.js';
-import { makeProviderInputFailure, type BuildEngine } from '@/types/providers.js';
+import type { Platform } from '../../types/app.ts';
+import type { SizeReportEntry } from '../../types/artifacts.ts';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials, SigningAssets } from '../../types/credentials.ts';
+import { makeProviderInputFailure, type BuildEngine } from '../../types/providers.ts';
 import {
   assertDeviceArtifact,
   exportOptionsPlist,
   parseThinningReport,
-} from '@/services/providerSupport/appleArtifact.js';
+} from '../../services/providerSupport/appleArtifact.ts';
 import {
   runWithProgress,
   xcodeProgressStep,
   type ProgressRunOptions,
-} from '@/services/platform/progress.js';
-import { checkCommandExists } from '@/services/platform/exec.js';
-import { readHostResources } from '@/services/platform/os.js';
-import { pathExists } from '@/path-exists.js';
+} from '../../services/platform/progress.ts';
+import { checkCommandExists } from '../../services/platform/exec.ts';
+import { readHostResources } from '../../services/platform/os.ts';
+import { pathExists } from '../../path-exists.ts';
 import {
   assembleArchiveArguments,
   assembleExportArguments,
@@ -31,14 +31,14 @@ import {
   updateEstimate,
   writeBuildState,
   writeManualSigningToProject,
-} from '@/services/providerSupport/buildEngineSupport.js';
+} from '../../services/providerSupport/buildEngineSupport.ts';
 import {
   appleArtifactExtension,
   archiveDestination,
   isApplePlatform,
   nativeProjectDirName,
   platformLabel,
-} from '@/services/stores/platform.js';
+} from '../../services/stores/platform.ts';
 
 /**
  * Resolve an app's native Xcode project directory to an absolute path.

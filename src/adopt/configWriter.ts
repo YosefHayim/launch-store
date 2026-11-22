@@ -1,10 +1,10 @@
-import { configTemplate } from '../config/configScaffold.js';
-import type { EntitlementValue, ProductPiece } from '../types/adopt.js';
+import { configTemplate } from '../config/configScaffold.ts';
+import type { EntitlementValue, ProductPiece } from '../types/adopt.ts';
 import type {
   AppProducts,
   InAppPurchaseConfig,
   SubscriptionGroupConfig,
-} from '../types/catalog.js';
+} from '../types/catalog.ts';
 
 /** Fold one bundle's imported product pieces into a single AppProducts, dropping empty arms. */
 export const aggregateProductPieces = (pieces: readonly ProductPiece[]): AppProducts => {

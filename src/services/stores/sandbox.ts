@@ -1,4 +1,4 @@
-import type { SandboxTesterResource } from '../../types/appleCatalog.js';
+import type { SandboxTesterResource } from '../../types/appleCatalog.ts';
 
 /** The exact slice of App Store Connect the sandbox domain depends on. */
 export type AscSandboxApi = {

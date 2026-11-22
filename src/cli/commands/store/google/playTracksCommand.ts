@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { hasMessage } from '@/services/platform/errorMessage.js';
-import { createLogger } from '@/services/platform/logger.js';
-import type { PlayCountryAvailability, PlayRelease } from '@/types/googlePlay.js';
+import { hasMessage } from '../../../../services/platform/errorMessage.ts';
+import { createLogger } from '../../../../services/platform/logger.ts';
+import type { PlayCountryAvailability, PlayRelease } from '../../../../types/googlePlay.ts';
 import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,
   resolveGoogleStoreApp,
-} from './googleStoreCommand.js';
+} from './googleStoreCommand.ts';
 import {
   buildRelease,
   isReleaseStatus,
@@ -16,7 +16,7 @@ import {
   RELEASE_STATUSES,
   type ReleaseInput,
   type ReleaseNote,
-} from '@/store/google/playTracks.js';
+} from '../../../../store/google/playTracks.ts';
 
 export type PlayTracksStatusInput = {
   operation: 'status';

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { parseStoreConfig, readAndroidMetadataDir, readAppleMetadataDir } from './storeConfig.js';
+import { parseStoreConfig, readAndroidMetadataDir, readAppleMetadataDir } from './storeConfig.ts';
 const tmpDirs: string[] = [];
 const workDir = (): string => {
   const dir = mkdtempSync(join(tmpdir(), 'storeconfig-test-'));

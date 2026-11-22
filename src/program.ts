@@ -1,4 +1,4 @@
-import { buildProgram } from '@/cli/program.js';
+import { buildProgram } from './cli/program.ts';
 
 export class Program {
   parse = async (launchVersion: string): Promise<void> => {

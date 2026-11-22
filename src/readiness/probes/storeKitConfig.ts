@@ -1,14 +1,14 @@
 import { relative } from 'node:path';
-import type { AppDescriptor } from '@/types/app.js';
+import type { AppDescriptor } from '../../types/app.ts';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import { walkAppSource } from '../sourceScan.js';
-import { declaredAppleProductIds } from './iapReadiness.js';
-import { OMITTED_PROBE } from './credentialsSkip.js';
+} from '../../types/readiness.ts';
+import { walkAppSource } from '../sourceScan.ts';
+import { declaredAppleProductIds } from './iapReadiness.ts';
+import { OMITTED_PROBE } from './credentialsSkip.ts';
 
 type ScopedApp = { name: string; identifier: string; directory: string };
 

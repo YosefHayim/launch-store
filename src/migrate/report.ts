@@ -1,4 +1,4 @@
-import type { MigrationNoteLevel, MigrationResult, MigrationSource } from '../types/migrate.js';
+import type { MigrationNoteLevel, MigrationResult, MigrationSource } from '../types/migrate.ts';
 
 const LEVEL_LABEL: Record<MigrationNoteLevel, string> = {
   mapped: 'OK',

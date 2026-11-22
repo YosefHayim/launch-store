@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { testflightCommandProgram } from '@/release/testflightCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { testflightCommandProgram } from '../../../release/testflightCommand.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 type AppOption = Readonly<{ app?: string }>;
 

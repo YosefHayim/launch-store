@@ -1,12 +1,12 @@
 import { createPrivateKey, sign } from 'node:crypto';
-import type { AscKey } from '@/types/credentials.js';
+import type { AscKey } from '../types/credentials.ts';
 import {
   Keychain,
   LEGACY_APPLE_PRIVATE_KEY_ACCOUNT,
   applePrivateKeyAccount,
   findActiveAccount,
   readSavedAccounts,
-} from '@/credentials/keychain.js';
+} from '../credentials/keychain.ts';
 
 export class AppStoreToken {
   constructor(private readonly keychain = new Keychain()) {}

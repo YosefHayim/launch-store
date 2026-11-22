@@ -4,7 +4,7 @@ import {
   checkIsMacOperatingSystem,
   detectHostOperatingSystem,
   resolveHostOperatingSystemLabel,
-} from './os.js';
+} from './os.ts';
 vi.mock('node:os', () => ({ platform: vi.fn(() => 'darwin') }));
 
 const platformMock = vi.mocked(platform);

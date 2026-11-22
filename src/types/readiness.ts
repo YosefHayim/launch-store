@@ -1,5 +1,5 @@
-import type { AppDescriptor } from './app.js';
-import type { LaunchConfig } from './config.js';
+import type { AppDescriptor } from './app.ts';
+import type { LaunchConfig } from './config.ts';
 
 /** Store queried by a readiness probe. */
 export type ReadinessStore = 'appstore' | 'play';

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Car, NativeCar, NativeCarState, TrainRecord } from '../types/releaseTrain.js';
-import { isNativeCar, isOtaCar } from './guards.js';
+import type { Car, NativeCar, NativeCarState, TrainRecord } from '../types/releaseTrain.ts';
+import { isNativeCar, isOtaCar } from './guards.ts';
 import {
   advanceTrain,
   deriveTrainState,
@@ -11,7 +11,7 @@ import {
   startTrain,
   trainExitCode,
   type TrainEngine,
-} from './orchestrator.js';
+} from './orchestrator.ts';
 
 const NOW = '2026-06-16T00:00:00.000Z';
 const LATER = '2026-06-16T01:00:00.000Z';

@@ -3,7 +3,7 @@ import {
   parsePlayReviewRating,
   PlayReviewsCommandInputSchema,
   renderPlayReview,
-} from './playReviewsCommand.js';
+} from './playReviewsCommand.ts';
 
 describe('PlayReviewsCommandInputSchema', () => {
   it('decodes list and reply inputs without unset option fields', () => {

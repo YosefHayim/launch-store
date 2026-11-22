@@ -2,15 +2,15 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resetLaunchEnvironment } from '../services/platform/environment.js';
-import { summarize } from '../store/shared/reconcile.js';
-import type { ReleaseAttributesConfig } from '../types/storeSurface.js';
+import { resetLaunchEnvironment } from '../services/platform/environment.ts';
+import { summarize } from '../store/shared/reconcile.ts';
+import type { ReleaseAttributesConfig } from '../types/storeSurface.ts';
 import {
   type AscReleaseApi,
   loadReleaseConfig,
   parseReleaseConfig,
   reconcileRelease,
-} from './releaseAttrs.js';
+} from './releaseAttrs.ts';
 
 function makeReleaseApi(methodOverrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
   return {

@@ -1,14 +1,14 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { configTemplate, detectAppRoot } from '../config/configScaffold.js';
-import { pathExists } from '../path-exists.js';
+import { configTemplate, detectAppRoot } from '../config/configScaffold.ts';
+import { pathExists } from '../path-exists.ts';
 import {
   readAndroidMetadataDir,
   readAppleMetadataDir,
   serializeStoreConfig,
   type StoreConfig,
-} from '../store/shared/storeConfig.js';
-import type { AppDescriptor } from '../types/app.js';
+} from '../store/shared/storeConfig.ts';
+import type { AppDescriptor } from '../types/app.ts';
 import type {
   AppfileData,
   FastlaneLane,
@@ -18,9 +18,9 @@ import type {
   MigrationNoteLevel,
   MigrationResult,
   SupplyfileData,
-} from '../types/migrate.js';
-import type { MutableDeep } from '../types/mutable.js';
-import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
+} from '../types/migrate.ts';
+import type { MutableDeep } from '../types/mutable.ts';
+import { buildEnvExample, scaffoldStoreConfig } from './scaffold.ts';
 
 /**
  * A parsed fastlane setup, narrowed to what Launch reads from the standard files. Lanes and recognized

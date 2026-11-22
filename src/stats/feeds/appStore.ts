@@ -1,5 +1,5 @@
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import { summarizeRatings } from '../../insights/aggregate.js';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import { summarizeRatings } from '../../insights/aggregate.ts';
 import {
   collectAnalyticsSegments,
   decompressReport,
@@ -7,25 +7,25 @@ import {
   parseTsv,
   type AscReportsApi,
   type ParsedReport,
-} from '../../store/apple/reports.js';
-import type { PortfolioApp } from '../../types/portfolio.js';
-import type { ReviewDatum, StarRating } from '../../types/insights.js';
-import type { DailyStat, DateRange, FeedFetchReply, StatsFeedFailure } from '../../types/stats.js';
-import { shiftDate } from '../dateRange.js';
-import type { AppStoreStatsClient, StatsCredentialsApi } from '../statsCredentials.js';
+} from '../../store/apple/reports.ts';
+import type { PortfolioApp } from '../../types/portfolio.ts';
+import type { ReviewDatum, StarRating } from '../../types/insights.ts';
+import type { DailyStat, DateRange, FeedFetchReply, StatsFeedFailure } from '../../types/stats.ts';
+import { shiftDate } from '../dateRange.ts';
+import type { AppStoreStatsClient, StatsCredentialsApi } from '../statsCredentials.ts';
 import {
   ANALYTICS_REPORT_NAMES,
   summarizeAnalyticsBatches,
   type AnalyticsSummary,
-} from './appStoreAnalyticsReport.js';
+} from './appStoreAnalyticsReport.ts';
 import type {
   AnalyticsAccessType,
   AnalyticsReportBatch,
   AnalyticsReportKind,
   AppStoreStatsPath,
   ReportLine,
-} from './appStoreFeedTypes.js';
-import { findAppSkus, summarizeSalesLines } from './appStoreSalesReport.js';
+} from './appStoreFeedTypes.ts';
+import { findAppSkus, summarizeSalesLines } from './appStoreSalesReport.ts';
 
 interface AppStoreFetchRequest {
   readonly app: PortfolioApp;

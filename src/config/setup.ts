@@ -1,37 +1,37 @@
 import { writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
-import { runBuild } from '../build/pipeline.js';
+import { runBuild } from '../build/pipeline.ts';
 import {
   formatAccountSummary,
   getActiveAccount,
   loadActiveAscKey,
-} from '../credentials/accounts.js';
-import { loadServiceAccount } from '../credentials/androidKeystore.js';
-import { pathExists } from '../path-exists.js';
-import { Prompts } from '../prompts.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
+} from '../credentials/accounts.ts';
+import { loadServiceAccount } from '../credentials/androidKeystore.ts';
+import { pathExists } from '../path-exists.ts';
+import { Prompts } from '../prompts.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
 import {
   checkIsMacOperatingSystem,
   readHostResources,
   resolveHostOperatingSystemLabel,
-} from '../services/platform/os.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { isApplePlatform, platformLabel } from '../services/stores/platform.js';
-import { SetupStoreReadiness } from '../services/stores/setupStoreReadiness.js';
-import type { AppDescriptor, Platform } from '../types/app.js';
-import type { AscKey } from '../types/credentials.js';
-import { checkApp, formatFinding } from './configCheck.js';
-import { loadConfig } from './config.js';
+} from '../services/platform/os.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { isApplePlatform, platformLabel } from '../services/stores/platform.ts';
+import { SetupStoreReadiness } from '../services/stores/setupStoreReadiness.ts';
+import type { AppDescriptor, Platform } from '../types/app.ts';
+import type { AscKey } from '../types/credentials.ts';
+import { checkApp, formatFinding } from './configCheck.ts';
+import { loadConfig } from './config.ts';
 import {
   DEFAULT_IN_REPO_ARTIFACT_DIR,
   ENV_EXAMPLE_TEMPLATE,
   configTemplate,
   detectAppRoot,
-} from './configScaffold.js';
-import { ensureArtifactDirIgnored } from './gitignore.js';
-import { inspectPackageSetup } from './packageManager.js';
+} from './configScaffold.ts';
+import { ensureArtifactDirIgnored } from './gitignore.ts';
+import { inspectPackageSetup } from './packageManager.ts';
 import {
   ANDROID_TOOLS,
   REQUIRED_TOOLS,
@@ -39,7 +39,7 @@ import {
   ensureToolchain,
   fixHint,
   missingRequiredTools,
-} from './toolchain.js';
+} from './toolchain.ts';
 
 type ReadinessStatus = 'ok' | 'todo' | 'info';
 type ReadinessRow = Readonly<{

@@ -1,12 +1,12 @@
-import { runPlanner } from './planner.testkit.js';
+import { runPlanner } from './planner.testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
-import { catalogPlanner } from './catalog.js';
-import { makeAscApiFake } from '@testkit/ascApiFake.testkit.js';
-import type { AscCatalogApi } from '@/store/apple/ascSync.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { AppProducts } from '@/types/catalog.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { PlanContext } from '@/types/plan.js';
+import { catalogPlanner } from './catalog.ts';
+import { makeAscApiFake } from '../../testkit/ascApiFake.testkit.ts';
+import type { AscCatalogApi } from '../../store/apple/ascSync.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { AppProducts } from '../../types/catalog.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { PlanContext } from '../../types/plan.ts';
 /** A fully-stubbed {@link AscCatalogApi}: reads default to "nothing exists yet", writes resolve to a created resource. */
 const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
   const base: AscCatalogApi = {

@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
-} from '../../types/appleCatalog.js';
-import { deleteReviewResponse, listReviews, replyToReview, type AscReviewsApi } from './reviews.js';
+} from '../../types/appleCatalog.ts';
+import { deleteReviewResponse, listReviews, replyToReview, type AscReviewsApi } from './reviews.ts';
 
 function readThrownMessage(cause: unknown): string | null {
   const isMissing = cause == null;

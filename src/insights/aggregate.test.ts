@@ -5,8 +5,8 @@ import {
   monthlyTrend,
   sentimentOf,
   summarizeRatings,
-} from './aggregate.js';
-import type { ReviewDatum } from '../types/insights.js';
+} from './aggregate.ts';
+import type { ReviewDatum } from '../types/insights.ts';
 /** Build a review datum with sensible defaults so tests state only what they exercise. */
 const review = (over: Partial<ReviewDatum> = {}): ReviewDatum => {
   return { store: 'appstore', rating: 5, answered: false, ...over };

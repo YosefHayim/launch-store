@@ -1,11 +1,11 @@
-import { runPlanner } from './planner.testkit.js';
+import { runPlanner } from './planner.testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
-import { releaseConfigPlanner } from './releaseConfig.js';
-import { makeAscApiFake } from '@testkit/ascApiFake.testkit.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
-import type { ReleaseAttributesConfig } from '@/types/storeSurface.js';
+import { releaseConfigPlanner } from './releaseConfig.ts';
+import { makeAscApiFake } from '../../testkit/ascApiFake.testkit.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
+import type { ReleaseAttributesConfig } from '../../types/storeSurface.ts';
 const ALPHA: AppDescriptor = {
   name: 'alpha',
   dir: '/no/such/dir/alpha',

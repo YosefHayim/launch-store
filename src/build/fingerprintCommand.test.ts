@@ -3,7 +3,7 @@ import {
   type FingerprintReport,
   decodeFingerprintCommandInput,
   formatFingerprintReport,
-} from './fingerprintCommand.js';
+} from './fingerprintCommand.ts';
 
 const INCREMENTAL_REPORT: FingerprintReport = {
   app: 'demo',

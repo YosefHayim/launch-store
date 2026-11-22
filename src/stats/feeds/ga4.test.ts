@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { PortfolioApp } from '../../types/portfolio.js';
-import type { FeedFetchReply } from '../../types/stats.js';
-import type { StatsCredentialsApi } from '../statsCredentials.js';
-import { makeStatsCredentialsTest, useStatsCredentials } from '../statsCredentials.js';
-import { ga4Feed } from './ga4.js';
+import type { PortfolioApp } from '../../types/portfolio.ts';
+import type { FeedFetchReply } from '../../types/stats.ts';
+import type { StatsCredentialsApi } from '../statsCredentials.ts';
+import { makeStatsCredentialsTest, useStatsCredentials } from '../statsCredentials.ts';
+import { ga4Feed } from './ga4.ts';
 
 const ACCOUNT_SUMMARIES_URL =
   'https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200';

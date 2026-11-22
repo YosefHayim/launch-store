@@ -3,7 +3,7 @@ import {
   readLaunchEnvironment,
   resetLaunchEnvironment,
   useLaunchEnvironment,
-} from './environment.js';
+} from './environment.ts';
 
 afterEach(function resetEnvironment() {
   resetLaunchEnvironment();

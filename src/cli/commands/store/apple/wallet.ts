@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { walletCommandProgram } from './walletCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../../command.ts';
+import { walletCommandProgram } from './walletCommand.ts';
+import { runCliProgram } from '../../../runCliProgram.ts';
 
 type WalletOptions = Readonly<{
   config: string;

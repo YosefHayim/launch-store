@@ -1,13 +1,13 @@
-import { loadConfig, type LoadedConfig } from '../config/config.js';
-import { executeCommand } from '../services/platform/exec.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
-import { detectHostOperatingSystem } from '../services/platform/os.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { isApplePlatform, parsePlatform } from '../services/stores/platform.js';
-import { createAscClientResolver } from '../store/shared/storeClients.js';
-import { selectApps } from '../store/shared/syncJobs.js';
-import type { AppDescriptor, OpenTarget, Platform } from '../types/app.js';
-import { PLAY_CONSOLE_URL } from './playConsoleUrls.js';
+import { loadConfig, type LoadedConfig } from '../config/config.ts';
+import { executeCommand } from '../services/platform/exec.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import { detectHostOperatingSystem } from '../services/platform/os.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { isApplePlatform, parsePlatform } from '../services/stores/platform.ts';
+import { createAscClientResolver } from '../store/shared/storeClients.ts';
+import { selectApps } from '../store/shared/syncJobs.ts';
+import type { AppDescriptor, OpenTarget, Platform } from '../types/app.ts';
+import { PLAY_CONSOLE_URL } from './playConsoleUrls.ts';
 
 export const OPEN_TARGETS: readonly OpenTarget[] = [
   'asc',

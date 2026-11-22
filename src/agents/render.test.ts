@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CONSUMER_SKILLS, CONTRIBUTOR_SKILLS } from './registry.js';
-import { expectArrayElement, expectDefined } from '@testkit/assertions.testkit.js';
+import { CONSUMER_SKILLS, CONTRIBUTOR_SKILLS } from './registry.ts';
+import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.ts';
 import {
   MANAGED_END,
   MANAGED_START,
@@ -19,7 +19,7 @@ import {
   renderWindsurfBaseRule,
   renderWindsurfTaskRule,
   spliceManagedBlock,
-} from './render.js';
+} from './render.ts';
 
 const skill = (skillId: string) =>
   expectDefined(

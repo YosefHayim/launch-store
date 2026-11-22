@@ -1,6 +1,6 @@
-import type { AscHost } from './host.js';
-import type { PricePointResource } from '@/types/appleCatalog.js';
-import { matchPricePoint } from './shared.js';
+import type { AscHost } from './host.ts';
+import type { PricePointResource } from '../../types/appleCatalog.ts';
+import { matchPricePoint } from './shared.ts';
 
 export class ConnectPricing {
   constructor(private readonly client: AscHost) {}

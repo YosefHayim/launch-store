@@ -6,17 +6,17 @@ import {
   installServer,
   type InstalledMcpServer,
   type McpClient,
-} from '../mcp/install.js';
-import { pathExists } from '../path-exists.js';
-import { errorMessage, hasMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { detectHostOperatingSystem } from '../services/platform/os.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import { LaunchPrompt } from '../services/platform/prompt.js';
-import { completeCommand } from '../terminal/commandExit.js';
-import type { ConsumerSkill, GeneratedAgentFile } from '../types/agents.js';
-import type { HostOs } from '../types/remote.js';
-import { CONSUMER_SKILLS } from './registry.js';
+} from '../mcp/install.ts';
+import { pathExists } from '../path-exists.ts';
+import { errorMessage, hasMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { detectHostOperatingSystem } from '../services/platform/os.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { completeCommand } from '../terminal/commandExit.ts';
+import type { ConsumerSkill, GeneratedAgentFile } from '../types/agents.ts';
+import type { HostOs } from '../types/remote.ts';
+import { CONSUMER_SKILLS } from './registry.ts';
 import {
   MANAGED_END,
   MANAGED_START,
@@ -34,8 +34,8 @@ import {
   renderWindsurfBaseRule,
   renderWindsurfTaskRule,
   spliceManagedBlock,
-} from './render.js';
-import { findUnknownCommands, type RegisteredCommand } from './validate.js';
+} from './render.ts';
+import { findUnknownCommands, type RegisteredCommand } from './validate.ts';
 
 const UNSTATED_LAUNCH_VERSION = '0.0.0';
 

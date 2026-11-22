@@ -2,15 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.js';
-import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
-import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import { resetPrompts } from '../services/platform/prompt.js';
-import { registerBuildEngine, registerSubmitter } from '../services/providerSupport/registry.js';
-import { runBuild } from './pipeline.js';
-import { sizeSummary, uploadSizeReadout, worstDownloadBytes } from './pipelineArtifact.js';
-import { selectApp } from './pipelineEnv.js';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { resetPrompts } from '../services/platform/prompt.ts';
+import { registerBuildEngine, registerSubmitter } from '../services/providerSupport/registry.ts';
+import { runBuild } from './pipeline.ts';
+import { sizeSummary, uploadSizeReadout, worstDownloadBytes } from './pipelineArtifact.ts';
+import { selectApp } from './pipelineEnv.ts';
 import {
   androidReleaseNotesFromLocaleMap,
   resolveAndroidSubmitReleaseNotes,
@@ -18,14 +18,14 @@ import {
   resolveSizeBudgetMB,
   resolveSubmitters,
   submitToStores,
-} from './pipelineProviders.js';
-import { DEFAULT_SIZE_BUDGET_MB } from './pipelineTypes.js';
-import { resolveBumpKind } from './pipelineVersion.js';
-import type { AppDescriptor, BuildProfile } from '../types/app.js';
-import type { SizeReport } from '../types/artifacts.js';
-import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
-import type { BuildCredentials } from '../types/credentials.js';
-import type { Submitter } from '../types/providers.js';
+} from './pipelineProviders.ts';
+import { DEFAULT_SIZE_BUDGET_MB } from './pipelineTypes.ts';
+import { resolveBumpKind } from './pipelineVersion.ts';
+import type { AppDescriptor, BuildProfile } from '../types/app.ts';
+import type { SizeReport } from '../types/artifacts.ts';
+import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
+import type { BuildCredentials } from '../types/credentials.ts';
+import type { Submitter } from '../types/providers.ts';
 import process from 'node:process';
 // A dry-run must never shell out; make any spawn an immediate, obvious failure.
 vi.mock('node:child_process', () => ({

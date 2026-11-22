@@ -1,8 +1,8 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { resolveLogsDirectory } from '../services/platform/paths.js';
-import { redactText } from '../services/platform/redact.js';
-import type { Platform } from '../types/app.js';
+import { resolveLogsDirectory } from '../services/platform/paths.ts';
+import { redactText } from '../services/platform/redact.ts';
+import type { Platform } from '../types/app.ts';
 
 /** Natural-key fields that identify one build log. */
 type BuildLogKey = Readonly<{

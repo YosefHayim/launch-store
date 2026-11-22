@@ -1,11 +1,11 @@
-import type { components } from '@/apple-api-types.js';
+import type { components } from '../apple-api-types.ts';
 
 import type {
   OfferCustomerEligibility,
   OfferDuration,
   OfferEligibility,
   OfferMode,
-} from './catalog.js';
+} from './catalog.ts';
 /** A registered Bundle ID resource (an App ID in the Developer portal). */
 export type BundleIdResource = Readonly<{
   id: string;

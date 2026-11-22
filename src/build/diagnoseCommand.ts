@@ -1,10 +1,10 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger } from '../services/platform/logger.js';
-import { resolveLogsDirectory } from '../services/platform/paths.js';
-import { pathExists } from '../path-exists.js';
-import { diagnoseBuildLog, formatDiagnoses } from './buildDiagnostics.js';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { resolveLogsDirectory } from '../services/platform/paths.ts';
+import { pathExists } from '../path-exists.ts';
+import { diagnoseBuildLog, formatDiagnoses } from './buildDiagnostics.ts';
 
 type DiagnoseCommandInput = Readonly<{
   logfile?: string;

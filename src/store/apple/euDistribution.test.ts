@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { AlternativeDistributionDomainResource } from '../../types/appleCatalog.js';
-import { summarize } from '../shared/reconcile.js';
+import type { AlternativeDistributionDomainResource } from '../../types/appleCatalog.ts';
+import { summarize } from '../shared/reconcile.ts';
 import {
   type AscEuDistributionApi,
   parseEuDistributionConfig,
   reconcileEuDistributionDomains,
-} from './euDistribution.js';
-import type { EuDistributionConfig } from '../../types/storeSurface.js';
+} from './euDistribution.ts';
+import type { EuDistributionConfig } from '../../types/storeSurface.ts';
 /** A hand-rolled {@link AscEuDistributionApi} - no network - serving `existing` and recording creates. */
 const makeApi = (
   existing: AlternativeDistributionDomainResource[],

@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runOnNodePlatform } from '@testkit/platformRun.testkit.js';
-import { findNativeTargetDirectory, setNativePlistValue } from './pipelineVersion.js';
+import { runOnNodePlatform } from '../testkit/platformRun.testkit.ts';
+import { findNativeTargetDirectory, setNativePlistValue } from './pipelineVersion.ts';
 /** A minimal generated `Info.plist` - enough for the target probe to recognise the app directory. */
 const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

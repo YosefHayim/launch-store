@@ -1,5 +1,5 @@
-import { GooglePlayClient, readServiceAccount } from '@google/playClient.js';
-import { hasMessage } from '../platform/errorMessage.js';
+import { GooglePlayClient, readServiceAccount } from '../../google/playClient.ts';
+import { hasMessage } from '../platform/errorMessage.ts';
 
 export type GoogleTransportFailure = Readonly<{
   _tag: 'GoogleTransportFailure';

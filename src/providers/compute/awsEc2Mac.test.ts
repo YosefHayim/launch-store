@@ -11,8 +11,8 @@ import {
   newestImageId,
   publicAddress,
   releaseFailureDetail,
-} from './awsEc2Mac.js';
-import { awsFailure, requireAws } from './awsEc2MacClient.js';
+} from './awsEc2Mac.ts';
+import { awsFailure, requireAws } from './awsEc2MacClient.ts';
 
 describe('publicAddress', () => {
   it('prefers a non-empty public DNS name', () => {

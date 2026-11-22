@@ -1,13 +1,16 @@
 import {
   loadServiceAccount,
   describeMissingPlayServiceAccount,
-} from '@/credentials/androidKeystore.js';
-import { hasMessage } from '@/services/platform/errorMessage.js';
-import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
-import { LaunchPrompt } from '@/services/platform/prompt.js';
-import { GoogleStoreClientService } from '@/services/stores/googleStoreClient.js';
-import type { GooglePlayClient } from '@/google/playClient.js';
-import { makeStoreAppSelectionFailure, selectStoreApp } from '@/store/shared/selectStoreApp.js';
+} from '../../../../credentials/androidKeystore.ts';
+import { hasMessage } from '../../../../services/platform/errorMessage.ts';
+import { checkTerminalIsInteractive } from '../../../../services/platform/progress.ts';
+import { LaunchPrompt } from '../../../../services/platform/prompt.ts';
+import { GoogleStoreClientService } from '../../../../services/stores/googleStoreClient.ts';
+import type { GooglePlayClient } from '../../../../google/playClient.ts';
+import {
+  makeStoreAppSelectionFailure,
+  selectStoreApp,
+} from '../../../../store/shared/selectStoreApp.ts';
 
 /** Loading the Play service account or creating its transport client failed. */
 type ActiveGoogleStoreFailure = Readonly<{

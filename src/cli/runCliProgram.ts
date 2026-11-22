@@ -1,9 +1,9 @@
 import { stderr, stdout } from 'node:process';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { setJsonOutput } from '../services/platform/jsonOutputMode.js';
-import { jsonLine, useJsonHumanWriter } from '../services/platform/logger.js';
-import { useJsonPrompts } from '../services/platform/prompt.js';
-import { isCommandExit } from '../terminal/commandExit.js';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { setJsonOutput } from '../services/platform/jsonOutputMode.ts';
+import { jsonLine, useJsonHumanWriter } from '../services/platform/logger.ts';
+import { useJsonPrompts } from '../services/platform/prompt.ts';
+import { isCommandExit } from '../terminal/commandExit.ts';
 
 /** The fixed fields of a `--json` run's final result line. */
 type JsonRunSummary = Readonly<{

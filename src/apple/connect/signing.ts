@@ -1,4 +1,4 @@
-import type { AscHost } from './host.js';
+import type { AscHost } from './host.ts';
 import type {
   BundleIdCapabilityResource,
   BundleIdResource,
@@ -6,15 +6,15 @@ import type {
   CertificateResource,
   DeviceResource,
   ProfileResource,
-} from '@/types/appleCatalog.js';
-import type { ProvisioningProfileType, ResourceList } from './shared.js';
-import type { components } from '@/apple-api-types.js';
+} from '../../types/appleCatalog.ts';
+import type { ProvisioningProfileType, ResourceList } from './shared.ts';
+import type { components } from '../../apple-api-types.ts';
 import {
   DISTRIBUTION_CERT_TYPE,
   APP_STORE_PROFILE_TYPE,
   AD_HOC_PROFILE_TYPE,
   IOS_DEVICE_PLATFORM,
-} from './shared.js';
+} from './shared.ts';
 
 export class ConnectSigning {
   constructor(private readonly client: AscHost) {}

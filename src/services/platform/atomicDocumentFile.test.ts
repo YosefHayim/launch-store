@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
-} from '@testkit/launchHome.testkit.js';
-import { readDocumentFile, writeDocumentFileAtomically } from './atomicDocumentFile.js';
+} from '../../testkit/launchHome.testkit.ts';
+import { readDocumentFile, writeDocumentFileAtomically } from './atomicDocumentFile.ts';
 
 type Note = {
   title: string;

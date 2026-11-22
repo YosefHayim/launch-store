@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { expectDefined } from '@testkit/assertions.testkit.js';
-import type { CodeSigner } from '../credentials/codeSign.js';
-import type { StorageProvider } from '../types/providers.js';
+import { expectDefined } from '../testkit/assertions.testkit.ts';
+import type { CodeSigner } from '../credentials/codeSign.ts';
+import type { StorageProvider } from '../types/providers.ts';
 import {
   historySnapshotKey,
   manifestKey,
@@ -9,7 +9,7 @@ import {
   rollbackDirectiveKey,
   type UpdateHistoryEntry,
   type UpdateManifest,
-} from './otaManifest.js';
+} from './otaManifest.ts';
 import {
   activateUpdate,
   clearRollbackDirective,
@@ -19,7 +19,7 @@ import {
   recordPublish,
   republishUpdate,
   setRollbackToEmbedded,
-} from './updateHistory.js';
+} from './updateHistory.ts';
 
 type MemoryStorage = StorageProvider &
   Readonly<{

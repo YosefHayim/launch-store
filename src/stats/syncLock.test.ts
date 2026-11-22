@@ -5,9 +5,9 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import { isSyncLockStale, holdSyncLock } from './syncLock.js';
+} from '../testkit/launchHome.testkit.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { isSyncLockStale, holdSyncLock } from './syncLock.ts';
 
 describe('isSyncLockStale', () => {
   const now = Date.parse('2026-10-29T12:00:00.000Z');

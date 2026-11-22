@@ -3,12 +3,12 @@ import {
   type AccessibilityDeclarationResource,
   type AccessibilitySupport,
   type DeviceFamily,
-} from '../../types/appleCatalog.js';
-import { appRecordMissing, plan, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { PlannedAction } from '../../types/reconcile.js';
-import type { MutableDeep } from '../../types/mutable.js';
-import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.js';
+} from '../../types/appleCatalog.ts';
+import { appRecordMissing, plan, type ReconcileContext } from '../shared/reconcile.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
+import type { MutableDeep } from '../../types/mutable.ts';
+import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.ts';
 
 /** The ordered list of DeviceFamily values, for validating config and iterating. */
 const DEVICE_FAMILIES: readonly DeviceFamily[] = [

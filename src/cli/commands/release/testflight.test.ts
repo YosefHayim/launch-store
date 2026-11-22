@@ -1,6 +1,6 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { registerTestflightCommand } from './testflight.js';
+import { registerTestflightCommand } from './testflight.ts';
 
 const registeredTestflight = (): Command => {
   const program = new Command();

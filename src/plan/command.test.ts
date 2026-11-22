@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { PlannedAction } from '../types/reconcile.js';
-import type { SurfacePlanner } from '../types/plan.js';
+import type { PlannedAction } from '../types/reconcile.ts';
+import type { SurfacePlanner } from '../types/plan.ts';
 import {
   additiveNote,
   decodePlanCommandInput,
   isPlanCommandFailure,
   planGlyph,
   selectPlanPlanners,
-} from './command.js';
+} from './command.ts';
 
 const plannedAction = (actionFields: Partial<PlannedAction> = {}): PlannedAction => ({
   description: 'create in-app purchase com.acme.coins',

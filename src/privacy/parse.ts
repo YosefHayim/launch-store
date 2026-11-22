@@ -1,4 +1,4 @@
-import type { PrivacySurface } from '../types/privacy.js';
+import type { PrivacySurface } from '../types/privacy.ts';
 
 function isRecord(candidate: unknown): candidate is Record<string, unknown> {
   const isObject = typeof candidate == 'object';

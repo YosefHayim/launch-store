@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { parsePlayReportsBucket } from './playReportsBucket.js';
+import { parsePlayReportsBucket } from './playReportsBucket.ts';
 
 describe('parsePlayReportsBucket', () => {
   test('reads a bare bucket name', () => {

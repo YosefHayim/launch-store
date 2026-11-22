@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
-import { resolveSecretRef } from '@/credentials/secretRef.js';
-import { pathExists } from '@/path-exists.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { appRecordMissing, skip, type ReconcileContext } from '@/store/shared/reconcile.js';
+import { resolveSecretRef } from '../credentials/secretRef.ts';
+import { pathExists } from '../path-exists.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { appRecordMissing, skip, type ReconcileContext } from '../store/shared/reconcile.ts';
 import {
   deprecatedAgeRatingVerdict,
   type AgeRatingDeclarationResource,
@@ -10,14 +10,14 @@ import {
   type AppInfoResource,
   type AppStoreReviewDetailResource,
   type PricePointResource,
-} from '@/types/appleCatalog.js';
-import type { PlannedAction, ReconcileReport } from '@/types/reconcile.js';
+} from '../types/appleCatalog.ts';
+import type { PlannedAction, ReconcileReport } from '../types/reconcile.ts';
 import type {
   ReleaseAttributesConfig,
   ReleaseCategories,
   ReleasePricing,
   ReviewDetailsConfig,
-} from '@/types/storeSurface.js';
+} from '../types/storeSurface.ts';
 
 const DEFAULT_PLATFORM = 'IOS';
 const DEFAULT_TERRITORY = 'USA';

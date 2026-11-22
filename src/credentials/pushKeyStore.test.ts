@@ -2,13 +2,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
 import {
   resetLaunchDirectories,
   resolvePushKeysFilePath,
   useLaunchDirectories,
-} from '@/services/platform/paths.js';
-import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './pushKeyStore.js';
+} from '../services/platform/paths.ts';
+import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './pushKeyStore.ts';
 
 const secrets = new Map<string, string>();
 const homeDirectory = mkdtempSync(join(tmpdir(), 'launch-pushkeys-'));

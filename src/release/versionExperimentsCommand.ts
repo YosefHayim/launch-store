@@ -1,23 +1,23 @@
-import type { LocalScreenshot } from '@/listing/screenshots/assets.js';
-import { hasMessage } from '@/services/platform/errorMessage.js';
-import { createLogger } from '@/services/platform/logger.js';
+import type { LocalScreenshot } from '../listing/screenshots/assets.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
 import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
   resolveStoreSurfaceSection,
-} from '@/cli/commands/store/apple/appStoreSurfaceCommand.js';
-import { loadActiveAppleStore } from '@/cli/commands/store/apple/appleStoreCommand.js';
-import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
-import { completeCommand } from '@/terminal/commandExit.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+} from '../cli/commands/store/apple/appStoreSurfaceCommand.ts';
+import { loadActiveAppleStore } from '../cli/commands/store/apple/appleStoreCommand.ts';
+import { loadStoreAppContext } from '../store/shared/selectStoreApp.ts';
+import { completeCommand } from '../terminal/commandExit.ts';
+import type { PlannedAction } from '../types/reconcile.ts';
 import {
   discoverTreatmentScreenshots,
   parseVersionExperimentsConfig,
   reconcileVersionExperiments,
   summarizeExperiments,
   type VersionExperimentsConfig,
-} from './versionExperiments.js';
+} from './versionExperiments.ts';
 
 export type VersionExperimentsCommandInput = {
   readonly app?: string;

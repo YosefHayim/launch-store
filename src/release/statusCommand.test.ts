@@ -5,16 +5,16 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { resetLogger, useLoggerSink } from '@/services/platform/logger.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
-import { useAppleStoreClientFactory } from '@/services/stores/appleStoreClient.js';
-import { isCommandExit } from '@/terminal/commandExit.js';
-import type { AppStoreVersionResource, BuildResource } from '@/types/appleCatalog.js';
-import type { AscReleaseApi } from './appStoreRelease.js';
-import { type StatusCommandFlags, statusCommandProgram } from './statusCommand.js';
+} from '../testkit/launchHome.testkit.ts';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { useAppleStoreClientFactory } from '../services/stores/appleStoreClient.ts';
+import { isCommandExit } from '../terminal/commandExit.ts';
+import type { AppStoreVersionResource, BuildResource } from '../types/appleCatalog.ts';
+import type { AscReleaseApi } from './appStoreRelease.ts';
+import { type StatusCommandFlags, statusCommandProgram } from './statusCommand.ts';
 
 const ASC_KEY_ID = 'KEY123';
 const P8_SECRET = Buffer.from('-----BEGIN PRIVATE KEY-----').toString('base64');
@@ -169,7 +169,7 @@ async function runStatusCommand(
     });
     useAppleStoreClientFactory(function createClient() {
       return appleReleaseApi as ReturnType<
-        typeof import('@/services/stores/appleStoreClient.js').AppleStoreClientService.createClient
+        typeof import('../services/stores/appleStoreClient.ts').AppleStoreClientService.createClient
       >;
     });
 

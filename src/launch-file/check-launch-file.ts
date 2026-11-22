@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import type { LaunchConfig } from '@/types/config.js';
+import type { LaunchConfig } from '../types/config.ts';
 
 interface LoadedModule {
   default?: unknown;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createStatsFromReport, readReportDate } from './ga4Report.js';
+import { createStatsFromReport, readReportDate } from './ga4Report.ts';
 
 describe('readReportDate', () => {
   test('turns YYYYMMDD into YYYY-MM-DD', () => {

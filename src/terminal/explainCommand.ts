@@ -1,5 +1,5 @@
-import { createLogger } from '../services/platform/logger.js';
-import { explainTopic, isGlossaryTopic, listTopics } from './glossary.js';
+import { createLogger } from '../services/platform/logger.ts';
+import { explainTopic, isGlossaryTopic, listTopics } from './glossary.ts';
 
 type ExplainCommandFailure = Readonly<{
   readonly _tag: 'ExplainCommandFailure';

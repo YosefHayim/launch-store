@@ -5,9 +5,9 @@ import type {
   ListingLocalization,
   PhasedReleaseResource,
   ReviewSubmissionResource,
-} from '@/types/appleCatalog.js';
-import type { AscHost } from './host.js';
-import type { ResourceList, VersionStates, ResourceSingle, AppStoreVersionPage } from './shared.js';
+} from '../../types/appleCatalog.ts';
+import type { AscHost } from './host.ts';
+import type { ResourceList, VersionStates, ResourceSingle, AppStoreVersionPage } from './shared.ts';
 import {
   EDITABLE_VERSION_STATES,
   LIVE_STATES,
@@ -17,7 +17,7 @@ import {
   EDITABLE_METADATA_STATES,
   toVersionResource,
   toPhasedRelease,
-} from './shared.js';
+} from './shared.ts';
 
 export class ConnectVersions {
   constructor(private readonly client: AscHost) {}

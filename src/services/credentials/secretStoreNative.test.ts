@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LaunchSecretStore } from './secretStore.js';
+import { LaunchSecretStore } from './secretStore.ts';
 
-vi.mock('../platform/os.js', () => ({
+vi.mock('../platform/os.ts', () => ({
   detectHostOperatingSystem: function detectHostOperatingSystem() {
     return 'macos';
   },
 }));
 
-vi.mock('../platform/exec.js', () => ({
+vi.mock('../platform/exec.ts', () => ({
   captureCommandOutput: vi.fn(async function capture(_command: string, args: string[]) {
     const isDeniedNull = args.includes('denied-null');
 

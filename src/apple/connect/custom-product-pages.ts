@@ -1,9 +1,9 @@
-import type { AscHost } from './host.js';
+import type { AscHost } from './host.ts';
 import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-} from '@/types/appleCatalog.js';
+} from '../../types/appleCatalog.ts';
 
 export class ConnectCustomProductPages {
   constructor(private readonly client: AscHost) {}

@@ -3,8 +3,8 @@ import {
   createTransitionTracker,
   planTransitionNotifications,
   reviewStatusForVerdict,
-} from './releaseNotify.js';
-import { classifyVerdict, type ReleaseStatus } from './appStoreRelease.js';
+} from './releaseNotify.ts';
+import { classifyVerdict, type ReleaseStatus } from './appStoreRelease.ts';
 /** A minimal {@link ReleaseStatus} for one poll; `appStoreState` drives the verdict unless overridden. */
 const status = (over: Partial<ReleaseStatus> = {}): ReleaseStatus => {
   const base: ReleaseStatus = {

@@ -1,6 +1,6 @@
-import { captureCommandOutput } from '../platform/exec.js';
-import { requireOptional } from '../platform/optionalDep.js';
-import { detectHostOperatingSystem } from '../platform/os.js';
+import { captureCommandOutput } from '../platform/exec.ts';
+import { requireOptional } from '../platform/optionalDep.ts';
+import { detectHostOperatingSystem } from '../platform/os.ts';
 
 const KEYCHAIN_SERVICE_NAME = 'launch';
 const MACOS_ITEM_NOT_FOUND_EXIT_CODE = 44;

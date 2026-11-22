@@ -1,11 +1,11 @@
-import type { AppOwner, PortfolioPlatform } from '../types/portfolio.js';
-import { createLogger } from '../services/platform/logger.js';
-import { makeCommandExit } from '../terminal/commandExit.js';
-import { makeUsageFailure, type UsageFailure } from '../terminal/usageFailure.js';
-import type { AppStatsReport, StatsReport } from '../types/statsReport.js';
-import { parseDaysFlag } from './statsSyncCommand.js';
-import { createStatsReport } from './statsReport.js';
-import { describeAppStats } from './statsReportText.js';
+import type { AppOwner, PortfolioPlatform } from '../types/portfolio.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { makeCommandExit } from '../terminal/commandExit.ts';
+import { makeUsageFailure, type UsageFailure } from '../terminal/usageFailure.ts';
+import type { AppStatsReport, StatsReport } from '../types/statsReport.ts';
+import { parseDaysFlag } from './statsSyncCommand.ts';
+import { createStatsReport } from './statsReport.ts';
+import { describeAppStats } from './statsReportText.ts';
 
 export interface StatsCommandRequest {
   readonly platform: string | undefined;

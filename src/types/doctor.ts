@@ -1,7 +1,7 @@
-import type { AscPermissionProbeApi } from '../store/apple/ascPermissions.js';
-import type { AppDescriptor } from './app.js';
-import type { LaunchConfig } from './config.js';
-import type { HostOs } from './remote.js';
+import type { AscPermissionProbeApi } from '../store/apple/ascPermissions.ts';
+import type { AppDescriptor } from './app.ts';
+import type { LaunchConfig } from './config.ts';
+import type { HostOs } from './remote.ts';
 /** The platform a doctor run targets - the same `ios` (default) / `android` split the build pipeline uses. */
 export type DoctorPlatform = 'ios' | 'android';
 /**

@@ -1,4 +1,4 @@
-import type { JsonValue, Snapshot, SnapshotEntity, SnapshotStore } from '../types/snapshot.js';
+import type { JsonValue, Snapshot, SnapshotEntity, SnapshotStore } from '../types/snapshot.ts';
 /** How one entity differs between the two snapshots. */
 export type DiffChange = 'added' | 'removed' | 'changed';
 /** One entity-level difference, carrying enough identity to render it grouped by store -> app -> surface. */

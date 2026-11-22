@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { locateStatsDirectory } from '../services/platform/paths.js';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { locateStatsDirectory } from '../services/platform/paths.ts';
 
 const SYNC_LOCK_STALE_AFTER_MILLISECONDS = 5 * 60 * 1000;
 

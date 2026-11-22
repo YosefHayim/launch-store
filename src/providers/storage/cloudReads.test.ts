@@ -1,10 +1,13 @@
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { afterEach, describe, expect, it } from 'vitest';
-import { resetLaunchEnvironment, useLaunchEnvironment } from '@/services/platform/environment.js';
-import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
-import { makeS3StorageProvider } from './s3.js';
-import { makeSupabaseStorageProvider } from './supabase.js';
+import {
+  resetLaunchEnvironment,
+  useLaunchEnvironment,
+} from '../../services/platform/environment.ts';
+import { resetSecretStore, useSecretStore } from '../../services/credentials/secretStore.ts';
+import { makeS3StorageProvider } from './s3.ts';
+import { makeSupabaseStorageProvider } from './supabase.ts';
 
 const withStorageReply = async (
   status: number,

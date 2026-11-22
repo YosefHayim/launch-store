@@ -1,15 +1,15 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadConfig } from '../config/config.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { readLaunchDirectories } from '../services/platform/paths.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { MigrationNote, MigrationNoteLevel, MigrationResult } from '../types/migrate.js';
-import { migrateEas } from './eas.js';
-import { migrateFastlane } from './fastlane.js';
-import { renderReport } from './report.js';
-import { writeArtifacts } from './write.js';
+import { loadConfig } from '../config/config.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { MigrationNote, MigrationNoteLevel, MigrationResult } from '../types/migrate.ts';
+import { migrateEas } from './eas.ts';
+import { migrateFastlane } from './fastlane.ts';
+import { renderReport } from './report.ts';
+import { writeArtifacts } from './write.ts';
 
 const REPORT_FILE = 'migration-report.md';
 

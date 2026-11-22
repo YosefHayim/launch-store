@@ -1,7 +1,7 @@
-import { entitlementForCapability, isCapabilityEntitlement } from '../credentials/capabilities.js';
-import type { AdoptTarget, Adopter, EntitlementValue, PlannedWrite } from '../types/adopt.js';
-import type { CapabilitySetting } from '../types/appleCatalog.js';
-import { extractProfileEntitlements } from './profileEntitlements.js';
+import { entitlementForCapability, isCapabilityEntitlement } from '../credentials/capabilities.ts';
+import type { AdoptTarget, Adopter, EntitlementValue, PlannedWrite } from '../types/adopt.ts';
+import type { CapabilitySetting } from '../types/appleCatalog.ts';
+import { extractProfileEntitlements } from './profileEntitlements.ts';
 
 export const NEEDS_VALUE = 'NEEDS_VALUE';
 

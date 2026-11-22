@@ -1,21 +1,21 @@
-import { createLogger } from '../services/platform/logger.js';
-import { makeCommandExit } from '../terminal/commandExit.js';
-import { makeUsageFailure, type UsageFailure } from '../terminal/usageFailure.js';
+import { createLogger } from '../services/platform/logger.ts';
+import { makeCommandExit } from '../terminal/commandExit.ts';
+import { makeUsageFailure, type UsageFailure } from '../terminal/usageFailure.ts';
 import type {
   AppOwner,
   AppTagChange,
   DiscoveryWarning,
   PortfolioApp,
   PortfolioPlatform,
-} from '../types/portfolio.js';
-import { loadPortfolioApps } from './loadPortfolioApps.js';
+} from '../types/portfolio.ts';
+import { loadPortfolioApps } from './loadPortfolioApps.ts';
 import {
   applyTagChangeToApp,
   filterPortfolioApps,
   findAppsByAccount,
   findAppsByName,
-} from './portfolioLogic.js';
-import { saveAppTags } from './tagApps.js';
+} from './portfolioLogic.ts';
+import { saveAppTags } from './tagApps.ts';
 
 interface AppsListRequest {
   readonly platform: string | undefined;

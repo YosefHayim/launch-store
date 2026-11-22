@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
-import { resetLaunchEnvironment, useLaunchEnvironment } from '@/services/platform/environment.js';
-import { resolveSecretRef } from './secretRef.js';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
+import { resolveSecretRef } from './secretRef.ts';
 
 afterEach(function resetSecretFixtures() {
   resetLaunchEnvironment();

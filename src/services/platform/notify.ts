@@ -1,10 +1,10 @@
-import type { Platform } from '../../types/app.js';
-import type { LaunchConfig } from '../../types/config.js';
-import type { NotifyConfig } from '../../types/storeSurface.js';
-import { errorMessage } from './errorMessage.js';
-import { executeCommandQuietly } from './exec.js';
-import { createLogger, type Logger } from './logger.js';
-import { redactText } from './redact.js';
+import type { Platform } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { NotifyConfig } from '../../types/storeSurface.ts';
+import { errorMessage } from './errorMessage.ts';
+import { executeCommandQuietly } from './exec.ts';
+import { createLogger, type Logger } from './logger.ts';
+import { redactText } from './redact.ts';
 /** Fields every {@link NotifyEvent} carries, regardless of which transition fired it. */
 type NotifyEventBase = {
   app: string;

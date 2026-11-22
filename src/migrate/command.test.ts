@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MigrateCommandInputSchema } from './command.js';
+import { MigrateCommandInputSchema } from './command.ts';
 
 describe('MigrateCommandInputSchema', () => {
   it('accepts eas and fastlane with force, dryRun, and optional out', () => {

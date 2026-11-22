@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
-import type { Logger } from '../services/platform/logger.js';
-import { isApplePlatform } from '../services/stores/platform.js';
-import type { AppDescriptor, Platform } from '../types/app.js';
-import type { LaunchConfig } from '../types/config.js';
-import { isCloudStorage, resolveStorageProvider } from './storage.js';
-import { installLandingPage, iosInstallManifestPlist, itmsServicesUrl } from './installManifest.js';
+import type { Logger } from '../services/platform/logger.ts';
+import { isApplePlatform } from '../services/stores/platform.ts';
+import type { AppDescriptor, Platform } from '../types/app.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import { isCloudStorage, resolveStorageProvider } from './storage.ts';
+import { installLandingPage, iosInstallManifestPlist, itmsServicesUrl } from './installManifest.ts';
 
 type DistributeOptions = Readonly<{
   readonly config: LaunchConfig;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diagnoseBuildLog, formatDiagnoses } from './buildDiagnostics.js';
+import { diagnoseBuildLog, formatDiagnoses } from './buildDiagnostics.ts';
 describe('diagnoseBuildLog - maps native errors to a cause + fix', () => {
   it('recognizes a missing signing profile', () => {
     const [diagnosis] = diagnoseBuildLog("error: No profiles for 'com.acme.app' were found");

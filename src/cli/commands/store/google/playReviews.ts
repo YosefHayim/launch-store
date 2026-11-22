@@ -1,10 +1,10 @@
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../../../command.ts';
 import {
   type PlayReviewsListInput,
   playReviewsCommandProgram,
   type PlayReviewsReplyInput,
-} from './playReviewsCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+} from './playReviewsCommand.ts';
+import { runCliProgram } from '../../../runCliProgram.ts';
 
 type PlayReviewsListOptions = Readonly<{
   readonly app?: string;

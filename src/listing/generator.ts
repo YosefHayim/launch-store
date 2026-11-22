@@ -1,8 +1,8 @@
-import { readLaunchEnvironment } from '@/services/platform/environment.js';
-import { hasMessage } from '@/services/platform/errorMessage.js';
-import type { DraftListing, ListingBrief } from '@/types/listing.js';
-import type { MutableDeep } from '@/types/mutable.js';
-import { APPLE_LIMITS, serializeKeywords } from './apply.js';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import type { DraftListing, ListingBrief } from '../types/listing.ts';
+import type { MutableDeep } from '../types/mutable.ts';
+import { APPLE_LIMITS, serializeKeywords } from './apply.ts';
 
 /** Anthropic listing generation or decoding failed. */
 interface ListingGenerationFailure {

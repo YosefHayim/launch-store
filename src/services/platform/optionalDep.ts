@@ -1,4 +1,4 @@
-import { hasMessage } from './errorMessage.js';
+import { hasMessage } from './errorMessage.ts';
 
 const NOT_INSTALLED = /Cannot find (module|package)|ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND/;
 

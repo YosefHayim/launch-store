@@ -1,8 +1,4 @@
-import {
-  Keychain,
-  LEGACY_PLAY_SERVICE_ACCOUNT,
-  playServiceAccount,
-} from '@/credentials/keychain.js';
+import { Keychain, LEGACY_PLAY_SERVICE_ACCOUNT, playServiceAccount } from './keychain.ts';
 
 export class AndroidKeystore {
   constructor(private readonly keychain = new Keychain()) {}

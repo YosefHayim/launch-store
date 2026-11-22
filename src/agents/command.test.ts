@@ -14,9 +14,9 @@ import {
   detectAgentTargets,
   findStaleAgentArtifacts,
   writeAgentArtifacts,
-} from './command.js';
-import { CONSUMER_SKILLS } from './registry.js';
-import { renderCursorBaseRule, renderCursorTaskRule } from './render.js';
+} from './command.ts';
+import { CONSUMER_SKILLS } from './registry.ts';
+import { renderCursorBaseRule, renderCursorTaskRule } from './render.ts';
 
 let temporaryRepositoryPath: string;
 

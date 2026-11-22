@@ -1,5 +1,5 @@
-import type { SigningAssets } from '../types/credentials.js';
-import { readLaunchEnvironment } from '../services/platform/environment.js';
+import type { SigningAssets } from '../types/credentials.ts';
+import { readLaunchEnvironment } from '../services/platform/environment.ts';
 
 export function computeParallelJobLimit(
   availableCores: number,

@@ -1,15 +1,15 @@
 import { readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '../path-exists.js';
-import { errorMessage } from '../services/platform/errorMessage.js';
+import { pathExists } from '../path-exists.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
 import {
   readDocumentFile,
   writeDocumentFileAtomically,
-} from '../services/platform/atomicDocumentFile.js';
+} from '../services/platform/atomicDocumentFile.ts';
 import {
   resolveReleaseTrainFilePath,
   resolveReleaseTrainsDirectory,
-} from '../services/platform/paths.js';
+} from '../services/platform/paths.ts';
 import type {
   Car,
   NativeCar,
@@ -17,8 +17,8 @@ import type {
   OtaCar,
   TrainRecord,
   TrainState,
-} from '../types/releaseTrain.js';
-import { isTrainPlatform } from './guards.js';
+} from '../types/releaseTrain.ts';
+import { isTrainPlatform } from './guards.ts';
 
 const TRAIN_RECORD_SUFFIX = '.json';
 

@@ -1,5 +1,5 @@
-import type { DailyStat } from '../types/stats.js';
-import { readMonthOfDate } from './dateRange.js';
+import type { DailyStat } from '../types/stats.ts';
+import { readMonthOfDate } from './dateRange.ts';
 
 const createStatIdentity = (stat: DailyStat): string =>
   [stat.date, stat.feed, stat.metric, stat.currency].join('|');

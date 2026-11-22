@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import type { AppCoverage, DailyStat, StatsFreshness } from '../types/stats.js';
-import type { MetricSeries, MetricTotal } from '../types/statsReport.js';
+import type { AppCoverage, DailyStat, StatsFreshness } from '../types/stats.ts';
+import type { MetricSeries, MetricTotal } from '../types/statsReport.ts';
 import {
   createMetricSeries,
   foldMetricStats,
@@ -12,7 +12,7 @@ import {
   mergeHeadlinePoints,
   pickHeadlineTotals,
   readHeadlineTotal,
-} from './statsReportLogic.js';
+} from './statsReportLogic.ts';
 
 const stat = (overrides: Partial<DailyStat>): DailyStat => ({
   date: '2026-10-01',

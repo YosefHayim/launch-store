@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ReleaseVerdict } from '../release/appStoreRelease.js';
-import { androidCarState, iosCarState, planTrainCars } from './engine.js';
+import type { ReleaseVerdict } from '../release/appStoreRelease.ts';
+import { androidCarState, iosCarState, planTrainCars } from './engine.ts';
 
 const verdict = (state: ReleaseVerdict['state']): ReleaseVerdict => ({
   label: state,

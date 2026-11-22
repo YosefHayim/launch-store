@@ -1,5 +1,5 @@
-import { READINESS_EXIT } from '../readiness/orchestrator.js';
-import type { PrivacyFinding, PrivacySurface } from '../types/privacy.js';
+import { READINESS_EXIT } from '../readiness/orchestrator.ts';
+import type { PrivacyFinding, PrivacySurface } from '../types/privacy.ts';
 /**
  * The full result of a scan: every finding across the scanned apps plus the resolved process exit code
  * (0 clear - 2 blockers - 1 unreadable, per the shared readiness contract). This is the `--json` payload.

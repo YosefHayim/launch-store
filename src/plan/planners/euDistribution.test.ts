@@ -1,10 +1,10 @@
-import { runPlanner } from './planner.testkit.js';
+import { runPlanner } from './planner.testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
-import { euDistributionPlanner } from './euDistribution.js';
-import { makeAscApiFake } from '@testkit/ascApiFake.testkit.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
-import type { EuDistributionConfig } from '@/types/storeSurface.js';
+import { euDistributionPlanner } from './euDistribution.ts';
+import { makeAscApiFake } from '../../testkit/ascApiFake.testkit.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
+import type { EuDistributionConfig } from '../../types/storeSurface.ts';
 const DECLARED: EuDistributionConfig = {
   domains: [{ domain: 'downloads.acme.com', referenceName: 'Acme Downloads' }],
 };

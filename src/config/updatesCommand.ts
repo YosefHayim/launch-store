@@ -1,26 +1,26 @@
 import { randomUUID } from 'node:crypto';
-import { selectApp } from '../build/pipelineEnv.js';
-import { ensureCodeSigner, type CodeSigner } from '../credentials/codeSign.js';
+import { selectApp } from '../build/pipelineEnv.ts';
+import { ensureCodeSigner, type CodeSigner } from '../credentials/codeSign.ts';
 import {
   historySnapshotKey,
   type ManifestAsset,
   type UpdateHistoryEntry,
   type UpdateManifest,
-} from '../distribution/otaManifest.js';
-import { isCloudStorage, resolveStorageProvider } from '../distribution/storage.js';
+} from '../distribution/otaManifest.ts';
+import { isCloudStorage, resolveStorageProvider } from '../distribution/storage.ts';
 import {
   findHistoryEntry,
   readHistory,
   republishUpdate,
   setRollbackToEmbedded,
-} from '../distribution/updateHistory.js';
-import { Prompts } from '../prompts.js';
-import { hasMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
-import { LaunchPrompt, pickOne } from '../services/platform/prompt.js';
-import type { Platform } from '../types/app.js';
-import type { StorageProvider } from '../types/providers.js';
-import { loadConfig, type LoadedConfig } from './config.js';
+} from '../distribution/updateHistory.ts';
+import { Prompts } from '../prompts.ts';
+import { hasMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { LaunchPrompt, pickOne } from '../services/platform/prompt.ts';
+import type { Platform } from '../types/app.ts';
+import type { StorageProvider } from '../types/providers.ts';
+import { loadConfig, type LoadedConfig } from './config.ts';
 
 /** Update history entry tagged with its source platform. */
 export type UpdateRow = UpdateHistoryEntry & Readonly<{ platform: Platform }>;

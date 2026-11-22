@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Command } from '@/cli/command.js';
-import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
-import { readLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
+import { Command } from '../cli/command.ts';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
+import { readLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import {
   COMPLETE_SUBCOMMAND,
   SHELLS,
@@ -20,8 +20,8 @@ import {
   resolveCompletions,
   spliceManagedBlock,
   zshCompletionScript,
-} from './completion.js';
-import { expectDefined } from '@testkit/assertions.testkit.js';
+} from './completion.ts';
+import { expectDefined } from '../testkit/assertions.testkit.ts';
 const tempDirs: string[] = [];
 async function runInstallCompletion(installOptions: InstallOptions): Promise<InstallResult> {
   useLaunchEnvironment({});

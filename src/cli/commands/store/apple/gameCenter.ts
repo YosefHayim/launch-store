@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { type GameCenterCommandInput, gameCenterCommandProgram } from './gameCenterCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../../command.ts';
+import { type GameCenterCommandInput, gameCenterCommandProgram } from './gameCenterCommand.ts';
+import { runCliProgram } from '../../../runCliProgram.ts';
 
 type GameCenterOptions = Readonly<{
   readonly app?: string;

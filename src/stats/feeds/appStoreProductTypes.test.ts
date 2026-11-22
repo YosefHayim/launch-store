@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { findSalesReportKind } from './appStoreProductTypes.js';
+import { findSalesReportKind } from './appStoreProductTypes.ts';
 
 describe('findSalesReportKind', () => {
   test('reads first-time download ids as downloads', () => {

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import { isCommandExit } from '../terminal/commandExit.js';
-import type { ProbeResult, ReadinessOutcome, ReadinessProbe } from '../types/readiness.js';
-import { formatReadinessSummaryDetail, readinessStoreLabel } from './command.js';
-import { READINESS_EXIT } from './orchestrator.js';
+import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { isCommandExit } from '../terminal/commandExit.ts';
+import type { ProbeResult, ReadinessOutcome, ReadinessProbe } from '../types/readiness.ts';
+import { formatReadinessSummaryDetail, readinessStoreLabel } from './command.ts';
+import { READINESS_EXIT } from './orchestrator.ts';
 
 /**
  * The category passed to the last `selectReadinessProbes` call, captured so a test can assert that a
@@ -23,21 +23,21 @@ const probe = (id: string, probeOutcome: ProbeResult): ReadinessProbe => {
 };
 /** The probe slice the mocked registry hands back; swapped per test to drive the outcome. */
 let probes: ReadinessProbe[] = [];
-vi.mock('../config/config.js', () => ({
+vi.mock('../config/config.ts', () => ({
   loadConfig: () => Promise.resolve({ config: {}, apps: [] }),
 }));
-vi.mock('../store/shared/storeClients.js', () => ({
+vi.mock('../store/shared/storeClients.ts', () => ({
   createAscClientResolver: () => async () => null,
   createPlayClientResolver: () => async () => null,
 }));
-vi.mock('./registry.js', () => ({
+vi.mock('./registry.ts', () => ({
   registerBuiltinProbes: () => {},
   selectReadinessProbes: (category: string) => {
     selectedCategory = category;
     return probes;
   },
 }));
-const { readinessCommandProgram } = await import('./command.js');
+const { readinessCommandProgram } = await import('./command.ts');
 const LABELS = { summary: 'Test readiness', empty: 'No checks ran.' };
 
 async function runReadinessCommand(

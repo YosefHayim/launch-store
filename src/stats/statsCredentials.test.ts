@@ -6,24 +6,24 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '@testkit/launchHome.testkit.js';
-import { makeFakeAscClient } from '@testkit/storeClients.testkit.js';
-import { PlayReportingClient } from '@google/playReporting.js';
-import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.js';
-import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import { useAppleStoreClientFactory } from '../services/stores/appleStoreClient.js';
+} from '../testkit/launchHome.testkit.ts';
+import { makeFakeAscClient } from '../testkit/storeClients.testkit.ts';
+import { PlayReportingClient } from '../google/playReporting.ts';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { useAppleStoreClientFactory } from '../services/stores/appleStoreClient.ts';
 import {
   resetGoogleAccessToken,
   useGoogleAccessTokenFixture,
-} from '../services/stores/googleAccessToken.js';
-import type { ServiceAccount } from '../types/credentials.js';
-import type { PlayVitalsReader } from './statsCredentials.js';
+} from '../services/stores/googleAccessToken.ts';
+import type { ServiceAccount } from '../types/credentials.ts';
+import type { PlayVitalsReader } from './statsCredentials.ts';
 import {
   makeStatsCredentialsTest,
   StatsCredentialsLive,
   useStatsCredentials,
-} from './statsCredentials.js';
+} from './statsCredentials.ts';
 
 const SERVICE_ACCOUNT: ServiceAccount = {
   clientEmail: 'robot@project.iam.gserviceaccount.com',

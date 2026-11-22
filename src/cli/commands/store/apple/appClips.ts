@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { type AppClipsCommandInput, appClipsCommandProgram } from './appClipsCommand.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../../command.ts';
+import { type AppClipsCommandInput, appClipsCommandProgram } from './appClipsCommand.ts';
+import { runCliProgram } from '../../../runCliProgram.ts';
 
 type AppClipsOptions = Readonly<{
   readonly app?: string;

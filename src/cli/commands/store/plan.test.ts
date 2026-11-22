@@ -1,6 +1,6 @@
-import { Command } from '@/cli/command.js';
+import { Command } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
-import { registerPlanCommand } from './plan.js';
+import { registerPlanCommand } from './plan.ts';
 
 const registeredPlanCommands = (): readonly Command[] => {
   const program = new Command();

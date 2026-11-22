@@ -1,17 +1,17 @@
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
-import { readLaunchEnvironment } from '@/services/platform/environment.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { requireOptional } from '@/services/platform/optionalDep.js';
-import { LaunchSecretStore } from '@/services/credentials/secretStore.js';
-import type { BuildArtifact, StoredArtifact } from '@/types/artifacts.js';
-import type { Platform } from '@/types/app.js';
-import type { StorageConfig } from '@/types/config.js';
+import { readLaunchEnvironment } from '../../services/platform/environment.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import { requireOptional } from '../../services/platform/optionalDep.ts';
+import { LaunchSecretStore } from '../../services/credentials/secretStore.ts';
+import type { BuildArtifact, StoredArtifact } from '../../types/artifacts.ts';
+import type { Platform } from '../../types/app.ts';
+import type { StorageConfig } from '../../types/config.ts';
 import {
   makeProviderInputFailure,
   type StorageProvider,
   type StorageProviderResolver,
-} from '@/types/providers.js';
+} from '../../types/providers.ts';
 
 type S3Module = typeof import('@aws-sdk/client-s3');
 type S3Client = InstanceType<S3Module['S3Client']>;

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { LaunchConfig } from '../types/config.js';
+import type { LaunchConfig } from '../types/config.ts';
 import type {
   SnapshotContext,
   SnapshotSource,
   SnapshotStore,
   SourceCapture,
-} from '../types/snapshot.js';
-import { captureSnapshot, SNAPSHOT_EXIT, SNAPSHOT_VERSION } from './orchestrator.js';
+} from '../types/snapshot.ts';
+import { captureSnapshot, SNAPSHOT_EXIT, SNAPSHOT_VERSION } from './orchestrator.ts';
 
 function makeCtx(): SnapshotContext {
   const config: LaunchConfig = {

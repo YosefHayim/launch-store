@@ -1,16 +1,16 @@
-import { loadConfig } from '@/config/config.js';
-import { loadActiveAscKey } from '@/credentials/accounts.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { createLogger } from '@/services/platform/logger.js';
-import { notify } from '@/services/platform/notify.js';
-import { readLaunchDirectories } from '@/services/platform/paths.js';
+import { loadConfig } from '../config/config.ts';
+import { loadActiveAscKey } from '../credentials/accounts.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger } from '../services/platform/logger.ts';
+import { notify } from '../services/platform/notify.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
 import {
   AppleStoreClientService,
   appRecordMissingMessage,
-} from '@/services/stores/appleStoreClient.js';
-import { completeCommand, isCommandExit } from '@/terminal/commandExit.js';
-import { IOS_PLATFORM, pickCurrentVersion } from './appStoreRelease.js';
-import { selectIosApps } from './statusCommand.js';
+} from '../services/stores/appleStoreClient.ts';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.ts';
+import { IOS_PLATFORM, pickCurrentVersion } from './appStoreRelease.ts';
+import { selectIosApps } from './statusCommand.ts';
 
 type RolloutAction = 'pause' | 'resume' | 'complete';
 

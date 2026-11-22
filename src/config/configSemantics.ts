@@ -1,4 +1,4 @@
-import type { LaunchConfig } from '../types/config.js';
+import type { LaunchConfig } from '../types/config.ts';
 /**
  * One semantic finding: the dotted config path it concerns (matching the schema validator's path style,
  * so the two streams read uniformly) and a one-line explanation that names the invariant and the fix.
@@ -89,7 +89,7 @@ const checkRetention = (config: LaunchConfig): SemanticIssue[] => {
 /**
  * Run every semantic check against a schema-valid config and return all findings (empty when the config is
  * sound). Order is stable - storage, release, profiles, retention - so output and tests don't depend on
- * object key order. Callers run this *after* {@link import("./configSchema.js").validateConfig}; a config
+ * object key order. Callers run this *after* {@link import("./configSchema.ts").validateConfig}; a config
  * that fails the schema shouldn't reach here, but each check tolerates a missing field regardless.
  */
 export const checkConfigSemantics = (config: LaunchConfig): SemanticIssue[] => {

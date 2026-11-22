@@ -4,20 +4,20 @@ import type {
   AndroidReleaseOptions,
   BuildProfile,
   Platform,
-} from '../types/app.js';
-import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
-import type { BuildCredentials } from '../types/credentials.js';
-import type { SubmitArtifact } from '../types/providers.js';
-import type { RemoteTarget } from '../types/remote.js';
-import { resolveWhatsNew } from '../release/releaseInputs.js';
-import { parseReleaseNotesJson } from '../store/google/playTracks.js';
-import { getSubmitter } from '../services/providerSupport/registry.js';
-import { platformLabel } from '../services/stores/platform.js';
+} from '../types/app.ts';
+import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
+import type { BuildCredentials } from '../types/credentials.ts';
+import type { SubmitArtifact } from '../types/providers.ts';
+import type { RemoteTarget } from '../types/remote.ts';
+import { resolveWhatsNew } from '../release/releaseInputs.ts';
+import { parseReleaseNotesJson } from '../store/google/playTracks.ts';
+import { getSubmitter } from '../services/providerSupport/registry.ts';
+import { platformLabel } from '../services/stores/platform.ts';
 import {
   DEFAULT_SIZE_BUDGET_MB,
   type BuildRunOptions,
   type BuildTransportChoice,
-} from './pipelineTypes.js';
+} from './pipelineTypes.ts';
 
 const IOS_SUBMITTER = 'app-store-connect';
 const ANDROID_SUBMITTER = 'google-play';

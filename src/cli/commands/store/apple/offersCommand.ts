@@ -1,18 +1,18 @@
-import { loadConfig } from '@/config/config.js';
-import type { AppStoreConnectClient } from '@/apple/ascClient.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { createLogger } from '@/services/platform/logger.js';
-import { readLaunchDirectories } from '@/services/platform/paths.js';
-import { LaunchPrompt } from '@/services/platform/prompt.js';
-import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
-import { completeCommand } from '@/terminal/commandExit.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { AppProducts } from '@/types/catalog.js';
-import type { OfferCodeResource } from '@/types/appleCatalog.js';
-import type { PlannedAction, ReconcileReport } from '@/types/reconcile.js';
-import { loadActiveAppleStore } from './appleStoreCommand.js';
-import { appDeclaresOffers, reconcileOffers } from '@/store/apple/offers.js';
-import { summarize } from '@/store/shared/reconcile.js';
+import { loadConfig } from '../../../../config/config.ts';
+import type { AppStoreConnectClient } from '../../../../apple/ascClient.ts';
+import { errorMessage } from '../../../../services/platform/errorMessage.ts';
+import { createLogger } from '../../../../services/platform/logger.ts';
+import { readLaunchDirectories } from '../../../../services/platform/paths.ts';
+import { LaunchPrompt } from '../../../../services/platform/prompt.ts';
+import { checkTerminalIsInteractive } from '../../../../services/platform/progress.ts';
+import { completeCommand } from '../../../../terminal/commandExit.ts';
+import type { AppDescriptor } from '../../../../types/app.ts';
+import type { AppProducts } from '../../../../types/catalog.ts';
+import type { OfferCodeResource } from '../../../../types/appleCatalog.ts';
+import type { PlannedAction, ReconcileReport } from '../../../../types/reconcile.ts';
+import { loadActiveAppleStore } from './appleStoreCommand.ts';
+import { appDeclaresOffers, reconcileOffers } from '../../../../store/apple/offers.ts';
+import { summarize } from '../../../../store/shared/reconcile.ts';
 
 export type OffersReconcileInput = {
   operation: 'reconcile';

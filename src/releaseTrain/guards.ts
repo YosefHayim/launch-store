@@ -4,7 +4,7 @@ import type {
   NativeCarState,
   OtaCar,
   TrainPlatform,
-} from '../types/releaseTrain.js';
+} from '../types/releaseTrain.ts';
 
 /** Narrow a {@link Car} to an {@link OtaCar}. */
 export const isOtaCar = (car: Car): car is OtaCar => car.kind === 'ota';

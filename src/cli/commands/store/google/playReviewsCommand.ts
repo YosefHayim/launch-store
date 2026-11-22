@@ -1,17 +1,17 @@
 import { readFile } from 'node:fs/promises';
-import { hasMessage } from '@/services/platform/errorMessage.js';
-import { createLogger } from '@/services/platform/logger.js';
-import type { PlayReview } from '@/types/googlePlay.js';
+import { hasMessage } from '../../../../services/platform/errorMessage.ts';
+import { createLogger } from '../../../../services/platform/logger.ts';
+import type { PlayReview } from '../../../../types/googlePlay.ts';
 import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,
   resolveGoogleStoreApp,
-} from './googleStoreCommand.js';
+} from './googleStoreCommand.ts';
 import {
   listPlayReviews,
   replyToPlayReview,
   type PlayReviewFilters,
-} from '@/store/google/playReviews.js';
+} from '../../../../store/google/playReviews.ts';
 
 export type PlayReviewsListInput = {
   operation: 'list';

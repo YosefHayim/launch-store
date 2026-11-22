@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import type { DailyStat } from '../types/stats.js';
-import { groupStatsByMonth, mergeStats } from './statsLogic.js';
+import type { DailyStat } from '../types/stats.ts';
+import { groupStatsByMonth, mergeStats } from './statsLogic.ts';
 
 const createStat = (overrides: Partial<DailyStat>): DailyStat => ({
   date: '2026-10-01',

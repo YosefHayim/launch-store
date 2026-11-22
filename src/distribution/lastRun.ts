@@ -1,8 +1,8 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { resolveLastRunFilePath } from '../services/platform/paths.js';
-import { pathExists } from '../path-exists.js';
-import type { BumpKind } from '../release/version.js';
+import { resolveLastRunFilePath } from '../services/platform/paths.ts';
+import { pathExists } from '../path-exists.ts';
+import type { BumpKind } from '../release/version.ts';
 
 type AppMemory = {
   bump?: BumpKind;

@@ -9,7 +9,7 @@ import {
   isCapabilityType,
   mapEntitlementsToCapabilities,
   staleProfileCapabilities,
-} from './capabilities.js';
+} from './capabilities.ts';
 describe('mapEntitlementsToCapabilities', () => {
   it('maps known entitlement keys to their capability types', () => {
     const { enable } = mapEntitlementsToCapabilities({

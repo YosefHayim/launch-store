@@ -1,9 +1,9 @@
-import { createLogger } from '../services/platform/logger.js';
-import { makeCommandExit } from '../terminal/commandExit.js';
-import { makeUsageFailure, type UsageFailure } from '../terminal/usageFailure.js';
-import type { AppFeedSyncReport } from '../types/stats.js';
-import { DEFAULT_SYNC_DAYS, MAX_SYNC_DAYS } from './dateRange.js';
-import { syncStats } from './syncStats.js';
+import { createLogger } from '../services/platform/logger.ts';
+import { makeCommandExit } from '../terminal/commandExit.ts';
+import { makeUsageFailure, type UsageFailure } from '../terminal/usageFailure.ts';
+import type { AppFeedSyncReport } from '../types/stats.ts';
+import { DEFAULT_SYNC_DAYS, MAX_SYNC_DAYS } from './dateRange.ts';
+import { syncStats } from './syncStats.ts';
 
 interface StatsSyncCommandRequest {
   readonly app: string | undefined;

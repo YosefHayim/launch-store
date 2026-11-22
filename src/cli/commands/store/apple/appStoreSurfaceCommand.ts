@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
-import { LaunchPrompt } from '@/services/platform/prompt.js';
-import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
-import { hasMessage } from '@/services/platform/errorMessage.js';
-import { pathExists } from '@/path-exists.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+import { LaunchPrompt } from '../../../../services/platform/prompt.ts';
+import { checkTerminalIsInteractive } from '../../../../services/platform/progress.ts';
+import { hasMessage } from '../../../../services/platform/errorMessage.ts';
+import { pathExists } from '../../../../path-exists.ts';
+import type { PlannedAction } from '../../../../types/reconcile.ts';
 
 /** Reading a sidecar or confirming an App Store surface write failed. */
 type AppStoreSurfaceCommandFailure = Readonly<{

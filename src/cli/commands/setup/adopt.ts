@@ -1,6 +1,6 @@
-import type { Command } from '@/cli/command.js';
-import { adoptCommandProgram, type AdoptCommandInput } from '@/adopt/command.js';
-import { runCliProgram } from '@cli/runCliProgram.js';
+import type { Command } from '../../command.ts';
+import { adoptCommandProgram, type AdoptCommandInput } from '../../../adopt/command.ts';
+import { runCliProgram } from '../../runCliProgram.ts';
 
 /** Attach the `adopt` command to Commander. */
 export const registerAdoptCommand = (program: Command): void => {

@@ -1,4 +1,4 @@
-import { errorMessage } from '../../services/platform/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
 
 export const STORAGE_READ_ONLY_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_only';
 

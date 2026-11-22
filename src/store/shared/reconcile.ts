@@ -1,6 +1,6 @@
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { PlannedAction } from '../../types/reconcile.js';
-import type { MutableDeep } from '../../types/mutable.js';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
+import type { MutableDeep } from '../../types/mutable.ts';
 
 /** Mutable state for one reconciliation pass. */
 export type ReconcileContext = {

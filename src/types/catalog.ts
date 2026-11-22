@@ -1,4 +1,4 @@
-import type { components } from '@/apple-api-types.js';
+import type { components } from '../apple-api-types.ts';
 
 export type SubscriptionPeriod =
   | 'ONE_WEEK'

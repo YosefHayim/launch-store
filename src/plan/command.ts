@@ -1,15 +1,15 @@
-import { loadConfig } from '@/config/config.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { createLogger, type Logger } from '@/services/platform/logger.js';
-import { readLaunchDirectories } from '@/services/platform/paths.js';
-import { createAscClientResolver, createPlayClientResolver } from '@/store/shared/storeClients.js';
-import { selectApps } from '@/store/shared/syncJobs.js';
-import { completeCommand, isCommandExit } from '@/terminal/commandExit.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { PlanContext, PlanStore, SurfacePlan, SurfacePlanner } from '@/types/plan.js';
-import type { PlannedAction } from '@/types/reconcile.js';
-import { PLAN_EXIT, runPlanners, type PlanOutcome } from './orchestrator.js';
-import { listSurfacePlanners, registerBuiltinPlanners } from './registry.js';
+import { loadConfig } from '../config/config.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.ts';
+import { selectApps } from '../store/shared/syncJobs.ts';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { PlanContext, PlanStore, SurfacePlan, SurfacePlanner } from '../types/plan.ts';
+import type { PlannedAction } from '../types/reconcile.ts';
+import { PLAN_EXIT, runPlanners, type PlanOutcome } from './orchestrator.ts';
+import { listSurfacePlanners, registerBuiltinPlanners } from './registry.ts';
 
 export type PlanCommandInput = Readonly<{
   operation: 'plan' | 'drift';

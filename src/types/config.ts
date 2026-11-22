@@ -4,9 +4,9 @@ import type {
   BuildProfile,
   Distribution,
   Platform,
-} from './app.js';
-import type { AppProducts } from './catalog.js';
-import type { AwsConfig } from './remote.js';
+} from './app.ts';
+import type { AppProducts } from './catalog.ts';
+import type { AwsConfig } from './remote.ts';
 import type {
   AppClipsConfig,
   EuDistributionConfig,
@@ -17,7 +17,7 @@ import type {
   ReleaseConfig,
   SurfaceConfigFiles,
   WalletConfig,
-} from './storeSurface.js';
+} from './storeSurface.ts';
 /**
  * Provider defaults filled when the user omits them - the single source for both the Effect Schema's
  * defaults and `defineConfig` (which fills them without parsing, so it can preserve unknown top-level

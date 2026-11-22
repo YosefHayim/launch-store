@@ -1,16 +1,16 @@
-import type { AccountRecord, AppleCredentials, BuildCredentials } from '../types/credentials.js';
-import type { SizeReport } from '../types/artifacts.js';
-import { makeProviderInputFailure } from '../types/providers.js';
-import type { BumpKind } from '../release/version.js';
-import { refreshIdentityIfStale } from '../credentials/accounts.js';
-import { getBuildEngine, getCredentialsProvider } from '../services/providerSupport/registry.js';
-import { rememberLastRun } from '../distribution/lastRun.js';
-import { withSpinner } from '../services/platform/progress.js';
-import { distributeArtifact } from '../distribution/distribute.js';
-import { type BuildRunOptions, type PreparedBuild, DRY_RUN_KEY } from './pipelineTypes.js';
-import { resolveBuildEngineName } from './pipelineProviders.js';
-import { resolveIosAccount, resolveSigning } from './pipelineSigning.js';
-import { nextBuildNumber, resolveMarketingVersion, setIosBuildNumber } from './pipelineVersion.js';
+import type { AccountRecord, AppleCredentials, BuildCredentials } from '../types/credentials.ts';
+import type { SizeReport } from '../types/artifacts.ts';
+import { makeProviderInputFailure } from '../types/providers.ts';
+import type { BumpKind } from '../release/version.ts';
+import { refreshIdentityIfStale } from '../credentials/accounts.ts';
+import { getBuildEngine, getCredentialsProvider } from '../services/providerSupport/registry.ts';
+import { rememberLastRun } from '../distribution/lastRun.ts';
+import { withSpinner } from '../services/platform/progress.ts';
+import { distributeArtifact } from '../distribution/distribute.ts';
+import { type BuildRunOptions, type PreparedBuild, DRY_RUN_KEY } from './pipelineTypes.ts';
+import { resolveBuildEngineName } from './pipelineProviders.ts';
+import { resolveIosAccount, resolveSigning } from './pipelineSigning.ts';
+import { nextBuildNumber, resolveMarketingVersion, setIosBuildNumber } from './pipelineVersion.ts';
 import {
   ensureNativeProject,
   receiptDestination,
@@ -23,9 +23,9 @@ import {
   storeArtifact,
   nudgeIfNoCcache,
   uploadIosBuild,
-} from './pipelineArtifact.js';
-import type { Logger } from '../services/platform/logger.js';
-import type { AppDescriptor } from '../types/app.js';
+} from './pipelineArtifact.ts';
+import type { Logger } from '../services/platform/logger.ts';
+import type { AppDescriptor } from '../types/app.ts';
 
 function isAppleBuildCredentials(
   credentials: BuildCredentials,

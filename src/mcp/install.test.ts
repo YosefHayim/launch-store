@@ -9,7 +9,7 @@ import {
   mergeServerEntry,
   type InstalledMcpServer,
   type McpClient,
-} from './install.js';
+} from './install.ts';
 
 describe('mergeServerEntry', () => {
   it('adds Launch to an empty document', () => {

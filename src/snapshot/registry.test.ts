@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { listSnapshotSources, registerBuiltinSources } from './registry.js';
+import { listSnapshotSources, registerBuiltinSources } from './registry.ts';
 describe('snapshot source registry', () => {
   it('registers the six built-in sources', () => {
     registerBuiltinSources();

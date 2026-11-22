@@ -2,9 +2,9 @@ import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { LaunchConfig } from '../types/config.js';
-import type { SnapshotContext } from '../types/snapshot.js';
-import { AUTO_SNAPSHOT_PREFIX, autoSnapshotName, captureAutoSnapshot } from './autoSnapshot.js';
+import type { LaunchConfig } from '../types/config.ts';
+import type { SnapshotContext } from '../types/snapshot.ts';
+import { AUTO_SNAPSHOT_PREFIX, autoSnapshotName, captureAutoSnapshot } from './autoSnapshot.ts';
 
 const CONFIG: LaunchConfig = {
   profiles: {},

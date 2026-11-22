@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { decodePlayCsvBytes, readPlayCsvTable } from './playCsvTable.js';
+import { decodePlayCsvBytes, readPlayCsvTable } from './playCsvTable.ts';
 
 const encodeUtf16LittleEndianWithBom = (csvDocument: string): Uint8Array =>
   Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(csvDocument, 'utf16le')]);

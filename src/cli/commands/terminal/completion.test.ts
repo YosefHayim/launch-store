@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '@/cli/command.js';
-import { registerCompletionCommand } from './completion.js';
+import { Command } from '../../command.ts';
+import { registerCompletionCommand } from './completion.ts';
 /** The `completion` group from a fresh program, asserting it registered. */
 const completionGroup = (): Command => {
   const program = new Command();

@@ -1,5 +1,5 @@
-import type { ConsumerSkill, SkillStep } from '../types/agents.js';
-import { CONSUMER_SKILLS } from './registry.js';
+import type { ConsumerSkill, SkillStep } from '../types/agents.ts';
+import { CONSUMER_SKILLS } from './registry.ts';
 
 /** Commander-independent command tree used to validate generated agent instructions. */
 export type RegisteredCommand = Readonly<{

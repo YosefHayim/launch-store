@@ -1,6 +1,6 @@
-import type { AppStoreStatsClient, PlayVitalsReader } from '../stats/statsCredentials.js';
-import type { PortfolioApp } from './portfolio.js';
-import type { ServiceAccount } from './credentials.js';
+import type { AppStoreStatsClient, PlayVitalsReader } from '../stats/statsCredentials.ts';
+import type { PortfolioApp } from './portfolio.ts';
+import type { ServiceAccount } from './credentials.ts';
 
 export type StatsFeed = 'app-store' | 'google-play' | 'ga4';
 export const STATS_FEEDS: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
-import { buildLogId, buildLogPath } from './buildLog.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import { buildLogId, buildLogPath } from './buildLog.ts';
 
 function resolveTestLogPath(buildIdentifier: string): string {
   useLaunchDirectories({ homeDirectory: '/tmp', workingDirectory: '/workspace' });

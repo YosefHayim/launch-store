@@ -7,17 +7,17 @@ import {
   type GameCenterDetailResource,
   type GameCenterLeaderboardCreate,
   type GameCenterLeaderboardResource,
-} from '../../types/appleCatalog.js';
-import { appRecordMissing, plan, skip, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import type { PlannedAction } from '../../types/reconcile.js';
+} from '../../types/appleCatalog.ts';
+import { appRecordMissing, plan, skip, type ReconcileContext } from '../shared/reconcile.ts';
+import { errorMessage } from '../../services/platform/errorMessage.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
 import type {
   AchievementConfig,
   GameCenterConfig,
   LeaderboardConfig,
-} from '../../types/storeSurface.js';
-import type { MutableDeep } from '../../types/mutable.js';
-import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.js';
+} from '../../types/storeSurface.ts';
+import type { MutableDeep } from '../../types/mutable.ts';
+import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.ts';
 
 const GAME_CENTER_DOCUMENT_NAME = 'gamecenter.config.json';
 

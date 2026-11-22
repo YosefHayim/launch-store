@@ -1,6 +1,6 @@
-import type { LaunchConfig } from '../types/config.js';
-import type { McpTool } from '../types/mcp.js';
-import type { McpCapability } from '../types/storeSurface.js';
+import type { LaunchConfig } from '../types/config.ts';
+import type { McpTool } from '../types/mcp.ts';
+import type { McpCapability } from '../types/storeSurface.ts';
 
 /** The default when `mcp.capabilities` is absent or empty: read-only, the safest exposure. */
 const DEFAULT_CAPABILITIES: readonly McpCapability[] = ['read'];

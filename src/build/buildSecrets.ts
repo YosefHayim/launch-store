@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { LaunchSecretStore } from '../services/credentials/secretStore.js';
-import { resolveSecretsFilePath } from '../services/platform/paths.js';
+import { LaunchSecretStore } from '../services/credentials/secretStore.ts';
+import { resolveSecretsFilePath } from '../services/platform/paths.ts';
 
 /** Non-secret coordinates for one app/profile environment secret. */
 export type SecretRef = Readonly<{

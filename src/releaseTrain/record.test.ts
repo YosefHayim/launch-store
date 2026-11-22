@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { TrainRecord } from '../types/releaseTrain.js';
+import type { TrainRecord } from '../types/releaseTrain.ts';
 import {
   isLiveTrain,
   latestTrainRecord,
@@ -11,7 +11,7 @@ import {
   removeTrainRecord,
   safeTrainId,
   writeTrainRecord,
-} from './record.js';
+} from './record.ts';
 
 function train(over: Partial<TrainRecord> = {}): TrainRecord {
   return {

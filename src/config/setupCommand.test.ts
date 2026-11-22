@@ -3,7 +3,7 @@ import {
   formatProvisioningReport,
   roleErrorMessage,
   type ProvisioningReport,
-} from './setupCommand.js';
+} from './setupCommand.ts';
 
 describe('roleErrorMessage', () => {
   it('names the inaccessible feature and points at the fix', () => {

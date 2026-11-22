@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { loadConfig } from '@/config/config.js';
-import { resetLaunchEnvironment, useLaunchEnvironment } from '@/services/platform/environment.js';
-import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
-import { buildDoctorContext } from './context.js';
+import { loadConfig } from '../config/config.ts';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
+import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import { buildDoctorContext } from './context.ts';
 
-vi.mock('@/config/config.js', function mockConfigModule() {
+vi.mock('../config/config.ts', function mockConfigModule() {
   return {
     loadConfig: vi.fn(),
   };
 });
 
-vi.mock('@/store/shared/storeClients.js', function mockStoreClients() {
+vi.mock('../store/shared/storeClients.ts', function mockStoreClients() {
   return {
     createAscClientResolver: function createAscClientResolver() {
       return function resolveAscClient() {

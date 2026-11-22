@@ -1,7 +1,7 @@
-import type { SnapshotContext } from '../types/snapshot.js';
-import { captureSnapshot } from './orchestrator.js';
-import { listSnapshotSources, registerBuiltinSources } from './registry.js';
-import { pruneSnapshots, saveSnapshot } from './store.js';
+import type { SnapshotContext } from '../types/snapshot.ts';
+import { captureSnapshot } from './orchestrator.ts';
+import { listSnapshotSources, registerBuiltinSources } from './registry.ts';
+import { pruneSnapshots, saveSnapshot } from './store.ts';
 
 export const AUTO_SNAPSHOT_PREFIX = 'pre-sync-';
 

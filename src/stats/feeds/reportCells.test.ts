@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { readCell, readNumberCell, readTotal, roundMoney, sumColumn } from './reportCells.js';
+import { readCell, readNumberCell, readTotal, roundMoney, sumColumn } from './reportCells.ts';
 
 describe('readCell', () => {
   test('returns the trimmed cell under the column', () => {

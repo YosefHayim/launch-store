@@ -6,7 +6,7 @@ import {
   highestVersion,
   nextVersion,
   parseVersion,
-} from './version.js';
+} from './version.ts';
 describe('parseVersion - lenient in, canonical out', () => {
   it('parses a full MAJOR.MINOR.PATCH', () => {
     expect(parseVersion('1.2.3')).toEqual({ major: 1, minor: 2, patch: 3 });

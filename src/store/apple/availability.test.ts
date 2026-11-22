@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { AppAvailabilityResource } from '../../types/appleCatalog.js';
+import type { AppAvailabilityResource } from '../../types/appleCatalog.ts';
 import {
   type AscAvailabilityApi,
   parseAvailabilityConfig,
   reconcileAvailability,
-} from './availability.js';
+} from './availability.ts';
 /** Records create/update calls so tests can assert which singleton path the reconciler selected. */
 type Calls = {
   create: {

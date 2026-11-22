@@ -1,5 +1,5 @@
-import type { Command } from '@/cli/command.js';
-import { AppRelease } from '@/app-release.js';
+import type { Command } from './cli/command.ts';
+import { AppRelease } from './app-release.ts';
 
 interface ReleaseFlags {
   yes: boolean;

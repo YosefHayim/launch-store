@@ -1,15 +1,15 @@
-import { loadConfig } from '@/config/config.js';
-import { loadAscKeyForAccount } from '@/credentials/accounts.js';
-import { errorMessage } from '@/services/platform/errorMessage.js';
-import { createLogger, type Logger } from '@/services/platform/logger.js';
-import { notify } from '@/services/platform/notify.js';
-import { readLaunchDirectories } from '@/services/platform/paths.js';
-import { AppleStoreClientService } from '@/services/stores/appleStoreClient.js';
-import { completeCommand, isCommandExit, makeCommandExit } from '@/terminal/commandExit.js';
-import { alignTableColumns, type Column } from '@/terminal/table.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { BuildResource } from '@/types/appleCatalog.js';
-import type { LaunchConfig } from '@/types/config.js';
+import { loadConfig } from '../config/config.ts';
+import { loadAscKeyForAccount } from '../credentials/accounts.ts';
+import { errorMessage } from '../services/platform/errorMessage.ts';
+import { createLogger, type Logger } from '../services/platform/logger.ts';
+import { notify } from '../services/platform/notify.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.ts';
+import { completeCommand, isCommandExit, makeCommandExit } from '../terminal/commandExit.ts';
+import { alignTableColumns, type Column } from '../terminal/table.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { BuildResource } from '../types/appleCatalog.ts';
+import type { LaunchConfig } from '../types/config.ts';
 import {
   IOS_PLATFORM,
   readAppStoreAppId,
@@ -17,8 +17,8 @@ import {
   type AscReleaseApi,
   type ReleaseStatus,
   waitForValidBuild,
-} from './appStoreRelease.js';
-import { createTransitionTracker, planTransitionNotifications } from './releaseNotify.js';
+} from './appStoreRelease.ts';
+import { createTransitionTracker, planTransitionNotifications } from './releaseNotify.ts';
 
 const NO_IOS_APPS_MESSAGE =
   'No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.';

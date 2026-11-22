@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DeviceCommandInputSchema, renderRegisteredDevice } from './deviceCommand.js';
+import { DeviceCommandInputSchema, renderRegisteredDevice } from './deviceCommand.ts';
 
 describe('DeviceCommandInputSchema', () => {
   it('decodes add and list inputs', () => {
