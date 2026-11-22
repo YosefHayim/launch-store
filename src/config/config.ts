@@ -1,8 +1,8 @@
 import { access, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createJiti } from 'jiti';
 import { readLaunchDirectories } from '../services/platform/paths.js';
+import { importTypeScriptModule } from './import-typescript-module.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { LaunchConfig, LaunchConfigInput } from '../types/config.js';
 import {
@@ -18,12 +18,6 @@ import type { MutableDeep } from '../types/mutable.js';
  * binds to the CLI that is loading it.
  */
 const SELF_ENTRY = fileURLToPath(new URL('../index.js', import.meta.url));
-
-const jiti = createJiti(import.meta.url, {
-  alias: { 'launch-store': SELF_ENTRY },
-  // Source still imports with `@/`. The build rewrites those; this loader does not.
-  tsconfigPaths: true,
-});
 
 export type { LaunchConfigInput };
 export { defineConfig } from '@/define-launch-file.js';
@@ -129,7 +123,7 @@ export async function findLaunchConfig(requestedDirectory?: string): Promise<Fou
     let loaded: { default?: LaunchConfig };
 
     try {
-      loaded = await jiti.import<{ default?: LaunchConfig }>(configPath);
+      loaded = await importTypeScriptModule<{ default?: LaunchConfig }>(configPath, SELF_ENTRY);
     } catch (cause) {
       throw makeConfigLoadFailure({
         path: configPath,
@@ -395,7 +389,7 @@ async function readDynamicConfig(
     let loaded: { default?: unknown };
 
     try {
-      loaded = await jiti.import<{ default?: unknown }>(configPath);
+      loaded = await importTypeScriptModule(configPath, SELF_ENTRY);
     } catch (error) {
       const failedToImport = error != null;
 

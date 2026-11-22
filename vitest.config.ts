@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 const sourceRoot = fileURLToPath(new URL('./src/', import.meta.url));
+const packageEntry = fileURLToPath(new URL('./src/index.ts', import.meta.url));
 const endToEndTimeoutMilliseconds = 30_000;
 
 function sourceFolder(folder: string): string {
@@ -17,6 +18,8 @@ export default defineConfig({
       { find: '@google', replacement: sourceFolder('google') },
       { find: '@providers', replacement: sourceFolder('providers') },
       { find: '@testkit', replacement: sourceFolder('testkit') },
+      // Vitest loads a user's launch.config.ts itself, so Node's resolve hook never sees `launch-store`.
+      { find: /^launch-store$/, replacement: packageEntry },
     ],
   },
   test: {

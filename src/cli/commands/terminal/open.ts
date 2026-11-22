@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { OPEN_TARGETS } from '@/terminal/consoleLinks.js';
 import { type OpenCommandInput, openCommandProgram } from '@/terminal/openCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';

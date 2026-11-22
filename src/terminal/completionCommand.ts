@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { stdout } from 'node:process';
 import { readLaunchEnvironment } from '../services/platform/environment.js';
 import { createLogger } from '../services/platform/logger.js';

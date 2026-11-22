@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { releaseTrainCommandProgram } from '@/releaseTrain/command.js';
 import { addEnvFlags, type EnvFlags } from '@cli/options.js';
 import { runCliProgram } from '@cli/runCliProgram.js';

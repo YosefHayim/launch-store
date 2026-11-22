@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { AppStoreConnect } from '@/apple/app-store-connect.js';
 import type { ExpoApp } from '@/expo-app.js';
 import { readExpoApp } from '@/expo-app.js';

@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { agentsCommandProgram, type AgentsCommandOptions } from '@/agents/command.js';
 import type { RegisteredCommand } from '@/agents/validate.js';
 import { runCliProgram } from '@cli/runCliProgram.js';

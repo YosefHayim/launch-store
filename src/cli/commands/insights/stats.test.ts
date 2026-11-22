@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Command } from 'commander';
+import { Command } from '@/cli/command.js';
 import { registerStatsCommand } from './stats.js';
 
 const programCalls = vi.hoisted(() => ({

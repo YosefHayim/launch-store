@@ -1,7 +1,7 @@
-import { unzipSync } from 'fflate';
 import type { DailyStat, DateRange } from '../../types/stats.js';
 import { shiftDate } from '../dateRange.js';
 import { decodePlayCsvBytes, readPlayCsvTable, type PlayCsvTable } from './playCsvTable.js';
+import { readZipEntries } from './zip-archive.js';
 import {
   downloadBucketObject,
   failBucketRead,
@@ -262,7 +262,7 @@ async function readEarningsReports(request: BucketReportsRequest): Promise<
     let zipEntries: Record<string, Uint8Array>;
 
     try {
-      zipEntries = unzipSync(zipBytes);
+      zipEntries = readZipEntries(zipBytes);
     } catch (cause) {
       throw failBucketRead('unzip an earnings report', cause);
     }

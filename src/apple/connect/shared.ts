@@ -1,8 +1,8 @@
 import type { AscKey } from '@/types/credentials.js';
 import type { MutableDeep } from '@/types/mutable.js';
 import type { components } from '@/apple/generated/schema.js';
-import { SignJWT, importPKCS8 } from 'jose';
 import { createHash } from 'node:crypto';
+import { signAppStoreConnectToken } from '@/apple/app-store-token.js';
 import { open, readFile, stat, type FileHandle } from 'node:fs/promises';
 import { makeStoreUploadFailure, type StoreUploadFailure } from '@/types/providers.js';
 import { retryAppleTransportRequest } from '@/apple/transportHelpers.js';
@@ -25,7 +25,6 @@ import {
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;
-const TOKEN_TTL_SECONDS = 19 * 60;
 const TOKEN_REUSE_SECONDS = 15 * 60;
 const mintedTokens = new Map<string, Readonly<{ token: string; issuedAt: number }>>();
 const ASSET_UPLOAD_CONCURRENCY = 4;
@@ -567,14 +566,7 @@ export const EDITABLE_METADATA_STATES = new Set<string>([
 ]);
 
 const mintToken = async (key: AscKey, issuedAt: number): Promise<string> => {
-  const privateKey = await importPKCS8(key.p8, 'ES256');
-  return new SignJWT({})
-    .setProtectedHeader({ alg: 'ES256', kid: key.keyId, typ: 'JWT' })
-    .setIssuer(key.issuerId)
-    .setIssuedAt(issuedAt)
-    .setExpirationTime(issuedAt + TOKEN_TTL_SECONDS)
-    .setAudience('appstoreconnect-v1')
-    .sign(privateKey);
+  return signAppStoreConnectToken(key, issuedAt);
 };
 
 const tokenCacheKey = (key: AscKey): string => `${key.issuerId}:${key.keyId}`;

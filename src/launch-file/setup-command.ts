@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createLaunchFileScaffold } from '@/define-launch-file.js';

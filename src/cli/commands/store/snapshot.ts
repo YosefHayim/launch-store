@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { snapshotCommandProgram } from '@/snapshot/snapshotCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 

@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command } from '@/cli/command.js';
 import { describe, expect, it } from 'vitest';
 import { registerPlanCommand } from './plan.js';
 

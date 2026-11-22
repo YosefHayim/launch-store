@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { buildCommandProgram } from '@/build/buildCommandProgram.js';
 import type { BuildCommandOptions } from '@/build/buildCommandInput.js';
 import { addEnvFlags } from '@cli/options.js';

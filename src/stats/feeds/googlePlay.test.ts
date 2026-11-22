@@ -1,4 +1,4 @@
-import { zipSync } from 'fflate';
+import { crc32, deflateRawSync } from 'node:zlib';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { PortfolioApp } from '../../types/portfolio.js';
 import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.js';
@@ -168,10 +168,64 @@ const createEarningsListRoute = (objectNames: readonly string[]): HttpRoute => (
   body: { items: objectNames.map((name) => ({ name })) },
 });
 
-const createEarningsZip = (earningsLines: readonly string[]): Uint8Array =>
-  zipSync({
-    'earnings_202610.csv': Buffer.from([EARNINGS_HEADER, ...earningsLines].join('\n'), 'utf8'),
-  });
+function createEarningsZip(earningsLines: readonly string[]): Uint8Array {
+  const csvText = [EARNINGS_HEADER, ...earningsLines].join('\n');
+
+  return writeDeflatedZip({ 'earnings_202610.csv': Buffer.from(csvText, 'utf8') });
+}
+
+function writeDeflatedZip(files: Readonly<Record<string, Uint8Array>>): Uint8Array {
+  const localParts: Uint8Array[] = [];
+  const centralParts: Uint8Array[] = [];
+  let offset = 0;
+
+  for (const [name, fileBytes] of Object.entries(files)) {
+    const nameBytes = Buffer.from(name, 'utf8');
+    const compressed = deflateRawSync(fileBytes);
+    const checksum = crc32(fileBytes);
+    const local = Buffer.alloc(30 + nameBytes.length);
+
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt32LE(checksum, 14);
+    local.writeUInt32LE(compressed.length, 18);
+    local.writeUInt32LE(fileBytes.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    nameBytes.copy(local, 30);
+
+    const localOffset = offset;
+
+    offset += local.length + compressed.length;
+    localParts.push(local, compressed);
+
+    const central = Buffer.alloc(46 + nameBytes.length);
+
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(8, 10);
+    central.writeUInt32LE(checksum, 16);
+    central.writeUInt32LE(compressed.length, 20);
+    central.writeUInt32LE(fileBytes.length, 24);
+    central.writeUInt16LE(nameBytes.length, 28);
+    central.writeUInt32LE(localOffset, 42);
+    nameBytes.copy(central, 46);
+    centralParts.push(central);
+  }
+
+  const locals = Buffer.concat(localParts);
+  const centralDirectory = Buffer.concat(centralParts);
+  const endRecord = Buffer.alloc(22);
+
+  endRecord.writeUInt32LE(0x06054b50, 0);
+  endRecord.writeUInt16LE(centralParts.length, 8);
+  endRecord.writeUInt16LE(centralParts.length, 10);
+  endRecord.writeUInt32LE(centralDirectory.length, 12);
+  endRecord.writeUInt32LE(locals.length, 16);
+
+  return Buffer.concat([locals, centralDirectory, endRecord]);
+}
 
 const earningsLine = (
   transactionDate: string,

@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { type PlanCommandInput, planCommandProgram } from '@/plan/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 

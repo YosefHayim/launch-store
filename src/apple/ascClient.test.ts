@@ -10,7 +10,7 @@ import {
   describeErrors,
   parseErrorCodes,
 } from './ascClient.js';
-/** A real P-256 PKCS#8 key so `jose` can actually sign - the client mints a genuine ES256 JWT. */
+/** A real P-256 PKCS#8 key so the client can mint a genuine ES256 JWT. */
 const makeKey = (): AscKey => {
   const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
   return {

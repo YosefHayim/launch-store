@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from 'commander';
+import { Command } from '@/cli/command.js';
 import { registerStoreCommand } from './storeDoctor.js';
 describe('registerStoreCommand', () => {
   it('attaches a `store` group with a `doctor` subcommand and its options', () => {

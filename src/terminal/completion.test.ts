@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Command } from 'commander';
+import { Command } from '@/cli/command.js';
 import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
 import { readLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.js';
 import {

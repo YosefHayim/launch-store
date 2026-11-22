@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { mcpCommandProgram } from '@/mcp/command.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 

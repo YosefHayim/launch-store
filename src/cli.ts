@@ -1,4 +1,4 @@
-import { CommanderError } from 'commander';
+import { isUsageError } from '@/cli/command.js';
 import { Program } from '@/program.js';
 import { DRIFT_MESSAGE } from '@/store/plan-store.js';
 
@@ -7,7 +7,7 @@ export class Cli {
     try {
       await new Program().parse(launchVersion);
     } catch (error) {
-      const isUsage = error instanceof CommanderError;
+      const isUsage = isUsageError(error);
 
       if (isUsage) {
         const isFailure = error.exitCode != 0;

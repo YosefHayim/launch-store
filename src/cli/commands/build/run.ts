@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { runCommandProgram } from '@/build/runCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 

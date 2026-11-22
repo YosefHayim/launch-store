@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { rolloutCommandProgram } from '@/release/rolloutCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 

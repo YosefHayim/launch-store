@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from 'commander';
+import { Command } from '@/cli/command.js';
 import { registerAuditCommand } from './audit.js';
 describe('registerAuditCommand', () => {
   it('attaches a top-level `audit` command with its options', () => {

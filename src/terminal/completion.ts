@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { loadConfig } from '../config/config.js';
 import { pathExists } from '../path-exists.js';
 import { listSurfacePlanners, registerBuiltinPlanners } from '../plan/registry.js';

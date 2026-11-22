@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createJiti } from 'jiti';
 import type { LaunchConfig } from '@/types/config.js';
+import { importTypeScriptModule } from '@/config/import-typescript-module.js';
 import { CheckLaunchFile } from '@/launch-file/check-launch-file.js';
 import { pathExists } from '@/path-exists.js';
 
@@ -12,15 +12,10 @@ export class LoadLaunchFile {
 
   async read(startDirectory: string): Promise<LaunchConfig> {
     const launchFilePath = await this.find(startDirectory);
-    const runningCopyUrl = fileURLToPath(new URL('../index.js', import.meta.url));
-    const loader = createJiti(import.meta.url, {
-      alias: { 'launch-store': runningCopyUrl },
-      // Source still imports with `@/`. The build rewrites those; this loader does not.
-      tsconfigPaths: true,
-    });
+    const runningCopyPath = fileURLToPath(new URL('../index.js', import.meta.url));
 
     try {
-      var importedLaunchFile = await loader.import(launchFilePath);
+      var importedLaunchFile = await importTypeScriptModule(launchFilePath, runningCopyPath);
     } catch (error) {
       throw new Error(`Could not load ${launchFilePath}`, { cause: error });
     }

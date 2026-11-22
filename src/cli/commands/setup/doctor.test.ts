@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from 'commander';
+import { Command } from '@/cli/command.js';
 import { registerDoctorCommand } from './doctor.js';
 describe('registerDoctorCommand', () => {
   it('attaches a `doctor` command with platform, app, fix, yes, and json options', () => {

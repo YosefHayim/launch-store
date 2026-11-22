@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { COMPLETE_SUBCOMMAND, SHELLS } from '@/terminal/completion.js';
 import { completionCommandProgram } from '@/terminal/completionCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';

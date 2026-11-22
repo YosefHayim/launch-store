@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { BuildPipeline, type ShipBuild } from '@/build/build-pipeline.js';
 
 interface BuildFlags {

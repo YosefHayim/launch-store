@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command } from '@/cli/command.js';
 import { SetupCommand } from '@/launch-file/setup-command.js';
 import { StoreCommand } from '@/store/store-command.js';
 import { registerMigrateCommand } from './commands/setup/migrate.js';

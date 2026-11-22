@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import type { Command } from '@/cli/command.js';
 import { statsReportProgram } from '@/stats/statsCommand.js';
 import { statsSyncProgram } from '@/stats/statsSyncCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';

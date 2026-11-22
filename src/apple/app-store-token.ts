@@ -1,4 +1,4 @@
-import { importPKCS8, SignJWT } from 'jose';
+import { createPrivateKey, sign } from 'node:crypto';
 import type { AscKey } from '@/types/credentials.js';
 import {
   Keychain,
@@ -14,27 +14,8 @@ export class AppStoreToken {
   async sign(): Promise<string> {
     const key = await this.readKey();
     const issuedAt = Math.floor(Date.now() / 1000);
-    const tokenLifetimeSeconds = 19 * 60;
 
-    try {
-      var privateKey = await importPKCS8(key.p8, 'ES256');
-    } catch (error) {
-      throw new Error('Could not read the App Store Connect key', { cause: error });
-    }
-
-    try {
-      var signedToken = await new SignJWT({})
-        .setProtectedHeader({ alg: 'ES256', kid: key.keyId, typ: 'JWT' })
-        .setIssuer(key.issuerId)
-        .setIssuedAt(issuedAt)
-        .setExpirationTime(issuedAt + tokenLifetimeSeconds)
-        .setAudience('appstoreconnect-v1')
-        .sign(privateKey);
-    } catch (error) {
-      throw new Error('Could not sign the App Store Connect token', { cause: error });
-    }
-
-    return signedToken;
+    return signAppStoreConnectToken(key, issuedAt);
   }
 
   private async readKey(): Promise<AscKey> {
@@ -62,4 +43,42 @@ export class AppStoreToken {
 
     return { keyId: account.keyId, issuerId: account.issuerId, p8: legacyKey };
   }
+}
+
+export function signAppStoreConnectToken(key: AscKey, issuedAt: number): string {
+  const tokenLifetimeSeconds = 19 * 60;
+
+  try {
+    var privateKey = createPrivateKey(key.p8);
+  } catch (error) {
+    throw new Error('Could not read the App Store Connect key', { cause: error });
+  }
+
+  const headerSegment = base64Url(JSON.stringify({ alg: 'ES256', kid: key.keyId, typ: 'JWT' }));
+  const claimSegment = base64Url(
+    JSON.stringify({
+      iss: key.issuerId,
+      iat: issuedAt,
+      exp: issuedAt + tokenLifetimeSeconds,
+      aud: 'appstoreconnect-v1',
+    }),
+  );
+  const signingInput = `${headerSegment}.${claimSegment}`;
+
+  try {
+    var signature = sign('sha256', Buffer.from(signingInput), {
+      key: privateKey,
+      dsaEncoding: 'ieee-p1363',
+    });
+  } catch (error) {
+    throw new Error('Could not sign the App Store Connect token', { cause: error });
+  }
+
+  return `${signingInput}.${base64Url(signature)}`;
+}
+
+function base64Url(bytes: string | Buffer): string {
+  const encoded = Buffer.from(bytes).toString('base64url');
+
+  return encoded;
 }
