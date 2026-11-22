@@ -85,7 +85,7 @@ import type {
   WinBackOfferResource,
 } from '@/types/appleCatalog.js';
 import type { AscKey } from '@/types/credentials.js';
-import type { components } from '@/generated/apple/schema.js';
+import type { components } from '@/apple-api-types.js';
 import { platform as detectOperatingSystem } from 'node:os';
 import { retryAppleTransportRequest } from '@/apple/transportHelpers.js';
 import type { AscHost } from './connect/host.js';

@@ -8,7 +8,7 @@ import type {
   ProfileResource,
 } from '@/types/appleCatalog.js';
 import type { ProvisioningProfileType, ResourceList } from './shared.js';
-import type { components } from '@/generated/apple/schema.js';
+import type { components } from '@/apple-api-types.js';
 import {
   DISTRIBUTION_CERT_TYPE,
   APP_STORE_PROFILE_TYPE,

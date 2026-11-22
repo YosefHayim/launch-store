@@ -1,6 +1,6 @@
 import type { AscKey } from '@/types/credentials.js';
 import type { MutableDeep } from '@/types/mutable.js';
-import type { components } from '@/generated/apple/schema.js';
+import type { components } from '@/apple-api-types.js';
 import { createHash } from 'node:crypto';
 import { signAppStoreConnectToken } from '@/apple/app-store-token.js';
 import { open, readFile, stat, type FileHandle } from 'node:fs/promises';

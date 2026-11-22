@@ -1,4 +1,4 @@
-import type { components } from '@/generated/apple/schema.js';
+import type { components } from '@/apple-api-types.js';
 import { AppStoreToken } from '@/apple/app-store-token.js';
 
 type AppList = components['schemas']['AppsResponse'];

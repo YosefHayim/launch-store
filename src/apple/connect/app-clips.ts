@@ -7,7 +7,7 @@ import type {
 import type { AscHost } from './host.js';
 import type { MutableDeep } from '@/types/mutable.js';
 import type { ResourceSingle, AppClipExperiencePage } from './shared.js';
-import type { components } from '@/generated/apple/schema.js';
+import type { components } from '@/apple-api-types.js';
 
 export class ConnectAppClips {
   constructor(private readonly client: AscHost) {}

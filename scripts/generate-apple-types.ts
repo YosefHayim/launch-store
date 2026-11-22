@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import openapiTypeScript, { astToString } from 'openapi-typescript';
 
-const schemaPath = fileURLToPath(new URL('../src/generated/apple/schema.ts', import.meta.url));
+const schemaPath = fileURLToPath(new URL('../src/apple-api-types.ts', import.meta.url));
 const ASC_SPEC_URL =
   'https://developer.apple.com/sample-code/app-store-connect/app-store-connect-openapi-specification.zip';
 // Apple's zip member, including the " (2)" suffix a browser download adds.

@@ -93,7 +93,7 @@ import type {
   AppleResource,
   UploadOperation,
 } from './shared.js';
-import type { components } from '@/generated/apple/schema.js';
+import type { components } from '@/apple-api-types.js';
 
 export interface AscHost {
   token(): Promise<string>;

@@ -6,7 +6,7 @@ import type {
 } from '@/types/appleCatalog.js';
 import type { AscHost } from './host.js';
 import type { ResourceSingle } from './shared.js';
-import type { components } from '@/generated/apple/schema.js';
+import type { components } from '@/apple-api-types.js';
 
 export class ConnectDistribution {
   constructor(private readonly client: AscHost) {}
