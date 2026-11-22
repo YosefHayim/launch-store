@@ -92,7 +92,7 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.config.ts", "launch.config.example.ts"],
+      "includes": ["**/*.config.ts"],
       "linter": { "rules": { "style": { "noDefaultExport": "off" } } }
     },
     {

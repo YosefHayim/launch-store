@@ -88,18 +88,20 @@ launch stats --app "cal friend" --json
 App facts (bundle id, version) are read from each app's Expo config, `app.json` or `app.config.{ts,js}`. `launch.config.ts` holds Launch settings. `defineConfig` is the public helper. The published [JSON Schema](https://json-schema.org/) is `schema/launch.config.schema.json`. `launch config schema` prints it, and `launch config schema --out launch.config.schema.json` writes a copy for your editor.
 
 ```ts
-import { defineConfig } from "launch-store";
+import { defineConfig } from 'launch-store';
 
 export default defineConfig({
-  credentials: "local",
-  storage: "local",
-  buildEngine: "xcode",
+  appRoots: ['./examples'], // every app.json lives under here
+
+  credentials: 'local', // macOS Keychain + ~/.launch (your own keys, cached locally)
+  storage: 'local', // ~/.launch/artifacts (swap for s3/r2/supabase later)
+  buildEngine: 'xcode', // "xcode" (local) · "remote-mac" (AWS EC2 Mac) · "eas" (Expo cloud)
+
   profiles: {
     production: {
-      name: "production",
-      envFile: ".env",
-      env: {},
-      sizeBudgetMB: 200,
+      name: 'production',
+      envFile: '.env', // dotenv loaded for this profile (validated against .env.example)
+      sizeBudgetMB: 200, // soft-gate: confirm before uploading a build over this download size
     },
   },
 });

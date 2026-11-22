@@ -2,7 +2,7 @@
 
 Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md) (keep agent rules out of it).
 
-This is the only agent instructions file. [Claude Code](https://code.claude.com/docs/en/memory) reads it when the repo has no `CLAUDE.md`. [Codex](https://learn.chatgpt.com/docs/agent-configuration/agents-md) reads it from the repo root. Do not add `CLAUDE.md`, `GEMINI.md`, or a second copy of these rules.
+This is the only agent instructions file. [Claude Code](https://code.claude.com/docs/en/memory) reads it when the repo has no `CLAUDE.md`. [Codex](https://learn.chatgpt.com/docs/agent-configuration/agents-md) reads it from the repo root. [Cursor](https://cursor.com/docs/rules) reads it as the plain-markdown alternative to `.cursor/rules`. Do not add `CLAUDE.md`, `GEMINI.md`, or a second copy of these rules.
 
 ## Branching And PRs
 
@@ -49,7 +49,7 @@ A file that performs one documented Apple or Google request belongs in `src/appl
 - Usage and product direction: [README.md](./README.md).
 - Domain language: runtime teaching text in `src/terminal/glossary.ts`.
 - Config schema: `schema/launch.config.schema.json` is the published copy. `src/config/` loads and checks it.
-- Root files: there is no `LICENSE` file and no `.env.example`. `package.json` keeps `"license": "MIT"`. `launch init` still writes a starter `.env.example` into the app being set up.
+- Root files: there is no `LICENSE` file, no `.env.example`, and no `launch.config.example.ts`. The root sample is `launch.config.ts`. `package.json` keeps `"license": "MIT"`. `launch init` still writes a starter `.env.example` into the app being set up.
 
 ### Imports Follow Ownership
 
