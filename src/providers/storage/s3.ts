@@ -238,7 +238,16 @@ export function decodeArtifactIndex(indexText: string): BuildArtifact[] {
     const artifact = readBuildArtifact(candidate);
     const prunedAt = isRecord(candidate) ? readOptionalString(candidate, 'prunedAt') : undefined;
 
-    if (prunedAt == null) {
+    const prunedAtIsAbsent = typeof prunedAt == 'undefined';
+
+    if (prunedAtIsAbsent) {
+      artifacts.push(artifact);
+      continue;
+    }
+
+    const prunedAtIsInvalid = prunedAt == null;
+
+    if (prunedAtIsInvalid) {
       throw parseFailure('Artifact index prunedAt must be a string.');
     }
 

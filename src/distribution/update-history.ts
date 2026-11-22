@@ -60,6 +60,14 @@ function readOptionalString(
   return null;
 }
 
+function isNull(field: string | null | undefined): boolean {
+  if (field != null) {
+    return false;
+  }
+
+  return typeof field == 'object';
+}
+
 function parseJson(jsonText: string): unknown {
   return JSON.parse(jsonText);
 }
@@ -76,7 +84,9 @@ function readManifestAsset(candidate: unknown): UpdateManifest['launchAsset'] {
   };
   const fileExtension = readOptionalString(candidate, 'fileExtension');
 
-  if (fileExtension == null) {
+  const fileExtensionIsInvalid = isNull(fileExtension);
+
+  if (fileExtensionIsInvalid) {
     throw new Error('Manifest asset extension is malformed.');
   }
 
@@ -190,7 +200,9 @@ function decodeRollbackDirective(jsonText: string): StoredRollbackDirective | nu
 
     const signature = readOptionalString(parsed, 'signature');
 
-    if (signature == null) {
+    const signatureIsInvalid = isNull(signature);
+
+    if (signatureIsInvalid) {
       return null;
     }
 

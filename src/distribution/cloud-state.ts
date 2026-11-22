@@ -42,6 +42,14 @@ function optionalString(
   return field;
 }
 
+function isNull(field: string | null | undefined): boolean {
+  if (field != null) {
+    return false;
+  }
+
+  return typeof field == 'object';
+}
+
 function readSshTarget(candidate: unknown): SshTarget | null {
   if (isRecord(candidate) == false) {
     return null;
@@ -70,7 +78,9 @@ function readSshTarget(candidate: unknown): SshTarget | null {
 
   const identityFile = optionalString(candidate, 'identityFile');
 
-  if (identityFile == null) {
+  const identityFileIsInvalid = isNull(identityFile);
+
+  if (identityFileIsInvalid) {
     return null;
   }
 
@@ -115,7 +125,7 @@ function readHostHandle(candidate: unknown): HostHandle | null {
   const optionalFields = [instanceId, hostId, region, instanceType];
 
   function isInvalidOptional(field: string | null | undefined): boolean {
-    return field == null;
+    return isNull(field);
   }
 
   const hasInvalidOptional = optionalFields.some(isInvalidOptional);
@@ -152,7 +162,9 @@ function readCloudDocument(candidate: unknown): CloudState | null {
 
   const amiId = optionalString(candidate, 'amiId');
 
-  if (amiId == null) {
+  const amiIdIsInvalid = isNull(amiId);
+
+  if (amiIdIsInvalid) {
     return null;
   }
 

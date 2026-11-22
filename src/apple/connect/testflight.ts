@@ -133,8 +133,13 @@ export class ConnectTestflight {
     }>(path);
     return appleResources.flatMap((tester) => {
       let testerEmail = tester.attributes.email;
-      if (testerEmail == null) return [];
-      if (testerEmail == null) testerEmail = '';
+      const emailIsOmitted = typeof testerEmail == 'undefined';
+
+      if (emailIsOmitted) return [];
+
+      const emailIsNull = testerEmail == null;
+
+      if (emailIsNull) testerEmail = '';
       const betaTester: BetaTesterResource = { id: tester.id, email: testerEmail };
       if (typeof tester.attributes.firstName == 'string')
         Object.assign(betaTester, { firstName: tester.attributes.firstName });

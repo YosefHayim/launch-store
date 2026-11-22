@@ -213,6 +213,19 @@ export class ConnectApps {
       secondaryCategoryId?: string | null;
     },
   ): Promise<void> {
+    function secondaryCategoryRelationship(categoryId: string | null | undefined): {
+      type: 'appCategories';
+      id: string;
+    } | null {
+      const hasCategoryId = categoryId != null;
+
+      if (hasCategoryId == false) {
+        return null;
+      }
+
+      return { type: 'appCategories', id: categoryId };
+    }
+
     const relationships: Record<
       string,
       {
@@ -227,12 +240,12 @@ export class ConnectApps {
         data: { type: 'appCategories', id: categories.primaryCategoryId },
       };
     }
-    if (categories.secondaryCategoryId != null) {
-      let secondaryCategory = null;
-      if (categories.secondaryCategoryId != null)
-        secondaryCategory = { type: 'appCategories' as const, id: categories.secondaryCategoryId };
+    const secondaryCategoryId = categories.secondaryCategoryId;
+    const secondaryCategoryIsOmitted = typeof secondaryCategoryId == 'undefined';
+
+    if (secondaryCategoryIsOmitted == false) {
       relationships['secondaryCategory'] = {
-        data: secondaryCategory,
+        data: secondaryCategoryRelationship(secondaryCategoryId),
       };
     }
     await this.client.request<unknown>('PATCH', `/appInfos/${appInfoId}`, {
