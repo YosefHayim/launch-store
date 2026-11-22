@@ -137,9 +137,7 @@ export class ConnectTestflight {
 
       if (emailIsOmitted) return [];
 
-      const emailIsNull = testerEmail == null;
-
-      if (emailIsNull) testerEmail = '';
+      if (testerEmail == null) testerEmail = '';
       const betaTester: BetaTesterResource = { id: tester.id, email: testerEmail };
       if (typeof tester.attributes.firstName == 'string')
         Object.assign(betaTester, { firstName: tester.attributes.firstName });
