@@ -201,10 +201,6 @@ const normalizeTrackRelease = (
   }
   return release;
 };
-function isText(text: string | null | undefined): text is string {
-  return text != null;
-}
-
 /** Retain a non-empty generated page token and collapse null/empty values to undefined. */
 export const nonEmptyPageToken = (token: string | null | undefined): string | undefined => {
   if (typeof token != 'string') return;
@@ -667,7 +663,7 @@ export class GooglePlayClient {
     const editCreation = await this.executeGeneratedRequest('create edit', () =>
       this.publisher.edits.insert({ packageName }),
     );
-    if (isText(editCreation.id)) {
+    if (editCreation.id != null) {
       return editCreation.id;
     }
 
@@ -1027,7 +1023,7 @@ export class GooglePlayClient {
       const listParameters: androidpublisher_v3.Params$Resource$Inappproducts$List = {
         packageName,
       };
-      if (isText(pageToken)) {
+      if (pageToken != null) {
         listParameters.token = pageToken;
       }
 
@@ -1091,7 +1087,7 @@ export class GooglePlayClient {
     productTaxCategoryCode?: string,
   ): Promise<ConvertedPrices> {
     const priceRequest: androidpublisher_v3.Schema$ConvertRegionPricesRequest = { price };
-    if (isText(productTaxCategoryCode)) {
+    if (productTaxCategoryCode != null) {
       priceRequest.productTaxCategoryCode = productTaxCategoryCode;
     }
 
@@ -1141,7 +1137,7 @@ export class GooglePlayClient {
           {
             packageName,
           };
-        if (isText(pageToken)) {
+        if (pageToken != null) {
           listParameters.pageToken = pageToken;
         }
 
@@ -1233,7 +1229,7 @@ export class GooglePlayClient {
       (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Monetization$Subscriptions$Baseplans$Offers$List =
           { packageName, productId, basePlanId };
-        if (isText(pageToken)) {
+        if (pageToken != null) {
           listParameters.pageToken = pageToken;
         }
 
@@ -1267,11 +1263,11 @@ export class GooglePlayClient {
   ): Promise<void> {
     let productId = '';
     let basePlanId = '';
-    if (isText(offer.productId)) {
+    if (offer.productId != null) {
       productId = offer.productId;
     }
 
-    if (isText(offer.basePlanId)) {
+    if (offer.basePlanId != null) {
       basePlanId = offer.basePlanId;
     }
 
@@ -1320,11 +1316,11 @@ export class GooglePlayClient {
     return collectGeneratedPages(
       (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Reviews$List = { packageName };
-        if (isText(options.translationLanguage)) {
+        if (options.translationLanguage != null) {
           listParameters.translationLanguage = options.translationLanguage;
         }
 
-        if (isText(pageToken)) {
+        if (pageToken != null) {
           listParameters.token = pageToken;
         }
 
@@ -1399,14 +1395,14 @@ export class GooglePlayClient {
     );
     let storedReplyText = replyText;
     const confirmedReplyText = replyConfirmation.result?.replyText;
-    if (isText(confirmedReplyText)) {
+    if (confirmedReplyText != null) {
       storedReplyText = confirmedReplyText;
     }
 
     const reply: MutableDeep<PlayReplyResult> = { replyText: storedReplyText };
     const lastEdited = timestampToIso(replyConfirmation.result?.lastEdited);
 
-    if (isText(lastEdited)) {
+    if (lastEdited != null) {
       reply.lastEdited = lastEdited;
     }
 

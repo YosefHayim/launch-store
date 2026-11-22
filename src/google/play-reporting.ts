@@ -101,14 +101,6 @@ function isListed<Row>(candidate: readonly Row[] | null | undefined): candidate 
   return Array.isArray(candidate);
 }
 
-function isText(text: string | null | undefined): text is string {
-  return text != null;
-}
-
-function isNumber(candidate: number | null | undefined): candidate is number {
-  return typeof candidate == 'number';
-}
-
 /** A generated Play Developer Reporting request failed. */
 type PlayReportingApiError = Readonly<{
   readonly _tag: 'PlayReportingApiError';
@@ -270,7 +262,7 @@ export class PlayReportingClient {
     );
     const latestDate = dateTimeToIso(dailyFreshness?.latestEndTime);
 
-    if (isText(latestDate)) {
+    if (latestDate != null) {
       return latestDate;
     }
 
@@ -324,7 +316,7 @@ export class PlayReportingClient {
           },
           metrics: [metricSet.rate, metricSet.userPerceivedRate, metricSet.distinctUsers],
         };
-      if (isText(pageToken)) {
+      if (pageToken != null) {
         queryRequest.pageToken = pageToken;
       }
 
@@ -352,23 +344,23 @@ export class PlayReportingClient {
         for (const metricEntry of metricRows) {
           const date = dateTimeToIso(metricEntry.startTime);
 
-          if (isText(date)) {
+          if (date != null) {
             const normalized: MutableDeep<PlayVitalsRow> = { metric, date };
             const rate = metricNumber(metricEntry, metricSet.rate);
 
-            if (isNumber(rate)) {
+            if (typeof rate == 'number') {
               normalized.rate = rate;
             }
 
             const userPerceivedRate = metricNumber(metricEntry, metricSet.userPerceivedRate);
 
-            if (isNumber(userPerceivedRate)) {
+            if (typeof userPerceivedRate == 'number') {
               normalized.userPerceivedRate = userPerceivedRate;
             }
 
             const distinctUsers = metricNumber(metricEntry, metricSet.distinctUsers);
 
-            if (isNumber(distinctUsers)) {
+            if (typeof distinctUsers == 'number') {
               normalized.distinctUsers = distinctUsers;
             }
 

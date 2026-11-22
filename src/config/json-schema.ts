@@ -1,3 +1,5 @@
+import { readPlainObject } from '../services/platform/plain-object.ts';
+
 export type JsonSchema = {
   $schema?: string;
   $ref?: string;
@@ -225,13 +227,13 @@ export const validate = (
       return violations;
     }
   }
-  if (schema.enum && !schema.enum.some((allowed) => allowed == candidateValue)) {
+  if (schema.enum && !schema.enum.some((allowed) => Object.is(allowed, candidateValue))) {
     violations.push({
       path,
       message: `expected one of ${describeExpected(schema)}, got ${JSON.stringify(candidateValue)}`,
     });
   }
-  if ('const' in schema && schema.const != candidateValue) {
+  if ('const' in schema && Object.is(schema.const, candidateValue) == false) {
     violations.push({
       path,
       message: `expected ${JSON.stringify(schema.const)}, got ${JSON.stringify(candidateValue)}`,
@@ -246,13 +248,11 @@ export const validate = (
       });
     }
   }
-  if (
-    typeof candidateValue == 'object' &&
-    candidateValue != null &&
-    !Array.isArray(candidateValue)
-  ) {
+  const candidateRecord = readPlainObject(candidateValue);
+
+  if (candidateRecord != null) {
     violations.push(
-      ...validateObject(Object.fromEntries(Object.entries(candidateValue)), schema, root, path),
+      ...validateObject(Object.fromEntries(Object.entries(candidateRecord)), schema, root, path),
     );
   }
   const { items } = schema;

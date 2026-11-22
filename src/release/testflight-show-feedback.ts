@@ -7,12 +7,7 @@ import {
   listBetaFeedback,
   type FeedbackFilters,
 } from './testflight-feedback.ts';
-import {
-  countLabel,
-  isPresentName,
-  loadSelectedAppleApp,
-  testflightFailure,
-} from './testflight-group.ts';
+import { countLabel, loadSelectedAppleApp, testflightFailure } from './testflight-group.ts';
 
 const FEEDBACK_KINDS: readonly BetaFeedbackKind[] = ['crash', 'screenshot'];
 
@@ -66,11 +61,23 @@ function optionalCleanedText(unsafeText: string | undefined): string | undefined
 export function renderFeedback(feedbackEntry: BetaFeedback): string {
   const deviceModel = optionalCleanedText(feedbackEntry.deviceModel);
   const operatingSystemText = optionalCleanedText(feedbackEntry.osVersion);
-  const operatingSystem = isPresentName(operatingSystemText)
-    ? `iOS ${operatingSystemText}`
-    : undefined;
+  let operatingSystem: string | undefined;
 
-  const deviceDescription = [deviceModel, operatingSystem].filter(isPresentName).join(' - ');
+  if (operatingSystemText != null) {
+    operatingSystem = `iOS ${operatingSystemText}`;
+  }
+
+  const deviceParts: string[] = [];
+
+  if (deviceModel != null) {
+    deviceParts.push(deviceModel);
+  }
+
+  if (operatingSystem != null) {
+    deviceParts.push(operatingSystem);
+  }
+
+  const deviceDescription = deviceParts.join(' - ');
   const metadataParts: string[] = [];
 
   if (feedbackEntry.buildVersion != null) {

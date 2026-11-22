@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 import type { PortfolioApp } from '../../types/portfolio.ts';
 import type { FeedFetchReply } from '../../types/stats.ts';
 import type { StatsCredentialsApi } from '../stats-credentials.ts';
@@ -55,24 +56,6 @@ function readRequestUrl(url: string | URL | Request): string {
   return url.url;
 }
 
-function isHeaderRecord(candidate: unknown): candidate is { authorization?: unknown } {
-  const isMissing = candidate == null;
-
-  if (isMissing) {
-    return false;
-  }
-
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  const isList = Array.isArray(candidate);
-
-  return isList == false;
-}
-
 function readAuthorization(headers: unknown): string | null {
   const hasNoHeaders = headers == null;
 
@@ -86,13 +69,13 @@ function readAuthorization(headers: unknown): string | null {
     return headers.get('authorization');
   }
 
-  const isRecordedHeader = isHeaderRecord(headers);
+  const headerRecord = readPlainObject(headers);
 
-  if (isRecordedHeader == false) {
+  if (headerRecord == null) {
     return null;
   }
 
-  const authorization = headers.authorization;
+  const authorization = headerRecord['authorization'];
   const isAuthorizationText = typeof authorization == 'string';
 
   if (isAuthorizationText == false) {

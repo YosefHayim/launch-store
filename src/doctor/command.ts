@@ -31,18 +31,10 @@ type DoctorCommandFailure = Readonly<{
   cause: unknown;
 }>;
 
-function isBoolean(field: unknown): field is boolean {
-  return typeof field == 'boolean';
-}
-
-function isText(field: unknown): field is string {
-  return typeof field == 'string';
-}
-
 function readBooleanField(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
 
-  if (isBoolean(field)) {
+  if (typeof field == 'boolean') {
     return field;
   }
 
@@ -58,7 +50,7 @@ function readOptionalTextField(record: Record<string, unknown>, fieldName: strin
 
   const field = record[fieldName];
 
-  if (isText(field)) {
+  if (typeof field == 'string') {
     return field;
   }
 
@@ -110,7 +102,7 @@ function readCauseMessage(cause: unknown): string | null {
     return cause.message;
   }
 
-  if (isText(cause)) {
+  if (typeof cause == 'string') {
     return readNonEmptyText(cause);
   }
 

@@ -1,10 +1,27 @@
-export const hasMessage = (failure: unknown): failure is Readonly<{ message: string }> =>
-  typeof failure == 'object' &&
-  failure != null &&
-  'message' in failure &&
-  typeof failure.message == 'string';
+import { readPlainObject } from './plain-object.ts';
 
-export const errorMessage = (error: unknown): string => {
-  if (hasMessage(error)) return error.message;
-  return String(error);
-};
+function hasMessage(failure: unknown): failure is Readonly<{ message: string }> {
+  const failureRecord = readPlainObject(failure);
+
+  if (failureRecord == null) {
+    return false;
+  }
+
+  const message = failureRecord['message'];
+
+  if (typeof message != 'string') {
+    return false;
+  }
+
+  return true;
+}
+
+function errorMessage(failure: unknown): string {
+  if (hasMessage(failure)) {
+    return failure.message;
+  }
+
+  return String(failure);
+}
+
+export { errorMessage, hasMessage };

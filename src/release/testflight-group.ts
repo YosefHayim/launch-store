@@ -38,10 +38,6 @@ export function countLabel(count: number, singularNoun: string): string {
   return `${count} ${singularNoun}s`;
 }
 
-export function isPresentName(namePart: string | undefined): namePart is string {
-  return namePart != null;
-}
-
 export async function loadSelectedAppleApp(
   appleStore: EffectAppStoreConnectClient,
   appSelector: string | undefined,

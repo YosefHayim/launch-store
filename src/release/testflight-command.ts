@@ -1,11 +1,11 @@
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 import { loadActiveAppleStore } from '../cli/commands/store/apple/apple-store-command.ts';
 import type { BetaGroupResource, BetaTesterResource } from '../types/apple-catalog.ts';
 import { addTesters, type AddCommandInput } from './testflight-add-testers.ts';
 import {
   countLabel,
-  isPresentName,
   loadSelectedAppleApp,
   selectBetaGroup,
   testflightFailure,
@@ -52,30 +52,6 @@ type TestflightCommandInput =
   | ReleaseCommandInput
   | FeedbackCommandInput;
 
-function isText(field: unknown): field is string {
-  return typeof field == 'string';
-}
-
-function isBoolean(field: unknown): field is boolean {
-  return typeof field == 'boolean';
-}
-
-function isObject(field: unknown): field is object {
-  return typeof field == 'object';
-}
-
-function isCommandRecord(commandInput: unknown): commandInput is Record<string, unknown> {
-  if (commandInput == null) {
-    return false;
-  }
-
-  if (isObject(commandInput)) {
-    return Array.isArray(commandInput) == false;
-  }
-
-  return false;
-}
-
 function isTestflightOperation(operation: string): operation is TestflightOperation {
   for (const knownOperation of TESTFLIGHT_OPERATIONS) {
     if (knownOperation == operation) {
@@ -102,7 +78,7 @@ function optionalTextField(
     return null;
   }
 
-  if (isText(field)) {
+  if (typeof field == 'string') {
     return field;
   }
 
@@ -112,7 +88,7 @@ function optionalTextField(
 function readRequiredString(commandRecord: Record<string, unknown>, fieldName: string): string {
   const field = commandRecord[fieldName];
 
-  if (isText(field)) {
+  if (typeof field == 'string') {
     return field;
   }
 
@@ -122,7 +98,7 @@ function readRequiredString(commandRecord: Record<string, unknown>, fieldName: s
 function readRequiredBoolean(commandRecord: Record<string, unknown>, fieldName: string): boolean {
   const field = commandRecord[fieldName];
 
-  if (isBoolean(field)) {
+  if (typeof field == 'boolean') {
     return field;
   }
 
@@ -133,7 +109,7 @@ function readEmailList(field: readonly unknown[]): string[] {
   const emails: string[] = [];
 
   for (const email of field) {
-    if (isText(email)) {
+    if (typeof email == 'string') {
       emails.push(email);
       continue;
     }
@@ -165,7 +141,7 @@ function requireKnownOperation(operation: string): TestflightOperation {
 function readOperation(commandRecord: Record<string, unknown>): TestflightOperation {
   const field = commandRecord['operation'];
 
-  if (isText(field)) {
+  if (typeof field == 'string') {
     return requireKnownOperation(field);
   }
 
@@ -333,18 +309,25 @@ function decodeTestflightCommand(commandRecord: Record<string, unknown>): Testfl
 }
 
 export function TestflightCommandInputSchema(commandInput: unknown): TestflightCommandInput {
-  if (isCommandRecord(commandInput)) {
-    return decodeTestflightCommand(commandInput);
+  const commandRecord = readPlainObject(commandInput);
+
+  if (commandRecord == null) {
+    throw new Error('TestFlight command input must be an object.');
   }
 
-  throw new Error('TestFlight command input must be an object.');
+  return decodeTestflightCommand(commandRecord);
 }
 
 function formatGroupLine(betaGroup: BetaGroupResource, testerCount: number): string {
   const isInternal = betaGroup.isInternal == true;
   const groupKind = isInternal ? 'internal' : 'external';
   const publicLinkText = betaGroup.publicLink;
-  const publicLink = isPresentName(publicLinkText) ? ` - ${publicLinkText}` : '';
+  let publicLink = '';
+
+  if (publicLinkText != null) {
+    publicLink = ` - ${publicLinkText}`;
+  }
+
   return `- ${betaGroup.name} (${groupKind}, ${countLabel(testerCount, 'tester')})${publicLink}`;
 }
 
@@ -392,11 +375,26 @@ async function createGroup(commandInput: CreateGroupCommandInput): Promise<void>
 }
 
 function formatTesterLine(betaTester: BetaTesterResource): string {
-  const fullName = [betaTester.firstName, betaTester.lastName].filter(isPresentName).join(' ');
+  const nameParts: string[] = [];
+
+  if (betaTester.firstName != null) {
+    nameParts.push(betaTester.firstName);
+  }
+
+  if (betaTester.lastName != null) {
+    nameParts.push(betaTester.lastName);
+  }
+
+  const fullName = nameParts.join(' ');
   const hasFullName = fullName.length > 0;
   const nameDetail = hasFullName ? ` - ${fullName}` : '';
   const testerState = betaTester.state;
-  const stateDetail = isPresentName(testerState) ? ` [${testerState.toLowerCase()}]` : '';
+  let stateDetail = '';
+
+  if (testerState != null) {
+    stateDetail = ` [${testerState.toLowerCase()}]`;
+  }
+
   const isLabelEmpty = betaTester.email.length == 0;
   const testerLabel = isLabelEmpty ? '(no email, public link)' : betaTester.email;
   return `- ${testerLabel}${nameDetail}${stateDetail}`;

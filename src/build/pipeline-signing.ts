@@ -285,7 +285,7 @@ export async function resolveSigning(
 
   const reused = await reuseWhenCached(credentials, log, isDryRun);
 
-  if (isPresentSigning(reused)) {
+  if (reused != null) {
     return reused;
   }
 
@@ -339,10 +339,6 @@ function presentBundleId(app: AppDescriptor): string {
   });
 }
 
-function isPresentSigning(signing: SigningAssets | null | undefined): signing is SigningAssets {
-  return signing != null;
-}
-
 async function reuseWhenCached(
   credentials: AppleCredentials,
   log: Logger,
@@ -350,7 +346,7 @@ async function reuseWhenCached(
 ): Promise<SigningAssets | null> {
   const cachedSigning = credentials.signing;
 
-  if (isPresentSigning(cachedSigning)) {
+  if (cachedSigning != null) {
     const reused = await reuseCachedSigning(cachedSigning, credentials.ascKey, log, isDryRun);
 
     return reused;

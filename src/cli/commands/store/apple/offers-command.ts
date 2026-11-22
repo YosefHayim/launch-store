@@ -1,4 +1,5 @@
 import { createLogger } from '../../../../services/platform/logger.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 import { completeCommand } from '../../../../terminal/command-exit.ts';
 import { executeGenerateCodes } from './offers-generate-codes.ts';
 import { executeListOfferCodes } from './offers-list.ts';
@@ -42,23 +43,13 @@ type OffersCommandInput =
   | OffersDeactivateInput;
 
 function readCommandRecord(rawCommandInput: unknown): Record<string, unknown> {
-  if (rawCommandInput == null) {
+  const commandRecord = readPlainObject(rawCommandInput);
+
+  if (commandRecord == null) {
     throw new Error('Offers command input must be an object.');
   }
 
-  const isObject = typeof rawCommandInput == 'object';
-
-  if (isObject == false) {
-    throw new Error('Offers command input must be an object.');
-  }
-
-  const isArray = Array.isArray(rawCommandInput);
-
-  if (isArray) {
-    throw new Error('Offers command input must be an object.');
-  }
-
-  return rawCommandInput as Record<string, unknown>;
+  return commandRecord;
 }
 
 function readRequiredString(record: Record<string, unknown>, field: string): string {

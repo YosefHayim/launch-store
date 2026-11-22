@@ -12,6 +12,7 @@ import { parseGameCenterConfig, reconcileGameCenter } from '../../../../store/ap
 import { summarize } from '../../../../store/shared/reconcile.ts';
 import { loadStoreAppContext } from '../../../../store/shared/select-store-app.ts';
 import { hasMessage } from '../../../../services/platform/error-message.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 export type GameCenterCommandInput = Readonly<{
   app?: string;
@@ -23,21 +24,11 @@ export type GameCenterCommandInput = Readonly<{
 
 /** Decode one Game Center command. Rejects an explicit undefined exact optional app. */
 export function GameCenterCommandInputSchema(rawCommandInput: unknown): GameCenterCommandInput {
-  const isObject = typeof rawCommandInput == 'object';
+  const commandRecord = readPlainObject(rawCommandInput);
 
-  if (isObject == false) {
+  if (commandRecord == null) {
     throw new Error('Game Center command input must be an object.');
   }
-
-  if (rawCommandInput == null) {
-    throw new Error('Game Center command input must be an object.');
-  }
-
-  if (Array.isArray(rawCommandInput)) {
-    throw new Error('Game Center command input must be an object.');
-  }
-
-  const commandRecord = rawCommandInput as Record<string, unknown>;
   const config = commandRecord['config'];
   const explicitConfig = commandRecord['explicitConfig'];
   const dryRun = commandRecord['dryRun'];

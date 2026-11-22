@@ -36,11 +36,7 @@ function optionalString(
 }
 
 function isNull(field: string | null | undefined): boolean {
-  if (field != null) {
-    return false;
-  }
-
-  return typeof field == 'object';
+  return Object.is(field, null);
 }
 
 function readSshTarget(candidate: unknown): SshTarget | null {

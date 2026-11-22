@@ -33,12 +33,8 @@ function isReviewDetailMissing(detail: ReviewDetail): detail is null {
   return detail == null;
 }
 
-function isText(candidate: string | boolean | undefined): candidate is string {
-  return typeof candidate == 'string';
-}
-
 function hasDemoName(demoName: string | boolean | undefined): boolean {
-  if (isText(demoName)) {
+  if (typeof demoName == 'string') {
     return demoName.length > 0;
   }
 

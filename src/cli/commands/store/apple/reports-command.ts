@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { errorMessage } from '../../../../services/platform/error-message.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 import { readLaunchEnvironment } from '../../../../services/platform/environment.ts';
 import { createLogger, type Logger } from '../../../../services/platform/logger.ts';
 import { readLaunchDirectories } from '../../../../services/platform/paths.ts';
@@ -82,23 +83,13 @@ const VENDOR_NUMBER_MESSAGE =
   '(find it in App Store Connect -> Payments and Financial Reports).';
 
 function readCommandRecord(rawCommandInput: unknown): Record<string, unknown> {
-  if (rawCommandInput == null) {
+  const commandRecord = readPlainObject(rawCommandInput);
+
+  if (commandRecord == null) {
     throw new Error('Reports command input must be an object.');
   }
 
-  const isObject = typeof rawCommandInput == 'object';
-
-  if (isObject == false) {
-    throw new Error('Reports command input must be an object.');
-  }
-
-  const isArray = Array.isArray(rawCommandInput);
-
-  if (isArray) {
-    throw new Error('Reports command input must be an object.');
-  }
-
-  return rawCommandInput as Record<string, unknown>;
+  return commandRecord;
 }
 
 function readRequiredString(record: Record<string, unknown>, field: string): string {
