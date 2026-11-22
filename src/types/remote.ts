@@ -58,13 +58,29 @@ export type HostStatus = Readonly<{
   releasableAt: string;
 }>;
 /**
- * AWS settings for the EC2 Mac compute host, declared in `launch.config.ts` under `aws`.
- * Launch stores NO AWS secrets: credentials resolve through the standard SDK chain.
+ * AWS settings for a remote Mac, under `aws` in launch.config.ts.
+ * No AWS secret belongs here. The AWS SDK reads credentials from its usual chain.
  */
 export type AwsConfig = Readonly<{
+  /**
+   * Region the Mac is started in, such as `us-east-1`.
+   * `launch cloud` and `launch build ios --remote aws` use this.
+   */
   region: string;
+  /**
+   * Named profile in ~/.aws to use.
+   * Leave it out to use the default credential chain.
+   */
   profile?: string;
+  /**
+   * AMI id of a Mac image you already built.
+   * Leave it out and the first run builds a snapshot in your own account and reuses it later.
+   */
   amiId?: string;
+  /**
+   * EC2 Mac machine size.
+   * Leave it out to use `mac2.metal`, the cheapest M-series size in most regions.
+   */
   instanceType?: string;
 }>;
 

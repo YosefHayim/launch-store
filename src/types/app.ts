@@ -113,15 +113,46 @@ export type AppDescriptor = {
   usesNonExemptEncryption?: boolean;
 };
 /**
- * A named build profile from `launch.config.ts` (e.g. `production`, `preview`).
- * Holds only Launch-specific settings; app facts stay in `app.json`.
+ * One named set of build settings in `profiles`, such as `production` or `preview`.
+ * The bundle id, version, and entitlements stay in the app's app.json.
  */
 export type BuildProfile = {
+  /**
+   * The name you pass to `--profile`. It must match the key under `profiles`.
+   */
   name: string;
+  /**
+   * Dotenv file loaded for this profile, relative to the app folder.
+   * Leave it out to load `.env`. Launch checks the names in that file against `.env.example`.
+   */
   envFile?: string;
+  /**
+   * Extra environment variables for this profile.
+   * They override the dotenv file and are overridden by keychain secrets and by `--env`.
+   * Put committed, non-secret settings here. Put real secrets in `launch secret set`.
+   */
   env?: Record<string, string>;
+  /**
+   * Accepted on the profile. No build step reads it, so it does not change signing or the network.
+   */
   ssl?: boolean;
+  /**
+   * Largest download size, in megabytes, you want to ship without being asked.
+   * When the size report is over this, the build stops and asks you to confirm. It does not fail by itself.
+   * The default is 200, which is Apple's cellular download line. `--size-budget` overrides this for one run.
+   */
   sizeBudgetMB?: number;
+  /**
+   * Google Play track used by `launch build android` when you do not pass `--track`.
+   * `internal` is the default, and it is the only safe track for a new Play account.
+   * `closed` and `open` are wider tests. `production` is the public track.
+   * iOS ignores this.
+   */
   track?: PlayTrack;
+  /**
+   * Share of users on the Play track who receive this release, from just above 0 up to 1.
+   * `1` means everyone, and that is the default. `0.1` means about 10 percent.
+   * Anything under 1 is a staged rollout. `--rollout` overrides this for one run. iOS ignores this.
+   */
   rollout?: number;
 };

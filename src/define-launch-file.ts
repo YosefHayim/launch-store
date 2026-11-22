@@ -6,7 +6,10 @@ import {
   DEFAULT_SUBMITTER,
 } from './types/config.ts';
 
-// Spread first so a typo'd key survives for `launch config validate` (issue #197).
+/**
+ * The function launch.config.ts calls. Hover any property inside the object to read what it does.
+ * Unknown keys are kept, so `launch config validate` can report a typo.
+ */
 export function defineConfig(launchFile: LaunchConfigInput): LaunchConfig {
   const credentials = launchFile.credentials ?? DEFAULT_CREDENTIALS_PROVIDER;
   const storage = launchFile.storage ?? DEFAULT_STORAGE_PROVIDER;
