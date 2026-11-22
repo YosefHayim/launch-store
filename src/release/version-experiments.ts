@@ -19,6 +19,8 @@ import type {
   VersionExperimentResource,
 } from '../types/apple-catalog.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
+
 const NEW_EXPERIMENT_STATE = 'PREPARE_FOR_SUBMISSION';
 const submittableStates = new Set([NEW_EXPERIMENT_STATE, 'READY_FOR_REVIEW', 'REJECTED']);
 const startableStates = new Set(['ACCEPTED', 'APPROVED']);
@@ -123,18 +125,6 @@ type EnsuredLocalization = Readonly<{
   existed: boolean;
 }>;
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 /** Convert an underlying failure to the experiments channel. */
 function versionExperimentsFailure(
   operation: string,
@@ -219,8 +209,10 @@ function readTreatmentRecord(rawTreatment: Record<string, unknown>): TreatmentCo
 }
 
 function readTreatment(rawTreatment: unknown): TreatmentConfig {
-  if (isRecord(rawTreatment)) {
-    return readTreatmentRecord(rawTreatment);
+  const rawTreatmentObject = readPlainObject(rawTreatment);
+
+  if (rawTreatmentObject != null) {
+    return readTreatmentRecord(rawTreatmentObject);
   }
 
   return failConfigFields(
@@ -265,8 +257,10 @@ function readExperimentRecord(rawExperiment: Record<string, unknown>): Experimen
 }
 
 function readExperiment(rawExperiment: unknown): ExperimentConfig {
-  if (isRecord(rawExperiment)) {
-    return readExperimentRecord(rawExperiment);
+  const rawExperimentObject = readPlainObject(rawExperiment);
+
+  if (rawExperimentObject != null) {
+    return readExperimentRecord(rawExperimentObject);
   }
 
   return failConfigFields(
@@ -925,8 +919,10 @@ export async function discoverTreatmentScreenshots(
 export async function parseVersionExperimentsConfig(
   rawDocument: unknown,
 ): Promise<VersionExperimentsConfig> {
-  if (isRecord(rawDocument)) {
-    return { experiments: readExperiments(rawDocument) };
+  const rawDocumentObject = readPlainObject(rawDocument);
+
+  if (rawDocumentObject != null) {
+    return { experiments: readExperiments(rawDocumentObject) };
   }
 
   throw versionExperimentsFailure(

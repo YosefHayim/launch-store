@@ -78,7 +78,7 @@ describe('canonicalDimensions', () => {
     expect(canonicalDimensions('android', 'phone')).toEqual([1080, 1920]);
   });
   it('routes the new Apple platforms to the Apple specs, NOT Play (misroute regression)', () => {
-    // tvOS/macOS/visionOS must take the Apple branch; a `=== "ios"` check would drop them into Play and
+    // tvOS/macOS/visionOS must take the Apple branch; a `== "ios"` check would drop them into Play and
     // these slot ids don't exist there, so the bug would surface as `undefined`.
     expect(canonicalDimensions('tvos', 'APP_APPLE_TV')).toEqual([1920, 1080]);
     expect(canonicalDimensions('macos', 'APP_DESKTOP')).toEqual([1280, 800]);

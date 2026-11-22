@@ -11,6 +11,7 @@ import { createLogger, type Logger } from '../services/platform/logger.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import { loadConfig } from './config.ts';
 import { formatEnvTable, parseCliEnv } from './env.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type UpdateCommandInput = Readonly<{
   channel: string;
@@ -74,21 +75,11 @@ function platformsFor(platformSelector: string): readonly UpdatePlatform[] {
   );
 }
 
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function readRuntimeVersion(candidate: unknown): string | null {
-  if (isPlainRecord(candidate)) {
-    return runtimeVersionFromRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject != null) {
+    return runtimeVersionFromRecord(candidateObject);
   }
 
   return null;
@@ -97,8 +88,10 @@ function readRuntimeVersion(candidate: unknown): string | null {
 function runtimeVersionFromRecord(candidate: Record<string, unknown>): string | null {
   const expo = candidate['expo'];
 
-  if (isPlainRecord(expo)) {
-    const expoRuntimeVersion = expo['runtimeVersion'];
+  const expoObject = readPlainObject(expo);
+
+  if (expoObject != null) {
+    const expoRuntimeVersion = expoObject['runtimeVersion'];
 
     if (typeof expoRuntimeVersion == 'string') {
       return expoRuntimeVersion;

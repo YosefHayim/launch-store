@@ -2,6 +2,7 @@ import { createLogger } from '../../../../services/platform/logger.ts';
 import type { DeviceResource } from '../../../../types/apple-catalog.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { hasMessage } from '../../../../services/platform/error-message.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 type DeviceAddInput = Readonly<{
   operation: 'add';
@@ -33,20 +34,6 @@ function makeDeviceCommandFailure(fields: {
   return { _tag: 'DeviceCommandFailure', ...fields };
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
   const isString = typeof field == 'string';
@@ -60,24 +47,24 @@ function readRequiredString(record: Record<string, unknown>, fieldName: string):
 
 /** Decode one device command. Rejects an explicit undefined exact optional name. */
 export function DeviceCommandInputSchema(rawCommandInput: unknown): DeviceCommandInput {
-  const isObject = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isObject == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('Device command input must be an object.');
   }
 
-  const operation = rawCommandInput['operation'];
+  const operation = rawCommandInputObject['operation'];
   const isAdd = operation == 'add';
 
   if (isAdd) {
-    const udid = readRequiredString(rawCommandInput, 'udid');
-    const hasName = Object.hasOwn(rawCommandInput, 'name');
+    const udid = readRequiredString(rawCommandInputObject, 'udid');
+    const hasName = Object.hasOwn(rawCommandInputObject, 'name');
 
     if (hasName == false) {
       return { operation: 'add', udid };
     }
 
-    const name = readRequiredString(rawCommandInput, 'name');
+    const name = readRequiredString(rawCommandInputObject, 'name');
     return { operation: 'add', udid, name };
   }
 

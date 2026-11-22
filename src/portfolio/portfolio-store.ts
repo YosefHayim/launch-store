@@ -9,6 +9,7 @@ import type {
   PortfolioFile,
   PortfolioPlatform,
 } from '../types/portfolio.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export function createEmptyPortfolioFile(): PortfolioFile {
   return {
@@ -18,22 +19,6 @@ export function createEmptyPortfolioFile(): PortfolioFile {
     tags: [],
     playReportsBucket: null,
   };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
 }
 
 function readRequiredString(document: Record<string, unknown>, fieldName: string): string {
@@ -91,31 +76,35 @@ function readOwner(owner: unknown): AppOwner | null {
 }
 
 function decodeDiscoveredApp(appDocument: unknown): DiscoveredApp {
-  if (isRecord(appDocument) == false) {
+  const appDocumentObject = readPlainObject(appDocument);
+
+  if (appDocumentObject == null) {
     throw new Error('A portfolio app is not an object.');
   }
 
   return {
-    key: readRequiredString(appDocument, 'key'),
-    platform: readPlatform(appDocument),
-    storeId: readRequiredString(appDocument, 'storeId'),
-    name: readRequiredString(appDocument, 'name'),
-    bundleId: readStringOrNull(appDocument, 'bundleId'),
-    packageName: readStringOrNull(appDocument, 'packageName'),
-    accountKeyId: readStringOrNull(appDocument, 'accountKeyId'),
-    accountLabel: readRequiredString(appDocument, 'accountLabel'),
+    key: readRequiredString(appDocumentObject, 'key'),
+    platform: readPlatform(appDocumentObject),
+    storeId: readRequiredString(appDocumentObject, 'storeId'),
+    name: readRequiredString(appDocumentObject, 'name'),
+    bundleId: readStringOrNull(appDocumentObject, 'bundleId'),
+    packageName: readStringOrNull(appDocumentObject, 'packageName'),
+    accountKeyId: readStringOrNull(appDocumentObject, 'accountKeyId'),
+    accountLabel: readRequiredString(appDocumentObject, 'accountLabel'),
   };
 }
 
 function decodeAppTag(tagDocument: unknown): PortfolioFile['tags'][number] {
-  if (isRecord(tagDocument) == false) {
+  const tagDocumentObject = readPlainObject(tagDocument);
+
+  if (tagDocumentObject == null) {
     throw new Error('A portfolio tag is not an object.');
   }
 
   return {
-    appKey: readRequiredString(tagDocument, 'appKey'),
-    owner: readOwner(tagDocument['owner']),
-    ga4PropertyId: readStringOrNull(tagDocument, 'ga4PropertyId'),
+    appKey: readRequiredString(tagDocumentObject, 'appKey'),
+    owner: readOwner(tagDocumentObject['owner']),
+    ga4PropertyId: readStringOrNull(tagDocumentObject, 'ga4PropertyId'),
   };
 }
 
@@ -132,11 +121,13 @@ function readPlayReportsBucket(document: Record<string, unknown>): string | null
 function decodePortfolioFile(documentText: string): PortfolioFile {
   const parsed: unknown = JSON.parse(documentText);
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     throw new Error('Portfolio file is not an object.');
   }
 
-  const version = parsed['version'];
+  const version = parsedObject['version'];
 
   if (typeof version != 'number') {
     throw new Error('Portfolio file version is not 1.');
@@ -146,20 +137,20 @@ function decodePortfolioFile(documentText: string): PortfolioFile {
     throw new Error('Portfolio file version is not 1.');
   }
 
-  if (Array.isArray(parsed['apps']) == false) {
+  if (Array.isArray(parsedObject['apps']) == false) {
     throw new Error('Portfolio apps are not a list.');
   }
 
-  if (Array.isArray(parsed['tags']) == false) {
+  if (Array.isArray(parsedObject['tags']) == false) {
     throw new Error('Portfolio tags are not a list.');
   }
 
   return {
     version: 1,
-    discoveredAt: readStringOrNull(parsed, 'discoveredAt'),
-    apps: parsed['apps'].map(decodeDiscoveredApp),
-    tags: parsed['tags'].map(decodeAppTag),
-    playReportsBucket: readPlayReportsBucket(parsed),
+    discoveredAt: readStringOrNull(parsedObject, 'discoveredAt'),
+    apps: parsedObject['apps'].map(decodeDiscoveredApp),
+    tags: parsedObject['tags'].map(decodeAppTag),
+    playReportsBucket: readPlayReportsBucket(parsedObject),
   };
 }
 

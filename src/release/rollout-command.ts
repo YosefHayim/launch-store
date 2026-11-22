@@ -11,6 +11,7 @@ import {
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import { IOS_PLATFORM, pickCurrentVersion } from './app-store-release.ts';
 import { selectIosApps } from './status-command.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type RolloutAction = 'pause' | 'resume' | 'complete';
 
@@ -69,14 +70,6 @@ function rolloutFailure(
   return makeRolloutCommandFailure({ operation, message, cause });
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
-}
-
 function isRolloutAction(action: unknown): action is RolloutAction {
   if (action == 'pause') {
     return true;
@@ -94,9 +87,9 @@ function isRolloutAction(action: unknown): action is RolloutAction {
 }
 
 export function decodeRolloutCommandInput(rawCommandInput: unknown): RolloutCommandInput {
-  const isObject = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isObject == false) {
+  if (rawCommandInputObject == null) {
     throw rolloutFailure(
       'decode command input',
       rawCommandInput,
@@ -104,8 +97,8 @@ export function decodeRolloutCommandInput(rawCommandInput: unknown): RolloutComm
     );
   }
 
-  const action = readRolloutAction(rawCommandInput);
-  const appField = rawCommandInput['app'];
+  const action = readRolloutAction(rawCommandInputObject);
+  const appField = rawCommandInputObject['app'];
   const isAppAbsent = appField == null;
 
   if (isAppAbsent) {
@@ -115,7 +108,11 @@ export function decodeRolloutCommandInput(rawCommandInput: unknown): RolloutComm
   const isAppText = typeof appField == 'string';
 
   if (isAppText == false) {
-    throw rolloutFailure('decode command input', rawCommandInput, 'Rollout app must be a string.');
+    throw rolloutFailure(
+      'decode command input',
+      rawCommandInputObject,
+      'Rollout app must be a string.',
+    );
   }
 
   return { action, app: appField };

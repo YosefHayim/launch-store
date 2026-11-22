@@ -1,5 +1,6 @@
 import type { PlayRelease } from '../../types/google-play.ts';
 import type { MutableDeep } from '../../types/mutable.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 /** Play release statuses accepted by the Android Publisher API. */
 export const RELEASE_STATUSES = ['draft', 'inProgress', 'halted', 'completed'] as const;
@@ -56,34 +57,20 @@ function releaseNotesFailure(cause: unknown): PlayReleaseInputFailure {
   });
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function decodeReleaseNotesDocument(
   releaseNotesDocument: unknown,
 ): Readonly<Record<string, string>> {
-  if (isRecord(releaseNotesDocument) == false) {
+  const releaseNotesDocumentObject = readPlainObject(releaseNotesDocument);
+
+  if (releaseNotesDocumentObject == null) {
     throw releaseNotesFailure(releaseNotesDocument);
   }
 
   const notes: Record<string, string> = {};
 
-  for (const [language, noteText] of Object.entries(releaseNotesDocument)) {
+  for (const [language, noteText] of Object.entries(releaseNotesDocumentObject)) {
     if (typeof noteText != 'string') {
-      throw releaseNotesFailure(releaseNotesDocument);
+      throw releaseNotesFailure(releaseNotesDocumentObject);
     }
 
     notes[language] = noteText;

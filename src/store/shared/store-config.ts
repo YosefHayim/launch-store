@@ -6,6 +6,7 @@ import {
   loadStoreSurfaceConfig,
   type StoreSurfaceConfigSpec,
 } from './surface-config.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 /** App Store and Play listing metadata. */
 export type StoreConfig = {
@@ -60,22 +61,6 @@ const ANDROID_FILE_NAMES = {
   video: 'video.txt',
 } as const;
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readOptionalString(record: Record<string, unknown>, fieldName: string): string | null {
   if (fieldName in record == false) {
     return null;
@@ -122,20 +107,22 @@ function readOptionalStringList(
 }
 
 function readAppleLocale(localeDocument: unknown): AppleLocaleInfo {
-  if (isRecord(localeDocument) == false) {
+  const localeDocumentObject = readPlainObject(localeDocument);
+
+  if (localeDocumentObject == null) {
     throw new Error('apple info locale must be an object');
   }
 
   const localeListing: AppleLocaleInfo = {};
-  const title = readOptionalString(localeDocument, 'title');
-  const subtitle = readOptionalString(localeDocument, 'subtitle');
-  const description = readOptionalString(localeDocument, 'description');
-  const keywords = readOptionalStringList(localeDocument, 'keywords');
-  const releaseNotes = readOptionalString(localeDocument, 'releaseNotes');
-  const promotionalText = readOptionalString(localeDocument, 'promotionalText');
-  const marketingUrl = readOptionalString(localeDocument, 'marketingUrl');
-  const supportUrl = readOptionalString(localeDocument, 'supportUrl');
-  const privacyPolicyUrl = readOptionalString(localeDocument, 'privacyPolicyUrl');
+  const title = readOptionalString(localeDocumentObject, 'title');
+  const subtitle = readOptionalString(localeDocumentObject, 'subtitle');
+  const description = readOptionalString(localeDocumentObject, 'description');
+  const keywords = readOptionalStringList(localeDocumentObject, 'keywords');
+  const releaseNotes = readOptionalString(localeDocumentObject, 'releaseNotes');
+  const promotionalText = readOptionalString(localeDocumentObject, 'promotionalText');
+  const marketingUrl = readOptionalString(localeDocumentObject, 'marketingUrl');
+  const supportUrl = readOptionalString(localeDocumentObject, 'supportUrl');
+  const privacyPolicyUrl = readOptionalString(localeDocumentObject, 'privacyPolicyUrl');
 
   if (title != null) {
     localeListing.title = title;
@@ -177,15 +164,17 @@ function readAppleLocale(localeDocument: unknown): AppleLocaleInfo {
 }
 
 function readAndroidLocale(localeDocument: unknown): AndroidLocaleInfo {
-  if (isRecord(localeDocument) == false) {
+  const localeDocumentObject = readPlainObject(localeDocument);
+
+  if (localeDocumentObject == null) {
     throw new Error('android info locale must be an object');
   }
 
   const localeListing: AndroidLocaleInfo = {};
-  const title = readOptionalString(localeDocument, 'title');
-  const shortDescription = readOptionalString(localeDocument, 'shortDescription');
-  const fullDescription = readOptionalString(localeDocument, 'fullDescription');
-  const video = readOptionalString(localeDocument, 'video');
+  const title = readOptionalString(localeDocumentObject, 'title');
+  const shortDescription = readOptionalString(localeDocumentObject, 'shortDescription');
+  const fullDescription = readOptionalString(localeDocumentObject, 'fullDescription');
+  const video = readOptionalString(localeDocumentObject, 'video');
 
   if (title != null) {
     localeListing.title = title;
@@ -213,13 +202,15 @@ function readLocaleMap<Locale>(
 ): Record<string, Locale> {
   const field = record[fieldName];
 
-  if (isRecord(field) == false) {
+  const fieldObject = readPlainObject(field);
+
+  if (fieldObject == null) {
     throw new Error(`${fieldName} must be an object`);
   }
 
   const locales: Record<string, Locale> = {};
 
-  for (const [localeName, localeDocument] of Object.entries(field)) {
+  for (const [localeName, localeDocument] of Object.entries(fieldObject)) {
     locales[localeName] = readLocale(localeDocument);
   }
 
@@ -227,14 +218,16 @@ function readLocaleMap<Locale>(
 }
 
 function readAppleConfig(document: unknown): AppleStoreConfig {
-  if (isRecord(document) == false) {
+  const documentObject = readPlainObject(document);
+
+  if (documentObject == null) {
     throw new Error('apple must be an object');
   }
 
   const apple: AppleStoreConfig = {
-    info: readLocaleMap(document, 'info', readAppleLocale),
+    info: readLocaleMap(documentObject, 'info', readAppleLocale),
   };
-  const categories = readOptionalStringList(document, 'categories');
+  const categories = readOptionalStringList(documentObject, 'categories');
 
   if (categories != null) {
     apple.categories = categories;
@@ -244,24 +237,28 @@ function readAppleConfig(document: unknown): AppleStoreConfig {
 }
 
 function readAndroidConfig(document: unknown): AndroidStoreConfig {
-  if (isRecord(document) == false) {
+  const documentObject = readPlainObject(document);
+
+  if (documentObject == null) {
     throw new Error('android must be an object');
   }
 
   return {
-    info: readLocaleMap(document, 'info', readAndroidLocale),
+    info: readLocaleMap(documentObject, 'info', readAndroidLocale),
   };
 }
 
 function decodeStoreConfigFields(rawDocument: unknown): StoreConfig {
-  if (isRecord(rawDocument) == false) {
+  const rawDocumentObject = readPlainObject(rawDocument);
+
+  if (rawDocumentObject == null) {
     throw new Error('store.config.json must be a JSON object.');
   }
 
   const storeConfig: StoreConfig = {};
 
-  if ('configVersion' in rawDocument) {
-    const configVersion = rawDocument['configVersion'];
+  if ('configVersion' in rawDocumentObject) {
+    const configVersion = rawDocumentObject['configVersion'];
 
     if (configVersion != null) {
       if (typeof configVersion != 'number') {
@@ -272,16 +269,16 @@ function decodeStoreConfigFields(rawDocument: unknown): StoreConfig {
     }
   }
 
-  if ('apple' in rawDocument) {
-    const apple = rawDocument['apple'];
+  if ('apple' in rawDocumentObject) {
+    const apple = rawDocumentObject['apple'];
 
     if (apple != null) {
       storeConfig.apple = readAppleConfig(apple);
     }
   }
 
-  if ('android' in rawDocument) {
-    const android = rawDocument['android'];
+  if ('android' in rawDocumentObject) {
+    const android = rawDocumentObject['android'];
 
     if (android != null) {
       storeConfig.android = readAndroidConfig(android);

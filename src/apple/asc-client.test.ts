@@ -6,6 +6,8 @@ import type { AscKey } from '../types/credentials.ts';
 import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.ts';
 import { AppStoreConnectClient } from './asc-client.ts';
 import { clockSkewHint, describeErrors, parseErrorCodes } from './connect/shared.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
+
 /** A real P-256 PKCS#8 key so the client can mint a genuine ES256 JWT. */
 const makeKey = (): AscKey => {
   const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
@@ -75,20 +77,13 @@ function decodeJwt(token: string): {
 function readObjectText(objectText: string): Record<string, unknown> {
   const parsed: unknown = JSON.parse(objectText);
 
-  if (isJsonObject(parsed)) return parsed;
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject != null) return parsedObject;
 
   throw new Error('expected a JSON object');
 }
 
-function isJsonObject(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') return false;
-
-  if (candidate == null) return false;
-
-  if (Array.isArray(candidate)) return false;
-
-  return true;
-}
 const fetchMock = vi.fn();
 let client: AppStoreConnectClient;
 beforeEach(() => {

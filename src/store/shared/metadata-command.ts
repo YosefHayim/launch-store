@@ -32,6 +32,7 @@ import {
   type StoreConfig,
 } from './store-config.ts';
 import type { StoreSurfaceConfigFailure } from './surface-config.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 export type MetadataCommandInput = {
   operation: 'pull' | 'push';
@@ -178,22 +179,6 @@ function metadataFailureFromStoreConfig(cause: unknown): MetadataCommandFailure 
   return metadataFailure(cause.operation, cause.cause, cause.message);
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
 
@@ -236,17 +221,19 @@ function readOperation(record: Record<string, unknown>): 'pull' | 'push' {
 }
 
 function decodeMetadataCommandInput(rawCommandInput: unknown): MetadataCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Metadata command input must be an object.');
   }
 
   const commandInput: MetadataCommandInput = {
-    operation: readOperation(rawCommandInput),
-    dryRun: readRequiredBoolean(rawCommandInput, 'dryRun'),
+    operation: readOperation(rawCommandInputObject),
+    dryRun: readRequiredBoolean(rawCommandInputObject, 'dryRun'),
   };
-  const platform = readExactOptionalString(rawCommandInput, 'platform');
-  const appName = readExactOptionalString(rawCommandInput, 'app');
-  const configPath = readExactOptionalString(rawCommandInput, 'config');
+  const platform = readExactOptionalString(rawCommandInputObject, 'platform');
+  const appName = readExactOptionalString(rawCommandInputObject, 'app');
+  const configPath = readExactOptionalString(rawCommandInputObject, 'config');
 
   if (platform != null) {
     commandInput.platform = platform;

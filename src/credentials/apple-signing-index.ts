@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import { resolveAccountCredentialsDirectory } from '../services/platform/paths.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Persisted record of the distribution certificate Launch created and backed up. */
 export type CertRecord = {
@@ -46,14 +47,6 @@ export function makeAppleSigningFailure(fields: {
   return { _tag: 'AppleSigningFailure', message: fields.message, cause: fields.cause };
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return candidate != null;
-}
-
 function readRequiredString(document: Record<string, unknown>, fieldName: string): string | null {
   const field = document[fieldName];
 
@@ -65,23 +58,25 @@ function readRequiredString(document: Record<string, unknown>, fieldName: string
 }
 
 function decodeCertRecord(candidate: unknown): CertRecord | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const id = readRequiredString(candidate, 'id');
+  const id = readRequiredString(candidateObject, 'id');
 
   if (id == null) {
     return null;
   }
 
-  const serial = readRequiredString(candidate, 'serial');
+  const serial = readRequiredString(candidateObject, 'serial');
 
   if (serial == null) {
     return null;
   }
 
-  const p12Path = readRequiredString(candidate, 'p12Path');
+  const p12Path = readRequiredString(candidateObject, 'p12Path');
 
   if (p12Path == null) {
     return null;
@@ -91,35 +86,37 @@ function decodeCertRecord(candidate: unknown): CertRecord | null {
 }
 
 function decodeProfileRecord(candidate: unknown): ProfileRecord | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const id = readRequiredString(candidate, 'id');
+  const id = readRequiredString(candidateObject, 'id');
 
   if (id == null) {
     return null;
   }
 
-  const uuid = readRequiredString(candidate, 'uuid');
+  const uuid = readRequiredString(candidateObject, 'uuid');
 
   if (uuid == null) {
     return null;
   }
 
-  const name = readRequiredString(candidate, 'name');
+  const name = readRequiredString(candidateObject, 'name');
 
   if (name == null) {
     return null;
   }
 
-  const path = readRequiredString(candidate, 'path');
+  const path = readRequiredString(candidateObject, 'path');
 
   if (path == null) {
     return null;
   }
 
-  const teamId = readRequiredString(candidate, 'teamId');
+  const teamId = readRequiredString(candidateObject, 'teamId');
 
   if (teamId == null) {
     return null;
@@ -130,20 +127,24 @@ function decodeProfileRecord(candidate: unknown): ProfileRecord | null {
 
 /** Decode an account signing index, or null when the document is not that shape. */
 export function decodeCredentialsIndex(candidate: unknown): CredentialsIndex | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const profilesField = candidate['profiles'];
+  const profilesField = candidateObject['profiles'];
 
-  if (isRecord(profilesField) == false) {
+  const profilesFieldObject = readPlainObject(profilesField);
+
+  if (profilesFieldObject == null) {
     return null;
   }
 
   const profiles: Record<string, ProfileRecord> = {};
 
-  for (const profileName of Object.keys(profilesField)) {
-    const profile = decodeProfileRecord(profilesField[profileName]);
+  for (const profileName of Object.keys(profilesFieldObject)) {
+    const profile = decodeProfileRecord(profilesFieldObject[profileName]);
 
     if (profile == null) {
       return null;
@@ -152,13 +153,13 @@ export function decodeCredentialsIndex(candidate: unknown): CredentialsIndex | n
     profiles[profileName] = profile;
   }
 
-  const hasCertificateField = 'certificate' in candidate;
+  const hasCertificateField = 'certificate' in candidateObject;
 
   if (hasCertificateField == false) {
     return { profiles };
   }
 
-  const certificate = decodeCertRecord(candidate['certificate']);
+  const certificate = decodeCertRecord(candidateObject['certificate']);
 
   if (certificate == null) {
     return null;

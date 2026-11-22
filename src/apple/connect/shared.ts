@@ -22,6 +22,7 @@ import {
   type PricePointResource,
   ACCESSIBILITY_SUPPORT_KEYS,
 } from '../../types/apple-catalog.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;
@@ -955,16 +956,6 @@ interface AscErrorDraft {
   readonly metaGroup: MetaGroup;
 }
 
-function isJsonObject(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') return false;
-
-  if (candidate == null) return false;
-
-  if (Array.isArray(candidate)) return false;
-
-  return true;
-}
-
 function readOptionalString(appleFields: Record<string, unknown>, key: string): TextField {
   const hasKey = Object.hasOwn(appleFields, key);
 
@@ -1018,7 +1009,9 @@ function readOptionalPointerGroup(appleFields: Record<string, unknown>): Pointer
 
   const field = appleFields['source'];
 
-  if (isJsonObject(field)) return readPointerGroup(field);
+  const fieldObject = readPlainObject(field);
+
+  if (fieldObject != null) return readPointerGroup(fieldObject);
 
   return { kind: 'invalid' };
 }
@@ -1064,7 +1057,9 @@ function readAscErrorList(listedErrors: readonly unknown[]): readonly AscError[]
 }
 
 function readAssociatedErrors(candidate: unknown): Record<string, readonly AscError[]> | null {
-  if (isJsonObject(candidate)) return readAssociatedErrorObject(candidate);
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject != null) return readAssociatedErrorObject(candidateObject);
 
   return null;
 }
@@ -1093,7 +1088,9 @@ function readOptionalMetaGroup(appleFields: Record<string, unknown>): MetaGroup 
 
   const field = appleFields['meta'];
 
-  if (isJsonObject(field)) return readMetaGroup(field);
+  const fieldObject = readPlainObject(field);
+
+  if (fieldObject != null) return readMetaGroup(fieldObject);
 
   return { kind: 'invalid' };
 }
@@ -1112,7 +1109,9 @@ function readMetaGroup(appleFields: Record<string, unknown>): MetaGroup {
 }
 
 function readAscError(candidate: unknown): AscError | null {
-  if (isJsonObject(candidate)) return readAscErrorObject(candidate);
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject != null) return readAscErrorObject(candidateObject);
 
   return null;
 }
@@ -1203,7 +1202,9 @@ function readAppleErrorDocument(
 
   if (isUnparsed) return null;
 
-  if (isJsonObject(parsed)) return readAppleErrorObject(parsed);
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject != null) return readAppleErrorObject(parsedObject);
 
   return null;
 }

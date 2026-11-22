@@ -6,6 +6,7 @@ import { detectHostOperatingSystem } from '../services/platform/os.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { installServer, type McpClient } from './install.ts';
 import { startMcpServer } from './server.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const ALL_CLIENTS: readonly McpClient[] = ['claude-code', 'cursor', 'claude-desktop'];
 
@@ -24,18 +25,6 @@ function makeMcpCommandFailure(fields: {
   cause?: unknown;
 }): McpCommandFailure {
   return { _tag: 'McpCommandFailure', ...fields };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
 }
 
 /** Parse a requested MCP client name. */
@@ -103,8 +92,10 @@ function readMcpCommandRecord(commandRecord: Record<string, unknown>): McpComman
 }
 
 function readMcpCommandInput(rawCommandInput: unknown): McpCommandInput {
-  if (isRecord(rawCommandInput)) {
-    return readMcpCommandRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject != null) {
+    return readMcpCommandRecord(rawCommandInputObject);
   }
 
   throw makeMcpCommandFailure({

@@ -9,6 +9,7 @@ import type {
   BuildResource,
 } from '../types/apple-catalog.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type BetaReviewConfig = {
   readonly whatToTest: Record<string, string>;
@@ -296,14 +297,6 @@ export async function reconcileBetaReview(
   return { buildVersion: selectedBuild.version, actions: reconciliation.actions };
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
-}
-
 function isNoteText(noteText: unknown): noteText is string {
   if (typeof noteText != 'string') {
     return false;
@@ -314,9 +307,9 @@ function isNoteText(noteText: unknown): noteText is string {
 
 /** Decode an unknown TestFlight configuration. */
 export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConfig {
-  const isObject = isRecord(rawConfiguration);
+  const rawConfigurationObject = readPlainObject(rawConfiguration);
 
-  if (isObject == false) {
+  if (rawConfigurationObject == null) {
     throw makeBetaReviewFailure({
       operation: 'decode TestFlight config',
       message: 'Invalid testflight.config.json: expected an object.',
@@ -324,39 +317,39 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
     });
   }
 
-  const localizedNotes = rawConfiguration['whatToTest'];
-  const isNoteMap = isRecord(localizedNotes);
+  const localizedNotes = rawConfigurationObject['whatToTest'];
+  const localizedNotesObject = readPlainObject(localizedNotes);
 
-  if (isNoteMap == false) {
+  if (localizedNotesObject == null) {
     throw makeBetaReviewFailure({
       operation: 'decode TestFlight config',
       message: 'Invalid testflight.config.json: whatToTest must be an object.',
-      cause: rawConfiguration,
+      cause: rawConfigurationObject,
     });
   }
 
-  const locales = Object.keys(localizedNotes);
+  const locales = Object.keys(localizedNotesObject);
   const hasNoLocales = locales.length == 0;
 
   if (hasNoLocales) {
     throw makeBetaReviewFailure({
       operation: 'decode TestFlight config',
       message: 'Invalid testflight.config.json: whatToTest must declare at least one locale.',
-      cause: rawConfiguration,
+      cause: rawConfigurationObject,
     });
   }
 
   const whatToTest: Record<string, string> = {};
 
   for (const locale of locales) {
-    const noteText = localizedNotes[locale];
+    const noteText = localizedNotesObject[locale];
     const isValidNote = isNoteText(noteText);
 
     if (isValidNote == false) {
       throw makeBetaReviewFailure({
         operation: 'decode TestFlight config',
         message: `Invalid testflight.config.json: whatToTest.${locale} must be a non-empty string.`,
-        cause: rawConfiguration,
+        cause: rawConfigurationObject,
       });
     }
 

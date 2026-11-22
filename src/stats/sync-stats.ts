@@ -35,6 +35,7 @@ import { STATS_FEED_PLUGINS } from './feed-registry.ts';
 import { StatsCredentials } from './stats-credentials.ts';
 import { saveDailyStats } from './stats-store.ts';
 import { holdSyncLock } from './sync-lock.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type StatsAppNotFoundFailure = Readonly<{
   readonly _tag: 'StatsAppNotFoundFailure';
@@ -65,14 +66,6 @@ interface FetchedFeed {
   readonly savedCoverage: FeedCoverage | null;
   readonly syncedAt: string;
   readonly reply: FeedFetchReply;
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
 }
 
 function readRequiredString(document: Record<string, unknown>, fieldName: string): string {
@@ -130,77 +123,85 @@ function readOwner(owner: unknown): AppOwner | null {
 }
 
 function decodeDiscoveredApp(appDocument: unknown): DiscoveredApp {
-  if (isRecord(appDocument) == false) {
+  const appDocumentObject = readPlainObject(appDocument);
+
+  if (appDocumentObject == null) {
     throw new Error('A portfolio app is not an object.');
   }
 
   return {
-    key: readRequiredString(appDocument, 'key'),
-    platform: readPlatform(appDocument),
-    storeId: readRequiredString(appDocument, 'storeId'),
-    name: readRequiredString(appDocument, 'name'),
-    bundleId: readStringOrNull(appDocument, 'bundleId'),
-    packageName: readStringOrNull(appDocument, 'packageName'),
-    accountKeyId: readStringOrNull(appDocument, 'accountKeyId'),
-    accountLabel: readRequiredString(appDocument, 'accountLabel'),
+    key: readRequiredString(appDocumentObject, 'key'),
+    platform: readPlatform(appDocumentObject),
+    storeId: readRequiredString(appDocumentObject, 'storeId'),
+    name: readRequiredString(appDocumentObject, 'name'),
+    bundleId: readStringOrNull(appDocumentObject, 'bundleId'),
+    packageName: readStringOrNull(appDocumentObject, 'packageName'),
+    accountKeyId: readStringOrNull(appDocumentObject, 'accountKeyId'),
+    accountLabel: readRequiredString(appDocumentObject, 'accountLabel'),
   };
 }
 
 function decodeAppTag(tagDocument: unknown): PortfolioFile['tags'][number] {
-  if (isRecord(tagDocument) == false) {
+  const tagDocumentObject = readPlainObject(tagDocument);
+
+  if (tagDocumentObject == null) {
     throw new Error('A portfolio tag is not an object.');
   }
 
   return {
-    appKey: readRequiredString(tagDocument, 'appKey'),
-    owner: readOwner(tagDocument['owner']),
-    ga4PropertyId: readStringOrNull(tagDocument, 'ga4PropertyId'),
+    appKey: readRequiredString(tagDocumentObject, 'appKey'),
+    owner: readOwner(tagDocumentObject['owner']),
+    ga4PropertyId: readStringOrNull(tagDocumentObject, 'ga4PropertyId'),
   };
 }
 
 function decodePortfolioFile(documentText: string): PortfolioFile {
   const parsed: unknown = JSON.parse(documentText);
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     throw new Error('Portfolio file is not an object.');
   }
 
-  const isVersionOne = parsed['version'] == 1;
+  const isVersionOne = parsedObject['version'] == 1;
 
   if (isVersionOne == false) {
     throw new Error('Portfolio file version is not 1.');
   }
 
-  if (Array.isArray(parsed['apps']) == false) {
+  if (Array.isArray(parsedObject['apps']) == false) {
     throw new Error('Portfolio apps are not a list.');
   }
 
-  if (Array.isArray(parsed['tags']) == false) {
+  if (Array.isArray(parsedObject['tags']) == false) {
     throw new Error('Portfolio tags are not a list.');
   }
 
   let playReportsBucket: string | null = null;
-  const hasBucket = 'playReportsBucket' in parsed;
+  const hasBucket = 'playReportsBucket' in parsedObject;
 
   if (hasBucket) {
-    playReportsBucket = readStringOrNull(parsed, 'playReportsBucket');
+    playReportsBucket = readStringOrNull(parsedObject, 'playReportsBucket');
   }
 
   return {
     version: 1,
-    discoveredAt: readStringOrNull(parsed, 'discoveredAt'),
-    apps: parsed['apps'].map(decodeDiscoveredApp),
-    tags: parsed['tags'].map(decodeAppTag),
+    discoveredAt: readStringOrNull(parsedObject, 'discoveredAt'),
+    apps: parsedObject['apps'].map(decodeDiscoveredApp),
+    tags: parsedObject['tags'].map(decodeAppTag),
     playReportsBucket,
   };
 }
 
 function isPortfolioLoad(candidate: unknown): candidate is PortfolioLoad {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  return Array.isArray(candidate['apps']);
+  return Array.isArray(candidateObject['apps']);
 }
 
 async function loadDiscoveredPortfolio(mode: PortfolioLoadMode): Promise<PortfolioLoad> {

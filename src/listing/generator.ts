@@ -3,6 +3,7 @@ import { hasMessage } from '../services/platform/error-message.ts';
 import type { DraftListing, ListingBrief } from '../types/listing.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import { APPLE_LIMITS, serializeKeywords } from './apply.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Anthropic listing generation or decoding failed. */
 interface ListingGenerationFailure {
@@ -25,24 +26,14 @@ interface ListingCopyGenerator {
   generate(brief: ListingBrief): Promise<DraftListing>;
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function isListingGenerationFailure(cause: unknown): cause is ListingGenerationFailure {
-  if (isRecord(cause) == false) {
+  const causeObject = readPlainObject(cause);
+
+  if (causeObject == null) {
     return false;
   }
 
-  return cause['_tag'] == 'ListingGenerationFailure';
+  return causeObject['_tag'] == 'ListingGenerationFailure';
 }
 
 /** Normalize a generator dependency failure. */
@@ -258,11 +249,13 @@ export function parseDraftListing(completionText: string): DraftListing {
     throw invalidListingCopy(cause);
   }
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     throw invalidListingCopy(parsed);
   }
 
-  const generatedListing = readGeneratedListing(parsed);
+  const generatedListing = readGeneratedListing(parsedObject);
   const listingDraft = draftFromGenerated(generatedListing);
   const hasUsableFields = Object.keys(listingDraft).length > 0;
 
@@ -278,24 +271,28 @@ export function parseDraftListing(completionText: string): DraftListing {
 }
 
 function readTextBlock(contentBlock: unknown): string {
-  if (isRecord(contentBlock) == false) {
+  const contentBlockObject = readPlainObject(contentBlock);
+
+  if (contentBlockObject == null) {
     throw generationFailure('generate Anthropic listing', contentBlock);
   }
 
-  if (contentBlock['type'] != 'text') {
+  if (contentBlockObject['type'] != 'text') {
     return '';
   }
 
-  if (typeof contentBlock['text'] != 'string') {
+  if (typeof contentBlockObject['text'] != 'string') {
     return '';
   }
 
-  return contentBlock['text'];
+  return contentBlockObject['text'];
 }
 
 /** Join the text blocks from a decoded Anthropic message. */
 function readCompletionText(anthropicMessage: unknown): string {
-  if (isRecord(anthropicMessage) == false) {
+  const anthropicMessageObject = readPlainObject(anthropicMessage);
+
+  if (anthropicMessageObject == null) {
     throw generationFailure(
       'read Anthropic completion',
       anthropicMessage,
@@ -303,17 +300,17 @@ function readCompletionText(anthropicMessage: unknown): string {
     );
   }
 
-  if (Array.isArray(anthropicMessage['content']) == false) {
+  if (Array.isArray(anthropicMessageObject['content']) == false) {
     throw generationFailure(
       'read Anthropic completion',
-      anthropicMessage,
+      anthropicMessageObject,
       'Anthropic returned an empty completion.',
     );
   }
 
   let completionText = '';
 
-  for (const contentBlock of anthropicMessage['content']) {
+  for (const contentBlock of anthropicMessageObject['content']) {
     const blockText = readTextBlock(contentBlock);
     completionText = `${completionText}${blockText}`;
   }
@@ -321,7 +318,7 @@ function readCompletionText(anthropicMessage: unknown): string {
   if (completionText.length == 0) {
     throw generationFailure(
       'read Anthropic completion',
-      anthropicMessage,
+      anthropicMessageObject,
       'Anthropic returned an empty completion.',
     );
   }

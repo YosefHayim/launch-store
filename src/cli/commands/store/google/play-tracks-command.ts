@@ -17,6 +17,7 @@ import {
   type ReleaseInput,
   type ReleaseNote,
 } from '../../../../store/google/play-tracks.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 export type PlayTracksStatusInput = {
   operation: 'status';
@@ -89,22 +90,6 @@ function tracksFailure(
   }
 
   return makePlayTracksCommandFailure({ operation, message, cause });
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
 }
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
@@ -218,22 +203,24 @@ function decodeTestersInput(record: Record<string, unknown>): PlayTracksTestersI
 }
 
 function decodePlayTracksCommandInput(rawCommandInput: unknown): PlayTracksCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Play tracks command input must be an object.');
   }
 
-  const operation = rawCommandInput['operation'];
+  const operation = rawCommandInputObject['operation'];
 
   if (operation == 'status') {
-    return decodeStatusInput(rawCommandInput);
+    return decodeStatusInput(rawCommandInputObject);
   }
 
   if (operation == 'promote') {
-    return decodePromoteInput(rawCommandInput);
+    return decodePromoteInput(rawCommandInputObject);
   }
 
   if (operation == 'testers') {
-    return decodeTestersInput(rawCommandInput);
+    return decodeTestersInput(rawCommandInputObject);
   }
 
   throw new Error('Play tracks operation must be status, promote, or testers.');

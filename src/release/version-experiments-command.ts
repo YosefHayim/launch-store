@@ -18,6 +18,7 @@ import {
   summarizeExperiments,
   type VersionExperimentsConfig,
 } from './version-experiments.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export type VersionExperimentsCommandInput = {
   readonly app?: string;
@@ -47,14 +48,6 @@ function makeVersionExperimentsCommandFailure(fields: {
     message: fields.message,
     cause: fields.cause,
   };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
 }
 
 function readBoolean(record: Record<string, unknown>, fieldName: string): boolean {
@@ -96,9 +89,9 @@ function readAppSelector(record: Record<string, unknown>): string | undefined {
 export function decodeVersionExperimentsCommandInput(
   rawCommandInput: unknown,
 ): VersionExperimentsCommandInput {
-  const isObject = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isObject == false) {
+  if (rawCommandInputObject == null) {
     throw makeVersionExperimentsCommandFailure({
       operation: 'decode experiments command input',
       message: 'Experiments command input must be an object.',
@@ -106,24 +99,24 @@ export function decodeVersionExperimentsCommandInput(
     });
   }
 
-  const configField = rawCommandInput['config'];
+  const configField = rawCommandInputObject['config'];
   const isConfigText = typeof configField == 'string';
 
   if (isConfigText == false) {
     throw makeVersionExperimentsCommandFailure({
       operation: 'decode experiments command input',
       message: 'Experiments command config must be a string.',
-      cause: rawCommandInput,
+      cause: rawCommandInputObject,
     });
   }
 
-  const app = readAppSelector(rawCommandInput);
+  const app = readAppSelector(rawCommandInputObject);
   const decodedInput: VersionExperimentsCommandInput = {
     config: configField,
-    submit: readBoolean(rawCommandInput, 'submit'),
-    start: readBoolean(rawCommandInput, 'start'),
-    dryRun: readBoolean(rawCommandInput, 'dryRun'),
-    yes: readBoolean(rawCommandInput, 'yes'),
+    submit: readBoolean(rawCommandInputObject, 'submit'),
+    start: readBoolean(rawCommandInputObject, 'start'),
+    dryRun: readBoolean(rawCommandInputObject, 'dryRun'),
+    yes: readBoolean(rawCommandInputObject, 'yes'),
   };
   const hasApp = app != null;
 

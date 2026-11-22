@@ -18,6 +18,8 @@ import type {
   ReleasePricing,
   ReviewDetailsConfig,
 } from '../types/store-surface.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
+
 const DEMO_PASSWORD_KEY = 'demoAccountPassword';
 
 /** Release-attribute decoding or reconciliation failed. */
@@ -608,18 +610,6 @@ export async function reconcileReleasePlan(
   }
 }
 
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function isAgeRatingValue(answer: unknown): answer is AgeRatingValue {
   if (typeof answer == 'string') {
     return true;
@@ -678,9 +668,9 @@ function readOptionalBoolean(
 }
 
 function decodeCategories(candidate: unknown): ReleaseCategories {
-  const isObject = isPlainRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
 
-  if (isObject == false) {
+  if (candidateObject == null) {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
@@ -689,8 +679,8 @@ function decodeCategories(candidate: unknown): ReleaseCategories {
   }
 
   const categories: { primary?: string; secondary?: string } = {};
-  const primary = readOptionalText(candidate, 'primary', 'categories');
-  const secondary = readOptionalText(candidate, 'secondary', 'categories');
+  const primary = readOptionalText(candidateObject, 'primary', 'categories');
+  const secondary = readOptionalText(candidateObject, 'secondary', 'categories');
 
   if (primary != null) {
     categories.primary = primary;
@@ -738,9 +728,9 @@ function decodeCustomerPrice(candidate: unknown): number {
 }
 
 function decodePricing(candidate: unknown): ReleasePricing {
-  const isObject = isPlainRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
 
-  if (isObject == false) {
+  if (candidateObject == null) {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
@@ -748,8 +738,8 @@ function decodePricing(candidate: unknown): ReleasePricing {
     );
   }
 
-  const customerPrice = decodeCustomerPrice(candidate['customerPrice']);
-  const baseTerritory = readOptionalText(candidate, 'baseTerritory', 'pricing');
+  const customerPrice = decodeCustomerPrice(candidateObject['customerPrice']);
+  const baseTerritory = readOptionalText(candidateObject, 'baseTerritory', 'pricing');
   const pricing: { customerPrice: number; baseTerritory?: string } = { customerPrice };
 
   if (baseTerritory != null) {
@@ -760,9 +750,9 @@ function decodePricing(candidate: unknown): ReleasePricing {
 }
 
 function decodeReviewDetails(candidate: unknown): ReviewDetailsConfig {
-  const isObject = isPlainRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
 
-  if (isObject == false) {
+  if (candidateObject == null) {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
@@ -780,14 +770,18 @@ function decodeReviewDetails(candidate: unknown): ReviewDetailsConfig {
     demoAccountPassword?: string;
     notes?: string;
   } = {};
-  const contactFirstName = readOptionalText(candidate, 'contactFirstName', 'reviewDetails');
-  const contactLastName = readOptionalText(candidate, 'contactLastName', 'reviewDetails');
-  const contactPhone = readOptionalText(candidate, 'contactPhone', 'reviewDetails');
-  const contactEmail = readOptionalText(candidate, 'contactEmail', 'reviewDetails');
-  const demoAccountRequired = readOptionalBoolean(candidate, 'demoAccountRequired');
-  const demoAccountName = readOptionalText(candidate, 'demoAccountName', 'reviewDetails');
-  const demoAccountPassword = readOptionalText(candidate, 'demoAccountPassword', 'reviewDetails');
-  const notes = readOptionalText(candidate, 'notes', 'reviewDetails');
+  const contactFirstName = readOptionalText(candidateObject, 'contactFirstName', 'reviewDetails');
+  const contactLastName = readOptionalText(candidateObject, 'contactLastName', 'reviewDetails');
+  const contactPhone = readOptionalText(candidateObject, 'contactPhone', 'reviewDetails');
+  const contactEmail = readOptionalText(candidateObject, 'contactEmail', 'reviewDetails');
+  const demoAccountRequired = readOptionalBoolean(candidateObject, 'demoAccountRequired');
+  const demoAccountName = readOptionalText(candidateObject, 'demoAccountName', 'reviewDetails');
+  const demoAccountPassword = readOptionalText(
+    candidateObject,
+    'demoAccountPassword',
+    'reviewDetails',
+  );
+  const notes = readOptionalText(candidateObject, 'notes', 'reviewDetails');
 
   if (contactFirstName != null) {
     reviewDetails.contactFirstName = contactFirstName;
@@ -825,9 +819,9 @@ function decodeReviewDetails(candidate: unknown): ReviewDetailsConfig {
 }
 
 function decodeAgeRating(candidate: unknown): Record<string, AgeRatingValue> {
-  const isObject = isPlainRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
 
-  if (isObject == false) {
+  if (candidateObject == null) {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
@@ -837,13 +831,13 @@ function decodeAgeRating(candidate: unknown): Record<string, AgeRatingValue> {
 
   const answers: Record<string, AgeRatingValue> = {};
 
-  for (const [answerName, answer] of Object.entries(candidate)) {
+  for (const [answerName, answer] of Object.entries(candidateObject)) {
     const isValidAnswer = isAgeRatingValue(answer);
 
     if (isValidAnswer == false) {
       throw releaseAttributesFailure(
         'decode release config fields',
-        candidate,
+        candidateObject,
         'release.config.json: ageRating answers must be a string or boolean.',
       );
     }
@@ -855,7 +849,7 @@ function decodeAgeRating(candidate: unknown): Record<string, AgeRatingValue> {
   const isDeprecated = verdict != true;
 
   if (isDeprecated) {
-    throw releaseAttributesFailure('decode release config fields', candidate, verdict);
+    throw releaseAttributesFailure('decode release config fields', candidateObject, verdict);
   }
 
   return answers;
@@ -879,9 +873,9 @@ function hasDeclaredSection(releaseConfig: ReleaseAttributesConfig): boolean {
 
 /** Decode an untrusted release.config.json document. */
 export function parseReleaseConfig(rawDocument: unknown): ReleaseAttributesConfig {
-  const isObject = isPlainRecord(rawDocument);
+  const rawDocumentObject = readPlainObject(rawDocument);
 
-  if (isObject == false) {
+  if (rawDocumentObject == null) {
     throw releaseAttributesFailure(
       'decode release config document',
       rawDocument,
@@ -896,20 +890,20 @@ export function parseReleaseConfig(rawDocument: unknown): ReleaseAttributesConfi
     reviewDetails?: ReviewDetailsConfig;
   } = {};
 
-  if (Object.hasOwn(rawDocument, 'ageRating')) {
-    releaseConfig.ageRating = decodeAgeRating(rawDocument['ageRating']);
+  if (Object.hasOwn(rawDocumentObject, 'ageRating')) {
+    releaseConfig.ageRating = decodeAgeRating(rawDocumentObject['ageRating']);
   }
 
-  if (Object.hasOwn(rawDocument, 'categories')) {
-    releaseConfig.categories = decodeCategories(rawDocument['categories']);
+  if (Object.hasOwn(rawDocumentObject, 'categories')) {
+    releaseConfig.categories = decodeCategories(rawDocumentObject['categories']);
   }
 
-  if (Object.hasOwn(rawDocument, 'pricing')) {
-    releaseConfig.pricing = decodePricing(rawDocument['pricing']);
+  if (Object.hasOwn(rawDocumentObject, 'pricing')) {
+    releaseConfig.pricing = decodePricing(rawDocumentObject['pricing']);
   }
 
-  if (Object.hasOwn(rawDocument, 'reviewDetails')) {
-    releaseConfig.reviewDetails = decodeReviewDetails(rawDocument['reviewDetails']);
+  if (Object.hasOwn(rawDocumentObject, 'reviewDetails')) {
+    releaseConfig.reviewDetails = decodeReviewDetails(rawDocumentObject['reviewDetails']);
   }
 
   const hasSection = hasDeclaredSection(releaseConfig);
@@ -917,7 +911,7 @@ export function parseReleaseConfig(rawDocument: unknown): ReleaseAttributesConfi
   if (hasSection == false) {
     throw releaseAttributesFailure(
       'decode release config fields',
-      rawDocument,
+      rawDocumentObject,
       'release.config.json has no recognized section - declare at least one of ageRating / categories / pricing / reviewDetails.',
     );
   }

@@ -5,6 +5,7 @@ import {
   requestGa4Document,
   type Ga4Session,
 } from './ga4-client.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 const GA4_METRICS: readonly Ga4Metric[] = ['activeUsers', 'newUsers', 'sessions'];
 
@@ -30,24 +31,18 @@ interface Ga4ReportReply {
   readonly rowCount: number;
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
-}
-
 function decodeCell(cellDocument: unknown): ReportCell {
-  if (isRecord(cellDocument) == false) {
+  const cellDocumentObject = readPlainObject(cellDocument);
+
+  if (cellDocumentObject == null) {
     throw new Error('A GA4 report cell is not an object.');
   }
 
-  if (typeof cellDocument['value'] != 'string') {
+  if (typeof cellDocumentObject['value'] != 'string') {
     throw new Error('A GA4 report cell value is not a string.');
   }
 
-  return { value: cellDocument['value'] };
+  return { value: cellDocumentObject['value'] };
 }
 
 function decodeCells(cells: unknown): readonly ReportCell[] {
@@ -59,38 +54,42 @@ function decodeCells(cells: unknown): readonly ReportCell[] {
 }
 
 function decodeReportRow(rowDocument: unknown): ReportRow {
-  if (isRecord(rowDocument) == false) {
+  const rowDocumentObject = readPlainObject(rowDocument);
+
+  if (rowDocumentObject == null) {
     throw new Error('A GA4 report row is not an object.');
   }
 
   return {
-    dimensionValues: decodeCells(rowDocument['dimensionValues']),
-    metricValues: decodeCells(rowDocument['metricValues']),
+    dimensionValues: decodeCells(rowDocumentObject['dimensionValues']),
+    metricValues: decodeCells(rowDocumentObject['metricValues']),
   };
 }
 
 function decodeReportReply(reportDocument: unknown): Ga4ReportReply {
-  if (isRecord(reportDocument) == false) {
+  const reportDocumentObject = readPlainObject(reportDocument);
+
+  if (reportDocumentObject == null) {
     throw new Error('A GA4 report is not an object.');
   }
 
   let rows: readonly ReportRow[] = [];
   let rowCount = 0;
 
-  if (reportDocument['rows'] != null) {
-    if (Array.isArray(reportDocument['rows']) == false) {
+  if (reportDocumentObject['rows'] != null) {
+    if (Array.isArray(reportDocumentObject['rows']) == false) {
       throw new Error('GA4 report rows are not a list.');
     }
 
-    rows = reportDocument['rows'].map(decodeReportRow);
+    rows = reportDocumentObject['rows'].map(decodeReportRow);
   }
 
-  if (reportDocument['rowCount'] != null) {
-    if (typeof reportDocument['rowCount'] != 'number') {
+  if (reportDocumentObject['rowCount'] != null) {
+    if (typeof reportDocumentObject['rowCount'] != 'number') {
       throw new Error('GA4 report row count is not a number.');
     }
 
-    rowCount = reportDocument['rowCount'];
+    rowCount = reportDocumentObject['rowCount'];
   }
 
   return { rows, rowCount };

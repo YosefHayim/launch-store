@@ -1,5 +1,6 @@
 import { errorMessage } from '../../services/platform/error-message.ts';
 import type { StatsFeedFailure } from '../../types/stats.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 export const ANALYTICS_ADMIN_URL = 'https://analyticsadmin.googleapis.com/v1beta';
 export const ANALYTICS_DATA_URL = 'https://analyticsdata.googleapis.com/v1beta';
@@ -76,14 +77,6 @@ export function isGa4SkipSignal(cause: unknown): cause is Ga4SkipSignal {
   return cause._tag == 'Ga4SkipSignal';
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
-}
-
 function readGoogleMessage(googleMessage: string, fallbackMessage: string): string {
   if (googleMessage == '') {
     return fallbackMessage;
@@ -98,11 +91,13 @@ function hasServiceDisabledReason(details: unknown): boolean {
   }
 
   function isDisabled(detail: unknown): boolean {
-    if (isRecord(detail) == false) {
+    const detailObject = readPlainObject(detail);
+
+    if (detailObject == null) {
       return false;
     }
 
-    return detail['reason'] == 'SERVICE_DISABLED';
+    return detailObject['reason'] == 'SERVICE_DISABLED';
   }
 
   return details.some(isDisabled);
@@ -112,31 +107,35 @@ function hasServiceDisabledReason(details: unknown): boolean {
 export function readGa4Error(httpStatus: number, errorDocument: unknown): Ga4ErrorReading {
   const fallbackMessage = `Google Analytics replied with HTTP ${httpStatus}`;
 
-  if (isRecord(errorDocument) == false) {
+  const errorDocumentObject = readPlainObject(errorDocument);
+
+  if (errorDocumentObject == null) {
     return { kind: 'other', message: fallbackMessage };
   }
 
-  const googleError = errorDocument['error'];
+  const googleError = errorDocumentObject['error'];
 
-  if (isRecord(googleError) == false) {
+  const googleErrorObject = readPlainObject(googleError);
+
+  if (googleErrorObject == null) {
     return { kind: 'other', message: fallbackMessage };
   }
 
   let googleMessage = '';
 
-  if (typeof googleError['message'] == 'string') {
-    googleMessage = googleError['message'];
+  if (typeof googleErrorObject['message'] == 'string') {
+    googleMessage = googleErrorObject['message'];
   }
 
   const message = readGoogleMessage(googleMessage, fallbackMessage);
-  const isServiceDisabled = hasServiceDisabledReason(googleError['details']);
+  const isServiceDisabled = hasServiceDisabledReason(googleErrorObject['details']);
 
   if (isServiceDisabled) {
     return { kind: 'service-disabled', message };
   }
 
   const isForbidden = httpStatus == httpForbidden;
-  const isPermissionStatus = googleError['status'] == 'PERMISSION_DENIED';
+  const isPermissionStatus = googleErrorObject['status'] == 'PERMISSION_DENIED';
 
   if (isForbidden == false) {
     return { kind: 'other', message };

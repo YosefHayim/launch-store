@@ -55,9 +55,9 @@ function isEntitlementRecord(candidate: unknown): candidate is Record<string, En
 
 function readProfileEntitlements(entitlementsJson: string): Record<string, EntitlementValue> {
   const parsedEntitlements: unknown = JSON.parse(entitlementsJson);
-  const isRecord = isEntitlementRecord(parsedEntitlements);
+  const isEntitlementDocument = isEntitlementRecord(parsedEntitlements);
 
-  if (isRecord == false) {
+  if (isEntitlementDocument == false) {
     throw new Error('Provisioning profile entitlements are not a JSON object.');
   }
 

@@ -6,6 +6,7 @@ import { runAutoUpgrade } from '../config/update-check.ts';
 import { migrateLegacyAccounts } from '../credentials/accounts.ts';
 import { registerBuiltins } from '../providers/index.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { isCommandExit } from '../terminal/command-exit.ts';
 
@@ -15,21 +16,13 @@ async function readVersion(): Promise<string> {
   try {
     const manifestSource = await readFile(packageManifestPath, 'utf8');
     const manifest: unknown = JSON.parse(manifestSource);
-    const isRecord = typeof manifest == 'object';
+    const manifestObject = readPlainObject(manifest);
 
-    if (isRecord == false) {
+    if (manifestObject == null) {
       return '0.0.0';
     }
 
-    if (manifest == null) {
-      return '0.0.0';
-    }
-
-    if ('version' in manifest == false) {
-      return '0.0.0';
-    }
-
-    const version = manifest.version;
+    const version = manifestObject['version'];
     const isVersionText = typeof version == 'string';
 
     if (isVersionText == false) {

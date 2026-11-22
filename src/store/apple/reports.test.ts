@@ -90,7 +90,7 @@ describe('eachDate', () => {
       '2026-06-03',
     ]);
   });
-  it('yields a single date when from === to', () => {
+  it('yields a single date when from == to', () => {
     expect(eachDate('2026-06-01', '2026-06-01')).toEqual(['2026-06-01']);
   });
   it('crosses a month boundary correctly', () => {

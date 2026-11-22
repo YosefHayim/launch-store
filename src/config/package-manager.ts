@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type PackageManagerName = 'npm' | 'yarn' | 'pnpm' | 'bun';
 
@@ -181,18 +182,6 @@ export function packageManagerWarnings(input: PackageManagerWarningInput): strin
   return warnings;
 }
 
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 async function readPackageJson(directory: string): Promise<Record<string, unknown> | null> {
   const packageJsonPath = join(directory, 'package.json');
   const packageExists = await pathExists(packageJsonPath);
@@ -205,8 +194,10 @@ async function readPackageJson(directory: string): Promise<Record<string, unknow
     const packageText = await readFile(packageJsonPath, 'utf8');
     const parsedPackage: unknown = JSON.parse(packageText);
 
-    if (isPlainRecord(parsedPackage)) {
-      return parsedPackage;
+    const parsedPackageObject = readPlainObject(parsedPackage);
+
+    if (parsedPackageObject != null) {
+      return parsedPackageObject;
     }
 
     return null;

@@ -22,6 +22,7 @@ import {
   resolveLegacyAndroidCredentialsIndexPath,
 } from '../services/platform/paths.ts';
 import type { KeystoreAssets } from '../types/credentials.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const SERVICE_ACCOUNT_SECRET = 'play-service-account';
 const KEYSTORE_STORE_PASSWORD = 'android-keystore-store-password';
@@ -98,22 +99,6 @@ function decodeJson(storedServiceAccount: string): string {
   return storedServiceAccount;
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readNonEmptyText(record: Record<string, unknown>, key: string): string | null {
   const field = record[key];
 
@@ -165,8 +150,10 @@ function decodeAndroidCredentialsIndex(
   parsed: unknown,
   credentialsIndexPath: string,
 ): AndroidCredentialsIndex {
-  if (isRecord(parsed)) {
-    return readCredentialsDocument(parsed, credentialsIndexPath);
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject != null) {
+    return readCredentialsDocument(parsedObject, credentialsIndexPath);
   }
 
   throw corruptIndex(credentialsIndexPath);
@@ -184,8 +171,10 @@ function readCredentialsDocument(
 
   const keystore = document['keystore'];
 
-  if (isRecord(keystore)) {
-    return { keystore: readKeystoreRecord(keystore, credentialsIndexPath) };
+  const keystoreObject = readPlainObject(keystore);
+
+  if (keystoreObject != null) {
+    return { keystore: readKeystoreRecord(keystoreObject, credentialsIndexPath) };
   }
 
   throw corruptIndex(credentialsIndexPath);
@@ -261,15 +250,17 @@ function validateServiceAccountJson(serviceAccountJson: string): void {
     });
   }
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     throw makeAndroidCredentialFailure({
       message:
         'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key.',
     });
   }
 
-  const clientEmail = readNonEmptyText(parsed, 'client_email');
-  const privateKey = readNonEmptyText(parsed, 'private_key');
+  const clientEmail = readNonEmptyText(parsedObject, 'client_email');
+  const privateKey = readNonEmptyText(parsedObject, 'private_key');
 
   if (clientEmail == null) {
     throw makeAndroidCredentialFailure({

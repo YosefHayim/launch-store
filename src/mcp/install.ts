@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { HostOs } from '../types/remote.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export type McpClient = 'claude-code' | 'cursor' | 'claude-desktop';
 
@@ -20,18 +21,6 @@ export type InstalledMcpServer = Readonly<{
   path: string;
   changed: boolean;
 }>;
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
 
 function desktopConfigPath(homeDirectory: string, operatingSystem: HostOs): string {
   if (operatingSystem == 'windows') {
@@ -65,8 +54,10 @@ export function clientConfigPath(
 }
 
 function readServers(candidate: unknown): Record<string, unknown> {
-  if (isRecord(candidate)) {
-    return candidate;
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject != null) {
+    return candidateObject;
   }
 
   return {};
@@ -110,8 +101,10 @@ function readServerEntryFromRecord(record: Record<string, unknown>): McpServerEn
 }
 
 function readServerEntry(candidate: unknown): McpServerEntry | null {
-  if (isRecord(candidate)) {
-    return readServerEntryFromRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject != null) {
+    return readServerEntryFromRecord(candidateObject);
   }
 
   return null;
@@ -160,8 +153,10 @@ function decodeConfigDocument(configDocumentJson: string): Record<string, unknow
   try {
     const parsed: unknown = JSON.parse(configDocumentJson);
 
-    if (isRecord(parsed)) {
-      return parsed;
+    const parsedObject = readPlainObject(parsed);
+
+    if (parsedObject != null) {
+      return parsedObject;
     }
   } catch (error) {
     const isMalformed = error != null;

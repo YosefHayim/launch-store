@@ -46,6 +46,7 @@ import {
 import { describeStoredCredentials, ensureSigningCredentials } from './apple-signing-assets.ts';
 import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './key-files.ts';
 import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './push-key-store.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const CREDENTIAL_ACTIONS = [
   'status',
@@ -158,22 +159,6 @@ function failCommand(operation: string, message: string): never {
   throw makeCredentialsCommandFailure({ operation, message });
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readOptionalString(
   record: Record<string, unknown>,
   fieldName: string,
@@ -256,23 +241,27 @@ function readCommandOptions(record: Record<string, unknown>): CredentialsCommand
 }
 
 export function CredentialsCommandInputSchema(commandInput: unknown): CredentialsCommandInput {
-  if (isRecord(commandInput) == false) {
+  const commandInputObject = readPlainObject(commandInput);
+
+  if (commandInputObject == null) {
     throw new Error('Credentials command input must be an object.');
   }
 
-  const action = readAction(commandInput['action']);
-  const optionsRecord = commandInput['options'];
+  const action = readAction(commandInputObject['action']);
+  const optionsRecord = commandInputObject['options'];
 
-  if (isRecord(optionsRecord) == false) {
+  const optionsRecordObject = readPlainObject(optionsRecord);
+
+  if (optionsRecordObject == null) {
     throw new Error('Credentials command options must be an object.');
   }
 
   let decoded: CredentialsCommandInput = {
     action,
-    options: readCommandOptions(optionsRecord),
+    options: readCommandOptions(optionsRecordObject),
   };
-  const firstArgument = readOptionalString(commandInput, 'firstArgument');
-  const secondArgument = readOptionalString(commandInput, 'secondArgument');
+  const firstArgument = readOptionalString(commandInputObject, 'firstArgument');
+  const secondArgument = readOptionalString(commandInputObject, 'secondArgument');
 
   if (firstArgument != null) {
     decoded = { ...decoded, firstArgument };
@@ -1236,19 +1225,21 @@ async function setAppleVendorNumber(commandOptions: CredentialsCommandOptions): 
 }
 
 function isPortfolioFile(candidate: unknown): candidate is PortfolioFile {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  if (candidate['version'] != 1) {
+  if (candidateObject['version'] != 1) {
     return false;
   }
 
-  if (Array.isArray(candidate['apps']) == false) {
+  if (Array.isArray(candidateObject['apps']) == false) {
     return false;
   }
 
-  return Array.isArray(candidate['tags']);
+  return Array.isArray(candidateObject['tags']);
 }
 
 async function readPortfolioDocument(): Promise<PortfolioFile | null> {

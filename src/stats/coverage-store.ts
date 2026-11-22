@@ -5,16 +5,9 @@ import {
 } from '../services/platform/atomic-document-file.ts';
 import { locateAppStatsDirectory } from '../services/platform/paths.ts';
 import type { AppCoverage, FeedCoverage, StatsFeed } from '../types/stats.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const coverageFeeds: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
-}
 
 function readRequiredString(document: Record<string, unknown>, fieldName: string): string {
   const field = document[fieldName];
@@ -41,22 +34,24 @@ function readStringOrNull(document: Record<string, unknown>, fieldName: string):
 }
 
 function decodeFeedCoverage(feedDocument: unknown): FeedCoverage {
-  if (isRecord(feedDocument) == false) {
+  const feedDocumentObject = readPlainObject(feedDocument);
+
+  if (feedDocumentObject == null) {
     throw new Error('A feed coverage is not an object.');
   }
 
   let lastNote: string | null = null;
-  const hasLastNote = 'lastNote' in feedDocument;
+  const hasLastNote = 'lastNote' in feedDocumentObject;
 
   if (hasLastNote) {
-    lastNote = readStringOrNull(feedDocument, 'lastNote');
+    lastNote = readStringOrNull(feedDocumentObject, 'lastNote');
   }
 
   return {
-    lastSyncedAt: readRequiredString(feedDocument, 'lastSyncedAt'),
-    coveredFrom: readStringOrNull(feedDocument, 'coveredFrom'),
-    coveredThrough: readStringOrNull(feedDocument, 'coveredThrough'),
-    lastError: readStringOrNull(feedDocument, 'lastError'),
+    lastSyncedAt: readRequiredString(feedDocumentObject, 'lastSyncedAt'),
+    coveredFrom: readStringOrNull(feedDocumentObject, 'coveredFrom'),
+    coveredThrough: readStringOrNull(feedDocumentObject, 'coveredThrough'),
+    lastError: readStringOrNull(feedDocumentObject, 'lastError'),
     lastNote,
   };
 }
@@ -64,37 +59,41 @@ function decodeFeedCoverage(feedDocument: unknown): FeedCoverage {
 function decodeAppCoverage(documentText: string): AppCoverage {
   const parsed: unknown = JSON.parse(documentText);
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     throw new Error('Coverage file is not an object.');
   }
 
-  const isVersionOne = parsed['version'] == 1;
+  const isVersionOne = parsedObject['version'] == 1;
 
   if (isVersionOne == false) {
     throw new Error('Coverage file version is not 1.');
   }
 
-  const feedsDocument = parsed['feeds'];
+  const feedsDocument = parsedObject['feeds'];
 
-  if (isRecord(feedsDocument) == false) {
+  const feedsDocumentObject = readPlainObject(feedsDocument);
+
+  if (feedsDocumentObject == null) {
     throw new Error('Coverage feeds are not an object.');
   }
 
   const feeds: AppCoverage['feeds'] = {};
 
   for (const feed of coverageFeeds) {
-    const hasFeed = feed in feedsDocument;
+    const hasFeed = feed in feedsDocumentObject;
 
     if (hasFeed == false) {
       continue;
     }
 
-    feeds[feed] = decodeFeedCoverage(feedsDocument[feed]);
+    feeds[feed] = decodeFeedCoverage(feedsDocumentObject[feed]);
   }
 
   return {
     version: 1,
-    appKey: readRequiredString(parsed, 'appKey'),
+    appKey: readRequiredString(parsedObject, 'appKey'),
     feeds,
   };
 }

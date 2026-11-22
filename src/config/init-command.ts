@@ -15,6 +15,7 @@ import {
   ENV_EXAMPLE_TEMPLATE,
 } from './config-scaffold.ts';
 import { ensureArtifactDirIgnored } from './gitignore.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type InitCommandInput = Readonly<{
   workingDirectory?: string;
@@ -27,18 +28,6 @@ type InitCommandFailure = Readonly<{
   message: string;
   cause: unknown;
 }>;
-
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
 
 function initFailure(operation: string, cause: unknown): InitCommandFailure {
   let message = `${operation} failed.`;
@@ -79,8 +68,10 @@ function readWorkingDirectory(record: Record<string, unknown>): string | undefin
 }
 
 export function InitCommandInputSchema(rawCommandInput: unknown): InitCommandInput {
-  if (isPlainRecord(rawCommandInput)) {
-    return readInitCommandInput(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject != null) {
+    return readInitCommandInput(rawCommandInputObject);
   }
 
   throw new Error('init command input must be an object');

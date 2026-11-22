@@ -5,6 +5,7 @@ import {
   loadActiveGoogleStore,
   resolveGoogleStoreApp,
 } from '../../cli/commands/store/google/google-store-command.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 export type PlayPricingCommandInput = {
   amount: string;
@@ -77,22 +78,6 @@ function pricingFailure(
   });
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
 
@@ -131,16 +116,18 @@ function readExactOptionalString(
 }
 
 function decodePlayPricingCommandInput(rawCommandInput: unknown): PlayPricingCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Play pricing command input must be an object.');
   }
 
   const commandInput: PlayPricingCommandInput = {
-    amount: readRequiredString(rawCommandInput, 'amount'),
-    currency: readRequiredString(rawCommandInput, 'currency'),
-    json: readRequiredBoolean(rawCommandInput, 'json'),
+    amount: readRequiredString(rawCommandInputObject, 'amount'),
+    currency: readRequiredString(rawCommandInputObject, 'currency'),
+    json: readRequiredBoolean(rawCommandInputObject, 'json'),
   };
-  const appName = readExactOptionalString(rawCommandInput, 'app');
+  const appName = readExactOptionalString(rawCommandInputObject, 'app');
 
   if (appName != null) {
     commandInput.app = appName;

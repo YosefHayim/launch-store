@@ -10,6 +10,7 @@ import type { McpTool, McpToolResult } from '../types/mcp.ts';
 import { gateTools } from './gate.ts';
 import { STATS_TOOLS } from './stats-tools.ts';
 import { ALL_TOOLS } from './tools.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type McpServerConstructor = typeof import('@modelcontextprotocol/sdk/server/index.js').Server;
 type McpStdioTransport =
@@ -21,18 +22,6 @@ type McpSdk = Readonly<{
   StdioServerTransport: McpStdioTransport;
   schemas: McpSchemas;
 }>;
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
 
 async function loadMcpSdk(): Promise<McpSdk> {
   const serverModule = await import('@modelcontextprotocol/sdk/server/index.js');
@@ -99,8 +88,10 @@ export async function dispatch(
 }
 
 function readPackageVersion(parsedManifest: unknown): string | null {
-  if (isRecord(parsedManifest)) {
-    const version = parsedManifest['version'];
+  const parsedManifestObject = readPlainObject(parsedManifest);
+
+  if (parsedManifestObject != null) {
+    const version = parsedManifestObject['version'];
 
     if (typeof version == 'string') {
       return version;

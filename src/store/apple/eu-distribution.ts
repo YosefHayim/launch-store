@@ -7,24 +7,9 @@ import type {
   EuDistributionDomainConfig,
 } from '../../types/store-surface.ts';
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 const EU_DISTRIBUTION_DOCUMENT_NAME = 'eu-distribution.config.json';
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
 
 function readRequiredText(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
@@ -44,15 +29,15 @@ function readRequiredText(record: Record<string, unknown>, fieldName: string): s
 }
 
 function readDomain(entry: unknown): EuDistributionDomainConfig {
-  const isEntryRecord = isRecord(entry);
+  const entryObject = readPlainObject(entry);
 
-  if (isEntryRecord == false) {
+  if (entryObject == null) {
     throw new Error(`${EU_DISTRIBUTION_DOCUMENT_NAME}: domains entries must be JSON objects.`);
   }
 
   return {
-    domain: readRequiredText(entry, 'domain'),
-    referenceName: readRequiredText(entry, 'referenceName'),
+    domain: readRequiredText(entryObject, 'domain'),
+    referenceName: readRequiredText(entryObject, 'referenceName'),
   };
 }
 

@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 import { resolveSecretsFilePath } from '../services/platform/paths.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Non-secret coordinates for one app/profile environment secret. */
 export type SecretRef = Readonly<{
@@ -43,44 +44,34 @@ function sameSecret(left: SecretRef, right: SecretRef): boolean {
   return left.name == right.name;
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  return candidate != null;
-}
-
 function decodeSecretRef(candidate: unknown): SecretRef | null {
-  const isSecretRecord = isRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
 
-  if (isSecretRecord == false) {
+  if (candidateObject == null) {
     return null;
   }
 
-  const appName = candidate['app'];
+  const appName = candidateObject['app'];
   const appIsString = typeof appName == 'string';
 
   if (appIsString == false) {
     return null;
   }
 
-  const secretName = candidate['name'];
+  const secretName = candidateObject['name'];
   const nameIsString = typeof secretName == 'string';
 
   if (nameIsString == false) {
     return null;
   }
 
-  const hasProfile = Object.hasOwn(candidate, 'profile');
+  const hasProfile = Object.hasOwn(candidateObject, 'profile');
 
   if (hasProfile == false) {
     return null;
   }
 
-  const profile = candidate['profile'];
+  const profile = candidateObject['profile'];
   const profileIsNull = profile == null;
   const profileIsString = typeof profile == 'string';
 
@@ -96,13 +87,13 @@ function decodeSecretRef(candidate: unknown): SecretRef | null {
 }
 
 function decodeSecretsIndex(decoded: unknown): SecretsIndex | null {
-  const isIndexRecord = isRecord(decoded);
+  const decodedObject = readPlainObject(decoded);
 
-  if (isIndexRecord == false) {
+  if (decodedObject == null) {
     return null;
   }
 
-  const secretList = decoded['secrets'];
+  const secretList = decodedObject['secrets'];
   const isList = Array.isArray(secretList);
 
   if (isList == false) {

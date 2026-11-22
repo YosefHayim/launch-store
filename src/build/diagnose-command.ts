@@ -5,6 +5,7 @@ import { createLogger } from '../services/platform/logger.ts';
 import { resolveLogsDirectory } from '../services/platform/paths.ts';
 import { pathExists } from '../path-exists.ts';
 import { diagnoseBuildLog, formatDiagnoses } from './build-diagnostics.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type DiagnoseCommandInput = Readonly<{
   logfile?: string;
@@ -40,31 +41,21 @@ function makeDiagnoseCommandFailure(fields: {
   };
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  return candidate != null;
-}
-
 /** Decode `launch diagnose` input. Omitted optionals stay absent. */
 export function decodeDiagnoseCommandInput(rawCommandInput: unknown): DiagnoseCommandInput {
-  const isCommandRecord = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isCommandRecord == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('Diagnose command input must be an object.');
   }
 
-  const hasLogfile = Object.hasOwn(rawCommandInput, 'logfile');
+  const hasLogfile = Object.hasOwn(rawCommandInputObject, 'logfile');
 
   if (hasLogfile == false) {
     return {};
   }
 
-  const logfile = rawCommandInput['logfile'];
+  const logfile = rawCommandInputObject['logfile'];
   const logfileIsMissing = logfile == null;
 
   if (logfileIsMissing) {

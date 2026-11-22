@@ -9,6 +9,7 @@ import { errorMessage } from '../../services/platform/error-message.ts';
 import type { PlannedAction } from '../../types/reconcile.ts';
 import type { MutableDeep } from '../../types/mutable.ts';
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 /** The ordered list of DeviceFamily values, for validating config and iterating. */
 const DEVICE_FAMILIES: readonly DeviceFamily[] = [
@@ -58,22 +59,6 @@ type AccessibilityReconcileInput = {
   dryRun: boolean;
 };
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function isDeviceFamily(candidate: unknown): candidate is DeviceFamily {
   if (typeof candidate != 'string') {
     return false;
@@ -111,13 +96,13 @@ function readSupportFlag(
 }
 
 function readDeclaration(entry: unknown): AccessibilityDeclarationConfig {
-  const isDeclarationRecord = isRecord(entry);
+  const entryObject = readPlainObject(entry);
 
-  if (isDeclarationRecord == false) {
+  if (entryObject == null) {
     throw new Error(`${ACCESSIBILITY_DOCUMENT_NAME}: declarations entries must be JSON objects.`);
   }
 
-  const deviceFamily = entry['deviceFamily'];
+  const deviceFamily = entryObject['deviceFamily'];
   const isFamily = isDeviceFamily(deviceFamily);
 
   if (isFamily == false) {
@@ -129,7 +114,7 @@ function readDeclaration(entry: unknown): AccessibilityDeclarationConfig {
   const declaration: MutableDeep<AccessibilityDeclarationConfig> = { deviceFamily };
 
   for (const supportKey of ACCESSIBILITY_SUPPORT_KEYS) {
-    const supportFlag = readSupportFlag(entry, supportKey);
+    const supportFlag = readSupportFlag(entryObject, supportKey);
     const hasFlag = supportFlag != null;
 
     if (hasFlag) {

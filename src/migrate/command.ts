@@ -10,6 +10,7 @@ import { migrateEas } from './eas.ts';
 import { migrateFastlane } from './fastlane.ts';
 import { renderReport } from './report.ts';
 import { writeArtifacts } from './write.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const REPORT_FILE = 'migration-report.md';
 
@@ -26,22 +27,6 @@ type MigrateCommandFailure = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
@@ -89,16 +74,18 @@ function readMigrationSource(record: Record<string, unknown>): MigrateCommandInp
 }
 
 function decodeMigrateCommandInput(rawCommandInput: unknown): MigrateCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Migrate command input must be an object.');
   }
 
   const commandInput: MigrateCommandInput = {
-    source: readMigrationSource(rawCommandInput),
-    force: readRequiredBoolean(rawCommandInput, 'force'),
-    dryRun: readRequiredBoolean(rawCommandInput, 'dryRun'),
+    source: readMigrationSource(rawCommandInputObject),
+    force: readRequiredBoolean(rawCommandInputObject, 'force'),
+    dryRun: readRequiredBoolean(rawCommandInputObject, 'dryRun'),
   };
-  const outputDirectory = readOptionalString(rawCommandInput, 'out');
+  const outputDirectory = readOptionalString(rawCommandInputObject, 'out');
 
   if (outputDirectory != null) {
     commandInput.out = outputDirectory;

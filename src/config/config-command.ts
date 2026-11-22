@@ -9,6 +9,7 @@ import { findLaunchConfig } from './config.ts';
 import { loadConfigSchema, validateConfig } from './config-schema.ts';
 import { checkConfigSemantics } from './config-semantics.ts';
 import type { SchemaViolation } from './json-schema.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type SchemaCommandInput = Readonly<{ operation: 'schema'; out?: string }>;
 type ValidateCommandInput = Readonly<{ operation: 'validate'; file?: string }>;
@@ -21,18 +22,6 @@ type ConfigCommandFailure = Readonly<{
   message: string;
   cause?: unknown;
 }>;
-
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
 
 function optionalString(record: Record<string, unknown>, fieldName: string): string | undefined {
   if (fieldName in record == false) {
@@ -69,8 +58,10 @@ function decodeValidateCommand(record: Record<string, unknown>): ValidateCommand
 }
 
 export function ConfigCommandInputSchema(rawCommandInput: unknown): ConfigCommandInput {
-  if (isPlainRecord(rawCommandInput)) {
-    return decodeConfigCommandInput(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject != null) {
+    return decodeConfigCommandInput(rawCommandInputObject);
   }
 
   throw new Error('config command input must be an object');

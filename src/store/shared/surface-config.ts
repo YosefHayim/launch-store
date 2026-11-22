@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { pathExists } from '../../path-exists.ts';
 import { errorMessage } from '../../services/platform/error-message.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 /** A store-surface JSON document could not be read or decoded. */
 export type StoreSurfaceConfigFailure = Readonly<{
@@ -39,22 +40,6 @@ function surfaceConfigFailure(
   return makeStoreSurfaceConfigFailure({ operation, message, cause });
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function isStoreSurfaceConfigFailure(cause: unknown): cause is StoreSurfaceConfigFailure {
   if (cause == null) {
     return false;
@@ -76,7 +61,9 @@ export function decodeStoreSurfaceConfig<Config>(
   rawDocument: unknown,
   configSpec: StoreSurfaceConfigSpec<Config>,
 ): Config {
-  if (isRecord(rawDocument) == false) {
+  const rawDocumentObject = readPlainObject(rawDocument);
+
+  if (rawDocumentObject == null) {
     throw surfaceConfigFailure(
       `decode ${configSpec.displayName} document`,
       rawDocument,
@@ -85,7 +72,7 @@ export function decodeStoreSurfaceConfig<Config>(
   }
 
   try {
-    return configSpec.decodeDocument(rawDocument);
+    return configSpec.decodeDocument(rawDocumentObject);
   } catch (cause) {
     if (isStoreSurfaceConfigFailure(cause)) {
       throw cause;

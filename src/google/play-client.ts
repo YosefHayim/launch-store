@@ -28,6 +28,7 @@ import type {
   ConvertedRegionPrice,
   PlayMoneyUnits,
 } from '../types/play-pricing.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Deep-clone a Launch boundary value into a mutable plain object for Google's generated client. */
 const mutableGoogleRequest = <GoogleRequest>(requestShape: unknown): GoogleRequest => {
@@ -481,14 +482,6 @@ const SERVICE_ACCOUNT_JSON_MESSAGE =
 const SERVICE_ACCOUNT_FIELDS_MESSAGE =
   'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key (not an OAuth client or an API key).';
 
-function isServiceAccountRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
-}
-
 function readServiceAccountField(record: Record<string, unknown>, key: string): string | null {
   const field = record[key];
 
@@ -547,14 +540,16 @@ export function readServiceAccount(serviceAccountJson: string): ServiceAccount {
     });
   }
 
-  if (isServiceAccountRecord(parsed) == false) {
+  const serviceAccountFields = readPlainObject(parsed);
+
+  if (serviceAccountFields == null) {
     throw makeServiceAccountParseError({
       message: SERVICE_ACCOUNT_FIELDS_MESSAGE,
       cause: parsed,
     });
   }
 
-  const clientEmail = readServiceAccountField(parsed, 'client_email');
+  const clientEmail = readServiceAccountField(serviceAccountFields, 'client_email');
 
   if (clientEmail == null) {
     throw makeServiceAccountParseError({
@@ -563,7 +558,7 @@ export function readServiceAccount(serviceAccountJson: string): ServiceAccount {
     });
   }
 
-  const privateKey = readServiceAccountField(parsed, 'private_key');
+  const privateKey = readServiceAccountField(serviceAccountFields, 'private_key');
 
   if (privateKey == null) {
     throw makeServiceAccountParseError({
@@ -573,7 +568,7 @@ export function readServiceAccount(serviceAccountJson: string): ServiceAccount {
   }
 
   let tokenUri = 'https://oauth2.googleapis.com/token';
-  const customTokenUri = readServiceAccountField(parsed, 'token_uri');
+  const customTokenUri = readServiceAccountField(serviceAccountFields, 'token_uri');
 
   if (customTokenUri != null) {
     tokenUri = customTokenUri;
@@ -584,7 +579,7 @@ export function readServiceAccount(serviceAccountJson: string): ServiceAccount {
     privateKey,
     tokenUri,
   };
-  const privateKeyId = readServiceAccountField(parsed, 'private_key_id');
+  const privateKeyId = readServiceAccountField(serviceAccountFields, 'private_key_id');
 
   if (privateKeyId != null) {
     serviceAccount.privateKeyId = privateKeyId;
@@ -1451,18 +1446,6 @@ interface GoogleErrorDocument {
   error_description?: string;
 }
 
-function isGoogleErrorRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function isNonEmptyText(text: unknown): text is string {
   if (typeof text != 'string') {
     return false;
@@ -1548,14 +1531,14 @@ function parseGoogleErrorText(googleErrorText: string): unknown {
 
 function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument | null {
   const parsed = parseGoogleErrorText(googleErrorText);
-  const isRecord = isGoogleErrorRecord(parsed);
+  const parsedObject = readPlainObject(parsed);
 
-  if (isRecord == false) {
+  if (parsedObject == null) {
     return null;
   }
 
   const document: GoogleErrorDocument = {};
-  const errorDescription = readOptionalErrorString(parsed, 'error_description');
+  const errorDescription = readOptionalErrorString(parsedObject, 'error_description');
   const isDescriptionInvalid = errorDescription.status == 'invalid';
 
   if (isDescriptionInvalid) {
@@ -1568,13 +1551,13 @@ function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument |
     document.error_description = errorDescription.text;
   }
 
-  const hasError = Object.hasOwn(parsed, 'error');
+  const hasError = Object.hasOwn(parsedObject, 'error');
 
   if (hasError == false) {
     return document;
   }
 
-  const errorField = parsed['error'];
+  const errorField = parsedObject['error'];
   const isStringError = typeof errorField == 'string';
 
   if (isStringError) {
@@ -1582,20 +1565,20 @@ function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument |
     return document;
   }
 
-  const isObjectError = isGoogleErrorRecord(errorField);
+  const errorFields = readPlainObject(errorField);
 
-  if (isObjectError == false) {
+  if (errorFields == null) {
     return null;
   }
 
-  const message = readOptionalErrorString(errorField, 'message');
+  const message = readOptionalErrorString(errorFields, 'message');
   const isMessageInvalid = message.status == 'invalid';
 
   if (isMessageInvalid) {
     return null;
   }
 
-  const status = readOptionalErrorString(errorField, 'status');
+  const status = readOptionalErrorString(errorFields, 'status');
   const isStatusInvalid = status.status == 'invalid';
 
   if (isStatusInvalid) {

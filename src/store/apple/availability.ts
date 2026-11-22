@@ -5,6 +5,7 @@ import type { PlannedAction } from '../../types/reconcile.ts';
 import { pathExists } from '../../path-exists.ts';
 import { appRecordMissing } from '../shared/reconcile.ts';
 import { errorMessage } from '../../services/platform/error-message.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 /** How many territory codes to show inline before truncating the plan line. */
 const PREVIEW_LIMIT = 8;
@@ -54,22 +55,6 @@ type AvailabilityReconcileInput = {
   dryRun: boolean;
 };
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readTerritoryCode(entry: unknown): string {
   const isText = typeof entry == 'string';
 
@@ -88,19 +73,19 @@ function readTerritoryCode(entry: unknown): string {
 }
 
 export function parseAvailabilityConfig(rawConfig: unknown): AvailabilityConfig {
-  const isConfigRecord = isRecord(rawConfig);
+  const rawConfigObject = readPlainObject(rawConfig);
 
-  if (isConfigRecord == false) {
+  if (rawConfigObject == null) {
     throw new Error('availability.config.json must be a JSON object.');
   }
 
-  const hasTerritories = Object.hasOwn(rawConfig, 'territories');
+  const hasTerritories = Object.hasOwn(rawConfigObject, 'territories');
 
   if (hasTerritories == false) {
     throw new Error('Expected territories to be an array.');
   }
 
-  const territoriesField = rawConfig['territories'];
+  const territoriesField = rawConfigObject['territories'];
   const isTerritoryList = Array.isArray(territoriesField);
 
   if (isTerritoryList == false) {
@@ -114,13 +99,13 @@ export function parseAvailabilityConfig(rawConfig: unknown): AvailabilityConfig 
   }
 
   const availabilityConfig: AvailabilityConfig = { territories };
-  const hasFlag = Object.hasOwn(rawConfig, 'availableInNewTerritories');
+  const hasFlag = Object.hasOwn(rawConfigObject, 'availableInNewTerritories');
 
   if (hasFlag == false) {
     return availabilityConfig;
   }
 
-  const flag = rawConfig['availableInNewTerritories'];
+  const flag = rawConfigObject['availableInNewTerritories'];
   const isFlag = typeof flag == 'boolean';
 
   if (isFlag == false) {

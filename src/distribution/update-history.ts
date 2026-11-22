@@ -11,6 +11,7 @@ import {
   type UpdateHistoryEntry,
   type UpdateManifest,
 } from './ota-manifest.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type UpdateHistoryFailure = Readonly<{
   readonly _tag: 'UpdateHistoryFailure';
@@ -19,18 +20,6 @@ type UpdateHistoryFailure = Readonly<{
 
 function makeUpdateHistoryFailure(message: string): UpdateHistoryFailure {
   return { _tag: 'UpdateHistoryFailure', message };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
 }
 
 function readString(record: Record<string, unknown>, fieldName: string): string {
@@ -73,16 +62,18 @@ function parseJson(jsonText: string): unknown {
 }
 
 function readManifestAsset(candidate: unknown): UpdateManifest['launchAsset'] {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     throw new Error('Manifest asset is malformed.');
   }
 
   const asset: UpdateManifest['launchAsset'] = {
-    key: readString(candidate, 'key'),
-    contentType: readString(candidate, 'contentType'),
-    url: readString(candidate, 'url'),
+    key: readString(candidateObject, 'key'),
+    contentType: readString(candidateObject, 'contentType'),
+    url: readString(candidateObject, 'url'),
   };
-  const fileExtension = readOptionalString(candidate, 'fileExtension');
+  const fileExtension = readOptionalString(candidateObject, 'fileExtension');
 
   const fileExtensionIsInvalid = isNull(fileExtension);
 
@@ -98,39 +89,43 @@ function readManifestAsset(candidate: unknown): UpdateManifest['launchAsset'] {
 }
 
 function isEmptyRecord(candidate: unknown): boolean {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  return Object.keys(candidate).length == 0;
+  return Object.keys(candidateObject).length == 0;
 }
 
 function decodeManifest(jsonText: string): UpdateManifest {
   const parsed = parseJson(jsonText);
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     throw new Error('Update manifest is malformed.');
   }
 
-  if (isEmptyRecord(parsed['metadata']) == false) {
+  if (isEmptyRecord(parsedObject['metadata']) == false) {
     throw new Error('Update manifest metadata is malformed.');
   }
 
-  if (isEmptyRecord(parsed['extra']) == false) {
+  if (isEmptyRecord(parsedObject['extra']) == false) {
     throw new Error('Update manifest extra is malformed.');
   }
 
-  if (Array.isArray(parsed['assets']) == false) {
+  if (Array.isArray(parsedObject['assets']) == false) {
     throw new Error('Update manifest assets are malformed.');
   }
 
-  const assets = parsed['assets'].map(readManifestAsset);
+  const assets = parsedObject['assets'].map(readManifestAsset);
 
   return {
-    id: readString(parsed, 'id'),
-    createdAt: readString(parsed, 'createdAt'),
-    runtimeVersion: readString(parsed, 'runtimeVersion'),
-    launchAsset: readManifestAsset(parsed['launchAsset']),
+    id: readString(parsedObject, 'id'),
+    createdAt: readString(parsedObject, 'createdAt'),
+    runtimeVersion: readString(parsedObject, 'runtimeVersion'),
+    launchAsset: readManifestAsset(parsedObject['launchAsset']),
     assets,
     metadata: {},
     extra: {},
@@ -138,11 +133,13 @@ function decodeManifest(jsonText: string): UpdateManifest {
 }
 
 function decodeHistoryEntry(candidate: unknown): UpdateHistoryEntry {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     throw new Error('History entry is malformed.');
   }
 
-  const kind = readString(candidate, 'kind');
+  const kind = readString(candidateObject, 'kind');
   const isPublish = kind == 'publish';
   const isRollback = kind == 'rollback';
 
@@ -152,22 +149,22 @@ function decodeHistoryEntry(candidate: unknown): UpdateHistoryEntry {
     }
   }
 
-  if (typeof candidate['active'] != 'boolean') {
+  if (typeof candidateObject['active'] != 'boolean') {
     throw new Error('History entry active flag is malformed.');
   }
 
-  if (typeof candidate['signed'] != 'boolean') {
+  if (typeof candidateObject['signed'] != 'boolean') {
     throw new Error('History entry signed flag is malformed.');
   }
 
   const historyKind: UpdateHistoryEntry['kind'] = isPublish ? 'publish' : 'rollback';
 
   return {
-    id: readString(candidate, 'id'),
-    runtimeVersion: readString(candidate, 'runtimeVersion'),
-    createdAt: readString(candidate, 'createdAt'),
-    active: candidate['active'],
-    signed: candidate['signed'],
+    id: readString(candidateObject, 'id'),
+    runtimeVersion: readString(candidateObject, 'runtimeVersion'),
+    createdAt: readString(candidateObject, 'createdAt'),
+    active: candidateObject['active'],
+    signed: candidateObject['signed'],
     kind: historyKind,
   };
 }
@@ -186,19 +183,21 @@ function decodeRollbackDirective(jsonText: string): StoredRollbackDirective | nu
   try {
     const parsed = parseJson(jsonText);
 
-    if (isRecord(parsed) == false) {
+    const parsedObject = readPlainObject(parsed);
+
+    if (parsedObject == null) {
       return null;
     }
 
-    if (typeof parsed['active'] != 'boolean') {
+    if (typeof parsedObject['active'] != 'boolean') {
       return null;
     }
 
-    if (typeof parsed['body'] != 'string') {
+    if (typeof parsedObject['body'] != 'string') {
       return null;
     }
 
-    const signature = readOptionalString(parsed, 'signature');
+    const signature = readOptionalString(parsedObject, 'signature');
 
     const signatureIsInvalid = isNull(signature);
 
@@ -206,7 +205,10 @@ function decodeRollbackDirective(jsonText: string): StoredRollbackDirective | nu
       return null;
     }
 
-    const directive: StoredRollbackDirective = { active: parsed['active'], body: parsed['body'] };
+    const directive: StoredRollbackDirective = {
+      active: parsedObject['active'],
+      body: parsedObject['body'],
+    };
 
     if (signature == null) {
       return directive;

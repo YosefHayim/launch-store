@@ -19,6 +19,7 @@ import {
   waitForValidBuild,
 } from './app-store-release.ts';
 import { createTransitionTracker, planTransitionNotifications } from './release-notify.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const NO_IOS_APPS_MESSAGE =
   'No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.';
@@ -87,14 +88,6 @@ function isStatusCommandFailure(cause: unknown): cause is StatusCommandFailure {
 
 function createStatusFailure(operation: string, cause: unknown): StatusCommandFailure {
   return makeStatusCommandFailure({ operation, message: errorMessage(cause), cause });
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
 }
 
 function readOptionalText(record: Record<string, unknown>, fieldName: string): string | undefined {
@@ -168,20 +161,20 @@ function readOptionalBuild(record: Record<string, unknown>): number | undefined 
 }
 
 function decodeStatusFlags(flagsFromCli: StatusCommandFlags): StatusFlags {
-  const isObject = isRecord(flagsFromCli);
+  const flagsFromCliObject = readPlainObject(flagsFromCli);
 
-  if (isObject == false) {
+  if (flagsFromCliObject == null) {
     throw new Error('--build takes a whole number above 0, such as 42.');
   }
 
-  const app = readOptionalText(flagsFromCli, 'app');
-  const account = readOptionalText(flagsFromCli, 'account');
+  const app = readOptionalText(flagsFromCliObject, 'app');
+  const account = readOptionalText(flagsFromCliObject, 'account');
   const decodedFlags: StatusFlags = {
-    watch: readDefaultBoolean(flagsFromCli, 'watch'),
-    builds: readDefaultBoolean(flagsFromCli, 'builds'),
-    json: readDefaultBoolean(flagsFromCli, 'json'),
+    watch: readDefaultBoolean(flagsFromCliObject, 'watch'),
+    builds: readDefaultBoolean(flagsFromCliObject, 'builds'),
+    json: readDefaultBoolean(flagsFromCliObject, 'json'),
   };
-  const build = readOptionalBuild(flagsFromCli);
+  const build = readOptionalBuild(flagsFromCliObject);
   let withSelectors: StatusFlags = decodedFlags;
 
   if (app != null) {

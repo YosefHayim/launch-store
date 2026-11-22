@@ -5,6 +5,7 @@ import {
   requestGa4Document,
   type Ga4Session,
 } from './ga4-client.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 interface Ga4AppStream {
   readonly propertyId: string;
@@ -17,14 +18,6 @@ interface PagedList {
   readonly url: string;
   readonly pageSize: number;
   readonly propertyId: string | null;
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
 }
 
 function readIdAfterSegment(resourceName: string, segment: string): string | null {
@@ -94,11 +87,13 @@ function createPageUrl(listUrl: string, pageSize: number, pageToken: string | nu
 }
 
 function readNextPageToken(pageDocument: unknown): string | null {
-  if (isRecord(pageDocument) == false) {
+  const pageDocumentObject = readPlainObject(pageDocument);
+
+  if (pageDocumentObject == null) {
     throw new Error('Unreadable Google Analytics page');
   }
 
-  const nextPageToken = pageDocument['nextPageToken'];
+  const nextPageToken = pageDocumentObject['nextPageToken'];
 
   if (nextPageToken == null) {
     return null;
@@ -120,11 +115,13 @@ function readOptionalIdentifier(parent: unknown, fieldName: string): string | nu
     return null;
   }
 
-  if (isRecord(parent) == false) {
+  const parentObject = readPlainObject(parent);
+
+  if (parentObject == null) {
     throw new Error('Unreadable GA4 data streams');
   }
 
-  const field = parent[fieldName];
+  const field = parentObject[fieldName];
 
   if (field == null) {
     return null;
@@ -142,83 +139,98 @@ function decodeDataStream(streamDocument: unknown): {
   bundleId: string | null;
   packageName: string | null;
 } {
-  if (isRecord(streamDocument) == false) {
+  const streamDocumentObject = readPlainObject(streamDocument);
+
+  if (streamDocumentObject == null) {
     throw new Error('Unreadable GA4 data streams');
   }
 
-  if (typeof streamDocument['name'] != 'string') {
+  if (typeof streamDocumentObject['name'] != 'string') {
     throw new Error('Unreadable GA4 data streams');
   }
 
   return {
-    name: streamDocument['name'],
-    bundleId: readOptionalIdentifier(streamDocument['iosAppStreamData'], 'bundleId'),
-    packageName: readOptionalIdentifier(streamDocument['androidAppStreamData'], 'packageName'),
+    name: streamDocumentObject['name'],
+    bundleId: readOptionalIdentifier(streamDocumentObject['iosAppStreamData'], 'bundleId'),
+    packageName: readOptionalIdentifier(
+      streamDocumentObject['androidAppStreamData'],
+      'packageName',
+    ),
   };
 }
 
 function decodeDataStreams(pageDocument: unknown): readonly ReturnType<typeof decodeDataStream>[] {
-  if (isRecord(pageDocument) == false) {
+  const pageDocumentObject = readPlainObject(pageDocument);
+
+  if (pageDocumentObject == null) {
     throw new Error('Unreadable GA4 data streams');
   }
 
-  if (pageDocument['dataStreams'] == null) {
+  if (pageDocumentObject['dataStreams'] == null) {
     return [];
   }
 
-  if (Array.isArray(pageDocument['dataStreams']) == false) {
+  if (Array.isArray(pageDocumentObject['dataStreams']) == false) {
     throw new Error('Unreadable GA4 data streams');
   }
 
-  return pageDocument['dataStreams'].map(decodeDataStream);
+  return pageDocumentObject['dataStreams'].map(decodeDataStream);
 }
 
 function decodePropertySummary(propertyDocument: unknown): { property: string } {
-  if (isRecord(propertyDocument) == false) {
+  const propertyDocumentObject = readPlainObject(propertyDocument);
+
+  if (propertyDocumentObject == null) {
     throw new Error('Unreadable GA4 account summaries');
   }
 
-  if (typeof propertyDocument['property'] != 'string') {
+  if (typeof propertyDocumentObject['property'] != 'string') {
     throw new Error('Unreadable GA4 account summaries');
   }
 
-  return { property: propertyDocument['property'] };
+  return { property: propertyDocumentObject['property'] };
 }
 
 function decodeAccountSummary(summaryDocument: unknown): {
   propertySummaries: readonly { property: string }[];
 } {
-  if (isRecord(summaryDocument) == false) {
+  const summaryDocumentObject = readPlainObject(summaryDocument);
+
+  if (summaryDocumentObject == null) {
     throw new Error('Unreadable GA4 account summaries');
   }
 
-  if (summaryDocument['propertySummaries'] == null) {
+  if (summaryDocumentObject['propertySummaries'] == null) {
     return { propertySummaries: [] };
   }
 
-  if (Array.isArray(summaryDocument['propertySummaries']) == false) {
+  if (Array.isArray(summaryDocumentObject['propertySummaries']) == false) {
     throw new Error('Unreadable GA4 account summaries');
   }
 
-  return { propertySummaries: summaryDocument['propertySummaries'].map(decodePropertySummary) };
+  return {
+    propertySummaries: summaryDocumentObject['propertySummaries'].map(decodePropertySummary),
+  };
 }
 
 function decodeAccountSummaries(
   pageDocument: unknown,
 ): readonly { propertySummaries: readonly { property: string }[] }[] {
-  if (isRecord(pageDocument) == false) {
+  const pageDocumentObject = readPlainObject(pageDocument);
+
+  if (pageDocumentObject == null) {
     throw new Error('Unreadable GA4 account summaries');
   }
 
-  if (pageDocument['accountSummaries'] == null) {
+  if (pageDocumentObject['accountSummaries'] == null) {
     return [];
   }
 
-  if (Array.isArray(pageDocument['accountSummaries']) == false) {
+  if (Array.isArray(pageDocumentObject['accountSummaries']) == false) {
     throw new Error('Unreadable GA4 account summaries');
   }
 
-  return pageDocument['accountSummaries'].map(decodeAccountSummary);
+  return pageDocumentObject['accountSummaries'].map(decodeAccountSummary);
 }
 
 async function listPages(

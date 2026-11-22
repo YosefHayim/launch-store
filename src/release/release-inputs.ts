@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import type { ReleaseConfig, ReleaseType } from '../types/store-surface.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /**
  * The per-run CLI flags that override the configured release type for a single `launch release`.
@@ -84,29 +85,25 @@ export function resolveReleaseNotes(
   return notes;
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return candidate != null;
-}
-
 function readLocaleReleaseNotes(localeListings: unknown): Record<string, string> {
-  if (isRecord(localeListings) == false) {
+  const localeListingsObject = readPlainObject(localeListings);
+
+  if (localeListingsObject == null) {
     return {};
   }
 
   const releaseNotesByLocale: Record<string, string> = {};
 
-  for (const locale of Object.keys(localeListings)) {
-    const localeListing = localeListings[locale];
+  for (const locale of Object.keys(localeListingsObject)) {
+    const localeListing = localeListingsObject[locale];
 
-    if (isRecord(localeListing) == false) {
+    const localeListingObject = readPlainObject(localeListing);
+
+    if (localeListingObject == null) {
       continue;
     }
 
-    const releaseNotes = localeListing['releaseNotes'];
+    const releaseNotes = localeListingObject['releaseNotes'];
 
     if (typeof releaseNotes != 'string') {
       continue;
@@ -138,17 +135,21 @@ export async function readStoreReleaseNotes(appDirectory: string): Promise<Recor
     throw new Error(`Could not read store.config.json at ${configPath}`, { cause: error });
   }
 
-  if (isRecord(storeDocument) == false) {
+  const storeDocumentObject = readPlainObject(storeDocument);
+
+  if (storeDocumentObject == null) {
     throw new Error(`Could not read store.config.json at ${configPath}`);
   }
 
-  const appleListing = storeDocument['apple'];
+  const appleListing = storeDocumentObject['apple'];
 
-  if (isRecord(appleListing) == false) {
+  const appleListingObject = readPlainObject(appleListing);
+
+  if (appleListingObject == null) {
     return {};
   }
 
-  return readLocaleReleaseNotes(appleListing['info']);
+  return readLocaleReleaseNotes(appleListingObject['info']);
 }
 
 /**

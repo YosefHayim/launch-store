@@ -19,6 +19,7 @@ import type { AppDescriptor } from '../types/app.ts';
 import type { DraftListing, ListingBrief, LocaleDraft } from '../types/listing.ts';
 import { applyDraft, briefFor, clampDraft, renderDraftPreview } from './apply.ts';
 import { createAnthropicListingGenerator } from './generator.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export interface AiListingInput {
   app?: string;
@@ -54,24 +55,14 @@ interface PromptChoice {
   hint?: string;
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function isAiListingFailure(cause: unknown): cause is AiListingFailure {
-  if (isRecord(cause) == false) {
+  const causeObject = readPlainObject(cause);
+
+  if (causeObject == null) {
     return false;
   }
 
-  return cause['_tag'] == 'AiListingFailure';
+  return causeObject['_tag'] == 'AiListingFailure';
 }
 
 /** Normalize one listing command failure. */
@@ -147,7 +138,9 @@ function readPlatform(record: Record<string, unknown>): string {
 }
 
 export function readAiListingInput(rawCommandInput: unknown): AiListingInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw listingFailure(
       'decode AI listing command',
       rawCommandInput,
@@ -156,15 +149,15 @@ export function readAiListingInput(rawCommandInput: unknown): AiListingInput {
   }
 
   const commandInput: AiListingInput = {
-    platform: readPlatform(rawCommandInput),
-    dryRun: readBooleanField(rawCommandInput, 'dryRun', false),
-    yes: readBooleanField(rawCommandInput, 'yes', false),
+    platform: readPlatform(rawCommandInputObject),
+    dryRun: readBooleanField(rawCommandInputObject, 'dryRun', false),
+    yes: readBooleanField(rawCommandInputObject, 'yes', false),
   };
-  const app = readOptionalInputString(rawCommandInput, 'app');
-  const locale = readOptionalInputString(rawCommandInput, 'locale');
-  const about = readOptionalInputString(rawCommandInput, 'about');
-  const model = readOptionalInputString(rawCommandInput, 'model');
-  const config = readOptionalInputString(rawCommandInput, 'config');
+  const app = readOptionalInputString(rawCommandInputObject, 'app');
+  const locale = readOptionalInputString(rawCommandInputObject, 'locale');
+  const about = readOptionalInputString(rawCommandInputObject, 'about');
+  const model = readOptionalInputString(rawCommandInputObject, 'model');
+  const config = readOptionalInputString(rawCommandInputObject, 'config');
 
   if (app != null) {
     commandInput.app = app;
@@ -297,7 +290,9 @@ function readOptionalNumber(
 }
 
 function readAppleLocale(candidate: unknown): AppleLocaleInfo {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     throw listingFailure(
       'decode listing config',
       candidate,
@@ -306,15 +301,15 @@ function readAppleLocale(candidate: unknown): AppleLocaleInfo {
   }
 
   const locale: AppleLocaleInfo = {};
-  const title = readConfigString(candidate, 'title');
-  const subtitle = readConfigString(candidate, 'subtitle');
-  const description = readConfigString(candidate, 'description');
-  const releaseNotes = readConfigString(candidate, 'releaseNotes');
-  const promotionalText = readConfigString(candidate, 'promotionalText');
-  const marketingUrl = readConfigString(candidate, 'marketingUrl');
-  const supportUrl = readConfigString(candidate, 'supportUrl');
-  const privacyPolicyUrl = readConfigString(candidate, 'privacyPolicyUrl');
-  const keywords = readConfigStringList(candidate, 'keywords');
+  const title = readConfigString(candidateObject, 'title');
+  const subtitle = readConfigString(candidateObject, 'subtitle');
+  const description = readConfigString(candidateObject, 'description');
+  const releaseNotes = readConfigString(candidateObject, 'releaseNotes');
+  const promotionalText = readConfigString(candidateObject, 'promotionalText');
+  const marketingUrl = readConfigString(candidateObject, 'marketingUrl');
+  const supportUrl = readConfigString(candidateObject, 'supportUrl');
+  const privacyPolicyUrl = readConfigString(candidateObject, 'privacyPolicyUrl');
+  const keywords = readConfigStringList(candidateObject, 'keywords');
 
   if (title != null) {
     locale.title = title;
@@ -356,7 +351,9 @@ function readAppleLocale(candidate: unknown): AppleLocaleInfo {
 }
 
 function readAndroidLocale(candidate: unknown): AndroidLocaleInfo {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     throw listingFailure(
       'decode listing config',
       candidate,
@@ -365,10 +362,10 @@ function readAndroidLocale(candidate: unknown): AndroidLocaleInfo {
   }
 
   const locale: AndroidLocaleInfo = {};
-  const title = readConfigString(candidate, 'title');
-  const shortDescription = readConfigString(candidate, 'shortDescription');
-  const fullDescription = readConfigString(candidate, 'fullDescription');
-  const video = readConfigString(candidate, 'video');
+  const title = readConfigString(candidateObject, 'title');
+  const shortDescription = readConfigString(candidateObject, 'shortDescription');
+  const fullDescription = readConfigString(candidateObject, 'fullDescription');
+  const video = readConfigString(candidateObject, 'video');
 
   if (title != null) {
     locale.title = title;
@@ -390,7 +387,9 @@ function readAndroidLocale(candidate: unknown): AndroidLocaleInfo {
 }
 
 function readAppleLocales(candidate: unknown): Record<string, AppleLocaleInfo> {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     throw listingFailure(
       'decode listing config',
       candidate,
@@ -400,15 +399,17 @@ function readAppleLocales(candidate: unknown): Record<string, AppleLocaleInfo> {
 
   const locales: Record<string, AppleLocaleInfo> = {};
 
-  for (const localeName of Object.keys(candidate)) {
-    locales[localeName] = readAppleLocale(candidate[localeName]);
+  for (const localeName of Object.keys(candidateObject)) {
+    locales[localeName] = readAppleLocale(candidateObject[localeName]);
   }
 
   return locales;
 }
 
 function readAndroidLocales(candidate: unknown): Record<string, AndroidLocaleInfo> {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     throw listingFailure(
       'decode listing config',
       candidate,
@@ -418,15 +419,17 @@ function readAndroidLocales(candidate: unknown): Record<string, AndroidLocaleInf
 
   const locales: Record<string, AndroidLocaleInfo> = {};
 
-  for (const localeName of Object.keys(candidate)) {
-    locales[localeName] = readAndroidLocale(candidate[localeName]);
+  for (const localeName of Object.keys(candidateObject)) {
+    locales[localeName] = readAndroidLocale(candidateObject[localeName]);
   }
 
   return locales;
 }
 
 function readAppleStore(candidate: unknown): AppleStoreConfig {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     throw listingFailure(
       'decode listing config',
       candidate,
@@ -434,18 +437,18 @@ function readAppleStore(candidate: unknown): AppleStoreConfig {
     );
   }
 
-  if (Object.hasOwn(candidate, 'info') == false) {
+  if (Object.hasOwn(candidateObject, 'info') == false) {
     throw listingFailure(
       'decode listing config',
-      candidate,
+      candidateObject,
       'store.config.json apple.info is required.',
     );
   }
 
   const appleStore: NonNullable<StoreConfig['apple']> = {
-    info: readAppleLocales(candidate['info']),
+    info: readAppleLocales(candidateObject['info']),
   };
-  const categories = readConfigStringList(candidate, 'categories');
+  const categories = readConfigStringList(candidateObject, 'categories');
 
   if (categories != null) {
     appleStore.categories = categories;
@@ -455,7 +458,9 @@ function readAppleStore(candidate: unknown): AppleStoreConfig {
 }
 
 function readAndroidStore(candidate: unknown): AndroidStoreConfig {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     throw listingFailure(
       'decode listing config',
       candidate,
@@ -463,15 +468,15 @@ function readAndroidStore(candidate: unknown): AndroidStoreConfig {
     );
   }
 
-  if (Object.hasOwn(candidate, 'info') == false) {
+  if (Object.hasOwn(candidateObject, 'info') == false) {
     throw listingFailure(
       'decode listing config',
-      candidate,
+      candidateObject,
       'store.config.json android.info is required.',
     );
   }
 
-  return { info: readAndroidLocales(candidate['info']) };
+  return { info: readAndroidLocales(candidateObject['info']) };
 }
 
 function decodeStoreConfig(configText: string): StoreConfig {
@@ -487,7 +492,9 @@ function decodeStoreConfig(configText: string): StoreConfig {
     );
   }
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     throw listingFailure(
       'decode listing config',
       parsed,
@@ -496,18 +503,18 @@ function decodeStoreConfig(configText: string): StoreConfig {
   }
 
   const storeConfiguration: StoreConfig = {};
-  const configVersion = readOptionalNumber(parsed, 'configVersion');
+  const configVersion = readOptionalNumber(parsedObject, 'configVersion');
 
   if (configVersion != null) {
     storeConfiguration.configVersion = configVersion;
   }
 
-  if (Object.hasOwn(parsed, 'apple')) {
-    storeConfiguration.apple = readAppleStore(parsed['apple']);
+  if (Object.hasOwn(parsedObject, 'apple')) {
+    storeConfiguration.apple = readAppleStore(parsedObject['apple']);
   }
 
-  if (Object.hasOwn(parsed, 'android')) {
-    storeConfiguration.android = readAndroidStore(parsed['android']);
+  if (Object.hasOwn(parsedObject, 'android')) {
+    storeConfiguration.android = readAndroidStore(parsedObject['android']);
   }
 
   return storeConfiguration;
@@ -723,19 +730,21 @@ function displayNameFromExpo(
   resolvedAppConfig: Record<string, unknown>,
   fallbackName: string,
 ): string {
-  if (isRecord(expo) == false) {
+  const expoObject = readPlainObject(expo);
+
+  if (expoObject == null) {
     return fallbackName;
   }
 
-  if (Object.hasOwn(expo, 'name') == false) {
+  if (Object.hasOwn(expoObject, 'name') == false) {
     return namedOrFallback(resolvedAppConfig['name'], fallbackName);
   }
 
-  if (typeof expo['name'] != 'string') {
+  if (typeof expoObject['name'] != 'string') {
     return fallbackName;
   }
 
-  return expo['name'];
+  return expoObject['name'];
 }
 
 function displayNameFromConfig(

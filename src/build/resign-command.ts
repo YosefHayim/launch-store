@@ -17,6 +17,7 @@ import type { BuildArtifact } from '../types/artifacts.ts';
 import type { KeystoreAssets, SigningAssets } from '../types/credentials.ts';
 import type { StorageProvider } from '../types/providers.ts';
 import { findBuild } from './build-history-command.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const STORE_PASSWORD_VARIABLE = 'LAUNCH_KS_STOREPASS';
 const KEY_PASSWORD_VARIABLE = 'LAUNCH_KS_KEYPASS';
@@ -97,16 +98,6 @@ function resignFailure(operation: string, cause: unknown): ResignCommandFailure 
   return makeResignCommandFailure({ operation, message: errorMessage(cause), cause });
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  return candidate != null;
-}
-
 function readOptionalString(record: Record<string, unknown>, key: string): string | null {
   const hasKey = Object.hasOwn(record, key);
 
@@ -151,13 +142,13 @@ function withOptionalString(
 }
 
 function decodeResignCommandInput(rawCommandInput: unknown): ResignCommandInput {
-  const isCommandRecord = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isCommandRecord == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('Resign command input must be an object.');
   }
 
-  const dryRun = rawCommandInput['dryRun'];
+  const dryRun = rawCommandInputObject['dryRun'];
   const dryRunIsBoolean = typeof dryRun == 'boolean';
 
   if (dryRunIsBoolean == false) {
@@ -165,21 +156,25 @@ function decodeResignCommandInput(rawCommandInput: unknown): ResignCommandInput 
   }
 
   let commandInput: ResignCommandInput = { dryRun };
-  commandInput = withOptionalString(commandInput, 'id', readOptionalString(rawCommandInput, 'id'));
+  commandInput = withOptionalString(
+    commandInput,
+    'id',
+    readOptionalString(rawCommandInputObject, 'id'),
+  );
   commandInput = withOptionalString(
     commandInput,
     'app',
-    readOptionalString(rawCommandInput, 'app'),
+    readOptionalString(rawCommandInputObject, 'app'),
   );
   commandInput = withOptionalString(
     commandInput,
     'account',
-    readOptionalString(rawCommandInput, 'account'),
+    readOptionalString(rawCommandInputObject, 'account'),
   );
   commandInput = withOptionalString(
     commandInput,
     'output',
-    readOptionalString(rawCommandInput, 'output'),
+    readOptionalString(rawCommandInputObject, 'output'),
   );
 
   return commandInput;

@@ -31,7 +31,7 @@ export const APPLE_PLATFORMS: ReadonlySet<Platform> = new Set<Platform>([
 /** Every build platform Launch accepts, in CLI-help order. The single source for the `<platform>` argument across commands. */
 export const PLATFORMS: readonly Platform[] = ['ios', 'android', 'tvos', 'macos', 'visionos'];
 /**
- * Whether `platform` is one of the Apple build platforms (vs Android). Use this - not `platform === "ios"`
+ * Whether `platform` is one of the Apple build platforms (vs Android). Use this - not `platform == "ios"`
  * - wherever a branch means "the Apple / Xcode / App Store Connect toolchain", so tvOS, macOS, and
  * visionOS take the Apple path instead of silently falling into an Android `else`.
  */

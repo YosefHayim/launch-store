@@ -9,6 +9,7 @@ import type { AccountRecord } from '../types/credentials.ts';
 import type { DiscoveredApp, DiscoveryWarning } from '../types/portfolio.ts';
 import { createAndroidAppKey, createIosAppKey, mergeDiscoveredApps } from './portfolio-logic.ts';
 import { loadPortfolioFile } from './portfolio-store.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 interface DiscoveryReport {
   readonly apps: readonly DiscoveredApp[];
@@ -45,22 +46,6 @@ interface PlayPackageRead {
 }
 
 const PLAY_ACCOUNT_LABEL = 'google-play';
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
 
 function failedAccountDiscovery(accountLabel: string, cause: unknown): AccountDiscovery {
   return {
@@ -106,35 +91,39 @@ async function readStoreList(client: object): Promise<readonly unknown[]> {
 }
 
 function isListedAppleApp(candidate: unknown): candidate is ListedAppleApp {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  if (typeof candidate['id'] != 'string') {
+  if (typeof candidateObject['id'] != 'string') {
     return false;
   }
 
-  if (typeof candidate['name'] != 'string') {
+  if (typeof candidateObject['name'] != 'string') {
     return false;
   }
 
-  if (candidate['bundleId'] == null) {
+  if (candidateObject['bundleId'] == null) {
     return true;
   }
 
-  return typeof candidate['bundleId'] == 'string';
+  return typeof candidateObject['bundleId'] == 'string';
 }
 
 function isListedPlayApp(candidate: unknown): candidate is ListedPlayApp {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  if (typeof candidate['packageName'] != 'string') {
+  if (typeof candidateObject['packageName'] != 'string') {
     return false;
   }
 
-  return typeof candidate['displayName'] == 'string';
+  return typeof candidateObject['displayName'] == 'string';
 }
 
 async function listAppleApps(ascClient: object): Promise<readonly ListedAppleApp[]> {

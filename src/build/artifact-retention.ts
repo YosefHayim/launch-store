@@ -12,6 +12,7 @@ import type {
 } from '../types/artifacts.ts';
 import type { LaunchConfig } from '../types/config.ts';
 import type { MutableDeep } from '../types/mutable.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export const DEFAULT_RETENTION_DAYS = 30;
 const dayMs = 24 * 60 * 60 * 1000;
@@ -25,16 +26,6 @@ function resolveArtifactIndexPath(indexPath: string | undefined): string {
   }
 
   return resolveArtifactIndexFilePath();
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  return candidate != null;
 }
 
 function isPlatform(candidate: unknown): candidate is Platform {
@@ -54,20 +45,20 @@ function readArtifactString(field: unknown): string {
 }
 
 function decodeSizeReport(candidate: unknown): SizeReport {
-  const isSizeRecord = isRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
 
-  if (isSizeRecord == false) {
+  if (candidateObject == null) {
     throw new Error('Artifact index size report is invalid.');
   }
 
-  const artifactBytes = candidate['artifactBytes'];
+  const artifactBytes = candidateObject['artifactBytes'];
   const bytesAreNumber = typeof artifactBytes == 'number';
 
   if (bytesAreNumber == false) {
     throw new Error('Artifact index size report is invalid.');
   }
 
-  const entries = candidate['entries'];
+  const entries = candidateObject['entries'];
   const entriesAreList = Array.isArray(entries);
 
   if (entriesAreList == false) {
@@ -78,26 +69,26 @@ function decodeSizeReport(candidate: unknown): SizeReport {
 }
 
 function decodeBuildArtifact(candidate: unknown): BuildArtifact {
-  const isArtifactRecord = isRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
 
-  if (isArtifactRecord == false) {
+  if (candidateObject == null) {
     throw new Error('Artifact index row is invalid.');
   }
 
-  const platform = candidate['platform'];
+  const platform = candidateObject['platform'];
   const platformIsKnown = isPlatform(platform);
 
   if (platformIsKnown == false) {
     throw new Error('Artifact index row is invalid.');
   }
 
-  const pathText = readArtifactString(candidate['path']);
-  const appName = readArtifactString(candidate['appName']);
-  const profile = readArtifactString(candidate['profile']);
-  const version = readArtifactString(candidate['version']);
-  const createdAt = readArtifactString(candidate['createdAt']);
-  const buildNumber = candidate['buildNumber'];
-  const clean = candidate['clean'];
+  const pathText = readArtifactString(candidateObject['path']);
+  const appName = readArtifactString(candidateObject['appName']);
+  const profile = readArtifactString(candidateObject['profile']);
+  const version = readArtifactString(candidateObject['version']);
+  const createdAt = readArtifactString(candidateObject['createdAt']);
+  const buildNumber = candidateObject['buildNumber'];
+  const clean = candidateObject['clean'];
   const buildNumberIsNumber = typeof buildNumber == 'number';
 
   if (buildNumberIsNumber == false) {
@@ -117,17 +108,17 @@ function decodeBuildArtifact(candidate: unknown): BuildArtifact {
     profile,
     version,
     buildNumber,
-    sizeReport: decodeSizeReport(candidate['sizeReport']),
+    sizeReport: decodeSizeReport(candidateObject['sizeReport']),
     clean,
     createdAt,
   };
-  const hasPrunedAt = Object.hasOwn(candidate, 'prunedAt');
+  const hasPrunedAt = Object.hasOwn(candidateObject, 'prunedAt');
 
   if (hasPrunedAt == false) {
     return buildArtifact;
   }
 
-  const prunedAt = candidate['prunedAt'];
+  const prunedAt = candidateObject['prunedAt'];
   const prunedAtIsMissing = prunedAt == null;
 
   if (prunedAtIsMissing) {

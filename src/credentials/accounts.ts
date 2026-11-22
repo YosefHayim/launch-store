@@ -10,6 +10,7 @@ import {
 import { AppStoreIdentityService } from '../services/stores/app-store-identity.ts';
 import type { AccountRecord, AccountsFile, AscKey } from '../types/credentials.ts';
 import { migrateLegacySigningIndex, p12PasswordAccount } from './apple-signing-assets.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Secret-store account holding one Apple account's `.p8` PEM, namespaced by Key ID. */
 function p8Account(keyId: string): string {
@@ -80,14 +81,6 @@ export function decodeP8(stored: string): string {
   return stored;
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return candidate != null;
-}
-
 function readRequiredString(document: Record<string, unknown>, fieldName: string): string | null {
   const field = document[fieldName];
 
@@ -143,53 +136,55 @@ function readOptionalStringList(
 }
 
 function decodeAccountRecord(candidate: unknown): AccountRecord | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const keyId = readRequiredString(candidate, 'keyId');
+  const keyId = readRequiredString(candidateObject, 'keyId');
 
   if (keyId == null) {
     return null;
   }
 
-  const issuerId = readRequiredString(candidate, 'issuerId');
+  const issuerId = readRequiredString(candidateObject, 'issuerId');
 
   if (issuerId == null) {
     return null;
   }
 
-  const label = readRequiredString(candidate, 'label');
+  const label = readRequiredString(candidateObject, 'label');
 
   if (label == null) {
     return null;
   }
 
-  const addedAt = readRequiredString(candidate, 'addedAt');
+  const addedAt = readRequiredString(candidateObject, 'addedAt');
 
   if (addedAt == null) {
     return null;
   }
 
-  const teamId = readOptionalString(candidate, 'teamId');
+  const teamId = readOptionalString(candidateObject, 'teamId');
 
   if (teamId.status == 'invalid') {
     return null;
   }
 
-  const apps = readOptionalStringList(candidate, 'apps');
+  const apps = readOptionalStringList(candidateObject, 'apps');
 
   if (apps.status == 'invalid') {
     return null;
   }
 
-  const resolvedAt = readOptionalString(candidate, 'resolvedAt');
+  const resolvedAt = readOptionalString(candidateObject, 'resolvedAt');
 
   if (resolvedAt.status == 'invalid') {
     return null;
   }
 
-  const vendorNumber = readOptionalString(candidate, 'vendorNumber');
+  const vendorNumber = readOptionalString(candidateObject, 'vendorNumber');
 
   if (vendorNumber.status == 'invalid') {
     return null;
@@ -234,17 +229,19 @@ function isActiveFieldValid(activeField: unknown): activeField is string | null 
 }
 
 function decodeAccountsFile(candidate: unknown): AccountsFile | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const hasActiveField = 'active' in candidate;
+  const hasActiveField = 'active' in candidateObject;
 
   if (hasActiveField == false) {
     return null;
   }
 
-  const activeField = candidate['active'];
+  const activeField = candidateObject['active'];
 
   if (isActiveFieldValid(activeField) == false) {
     return null;
@@ -257,7 +254,7 @@ function decodeAccountsFile(candidate: unknown): AccountsFile | null {
     active = activeField;
   }
 
-  const accountsField = candidate['accounts'];
+  const accountsField = candidateObject['accounts'];
 
   if (Array.isArray(accountsField) == false) {
     return null;

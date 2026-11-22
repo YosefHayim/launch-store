@@ -1,22 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cleanDescription, renderConfigDocs } from './config-docs.ts';
+import { renderConfigDocs } from './config-docs.ts';
 import type { JsonSchema } from '../config/json-schema.ts';
-describe('cleanDescription', () => {
-  it("strips a bare {@link} down to the symbol's last segment", () => {
-    expect(cleanDescription('See {@link ReleaseConfig.earliestReleaseDate}.')).toBe(
-      'See earliestReleaseDate.',
-    );
-  });
-  it('uses the display text of a labelled {@link}', () => {
-    expect(cleanDescription('Drives {@link sync the reconciler}.')).toBe('Drives the reconciler.');
-  });
-  it('collapses newlines and runs of whitespace into single spaces', () => {
-    expect(cleanDescription('line one\n  line two')).toBe('line one line two');
-  });
-  it('returns an empty string for no description', () => {
-    expect(cleanDescription(undefined)).toBe('');
-  });
-});
 describe('renderConfigDocs', () => {
   const schema: JsonSchema = {
     $ref: '#/definitions/LaunchConfigInput',

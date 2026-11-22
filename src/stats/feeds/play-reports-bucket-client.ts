@@ -1,4 +1,5 @@
 import { errorMessage } from '../../services/platform/error-message.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 export const STORAGE_READ_ONLY_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_only';
 
@@ -55,14 +56,6 @@ function isPlayReportsBucketFailure(cause: unknown): cause is PlayReportsBucketF
   }
 
   return cause._tag == 'PlayReportsBucketFailure';
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
 }
 
 async function fetchBucket(
@@ -135,35 +128,39 @@ function createListUrl(bucket: string, prefix: string, pageToken: string | null)
 }
 
 function readListedName(listedObject: unknown): string {
-  if (isRecord(listedObject) == false) {
+  const listedObjectObject = readPlainObject(listedObject);
+
+  if (listedObjectObject == null) {
     throw new Error('A bucket listing item is not an object.');
   }
 
-  if (typeof listedObject['name'] != 'string') {
+  if (typeof listedObjectObject['name'] != 'string') {
     throw new Error('A bucket listing item has no name.');
   }
 
-  return listedObject['name'];
+  return listedObjectObject['name'];
 }
 
 function decodeBucketListing(documentText: string): BucketListing {
   const parsed: unknown = JSON.parse(documentText);
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     throw new Error('A bucket listing is not an object.');
   }
 
   let objectNames: string[] = [];
 
-  if (parsed['items'] != null) {
-    if (Array.isArray(parsed['items']) == false) {
+  if (parsedObject['items'] != null) {
+    if (Array.isArray(parsedObject['items']) == false) {
       throw new Error('Bucket listing items are not a list.');
     }
 
-    objectNames = parsed['items'].map(readListedName);
+    objectNames = parsedObject['items'].map(readListedName);
   }
 
-  const nextPageToken = parsed['nextPageToken'];
+  const nextPageToken = parsedObject['nextPageToken'];
 
   if (nextPageToken == null) {
     return { objectNames, nextPageToken: null };

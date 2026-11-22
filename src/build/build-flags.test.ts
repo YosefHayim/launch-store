@@ -25,7 +25,7 @@ afterEach(() => {
 
 describe('computeParallelJobLimit - RAM-aware parallelism cap', () => {
   it('returns undefined (no cap) when floor(GB/2) meets or exceeds the core count', () => {
-    expect(computeParallelJobLimit(8, 16 * GB)).toBeUndefined(); // floor(8) === 8 cores
+    expect(computeParallelJobLimit(8, 16 * GB)).toBeUndefined(); // floor(8) == 8 cores
     expect(computeParallelJobLimit(10, 32 * GB)).toBeUndefined(); // floor(16) clamps to 10
     expect(computeParallelJobLimit(2, 64 * GB)).toBeUndefined();
   });

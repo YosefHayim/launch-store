@@ -9,6 +9,7 @@ import {
   setBuildSecret,
   type SecretRef,
 } from './build-secrets.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type SecretListInput = Readonly<{
   action: 'list' | 'status';
@@ -58,16 +59,6 @@ function makeSecretCommandFailure(fields: {
   }
 
   return { _tag: 'SecretCommandFailure', action: fields.action, message: fields.message };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  return candidate != null;
 }
 
 function readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
@@ -173,44 +164,44 @@ function createSecretRemoveInput(secretDraft: {
 
 /** Decode one build-secret command. Omitted optionals stay absent. */
 export function decodeSecretCommandInput(rawCommandInput: unknown): SecretCommandInput {
-  const isCommandRecord = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isCommandRecord == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('Secret command input must be an object.');
   }
 
-  const action = rawCommandInput['action'];
+  const action = rawCommandInputObject['action'];
   const isList = isListAction(action);
 
   if (isList) {
     const listInput: SecretListInput = { action };
-    assignOptional(listInput, rawCommandInput);
+    assignOptional(listInput, rawCommandInputObject);
     return listInput;
   }
 
   const isSet = action == 'set';
 
   if (isSet) {
-    const yes = rawCommandInput['yes'];
+    const yes = rawCommandInputObject['yes'];
     const yesIsBoolean = typeof yes == 'boolean';
 
     if (yesIsBoolean == false) {
       throw new Error('Secret set yes must be a boolean.');
     }
 
-    const secretName = readOptionalString(rawCommandInput, 'name');
-    const secretText = readOptionalString(rawCommandInput, 'value');
+    const secretName = readOptionalString(rawCommandInputObject, 'name');
+    const secretText = readOptionalString(rawCommandInputObject, 'value');
     const setInput = createSecretSetInput({ yes, name: secretName, value: secretText });
-    assignOptional(setInput, rawCommandInput);
+    assignOptional(setInput, rawCommandInputObject);
     return setInput;
   }
 
   const isRemove = isRemoveAction(action);
 
   if (isRemove) {
-    const secretName = readOptionalString(rawCommandInput, 'name');
+    const secretName = readOptionalString(rawCommandInputObject, 'name');
     const removeInput = createSecretRemoveInput({ action, name: secretName });
-    assignOptional(removeInput, rawCommandInput);
+    assignOptional(removeInput, rawCommandInputObject);
     return removeInput;
   }
 

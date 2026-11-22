@@ -7,6 +7,7 @@ import { appRecordMissing, plan, skip, type ReconcileContext } from '../shared/r
 import { errorMessage } from '../../services/platform/error-message.ts';
 import type { PlannedAction } from '../../types/reconcile.ts';
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 /** Custom-product-page version states Apple still lets us edit localizations in. */
 const editableVersionStates = new Set(['PREPARE_FOR_SUBMISSION', 'REJECTED']);
@@ -53,22 +54,6 @@ type CustomPagesReconcileInput = {
   dryRun: boolean;
 };
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readPageName(record: Record<string, unknown>): string {
   const name = record['name'];
   const isText = typeof name == 'string';
@@ -94,16 +79,16 @@ function readPromotionalText(record: Record<string, unknown>): Record<string, st
   }
 
   const promotionalText = record['promotionalText'];
-  const isTextRecord = isRecord(promotionalText);
+  const promotionalTextObject = readPlainObject(promotionalText);
 
-  if (isTextRecord == false) {
+  if (promotionalTextObject == null) {
     throw new Error(`${CUSTOM_PAGES_DOCUMENT_NAME}: promotionalText must be an object.`);
   }
 
   const locales: Record<string, string> = {};
 
-  for (const locale of Object.keys(promotionalText)) {
-    const text = promotionalText[locale];
+  for (const locale of Object.keys(promotionalTextObject)) {
+    const text = promotionalTextObject[locale];
     const isLocaleText = typeof text == 'string';
 
     if (isLocaleText == false) {
@@ -127,14 +112,14 @@ function readPromotionalText(record: Record<string, unknown>): Record<string, st
 }
 
 function readPage(entry: unknown): CustomProductPageConfig {
-  const isPageRecord = isRecord(entry);
+  const entryObject = readPlainObject(entry);
 
-  if (isPageRecord == false) {
+  if (entryObject == null) {
     throw new Error(`${CUSTOM_PAGES_DOCUMENT_NAME}: pages entries must be JSON objects.`);
   }
 
-  const page: CustomProductPageConfig = { name: readPageName(entry) };
-  const promotionalText = readPromotionalText(entry);
+  const page: CustomProductPageConfig = { name: readPageName(entryObject) };
+  const promotionalText = readPromotionalText(entryObject);
   const hasPromotionalText = promotionalText != null;
 
   if (hasPromotionalText) {

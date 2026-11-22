@@ -5,6 +5,7 @@ import { pathExists } from '../path-exists.ts';
 import { captureCommandOutput } from '../services/platform/exec.ts';
 import { ensureDirectoryExists, resolveLaunchHomeDirectory } from '../services/platform/paths.ts';
 import type { Platform } from '../types/app.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Native inputs that determine whether an iOS build cache is reusable. */
 export type FingerprintParts = Readonly<{
@@ -62,20 +63,6 @@ export type CleanDecision = Readonly<{
   reason: string;
 }>;
 
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 /** Turn an absent optional config field into the stable JSON null marker. */
 function nullableConfigField(configField: unknown): unknown {
   if (configField == null) {
@@ -99,13 +86,13 @@ function readNativeFields(parsedConfig: Record<string, unknown>): Record<string,
     return parsedConfig;
   }
 
-  const expoIsPlain = isPlainRecord(expoFields);
+  const expoFieldsObject = readPlainObject(expoFields);
 
-  if (expoIsPlain == false) {
+  if (expoFieldsObject == null) {
     return null;
   }
 
-  return expoFields;
+  return expoFieldsObject;
 }
 
 type NativeSlice = Readonly<{
@@ -132,16 +119,16 @@ function readNativeSlice(parsedConfig: Record<string, unknown>): NativeSlice | n
   }
 
   const iosFields = nativeFields['ios'];
-  const iosIsPlain = isPlainRecord(iosFields);
+  const iosFieldsObject = readPlainObject(iosFields);
 
-  if (iosIsPlain == false) {
+  if (iosFieldsObject == null) {
     return null;
   }
 
   return {
     plugins: nativeFields['plugins'],
     newArchEnabled: nativeFields['newArchEnabled'],
-    iosDeploymentTarget: iosFields['deploymentTarget'],
+    iosDeploymentTarget: iosFieldsObject['deploymentTarget'],
   };
 }
 
@@ -162,13 +149,13 @@ function parseConfigText(configText: string): unknown {
 /** Keep only Expo config fields that change the generated native project. */
 export function extractNativeConfigSlice(configText: string): string {
   const parsedConfig = parseConfigText(configText);
-  const isConfigRecord = isPlainRecord(parsedConfig);
+  const parsedConfigObject = readPlainObject(parsedConfig);
 
-  if (isConfigRecord == false) {
+  if (parsedConfigObject == null) {
     return configText;
   }
 
-  const nativeSlice = readNativeSlice(parsedConfig);
+  const nativeSlice = readNativeSlice(parsedConfigObject);
 
   if (nativeSlice == null) {
     return configText;
@@ -241,32 +228,32 @@ function buildStatePath(appName: string, platform: Platform, directoryOverride?:
 }
 
 function isBuildEstimate(candidate: unknown): candidate is BuildEstimate {
-  const isRecord = isPlainRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
 
-  if (isRecord == false) {
+  if (candidateObject == null) {
     return false;
   }
 
-  const durationIsNumber = typeof candidate['ms'] == 'number';
+  const durationIsNumber = typeof candidateObject['ms'] == 'number';
 
   if (durationIsNumber == false) {
     return false;
   }
 
-  return typeof candidate['steps'] == 'number';
+  return typeof candidateObject['steps'] == 'number';
 }
 
 function decodeEstimates(candidate: unknown): Readonly<Record<string, BuildEstimate>> | null {
-  const isRecord = isPlainRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
 
-  if (isRecord == false) {
+  if (candidateObject == null) {
     return null;
   }
 
   const estimates: Record<string, BuildEstimate> = {};
 
-  for (const estimateKey of Object.keys(candidate)) {
-    const estimate = candidate[estimateKey];
+  for (const estimateKey of Object.keys(candidateObject)) {
+    const estimate = candidateObject[estimateKey];
     const isEstimate = isBuildEstimate(estimate);
 
     if (isEstimate == false) {
@@ -280,40 +267,40 @@ function decodeEstimates(candidate: unknown): Readonly<Record<string, BuildEstim
 }
 
 function decodeBuildState(parsedState: unknown): BuildState | null {
-  const isRecord = isPlainRecord(parsedState);
+  const parsedStateObject = readPlainObject(parsedState);
 
-  if (isRecord == false) {
+  if (parsedStateObject == null) {
     return null;
   }
 
-  const fingerprint = parsedState['fingerprint'];
+  const fingerprint = parsedStateObject['fingerprint'];
   const fingerprintIsString = typeof fingerprint == 'string';
 
   if (fingerprintIsString == false) {
     return null;
   }
 
-  const builtAt = parsedState['builtAt'];
+  const builtAt = parsedStateObject['builtAt'];
   const builtAtIsString = typeof builtAt == 'string';
 
   if (builtAtIsString == false) {
     return null;
   }
 
-  const cleanBuilt = parsedState['cleanBuilt'];
+  const cleanBuilt = parsedStateObject['cleanBuilt'];
   const cleanIsBoolean = typeof cleanBuilt == 'boolean';
 
   if (cleanIsBoolean == false) {
     return null;
   }
 
-  const hasEstimates = Object.hasOwn(parsedState, 'estimates');
+  const hasEstimates = Object.hasOwn(parsedStateObject, 'estimates');
 
   if (hasEstimates == false) {
     return { fingerprint, builtAt, cleanBuilt };
   }
 
-  const estimates = decodeEstimates(parsedState['estimates']);
+  const estimates = decodeEstimates(parsedStateObject['estimates']);
 
   if (estimates == null) {
     return null;

@@ -21,6 +21,7 @@ import { LaunchPrompt, pickOne } from '../services/platform/prompt.ts';
 import type { Platform } from '../types/app.ts';
 import type { StorageProvider } from '../types/providers.ts';
 import { loadConfig, type LoadedConfig } from './config.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Update history entry tagged with its source platform. */
 export type UpdateRow = UpdateHistoryEntry & Readonly<{ platform: Platform }>;
@@ -75,21 +76,11 @@ type UpdateColumn = Readonly<{
   cell: (updateRow: UpdateRow) => string;
 }>;
 
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function isUpdatesCommandFailure(cause: unknown): cause is UpdatesCommandFailure {
-  if (isPlainRecord(cause)) {
-    return cause['_tag'] == 'UpdatesCommandFailure';
+  const causeObject = readPlainObject(cause);
+
+  if (causeObject != null) {
+    return causeObject['_tag'] == 'UpdatesCommandFailure';
   }
 
   return false;
@@ -151,7 +142,9 @@ function readRequiredString(fields: Record<string, unknown>, fieldName: string):
 }
 
 function requirePlainObject(fields: Record<string, unknown>, fieldName: string): void {
-  if (isPlainRecord(fields[fieldName])) {
+  const plainObject = readPlainObject(fields[fieldName]);
+
+  if (plainObject != null) {
     return;
   }
 
@@ -200,8 +193,10 @@ function assetFromRecord(fields: Record<string, unknown>): ManifestAsset {
 }
 
 function readManifestAsset(candidate: unknown): ManifestAsset {
-  if (isPlainRecord(candidate)) {
-    return assetFromRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject != null) {
+    return assetFromRecord(candidateObject);
   }
 
   throw updatesFailure(
@@ -249,8 +244,10 @@ function parseSnapshotJson(snapshotText: string): unknown {
 function decodeManifestSnapshot(snapshotText: string): UpdateManifest {
   const parsed = parseSnapshotJson(snapshotText);
 
-  if (isPlainRecord(parsed)) {
-    return manifestFromRecord(parsed);
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject != null) {
+    return manifestFromRecord(parsedObject);
   }
 
   throw updatesFailure('decode update snapshot', parsed, 'Update snapshot must be an object.');

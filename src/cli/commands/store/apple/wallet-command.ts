@@ -13,6 +13,7 @@ import {
 } from './app-store-surface-command.ts';
 import { parseWalletConfig, reconcileWalletIds } from '../../../../store/apple/wallet-ids.ts';
 import type { PlannedAction } from '../../../../types/reconcile.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 type WalletCommandInput =
   | Readonly<{
@@ -39,22 +40,6 @@ function makeWalletCommandFailure(fields: {
   return { _tag: 'WalletCommandFailure', ...fields };
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readText(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
   const isText = typeof field == 'string';
@@ -78,13 +63,13 @@ function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
 }
 
 function decodeWalletCommandInput(rawCommandInput: unknown): WalletCommandInput {
-  const isCommandRecord = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isCommandRecord == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('Wallet command input must be an object.');
   }
 
-  const operation = rawCommandInput['operation'];
+  const operation = rawCommandInputObject['operation'];
 
   if (operation == 'list') {
     return { operation: 'list' };
@@ -93,10 +78,10 @@ function decodeWalletCommandInput(rawCommandInput: unknown): WalletCommandInput 
   if (operation == 'reconcile') {
     return {
       operation: 'reconcile',
-      configPath: readText(rawCommandInput, 'configPath'),
-      explicitConfig: readFlag(rawCommandInput, 'explicitConfig'),
-      dryRun: readFlag(rawCommandInput, 'dryRun'),
-      yes: readFlag(rawCommandInput, 'yes'),
+      configPath: readText(rawCommandInputObject, 'configPath'),
+      explicitConfig: readFlag(rawCommandInputObject, 'explicitConfig'),
+      dryRun: readFlag(rawCommandInputObject, 'dryRun'),
+      yes: readFlag(rawCommandInputObject, 'yes'),
     };
   }
 

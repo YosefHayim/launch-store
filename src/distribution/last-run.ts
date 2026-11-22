@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { resolveLastRunFilePath } from '../services/platform/paths.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 import { pathExists } from '../path-exists.ts';
 import type { BumpKind } from '../release/version.ts';
 
@@ -15,18 +16,6 @@ type LastRunState = {
 
 function emptyLastRunState(): LastRunState {
   return { apps: {} };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
 }
 
 function readBump(candidate: unknown): BumpKind | null | undefined {
@@ -64,20 +53,24 @@ function decodeLastRun(memoryText: string): LastRunState | null {
     return null;
   }
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     return null;
   }
 
-  if (isRecord(parsed['apps']) == false) {
+  const appsField = readPlainObject(parsedObject['apps']);
+
+  if (appsField == null) {
     return null;
   }
 
   const apps: Record<string, AppMemory> = {};
 
-  for (const appName of Object.keys(parsed['apps'])) {
-    const appMemory = parsed['apps'][appName];
+  for (const appName of Object.keys(appsField)) {
+    const appMemory = readPlainObject(appsField[appName]);
 
-    if (isRecord(appMemory) == false) {
+    if (appMemory == null) {
       return null;
     }
 
@@ -95,7 +88,7 @@ function decodeLastRun(memoryText: string): LastRunState | null {
   }
 
   const memory: LastRunState = { apps };
-  const lastApp = parsed['lastApp'];
+  const lastApp = parsedObject['lastApp'];
 
   if (lastApp == null) {
     return memory;

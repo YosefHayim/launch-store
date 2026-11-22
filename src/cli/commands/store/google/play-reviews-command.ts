@@ -12,6 +12,7 @@ import {
   replyToPlayReview,
   type PlayReviewFilters,
 } from '../../../../store/google/play-reviews.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 export type PlayReviewsListInput = {
   operation: 'list';
@@ -67,22 +68,6 @@ function playReviewsFailure(
   }
 
   return makePlayReviewsCommandFailure({ operation, message, cause });
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
 }
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
@@ -187,18 +172,20 @@ function decodeReplyInput(record: Record<string, unknown>): PlayReviewsReplyInpu
 }
 
 function decodePlayReviewsCommandInput(rawCommandInput: unknown): PlayReviewsCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Play reviews command input must be an object.');
   }
 
-  const operation = rawCommandInput['operation'];
+  const operation = rawCommandInputObject['operation'];
 
   if (operation == 'list') {
-    return decodeListInput(rawCommandInput);
+    return decodeListInput(rawCommandInputObject);
   }
 
   if (operation == 'reply') {
-    return decodeReplyInput(rawCommandInput);
+    return decodeReplyInput(rawCommandInputObject);
   }
 
   throw new Error('Play reviews operation must be list or reply.');

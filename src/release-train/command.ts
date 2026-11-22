@@ -20,6 +20,7 @@ import {
   readTrainRecord,
   writeTrainRecord,
 } from './record.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type ReleaseTrainCommandOptions = {
   app?: string;
@@ -89,18 +90,6 @@ function isReleaseTrainCommandFailure(cause: unknown): cause is ReleaseTrainComm
   }
 
   return cause._tag == 'ReleaseTrainCommandFailure';
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
 }
 
 function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
@@ -182,23 +171,25 @@ function readStringList(record: Record<string, unknown>, fieldName: string): str
 }
 
 function decodeReleaseTrainFlags(rawFlags: unknown): ReleaseTrainCommandOptions {
-  if (isRecord(rawFlags) == false) {
+  const rawFlagsObject = readPlainObject(rawFlags);
+
+  if (rawFlagsObject == null) {
     throw new Error('Release train options must be an object.');
   }
 
   const commandFlags: ReleaseTrainCommandOptions = {
-    profile: readRequiredString(rawFlags, 'profile'),
-    ota: readRequiredBoolean(rawFlags, 'ota'),
-    channel: readRequiredString(rawFlags, 'channel'),
-    env: readStringList(rawFlags, 'env'),
-    includeLocal: readRequiredBoolean(rawFlags, 'includeLocal'),
+    profile: readRequiredString(rawFlagsObject, 'profile'),
+    ota: readRequiredBoolean(rawFlagsObject, 'ota'),
+    channel: readRequiredString(rawFlagsObject, 'channel'),
+    env: readStringList(rawFlagsObject, 'env'),
+    includeLocal: readRequiredBoolean(rawFlagsObject, 'includeLocal'),
   };
-  const appName = readExactOptionalString(rawFlags, 'app');
-  const platform = readExactOptionalString(rawFlags, 'platform');
-  const runtimeVersion = readExactOptionalString(rawFlags, 'runtimeVersion');
-  const hold = readExactOptionalBoolean(rawFlags, 'hold');
-  const watch = readExactOptionalBoolean(rawFlags, 'watch');
-  const json = readExactOptionalBoolean(rawFlags, 'json');
+  const appName = readExactOptionalString(rawFlagsObject, 'app');
+  const platform = readExactOptionalString(rawFlagsObject, 'platform');
+  const runtimeVersion = readExactOptionalString(rawFlagsObject, 'runtimeVersion');
+  const hold = readExactOptionalBoolean(rawFlagsObject, 'hold');
+  const watch = readExactOptionalBoolean(rawFlagsObject, 'watch');
+  const json = readExactOptionalBoolean(rawFlagsObject, 'json');
 
   if (appName != null) {
     commandFlags.app = appName;
@@ -229,15 +220,17 @@ function decodeReleaseTrainFlags(rawFlags: unknown): ReleaseTrainCommandOptions 
 
 /** Decode one requested release-train verb. */
 export function ReleaseTrainCommandInputSchema(rawCommandInput: unknown): ReleaseTrainCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Release train command input must be an object.');
   }
 
   const commandInput: ReleaseTrainCommandInput = {
-    action: readRequiredString(rawCommandInput, 'action'),
-    options: decodeReleaseTrainFlags(rawCommandInput['options']),
+    action: readRequiredString(rawCommandInputObject, 'action'),
+    options: decodeReleaseTrainFlags(rawCommandInputObject['options']),
   };
-  const trainId = readExactOptionalString(rawCommandInput, 'id');
+  const trainId = readExactOptionalString(rawCommandInputObject, 'id');
 
   if (trainId != null) {
     commandInput.id = trainId;

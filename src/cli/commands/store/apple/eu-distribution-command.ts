@@ -17,6 +17,7 @@ import {
   reconcileEuDistributionDomains,
 } from '../../../../store/apple/eu-distribution.ts';
 import type { PlannedAction } from '../../../../types/reconcile.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 type EuDistributionCommandInput =
   | Readonly<{
@@ -44,22 +45,6 @@ function makeEuDistributionCommandFailure(fields: {
   return { _tag: 'EuDistributionCommandFailure', ...fields };
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readText(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
   const isText = typeof field == 'string';
@@ -83,29 +68,29 @@ function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
 }
 
 function decodeEuDistributionCommandInput(rawCommandInput: unknown): EuDistributionCommandInput {
-  const isCommandRecord = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isCommandRecord == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('EU distribution command input must be an object.');
   }
 
-  const operation = rawCommandInput['operation'];
+  const operation = rawCommandInputObject['operation'];
 
   if (operation == 'list') {
     return { operation: 'list' };
   }
 
   if (operation == 'set-key') {
-    return { operation: 'set-key', pemPath: readText(rawCommandInput, 'pemPath') };
+    return { operation: 'set-key', pemPath: readText(rawCommandInputObject, 'pemPath') };
   }
 
   if (operation == 'reconcile') {
     return {
       operation: 'reconcile',
-      configPath: readText(rawCommandInput, 'configPath'),
-      explicitConfig: readFlag(rawCommandInput, 'explicitConfig'),
-      dryRun: readFlag(rawCommandInput, 'dryRun'),
-      yes: readFlag(rawCommandInput, 'yes'),
+      configPath: readText(rawCommandInputObject, 'configPath'),
+      explicitConfig: readFlag(rawCommandInputObject, 'explicitConfig'),
+      dryRun: readFlag(rawCommandInputObject, 'dryRun'),
+      yes: readFlag(rawCommandInputObject, 'yes'),
     };
   }
 

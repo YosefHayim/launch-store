@@ -1,3 +1,4 @@
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 type SyncCommandInput = {
   app?: string;
   dryRun: boolean;
@@ -5,22 +6,6 @@ type SyncCommandInput = {
   yes: boolean;
   snapshot: boolean;
 };
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
@@ -51,17 +36,19 @@ function readOptionalString(record: Record<string, unknown>, fieldName: string):
 }
 
 function decodeSyncCommandInput(rawCommandInput: unknown): SyncCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Sync command input must be an object.');
   }
 
   const commandInput: SyncCommandInput = {
-    dryRun: readRequiredBoolean(rawCommandInput, 'dryRun'),
-    allowDestructive: readRequiredBoolean(rawCommandInput, 'allowDestructive'),
-    yes: readRequiredBoolean(rawCommandInput, 'yes'),
-    snapshot: readRequiredBoolean(rawCommandInput, 'snapshot'),
+    dryRun: readRequiredBoolean(rawCommandInputObject, 'dryRun'),
+    allowDestructive: readRequiredBoolean(rawCommandInputObject, 'allowDestructive'),
+    yes: readRequiredBoolean(rawCommandInputObject, 'yes'),
+    snapshot: readRequiredBoolean(rawCommandInputObject, 'snapshot'),
   };
-  const appName = readOptionalString(rawCommandInput, 'app');
+  const appName = readOptionalString(rawCommandInputObject, 'app');
 
   if (appName != null) {
     commandInput.app = appName;

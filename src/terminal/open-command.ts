@@ -1,6 +1,7 @@
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { openUrl, resolveOpenUrl } from './console-links.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export interface OpenCommandInput {
   target?: string;
@@ -16,18 +17,6 @@ type OpenCommandFailure = Readonly<{
 
 function makeOpenCommandFailure(fields: { message: string; cause: unknown }): OpenCommandFailure {
   return { _tag: 'OpenCommandFailure', message: fields.message, cause: fields.cause };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
 }
 
 function readOptionalText(record: Record<string, unknown>, fieldName: string): string | null {
@@ -47,24 +36,26 @@ function readOptionalText(record: Record<string, unknown>, fieldName: string): s
 }
 
 export function readOpenCommandInput(rawCommandInput: unknown): OpenCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Could not read the open command.');
   }
 
   const commandInput: OpenCommandInput = {};
-  const target = readOptionalText(rawCommandInput, 'target');
+  const target = readOptionalText(rawCommandInputObject, 'target');
 
   if (target != null) {
     commandInput.target = target;
   }
 
-  const platform = readOptionalText(rawCommandInput, 'platform');
+  const platform = readOptionalText(rawCommandInputObject, 'platform');
 
   if (platform != null) {
     commandInput.platform = platform;
   }
 
-  const appText = readOptionalText(rawCommandInput, 'app');
+  const appText = readOptionalText(rawCommandInputObject, 'app');
 
   if (appText != null) {
     commandInput.app = appText;

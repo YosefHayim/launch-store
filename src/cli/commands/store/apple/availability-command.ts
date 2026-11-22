@@ -10,6 +10,7 @@ import {
   reconcileAvailability,
 } from '../../../../store/apple/availability.ts';
 import { resolveStoreBundleId } from '../../../../store/shared/select-store-app.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 export type AvailabilityCommandInput = {
   app?: string;
@@ -31,22 +32,6 @@ function makeAvailabilityCommandFailure(fields: {
   cause: unknown;
 }): AvailabilityCommandFailure {
   return { _tag: 'AvailabilityCommandFailure', ...fields };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
 }
 
 function readText(record: Record<string, unknown>, fieldName: string): string {
@@ -73,22 +58,22 @@ function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
 
 /** Decode one availability command. Rejects an explicit undefined exact optional app. */
 export function AvailabilityCommandInputSchema(rawCommandInput: unknown): AvailabilityCommandInput {
-  const isCommandRecord = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isCommandRecord == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('Availability command input must be an object.');
   }
 
-  const config = readText(rawCommandInput, 'config');
-  const dryRun = readFlag(rawCommandInput, 'dryRun');
-  const yes = readFlag(rawCommandInput, 'yes');
-  const hasApp = Object.hasOwn(rawCommandInput, 'app');
+  const config = readText(rawCommandInputObject, 'config');
+  const dryRun = readFlag(rawCommandInputObject, 'dryRun');
+  const yes = readFlag(rawCommandInputObject, 'yes');
+  const hasApp = Object.hasOwn(rawCommandInputObject, 'app');
 
   if (hasApp == false) {
     return { config, dryRun, yes };
   }
 
-  const app = rawCommandInput['app'];
+  const app = rawCommandInputObject['app'];
   const isAppText = typeof app == 'string';
 
   if (isAppText == false) {

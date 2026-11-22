@@ -20,6 +20,7 @@ import {
   type TargetPlan,
 } from './orchestrator.ts';
 import { listAdopters, registerBuiltinAdopters } from './registry.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export type AdoptCommandInput = {
   all: boolean;
@@ -27,22 +28,6 @@ export type AdoptCommandInput = {
   dryRun: boolean;
   yes: boolean;
 };
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
 
 function readBooleanFlag(
   record: Record<string, unknown>,
@@ -85,16 +70,18 @@ function readOptionalString(record: Record<string, unknown>, fieldName: string):
 }
 
 function decodeAdoptCommandInput(rawCommandInput: unknown): AdoptCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Adopt command input must be an object.');
   }
 
   const commandInput: AdoptCommandInput = {
-    all: readBooleanFlag(rawCommandInput, 'all', false),
-    dryRun: readBooleanFlag(rawCommandInput, 'dryRun', false),
-    yes: readBooleanFlag(rawCommandInput, 'yes', false),
+    all: readBooleanFlag(rawCommandInputObject, 'all', false),
+    dryRun: readBooleanFlag(rawCommandInputObject, 'dryRun', false),
+    yes: readBooleanFlag(rawCommandInputObject, 'yes', false),
   };
-  const appName = readOptionalString(rawCommandInput, 'app');
+  const appName = readOptionalString(rawCommandInputObject, 'app');
 
   if (appName != null) {
     commandInput.app = appName;

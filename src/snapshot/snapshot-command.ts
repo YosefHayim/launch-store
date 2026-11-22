@@ -34,6 +34,7 @@ import {
   saveSnapshot,
   type PruneCriteria,
 } from './store.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const LIVE_SNAPSHOT = 'live';
 const SNAPSHOT_STORES: readonly SnapshotStore[] = ['appstore', 'play'];
@@ -137,18 +138,6 @@ type SnapshotStoreSession = Readonly<{
   playClient: PlayClientResolver;
 }>;
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function readExactOptionalString(record: Record<string, unknown>, key: string): string | null {
   if (Object.hasOwn(record, key) == false) {
     return null;
@@ -190,15 +179,17 @@ function readExactOptionalBoolean(record: Record<string, unknown>, key: string):
 function readPruneOptions(record: Record<string, unknown>): PruneOptions {
   const options = record['options'];
 
-  if (isRecord(options) == false) {
+  const optionsObject = readPlainObject(options);
+
+  if (optionsObject == null) {
     throw new Error('Snapshot command prune options are missing.');
   }
 
   const pruneOptions: PruneOptions = {};
-  const keep = readExactOptionalString(options, 'keep');
-  const olderThan = readExactOptionalString(options, 'olderThan');
-  const yes = readExactOptionalBoolean(options, 'yes');
-  const json = readExactOptionalBoolean(options, 'json');
+  const keep = readExactOptionalString(optionsObject, 'keep');
+  const olderThan = readExactOptionalString(optionsObject, 'olderThan');
+  const yes = readExactOptionalBoolean(optionsObject, 'yes');
+  const json = readExactOptionalBoolean(optionsObject, 'json');
 
   if (keep != null) {
     pruneOptions.keep = keep;
@@ -333,38 +324,40 @@ function decodeRestore(record: Record<string, unknown>): RestoreCommand {
 }
 
 function decodeSnapshotCommandInput(rawCommand: unknown): SnapshotCommandInput {
-  if (isRecord(rawCommand) == false) {
+  const rawCommandObject = readPlainObject(rawCommand);
+
+  if (rawCommandObject == null) {
     throw new Error('Snapshot command input is malformed.');
   }
 
-  const operation = rawCommand['operation'];
+  const operation = rawCommandObject['operation'];
 
   if (operation == 'create') {
-    return decodeCreate(rawCommand);
+    return decodeCreate(rawCommandObject);
   }
 
   if (operation == 'list') {
-    return decodeList(rawCommand);
+    return decodeList(rawCommandObject);
   }
 
   if (operation == 'diff') {
-    return decodeDiff(rawCommand);
+    return decodeDiff(rawCommandObject);
   }
 
   if (operation == 'export') {
-    return decodeExport(rawCommand);
+    return decodeExport(rawCommandObject);
   }
 
   if (operation == 'delete') {
-    return decodeDelete(rawCommand);
+    return decodeDelete(rawCommandObject);
   }
 
   if (operation == 'prune') {
-    return decodePrune(rawCommand);
+    return decodePrune(rawCommandObject);
   }
 
   if (operation == 'restore') {
-    return decodeRestore(rawCommand);
+    return decodeRestore(rawCommandObject);
   }
 
   throw new Error('Snapshot command operation is unknown.');
@@ -386,11 +379,13 @@ function makeSnapshotCommandFailure(fields: {
 }
 
 function isSnapshotCommandFailure(cause: unknown): cause is SnapshotCommandFailure {
-  if (isRecord(cause) == false) {
+  const causeObject = readPlainObject(cause);
+
+  if (causeObject == null) {
     return false;
   }
 
-  return cause['_tag'] == 'SnapshotCommandFailure';
+  return causeObject['_tag'] == 'SnapshotCommandFailure';
 }
 
 function snapshotFailure(

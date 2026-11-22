@@ -13,6 +13,7 @@ import type {
   MigrationResult,
 } from '../types/migrate.ts';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type EasSubmitIos = NonNullable<EasSubmitProfile['ios']>;
 type EasSubmitAndroid = NonNullable<EasSubmitProfile['android']>;
@@ -66,22 +67,6 @@ function makeEasMigrationFailure(fields: {
   cause?: unknown;
 }): EasMigrationFailure {
   return { _tag: 'EasMigrationFailure', ...fields };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
 }
 
 function readExactString(record: Record<string, unknown>, fieldName: string): ExactString {
@@ -143,13 +128,15 @@ function keepStringEntry(
 }
 
 function decodeStringEntries(rawEntries: unknown): Record<string, string> | null {
-  if (isRecord(rawEntries) == false) {
+  const rawEntriesObject = readPlainObject(rawEntries);
+
+  if (rawEntriesObject == null) {
     return null;
   }
 
   const stringEntries: Record<string, string> = {};
 
-  for (const [entryName, unknownEntry] of Object.entries(rawEntries)) {
+  for (const [entryName, unknownEntry] of Object.entries(rawEntriesObject)) {
     keepStringEntry(entryName, unknownEntry, stringEntries);
   }
 
@@ -157,7 +144,9 @@ function decodeStringEntries(rawEntries: unknown): Record<string, string> | null
 }
 
 function decodeBuildProfile(rawProfile: unknown): EasBuildProfile | null {
-  if (isRecord(rawProfile) == false) {
+  const rawProfileObject = readPlainObject(rawProfile);
+
+  if (rawProfileObject == null) {
     return null;
   }
 
@@ -168,7 +157,7 @@ function decodeBuildProfile(rawProfile: unknown): EasBuildProfile | null {
     autoIncrement?: boolean | string;
     developmentClient?: boolean;
   } = {};
-  const channel = readExactString(rawProfile, 'channel');
+  const channel = readExactString(rawProfileObject, 'channel');
 
   if (channel.kind == 'invalid') {
     return null;
@@ -178,7 +167,7 @@ function decodeBuildProfile(rawProfile: unknown): EasBuildProfile | null {
     buildProfile.channel = channel.text;
   }
 
-  const distribution = readExactString(rawProfile, 'distribution');
+  const distribution = readExactString(rawProfileObject, 'distribution');
 
   if (distribution.kind == 'invalid') {
     return null;
@@ -188,8 +177,8 @@ function decodeBuildProfile(rawProfile: unknown): EasBuildProfile | null {
     buildProfile.distribution = distribution.text;
   }
 
-  if (Object.hasOwn(rawProfile, 'env')) {
-    const environment = decodeStringEntries(rawProfile['env']);
+  if (Object.hasOwn(rawProfileObject, 'env')) {
+    const environment = decodeStringEntries(rawProfileObject['env']);
 
     if (environment == null) {
       return null;
@@ -198,7 +187,7 @@ function decodeBuildProfile(rawProfile: unknown): EasBuildProfile | null {
     buildProfile.env = environment;
   }
 
-  const autoIncrement = readExactFlagOrText(rawProfile, 'autoIncrement');
+  const autoIncrement = readExactFlagOrText(rawProfileObject, 'autoIncrement');
 
   if (autoIncrement.kind == 'invalid') {
     return null;
@@ -208,7 +197,7 @@ function decodeBuildProfile(rawProfile: unknown): EasBuildProfile | null {
     buildProfile.autoIncrement = autoIncrement.flag;
   }
 
-  const developmentClient = readExactFlag(rawProfile, 'developmentClient');
+  const developmentClient = readExactFlag(rawProfileObject, 'developmentClient');
 
   if (developmentClient.kind == 'invalid') {
     return null;
@@ -222,13 +211,15 @@ function decodeBuildProfile(rawProfile: unknown): EasBuildProfile | null {
 }
 
 function decodeBuildProfiles(rawProfiles: unknown): Record<string, EasBuildProfile> | null {
-  if (isRecord(rawProfiles) == false) {
+  const rawProfilesObject = readPlainObject(rawProfiles);
+
+  if (rawProfilesObject == null) {
     return null;
   }
 
   const buildProfiles: Record<string, EasBuildProfile> = {};
 
-  for (const [profileName, unknownProfile] of Object.entries(rawProfiles)) {
+  for (const [profileName, unknownProfile] of Object.entries(rawProfilesObject)) {
     const decodedProfile = decodeBuildProfile(unknownProfile);
 
     if (decodedProfile == null) {
@@ -242,7 +233,9 @@ function decodeBuildProfiles(rawProfiles: unknown): Record<string, EasBuildProfi
 }
 
 function decodeSubmitIos(rawIos: unknown): EasSubmitIos | null {
-  if (isRecord(rawIos) == false) {
+  const rawIosObject = readPlainObject(rawIos);
+
+  if (rawIosObject == null) {
     return null;
   }
 
@@ -251,7 +244,7 @@ function decodeSubmitIos(rawIos: unknown): EasSubmitIos | null {
     ascAppId?: string;
     appleTeamId?: string;
   } = {};
-  const appleId = readExactString(rawIos, 'appleId');
+  const appleId = readExactString(rawIosObject, 'appleId');
 
   if (appleId.kind == 'invalid') {
     return null;
@@ -261,7 +254,7 @@ function decodeSubmitIos(rawIos: unknown): EasSubmitIos | null {
     iosSubmission.appleId = appleId.text;
   }
 
-  const ascAppId = readExactString(rawIos, 'ascAppId');
+  const ascAppId = readExactString(rawIosObject, 'ascAppId');
 
   if (ascAppId.kind == 'invalid') {
     return null;
@@ -271,7 +264,7 @@ function decodeSubmitIos(rawIos: unknown): EasSubmitIos | null {
     iosSubmission.ascAppId = ascAppId.text;
   }
 
-  const appleTeamId = readExactString(rawIos, 'appleTeamId');
+  const appleTeamId = readExactString(rawIosObject, 'appleTeamId');
 
   if (appleTeamId.kind == 'invalid') {
     return null;
@@ -285,7 +278,9 @@ function decodeSubmitIos(rawIos: unknown): EasSubmitIos | null {
 }
 
 function decodeSubmitAndroid(rawAndroid: unknown): EasSubmitAndroid | null {
-  if (isRecord(rawAndroid) == false) {
+  const rawAndroidObject = readPlainObject(rawAndroid);
+
+  if (rawAndroidObject == null) {
     return null;
   }
 
@@ -293,7 +288,7 @@ function decodeSubmitAndroid(rawAndroid: unknown): EasSubmitAndroid | null {
     serviceAccountKeyPath?: string;
     track?: string;
   } = {};
-  const serviceAccountKeyPath = readExactString(rawAndroid, 'serviceAccountKeyPath');
+  const serviceAccountKeyPath = readExactString(rawAndroidObject, 'serviceAccountKeyPath');
 
   if (serviceAccountKeyPath.kind == 'invalid') {
     return null;
@@ -303,7 +298,7 @@ function decodeSubmitAndroid(rawAndroid: unknown): EasSubmitAndroid | null {
     androidSubmission.serviceAccountKeyPath = serviceAccountKeyPath.text;
   }
 
-  const track = readExactString(rawAndroid, 'track');
+  const track = readExactString(rawAndroidObject, 'track');
 
   if (track.kind == 'invalid') {
     return null;
@@ -337,7 +332,9 @@ function hasAndroidSubmitFields(androidSubmission: EasSubmitAndroid): boolean {
 }
 
 function decodeSubmitProfile(rawProfile: unknown): EasSubmitProfile | null {
-  if (isRecord(rawProfile) == false) {
+  const rawProfileObject = readPlainObject(rawProfile);
+
+  if (rawProfileObject == null) {
     return null;
   }
 
@@ -346,8 +343,8 @@ function decodeSubmitProfile(rawProfile: unknown): EasSubmitProfile | null {
     android?: EasSubmitAndroid;
   } = {};
 
-  if (Object.hasOwn(rawProfile, 'ios')) {
-    const iosSubmission = decodeSubmitIos(rawProfile['ios']);
+  if (Object.hasOwn(rawProfileObject, 'ios')) {
+    const iosSubmission = decodeSubmitIos(rawProfileObject['ios']);
 
     if (iosSubmission == null) {
       return null;
@@ -358,8 +355,8 @@ function decodeSubmitProfile(rawProfile: unknown): EasSubmitProfile | null {
     }
   }
 
-  if (Object.hasOwn(rawProfile, 'android')) {
-    const androidSubmission = decodeSubmitAndroid(rawProfile['android']);
+  if (Object.hasOwn(rawProfileObject, 'android')) {
+    const androidSubmission = decodeSubmitAndroid(rawProfileObject['android']);
 
     if (androidSubmission == null) {
       return null;
@@ -374,13 +371,15 @@ function decodeSubmitProfile(rawProfile: unknown): EasSubmitProfile | null {
 }
 
 function decodeSubmitProfiles(rawProfiles: unknown): Record<string, EasSubmitProfile> | null {
-  if (isRecord(rawProfiles) == false) {
+  const rawProfilesObject = readPlainObject(rawProfiles);
+
+  if (rawProfilesObject == null) {
     return null;
   }
 
   const submitProfiles: Record<string, EasSubmitProfile> = {};
 
-  for (const [profileName, unknownProfile] of Object.entries(rawProfiles)) {
+  for (const [profileName, unknownProfile] of Object.entries(rawProfilesObject)) {
     const decodedProfile = decodeSubmitProfile(unknownProfile);
 
     if (decodedProfile == null) {
@@ -394,12 +393,14 @@ function decodeSubmitProfiles(rawProfiles: unknown): Record<string, EasSubmitPro
 }
 
 function decodeCli(rawCli: unknown): { appVersionSource?: string } | null {
-  if (isRecord(rawCli) == false) {
+  const rawCliObject = readPlainObject(rawCli);
+
+  if (rawCliObject == null) {
     return null;
   }
 
   const cli: { appVersionSource?: string } = {};
-  const appVersionSource = readExactString(rawCli, 'appVersionSource');
+  const appVersionSource = readExactString(rawCliObject, 'appVersionSource');
 
   if (appVersionSource.kind == 'invalid') {
     return null;
@@ -427,7 +428,9 @@ function readDefaultSection(document: Record<string, unknown>, fieldName: string
 }
 
 function decodeEasDocument(rawDocument: unknown): EasJson {
-  if (isRecord(rawDocument) == false) {
+  const rawDocumentObject = readPlainObject(rawDocument);
+
+  if (rawDocumentObject == null) {
     throw new Error('eas.json must be a JSON object.');
   }
 
@@ -440,8 +443,8 @@ function decodeEasDocument(rawDocument: unknown): EasJson {
     submit: {},
   };
 
-  if (Object.hasOwn(rawDocument, 'cli')) {
-    const cli = decodeCli(rawDocument['cli']);
+  if (Object.hasOwn(rawDocumentObject, 'cli')) {
+    const cli = decodeCli(rawDocumentObject['cli']);
 
     if (cli == null) {
       throw new Error('cli must be an object.');
@@ -450,14 +453,14 @@ function decodeEasDocument(rawDocument: unknown): EasJson {
     easConfiguration.cli = cli;
   }
 
-  const buildProfiles = decodeBuildProfiles(readDefaultSection(rawDocument, 'build'));
+  const buildProfiles = decodeBuildProfiles(readDefaultSection(rawDocumentObject, 'build'));
 
   if (buildProfiles == null) {
     throw new Error('build must be an object.');
   }
 
   easConfiguration.build = buildProfiles;
-  const submitProfiles = decodeSubmitProfiles(readDefaultSection(rawDocument, 'submit'));
+  const submitProfiles = decodeSubmitProfiles(readDefaultSection(rawDocumentObject, 'submit'));
 
   if (submitProfiles == null) {
     throw new Error('submit must be an object.');
@@ -758,12 +761,14 @@ type CredentialsAndroid = {
 };
 
 function decodeCertificate(rawCertificate: unknown): { path?: string } | null {
-  if (isRecord(rawCertificate) == false) {
+  const rawCertificateObject = readPlainObject(rawCertificate);
+
+  if (rawCertificateObject == null) {
     return null;
   }
 
   const certificate: { path?: string } = {};
-  const certificatePath = readExactString(rawCertificate, 'path');
+  const certificatePath = readExactString(rawCertificateObject, 'path');
 
   if (certificatePath.kind == 'invalid') {
     return null;
@@ -777,12 +782,14 @@ function decodeCertificate(rawCertificate: unknown): { path?: string } | null {
 }
 
 function decodeCredentialsIos(rawIos: unknown): CredentialsIos | null {
-  if (isRecord(rawIos) == false) {
+  const rawIosObject = readPlainObject(rawIos);
+
+  if (rawIosObject == null) {
     return null;
   }
 
   const iosCredentials: CredentialsIos = {};
-  const provisioningProfilePath = readExactString(rawIos, 'provisioningProfilePath');
+  const provisioningProfilePath = readExactString(rawIosObject, 'provisioningProfilePath');
 
   if (provisioningProfilePath.kind == 'invalid') {
     return null;
@@ -792,8 +799,8 @@ function decodeCredentialsIos(rawIos: unknown): CredentialsIos | null {
     iosCredentials.provisioningProfilePath = provisioningProfilePath.text;
   }
 
-  if (Object.hasOwn(rawIos, 'distributionCertificate')) {
-    const distributionCertificate = decodeCertificate(rawIos['distributionCertificate']);
+  if (Object.hasOwn(rawIosObject, 'distributionCertificate')) {
+    const distributionCertificate = decodeCertificate(rawIosObject['distributionCertificate']);
 
     if (distributionCertificate == null) {
       return null;
@@ -806,12 +813,14 @@ function decodeCredentialsIos(rawIos: unknown): CredentialsIos | null {
 }
 
 function decodeKeystore(rawKeystore: unknown): { keystorePath?: string; keyAlias?: string } | null {
-  if (isRecord(rawKeystore) == false) {
+  const rawKeystoreObject = readPlainObject(rawKeystore);
+
+  if (rawKeystoreObject == null) {
     return null;
   }
 
   const keystore: { keystorePath?: string; keyAlias?: string } = {};
-  const keystorePath = readExactString(rawKeystore, 'keystorePath');
+  const keystorePath = readExactString(rawKeystoreObject, 'keystorePath');
 
   if (keystorePath.kind == 'invalid') {
     return null;
@@ -821,7 +830,7 @@ function decodeKeystore(rawKeystore: unknown): { keystorePath?: string; keyAlias
     keystore.keystorePath = keystorePath.text;
   }
 
-  const keyAlias = readExactString(rawKeystore, 'keyAlias');
+  const keyAlias = readExactString(rawKeystoreObject, 'keyAlias');
 
   if (keyAlias.kind == 'invalid') {
     return null;
@@ -835,14 +844,16 @@ function decodeKeystore(rawKeystore: unknown): { keystorePath?: string; keyAlias
 }
 
 function decodeCredentialsAndroid(rawAndroid: unknown): CredentialsAndroid | null {
-  if (isRecord(rawAndroid) == false) {
+  const rawAndroidObject = readPlainObject(rawAndroid);
+
+  if (rawAndroidObject == null) {
     return null;
   }
 
   const androidCredentials: CredentialsAndroid = {};
 
-  if (Object.hasOwn(rawAndroid, 'keystore')) {
-    const keystore = decodeKeystore(rawAndroid['keystore']);
+  if (Object.hasOwn(rawAndroidObject, 'keystore')) {
+    const keystore = decodeKeystore(rawAndroidObject['keystore']);
 
     if (keystore == null) {
       return null;
@@ -858,14 +869,16 @@ function decodeCredentialsDocument(rawDocument: unknown): {
   ios?: CredentialsIos;
   android?: CredentialsAndroid;
 } | null {
-  if (isRecord(rawDocument) == false) {
+  const rawDocumentObject = readPlainObject(rawDocument);
+
+  if (rawDocumentObject == null) {
     return null;
   }
 
   const credentialsDocument: { ios?: CredentialsIos; android?: CredentialsAndroid } = {};
 
-  if (Object.hasOwn(rawDocument, 'ios')) {
-    const iosCredentials = decodeCredentialsIos(rawDocument['ios']);
+  if (Object.hasOwn(rawDocumentObject, 'ios')) {
+    const iosCredentials = decodeCredentialsIos(rawDocumentObject['ios']);
 
     if (iosCredentials == null) {
       return null;
@@ -874,8 +887,8 @@ function decodeCredentialsDocument(rawDocument: unknown): {
     credentialsDocument.ios = iosCredentials;
   }
 
-  if (Object.hasOwn(rawDocument, 'android')) {
-    const androidCredentials = decodeCredentialsAndroid(rawDocument['android']);
+  if (Object.hasOwn(rawDocumentObject, 'android')) {
+    const androidCredentials = decodeCredentialsAndroid(rawDocumentObject['android']);
 
     if (androidCredentials == null) {
       return null;
@@ -1062,12 +1075,14 @@ function decodeRuntimeVersion(rawVersion: unknown): RuntimeVersion | null {
     return rawVersion;
   }
 
-  if (isRecord(rawVersion) == false) {
+  const rawVersionObject = readPlainObject(rawVersion);
+
+  if (rawVersionObject == null) {
     return null;
   }
 
   const runtimeVersion: { policy?: string } = {};
-  const policy = readExactString(rawVersion, 'policy');
+  const policy = readExactString(rawVersionObject, 'policy');
 
   if (policy.kind == 'invalid') {
     return null;
@@ -1081,12 +1096,14 @@ function decodeRuntimeVersion(rawVersion: unknown): RuntimeVersion | null {
 }
 
 function decodeEasProject(rawProject: unknown): { projectId?: string } | null {
-  if (isRecord(rawProject) == false) {
+  const rawProjectObject = readPlainObject(rawProject);
+
+  if (rawProjectObject == null) {
     return null;
   }
 
   const easProject: { projectId?: string } = {};
-  const projectId = readExactString(rawProject, 'projectId');
+  const projectId = readExactString(rawProjectObject, 'projectId');
 
   if (projectId.kind == 'invalid') {
     return null;
@@ -1100,14 +1117,16 @@ function decodeEasProject(rawProject: unknown): { projectId?: string } | null {
 }
 
 function decodeExtra(rawExtra: unknown): { eas?: { projectId?: string } } | null {
-  if (isRecord(rawExtra) == false) {
+  const rawExtraObject = readPlainObject(rawExtra);
+
+  if (rawExtraObject == null) {
     return null;
   }
 
   const extra: { eas?: { projectId?: string } } = {};
 
-  if (Object.hasOwn(rawExtra, 'eas')) {
-    const easProject = decodeEasProject(rawExtra['eas']);
+  if (Object.hasOwn(rawExtraObject, 'eas')) {
+    const easProject = decodeEasProject(rawExtraObject['eas']);
 
     if (easProject == null) {
       return null;
@@ -1120,7 +1139,9 @@ function decodeExtra(rawExtra: unknown): { eas?: { projectId?: string } } | null
 }
 
 function decodeExpoFacts(rawFacts: unknown): ExpoFacts | null {
-  if (isRecord(rawFacts) == false) {
+  const rawFactsObject = readPlainObject(rawFacts);
+
+  if (rawFactsObject == null) {
     return null;
   }
 
@@ -1130,7 +1151,7 @@ function decodeExpoFacts(rawFacts: unknown): ExpoFacts | null {
     updates?: unknown;
     extra?: { eas?: { projectId?: string } };
   } = {};
-  const owner = readExactString(rawFacts, 'owner');
+  const owner = readExactString(rawFactsObject, 'owner');
 
   if (owner.kind == 'invalid') {
     return null;
@@ -1140,8 +1161,8 @@ function decodeExpoFacts(rawFacts: unknown): ExpoFacts | null {
     expoFacts.owner = owner.text;
   }
 
-  if (Object.hasOwn(rawFacts, 'runtimeVersion')) {
-    const runtimeVersion = decodeRuntimeVersion(rawFacts['runtimeVersion']);
+  if (Object.hasOwn(rawFactsObject, 'runtimeVersion')) {
+    const runtimeVersion = decodeRuntimeVersion(rawFactsObject['runtimeVersion']);
 
     if (runtimeVersion == null) {
       return null;
@@ -1150,8 +1171,8 @@ function decodeExpoFacts(rawFacts: unknown): ExpoFacts | null {
     expoFacts.runtimeVersion = runtimeVersion;
   }
 
-  if (Object.hasOwn(rawFacts, 'updates')) {
-    const updates = rawFacts['updates'];
+  if (Object.hasOwn(rawFactsObject, 'updates')) {
+    const updates = rawFactsObject['updates'];
 
     if (typeof updates == 'undefined') {
       return null;
@@ -1160,8 +1181,8 @@ function decodeExpoFacts(rawFacts: unknown): ExpoFacts | null {
     expoFacts.updates = updates;
   }
 
-  if (Object.hasOwn(rawFacts, 'extra')) {
-    const extra = decodeExtra(rawFacts['extra']);
+  if (Object.hasOwn(rawFactsObject, 'extra')) {
+    const extra = decodeExtra(rawFactsObject['extra']);
 
     if (extra == null) {
       return null;
@@ -1174,15 +1195,17 @@ function decodeExpoFacts(rawFacts: unknown): ExpoFacts | null {
 }
 
 function decodeExpoWrapper(rawDocument: unknown): { expo?: ExpoFacts } | null {
-  if (isRecord(rawDocument) == false) {
+  const rawDocumentObject = readPlainObject(rawDocument);
+
+  if (rawDocumentObject == null) {
     return null;
   }
 
-  if (Object.hasOwn(rawDocument, 'expo') == false) {
+  if (Object.hasOwn(rawDocumentObject, 'expo') == false) {
     return {};
   }
 
-  const expoFacts = decodeExpoFacts(rawDocument['expo']);
+  const expoFacts = decodeExpoFacts(rawDocumentObject['expo']);
 
   if (expoFacts == null) {
     return null;

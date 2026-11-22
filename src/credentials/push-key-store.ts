@@ -3,6 +3,7 @@ import { pathExists } from '../path-exists.ts';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 import { resolveLaunchHomeDirectory, resolvePushKeysFilePath } from '../services/platform/paths.ts';
 import { decodeP8, encodeP8 } from './accounts.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /**
  * One imported APNs authentication key (`.p8`) in Launch's push-key vault (`~/.launch/push-keys.json`).
@@ -28,14 +29,6 @@ function apnsAccount(keyId: string): string {
 
 function currentTimestamp(): string {
   return new Date().toISOString();
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return candidate != null;
 }
 
 function readRequiredString(document: Record<string, unknown>, fieldName: string): string | null {
@@ -66,29 +59,31 @@ function readOptionalString(
 }
 
 function decodeApnsKeyRecord(candidate: unknown): ApnsKeyRecord | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const keyId = readRequiredString(candidate, 'keyId');
+  const keyId = readRequiredString(candidateObject, 'keyId');
 
   if (keyId == null) {
     return null;
   }
 
-  const importedAt = readRequiredString(candidate, 'importedAt');
+  const importedAt = readRequiredString(candidateObject, 'importedAt');
 
   if (importedAt == null) {
     return null;
   }
 
-  const teamId = readOptionalString(candidate, 'teamId');
+  const teamId = readOptionalString(candidateObject, 'teamId');
 
   if (teamId.status == 'invalid') {
     return null;
   }
 
-  const label = readOptionalString(candidate, 'label');
+  const label = readOptionalString(candidateObject, 'label');
 
   if (label.status == 'invalid') {
     return null;
@@ -111,11 +106,13 @@ function decodeApnsKeyRecord(candidate: unknown): ApnsKeyRecord | null {
 }
 
 function decodePushKeyFile(candidate: unknown): readonly ApnsKeyRecord[] | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const keysField = candidate['keys'];
+  const keysField = candidateObject['keys'];
 
   if (Array.isArray(keysField) == false) {
     return null;

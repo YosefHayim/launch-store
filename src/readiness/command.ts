@@ -17,6 +17,7 @@ import type {
 } from '../types/readiness.ts';
 import { READINESS_EXIT, runProbes } from './orchestrator.ts';
 import { registerBuiltinProbes, selectReadinessProbes } from './registry.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type ReadinessCategory = 'account' | 'iap' | 'listing' | 'privacy' | 'signing' | 'submit';
 
@@ -87,14 +88,6 @@ function isReadinessCommandFailure(cause: unknown): cause is ReadinessCommandFai
   return cause._tag == 'ReadinessCommandFailure';
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
-}
-
 function isReadinessCategory(candidate: unknown): candidate is ReadinessCategory {
   if (typeof candidate != 'string') {
     return false;
@@ -154,28 +147,28 @@ function readReadinessCategory(candidate: unknown): ReadinessCategory {
 }
 
 function decodeReadinessCommandInput(rawCommandInput: unknown): ReadinessCommandInput {
-  const isObject = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isObject == false) {
+  if (rawCommandInputObject == null) {
     throw commandFailure('decode readiness command', 'Readiness command input must be an object.');
   }
 
-  const category = readReadinessCategory(rawCommandInput['category']);
-  const labelsField = rawCommandInput['labels'];
-  const hasLabels = isRecord(labelsField);
+  const category = readReadinessCategory(rawCommandInputObject['category']);
+  const labelsField = rawCommandInputObject['labels'];
+  const labelsFieldObject = readPlainObject(labelsField);
 
-  if (hasLabels == false) {
+  if (labelsFieldObject == null) {
     throw commandFailure('decode readiness command', 'Readiness labels must be an object.');
   }
 
   return {
     category,
     labels: {
-      summary: readRequiredString(labelsField, 'summary'),
-      empty: readRequiredString(labelsField, 'empty'),
+      summary: readRequiredString(labelsFieldObject, 'summary'),
+      empty: readRequiredString(labelsFieldObject, 'empty'),
     },
-    app: readOptionalString(rawCommandInput, 'app'),
-    json: readOptionalBoolean(rawCommandInput, 'json'),
+    app: readOptionalString(rawCommandInputObject, 'app'),
+    json: readOptionalBoolean(rawCommandInputObject, 'json'),
   };
 }
 

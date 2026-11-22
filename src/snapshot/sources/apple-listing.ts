@@ -12,6 +12,7 @@ import { readAppleLocaleFields, toLocaleInfo } from '../../store/apple/apple-lis
 import type { AppleLocaleInfo, AppleStoreConfig } from '../../store/shared/store-config.ts';
 import { reconcileAppListing } from '../../store/apple/asc-sync.ts';
 import { iosApps } from '../../readiness/app-scopes.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 /** One locale's merged listing fields -> a snapshot entity keyed by the locale (its natural, stable id). */
 const toEntity = (locale: string, fields: Record<string, string>): SnapshotEntity => {
   return {
@@ -27,27 +28,17 @@ async function captureListing(api: SnapshotAscApi, appId: string): Promise<Snaps
     return toEntity(localeField.locale, localeField.fields);
   });
 }
-/** Narrow a captured {@link JsonValue} to a plain object (rejecting arrays and null). */
-const isJsonObject = (
-  capturedNode: JsonValue,
-): capturedNode is Readonly<{ [key: string]: JsonValue }> => {
-  if (typeof capturedNode != 'object') return false;
-  if (capturedNode == null) return false;
-  if (Array.isArray(capturedNode)) return false;
-  return true;
-};
 /** Rebuild the `AppleStoreConfig` listing from one app's captured per-locale entities (skips malformed ones). */
 const toListing = (saved: AppEntities): AppleStoreConfig => {
   const localeInfoByLocale: Record<string, AppleLocaleInfo> = {};
   for (const entity of saved.entities) {
-    const capturedListing = entity.data;
-    if (!isJsonObject(capturedListing)) continue;
+    const capturedListing = readPlainObject(entity.data);
+    if (capturedListing == null) continue;
     const locale = capturedListing['locale'];
-    const fields = capturedListing['fields'];
+    const fields = readPlainObject(capturedListing['fields']);
     if (typeof locale != 'string') continue;
     if (fields == null) continue;
-    if (!isJsonObject(fields)) continue;
-    localeInfoByLocale[locale] = toLocaleInfo(fields);
+    localeInfoByLocale[locale] = toLocaleInfo(fields as Readonly<{ [key: string]: JsonValue }>);
   }
   return { info: localeInfoByLocale };
 };

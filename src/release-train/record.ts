@@ -19,6 +19,7 @@ import type {
   TrainState,
 } from '../types/release-train.ts';
 import { isTrainPlatform } from './guards.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const TRAIN_RECORD_SUFFIX = '.json';
 
@@ -43,18 +44,6 @@ function recordFailure(operation: string, cause: unknown): TrainRecordFailure {
   }
 
   return { _tag: 'TrainRecordFailure', operation, message, cause };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
 }
 
 function isNativeKind(kind: unknown): kind is NativeCar['kind'] {
@@ -245,15 +234,17 @@ function readOtaCar(candidate: Record<string, unknown>): OtaCar | null {
 }
 
 function readCar(candidate: unknown): Car | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  if (candidate['kind'] == 'ota') {
-    return readOtaCar(candidate);
+  if (candidateObject['kind'] == 'ota') {
+    return readOtaCar(candidateObject);
   }
 
-  return readNativeCar(candidate);
+  return readNativeCar(candidateObject);
 }
 
 function readCars(candidate: unknown): Car[] | null {
@@ -277,47 +268,49 @@ function readCars(candidate: unknown): Car[] | null {
 }
 
 function readTrainRecordShape(candidate: unknown): TrainRecord | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const id = readRequiredText(candidate, 'id');
+  const id = readRequiredText(candidateObject, 'id');
 
   if (id == null) {
     return null;
   }
 
-  const app = readRequiredText(candidate, 'app');
+  const app = readRequiredText(candidateObject, 'app');
 
   if (app == null) {
     return null;
   }
 
-  const hold = candidate['hold'];
+  const hold = candidateObject['hold'];
 
   if (typeof hold != 'boolean') {
     return null;
   }
 
-  const trainPhase = candidate['state'];
+  const trainPhase = candidateObject['state'];
 
   if (isTrainState(trainPhase) == false) {
     return null;
   }
 
-  const createdAt = readRequiredText(candidate, 'createdAt');
+  const createdAt = readRequiredText(candidateObject, 'createdAt');
 
   if (createdAt == null) {
     return null;
   }
 
-  const updatedAt = readRequiredText(candidate, 'updatedAt');
+  const updatedAt = readRequiredText(candidateObject, 'updatedAt');
 
   if (updatedAt == null) {
     return null;
   }
 
-  const cars = readCars(candidate['cars']);
+  const cars = readCars(candidateObject['cars']);
 
   if (cars == null) {
     return null;

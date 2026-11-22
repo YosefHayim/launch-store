@@ -10,6 +10,7 @@ import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
 import { findBuild } from './build-history-command.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type RunCommandInput = Readonly<{
   reference: string;
@@ -46,16 +47,6 @@ function makeRunCommandFailure(fields: {
   };
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  return candidate != null;
-}
-
 function readOptionalString(record: Record<string, unknown>, key: string): string | null {
   const hasKey = Object.hasOwn(record, key);
 
@@ -79,20 +70,20 @@ function readOptionalString(record: Record<string, unknown>, key: string): strin
 }
 
 function decodeRunCommandInput(rawCommandInput: unknown): RunCommandInput {
-  const isCommandRecord = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isCommandRecord == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('Run command input must be an object.');
   }
 
-  const reference = rawCommandInput['reference'];
+  const reference = rawCommandInputObject['reference'];
   const referenceIsString = typeof reference == 'string';
 
   if (referenceIsString == false) {
     throw new Error('Run command reference must be a string.');
   }
 
-  const device = readOptionalString(rawCommandInput, 'device');
+  const device = readOptionalString(rawCommandInputObject, 'device');
 
   if (device == null) {
     return { reference };

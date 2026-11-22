@@ -13,6 +13,7 @@ import {
   reconcilePlaySubscriptions,
   summarizePlaySubscriptions,
 } from '../../../../store/google/play-subscriptions.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 export type PlaySubscriptionsCommandInput = {
   app?: string;
@@ -53,22 +54,6 @@ function subscriptionsFailure(operation: string, cause: unknown): PlaySubscripti
   return makePlaySubscriptionsCommandFailure({ operation, message, cause });
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
 
@@ -99,15 +84,17 @@ function readExactOptionalString(
 function decodePlaySubscriptionsCommandInput(
   rawCommandInput: unknown,
 ): PlaySubscriptionsCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Play subscriptions command input must be an object.');
   }
 
   const commandInput: PlaySubscriptionsCommandInput = {
-    dryRun: readRequiredBoolean(rawCommandInput, 'dryRun'),
-    yes: readRequiredBoolean(rawCommandInput, 'yes'),
+    dryRun: readRequiredBoolean(rawCommandInputObject, 'dryRun'),
+    yes: readRequiredBoolean(rawCommandInputObject, 'yes'),
   };
-  const appName = readExactOptionalString(rawCommandInput, 'app');
+  const appName = readExactOptionalString(rawCommandInputObject, 'app');
 
   if (appName != null) {
     commandInput.app = appName;

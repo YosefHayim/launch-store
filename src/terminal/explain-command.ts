@@ -1,5 +1,6 @@
 import { createLogger } from '../services/platform/logger.ts';
 import { explainTopic, isGlossaryTopic, listTopics } from './glossary.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type ExplainCommandFailure = Readonly<{
   readonly _tag: 'ExplainCommandFailure';
@@ -30,30 +31,20 @@ function isExplainCommandFailure(cause: unknown): cause is ExplainCommandFailure
   return cause._tag == 'ExplainCommandFailure';
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function readExplainTopic(rawCommandInput: unknown): string | null {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Could not run the explain command.');
   }
 
-  const topicIsPresent = Object.hasOwn(rawCommandInput, 'topic');
+  const topicIsPresent = Object.hasOwn(rawCommandInputObject, 'topic');
 
   if (topicIsPresent == false) {
     return null;
   }
 
-  const topic = rawCommandInput['topic'];
+  const topic = rawCommandInputObject['topic'];
 
   if (typeof topic == 'string') {
     return topic;

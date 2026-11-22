@@ -10,6 +10,7 @@ import {
   readBuildState,
   resolveClean,
 } from './build-fingerprint.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type FingerprintCommandInput = Readonly<{
   app?: string;
@@ -49,38 +50,28 @@ function fingerprintFailure(operation: string, cause: unknown): FingerprintComma
   return makeFingerprintCommandFailure({ operation, message: errorMessage(cause), cause });
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  return candidate != null;
-}
-
 /** Decode `launch fingerprint` input. Omitted optionals stay absent. */
 export function decodeFingerprintCommandInput(rawCommandInput: unknown): FingerprintCommandInput {
-  const isCommandRecord = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isCommandRecord == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('Fingerprint command input must be an object.');
   }
 
-  const jsonFlag = rawCommandInput['json'];
+  const jsonFlag = rawCommandInputObject['json'];
   const jsonIsBoolean = typeof jsonFlag == 'boolean';
 
   if (jsonIsBoolean == false) {
     throw new Error('Fingerprint json must be a boolean.');
   }
 
-  const hasApp = Object.hasOwn(rawCommandInput, 'app');
+  const hasApp = Object.hasOwn(rawCommandInputObject, 'app');
 
   if (hasApp == false) {
     return { json: jsonFlag };
   }
 
-  const appName = rawCommandInput['app'];
+  const appName = rawCommandInputObject['app'];
   const appIsMissing = appName == null;
 
   if (appIsMissing) {

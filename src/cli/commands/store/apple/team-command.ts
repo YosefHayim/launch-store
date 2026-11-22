@@ -10,6 +10,7 @@ import {
   type Team,
 } from '../../../../store/apple/team.ts';
 import { hasMessage } from '../../../../services/platform/error-message.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 export type TeamListInput = Readonly<{ operation: 'list'; json: boolean }>;
 export type TeamInviteInput = Readonly<{
@@ -40,22 +41,6 @@ function makeTeamCommandFailure(fields: {
   return { _tag: 'TeamCommandFailure', ...fields };
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readText(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
   const isText = typeof field == 'string';
@@ -80,35 +65,35 @@ function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
 
 /** Decode one team command. */
 export function TeamCommandInputSchema(rawCommandInput: unknown): TeamCommandInput {
-  const isCommandRecord = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isCommandRecord == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('Team command input must be an object.');
   }
 
-  const operation = rawCommandInput['operation'];
+  const operation = rawCommandInputObject['operation'];
 
   if (operation == 'list') {
-    return { operation: 'list', json: readFlag(rawCommandInput, 'json') };
+    return { operation: 'list', json: readFlag(rawCommandInputObject, 'json') };
   }
 
   if (operation == 'invite') {
     return {
       operation: 'invite',
-      email: readText(rawCommandInput, 'email'),
-      first: readText(rawCommandInput, 'first'),
-      last: readText(rawCommandInput, 'last'),
-      role: readText(rawCommandInput, 'role'),
-      provisioning: readFlag(rawCommandInput, 'provisioning'),
-      yes: readFlag(rawCommandInput, 'yes'),
+      email: readText(rawCommandInputObject, 'email'),
+      first: readText(rawCommandInputObject, 'first'),
+      last: readText(rawCommandInputObject, 'last'),
+      role: readText(rawCommandInputObject, 'role'),
+      provisioning: readFlag(rawCommandInputObject, 'provisioning'),
+      yes: readFlag(rawCommandInputObject, 'yes'),
     };
   }
 
   if (operation == 'remove') {
     return {
       operation: 'remove',
-      email: readText(rawCommandInput, 'email'),
-      yes: readFlag(rawCommandInput, 'yes'),
+      email: readText(rawCommandInputObject, 'email'),
+      yes: readFlag(rawCommandInputObject, 'yes'),
     };
   }
 

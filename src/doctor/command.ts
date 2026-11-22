@@ -14,6 +14,7 @@ import type { AppDescriptor } from '../types/app.ts';
 import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '../types/doctor.ts';
 import { buildDoctorContext } from './context.ts';
 import { inspectDoctor } from './inspect.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export type DoctorCommandInput = {
   platform?: string;
@@ -29,18 +30,6 @@ type DoctorCommandFailure = Readonly<{
   message: string;
   cause: unknown;
 }>;
-
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
 
 function isBoolean(field: unknown): field is boolean {
   return typeof field == 'boolean';
@@ -97,8 +86,10 @@ function readDoctorCommandFields(record: Record<string, unknown>): DoctorCommand
 
 /** Read the doctor command boundary, rejecting explicit undefined optionals. */
 export function DoctorCommandInputSchema(rawCommandInput: unknown): DoctorCommandInput {
-  if (isPlainRecord(rawCommandInput)) {
-    return readDoctorCommandFields(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject != null) {
+    return readDoctorCommandFields(rawCommandInputObject);
   }
 
   throw new Error('doctor command input must be an object');

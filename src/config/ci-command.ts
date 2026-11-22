@@ -4,6 +4,7 @@ import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const WORKFLOW_PATH = '.github/workflows/launch.yml';
 
@@ -19,21 +20,11 @@ type CiCommandFailure = Readonly<{
   cause?: unknown;
 }>;
 
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function decodeCiCommandInput(rawCommandInput: unknown): CiCommandInput {
-  if (isPlainRecord(rawCommandInput)) {
-    return readCiCommandInput(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject != null) {
+    return readCiCommandInput(rawCommandInputObject);
   }
 
   throw new Error('CI command input must be an object');

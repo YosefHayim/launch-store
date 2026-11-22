@@ -18,6 +18,7 @@ import type {
 } from '../../types/store-surface.ts';
 import type { MutableDeep } from '../../types/mutable.ts';
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 const GAME_CENTER_DOCUMENT_NAME = 'gamecenter.config.json';
 
@@ -77,22 +78,6 @@ type EnsuredDetail = {
   detailId: string | null;
   existed: boolean;
 } | null;
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
 
 function readRequiredText(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
@@ -191,9 +176,9 @@ function readExactOptionalText(record: Record<string, unknown>, fieldName: strin
 }
 
 function readAchievement(entry: unknown): AchievementConfig {
-  const isEntryRecord = isRecord(entry);
+  const entryObject = readPlainObject(entry);
 
-  if (isEntryRecord == false) {
+  if (entryObject == null) {
     throw new Error(`${GAME_CENTER_DOCUMENT_NAME}: achievement entries must be JSON objects.`);
   }
 
@@ -208,28 +193,28 @@ function readAchievement(entry: unknown): AchievementConfig {
     afterEarnedDescription: string;
     locale?: string;
   } = {
-    vendorIdentifier: readRequiredText(entry, 'vendorIdentifier'),
-    referenceName: readRequiredText(entry, 'referenceName'),
-    points: readPoints(entry),
-    name: readRequiredText(entry, 'name'),
-    beforeEarnedDescription: readRequiredText(entry, 'beforeEarnedDescription'),
-    afterEarnedDescription: readRequiredText(entry, 'afterEarnedDescription'),
+    vendorIdentifier: readRequiredText(entryObject, 'vendorIdentifier'),
+    referenceName: readRequiredText(entryObject, 'referenceName'),
+    points: readPoints(entryObject),
+    name: readRequiredText(entryObject, 'name'),
+    beforeEarnedDescription: readRequiredText(entryObject, 'beforeEarnedDescription'),
+    afterEarnedDescription: readRequiredText(entryObject, 'afterEarnedDescription'),
   };
-  const showBeforeEarned = readExactOptionalBoolean(entry, 'showBeforeEarned');
+  const showBeforeEarned = readExactOptionalBoolean(entryObject, 'showBeforeEarned');
   const hasShowBeforeEarned = showBeforeEarned != null;
 
   if (hasShowBeforeEarned) {
     achievement.showBeforeEarned = showBeforeEarned;
   }
 
-  const repeatable = readExactOptionalBoolean(entry, 'repeatable');
+  const repeatable = readExactOptionalBoolean(entryObject, 'repeatable');
   const hasRepeatable = repeatable != null;
 
   if (hasRepeatable) {
     achievement.repeatable = repeatable;
   }
 
-  const locale = readExactOptionalText(entry, 'locale');
+  const locale = readExactOptionalText(entryObject, 'locale');
   const hasLocale = locale != null;
 
   if (hasLocale) {
@@ -240,13 +225,13 @@ function readAchievement(entry: unknown): AchievementConfig {
 }
 
 function readLeaderboard(entry: unknown): LeaderboardConfig {
-  const isEntryRecord = isRecord(entry);
+  const entryObject = readPlainObject(entry);
 
-  if (isEntryRecord == false) {
+  if (entryObject == null) {
     throw new Error(`${GAME_CENTER_DOCUMENT_NAME}: leaderboard entries must be JSON objects.`);
   }
 
-  const defaultFormatter = entry['defaultFormatter'];
+  const defaultFormatter = entryObject['defaultFormatter'];
   const isFormatter = isListedText(defaultFormatter, LEADERBOARD_FORMATTERS);
 
   if (isFormatter == false) {
@@ -255,7 +240,7 @@ function readLeaderboard(entry: unknown): LeaderboardConfig {
     );
   }
 
-  const submissionType = entry['submissionType'];
+  const submissionType = entryObject['submissionType'];
   const isSubmissionType = isListedText(submissionType, LEADERBOARD_SUBMISSION_TYPES);
 
   if (isSubmissionType == false) {
@@ -264,7 +249,7 @@ function readLeaderboard(entry: unknown): LeaderboardConfig {
     );
   }
 
-  const scoreSortType = entry['scoreSortType'];
+  const scoreSortType = entryObject['scoreSortType'];
   const isScoreSortType = isListedText(scoreSortType, LEADERBOARD_SORT_TYPES);
 
   if (isScoreSortType == false) {
@@ -280,14 +265,14 @@ function readLeaderboard(entry: unknown): LeaderboardConfig {
     name: string;
     locale?: string;
   } = {
-    vendorIdentifier: readRequiredText(entry, 'vendorIdentifier'),
-    referenceName: readRequiredText(entry, 'referenceName'),
+    vendorIdentifier: readRequiredText(entryObject, 'vendorIdentifier'),
+    referenceName: readRequiredText(entryObject, 'referenceName'),
     defaultFormatter,
     submissionType,
     scoreSortType,
-    name: readRequiredText(entry, 'name'),
+    name: readRequiredText(entryObject, 'name'),
   };
-  const locale = readExactOptionalText(entry, 'locale');
+  const locale = readExactOptionalText(entryObject, 'locale');
   const hasLocale = locale != null;
 
   if (hasLocale) {

@@ -13,6 +13,7 @@ import { parseAppClipsConfig, reconcileAppClips } from '../../../../store/apple/
 import { summarize } from '../../../../store/shared/reconcile.ts';
 import { loadStoreAppContext } from '../../../../store/shared/select-store-app.ts';
 import { hasMessage } from '../../../../services/platform/error-message.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 export type AppClipsCommandInput = {
   app?: string;
@@ -36,22 +37,6 @@ function makeAppClipsCommandFailure(fields: {
   cause: unknown;
 }): AppClipsCommandFailure {
   return { _tag: 'AppClipsCommandFailure', ...fields };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
 }
 
 function readText(record: Record<string, unknown>, fieldName: string): string {
@@ -78,23 +63,23 @@ function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
 
 /** Decode one App Clips command. Rejects an explicit undefined exact optional app. */
 export function AppClipsCommandInputSchema(rawCommandInput: unknown): AppClipsCommandInput {
-  const isCommandRecord = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isCommandRecord == false) {
+  if (rawCommandInputObject == null) {
     throw new Error('App Clips command input must be an object.');
   }
 
-  const config = readText(rawCommandInput, 'config');
-  const explicitConfig = readFlag(rawCommandInput, 'explicitConfig');
-  const dryRun = readFlag(rawCommandInput, 'dryRun');
-  const yes = readFlag(rawCommandInput, 'yes');
-  const hasApp = Object.hasOwn(rawCommandInput, 'app');
+  const config = readText(rawCommandInputObject, 'config');
+  const explicitConfig = readFlag(rawCommandInputObject, 'explicitConfig');
+  const dryRun = readFlag(rawCommandInputObject, 'dryRun');
+  const yes = readFlag(rawCommandInputObject, 'yes');
+  const hasApp = Object.hasOwn(rawCommandInputObject, 'app');
 
   if (hasApp == false) {
     return { config, explicitConfig, dryRun, yes };
   }
 
-  const app = rawCommandInput['app'];
+  const app = rawCommandInputObject['app'];
   const isAppText = typeof app == 'string';
 
   if (isAppText == false) {

@@ -1,37 +1,8 @@
 import type { PrivacySurface } from '../types/privacy.ts';
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  const isObject = typeof candidate == 'object';
-
-  if (isObject == false) {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  const isArray = Array.isArray(candidate);
-
-  if (isArray) {
-    return false;
-  }
-
-  return true;
-}
-
-function recordOrNull(candidate: unknown): Record<string, unknown> | null {
-  const isRecordValue = isRecord(candidate);
-
-  if (isRecordValue) {
-    return candidate;
-  }
-
-  return null;
-}
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 function readCollectedDataType(entry: unknown): string | null {
-  const record = recordOrNull(entry);
+  const record = readPlainObject(entry);
 
   if (record == null) {
     return null;
@@ -162,15 +133,15 @@ export const surfaceFromNative = (files: {
  * `ios.privacyManifests`, and permissions from `android.permissions`.
  */
 export const surfaceFromExpoConfig = (config: Record<string, unknown>): PrivacySurface => {
-  const decodedExpo = recordOrNull(config['expo']);
+  const decodedExpo = readPlainObject(config['expo']);
   let expo = config;
 
   if (decodedExpo != null) {
     expo = decodedExpo;
   }
 
-  const decodedIos = recordOrNull(expo['ios']);
-  const decodedAndroid = recordOrNull(expo['android']);
+  const decodedIos = readPlainObject(expo['ios']);
+  const decodedAndroid = readPlainObject(expo['android']);
   let ios: Record<string, unknown> = {};
 
   if (decodedIos != null) {
@@ -184,7 +155,7 @@ export const surfaceFromExpoConfig = (config: Record<string, unknown>): PrivacyS
   }
 
   const usageDescriptions: Record<string, string> = {};
-  const infoPlist = recordOrNull(ios['infoPlist']) ?? {};
+  const infoPlist = readPlainObject(ios['infoPlist']) ?? {};
 
   for (const [privacyKey, privacyText] of Object.entries(infoPlist)) {
     // Apple purpose strings are keys like NSCameraUsageDescription
@@ -202,7 +173,7 @@ export const surfaceFromExpoConfig = (config: Record<string, unknown>): PrivacyS
     usageDescriptions[privacyKey] = privacyText.trim();
   }
 
-  const manifest = recordOrNull(ios['privacyManifests']);
+  const manifest = readPlainObject(ios['privacyManifests']);
   const hasManifest = manifest != null;
   let collectedDataTypes: string[] = [];
   let trackingDomains: string[] = [];

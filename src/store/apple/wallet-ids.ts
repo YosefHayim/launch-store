@@ -4,24 +4,9 @@ import { errorMessage } from '../../services/platform/error-message.ts';
 import type { PlannedAction } from '../../types/reconcile.ts';
 import type { WalletConfig, WalletIdConfig } from '../../types/store-surface.ts';
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 const WALLET_DOCUMENT_NAME = 'wallet.config.json';
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
 
 function readRequiredText(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
@@ -41,15 +26,15 @@ function readRequiredText(record: Record<string, unknown>, fieldName: string): s
 }
 
 function readWalletIdentifier(entry: unknown): WalletIdConfig {
-  const isEntryRecord = isRecord(entry);
+  const entryObject = readPlainObject(entry);
 
-  if (isEntryRecord == false) {
+  if (entryObject == null) {
     throw new Error(`${WALLET_DOCUMENT_NAME}: identifier entries must be JSON objects.`);
   }
 
   return {
-    identifier: readRequiredText(entry, 'identifier'),
-    name: readRequiredText(entry, 'name'),
+    identifier: readRequiredText(entryObject, 'identifier'),
+    name: readRequiredText(entryObject, 'name'),
   };
 }
 

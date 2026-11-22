@@ -13,6 +13,7 @@ import {
   reconcilePlayProducts,
   summarizePlayProducts,
 } from '../../../../store/google/play-products.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 export type PlayProductsCommandInput = {
   app?: string;
@@ -53,22 +54,6 @@ function productsFailure(operation: string, cause: unknown): PlayProductsCommand
   return makePlayProductsCommandFailure({ operation, message, cause });
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
 
@@ -97,15 +82,17 @@ function readExactOptionalString(
 }
 
 function decodePlayProductsCommandInput(rawCommandInput: unknown): PlayProductsCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Play products command input must be an object.');
   }
 
   const commandInput: PlayProductsCommandInput = {
-    dryRun: readRequiredBoolean(rawCommandInput, 'dryRun'),
-    yes: readRequiredBoolean(rawCommandInput, 'yes'),
+    dryRun: readRequiredBoolean(rawCommandInputObject, 'dryRun'),
+    yes: readRequiredBoolean(rawCommandInputObject, 'yes'),
   };
-  const appName = readExactOptionalString(rawCommandInput, 'app');
+  const appName = readExactOptionalString(rawCommandInputObject, 'app');
 
   if (appName != null) {
     commandInput.app = appName;

@@ -19,6 +19,7 @@ import {
   summarizeSnapshots,
   WRITE_TOOLS,
 } from './tools.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 function sampleLaunchConfig(capabilities: readonly McpCapability[]): LaunchConfig {
   return {
@@ -29,18 +30,6 @@ function sampleLaunchConfig(capabilities: readonly McpCapability[]): LaunchConfi
     submit: 'app-store-connect',
     mcp: { capabilities },
   };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
 }
 
 function isMcpToolFailure(failure: unknown): failure is McpToolFailure {
@@ -153,8 +142,10 @@ function referencedSchemaType(
 
   const referencedSchema = definitions[rootName];
 
-  if (isRecord(referencedSchema)) {
-    return referencedSchema['type'];
+  const referencedSchemaObject = readPlainObject(referencedSchema);
+
+  if (referencedSchemaObject != null) {
+    return referencedSchemaObject['type'];
   }
 
   return null;
@@ -165,8 +156,10 @@ function followSchemaReference(reference: unknown, definitions: unknown): unknow
     return null;
   }
 
-  if (isRecord(definitions)) {
-    return referencedSchemaType(reference, definitions);
+  const definitionsObject = readPlainObject(definitions);
+
+  if (definitionsObject != null) {
+    return referencedSchemaType(reference, definitionsObject);
   }
 
   return null;
@@ -389,9 +382,11 @@ describe('config introspection tools', () => {
     const toolOutput = await runTool(byName('config_schema'), {});
     const configSchema = readToolJson(toolOutput);
 
-    if (isRecord(configSchema)) {
-      expect(configSchema['definitions']).toBeDefined();
-      expect(rootSchemaType(configSchema)).toBe('object');
+    const configSchemaObject = readPlainObject(configSchema);
+
+    if (configSchemaObject != null) {
+      expect(configSchemaObject['definitions']).toBeDefined();
+      expect(rootSchemaType(configSchemaObject)).toBe('object');
 
       return;
     }
@@ -403,8 +398,10 @@ describe('config introspection tools', () => {
     const toolOutput = await runTool(byName('config_docs'), {});
     const docsOutput = readToolJson(toolOutput);
 
-    if (isRecord(docsOutput)) {
-      expect(markdownLength(docsOutput)).toBeGreaterThan(0);
+    const docsOutputObject = readPlainObject(docsOutput);
+
+    if (docsOutputObject != null) {
+      expect(markdownLength(docsOutputObject)).toBeGreaterThan(0);
 
       return;
     }

@@ -9,6 +9,7 @@ import { getComputeHost } from '../services/provider-support/registry.ts';
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import type { AwsConfig, HostHandle } from '../types/remote.ts';
 import { clearLiveHost, getAmiId, getLiveHost } from './cloud-state.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const cloudOperations = ['setup', 'status', 'teardown', 'doctor'] as const;
 
@@ -70,34 +71,24 @@ function isKnownCloudOperation(operation: unknown): operation is CloudOperation 
   return false;
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function decodeCloudCommandInput(rawCommandInput: unknown): CloudCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Cloud command input is malformed.');
   }
 
-  const operation = rawCommandInput['operation'];
+  const operation = rawCommandInputObject['operation'];
 
   if (isKnownCloudOperation(operation) == false) {
     throw new Error('Cloud command operation is unknown.');
   }
 
-  if (typeof rawCommandInput['yes'] != 'boolean') {
+  if (typeof rawCommandInputObject['yes'] != 'boolean') {
     throw new Error('Cloud command confirmation flag is missing.');
   }
 
-  return { operation: operation as CloudOperation, yes: rawCommandInput['yes'] };
+  return { operation: operation as CloudOperation, yes: rawCommandInputObject['yes'] };
 }
 
 export const CloudCommandInputSchema = decodeCloudCommandInput;

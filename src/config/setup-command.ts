@@ -19,6 +19,7 @@ import type { DeviceResource } from '../types/apple-catalog.ts';
 import type { AccountRecord, AscKey, SigningAssets } from '../types/credentials.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import { runSetup } from './setup.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type SetupOperation = 'auto' | 'ios';
 
@@ -80,18 +81,6 @@ type SetupAccount = Readonly<{
   record: AccountRecord;
   ascKey: AscKey;
 }>;
-
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
 
 function setupFailure(operation: SetupOperation, message: string): SetupCommandFailure {
   return { _tag: 'SetupCommandFailure', operation, message };
@@ -183,8 +172,10 @@ function decodeSetupFields(fields: Record<string, unknown>): SetupCommandInput {
 }
 
 function decodeSetupCommandInput(rawCommandInput: unknown): SetupCommandInput {
-  if (isPlainRecord(rawCommandInput)) {
-    return decodeSetupFields(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject != null) {
+    return decodeSetupFields(rawCommandInputObject);
   }
 
   throw new Error('setup command input must be an object');
@@ -206,8 +197,10 @@ function isAppleRoleDenied(fields: Record<string, unknown>): boolean {
 }
 
 function isForbiddenApple(cause: unknown): boolean {
-  if (isPlainRecord(cause)) {
-    return isAppleRoleDenied(cause);
+  const causeObject = readPlainObject(cause);
+
+  if (causeObject != null) {
+    return isAppleRoleDenied(causeObject);
   }
 
   return false;

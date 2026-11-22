@@ -12,6 +12,7 @@ import {
   type StorageProvider,
   type StorageProviderResolver,
 } from '../../types/providers.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 type S3Module = typeof import('@aws-sdk/client-s3');
 type S3Client = InstanceType<S3Module['S3Client']>;
@@ -38,42 +39,36 @@ function loadS3Module(): Promise<S3Module> {
   );
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function isMissingS3Object(failure: unknown): boolean {
-  if (isRecord(failure) == false) {
+  const failureObject = readPlainObject(failure);
+
+  if (failureObject == null) {
     return false;
   }
 
-  if (failure['name'] == 'NoSuchKey') {
+  if (failureObject['name'] == 'NoSuchKey') {
     return true;
   }
 
-  const metadata = failure['$metadata'];
+  const metadata = failureObject['$metadata'];
 
-  if (isRecord(metadata) == false) {
+  const metadataObject = readPlainObject(metadata);
+
+  if (metadataObject == null) {
     return false;
   }
 
-  return metadata['httpStatusCode'] == 404;
+  return metadataObject['httpStatusCode'] == 404;
 }
 
 function s3Failure(action: string, failure: unknown): unknown {
-  if (isRecord(failure)) {
-    const isParseError = failure['_tag'] == 'ParseError';
+  const failureObject = readPlainObject(failure);
+
+  if (failureObject != null) {
+    const isParseError = failureObject['_tag'] == 'ParseError';
 
     if (isParseError) {
-      return failure;
+      return failureObject;
     }
   }
 
@@ -120,64 +115,70 @@ function readPlatform(record: Record<string, unknown>): Platform {
 function readSizeReport(record: Record<string, unknown>): BuildArtifact['sizeReport'] {
   const sizeReport = record['sizeReport'];
 
-  if (isRecord(sizeReport) == false) {
+  const sizeReportObject = readPlainObject(sizeReport);
+
+  if (sizeReportObject == null) {
     throw parseFailure('Artifact index size report is missing.');
   }
 
-  if (typeof sizeReport['artifactBytes'] != 'number') {
+  if (typeof sizeReportObject['artifactBytes'] != 'number') {
     throw parseFailure('Artifact index size report is missing artifactBytes.');
   }
 
-  if (Array.isArray(sizeReport['entries']) == false) {
+  if (Array.isArray(sizeReportObject['entries']) == false) {
     throw parseFailure('Artifact index size report entries are missing.');
   }
 
   const entries: BuildArtifact['sizeReport']['entries'] = [];
 
-  for (const entry of sizeReport['entries']) {
-    if (isRecord(entry) == false) {
+  for (const entry of sizeReportObject['entries']) {
+    const entryObject = readPlainObject(entry);
+
+    if (entryObject == null) {
       throw parseFailure('Artifact index size report entry is malformed.');
     }
 
-    if (typeof entry['device'] != 'string') {
+    if (typeof entryObject['device'] != 'string') {
       throw parseFailure('Artifact index size report entry is malformed.');
     }
 
-    if (typeof entry['downloadBytes'] != 'number') {
+    if (typeof entryObject['downloadBytes'] != 'number') {
       throw parseFailure('Artifact index size report entry is malformed.');
     }
 
-    if (typeof entry['installBytes'] != 'number') {
+    if (typeof entryObject['installBytes'] != 'number') {
       throw parseFailure('Artifact index size report entry is malformed.');
     }
 
     entries.push({
-      device: entry['device'],
-      downloadBytes: entry['downloadBytes'],
-      installBytes: entry['installBytes'],
+      device: entryObject['device'],
+      downloadBytes: entryObject['downloadBytes'],
+      installBytes: entryObject['installBytes'],
     });
   }
 
-  return { artifactBytes: sizeReport['artifactBytes'], entries };
+  return { artifactBytes: sizeReportObject['artifactBytes'], entries };
 }
 
 function readBuildArtifact(candidate: unknown): BuildArtifact {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     throw parseFailure('Artifact index entry must be an object.');
   }
 
   const artifact: BuildArtifact = {
-    path: readRequiredString(candidate, 'path'),
-    platform: readPlatform(candidate),
-    appName: readRequiredString(candidate, 'appName'),
-    profile: readRequiredString(candidate, 'profile'),
-    version: readRequiredString(candidate, 'version'),
-    buildNumber: readBuildNumber(candidate),
-    sizeReport: readSizeReport(candidate),
-    clean: readClean(candidate),
-    createdAt: readRequiredString(candidate, 'createdAt'),
+    path: readRequiredString(candidateObject, 'path'),
+    platform: readPlatform(candidateObject),
+    appName: readRequiredString(candidateObject, 'appName'),
+    profile: readRequiredString(candidateObject, 'profile'),
+    version: readRequiredString(candidateObject, 'version'),
+    buildNumber: readBuildNumber(candidateObject),
+    sizeReport: readSizeReport(candidateObject),
+    clean: readClean(candidateObject),
+    createdAt: readRequiredString(candidateObject, 'createdAt'),
   };
-  const prunedAt = readOptionalString(candidate, 'prunedAt');
+  const prunedAt = readOptionalString(candidateObject, 'prunedAt');
 
   if (prunedAt != null) {
     return { ...artifact, prunedAt };
@@ -236,7 +237,12 @@ export function decodeArtifactIndex(indexText: string): BuildArtifact[] {
 
   for (const candidate of parsed) {
     const artifact = readBuildArtifact(candidate);
-    const prunedAt = isRecord(candidate) ? readOptionalString(candidate, 'prunedAt') : undefined;
+    const candidateObject = readPlainObject(candidate);
+    let prunedAt: string | null | undefined;
+
+    if (candidateObject != null) {
+      prunedAt = readOptionalString(candidateObject, 'prunedAt');
+    }
 
     const prunedAtIsAbsent = typeof prunedAt == 'undefined';
 

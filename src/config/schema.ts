@@ -9,24 +9,13 @@ import {
   type LaunchConfig,
 } from '../types/config.ts';
 import { type JsonSchema, type SchemaViolation, validate } from './json-schema.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const schemaPath = fileURLToPath(
   new URL('../../schema/launch.config.schema.json', import.meta.url),
 );
 
 let cachedSchema: JsonSchema | null = null;
-
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
 
 /** Load and cache the committed JSON Schema. The file is immutable at runtime. */
 export function loadPublishedConfigSchema(): JsonSchema {
@@ -116,16 +105,20 @@ function ageRatingFromAttributes(
 ): SchemaViolation | null {
   const ageRating = attributes['ageRating'];
 
-  if (isPlainRecord(ageRating)) {
-    return verdictFor(bundleId, ageRating);
+  const ageRatingObject = readPlainObject(ageRating);
+
+  if (ageRatingObject != null) {
+    return verdictFor(bundleId, ageRatingObject);
   }
 
   return null;
 }
 
 function ageRatingViolation(bundleId: string, attributes: unknown): SchemaViolation | null {
-  if (isPlainRecord(attributes)) {
-    return ageRatingFromAttributes(bundleId, attributes);
+  const attributesObject = readPlainObject(attributes);
+
+  if (attributesObject != null) {
+    return ageRatingFromAttributes(bundleId, attributesObject);
   }
 
   return null;
@@ -146,8 +139,10 @@ function collectAgeRatingViolations(releaseAttributes: Record<string, unknown>):
 }
 
 function ageRatingViolations(candidateConfig: unknown): SchemaViolation[] {
-  if (isPlainRecord(candidateConfig)) {
-    return ageRatingViolationsIn(candidateConfig);
+  const candidateConfigObject = readPlainObject(candidateConfig);
+
+  if (candidateConfigObject != null) {
+    return ageRatingViolationsIn(candidateConfigObject);
   }
 
   return [];
@@ -156,8 +151,10 @@ function ageRatingViolations(candidateConfig: unknown): SchemaViolation[] {
 function ageRatingViolationsIn(candidateConfig: Record<string, unknown>): SchemaViolation[] {
   const releaseAttributes = candidateConfig['releaseAttributes'];
 
-  if (isPlainRecord(releaseAttributes)) {
-    return collectAgeRatingViolations(releaseAttributes);
+  const releaseAttributesObject = readPlainObject(releaseAttributes);
+
+  if (releaseAttributesObject != null) {
+    return collectAgeRatingViolations(releaseAttributesObject);
   }
 
   return [];
@@ -202,8 +199,10 @@ function withProviderDefaults(candidateConfig: Record<string, unknown>): LaunchC
     submit = givenSubmit;
   }
 
-  if (isPlainRecord(givenSubmit)) {
-    submit = givenSubmit as LaunchConfig['submit'];
+  const givenSubmitObject = readPlainObject(givenSubmit);
+
+  if (givenSubmitObject != null) {
+    submit = givenSubmitObject as LaunchConfig['submit'];
   }
 
   return {
@@ -234,8 +233,10 @@ export function parseLaunchConfig(candidateConfig: unknown): LaunchConfig {
     throw new Error(firstViolation.message);
   }
 
-  if (isPlainRecord(candidateConfig)) {
-    return withProviderDefaults(candidateConfig);
+  const candidateConfigObject = readPlainObject(candidateConfig);
+
+  if (candidateConfigObject != null) {
+    return withProviderDefaults(candidateConfigObject);
   }
 
   throw new Error('launch config must be an object');

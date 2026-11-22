@@ -7,6 +7,7 @@ import { createLogger } from '../../../../services/platform/logger.ts';
 import { GoogleReportingClientService } from '../../../../services/stores/google-reporting-client.ts';
 import type { PlayVitalsMetric, VitalsTimeline } from '../../../../types/vitals.ts';
 import { selectStoreApp } from '../../../../store/shared/select-store-app.ts';
+import { readPlainObject } from '../../../../services/platform/plain-object.ts';
 
 /** Default Play vitals history window shown by the command. */
 export const DEFAULT_VITALS_DAYS = 28;
@@ -31,22 +32,6 @@ function makePlayReportsCommandFailure(fields: {
   cause?: unknown;
 }): PlayReportsCommandFailure {
   return { _tag: 'PlayReportsCommandFailure', ...fields };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
 }
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
@@ -81,16 +66,18 @@ function readLooseOptionalString(
 }
 
 function decodePlayReportsCommandInput(rawCommandInput: unknown): PlayReportsCommandInput {
-  if (isRecord(rawCommandInput) == false) {
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
+
+  if (rawCommandInputObject == null) {
     throw new Error('Play reports command input must be an object.');
   }
 
   const commandInput: PlayReportsCommandInput = {
-    json: readRequiredBoolean(rawCommandInput, 'json'),
+    json: readRequiredBoolean(rawCommandInputObject, 'json'),
   };
-  const appName = readLooseOptionalString(rawCommandInput, 'app');
-  const metricName = readLooseOptionalString(rawCommandInput, 'metric');
-  const daysText = readLooseOptionalString(rawCommandInput, 'days');
+  const appName = readLooseOptionalString(rawCommandInputObject, 'app');
+  const metricName = readLooseOptionalString(rawCommandInputObject, 'metric');
+  const daysText = readLooseOptionalString(rawCommandInputObject, 'days');
 
   if (appName != null) {
     commandInput.app = appName;

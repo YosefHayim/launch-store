@@ -13,6 +13,7 @@ import {
 import { mergeChildEnv } from '../terminal/locale.ts';
 import { isCommandExit, makeCommandExit } from '../terminal/command-exit.ts';
 import { readFile, writeFile } from 'node:fs/promises';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const PACKAGE_NAME = 'launch-store';
 const checkIntervalMs = 24 * 60 * 60 * 1000;
@@ -212,21 +213,11 @@ export async function maybeAutoUpgrade(deps: UpdateCheckDeps): Promise<void> {
   }
 }
 
-function isPlainRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
-
 function readUpdateState(candidate: unknown): UpdateState | null {
-  if (isPlainRecord(candidate)) {
-    return updateStateFromRecord(candidate);
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject != null) {
+    return updateStateFromRecord(candidateObject);
   }
 
   return null;
@@ -307,8 +298,10 @@ async function fetchLatestVersion(packageName: string): Promise<string | null> {
 
     const registryMetadata: unknown = await registryReply.json();
 
-    if (isPlainRecord(registryMetadata)) {
-      return registryVersion(registryMetadata);
+    const registryMetadataObject = readPlainObject(registryMetadata);
+
+    if (registryMetadataObject != null) {
+      return registryVersion(registryMetadataObject);
     }
 
     return null;
@@ -435,8 +428,10 @@ function pnpmGlobalPath(listingText: string): string | null {
 
   const globalProject = parsedListing[0];
 
-  if (isPlainRecord(globalProject)) {
-    return launchStorePath(globalProject);
+  const globalProjectObject = readPlainObject(globalProject);
+
+  if (globalProjectObject != null) {
+    return launchStorePath(globalProjectObject);
   }
 
   return null;
@@ -445,17 +440,21 @@ function pnpmGlobalPath(listingText: string): string | null {
 function launchStorePath(globalProject: Record<string, unknown>): string | null {
   const dependencies = globalProject['dependencies'];
 
-  if (isPlainRecord(dependencies) == false) {
+  const dependenciesObject = readPlainObject(dependencies);
+
+  if (dependenciesObject == null) {
     return null;
   }
 
-  const launchPackage = dependencies[PACKAGE_NAME];
+  const launchPackage = dependenciesObject[PACKAGE_NAME];
 
-  if (isPlainRecord(launchPackage) == false) {
+  const launchPackageObject = readPlainObject(launchPackage);
+
+  if (launchPackageObject == null) {
     return null;
   }
 
-  const packagePath = launchPackage['path'];
+  const packagePath = launchPackageObject['path'];
 
   if (typeof packagePath == 'string') {
     return packagePath;

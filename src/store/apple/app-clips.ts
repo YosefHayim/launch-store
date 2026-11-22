@@ -14,6 +14,7 @@ import type {
   AppClipsConfig,
 } from '../../types/store-surface.ts';
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 const APP_CLIPS_DOCUMENT_NAME = 'appclips.config.json';
 
@@ -59,22 +60,6 @@ type AppClipsReconcileInput = {
 
 type EnsuredExperience = { id: string } | { planned: true } | { failed: true };
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (Array.isArray(candidate)) {
-    return false;
-  }
-
-  return true;
-}
-
 function isListedText<Literal extends string>(
   candidate: unknown,
   allowed: readonly Literal[],
@@ -95,13 +80,13 @@ function isListedText<Literal extends string>(
 }
 
 function readSubtitle(entry: unknown): string {
-  const isSubtitleRecord = isRecord(entry);
+  const entryObject = readPlainObject(entry);
 
-  if (isSubtitleRecord == false) {
+  if (entryObject == null) {
     throw new Error(`${APP_CLIPS_DOCUMENT_NAME}: subtitle must be a string.`);
   }
 
-  const subtitle = entry['subtitle'];
+  const subtitle = entryObject['subtitle'];
   const isText = typeof subtitle == 'string';
 
   if (isText == false) {
@@ -121,25 +106,25 @@ function readLocalizations(
   }
 
   const localizationsField = record['localizations'];
-  const isLocalizationRecord = isRecord(localizationsField);
+  const localizationsFieldObject = readPlainObject(localizationsField);
 
-  if (isLocalizationRecord == false) {
+  if (localizationsFieldObject == null) {
     throw new Error(`${APP_CLIPS_DOCUMENT_NAME}: localizations must be an object.`);
   }
 
   const localizations: Record<string, AppClipLocalizationConfig> = {};
 
-  for (const locale of Object.keys(localizationsField)) {
-    localizations[locale] = { subtitle: readSubtitle(localizationsField[locale]) };
+  for (const locale of Object.keys(localizationsFieldObject)) {
+    localizations[locale] = { subtitle: readSubtitle(localizationsFieldObject[locale]) };
   }
 
   return localizations;
 }
 
 function readClip(entry: unknown): AppClipConfig {
-  const isClipRecord = isRecord(entry);
+  const entryObject = readPlainObject(entry);
 
-  if (isClipRecord == false) {
+  if (entryObject == null) {
     throw new Error(`${APP_CLIPS_DOCUMENT_NAME}: clip entries must be JSON objects.`);
   }
 
@@ -147,10 +132,10 @@ function readClip(entry: unknown): AppClipConfig {
     action?: AppClipActionValue;
     localizations?: Record<string, AppClipLocalizationConfig>;
   } = {};
-  const hasAction = Object.hasOwn(entry, 'action');
+  const hasAction = Object.hasOwn(entryObject, 'action');
 
   if (hasAction) {
-    const action = entry['action'];
+    const action = entryObject['action'];
     const isAction = isListedText(action, APP_CLIP_ACTIONS);
 
     if (isAction == false) {
@@ -160,7 +145,7 @@ function readClip(entry: unknown): AppClipConfig {
     clip.action = action;
   }
 
-  const localizations = readLocalizations(entry);
+  const localizations = readLocalizations(entryObject);
   const hasLocalizations = localizations != null;
 
   if (hasLocalizations) {
@@ -187,15 +172,15 @@ function readClip(entry: unknown): AppClipConfig {
 function decodeAppClipsDocument(rawDocument: unknown): AppClipsConfig {
   const documentRecord = rawDocument as Record<string, unknown>;
   const clipsField = documentRecord['clips'];
-  const isClipRecord = isRecord(clipsField);
+  const clipsFieldObject = readPlainObject(clipsField);
 
-  if (isClipRecord == false) {
+  if (clipsFieldObject == null) {
     throw new Error(
       `${APP_CLIPS_DOCUMENT_NAME} must declare at least one App Clip under "clips" (keyed by clip bundle id).`,
     );
   }
 
-  const clipBundleIds = Object.keys(clipsField);
+  const clipBundleIds = Object.keys(clipsFieldObject);
   const hasClips = clipBundleIds.length > 0;
 
   if (hasClips == false) {
@@ -207,7 +192,7 @@ function decodeAppClipsDocument(rawDocument: unknown): AppClipsConfig {
   const clips: Record<string, AppClipConfig> = {};
 
   for (const clipBundleId of clipBundleIds) {
-    clips[clipBundleId] = readClip(clipsField[clipBundleId]);
+    clips[clipBundleId] = readClip(clipsFieldObject[clipBundleId]);
   }
 
   return { clips };

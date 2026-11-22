@@ -32,7 +32,7 @@ const resolveLink = (inner: string): string => {
   return finalSymbol;
 };
 /** Strip `{@link}` tags and collapse all whitespace so a JSDoc block renders as one clean table-cell line. */
-export const cleanDescription = (description: string | undefined): string => {
+const cleanDescription = (description: string | undefined): string => {
   if (!description) return '';
   return description
     .replace(/\{@link\s+([^}]+)\}/g, (_match, inner: string) => resolveLink(inner))

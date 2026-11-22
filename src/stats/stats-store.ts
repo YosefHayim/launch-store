@@ -6,6 +6,7 @@ import {
 import { locateAppStatsDirectory } from '../services/platform/paths.ts';
 import type { DailyStat, StatsFeed, StatsMetric } from '../types/stats.ts';
 import { groupStatsByMonth, mergeStats } from './stats-logic.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const statsFeeds: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
 const statsMetrics: readonly StatsMetric[] = [
@@ -36,14 +37,6 @@ interface StatsMonthFile {
   readonly stats: readonly DailyStat[];
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
-}
-
 function isStatsFeed(feed: unknown): feed is StatsFeed {
   function isSameFeed(knownFeed: StatsFeed): boolean {
     return knownFeed == feed;
@@ -61,16 +54,18 @@ function isStatsMetric(metric: unknown): metric is StatsMetric {
 }
 
 function decodeDailyStat(statDocument: unknown): DailyStat {
-  if (isRecord(statDocument) == false) {
+  const statDocumentObject = readPlainObject(statDocument);
+
+  if (statDocumentObject == null) {
     throw new Error('A daily stat is not an object.');
   }
 
-  const feed = statDocument['feed'];
-  const metric = statDocument['metric'];
-  const amount = statDocument['value'];
-  const currency = statDocument['currency'];
+  const feed = statDocumentObject['feed'];
+  const metric = statDocumentObject['metric'];
+  const amount = statDocumentObject['value'];
+  const currency = statDocumentObject['currency'];
 
-  if (typeof statDocument['date'] != 'string') {
+  if (typeof statDocumentObject['date'] != 'string') {
     throw new Error('A daily stat date is not a string.');
   }
 
@@ -99,7 +94,7 @@ function decodeDailyStat(statDocument: unknown): DailyStat {
   }
 
   return {
-    date: statDocument['date'],
+    date: statDocumentObject['date'],
     feed,
     metric,
     value: amount,
@@ -110,33 +105,35 @@ function decodeDailyStat(statDocument: unknown): DailyStat {
 function decodeStatsMonthFile(documentText: string): StatsMonthFile {
   const parsed: unknown = JSON.parse(documentText);
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     throw new Error('A stats month file is not an object.');
   }
 
-  const isVersionOne = parsed['version'] == 1;
+  const isVersionOne = parsedObject['version'] == 1;
 
   if (isVersionOne == false) {
     throw new Error('A stats month file version is not 1.');
   }
 
-  if (typeof parsed['appKey'] != 'string') {
+  if (typeof parsedObject['appKey'] != 'string') {
     throw new Error('A stats month file app key is not a string.');
   }
 
-  if (typeof parsed['month'] != 'string') {
+  if (typeof parsedObject['month'] != 'string') {
     throw new Error('A stats month file month is not a string.');
   }
 
-  if (Array.isArray(parsed['stats']) == false) {
+  if (Array.isArray(parsedObject['stats']) == false) {
     throw new Error('A stats month file has no stats list.');
   }
 
   return {
     version: 1,
-    appKey: parsed['appKey'],
-    month: parsed['month'],
-    stats: parsed['stats'].map(decodeDailyStat),
+    appKey: parsedObject['appKey'],
+    month: parsedObject['month'],
+    stats: parsedObject['stats'].map(decodeDailyStat),
   };
 }
 

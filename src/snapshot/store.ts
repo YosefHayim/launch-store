@@ -10,18 +10,7 @@ import type {
   Snapshot,
   SnapshotEntity,
 } from '../types/snapshot.ts';
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (typeof candidate != 'object') {
-    return false;
-  }
-
-  if (candidate == null) {
-    return false;
-  }
-
-  return Array.isArray(candidate) == false;
-}
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 function isJsonValue(candidate: unknown): candidate is JsonValue {
   if (candidate == null) {
@@ -50,11 +39,13 @@ function isJsonValue(candidate: unknown): candidate is JsonValue {
     return true;
   }
 
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  for (const member of Object.values(candidate)) {
+  for (const member of Object.values(candidateObject)) {
     if (isJsonValue(member) == false) {
       return false;
     }
@@ -64,39 +55,43 @@ function isJsonValue(candidate: unknown): candidate is JsonValue {
 }
 
 function isSnapshotEntity(candidate: unknown): candidate is SnapshotEntity {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  if (typeof candidate['key'] != 'string') {
+  if (typeof candidateObject['key'] != 'string') {
     return false;
   }
 
-  if (typeof candidate['summary'] != 'string') {
+  if (typeof candidateObject['summary'] != 'string') {
     return false;
   }
 
-  return isJsonValue(candidate['data']);
+  return isJsonValue(candidateObject['data']);
 }
 
 function isAppEntities(candidate: unknown): candidate is AppEntities {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  if (typeof candidate['app'] != 'string') {
+  if (typeof candidateObject['app'] != 'string') {
     return false;
   }
 
-  if (typeof candidate['identifier'] != 'string') {
+  if (typeof candidateObject['identifier'] != 'string') {
     return false;
   }
 
-  if (Array.isArray(candidate['entities']) == false) {
+  if (Array.isArray(candidateObject['entities']) == false) {
     return false;
   }
 
-  for (const entity of candidate['entities']) {
+  for (const entity of candidateObject['entities']) {
     if (isSnapshotEntity(entity) == false) {
       return false;
     }
@@ -141,19 +136,21 @@ function isCapturedOutcome(candidate: Record<string, unknown>): boolean {
   }
 
   for (const skippedApp of candidate['skippedApps']) {
-    if (isRecord(skippedApp) == false) {
+    const skippedAppObject = readPlainObject(skippedApp);
+
+    if (skippedAppObject == null) {
       return false;
     }
 
-    if (typeof skippedApp['app'] != 'string') {
+    if (typeof skippedAppObject['app'] != 'string') {
       return false;
     }
 
-    if (typeof skippedApp['identifier'] != 'string') {
+    if (typeof skippedAppObject['identifier'] != 'string') {
       return false;
     }
 
-    if (typeof skippedApp['reason'] != 'string') {
+    if (typeof skippedAppObject['reason'] != 'string') {
       return false;
     }
   }
@@ -162,24 +159,26 @@ function isCapturedOutcome(candidate: Record<string, unknown>): boolean {
 }
 
 function isCaptureOutcome(candidate: unknown): candidate is CaptureOutcome {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  if (candidate['state'] == 'omitted') {
+  if (candidateObject['state'] == 'omitted') {
     return true;
   }
 
-  if (candidate['state'] == 'skipped') {
-    return isSkippedOutcome(candidate);
+  if (candidateObject['state'] == 'skipped') {
+    return isSkippedOutcome(candidateObject);
   }
 
-  if (candidate['state'] == 'errored') {
-    return typeof candidate['error'] == 'string';
+  if (candidateObject['state'] == 'errored') {
+    return typeof candidateObject['error'] == 'string';
   }
 
-  if (candidate['state'] == 'captured') {
-    return isCapturedOutcome(candidate);
+  if (candidateObject['state'] == 'captured') {
+    return isCapturedOutcome(candidateObject);
   }
 
   return false;
@@ -194,47 +193,51 @@ function isSnapshotStore(store: unknown): boolean {
 }
 
 function isCaptureReport(candidate: unknown): candidate is CaptureReport {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  if (typeof candidate['id'] != 'string') {
+  if (typeof candidateObject['id'] != 'string') {
     return false;
   }
 
-  if (typeof candidate['title'] != 'string') {
+  if (typeof candidateObject['title'] != 'string') {
     return false;
   }
 
-  if (isSnapshotStore(candidate['store']) == false) {
+  if (isSnapshotStore(candidateObject['store']) == false) {
     return false;
   }
 
-  return isCaptureOutcome(candidate['outcome']);
+  return isCaptureOutcome(candidateObject['outcome']);
 }
 
 function isSnapshot(candidate: unknown): candidate is Snapshot {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return false;
   }
 
-  if (typeof candidate['version'] != 'number') {
+  if (typeof candidateObject['version'] != 'number') {
     return false;
   }
 
-  if (typeof candidate['name'] != 'string') {
+  if (typeof candidateObject['name'] != 'string') {
     return false;
   }
 
-  if (typeof candidate['capturedAt'] != 'string') {
+  if (typeof candidateObject['capturedAt'] != 'string') {
     return false;
   }
 
-  if (Array.isArray(candidate['reports']) == false) {
+  if (Array.isArray(candidateObject['reports']) == false) {
     return false;
   }
 
-  for (const report of candidate['reports']) {
+  for (const report of candidateObject['reports']) {
     if (isCaptureReport(report) == false) {
       return false;
     }

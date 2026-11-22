@@ -5,6 +5,7 @@ import {
   resolveCloudStateFilePath,
   resolveLaunchHomeDirectory,
 } from '../services/platform/paths.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type CloudState = {
   host?: HostHandle;
@@ -13,14 +14,6 @@ type CloudState = {
 
 function emptyCloudState(): CloudState {
   return {};
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
 }
 
 function optionalString(
@@ -51,12 +44,14 @@ function isNull(field: string | null | undefined): boolean {
 }
 
 function readSshTarget(candidate: unknown): SshTarget | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const host = optionalString(candidate, 'host');
-  const user = optionalString(candidate, 'user');
+  const host = optionalString(candidateObject, 'host');
+  const user = optionalString(candidateObject, 'user');
   const isHostMissing = typeof host != 'string';
 
   if (isHostMissing) {
@@ -69,14 +64,14 @@ function readSshTarget(candidate: unknown): SshTarget | null {
     return null;
   }
 
-  const port = candidate['port'];
+  const port = candidateObject['port'];
   const isPort = typeof port == 'number';
 
   if (isPort == false) {
     return null;
   }
 
-  const identityFile = optionalString(candidate, 'identityFile');
+  const identityFile = optionalString(candidateObject, 'identityFile');
 
   const identityFileIsInvalid = isNull(identityFile);
 
@@ -94,12 +89,14 @@ function readSshTarget(candidate: unknown): SshTarget | null {
 }
 
 function readHostHandle(candidate: unknown): HostHandle | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const provider = optionalString(candidate, 'provider');
-  const allocatedAt = optionalString(candidate, 'allocatedAt');
+  const provider = optionalString(candidateObject, 'provider');
+  const allocatedAt = optionalString(candidateObject, 'allocatedAt');
   const isProviderMissing = typeof provider != 'string';
 
   if (isProviderMissing) {
@@ -112,16 +109,16 @@ function readHostHandle(candidate: unknown): HostHandle | null {
     return null;
   }
 
-  const ssh = readSshTarget(candidate['ssh']);
+  const ssh = readSshTarget(candidateObject['ssh']);
 
   if (ssh == null) {
     return null;
   }
 
-  const instanceId = optionalString(candidate, 'instanceId');
-  const hostId = optionalString(candidate, 'hostId');
-  const region = optionalString(candidate, 'region');
-  const instanceType = optionalString(candidate, 'instanceType');
+  const instanceId = optionalString(candidateObject, 'instanceId');
+  const hostId = optionalString(candidateObject, 'hostId');
+  const region = optionalString(candidateObject, 'region');
+  const instanceType = optionalString(candidateObject, 'instanceType');
   const optionalFields = [instanceId, hostId, region, instanceType];
 
   function isInvalidOptional(field: string | null | undefined): boolean {
@@ -156,11 +153,13 @@ function readHostHandle(candidate: unknown): HostHandle | null {
 }
 
 function readCloudDocument(candidate: unknown): CloudState | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const amiId = optionalString(candidate, 'amiId');
+  const amiId = optionalString(candidateObject, 'amiId');
 
   const amiIdIsInvalid = isNull(amiId);
 
@@ -168,11 +167,11 @@ function readCloudDocument(candidate: unknown): CloudState | null {
     return null;
   }
 
-  const hasHost = 'host' in candidate;
+  const hasHost = 'host' in candidateObject;
   let host: HostHandle | undefined;
 
   if (hasHost) {
-    const decodedHost = readHostHandle(candidate['host']);
+    const decodedHost = readHostHandle(candidateObject['host']);
 
     if (decodedHost == null) {
       return null;

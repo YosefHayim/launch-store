@@ -13,6 +13,7 @@ import type { PlanContext, PlanStore, SurfacePlan, SurfacePlanner } from '../typ
 import type { PlannedAction } from '../types/reconcile.ts';
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from './orchestrator.ts';
 import { listSurfacePlanners, registerBuiltinPlanners } from './registry.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export type PlanCommandInput = Readonly<{
   operation: 'plan' | 'drift';
@@ -60,14 +61,6 @@ export function isPlanCommandFailure(cause: unknown): cause is PlanCommandFailur
   return cause._tag == 'PlanCommandFailure';
 }
 
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
-}
-
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
   const isBoolean = typeof field == 'boolean';
@@ -113,20 +106,20 @@ function readOptionalString(record: Record<string, unknown>, fieldName: string):
 }
 
 export function decodePlanCommandInput(rawCommandInput: unknown): PlanCommandInput {
-  const isObject = isRecord(rawCommandInput);
+  const rawCommandInputObject = readPlainObject(rawCommandInput);
 
-  if (isObject == false) {
+  if (rawCommandInputObject == null) {
     throw commandFailure('decode plan command', 'Plan command input must be an object.');
   }
 
-  const operation = readPlanOperation(rawCommandInput['operation']);
+  const operation = readPlanOperation(rawCommandInputObject['operation']);
   let commandInput: PlanCommandInput = {
     operation,
-    check: readRequiredBoolean(rawCommandInput, 'check'),
-    json: readRequiredBoolean(rawCommandInput, 'json'),
+    check: readRequiredBoolean(rawCommandInputObject, 'check'),
+    json: readRequiredBoolean(rawCommandInputObject, 'json'),
   };
-  const surface = readOptionalString(rawCommandInput, 'surface');
-  const app = readOptionalString(rawCommandInput, 'app');
+  const surface = readOptionalString(rawCommandInputObject, 'surface');
+  const app = readOptionalString(rawCommandInputObject, 'app');
   const hasSurface = surface != null;
 
   if (hasSurface) {

@@ -23,6 +23,7 @@ import type { AccountRecord, ServiceAccount } from '../types/credentials.ts';
 import type { PortfolioApp } from '../types/portfolio.ts';
 import type { StatsCredentialsFailure } from '../types/stats.ts';
 import type { PlayVitalsMetric, VitalsTimeline } from '../types/vitals.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export interface AppStoreStatsClient {
   getSalesReport(query: SalesReportQuery): Promise<Buffer>;
@@ -101,14 +102,6 @@ function isStatsCredentialsFailure(cause: unknown): cause is StatsCredentialsFai
   }
 
   return cause._tag == 'StatsCredentialsFailure';
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
 }
 
 function decodeStoredServiceAccount(storedKey: string): string {
@@ -193,33 +186,35 @@ async function vendorNumberForAccount(accountKeyId: string): Promise<string | nu
 }
 
 function readConfiguredApp(parsed: unknown): ConfiguredApp | null {
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     return null;
   }
 
-  let expoConfig = parsed['expo'];
+  let expoConfig = readPlainObject(parsedObject['expo']);
 
-  if (isRecord(expoConfig) == false) {
-    expoConfig = parsed;
+  if (expoConfig == null) {
+    expoConfig = parsedObject;
   }
 
-  if (isRecord(expoConfig) == false) {
-    return null;
-  }
-
-  const ios = expoConfig['ios'];
-  const android = expoConfig['android'];
   const configuredApp: { bundleId?: string; packageName?: string } = {};
+  const ios = readPlainObject(expoConfig['ios']);
+  const android = readPlainObject(expoConfig['android']);
 
-  if (isRecord(ios)) {
-    if (typeof ios['bundleIdentifier'] == 'string') {
-      configuredApp.bundleId = ios['bundleIdentifier'];
+  if (ios != null) {
+    const bundleIdentifier = ios['bundleIdentifier'];
+
+    if (typeof bundleIdentifier == 'string') {
+      configuredApp.bundleId = bundleIdentifier;
     }
   }
 
-  if (isRecord(android)) {
-    if (typeof android['package'] == 'string') {
-      configuredApp.packageName = android['package'];
+  if (android != null) {
+    const packageName = android['package'];
+
+    if (typeof packageName == 'string') {
+      configuredApp.packageName = packageName;
     }
   }
 
@@ -247,15 +242,17 @@ async function readAppsFromWorkingDirectory(
 }
 
 function readConfiguredApps(launchConfiguration: unknown): readonly ConfiguredApp[] | null {
-  if (isRecord(launchConfiguration) == false) {
+  const launchConfigurationObject = readPlainObject(launchConfiguration);
+
+  if (launchConfigurationObject == null) {
     return null;
   }
 
-  if (Array.isArray(launchConfiguration['apps']) == false) {
+  if (Array.isArray(launchConfigurationObject['apps']) == false) {
     return null;
   }
 
-  return launchConfiguration['apps'];
+  return launchConfigurationObject['apps'];
 }
 
 async function loadConfiguredApps(workingDirectory: string): Promise<readonly ConfiguredApp[]> {
@@ -375,11 +372,13 @@ async function playReportingClient(packageName: string | null): Promise<PlayVita
 function decodePlayReportsBucket(documentText: string): string | null {
   const parsed: unknown = JSON.parse(documentText);
 
-  if (isRecord(parsed) == false) {
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject == null) {
     throw new Error('Portfolio file is not an object.');
   }
 
-  const bucket = parsed['playReportsBucket'];
+  const bucket = parsedObject['playReportsBucket'];
 
   if (bucket == null) {
     return null;

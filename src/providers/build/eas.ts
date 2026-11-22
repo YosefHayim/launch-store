@@ -9,6 +9,7 @@ import {
   checkCommandExists,
   executeCommand,
 } from '../../services/platform/exec.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 type EasInvocation = {
   command: string;
@@ -25,14 +26,6 @@ type EasBuildEntry = {
   appBuildVersion?: string | number;
   buildNumber?: string | number;
 };
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  if (candidate == null) {
-    return false;
-  }
-
-  return typeof candidate == 'object';
-}
 
 function readOptionalText(candidate: unknown): string | null {
   if (typeof candidate != 'string') {
@@ -51,15 +44,17 @@ function readOptionalTextOrNumber(candidate: unknown): string | number | null {
 }
 
 function readEasArtifacts(candidate: unknown): EasArtifacts | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
   const artifacts: EasArtifacts = {};
-  const hasArchiveUrl = 'applicationArchiveUrl' in candidate;
+  const hasArchiveUrl = 'applicationArchiveUrl' in candidateObject;
 
   if (hasArchiveUrl) {
-    const archiveUrl = readOptionalText(candidate['applicationArchiveUrl']);
+    const archiveUrl = readOptionalText(candidateObject['applicationArchiveUrl']);
 
     if (archiveUrl == null) {
       return null;
@@ -68,10 +63,10 @@ function readEasArtifacts(candidate: unknown): EasArtifacts | null {
     artifacts.applicationArchiveUrl = archiveUrl;
   }
 
-  const hasBuildUrl = 'buildUrl' in candidate;
+  const hasBuildUrl = 'buildUrl' in candidateObject;
 
   if (hasBuildUrl) {
-    const buildUrl = readOptionalText(candidate['buildUrl']);
+    const buildUrl = readOptionalText(candidateObject['buildUrl']);
 
     if (buildUrl == null) {
       return null;
@@ -87,29 +82,33 @@ function readReportedNumber(
   candidate: unknown,
   fieldName: 'appBuildVersion' | 'buildNumber',
 ): string | number | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
-  const fieldIsPresent = fieldName in candidate;
+  const fieldIsPresent = fieldName in candidateObject;
 
   if (fieldIsPresent == false) {
     return null;
   }
 
-  return readOptionalTextOrNumber(candidate[fieldName]);
+  return readOptionalTextOrNumber(candidateObject[fieldName]);
 }
 
 function readEasBuildEntry(candidate: unknown): EasBuildEntry | null {
-  if (isRecord(candidate) == false) {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject == null) {
     return null;
   }
 
   const buildRecord: EasBuildEntry = {};
-  const hasArtifacts = 'artifacts' in candidate;
+  const hasArtifacts = 'artifacts' in candidateObject;
 
   if (hasArtifacts) {
-    const artifacts = readEasArtifacts(candidate['artifacts']);
+    const artifacts = readEasArtifacts(candidateObject['artifacts']);
 
     if (artifacts == null) {
       return null;
@@ -118,10 +117,10 @@ function readEasBuildEntry(candidate: unknown): EasBuildEntry | null {
     buildRecord.artifacts = artifacts;
   }
 
-  const hasAppBuildVersion = 'appBuildVersion' in candidate;
+  const hasAppBuildVersion = 'appBuildVersion' in candidateObject;
 
   if (hasAppBuildVersion) {
-    const appBuildVersion = readReportedNumber(candidate, 'appBuildVersion');
+    const appBuildVersion = readReportedNumber(candidateObject, 'appBuildVersion');
 
     if (appBuildVersion == null) {
       return null;
@@ -130,10 +129,10 @@ function readEasBuildEntry(candidate: unknown): EasBuildEntry | null {
     buildRecord.appBuildVersion = appBuildVersion;
   }
 
-  const hasBuildNumber = 'buildNumber' in candidate;
+  const hasBuildNumber = 'buildNumber' in candidateObject;
 
   if (hasBuildNumber) {
-    const buildNumber = readReportedNumber(candidate, 'buildNumber');
+    const buildNumber = readReportedNumber(candidateObject, 'buildNumber');
 
     if (buildNumber == null) {
       return null;
