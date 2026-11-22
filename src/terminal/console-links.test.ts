@@ -6,7 +6,10 @@ import {
   resolveOpenPlatform,
   selectOpenApp,
 } from './console-links.ts';
-import { buildPlayPaymentsProfileUrl, buildPlayUsersAndPermissionsUrl } from './play-console-urls.ts';
+import {
+  buildPlayPaymentsProfileUrl,
+  buildPlayUsersAndPermissionsUrl,
+} from './play-console-urls.ts';
 
 const APP_ID = '1490000000';
 

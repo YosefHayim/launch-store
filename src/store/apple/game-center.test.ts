@@ -6,7 +6,11 @@ import type {
   GameCenterLeaderboardResource,
 } from '../../types/apple-catalog.ts';
 import { summarize } from '../shared/reconcile.ts';
-import { type AscGameCenterApi, parseGameCenterConfig, reconcileGameCenter } from './game-center.ts';
+import {
+  type AscGameCenterApi,
+  parseGameCenterConfig,
+  reconcileGameCenter,
+} from './game-center.ts';
 import type { GameCenterConfig } from '../../types/store-surface.ts';
 import { expectArrayElement, expectDefined } from '../../testkit/assertions.testkit.ts';
 

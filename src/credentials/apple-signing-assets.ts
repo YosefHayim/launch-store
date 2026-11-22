@@ -16,7 +16,11 @@ import {
 import type { Platform } from '../types/app.ts';
 import type { ProfileResource } from '../types/apple-catalog.ts';
 import type { AscKey, SigningAssets } from '../types/credentials.ts';
-import { decodeCredentialsIndex, makeAppleSigningFailure, readIndex } from './apple-signing-index.ts';
+import {
+  decodeCredentialsIndex,
+  makeAppleSigningFailure,
+  readIndex,
+} from './apple-signing-index.ts';
 import {
   DISTRIBUTION_CERT_NAME,
   ensureDistributionCertificate,

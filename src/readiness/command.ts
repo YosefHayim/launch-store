@@ -2,7 +2,10 @@ import { loadConfig } from '../config/config.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
-import { createAscClientResolver, createPlayClientResolver } from '../store/shared/store-clients.ts';
+import {
+  createAscClientResolver,
+  createPlayClientResolver,
+} from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import type {

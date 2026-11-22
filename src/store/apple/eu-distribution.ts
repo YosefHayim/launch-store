@@ -2,7 +2,10 @@ import type { AlternativeDistributionDomainResource } from '../../types/apple-ca
 import { plan, type ReconcileContext } from '../shared/reconcile.ts';
 import { errorMessage } from '../../services/platform/error-message.ts';
 import type { PlannedAction } from '../../types/reconcile.ts';
-import type { EuDistributionConfig, EuDistributionDomainConfig } from '../../types/store-surface.ts';
+import type {
+  EuDistributionConfig,
+  EuDistributionDomainConfig,
+} from '../../types/store-surface.ts';
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
 
 const EU_DISTRIBUTION_DOCUMENT_NAME = 'eu-distribution.config.json';

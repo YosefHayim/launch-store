@@ -14,7 +14,10 @@ import { diffSnapshots } from '../snapshot/diff.ts';
 import { captureSnapshot, type CaptureResult } from '../snapshot/orchestrator.ts';
 import { listSnapshotSources, registerBuiltinSources } from '../snapshot/registry.ts';
 import { listSnapshots, loadSnapshot, saveSnapshot } from '../snapshot/store.ts';
-import { createAscClientResolver, createPlayClientResolver } from '../store/shared/store-clients.ts';
+import {
+  createAscClientResolver,
+  createPlayClientResolver,
+} from '../store/shared/store-clients.ts';
 import { runSyncBatch } from '../store/shared/sync-run.ts';
 import { buildJobs, selectApps } from '../store/shared/sync-jobs.ts';
 import type { McpTool, McpToolResult } from '../types/mcp.ts';

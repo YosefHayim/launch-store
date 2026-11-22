@@ -8,7 +8,10 @@ import { captureCommandOutput, checkCommandExists } from '../services/platform/e
 import { detectHostOperatingSystem } from '../services/platform/os.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { getCredentialsProvider } from '../services/provider-support/registry.ts';
-import { createAscClientResolver, createPlayClientResolver } from '../store/shared/store-clients.ts';
+import {
+  createAscClientResolver,
+  createPlayClientResolver,
+} from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { DoctorAscApi, DoctorContext, DoctorPlatform } from '../types/doctor.ts';

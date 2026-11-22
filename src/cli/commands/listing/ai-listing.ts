@@ -1,5 +1,8 @@
 import type { Command } from '../../command.ts';
-import { aiListingCommandProgram, type AiListingInput } from '../../../listing/ai-listing-command.ts';
+import {
+  aiListingCommandProgram,
+  type AiListingInput,
+} from '../../../listing/ai-listing-command.ts';
 import { aiGroup } from './ai.ts';
 import { runCliProgram } from '../../run-cli-program.ts';
 
