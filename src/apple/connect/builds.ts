@@ -5,7 +5,7 @@ import type {
   EncryptionDeclarationResource,
 } from '@/types/appleCatalog.js';
 import type { ResourceList, BuildPage } from './shared.js';
-import type { components } from '@/apple/generated/schema.js';
+import type { components } from '@/generated/apple/schema.js';
 import { highestAppleMarketingVersion } from '@/apple/transportHelpers.js';
 import {
   readTransportSize,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePlayReviewRating } from '@/store/google/playReviewsCommand.js';
+import { parsePlayReviewRating } from './playReviewsCommand.js';
 
 function readRatingFailure(ratingText: string): unknown {
   try {

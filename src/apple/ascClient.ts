@@ -85,7 +85,7 @@ import type {
   WinBackOfferResource,
 } from '@/types/appleCatalog.js';
 import type { AscKey } from '@/types/credentials.js';
-import type { components } from '@/apple/generated/schema.js';
+import type { components } from '@/generated/apple/schema.js';
 import { platform as detectOperatingSystem } from 'node:os';
 import { retryAppleTransportRequest } from '@/apple/transportHelpers.js';
 import type { AscHost } from './connect/host.js';
@@ -137,8 +137,6 @@ import type {
   UploadOperation,
   AssetReservation,
 } from './connect/shared.js';
-
-export { clockSkewHint, describeErrors, parseErrorCodes } from './connect/shared.js';
 
 export class AppStoreConnectClient implements AscHost {
   private readonly apps: ConnectApps;

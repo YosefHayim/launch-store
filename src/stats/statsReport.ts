@@ -1,6 +1,4 @@
 import { filterPortfolioApps, findAppsByName } from '../portfolio/portfolioLogic.js';
-import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
-import type { InvalidAppKeyFailure } from '../services/platform/paths.js';
 import type { PortfolioApp } from '../types/portfolio.js';
 import type { AppCoverage, DailyStat, DateRange, StatsFreshness } from '../types/stats.js';
 import type { AppStatsReport, StatsReport, StatsReportRequest } from '../types/statsReport.js';
@@ -26,11 +24,6 @@ type StatsReportAppNotFoundFailure = Readonly<{
 function makeStatsReportAppNotFoundFailure(message: string): StatsReportAppNotFoundFailure {
   return { _tag: 'StatsReportAppNotFoundFailure', message };
 }
-
-export type StatsReportFailure =
-  | InvalidAppKeyFailure
-  | DocumentFileFailure
-  | StatsReportAppNotFoundFailure;
 
 async function loadRangeStats(appKey: string, range: DateRange): Promise<DailyStat[]> {
   const months = listMonthsInRange(range);

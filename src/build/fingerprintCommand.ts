@@ -11,7 +11,7 @@ import {
   resolveClean,
 } from './buildFingerprint.js';
 
-export type FingerprintCommandInput = Readonly<{
+type FingerprintCommandInput = Readonly<{
   app?: string;
   json: boolean;
 }>;

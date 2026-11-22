@@ -13,7 +13,7 @@ import { writeArtifacts } from './write.js';
 
 const REPORT_FILE = 'migration-report.md';
 
-export type MigrateCommandInput = {
+type MigrateCommandInput = {
   source: 'eas' | 'fastlane';
   force: boolean;
   dryRun: boolean;
@@ -88,7 +88,7 @@ function readMigrationSource(record: Record<string, unknown>): MigrateCommandInp
   throw new Error('source must be eas or fastlane');
 }
 
-export function decodeMigrateCommandInput(rawCommandInput: unknown): MigrateCommandInput {
+function decodeMigrateCommandInput(rawCommandInput: unknown): MigrateCommandInput {
   if (isRecord(rawCommandInput) == false) {
     throw new Error('Migrate command input must be an object.');
   }

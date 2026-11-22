@@ -1,18 +1,18 @@
-import { loadConfig } from '../../config/config.js';
-import type { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import { createLogger } from '../../services/platform/logger.js';
-import { readLaunchDirectories } from '../../services/platform/paths.js';
-import { LaunchPrompt } from '../../services/platform/prompt.js';
-import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
-import { completeCommand } from '../../terminal/commandExit.js';
-import type { AppDescriptor } from '../../types/app.js';
-import type { AppProducts } from '../../types/catalog.js';
-import type { OfferCodeResource } from '../../types/appleCatalog.js';
-import type { PlannedAction, ReconcileReport } from '../../types/reconcile.js';
+import { loadConfig } from '@/config/config.js';
+import type { AppStoreConnectClient } from '@/apple/ascClient.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import { completeCommand } from '@/terminal/commandExit.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { AppProducts } from '@/types/catalog.js';
+import type { OfferCodeResource } from '@/types/appleCatalog.js';
+import type { PlannedAction, ReconcileReport } from '@/types/reconcile.js';
 import { loadActiveAppleStore } from './appleStoreCommand.js';
-import { appDeclaresOffers, reconcileOffers } from './offers.js';
-import { summarize } from '../shared/reconcile.js';
+import { appDeclaresOffers, reconcileOffers } from '@/store/apple/offers.js';
+import { summarize } from '@/store/shared/reconcile.js';
 
 export type OffersReconcileInput = {
   operation: 'reconcile';

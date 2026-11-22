@@ -1,8 +1,8 @@
-import type { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { loadActiveAscKey } from '../../credentials/accounts.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import { AppleStoreClientService } from '../../services/stores/appleStoreClient.js';
-import type { AscKey } from '../../types/credentials.js';
+import type { AppStoreConnectClient } from '@/apple/ascClient.js';
+import { loadActiveAscKey } from '@/credentials/accounts.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { AppleStoreClientService } from '@/services/stores/appleStoreClient.js';
+import type { AscKey } from '@/types/credentials.js';
 
 /** Loading the active Apple account or creating its transport client failed. */
 type ActiveAppleStoreFailure = Readonly<{
@@ -17,9 +17,6 @@ function makeActiveAppleStoreFailure(fields: {
 }): ActiveAppleStoreFailure {
   return { _tag: 'ActiveAppleStoreFailure', message: fields.message, cause: fields.cause };
 }
-
-/** Earlier Effect requirements. Callers no longer thread them through. */
-export type ActiveAppleStoreRequirements = Record<string, never>;
 
 /** Load the active keychain-backed Apple account and create its transport client. */
 export async function loadActiveAppleStore(): Promise<AppStoreConnectClient> {

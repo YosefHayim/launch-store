@@ -5,7 +5,7 @@ import {
   type OffersListInput,
   type OffersReconcileInput,
   offersCommandProgram,
-} from '@/store/apple/offersCommand.js';
+} from './offersCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type OffersOptions = Readonly<{

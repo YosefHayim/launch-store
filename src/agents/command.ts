@@ -86,7 +86,7 @@ type SplicedAgentArtifact = {
 };
 
 /** One generated artifact, either fully owned or spliced into a shared document. */
-export type AgentArtifact = OwnedAgentArtifact | SplicedAgentArtifact;
+type AgentArtifact = OwnedAgentArtifact | SplicedAgentArtifact;
 
 /** CLI options shared by the `agents init` and `agents check` programs. */
 export type AgentsCommandOptions = {

@@ -100,5 +100,3 @@ export const LocalCredentialsStore = {
     return describeStoredAndroidCredentials(packageName);
   },
 };
-
-export type LocalCredentialsStoreService = typeof LocalCredentialsStore;

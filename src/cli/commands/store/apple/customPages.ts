@@ -2,7 +2,7 @@ import type { Command } from '@/cli/command.js';
 import {
   type CustomProductPagesCommandInput,
   customProductPagesCommandProgram,
-} from '@/store/apple/customProductPagesCommand.js';
+} from './customProductPagesCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type CustomPagesOptions = Readonly<{

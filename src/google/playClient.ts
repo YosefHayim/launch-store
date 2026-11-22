@@ -6,12 +6,6 @@ import {
 import type { Readable } from 'node:stream';
 import type { ServiceAccount } from '../types/credentials.js';
 import type { MutableDeep } from '../types/mutable.js';
-
-/** Deep-clone a Launch boundary value into a mutable plain object for Google's generated client. */
-const mutableGoogleRequest = <GoogleRequest>(requestShape: unknown): GoogleRequest => {
-  const clonedRequest: GoogleRequest = JSON.parse(JSON.stringify(requestShape));
-  return clonedRequest;
-};
 import type {
   BasePlan,
   InAppProductResource,
@@ -34,6 +28,12 @@ import type {
   ConvertedRegionPrice,
   PlayMoneyUnits,
 } from '../types/playPricing.js';
+
+/** Deep-clone a Launch boundary value into a mutable plain object for Google's generated client. */
+const mutableGoogleRequest = <GoogleRequest>(requestShape: unknown): GoogleRequest => {
+  const clonedRequest: GoogleRequest = JSON.parse(JSON.stringify(requestShape));
+  return clonedRequest;
+};
 
 type PlayTrackInfo = Readonly<{ track: string; releases: readonly PlayRelease[] }>;
 

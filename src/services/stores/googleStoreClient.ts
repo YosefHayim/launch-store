@@ -24,7 +24,7 @@ function transportFailure(cause: unknown): GoogleTransportFailure {
   return makeGoogleTransportFailure({ message, cause });
 }
 
-export function createGooglePlayClient(serviceAccountJson: string): GooglePlayClient {
+function createGooglePlayClient(serviceAccountJson: string): GooglePlayClient {
   try {
     const serviceAccount = readServiceAccount(serviceAccountJson);
     return new GooglePlayClient(serviceAccount);

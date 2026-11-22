@@ -122,12 +122,6 @@ async function deleteNativeSecret(account: string): Promise<void> {
   }
 }
 
-export type LaunchSecretStoreService = {
-  readSecret(account: string): Promise<string | null>;
-  storeSecret(account: string, secretText: string): Promise<void>;
-  deleteSecret(account: string): Promise<void>;
-};
-
 export const LaunchSecretStore = {
   async readSecret(account: string): Promise<string | null> {
     if (secretFixture != null) {

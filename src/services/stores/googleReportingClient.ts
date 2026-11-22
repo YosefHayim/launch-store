@@ -15,7 +15,7 @@ function makeGoogleReportingClientFailure(cause: unknown): GoogleReportingClient
   };
 }
 
-export function createPlayReportingClient(serviceAccountJson: string): PlayReportingClient {
+function createPlayReportingClient(serviceAccountJson: string): PlayReportingClient {
   try {
     const serviceAccount = readServiceAccount(serviceAccountJson);
     return new PlayReportingClient(serviceAccount);

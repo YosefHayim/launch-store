@@ -1,4 +1,4 @@
-export interface CommandOption {
+interface CommandOption {
   readonly flags: string;
   readonly short?: string;
   readonly long?: string;
@@ -7,7 +7,7 @@ export interface CommandOption {
   readonly required: boolean;
 }
 
-export interface CommandArgument {
+interface CommandArgument {
   name(): string;
   readonly required: boolean;
   readonly defaultValue?: unknown;
@@ -16,7 +16,7 @@ export interface CommandArgument {
   readonly label: string;
 }
 
-export interface CommandHelp {
+interface CommandHelp {
   visibleCommands(command: Command): Command[];
 }
 

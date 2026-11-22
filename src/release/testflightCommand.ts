@@ -4,7 +4,7 @@ import { errorMessage } from '@/services/platform/errorMessage.js';
 import { createLogger, type Logger } from '@/services/platform/logger.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';
 import type { EffectAppStoreConnectClient } from '@/services/stores/appleStoreClient.js';
-import { loadActiveAppleStore } from '@/store/apple/appleStoreCommand.js';
+import { loadActiveAppleStore } from '@/cli/commands/store/apple/appleStoreCommand.js';
 import { selectStoreApp } from '@/store/shared/selectStoreApp.js';
 import type { BetaFeedback, BetaFeedbackKind } from '@/types/app.js';
 import type { BetaGroupResource, BetaTesterResource } from '@/types/appleCatalog.js';

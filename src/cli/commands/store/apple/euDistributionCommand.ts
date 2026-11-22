@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { loadConfig } from '../../config/config.js';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import { createLogger } from '../../services/platform/logger.js';
-import { readLaunchDirectories } from '../../services/platform/paths.js';
-import { completeCommand, isCommandExit } from '../../terminal/commandExit.js';
+import { loadConfig } from '@/config/config.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import { completeCommand, isCommandExit } from '@/terminal/commandExit.js';
 import { loadActiveAppleStore } from './appleStoreCommand.js';
 import {
   confirmStoreSurfaceWrite,
@@ -12,8 +12,11 @@ import {
   renderStoreSurfaceAction,
   resolveStoreSurfaceSection,
 } from './appStoreSurfaceCommand.js';
-import { parseEuDistributionConfig, reconcileEuDistributionDomains } from './euDistribution.js';
-import type { PlannedAction } from '../../types/reconcile.js';
+import {
+  parseEuDistributionConfig,
+  reconcileEuDistributionDomains,
+} from '@/store/apple/euDistribution.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 
 type EuDistributionCommandInput =
   | Readonly<{

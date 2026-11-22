@@ -1,10 +1,10 @@
-import { createLogger } from '../../services/platform/logger.js';
-import { LaunchPrompt } from '../../services/platform/prompt.js';
-import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
-import type { SandboxTesterResource } from '../../types/appleCatalog.js';
-import { clearPurchaseHistory, listSandboxTesters } from '../../services/stores/sandbox.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import type { SandboxTesterResource } from '@/types/appleCatalog.js';
+import { clearPurchaseHistory, listSandboxTesters } from '@/services/stores/sandbox.js';
 import { loadActiveAppleStore } from './appleStoreCommand.js';
-import { hasMessage } from '../../services/platform/errorMessage.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
 
 /** One sandbox-tester operation selected by Commander. */
 type SandboxCommandInput =

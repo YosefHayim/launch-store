@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 const APP_KEY_PATTERN = /^(ios|android)-[A-Za-z0-9._]+$/;
 
-export type LaunchDirectories = Readonly<{
+type LaunchDirectories = Readonly<{
   homeDirectory: string;
   workingDirectory: string;
 }>;
@@ -30,8 +30,6 @@ export function readLaunchDirectories(): LaunchDirectories {
   return launchDirectories;
 }
 
-export type LaunchPathsService = LaunchDirectories;
-
 export const LAUNCH_HOME = `${homedir()}/.launch`;
 export const ARTIFACTS_DIR = `${LAUNCH_HOME}/artifacts`;
 export const ARTIFACT_INDEX = `${ARTIFACTS_DIR}/index.json`;
@@ -39,7 +37,6 @@ export const ACCOUNTS_FILE = `${LAUNCH_HOME}/accounts.json`;
 export const CREDENTIALS_DIR = `${LAUNCH_HOME}/credentials`;
 export const CREDENTIALS_INDEX = `${CREDENTIALS_DIR}/index.json`;
 export const PROVISIONING_PROFILES_DIR = `${homedir()}/Library/MobileDevice/Provisioning Profiles`;
-export const PUSH_KEYS_FILE = `${LAUNCH_HOME}/push-keys.json`;
 
 function sanitizePathIdentifier(identifier: string, fallbackIdentifier: string): string {
   const sanitizedIdentifier = identifier.replace(/[^A-Za-z0-9_-]/g, '');
@@ -152,7 +149,7 @@ export type InvalidAppKeyFailure = Readonly<{
   message: string;
 }>;
 
-export function makeInvalidAppKeyFailure(message: string): InvalidAppKeyFailure {
+function makeInvalidAppKeyFailure(message: string): InvalidAppKeyFailure {
   return { _tag: 'InvalidAppKeyFailure', message };
 }
 

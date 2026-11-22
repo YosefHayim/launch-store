@@ -4,7 +4,7 @@ import {
   type TeamListInput,
   teamCommandProgram,
   type TeamRemoveInput,
-} from '@/store/apple/teamCommand.js';
+} from './teamCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type InviteOptions = Readonly<{

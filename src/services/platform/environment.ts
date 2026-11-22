@@ -1,6 +1,6 @@
 import { decodeLaunchEnvironment, type LaunchEnvironmentValues } from '../../config/environment.js';
 
-export type LaunchEnvironmentService = Readonly<{
+type LaunchEnvironmentService = Readonly<{
   values: LaunchEnvironmentValues;
   rawVariables: Readonly<Record<string, string | undefined>>;
   readSecret: (environmentVariableName: string) => string | null;

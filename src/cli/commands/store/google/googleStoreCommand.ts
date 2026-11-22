@@ -1,13 +1,13 @@
 import {
   loadServiceAccount,
   describeMissingPlayServiceAccount,
-} from '../../credentials/androidKeystore.js';
-import { hasMessage } from '../../services/platform/errorMessage.js';
-import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
-import { LaunchPrompt } from '../../services/platform/prompt.js';
-import { GoogleStoreClientService } from '../../services/stores/googleStoreClient.js';
-import type { GooglePlayClient } from '../../google/playClient.js';
-import { makeStoreAppSelectionFailure, selectStoreApp } from '../shared/selectStoreApp.js';
+} from '@/credentials/androidKeystore.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { GoogleStoreClientService } from '@/services/stores/googleStoreClient.js';
+import type { GooglePlayClient } from '@/google/playClient.js';
+import { makeStoreAppSelectionFailure, selectStoreApp } from '@/store/shared/selectStoreApp.js';
 
 /** Loading the Play service account or creating its transport client failed. */
 type ActiveGoogleStoreFailure = Readonly<{
@@ -22,8 +22,6 @@ function makeActiveGoogleStoreFailure(fields: {
 }): ActiveGoogleStoreFailure {
   return { _tag: 'ActiveGoogleStoreFailure', ...fields };
 }
-
-export type ActiveGoogleStoreRequirements = unknown;
 
 /** Load the keychain-backed Play service account and create its transport client. */
 export async function loadActiveGoogleStore(

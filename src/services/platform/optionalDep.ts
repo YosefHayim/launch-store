@@ -2,7 +2,7 @@ import { hasMessage } from './errorMessage.js';
 
 const NOT_INSTALLED = /Cannot find (module|package)|ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND/;
 
-export type OptionalDependencyMissing = Readonly<{
+type OptionalDependencyMissing = Readonly<{
   _tag: 'OptionalDependencyMissing';
   feature: string;
   installHint: string;

@@ -1,6 +1,6 @@
-import { createLogger } from '../../services/platform/logger.js';
-import { completeCommand } from '../../terminal/commandExit.js';
-import type { GameCenterConfig } from '../../types/storeSurface.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { completeCommand } from '@/terminal/commandExit.js';
+import type { GameCenterConfig } from '@/types/storeSurface.js';
 import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
@@ -8,10 +8,10 @@ import {
   resolveStoreSurfaceSection,
 } from './appStoreSurfaceCommand.js';
 import { loadActiveAppleStore } from './appleStoreCommand.js';
-import { parseGameCenterConfig, reconcileGameCenter } from './gameCenter.js';
-import { summarize } from '../shared/reconcile.js';
-import { loadStoreAppContext } from '../shared/selectStoreApp.js';
-import { hasMessage } from '../../services/platform/errorMessage.js';
+import { parseGameCenterConfig, reconcileGameCenter } from '@/store/apple/gameCenter.js';
+import { summarize } from '@/store/shared/reconcile.js';
+import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
 
 export type GameCenterCommandInput = Readonly<{
   app?: string;

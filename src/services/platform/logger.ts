@@ -139,7 +139,7 @@ export function resetLogger(): void {
   writeJsonHuman = null;
 }
 
-export function createJsonLogger(writeHuman: LogWrite): Logger {
+function createJsonLogger(writeHuman: LogWrite): Logger {
   return makeJsonLogger((event) => {
     writeText(jsonLine(event));
   }, writeHuman);

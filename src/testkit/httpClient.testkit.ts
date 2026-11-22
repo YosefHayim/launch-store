@@ -1,11 +1,11 @@
-export interface HttpClientTestRoute {
+interface HttpClientTestRoute {
   readonly method: string;
   readonly url: string;
   readonly status: number;
   readonly document: unknown;
 }
 
-export interface HttpClientSentCall {
+interface HttpClientSentCall {
   readonly method: string;
   readonly url: string;
   readonly sentDocument: string | null;

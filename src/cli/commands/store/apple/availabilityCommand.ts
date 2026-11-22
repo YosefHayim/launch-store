@@ -1,12 +1,12 @@
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import { createLogger } from '../../services/platform/logger.js';
-import { LaunchPrompt } from '../../services/platform/prompt.js';
-import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
-import { completeCommand, isCommandExit } from '../../terminal/commandExit.js';
-import type { PlannedAction } from '../../types/reconcile.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import { completeCommand, isCommandExit } from '@/terminal/commandExit.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 import { loadActiveAppleStore } from './appleStoreCommand.js';
-import { readAvailabilityConfig, reconcileAvailability } from './availability.js';
-import { resolveStoreBundleId } from '../shared/selectStoreApp.js';
+import { readAvailabilityConfig, reconcileAvailability } from '@/store/apple/availability.js';
+import { resolveStoreBundleId } from '@/store/shared/selectStoreApp.js';
 
 export type AvailabilityCommandInput = {
   app?: string;

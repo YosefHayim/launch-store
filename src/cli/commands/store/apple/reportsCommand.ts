@@ -1,14 +1,19 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { errorMessage } from '../../services/platform/errorMessage.js';
-import { readLaunchEnvironment } from '../../services/platform/environment.js';
-import { createLogger, type Logger } from '../../services/platform/logger.js';
-import { readLaunchDirectories } from '../../services/platform/paths.js';
-import type { FinanceReportQuery, SalesReportQuery } from '../../types/appleCatalog.js';
+import { errorMessage } from '@/services/platform/errorMessage.js';
+import { readLaunchEnvironment } from '@/services/platform/environment.js';
+import { createLogger, type Logger } from '@/services/platform/logger.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import type { FinanceReportQuery, SalesReportQuery } from '@/types/appleCatalog.js';
 import { loadActiveAppleStore } from './appleStoreCommand.js';
-import { collectAnalyticsSegments, decompressReport, eachDate, parseTsv } from './reports.js';
-import { resolveStoreBundleId } from '../shared/selectStoreApp.js';
-import type { MutableDeep } from '../../types/mutable.js';
+import {
+  collectAnalyticsSegments,
+  decompressReport,
+  eachDate,
+  parseTsv,
+} from '@/store/apple/reports.js';
+import { resolveStoreBundleId } from '@/store/shared/selectStoreApp.js';
+import type { MutableDeep } from '@/types/mutable.js';
 
 type SalesReportsCommandInput = {
   operation: 'sales';

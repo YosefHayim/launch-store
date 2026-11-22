@@ -2,19 +2,14 @@ import { createLogger } from '../services/platform/logger.js';
 import { makeCommandExit } from '../terminal/commandExit.js';
 import { makeUsageFailure, type UsageFailure } from '../terminal/usageFailure.js';
 import type { AppFeedSyncReport } from '../types/stats.js';
-import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
-import type { InvalidAppKeyFailure } from '../services/platform/paths.js';
 import { DEFAULT_SYNC_DAYS, MAX_SYNC_DAYS } from './dateRange.js';
 import { syncStats } from './syncStats.js';
-import type { SyncLockFailure } from './syncLock.js';
 
 interface StatsSyncCommandRequest {
   readonly app: string | undefined;
   readonly days: string | undefined;
   readonly isJson: boolean;
 }
-
-type StatsSyncCommandFailure = InvalidAppKeyFailure | DocumentFileFailure | SyncLockFailure;
 
 // A whole number written with digits only.
 const DAYS_PATTERN = /^[0-9]+$/;
@@ -186,5 +181,3 @@ export async function statsSyncProgram(request: StatsSyncCommandRequest): Promis
     throw cause;
   }
 }
-
-export type { StatsSyncCommandFailure, StatsSyncCommandRequest };

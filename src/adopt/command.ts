@@ -84,7 +84,7 @@ function readOptionalString(record: Record<string, unknown>, fieldName: string):
   return field;
 }
 
-export function decodeAdoptCommandInput(rawCommandInput: unknown): AdoptCommandInput {
+function decodeAdoptCommandInput(rawCommandInput: unknown): AdoptCommandInput {
   if (isRecord(rawCommandInput) == false) {
     throw new Error('Adopt command input must be an object.');
   }

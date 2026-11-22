@@ -80,7 +80,7 @@ export type StatsCredentialsFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export interface StatsCredentialsShape {
+interface StatsCredentialsShape {
   readonly ascClientForAccount: (accountKeyId: string) => Promise<AppStoreStatsClient | null>;
   readonly vendorNumberForAccount: (accountKeyId: string) => Promise<string | null>;
   readonly googlePackageForApp: (app: PortfolioApp) => Promise<string | null>;

@@ -24,15 +24,6 @@ export type DraftListing = Readonly<{
   promotionalText?: string;
 }>;
 /**
- * The generation seam: turn a {@link ListingBrief} into a {@link DraftListing}. Implemented by the
- * default Anthropic-backed generator and trivially by a test fake, so the command and the applier are
- * testable without a network. `name` is a stable label for logs/UX (e.g. `anthropic`, `fake`).
- */
-export type ListingGenerator = {
-  readonly name: string;
-  generate(brief: ListingBrief): Promise<DraftListing>;
-};
-/**
  * One locale's generated-and-clamped draft, ready to preview and (on confirmation) apply. `warnings`
  * records what the length clamp had to trim, so the user sees it in the preview before anything is
  * written. Produced by the command, consumed by `renderDraftPreview` and `applyDraft`.

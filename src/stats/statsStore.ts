@@ -2,9 +2,8 @@ import { join } from 'node:path';
 import {
   readDocumentFile,
   writeDocumentFileAtomically,
-  type DocumentFileFailure,
 } from '../services/platform/atomicDocumentFile.js';
-import { locateAppStatsDirectory, type InvalidAppKeyFailure } from '../services/platform/paths.js';
+import { locateAppStatsDirectory } from '../services/platform/paths.js';
 import type { DailyStat, StatsFeed, StatsMetric } from '../types/stats.js';
 import { groupStatsByMonth, mergeStats } from './statsLogic.js';
 
@@ -36,8 +35,6 @@ interface StatsMonthFile {
   readonly month: string;
   readonly stats: readonly DailyStat[];
 }
-
-type StatsStoreFailure = InvalidAppKeyFailure | DocumentFileFailure;
 
 function isRecord(candidate: unknown): candidate is Record<string, unknown> {
   if (candidate == null) {
@@ -182,5 +179,3 @@ export async function loadMonthStats(appKey: string, month: string): Promise<rea
 
   return monthFile.stats;
 }
-
-export type { StatsStoreFailure };

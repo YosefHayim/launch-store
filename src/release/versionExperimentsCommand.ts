@@ -6,8 +6,8 @@ import {
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
   resolveStoreSurfaceSection,
-} from '@/store/apple/appStoreSurfaceCommand.js';
-import { loadActiveAppleStore } from '@/store/apple/appleStoreCommand.js';
+} from '@/cli/commands/store/apple/appStoreSurfaceCommand.js';
+import { loadActiveAppleStore } from '@/cli/commands/store/apple/appleStoreCommand.js';
 import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
 import { completeCommand } from '@/terminal/commandExit.js';
 import type { PlannedAction } from '@/types/reconcile.js';

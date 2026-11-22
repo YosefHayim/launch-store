@@ -4,12 +4,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { AscKey } from '../types/credentials.js';
 import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
-import {
-  AppStoreConnectClient,
-  clockSkewHint,
-  describeErrors,
-  parseErrorCodes,
-} from './ascClient.js';
+import { AppStoreConnectClient } from './ascClient.js';
+import { clockSkewHint, describeErrors, parseErrorCodes } from './connect/shared.js';
 /** A real P-256 PKCS#8 key so the client can mint a genuine ES256 JWT. */
 const makeKey = (): AscKey => {
   const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });

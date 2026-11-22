@@ -5,8 +5,6 @@ import { captureCommandOutput } from '../services/platform/exec.js';
 import { checkIsMacOperatingSystem } from '../services/platform/os.js';
 import type { EntitlementValue } from '../types/adopt.js';
 
-export type ProfileEntitlementRequirements = never;
-
 function isEntitlementValue(candidate: unknown): candidate is EntitlementValue {
   if (typeof candidate == 'string') {
     return true;

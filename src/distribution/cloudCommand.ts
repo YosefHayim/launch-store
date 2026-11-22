@@ -2,11 +2,11 @@ import { stdin } from 'node:process';
 import { costBanner, formatAge, isReleasable, releasableAt, usd } from '../build/cost.js';
 import { loadConfig } from '../config/config.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
-import { createLogger, type Logger } from '../services/platform/logger.js';
+import { createLogger } from '../services/platform/logger.js';
 import { LaunchPrompt } from '../services/platform/prompt.js';
 import { readLaunchDirectories } from '../services/platform/paths.js';
 import { getComputeHost } from '../services/providerSupport/registry.js';
-import { completeCommand, isCommandExit, type CommandExit } from '../terminal/commandExit.js';
+import { completeCommand, isCommandExit } from '../terminal/commandExit.js';
 import type { AwsConfig, HostHandle } from '../types/remote.js';
 import { clearLiveHost, getAmiId, getLiveHost } from './cloudState.js';
 
@@ -82,7 +82,7 @@ function isRecord(candidate: unknown): candidate is Record<string, unknown> {
   return Array.isArray(candidate) == false;
 }
 
-export function decodeCloudCommandInput(rawCommandInput: unknown): CloudCommandInput {
+function decodeCloudCommandInput(rawCommandInput: unknown): CloudCommandInput {
   if (isRecord(rawCommandInput) == false) {
     throw new Error('Cloud command input is malformed.');
   }
@@ -372,5 +372,3 @@ export async function cloudCommandProgram(rawCommandInput: unknown): Promise<voi
     });
   }
 }
-
-export type { CommandExit, Logger };

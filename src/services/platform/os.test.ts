@@ -1,13 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('node:os', () => ({ platform: vi.fn(() => 'darwin') }));
-
 import { platform } from 'node:os';
 import {
   checkIsMacOperatingSystem,
   detectHostOperatingSystem,
   resolveHostOperatingSystemLabel,
 } from './os.js';
+vi.mock('node:os', () => ({ platform: vi.fn(() => 'darwin') }));
 
 const platformMock = vi.mocked(platform);
 

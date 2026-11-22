@@ -3,7 +3,7 @@ import {
   parseVersionExperimentsConfig,
   reconcileVersionExperiments,
 } from '@/release/versionExperiments.js';
-import { resolveStoreSurfaceSection } from '@/store/apple/appStoreSurfaceCommand.js';
+import { resolveStoreSurfaceSection } from '@/cli/commands/store/apple/appStoreSurfaceCommand.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@/types/plan.js';
 

@@ -1,13 +1,17 @@
 import { readFile } from 'node:fs/promises';
-import { hasMessage } from '../../services/platform/errorMessage.js';
-import { createLogger } from '../../services/platform/logger.js';
-import type { PlayReview } from '../../types/googlePlay.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
+import type { PlayReview } from '@/types/googlePlay.js';
 import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,
   resolveGoogleStoreApp,
 } from './googleStoreCommand.js';
-import { listPlayReviews, replyToPlayReview, type PlayReviewFilters } from './playReviews.js';
+import {
+  listPlayReviews,
+  replyToPlayReview,
+  type PlayReviewFilters,
+} from '@/store/google/playReviews.js';
 
 export type PlayReviewsListInput = {
   operation: 'list';
@@ -182,7 +186,7 @@ function decodeReplyInput(record: Record<string, unknown>): PlayReviewsReplyInpu
   return commandInput;
 }
 
-export function decodePlayReviewsCommandInput(rawCommandInput: unknown): PlayReviewsCommandInput {
+function decodePlayReviewsCommandInput(rawCommandInput: unknown): PlayReviewsCommandInput {
   if (isRecord(rawCommandInput) == false) {
     throw new Error('Play reviews command input must be an object.');
   }

@@ -34,11 +34,6 @@ export function resetGoogleAccessToken(): void {
   accessTokenFixture = null;
 }
 
-export type GoogleAccessTokenService = {
-  readServiceAccount(savedServiceAccountKey: string): ServiceAccount;
-  createAccessToken(account: ServiceAccount, scopes: readonly string[]): Promise<string>;
-};
-
 export const GoogleAccessToken = {
   readServiceAccount(savedServiceAccountKey: string): ServiceAccount {
     if (accessTokenFixture != null) {

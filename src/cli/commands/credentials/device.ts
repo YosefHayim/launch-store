@@ -1,5 +1,8 @@
 import type { Command } from '@/cli/command.js';
-import { type DeviceAddInput, deviceCommandProgram } from '@/store/apple/deviceCommand.js';
+import {
+  type DeviceAddInput,
+  deviceCommandProgram,
+} from '@/cli/commands/store/apple/deviceCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Map the optional device name without passing an explicit undefined. */

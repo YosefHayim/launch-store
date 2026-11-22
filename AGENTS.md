@@ -23,11 +23,12 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 
 | Path | Owns |
 | --- | --- |
-| `src/cli` | The door. Command names, flags, help text, `runCliProgram(...)`. |
-| `src/apple` | App Store Connect. The client, `connect/`, and `generated/schema.ts` from Apple's OpenAPI zip. |
+| `src/cli` | The door. Command names, flags, help text, `runCliProgram(...)`. App Store and Play command programs live in `src/cli/commands/store/apple` and `src/cli/commands/store/google`. |
+| `src/apple` | App Store Connect. The client and `connect/`. |
+| `src/generated/apple` | Apple's generated OpenAPI types (`schema.ts`) and the hand-written normalizer (`specPatch.ts`). Do not put this back under `src/apple`. |
 | `src/google` | Google Play. The client. Types come from `@googleapis`. |
 | `src/listing`, `src/readiness`, `src/release`, `src/releaseTrain`, `src/plan`, `src/build`, `src/credentials` | The bridge. Launch's own product. These call the clients and decide what Launch does. |
-| `src/store` | Store sync and the per-platform programs behind store commands. `store/apple` and `store/google` are those programs. The HTTP clients stay in `src/apple` and `src/google`. |
+| `src/store` | Store sync. `store/apple` and `store/google` are the store programs, not the CLI. The HTTP clients stay in `src/apple` and `src/google`. |
 | `src/adopt`, `src/config`, `src/distribution`, `src/doctor`, `src/insights`, `src/migrate`, `src/portfolio`, `src/privacy`, `src/snapshot`, `src/stats` | The rest of the bridge. |
 | `src/agents`, `src/mcp`, `src/terminal`, `src/docs` | Agent skills, the MCP server, glossary, and the config reference. |
 | `src/services` | Paths, exec, logger, prompts, secrets, and the store client adapters. `services/stores` is the only door into `src/apple` and `src/google`. |
@@ -40,7 +41,7 @@ A file that performs one documented Apple or Google request belongs in `src/appl
 
 `init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` are plain TypeScript. Their classes live in `src/build`, `src/credentials`, `src/launch-file`, and `src/store`. `src/release-command.ts` and `src/app-release.ts` stay in `src/` until that command is folded into its job.
 
-`src/cli/commands/` is only the door for each job: `setup/`, `build/`, `credentials/`, `release/`, `store/` (with `apple/` and `google/`), `listing/`, `readiness/`, `insights/`, `agents/`, `terminal/`.
+`src/cli/commands/` registers each job and holds the App Store and Play command programs: `setup/`, `build/`, `credentials/`, `release/`, `store/` (with `apple/` and `google/`), `listing/`, `readiness/`, `insights/`, `agents/`, `terminal/`. Store sync stays in `src/store`. Generated Apple types stay in `src/generated/apple`.
 
 ## Conventions A Linter Can't Infer
 
@@ -63,7 +64,7 @@ src/google    -> src/types only, never a job folder's logic
 
 ### Types And Public Exports
 
-`src/index.ts` is the package's only passive barrel. Internal modules import domain shapes directly from their owning files under `src/types/`. Apple generated shapes stay under `src/apple/generated/`; Google generated shapes stay inside the official Google client packages and their adapters.
+`src/index.ts` is the package's only passive barrel. Internal modules import domain shapes directly from their owning files under `src/types/`. Apple generated shapes stay under `src/generated/apple/`; Google generated shapes stay inside the official Google client packages and their adapters.
 
 The service interfaces in `src/types/` ripple through every provider and the pipeline. Plan a change to them before writing code.
 

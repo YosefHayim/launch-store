@@ -1,13 +1,6 @@
 import { Command } from '@/cli/command.js';
 import { describe, expect, it } from 'vitest';
-import { registerReleaseCommand, shouldNudgeRelease } from './release.js';
-
-describe('release CLI re-export', () => {
-  it('keeps shouldNudgeRelease available for thin CLI consumers', () => {
-    expect(shouldNudgeRelease({ clean: true })).toBe(false);
-    expect(shouldNudgeRelease({ clean: false })).toBe(true);
-  });
-});
+import { registerReleaseCommand } from './release.js';
 
 describe('registerReleaseCommand - the --json flag', () => {
   it('exposes --json, off by default', () => {

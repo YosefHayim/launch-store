@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderPlayCatalogAction } from '@/store/google/playCatalogCommand.js';
+import { renderPlayCatalogAction } from './playCatalogCommand.js';
 describe('renderAction', () => {
   it('marks a planned change with +', () => {
     expect(

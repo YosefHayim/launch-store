@@ -2,12 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-// A dry-run must never shell out; make any spawn an immediate, obvious failure.
-vi.mock('node:child_process', () => ({
-  spawn: vi.fn(() => {
-    throw new Error('spawn must not run during --dry-run');
-  }),
-}));
 import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.js';
 import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.js';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.js';
@@ -33,6 +27,12 @@ import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
 import type { BuildCredentials } from '../types/credentials.js';
 import type { Submitter } from '../types/providers.js';
 import process from 'node:process';
+// A dry-run must never shell out; make any spawn an immediate, obvious failure.
+vi.mock('node:child_process', () => ({
+  spawn: vi.fn(() => {
+    throw new Error('spawn must not run during --dry-run');
+  }),
+}));
 
 /** Run a build-core test with deterministic services and no CLI/provider bootstrap. */
 async function runBuildCoreTest<Success>(

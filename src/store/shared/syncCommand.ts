@@ -1,4 +1,4 @@
-export type SyncCommandInput = {
+type SyncCommandInput = {
   app?: string;
   dryRun: boolean;
   allowDestructive: boolean;
@@ -50,7 +50,7 @@ function readOptionalString(record: Record<string, unknown>, fieldName: string):
   return field;
 }
 
-export function decodeSyncCommandInput(rawCommandInput: unknown): SyncCommandInput {
+function decodeSyncCommandInput(rawCommandInput: unknown): SyncCommandInput {
   if (isRecord(rawCommandInput) == false) {
     throw new Error('Sync command input must be an object.');
   }

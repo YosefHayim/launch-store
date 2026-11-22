@@ -6,7 +6,7 @@ import { resolveLogsDirectory } from '../services/platform/paths.js';
 import { pathExists } from '../path-exists.js';
 import { diagnoseBuildLog, formatDiagnoses } from './buildDiagnostics.js';
 
-export type DiagnoseCommandInput = Readonly<{
+type DiagnoseCommandInput = Readonly<{
   logfile?: string;
 }>;
 

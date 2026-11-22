@@ -1,7 +1,10 @@
 import { hasMessage } from '../../services/platform/errorMessage.js';
 import { createLogger } from '../../services/platform/logger.js';
 import type { ConvertedPrices, PlayMoneyUnits } from '../../types/playPricing.js';
-import { loadActiveGoogleStore, resolveGoogleStoreApp } from './googleStoreCommand.js';
+import {
+  loadActiveGoogleStore,
+  resolveGoogleStoreApp,
+} from '@/cli/commands/store/google/googleStoreCommand.js';
 
 export type PlayPricingCommandInput = {
   amount: string;
@@ -132,7 +135,7 @@ function readExactOptionalString(
   return field;
 }
 
-export function decodePlayPricingCommandInput(rawCommandInput: unknown): PlayPricingCommandInput {
+function decodePlayPricingCommandInput(rawCommandInput: unknown): PlayPricingCommandInput {
   if (isRecord(rawCommandInput) == false) {
     throw new Error('Play pricing command input must be an object.');
   }

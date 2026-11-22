@@ -74,7 +74,7 @@ export type LaunchConfig = Readonly<{
 }>;
 
 /** When a build runs `expo prebuild --clean`: only for a missing native dir, or on every build. */
-export const PREBUILD_MODES = ['missing', 'always'] as const;
+const PREBUILD_MODES = ['missing', 'always'] as const;
 export type PrebuildMode = (typeof PREBUILD_MODES)[number];
 /**
  * Input to {@link defineConfig}: the shape a user authors in `launch.config.ts`.

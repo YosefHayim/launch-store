@@ -22,8 +22,6 @@ type Ga4SkipSignal = Readonly<{
   readonly reason: string;
 }>;
 
-export type Ga4Failure = StatsFeedFailure | Ga4SkipSignal;
-
 type Ga4ErrorKind = 'permission-denied' | 'service-disabled' | 'other';
 
 interface Ga4ErrorReading {

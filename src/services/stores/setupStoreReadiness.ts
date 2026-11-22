@@ -1,12 +1,6 @@
 import type { AscKey } from '../../types/credentials.js';
-import { AppleStoreClientService, type AppleTransportFailure } from './appleStoreClient.js';
-import {
-  GoogleStoreClientService,
-  makeGoogleTransportFailure,
-  type GoogleTransportFailure,
-} from './googleStoreClient.js';
-
-export type { AppleTransportFailure, GoogleTransportFailure };
+import { AppleStoreClientService } from './appleStoreClient.js';
+import { GoogleStoreClientService, makeGoogleTransportFailure } from './googleStoreClient.js';
 
 export const SetupStoreReadiness = {
   async checkAppleAgreements(ascKey: AscKey): Promise<void> {
@@ -35,5 +29,3 @@ export const SetupStoreReadiness = {
     }
   },
 };
-
-export type SetupStoreReadinessService = typeof SetupStoreReadiness;

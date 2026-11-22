@@ -2,7 +2,7 @@ import type { Command } from '@/cli/command.js';
 import {
   type AvailabilityCommandInput,
   availabilityCommandProgram,
-} from '@/store/apple/availabilityCommand.js';
+} from './availabilityCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type AvailabilityOptions = Readonly<{

@@ -1,15 +1,18 @@
-import { hasMessage } from '../../services/platform/errorMessage.js';
-import { createLogger } from '../../services/platform/logger.js';
-import { completeCommand } from '../../terminal/commandExit.js';
-import type { SubscriptionConfig } from '../../types/catalog.js';
-import { loadStoreAppContext } from '../shared/selectStoreApp.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { completeCommand } from '@/terminal/commandExit.js';
+import type { SubscriptionConfig } from '@/types/catalog.js';
+import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
 import { loadActiveGoogleStore } from './googleStoreCommand.js';
 import {
   confirmPlayCatalogWrite,
   renderAppliedPlayCatalogAction,
   renderPlayCatalogAction,
 } from './playCatalogCommand.js';
-import { reconcilePlaySubscriptions, summarizePlaySubscriptions } from './playSubscriptions.js';
+import {
+  reconcilePlaySubscriptions,
+  summarizePlaySubscriptions,
+} from '@/store/google/playSubscriptions.js';
 
 export type PlaySubscriptionsCommandInput = {
   app?: string;
@@ -93,7 +96,7 @@ function readExactOptionalString(
   return field;
 }
 
-export function decodePlaySubscriptionsCommandInput(
+function decodePlaySubscriptionsCommandInput(
   rawCommandInput: unknown,
 ): PlaySubscriptionsCommandInput {
   if (isRecord(rawCommandInput) == false) {

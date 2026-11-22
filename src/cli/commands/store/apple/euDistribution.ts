@@ -1,5 +1,5 @@
 import type { Command } from '@/cli/command.js';
-import { euDistributionCommandProgram } from '@/store/apple/euDistributionCommand.js';
+import { euDistributionCommandProgram } from './euDistributionCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type EuDistributionOptions = Readonly<{

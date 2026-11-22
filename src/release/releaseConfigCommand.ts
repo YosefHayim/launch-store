@@ -6,7 +6,7 @@ import { hasMessage } from '@/services/platform/errorMessage.js';
 import { createLogger } from '@/services/platform/logger.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';
 import { AppleStoreClientService } from '@/services/stores/appleStoreClient.js';
-import { resolveStoreSurfaceSection } from '@/store/apple/appStoreSurfaceCommand.js';
+import { resolveStoreSurfaceSection } from '@/cli/commands/store/apple/appStoreSurfaceCommand.js';
 import { summarize } from '@/store/shared/reconcile.js';
 import { completeCommand } from '@/terminal/commandExit.js';
 import type { PlannedAction } from '@/types/reconcile.js';

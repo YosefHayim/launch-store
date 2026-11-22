@@ -292,7 +292,7 @@ function findStoredPlatformBuild(
 }
 
 /** Live public-release terminal dependencies. */
-export function ReleaseCommandServiceLive(): ReleaseCommandService {
+function ReleaseCommandServiceLive(): ReleaseCommandService {
   const terminalIsInteractive = process.stdout.isTTY == true;
 
   async function confirmRelease(message: string): Promise<boolean> {

@@ -211,7 +211,7 @@ function commandOptionsFromProgress(options: ProgressRunOptions): ProgressComman
   return commandOptions;
 }
 
-export type ProgressRun = {
+type ProgressRun = {
   elapsedMs: number;
   steps: number;
 };

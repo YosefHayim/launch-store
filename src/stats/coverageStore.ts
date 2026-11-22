@@ -2,14 +2,11 @@ import { join } from 'node:path';
 import {
   readDocumentFile,
   writeDocumentFileAtomically,
-  type DocumentFileFailure,
 } from '../services/platform/atomicDocumentFile.js';
-import { locateAppStatsDirectory, type InvalidAppKeyFailure } from '../services/platform/paths.js';
+import { locateAppStatsDirectory } from '../services/platform/paths.js';
 import type { AppCoverage, FeedCoverage, StatsFeed } from '../types/stats.js';
 
 const COVERAGE_FEEDS: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
-
-type CoverageStoreFailure = InvalidAppKeyFailure | DocumentFileFailure;
 
 function isRecord(candidate: unknown): candidate is Record<string, unknown> {
   if (candidate == null) {
@@ -127,5 +124,3 @@ export async function saveAppCoverage(appCoverage: AppCoverage): Promise<void> {
 
   await writeDocumentFileAtomically(coverageFilePath, appCoverage);
 }
-
-export type { CoverageStoreFailure };

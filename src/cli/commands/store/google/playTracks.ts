@@ -4,7 +4,7 @@ import {
   playTracksCommandProgram,
   type PlayTracksStatusInput,
   type PlayTracksTestersInput,
-} from '@/store/google/playTracksCommand.js';
+} from './playTracksCommand.js';
 import { RELEASE_STATUSES } from '@/store/google/playTracks.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 

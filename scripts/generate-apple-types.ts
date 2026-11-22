@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import openapiTypeScript, { astToString } from 'openapi-typescript';
-import { ASC_SPEC_URL, generatedHeader, pickSpecEntry } from '../src/apple/generated/specPatch.js';
+import { ASC_SPEC_URL, generatedHeader, pickSpecEntry } from '../src/generated/apple/specPatch.js';
 
-const schemaPath = fileURLToPath(new URL('../src/apple/generated/schema.ts', import.meta.url));
+const schemaPath = fileURLToPath(new URL('../src/generated/apple/schema.ts', import.meta.url));
 
 interface AppleSpecVersion {
   openapi: string;

@@ -8,7 +8,7 @@ import type {
   LeaderboardFormatter,
 } from '@/types/appleCatalog.js';
 import type { ResourceSingle } from './shared.js';
-import type { components } from '@/apple/generated/schema.js';
+import type { components } from '@/generated/apple/schema.js';
 
 export class ConnectGameCenter {
   constructor(private readonly client: AscHost) {}

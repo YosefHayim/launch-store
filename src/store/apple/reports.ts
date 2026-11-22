@@ -195,7 +195,7 @@ export async function ensureAnalyticsRequest(
 }
 
 /** What to pull: the app, the access type, and the report/instance filters. */
-export type AnalyticsQuery = {
+type AnalyticsQuery = {
   bundleId: string;
   accessType: string;
   category?: string;

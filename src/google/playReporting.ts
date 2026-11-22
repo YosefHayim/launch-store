@@ -112,7 +112,7 @@ function isNumber(candidate: number | null | undefined): candidate is number {
 }
 
 /** A generated Play Developer Reporting request failed. */
-export type PlayReportingApiError = Readonly<{
+type PlayReportingApiError = Readonly<{
   readonly _tag: 'PlayReportingApiError';
   readonly operation: string;
   readonly message: string;

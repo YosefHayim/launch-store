@@ -1,5 +1,5 @@
-import { createLogger } from '../../services/platform/logger.js';
-import { completeCommand } from '../../terminal/commandExit.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { completeCommand } from '@/terminal/commandExit.js';
 import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
@@ -12,10 +12,10 @@ import {
   reconcileCustomProductPages,
   summarizeCustomPages,
   type CustomProductPagesConfig,
-} from './customProductPages.js';
-import { loadStoreAppContext } from '../shared/selectStoreApp.js';
-import { hasMessage } from '../../services/platform/errorMessage.js';
-import type { PlannedAction } from '../../types/reconcile.js';
+} from '@/store/apple/customProductPages.js';
+import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 
 export type CustomProductPagesCommandInput = {
   app?: string;

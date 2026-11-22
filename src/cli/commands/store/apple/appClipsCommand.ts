@@ -1,7 +1,7 @@
-import { createLogger } from '../../services/platform/logger.js';
-import { completeCommand } from '../../terminal/commandExit.js';
-import type { AppClipsConfig } from '../../types/storeSurface.js';
-import type { PlannedAction } from '../../types/reconcile.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { completeCommand } from '@/terminal/commandExit.js';
+import type { AppClipsConfig } from '@/types/storeSurface.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
@@ -9,10 +9,10 @@ import {
   resolveStoreSurfaceSection,
 } from './appStoreSurfaceCommand.js';
 import { loadActiveAppleStore } from './appleStoreCommand.js';
-import { parseAppClipsConfig, reconcileAppClips } from './appClips.js';
-import { summarize } from '../shared/reconcile.js';
-import { loadStoreAppContext } from '../shared/selectStoreApp.js';
-import { hasMessage } from '../../services/platform/errorMessage.js';
+import { parseAppClipsConfig, reconcileAppClips } from '@/store/apple/appClips.js';
+import { summarize } from '@/store/shared/reconcile.js';
+import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
 
 export type AppClipsCommandInput = {
   app?: string;

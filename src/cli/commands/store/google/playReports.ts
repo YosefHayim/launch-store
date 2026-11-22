@@ -1,8 +1,5 @@
 import type { Command } from '@/cli/command.js';
-import {
-  DEFAULT_VITALS_DAYS,
-  playReportsCommandProgram,
-} from '@/store/google/playReportsCommand.js';
+import { DEFAULT_VITALS_DAYS, playReportsCommandProgram } from './playReportsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type VitalsOptions = Readonly<{

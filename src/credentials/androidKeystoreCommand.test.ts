@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
 import { createLogger } from '@/services/platform/logger.js';
 import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
-
+import { captureCommandOutput } from '../services/platform/exec.js';
+import { ensureUploadKeystore } from './androidKeystore.js';
 vi.mock('../services/platform/exec.js', () => ({
   captureCommandOutput: vi.fn(function writeDummyKeystore(
     _executable: string,
@@ -21,9 +22,6 @@ vi.mock('../services/platform/exec.js', () => ({
     return Promise.resolve('');
   }),
 }));
-
-import { captureCommandOutput } from '../services/platform/exec.js';
-import { ensureUploadKeystore } from './androidKeystore.js';
 
 describe('Android signing command secret transport', () => {
   const temporaryDirectories: string[] = [];

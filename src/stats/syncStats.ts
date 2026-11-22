@@ -2,8 +2,7 @@ import { loadPortfolioApps } from '../portfolio/loadPortfolioApps.js';
 import { findAppsByName, joinTags } from '../portfolio/portfolioLogic.js';
 import { readDocumentFile } from '../services/platform/atomicDocumentFile.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
-import { locatePortfolioFilePath, type InvalidAppKeyFailure } from '../services/platform/paths.js';
-import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
+import { locatePortfolioFilePath } from '../services/platform/paths.js';
 import type {
   AppOwner,
   DiscoveredApp,
@@ -35,7 +34,7 @@ import { createLastDaysRange, readYesterdayUtc } from './dateRange.js';
 import { STATS_FEED_PLUGINS } from './feedRegistry.js';
 import { StatsCredentials } from './statsCredentials.js';
 import { saveDailyStats } from './statsStore.js';
-import { holdSyncLock, type SyncLockFailure } from './syncLock.js';
+import { holdSyncLock } from './syncLock.js';
 
 type StatsAppNotFoundFailure = Readonly<{
   readonly _tag: 'StatsAppNotFoundFailure';
@@ -53,12 +52,6 @@ function makeStatsAppNotFoundFailure(fields: {
     knownAppNames: fields.knownAppNames,
   };
 }
-
-type StatsSyncFailure =
-  | InvalidAppKeyFailure
-  | DocumentFileFailure
-  | StatsAppNotFoundFailure
-  | SyncLockFailure;
 
 interface FeedSync {
   readonly report: AppFeedSyncReport;
@@ -415,5 +408,3 @@ export async function syncStats(request: StatsSyncRequest): Promise<StatsSyncRep
 
   return holdSyncLock(syncLocked);
 }
-
-export type { StatsAppNotFoundFailure, StatsSyncFailure };

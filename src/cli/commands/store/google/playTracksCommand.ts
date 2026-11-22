@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import { hasMessage } from '../../services/platform/errorMessage.js';
-import { createLogger } from '../../services/platform/logger.js';
-import type { PlayCountryAvailability, PlayRelease } from '../../types/googlePlay.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
+import type { PlayCountryAvailability, PlayRelease } from '@/types/googlePlay.js';
 import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,
@@ -16,7 +16,7 @@ import {
   RELEASE_STATUSES,
   type ReleaseInput,
   type ReleaseNote,
-} from './playTracks.js';
+} from '@/store/google/playTracks.js';
 
 export type PlayTracksStatusInput = {
   operation: 'status';
@@ -217,7 +217,7 @@ function decodeTestersInput(record: Record<string, unknown>): PlayTracksTestersI
   return commandInput;
 }
 
-export function decodePlayTracksCommandInput(rawCommandInput: unknown): PlayTracksCommandInput {
+function decodePlayTracksCommandInput(rawCommandInput: unknown): PlayTracksCommandInput {
   if (isRecord(rawCommandInput) == false) {
     throw new Error('Play tracks command input must be an object.');
   }

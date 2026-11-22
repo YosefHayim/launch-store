@@ -7,7 +7,7 @@ import type { AppDescriptor } from '../../types/app.js';
 import type { LaunchConfig } from '../../types/config.js';
 
 /** Selecting an app for a store command failed. */
-export type StoreAppSelectionFailure = Readonly<{
+type StoreAppSelectionFailure = Readonly<{
   readonly _tag: 'StoreAppSelectionFailure';
   readonly message: string;
   readonly cause: unknown;

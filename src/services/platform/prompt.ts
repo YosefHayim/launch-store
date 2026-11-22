@@ -51,7 +51,7 @@ export type PickOneArgs<Selection> = PromptSelectionRequest<Selection> & {
   nonInteractive: NonInteractivePolicy<Selection>;
 };
 
-export type PromptAnswers = Readonly<{
+type PromptAnswers = Readonly<{
   confirmation?: boolean;
   text?: string;
   secret?: string;

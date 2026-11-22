@@ -11,24 +11,6 @@ import {
   useLaunchDirectories,
 } from '@/services/platform/paths.js';
 import type { AccountRecord, AccountsFile } from '../types/credentials.js';
-
-const secrets = vi.hoisted(() => ({ store: new Map<string, string>() }));
-const homeDirectory = mkdtempSync(join(tmpdir(), 'launch-accounts-test-'));
-
-vi.mock('./appleSigning.js', () => ({
-  migrateLegacySigningIndex: vi.fn(() => Promise.resolve()),
-  p12PasswordAccount: (keyId: string) => `dist-cert-p12-password:${keyId}`,
-}));
-
-function runAccountEffect<Value>(accountWork: Promise<Value>): Promise<Value> {
-  return accountWork;
-}
-
-function loadActiveKeyWith(environmentVariables: Readonly<Record<string, string | undefined>>) {
-  useLaunchEnvironment(environmentVariables);
-
-  return loadActiveAscKey();
-}
 import {
   addAccount,
   decideBuildAccount,
@@ -49,6 +31,23 @@ import {
   updateAccountIdentity,
 } from './accounts.js';
 import { migrateLegacySigningIndex } from './appleSigning.js';
+const secrets = vi.hoisted(() => ({ store: new Map<string, string>() }));
+const homeDirectory = mkdtempSync(join(tmpdir(), 'launch-accounts-test-'));
+
+vi.mock('./appleSigning.js', () => ({
+  migrateLegacySigningIndex: vi.fn(() => Promise.resolve()),
+  p12PasswordAccount: (keyId: string) => `dist-cert-p12-password:${keyId}`,
+}));
+
+function runAccountEffect<Value>(accountWork: Promise<Value>): Promise<Value> {
+  return accountWork;
+}
+
+function loadActiveKeyWith(environmentVariables: Readonly<Record<string, string | undefined>>) {
+  useLaunchEnvironment(environmentVariables);
+
+  return loadActiveAscKey();
+}
 /** A realistic multi-line PKCS#8 PEM so the base64 round-trip exercises the real decode path. */
 const PEM = [
   '-----BEGIN PRIVATE KEY-----',

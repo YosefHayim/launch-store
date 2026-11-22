@@ -332,7 +332,7 @@ function decodeRestore(record: Record<string, unknown>): RestoreCommand {
   return command;
 }
 
-export function decodeSnapshotCommandInput(rawCommand: unknown): SnapshotCommandInput {
+function decodeSnapshotCommandInput(rawCommand: unknown): SnapshotCommandInput {
   if (isRecord(rawCommand) == false) {
     throw new Error('Snapshot command input is malformed.');
   }

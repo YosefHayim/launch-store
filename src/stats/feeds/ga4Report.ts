@@ -25,7 +25,7 @@ interface ReportRow {
   readonly metricValues: readonly ReportCell[];
 }
 
-export interface Ga4ReportReply {
+interface Ga4ReportReply {
   readonly rows: readonly ReportRow[];
   readonly rowCount: number;
 }

@@ -3,13 +3,13 @@ interface HttpClientSequenceReply {
   readonly document: unknown;
 }
 
-export interface HttpClientSequenceRoute {
+interface HttpClientSequenceRoute {
   readonly method: string;
   readonly url: string;
   readonly replies: readonly HttpClientSequenceReply[];
 }
 
-export interface HttpClientSentRequest {
+interface HttpClientSentRequest {
   readonly method: string;
   readonly url: string;
   readonly authorization: string | null;

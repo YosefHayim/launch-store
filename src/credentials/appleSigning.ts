@@ -16,12 +16,7 @@ import {
 import type { Platform } from '@/types/app.js';
 import type { ProfileResource } from '@/types/appleCatalog.js';
 import type { AscKey, SigningAssets } from '@/types/credentials.js';
-import {
-  decodeCredentialsIndex,
-  makeAppleSigningFailure,
-  readIndex,
-  type AppleSigningFailure,
-} from './appleSigningIndex.js';
+import { decodeCredentialsIndex, makeAppleSigningFailure, readIndex } from './appleSigningIndex.js';
 import {
   DISTRIBUTION_CERT_NAME,
   ensureDistributionCertificate,
@@ -36,7 +31,6 @@ import {
   staleCachedSigningTargets,
 } from './appleSigningProfiles.js';
 
-export type { AppleSigningFailure };
 export { p12PasswordAccount };
 export { profileStaleAgainstCapabilities, staleCachedSigningTargets };
 

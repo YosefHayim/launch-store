@@ -1,15 +1,15 @@
-import { hasMessage } from '../../services/platform/errorMessage.js';
-import { createLogger } from '../../services/platform/logger.js';
-import { completeCommand } from '../../terminal/commandExit.js';
-import type { InAppPurchaseConfig } from '../../types/catalog.js';
-import { loadStoreAppContext } from '../shared/selectStoreApp.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { completeCommand } from '@/terminal/commandExit.js';
+import type { InAppPurchaseConfig } from '@/types/catalog.js';
+import { loadStoreAppContext } from '@/store/shared/selectStoreApp.js';
 import { loadActiveGoogleStore } from './googleStoreCommand.js';
 import {
   confirmPlayCatalogWrite,
   renderAppliedPlayCatalogAction,
   renderPlayCatalogAction,
 } from './playCatalogCommand.js';
-import { reconcilePlayProducts, summarizePlayProducts } from './playProducts.js';
+import { reconcilePlayProducts, summarizePlayProducts } from '@/store/google/playProducts.js';
 
 export type PlayProductsCommandInput = {
   app?: string;
@@ -93,7 +93,7 @@ function readExactOptionalString(
   return field;
 }
 
-export function decodePlayProductsCommandInput(rawCommandInput: unknown): PlayProductsCommandInput {
+function decodePlayProductsCommandInput(rawCommandInput: unknown): PlayProductsCommandInput {
   if (isRecord(rawCommandInput) == false) {
     throw new Error('Play products command input must be an object.');
   }

@@ -482,9 +482,6 @@ function createUpdatesCommandService(): UpdatesCommandService {
   };
 }
 
-/** Live update command dependencies backed by the terminal and system clock. */
-export const UpdatesCommandServiceLive = createUpdatesCommandService;
-
 async function requireRollbackConfirmation(
   commandService: UpdatesCommandService,
   yes: boolean,

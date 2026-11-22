@@ -24,7 +24,7 @@ import type {
   ResourceSingle,
   PromotedPurchasePage,
 } from './shared.js';
-import type { components } from '@/apple/generated/schema.js';
+import type { components } from '@/generated/apple/schema.js';
 import {
   IN_APP_PURCHASE_VERSION_RESOURCES,
   SUBSCRIPTION_VERSION_RESOURCES,

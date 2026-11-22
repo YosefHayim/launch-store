@@ -5,13 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetSecretStore, useSecretStore } from '@/services/credentials/secretStore.js';
 import { createLogger } from '@/services/platform/logger.js';
 import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
-
-vi.mock('../services/platform/exec.js', () => ({
-  captureCommandOutput: vi.fn(function verifyKeystore() {
-    return Promise.resolve('verified dummy keystore');
-  }),
-}));
-
 import { captureCommandOutput } from '../services/platform/exec.js';
 import {
   ensureUploadKeystore,
@@ -20,6 +13,11 @@ import {
   listStoredAndroidPackages,
   storeServiceAccount,
 } from './androidKeystore.js';
+vi.mock('../services/platform/exec.js', () => ({
+  captureCommandOutput: vi.fn(function verifyKeystore() {
+    return Promise.resolve('verified dummy keystore');
+  }),
+}));
 
 const temporaryRoots: string[] = [];
 

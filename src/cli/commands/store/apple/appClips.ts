@@ -1,8 +1,5 @@
 import type { Command } from '@/cli/command.js';
-import {
-  type AppClipsCommandInput,
-  appClipsCommandProgram,
-} from '@/store/apple/appClipsCommand.js';
+import { type AppClipsCommandInput, appClipsCommandProgram } from './appClipsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type AppClipsOptions = Readonly<{

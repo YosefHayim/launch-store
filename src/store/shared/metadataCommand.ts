@@ -235,7 +235,7 @@ function readOperation(record: Record<string, unknown>): 'pull' | 'push' {
   throw new Error('operation must be pull or push');
 }
 
-export function decodeMetadataCommandInput(rawCommandInput: unknown): MetadataCommandInput {
+function decodeMetadataCommandInput(rawCommandInput: unknown): MetadataCommandInput {
   if (isRecord(rawCommandInput) == false) {
     throw new Error('Metadata command input must be an object.');
   }

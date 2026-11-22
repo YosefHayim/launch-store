@@ -1,10 +1,10 @@
-import { createLogger } from '../../services/platform/logger.js';
-import { LaunchPrompt } from '../../services/platform/prompt.js';
-import { checkTerminalIsInteractive } from '../../services/platform/progress.js';
-import type { UserInvitationResource, UserResource } from '../../types/appleCatalog.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import type { UserInvitationResource, UserResource } from '@/types/appleCatalog.js';
 import { loadActiveAppleStore } from './appleStoreCommand.js';
-import { getTeam, inviteTeamMember, removeTeamMember, type Team } from './team.js';
-import { hasMessage } from '../../services/platform/errorMessage.js';
+import { getTeam, inviteTeamMember, removeTeamMember, type Team } from '@/store/apple/team.js';
+import { hasMessage } from '@/services/platform/errorMessage.js';
 
 export type TeamListInput = Readonly<{ operation: 'list'; json: boolean }>;
 export type TeamInviteInput = Readonly<{
