@@ -27,7 +27,7 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 | `src/apple` | App Store Connect. The client and `connect/`. |
 | `src/apple-api-types.ts` | Apple's generated OpenAPI types, one file. The client imports it. The generator is `scripts/generate-apple-types.ts`. Do not put this file under `src/apple`. |
 | `src/google` | Google Play. The client. Types come from `@googleapis`. |
-| `src/listing`, `src/readiness`, `src/release`, `src/releaseTrain`, `src/plan`, `src/build`, `src/credentials` | The bridge. Launch's own product. These call the clients and decide what Launch does. |
+| `src/listing`, `src/readiness`, `src/release`, `src/release-train`, `src/plan`, `src/build`, `src/credentials` | The bridge. Launch's own product. These call the clients and decide what Launch does. |
 | `src/store` | Store sync. `store/apple` and `store/google` are the store programs, not the CLI. The HTTP clients stay in `src/apple` and `src/google`. |
 | `src/adopt`, `src/config`, `src/distribution`, `src/doctor`, `src/insights`, `src/migrate`, `src/portfolio`, `src/privacy`, `src/snapshot`, `src/stats` | The rest of the bridge. |
 | `src/agents`, `src/mcp`, `src/terminal`, `src/docs` | Agent skills, the MCP server, glossary, and the config reference. |
@@ -78,7 +78,7 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 
 ### Rules Digest
 
-- **Commands are plain TypeScript.** They return `Promise` or a plain value and throw a readonly `{ _tag }` object. Imports of this package's files are relative and end in `.ts` (`../types/app.ts`). TypeScript rewrites those to `.js` on emit. Do not add a path alias: the compiler will not rewrite it. A published package keeps the `.js` path it documents. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `src/release-command.ts` and `src/app-release.ts` stay in `src/`.
+- **Commands are plain TypeScript.** They return `Promise` or a plain value and throw a readonly `{ _tag }` object. File names are kebab-case (`build-command.ts`). Imports of this package's files are relative and end in `.ts` (`../types/app.ts`). TypeScript rewrites those to `.js` on emit. Do not add a path alias: the compiler will not rewrite it. A published package keeps the `.js` path it documents. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `src/release-command.ts` and `src/app-release.ts` stay in `src/`.
 - **New modules use function declarations.** An arrow only when a method is passed elsewhere and must keep `this`. Do not add `&&` or `||`. `??` and `?.` are allowed. Name each condition.
 - **Registration is thin.** `src/cli/program.ts` registers the commands. Prompts require a TTY or `--yes`. `--json` emits one object. Only the entry sets exit codes.
 - **JSON Schema is the config source.** Do not delete `schema/`.

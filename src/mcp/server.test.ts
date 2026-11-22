@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { expectArrayElement } from '../testkit/assertions.testkit.ts';
 import type { McpTool } from '../types/mcp.ts';
 import { dispatch, pickServedTools } from './server.ts';
-import { STATS_TOOLS } from './statsTools.ts';
+import { STATS_TOOLS } from './stats-tools.ts';
 
 async function sampleHandler(): Promise<{ content: readonly { type: 'text'; text: string }[] }> {
   return { content: [{ type: 'text', text: 'ok' }] };

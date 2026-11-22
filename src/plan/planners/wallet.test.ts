@@ -1,10 +1,10 @@
 import { runPlanner } from './planner.testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { walletPlanner } from './wallet.ts';
-import { makeAscApiFake } from '../../testkit/ascApiFake.testkit.ts';
+import { makeAscApiFake } from '../../testkit/asc-api-fake.testkit.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
-import type { WalletConfig } from '../../types/storeSurface.ts';
+import type { WalletConfig } from '../../types/store-surface.ts';
 const DECLARED: WalletConfig = {
   merchantIds: [{ identifier: 'merchant.com.acme.app', name: 'Acme Pay' }],
 };

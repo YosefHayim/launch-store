@@ -2,8 +2,8 @@ import type {
   NewUserInvitation,
   UserInvitationResource,
   UserResource,
-} from '../../types/appleCatalog.ts';
-import { hasMessage } from '../../services/platform/errorMessage.ts';
+} from '../../types/apple-catalog.ts';
+import { hasMessage } from '../../services/platform/error-message.ts';
 
 /** App Store Connect operations needed for team membership. */
 export type AscTeamApi = Readonly<{

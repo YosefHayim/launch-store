@@ -1,5 +1,5 @@
-import { reconcileAssetActions } from '../../store/shared/syncRun.ts';
-import { buildJobs, type SyncJob } from '../../store/shared/syncJobs.ts';
+import { reconcileAssetActions } from '../../store/shared/sync-run.ts';
+import { buildJobs, type SyncJob } from '../../store/shared/sync-jobs.ts';
 import { checkScreenshotFile } from '../../listing/screenshots/specs.ts';
 import type { PlannedAction } from '../../types/reconcile.ts';
 import type { AppPlan, AscSurfacesApi, PlanContext, SurfacePlanner } from '../../types/plan.ts';

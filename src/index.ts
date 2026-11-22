@@ -34,4 +34,4 @@ export type {
   ReviewDetailsConfig,
   WalletConfig,
   WalletIdConfig,
-} from './types/storeSurface.ts';
+} from './types/store-surface.ts';

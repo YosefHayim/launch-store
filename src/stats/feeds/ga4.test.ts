@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { PortfolioApp } from '../../types/portfolio.ts';
 import type { FeedFetchReply } from '../../types/stats.ts';
-import type { StatsCredentialsApi } from '../statsCredentials.ts';
-import { makeStatsCredentialsTest, useStatsCredentials } from '../statsCredentials.ts';
+import type { StatsCredentialsApi } from '../stats-credentials.ts';
+import { makeStatsCredentialsTest, useStatsCredentials } from '../stats-credentials.ts';
 import { ga4Feed } from './ga4.ts';
 
 const ACCOUNT_SUMMARIES_URL =

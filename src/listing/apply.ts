@@ -2,7 +2,7 @@ import type {
   AndroidLocaleInfo,
   AppleLocaleInfo,
   StoreConfig,
-} from '../store/shared/storeConfig.ts';
+} from '../store/shared/store-config.ts';
 import type { DraftListing, ListingBrief, LocaleDraft } from '../types/listing.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 /**

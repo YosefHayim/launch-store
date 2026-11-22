@@ -17,7 +17,7 @@ import type {
   ReleaseConfig,
   SurfaceConfigFiles,
   WalletConfig,
-} from './storeSurface.ts';
+} from './store-surface.ts';
 /**
  * Provider defaults filled when the user omits them - the single source for both the Effect Schema's
  * defaults and `defineConfig` (which fills them without parsing, so it can preserve unknown top-level

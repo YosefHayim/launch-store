@@ -3,7 +3,7 @@ import type {
   AccessibilityDeclarationResource,
   AccessibilitySupport,
   DeviceFamily,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import {
   type AccessibilityConfig,
   type AscAccessibilityApi,

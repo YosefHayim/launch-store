@@ -1,6 +1,6 @@
 import type { Command } from '../../command.ts';
-import { diagnoseCommandProgram } from '../../../build/diagnoseCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { diagnoseCommandProgram } from '../../../build/diagnose-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the native-build log diagnosis command to Commander. */
 export const registerDiagnoseCommand = (program: Command): void => {

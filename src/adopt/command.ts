@@ -2,14 +2,14 @@ import { join, relative, sep } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import { loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
-import { AppleStoreClientService } from '../services/stores/appleStoreClient.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
+import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
-import { pullAppleListing } from '../store/shared/metadataCommand.ts';
-import { completeCommand, isCommandExit } from '../terminal/commandExit.ts';
+import { pullAppleListing } from '../store/shared/metadata-command.ts';
+import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import type { AdoptCatalogApi, Fidelity } from '../types/adopt.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import {

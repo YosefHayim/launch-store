@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderStoreSurfaceAction } from './appStoreSurfaceCommand.ts';
+import { renderStoreSurfaceAction } from './app-store-surface-command.ts';
 describe('renderAction', () => {
   it('marks a planned/applied registration with +', () => {
     expect(

@@ -1,6 +1,6 @@
 import type { Command } from '../../command.ts';
-import { fingerprintCommandProgram } from '../../../build/fingerprintCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { fingerprintCommandProgram } from '../../../build/fingerprint-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the fingerprint command to the program. */
 export const registerFingerprintCommand = (program: Command): void => {

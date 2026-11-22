@@ -1,4 +1,4 @@
-import { errorMessage } from '../services/platform/errorMessage.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import type {
   ProbeOutcome,
   ProbeReport,

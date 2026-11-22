@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseReviewRating } from './reviewsCommand.ts';
+import { parseReviewRating } from './reviews-command.ts';
 
 function readRatingFailure(ratingText: string): unknown {
   try {

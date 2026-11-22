@@ -1,4 +1,4 @@
-import { errorMessage } from '../../services/platform/errorMessage.ts';
+import { errorMessage } from '../../services/platform/error-message.ts';
 import type { PlannedAction } from '../../types/reconcile.ts';
 import type { MutableDeep } from '../../types/mutable.ts';
 

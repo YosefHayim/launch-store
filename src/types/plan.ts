@@ -1,20 +1,20 @@
 import type { AppDescriptor } from './app.ts';
 import type { LaunchConfig } from './config.ts';
-import type { AscCatalogApi } from '../store/apple/ascSync.ts';
+import type { AscCatalogApi } from '../store/apple/asc-sync.ts';
 import type { PlannedAction } from './reconcile.ts';
-import type { AscReleaseApi } from '../release/releaseAttrs.ts';
-import type { AscGameCenterApi } from '../store/apple/gameCenter.ts';
-import type { AscAppClipsApi } from '../store/apple/appClips.ts';
+import type { AscReleaseApi } from '../release/release-attrs.ts';
+import type { AscGameCenterApi } from '../store/apple/game-center.ts';
+import type { AscAppClipsApi } from '../store/apple/app-clips.ts';
 import type { AscAvailabilityApi } from '../store/apple/availability.ts';
 import type { AscAccessibilityApi } from '../store/apple/accessibility.ts';
-import type { AscExperimentsApi } from '../release/versionExperiments.ts';
-import type { AscCustomPagesApi } from '../store/apple/customProductPages.ts';
-import type { AscWalletApi } from '../store/apple/walletIds.ts';
-import type { AscEuDistributionApi } from '../store/apple/euDistribution.ts';
+import type { AscExperimentsApi } from '../release/version-experiments.ts';
+import type { AscCustomPagesApi } from '../store/apple/custom-product-pages.ts';
+import type { AscWalletApi } from '../store/apple/wallet-ids.ts';
+import type { AscEuDistributionApi } from '../store/apple/eu-distribution.ts';
 import type { AscOffersApi } from '../store/apple/offers.ts';
-import type { PreviewsApi, ScreenshotsApi } from '../store/apple/ascScreenshots.ts';
-import type { PlayProductsApi } from '../store/google/playProducts.ts';
-import type { PlaySubscriptionsApi } from '../store/google/playSubscriptions.ts';
+import type { PreviewsApi, ScreenshotsApi } from '../store/apple/asc-screenshots.ts';
+import type { PlayProductsApi } from '../store/google/play-products.ts';
+import type { PlaySubscriptionsApi } from '../store/google/play-subscriptions.ts';
 /** Which store a surface belongs to - drives credential resolution and how the diff is grouped. */
 export type PlanStore = 'appstore' | 'play';
 /**

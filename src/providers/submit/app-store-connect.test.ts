@@ -1,0 +1,157 @@
+import { fileURLToPath } from 'node:url';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { BuildUploadStatus } from '../../types/apple-catalog.ts';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials } from '../../types/credentials.ts';
+
+const ascFake = vi.hoisted(() => ({
+  getAppId: vi.fn<(bundleId: string) => Promise<string | null>>(),
+  createBuildUpload:
+    vi.fn<
+      (appId: string, version: string, buildNumber: number, platform: string) => Promise<string>
+    >(),
+  uploadBuildFile:
+    vi.fn<(buildUploadId: string, fileName: string, binaryPath: string) => Promise<void>>(),
+  getBuildUploadStatus: vi.fn<(buildUploadId: string) => Promise<BuildUploadStatus>>(),
+}));
+
+vi.mock('../../apple/asc-client.ts', () => ({
+  AppStoreConnectClient: class {
+    getAppId = ascFake.getAppId;
+    createBuildUpload = ascFake.createBuildUpload;
+    uploadBuildFile = ascFake.uploadBuildFile;
+    getBuildUploadStatus = ascFake.getBuildUploadStatus;
+  },
+}));
+
+const { makeAppStoreConnectSubmitter } = await import('./app-store-connect.ts');
+const submitter = makeAppStoreConnectSubmitter(1, 30 * 60 * 1000);
+const ipaPath = fileURLToPath(import.meta.url);
+const artifact = { path: ipaPath, version: '1.4.0', buildNumber: 42 };
+
+function iosContext(platform: ResolvedBuildContext['platform'] = 'ios'): ResolvedBuildContext {
+  return {
+    platform,
+    app: {
+      name: 'hello',
+      dir: '/apps/hello',
+      configPath: '/apps/hello/app.json',
+      bundleId: 'com.example.hello',
+    },
+    profile: { name: 'production' },
+    env: {},
+    explain: false,
+    dryRun: false,
+    forceClean: false,
+  };
+}
+
+const IOS_CREDENTIALS: BuildCredentials = {
+  platform: 'ios',
+  ascKey: { keyId: 'K', issuerId: 'I', p8: 'PEM' },
+};
+
+function uploadStatus(state: string, errors: BuildUploadStatus['errors'] = []): BuildUploadStatus {
+  return { state, fileState: '', errors };
+}
+
+function acceptUploads(): void {
+  ascFake.getAppId.mockResolvedValue('app-1');
+  ascFake.createBuildUpload.mockResolvedValue('upload-1');
+  ascFake.uploadBuildFile.mockResolvedValue(undefined);
+}
+
+afterEach(() => vi.resetAllMocks());
+
+describe('app-store-connect submitter - build upload API', () => {
+  it('uploads the binary for its version and build, then waits until Apple accepts it', async () => {
+    acceptUploads();
+    ascFake.getBuildUploadStatus
+      .mockResolvedValueOnce(uploadStatus('AWAITING_UPLOAD'))
+      .mockResolvedValueOnce(uploadStatus('PROCESSING'))
+      .mockResolvedValueOnce(uploadStatus('COMPLETE'));
+    await submitter.submit(artifact, IOS_CREDENTIALS, iosContext());
+    expect(ascFake.getAppId).toHaveBeenCalledWith('com.example.hello');
+    expect(ascFake.createBuildUpload).toHaveBeenCalledWith('app-1', '1.4.0', 42, 'IOS');
+    expect(ascFake.uploadBuildFile).toHaveBeenCalledWith(
+      'upload-1',
+      'app-store-connect.test.ts',
+      ipaPath,
+    );
+    expect(ascFake.getBuildUploadStatus).toHaveBeenCalledTimes(3);
+  });
+
+  it('uploads a tvOS build for the TV_OS platform', async () => {
+    acceptUploads();
+    ascFake.getBuildUploadStatus.mockResolvedValue(uploadStatus('COMPLETE'));
+    await submitter.submit(artifact, IOS_CREDENTIALS, iosContext('tvos'));
+    expect(ascFake.createBuildUpload).toHaveBeenCalledWith('app-1', '1.4.0', 42, 'TV_OS');
+  });
+
+  it('tells the user to bump the version when the version train is closed', async () => {
+    acceptUploads();
+    ascFake.getBuildUploadStatus.mockResolvedValue(
+      uploadStatus('FAILED', [{ code: '90186', description: 'Invalid Pre-Release Train.' }]),
+    );
+    await expect(submitter.submit(artifact, IOS_CREDENTIALS, iosContext())).rejects.toThrow(
+      /no longer takes builds for version 1\.4\.0\. Bump the app version/,
+    );
+  });
+
+  it('still names the closed version train when Apple gives other reasons too', async () => {
+    acceptUploads();
+    ascFake.getBuildUploadStatus.mockResolvedValue(
+      uploadStatus('FAILED', [
+        { code: '90186', description: 'Invalid Pre-Release Train.' },
+        { code: '90087', description: 'Unsupported Architectures.' },
+      ]),
+    );
+    await expect(submitter.submit(artifact, IOS_CREDENTIALS, iosContext())).rejects.toThrow(
+      /Bump the app version[\s\S]*Unsupported Architectures\. \(90087\)/,
+    );
+  });
+
+  it('counts slow status replies toward the wait, so it gives up on time', async () => {
+    acceptUploads();
+    ascFake.getBuildUploadStatus.mockImplementation(async () => {
+      await new Promise(function statusReplied(done) {
+        setTimeout(done, 30);
+      });
+      return uploadStatus('PROCESSING');
+    });
+    const shortWait = makeAppStoreConnectSubmitter(1, 100);
+    await expect(shortWait.submit(artifact, IOS_CREDENTIALS, iosContext())).rejects.toThrow(
+      /still processing build upload upload-1/,
+    );
+    expect(ascFake.getBuildUploadStatus.mock.calls.length).toBeLessThan(10);
+  });
+
+  it('lists every reason Apple gives for a rejected upload', async () => {
+    acceptUploads();
+    ascFake.getBuildUploadStatus.mockResolvedValue({
+      state: 'PROCESSING',
+      fileState: 'FAILED',
+      errors: [{ code: '90087', description: 'Unsupported Architectures.' }],
+    });
+    await expect(submitter.submit(artifact, IOS_CREDENTIALS, iosContext())).rejects.toMatchObject({
+      _tag: 'StoreUploadFailure',
+      provider: 'app-store-connect',
+      message: 'App Store Connect rejected the build upload:\n- Unsupported Architectures. (90087)',
+    });
+  });
+
+  it('fails before uploading when the app record does not exist', async () => {
+    ascFake.getAppId.mockResolvedValue(null);
+    await expect(submitter.submit(artifact, IOS_CREDENTIALS, iosContext())).rejects.toThrow(
+      /com\.example\.hello/,
+    );
+    expect(ascFake.createBuildUpload).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-Apple credential', async () => {
+    const androidCredentials: BuildCredentials = { platform: 'android', serviceAccountJson: '{}' };
+    await expect(submitter.submit(artifact, androidCredentials, iosContext())).rejects.toThrow(
+      /Apple platforms only/,
+    );
+  });
+});

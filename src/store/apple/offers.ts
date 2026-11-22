@@ -14,7 +14,7 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
 import type {
   AppProducts,
@@ -26,7 +26,7 @@ import type {
   WinBackOfferConfig,
 } from '../../types/catalog.ts';
 import type { MutableDeep } from '../../types/mutable.ts';
-import { errorMessage } from '../../services/platform/errorMessage.ts';
+import { errorMessage } from '../../services/platform/error-message.ts';
 import {
   act,
   makeAppRecordFailure,
@@ -38,7 +38,7 @@ import {
 /**
  * The exact slice of {@link AppStoreConnectClient} the offers reconciler depends on. Declared here (not
  * the concrete client) so the diff logic is unit-testable with a hand-rolled fake, mirroring
- * {@link AscCatalogApi} in `core/store/apple/ascSync.ts`. `AppStoreConnectClient` satisfies it structurally.
+ * {@link AscCatalogApi} in `core/store/apple/asc-sync.ts`. `AppStoreConnectClient` satisfies it structurally.
  */
 export type AscOffersApi = {
   getAppId(bundleId: string): Promise<string | null>;

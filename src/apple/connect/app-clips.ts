@@ -3,7 +3,7 @@ import type {
   AppClipDefaultExperienceResource,
   AppClipLocalizationResource,
   AppClipResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { AscHost } from './host.ts';
 import type { MutableDeep } from '../../types/mutable.ts';
 import type { ResourceSingle, AppClipExperiencePage } from './shared.ts';

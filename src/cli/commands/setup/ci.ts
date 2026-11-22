@@ -1,6 +1,6 @@
 import type { Command } from '../../command.ts';
-import { ciCommandProgram } from '../../../config/ciCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { ciCommandProgram } from '../../../config/ci-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type CiOptions = Readonly<{
   android: boolean;

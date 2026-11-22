@@ -5,8 +5,8 @@ import {
   type OffersListInput,
   type OffersReconcileInput,
   offersCommandProgram,
-} from './offersCommand.ts';
-import { runCliProgram } from '../../../runCliProgram.ts';
+} from './offers-command.ts';
+import { runCliProgram } from '../../../run-cli-program.ts';
 
 type OffersOptions = Readonly<{
   readonly app?: string;

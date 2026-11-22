@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { isEnvExcluded } from '../../config/env.ts';
 import { mergeChildEnv } from '../../terminal/locale.ts';
 import { readLaunchEnvironment } from './environment.ts';
-import { isJsonOutput } from './jsonOutputMode.ts';
+import { isJsonOutput } from './json-output-mode.ts';
 import { makeLogRedactor, redactText } from './redact.ts';
 
 export type CommandFailed = Readonly<{

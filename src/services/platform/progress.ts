@@ -1,13 +1,13 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { stdout } from 'node:process';
-import { diagnoseBuildLog, formatDiagnoses } from '../../build/buildDiagnostics.ts';
-import { currentBuildLog } from '../../build/buildLog.ts';
-import type { BuildEstimate } from '../../build/buildFingerprint.ts';
+import { diagnoseBuildLog, formatDiagnoses } from '../../build/build-diagnostics.ts';
+import { currentBuildLog } from '../../build/build-log.ts';
+import type { BuildEstimate } from '../../build/build-fingerprint.ts';
 import { formatElapsed } from './elapsed.ts';
 import { executeCommand, executeCommandQuietly } from './exec.ts';
 import { readLaunchEnvironment } from './environment.ts';
-import { isJsonOutput } from './jsonOutputMode.ts';
+import { isJsonOutput } from './json-output-mode.ts';
 import { createLogger } from './logger.ts';
 import { resolveLogsDirectory } from './paths.ts';
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */

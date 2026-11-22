@@ -1,17 +1,17 @@
 import type { SurfacePlanner } from '../types/plan.ts';
 import { accessibilityPlanner } from './planners/accessibility.ts';
-import { appClipsPlanner } from './planners/appClips.ts';
+import { appClipsPlanner } from './planners/app-clips.ts';
 import { availabilityPlanner } from './planners/availability.ts';
 import { catalogPlanner } from './planners/catalog.ts';
-import { customPagesPlanner } from './planners/customPages.ts';
-import { euDistributionPlanner } from './planners/euDistribution.ts';
+import { customPagesPlanner } from './planners/custom-pages.ts';
+import { euDistributionPlanner } from './planners/eu-distribution.ts';
 import { experimentsPlanner } from './planners/experiments.ts';
-import { gameCenterPlanner } from './planners/gameCenter.ts';
+import { gameCenterPlanner } from './planners/game-center.ts';
 import { listingPlanner } from './planners/listing.ts';
 import { offersPlanner } from './planners/offers.ts';
-import { playProductsPlanner } from './planners/playProducts.ts';
-import { playSubscriptionsPlanner } from './planners/playSubscriptions.ts';
-import { releaseConfigPlanner } from './planners/releaseConfig.ts';
+import { playProductsPlanner } from './planners/play-products.ts';
+import { playSubscriptionsPlanner } from './planners/play-subscriptions.ts';
+import { releaseConfigPlanner } from './planners/release-config.ts';
 import { screenshotsPlanner } from './planners/screenshots.ts';
 import { walletPlanner } from './planners/wallet.ts';
 

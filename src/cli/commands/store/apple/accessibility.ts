@@ -1,6 +1,6 @@
 import type { Command } from '../../../command.ts';
-import { accessibilityCommandProgram } from './accessibilityCommand.ts';
-import { runCliProgram } from '../../../runCliProgram.ts';
+import { accessibilityCommandProgram } from './accessibility-command.ts';
+import { runCliProgram } from '../../../run-cli-program.ts';
 
 type AccessibilityOptions = Readonly<{
   app?: string;

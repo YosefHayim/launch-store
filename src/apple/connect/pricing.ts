@@ -1,5 +1,5 @@
 import type { AscHost } from './host.ts';
-import type { PricePointResource } from '../../types/appleCatalog.ts';
+import type { PricePointResource } from '../../types/apple-catalog.ts';
 import { matchPricePoint } from './shared.ts';
 
 export class ConnectPricing {

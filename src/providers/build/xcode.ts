@@ -10,7 +10,7 @@ import {
   assertDeviceArtifact,
   exportOptionsPlist,
   parseThinningReport,
-} from '../../services/providerSupport/appleArtifact.ts';
+} from '../../services/provider-support/apple-artifact.ts';
 import {
   runWithProgress,
   xcodeProgressStep,
@@ -31,7 +31,7 @@ import {
   updateEstimate,
   writeBuildState,
   writeManualSigningToProject,
-} from '../../services/providerSupport/buildEngineSupport.ts';
+} from '../../services/provider-support/build-engine-support.ts';
 import {
   appleArtifactExtension,
   archiveDestination,

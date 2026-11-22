@@ -3,7 +3,7 @@ import {
   credentialsCommandProgram,
   type CredentialsCommandOptions,
 } from '../../../credentials/command.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type CredsOptions = CredentialsCommandOptions;
 

@@ -4,8 +4,8 @@ import {
   type TeamListInput,
   teamCommandProgram,
   type TeamRemoveInput,
-} from './teamCommand.ts';
-import { runCliProgram } from '../../../runCliProgram.ts';
+} from './team-command.ts';
+import { runCliProgram } from '../../../run-cli-program.ts';
 
 type InviteOptions = Readonly<{
   readonly first: string;

@@ -5,7 +5,7 @@ import type {
   SnapshotContext,
   SnapshotSource,
 } from '../types/snapshot.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 
 /**
  * Exit codes for `snapshot create`, mirroring the `launch plan` convention (error-or-clean):

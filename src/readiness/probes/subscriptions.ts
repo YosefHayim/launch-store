@@ -5,9 +5,9 @@ import type {
   ReadinessContext,
   ReadinessProbe,
 } from '../../types/readiness.ts';
-import { iosApps } from '../appScopes.ts';
-import { declaredSubscriptionIds, gradeDeclaredProduct } from './iapReadiness.ts';
-import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.ts';
+import { iosApps } from '../app-scopes.ts';
+import { declaredSubscriptionIds, gradeDeclaredProduct } from './iap-readiness.ts';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 
 function isAppleAccountMissing(api: AscReadinessApi | null): api is null {
   return api == null;

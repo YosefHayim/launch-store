@@ -5,8 +5,8 @@ import { loadConfig } from '../config/config.ts';
 import {
   readDocumentFile,
   writeDocumentFileAtomically,
-} from '../services/platform/atomicDocumentFile.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
+} from '../services/platform/atomic-document-file.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { locatePortfolioFilePath, readLaunchDirectories } from '../services/platform/paths.ts';
@@ -14,11 +14,11 @@ import { LaunchPrompt } from '../services/platform/prompt.ts';
 import {
   AppStoreIdentityService,
   type AppStoreIdentity,
-} from '../services/stores/appStoreIdentity.ts';
-import { GoogleStoreClientService } from '../services/stores/googleStoreClient.ts';
+} from '../services/stores/app-store-identity.ts';
+import { GoogleStoreClientService } from '../services/stores/google-store-client.ts';
 import { parsePlatform } from '../services/stores/platform.ts';
-import { pickSavedPortfolioFile } from '../portfolio/portfolioStore.ts';
-import { parsePlayReportsBucket } from '../stats/playReportsBucket.ts';
+import { pickSavedPortfolioFile } from '../portfolio/portfolio-store.ts';
+import { parsePlayReportsBucket } from '../stats/play-reports-bucket.ts';
 import type { AppDescriptor, Platform } from '../types/app.ts';
 import type { AccountRecord, AscKey } from '../types/credentials.ts';
 import type { PortfolioFile } from '../types/portfolio.ts';
@@ -42,10 +42,10 @@ import {
   ensureUploadKeystore,
   storeServiceAccount,
   type KeystoreImport,
-} from './androidKeystore.ts';
-import { describeStoredCredentials, ensureSigningCredentials } from './appleSigning.ts';
-import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './keyFiles.ts';
-import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './pushKeyStore.ts';
+} from './android-keystore-assets.ts';
+import { describeStoredCredentials, ensureSigningCredentials } from './apple-signing-assets.ts';
+import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './key-files.ts';
+import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './push-key-store.ts';
 
 const CREDENTIAL_ACTIONS = [
   'status',

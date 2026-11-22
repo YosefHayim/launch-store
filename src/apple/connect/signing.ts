@@ -6,7 +6,7 @@ import type {
   CertificateResource,
   DeviceResource,
   ProfileResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { ProvisioningProfileType, ResourceList } from './shared.ts';
 import type { components } from '../../apple-api-types.ts';
 import {

@@ -1,6 +1,6 @@
 import type { Command } from '../../command.ts';
-import { setupCommandProgram } from '../../../config/setupCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { setupCommandProgram } from '../../../config/setup-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type SetupOptions = Readonly<{
   platform?: string;

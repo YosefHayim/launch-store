@@ -9,7 +9,7 @@ import {
   writeAppEntitlements,
   writeAppVersion,
 } from './config.ts';
-import { validateConfig } from './configSchema.ts';
+import { validateConfig } from './config-schema.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.ts';
 const tempDirs: string[] = [];

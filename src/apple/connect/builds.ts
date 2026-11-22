@@ -3,10 +3,10 @@ import type {
   BuildResource,
   BuildUploadStatus,
   EncryptionDeclarationResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { ResourceList, BuildPage } from './shared.ts';
 import type { components } from '../../apple-api-types.ts';
-import { highestAppleMarketingVersion } from '../transportHelpers.ts';
+import { highestAppleMarketingVersion } from '../transport-helpers.ts';
 import {
   readTransportSize,
   BUILD_PAGE_QUERY,

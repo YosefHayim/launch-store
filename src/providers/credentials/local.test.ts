@@ -7,8 +7,8 @@ import {
   useLaunchEnvironment,
 } from '../../services/platform/environment.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../../services/platform/paths.ts';
-import { resetSecretStore, useSecretStore } from '../../services/credentials/secretStore.ts';
-import type { AppleCredentialAccountStatus } from '../../services/credentials/localCredentialsStore.ts';
+import { resetSecretStore, useSecretStore } from '../../services/credentials/secret-store.ts';
+import type { AppleCredentialAccountStatus } from '../../services/credentials/local-credentials-store.ts';
 import type { ResolvedBuildContext } from '../../types/config.ts';
 import type { AscKey } from '../../types/credentials.ts';
 import type { MutableDeep } from '../../types/mutable.ts';

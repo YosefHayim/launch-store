@@ -2,15 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resetSecretStore, useSecretStore } from '../services/credentials/secretStore.ts';
+import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { resetPrompts } from '../services/platform/prompt.ts';
-import { registerBuildEngine, registerSubmitter } from '../services/providerSupport/registry.ts';
+import { registerBuildEngine, registerSubmitter } from '../services/provider-support/registry.ts';
 import { runBuild } from './pipeline.ts';
-import { sizeSummary, uploadSizeReadout, worstDownloadBytes } from './pipelineArtifact.ts';
-import { selectApp } from './pipelineEnv.ts';
+import { sizeSummary, uploadSizeReadout, worstDownloadBytes } from './pipeline-artifact.ts';
+import { selectApp } from './pipeline-env.ts';
 import {
   androidReleaseNotesFromLocaleMap,
   resolveAndroidSubmitReleaseNotes,
@@ -18,9 +18,9 @@ import {
   resolveSizeBudgetMB,
   resolveSubmitters,
   submitToStores,
-} from './pipelineProviders.ts';
-import { DEFAULT_SIZE_BUDGET_MB } from './pipelineTypes.ts';
-import { resolveBumpKind } from './pipelineVersion.ts';
+} from './pipeline-providers.ts';
+import { DEFAULT_SIZE_BUDGET_MB } from './pipeline-types.ts';
+import { resolveBumpKind } from './pipeline-version.ts';
 import type { AppDescriptor, BuildProfile } from '../types/app.ts';
 import type { SizeReport } from '../types/artifacts.ts';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';

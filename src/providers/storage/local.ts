@@ -6,7 +6,7 @@ import {
   readArtifactIndex,
   runArtifactPrune,
   writeArtifactIndex,
-} from '../../build/artifactRetention.ts';
+} from '../../build/artifact-retention.ts';
 import { resolveArtifactsDirectory } from '../../services/platform/paths.ts';
 import type { BuildArtifact, PruneOptions } from '../../types/artifacts.ts';
 import {

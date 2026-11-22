@@ -1,6 +1,6 @@
 import type { Command } from '../../../command.ts';
-import { reportsCommandProgram } from './reportsCommand.ts';
-import { runCliProgram } from '../../../runCliProgram.ts';
+import { reportsCommandProgram } from './reports-command.ts';
+import { runCliProgram } from '../../../run-cli-program.ts';
 
 type SalesCommandOptions = Readonly<{
   vendorNumber?: string;

@@ -13,7 +13,7 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { AppProducts, SubscriptionConfig } from '../../types/catalog.ts';
 import { appDeclaresOffers, reconcileOffers, type AscOffersApi } from './offers.ts';
 /**

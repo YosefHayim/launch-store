@@ -1,4 +1,4 @@
-import { LocalCredentialsStore } from '../../services/credentials/localCredentialsStore.ts';
+import { LocalCredentialsStore } from '../../services/credentials/local-credentials-store.ts';
 import { isApplePlatform } from '../../services/stores/platform.ts';
 import type { ResolvedBuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';

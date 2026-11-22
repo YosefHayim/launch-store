@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
-import { isCommandExit } from '../terminal/commandExit.ts';
+import { isCommandExit } from '../terminal/command-exit.ts';
 import type { ProbeResult, ReadinessOutcome, ReadinessProbe } from '../types/readiness.ts';
 import { formatReadinessSummaryDetail, readinessStoreLabel } from './command.ts';
 import { READINESS_EXIT } from './orchestrator.ts';
@@ -26,7 +26,7 @@ let probes: ReadinessProbe[] = [];
 vi.mock('../config/config.ts', () => ({
   loadConfig: () => Promise.resolve({ config: {}, apps: [] }),
 }));
-vi.mock('../store/shared/storeClients.ts', () => ({
+vi.mock('../store/shared/store-clients.ts', () => ({
   createAscClientResolver: () => async () => null,
   createPlayClientResolver: () => async () => null,
 }));

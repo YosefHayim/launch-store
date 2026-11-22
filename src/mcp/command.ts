@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { detectHostOperatingSystem } from '../services/platform/os.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';

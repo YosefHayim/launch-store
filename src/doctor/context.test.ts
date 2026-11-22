@@ -12,7 +12,7 @@ vi.mock('../config/config.ts', function mockConfigModule() {
   };
 });
 
-vi.mock('../store/shared/storeClients.ts', function mockStoreClients() {
+vi.mock('../store/shared/store-clients.ts', function mockStoreClients() {
   return {
     createAscClientResolver: function createAscClientResolver() {
       return function resolveAscClient() {

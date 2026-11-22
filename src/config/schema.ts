@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { deprecatedAgeRatingVerdict, type AgeRatingValue } from '../types/appleCatalog.ts';
+import { deprecatedAgeRatingVerdict, type AgeRatingValue } from '../types/apple-catalog.ts';
 import {
   DEFAULT_BUILD_ENGINE,
   DEFAULT_CREDENTIALS_PROVIDER,
@@ -8,7 +8,7 @@ import {
   DEFAULT_SUBMITTER,
   type LaunchConfig,
 } from '../types/config.ts';
-import { type JsonSchema, type SchemaViolation, validate } from './jsonSchema.ts';
+import { type JsonSchema, type SchemaViolation, validate } from './json-schema.ts';
 
 const SCHEMA_PATH = fileURLToPath(
   new URL('../../schema/launch.config.schema.json', import.meta.url),

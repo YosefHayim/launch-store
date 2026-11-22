@@ -3,7 +3,7 @@ import type {
   AgeRatingValue,
   AppInfoResource,
   ListingLocalization,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { AscHost } from './host.ts';
 import type { ResourceList, AppInfoStates } from './shared.ts';
 import {

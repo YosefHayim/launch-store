@@ -9,10 +9,10 @@ import type {
   BetaGroupResource,
   BetaReviewState,
   BetaTesterResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { BetaFeedbackPage, BetaFeedbackRow } from './shared.ts';
 import { AscRequestError, isRetryableIdempotentFailure, toFeedbackScreenshots } from './shared.ts';
-import { retryAppleTransportRequest } from '../transportHelpers.ts';
+import { retryAppleTransportRequest } from '../transport-helpers.ts';
 
 export class ConnectTestflight {
   constructor(private readonly client: AscHost) {}

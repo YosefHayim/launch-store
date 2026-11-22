@@ -3,7 +3,7 @@ import {
   loadAccessibilityConfig,
   reconcileAccessibility,
 } from '../../store/apple/accessibility.ts';
-import { planAppStoreSurface } from './appStoreSurface.ts';
+import { planAppStoreSurface } from './app-store-surface.ts';
 import type { SurfacePlanner } from '../../types/plan.ts';
 /** Surface id - also the value users pass as `launch plan accessibility`. */
 const SURFACE = 'accessibility';

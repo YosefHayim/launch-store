@@ -1,11 +1,11 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadConfig, readResolvedConfig } from '../config/config.ts';
-import { hasMessage } from '../services/platform/errorMessage.ts';
+import { hasMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { pathExists } from '../path-exists.ts';
-import { selectApps } from '../store/shared/syncJobs.ts';
-import { completeCommand } from '../terminal/commandExit.ts';
+import { selectApps } from '../store/shared/sync-jobs.ts';
+import { completeCommand } from '../terminal/command-exit.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { PrivacySurface } from '../types/privacy.ts';
 import { surfaceFromExpoConfig, surfaceFromNative } from './parse.ts';

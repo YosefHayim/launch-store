@@ -3,7 +3,7 @@ import type {
   InAppPurchaseResource,
   LocalizationResource,
   SubscriptionResource,
-} from '../types/appleCatalog.ts';
+} from '../types/apple-catalog.ts';
 import type {
   InAppPurchaseConfig,
   InAppPurchaseType,

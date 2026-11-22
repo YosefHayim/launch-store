@@ -1,4 +1,4 @@
-import type { AppAvailabilityResource } from '../../types/appleCatalog.ts';
+import type { AppAvailabilityResource } from '../../types/apple-catalog.ts';
 import type { AscHost } from './host.ts';
 import type { TerritoryAvailabilityRow, TerritoryAvailabilityPage } from './shared.ts';
 import type { components } from '../../apple-api-types.ts';

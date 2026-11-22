@@ -3,7 +3,7 @@ import type { LaunchConfig } from '../types/config.ts';
 import type { McpTool, McpToolResult } from '../types/mcp.ts';
 import type { SurfacePlanner } from '../types/plan.ts';
 import type { Snapshot } from '../types/snapshot.ts';
-import type { McpCapability } from '../types/storeSurface.ts';
+import type { McpCapability } from '../types/store-surface.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { gateTools } from './gate.ts';
 import {

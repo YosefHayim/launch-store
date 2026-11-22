@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { STATS_FEED_PLUGINS } from '../stats/feedRegistry.ts';
+import { STATS_FEED_PLUGINS } from '../stats/feed-registry.ts';
 import { METRIC_AGGREGATION, STATS_FEEDS } from './stats.ts';
 
 describe('stats types', () => {

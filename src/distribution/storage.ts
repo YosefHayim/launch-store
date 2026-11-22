@@ -4,7 +4,7 @@ import { pathExists } from '../path-exists.ts';
 import {
   getStorageProvider,
   getStorageProviderResolver,
-} from '../services/providerSupport/registry.ts';
+} from '../services/provider-support/registry.ts';
 import type { Platform } from '../types/app.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
 import type { LaunchConfig } from '../types/config.ts';

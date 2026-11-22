@@ -8,7 +8,7 @@ import type {
   AppEventLocalizationResource,
   AppEventResource,
   NewAppEvent,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { AscHost } from './host.ts';
 import { toAppEvent, toAppEventLocalization } from './shared.ts';
 

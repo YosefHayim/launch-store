@@ -21,7 +21,7 @@ export const PLAY_TRACKS = ['internal', 'closed', 'open', 'production'] as const
 export type PlayTrack = (typeof PLAY_TRACKS)[number];
 /**
  * Which web console page `launch open` deep-links to. Each value maps to a per-platform URL in
- * `core/consoleLinks.ts` - the connective tissue between a read-only finding ("agreement unsigned")
+ * `core/console-links.ts` - the connective tissue between a read-only finding ("agreement unsigned")
  * and the irreducible UI step that fixes it. `asc` / `play` are the platform consoles' home for the
  * app; the rest target a specific section:
  * - `asc`: the app's App Store Connect overview (Apple) - the default target.
@@ -78,7 +78,7 @@ type BetaFeedbackScreenshot = {
 /**
  * One piece of TestFlight beta feedback, normalized across Apple's two submission resources into the
  * single shape `launch testflight feedback` renders. `kind` discriminates the two: a `crash` carries no
- * `screenshots`; a `screenshot` carries one or more. The `*Resource`/wire types stay in `ascClient.ts`;
+ * `screenshots`; a `screenshot` carries one or more. The `*Resource`/wire types stay in `asc-client.ts`;
  * this is the product-facing read model the CLI and `--json` output share, so it omits Apple ids beyond
  * the feedback's own and keeps only the fields a developer triages from.
  */

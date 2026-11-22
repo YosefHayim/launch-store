@@ -1,6 +1,6 @@
 import type { Command } from '../../command.ts';
-import { resignCommandProgram, type ResignCommandInput } from '../../../build/resignCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { resignCommandProgram, type ResignCommandInput } from '../../../build/resign-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the stored-build re-sign command to Commander. */
 export const registerResignCommand = (program: Command): void => {

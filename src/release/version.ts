@@ -1,7 +1,7 @@
 type VersionBump = 'major' | 'minor' | 'patch';
 /**
  * A user-facing version-bump choice: a semver {@link VersionBump} or `"keep"` (reuse the current version).
- * This is the rememberable set - the kind persisted as a build's last pick (see `core/lastRun.ts`) and the
+ * This is the rememberable set - the kind persisted as a build's last pick (see `core/last-run.ts`) and the
  * accepted values of `launch build --bump` (alongside the CLI-only `"ask"`, which forces the prompt). A
  * "Custom..." typed version has no kind, so it's never remembered.
  */

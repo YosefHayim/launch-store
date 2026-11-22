@@ -6,7 +6,7 @@ import type {
   GameCenterLeaderboardCreate,
   GameCenterLeaderboardResource,
   LeaderboardFormatter,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { ResourceSingle } from './shared.ts';
 import type { components } from '../../apple-api-types.ts';
 

@@ -1,6 +1,6 @@
 import type { Command } from '../../command.ts';
-import { secretCommandProgram } from '../../../build/secretCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { secretCommandProgram } from '../../../build/secret-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type SecretOptions = Readonly<{
   app?: string;

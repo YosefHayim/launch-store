@@ -5,7 +5,7 @@ import type {
   ListingLocalization,
   PhasedReleaseResource,
   ReviewSubmissionResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { AscHost } from './host.ts';
 import type { ResourceList, VersionStates, ResourceSingle, AppStoreVersionPage } from './shared.ts';
 import {

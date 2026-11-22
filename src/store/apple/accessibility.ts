@@ -3,12 +3,12 @@ import {
   type AccessibilityDeclarationResource,
   type AccessibilitySupport,
   type DeviceFamily,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import { appRecordMissing, plan, type ReconcileContext } from '../shared/reconcile.ts';
-import { errorMessage } from '../../services/platform/errorMessage.ts';
+import { errorMessage } from '../../services/platform/error-message.ts';
 import type { PlannedAction } from '../../types/reconcile.ts';
 import type { MutableDeep } from '../../types/mutable.ts';
-import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surfaceConfig.ts';
+import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
 
 /** The ordered list of DeviceFamily values, for validating config and iterating. */
 const DEVICE_FAMILIES: readonly DeviceFamily[] = [

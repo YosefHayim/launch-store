@@ -5,7 +5,7 @@ import {
   assertDeviceArtifact,
   exportOptionsPlist,
   parseThinningReport,
-} from '../../services/providerSupport/appleArtifact.ts';
+} from '../../services/provider-support/apple-artifact.ts';
 import { xcodebuildEnv, resolveNativeDir } from './xcode.ts';
 
 const MB = 1024 ** 2;

@@ -2,14 +2,14 @@ import { join } from 'node:path';
 import { loadConfig, type LoadedConfig } from '../config/config.ts';
 import type { LaunchEnvironmentValues } from '../config/environment.ts';
 import { pathExists } from '../path-exists.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.ts';
 import { detectHostOperatingSystem } from '../services/platform/os.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
-import { getCredentialsProvider } from '../services/providerSupport/registry.ts';
-import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.ts';
-import { selectApps } from '../store/shared/syncJobs.ts';
+import { getCredentialsProvider } from '../services/provider-support/registry.ts';
+import { createAscClientResolver, createPlayClientResolver } from '../store/shared/store-clients.ts';
+import { selectApps } from '../store/shared/sync-jobs.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { DoctorAscApi, DoctorContext, DoctorPlatform } from '../types/doctor.ts';
 

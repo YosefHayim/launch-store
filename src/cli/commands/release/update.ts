@@ -1,7 +1,7 @@
 import type { Command } from '../../command.ts';
-import { updateCommandProgram } from '../../../config/updateCommand.ts';
+import { updateCommandProgram } from '../../../config/update-command.ts';
 import { addEnvFlags, type EnvFlags } from '../../options.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type UpdateOptions = EnvFlags &
   Readonly<{

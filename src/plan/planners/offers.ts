@@ -1,5 +1,5 @@
 import { appDeclaresOffers, reconcileOffers } from '../../store/apple/offers.ts';
-import { planAppStoreSurface } from './appStoreSurface.ts';
+import { planAppStoreSurface } from './app-store-surface.ts';
 import type { SurfacePlanner } from '../../types/plan.ts';
 /** Surface id - also the value users pass as `launch plan offers`. */
 const SURFACE = 'offers';

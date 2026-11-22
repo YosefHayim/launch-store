@@ -1,0 +1,31 @@
+import { PlayReportingClient } from '../../google/play-reporting.ts';
+import { readServiceAccount } from '../../google/play-client.ts';
+
+type GoogleReportingClientFailure = Readonly<{
+  _tag: 'GoogleReportingClientFailure';
+  message: string;
+  cause: unknown;
+}>;
+
+function makeGoogleReportingClientFailure(cause: unknown): GoogleReportingClientFailure {
+  return {
+    _tag: 'GoogleReportingClientFailure',
+    message: 'Could not create the Play Developer Reporting client.',
+    cause,
+  };
+}
+
+function createPlayReportingClient(serviceAccountJson: string): PlayReportingClient {
+  try {
+    const serviceAccount = readServiceAccount(serviceAccountJson);
+    return new PlayReportingClient(serviceAccount);
+  } catch (cause) {
+    throw makeGoogleReportingClientFailure(cause);
+  }
+}
+
+export const GoogleReportingClientService = {
+  createClient: createPlayReportingClient,
+};
+
+export type GoogleReportingClientService = typeof GoogleReportingClientService;

@@ -7,9 +7,9 @@ const programCalls = vi.hoisted(() => ({
   sync: vi.fn(() => 'sync-program'),
 }));
 
-vi.mock('../../../stats/statsCommand.ts', () => ({ statsReportProgram: programCalls.report }));
-vi.mock('../../../stats/statsSyncCommand.ts', () => ({ statsSyncProgram: programCalls.sync }));
-vi.mock('../../runCliProgram.ts', () => ({ runCliProgram: vi.fn(async () => undefined) }));
+vi.mock('../../../stats/stats-command.ts', () => ({ statsReportProgram: programCalls.report }));
+vi.mock('../../../stats/stats-sync-command.ts', () => ({ statsSyncProgram: programCalls.sync }));
+vi.mock('../../run-cli-program.ts', () => ({ runCliProgram: vi.fn(async () => undefined) }));
 
 const parseStats = async (cliArguments: readonly string[]) => {
   const program = new Command();

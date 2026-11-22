@@ -3,7 +3,7 @@ import type {
   AlternativeDistributionKeyResource,
   MerchantIdResource,
   PassTypeIdResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type { AscHost } from './host.ts';
 import type { ResourceSingle } from './shared.ts';
 import type { components } from '../../apple-api-types.ts';

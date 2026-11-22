@@ -1,4 +1,4 @@
-import type { AppStoreStatsClient, PlayVitalsReader } from '../stats/statsCredentials.ts';
+import type { AppStoreStatsClient, PlayVitalsReader } from '../stats/stats-credentials.ts';
 import type { PortfolioApp } from './portfolio.ts';
 import type { ServiceAccount } from './credentials.ts';
 

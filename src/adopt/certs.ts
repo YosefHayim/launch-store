@@ -1,6 +1,6 @@
-import { describeStoredCredentials } from '../credentials/appleSigning.ts';
+import { describeStoredCredentials } from '../credentials/apple-signing-assets.ts';
 import type { Adopter, PlannedWrite } from '../types/adopt.ts';
-import type { CertificateResource, ProfileResource } from '../types/appleCatalog.ts';
+import type { CertificateResource, ProfileResource } from '../types/apple-catalog.ts';
 
 type LocalSigningView = Readonly<{
   certSerial: string | null;

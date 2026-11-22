@@ -2,13 +2,13 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { findLaunchConfig, loadConfig } from '../config/config.ts';
-import { validate, type SchemaViolation } from '../config/jsonSchema.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
-import { requireOptional } from '../services/platform/optionalDep.ts';
+import { validate, type SchemaViolation } from '../config/json-schema.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
+import { requireOptional } from '../services/platform/optional-dep.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { McpTool, McpToolResult } from '../types/mcp.ts';
 import { gateTools } from './gate.ts';
-import { STATS_TOOLS } from './statsTools.ts';
+import { STATS_TOOLS } from './stats-tools.ts';
 import { ALL_TOOLS } from './tools.ts';
 
 type McpServerConstructor = typeof import('@modelcontextprotocol/sdk/server/index.js').Server;

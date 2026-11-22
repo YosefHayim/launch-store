@@ -3,8 +3,8 @@ import {
   reviewsCommandProgram,
   type ReviewReplyCommandInput,
   type ReviewsListCommandInput,
-} from './reviewsCommand.ts';
-import { runCliProgram } from '../../../runCliProgram.ts';
+} from './reviews-command.ts';
+import { runCliProgram } from '../../../run-cli-program.ts';
 
 /** Attach the `reviews` command group to the program. */
 export const registerReviewsCommand = (program: Command): void => {

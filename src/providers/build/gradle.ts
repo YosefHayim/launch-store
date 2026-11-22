@@ -17,7 +17,7 @@ import {
   readBuildState,
   updateEstimate,
   writeBuildState,
-} from '../../services/providerSupport/buildEngineSupport.ts';
+} from '../../services/provider-support/build-engine-support.ts';
 
 const ANDROID_ESTIMATE_KIND = 'default';
 

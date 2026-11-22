@@ -1,7 +1,7 @@
 import type { Platform } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
-import type { NotifyConfig } from '../../types/storeSurface.ts';
-import { errorMessage } from './errorMessage.ts';
+import type { NotifyConfig } from '../../types/store-surface.ts';
+import { errorMessage } from './error-message.ts';
 import { executeCommandQuietly } from './exec.ts';
 import { createLogger, type Logger } from './logger.ts';
 import { redactText } from './redact.ts';

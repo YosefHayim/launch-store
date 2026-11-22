@@ -15,7 +15,7 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type {
   VersionedLocalizationResources,
   ProductVersion,

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { readLaunchEnvironment } from '../../services/platform/environment.ts';
-import { LaunchSecretStore } from '../../services/credentials/secretStore.ts';
+import { LaunchSecretStore } from '../../services/credentials/secret-store.ts';
 import { decodeArtifactIndex } from './s3.ts';
 
 import type { BuildArtifact, StoredArtifact } from '../../types/artifacts.ts';

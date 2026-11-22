@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readResolvedConfig } from '../config/config.ts';
-import { configTemplate, detectAppRoot } from '../config/configScaffold.ts';
+import { configTemplate, detectAppRoot } from '../config/config-scaffold.ts';
 import { pathExists } from '../path-exists.ts';
 import type { AppDescriptor, BuildProfile, PlayTrack } from '../types/app.ts';
 import type {

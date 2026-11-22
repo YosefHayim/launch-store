@@ -1,5 +1,5 @@
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { hasMessage } from '../services/platform/errorMessage.ts';
+import { hasMessage } from '../services/platform/error-message.ts';
 import type { DraftListing, ListingBrief } from '../types/listing.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import { APPLE_LIMITS, serializeKeywords } from './apply.ts';

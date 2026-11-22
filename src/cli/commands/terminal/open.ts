@@ -1,7 +1,7 @@
 import type { Command } from '../../command.ts';
-import { OPEN_TARGETS } from '../../../terminal/consoleLinks.ts';
-import { type OpenCommandInput, openCommandProgram } from '../../../terminal/openCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { OPEN_TARGETS } from '../../../terminal/console-links.ts';
+import { type OpenCommandInput, openCommandProgram } from '../../../terminal/open-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type OpenCommandOptions = Readonly<{ platform?: string; app?: string }>;
 

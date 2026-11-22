@@ -1,4 +1,4 @@
-import type { AppleLocaleInfo } from '../store/shared/storeConfig.ts';
+import type { AppleLocaleInfo } from '../store/shared/store-config.ts';
 /**
  * Everything a generator needs to draft one locale's listing. Seeded from the app's own config so the
  * model refines what's there rather than inventing from nothing: `about` and `keywords` carry the

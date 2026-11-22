@@ -1,6 +1,6 @@
 import type { Command } from '../../command.ts';
 import { mcpCommandProgram } from '../../../mcp/command.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type McpInstallOptions = Readonly<{ client?: string }>;
 

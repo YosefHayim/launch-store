@@ -1,17 +1,17 @@
-import { checkApp, formatFinding } from '../config/configCheck.ts';
-import { inspectPackageSetup, packageManagerWarnings } from '../config/packageManager.ts';
+import { checkApp, formatFinding } from '../config/config-check.ts';
+import { inspectPackageSetup, packageManagerWarnings } from '../config/package-manager.ts';
 import { ANDROID_TOOLS, fixHint, REQUIRED_TOOLS, type Tool } from '../config/toolchain.ts';
 import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,
   resolveExtensionBundleIdsForApp,
   signingPreflightDoctorChecks,
-} from '../credentials/signingPreflight.ts';
-import { appPrivacyChecklist } from '../privacy/privacyNutritionLabel.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
-import { formatPermissionLine, probeKeyPermissions } from '../store/apple/ascPermissions.ts';
-import { describeExportComplianceConfig } from '../store/apple/exportCompliance.ts';
-import { buildConsoleUrl } from '../terminal/consoleLinks.ts';
+} from '../credentials/signing-preflight.ts';
+import { appPrivacyChecklist } from '../privacy/privacy-nutrition-label.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
+import { formatPermissionLine, probeKeyPermissions } from '../store/apple/asc-permissions.ts';
+import { describeExportComplianceConfig } from '../store/apple/export-compliance.ts';
+import { buildConsoleUrl } from '../terminal/console-links.ts';
 import { shellLocaleDoctorCheck, type ShellLocaleEnv } from '../terminal/locale.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type {

@@ -1,6 +1,6 @@
 import type { Command } from '../../../command.ts';
-import { sandboxCommandProgram } from './sandboxCommand.ts';
-import { runCliProgram } from '../../../runCliProgram.ts';
+import { sandboxCommandProgram } from './sandbox-command.ts';
+import { runCliProgram } from '../../../run-cli-program.ts';
 
 /** Attach the `sandbox` command (with `list` / `clear` subcommands) to the program. */
 export const registerSandboxCommand = (program: Command): void => {

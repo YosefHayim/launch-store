@@ -1,4 +1,4 @@
-import type { AscPermissionProbeApi } from '../store/apple/ascPermissions.ts';
+import type { AscPermissionProbeApi } from '../store/apple/asc-permissions.ts';
 import type { AppDescriptor } from './app.ts';
 import type { LaunchConfig } from './config.ts';
 import type { HostOs } from './remote.ts';
@@ -39,7 +39,7 @@ export type DoctorReport = Readonly<{
  * The read-only App Store Connect surface the doctor inspection uses - `assertReady` (agreement health)
  * and `getAppId` (app-record existence) on top of the {@link AscPermissionProbeApi} reads the role
  * preflight needs. `AppStoreConnectClient` satisfies it structurally, so the resolver from
- * `core/storeClients.ts` is assignable here with no cast (return-type covariance).
+ * `core/store-clients.ts` is assignable here with no cast (return-type covariance).
  */
 export type DoctorAscApi = AscPermissionProbeApi &
   Readonly<{

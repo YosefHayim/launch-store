@@ -1,6 +1,6 @@
 import type { Command } from '../../command.ts';
-import { configCommandProgram } from '../../../config/configCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { configCommandProgram } from '../../../config/config-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type SchemaOptions = Readonly<{ out?: string }>;
 

@@ -1,5 +1,5 @@
-import type { JsonSchema } from '../config/jsonSchema.ts';
-import type { McpCapability } from './storeSurface.ts';
+import type { JsonSchema } from '../config/json-schema.ts';
+import type { McpCapability } from './store-surface.ts';
 /**
  * One block of an MCP tool result. Launch only ever emits `text` (a tool returns its structured report as
  * pretty-printed JSON), but the field is kept as a discriminated shape so it matches the protocol's
@@ -23,7 +23,7 @@ export type McpToolResult = Readonly<{
  * The raw input schema a tool advertises. It is the draft-07 object subset the protocol requires
  * (`{ type: "object", properties?, required? }`) expressed as our own {@link JsonSchema}, so the SAME
  * value both advertises the tool (via `tools/list`) and validates incoming arguments through the
- * hand-rolled {@link import("../config/jsonSchema.ts").validate} - one schema, no second validator.
+ * hand-rolled {@link import("../config/json-schema.ts").validate} - one schema, no second validator.
  */
 type McpInputSchema = JsonSchema &
   Readonly<{
@@ -32,7 +32,7 @@ type McpInputSchema = JsonSchema &
 /**
  * One MCP tool: a stable name, a one-line description the agent reads, the capability tier that gates it,
  * the input schema, and the handler. The handler receives the already-validated argument object (the
- * server runs {@link import("../config/jsonSchema.ts").validate} against {@link inputSchema} first) and returns a
+ * server runs {@link import("../config/json-schema.ts").validate} against {@link inputSchema} first) and returns a
  * structured {@link McpToolResult}. A handler may throw on a real failure - the server catches it and
  * surfaces an `isError` result - but returns normally for any valid read, even a negative one.
  */

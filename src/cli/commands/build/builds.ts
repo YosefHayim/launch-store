@@ -3,8 +3,8 @@ import {
   buildHistoryCommandProgram,
   type BuildHistoryCommandInput,
   type PruneCommandOptions,
-} from '../../../build/buildHistoryCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+} from '../../../build/build-history-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 function provideBuildHistoryCommand(commandInput: BuildHistoryCommandInput): Promise<void> {
   return buildHistoryCommandProgram(commandInput);

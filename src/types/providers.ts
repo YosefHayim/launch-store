@@ -166,7 +166,7 @@ export type Submitter = Readonly<{
  * Provisions, connects to, and tears down a remote Mac for off-Mac iOS builds.
  *
  * `aws-ec2-mac` allocates a Dedicated Host + EC2 Mac instance (billing-aware, golden-AMI reuse);
- * `byo-ssh` simply wraps a Mac you already reach. `core/remotePipeline.ts` then drives the same
+ * `byo-ssh` simply wraps a Mac you already reach. `core/remote-pipeline.ts` then drives the same
  * xcodebuild build/sign/submit spine over the SSH connection, so the host backend and the build logic
  * stay independent. SSH command execution lives in `core/ssh.ts`, shared by every host impl.
  */

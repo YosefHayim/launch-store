@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { appleProductsSource } from './appleProducts.ts';
-import { appleSubscriptionsSource } from './appleSubscriptions.ts';
-import { appleListingSource } from './appleListing.ts';
-import { appleCapabilitiesSource } from './appleCapabilities.ts';
-import { playProductsSource } from './playProducts.ts';
-import { playSubscriptionsSource } from './playSubscriptions.ts';
-import { makeAscCatalogApiFake } from '../../testkit/ascCatalogApi.testkit.ts';
+import { appleProductsSource } from './apple-products.ts';
+import { appleSubscriptionsSource } from './apple-subscriptions.ts';
+import { appleListingSource } from './apple-listing.ts';
+import { appleCapabilitiesSource } from './apple-capabilities.ts';
+import { playProductsSource } from './play-products.ts';
+import { playSubscriptionsSource } from './play-subscriptions.ts';
+import { makeAscCatalogApiFake } from '../../testkit/asc-catalog-api.testkit.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { PlayCatalogApi } from '../../types/plan.ts';

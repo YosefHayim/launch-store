@@ -3,8 +3,8 @@ import {
   eventsCommandProgram,
   type CreateEventCommandInput,
   type LocalizeEventCommandInput,
-} from './eventsCommand.ts';
-import { runCliProgram } from '../../../runCliProgram.ts';
+} from './events-command.ts';
+import { runCliProgram } from '../../../run-cli-program.ts';
 
 /** Attach the `events` command group to the program. */
 export const registerEventsCommand = (program: Command): void => {

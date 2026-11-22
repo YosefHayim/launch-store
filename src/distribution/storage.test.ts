@@ -7,7 +7,7 @@ import {
   getStorageProvider,
   registerStorageProvider,
   registerStorageProviderResolver,
-} from '../services/providerSupport/registry.ts';
+} from '../services/provider-support/registry.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
 import type { LaunchConfig, StorageConfig } from '../types/config.ts';
 import type { StorageProvider, StorageProviderOptions } from '../types/providers.ts';

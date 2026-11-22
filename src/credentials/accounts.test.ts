@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useSecretStore, resetSecretStore } from '../services/credentials/secretStore.ts';
+import { useSecretStore, resetSecretStore } from '../services/credentials/secret-store.ts';
 import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
 import {
   resetLaunchDirectories,
@@ -30,11 +30,11 @@ import {
   setActiveKeyId,
   updateAccountIdentity,
 } from './accounts.ts';
-import { migrateLegacySigningIndex } from './appleSigning.ts';
+import { migrateLegacySigningIndex } from './apple-signing-assets.ts';
 const secrets = vi.hoisted(() => ({ store: new Map<string, string>() }));
 const homeDirectory = mkdtempSync(join(tmpdir(), 'launch-accounts-test-'));
 
-vi.mock('./appleSigning.ts', () => ({
+vi.mock('./apple-signing-assets.ts', () => ({
   migrateLegacySigningIndex: vi.fn(() => Promise.resolve()),
   p12PasswordAccount: (keyId: string) => `dist-cert-p12-password:${keyId}`,
 }));

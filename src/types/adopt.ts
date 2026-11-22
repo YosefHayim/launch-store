@@ -8,7 +8,7 @@ import type {
   ProfileResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-} from './appleCatalog.ts';
+} from './apple-catalog.ts';
 import type { AppDescriptor } from './app.ts';
 import type { InAppPurchaseConfig, SubscriptionGroupConfig } from './catalog.ts';
 /**
@@ -35,7 +35,7 @@ export type EntitlementValue =
 /**
  * The read-only slice of the App Store Connect client the adopters depend on. Declared here (rather than
  * taking the concrete client) so each adopter unit-tests against a hand-rolled fake - exactly the pattern
- * `ascSync.ts`'s `AscCatalogApi` uses. `AppStoreConnectClient` satisfies it structurally. Read-only by
+ * `asc-sync.ts`'s `AscCatalogApi` uses. `AppStoreConnectClient` satisfies it structurally. Read-only by
  * design: adopt never mutates App Store Connect (it writes local config), so no create/update methods
  * belong here.
  */
@@ -114,7 +114,7 @@ type AdoptChange =
  * One proposed change surfaced in the plan and (after confirm) applied. `description` is the plan line;
  * `note` is an advisory caveat shown beneath it (a {@link import("../adopt/capabilities.ts").NEEDS_VALUE}
  * gap, an un-imported price, an off-Mac degrade). A write whose `change.home` is `keychain` is
- * detect-only: it's reported, never applied. Mirrors `ascSync.ts`'s `PlannedAction`, adapted from
+ * detect-only: it's reported, never applied. Mirrors `asc-sync.ts`'s `PlannedAction`, adapted from
  * "write to ASC" to "write to local config".
  */
 export type PlannedWrite = Readonly<{

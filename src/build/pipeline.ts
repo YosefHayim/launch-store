@@ -5,23 +5,23 @@ import type { MutableDeep } from '../types/mutable.ts';
 import type { NotifyEvent } from '../services/platform/notify.ts';
 import { notify } from '../services/platform/notify.ts';
 import { loadConfig } from '../config/config.ts';
-import { checkApp, formatFinding } from '../config/configCheck.ts';
+import { checkApp, formatFinding } from '../config/config-check.ts';
 import { ENV_SOURCE, envInjectionRows } from '../config/env.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { resolveStorageProvider } from '../distribution/storage.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
 import type { Platform } from '../types/app.ts';
-import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.ts';
+import type { BuildRunOptions, PreparedBuild } from './pipeline-types.ts';
 import {
   resolveAndroidRelease,
   resolveAndroidSubmitReleaseNotes,
   resolveBuildTransport,
-} from './pipelineProviders.ts';
-import { previewEnv, resolveCommandEnv, selectApp, validateResolvedEnv } from './pipelineEnv.ts';
-import { receiptDestination, worstDownloadBytes } from './pipelineArtifact.ts';
-import { runIosBuild } from './pipelineIos.ts';
-import { runAndroidBuild } from './pipelineAndroid.ts';
-import { hasMessage } from '../services/platform/errorMessage.ts';
+} from './pipeline-providers.ts';
+import { previewEnv, resolveCommandEnv, selectApp, validateResolvedEnv } from './pipeline-env.ts';
+import { receiptDestination, worstDownloadBytes } from './pipeline-artifact.ts';
+import { runIosBuild } from './pipeline-ios.ts';
+import { runAndroidBuild } from './pipeline-android.ts';
+import { hasMessage } from '../services/platform/error-message.ts';
 
 /** App configuration failed the pre-build footgun check. */
 type BuildPreparationFailure = Readonly<{
@@ -539,13 +539,13 @@ async function dispatchBuild(
       await runLocalBuild(prepared, buildOptions);
       return;
     case 'remote': {
-      const remotePipeline = await import('./remotePipeline.ts');
+      const remotePipeline = await import('./remote-pipeline.ts');
 
       await remotePipeline.runRemoteBuild(prepared, { ...buildOptions, remote: choice.remote });
       return;
     }
     case 'eas': {
-      const easPipeline = await import('./easPipeline.ts');
+      const easPipeline = await import('./eas-pipeline.ts');
 
       await easPipeline.runEasBuild(prepared, buildOptions);
       return;

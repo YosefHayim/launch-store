@@ -99,7 +99,7 @@ export type RemoteTarget =
  * Carries everything a host backend needs to provision without depending on the logger or the
  * pipeline: AWS settings for `aws-ec2-mac`, an `user@host` string for `byo-ssh`, a consent gate for
  * the first billable action, and an optional progress sink. Reuse of a live host is handled by the
- * caller (`core/remotePipeline.ts`), so `allocate` always provisions fresh.
+ * caller (`core/remote-pipeline.ts`), so `allocate` always provisions fresh.
  */
 export type AllocateRequest = Readonly<{
   aws?: AwsConfig;

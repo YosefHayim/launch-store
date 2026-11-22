@@ -614,8 +614,8 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     steps: [
       'Pick one of the five types in `src/types/providers.ts`: `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`.',
       'Implement it as a named object in `src/providers/<kind>/<name>.ts`, setting `name` to the value users put in `launch.config.ts`.',
-      'Register it in `src/providers/index.ts` (`registerBuiltins()`), which wires into `src/services/providerSupport/registry.ts`. The pipeline resolves a provider by its `name`, so you never edit `src/build/pipeline.ts` to add one.',
-      'Lazy-load any heavy or optional SDK through `requireOptional` in `src/services/platform/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
+      'Register it in `src/providers/index.ts` (`registerBuiltins()`), which wires into `src/services/provider-support/registry.ts`. The pipeline resolves a provider by its `name`, so you never edit `src/build/pipeline.ts` to add one.',
+      'Lazy-load any heavy or optional SDK through `requireOptional` in `src/services/platform/optional-dep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
       'Add a `*.test.ts` beside the provider, then run the gate (see the `run-the-gate` skill).',
     ],
     body: markdownBody([

@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { signAppStoreConnectToken } from '../app-store-token.ts';
 import { open, readFile, stat, type FileHandle } from 'node:fs/promises';
 import { makeStoreUploadFailure, type StoreUploadFailure } from '../../types/providers.ts';
-import { retryAppleTransportRequest } from '../transportHelpers.ts';
+import { retryAppleTransportRequest } from '../transport-helpers.ts';
 import {
   type AccessibilityDeclarationResource,
   type AccessibilitySupport,
@@ -21,7 +21,7 @@ import {
   type PhasedReleaseResource,
   type PricePointResource,
   ACCESSIBILITY_SUPPORT_KEYS,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;

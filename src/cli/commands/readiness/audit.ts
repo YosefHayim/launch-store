@@ -1,6 +1,6 @@
 import type { Command } from '../../command.ts';
 import { readinessCommandProgram } from '../../../readiness/command.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** CLI options for `launch audit`. */
 type AuditOptions = {

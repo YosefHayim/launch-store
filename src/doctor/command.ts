@@ -1,15 +1,15 @@
 import { ensureToolchain } from '../config/toolchain.ts';
-import { hasMessage, errorMessage } from '../services/platform/errorMessage.ts';
+import { hasMessage, errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { isApplePlatform, parsePlatform } from '../services/stores/platform.ts';
-import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.ts';
-import { createAscClientResolver } from '../store/shared/storeClients.ts';
+import type { EffectAppStoreConnectClient } from '../services/stores/apple-store-client.ts';
+import { createAscClientResolver } from '../store/shared/store-clients.ts';
 import {
   summarizeExportComplianceResult,
   type ExportComplianceResult,
-} from '../store/apple/exportCompliance.ts';
-import type { EncryptionDeclarationResource } from '../types/appleCatalog.ts';
-import { completeCommand } from '../terminal/commandExit.ts';
+} from '../store/apple/export-compliance.ts';
+import type { EncryptionDeclarationResource } from '../types/apple-catalog.ts';
+import { completeCommand } from '../terminal/command-exit.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '../types/doctor.ts';
 import { buildDoctorContext } from './context.ts';

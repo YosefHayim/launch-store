@@ -1,0 +1,30 @@
+import { resolveSidecarConfig } from '../../config/config.ts';
+import {
+  loadCustomProductPagesConfig,
+  reconcileCustomProductPages,
+} from '../../store/apple/custom-product-pages.ts';
+import { planAppStoreSurface } from './app-store-surface.ts';
+import type { SurfacePlanner } from '../../types/plan.ts';
+/** Surface id - also the value users pass as `launch plan custom-pages`. */
+const SURFACE = 'custom-pages';
+export const customPagesPlanner: SurfacePlanner = {
+  id: SURFACE,
+  store: 'appstore',
+  plan: (planContext) =>
+    planAppStoreSurface(planContext, {
+      surface: SURFACE,
+      direction: 'two-way',
+      configFor: () => {
+        let configPath = planContext.config.configFiles?.customPages;
+        if (configPath === undefined) configPath = 'custom-pages.config.json';
+        return resolveSidecarConfig({
+          typed: undefined,
+          configPath,
+          explicitPath: false,
+          load: loadCustomProductPagesConfig,
+        });
+      },
+      reconcile: (api, bundleId, config) =>
+        reconcileCustomProductPages(api, { bundleId, config, dryRun: true }),
+    }),
+};

@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadConfig } from '../config/config.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { AppDescriptor } from '../types/app.ts';

@@ -1,7 +1,7 @@
 import type { Command } from '../../command.ts';
 import { agentsCommandProgram, type AgentsCommandOptions } from '../../../agents/command.ts';
 import type { RegisteredCommand } from '../../../agents/validate.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 const AGENT_OPTION_HELP =
   'claude | cursor | codex | windsurf | copilot | kiro | cline | amazonq | all (comma-separated; default: auto-detect)';

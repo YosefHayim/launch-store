@@ -2,8 +2,8 @@ import type { Command } from '../../command.ts';
 import {
   type MetadataCommandInput,
   metadataCommandProgram,
-} from '../../../store/shared/metadataCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+} from '../../../store/shared/metadata-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type MetadataOptions = Readonly<{
   readonly platform?: string;

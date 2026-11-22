@@ -1,8 +1,8 @@
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
-} from '../../types/appleCatalog.ts';
-import { hasMessage } from '../../services/platform/errorMessage.ts';
+} from '../../types/apple-catalog.ts';
+import { hasMessage } from '../../services/platform/error-message.ts';
 
 /** The App Store transport operations required by the customer-reviews domain. */
 export type AscReviewsApi = Readonly<{

@@ -1,14 +1,14 @@
 import { loadConfig } from '../config/config.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
-import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.ts';
-import type { EffectGooglePlayClient } from '../services/stores/googleStoreClient.ts';
+import type { EffectAppStoreConnectClient } from '../services/stores/apple-store-client.ts';
+import type { EffectGooglePlayClient } from '../services/stores/google-store-client.ts';
 import { listReviews } from '../store/apple/reviews.ts';
-import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.ts';
-import { selectApps } from '../store/shared/syncJobs.ts';
+import { createAscClientResolver, createPlayClientResolver } from '../store/shared/store-clients.ts';
+import { selectApps } from '../store/shared/sync-jobs.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import type { CustomerReviewResource } from '../types/appleCatalog.ts';
-import type { PlayReview } from '../types/googlePlay.ts';
+import type { CustomerReviewResource } from '../types/apple-catalog.ts';
+import type { PlayReview } from '../types/google-play.ts';
 import type {
   InsightsReport,
   InsightsStore,
@@ -18,7 +18,7 @@ import type {
 } from '../types/insights.ts';
 import { buildInsightsReport, STARS } from './aggregate.ts';
 import type { MutableDeep } from '../types/mutable.ts';
-import { hasMessage } from '../services/platform/errorMessage.ts';
+import { hasMessage } from '../services/platform/error-message.ts';
 
 /** Options accepted by the cross-store insights command. */
 type InsightsCommandOptions = Readonly<{

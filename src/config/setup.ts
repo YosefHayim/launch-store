@@ -6,10 +6,10 @@ import {
   getActiveAccount,
   loadActiveAscKey,
 } from '../credentials/accounts.ts';
-import { loadServiceAccount } from '../credentials/androidKeystore.ts';
+import { loadServiceAccount } from '../credentials/android-keystore-assets.ts';
 import { pathExists } from '../path-exists.ts';
 import { Prompts } from '../prompts.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import {
@@ -19,19 +19,19 @@ import {
 } from '../services/platform/os.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { isApplePlatform, platformLabel } from '../services/stores/platform.ts';
-import { SetupStoreReadiness } from '../services/stores/setupStoreReadiness.ts';
+import { SetupStoreReadiness } from '../services/stores/setup-store-readiness.ts';
 import type { AppDescriptor, Platform } from '../types/app.ts';
 import type { AscKey } from '../types/credentials.ts';
-import { checkApp, formatFinding } from './configCheck.ts';
+import { checkApp, formatFinding } from './config-check.ts';
 import { loadConfig } from './config.ts';
 import {
   DEFAULT_IN_REPO_ARTIFACT_DIR,
   ENV_EXAMPLE_TEMPLATE,
   configTemplate,
   detectAppRoot,
-} from './configScaffold.ts';
+} from './config-scaffold.ts';
 import { ensureArtifactDirIgnored } from './gitignore.ts';
-import { inspectPackageSetup } from './packageManager.ts';
+import { inspectPackageSetup } from './package-manager.ts';
 import {
   ANDROID_TOOLS,
   REQUIRED_TOOLS,

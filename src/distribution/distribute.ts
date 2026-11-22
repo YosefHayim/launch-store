@@ -5,7 +5,7 @@ import { isApplePlatform } from '../services/stores/platform.ts';
 import type { AppDescriptor, Platform } from '../types/app.ts';
 import type { LaunchConfig } from '../types/config.ts';
 import { isCloudStorage, resolveStorageProvider } from './storage.ts';
-import { installLandingPage, iosInstallManifestPlist, itmsServicesUrl } from './installManifest.ts';
+import { installLandingPage, iosInstallManifestPlist, itmsServicesUrl } from './install-manifest.ts';
 
 type DistributeOptions = Readonly<{
   readonly config: LaunchConfig;

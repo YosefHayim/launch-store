@@ -1,6 +1,6 @@
 import { isApplePlatform } from '../../services/stores/platform.ts';
 import type { Platform } from '../../types/app.ts';
-import { readScreenshotDimensions } from './imageDimensions.ts';
+import { readScreenshotDimensions } from './image-dimensions.ts';
 import { APPLE_ASSET_TARGETS, findAppleScreenshotTarget } from './targets.ts';
 
 export const REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES: readonly string[] =

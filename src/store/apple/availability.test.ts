@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AppAvailabilityResource } from '../../types/appleCatalog.ts';
+import type { AppAvailabilityResource } from '../../types/apple-catalog.ts';
 import {
   type AscAvailabilityApi,
   parseAvailabilityConfig,

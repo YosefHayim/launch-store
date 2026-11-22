@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AppleLocaleInfo, StoreConfig } from '../store/shared/storeConfig.ts';
+import type { AppleLocaleInfo, StoreConfig } from '../store/shared/store-config.ts';
 import {
   applyDraft,
   briefFor,

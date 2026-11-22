@@ -1,6 +1,6 @@
 import type { Command } from '../../command.ts';
-import { appsListProgram, appsTagProgram } from '../../../portfolio/appsCommand.ts';
-import { runCliProgram } from '../../runCliProgram.ts';
+import { appsListProgram, appsTagProgram } from '../../../portfolio/apps-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 export const registerAppsCommand = (program: Command): void => {
   const apps = program

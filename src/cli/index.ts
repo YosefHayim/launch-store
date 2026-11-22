@@ -2,12 +2,12 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Cli } from '../cli.ts';
-import { runAutoUpgrade } from '../config/updateCheck.ts';
+import { runAutoUpgrade } from '../config/update-check.ts';
 import { migrateLegacyAccounts } from '../credentials/accounts.ts';
 import { registerBuiltins } from '../providers/index.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
-import { isCommandExit } from '../terminal/commandExit.ts';
+import { isCommandExit } from '../terminal/command-exit.ts';
 
 const PACKAGE_MANIFEST_PATH = fileURLToPath(new URL('../../package.json', import.meta.url));
 

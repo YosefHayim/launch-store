@@ -3,7 +3,7 @@ import type { CustomerReviewPage } from './shared.ts';
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import { toReviewResponse } from './shared.ts';
 
 export class ConnectReviews {

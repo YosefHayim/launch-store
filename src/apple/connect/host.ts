@@ -83,7 +83,7 @@ import type {
   VersionExperimentResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 import type {
   ProvisioningProfileType,
   LocaleCopy,

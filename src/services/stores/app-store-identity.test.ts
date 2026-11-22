@@ -1,0 +1,92 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AppStoreConnectClient } from '../../apple/asc-client.ts';
+import { makeAppleTransportFailure, useAppleStoreClientFactory } from './apple-store-client.ts';
+import { AppStoreIdentityService } from './app-store-identity.ts';
+
+const ascKey = { keyId: 'key', issuerId: 'issuer', p8: 'secret' };
+
+const failure = makeAppleTransportFailure({
+  message: 'Unauthorized',
+  cause: new Error('Unauthorized'),
+  status: 401,
+});
+
+afterEach(function resetAppleClient() {
+  useAppleStoreClientFactory(null);
+});
+
+function installClient(methods: {
+  assertReady: () => Promise<void>;
+  resolveTeamId: () => Promise<string | null>;
+  listAppNames: () => Promise<string[]>;
+}): void {
+  useAppleStoreClientFactory(function createClient() {
+    const client = Object.create(AppStoreConnectClient.prototype);
+    client.assertReady = methods.assertReady;
+    client.resolveTeamId = methods.resolveTeamId;
+    client.listAppNames = methods.listAppNames;
+
+    return client;
+  });
+}
+
+describe('AppStoreIdentityService', () => {
+  it('verifies the key before returning its best-effort identity', async () => {
+    const assertReady = vi.fn(async function ready() {
+      return undefined;
+    });
+    installClient({
+      assertReady,
+      resolveTeamId: async function resolveTeamId() {
+        return 'TEAM1';
+      },
+      listAppNames: async function listAppNames() {
+        return ['One', 'Two'];
+      },
+    });
+
+    await expect(AppStoreIdentityService.verifyCredentials(ascKey)).resolves.toEqual({
+      teamId: 'TEAM1',
+      apps: ['One', 'Two'],
+    });
+    expect(assertReady).toHaveBeenCalledOnce();
+  });
+
+  it('keeps verification failures in the typed error channel', async () => {
+    installClient({
+      assertReady: async function failReady() {
+        throw failure;
+      },
+      resolveTeamId: async function resolveTeamId() {
+        return 'TEAM1';
+      },
+      listAppNames: async function listAppNames() {
+        return ['One'];
+      },
+    });
+
+    await expect(AppStoreIdentityService.verifyCredentials(ascKey)).rejects.toMatchObject({
+      _tag: 'AppleTransportFailure',
+      status: 401,
+    });
+  });
+
+  it('does not reject a verified key when identity discovery is unavailable', async () => {
+    installClient({
+      assertReady: async function ready() {
+        return undefined;
+      },
+      resolveTeamId: async function failTeam() {
+        throw failure;
+      },
+      listAppNames: async function failApps() {
+        throw failure;
+      },
+    });
+
+    await expect(AppStoreIdentityService.verifyCredentials(ascKey)).resolves.toEqual({
+      teamId: null,
+      apps: [],
+    });
+  });
+});

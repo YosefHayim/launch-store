@@ -3,7 +3,7 @@ import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-} from '../../types/appleCatalog.ts';
+} from '../../types/apple-catalog.ts';
 
 export class ConnectCustomProductPages {
   constructor(private readonly client: AscHost) {}

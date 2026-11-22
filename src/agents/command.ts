@@ -8,12 +8,12 @@ import {
   type McpClient,
 } from '../mcp/install.ts';
 import { pathExists } from '../path-exists.ts';
-import { errorMessage, hasMessage } from '../services/platform/errorMessage.ts';
+import { errorMessage, hasMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { detectHostOperatingSystem } from '../services/platform/os.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
-import { completeCommand } from '../terminal/commandExit.ts';
+import { completeCommand } from '../terminal/command-exit.ts';
 import type { ConsumerSkill, GeneratedAgentFile } from '../types/agents.ts';
 import type { HostOs } from '../types/remote.ts';
 import { CONSUMER_SKILLS } from './registry.ts';

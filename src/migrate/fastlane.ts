@@ -1,13 +1,13 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { configTemplate, detectAppRoot } from '../config/configScaffold.ts';
+import { configTemplate, detectAppRoot } from '../config/config-scaffold.ts';
 import { pathExists } from '../path-exists.ts';
 import {
   readAndroidMetadataDir,
   readAppleMetadataDir,
   serializeStoreConfig,
   type StoreConfig,
-} from '../store/shared/storeConfig.ts';
+} from '../store/shared/store-config.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type {
   AppfileData,

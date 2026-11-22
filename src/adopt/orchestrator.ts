@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { writeAppEntitlements } from '../config/config.ts';
-import { errorMessage } from '../services/platform/errorMessage.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import type {
   AdoptCatalogApi,
   AdoptTarget,
@@ -17,7 +17,7 @@ import {
   buildAdoptedConfig,
   renderEntitlementsBlock,
   serializeProductsSection,
-} from './configWriter.ts';
+} from './config-writer.ts';
 
 type SkippedApp = Readonly<{
   app: AppDescriptor;

@@ -1,6 +1,6 @@
-import type { ListingLocalization } from './appleCatalog.ts';
-import type { InAppProductResource, SubscriptionResource } from './googlePlay.ts';
-import type { AscCatalogApi } from '../store/apple/ascSync.ts';
+import type { ListingLocalization } from './apple-catalog.ts';
+import type { InAppProductResource, SubscriptionResource } from './google-play.ts';
+import type { AscCatalogApi } from '../store/apple/asc-sync.ts';
 import type { PlannedAction } from './reconcile.ts';
 import type { AppDescriptor } from './app.ts';
 import type { LaunchConfig } from './config.ts';
@@ -97,7 +97,7 @@ export type Snapshot = Readonly<{
 /**
  * The read-only App Store Connect surface the snapshot sources share - exactly the methods they call,
  * nothing more. `AppStoreConnectClient` satisfies it structurally (every method already exists on it), so
- * the resolver from `core/storeClients.ts` is assignable here with no cast. Mirrors
+ * the resolver from `core/store-clients.ts` is assignable here with no cast. Mirrors
  * {@link import("./readiness.ts").AscReadinessApi}; grows by one method as each Apple source lands.
  */
 export type SnapshotAscApi = Readonly<{
@@ -149,7 +149,7 @@ export type SnapshotPlayApi = Readonly<{
 }>;
 /**
  * What a {@link SnapshotSource} is handed: the loaded config, the apps in scope (already narrowed by `-a`),
- * and the lazy, memoized store-client resolvers from `core/storeClients.ts`. A resolver returns `null` when
+ * and the lazy, memoized store-client resolvers from `core/store-clients.ts`. A resolver returns `null` when
  * the account isn't configured, letting a source emit a `skipped` capture instead of throwing.
  */
 export type SnapshotContext = Readonly<{
