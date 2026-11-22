@@ -25,7 +25,7 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 | --- | --- |
 | `src/cli` | The door. Command names, flags, help text, `runCliProgram(...)`. App Store and Play command programs live in `src/cli/commands/store/apple` and `src/cli/commands/store/google`. |
 | `src/apple` | App Store Connect. The client and `connect/`. |
-| `src/generated/apple` | Apple's generated OpenAPI types (`schema.ts`) and the hand-written normalizer (`specPatch.ts`). Do not put this back under `src/apple`. |
+| `src/generated/apple` | Apple's generated OpenAPI types (`schema.ts`). The client imports them, so this file stays in `src`. The generator is `scripts/generate-apple-types.ts`. |
 | `src/google` | Google Play. The client. Types come from `@googleapis`. |
 | `src/listing`, `src/readiness`, `src/release`, `src/releaseTrain`, `src/plan`, `src/build`, `src/credentials` | The bridge. Launch's own product. These call the clients and decide what Launch does. |
 | `src/store` | Store sync. `store/apple` and `store/google` are the store programs, not the CLI. The HTTP clients stay in `src/apple` and `src/google`. |
@@ -41,7 +41,7 @@ A file that performs one documented Apple or Google request belongs in `src/appl
 
 `init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` are plain TypeScript. Their classes live in `src/build`, `src/credentials`, `src/launch-file`, and `src/store`. `src/release-command.ts` and `src/app-release.ts` stay in `src/` until that command is folded into its job.
 
-`src/cli/commands/` registers each job and holds the App Store and Play command programs: `setup/`, `build/`, `credentials/`, `release/`, `store/` (with `apple/` and `google/`), `listing/`, `readiness/`, `insights/`, `agents/`, `terminal/`. Store sync stays in `src/store`. Generated Apple types stay in `src/generated/apple`.
+`src/cli/commands/` registers each job and holds the App Store and Play command programs: `setup/`, `build/`, `credentials/`, `release/`, `store/` (with `apple/` and `google/`), `listing/`, `readiness/`, `insights/`, `agents/`, `terminal/`. Store sync stays in `src/store`. The Apple type generator stays in `scripts`. `schema.ts` stays in `src/generated/apple` because the client imports it.
 
 ## Conventions A Linter Can't Infer
 
