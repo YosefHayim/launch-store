@@ -39,7 +39,7 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 
 A file that performs one documented Apple or Google request belongs in `src/apple` or `src/google`. A file that decides something for Launch belongs in the job folder. Do not add `src/core` back.
 
-`init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` are plain TypeScript. Their classes live in `src/build`, `src/credentials`, `src/launch-file`, and `src/store`. `src/release-command.ts` and `src/app-release.ts` stay in `src/` until that command is folded into its job.
+`init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` are plain TypeScript. Their classes live in `src/build`, `src/credentials`, `src/launch-file`, and `src/store`. `launch-store release` is `src/cli/commands/release/release.ts` calling `src/release/release-command.ts`.
 
 `src/cli/commands/` registers each job and holds the App Store and Play command programs: `setup/`, `build/`, `credentials/`, `release/`, `store/` (with `apple/` and `google/`), `listing/`, `readiness/`, `insights/`, `terminal/`. Store sync stays in `src/store`. The Apple type generator stays in `scripts` and writes `src/apple-api-types.ts`.
 
@@ -78,7 +78,7 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 
 ### Rules Digest
 
-- **Commands are plain TypeScript.** They return `Promise` or a plain value and throw a readonly `{ _tag }` object. File names are kebab-case (`build-command.ts`). Imports of this package's files are relative and end in `.ts` (`../types/app.ts`). TypeScript rewrites those to `.js` on emit. Do not add a path alias: the compiler will not rewrite it. A published package keeps the `.js` path it documents. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `src/release-command.ts` and `src/app-release.ts` stay in `src/`.
+- **Commands are plain TypeScript.** They return `Promise` or a plain value and throw a readonly `{ _tag }` object. File names are kebab-case (`build-command.ts`). Imports of this package's files are relative and end in `.ts` (`../types/app.ts`). TypeScript rewrites those to `.js` on emit. Do not add a path alias: the compiler will not rewrite it. A published package keeps the `.js` path it documents. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `launch-store release` stays `src/release/release-command.ts`.
 - **New modules use function declarations.** An arrow only when a method is passed elsewhere and must keep `this`. Do not add `&&` or `||`. Comparisons use `==` and `!=`. A missing value is `== null`. `??` and `?.` are allowed. Name each condition. A `SCREAMING_SNAKE` constant is only for a literal used twice or more in that file. A literal used once stays inline. A number used once is a camelCase const next to that use.
 - **Registration is thin.** `src/cli/program.ts` registers the commands. Prompts require a TTY or `--yes`. `--json` emits one object. Only the entry sets exit codes.
 - **JSON Schema is the config source.** Do not delete `schema/`.

@@ -1,9 +1,9 @@
 import type { Command } from '../../command.ts';
 import { releaseTrainCommandProgram } from '../../../release-train/command.ts';
-import { addEnvFlags, type EnvFlags } from '../../options.ts';
+import { addEnvironmentFlags, type EnvironmentFlags } from '../../environment-flags.ts';
 import { runCliProgram } from '../../run-cli-program.ts';
 
-type ReleaseTrainOptions = EnvFlags &
+type ReleaseTrainOptions = EnvironmentFlags &
   Readonly<{
     app?: string;
     profile: string;
@@ -96,5 +96,5 @@ export function registerReleaseTrainCommand(program: Command): void {
     return runCliProgram(releaseTrainProgram);
   }
 
-  addEnvFlags(releaseTrainCommand).action(runCommand);
+  addEnvironmentFlags(releaseTrainCommand).action(runCommand);
 }

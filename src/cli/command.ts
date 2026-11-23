@@ -172,6 +172,78 @@ function looksLikeOption(token: string): boolean {
   return token.startsWith('-');
 }
 
+interface StoredOptionDefault {
+  storedDefault: unknown;
+  hasDefault: boolean;
+  isReducer: boolean;
+}
+
+function copyOptionWithShortFlag(option: CommandOption, shortFlag: string | null): CommandOption {
+  if (shortFlag == null) {
+    return option;
+  }
+
+  return { ...option, short: shortFlag };
+}
+
+function copyOptionWithLongFlag(option: CommandOption, longFlag: string | null): CommandOption {
+  if (longFlag == null) {
+    return option;
+  }
+
+  return { ...option, long: longFlag };
+}
+
+function readStoredOptionDefault(
+  defaultOrReducer: unknown,
+  reducerDefault: unknown,
+): StoredOptionDefault {
+  const isReducer = typeof defaultOrReducer == 'function';
+
+  if (isReducer) {
+    return { storedDefault: reducerDefault, hasDefault: true, isReducer };
+  }
+
+  if (defaultOrReducer == null) {
+    return { storedDefault: undefined, hasDefault: false, isReducer };
+  }
+
+  return { storedDefault: defaultOrReducer, hasDefault: true, isReducer };
+}
+
+function copyStoredDefault(storedDefault: unknown): unknown {
+  const isList = Array.isArray(storedDefault);
+
+  if (isList == false) {
+    return storedDefault;
+  }
+
+  return [...storedDefault];
+}
+
+function copyOptionWithDefault(
+  option: CommandOption,
+  storedDefault: unknown,
+  hasDefault: boolean,
+): CommandOption {
+  if (hasDefault == false) {
+    return option;
+  }
+
+  return { ...option, defaultValue: storedDefault };
+}
+
+function readOptionReducer(
+  defaultOrReducer: unknown,
+  isReducer: boolean,
+): ((flagText: string, previous: unknown) => unknown) | null {
+  if (isReducer == false) {
+    return null;
+  }
+
+  return defaultOrReducer as (flagText: string, previous: unknown) => unknown;
+}
+
 export class Command {
   readonly commands: Command[] = [];
   readonly options: CommandOption[] = [];
@@ -409,50 +481,40 @@ export class Command {
     reducerDefault: unknown,
     required: boolean,
   ): void {
-    const parsed = parseFlagDeclaration(flags);
+    const declaredFlag = parseFlagDeclaration(flags);
     const option: CommandOption = {
       flags,
       description,
       required,
     };
-    const withShort = parsed.short == null ? option : { ...option, short: parsed.short };
-    const withLong = parsed.long == null ? withShort : { ...withShort, long: parsed.long };
-    const isReducer = typeof defaultOrReducer == 'function';
-    let storedDefault: unknown;
-    let hasDefault = false;
+    const optionWithShortFlag = copyOptionWithShortFlag(option, declaredFlag.short);
+    const optionWithLongFlag = copyOptionWithLongFlag(optionWithShortFlag, declaredFlag.long);
+    const storedOptionDefault = readStoredOptionDefault(defaultOrReducer, reducerDefault);
 
-    if (isReducer) {
-      storedDefault = reducerDefault;
-      hasDefault = true;
+    if (declaredFlag.isNegated) {
+      this.defaultValues[declaredFlag.attribute] = true;
+      this.optionValues[declaredFlag.attribute] = true;
     }
 
-    if (isReducer == false && arguments.length >= 3 && defaultOrReducer != null) {
-      storedDefault = defaultOrReducer;
-      hasDefault = true;
+    if (storedOptionDefault.hasDefault) {
+      const copiedDefault = copyStoredDefault(storedOptionDefault.storedDefault);
+
+      this.defaultValues[declaredFlag.attribute] = storedOptionDefault.storedDefault;
+      this.optionValues[declaredFlag.attribute] = copiedDefault;
     }
 
-    if (parsed.isNegated) {
-      this.defaultValues[parsed.attribute] = true;
-      this.optionValues[parsed.attribute] = true;
-    }
+    const registeredOption = copyOptionWithDefault(
+      optionWithLongFlag,
+      storedOptionDefault.storedDefault,
+      storedOptionDefault.hasDefault,
+    );
 
-    if (hasDefault) {
-      this.defaultValues[parsed.attribute] = storedDefault;
-      this.optionValues[parsed.attribute] = Array.isArray(storedDefault)
-        ? [...storedDefault]
-        : storedDefault;
-    }
-
-    const published = hasDefault ? { ...withLong, defaultValue: storedDefault } : withLong;
-
-    this.options.push(published);
-    this.optionMeta.set(published, {
-      attribute: parsed.attribute,
-      takesValue: parsed.takesValue,
-      isNegated: parsed.isNegated,
-      reducer: isReducer
-        ? (defaultOrReducer as (flagText: string, previous: unknown) => unknown)
-        : null,
+    this.options.push(registeredOption);
+    this.optionMeta.set(registeredOption, {
+      attribute: declaredFlag.attribute,
+      takesValue: declaredFlag.takesValue,
+      isNegated: declaredFlag.isNegated,
+      reducer: readOptionReducer(defaultOrReducer, storedOptionDefault.isReducer),
     });
   }
 

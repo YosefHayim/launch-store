@@ -1,21 +1,25 @@
 import type { Command } from './command.ts';
-/** The parsed env flags shared by build/release/update. */
-export type EnvFlags = {
+/** Environment flags shared by build, release, and update. They change one run. */
+export type EnvironmentFlags = {
   env: string[];
   includeLocal: boolean;
   printEnv: boolean;
 };
-/** Commander reducer: collect a repeatable string option into an array. */
-function collectEnv(environmentFlag: string, previousFlags: readonly string[]): string[] {
+
+function collectEnvironmentFlag(
+  environmentFlag: string,
+  previousFlags: readonly string[],
+): string[] {
   return [...previousFlags, environmentFlag];
 }
-/** Attach `--env`, `--include-local`, and `--print-env` to a command. */
-export function addEnvFlags(command: Command): Command {
+
+/** Attach `--env`, `--include-local`, and `--print-env`. These do not write launch.config.ts. */
+export function addEnvironmentFlags(command: Command): Command {
   return command
     .option(
       '--env <KEY=VALUE>',
       'inline env override (repeatable); highest precedence',
-      collectEnv,
+      collectEnvironmentFlag,
       [],
     )
     .option(

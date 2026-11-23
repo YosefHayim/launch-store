@@ -3,7 +3,7 @@ import {
   releaseCommandProgram,
   type ReleaseCommandOptions,
 } from '../../../release/release-command.ts';
-import { addEnvFlags } from '../../options.ts';
+import { addEnvironmentFlags } from '../../environment-flags.ts';
 import { runCliProgram, runJsonCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the public release command. */
@@ -71,5 +71,5 @@ export function registerReleaseCommand(program: Command): void {
     );
   }
 
-  addEnvFlags(releaseCommand).action(runCommand);
+  addEnvironmentFlags(releaseCommand).action(runCommand);
 }

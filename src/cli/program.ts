@@ -4,7 +4,7 @@ import { StoreCommand } from '../store/store-command.ts';
 import { registerMigrateCommand } from './commands/setup/migrate.ts';
 import { registerConfigCommand } from './commands/setup/config.ts';
 import { BuildCommand } from '../build/build-command.ts';
-import { ReleaseCommand } from '../release-command.ts';
+import { registerReleaseCommand } from './commands/release/release.ts';
 import { registerStatusCommand } from './commands/release/status.ts';
 import { registerOpenCommand } from './commands/terminal/open.ts';
 import { registerReleaseTrainCommand } from './commands/release/release-train.ts';
@@ -73,7 +73,7 @@ export function buildProgram(launchVersion: string = '0.0.0'): Command {
   registerMigrateCommand(program);
   registerConfigCommand(program);
   new BuildCommand().register(program);
-  new ReleaseCommand().register(program);
+  registerReleaseCommand(program);
   registerStatusCommand(program);
   registerOpenCommand(program);
   registerReleaseTrainCommand(program);

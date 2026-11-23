@@ -1,7 +1,7 @@
 import type { Command } from '../../command.ts';
 import { buildCommandProgram } from '../../../build/build-command-program.ts';
 import type { BuildCommandOptions } from '../../../build/build-command-input.ts';
-import { addEnvFlags } from '../../options.ts';
+import { addEnvironmentFlags } from '../../environment-flags.ts';
 import { runCliProgram, runJsonCliProgram } from '../../run-cli-program.ts';
 function addAppleBuildOptions(command: Command): Command {
   return command
@@ -99,5 +99,5 @@ export function registerBuildCommand(program: Command): void {
     );
   }
 
-  addEnvFlags(command).action(runCommand);
+  addEnvironmentFlags(command).action(runCommand);
 }
