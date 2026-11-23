@@ -11,7 +11,11 @@ import type {
   BetaTesterResource,
 } from '../../types/apple-catalog.ts';
 import type { BetaFeedbackPage, BetaFeedbackRow } from './shared.ts';
-import { AscRequestError, isRetryableIdempotentFailure, readFeedbackScreenshots } from './shared.ts';
+import {
+  AscRequestError,
+  isRetryableIdempotentFailure,
+  readFeedbackScreenshots,
+} from './shared.ts';
 import { retryAppleTransportRequest } from '../transport-helpers.ts';
 
 export class ConnectTestflight {

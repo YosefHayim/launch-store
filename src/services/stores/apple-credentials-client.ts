@@ -95,7 +95,9 @@ function readDomainDevice(device: AscDeviceResource): AppleDeviceResource {
 }
 
 /** Translate one enabled capability and its optional setting choices into the domain API. */
-function readDomainCapability(capability: AscBundleIdCapabilityResource): BundleIdCapabilityResource {
+function readDomainCapability(
+  capability: AscBundleIdCapabilityResource,
+): BundleIdCapabilityResource {
   if (capability.settings == null)
     return { id: capability.id, capabilityType: capability.capabilityType };
   function mapSetting(setting: {

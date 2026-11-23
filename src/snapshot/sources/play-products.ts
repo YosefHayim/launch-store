@@ -159,7 +159,11 @@ async function captureOneProductApp(
   const records = await client.listInAppProducts(app.identifier);
 
   return {
-    captured: { app: app.name, identifier: app.identifier, entities: records.map(readSnapshotEntity) },
+    captured: {
+      app: app.name,
+      identifier: app.identifier,
+      entities: records.map(readSnapshotEntity),
+    },
   };
 }
 

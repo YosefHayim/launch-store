@@ -23,7 +23,9 @@ function compareLocaleNames(
   return leftLocale[0].localeCompare(rightLocale[0]);
 }
 
-function readLocaleFields(localeEntry: readonly [string, Record<string, string>]): AppleLocaleFields {
+function readLocaleFields(
+  localeEntry: readonly [string, Record<string, string>],
+): AppleLocaleFields {
   return { locale: localeEntry[0], fields: localeEntry[1] };
 }
 

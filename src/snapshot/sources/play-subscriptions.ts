@@ -133,7 +133,11 @@ function firstBasePlan(capturedBasePlans: JsonValue | undefined): RestorableBase
   if (!first) return null;
   const basePlanId = stringField(first, 'basePlanId');
   if (basePlanId == null) return null;
-  return { basePlanId, period: stringField(first, 'period'), prices: readPriceMap(first['prices']) };
+  return {
+    basePlanId,
+    period: stringField(first, 'period'),
+    prices: readPriceMap(first['prices']),
+  };
 }
 /** Invert a captured `listings` array (`{ languageCode, title }`) back into the shared localization list. */
 function readCapturedLocalizations(capturedListings: JsonValue | undefined): ProductLocalization[] {
@@ -221,7 +225,11 @@ async function captureOneSubscriptionApp(
   const records = await client.listSubscriptions(app.identifier);
 
   return {
-    captured: { app: app.name, identifier: app.identifier, entities: records.map(readSnapshotEntity) },
+    captured: {
+      app: app.name,
+      identifier: app.identifier,
+      entities: records.map(readSnapshotEntity),
+    },
   };
 }
 
