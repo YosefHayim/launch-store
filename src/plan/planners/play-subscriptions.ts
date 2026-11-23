@@ -4,7 +4,7 @@ import { errorMessage } from '@/services/platform/error-message.js';
 import {
   reconcilePlaySubscriptions,
   type PlaySubscriptionsApi,
-} from '@/store/google/play-subscriptions.js';
+} from '@/google/store/play-subscriptions.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { SubscriptionConfig, SubscriptionGroupConfig } from '@/types/catalog.js';
 import type { LaunchConfig } from '@/types/config.js';

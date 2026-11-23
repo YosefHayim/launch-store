@@ -10,9 +10,9 @@ import type {
   SnapshotSource,
 } from '@/types/snapshot.js';
 import type { PlannedAction } from '@/types/reconcile.js';
-import { readAppleLocaleFields, readLocaleInfo } from '@/store/apple/apple-listing-read.js';
+import { readAppleLocaleFields, readLocaleInfo } from '@/apple/store/apple-listing-read.js';
 import type { AppleLocaleInfo, AppleStoreConfig } from '@/store/shared/store-config.js';
-import { reconcileAppListing } from '@/store/apple/app-store-sync.js';
+import { reconcileAppListing } from '@/apple/store/app-store-sync.js';
 import { iosApps } from '@/readiness/app-scopes.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 

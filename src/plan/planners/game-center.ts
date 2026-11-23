@@ -1,7 +1,7 @@
 // Compares App Store Connect Game Center achievements and leaderboards with local config.
 
 import { launchConfigForApp } from '@/config/config.js';
-import { reconcileGameCenter } from '@/store/apple/game-center.js';
+import { reconcileGameCenter } from '@/apple/store/game-center.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
 import type { AppDescriptor } from '@/types/app.js';
 import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';

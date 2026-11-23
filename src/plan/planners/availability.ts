@@ -1,7 +1,7 @@
 // Compares App Store Connect territory availability with the local config.
 
 import { launchConfigForApp } from '@/config/config.js';
-import { reconcileAvailability, type AvailabilityConfig } from '@/store/apple/availability.js';
+import { reconcileAvailability, type AvailabilityConfig } from '@/apple/store/availability.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
 import type { AppDescriptor } from '@/types/app.js';
 import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';

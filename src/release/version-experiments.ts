@@ -10,13 +10,13 @@ import {
   reconcileOwnerScreenshots,
   type ScreenshotSetApi,
   type ScreenshotSetOwner,
-} from '../store/apple/app-store-screenshots.ts';
+} from '@/apple/store/app-store-screenshots.js';
 import {
   act,
   DRY_RUN_ID,
   succeededOrPlanned,
   type ActionLog,
-} from '../store/apple/app-store-sync.ts';
+} from '@/apple/store/app-store-sync.js';
 import { appRecordMissing, plan } from '../store/shared/reconcile.ts';
 import type {
   ExperimentTreatmentLocalizationResource,

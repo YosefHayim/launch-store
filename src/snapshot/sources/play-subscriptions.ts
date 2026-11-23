@@ -24,7 +24,7 @@ import {
   periodFromIso,
   reconcilePlaySubscriptions,
   unitsToMicros,
-} from '@/store/google/play-subscriptions.js';
+} from '@/google/store/play-subscriptions.js';
 import { androidApps } from '@/readiness/app-scopes.js';
 import {
   jsonRecord,

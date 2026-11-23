@@ -62,6 +62,7 @@ export type EasMigrationFailure = Readonly<{
 }>;
 
 const playTracks: readonly PlayTrack[] = ['internal', 'closed', 'open', 'production'];
+
 const DEFAULT_PROFILE_SIZE_BUDGET_MB = 200;
 
 function makeEasMigrationFailure(fields: {

@@ -23,15 +23,15 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 
 | Path | Owns |
 | --- | --- |
-| `src/cli` | The door. Command names, flags, help text, `runCliProgram(...)`. App Store and Play command programs live in `src/cli/commands/store/apple` and `src/cli/commands/store/google`. |
-| `src/apple` | App Store Connect. The client and `connect/`. |
+| `src/cli` | The door. Command names, flags, help text, `runCliProgram(...)`. App Store and Play command programs live in `src/apple/commands` and `src/google/commands`. |
+| `src/apple` | App Store Connect. The client, `connect/`, store programs in `store/`, and command programs in `commands/`. |
 | `src/apple-api-types.ts` | Apple's generated OpenAPI types, one file. The client imports it. The generator is `scripts/generate-apple-types.ts`. Do not put this file under `src/apple`. |
-| `src/google` | Google Play. The client. Types come from `@googleapis`. |
+| `src/google` | Google Play. The client, store programs in `store/`, and command programs in `commands/`. Types come from `@googleapis`. |
 | `src/listing`, `src/readiness`, `src/release`, `src/release-train`, `src/plan`, `src/build`, `src/credentials` | The bridge. Launch's own product. These call the clients and decide what Launch does. |
-| `src/store` | Store sync. `store/apple` and `store/google` are the store programs, not the CLI. The HTTP clients stay in `src/apple` and `src/google`. |
+| `src/store` | Shared store sync. Apple programs live in `src/apple/store`. Google programs live in `src/google/store`. |
 | `src/adopt`, `src/config`, `src/distribution`, `src/insights`, `src/migrate`, `src/portfolio`, `src/privacy`, `src/snapshot`, `src/stats` | The rest of the bridge. |
 | `src/terminal`, `src/docs` | Glossary and the config reference. |
-| `src/services` | Paths, exec, logger, prompts, secrets, and the store client adapters. `services/stores` is the only door into `src/apple` and `src/google`. |
+| `src/services` | Paths, exec, logger, prompts, secrets, and the store client adapters. `services/stores` is the door into the Apple and Google HTTP clients. |
 | `src/types` | Shared domain shapes. |
 | `src/providers` | Swappable backends for build, storage, credentials, submit, and compute. |
 | `src/testkit` | Shared test fakes. |
@@ -41,7 +41,7 @@ A file that performs one documented Apple or Google request belongs in `src/appl
 
 `init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` are plain TypeScript. Their classes live in `src/build`, `src/credentials`, `src/launch-file`, and `src/store`. `launch-store release` is `src/cli/commands/release/release.ts` calling `src/release/release-command.ts`.
 
-`src/cli/commands/` registers each job and holds the App Store and Play command programs: `setup/`, `build/`, `credentials/`, `release/`, `store/` (with `apple/` and `google/`), `listing/`, `readiness/`, `insights/`, `terminal/`. Store sync stays in `src/store`. The Apple type generator stays in `scripts` and writes `src/apple-api-types.ts`.
+`src/cli/commands/` registers each job: `setup/`, `build/`, `credentials/`, `release/`, `store/`, `listing/`, `readiness/`, `insights/`, `terminal/`. App Store command programs live in `src/apple/commands`. Play command programs live in `src/google/commands`. Shared store sync stays in `src/store`. The Apple type generator stays in `scripts` and writes `src/apple-api-types.ts`.
 
 ## Conventions A Linter Can't Infer
 
@@ -57,9 +57,9 @@ A file that performs one documented Apple or Google request belongs in `src/appl
 ```text
 src/cli       -> the job folder; src/cli/index.ts may wire provider adapters
 src/providers -> src/types + src/services only, plus vendor SDKs
-a job folder  -> src/apple and src/google only from the adapters under src/services/stores
-src/apple     -> src/types only, never a job folder's logic
-src/google    -> src/types only, never a job folder's logic
+a job folder  -> src/apple and src/google. HTTP clients are reached through src/services/stores
+src/apple     -> the client stays on src/types. src/apple/store may use src/store/shared
+src/google    -> the client stays on src/types. src/google/store may use src/store/shared
 ```
 
 ### Types And Public Exports

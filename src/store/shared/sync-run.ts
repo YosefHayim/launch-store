@@ -1,6 +1,10 @@
 // Reconciles App Store Connect catalog, screenshots, and previews for a batch of apps.
 
-import { reconcileApp, type AscCatalogApi, type ReconcileInput } from '../apple/app-store-sync.ts';
+import {
+  reconcileApp,
+  type AscCatalogApi,
+  type ReconcileInput,
+} from '@/apple/store/app-store-sync.js';
 import type { PlannedAction, ReconcileReport } from '@/types/reconcile.js';
 import {
   reconcilePreviews,
@@ -8,7 +12,7 @@ import {
   type PreviewsApi,
   type ScreenshotsApi,
   type SubscriptionReviewScreenshot,
-} from '../apple/app-store-screenshots.ts';
+} from '@/apple/store/app-store-screenshots.js';
 import { fingerprintAsset } from '@/listing/screenshots/assets.js';
 import type { SyncJob } from './sync-jobs.ts';
 

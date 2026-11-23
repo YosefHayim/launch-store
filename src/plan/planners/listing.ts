@@ -1,6 +1,6 @@
 // Compares the App Store Connect listing text with the local store config.
 
-import { reconcileAppListing, type AscCatalogApi } from '@/store/apple/app-store-sync.js';
+import { reconcileAppListing, type AscCatalogApi } from '@/apple/store/app-store-sync.js';
 import { buildJobs, hasListing, type SyncJob } from '@/store/shared/sync-jobs.js';
 import type { AppleStoreConfig } from '@/store/shared/store-config.js';
 import { errorMessage } from '@/services/platform/error-message.js';

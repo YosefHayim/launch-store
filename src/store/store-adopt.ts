@@ -7,11 +7,11 @@ import { AppStoreConnect } from '../apple/app-store-connect.ts';
 import { createLaunchFileScaffold } from '../define-launch-file.ts';
 import { GooglePlay } from '../google-play.ts';
 import { Prompts } from '../prompts.ts';
-import { ApplePrivacy } from './apple/privacy.ts';
-import { AppleProducts } from './apple/products.ts';
-import { AppleVersion } from './apple/version.ts';
-import { PlayListing } from './google/listing.ts';
-import { PlayTracks } from './google/tracks.ts';
+import { ApplePrivacy } from '@/apple/store/privacy.js';
+import { AppleProducts } from '@/apple/store/products.js';
+import { AppleVersion } from '@/apple/store/version.js';
+import { PlayListing } from '@/google/store/listing.js';
+import { PlayTracks } from '@/google/store/tracks.js';
 
 interface AdoptRequest {
   directory: string;

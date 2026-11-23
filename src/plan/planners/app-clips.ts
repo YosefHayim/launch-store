@@ -1,7 +1,7 @@
 // Compares App Store Connect App Clip cards with the local config.
 
 import { launchConfigForApp } from '@/config/config.js';
-import { reconcileAppClips } from '@/store/apple/app-clips.js';
+import { reconcileAppClips } from '@/apple/store/app-clips.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
 import type { AppClipsConfig } from '@/types/store-surface.js';
 import type { AppDescriptor } from '@/types/app.js';

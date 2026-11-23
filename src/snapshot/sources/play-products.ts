@@ -14,7 +14,7 @@ import type {
 } from '@/types/snapshot.js';
 import type { InAppProductResource, PlayMoney } from '@/types/google-play.js';
 import type { PlannedAction } from '@/types/reconcile.js';
-import { reconcilePlayProducts } from '@/store/google/play-products.js';
+import { reconcilePlayProducts } from '@/google/store/play-products.js';
 import { androidApps } from '@/readiness/app-scopes.js';
 import type { MutableDeep } from '@/types/mutable.js';
 import {

@@ -8,8 +8,8 @@ import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
-} from '../cli/commands/store/apple/app-store-surface-command.ts';
-import { loadActiveAppleStore } from '../cli/commands/store/apple/apple-store-command.ts';
+} from '@/apple/commands/app-store-surface-command.js';
+import { loadActiveAppleStore } from '@/apple/commands/apple-store-command.js';
 import { loadConfig, type LoadedConfig } from '../config/config.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import { completeCommand } from '../terminal/command-exit.ts';

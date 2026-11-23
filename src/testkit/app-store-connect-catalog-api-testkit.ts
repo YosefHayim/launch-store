@@ -7,7 +7,7 @@ import type {
   SubscriptionGroupResource,
   SubscriptionResource,
 } from '../types/apple-catalog.ts';
-import type { AscCatalogApi } from '../store/apple/app-store-sync.ts';
+import type { AscCatalogApi } from '@/apple/store/app-store-sync.js';
 
 function readAppId(): Promise<string> {
   return Promise.resolve('app1');

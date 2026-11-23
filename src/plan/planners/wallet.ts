@@ -1,6 +1,6 @@
 // Compares App Store Connect Wallet merchant identifiers with the local config.
 
-import { reconcileWalletIds } from '@/store/apple/wallet-ids.js';
+import { reconcileWalletIds } from '@/apple/store/wallet-ids.js';
 import { planTeamSurface } from './app-store-surface.ts';
 import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';
 import type { WalletConfig } from '@/types/store-surface.js';

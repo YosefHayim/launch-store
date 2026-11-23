@@ -1,7 +1,7 @@
 // Compares App Store Connect accessibility declarations with the local config.
 
 import { launchConfigForApp } from '@/config/config.js';
-import { reconcileAccessibility, type AccessibilityConfig } from '@/store/apple/accessibility.js';
+import { reconcileAccessibility, type AccessibilityConfig } from '@/apple/store/accessibility.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
 import type { AppDescriptor } from '@/types/app.js';
 import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';

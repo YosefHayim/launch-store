@@ -16,8 +16,8 @@ import type { AppDescriptor, Platform } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { AscKey } from '@/types/credentials.js';
 import type { PlayListing } from '@/types/google-play.js';
-import { readAppleListing } from '../apple/apple-listing-read.ts';
-import { reconcileAppListing } from '../apple/app-store-sync.ts';
+import { readAppleListing } from '@/apple/store/apple-listing-read.js';
+import { reconcileAppListing } from '@/apple/store/app-store-sync.js';
 import { loadStoreAppContext } from './select-store-app.ts';
 import type {
   AndroidLocaleInfo,

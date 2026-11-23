@@ -2,7 +2,7 @@ import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { accessibilityPlanner } from './accessibility.ts';
 import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
-import type { AccessibilityConfig } from '@/store/apple/accessibility.js';
+import type { AccessibilityConfig } from '@/apple/store/accessibility.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';

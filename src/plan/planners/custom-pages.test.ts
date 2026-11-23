@@ -2,7 +2,7 @@ import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { customPagesPlanner } from './custom-pages.ts';
 import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
-import type { CustomProductPagesConfig } from '@/store/apple/custom-product-pages.js';
+import type { CustomProductPagesConfig } from '@/apple/store/custom-product-pages.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';

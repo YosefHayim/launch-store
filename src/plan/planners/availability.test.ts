@@ -2,7 +2,7 @@ import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { availabilityPlanner } from './availability.ts';
 import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
-import type { AvailabilityConfig } from '@/store/apple/availability.js';
+import type { AvailabilityConfig } from '@/apple/store/availability.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';

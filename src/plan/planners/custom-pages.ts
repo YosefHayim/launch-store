@@ -4,7 +4,7 @@ import { launchConfigForApp } from '@/config/config.js';
 import {
   reconcileCustomProductPages,
   type CustomProductPagesConfig,
-} from '@/store/apple/custom-product-pages.js';
+} from '@/apple/store/custom-product-pages.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
 import type { AppDescriptor } from '@/types/app.js';
 import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';

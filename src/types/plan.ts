@@ -2,21 +2,21 @@
 
 import type { AppDescriptor } from './app.ts';
 import type { LaunchConfig } from './config.ts';
-import type { AscCatalogApi } from '../store/apple/app-store-sync.ts';
+import type { AscCatalogApi } from '@/apple/store/app-store-sync.js';
 import type { PlannedAction } from './reconcile.ts';
 import type { AscReleaseApi } from '../release/release-attributes.ts';
-import type { AscGameCenterApi } from '../store/apple/game-center.ts';
-import type { AscAppClipsApi } from '../store/apple/app-clips.ts';
-import type { AscAvailabilityApi } from '../store/apple/availability.ts';
-import type { AscAccessibilityApi } from '../store/apple/accessibility.ts';
+import type { AscGameCenterApi } from '@/apple/store/game-center.js';
+import type { AscAppClipsApi } from '@/apple/store/app-clips.js';
+import type { AscAvailabilityApi } from '@/apple/store/availability.js';
+import type { AscAccessibilityApi } from '@/apple/store/accessibility.js';
 import type { AscExperimentsApi } from '../release/version-experiments.ts';
-import type { AscCustomPagesApi } from '../store/apple/custom-product-pages.ts';
-import type { AscWalletApi } from '../store/apple/wallet-ids.ts';
-import type { AscEuDistributionApi } from '../store/apple/eu-distribution.ts';
-import type { AscOffersApi } from '../store/apple/offers.ts';
-import type { PreviewsApi, ScreenshotsApi } from '../store/apple/app-store-screenshots.ts';
-import type { PlayProductsApi } from '../store/google/play-products.ts';
-import type { PlaySubscriptionsApi } from '../store/google/play-subscriptions.ts';
+import type { AscCustomPagesApi } from '@/apple/store/custom-product-pages.js';
+import type { AscWalletApi } from '@/apple/store/wallet-ids.js';
+import type { AscEuDistributionApi } from '@/apple/store/eu-distribution.js';
+import type { AscOffersApi } from '@/apple/store/offers.js';
+import type { PreviewsApi, ScreenshotsApi } from '@/apple/store/app-store-screenshots.js';
+import type { PlayProductsApi } from '@/google/store/play-products.js';
+import type { PlaySubscriptionsApi } from '@/google/store/play-subscriptions.js';
 
 /** Which store a surface belongs to - drives credential resolution and how the diff is grouped. */
 export type PlanStore = 'appstore' | 'play';

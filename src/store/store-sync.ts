@@ -3,8 +3,8 @@
 import { AppStoreConnect } from '../apple/app-store-connect.ts';
 import { GooglePlay } from '../google-play.ts';
 import { Prompts } from '../prompts.ts';
-import { AppleListing } from './apple/listing.ts';
-import { PlayProducts } from './google/products.ts';
+import { AppleListing } from '@/apple/store/listing.js';
+import { PlayProducts } from '@/google/store/products.js';
 import { planStore, type StoreChange, type StoreSnapshot } from './plan-store.ts';
 
 interface SyncRequest {
