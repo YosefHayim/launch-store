@@ -3,12 +3,14 @@ import { snapshotCommandProgram } from '@/snapshot/snapshot-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type CaptureOptions = Readonly<{ app?: string; json?: boolean }>;
+
 type PruneOptions = Readonly<{
   keep?: string;
   olderThan?: string;
   yes?: boolean;
   json?: boolean;
 }>;
+
 type RestoreOptions = Readonly<{
   app?: string;
   source?: string;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderAccessibilityAction } from './accessibility-command.ts';
+
 function describeRenderAction() {
   function marksAPlannedOrAppliedChangeWith() {
     const accessibilityAction = renderAccessibilityAction({

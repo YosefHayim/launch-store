@@ -1,6 +1,8 @@
 type VersionBump = 'major' | 'minor' | 'patch';
+
 /** A user-facing version-bump choice */
 export type BumpKind = VersionBump | 'keep';
+
 /** A parsed marketing version. Pre-release / build metadata is dropped - only the numeric core is kept. */
 type SemVer = {
   major: number;
@@ -8,6 +10,7 @@ type SemVer = {
   patch: number;
 };
 const ZERO_VERSION: SemVer = { major: 0, minor: 0, patch: 0 };
+
 /** Parse a version string into its numeric core */
 export function parseVersion(input: string): SemVer | null {
   const versionParts = input.trim().replace(/^v/i, '').split(/[-+]/);
@@ -25,10 +28,12 @@ export function parseVersion(input: string): SemVer | null {
 
   return { major, minor, patch };
 }
+
 /** Render a {@link SemVer} back to the canonical `MAJOR.MINOR.PATCH` string. */
 export function formatVersion(version: SemVer): string {
   return `${version.major}.${version.minor}.${version.patch}`;
 }
+
 /** Advance one component, zeroing the lower ones (`1.4.2` ->  major `2.0.0`, minor `1.5.0`, patch `1.4.3`). */
 export function bumpVersion(version: SemVer, bump: VersionBump): SemVer {
   switch (bump) {
@@ -40,6 +45,7 @@ export function bumpVersion(version: SemVer, bump: VersionBump): SemVer {
       return { major: version.major, minor: version.minor, patch: version.patch + 1 };
   }
 }
+
 /** The next version string for a bump, starting from `current`. */
 export function nextVersion(current: string, bump: VersionBump): string {
   let parsed = parseVersion(current);
@@ -50,6 +56,7 @@ export function nextVersion(current: string, bump: VersionBump): string {
 
   return formatVersion(version);
 }
+
 /** Compare two versions by numeric core: `-1` if `a < b`, `1` if `a > b`, `0` if equal. */
 export function compareVersions(a: string, b: string): number {
   let left = parseVersion(a);
@@ -68,6 +75,7 @@ export function compareVersions(a: string, b: string): number {
 
   return 0;
 }
+
 /** The highest parseable version in a list, returned in its original form */
 export function highestVersion(versions: readonly string[]): string | null {
   function isVersionParseable(version: string) {

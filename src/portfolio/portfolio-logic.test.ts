@@ -38,6 +38,7 @@ const ANDROID_APP = createApp({
   accountKeyId: null,
   accountLabel: 'google-play',
 });
+
 function describeCreateIosAppKey() {
   function prefixesTheStoreIdWithIos() {
     const iosAppKey = createIosAppKey('42');
@@ -48,6 +49,7 @@ function describeCreateIosAppKey() {
 }
 
 describe('createIosAppKey', describeCreateIosAppKey);
+
 function describeCreateAndroidAppKey() {
   function prefixesThePackageNameWithAndroid() {
     const androidAppKey = createAndroidAppKey('com.a.b');
@@ -58,6 +60,7 @@ function describeCreateAndroidAppKey() {
 }
 
 describe('createAndroidAppKey', describeCreateAndroidAppKey);
+
 function describeMergeDiscoveredApps() {
   function keepsTheFirstAccountWhenTwoAccountsSeeTheSameAppKey() {
     const secondSeen = createApp({ accountLabel: 'other' });
@@ -85,6 +88,7 @@ function describeMergeDiscoveredApps() {
 }
 
 describe('mergeDiscoveredApps', describeMergeDiscoveredApps);
+
 function describeKeepCachedAppsOfFailedAccounts() {
   function keepsCachedAppsOfAFailedAccountAndDropsCachedAppsOfAnAccountThatAnswered() {
     const cachedApps = [IOS_APP, ANDROID_APP];
@@ -111,6 +115,7 @@ function describeKeepCachedAppsOfFailedAccounts() {
 }
 
 describe('keepCachedAppsOfFailedAccounts', describeKeepCachedAppsOfFailedAccounts);
+
 function describeJoinTags() {
   function givesUntaggedAppsNullOwnerAndProperty() {
     const joined = joinTags([IOS_APP], []);
@@ -130,6 +135,7 @@ function describeJoinTags() {
 }
 
 describe('joinTags', describeJoinTags);
+
 function describeFindAppsByName() {
   const apps = [IOS_APP, ANDROID_APP];
 
@@ -180,6 +186,7 @@ function describeFindAppsByName() {
 }
 
 describe('findAppsByName', describeFindAppsByName);
+
 function describeFindAppsByAccount() {
   function matchesTheAccountLabelWithoutCase() {
     const appsByAccount = findAppsByAccount([IOS_APP, ANDROID_APP], ' Google-Play ');
@@ -190,6 +197,7 @@ function describeFindAppsByAccount() {
 }
 
 describe('findAppsByAccount', describeFindAppsByAccount);
+
 function describeFilterPortfolioApps() {
   const mineIos = { ...IOS_APP, owner: 'mine' as const, ga4PropertyId: null };
   const clientAndroid = { ...ANDROID_APP, owner: 'client' as const, ga4PropertyId: null };
@@ -223,6 +231,7 @@ function describeFilterPortfolioApps() {
 }
 
 describe('filterPortfolioApps', describeFilterPortfolioApps);
+
 function describeApplyTagChange() {
   function addsATagForAnUntaggedApp() {
     const tags = applyTagChange([], ['ios-1'], { owner: 'mine', ga4PropertyId: null });
@@ -266,6 +275,7 @@ function describeApplyTagChange() {
 }
 
 describe('applyTagChange', describeApplyTagChange);
+
 function describeApplyTagChangeToApp() {
   const TAGGED_APP = { ...IOS_APP, owner: 'client' as const, ga4PropertyId: '7' };
 

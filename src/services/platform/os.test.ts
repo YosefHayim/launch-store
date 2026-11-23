@@ -10,6 +10,7 @@ vi.mock('node:os', function mockOs() {
 });
 
 const platformMock = vi.mocked(platform);
+
 function describeHostOSDetection() {
   function mapsDarwinMacOSTheOnlyLocalSigningHost() {
     platformMock.mockReturnValue('darwin');

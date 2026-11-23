@@ -21,6 +21,7 @@ const PEM = [
   'MIGTAgEAMBMGByqGSM49AgEGCCqGSM49',
   '-----END PRIVATE KEY-----',
 ].join('\n');
+
 function prepare() {
   secrets.clear();
   useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
@@ -32,6 +33,7 @@ function prepare() {
 }
 
 beforeEach(prepare);
+
 function cleanupAll() {
   resetLaunchDirectories();
   resetSecretStore();
@@ -39,6 +41,7 @@ function cleanupAll() {
 }
 
 afterAll(cleanupAll);
+
 function describePushKeyVault() {
   async function importsAKeyVaultsTheSecretNamespacedAndRoundTripsThePEM() {
     await importPushKey({ keyId: 'ABC123DEFG', p8: PEM, teamId: 'TEAM1', label: 'Prod push' });

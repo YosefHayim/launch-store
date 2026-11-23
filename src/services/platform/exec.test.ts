@@ -9,6 +9,7 @@ import {
   executeCommand,
   executeCommandQuietly,
 } from './exec.ts';
+
 function describeCommandExecution() {
   async function passesTheUTF8LocaleToSpawnedChildren() {
     const localeText = await captureCommandOutput(process.execPath, [
@@ -116,6 +117,7 @@ function describeCommandExecution() {
 }
 
 describe('command execution', describeCommandExecution);
+
 function describeRedactionBeforeLogPersistence() {
   async function neverPersistsAPrivateKeyPieceOrAJSONPassword() {
     const systemTemporaryDirectory = tmpdir();
@@ -156,6 +158,7 @@ function describeRedactionBeforeLogPersistence() {
 }
 
 describe('redaction before log persistence', describeRedactionBeforeLogPersistence);
+
 function describeChildEnvironmentExclusions() {
   async function dropsExcludedValuesInheritedFromTheParentProcess() {
     const previous = process.env['LAUNCH_AUDIT_TOKEN'];

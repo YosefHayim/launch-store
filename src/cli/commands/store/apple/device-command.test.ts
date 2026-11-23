@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DeviceCommandInputSchema, renderRegisteredDevice } from './device-command.ts';
+
 function describeDeviceCommandPieceSchema() {
   function decodesAddAndListInputs() {
     const deviceCommandSchema = DeviceCommandInputSchema({
@@ -35,6 +36,7 @@ function describeDeviceCommandPieceSchema() {
 }
 
 describe('DeviceCommandInputSchema', describeDeviceCommandPieceSchema);
+
 function describeRenderRegisteredDevice() {
   function marksDisabledDevicesWithInlineASCIIPiece() {
     const registeredDevice = renderRegisteredDevice({

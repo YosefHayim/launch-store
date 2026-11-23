@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diagnoseBuildLog, formatDiagnoses } from './build-diagnostics.ts';
+
 function describeDiagnoseBuildLogMapsNativeErrorsToACauseFix() {
   function recognizesAMissingSigningProfile() {
     const [diagnosis] = diagnoseBuildLog("error: No profiles for 'com.acme.app' were found");
@@ -97,6 +98,7 @@ describe(
   'diagnoseBuildLog - maps native errors to a cause + fix',
   describeDiagnoseBuildLogMapsNativeErrorsToACauseFix,
 );
+
 function describeFormatDiagnoses() {
   function rendersASingleCauseBlockWithWhyFix() {
     const text = formatDiagnoses(diagnoseBuildLog('ENOSPC: no space left on device'));

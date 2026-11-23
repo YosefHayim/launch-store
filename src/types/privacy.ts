@@ -1,4 +1,5 @@
 type PrivacySeverity = 'blocker' | 'warning' | 'info';
+
 /** One reconciled finding, tagged with the app and platform it concerns. */
 export type PrivacyFinding = Readonly<{
   app: string;
@@ -7,6 +8,7 @@ export type PrivacyFinding = Readonly<{
   code: string;
   message: string;
 }>;
+
 /** The parsed privacy surface of one app - the pure input to {@link reconcilePrivacy}. */
 export type PrivacySurface = Readonly<{
   usageDescriptions: Record<string, string>;

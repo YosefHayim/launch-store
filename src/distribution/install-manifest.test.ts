@@ -4,6 +4,7 @@ import {
   iosInstallManifestPlist,
   itmsServicesUrl,
 } from './install-manifest.ts';
+
 function describeIosInstallManifestPlist() {
   function embedsTheIpaUrlBundleIdAndVersionInTheSoftwarePackageShapeIOSRequires() {
     const plist = iosInstallManifestPlist({
@@ -43,6 +44,7 @@ function describeIosInstallManifestPlist() {
 }
 
 describe('iosInstallManifestPlist', describeIosInstallManifestPlist);
+
 function describeItmsServicesUrl() {
   function wrapsAndURLEncodesTheManifestURL() {
     expect(itmsServicesUrl('https://cdn.example.com/manifest.plist?v=1')).toBe(
@@ -54,6 +56,7 @@ function describeItmsServicesUrl() {
 }
 
 describe('itmsServicesUrl', describeItmsServicesUrl);
+
 function describeInstallLandingPage() {
   function wiresTheInstallButtonToTheGivenInstallURL() {
     const page = installLandingPage({

@@ -37,6 +37,7 @@ async function runCredentialsFailure(commandInput: unknown): Promise<Credentials
 
   throw new Error('Expected the credentials command to fail.');
 }
+
 function describeCredentialDiscoveryDirectories() {
   function matchesAKeyDirectlyInsideDownloads() {
     expect(discoveryMatches('/Users/example/Downloads/AuthKey_ABC123.p8')).toBe(true);
@@ -73,6 +74,7 @@ function describeCredentialDiscoveryDirectories() {
 }
 
 describe('credential discovery directories', describeCredentialDiscoveryDirectories);
+
 function describeCredentialsCommandPieceSchema() {
   function decodesTheCommanderBoundaryIntoAKnownCredentialAction() {
     const credentialsCommandSchema = CredentialsCommandInputSchema({
@@ -128,6 +130,7 @@ function describeCredentialsCommandPieceSchema() {
 }
 
 describe('CredentialsCommandInputSchema', describeCredentialsCommandPieceSchema);
+
 function describeCredentialsCommandProgramValidation() {
   async function preservesTheRenameOperationTagWhenArgumentsAreMissing() {
     const failure = await runCredentialsFailure({
@@ -226,6 +229,7 @@ function useCommandHome(homeDirectory: string, lines: string[]): void {
     lines.push(text);
   });
 }
+
 function describeSetVendorNumberAction() {
   let homeDirectory: string;
 
@@ -264,6 +268,7 @@ function describeSetVendorNumberAction() {
       return { failed: cause, lines };
     }
   }
+
   async function savesTheVendorNumberOnTheMatchingAccount() {
     const { failed, lines } = await runInTemporaryHome({
       account: 'alpha',
@@ -310,6 +315,7 @@ function describeSetVendorNumberAction() {
 }
 
 describe('set-vendor-number action', describeSetVendorNumberAction);
+
 function describeSetPlayReportsBucketAction() {
   let homeDirectory: string;
 
@@ -347,6 +353,7 @@ function describeSetPlayReportsBucketAction() {
     const loadedFile = readFileSync(portfolioPath, 'utf8');
     return JSON.parse(loadedFile);
   }
+
   async function savesTheBucketNameFromACopiedGsURIIntoPortfolioPiece() {
     const { failed, lines } = await runInTemporaryHome({
       playReportsBucket: 'gs://pubsite_prod_rev_123/',
@@ -408,6 +415,7 @@ function describeSetPlayReportsBucketAction() {
 }
 
 describe('set-play-reports-bucket action', describeSetPlayReportsBucketAction);
+
 function describeAndroidCredentialStatus() {
   function cleanupAndroidCredentialStatus() {
     resetLaunchDirectories();

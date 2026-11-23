@@ -30,13 +30,18 @@ type CreatedGameCenterItem = {
 /** The exact slice of App Store Connect the Game Center reconciler depends on. */
 export type AscGameCenterApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   getGameCenterDetail(appId: string): Promise<GameCenterDetailResource | null>;
+
   createGameCenterDetail(appId: string): Promise<GameCenterDetailResource>;
+
   listGameCenterAchievements(detailId: string): Promise<GameCenterAchievementResource[]>;
+
   createGameCenterAchievement(
     detailId: string,
     achievement: GameCenterAchievementCreate,
   ): Promise<CreatedGameCenterItem>;
+
   createGameCenterAchievementLocalization(
     versionId: string,
     localization: {
@@ -46,11 +51,14 @@ export type AscGameCenterApi = {
       afterEarnedDescription: string;
     },
   ): Promise<void>;
+
   listGameCenterLeaderboards(detailId: string): Promise<GameCenterLeaderboardResource[]>;
+
   createGameCenterLeaderboard(
     detailId: string,
     leaderboard: GameCenterLeaderboardCreate,
   ): Promise<CreatedGameCenterItem>;
+
   createGameCenterLeaderboardLocalization(
     versionId: string,
     localization: {

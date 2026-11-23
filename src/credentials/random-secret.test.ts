@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { randomHexSecret } from './random-secret.ts';
+
 function describeCredentialPasswordEntropy() {
   function returnsDifferentHexSecretsOnEachCall() {
     const firstSecret = randomHexSecret(24);

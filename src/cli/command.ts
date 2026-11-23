@@ -9,6 +9,7 @@ export interface CommandOption {
 
 export interface CommandArgument {
   name(): string;
+
   readonly required: boolean;
   readonly defaultValue?: unknown;
   readonly variadic: boolean;
@@ -293,7 +294,9 @@ export class Command {
   private readonly aliasNames: string[] = [];
 
   name(commandName: string): this;
+
   name(): string;
+
   name(commandName?: string): this | string {
     if (commandName == null) {
       return this.commandName;
@@ -305,7 +308,9 @@ export class Command {
   }
 
   description(text: string): this;
+
   description(): string;
+
   description(text?: string): this | string {
     if (text == null) {
       return this.commandDescription;
@@ -317,7 +322,9 @@ export class Command {
   }
 
   version(launchVersion: string): this;
+
   version(): string;
+
   version(launchVersion?: string): this | string {
     if (launchVersion == null) {
       return this.readVersion();

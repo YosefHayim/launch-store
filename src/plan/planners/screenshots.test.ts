@@ -11,11 +11,13 @@ import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
 import type { ActionStatus } from '@/types/reconcile.js';
 
 const tmpDirs: string[] = [];
+
 function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 }
 
 afterEach(cleanup);
+
 /** Make a fresh app dir, optionally seeding one en-US 6.7" iPhone screenshot, and return its descriptor. */
 function makeApp(withScreenshot: boolean): AppDescriptor {
   const systemTemporaryDirectory = tmpdir();
@@ -33,6 +35,7 @@ function makeApp(withScreenshot: boolean): AppDescriptor {
 
   return { name: 'alpha', dir, configPath: join(dir, 'app.json'), bundleId: 'com.acme.alpha' };
 }
+
 /** Encode a minimal valid PNG (8-byte signature + IHDR) carrying the given pixel size. */
 function pngBytes(width: number, height: number): Buffer {
   const head = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -45,6 +48,7 @@ function pngBytes(width: number, height: number): Buffer {
 
   return Buffer.concat([head, ihdr]);
 }
+
 /** Make an app dir seeding one en-US 6.7" iPhone screenshot of the given real pixel size. */
 function makeAppWithShot(width: number, height: number): AppDescriptor {
   const systemTemporaryDirectory = tmpdir();
@@ -63,6 +67,7 @@ function makeAppWithShot(width: number, height: number): AppDescriptor {
 
   return { name: 'alpha', dir, configPath: join(dir, 'app.json'), bundleId: 'com.acme.alpha' };
 }
+
 function makeCtx(api: AscSurfacesApi | null, app: AppDescriptor): PlanContext {
   const config: LaunchConfig = {
     profiles: {},
@@ -83,6 +88,7 @@ function makeCtx(api: AscSurfacesApi | null, app: AppDescriptor): PlanContext {
     },
   };
 }
+
 /** A fake whose editable version carries an en-US localization, so a local screenshot plans an upload. */
 function apiWithLocale(overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi {
   return makeAscApiFake({
@@ -90,6 +96,7 @@ function apiWithLocale(overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi 
     ...overrides,
   });
 }
+
 function describeScreenshotsPlanner() {
   async function omitsItselfWhenNoInScopeAppHasOnDiskAssets() {
     const plan = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), makeApp(false)));

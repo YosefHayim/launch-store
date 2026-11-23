@@ -16,12 +16,14 @@ const BLOCK_START = '# launch-completion start';
 const BLOCK_END = '# launch-completion end';
 /** The hidden subcommand the generated scripts invoke on `<Tab>`. */
 export const COMPLETE_SUBCOMMAND = '__complete';
+
 /** Validate a raw `--shell`/positional value against {@link SHELLS}, with a pointed error listing the valid set. */
 export type CompletionFailure = Readonly<{
   readonly _tag: 'CompletionFailure';
   readonly message: string;
   readonly cause?: unknown;
 }>;
+
 export function makeCompletionFailure(fields: {
   message: string;
   cause?: unknown;
@@ -48,6 +50,7 @@ export function parseShell(shellText: string): Shell {
 
   return shell;
 }
+
 /** Best-effort detect the user's shell from `$SHELL` (e.g. */
 export function detectShell(
   environmentVariables: Readonly<Record<string, string | undefined>>,
@@ -64,6 +67,7 @@ export function detectShell(
 
   return SHELLS.find(isNamedShell);
 }
+
 /** The bash completion script. */
 export function bashCompletionScript(): string {
   return `# launch-store (bash) completion - eval with: source <(launch-store completion bash)
@@ -76,6 +80,7 @@ _launch_complete() {
 complete -o default -F _launch_complete launch-store
 `;
 }
+
 /** The zsh completion script. */
 export function zshCompletionScript(): string {
   return `# launch-store (zsh) completion - eval with: source <(launch-store completion zsh)
@@ -87,6 +92,7 @@ _launch_complete() {
 compdef _launch_complete launch-store
 `;
 }
+
 /** The fish completion script. */
 export function fishCompletionScript(): string {
   return `# launch-store (fish) completion - eval with: launch-store completion fish | source
@@ -97,6 +103,7 @@ end
 complete -c launch-store -f -a '(__launch_complete)'
 `;
 }
+
 /** Map a shell to its script generator - the one place that fans `launch-store completion <shell>` out per shell. */
 export function completionScript(shell: Shell): string {
   switch (shell) {
@@ -108,6 +115,7 @@ export function completionScript(shell: Shell): string {
       return fishCompletionScript();
   }
 }
+
 /* -------------------------------------------------------------------------- */
 /*  Dynamic-value resolution - reuse the existing core loaders.                */
 /* -------------------------------------------------------------------------- */
@@ -162,17 +170,20 @@ const argumentSources: ReadonlyMap<string, CompletionCandidateSource> = new Map(
   ['snapshot diff', snapshotNames],
   ['snapshot export', snapshotNames],
 ]);
+
 /** Every option spelling a command accepts (short and long, e.g. `-a`, `--app`), for flag-name completion. */
 function optionFlags(command: Command): string[] {
   function isFlagDefined(flag: string | undefined): flag is string {
     return !!flag;
   }
+
   function listShortAndLongFlags(option: CommandOption) {
     return [option.short, option.long].filter(isFlagDefined);
   }
 
   return command.options.flatMap(listShortAndLongFlags);
 }
+
 /** Descend the commander tree to the deepest subcommand named by `words` */
 function descendCommandTree(
   program: Command,
@@ -199,6 +210,7 @@ function descendCommandTree(
 
   return { command, commandPath };
 }
+
 /** Resolve the completion candidates for a partially-typed `launch-store` command line */
 function readEarlierWord(words: readonly string[]): string | null {
   const hasEarlierWord = words.length >= 2;
@@ -278,6 +290,7 @@ export async function resolveCompletions(words: string[], program: Command): Pro
 
   return readCompletionCandidates(argumentSource);
 }
+
 /** Every option on the command or its ancestors that takes a value. */
 function valueTakingFlags(command: Command): Set<string> {
   const flags = new Set<string>();
@@ -298,6 +311,7 @@ function valueTakingFlags(command: Command): Set<string> {
 
   return flags;
 }
+
 /** Whether a real positional argument has already been supplied to the resolved command. */
 function hasPositional(
   words: string[],
@@ -320,6 +334,7 @@ function hasPositional(
 
   return false;
 }
+
 // A completion menu must not fail the shell, so a bad read becomes no candidates.
 async function readCompletionCandidates(source: CompletionCandidateSource): Promise<string[]> {
   try {
@@ -334,12 +349,14 @@ async function readCompletionCandidates(source: CompletionCandidateSource): Prom
     return [];
   }
 }
+
 /** The single line, per shell, that sources Launch's completion script when the rc file loads. */
 function completionSourceLine(shell: Shell): string {
   if (shell == 'fish') return 'launch-store completion fish | source';
 
   return `source <(launch-store completion ${shell})`;
 }
+
 /** The outcome of an {@link installCompletion} attempt. */
 export type InstallResult =
   | {
@@ -362,15 +379,18 @@ export type InstallResult =
       /** The exact line to add to the rc file. */
       readonly line: string;
     };
+
 /** Options for {@link installCompletion}; both default so the common call is argument-free. */
 export type InstallOptions = {
   shell?: Shell | undefined;
   home?: string | undefined;
 };
+
 /** Build the managed block (fences + the source line) for a shell */
 export function managedBlock(shell: Shell): string {
   return `${BLOCK_START}\n${completionSourceLine(shell)}\n${BLOCK_END}`;
 }
+
 /** Splice the managed block into existing rc-file contents idempotently */
 export function spliceManagedBlock(
   existing: string,
@@ -405,6 +425,7 @@ export function spliceManagedBlock(
     updated: false,
   };
 }
+
 /** Wire Launch's completion into the resolved shell's rc file, idempotently. */
 function isManualInstall(rcFileExists: boolean, rcDirectoryExists: boolean): boolean {
   if (rcFileExists) {

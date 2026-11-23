@@ -15,12 +15,14 @@ export type TargetSigningReadiness = {
   registered: boolean;
   missingCapabilities: string[];
 };
+
 /** A `PBXNativeTarget` object, mid-parse, before its bundle id is resolved through the config list. */
 type NativeTargetRef = {
   name: string;
   buildConfigurationListId: string;
   productType: string;
 };
+
 /** Read one parser line without leaking undefined into regex operations. */
 function lineAt(lines: readonly string[], lineIndex: number): string {
   const sourceLine = lines[lineIndex];
@@ -29,6 +31,7 @@ function lineAt(lines: readonly string[], lineIndex: number): string {
 
   return sourceLine;
 }
+
 /** Pull the object id assigned on a line like `<key> = <id> /* ... */
 function assignedId(line: string): string | null {
   const match = /[=]\s*([^\s;]+)/.exec(line);
@@ -38,6 +41,7 @@ function assignedId(line: string): string | null {
 
   return assignedIdentifier;
 }
+
 /** Pull a bare `<key> = <value>;` string value (e.g. */
 function stringValue(line: string, key: string): string | null {
   const match = new RegExp(`^\\s*${key}\\s*=\\s*"?([^";]+)"?\\s*;`).exec(line);
@@ -47,6 +51,7 @@ function stringValue(line: string, key: string): string | null {
 
   return assignedText;
 }
+
 /** Parse every `PBXNativeTarget` block */
 function parseNativeTargets(lines: string[]): NativeTargetRef[] {
   const targets: NativeTargetRef[] = [];
@@ -87,6 +92,7 @@ function parseNativeTargets(lines: string[]): NativeTargetRef[] {
 
   return targets;
 }
+
 /** Map each `XCConfigurationList` object id to the `XCBuildConfiguration` object ids it lists. */
 function parseConfigurationLists(lines: string[]): Map<string, string[]> {
   const lists = new Map<string, string[]>();
@@ -123,6 +129,7 @@ function parseConfigurationLists(lines: string[]): Map<string, string[]> {
 
   return lists;
 }
+
 /** Map each `XCBuildConfiguration` object id to its `PRODUCT_BUNDLE_IDENTIFIER` */
 function parseBundleIdsByConfig(lines: string[]): Map<string, string> {
   const bundleIds = new Map<string, string>();
@@ -148,6 +155,7 @@ function parseBundleIdsByConfig(lines: string[]): Map<string, string> {
 
   return bundleIds;
 }
+
 export function parsePbxprojTargets(pbxproj: string): DiscoveredTarget[] {
   const lines = pbxproj.split('\n');
   const configLists = parseConfigurationLists(lines);
@@ -180,6 +188,7 @@ export function parsePbxprojTargets(pbxproj: string): DiscoveredTarget[] {
 
   return parseNativeTargets(lines).flatMap(listTargetWithBundle);
 }
+
 export function splitMainAndExtensions(
   targets: DiscoveredTarget[],
   mainBundleId?: string,
@@ -231,6 +240,7 @@ export function splitMainAndExtensions(
   // De-dupe in case Debug/Release configs surfaced the same extension twice, preserving first-seen order.
   return { main, extensions: [...new Set(extensions)] };
 }
+
 /** Locate the `*.xcodeproj/project.pbxproj` inside a generated native project directory (e.g. */
 function isXcodeProject(directoryName: string): boolean {
   return directoryName.endsWith('.xcodeproj');
@@ -275,6 +285,7 @@ export async function discoverExtensionBundleIds(
 
   return splitMainAndExtensions(targets, mainBundleId).extensions;
 }
+
 export function multiTargetSigningWarnings(readiness: readonly TargetSigningReadiness[]): string[] {
   const warnings: string[] = [];
 
@@ -299,11 +310,13 @@ export function multiTargetSigningWarnings(readiness: readonly TargetSigningRead
 
   return warnings;
 }
+
 /** The per-target manual-signing inputs stamped into a multi-target project before archiving */
 type ManualSigningTargets = {
   teamId: string;
   profileByBundleId: Record<string, string>;
 };
+
 /** Count the net brace balance a line contributes (`{` opens minus `}` closes) - the pbxproj is brace-nested. */
 function braceDelta(line: string): number {
   let openingBraces = line.match(/\{/g)?.length;
@@ -316,6 +329,7 @@ function braceDelta(line: string): number {
 
   return openingBraces - closingBraces;
 }
+
 /** Map each `XCBuildConfiguration` object id to its `name` (`Debug` / `Release` / ...). */
 function parseConfigNames(lines: string[]): Map<string, string> {
   const names = new Map<string, string>();
@@ -344,6 +358,7 @@ function parseConfigNames(lines: string[]): Map<string, string> {
 
   return names;
 }
+
 /** For every target that has a resolved profile */
 function releaseConfigProfiles(
   lines: string[],
@@ -385,6 +400,7 @@ function releaseConfigProfiles(
 
   return profilesByReleaseConfiguration;
 }
+
 /** Stamp per-target manual signing into a project's `project.pbxproj` and return the rewritten */
 export function stampManualSigningIntoPbxproj(
   pbxproj: string,
@@ -470,6 +486,7 @@ export function stampManualSigningIntoPbxproj(
 
   return out.join('\n');
 }
+
 export async function writeManualSigningToProject(
   nativeDirectory: string,
   signing: ManualSigningTargets,

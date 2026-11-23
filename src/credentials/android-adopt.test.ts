@@ -14,6 +14,7 @@ import {
 } from './android-keystore-assets.ts';
 
 const directories: string[] = [];
+
 function cleanup() {
   resetLaunchDirectories();
   resetSecretStore();
@@ -86,6 +87,7 @@ function setup() {
 function allowPlayAccess(): Promise<void> {
   return Promise.resolve();
 }
+
 function describeLegacyAndroidCredentialAdoption() {
   async function validatesAndCopiesBothAssetsWithoutRemovingTheOriginals() {
     const sandbox = setup();

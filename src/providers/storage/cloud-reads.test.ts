@@ -68,6 +68,7 @@ function useStorageSecrets(): void {
   });
   useSecretStore(new Map());
 }
+
 function cleanup() {
   resetLaunchEnvironment();
   resetSecretStore();
@@ -94,6 +95,7 @@ for (const createProvider of storageProviders) {
 
       return storage.list();
     }
+
     async function returnsEmptyHistoryOnlyForAMissingIndex() {
       async function withStorageReplyEndpoint(endpoint: string) {
         const history = await readStorage(endpoint);

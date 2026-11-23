@@ -13,6 +13,7 @@ import type { AppleLocaleInfo, AppleStoreConfig } from '@/store/shared/store-con
 import { reconcileAppListing } from '@/store/apple/asc-sync.js';
 import { iosApps } from '@/readiness/app-scopes.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
+
 /** One locale's merged listing fields -> a snapshot entity keyed by the locale (its natural, stable id). */
 function readSnapshotEntity(locale: string, fields: Record<string, string>): SnapshotEntity {
   return {
@@ -21,6 +22,7 @@ function readSnapshotEntity(locale: string, fields: Record<string, string>): Sna
     data: { locale, fields },
   };
 }
+
 async function captureListing(api: SnapshotAscApi, appId: string): Promise<SnapshotEntity[]> {
   const localeFields = await readAppleLocaleFields(api, appId);
 
@@ -28,6 +30,7 @@ async function captureListing(api: SnapshotAscApi, appId: string): Promise<Snaps
     return readSnapshotEntity(localeField.locale, localeField.fields);
   });
 }
+
 /** Rebuild the `AppleStoreConfig` listing from one app's captured per-locale entities (skips malformed ones). */
 function readSavedListing(saved: AppEntities): AppleStoreConfig {
   const localeInfoByLocale: Record<string, AppleLocaleInfo> = {};

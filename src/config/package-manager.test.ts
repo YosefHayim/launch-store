@@ -12,9 +12,11 @@ import {
 } from './package-manager.ts';
 import { expectDefined } from '../testkit/assertions-testkit.ts';
 const tmpDirs: string[] = [];
+
 async function runPackageManagerEffect<Success>(packageWork: Promise<Success>): Promise<Success> {
   return packageWork;
 }
+
 function scratch(): string {
   const systemTemporaryDirectory = tmpdir();
   const launchPmPath = join(systemTemporaryDirectory, 'launch-pm-');
@@ -24,6 +26,7 @@ function scratch(): string {
 
   return dir;
 }
+
 function cleanup() {
   while (tmpDirs.length) {
     rmSync(expectDefined(tmpDirs.pop(), 'temp dir'), { recursive: true, force: true });
@@ -31,6 +34,7 @@ function cleanup() {
 }
 
 afterEach(cleanup);
+
 function describeParsePackageManagerField() {
   function splitsACorepackPinIntoManagerVersion() {
     const packageManagerField = parsePackageManagerField('yarn@4.1.0');
@@ -55,6 +59,7 @@ function describeParsePackageManagerField() {
 }
 
 describe('parsePackageManagerField', describeParsePackageManagerField);
+
 function describeDetectFromLockfiles() {
   function prefersPnpmYarnOverAnIncidentalPackageLockPiece() {
     const fromLockfiles = detectFromLockfiles(new Set(['pnpm-lock.yaml', 'package-lock.json']));
@@ -73,6 +78,7 @@ function describeDetectFromLockfiles() {
 }
 
 describe('detectFromLockfiles', describeDetectFromLockfiles);
+
 function describePackageManagerWarnings() {
   function flagsACorepackPinWithCorepackDisabled() {
     const warnings = packageManagerWarnings({
@@ -115,6 +121,7 @@ function describePackageManagerWarnings() {
 }
 
 describe('packageManagerWarnings', describePackageManagerWarnings);
+
 function describeDetectPackageManagerFilesystem() {
   async function letsThePackageManagerFieldWinOverALockfile() {
     const dir = scratch();
@@ -177,6 +184,7 @@ function describeDetectPackageManagerFilesystem() {
 }
 
 describe('detectPackageManager (filesystem)', describeDetectPackageManagerFilesystem);
+
 function describeFindWorkspaceRootInspectPackageSetup() {
   async function resolvesThePMAtTheMonorepoRootNotTheNestedAppDir() {
     const root = scratch();

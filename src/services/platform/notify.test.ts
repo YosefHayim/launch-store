@@ -42,6 +42,7 @@ const advanced: NotifyEvent = {
   version: '1.2.3',
   detail: 'ACTIVE',
 };
+
 function describeNotifyMessage() {
   function summarizesASuccessWithBuildNumberAndDestination() {
     expect(notifyMessage(success)).toBe(
@@ -89,6 +90,7 @@ function describeNotifyMessage() {
 }
 
 describe('notifyMessage', describeNotifyMessage);
+
 function describeNotificationDocument() {
   function setsBothPieceSlackAndPieceDiscordToTheMessageAndCarriesTheEventFields() {
     const notificationFields = notificationDocument(success);
@@ -127,6 +129,7 @@ function describeNotificationDocument() {
 }
 
 describe('notificationDocument', describeNotificationDocument);
+
 function describeNotifyPiece() {
   function exposesTheCoreFieldsAsLAUNCHStrings() {
     const env = notifyEnv(success);

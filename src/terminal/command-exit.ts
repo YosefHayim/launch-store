@@ -1,4 +1,5 @@
 import { isFailureTag } from '../services/platform/tagged-failure.ts';
+
 export type CommandExit = Readonly<{
   _tag: 'CommandExit';
   exitCode: number;

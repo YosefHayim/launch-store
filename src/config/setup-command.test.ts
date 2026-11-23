@@ -4,6 +4,7 @@ import {
   roleErrorMessage,
   type ProvisioningReport,
 } from './setup-command.ts';
+
 function describeRoleErrorMessage() {
   function namesTheInaccessibleFeatureAndPointsAtTheFix() {
     const message = roleErrorMessage('App ID capabilities');
@@ -19,6 +20,7 @@ function describeRoleErrorMessage() {
 }
 
 describe('roleErrorMessage', describeRoleErrorMessage);
+
 function describeFormatProvisioningReport() {
   const readyReport: ProvisioningReport = {
     account: { label: 'Personal', keyId: 'ABC123', teamId: 'TEAM01' },

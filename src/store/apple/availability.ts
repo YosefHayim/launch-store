@@ -34,7 +34,9 @@ function makeAvailabilityConfigFailure(fields: {
 /** The exact slice of App Store Connect the availability reconciler depends on. */
 export type AscAvailabilityApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   getAppAvailability(appId: string): Promise<AppAvailabilityResource | null>;
+
   createAppAvailability(
     appId: string,
     availability: {
@@ -42,6 +44,7 @@ export type AscAvailabilityApi = {
       territories: string[];
     },
   ): Promise<void>;
+
   updateAppAvailabilityTerritories(availabilityId: string, territories: string[]): Promise<void>;
 };
 

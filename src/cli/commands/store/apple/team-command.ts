@@ -8,6 +8,7 @@ import { hasMessage } from '@/services/platform/error-message.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 
 export type TeamListInput = Readonly<{ operation: 'list'; json: boolean }>;
+
 export type TeamInviteInput = Readonly<{
   operation: 'invite';
   email: string;
@@ -17,7 +18,9 @@ export type TeamInviteInput = Readonly<{
   provisioning: boolean;
   yes: boolean;
 }>;
+
 export type TeamRemoveInput = Readonly<{ operation: 'remove'; email: string; yes: boolean }>;
+
 type TeamCommandInput = TeamListInput | TeamInviteInput | TeamRemoveInput;
 
 /** A team command step failed. */

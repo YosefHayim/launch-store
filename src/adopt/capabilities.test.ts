@@ -6,6 +6,7 @@ import { capabilitiesAdopter, NEEDS_VALUE, planCapabilityEntitlements } from './
 function ready<Value>(value: Value): Promise<Value> {
   return Promise.resolve(value);
 }
+
 function describePlanCapabilityEntitlements() {
   function recoversARealIdentifierPieceFromTheProvisioningProfile() {
     const planned = planCapabilityEntitlements({
@@ -200,6 +201,7 @@ const TARGET: AdoptTarget = {
   cwd: '/repo',
   hasLaunchConfig: false,
 };
+
 function describeCapabilitiesAdopter() {
   async function returnsNoWritesWhenTheBundleIdIsnTRegisteredYet() {
     const appleCatalog = emptyAdoptCatalog({

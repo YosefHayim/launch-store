@@ -8,6 +8,7 @@ import {
   renderDraftPreview,
 } from './apply.ts';
 import type { DraftListing } from '../types/listing.ts';
+
 function describeClampDraft() {
   function passesThroughFieldsWithinTheirLimitsAndReportsNoWarnings() {
     const { draft, warnings } = clampDraft({ title: 'Focus Timer', subtitle: 'Stay on task' });
@@ -59,6 +60,7 @@ function describeClampDraft() {
 }
 
 describe('clampDraft', describeClampDraft);
+
 function describeBriefFor() {
   function seedsAboutFromTheOverrideWhenGiven() {
     const brief = briefFor('en-US', 'MyApp', undefined, 'A focus timer');
@@ -95,6 +97,7 @@ function describeBriefFor() {
 }
 
 describe('briefFor', describeBriefFor);
+
 function describeDeriveAndroidLocale() {
   function mapsTitleDescriptionAcrossAndBorrowsTheSubtitleForTheShortDescription() {
     const android = deriveAndroidLocale({
@@ -127,6 +130,7 @@ function describeDeriveAndroidLocale() {
 }
 
 describe('deriveAndroidLocale', describeDeriveAndroidLocale);
+
 function describeApplyDraft() {
   const draft: DraftListing = { title: 'New Title', keywords: ['focus'] };
 
@@ -176,6 +180,7 @@ function describeApplyDraft() {
 }
 
 describe('applyDraft', describeApplyDraft);
+
 function describeRenderDraftPreview() {
   function showsIOSFieldsWithCharacterBudgetsAndSurfacesWarnings() {
     const preview = renderDraftPreview(

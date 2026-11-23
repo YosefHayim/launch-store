@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { explainTopic, isGlossaryTopic, listTopics } from './glossary.ts';
+
 function describeGlossaryTheSinglePieceForExplainAndDocs() {
   function returnsNonEmptyTeachingPieceForEveryTopic() {
     for (const topic of listTopics()) {

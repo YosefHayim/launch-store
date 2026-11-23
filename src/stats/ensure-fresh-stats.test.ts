@@ -68,6 +68,7 @@ const portfolioFile: PortfolioFile = {
   tags: [],
   playReportsBucket: null,
 };
+
 function describeEnsureFreshStats() {
   let homeDirectory: string;
 
@@ -120,6 +121,7 @@ function describeEnsureFreshStats() {
 
     writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', serialized);
   }
+
   async function doesNotSyncWhenEveryFeedWasSyncedRecently() {
     writeCoverage(new Date().toISOString(), null);
 

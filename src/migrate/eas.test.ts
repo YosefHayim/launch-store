@@ -83,6 +83,7 @@ function notesAt(notes: readonly MigrationNote[], level: MigrationNoteLevel): Mi
 function sampleEasConfiguration(): EasJson {
   return parseEasJson(SAMPLE_EAS);
 }
+
 function describeParseEasPiece() {
   function parsesBuildSubmitAndCliIntoTheNarrowedShape() {
     const eas = parseEasJson(SAMPLE_EAS);
@@ -152,6 +153,7 @@ function describeParseEasPiece() {
 }
 
 describe('parseEasJson', describeParseEasPiece);
+
 function describeLaunchProfilesFromEas() {
   function liftsAValidPlayTrackFromTheMatchingSubmitProfile() {
     const launchProfiles = launchProfilesFromEas(sampleEasConfiguration());
@@ -193,6 +195,7 @@ function describeLaunchProfilesFromEas() {
 }
 
 describe('launchProfilesFromEas', describeLaunchProfilesFromEas);
+
 function describeCollectEnvironmentKeys() {
   function unionsProfilePieceKeysAndSortsThem() {
     const environmentKeys = collectEnvironmentKeys(sampleEasConfiguration());
@@ -213,6 +216,7 @@ function describeCollectEnvironmentKeys() {
 }
 
 describe('collectEnvironmentKeys', describeCollectEnvironmentKeys);
+
 function describeNotesFromEasConfiguration() {
   function mapsProfilesAndFlagsChannelsInternalDistributionAndSubmitCredentialsAsManual() {
     const notes = notesFromEasConfiguration(sampleEasConfiguration(), [
@@ -311,6 +315,7 @@ function describeNotesFromEasConfiguration() {
 }
 
 describe('notesFromEasConfiguration', describeNotesFromEasConfiguration);
+
 function describeCredentialsSummaryFromPieceNotesFromCredentialsSummary() {
   function keepsPathAndAliasFactsWhileDroppingPasswordFields() {
     const serialized = JSON.stringify({
@@ -413,6 +418,7 @@ describe(
   'credentialsSummaryFromJson / notesFromCredentialsSummary',
   describeCredentialsSummaryFromPieceNotesFromCredentialsSummary,
 );
+
 function describeExpoFactsFromResolvedPieceNotesFromExpoFacts() {
   function readsWrappedExpoFactsAndDescribesPolicyRuntimeVersions() {
     const expoFacts = expoFactsFromResolvedConfig({
@@ -497,6 +503,7 @@ describe(
   'expoFactsFromResolvedConfig / notesFromExpoFacts',
   describeExpoFactsFromResolvedPieceNotesFromExpoFacts,
 );
+
 function describeMigrateEas() {
   let dir: string;
 
@@ -522,6 +529,7 @@ function describeMigrateEas() {
   function runMigrateEas(workingDirectory: string, apps: AppDescriptor[]) {
     return migrateEas(workingDirectory, apps);
   }
+
   async function returnsATaggedFailureWhenThereIsNoEasPiece() {
     const easPath = join(dir, 'eas.json');
 

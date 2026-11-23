@@ -10,6 +10,7 @@ import {
   readCapabilitiesFromEntitlements,
   staleProfileCapabilities,
 } from './capabilities.ts';
+
 function describeMapEntitlementsToCapabilities() {
   function mapsKnownEntitlementKeysToTheirCapabilityTypes() {
     const { enable } = readCapabilitiesFromEntitlements({
@@ -107,6 +108,7 @@ function describeMapEntitlementsToCapabilities() {
 }
 
 describe('readCapabilitiesFromEntitlements', describeMapEntitlementsToCapabilities);
+
 function describeEntitlementForCapabilityReverseMapForLaunchStoreAdopt() {
   function resolvesACapabilityTypeToItsCanonicalEntitlementKey() {
     expect(entitlementForCapability('APP_GROUPS')).toBe('com.apple.security.application-groups');
@@ -154,6 +156,7 @@ describe(
   'entitlementForCapability (reverse map for `launch-store adopt`)',
   describeEntitlementForCapabilityReverseMapForLaunchStoreAdopt,
 );
+
 function describeAppGroupContainers() {
   function readsTheGroupIdsFromTheEntitlementArray() {
     expect(
@@ -193,6 +196,7 @@ function describeAppGroupContainers() {
 }
 
 describe('appGroupContainers', describeAppGroupContainers);
+
 function describeAppGroupPortalNotice() {
   function returnsNullWhenTheAppDeclaresNoAppGroupContainers() {
     expect(appGroupPortalNotice([])).toBeNull();
@@ -228,6 +232,7 @@ function describeAppGroupPortalNotice() {
 }
 
 describe('appGroupPortalNotice', describeAppGroupPortalNotice);
+
 function describeIsCapabilityType() {
   function recognizesAKnownCapabilityWireStringAndRejectsAnUnknownOne() {
     expect(isCapabilityType('APP_GROUPS')).toBe(true);
@@ -242,6 +247,7 @@ function describeIsCapabilityType() {
 }
 
 describe('isCapabilityType', describeIsCapabilityType);
+
 function describeStaleProfileCapabilitiesRegenerateVsReuseDecision261() {
   function flagsAProfileMintedBeforeAppGroupsWasEnabledRegenerate() {
     // App ID now has Push + App Groups; the cached profile predates App Groups (only Push entitlement).

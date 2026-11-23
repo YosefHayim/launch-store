@@ -51,12 +51,14 @@ function captureStdoutLines() {
 
   return readEvents;
 }
+
 function cleanup() {
   vi.restoreAllMocks();
   setJsonOutput(false);
 }
 
 afterEach(cleanup);
+
 function describeRunPieceCliProgramThePiecePieceLine() {
   async function streamsEventsAndEndsWithAnOkPieceCarryingTheRunSummary() {
     const readEvents = captureStdoutLines();

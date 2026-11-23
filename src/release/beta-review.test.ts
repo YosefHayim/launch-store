@@ -78,6 +78,7 @@ function makeAppleStore(
 }
 
 const WHAT_TO_TEST = { 'en-US': 'Bug fixes.' };
+
 function describeParseBetaReviewPiece() {
   function decodesANonEmptyLocalizedNoteMap() {
     const parseBetaReview = parseBetaReviewConfig({ whatToTest: WHAT_TO_TEST });
@@ -110,6 +111,7 @@ function describeParseBetaReviewPiece() {
 }
 
 describe('parseBetaReviewConfig', describeParseBetaReviewPiece);
+
 function describeReconcileBetaReview() {
   async function setsANewNoteAndSubmitsTheBuildForReview() {
     const { appleStore, calls } = makeAppleStore({});

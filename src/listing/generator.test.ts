@@ -19,6 +19,7 @@ function thrownBy(run: () => void): unknown {
 
   return null;
 }
+
 function describeBuildListingPrompt() {
   function namesTheAppAndLocaleAndStatesTheCharacterLimits() {
     const listingPrompt = buildListingPrompt({ locale: 'en-US', appName: 'Focus Timer' });
@@ -52,6 +53,7 @@ function describeBuildListingPrompt() {
 }
 
 describe('buildListingPrompt', describeBuildListingPrompt);
+
 function describeParseDraftListing() {
   function parsesAPlainJSONObject() {
     const listingDraft = parseDraftListing('{"title":"MyApp","keywords":["focus","timer"]}');
@@ -109,6 +111,7 @@ function describeParseDraftListing() {
 }
 
 describe('parseDraftListing', describeParseDraftListing);
+
 function describeCreateAnthropicListingGenerator() {
   function labelsItselfWithTheSelectedModel() {
     useLaunchEnvironment({});

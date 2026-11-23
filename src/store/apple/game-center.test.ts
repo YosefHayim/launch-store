@@ -167,6 +167,7 @@ const SAMPLE_CONFIG: GameCenterConfig = {
 function decodeGameCenterConfig(rawDocument: unknown) {
   return parseGameCenterConfig(rawDocument);
 }
+
 function describeParseGameCenterPiece() {
   function parsesAchievementsAndLeaderboards() {
     const gameCenterConfig = decodeGameCenterConfig(SAMPLE_CONFIG);
@@ -295,6 +296,7 @@ function describeParseGameCenterPiece() {
 }
 
 describe('parseGameCenterConfig', describeParseGameCenterPiece);
+
 function describeReconcileGameCenter() {
   async function throwsWhenTheAppHasNoAppStoreConnectPiece() {
     const { api } = makeGameCenterApi({ appId: null });

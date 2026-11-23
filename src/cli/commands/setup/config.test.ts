@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Command, type CommandOption } from '@/cli/command.js';
 import { registerConfigCommand } from './config.ts';
+
 /** Find the `config` group's named subcommand, asserting the group exists. */
 function subcommand(name: string) {
   const program = new Command();
@@ -21,6 +22,7 @@ function subcommand(name: string) {
 
   return config?.commands.find(hasSubcommandName);
 }
+
 function describeRegisterPieceCommand() {
   function attachesAPieceGroupWithSchemaValidateAndDocsSubcommands() {
     const program = new Command();

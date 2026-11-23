@@ -6,6 +6,7 @@ import {
   type AscPermissionProbeApi,
   type AscPermissionResult,
 } from './asc-permissions.ts';
+
 function mockCall() {
   return Promise.resolve([]);
 }
@@ -72,6 +73,7 @@ function transportFailure(message: string, status?: number) {
 
   return makeAppleTransportFailure({ message, cause, status });
 }
+
 function describeProbeKeyPermissions() {
   async function marksEveryFeatureAvailableWhenAllProbesSucceed() {
     const permissionClient = makePermissionClient();
@@ -166,6 +168,7 @@ function describeProbeKeyPermissions() {
 }
 
 describe('probeKeyPermissions', describeProbeKeyPermissions);
+
 function describeFormatPermissionLine() {
   const permissionBase = {
     feature: 'x',

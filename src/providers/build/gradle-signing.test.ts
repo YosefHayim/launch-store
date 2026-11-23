@@ -14,6 +14,7 @@ vi.mock(
     };
   },
 );
+
 function describeGradleSigningTransport() {
   async function putsSigningPasswordsInTheEnvironmentNotArguments() {
     const systemTemporaryDirectory = tmpdir();

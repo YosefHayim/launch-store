@@ -47,6 +47,7 @@ function buildRunOptions(overrides: Partial<BuildRunOptions> = {}): BuildRunOpti
     ...overrides,
   };
 }
+
 function describeWorstDownloadBytes() {
   function picksTheLargestPerDeviceDownload() {
     expect(
@@ -72,6 +73,7 @@ function describeWorstDownloadBytes() {
 }
 
 describe('worstDownloadBytes', describeWorstDownloadBytes);
+
 function describeSizeSummary() {
   function showsBothNumbersWhenAPerDeviceEstimateExists() {
     expect(
@@ -112,6 +114,7 @@ function describeSizeSummary() {
 }
 
 describe('sizeSummary', describeSizeSummary);
+
 function describeUploadSizeReadout() {
   function reportWithDownload(downloadMB: number, artifactMB: number = 64): SizeReport {
     return sizeReport(
@@ -119,6 +122,7 @@ function describeUploadSizeReadout() {
       artifactMB * MB,
     );
   }
+
   function showsDownloadOnDiskWithNoGrowthOnTheFirstBuild() {
     const readout = uploadSizeReadout(reportWithDownload(38, 61));
     expect(readout.lines).toEqual(['download 38.0 MB', 'on disk 61.0 MB']);
@@ -201,6 +205,7 @@ function describeUploadSizeReadout() {
 }
 
 describe('uploadSizeReadout', describeUploadSizeReadout);
+
 function describeReceiptDestination() {
   function reportsNotUploadedWhenSubmitIsOff() {
     const buildRun = buildRunOptions({ submit: false });
@@ -232,6 +237,7 @@ function describeReceiptDestination() {
 }
 
 describe('receiptDestination', describeReceiptDestination);
+
 function describeMakeNativeProjectFailure() {
   function tagsAMissingNativeProjectWithPlatformAndMessage() {
     const failure = makeNativeProjectFailure({
@@ -329,6 +335,7 @@ async function nativeProjectLog(nativeCase: NativeProjectCase): Promise<string> 
     rmSync(nativeAppDirectory, { recursive: true, force: true });
   }
 }
+
 function describeNativeProjectPrebuildMode() {
   function prepareNativeProjectPrebuildMode() {
     vi.mocked(runWithProgress).mockClear();

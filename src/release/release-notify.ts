@@ -1,14 +1,17 @@
 import type { ReleaseStatus, ReleaseVerdict } from './app-store-release.ts';
 import type { NotifyEvent } from '../services/platform/notify.ts';
+
 /** Memory of what's already been notified, owned by the watch loop for its lifetime. */
 type TransitionTracker = {
   reviewed: Set<string>;
   lastPhasedState: Map<string, string>;
 };
+
 /** A fresh tracker for one `--watch` session. */
 export function createTransitionTracker(): TransitionTracker {
   return { reviewed: new Set<string>(), lastPhasedState: new Map<string, string>() };
 }
+
 /** The review notification status for a verdict */
 export function reviewStatusForVerdict(verdict: ReleaseVerdict): 'approved' | 'rejected' | null {
   if (verdict.state == 'rejected') return 'rejected';
@@ -19,6 +22,7 @@ export function reviewStatusForVerdict(verdict: ReleaseVerdict): 'approved' | 'r
 
   return null;
 }
+
 /** Decide which notifications one app's latest reading should fire */
 export function planTransitionNotifications(
   appName: string,

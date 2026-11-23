@@ -27,17 +27,23 @@ export type CustomProductPagesConfig = {
 /** The exact slice of App Store Connect the custom-pages reconciler depends on */
 export type AscCustomPagesApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   listCustomProductPages(appId: string): Promise<CustomProductPageResource[]>;
+
   createCustomProductPage(appId: string, name: string): Promise<CustomProductPageResource>;
+
   listCustomProductPageVersions(pageId: string): Promise<CustomProductPageVersionResource[]>;
+
   listCustomProductPageLocalizations(
     versionId: string,
   ): Promise<CustomProductPageLocalizationResource[]>;
+
   createCustomProductPageLocalization(
     versionId: string,
     locale: string,
     promotionalText: string,
   ): Promise<void>;
+
   updateCustomProductPageLocalization(
     localizationId: string,
     promotionalText: string,

@@ -43,6 +43,7 @@ function thrownMessage(read: () => unknown): string {
 
   throw new Error('expected a throw');
 }
+
 function describeIsApplePlatformAppleVsAndroidToolchainSplit() {
   function isTrueForEveryApplePlatformAndFalseForAndroid() {
     for (const platform of APPLE) expect(isApplePlatform(platform)).toBe(true);
@@ -70,6 +71,7 @@ describe(
   'isApplePlatform - Apple vs Android toolchain split',
   describeIsApplePlatformAppleVsAndroidToolchainSplit,
 );
+
 function describeParsePlatformTheSingleCLIPlatformGuard() {
   function acceptsAllFivePlatformsVerbatim() {
     for (const platform of PLATFORMS) {
@@ -98,6 +100,7 @@ describe(
   'parsePlatform - the single CLI `<platform>` guard',
   describeParsePlatformTheSingleCLIPlatformGuard,
 );
+
 function describePlatformLabelHumanFacingNames() {
   function mapsEachPlatformToItsCanonicalCasing() {
     expect(platformLabel('ios')).toBe('iOS');
@@ -111,6 +114,7 @@ function describePlatformLabelHumanFacingNames() {
 }
 
 describe('platformLabel - human-facing names', describePlatformLabelHumanFacingNames);
+
 function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMapping() {
   function mapsTheVersionFilterPlatformToTheFourDistinctASCValues() {
     expect(readConnectPlatform('ios')).toBe('IOS');
@@ -168,6 +172,7 @@ describe(
   'readConnectPlatform vs readBundleIdPlatform - the two ASC enums are NOT the same mapping',
   describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMapping,
 );
+
 function describeProvisioningProfileTypesVisionOSReusesIOSMacOSHasNoAdHoc() {
   function appStoreProfileTypeMapsEachApplePlatformVisionOSIOSAPPSTORE() {
     expect(appStoreProfileType('ios')).toBe('IOS_APP_STORE');
@@ -212,6 +217,7 @@ describe(
   'provisioning profile types - visionOS reuses iOS, macOS has no ad-hoc',
   describeProvisioningProfileTypesVisionOSReusesIOSMacOSHasNoAdHoc,
 );
+
 function describeArchiveDestinationEveryApplePlatformTargetsGenericPlatform() {
   function targetsAGenericDeviceForIOSSoAnArchiveNeverBuildsForASimulator() {
     expect(archiveDestination('ios')).toBe('generic/platform=iOS');
@@ -247,6 +253,7 @@ describe(
   'archiveDestination - every Apple platform targets generic/platform',
   describeArchiveDestinationEveryApplePlatformTargetsGenericPlatform,
 );
+
 function describeNativeProjectDirNameNativeTargetHintAppleArtifactExtension() {
   function mapsEachApplePlatformToItsCommittedNativeDirectoryTvOSSharesIos() {
     expect(nativeProjectDirName('ios')).toBe('ios');

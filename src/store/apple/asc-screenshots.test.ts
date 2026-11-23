@@ -14,6 +14,7 @@ import type { ActionStatus } from '@/types/reconcile.js';
 function effectMethods<Api extends object>(api: Api): Api {
   return api;
 }
+
 /** A fully-stubbed {@link ScreenshotsApi}. */
 function makeApi(overrides: Partial<ScreenshotsApi> = {}): ScreenshotsApi {
   function mockImplementationLoc(_loc: string, displayType: string) {
@@ -40,6 +41,7 @@ function makeApi(overrides: Partial<ScreenshotsApi> = {}): ScreenshotsApi {
 
   return effectMethods({ ...base, ...overrides });
 }
+
 /** Build a {@link LocalScreenshot} with sensible defaults for the field under test. */
 function shot(overrides: Partial<LocalScreenshot> = {}): LocalScreenshot {
   return {
@@ -52,6 +54,7 @@ function shot(overrides: Partial<LocalScreenshot> = {}): LocalScreenshot {
     ...overrides,
   };
 }
+
 function asset(overrides: Partial<LocalAsset> = {}): LocalAsset {
   return {
     path: '/tmp/review.png',
@@ -61,6 +64,7 @@ function asset(overrides: Partial<LocalAsset> = {}): LocalAsset {
     ...overrides,
   };
 }
+
 function input(overrides: Partial<ScreenshotReconcileInput> = {}): ScreenshotReconcileInput {
   return {
     bundleId: 'com.acme.app',
@@ -71,9 +75,11 @@ function input(overrides: Partial<ScreenshotReconcileInput> = {}): ScreenshotRec
     ...overrides,
   };
 }
+
 function runScreenshots(api: ScreenshotsApi, reconcileInput: ScreenshotReconcileInput) {
   return reconcileScreenshots(api, reconcileInput);
 }
+
 function describeReconcileScreenshotsAppScreenshots() {
   async function doesNothingWhenThereAreNoAssetsToReconcile() {
     const api = makeApi();
@@ -375,6 +381,7 @@ function describeReconcileScreenshotsAppScreenshots() {
 }
 
 describe('reconcileScreenshots - app screenshots', describeReconcileScreenshotsAppScreenshots);
+
 function describeReconcileScreenshotsSubscriptionReviewScreenshots() {
   function reviewInput(
     items: SubscriptionReviewScreenshot[],
@@ -382,6 +389,7 @@ function describeReconcileScreenshotsSubscriptionReviewScreenshots() {
   ) {
     return input({ subscriptionReviewScreenshots: items, ...over });
   }
+
   function apiWithSubscription(over: Partial<ScreenshotsApi> = {}): ScreenshotsApi {
     return makeApi({
       listSubscriptionGroups: vi.fn().mockResolvedValue([{ id: 'g1', referenceName: 'Pro' }]),
@@ -391,6 +399,7 @@ function describeReconcileScreenshotsSubscriptionReviewScreenshots() {
       ...over,
     });
   }
+
   async function uploadsTheReviewScreenshotWhenTheSubscriptionExistsAndTheChecksumDiffers() {
     const api = apiWithSubscription();
     const actions = await runScreenshots(
@@ -465,6 +474,7 @@ describe(
   'reconcileScreenshots - subscription review screenshots',
   describeReconcileScreenshotsSubscriptionReviewScreenshots,
 );
+
 /** A fully-stubbed {@link PreviewsApi}. */
 function makePreviewsApi(overrides: Partial<PreviewsApi> = {}): PreviewsApi {
   function mockImplementationLoc2(_loc: string, previewType: string) {
@@ -485,6 +495,7 @@ function makePreviewsApi(overrides: Partial<PreviewsApi> = {}): PreviewsApi {
 
   return effectMethods({ ...base, ...overrides });
 }
+
 /** Build a {@link LocalPreview} with sensible defaults for the field under test. */
 function preview(overrides: Partial<LocalPreview> = {}): LocalPreview {
   return {
@@ -497,6 +508,7 @@ function preview(overrides: Partial<LocalPreview> = {}): LocalPreview {
     ...overrides,
   };
 }
+
 function previewInput(overrides: Partial<PreviewReconcileInput> = {}): PreviewReconcileInput {
   return {
     bundleId: 'com.acme.app',
@@ -506,9 +518,11 @@ function previewInput(overrides: Partial<PreviewReconcileInput> = {}): PreviewRe
     ...overrides,
   };
 }
+
 function runPreviews(api: PreviewsApi, reconcileInput: PreviewReconcileInput) {
   return reconcilePreviews(api, reconcileInput);
 }
+
 function describeReconcilePreviews() {
   async function doesNothingWhenThereAreNoPreviewsToReconcile() {
     const api = makePreviewsApi();

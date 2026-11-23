@@ -5,6 +5,7 @@ import {
   parseVitalsDays,
   parseVitalsMetrics,
 } from './play-reports-command.ts';
+
 function describeParseVitalsMetrics() {
   function showsBothVitalsWhenNoMetricFlagIsGiven() {
     const vitalsMetrics = parseVitalsMetrics(undefined);
@@ -42,6 +43,7 @@ function describeParseVitalsMetrics() {
 }
 
 describe('parseVitalsMetrics', describeParseVitalsMetrics);
+
 function describeParseVitalsDays() {
   function defaultsToTheStandardWindowWhenAbsent() {
     const vitalsDays = parseVitalsDays(undefined);

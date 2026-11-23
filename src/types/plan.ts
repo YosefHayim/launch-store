@@ -15,10 +15,13 @@ import type { AscOffersApi } from '../store/apple/offers.ts';
 import type { PreviewsApi, ScreenshotsApi } from '../store/apple/asc-screenshots.ts';
 import type { PlayProductsApi } from '../store/google/play-products.ts';
 import type { PlaySubscriptionsApi } from '../store/google/play-subscriptions.ts';
+
 /** Which store a surface belongs to - drives credential resolution and how the diff is grouped. */
 export type PlanStore = 'appstore' | 'play';
+
 /** The read surface of the Google Play catalog the Play planners share */
 export type PlayCatalogApi = PlayProductsApi & PlaySubscriptionsApi;
+
 /** The full read surface of App Store Connect the App Store planners share */
 export type AscSurfacesApi = AscCatalogApi &
   AscReleaseApi &
@@ -33,6 +36,7 @@ export type AscSurfacesApi = AscCatalogApi &
   AscOffersApi &
   ScreenshotsApi &
   PreviewsApi;
+
 /** One app's slice of a surface's plan. */
 export type AppPlan = Readonly<{
   app: string;
@@ -40,8 +44,10 @@ export type AppPlan = Readonly<{
   actions: readonly PlannedAction[];
   error?: string;
 }>;
+
 /** How completely a surface detects drift */
 export type PlanDirection = 'two-way' | 'additive';
+
 /** The outcome of running one surface planner. */
 export type SurfacePlan =
   | Readonly<{
@@ -72,16 +78,21 @@ export type SurfacePlan =
       direction: PlanDirection;
       actions: readonly PlannedAction[];
     }>;
+
 /** What a {@link SurfacePlanner} is handed */
 export type PlanContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
+
   resolveAscApi(): Promise<AscSurfacesApi | null>;
+
   resolvePlayApi(packageName?: string): Promise<PlayCatalogApi | null>;
 }>;
+
 /** One config-as-code surface's planner. */
 export type SurfacePlanner = Readonly<{
   id: string;
   store: PlanStore;
+
   plan(planContext: PlanContext): Promise<SurfacePlan>;
 }>;

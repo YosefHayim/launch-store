@@ -20,6 +20,7 @@ const BASE_OPTIONS: BuildCommandOptions = {
   ccache: true,
 };
 const GREATER_THAN_ZERO_ERROR = /greater than 0/;
+
 function describeParseSizeBudgetThePerRunSizeBudgetCLIBoundary() {
   function returnsUndefinedWhenTheFlagIsOmittedProfileThenDefault() {
     const sizeBudget = parseSizeBudget(undefined);
@@ -92,6 +93,7 @@ describe(
   'parseSizeBudget - the per-run size-budget CLI boundary',
   describeParseSizeBudgetThePerRunSizeBudgetCLIBoundary,
 );
+
 function describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece() {
   function decodesOptionalBuildFlagsIntoTheBuildRunPieceContract() {
     const buildInput = parseBuildCommandInput('ios', {
@@ -156,6 +158,7 @@ describe(
   'parseBuildCommandInput - raw Commander values to pipeline input',
   describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece,
 );
+
 function describeRegisterBuildCommandTheSizeBudgetFlagAndItsAlias() {
   function buildCommand() {
     const program = new Command();
@@ -168,6 +171,7 @@ function describeRegisterBuildCommandTheSizeBudgetFlagAndItsAlias() {
 
     return program.commands.find(isBuildCommand);
   }
+
   function exposesSizeBudgetAndItsBudgetAlias() {
     const storeBuild82 = buildCommand();
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createStatsFromReport, readReportDate } from './ga4-report.ts';
+
 function describeReadReportDate() {
   function turnsYYYYMMDDIntoYYYYMMDD() {
     const reportDate = readReportDate('20261029');
@@ -10,6 +11,7 @@ function describeReadReportDate() {
 }
 
 describe('readReportDate', describeReadReportDate);
+
 function describeCreateStatsFromReport() {
   function returnsNothingForAReplyWithoutRows() {
     const statsFromReport = createStatsFromReport({ rows: [], rowCount: 0 });

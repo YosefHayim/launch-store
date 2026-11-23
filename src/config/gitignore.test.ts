@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { captureCommandOutput } from '../services/platform/exec.ts';
 import { ensureArtifactDirIgnored } from './gitignore.ts';
+
 function describeEnsureArtifactDirIgnored() {
   let repo: string;
 

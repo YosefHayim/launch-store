@@ -74,6 +74,7 @@ function runPublish(
 
   return publishOtaPlatform(publishInput, logger);
 }
+
 function describePublishOtaPlatform() {
   let exportDirectory: string;
   let exportMetadata: ExportMetadata;
@@ -212,6 +213,7 @@ function describePublishOtaPlatform() {
 }
 
 describe('publishOtaPlatform', describePublishOtaPlatform);
+
 function describeReadExportMetadata() {
   async function failsWithAnActionableErrorWhenMetadataPieceIsMissing() {
     const systemTemporaryDirectory = tmpdir();

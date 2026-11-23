@@ -39,4 +39,5 @@ export const GoogleStoreClientService = {
 };
 
 export type GoogleStoreClientService = typeof GoogleStoreClientService;
+
 export type EffectGooglePlayClient = GooglePlayClient;

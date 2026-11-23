@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Command, type CommandOption } from '@/cli/command.js';
 import { registerDoctorCommand } from './doctor.ts';
+
 function describeRegisterDoctorCommand() {
   function attachesADoctorCommandWithPlatformAppFixYesAndPiecePiece() {
     const program = new Command();

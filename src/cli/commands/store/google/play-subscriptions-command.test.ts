@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PlaySubscriptionsCommandInputSchema } from './play-subscriptions-command.ts';
+
 function describePlaySubscriptionsCommandPieceSchema() {
   function decodesTheCommanderBoundary() {
     const playSubscriptionsCommandSchema = PlaySubscriptionsCommandInputSchema({

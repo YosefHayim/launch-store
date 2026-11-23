@@ -32,6 +32,7 @@ vi.mock('@napi-rs/keyring', function mockKeyring() {
         private service: string,
         private account: string,
       ) {}
+
       getPassword() {
         if (this.account == 'denied') throw new Error('access denied');
 
@@ -39,15 +40,18 @@ vi.mock('@napi-rs/keyring', function mockKeyring() {
 
         return secrets.get(`${this.service}:${this.account}`) ?? null;
       }
+
       setPassword(secret: string) {
         secrets.set(`${this.service}:${this.account}`, secret);
       }
+
       deletePassword() {
         secrets.delete(`${this.service}:${this.account}`);
       }
     },
   };
 });
+
 function describeNativeSecretStoreWithAMockedBinding() {
   async function roundTripsAMultilineSecretAndReportsMissingEntries() {
     await LaunchSecretStore.storeSecret('test', 'dummy\nkey');

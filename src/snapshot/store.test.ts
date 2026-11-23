@@ -32,6 +32,7 @@ function snap(over: Partial<Snapshot> = {}): Snapshot {
     ...over,
   };
 }
+
 function describeSnapshotStore() {
   let dir: string;
 
@@ -224,6 +225,7 @@ function describeSnapshotStore() {
 }
 
 describe('snapshot store', describeSnapshotStore);
+
 function describePlanPrune() {
   const now = new Date('2026-06-21T00:00:00.000Z');
   const snaps: Snapshot[] = [

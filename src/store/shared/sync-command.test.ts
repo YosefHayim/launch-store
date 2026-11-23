@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SyncCommandInputSchema } from './sync-command.ts';
+
 function describeSyncCommandPieceSchema() {
   function decodesTheCompleteCommanderBoundary() {
     const syncCommandSchema = SyncCommandInputSchema({

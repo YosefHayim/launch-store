@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Command, type CommandOption } from '@/cli/command.js';
 import { registerMigrateCommand } from './migrate.ts';
+
 /** Find the `migrate` group's named subcommand, asserting the group exists. */
 function subcommand(name: string) {
   const program = new Command();
@@ -21,6 +22,7 @@ function subcommand(name: string) {
 
   return migrate?.commands.find(hasSubcommandName);
 }
+
 function describeRegisterMigrateCommand() {
   function attachesAMigrateGroupWithEasAndFastlaneSubcommands() {
     const program = new Command();

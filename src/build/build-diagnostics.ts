@@ -3,6 +3,7 @@ type BuildDiagnosis = {
   cause: string;
   fix: string;
 };
+
 /** A diagnosis plus the regexes that trigger it; `match` fires when ANY pattern is found in the log. */
 type DiagnosticSignature = BuildDiagnosis & {
   match: RegExp[];
@@ -135,6 +136,7 @@ const signatures: DiagnosticSignature[] = [
     match: [/command not found: (?:pod|bundletool)/i, /(?:pod|bundletool): command not found/i],
   },
 ];
+
 /** Scan a build log and return the distinct diagnoses whose signatures matched, in table order. */
 export function diagnoseBuildLog(log: string): BuildDiagnosis[] {
   const matched: BuildDiagnosis[] = [];
@@ -151,6 +153,7 @@ export function diagnoseBuildLog(log: string): BuildDiagnosis[] {
 
   return matched;
 }
+
 /** Render diagnoses as an indented, human-readable block for the terminal. Empty input -> empty string. */
 export function formatDiagnoses(diagnoses: readonly BuildDiagnosis[]): string {
   if (diagnoses.length == 0) return '';

@@ -7,10 +7,12 @@ import {
   summarizeRatings,
 } from './aggregate.ts';
 import type { ReviewDatum } from '../types/insights.ts';
+
 /** Build a review datum with sensible defaults so tests state only what they exercise. */
 function review(over: Partial<ReviewDatum> = {}): ReviewDatum {
   return { store: 'appstore', rating: 5, answered: false, ...over };
 }
+
 function describeSentimentOf() {
   function buckets45Positive3Neutral12Negative() {
     expect(sentimentOf(5)).toBe('positive');
@@ -24,6 +26,7 @@ function describeSentimentOf() {
 }
 
 describe('sentimentOf', describeSentimentOf);
+
 function describeSummarizeRatings() {
   function returnsAnAllZeroSummaryForAnEmptySetWithoutDividingByZero() {
     const ratings = summarizeRatings([]);
@@ -79,6 +82,7 @@ function describeSummarizeRatings() {
 }
 
 describe('summarizeRatings', describeSummarizeRatings);
+
 function describeMonthlyTrend() {
   function groupsDatedReviewsByYYYYMMOldestFirstSkippingUndatedOnes() {
     const trend = monthlyTrend([
@@ -101,6 +105,7 @@ function describeMonthlyTrend() {
 }
 
 describe('monthlyTrend', describeMonthlyTrend);
+
 function describeBuildAppInsights() {
   function splitsPerStoreSummariesAndOnlyIncludesStoresWithReviews() {
     const insights = buildAppInsights('myapp', [

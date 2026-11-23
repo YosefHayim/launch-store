@@ -24,6 +24,7 @@ function makeStat(date: string, metric: string, amount: number, currency: string
     currency,
   };
 }
+
 function describeSummarizeAnalyticsBatches() {
   function sumsCountsPerDateOverTheAppRowsByEvent() {
     const batch = makeBatch({

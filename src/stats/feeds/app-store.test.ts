@@ -235,6 +235,7 @@ function makeApp(fields: Partial<PortfolioApp> = {}): PortfolioApp {
     ...fields,
   };
 }
+
 function cleanup() {
   useStatsCredentials(null);
 }
@@ -281,6 +282,7 @@ function findStat(stats: readonly DailyStat[], metric: string, date: string) {
 
   return stats.find(isAskedStat);
 }
+
 function describePickStatsPath() {
   function picksSalesReportsWhenTheAccountHasAVendorNumber() {
     const statsPath = pickStatsPath('90000001');
@@ -301,6 +303,7 @@ function describePickStatsPath() {
 }
 
 describe('pickStatsPath', describePickStatsPath);
+
 function describeIsHistoryNeeded() {
   function isTrueWhenTheRangeReachesPastTheRefreshTail() {
     expect(isHistoryNeeded({ from: '2026-09-01', to: '2026-10-10' })).toBe(true);
@@ -319,6 +322,7 @@ function describeIsHistoryNeeded() {
 }
 
 describe('isHistoryNeeded', describeIsHistoryNeeded);
+
 function describeReadHttpStatus() {
   function readsTheStatusOfATransportFailure() {
     const httpStatus = readHttpStatus({ status: 403 });
@@ -340,6 +344,7 @@ function describeReadHttpStatus() {
 }
 
 describe('readHttpStatus', describeReadHttpStatus);
+
 function describeCreateAppStoreReply() {
   const request = { app: makeApp(), range: SHORT_RANGE, credentials: null as never };
   const salesStat: DailyStat = {
@@ -436,6 +441,7 @@ function describeCreateAppStoreReply() {
 }
 
 describe('createAppStoreReply', describeCreateAppStoreReply);
+
 function describeAppStoreFeed() {
   function appliesToIOSAppsOnly() {
     expect(appStoreFeed.isApplicable(makeApp())).toBe(true);

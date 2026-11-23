@@ -113,6 +113,7 @@ const alpha: AppDescriptor = {
   configPath: '/no/such/dir/alpha/app.json',
   bundleId: 'com.acme.alpha',
 };
+
 function makeCtx(
   api: AscCatalogApi | null,
   products: Record<string, AppProducts> = {},
@@ -144,6 +145,7 @@ function makeCtx(
     },
   };
 }
+
 function describeCatalogPlanner() {
   async function omitsItselfWhenNoAppDeclaresACatalog() {
     const api = makeApi();

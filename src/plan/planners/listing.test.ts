@@ -53,6 +53,7 @@ function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
   return { ...base, ...overrides };
 }
 const tmpDirs: string[] = [];
+
 /** Create a temp app dir holding a `store.config.json` with the given en-US Apple listing, and return it. */
 function appDirWithListing(localeListing: AppleLocaleInfo): string {
   const systemTemporaryDirectory = tmpdir();
@@ -68,11 +69,13 @@ function appDirWithListing(localeListing: AppleLocaleInfo): string {
 
   return dir;
 }
+
 function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 }
 
 afterEach(cleanup);
+
 function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
   const config: LaunchConfig = {
     profiles: {},
@@ -104,6 +107,7 @@ function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
     },
   };
 }
+
 function describeListingPlanner() {
   async function omitsItselfWhenNoAppDeclaresAStoreListing() {
     const api = makeApi();

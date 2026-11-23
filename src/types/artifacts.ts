@@ -26,6 +26,7 @@ export interface BuildArtifact {
   createdAt: string;
   prunedAt?: string;
 }
+
 /** One build whose binary an artifact-retention sweep removed (or, in a dry run, would remove). */
 export type PrunedArtifact = Readonly<{
   app: string;
@@ -35,6 +36,7 @@ export type PrunedArtifact = Readonly<{
   bytes: number;
   path: string;
 }>;
+
 /** Options for an artifact-retention sweep ({@link StorageProvider.prune}). */
 export type PruneOptions = Readonly<{
   now: number;
@@ -43,12 +45,14 @@ export type PruneOptions = Readonly<{
   platform?: Platform;
   dryRun?: boolean;
 }>;
+
 /** The outcome of an artifact-retention sweep. */
 export type PruneResult = Readonly<{
   pruned: readonly PrunedArtifact[];
   freedBytes: number;
   dryRun: boolean;
 }>;
+
 /** A pointer to an artifact after a {@link StorageProvider} has stored it. */
 export type StoredArtifact = Readonly<{
   id: string;

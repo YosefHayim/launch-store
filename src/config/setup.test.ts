@@ -30,6 +30,7 @@ const tools: Tool[] = [
     install: { kind: 'brew', formula: 'ccache' },
   },
 ];
+
 function describeToolchainReadinessRows() {
   const readinessRows = toolchainReadinessRows(tools, new Set(['pod']));
 
@@ -93,6 +94,7 @@ function describeToolchainReadinessRows() {
 }
 
 describe('toolchainReadinessRows', describeToolchainReadinessRows);
+
 function describeReadinessMark() {
   function mapsEachReadinessStatusToAStableASCIIMarker() {
     expect(readinessMark('ok')).toBe('OK');
@@ -107,6 +109,7 @@ function describeReadinessMark() {
 }
 
 describe('readinessMark', describeReadinessMark);
+
 function describeFormatPendingTodoLine() {
   function joinsLabelAndDetailWhenADetailIsPresent() {
     const pendingTodoLine = formatPendingTodoLine({
@@ -129,6 +132,7 @@ function describeFormatPendingTodoLine() {
 }
 
 describe('formatPendingTodoLine', describeFormatPendingTodoLine);
+
 function describeMayInstallToolchain() {
   function allowsInstallsOnAnInteractiveTTYWithoutYes() {
     expect(mayInstallToolchain(true, false)).toBe(true);
@@ -159,6 +163,7 @@ function describeMayInstallToolchain() {
 }
 
 describe('mayInstallToolchain', describeMayInstallToolchain);
+
 function describeFormatSetupBoard() {
   const readiness: SetupReadiness = {
     groups: [
@@ -200,6 +205,7 @@ function describeFormatSetupBoard() {
 }
 
 describe('formatSetupBoard', describeFormatSetupBoard);
+
 function describePendingTodos() {
   function flattensOnlyTheTodoRowsAcrossEveryGroupDroppingOkAndPiece() {
     const readiness: SetupReadiness = {

@@ -16,6 +16,7 @@ function migration(): MigrationResult {
     notes: [],
   };
 }
+
 function describeWriteArtifacts() {
   let dir: string;
 

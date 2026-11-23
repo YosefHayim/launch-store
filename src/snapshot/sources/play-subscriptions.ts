@@ -82,6 +82,7 @@ const basePlans = (plans: readonly BasePlan[]): JsonValue => {
     return planFields;
   });
 };
+
 /** A subscription's listings, normalized to language + title pairs. */
 function listings(items: readonly SubscriptionListing[]): JsonValue {
   function keepLanguageAndTitle(listing: {
@@ -95,6 +96,7 @@ function listings(items: readonly SubscriptionListing[]): JsonValue {
 
   return items.map(keepLanguageAndTitle);
 }
+
 /** One captured subscription -> a snapshot entity keyed by its product id. */
 function readSnapshotEntity(subscription: SubscriptionResource): SnapshotEntity {
   const subscriptionFields: Record<string, JsonValue> = { productId: subscription.productId };
@@ -113,12 +115,14 @@ function readSnapshotEntity(subscription: SubscriptionResource): SnapshotEntity 
     data: subscriptionFields,
   };
 }
+
 /** One captured base plan, parsed back to the fields restore needs (the rest of a base plan isn't restorable). */
 type RestorableBasePlan = {
   basePlanId: string;
   period: string | undefined;
   prices: Record<string, PlayPriceConfig>;
 };
+
 /** Invert a captured `prices` map (`{ region: { priceMicros, currency } }`) back to per-region price configs. */
 function readPriceMap(capturedPrices: JsonValue | undefined): Record<string, PlayPriceConfig> {
   const map = jsonRecord(capturedPrices);
@@ -135,6 +139,7 @@ function readPriceMap(capturedPrices: JsonValue | undefined): Record<string, Pla
 
   return prices;
 }
+
 /** Read the first captured base plan back into a {@link RestorableBasePlan}. */
 function firstBasePlan(capturedBasePlans: JsonValue | undefined): RestorableBasePlan | null {
   if (!Array.isArray(capturedBasePlans)) return null;
@@ -153,6 +158,7 @@ function firstBasePlan(capturedBasePlans: JsonValue | undefined): RestorableBase
     prices: readPriceMap(first['prices']),
   };
 }
+
 /** Invert a captured `listings` array (`{ languageCode, title }`) back into the shared localization list. */
 function readCapturedLocalizations(capturedListings: JsonValue | undefined): ProductLocalization[] {
   if (!Array.isArray(capturedListings)) return [];
@@ -180,6 +186,7 @@ function readCapturedLocalizations(capturedListings: JsonValue | undefined): Pro
 
   return localizations;
 }
+
 /** Rebuild a {@link SubscriptionConfig} from one captured subscription entity */
 function readSubscriptionConfig(entity: SnapshotEntity): SubscriptionConfig | null {
   const subscriptionFields = jsonRecord(entity.data);

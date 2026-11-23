@@ -35,6 +35,7 @@ function appReport(overrides: Partial<AppStatsReport>): AppStatsReport {
     ...overrides,
   };
 }
+
 function describeDescribeCount() {
   function addsThousandsSeparatorsAndDropsLongDecimals() {
     expect(describeCount(1234567)).toBe('1,234,567');
@@ -54,6 +55,7 @@ function describeDescribeCount() {
 }
 
 describe('describeCount', describeDescribeCount);
+
 function describeDescribeProceeds() {
   function listsOnePartPerCurrency() {
     const totals = [
@@ -77,6 +79,7 @@ function describeDescribeProceeds() {
 }
 
 describe('describeProceeds', describeDescribeProceeds);
+
 function describeDescribeCrashRateAndDescribeRating() {
   function showsAFractionAsAPercentAndARatingWithTwoDecimals() {
     const crashRate = describeCrashRate(0.0042);
@@ -101,6 +104,7 @@ function describeDescribeCrashRateAndDescribeRating() {
 }
 
 describe('describeCrashRate and describeRating', describeDescribeCrashRateAndDescribeRating);
+
 function describeDescribeOwner() {
   function showsTheOwnerOrUntaggedWhenThereIsNone() {
     const owner = describeOwner('mine');
@@ -112,6 +116,7 @@ function describeDescribeOwner() {
 }
 
 describe('describeOwner', describeDescribeOwner);
+
 function describeDescribeAppStats() {
   function showsATitleAndOneLinePerHeadlineWithSessions() {
     const lines = describeAppStats(

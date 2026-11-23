@@ -77,6 +77,7 @@ const PLAY_SUB: SubscriptionConfig = {
   localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
   play: { prices: { US: { priceMicros: '4990000', currency: 'USD' } } },
 };
+
 /** Wrap subscriptions in the one group `products[bundleId].subscriptionGroups` requires. */
 function productsWith(subscriptions: readonly SubscriptionConfig[]): Record<string, AppProducts> {
   return {
@@ -87,6 +88,7 @@ function productsWith(subscriptions: readonly SubscriptionConfig[]): Record<stri
     },
   };
 }
+
 function makeCtx(
   api: PlayCatalogApi | null,
   products: Record<string, AppProducts> = {},
@@ -122,6 +124,7 @@ function makeCtx(
     },
   };
 }
+
 function describePlaySubscriptionsPlanner() {
   async function omitsItselfWhenNoAppDeclaresAPlayOverriddenSubscription() {
     const playApi = makePlayApi();

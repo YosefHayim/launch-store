@@ -48,6 +48,7 @@ export function detectAppRoot(
 }
 /** The in-repo artifact directory `launch-store init` scaffolds by default */
 export const DEFAULT_IN_REPO_ARTIFACT_DIR = './.launch/artifacts';
+
 /** The commented config Launch writes, tailored with a detected `appRoots` when there is one. */
 export function configTemplate(
   appRoot: string | null,

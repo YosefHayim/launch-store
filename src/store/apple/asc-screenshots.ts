@@ -18,34 +18,49 @@ import {
   type LocalScreenshot,
 } from '@/listing/screenshots/assets.js';
 import { appleDisplayTypeLabel, applePreviewTypeLabel } from '@/listing/screenshots/targets.js';
+
 /** The slice of {@link AppStoreConnectClient} the screenshot reconciler depends on. */
 export type ScreenshotsApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   getEditableVersionId(appId: string): Promise<string | null>;
+
   listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
+
   listScreenshotSets(versionLocalizationId: string): Promise<ScreenshotSetResource[]>;
+
   createScreenshotSet(
     versionLocalizationId: string,
     displayType: string,
   ): Promise<ScreenshotSetResource>;
+
   listScreenshots(setId: string): Promise<ScreenshotResource[]>;
+
   uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<string>;
+
   deleteScreenshot(screenshotId: string): Promise<void>;
+
   reorderScreenshots(setId: string, screenshotIds: readonly string[]): Promise<void>;
+
   listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]>;
+
   listSubscriptions(groupId: string): Promise<SubscriptionResource[]>;
+
   getSubscriptionReviewScreenshot(subscriptionId: string): Promise<ReviewScreenshotResource | null>;
+
   uploadSubscriptionReviewScreenshot(
     subscriptionId: string,
     fileName: string,
     filePath: string,
   ): Promise<void>;
 };
+
 /** The screenshot calls one set needs once its owner (version or treatment localization) is known. */
 export type ScreenshotSetApi = Pick<
   ScreenshotsApi,
   'listScreenshots' | 'uploadScreenshot' | 'deleteScreenshot' | 'reorderScreenshots'
 >;
+
 /** One localization that owns screenshot sets: its locale plus how to list and create its sets. */
 export type ScreenshotSetOwner = Readonly<{
   locale: string;
@@ -53,11 +68,13 @@ export type ScreenshotSetOwner = Readonly<{
   listSets: () => Promise<ScreenshotSetResource[]>;
   createSet: (displayType: string) => Promise<ScreenshotSetResource>;
 }>;
+
 /** One subscription's declared review screenshot, paired with its product id for live subscription resolution. */
 export type SubscriptionReviewScreenshot = {
   productId: string;
   asset: LocalAsset;
 };
+
 /** Inputs to the screenshot reconcile pass for one app. */
 export type ScreenshotReconcileInput = {
   bundleId: string;
@@ -66,6 +83,7 @@ export type ScreenshotReconcileInput = {
   dryRun: boolean;
   allowDestructive: boolean;
 };
+
 /** Group members by a derived string key. */
 export function groupBy<Member>(
   members: readonly Member[],
@@ -154,6 +172,7 @@ async function reconcileSetsInOrder<SetMember>(
     log.actions.push(...setLog.actions);
   }
 }
+
 /** A skipped action with guidance - the plan still shows the work that couldn't run and why. */
 function skip(log: ActionLog, description: string): void {
   log.actions.push({ description, destructive: false, status: 'skipped' });
@@ -216,6 +235,7 @@ export async function reconcileScreenshots(
 
   return log.actions;
 }
+
 /** Upload screenshots into the editable App Store version, per locale -> display-type set. */
 async function reconcileAppScreenshots(
   api: ScreenshotsApi,
@@ -276,6 +296,7 @@ async function reconcileAppScreenshots(
     await reconcileOwnerScreenshots(api, log, setOwner, localeScreenshots);
   }
 }
+
 /** Reconcile one localization's display-type sets against its local screenshots. */
 export async function reconcileOwnerScreenshots(
   api: ScreenshotSetApi,
@@ -313,6 +334,7 @@ export async function reconcileOwnerScreenshots(
 
   await reconcileSetsInOrder(log, screenshotGroups, reconcileDisplayType);
 }
+
 /** True when Apple stored the screenshot without a processing failure and with one of `checksums`. */
 function holdsChecksumOf(screenshot: ScreenshotResource, checksums: ReadonlySet<string>): boolean {
   const isFailed = screenshot.assetDeliveryState == 'FAILED';
@@ -331,6 +353,7 @@ function holdsChecksumOf(screenshot: ScreenshotResource, checksums: ReadonlySet<
 
   return checksums.has(checksum);
 }
+
 /** Delete an exact set's screenshots that are not local files; returns the screenshots still in the set. */
 async function removeUnlistedScreenshots(
   api: ScreenshotSetApi,
@@ -372,6 +395,7 @@ async function removeUnlistedScreenshots(
 
   return keptScreenshots;
 }
+
 /** A local screenshot the set holds after this run, by its Apple id. */
 type HeldScreenshot = Readonly<{ checksum: string; id: string }>;
 
@@ -687,16 +711,24 @@ async function reconcileSubscriptionReviewScreenshots(
     );
   }
 }
+
 /** App Store client operations required for preview videos. */
 export type PreviewsApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   getEditableVersionId(appId: string): Promise<string | null>;
+
   listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
+
   listPreviewSets(versionLocalizationId: string): Promise<PreviewSetResource[]>;
+
   createPreviewSet(versionLocalizationId: string, previewType: string): Promise<PreviewSetResource>;
+
   listPreviews(setId: string): Promise<PreviewResource[]>;
+
   uploadPreview(setId: string, fileName: string, filePath: string): Promise<void>;
 };
+
 /** Inputs to the app-preview reconcile pass for one app. */
 export type PreviewReconcileInput = {
   bundleId: string;
@@ -704,6 +736,7 @@ export type PreviewReconcileInput = {
   dryRun: boolean;
   allowDestructive: boolean;
 };
+
 /** Reconcile one app's App Store **preview videos** */
 export async function reconcilePreviews(
   api: PreviewsApi,

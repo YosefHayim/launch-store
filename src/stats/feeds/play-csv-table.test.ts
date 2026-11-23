@@ -5,6 +5,7 @@ function encodeUtf16LittleEndianWithBom(csvDocument: string): Uint8Array {
   const bufferBytes = Buffer.from([0xff, 0xfe]);
   return Buffer.concat([bufferBytes, Buffer.from(csvDocument, 'utf16le')]);
 }
+
 function describeDecodePlayCsvBytes() {
   function decodesUTF16LEAndDropsTheByteOrderMark() {
     const csvBytes = encodeUtf16LittleEndianWithBom('Date,Package Name\n2026-10-01,com.fit');
@@ -38,6 +39,7 @@ function describeDecodePlayCsvBytes() {
 }
 
 describe('decodePlayCsvBytes', describeDecodePlayCsvBytes);
+
 function describeReadPlayCsvTable() {
   function keysEveryLineByItsLowerCasedTrimmedHeaderNames() {
     const table = readPlayCsvTable('Date, Daily Device Installs \n2026-10-01,5\n2026-10-02,7\n');

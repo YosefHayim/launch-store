@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ResolvedBuildContext } from '@/types/config.js';
 import type { BuildCredentials } from '@/types/credentials.js';
 import { gradleBuildArguments, makeGradleBuildEngine, parseBundletoolSize } from './gradle.ts';
+
 function describeGradleBuildArgumentsSignedReleaseBuild() {
   const keystore = {
     path: '/keys/upload.jks',
@@ -41,6 +42,7 @@ describe(
   'gradleBuildArguments - signed release build',
   describeGradleBuildArgumentsSignedReleaseBuild,
 );
+
 function describeParseBundletoolSizeHonestWorstCaseDownloadFromGetSizeTotal() {
   function readsMINMAXFromASinglePieceTotal() {
     const bundletoolSize = parseBundletoolSize('MIN,MAX\n1048576,2097152');
@@ -86,6 +88,7 @@ describe(
   'parseBundletoolSize - honest worst-case download from get-size total',
   describeParseBundletoolSizeHonestWorstCaseDownloadFromGetSizeTotal,
 );
+
 function describeGradleBuildEngineDryRunRehearsesWithoutBuildingOrSigning() {
   const buildContext = {
     platform: 'android',

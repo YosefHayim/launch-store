@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PlayProductsCommandInputSchema } from './play-products-command.ts';
+
 function describePlayProductsCommandPieceSchema() {
   function decodesTheCommanderBoundary() {
     const playProductsCommandSchema = PlayProductsCommandInputSchema({

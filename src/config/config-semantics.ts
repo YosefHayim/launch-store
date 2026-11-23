@@ -1,4 +1,5 @@
 import type { LaunchConfig } from '../types/config.ts';
+
 /** One semantic finding: the dotted config path it concerns (matching the schema validator's */
 type SemanticIssue = {
   path: string;
@@ -6,10 +7,12 @@ type SemanticIssue = {
 };
 /** The cloud storage providers whose `storageConfig` (bucket/endpoint) is mandatory - `local` needs none. */
 const cloudStorage = new Set(['s3', 'supabase']);
+
 /** Whether a string parses as a real calendar instant (not just any string the schema accepted). */
 function isValidInstant(instantText: string): boolean {
   return !Number.isNaN(Date.parse(instantText));
 }
+
 /** A cloud storage provider must carry its bucket/endpoint settings, or uploads have nowhere to go. */
 function checkStorage(config: LaunchConfig): SemanticIssue[] {
   if (!cloudStorage.has(config.storage)) return [];
@@ -23,6 +26,7 @@ function checkStorage(config: LaunchConfig): SemanticIssue[] {
     },
   ];
 }
+
 /** Release-policy invariants the schema can't express */
 function checkRelease(config: LaunchConfig): SemanticIssue[] {
   const release = config.release;
@@ -63,6 +67,7 @@ function checkRelease(config: LaunchConfig): SemanticIssue[] {
 
   return issues;
 }
+
 /** A staged-rollout fraction must be above 0 and at most 1 - Play rejects a 0% staged release. */
 function checkProfiles(config: LaunchConfig): SemanticIssue[] {
   const issues: SemanticIssue[] = [];
@@ -84,6 +89,7 @@ function checkProfiles(config: LaunchConfig): SemanticIssue[] {
 
   return issues;
 }
+
 /** Retention days can't be negative - `0` disables the sweep, any positive value is a day count. */
 function checkRetention(config: LaunchConfig): SemanticIssue[] {
   if (config.artifactRetentionDays == null) return [];
@@ -97,6 +103,7 @@ function checkRetention(config: LaunchConfig): SemanticIssue[] {
     },
   ];
 }
+
 /** Run every semantic check and return all findings. */
 export function checkConfigSemantics(config: LaunchConfig): SemanticIssue[] {
   return [

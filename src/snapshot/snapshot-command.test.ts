@@ -61,6 +61,7 @@ function sampleSnapshot(snapshotFields: Partial<Snapshot> = {}): Snapshot {
     ...snapshotFields,
   };
 }
+
 function describeSnapshotCommandPieceSchema() {
   function decodesCaptureAndDiffOperations() {
     const snapshotCommandSchema = SnapshotCommandInputSchema({
@@ -141,6 +142,7 @@ function describeSnapshotCommandPieceSchema() {
 }
 
 describe('SnapshotCommandInputSchema', describeSnapshotCommandPieceSchema);
+
 function describeDefaultSnapshotName() {
   function filesystemSanitizesTheCaptureInstant() {
     expect(defaultSnapshotName('2026-06-16T12:34:56.789Z')).toBe(
@@ -152,6 +154,7 @@ function describeDefaultSnapshotName() {
 }
 
 describe('defaultSnapshotName', describeDefaultSnapshotName);
+
 function describeCountEntities() {
   function sumsOnlyCapturedSurfaceEntitiesAndIgnoresSkippedSurfaces() {
     const entities = countEntities(sampleSnapshot());
@@ -184,6 +187,7 @@ function describeCountEntities() {
 }
 
 describe('countEntities', describeCountEntities);
+
 function describeParsePruneCount() {
   function acceptsNonNegativeIntegers() {
     const pruneCount = parsePruneCount('0', '--keep');
@@ -220,6 +224,7 @@ function describeParsePruneCount() {
 }
 
 describe('parsePruneCount', describeParsePruneCount);
+
 function describeSavedEntitiesFor() {
   function returnsEveryAppWhenNoSelectorIsSet() {
     const savedApps = savedEntitiesFor(sampleSnapshot(), 'apple-listing', undefined);
@@ -265,6 +270,7 @@ function describeSavedEntitiesFor() {
 }
 
 describe('savedEntitiesFor', describeSavedEntitiesFor);
+
 function describePreviewOnlyTitles() {
   function listsCapturedSurfacesThatHaveNoRestorePass() {
     expect(

@@ -136,6 +136,7 @@ export const SUBSCRIPTION_GROUP_VERSION_RESOURCES: VersionedLocalizationResource
   parentType: 'subscriptionGroups',
   localizationType: 'subscriptionGroupLocalizations',
 };
+
 function isDraftVersion(version: ProductVersion) {
   return version.attributes.state == 'PREPARE_FOR_SUBMISSION';
 }
@@ -223,16 +224,19 @@ export type AppEventLocalizationAttributes = {
   shortDescription?: string | null;
   longDescription?: string | null;
 };
+
 export type ResourceList<A> = {
   data: {
     id: string;
     attributes: A;
   }[];
 };
+
 export type AppInfoStates = {
   state?: string;
   appStoreState?: string;
 };
+
 export type VersionStates = {
   appStoreState: string;
 };
@@ -270,6 +274,7 @@ export function findVersionId(
 
   return version.id;
 }
+
 export type ResourceSingle<A> = {
   data: {
     id: string;
@@ -315,6 +320,7 @@ export type AssetReservation = {
 export function inlinePriceId(index: number): string {
   return `\${price-${index}}`;
 }
+
 export function md5Hex(bytes: Buffer): string {
   return createHash('md5').update(bytes).digest('hex');
 }
@@ -479,6 +485,7 @@ export const BUILD_PAGE_QUERY: AppleListQuery = {
   include: 'preReleaseVersion',
   'fields[preReleaseVersions]': 'version',
 };
+
 export function createMarketingVersionFilter(marketingVersion: string | undefined): string {
   const isMarketingVersionGiven = marketingVersion != null;
 
@@ -486,6 +493,7 @@ export function createMarketingVersionFilter(marketingVersion: string | undefine
 
   return `&filter[preReleaseVersion.version]=${marketingVersion}`;
 }
+
 type BuildPageIncluded = {
   type: string;
   id: string;
@@ -494,6 +502,7 @@ type BuildPageIncluded = {
     processingState?: string;
   };
 };
+
 export type AppStoreVersionPage = PagedList<{
   versionString?: string;
   appStoreState?: string;
@@ -501,6 +510,7 @@ export type AppStoreVersionPage = PagedList<{
 }> & {
   included?: BuildPageIncluded[];
 };
+
 export type BuildPage = {
   data: {
     id: string;
@@ -814,6 +824,7 @@ function readBuildResource(
 
   return buildResource;
 }
+
 export function readBuildResources({ data: builds, included = [] }: BuildPage): BuildResource[] {
   function copyBuildResource(entry: {
     id: string;
@@ -1437,6 +1448,7 @@ function describeAscError(error: AscError): string {
 
   return message;
 }
+
 function describeAssociatedErrors(
   associatedErrors: Record<string, readonly AscError[]> | undefined,
 ): string[] {

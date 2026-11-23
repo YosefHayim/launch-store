@@ -35,6 +35,7 @@ function earningsLine(
 ): string {
   return `GPA.1,"${transactionDate}",12:00:00 PM PDT,,${transactionType},,Coins,${packageName},One-time product,coins,mako,US,MA,02140,USD,1.00,1,${merchantCurrency},${merchantAmount}`;
 }
+
 function describeReadInstallStats() {
   function mapsTheDocumentedInstallColumnsToMetricsForEachDayInRange() {
     const table = readPlayCsvTable(
@@ -113,6 +114,7 @@ function describeReadInstallStats() {
 }
 
 describe('readInstallStats', describeReadInstallStats);
+
 function describeReadRatingStats() {
   function mapsTheTotalAverageRatingAndLeavesOutADayWithNoRatingYet() {
     const table = readPlayCsvTable(
@@ -131,6 +133,7 @@ function describeReadRatingStats() {
 }
 
 describe('readRatingStats', describeReadRatingStats);
+
 function describeReadCrashStats() {
   function mapsDailyCrashesAndIgnoresTheANRColumn() {
     const table = readPlayCsvTable(
@@ -146,6 +149,7 @@ function describeReadCrashStats() {
 }
 
 describe('readCrashStats', describeReadCrashStats);
+
 function describeReadStorePerformanceStats() {
   function addsStoreListingVisitorsOverTheCountriesOfOneDay() {
     const table = readPlayCsvTable(
@@ -167,6 +171,7 @@ function describeReadStorePerformanceStats() {
 }
 
 describe('readStorePerformanceStats', describeReadStorePerformanceStats);
+
 function describeFindLatestCsvDate() {
   function returnsTheNewestDateInTheFileEvenOutsideAnyRange() {
     const table = readPlayCsvTable(
@@ -194,6 +199,7 @@ function describeFindLatestCsvDate() {
 }
 
 describe('findLatestCsvDate', describeFindLatestCsvDate);
+
 function describeReadEarningsStats() {
   function addsSignedMerchantAmountsPerDayAndCurrencyForThePackage() {
     const table = readPlayCsvTable(
@@ -277,6 +283,7 @@ function describeReadEarningsStats() {
 }
 
 describe('readEarningsStats', describeReadEarningsStats);
+
 function describeListReportMonths() {
   function listsOneMonthForARangeInsideAMonth() {
     const reportMonths = listReportMonths(OCTOBER);
@@ -298,6 +305,7 @@ function describeListReportMonths() {
 }
 
 describe('listReportMonths', describeListReportMonths);
+
 function describeFindLastDayOfReportMonth() {
   function returnsTheLastDayOfShortLongAndLeapYearMonths() {
     const lastDayOfReportMonth = findLastDayOfReportMonth('202609');
@@ -313,6 +321,7 @@ function describeFindLastDayOfReportMonth() {
 }
 
 describe('findLastDayOfReportMonth', describeFindLastDayOfReportMonth);
+
 function describePickLaterKnownDate() {
   function returnsTheLaterOfTwoDatesAndTakesTheSecondWhenThereIsNoFirst() {
     const laterKnownDate = pickLaterKnownDate(null, '2026-10-01');

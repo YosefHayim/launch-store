@@ -10,6 +10,7 @@ const easJson = `Building...
     "artifacts": { "applicationArchiveUrl": "https://expo.dev/artifacts/abc/app.ipa" }
   }
 ]`;
+
 function describeEASAdapterParsingEasBuildPiecePiece() {
   function extractsTheDownloadableArtifactURLDespiteLeadingLogLines() {
     const artifactUrl = parseArtifactUrl(easJson);

@@ -30,6 +30,7 @@ function installClient(methods: {
     return client;
   });
 }
+
 function describeAppStoreIdentityService() {
   async function verifiesTheKeyBeforeReturningItsBestEffortIdentity() {
     const assertReady = vi.fn(async function ready() {

@@ -80,6 +80,7 @@ function plannedTeam(surface: string, actions: PlannedAction[]): SurfacePlan {
     actions,
   };
 }
+
 function describeCountPlannedActions() {
   function countsOnlyPlannedStatusActions() {
     const plannedActions = countPlannedActions([
@@ -95,6 +96,7 @@ function describeCountPlannedActions() {
 }
 
 describe('countPlannedActions', describeCountPlannedActions);
+
 function describeTallyPlanSurfaces() {
   function dropsNothingFromThePieceAndTalliesTeamAppSkipAndErrorCases() {
     const tallies = tallyPlanSurfaces([
@@ -137,6 +139,7 @@ function describeTallyPlanSurfaces() {
 }
 
 describe('tallyPlanSurfaces', describeTallyPlanSurfaces);
+
 function describePlanExitCode() {
   function plainRunIsInformationalExit0EvenWithPendingChangesOrSkips() {
     const exitCode = planExitCode({
@@ -214,6 +217,7 @@ function describePlanExitCode() {
 }
 
 describe('planExitCode', describePlanExitCode);
+
 function describeRunPlanners() {
   async function dropsOmittedSurfacesAndCountsOnlyPlannedActionsAsDrift() {
     const outcome = await runPlannerSet(

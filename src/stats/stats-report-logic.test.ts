@@ -36,6 +36,7 @@ function total(overrides: Partial<MetricTotal>): MetricTotal {
     ...overrides,
   };
 }
+
 function describeListMonthsInRange() {
   function returnsOneMonthWhenTheRangeStaysInsideIt() {
     const monthsInRange = listMonthsInRange({ from: '2026-10-02', to: '2026-10-30' });
@@ -69,6 +70,7 @@ function describeListMonthsInRange() {
 }
 
 describe('listMonthsInRange', describeListMonthsInRange);
+
 function describeKeepStatsInRange() {
   function keepsBothEndsAndDropsDaysOutside() {
     function createDatedStat(date: string) {
@@ -96,6 +98,7 @@ function describeKeepStatsInRange() {
 }
 
 describe('keepStatsInRange', describeKeepStatsInRange);
+
 function describeFoldMetricStats() {
   function addsUpASumMetric() {
     const stats = [stat({ value: 4 }), stat({ date: '2026-10-02', value: 6 })];
@@ -140,6 +143,7 @@ function describeFoldMetricStats() {
 }
 
 describe('foldMetricStats', describeFoldMetricStats);
+
 function describeFoldMetricTotals() {
   function keepsProceedsOfDifferentCurrenciesApart() {
     const stats = [
@@ -192,6 +196,7 @@ function describeFoldMetricTotals() {
 }
 
 describe('foldMetricTotals', describeFoldMetricTotals);
+
 function describeCreateMetricSeries() {
   function listsTheDaysOfEachGroupOldestFirst() {
     const stats = [
@@ -213,6 +218,7 @@ function describeCreateMetricSeries() {
 }
 
 describe('createMetricSeries', describeCreateMetricSeries);
+
 function describePickHeadlineTotalsAndReadHeadlineTotal() {
   const totals = [
     total({ metric: 'installs', feed: 'google-play', total: 7 }),
@@ -261,6 +267,7 @@ describe(
   'pickHeadlineTotals and readHeadlineTotal',
   describePickHeadlineTotalsAndReadHeadlineTotal,
 );
+
 function describeMergeHeadlinePoints() {
   const series: MetricSeries[] = [
     {
@@ -311,6 +318,7 @@ function describeMergeHeadlinePoints() {
 }
 
 describe('mergeHeadlinePoints', describeMergeHeadlinePoints);
+
 function describeIsAppStaleAndListAppMessages() {
   const report = {
     syncedAt: '2026-10-29T00:00:00.000Z',

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CloudCommandInputSchema } from './cloud-command.ts';
+
 function describeCloudCommandPieceSchema() {
   function runOperation(operation: 'status' | 'doctor' | 'setup' | 'teardown') {
     const cloudCommandSchema = CloudCommandInputSchema({ operation, yes: false });

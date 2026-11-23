@@ -99,23 +99,28 @@ const capabilityToEntitlementLookup = new Map<string, string>(ownEntries);
 /** The full set of {@link CapabilityType}s Launch maps, for narrowing a raw `capabilityType` wire string. */
 const ownValues = Object.values(ENTITLEMENT_TO_CAPABILITY);
 const capabilityTypes = new Set<string>(ownValues);
+
 /** Narrow a raw App Store Connect `capabilityType` string to a {@link CapabilityType} Launch recognizes. */
 export function isCapabilityType(capabilityText: string): capabilityText is CapabilityType {
   return capabilityTypes.has(capabilityText);
 }
+
 /** Whether an entitlement key is one Launch maps to an App Store Connect capability (vs. signing plumbing). */
 export function isCapabilityEntitlement(key: string): boolean {
   return key in ENTITLEMENT_TO_CAPABILITY;
 }
+
 /** The canonical `app.json` entitlement key for a capability type */
 export function entitlementForCapability(capabilityType: string): string | undefined {
   return capabilityToEntitlementLookup.get(capabilityType);
 }
+
 /** The outcome of mapping entitlements: capabilities to enable, plus keys we didn't recognize. */
 type CapabilityMapping = {
   enable: CapabilityType[];
   unmapped: string[];
 };
+
 /** Map an app's `ios.entitlements` to the capabilities Launch should enable on its bundle id. */
 export function readCapabilitiesFromEntitlements(
   entitlements: Record<string, unknown> | undefined,
@@ -138,6 +143,7 @@ export function readCapabilitiesFromEntitlements(
 
   return { enable: [...enable].sort(), unmapped: unmapped.sort() };
 }
+
 export function staleProfileCapabilities(
   enabledOnAppId: string[],
   profileEntitlements: Record<string, unknown> | null,
@@ -157,6 +163,7 @@ export function staleProfileCapabilities(
 
   return [...missing].sort();
 }
+
 /** The `group.*` App Group container ids declared by one bundle's entitlements. */
 function isGroupId(groupId: unknown): groupId is string {
   if (typeof groupId != 'string') {
@@ -182,6 +189,7 @@ export function appGroupContainers(entitlements: Record<string, unknown> | undef
 /** The Apple Developer portal page where App Group container ids are created and assigned to bundle ids. */
 export const APP_GROUP_PORTAL_URL =
   'https://developer.apple.com/account/resources/identifiers/list/applicationGroup';
+
 /** The actionable message to print when an app (or one of its extensions) declares App Group */
 export function appGroupPortalNotice(containers: readonly string[]): string | null {
   if (containers.length == 0) return null;

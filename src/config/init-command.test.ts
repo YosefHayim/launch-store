@@ -4,11 +4,13 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { InitCommandInputSchema, runInitProgram } from './init-command.ts';
+
 function cleanup() {
   resetLaunchDirectories();
 }
 
 afterEach(cleanup);
+
 function describeInitCommandPieceSchema() {
   function decodesTheStandaloneBoundaryUsingTheInjectedWorkingDirectory() {
     const initCommandSchema = InitCommandInputSchema({ framed: true });

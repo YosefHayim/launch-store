@@ -25,6 +25,7 @@ function appDescriptor(
     ...identifierFields,
   };
 }
+
 function describeBuildConsoleUrlIOSDeepLinksWithAResolvedAppId() {
   const targetCases: readonly [OpenTarget, string][] = [
     ['asc', `https://appstoreconnect.apple.com/apps/${APP_ID}`],
@@ -51,6 +52,7 @@ describe(
   'buildConsoleUrl - iOS deep links with a resolved app id',
   describeBuildConsoleUrlIOSDeepLinksWithAResolvedAppId,
 );
+
 function describeBuildConsoleUrlIOSWithoutAResolvedAppId() {
   const appTargets: OpenTarget[] = ['asc', 'app-record', 'testflight', 'listing', 'reviews'];
 
@@ -75,6 +77,7 @@ describe(
   'buildConsoleUrl - iOS without a resolved app id',
   describeBuildConsoleUrlIOSWithoutAResolvedAppId,
 );
+
 function describeBuildConsoleUrlAndroid() {
   const targetCases: OpenTarget[] = [
     'asc',
@@ -127,6 +130,7 @@ function thrownCause(read: () => void): unknown {
 
   return null;
 }
+
 function describeParseOpenTarget() {
   function defaultsToAscWhenNoTargetIsGiven() {
     const openTarget = parseOpenTarget(undefined);
@@ -166,6 +170,7 @@ function describeParseOpenTarget() {
 }
 
 describe('parseOpenTarget', describeParseOpenTarget);
+
 function describeResolveOpenPlatform() {
   function honorsAnExplicitPlatformFlag() {
     const openPlatform = resolveOpenPlatform('asc', 'android');
@@ -204,6 +209,7 @@ function describeResolveOpenPlatform() {
 }
 
 describe('resolveOpenPlatform', describeResolveOpenPlatform);
+
 function describeSelectOpenApp() {
   const discoveredApps = [
     appDescriptor('alpha', { bundleId: 'com.acme.alpha' }),

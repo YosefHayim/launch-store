@@ -47,6 +47,7 @@ const activateOffer = vi.fn();
 const listReviews = vi.fn();
 const getReview = vi.fn();
 const replyToReview = vi.fn();
+
 /** Build the generated-client slice exercised by this adapter test. */
 function generatedPublisherFake(): GooglePlayTransport {
   return {
@@ -92,11 +93,13 @@ function generatedPublisherFake(): GooglePlayTransport {
     },
   };
 }
+
 function openReadEdit(): void {
   insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
   deleteEdit.mockResolvedValue({ data: undefined });
 }
 let client: GooglePlayClient;
+
 function prepare() {
   vi.clearAllMocks();
   const makeServiceAccount = makeServiceAccountJson();
@@ -105,6 +108,7 @@ function prepare() {
 }
 
 beforeEach(prepare);
+
 function describeParseServiceAccount() {
   function extractsTheFieldsLaunchNeedsFromAValidKey() {
     const makeServiceAccount = makeServiceAccountJson();
@@ -170,6 +174,7 @@ function describeParseServiceAccount() {
 }
 
 describe('parseServiceAccount', describeParseServiceAccount);
+
 function describeServiceAccountJwtPieceNonEmptyPageToken() {
   function copiesTheKeyIdWhenPresentAndDropsEmptyPageTokens() {
     const makeServiceAccount = makeServiceAccountJson();
@@ -197,6 +202,7 @@ describe(
   'serviceAccountJwtOptions / nonEmptyPageToken',
   describeServiceAccountJwtPieceNonEmptyPageToken,
 );
+
 function describeDescribePlayErrors() {
   function extractsGoogleSErrorMessage() {
     const serialized = JSON.stringify({ error: { message: 'The app was not found.' } });
@@ -247,6 +253,7 @@ function describeDescribePlayErrors() {
 }
 
 describe('describePlayErrors', describeDescribePlayErrors);
+
 function describeGooglePlayClientGeneratedReads() {
   async function returnsTheHighestUploadedVersionCodeAndAbandonsTheReadEdit() {
     openReadEdit();
@@ -374,6 +381,7 @@ function describeGooglePlayClientGeneratedReads() {
 }
 
 describe('GooglePlayClient generated reads', describeGooglePlayClientGeneratedReads);
+
 function describeGooglePlayClientWithEdit() {
   async function opensAnEditAppliesTheWriteThenCommits() {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
@@ -501,6 +509,7 @@ function describeGooglePlayClientWithEdit() {
 }
 
 describe('GooglePlayClient.withEdit', describeGooglePlayClientWithEdit);
+
 function describeGooglePlayClientStoreListings() {
   async function listsTheLocalizedListingsAndDropsEntriesWithoutALanguage() {
     openReadEdit();
@@ -592,6 +601,7 @@ function describeGooglePlayClientStoreListings() {
 }
 
 describe('GooglePlayClient store listings', describeGooglePlayClientStoreListings);
+
 function describeGooglePlayClientConvertRegionPrices() {
   async function normalizesGeneratedPricesIntoSortedRegionsAndFallbackMoney() {
     convertRegionPrices.mockResolvedValue({
@@ -698,6 +708,7 @@ function describeGooglePlayClientConvertRegionPrices() {
 }
 
 describe('GooglePlayClient.convertRegionPrices', describeGooglePlayClientConvertRegionPrices);
+
 function describeGooglePlayClientCatalogReviews() {
   async function pagesInAppProductsAndNormalizesMoneyListings() {
     listInAppProducts

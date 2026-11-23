@@ -67,11 +67,13 @@ const playStoreClient = new GooglePlayClient(
   },
   playTransport(),
 );
+
 function prepare() {
   vi.clearAllMocks();
 }
 
 beforeEach(prepare);
+
 function describeCreateAscClientResolver() {
   async function loadsCredentialsAndConstructsTheClientOnce() {
     vi.mocked(loadActiveAscKey).mockResolvedValue({ keyId: 'K', issuerId: 'I', p8: 'pem' });
@@ -115,6 +117,7 @@ function describeCreateAscClientResolver() {
 }
 
 describe('createAscClientResolver', describeCreateAscClientResolver);
+
 function describeCreatePlayClientResolver() {
   async function loadsTheServiceAccountAndConstructsTheClientOnce() {
     vi.mocked(loadServiceAccount).mockResolvedValue('{}');
@@ -158,6 +161,7 @@ function describeCreatePlayClientResolver() {
 }
 
 describe('createPlayClientResolver', describeCreatePlayClientResolver);
+
 function describePerPackagePlayClientResolution() {
   async function loadsEachPackageAccountIndependentlyInsteadOfReusingTheFirstAppAccount() {
     vi.mocked(loadServiceAccount).mockImplementation(function accountJson(packageName: string) {

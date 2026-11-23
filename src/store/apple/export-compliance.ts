@@ -1,4 +1,5 @@
 import type { EncryptionDeclarationResource } from '@/types/apple-catalog.js';
+
 /** The slice of {@link AppStoreConnectClient} that {@link reconcileExportCompliance} needs. */
 export type ExportComplianceApi = {
   findBuild(
@@ -8,16 +9,21 @@ export type ExportComplianceApi = {
     id: string;
     usesNonExemptEncryption: boolean | null;
   } | null>;
+
   setBuildUsesNonExemptEncryption(buildId: string, encryptionUsage: boolean): Promise<void>;
+
   listEncryptionDeclarations(bundleId: string): Promise<EncryptionDeclarationResource[]>;
+
   linkBuildToDeclaration(declarationId: string, buildId: string): Promise<void>;
 };
+
 /** One app's export-compliance reconcile inputs. */
 type ExportComplianceInput = {
   bundleId: string;
   buildNumber: number;
   usesNonExemptEncryption: boolean | undefined;
 };
+
 /** Outcome of {@link reconcileExportCompliance} */
 export type ExportComplianceResult =
   | {
@@ -143,11 +149,13 @@ export async function reconcileExportCompliance(
     throw exportComplianceFailure('reconcile App Store export compliance', cause);
   }
 }
+
 /** A doctor/preflight verdict derived from the app's Expo config alone - no network. */
 type ExportComplianceConfigStatus = {
   ok: boolean;
   message: string;
 };
+
 /** Describe export-compliance posture from `ios.config.usesNonExemptEncryption` alone */
 export function describeExportComplianceConfig(
   usesNonExemptEncryption: boolean | undefined,
@@ -173,6 +181,7 @@ export function describeExportComplianceConfig(
       };
   }
 }
+
 /** Render a {@link reconcileExportCompliance} outcome as one human line for `launch-store doctor --fix`. */
 export function summarizeExportComplianceResult(complianceOutcome: ExportComplianceResult): string {
   switch (complianceOutcome.status) {

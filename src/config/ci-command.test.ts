@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { workflowYaml } from './ci-command.ts';
+
 function describeWorkflowYaml() {
   function targetsMacOSWithTheUnattendedIOSShipSequence() {
     const workflow = workflowYaml(false);

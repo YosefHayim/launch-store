@@ -15,6 +15,7 @@ function captureExplainWrites(): string[] {
 
   return terminalWrites;
 }
+
 function describeExplainCommandProgram() {
   function listsTopicsWhenNoneIsRequested() {
     const terminalWrites = captureExplainWrites();

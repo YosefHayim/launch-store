@@ -45,6 +45,7 @@ async function readIdentity(ascKey: AscKey): Promise<AppStoreIdentity> {
 
 export type AppStoreIdentityService = {
   verifyCredentials(ascKey: AscKey): Promise<AppStoreIdentity>;
+
   resolveIdentity(ascKey: AscKey): Promise<AppStoreIdentity>;
 };
 

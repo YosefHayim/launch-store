@@ -37,6 +37,7 @@ const sampleManifest: UpdateManifest = {
   metadata: {},
   extra: {},
 };
+
 function describeShortId() {
   function abbreviatesAUUIDToItsFirstEightCharacters() {
     expect(shortId('1234abcd-5678-90ef')).toBe('1234abcd');
@@ -46,6 +47,7 @@ function describeShortId() {
 }
 
 describe('shortId', describeShortId);
+
 function describePlatformsForUpdatesFilter() {
   function defaultsToBothPlatformsWhenTheFilterIsOmitted() {
     expect(platformsForUpdatesFilter(undefined)).toEqual(['ios', 'android']);
@@ -86,6 +88,7 @@ function describePlatformsForUpdatesFilter() {
 }
 
 describe('platformsForUpdatesFilter', describePlatformsForUpdatesFilter);
+
 function describeFormatUpdatesTable() {
   function rendersAHeaderAndOnePiecePerUpdateWithTheActiveMarker() {
     const makeUpdate = makeUpdateRow({ id: 'aaaaaaaa-1', active: true, kind: 'publish' });
@@ -118,6 +121,7 @@ function describeFormatUpdatesTable() {
 }
 
 describe('formatUpdatesTable', describeFormatUpdatesTable);
+
 function describeFormatUpdateDetail() {
   function includesTheBundleURLAssetCountAndActiveSignedLabelsWhenPresent() {
     const makeUpdate = makeUpdateRow();

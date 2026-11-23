@@ -275,6 +275,7 @@ async function readFailureMessage(run: Ga4Run): Promise<string> {
 
   throw new Error('expected a failure');
 }
+
 function cleanup() {
   useStatsCredentials(null);
   vi.unstubAllGlobals();

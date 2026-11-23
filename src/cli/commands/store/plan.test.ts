@@ -7,6 +7,7 @@ function registeredPlanCommands(): readonly Command[] {
   registerPlanCommand(program);
   return program.commands;
 }
+
 function describeRegisterPlanCommand() {
   function keepsThePlanCommandAndDriftAliasWithOptionalSurfaceArguments() {
     const planCommands = registeredPlanCommands();

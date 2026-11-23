@@ -80,6 +80,7 @@ type DatedAmiImage = Readonly<{
   readonly id: string;
   readonly date: string;
 }>;
+
 function readDatedAmiImage(imageDescription: {
   ImageId?: string | undefined;
   CreationDate?: string | undefined;
@@ -119,6 +120,7 @@ export function newestImageId(datedImages: readonly DatedAmiImage[]): string | u
 
   return sortedImages[0]?.id;
 }
+
 function isHostStillHeld(describedHost: { State?: string | undefined }) {
   if (describedHost.State == null) return false;
 
@@ -580,6 +582,7 @@ async function waitForSsh(
 
   throw awsFailure('wait for SSH', message, message);
 }
+
 function readBrewInstallLine(requiredTool: {
   label: string;
   command: string;

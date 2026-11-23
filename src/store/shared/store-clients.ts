@@ -4,6 +4,7 @@ import { AppleStoreClientService } from '@/services/stores/apple-store-client.js
 import { GoogleStoreClientService } from '@/services/stores/google-store-client.js';
 
 type AppStoreClient = ReturnType<typeof AppleStoreClientService.createEffectClient>;
+
 type PlayStoreClient = ReturnType<typeof GoogleStoreClientService.createEffectClient>;
 
 /** Build one memoized App Store client resolver. */

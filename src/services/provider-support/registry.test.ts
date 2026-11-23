@@ -31,6 +31,7 @@ function fakeStorage(name: string): StorageProvider {
     },
   };
 }
+
 function describeProviderRegistryTheDISeam() {
   function registersAProviderAndLooksItUpByName() {
     const provider = fakeStorage('memory');

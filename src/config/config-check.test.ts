@@ -12,6 +12,7 @@ const clean = {
     android: { package: 'com.acme.app' },
   },
 };
+
 function readKey(finding: {
   severity: 'error' | 'warn';
   file: string;
@@ -26,6 +27,7 @@ function readKey(finding: {
 function keys(config: Record<string, unknown>, platform: 'ios' | 'android'): string[] {
   return checkAppConfig(config, 'app.json', platform).map(readKey);
 }
+
 function describeCheckAppPiece() {
   function passesACleanPieceOnBothPlatforms() {
     const checkApp = checkAppConfig(clean, 'app.json', 'ios');

@@ -9,6 +9,7 @@ import {
 import { xcodebuildEnv, resolveNativeDir } from './xcode.ts';
 
 const MB = 1024 ** 2;
+
 function describeResolveNativeDirAbsoluteNativeProjectPathSoGymCanTDoubleTheSubpathInAMonorepo() {
   function returnsAnAbsolutePathForARelativeAppDirTheMonorepoAppRootsCase() {
     const iosDirectory = resolveNativeDir('apps/sampleapp', 'ios');
@@ -45,6 +46,7 @@ describe(
   "resolveNativeDir - absolute native-project path so gym can't double the subpath in a monorepo",
   describeResolveNativeDirAbsoluteNativeProjectPathSoGymCanTDoubleTheSubpathInAMonorepo,
 );
+
 function describeParseThinningReportPerDeviceDownloadInstallBeforeAnyUpload() {
   function extractsOnePiecePerVariantWithCompressedUncompressedSizesInBytes() {
     const sizeEntries = parseThinningReport(`App Thinning Size Report for All Variants of MyApp.ipa
@@ -115,6 +117,7 @@ describe(
   'parseThinningReport - per-device download/install before any upload',
   describeParseThinningReportPerDeviceDownloadInstallBeforeAnyUpload,
 );
+
 function describeExportPiecePlistManualAppStoreSigningInputs() {
   const signing: SigningAssets = {
     bundleId: 'com.example.hello',
@@ -174,6 +177,7 @@ describe(
   'exportOptionsPlist - manual App Store signing inputs',
   describeExportPiecePlistManualAppStoreSigningInputs,
 );
+
 function describeAssertDeviceArtifactRejectANonSubmittableBuildBeforeUpload() {
   function acceptsARealDeviceIpaWithAPositiveSize() {
     function callAssertDeviceArtifact() {
@@ -262,6 +266,7 @@ describe(
   'assertDeviceArtifact - reject a non-submittable build before upload',
   describeAssertDeviceArtifactRejectANonSubmittableBuildBeforeUpload,
 );
+
 function describeXcodebuildPieceForwardsLaunchSResolvedPieceToTheBundleStepCcacheVarsStillWin109() {
   function forwardsTheResolvedBuildPiece() {
     const buildEnvironment = xcodebuildEnv(

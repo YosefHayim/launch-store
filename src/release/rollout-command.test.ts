@@ -4,6 +4,7 @@ import {
   phasedStateForAction,
   rolloutNotifyStatus,
 } from './rollout-command.ts';
+
 function describeRolloutActionMapping() {
   function mapsEveryActionToAppleAndNotificationStates() {
     const phasedForAction = phasedStateForAction('pause');

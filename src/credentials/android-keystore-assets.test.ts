@@ -29,6 +29,7 @@ const SERVICE_ACCOUNT = JSON.stringify({
     '-----BEGIN PRIVATE KEY-----\nMIIBVAIBADANBg\nkqhkiG9w0BAQ\n-----END PRIVATE KEY-----\n',
   token_uri: 'https://oauth2.googleapis.com/token',
 });
+
 function prepare() {
   secrets.clear();
   useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
@@ -37,6 +38,7 @@ function prepare() {
 }
 
 beforeEach(prepare);
+
 function cleanupAll() {
   resetLaunchDirectories();
   resetSecretStore();
@@ -44,6 +46,7 @@ function cleanupAll() {
 }
 
 afterAll(cleanupAll);
+
 function describeStoreServiceAccountLoadServiceAccount() {
   async function storesTheJSONAsASingleBase64LineSoSecurityWCannotHexEncodeIt() {
     await storeServiceAccount(SERVICE_ACCOUNT, 'com.example.app');
@@ -95,6 +98,7 @@ function describeStoreServiceAccountLoadServiceAccount() {
 }
 
 describe('storeServiceAccount / loadServiceAccount', describeStoreServiceAccountLoadServiceAccount);
+
 function describeDescribeStoredAndroidCredentials() {
   async function reportsNothingCachedOnAFreshMachine() {
     const storedAndroidCredentials = await describeStoredAndroidCredentials('com.example.app');
@@ -142,6 +146,7 @@ function describeDescribeStoredAndroidCredentials() {
 }
 
 describe('describeStoredAndroidCredentials', describeDescribeStoredAndroidCredentials);
+
 function describeLegacyAndroidRecoveryGuidance() {
   async function namesTheSelectedAppAndDistinguishesAnUploadKeystoreFromAPlayKey() {
     secrets.set('android-keystore-store-password', 'fixture');

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { diffSnapshots, stableStringify } from './diff.ts';
 import type { JsonValue, Snapshot, SnapshotEntity } from '../types/snapshot.ts';
+
 /** A snapshot with one captured Apple-products surface holding the given entities. */
 function snap(entities: SnapshotEntity[]): Snapshot {
   return {
@@ -20,9 +21,11 @@ function snap(entities: SnapshotEntity[]): Snapshot {
     ],
   };
 }
+
 function entity(key: string, jsonState: JsonValue): SnapshotEntity {
   return { key, summary: key, data: jsonState };
 }
+
 function describeStableStringify() {
   function isInsensitiveToObjectKeyOrder() {
     expect(stableStringify({ b: 2, a: 1 })).toBe(stableStringify({ a: 1, b: 2 }));
@@ -42,6 +45,7 @@ function describeStableStringify() {
 }
 
 describe('stableStringify', describeStableStringify);
+
 function describeDiffSnapshots() {
   function reportsAnEntityPresentOnlyInTheNewerSnapshotAsAdded() {
     const diff = diffSnapshots(snap([]), snap([entity('coins', { id: 1 })]));

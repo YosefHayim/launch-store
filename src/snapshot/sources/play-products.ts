@@ -22,6 +22,7 @@ import {
   stringField,
   readPriceConfig,
 } from './play-restore.ts';
+
 /** A Play money value as a normalized, serializable record (fields Play left unset are dropped). */
 function money(playMoney: PlayMoney): JsonValue {
   const moneyFields: Record<string, JsonValue> = {};
@@ -32,6 +33,7 @@ function money(playMoney: PlayMoney): JsonValue {
 
   return moneyFields;
 }
+
 /** A product's locale -> listing copy, normalized to serializable records (empty fields dropped). */
 function listings(
   map: Record<
@@ -57,6 +59,7 @@ function listings(
 
   return Object.fromEntries(Object.entries(map).map(pairLocaleListing));
 }
+
 /** One captured managed product -> a snapshot entity keyed by its SKU. */
 function readSnapshotEntity(product: InAppProductResource): SnapshotEntity {
   const productFields: Record<string, JsonValue> = { sku: product.sku };
@@ -75,6 +78,7 @@ function readSnapshotEntity(product: InAppProductResource): SnapshotEntity {
 
   return { key: product.sku, summary: `Play product${statusSuffix}`, data: productFields };
 }
+
 /** Invert a captured product's `listings` map back into the shared {@link ProductLocalization} */
 function readCapturedLocalizations(
   listings: JsonValue | undefined,
@@ -123,6 +127,7 @@ function readCapturedLocalizations(
 
   return localizations;
 }
+
 /** Rebuild an {@link InAppPurchaseConfig} from one captured product entity */
 function readProductConfig(entity: SnapshotEntity): InAppPurchaseConfig | null {
   const productFields = jsonRecord(entity.data);

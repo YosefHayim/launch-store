@@ -100,6 +100,7 @@ function iosContext(account?: string): ResolvedBuildContext {
 
   return buildContext;
 }
+
 function describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection() {
   function prepareLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection() {
     credentialState = {
@@ -178,6 +179,7 @@ describe(
   'localCredentialsProvider.resolveBuildCredentials (iOS account selection)',
   describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection,
 );
+
 function describeLocalCredentialsProviderStatus() {
   function prepareLocalCredentialsProviderStatus() {
     credentialState.appleAccountStatuses = [
@@ -290,6 +292,7 @@ function describeLocalCredentialsProviderStatus() {
 }
 
 describe('localCredentialsProvider.status', describeLocalCredentialsProviderStatus);
+
 function describeLegacyAndroidBuildGuidance() {
   let homeDirectory: string;
 

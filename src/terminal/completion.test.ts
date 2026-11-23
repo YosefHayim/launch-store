@@ -23,6 +23,7 @@ import {
 } from './completion.ts';
 import { expectDefined } from '../testkit/assertions-testkit.ts';
 const tempDirs: string[] = [];
+
 async function runInstallCompletion(installOptions: InstallOptions): Promise<InstallResult> {
   useLaunchEnvironment({});
 
@@ -32,6 +33,7 @@ async function runInstallCompletion(installOptions: InstallOptions): Promise<Ins
     resetLaunchEnvironment();
   }
 }
+
 async function runCompletionResolution(words: string[], program: Command): Promise<string[]> {
   const previousDirectories = readLaunchDirectories();
 
@@ -46,6 +48,7 @@ async function runCompletionResolution(words: string[], program: Command): Promi
     useLaunchDirectories(previousDirectories);
   }
 }
+
 /** A throwaway directory cleaned up after each test. */
 function makeDir(prefix: string): string {
   const systemTemporaryDirectory = tmpdir();
@@ -56,6 +59,7 @@ function makeDir(prefix: string): string {
 
   return dir;
 }
+
 function cleanup() {
   while (tempDirs.length > 0) {
     rmSync(expectDefined(tempDirs.pop(), 'temp dir'), { recursive: true, force: true });
@@ -63,6 +67,7 @@ function cleanup() {
 }
 
 afterEach(cleanup);
+
 function describeParseShell() {
   function acceptsEverySupportedShell() {
     for (const shell of SHELLS) expect(parseShell(shell)).toBe(shell);
@@ -88,6 +93,7 @@ function describeParseShell() {
 }
 
 describe('parseShell', describeParseShell);
+
 function describeDetectShell() {
   function readsTheShellBasenameOutOfSHELL() {
     const shell = detectShell({ SHELL: '/bin/zsh' });
@@ -111,6 +117,7 @@ function describeDetectShell() {
 }
 
 describe('detectShell', describeDetectShell);
+
 function describeCompletionScripts() {
   function dispatchesToTheMatchingPerShellGenerator() {
     expect(completionScript('bash')).toBe(bashCompletionScript());
@@ -172,6 +179,7 @@ function describeCompletionScripts() {
 }
 
 describe('completion scripts', describeCompletionScripts);
+
 function describeSpliceManagedBlockIdempotency() {
   function appendsAFreshBlockWhenNoneExists() {
     const { contents, updated } = spliceManagedBlock('export PATH=/x\n', managedBlock('zsh'));
@@ -219,6 +227,7 @@ function describeSpliceManagedBlockIdempotency() {
 }
 
 describe('spliceManagedBlock (idempotency)', describeSpliceManagedBlockIdempotency);
+
 function describeInstallCompletion() {
   async function writesTheManagedBlockIntoTheShellRcFile() {
     const home = makeDir('launch-completion-home-');
@@ -335,6 +344,7 @@ function describeInstallCompletion() {
 }
 
 describe('installCompletion', describeInstallCompletion);
+
 function describeResolveCompletionsTheCompleteCallback() {
   /** A miniature program that exercises every routing branch without the full CLI surface. */
   function program(): Command {
@@ -352,6 +362,7 @@ function describeResolveCompletionsTheCompleteCallback() {
 
     return root;
   }
+
   async function completesTopLevelCommandNamesAtTheRoot() {
     const candidates = await runCompletionResolution([], program());
     expect(candidates).toContain('build');

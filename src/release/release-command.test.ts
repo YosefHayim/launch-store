@@ -28,6 +28,7 @@ import {
   resolveVersionString,
   shouldNudgeRelease,
 } from './release-command.ts';
+
 function storeBuild(overrides: Partial<BuildResource> = {}): BuildResource {
   return {
     id: 'b-1',
@@ -57,6 +58,7 @@ function releaseReport(actions: ReleaseAction[]): ReleaseReport {
     actions,
   };
 }
+
 function describeShouldNudgeReleaseSecondConfirmOnlyForIncrementalArtifacts() {
   function doesNotNudgeACleanFromScratchArtifact() {
     expect(shouldNudgeRelease({ clean: true })).toBe(false);
@@ -78,6 +80,7 @@ describe(
   'shouldNudgeRelease - second confirm only for incremental artifacts',
   describeShouldNudgeReleaseSecondConfirmOnlyForIncrementalArtifacts,
 );
+
 function describeIsVerifiedStoreBuildNewestValidBuild() {
   function acceptsOnlyProcessedNonExpiredBuilds() {
     const buildProgram = storeBuild();
@@ -112,6 +115,7 @@ function describeIsVerifiedStoreBuildNewestValidBuild() {
 }
 
 describe('isVerifiedStoreBuild / newestValidBuild', describeIsVerifiedStoreBuildNewestValidBuild);
+
 function describeParseAppStoreBuildSelector() {
   function parsesLatestAndNumericSelectors() {
     const appStoreBuildSelector = parseAppStoreBuildSelector('latest');
@@ -134,6 +138,7 @@ function describeParseAppStoreBuildSelector() {
 }
 
 describe('parseAppStoreBuildSelector', describeParseAppStoreBuildSelector);
+
 function describeResolveVersionString() {
   const appDescriptor: AppDescriptor = {
     name: 'acme',
@@ -184,6 +189,7 @@ function describeResolveVersionString() {
 }
 
 describe('resolveVersionString', describeResolveVersionString);
+
 function describeResolveAndroidRollout() {
   function prefersTheCLIFlagOverTheProfileDefault() {
     const androidRollout = resolveAndroidRollout(0.25, 0.5);
@@ -208,6 +214,7 @@ function describeResolveAndroidRollout() {
 }
 
 describe('resolveAndroidRollout', describeResolveAndroidRollout);
+
 function describeAndroidReleasePlanLines() {
   function namesTheBuildTheProductionTrackAndTheRollout() {
     expect(
@@ -238,6 +245,7 @@ function describeAndroidReleasePlanLines() {
 }
 
 describe('androidReleasePlanLines', describeAndroidReleasePlanLines);
+
 function describeFormatReleaseActionLineCountFailedReleaseActions() {
   function rendersPlanLinesWithSkippedNotes() {
     const releaseActionLine = formatReleaseActionLine(
@@ -282,6 +290,7 @@ describe(
   'formatReleaseActionLine / countFailedReleaseActions',
   describeFormatReleaseActionLineCountFailedReleaseActions,
 );
+
 function describeMakeReleaseCommandFailure() {
   function tagsCommandFailuresForTheEffectChannel() {
     const failure = makeReleaseCommandFailure({
@@ -497,6 +506,7 @@ afterEach(function resetReleaseDoubles() {
   resetLogger();
   setAppleStoreClient(null);
 });
+
 function describeReleaseCommandProgramAttachOnly() {
   async function failsOnAndroidBeforeAnyAppStoreCall() {
     const releaseApi = makeReleaseApiFake();

@@ -28,9 +28,11 @@ const CONFIG: LaunchConfig = {
   buildEngine: 'xcode',
   submit: 'app-store-connect',
 };
+
 function app(over: Partial<AppDescriptor>): AppDescriptor {
   return { name: 'alpha', dir: '/tmp/alpha', configPath: '/tmp/alpha/app.json', ...over };
 }
+
 function snapshotContext(over: Partial<SnapshotContext>): SnapshotContext {
   return {
     config: CONFIG,
@@ -44,6 +46,7 @@ function snapshotContext(over: Partial<SnapshotContext>): SnapshotContext {
     ...over,
   };
 }
+
 function captureSource(source: SnapshotSource, snapshotContext: SnapshotContext) {
   return source.capture(snapshotContext);
 }
@@ -133,6 +136,7 @@ const playApi: SnapshotPlayApi = {
     ]);
   },
 };
+
 function describeAppleProductsPiece() {
   async function omitsWhenNoIOSAppsAreInScope() {
     const snapshot = snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] });
@@ -198,6 +202,7 @@ function describeAppleProductsPiece() {
 }
 
 describe('appleProductsSource', describeAppleProductsPiece);
+
 function describeAppleSubscriptionsPiece() {
   async function flattensSubscriptionsAcrossGroupsKeyedByProductIdWithTheGroupRecorded() {
     const snapshot = snapshotContext({
@@ -226,6 +231,7 @@ function describeAppleSubscriptionsPiece() {
 }
 
 describe('appleSubscriptionsSource', describeAppleSubscriptionsPiece);
+
 function describeAppleListingPiece() {
   async function mergesAppPieceAndVersionListingFieldsIntoOneEntityPerLocale() {
     const snapshot = snapshotContext({
@@ -310,6 +316,7 @@ function describeAppleListingPiece() {
 }
 
 describe('appleListingSource', describeAppleListingPiece);
+
 function describePlayProductsPiece() {
   async function skipsWhenNoPlayServiceAccountIsConfigured() {
     const snapshot = snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] });
@@ -352,6 +359,7 @@ function describePlayProductsPiece() {
 }
 
 describe('playProductsSource', describePlayProductsPiece);
+
 function describePlaySubscriptionsPiece() {
   async function capturesSubscriptionsWithBasePlansAndListingsKeyedByProductId() {
     const snapshot = snapshotContext({
@@ -391,6 +399,7 @@ function describePlaySubscriptionsPiece() {
 }
 
 describe('playSubscriptionsSource', describePlaySubscriptionsPiece);
+
 function describeAppleCapabilitiesPiece() {
   async function omitsWhenNoIOSAppsAreInScope2() {
     const snapshot = snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] });
@@ -460,6 +469,7 @@ function describeAppleCapabilitiesPiece() {
 }
 
 describe('appleCapabilitiesSource', describeAppleCapabilitiesPiece);
+
 function describeAppleListingPieceRestore() {
   /** One app's captured listing, keyed by locale, with both app-level and version-level fields. */
   const saved: AppEntities[] = [
@@ -493,6 +503,7 @@ function describeAppleListingPieceRestore() {
 
     return restore;
   }
+
   function input(over: Partial<RestoreInput>): RestoreInput {
     return {
       ctx: {
@@ -510,6 +521,7 @@ function describeAppleListingPieceRestore() {
       ...over,
     };
   }
+
   async function skipsWithNoWritesWhenNoAppleAccountIsActive() {
     const report = await runRestore(restoreOf(), input({}));
 
@@ -640,6 +652,7 @@ function describeAppleListingPieceRestore() {
 }
 
 describe('appleListingSource.restore', describeAppleListingPieceRestore);
+
 /** A fully-stubbed {@link PlayCatalogApi}. Reads default to "nothing exists yet"; writes resolve. */
 function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {
   function mockCall() {
@@ -702,6 +715,7 @@ function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {
 
   return { ...base, ...overrides };
 }
+
 /** A restore context defaulting both write resolvers to "no account"; override the one under test. */
 function restoreCtx(over: Partial<RestoreContext> = {}): RestoreContext {
   return {
@@ -716,6 +730,7 @@ function restoreCtx(over: Partial<RestoreContext> = {}): RestoreContext {
     ...over,
   };
 }
+
 function describePlayProductsPieceRestore() {
   /** One app's captured managed product - the same shape `playProductsSource.capture` records. */
   const savedProducts: AppEntities[] = [
@@ -746,9 +761,11 @@ function describePlayProductsPieceRestore() {
 
     return restore;
   }
+
   function input(over: Partial<RestoreInput>): RestoreInput {
     return { ctx: restoreCtx(), saved: savedProducts, dryRun: true, ...over };
   }
+
   async function skipsWithNoWritesWhenNoPlayServiceAccountIsConfigured() {
     const report = await runRestore(restoreOf(), input({}));
 
@@ -859,6 +876,7 @@ function describePlayProductsPieceRestore() {
 }
 
 describe('playProductsSource.restore', describePlayProductsPieceRestore);
+
 function describePlaySubscriptionsPieceRestore() {
   /** One app's captured subscription - the same shape `playSubscriptionsSource.capture` records. */
   const savedSubs: AppEntities[] = [
@@ -894,9 +912,11 @@ function describePlaySubscriptionsPieceRestore() {
 
     return restore;
   }
+
   function input(over: Partial<RestoreInput>): RestoreInput {
     return { ctx: restoreCtx(), saved: savedSubs, dryRun: true, ...over };
   }
+
   async function skipsWithNoWritesWhenNoPlayServiceAccountIsConfigured2() {
     const report = await runRestore(restoreOf(), input({}));
 
@@ -1029,6 +1049,7 @@ function describePlaySubscriptionsPieceRestore() {
 }
 
 describe('playSubscriptionsSource.restore', describePlaySubscriptionsPieceRestore);
+
 function describeMixedAndroidSnapshotCapture() {
   for (const source of [playProductsSource, playSubscriptionsSource]) {
     async function itPiece() {

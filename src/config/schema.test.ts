@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseLaunchConfig, validateLaunchConfig } from './schema.ts';
+
 function describeParseLaunchPiece() {
   function fillsProviderDefaultsThroughEffectSchema() {
     const parsed = parseLaunchConfig({ profiles: {} });
@@ -77,6 +78,7 @@ function describeParseLaunchPiece() {
 }
 
 describe('parseLaunchConfig', describeParseLaunchPiece);
+
 function describeValidateLaunchPiece() {
   function acceptsAppleProductIDsWithLettersDigitsUnderscoresAndPeriods() {
     const validateLaunch = validateLaunchConfig({
@@ -340,6 +342,7 @@ function describeValidateLaunchPiece() {
 }
 
 describe('validateLaunchConfig', describeValidateLaunchPiece);
+
 function describeDeprecatedAgeRatingAnswersInReleaseAttributes() {
   function rejectsADeprecatedPieceAndNamesTheOneToUse() {
     function callParseLaunchPiece() {

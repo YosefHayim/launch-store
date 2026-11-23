@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AppClipsCommandInputSchema } from './app-clips-command.ts';
+
 function describeAppClipsCommandPieceSchema() {
   function decodesTheCommanderBoundaryWithAnOmittedAppSelector() {
     const appClipsCommandSchema = AppClipsCommandInputSchema({

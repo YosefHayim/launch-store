@@ -12,9 +12,11 @@ function makeApi(testers: SandboxTesterResource[] = []): AscSandboxApi {
     }),
   };
 }
+
 function tester(overrides: Partial<SandboxTesterResource> = {}): SandboxTesterResource {
   return { id: 't1', acAccountName: 'tester1@sandbox.com', ...overrides };
 }
+
 function describeListSandboxTesters() {
   async function returnsTheAccountSTesters() {
     const api = makeApi([tester(), tester({ id: 't2', acAccountName: 'tester2@sandbox.com' })]);

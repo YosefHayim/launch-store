@@ -7,11 +7,13 @@ function resolveTestLogPath(buildIdentifier: string): string {
 
   return buildLogPath(buildIdentifier);
 }
+
 function cleanup() {
   resetLaunchDirectories();
 }
 
 afterEach(cleanup);
+
 function describeBuildLogId() {
   function joinsTheNaturalKeysIntoTheSameIdBuildsListShows() {
     const logId = buildLogId({
@@ -31,6 +33,7 @@ function describeBuildLogId() {
 }
 
 describe('buildLogId', describeBuildLogId);
+
 function describeBuildLogPath() {
   function derivesALogFilenameUnderTheLogsDirFromTheId() {
     expect(resolveTestLogPath('demo-1.2.0-7-ios').endsWith('demo-1.2.0-7-ios.log')).toBe(true);

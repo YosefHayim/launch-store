@@ -24,6 +24,7 @@ async function withStorage(
 
   await check(storage, directory);
 }
+
 function cleanup() {
   for (const directory of temporaryRoots.splice(0)) {
     rmSync(directory, { recursive: true, force: true });

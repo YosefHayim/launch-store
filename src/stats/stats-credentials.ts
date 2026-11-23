@@ -28,24 +28,31 @@ import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 export interface AppStoreStatsClient {
   getSalesReport(query: SalesReportQuery): Promise<Buffer>;
+
   listAnalyticsReportRequests(
     appId: string,
     accessType: string,
   ): Promise<AnalyticsReportRequestResource[]>;
+
   createAnalyticsReportRequest(
     appId: string,
     accessType: string,
   ): Promise<AnalyticsReportRequestResource>;
+
   listAnalyticsReports(
     requestId: string,
     filters?: { category?: string; name?: string },
   ): Promise<AnalyticsReportResource[]>;
+
   listAnalyticsReportInstances(
     reportId: string,
     filters?: { granularity?: string; processingDate?: string },
   ): Promise<AnalyticsReportInstanceResource[]>;
+
   listAnalyticsReportSegments(instanceId: string): Promise<AnalyticsReportSegmentResource[]>;
+
   downloadAnalyticsSegment(url: string): Promise<Buffer>;
+
   listCustomerReviews(
     appId: string,
     filters?: { rating?: number; territory?: string },
@@ -62,11 +69,17 @@ export interface PlayVitalsReader {
 
 export interface StatsCredentialsApi {
   ascClientForAccount(accountKeyId: string): Promise<AppStoreStatsClient | null>;
+
   vendorNumberForAccount(accountKeyId: string): Promise<string | null>;
+
   googlePackageForApp(app: PortfolioApp): Promise<string | null>;
+
   playServiceAccount(packageName: string | null): Promise<ServiceAccount | null>;
+
   playReportingClient(packageName: string | null): Promise<PlayVitalsReader | null>;
+
   playReportsBucket(): Promise<string | null>;
+
   googleAccessToken(scopes: readonly string[], packageName: string | null): Promise<string | null>;
 }
 

@@ -58,6 +58,7 @@ import { registerSetupCommand } from './commands/setup/setup.ts';
 import { registerSandboxCommand } from './commands/store/apple/sandbox.ts';
 import { registerAppsCommand } from './commands/insights/apps.ts';
 import { registerStatsCommand } from './commands/insights/stats.ts';
+
 /** Assemble the full `launch-store` command tree and return it unparsed. */
 export function buildProgram(launchVersion: string = '0.0.0'): Command {
   const program = new Command();

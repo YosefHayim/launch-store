@@ -138,6 +138,7 @@ function rankBatch(accessType: AnalyticsAccessType, processingDate: string): str
 }
 
 const isoDateLength = 10;
+
 function readLineDate(line: ReportLine): string {
   return readCell(line, 'Date').slice(0, isoDateLength);
 }

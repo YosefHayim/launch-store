@@ -31,6 +31,7 @@ function fakePlanner(surfaceId: string): SurfacePlanner {
     },
   };
 }
+
 function describeDecodePlanCommandPiece() {
   function decodesPlanAndDriftInputsWithExactOptionalSelectors() {
     const decodePlanCommand = decodePlanCommandInput({
@@ -60,6 +61,7 @@ function describeDecodePlanCommandPiece() {
 }
 
 describe('decodePlanCommandInput', describeDecodePlanCommandPiece);
+
 function describePlanGlyph() {
   function usesASCIIMarkersForAdditionsUpdatesRemovalsAndSkips() {
     const glyph = planGlyph(plannedAction());
@@ -77,6 +79,7 @@ function describePlanGlyph() {
 }
 
 describe('planGlyph', describePlanGlyph);
+
 function describeAdditiveNote() {
   function namesTheSurfaceAndStatesTheOneWayCaveat() {
     const note = additiveNote('wallet');

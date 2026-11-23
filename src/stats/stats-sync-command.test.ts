@@ -71,6 +71,7 @@ function readDaysFailure(daysFlag: string): unknown {
     return cause;
   }
 }
+
 function describeParseDaysFlag() {
   function uses30DaysWhenTheFlagIsAbsent() {
     const daysFlag = parseDaysFlag(undefined);
@@ -109,6 +110,7 @@ function describeParseDaysFlag() {
 }
 
 describe('parseDaysFlag', describeParseDaysFlag);
+
 function describeStatsSyncProgram() {
   let homeDirectory: string;
 
@@ -162,6 +164,7 @@ function describeStatsSyncProgram() {
 
     return { outcome, lines };
   }
+
   async function printsOneJSONObjectWithTheFeedReportsWithPiece() {
     const { outcome, lines } = await run({ app: 'cal friend', days: '3', isJson: true });
 

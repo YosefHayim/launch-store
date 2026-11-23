@@ -47,6 +47,7 @@ interface AiListingFailure {
 
 interface CopyGenerator {
   readonly name: string;
+
   generate(brief: ListingBrief): Promise<DraftListing>;
 }
 

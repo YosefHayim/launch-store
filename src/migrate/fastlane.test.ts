@@ -61,6 +61,7 @@ const SAMPLE_SUPPLYFILE = [
   'json_key("./play-key.json")',
   'track("production")',
 ].join('\n');
+
 /** A minimal app descriptor, overridable per field. */
 function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
   return {
@@ -71,6 +72,7 @@ function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
     ...overrides,
   };
 }
+
 /** The artifact at `path`, asserting it was emitted. */
 function artifact(
   migrationArtifacts: readonly MigrationArtifact[],
@@ -86,6 +88,7 @@ function artifact(
 
   return expectDefined(matchingArtifact, `artifact ${artifactPath}`);
 }
+
 /** Notes at a given level. */
 function notesAt(
   migrationNotes: readonly MigrationNote[],
@@ -97,12 +100,15 @@ function notesAt(
 
   return migrationNotes.filter(isNoteAtLevel);
 }
+
 function runReadFastlaneSetup(workingDirectory: string) {
   return readFastlaneSetup(workingDirectory);
 }
+
 function runMigrateFastlane(workingDirectory: string, apps: AppDescriptor[]) {
   return migrateFastlane(workingDirectory, apps);
 }
+
 function describeReadRubyString() {
   function readsBareAndParenthesizedStringDirectives() {
     const rubyString = readRubyString('team_id "ABCD1234"', 'team_id');
@@ -122,6 +128,7 @@ function describeReadRubyString() {
 }
 
 describe('readRubyString', describeReadRubyString);
+
 function describeParseAppfile() {
   function readsEveryIdentifierAndKeepsTeamIdDistinctFromItcTeamId() {
     const appfile = parseAppfile(SAMPLE_APPFILE);
@@ -154,6 +161,7 @@ function describeParseAppfile() {
 }
 
 describe('parseAppfile', describeParseAppfile);
+
 function describeParseMatchfile() {
   function readsTheSigningStrategy() {
     const matchfile = parseMatchfile(SAMPLE_MATCHFILE);
@@ -169,6 +177,7 @@ function describeParseMatchfile() {
 }
 
 describe('parseMatchfile', describeParseMatchfile);
+
 function describeParseSupplyfile() {
   function readsThePlayUploadDefaults() {
     const supplyfile = parseSupplyfile(SAMPLE_SUPPLYFILE);
@@ -184,6 +193,7 @@ function describeParseSupplyfile() {
 }
 
 describe('parseSupplyfile', describeParseSupplyfile);
+
 function describeParseFastfile() {
   function collectsLaneNamesFromBothLaneAndPrivateLane() {
     function readName(lane: {
@@ -287,6 +297,7 @@ function describeParseFastfile() {
 }
 
 describe('parseFastfile', describeParseFastfile);
+
 function describeMigrationNotesFor() {
   function mapsLanesAndSurfacesSigningAsManualWithoutFilesystemAccess() {
     const parsedFastfile = parseFastfile(SAMPLE_FASTFILE);
@@ -382,6 +393,7 @@ function describeMigrationNotesFor() {
 }
 
 describe('migrationNotesFor', describeMigrationNotesFor);
+
 function describeReadFastlaneSetup() {
   let dir: string;
 
@@ -452,6 +464,7 @@ function describeReadFastlaneSetup() {
 }
 
 describe('readFastlaneSetup', describeReadFastlaneSetup);
+
 function describeMigrateFastlane() {
   let dir: string;
 

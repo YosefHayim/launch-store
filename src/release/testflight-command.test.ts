@@ -3,6 +3,7 @@ import { parseTestersCsv } from './testflight-add-testers.ts';
 import { TestflightCommandInputSchema } from './testflight-command.ts';
 import { renderBetaAction } from './testflight-release.ts';
 import { parseFeedbackType, renderFeedback } from './testflight-show-feedback.ts';
+
 function describeParseTestersCsv() {
   function parsesAndTrimsNamedTesterRows() {
     const testersCsv = parseTestersCsv('a@x.com, Dana , Lee\nb@x.com,Sam,Ng');
@@ -45,6 +46,7 @@ function describeParseTestersCsv() {
 }
 
 describe('parseTestersCsv', describeParseTestersCsv);
+
 function describeRenderBetaAction() {
   function usesASCIIMarkersForPlannedAppliedSkippedAndFailedActions() {
     const betaAction = renderBetaAction({
@@ -92,6 +94,7 @@ function describeRenderBetaAction() {
 }
 
 describe('renderBetaAction', describeRenderBetaAction);
+
 function describeParseFeedbackType() {
   async function acceptsAnOmittedOrCaseInsensitiveSupportedType() {
     const feedbackType = parseFeedbackType(undefined);
@@ -116,6 +119,7 @@ function describeParseFeedbackType() {
 }
 
 describe('parseFeedbackType', describeParseFeedbackType);
+
 function describeRenderFeedback() {
   function rendersACrashWithMetadataAndComment() {
     const renderedFeedback = renderFeedback({
@@ -180,6 +184,7 @@ function describeRenderFeedback() {
 }
 
 describe('renderFeedback', describeRenderFeedback);
+
 function describeTestflightCommandPieceSchema() {
   function decodesACompleteAddTestersBoundary() {
     const testflightCommandSchema = TestflightCommandInputSchema({

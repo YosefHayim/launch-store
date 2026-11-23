@@ -10,6 +10,7 @@ import {
   type ToolchainIo,
 } from './toolchain.ts';
 import { expectDefined } from '../testkit/assertions-testkit.ts';
+
 function listBrewPair(tool: {
   label: string;
   command: string;
@@ -23,6 +24,7 @@ function listBrewPair(tool: {
 
 /** Map each brew formula back to the command it provides, so the fake can mark it present after install. */
 const formulaToCommand = new Map(REQUIRED_TOOLS.flatMap(listBrewPair));
+
 /** Build a fake IO over a mutable "present on PATH" set, recording prompts/runs for assertions. */
 function makeIo(toolchainOptions: {
   present: string[];
@@ -86,10 +88,12 @@ function makeIo(toolchainOptions: {
 
   return { io, logs, runs };
 }
+
 /** Run a toolchain program with an isolated logger capability. */
 async function runToolchainEffect<TValue>(toolchainWork: Promise<TValue>): Promise<TValue> {
   return toolchainWork;
 }
+
 function readCommand(tool: {
   label: string;
   command: string;
@@ -100,6 +104,7 @@ function readCommand(tool: {
 }
 
 const ALL_COMMANDS = REQUIRED_TOOLS.map(readCommand);
+
 function describeFixHint() {
   function rendersABrewToolAsBrewInstallFormula() {
     function isPodCommand(tool: {
@@ -137,6 +142,7 @@ function describeFixHint() {
 }
 
 describe('fixHint', describeFixHint);
+
 function describePlanInstall() {
   function splitsMissingToolsIntoBrewInstallableAndGuided() {
     const { brew, guided } = planInstall(REQUIRED_TOOLS);
@@ -171,6 +177,7 @@ function describePlanInstall() {
 }
 
 describe('planInstall', describePlanInstall);
+
 function describeMissingRequiredToolsTheIsAHomebrewInstallEvenRelevantSignalIssue117() {
   async function isEmptyWhenEveryRequiredToolIsPresent() {
     const { io } = makeIo({ present: ALL_COMMANDS });
@@ -224,6 +231,7 @@ describe(
   "missingRequiredTools - the 'is a Homebrew install even relevant?' signal (issue #117)",
   describeMissingRequiredToolsTheIsAHomebrewInstallEvenRelevantSignalIssue117,
 );
+
 function describeRemoteToolchainPreflightTheOnHostDoctorGeneratedFromTheCanonicalList() {
   function checksEveryRequiredToolAndSignsOffWithTheSuccessMarker() {
     const script = remoteToolchainPreflight('assert');
@@ -279,6 +287,7 @@ describe(
   'remoteToolchainPreflight - the on-host doctor, generated from the canonical list',
   describeRemoteToolchainPreflightTheOnHostDoctorGeneratedFromTheCanonicalList,
 );
+
 function describeEnsureToolchain() {
   async function isANoOpSuccessOnANonMacOSHost() {
     const { io, runs } = makeIo({ present: [] });
@@ -452,6 +461,7 @@ function describeEnsureToolchain() {
 }
 
 describe('ensureToolchain', describeEnsureToolchain);
+
 function describeEnsureCcacheInstalledTheInlineBuildTimeCcacheOffer() {
   async function installsAndConfiguresCcacheWhenAcceptedReusingDoctorSPiece() {
     const { io, runs } = makeIo({ present: ['brew'], confirm: true });

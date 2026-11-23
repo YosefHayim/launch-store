@@ -16,6 +16,7 @@ const INCREMENTAL_REPORT: FingerprintReport = {
   },
   decision: { clean: false, nativeChanged: false, reason: 'cache warm - incremental' },
 };
+
 function describeFingerprintCommandPieceSchema() {
   function decodesTheCommanderPieceShape() {
     const decodeFingerprintCommand = decodeFingerprintCommandInput({ json: false });
@@ -33,6 +34,7 @@ function describeFingerprintCommandPieceSchema() {
 }
 
 describe('FingerprintCommandInputSchema', describeFingerprintCommandPieceSchema);
+
 function describeFormatFingerprintReport() {
   function showsAnIncrementalDecisionAndPriorBuild() {
     const reportText = formatFingerprintReport(INCREMENTAL_REPORT);

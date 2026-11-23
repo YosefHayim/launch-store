@@ -40,12 +40,14 @@ const METRIC_SETS: Record<
     distinctUsers: 'distinctUsers',
   },
 };
+
 /** UTC day-shift of an ISO `YYYY-MM-DD` date by `delta` days (negative = earlier), returned as ISO. */
 function shiftIsoDate(iso: string, delta: number): string {
   const { year, month, day } = isoToDateParts(iso);
   const shifted = new Date(Date.UTC(year, month - 1, day + delta));
   return shifted.toISOString().slice(0, 10);
 }
+
 /** DAILY query window of `days` inclusive days ending at `latestDate` (metric-set freshness */
 export function vitalsWindowFromLatestDate(latestDate: string | null, days: number): VitalsWindow {
   let endDate = new Date().toISOString().slice(0, 10);
@@ -54,6 +56,7 @@ export function vitalsWindowFromLatestDate(latestDate: string | null, days: numb
 
   return { startDate: shiftIsoDate(endDate, -(days - 1)), endDate };
 }
+
 /** Render a Google `DateTime`'s date part as ISO `YYYY-MM-DD`, or undefined when the date is incomplete. */
 function dateTimeToIso(
   date: playdeveloperreporting_v1beta1.Schema$GoogleTypeDateTime | undefined,
@@ -72,6 +75,7 @@ function dateTimeToIso(
 
   return `${date.year}-${pad(date.month)}-${pad(date.day)}`;
 }
+
 /** Split an ISO `YYYY-MM-DD` string into the `{ year, month, day }` the API's `timelineSpec` wants. */
 function isoToDateParts(iso: string): {
   year: number;
@@ -91,6 +95,7 @@ function isoToDateParts(iso: string): {
 
   return { year, month, day };
 }
+
 /** Parse a metric's string value to a number, or undefined when the column is absent/unparseable. */
 function metricNumber(
   metricEntry: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1MetricsRow,
@@ -112,6 +117,7 @@ function metricNumber(
 
   return metricValue;
 }
+
 function isListed<Row>(candidate: readonly Row[] | null | undefined): candidate is readonly Row[] {
   return Array.isArray(candidate);
 }
@@ -123,6 +129,7 @@ type PlayReportingApiError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
+
 function makePlayReportingApiError(fields: {
   readonly operation: string;
   readonly message: string;
@@ -139,7 +146,9 @@ function makePlayReportingApiError(fields: {
 // https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/apps/search
 const PLAY_APPS_PAGE_SIZE_MIN = 1;
 const PLAY_APPS_PAGE_SIZE_MAX = 1000;
+
 export type PlayReportingApp = Readonly<{ packageName: string; displayName: string }>;
+
 function clampPlayPageSize(asked: number | null): number {
   if (asked == null) {
     return PLAY_APPS_PAGE_SIZE_MAX;
@@ -214,10 +223,12 @@ export type PlayReportingTransport = {
     readonly anrrate: Pick<playdeveloperreporting_v1beta1.Resource$Vitals$Anrrate, 'get' | 'query'>;
   };
 };
+
 /** Client for the Play Developer Reporting API, bound to one service account. */
 export class PlayReportingClient {
   /** Official generated Play Developer Reporting v1beta1 transport. */
   private readonly reporting: PlayReportingTransport;
+
   /** Bind the adapter to one service account. */
   constructor(account: ServiceAccount, generatedReporting?: PlayReportingTransport) {
     if (generatedReporting != null) {
@@ -235,6 +246,7 @@ export class PlayReportingClient {
       auth: googleAuthentication,
     });
   }
+
   /** Run one generated Play Developer Reporting request and tag a failure. */
   private async executeGeneratedRequest<GoogleShape>(
     operation: string,
@@ -263,6 +275,7 @@ export class PlayReportingClient {
       });
     }
   }
+
   /**
    * Searches for Apps accessible by the user.
    *
@@ -298,6 +311,7 @@ export class PlayReportingClient {
 
     return apps;
   }
+
   /**
    * Read the latest DAILY day Google has finished aggregating for a metric set.
    *
@@ -343,6 +357,7 @@ export class PlayReportingClient {
 
     return null;
   }
+
   /**
    * Fetch one vital's full DAILY timeline.
    *
@@ -361,6 +376,7 @@ export class PlayReportingClient {
     const rows = await this.queryVitals(metric, packageName, window, metrics, fields);
     return { metric, window, rows };
   }
+
   /**
    * Query the crash-rate metric set over a DAILY window, returning normalized rows.
    *
@@ -374,6 +390,7 @@ export class PlayReportingClient {
   ): Promise<PlayVitalsRow[]> {
     return this.queryVitals('crash', packageName, window, metrics, fields);
   }
+
   /**
    * Query the ANR-rate metric set over a DAILY window, returning normalized rows.
    *
@@ -387,6 +404,7 @@ export class PlayReportingClient {
   ): Promise<PlayVitalsRow[]> {
     return this.queryVitals('anr', packageName, window, metrics, fields);
   }
+
   /**
    * Query one metric set over a DAILY window and normalize every row.
    *

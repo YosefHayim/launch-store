@@ -182,6 +182,7 @@ const FASTLANE_ACTION_GROUPS: readonly FastlaneActionGroup[] = [
       'fastlane captured screenshots - upload them with your listing via `launch-store metadata`.',
   },
 ];
+
 function readActions(actionGroup: {
   readonly actions: readonly string[];
   readonly launchCommand?: string;
@@ -443,6 +444,7 @@ function finishFastlaneSetup(fastlaneSources: {
 
   return fastlaneSetup;
 }
+
 /** Distinct Launch commands mapped from recognized actions on one lane. */
 export function laneLaunchCommands(fastlaneLane: FastlaneLane): string[] {
   const launchCommands: string[] = [];

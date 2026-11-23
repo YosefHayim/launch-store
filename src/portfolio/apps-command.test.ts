@@ -103,6 +103,7 @@ async function runProgram(startProgram: () => Promise<void>): Promise<{
 
   return { outcome, lines };
 }
+
 function describeParsePlatformFlag() {
   async function acceptsIosAndroidAndNoFlag() {
     const platformFlag = await parsePlatformFlag('ios');
@@ -124,6 +125,7 @@ function describeParsePlatformFlag() {
 }
 
 describe('parsePlatformFlag', describeParsePlatformFlag);
+
 function describeParseOwnerFlag() {
   async function acceptsMineClientAndNoFlag() {
     const ownerFlag = await parseOwnerFlag('mine');
@@ -145,6 +147,7 @@ function describeParseOwnerFlag() {
 }
 
 describe('parseOwnerFlag', describeParseOwnerFlag);
+
 function describeParseTagRequest() {
   async function needsOneOfAppOrAccount() {
     const expected = 'Pass exactly one of --app <name> or --account <label>.';
@@ -206,6 +209,7 @@ function describeParseTagRequest() {
 }
 
 describe('parseTagRequest', describeParseTagRequest);
+
 function describeAppsListProgramAndAppsTagProgram() {
   let homeDirectory: string;
 

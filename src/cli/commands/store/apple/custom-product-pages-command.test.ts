@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CustomProductPagesCommandInputSchema } from './custom-product-pages-command.ts';
+
 function describeCustomProductPagesCommandPieceSchema() {
   function decodesTheCommanderBoundaryWithAnOmittedAppSelector() {
     const customProductPagesCommandSchema = CustomProductPagesCommandInputSchema({

@@ -1,6 +1,7 @@
 import { Command, type CommandOption, type CommandArgument } from '@/cli/command.js';
 import { describe, expect, it } from 'vitest';
 import { registerReleaseTrainCommand } from './release-train.ts';
+
 function describeRegisterReleaseTrainCommand() {
   function registersTheReleaseTrainActionsAndSelectors() {
     const program = new Command();

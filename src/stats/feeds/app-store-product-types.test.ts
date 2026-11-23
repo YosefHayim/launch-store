@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { findSalesReportKind } from './app-store-product-types.ts';
+
 function describeFindSalesReportKind() {
   function readsFirstTimeDownloadIdsAsDownloads() {
     const salesReportKind = findSalesReportKind('1');

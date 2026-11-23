@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Command, type CommandOption, type CommandArgument } from '@/cli/command.js';
 import { registerCompletionCommand } from './completion.ts';
+
 /** The `completion` group from a fresh program, asserting it registered. */
 function completionGroup(): Command {
   const program = new Command();
@@ -19,6 +20,7 @@ function completionGroup(): Command {
 
   return completion;
 }
+
 function describeRegisterCompletionCommand() {
   function attachesACompletionGroupWithInstallAndTheHiddenCompleteSubcommand() {
     function readCommandName(command: Command) {

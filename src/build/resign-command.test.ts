@@ -42,6 +42,7 @@ const keystore: KeystoreAssets = {
   storePassword,
   keyPassword,
 };
+
 function describeAssertResignablePlatform() {
   function allowsIPAAndAndroidFormatsAndRejectsMacOSPackages() {
     for (const platform of ['ios', 'tvos', 'visionos', 'android'] as const) {
@@ -67,6 +68,7 @@ function describeAssertResignablePlatform() {
 }
 
 describe('assertResignablePlatform', describeAssertResignablePlatform);
+
 function describeResignPiecePath() {
   function usesNaturalIdentifiersAndThePieceExtension() {
     const resignPath = resignOutputPath(ipa, '/out', '.ipa');
@@ -80,6 +82,7 @@ function describeResignPiecePath() {
 }
 
 describe('resignOutputPath', describeResignPiecePath);
+
 function describeStoredArtifactReference() {
   function keepsAnExplicitBuildId() {
     expect(
@@ -100,6 +103,7 @@ function describeStoredArtifactReference() {
 }
 
 describe('storedArtifactReference', describeStoredArtifactReference);
+
 function describeFilterStoredArtifactsByApp() {
   function returnsTheFullHistoryWhenNoAppScopeIsSet() {
     expect(filterStoredArtifactsByApp([ipa, androidApk], undefined)).toEqual([ipa, androidApk]);
@@ -115,6 +119,7 @@ function describeFilterStoredArtifactsByApp() {
 }
 
 describe('filterStoredArtifactsByApp', describeFilterStoredArtifactsByApp);
+
 function describeAppleSigningArguments() {
   function createsTheExpectedUnzipZipProfileAndCodesignArguments() {
     const unzip = unzipArgs('/a.ipa', '/w');
@@ -152,6 +157,7 @@ function describeAppleSigningArguments() {
 }
 
 describe('Apple signing arguments', describeAppleSigningArguments);
+
 function describeAndroidResignSpec() {
   function usesApksignerForAPKFilesWithoutPuttingPasswordsInArgv() {
     const resignSpec = androidResignSpec('/out.apk', keystore);
@@ -181,6 +187,7 @@ function describeAndroidResignSpec() {
 }
 
 describe('androidResignSpec', describeAndroidResignSpec);
+
 function describeMakeResignCommandFailure() {
   function tagsOperationSpecificResignFailuresForThePublicErrorChannel() {
     const failure = makeResignCommandFailure({

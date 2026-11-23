@@ -4,6 +4,7 @@ import { isSecretLookingName } from '@/config/env.js';
 const HOME = homedir();
 /** The masked placeholder substituted for any redacted value. */
 const MASK = '***';
+
 /** Redact one line of log text */
 export function redactLine(line: string): string {
   let out = line;
@@ -39,6 +40,7 @@ export function redactLine(line: string): string {
 
   return out;
 }
+
 /** Redact a whole log document */
 export function redactText(text: string): string {
   return text
@@ -50,6 +52,7 @@ export function redactText(text: string): string {
     .map(redactLine)
     .join('\n');
 }
+
 function isPemBodyLine(line: string): boolean {
   const isEmptyLine = line == '';
 

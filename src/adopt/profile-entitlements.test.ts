@@ -26,11 +26,13 @@ function readCaptureCall(index: number) {
 
   return call;
 }
+
 function prepare() {
   captureMock.mockReset();
 }
 
 beforeEach(prepare);
+
 function describeExtractProfileEntitlements() {
   async function returnsNullForPieceThatIsnTADecodableProvisioningProfileOrOffMac() {
     const commandFailed = makeCommandFailed({

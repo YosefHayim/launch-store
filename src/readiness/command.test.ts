@@ -8,6 +8,7 @@ import { READINESS_EXIT } from './orchestrator.ts';
 
 /** The category passed to the last `selectReadinessProbes` call */
 let selectedCategory: string | undefined;
+
 /** A fake probe that returns a fixed result with no network - same idiom as `orchestrator.test.ts`. */
 function probe(id: string, probeOutcome: ProbeResult): ReadinessProbe {
   return {
@@ -85,6 +86,7 @@ function emptyOutcome(overrides: Partial<ReadinessOutcome> = {}): ReadinessOutco
     ...overrides,
   };
 }
+
 function describeReadinessStoreLabel() {
   function namesAppStoreAndGooglePlayForSectionHeaders() {
     expect(readinessStoreLabel('appstore')).toBe('App Store');
@@ -98,6 +100,7 @@ function describeReadinessStoreLabel() {
 }
 
 describe('readinessStoreLabel', describeReadinessStoreLabel);
+
 function describeFormatReadinessSummaryDetail() {
   function returnsAllClearWhenEveryTallyIsZero() {
     const empty = emptyOutcome();
@@ -127,6 +130,7 @@ function describeFormatReadinessSummaryDetail() {
 }
 
 describe('formatReadinessSummaryDetail', describeFormatReadinessSummaryDetail);
+
 function describeReadinessCommandProgram() {
   function cleanupReadinessCommandProgram() {
     vi.restoreAllMocks();

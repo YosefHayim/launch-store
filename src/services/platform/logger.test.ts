@@ -17,6 +17,7 @@ function captureHumanLogger(explain: boolean): {
 
   return { logger: createLogger(explain), lines };
 }
+
 function describeLoggerASCIIRendering() {
   function printsStableStatusPieceAndReceiptLinesThroughTheTestService() {
     const captured = captureHumanLogger(false);
@@ -75,6 +76,7 @@ function describeLoggerASCIIRendering() {
 }
 
 describe('logger ASCII rendering', describeLoggerASCIIRendering);
+
 function describeLoggerProgressEvents() {
   function printsStartDoneAndFailAsStatusLinesForPeople() {
     const captured = captureHumanLogger(false);
@@ -95,6 +97,7 @@ function describeLoggerProgressEvents() {
 }
 
 describe('logger progress events', describeLoggerProgressEvents);
+
 function describePieceLoggerNDJSONEvents() {
   function captureJsonLogger(): { eventLines: string[]; humanLines: string[] } {
     const eventLines: string[] = [];
@@ -109,6 +112,7 @@ function describePieceLoggerNDJSONEvents() {
 
     return { eventLines, humanLines };
   }
+
   function turnsStepWarnNoteAndTipIntoOneJSONObjectPerLine() {
     const captured = captureJsonLogger();
     const logger = createLogger(true);
@@ -183,6 +187,7 @@ function describePieceLoggerNDJSONEvents() {
 }
 
 describe('json logger NDJSON events', describePieceLoggerNDJSONEvents);
+
 function describeSecretRedaction() {
   function masksASecretAssignmentBeforeItReachesTheSink() {
     const captured = captureHumanLogger(false);

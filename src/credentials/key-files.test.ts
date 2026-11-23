@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './key-files.ts';
 
 const temporaryDirectories: string[] = [];
+
 function cleanup() {
   for (const temporaryDirectory of temporaryDirectories) {
     rmSync(temporaryDirectory, { recursive: true, force: true });
@@ -14,6 +15,7 @@ function cleanup() {
 }
 
 afterEach(cleanup);
+
 function describeExtractKeyId() {
   function readsAndNormalizesTheAppleKeyFilename() {
     const keyId = extractKeyId('AuthKey_keyabc1234.p8');
@@ -32,6 +34,7 @@ function describeExtractKeyId() {
 }
 
 describe('extractKeyId', describeExtractKeyId);
+
 function describeFindAuthKeyFiles() {
   async function returnsOnlyMatchingKeysInStableReverseNameOrder() {
     const systemTemporaryDirectory = tmpdir();
@@ -75,6 +78,7 @@ function describeFindAuthKeyFiles() {
 }
 
 describe('findAuthKeyFiles', describeFindAuthKeyFiles);
+
 function describeReconcileKeyId() {
   function prefersAMatchingExplicitIdentifier() {
     expect(reconcileKeyId('keyabc1234', 'KEYABC1234')).toBe('KEYABC1234');

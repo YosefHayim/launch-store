@@ -10,6 +10,7 @@ function readRatingFailure(ratingText: string): unknown {
 
   return null;
 }
+
 function describeParseRating() {
   function returnsUndefinedWhenTheFlagIsAbsent() {
     const reviewRating = parseReviewRating(undefined);

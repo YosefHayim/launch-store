@@ -168,6 +168,7 @@ const SINGLE_TARGET = `// !$*UTF8*$!
 	};
 }
 `;
+
 function describeParsePbxprojTargetsReadEachTargetBundleIdFromThePbxproj() {
   function returnsTheMainAppAndTheWidgetExtensionWithTheirAuthoritativeBundleIds() {
     const targets = parsePbxprojTargets(APP_WITH_WIDGET);
@@ -246,6 +247,7 @@ describe(
   'parsePbxprojTargets - read each target bundle id from the pbxproj',
   describeParsePbxprojTargetsReadEachTargetBundleIdFromThePbxproj,
 );
+
 function describeSplitMainAndExtensionsSeparateTheAppFromItsExtensions() {
   function picksTheApplicationProductTypeAsMainAndTheRestAsExtensions() {
     const pbxprojTargets = parsePbxprojTargets(APP_WITH_WIDGET);
@@ -296,6 +298,7 @@ describe(
   'splitMainAndExtensions - separate the app from its extensions',
   describeSplitMainAndExtensionsSeparateTheAppFromItsExtensions,
 );
+
 function describeDiscoverExtensionBundleIdsLocateAndReadTheGeneratedProject() {
   /** Write a fixture pbxproj into a throwaway `<dir>/<name>.xcodeproj/project.pbxproj`. */
   function seedProject(nativeDir: string, projectName: string, pbxproj: string): void {
@@ -304,6 +307,7 @@ function describeDiscoverExtensionBundleIdsLocateAndReadTheGeneratedProject() {
     const projectPath = join(projectDir, 'project.pbxproj');
     writeFileSync(projectPath, pbxproj);
   }
+
   async function discoversTheWidgetExtensionFromAGeneratedIosProject() {
     const systemTemporaryDirectory = tmpdir();
     const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
@@ -368,6 +372,7 @@ describe(
   'discoverExtensionBundleIds - locate and read the generated project',
   describeDiscoverExtensionBundleIdsLocateAndReadTheGeneratedProject,
 );
+
 function describeMultiTargetSigningWarningsPreflightBeforeTheLongArchive261() {
   function isSilentWhenEveryTargetIsRegisteredWithItsCapabilitiesSingleTargetUnchanged() {
     expect(
@@ -430,6 +435,7 @@ describe(
   'multiTargetSigningWarnings - preflight before the long archive (#261)',
   describeMultiTargetSigningWarningsPreflightBeforeTheLongArchive261,
 );
+
 function describeFindPbxprojLocateTheProjectFileInANativeDir() {
   async function findsTheXcodeprojProjectPbxprojAndReturnsNullWhenAbsent() {
     const systemTemporaryDirectory = tmpdir();
@@ -478,10 +484,12 @@ const SIGNING = {
     'com.example.sampleapp.widget': WIDGET_PROFILE,
   },
 };
+
 /** Count non-overlapping occurrences of a literal substring. */
 function occurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
+
 function describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTargetArchive289() {
   function stampsTheMainAndWidgetReleaseConfigsWithManualSigningAndTheirOwnProfiles() {
     const stamped = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
@@ -600,6 +608,7 @@ describe(
   'stampManualSigningIntoPbxproj - per-target manual signing for a multi-target archive (#289)',
   describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTargetArchive289,
 );
+
 function describeWriteManualSigningToProjectStampTheGeneratedProjectOnDisk() {
   async function rewritesThePbxprojAndReportsTheChangeThenNoOpsOnASecondRun() {
     const systemTemporaryDirectory = tmpdir();

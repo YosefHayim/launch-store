@@ -77,18 +77,21 @@ function seedCredentials(
     writeFileSync(joinedPath, 'profile-bytes');
   }
 }
+
 function prepare() {
   useLaunchDirectories({ homeDirectory: home.dir, workingDirectory: home.dir });
   rmSync(home.dir, { recursive: true, force: true });
 }
 
 beforeEach(prepare);
+
 function cleanupAll() {
   resetLaunchDirectories();
   rmSync(home.dir, { recursive: true, force: true });
 }
 
 afterAll(cleanupAll);
+
 function describeLoadCachedSigningAssetsMultiBundleAppExtensionsFastPath221() {
   async function returnsTheMainAppSAssetsWithNoExtensionProfilesWhenNoExtensionsAreRequested() {
     seedCredentials({ [MAIN]: { uuid: 'uuid-main' } }, ['uuid-main']);
@@ -152,6 +155,7 @@ describe(
   'loadCachedSigningAssets - multi-bundle (app + extensions) fast path (#221)',
   describeLoadCachedSigningAssetsMultiBundleAppExtensionsFastPath221,
 );
+
 function describeEnsureAdHocSigningCredentialsMacOSHasNoAdHocDistribution() {
   async function rejectsMacOSUpFrontEvenInDryRunBeforeTouchingTheNetworkOrKeychain() {
     const logger = createLogger(false);
@@ -182,6 +186,7 @@ describe(
   'ensureAdHocSigningCredentials - macOS has no ad-hoc distribution',
   describeEnsureAdHocSigningCredentialsMacOSHasNoAdHocDistribution,
 );
+
 function describeProfileStaleAgainstCapabilitiesRegenerateVsReuseDecision261() {
   const PROFILE: ProfileResource = {
     id: 'prof-1',
@@ -203,6 +208,7 @@ function describeProfileStaleAgainstCapabilitiesRegenerateVsReuseDecision261() {
       }),
     };
   }
+
   async function regeneratesWhenAppGroupsWasEnabledAfterTheProfileWasMinted() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
 
@@ -245,6 +251,7 @@ describe(
   'profileStaleAgainstCapabilities - regenerate-vs-reuse decision (#261)',
   describeProfileStaleAgainstCapabilitiesRegenerateVsReuseDecision261,
 );
+
 function describeStaleCachedSigningTargetsBuildPathReuseGuard292() {
   const MAIN_ONLY: SigningAssets = {
     bundleId: MAIN,
@@ -298,6 +305,7 @@ function describeStaleCachedSigningTargetsBuildPathReuseGuard292() {
 
     return { ...client, ...overrides };
   }
+
   async function flagsEveryTargetWhoseProfilePredatesAnEnabledCapabilityAppGroups() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
 

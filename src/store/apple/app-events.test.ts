@@ -57,6 +57,7 @@ async function captureThrown(work: Promise<unknown>): Promise<{ message: string 
 
   throw new Error('expected a failure');
 }
+
 /** A stubbed {@link AscAppEventsApi}: one app, no events; writes echo their input. Override per test. */
 function makeApi(overrides: Partial<AscAppEventsApi> = {}): AscAppEventsApi {
   function mockCall() {
@@ -103,6 +104,7 @@ function makeApi(overrides: Partial<AscAppEventsApi> = {}): AscAppEventsApi {
 
   return { ...base, ...overrides };
 }
+
 function describeListEvents() {
   async function pairsEachEventWithItsLocalizations() {
     function mockCall5() {
@@ -146,6 +148,7 @@ function describeListEvents() {
 }
 
 describe('listEvents', describeListEvents);
+
 function describeCreateEvent() {
   async function createsWithATrimmedNameAndUpperCasedValidatedEnums() {
     const api = makeApi();
@@ -233,6 +236,7 @@ function describeCreateEvent() {
 }
 
 describe('createEvent', describeCreateEvent);
+
 function describeLocalizeEvent() {
   async function createsALocalizationWhenNoneExistsForTheLocale() {
     const api = makeApi();
@@ -290,6 +294,7 @@ function describeLocalizeEvent() {
 }
 
 describe('localizeEvent', describeLocalizeEvent);
+
 function describeDeleteEvent() {
   async function deletesTheEventById() {
     const api = makeApi();

@@ -39,6 +39,7 @@ function renderBuiltDiagnostics(): Promise<string> {
 
   return captureCommandOutput('node', ['--input-type=module', '--eval', diagnosticScript]);
 }
+
 function prepareAll() {
   if (!existsSync(CLI)) throw new Error('Build dist before running the built-CLI e2e suite.');
 
@@ -48,6 +49,7 @@ function prepareAll() {
 }
 
 beforeAll(prepareAll);
+
 function describeLaunchStorePlaySubscriptionsSetupGuidanceCompiledDist() {
   async function shipsTheDistinctCatalogPermissionAndPaymentsProfileFixes() {
     expect(await launch('play-subscriptions', '--help')).toContain('play-subscriptions');

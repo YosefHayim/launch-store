@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isCarTerminal, isNativeCar, isOtaCar } from './guards.ts';
 import type { Car } from '../types/release-train.ts';
 const at = '2026-06-16T00:00:00.000Z';
+
 function ios(state: 'building' | 'released' | 'failed'): Car {
   return {
     kind: 'ios',
@@ -9,6 +10,7 @@ function ios(state: 'building' | 'released' | 'failed'): Car {
     updatedAt: at,
   };
 }
+
 function ota(state: 'pending' | 'published'): Car {
   return {
     kind: 'ota',
@@ -19,6 +21,7 @@ function ota(state: 'pending' | 'published'): Car {
     updatedAt: at,
   };
 }
+
 function describeReleaseTrainCarGuards() {
   function discriminatesNativeVsOTACars() {
     expect(isNativeCar(ios('building'))).toBe(true);

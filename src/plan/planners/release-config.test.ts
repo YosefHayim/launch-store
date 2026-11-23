@@ -18,6 +18,7 @@ const alpha: AppDescriptor = {
 const PRICED: Record<string, ReleaseAttributesConfig> = {
   'com.acme.alpha': { pricing: { customerPrice: 9.99 } },
 };
+
 function makeCtx(
   api: AscSurfacesApi | null,
   releaseAttributes?: Record<string, ReleaseAttributesConfig>,
@@ -44,6 +45,7 @@ function makeCtx(
     },
   };
 }
+
 function describeReleasePiecePlanner() {
   async function omitsItselfWhenNoAppDeclaresReleaseAttributes() {
     const ascApiFake = makeAscApiFake();

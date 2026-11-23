@@ -18,6 +18,7 @@ function makeKey(): AscKey {
     p8: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
   };
 }
+
 function fakeResponse(
   status: number,
   responseText: string,
@@ -29,6 +30,7 @@ function fakeResponse(
 
   return new Response(responseBody, { status, headers });
 }
+
 function fakeBinaryResponse(
   status: number,
   bytes: string,
@@ -40,6 +42,7 @@ function fakeBinaryResponse(
 
   return new Response(responseBody, { status });
 }
+
 function readRequestDocument(requestInit: RequestInit): unknown {
   const requestBody = requestInit.body;
 
@@ -47,9 +50,11 @@ function readRequestDocument(requestInit: RequestInit): unknown {
 
   throw new Error('expected a JSON request body');
 }
+
 function requestHeaders(requestInit: RequestInit): Headers {
   return new Headers(requestInit.headers);
 }
+
 function documentValueAt(document: unknown, path: readonly (number | string)[]): unknown {
   let currentValue = document;
 
@@ -70,6 +75,7 @@ function documentValueAt(document: unknown, path: readonly (number | string)[]):
 
   return currentValue;
 }
+
 function numberClaim(claims: Record<string, unknown>, claimName: string): number {
   const claim = claims[claimName];
 
@@ -77,6 +83,7 @@ function numberClaim(claims: Record<string, unknown>, claimName: string): number
 
   return claim;
 }
+
 function decodeJwt(token: string): {
   header: Record<string, unknown>;
   claims: Record<string, unknown>;
@@ -105,6 +112,7 @@ function readObjectText(objectText: string): Record<string, unknown> {
 
 const fetchMock = vi.fn();
 let client: AppStoreConnectClient;
+
 function prepare() {
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
@@ -112,6 +120,7 @@ function prepare() {
 }
 
 beforeEach(prepare);
+
 function cleanup() {
   vi.unstubAllGlobals();
 }
@@ -900,6 +909,7 @@ describe('AppStoreConnectClient - build uploads', () => {
     treatsAnUploadWithNoPieceYetAsAwaitingUpload,
   );
 });
+
 function describeAppStoreConnectClientPaginationLinksNext() {
   async function followsTheAbsoluteLinksNextURLVerbatimWithoutTheV1V1DoublePrefix() {
     const page2Url = 'https://api.appstoreconnect.apple.com/v1/devices?cursor=PAGE2';
@@ -967,6 +977,7 @@ describe(
   'AppStoreConnectClient - pagination (links.next)',
   describeAppStoreConnectClientPaginationLinksNext,
 );
+
 function describeAppStoreConnectClientDeviceRegistrationAdHocProfile() {
   async function findsARegisteredDeviceByUDIDCaseInsensitively() {
     const serialized = JSON.stringify({
@@ -1151,6 +1162,7 @@ describe('AppStoreConnectClient - transient-failure retry', () => {
     doesNOTRepeatAWriteAfterADroppedConnectionItMayAlreadyHaveLanded,
   );
 });
+
 function describeAppStoreConnectClientProductCatalog() {
   async function enablesACapabilityWithTheBundleIdRelationship() {
     const serialized = JSON.stringify({
@@ -1804,6 +1816,7 @@ function describeAppStoreConnectClientProductCatalog() {
       expect(documentValueAt(requestDocument, ['included', index, 'id'])).toBe(localId);
     }
   }
+
   async function createsAnOfferCodeCampaignWithLocalIdInlinePriceIds() {
     const serialized = JSON.stringify({ data: { id: 'offer-1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
@@ -1886,6 +1899,7 @@ function describeAppStoreConnectClientProductCatalog() {
 }
 
 describe('AppStoreConnectClient - product catalog', describeAppStoreConnectClientProductCatalog);
+
 function describeAppStoreConnectClientExportCompliance() {
   async function resolvesABuildSIdAndExportComplianceAnswerByBuildNumber() {
     const serialized = JSON.stringify({ data: [{ id: 'app1', attributes: {} }] });
@@ -2020,6 +2034,7 @@ describe(
   'AppStoreConnectClient - export compliance',
   describeAppStoreConnectClientExportCompliance,
 );
+
 function describeAppStoreConnectClientListingLocalizations() {
   async function picksTheEditableAppStoreVersionIgnoringALiveOne() {
     const serialized = JSON.stringify({
@@ -2360,6 +2375,7 @@ describe(
   'AppStoreConnectClient - listing localizations',
   describeAppStoreConnectClientListingLocalizations,
 );
+
 function describeAppStoreConnectClientTestFlightBetaGroupsTesters() {
   async function createsAnExternalBetaGroupWithTheAppRelationship() {
     const serialized = JSON.stringify({
@@ -2568,6 +2584,7 @@ describe(
   'AppStoreConnectClient - TestFlight beta groups + testers',
   describeAppStoreConnectClientTestFlightBetaGroupsTesters,
 );
+
 function describeAppStoreConnectClientCustomerReviews() {
   async function listsReviewsWithIncludePieceComputingAnsweredFromThePieceRelationship() {
     const page2 = 'https://api.appstoreconnect.apple.com/v1/apps/app1/customerReviews?cursor=P2';
@@ -2698,6 +2715,7 @@ function describeAppStoreConnectClientCustomerReviews() {
 }
 
 describe('AppStoreConnectClient - customer reviews', describeAppStoreConnectClientCustomerReviews);
+
 function describeAppStoreConnectClientReports() {
   async function downloadsASalesReportWithTheRightFiltersAndGzipAcceptHeader() {
     const fakeBinary = fakeBinaryResponse(200, 'gzip-bytes');
@@ -2903,6 +2921,7 @@ function describeAppStoreConnectClientReports() {
 }
 
 describe('AppStoreConnectClient - reports', describeAppStoreConnectClientReports);
+
 function describeAppLevelReleaseAttributes() {
   async function resolvesTheEditableAppPieceAndItsCurrentCategoryIds() {
     const serialized = JSON.stringify({
@@ -3646,6 +3665,7 @@ describe('AppStoreConnectClient - app availability', () => {
     expect(createSingletonCalls).toHaveLength(0);
   });
 });
+
 function describeAppClips() {
   async function listsDefaultExperiencesWithTheVersionEachReleasesWithFromTheRelationship() {
     const serialized = JSON.stringify({
@@ -3778,6 +3798,7 @@ function describeAppClips() {
 }
 
 describe('App Clips', describeAppClips);
+
 function describeEUAlternativeDistribution() {
   async function listsAuthorizedDistributionDomainsWithTheirReferenceNames() {
     const serialized = JSON.stringify({
@@ -3858,6 +3879,7 @@ function describeEUAlternativeDistribution() {
 }
 
 describe('EU alternative distribution', describeEUAlternativeDistribution);
+
 function describeApplePayWalletIdentifiers() {
   async function listsMerchantIdsWithTheirIdentifierName() {
     const serialized = JSON.stringify({
@@ -3929,6 +3951,7 @@ function describeApplePayWalletIdentifiers() {
 }
 
 describe('Apple Pay / Wallet identifiers', describeApplePayWalletIdentifiers);
+
 function describeGameCenter() {
   async function returnsNullWhenTheAppHasNoGameCenterDetailYet404() {
     const serialized = JSON.stringify({ errors: [{ title: 'Not Found' }] });
@@ -4146,6 +4169,7 @@ function describeGameCenter() {
 }
 
 describe('Game Center', describeGameCenter);
+
 function describeDescribeErrors() {
   function joinsAppleSErrorDetailsFallingBackToTitles() {
     const serialized = JSON.stringify({ errors: [{ detail: 'd1' }, { title: 't2' }] });
@@ -4206,6 +4230,7 @@ function describeDescribeErrors() {
 }
 
 describe('describeErrors', describeDescribeErrors);
+
 function describeParseErrorCodes() {
   function extractsAppleSMachineReadableErrorCodes() {
     const requestDocument = JSON.stringify({
@@ -4232,6 +4257,7 @@ function describeParseErrorCodes() {
 }
 
 describe('parseErrorCodes', describeParseErrorCodes);
+
 function describeClockSkewHint() {
   // A fixed reference instant so the skew math is deterministic regardless of when the suite runs.
   const APPLE_DATE = 'Sun, 15 Jun 2026 12:00:00 GMT';
@@ -4303,6 +4329,7 @@ function describeClockSkewHint() {
 }
 
 describe('clockSkewHint', describeClockSkewHint);
+
 function describeAppStoreConnectClient401ClockSkewEnrichment() {
   async function appendsTheResyncHintWhenA401CoincidesWithASkewedClockOnMacOS() {
     client = new AppStoreConnectClient(makeKey(), 'darwin');
@@ -4366,6 +4393,7 @@ describe(
   'AppStoreConnectClient - 401 clock-skew enrichment',
   describeAppStoreConnectClient401ClockSkewEnrichment,
 );
+
 function describeAppStoreConnectClientAppStoreReleaseLifecycle() {
   async function listsRecentBuildsWithProcessingPieceAndExpiryNewestUploadFirst() {
     const serialized = JSON.stringify({
@@ -4630,6 +4658,7 @@ describe(
   'AppStoreConnectClient - App Store release lifecycle',
   describeAppStoreConnectClientAppStoreReleaseLifecycle,
 );
+
 function describeAppStoreConnectClientTestFlightBetaFeedback() {
   async function parsesCrashSubmissionsAndResolvesTheBuildVersionFromTheIncludedBuilds() {
     const serialized = JSON.stringify({
@@ -4786,6 +4815,7 @@ describe(
   'AppStoreConnectClient - TestFlight beta feedback',
   describeAppStoreConnectClientTestFlightBetaFeedback,
 );
+
 function describeFindBundleIdExactIdentifierNotSubstring291() {
   async function selectsTheExactIdentifierWhenTheSubstringFilterAlsoReturnsChildBundleIds() {
     // Apple's filter[identifier] is a substring match, so a query for the main bundle also returns its

@@ -15,11 +15,14 @@ import {
 import { readPlainObject } from '@/services/platform/plain-object.js';
 
 type S3Module = typeof import('@aws-sdk/client-s3');
+
 type S3Client = InstanceType<S3Module['S3Client']>;
+
 type S3ClientOptions = ConstructorParameters<S3Module['S3Client']>[0];
 
 type ObjectBody = {
   transformToString(): Promise<string>;
+
   transformToByteArray(): Promise<Uint8Array>;
 };
 

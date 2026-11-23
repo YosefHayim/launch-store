@@ -9,11 +9,13 @@ import {
   validatePlayDimensions,
 } from './specs.ts';
 const tmpDirs: string[] = [];
+
 function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 }
 
 afterEach(cleanup);
+
 /** Write a minimal valid PNG of the given pixel size to disk and return its path. */
 function writePng(width: number, height: number): string {
   const systemTemporaryDirectory = tmpdir();
@@ -37,6 +39,7 @@ function writePng(width: number, height: number): string {
 
   return path;
 }
+
 function describeValidateAppleDimensions() {
   function acceptsTheCanonicalPortraitSizeForAKnownSlot() {
     const appleDimensions = validateAppleDimensions('APP_IPHONE_67', 1290, 2796);
@@ -106,6 +109,7 @@ function describeValidateAppleDimensions() {
 }
 
 describe('validateAppleDimensions', describeValidateAppleDimensions);
+
 function describeValidatePlayDimensions() {
   function acceptsA916PhoneScreenshot() {
     const playDimensions = validatePlayDimensions(1080, 1920);
@@ -145,6 +149,7 @@ function describeValidatePlayDimensions() {
 }
 
 describe('validatePlayDimensions', describeValidatePlayDimensions);
+
 function describeCanonicalDimensions() {
   function returnsTheAppleSlotSCanonicalSize() {
     expect(canonicalDimensions('ios', 'APP_IPAD_PRO_3GEN_129')).toEqual([2048, 2732]);
@@ -179,6 +184,7 @@ function describeCanonicalDimensions() {
 }
 
 describe('canonicalDimensions', describeCanonicalDimensions);
+
 function describeCheckScreenshotFile() {
   async function measuresAndPassesAnInSpecIOSScreenshot() {
     const png = writePng(1290, 2796);

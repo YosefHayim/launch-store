@@ -78,6 +78,7 @@ function failedAction(action: { status: string }): boolean {
 function insertedSku(insertedProduct: InAppProductResource): string {
   return insertedProduct.sku;
 }
+
 function describeToPlayProduct() {
   function mapsSharedFieldsThePlayOverrideIntoAnActiveManagedProduct() {
     expect(readPlayProduct(product())).toEqual({
@@ -130,6 +131,7 @@ function describeToPlayProduct() {
 }
 
 describe('readPlayProduct', describeToPlayProduct);
+
 function describeProductInSync() {
   const desired = readPlayProduct(product());
 
@@ -169,6 +171,7 @@ function describeProductInSync() {
 }
 
 describe('productInSync', describeProductInSync);
+
 function describeReconcilePlayProducts() {
   async function throwsWhenThePlayAppPieceIsUnreachable() {
     const { api } = makeApi([], { reachable: false });

@@ -25,6 +25,7 @@ export type UpdateState = {
 };
 
 export type UpgradeResult = 'upgraded' | 'eacces' | 'failed';
+
 export type GlobalInstaller = 'npm' | 'pnpm';
 
 const installVerbs: Record<GlobalInstaller, readonly string[]> = {
@@ -139,16 +140,24 @@ function installCommandText(installer: GlobalInstaller, version: string): string
 
 export type UpdateCheckDeps = {
   now(): number;
+
   currentVersion: string;
   environmentVariables: Readonly<Record<string, string | undefined>>;
   isTTY: boolean;
   scriptPath: string;
+
   resolveInstaller(): Promise<GlobalInstaller | null>;
+
   readState(): UpdateState | null;
+
   writeState(state: UpdateState): Promise<void>;
+
   fetchLatest(): Promise<string | null>;
+
   upgrade(installer: GlobalInstaller, current: string, latest: string): Promise<UpgradeResult>;
+
   reexec(installer: GlobalInstaller): Promise<void>;
+
   notify(message: string): Promise<void>;
 };
 

@@ -1,4 +1,5 @@
 export type PortfolioPlatform = 'ios' | 'android';
+
 export type AppOwner = 'mine' | 'client';
 
 export interface DiscoveredApp {

@@ -20,6 +20,7 @@ function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
     ...overrides,
   };
 }
+
 function describeResolveExtensionBundleIdsForApp() {
   async function returnsConfiguredExtensionsWhenIosHasNotBeenGeneratedYet() {
     const systemTemporaryDirectory = tmpdir();
@@ -138,6 +139,7 @@ function describeResolveExtensionBundleIdsForApp() {
 }
 
 describe('resolveExtensionBundleIdsForApp', describeResolveExtensionBundleIdsForApp);
+
 function describeAppGroupPreflightNotice() {
   function returnsThePortalNoticeWhenAppGroupsAreDeclared() {
     const notice = appGroupPreflightNotice({
@@ -162,6 +164,7 @@ function describeAppGroupPreflightNotice() {
 }
 
 describe('appGroupPreflightNotice', describeAppGroupPreflightNotice);
+
 function describeGatherTargetSigningReadiness() {
   async function marksAnUnregisteredExtensionAndAMainAppMissingAPPGROUPS() {
     const asc = {
@@ -203,6 +206,7 @@ function describeGatherTargetSigningReadiness() {
 }
 
 describe('gatherTargetSigningReadiness', describeGatherTargetSigningReadiness);
+
 function describeSigningPreflightWarnings() {
   function delegatesToMultiTargetSigningWarnings() {
     const [warning] = signingPreflightWarnings([
@@ -216,6 +220,7 @@ function describeSigningPreflightWarnings() {
 }
 
 describe('signingPreflightWarnings', describeSigningPreflightWarnings);
+
 function describeSigningPreflightDoctorChecks() {
   function emitsAnPieceCheckForAppGroupsAndFailChecksForNotReadyTargets() {
     const checks = signingPreflightDoctorChecks(

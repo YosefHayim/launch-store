@@ -62,6 +62,7 @@ function makePlayClient(appsOrFailure: readonly FakePlayApp[] | Error): PlayVita
 
   return client as unknown as PlayVitalsReader;
 }
+
 function describeDiscoverApps() {
   let homeDirectory: string;
 

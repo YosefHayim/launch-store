@@ -12,20 +12,27 @@ const BUILD_AND_RELEASE_STEP = 'run `launch-store build ios`, then release that 
 /** Exact App Store Connect surface the release walk needs. */
 export type AscReleaseApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   /** Used by release command / release-train; kept on the surface for structural client typing. */
   getLatestMarketingVersion(bundleId: string): Promise<string | null>;
+
   listBuilds(appId: string, limit?: number): Promise<BuildResource[]>;
+
   findBuild(
     bundleId: string,
     buildNumber: number,
   ): Promise<{ id: string; usesNonExemptEncryption: boolean | null } | null>;
+
   findBuildByVersion(
     appId: string,
     buildNumber: number,
     marketingVersion?: string,
   ): Promise<BuildResource | null>;
+
   setBuildUsesNonExemptEncryption(buildId: string, usesNonExemptEncryption: boolean): Promise<void>;
+
   listAppStoreVersions(appId: string, platform: string): Promise<AppStoreVersionResource[]>;
+
   createAppStoreVersion(
     appId: string,
     createInput: {
@@ -35,6 +42,7 @@ export type AscReleaseApi = {
       earliestReleaseDate?: string;
     },
   ): Promise<AppStoreVersionResource>;
+
   updateAppStoreVersion(
     versionId: string,
     versionUpdate: {
@@ -44,23 +52,36 @@ export type AscReleaseApi = {
       copyright?: string;
     },
   ): Promise<void>;
+
   selectBuildForVersion(versionId: string, buildId: string): Promise<void>;
+
   listAppStoreVersionLocalizations(
     versionId: string,
   ): Promise<ReadonlyArray<{ id: string; locale: string; whatsNew?: string }>>;
+
   createAppStoreVersionLocalization(
     versionId: string,
     localizationInput: { locale: string; whatsNew: string },
   ): Promise<unknown>;
+
   updateAppStoreVersionLocalization(localizationId: string, whatsNew: string): Promise<void>;
+
   getPhasedRelease(versionId: string): Promise<{ id: string; phasedReleaseState: string } | null>;
+
   createPhasedRelease(versionId: string): Promise<unknown>;
+
   deletePhasedRelease(phasedReleaseId: string): Promise<void>;
+
   listReviewSubmissions(appId: string, platform: string): Promise<ReviewSubmissionResource[]>;
+
   createReviewSubmission(appId: string, platform: string): Promise<ReviewSubmissionResource>;
+
   addReviewSubmissionItem(submissionId: string, versionId: string): Promise<void>;
+
   submitReviewSubmission(submissionId: string): Promise<void>;
+
   getReviewSubmission(submissionId: string): Promise<ReviewSubmissionResource>;
+
   /** Used by release-train go-live; kept on the surface for structural client typing. */
   createAppStoreVersionReleaseRequest(versionId: string): Promise<void>;
 };

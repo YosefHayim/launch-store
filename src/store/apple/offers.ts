@@ -38,26 +38,41 @@ import {
 /** The exact slice of {@link AppStoreConnectClient} the offers reconciler depends on. */
 export type AscOffersApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]>;
+
   listSubscriptions(groupId: string): Promise<SubscriptionResource[]>;
+
   listInAppPurchases(appId: string): Promise<InAppPurchaseResource[]>;
+
   findSubscriptionPricePoint(
     subscriptionId: string,
     territory: string,
     customerPrice: number,
   ): Promise<PricePointResource | null>;
+
   listSubscriptionOfferCodes(subscriptionId: string): Promise<OfferCodeResource[]>;
+
   createSubscriptionOfferCode(offerCode: OfferCodeCreate): Promise<OfferCodeResource>;
+
   listPromotionalOffers(subscriptionId: string): Promise<PromotionalOfferResource[]>;
+
   createPromotionalOffer(offer: PromotionalOfferCreate): Promise<PromotionalOfferResource>;
+
   listIntroductoryOffers(subscriptionId: string): Promise<IntroductoryOfferResource[]>;
+
   createIntroductoryOffer(offer: IntroductoryOfferCreate): Promise<void>;
+
   listWinBackOffers(subscriptionId: string): Promise<WinBackOfferResource[]>;
+
   createWinBackOffer(offer: WinBackOfferCreate): Promise<void>;
+
   listPromotedPurchases(appId: string): Promise<PromotedPurchaseResource[]>;
+
   createPromotedPurchase(
     promotedPurchase: PromotedPurchaseCreate,
   ): Promise<PromotedPurchaseResource>;
+
   reorderPromotedPurchases(appId: string, orderedIds: string[]): Promise<void>;
 };
 

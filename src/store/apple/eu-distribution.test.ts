@@ -33,6 +33,7 @@ function makeApi(existing: AlternativeDistributionDomainResource[]): {
 
   return { api, created };
 }
+
 /** Execute the EU-distribution reconciler at the test boundary. */
 function runReconcile(api: AscEuDistributionApi, config: EuDistributionConfig, dryRun: boolean) {
   return reconcileEuDistributionDomains(api, config, dryRun);
@@ -43,9 +44,11 @@ const CONFIG: EuDistributionConfig = {
     { domain: 'cdn.acme.com', referenceName: 'Acme CDN' },
   ],
 };
+
 function decodeEuDistributionConfig(rawDocument: unknown) {
   return parseEuDistributionConfig(rawDocument);
 }
+
 function describeParseEuDistributionPiece() {
   function parsesAnArrayOfDomains() {
     const decodeEuDistribution = decodeEuDistributionConfig(CONFIG);
@@ -112,6 +115,7 @@ function describeParseEuDistributionPiece() {
 }
 
 describe('parseEuDistributionConfig', describeParseEuDistributionPiece);
+
 function describeReconcileEuDistributionDomains() {
   async function createsOnlyTheDomainsAppleDoesnTAlreadyHave() {
     const { api, created } = makeApi([{ id: 'd1', domain: 'downloads.acme.com' }]);

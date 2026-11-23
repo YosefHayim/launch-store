@@ -19,6 +19,7 @@ function createStat(overrides: Partial<DailyStat>): DailyStat {
     ...overrides,
   };
 }
+
 function describeSaveDailyStats() {
   let homeDirectory: string;
 
@@ -49,6 +50,7 @@ function describeSaveDailyStats() {
   async function saveInHome(stats: readonly DailyStat[]): Promise<void> {
     await saveDailyStats('ios-1', stats);
   }
+
   async function writesOneFilePerMonth() {
     const stat = createStat({ date: '2026-09-30' });
     await saveInHome([stat, createStat({ date: '2026-10-01' })]);

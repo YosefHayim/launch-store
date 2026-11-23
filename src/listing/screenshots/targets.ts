@@ -1,10 +1,12 @@
 type ScreenshotOrientation = 'both' | 'fixed';
+
 /** Pixel dimensions accepted by one App Store screenshot display type. */
 type AppleScreenshotDimensions = {
   readonly canonical: readonly [number, number];
   readonly accepted: readonly (readonly [number, number])[];
   readonly orientation: ScreenshotOrientation;
 };
+
 /** One Apple device target shared by screenshot validation and preview labeling. */
 type AppleAssetTarget = {
   readonly key: string;
@@ -321,6 +323,7 @@ const appleTargetsWithPreviews = APPLE_ASSET_TARGETS.filter(
   (assetTarget): assetTarget is AppleAssetTarget & { readonly previewType: string } =>
     assetTarget.previewType != null,
 );
+
 function pairPreviewTarget(
   assetTarget: AppleAssetTarget & { readonly previewType: string },
 ): readonly [string, AppleAssetTarget & { readonly previewType: string }] {
@@ -328,18 +331,22 @@ function pairPreviewTarget(
 }
 
 const appleTargetByPreviewType = new Map(appleTargetsWithPreviews.map(pairPreviewTarget));
+
 /** Find an Apple asset target by its stable Launch key. */
 export function findAppleAssetTarget(targetKey: string): AppleAssetTarget | undefined {
   return appleTargetByKey.get(targetKey);
 }
+
 /** Find an Apple asset target by its App Store screenshot display type. */
 export function findAppleScreenshotTarget(displayType: string): AppleAssetTarget | undefined {
   return appleTargetByDisplayType.get(displayType);
 }
+
 /** Find an Apple asset target by its App Store preview type. */
 export function findApplePreviewTarget(previewType: string): AppleAssetTarget | undefined {
   return appleTargetByPreviewType.get(previewType);
 }
+
 /** Return a display type's friendly label, falling back to an unknown future enum value. */
 export function appleDisplayTypeLabel(displayType: string): string {
   const assetTarget = findAppleScreenshotTarget(displayType);
@@ -348,6 +355,7 @@ export function appleDisplayTypeLabel(displayType: string): string {
 
   return assetTarget.label;
 }
+
 /** Return a preview type's friendly label, falling back to an unknown future enum value. */
 export function applePreviewTypeLabel(previewType: string): string {
   const assetTarget = findApplePreviewTarget(previewType);

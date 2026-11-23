@@ -92,6 +92,7 @@ function uploadCall() {
 
   return call;
 }
+
 function cleanup() {
   uploadBundleToTrack.mockClear();
   playUpload.isRejected = false;
@@ -99,6 +100,7 @@ function cleanup() {
 }
 
 afterEach(cleanup);
+
 function describeGooglePlaySubmitterPackageNameEAS3563Regression() {
   async function uploadsToAndroidPackageNOTTheIOSBundleIdentifier() {
     const android = androidContext();
@@ -176,6 +178,7 @@ describe(
   'google-play submitter - package_name (EAS #3563 regression)',
   describeGooglePlaySubmitterPackageNameEAS3563Regression,
 );
+
 function describeGooglePlaySubmitterReleaseNotesIssue309() {
   async function sendsTheConfiguredReleaseNotesPerLocaleWithTheRelease() {
     const android = androidContext({

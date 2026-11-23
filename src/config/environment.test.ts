@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decodeLaunchEnvironment } from './environment.ts';
+
 function describeDecodeLaunchEnvironment() {
   function mapsEnvironmentNamesToDomainFacingProperties() {
     const environment = decodeLaunchEnvironment({

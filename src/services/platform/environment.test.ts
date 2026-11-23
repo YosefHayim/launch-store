@@ -8,6 +8,7 @@ import {
 afterEach(function resetEnvironment() {
   resetLaunchEnvironment();
 });
+
 function describeReadLaunchEnvironment() {
   function providesAnEmptyEnvironment() {
     useLaunchEnvironment({});

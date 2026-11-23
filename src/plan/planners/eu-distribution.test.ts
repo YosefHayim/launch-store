@@ -10,6 +10,7 @@ import type { ActionStatus } from '@/types/reconcile.js';
 const DECLARED: EuDistributionConfig = {
   domains: [{ domain: 'downloads.acme.com', referenceName: 'Acme Downloads' }],
 };
+
 function makeCtx(api: AscSurfacesApi | null, euDistribution?: EuDistributionConfig): PlanContext {
   const baseConfig: LaunchConfig = {
     profiles: {},
@@ -33,6 +34,7 @@ function makeCtx(api: AscSurfacesApi | null, euDistribution?: EuDistributionConf
     },
   };
 }
+
 function describeEuDistributionPlanner() {
   async function omitsItselfWhenNoDistributionDomainsAreDeclared() {
     const ascApiFake = makeAscApiFake();

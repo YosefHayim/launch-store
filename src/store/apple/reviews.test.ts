@@ -61,6 +61,7 @@ function customerReview(
 ): CustomerReviewResource {
   return { answered: false, ...overrides };
 }
+
 function mockCall(reviewId: string, responseText: string) {
   return Promise.resolve({
     id: `resp-${reviewId}`,
@@ -159,6 +160,7 @@ describe('listReviews', () => {
     expect(reviewsStore.listCustomerReviews).toHaveBeenCalledWith('app1', {});
   });
 });
+
 function describeReplyToReview() {
   async function postsANewReplyAndReportsThatItDidNotReplaceOne() {
     const reviewsStore = makeReviewsStore({ existingReply: null });
@@ -190,6 +192,7 @@ function describeReplyToReview() {
 }
 
 describe('replyToReview', describeReplyToReview);
+
 function describeDeleteReviewPiece() {
   async function returnsFalseWhenNoReplyExists() {
     const reviewsStore = makeReviewsStore({ existingReply: null });

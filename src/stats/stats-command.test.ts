@@ -54,6 +54,7 @@ const ALL_APPS_REQUEST: StatsCommandRequest = {
 type CommandOutcome =
   | { readonly _tag: 'Right' }
   | { readonly _tag: 'Left'; readonly left: unknown };
+
 function describeStatsReportProgram() {
   let homeDirectory: string;
 
@@ -115,6 +116,7 @@ function describeStatsReportProgram() {
 
     return { outcome, lines };
   }
+
   async function printsOneJSONObjectWithTheReportWithPiece() {
     const { outcome, lines } = await run({ ...ALL_APPS_REQUEST, json: true, days: '7' });
 

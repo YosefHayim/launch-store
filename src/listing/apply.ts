@@ -19,16 +19,19 @@ const ANDROID_LIMITS = {
   shortDescription: 80,
   fullDescription: 4000,
 } as const;
+
 /** Hard-truncate to `max`, trimming a trailing partial word's whitespace so the cut reads cleanly. */
 function clampText(listingText: string, maxCharacters: number): string {
   if (listingText.length <= maxCharacters) return listingText;
 
   return listingText.slice(0, maxCharacters).trimEnd();
 }
+
 /** The comma-joined serialization Apple counts against the 100-char keyword limit. */
 export function serializeKeywords(keywords: readonly string[]): string {
   return keywords.join(', ');
 }
+
 /** Keep keywords from the front until adding the next would overflow the joined-string limit. */
 function clampKeywords(keywords: readonly string[], maxCharacters: number): string[] {
   const keptKeywords: string[] = [];
@@ -41,6 +44,7 @@ function clampKeywords(keywords: readonly string[], maxCharacters: number): stri
 
   return keptKeywords;
 }
+
 /** Clamp every field of a draft to its App Store limit */
 export function clampDraft(listingDraft: DraftListing): {
   draft: DraftListing;
@@ -101,6 +105,7 @@ export function clampDraft(listingDraft: DraftListing): {
 
   return { draft: clampedDraft, warnings: warningMessages };
 }
+
 /** Build the brief for one locale. */
 export function briefFor(
   localeName: string,
@@ -124,6 +129,7 @@ export function briefFor(
 
   return listingBrief;
 }
+
 /** Derive a Play listing from the App Store draft */
 export function deriveAndroidLocale(listingDraft: DraftListing): AndroidLocaleInfo {
   const androidListing: AndroidLocaleInfo = {};
@@ -147,6 +153,7 @@ export function deriveAndroidLocale(listingDraft: DraftListing): AndroidLocaleIn
 
   return androidListing;
 }
+
 /** Fold a draft into a config for one locale, immutably */
 /** Merge a draft over one locale's existing App Store listing, copying keywords into a mutable array. */
 function mergeAppleLocale(
@@ -237,6 +244,7 @@ export function applyDraft(
 
   return updatedStoreConfiguration;
 }
+
 /** Collapse a long field to a single trimmed line for the preview, with an ellipsis when cut. */
 function previewText(listingText: string): string {
   const singleLineText = listingText.replace(/\s+/g, ' ').trim();
@@ -245,6 +253,7 @@ function previewText(listingText: string): string {
 
   return singleLineText;
 }
+
 /** Format one aligned preview line with its character budget. */
 function previewLine(
   fieldLabel: string,
@@ -254,6 +263,7 @@ function previewLine(
 ): string {
   return `    ${fieldLabel.padEnd(13)} ${previewText(listingText)}  (${usedCharacters}/${characterLimit})`;
 }
+
 /** Render the drafts for confirmation */
 export function renderDraftPreview(
   listingDrafts: LocaleDraft[],

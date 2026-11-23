@@ -83,6 +83,7 @@ const euDistributionConfigSpec = {
 /** The exact slice of App Store Connect the domain reconciler depends on. */
 export type AscEuDistributionApi = {
   listAlternativeDistributionDomains(): Promise<AlternativeDistributionDomainResource[]>;
+
   createAlternativeDistributionDomain(domain: string, referenceName: string): Promise<void>;
 };
 

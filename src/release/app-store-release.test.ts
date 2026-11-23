@@ -124,6 +124,7 @@ function releaseInput(overrides: Partial<ReleaseInput> = {}): ReleaseInput {
     ...overrides,
   };
 }
+
 function describeNextReleaseActionTheAppStorePieceTransitionTable() {
   function classifiesEachLifecyclePieceIntoTheActionItPermits() {
     expect(nextReleaseAction('PREPARE_FOR_SUBMISSION')).toBe('editable');
@@ -146,6 +147,7 @@ describe(
   'nextReleaseAction - the appStoreState transition table',
   describeNextReleaseActionTheAppStorePieceTransitionTable,
 );
+
 function describeClassifyVerdictTheWatchExitCodeContract() {
   function mapsStatesToVerdictsWithTheDocumentedExitCodes() {
     const verdict = classifyVerdict('READY_FOR_SALE');
@@ -184,6 +186,7 @@ describe(
   'classifyVerdict - the --watch / exit-code contract',
   describeClassifyVerdictTheWatchExitCodeContract,
 );
+
 function describeReleaseAppSubmitAnUpdateOverTheAPI() {
   async function createsTheVersionAttachesTheBuildDeclaresComplianceWritesNotesAndSubmits() {
     const api = makeReleaseApiFake();
@@ -735,6 +738,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
 }
 
 describe('releaseApp - submit an update over the API', describeReleaseAppSubmitAnUpdateOverTheAPI);
+
 function describeReleaseAppAttachOnlyNoReviewSubmission() {
   const EDITABLE_VERSION = {
     id: 'v-edit',
@@ -815,6 +819,7 @@ describe(
   'releaseApp - attach only (no review submission)',
   describeReleaseAppAttachOnlyNoReviewSubmission,
 );
+
 function describePickCurrentVersion() {
   function prefersAnInFlightVersionOverALiveOne() {
     const versions: AppStoreVersionResource[] = [
@@ -851,6 +856,7 @@ function describePickCurrentVersion() {
 }
 
 describe('pickCurrentVersion', describePickCurrentVersion);
+
 function describeReadReleaseStatus() {
   async function classifiesTheCurrentVersionAndTheBuildAttachedToIt() {
     function mockCall11() {
@@ -933,10 +939,12 @@ function describeReadReleaseStatus() {
 }
 
 describe('readReleaseStatus', describeReadReleaseStatus);
+
 function describeWaitForValidBuild() {
   function noSleep(): Promise<void> {
     return Promise.resolve();
   }
+
   async function returnsTheBuildOnceItReachesVALID() {
     function mockCall15() {
       return Promise.resolve(VALID_BUILD);

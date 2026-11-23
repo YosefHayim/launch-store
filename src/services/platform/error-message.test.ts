@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { errorMessage, hasMessage } from './error-message.ts';
+
 function describeErrorMessage() {
   function returnsAnErrorSMessageVerbatim() {
     const failureMessage = errorMessage(new Error('boom'));
@@ -36,6 +37,7 @@ function describeErrorMessage() {
 }
 
 describe('errorMessage', describeErrorMessage);
+
 function describeHasMessage() {
   function acceptsAnErrorAndATaggedFailureWithAMessage() {
     expect(hasMessage(new Error('boom'))).toBe(true);

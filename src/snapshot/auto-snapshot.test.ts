@@ -27,6 +27,7 @@ function snapshotContext(over: Partial<SnapshotContext> = {}): SnapshotContext {
     ...over,
   };
 }
+
 function describeCaptureAutoSnapshot() {
   let dir: string;
 

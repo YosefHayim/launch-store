@@ -3,7 +3,9 @@ import { requireOptional } from '@/services/platform/optional-dep.js';
 import type { AllocateRequest, AwsConfig } from '@/types/remote.js';
 
 export type Ec2Module = typeof import('@aws-sdk/client-ec2');
+
 type CredentialModule = typeof import('@aws-sdk/credential-providers');
+
 export type Ec2Client = InstanceType<Ec2Module['EC2Client']>;
 
 export type AwsComputeFailure = Readonly<{

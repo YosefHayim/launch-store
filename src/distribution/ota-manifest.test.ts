@@ -11,6 +11,7 @@ import {
   updatesAppConfigSnippet,
   updatesWorkerScript,
 } from './ota-manifest.ts';
+
 function describePieceTypeFor() {
   function mapsKnownExtensionsAndDefaultsUnknownOnesToOctetStream() {
     const typeFor = contentTypeFor('_expo/static/js/ios/index-abc.hbc');
@@ -28,6 +29,7 @@ function describePieceTypeFor() {
 }
 
 describe('contentTypeFor', describePieceTypeFor);
+
 function describeAssembleManifest() {
   function producesAProtocolV0ManifestWithEmptyMetadataExtra() {
     const manifest = assembleManifest({
@@ -61,6 +63,7 @@ function describeAssembleManifest() {
 }
 
 describe('assembleManifest', describeAssembleManifest);
+
 function describeManifestKey() {
   function keysAManifestByChannelPlatformAndRuntimeVersion() {
     expect(manifestKey('production', 'ios', '1.0.0')).toBe(
@@ -78,6 +81,7 @@ function describeManifestKey() {
 }
 
 describe('manifestKey', describeManifestKey);
+
 function describeHistoryRollbackKeys() {
   function keysTheIndexPerChannelPlatformAndSnapshotsDirectivesUnderTheRuntimeVersion() {
     expect(historyIndexKey('production', 'android')).toBe(
@@ -98,6 +102,7 @@ function describeHistoryRollbackKeys() {
 }
 
 describe('history + rollback keys', describeHistoryRollbackKeys);
+
 function describeAssembleRollbackDirective() {
   function buildsARollBackToEmbeddedDirectiveCommittedAtTheGivenTime() {
     expect(assembleRollbackDirective('2026-06-14T00:00:00.000Z')).toEqual({
@@ -113,6 +118,7 @@ function describeAssembleRollbackDirective() {
 }
 
 describe('assembleRollbackDirective', describeAssembleRollbackDirective);
+
 function describeUpdatesWorkerScript() {
   function readsTheExpoHeadersAndRoutesToTheStaticManifestUnderThePublicBase() {
     const script = updatesWorkerScript('https://cdn.example.com/');
@@ -146,6 +152,7 @@ function describeUpdatesWorkerScript() {
 }
 
 describe('updatesWorkerScript', describeUpdatesWorkerScript);
+
 function describeUpdatesAppPieceSnippet() {
   function includesTheCodeSigningBlockOnlyWhenSigned() {
     const signed = updatesAppConfigSnippet({

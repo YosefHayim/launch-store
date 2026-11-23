@@ -1,5 +1,6 @@
 import { READINESS_EXIT } from '../readiness/orchestrator.ts';
 import type { PrivacyFinding, PrivacySurface } from '../types/privacy.ts';
+
 /** Every finding from a scan, plus the process exit code. */
 type PrivacyReport = Readonly<{
   findings: readonly PrivacyFinding[];
@@ -23,6 +24,7 @@ const USAGE_TO_DATA_TYPE: Record<string, string> = {
 /** The data types the reconcile can reason about - only these are eligible for the over-declaration check. */
 const ownValues = Object.values(USAGE_TO_DATA_TYPE);
 const reconcilableDataTypes = new Set(ownValues);
+
 /** Reconcile one app's surface into findings. Pure; the order is empty -> manifest -> collection -> tracking -> android. */
 export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyFinding[] {
   const findings: PrivacyFinding[] = [];
@@ -152,6 +154,7 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
 
   return findings;
 }
+
 /** Roll findings across the scanned apps into a report. */
 export function buildPrivacyReport(
   findings: PrivacyFinding[],
@@ -175,6 +178,7 @@ export function buildPrivacyReport(
 
   return { findings, scanned, exitCode };
 }
+
 /** Render a report as human-readable lines: per-app findings, then a blocker/warning tally. */
 export function renderPrivacyReport(report: PrivacyReport): string {
   if (report.scanned.length == 0) {

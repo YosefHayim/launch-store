@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readOpenCommandInput } from './open-command.ts';
+
 function describeReadOpenCommandPiece() {
   function keepsTheTargetAndOptionalSelectorsFromCommander() {
     const commandInput = readOpenCommandInput({

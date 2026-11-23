@@ -8,6 +8,7 @@ import {
   resolveReleaseType,
   resolveWhatsNew,
 } from './release-inputs.ts';
+
 function describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault() {
   function defaultsToAFTERAPPROVALWithNoPieceAndNoOverrides() {
     const releaseType = resolveReleaseType(undefined, {});
@@ -77,6 +78,7 @@ describe(
   'resolveReleaseType - CLI flags override the configured default',
   describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault,
 );
+
 function describeResolveReleaseNotesPieceNotesPerLocaleMap() {
   function returnsWhenNoNotesAreConfigured() {
     const releaseNotes = resolveReleaseNotes(undefined, 'en-US');
@@ -106,6 +108,7 @@ describe(
   'resolveReleaseNotes - config notes -> per-locale map',
   describeResolveReleaseNotesPieceNotesPerLocaleMap,
 );
+
 function describeReadStoreReleaseNotesPerLocaleReleaseNotesFromStorePiecePiece() {
   async function returnsWhenTheAppHasNoStorePiecePiece() {
     const systemTemporaryDirectory = tmpdir();
@@ -147,6 +150,7 @@ describe(
   'readStoreReleaseNotes - per-locale releaseNotes from store.config.json',
   describeReadStoreReleaseNotesPerLocaleReleaseNotesFromStorePiecePiece,
 );
+
 function describeResolveWhatsNewStorePiecePieceOverridesReleaseReleaseNotesPerLocale() {
   async function mergesBothSourcesStorePiecePieceWinningForASharedLocale() {
     const systemTemporaryDirectory = tmpdir();

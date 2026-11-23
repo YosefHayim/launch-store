@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { parsePlayReportsBucket } from './play-reports-bucket.ts';
+
 function describeParsePlayReportsBucket() {
   function readsABareBucketName() {
     const playReportsBucket = parsePlayReportsBucket('pubsite_prod_rev_0123456789');

@@ -91,6 +91,7 @@ async function ascClientForFreshApps(keyId: string): Promise<AppStoreStatsClient
 const answerWithFreshApps: Partial<StatsCredentialsApi> = {
   ascClientForAccount: ascClientForFreshApps,
 };
+
 function describeLoadPortfolioApps() {
   let homeDirectory: string;
 
@@ -126,6 +127,7 @@ function describeLoadPortfolioApps() {
     const loadedFile = readFileSync(portfolioPath, 'utf8');
     return JSON.parse(loadedFile);
   }
+
   async function cacheFirstUsesTheSavedFileWithoutAskingTheStores() {
     const serialized = JSON.stringify(CACHED_FILE);
 

@@ -129,14 +129,17 @@ export interface AppFeedSyncReport {
   readonly statsWritten: number;
   readonly message: string | null;
 }
+
 export interface StatsSyncReport {
   readonly syncedAt: string;
   readonly appFeeds: readonly AppFeedSyncReport[];
 }
+
 export interface StatsSyncRequest {
   readonly appName: string | null;
   readonly days: number;
 }
+
 export interface StatsFreshness {
   readonly isStale: boolean;
   readonly report: StatsSyncReport | null;

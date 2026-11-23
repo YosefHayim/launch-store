@@ -56,6 +56,7 @@ function captured(count: number): SourceCapture {
 
   return { state: 'captured', apps: [{ app: 'alpha', identifier: 'com.acme.alpha', entities }] };
 }
+
 function describeCaptureSnapshot() {
   async function assemblesThePieceWithVersionNameAndCaptureTime() {
     function piecePiece() {

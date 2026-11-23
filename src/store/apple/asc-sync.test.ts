@@ -269,6 +269,7 @@ function runReconcile(api: AscCatalogApi, reconcileInput: ReconcileInput) {
 function runListingReconcile(api: AscCatalogApi, listingInput: ListingReconcileInput) {
   return reconcileAppListing(api, listingInput);
 }
+
 function describeReconcileApp() {
   async function plansEveryCreateFromAnEmptyAccountWithoutPerformingAnyWritesDryRun() {
     const api = makeApi();
@@ -643,6 +644,7 @@ function describeReconcileApp() {
 }
 
 describe('reconcileApp', describeReconcileApp);
+
 function describeReconcileAppStoreListingLocalizations() {
   /** A listing-only run through the full reconciler: no capabilities/products. */
   function listingViaFullReconcile(
@@ -651,6 +653,7 @@ function describeReconcileAppStoreListingLocalizations() {
   ): ReconcileInput {
     return input({ capabilities: [], products: {}, listing, ...overrides });
   }
+
   async function createsMissingAppLevelAndVersionLevelLocalesRoutingEachFieldCorrectly() {
     const api = makeApi();
     const listing: AppleStoreConfig = {
@@ -803,6 +806,7 @@ describe(
   'reconcileApp - store listing localizations',
   describeReconcileAppStoreListingLocalizations,
 );
+
 function describeReconcileAppListing() {
   async function plansListingWritesOnlyNoCatalogSurfacesAndNeverCallsProductAPIs() {
     const api = makeApi();

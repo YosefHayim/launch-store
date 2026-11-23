@@ -1,9 +1,11 @@
 import { captureCommandOutput, type CommandExecutionOptions, executeCommand } from './exec.ts';
 import type { SshTarget } from '@/types/remote.js';
+
 /** `user@host` for ssh/scp/rsync destinations. */
 function userHost(target: SshTarget): string {
   return `${target.user}@${target.host}`;
 }
+
 /** Shared ssh `-o` options + key, plus the lowercase `-p <port>` ssh uses. */
 function sshFlags(target: SshTarget): string[] {
   const flags = [
@@ -23,6 +25,7 @@ function sshFlags(target: SshTarget): string[] {
 
   return flags;
 }
+
 /** scp shares the ssh options but spells the port `-P` (uppercase). */
 function scpFlags(target: SshTarget): string[] {
   const flags = [
@@ -42,6 +45,7 @@ function scpFlags(target: SshTarget): string[] {
 
   return flags;
 }
+
 /** Run a command on the remote host, streaming output. `remoteCommand` runs in the remote shell. */
 export function sshRun(
   target: SshTarget,
@@ -50,6 +54,7 @@ export function sshRun(
 ): Promise<void> {
   return executeCommand('ssh', [...sshFlags(target), userHost(target), remoteCommand], options);
 }
+
 /** Run a command on the remote host and return its trimmed stdout. */
 export function sshCapture(
   target: SshTarget,
@@ -62,6 +67,7 @@ export function sshCapture(
     options,
   );
 }
+
 /** Copy a local file UP to `remotePath` on the host. */
 export function scpUp(target: SshTarget, localPath: string, remotePath: string): Promise<void> {
   return executeCommand('scp', [
@@ -70,6 +76,7 @@ export function scpUp(target: SshTarget, localPath: string, remotePath: string):
     `${userHost(target)}:${remotePath}`,
   ]);
 }
+
 /** Copy `remotePath` DOWN from the host to a local path. */
 export function scpDown(target: SshTarget, remotePath: string, localPath: string): Promise<void> {
   return executeCommand('scp', [
@@ -78,6 +85,7 @@ export function scpDown(target: SshTarget, remotePath: string, localPath: string
     localPath,
   ]);
 }
+
 /** rsync a local directory UP to the remote over the same ssh transport */
 export function rsyncUp(
   target: SshTarget,

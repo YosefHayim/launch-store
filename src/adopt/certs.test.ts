@@ -20,6 +20,7 @@ function profile(overrides: Partial<ProfileResource> = {}): ProfileResource {
     ...overrides,
   };
 }
+
 function describePlanCertReports() {
   function reportsADelegationHintWhenTheAccountHasNoDistributionCertificate() {
     const writes = planCertReports({

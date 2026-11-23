@@ -25,12 +25,15 @@ import { versionCopyrightProbe } from './probes/version-copyright.ts';
 import { appPrivacyProbe } from './probes/app-privacy.ts';
 /** Registered probes, keyed by id so re-registering one replaces it (idempotent built-in wiring). */
 const PROBES = new Map<string, ReadinessProbe>();
+
 export function registerReadinessProbe(probe: ReadinessProbe): void {
   PROBES.set(probe.id, probe);
 }
+
 export function listReadinessProbes(): ReadinessProbe[] {
   return [...PROBES.values()];
 }
+
 export function selectReadinessProbes(category: ReadinessCategory): ReadinessProbe[] {
   function isInCategory(probe: ReadinessProbe): boolean {
     return probe.categories.includes(category);
@@ -38,6 +41,7 @@ export function selectReadinessProbes(category: ReadinessCategory): ReadinessPro
 
   return listReadinessProbes().filter(isInCategory);
 }
+
 export function registerBuiltinProbes(): void {
   registerReadinessProbe(agreementsProbe);
   registerReadinessProbe(appRecordProbe);

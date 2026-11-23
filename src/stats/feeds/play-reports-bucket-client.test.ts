@@ -76,11 +76,13 @@ async function settle<Success>(work: () => Promise<Success>): Promise<Settled<Su
     return { _tag: 'Left', left };
   }
 }
+
 function cleanup() {
   vi.unstubAllGlobals();
 }
 
 afterEach(cleanup);
+
 function describeDownloadBucketObject() {
   function downloadInstalls(status: number, body: unknown) {
     installFetch([
@@ -102,6 +104,7 @@ function describeDownloadBucketObject() {
 
     return settle(settlePiece);
   }
+
   async function returnsTheBytesOfAnObjectThatExists() {
     const reply = await downloadInstalls(200, new Uint8Array([1, 2, 3]));
 
@@ -151,6 +154,7 @@ function describeDownloadBucketObject() {
 }
 
 describe('downloadBucketObject', describeDownloadBucketObject);
+
 function describeListBucketObjectNames() {
   function listEarnings(routes: readonly HttpRoute[]) {
     installFetch(routes);
@@ -161,6 +165,7 @@ function describeListBucketObjectNames() {
 
     return settle(settlePiece2);
   }
+
   async function collectsTheNamesOverEveryPage() {
     const reply = await listEarnings([
       {
@@ -232,6 +237,7 @@ function describeListBucketObjectNames() {
 }
 
 describe('listBucketObjectNames', describeListBucketObjectNames);
+
 function describeFailBucketRead() {
   function wordsTheOperationAndTheCauseAndKeepsTheCause() {
     const failure = failBucketRead('unzip an earnings report', new Error('bad zip'));

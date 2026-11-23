@@ -25,6 +25,7 @@ const GROUP: SubscriptionGroupConfig = {
     },
   ],
 };
+
 function describeAggregateProductPieces() {
   function foldsIapAndSubscriptionGroupPiecesIntoOneAppProductsDroppingEmptyArms() {
     const pieces: ProductPiece[] = [
@@ -48,6 +49,7 @@ function describeAggregateProductPieces() {
 }
 
 describe('aggregateProductPieces', describeAggregateProductPieces);
+
 function describeSerializeProductsSection() {
   function rendersACommentedPasteReadyProductsBlockKeyedByBundleId() {
     const section = serializeProductsSection({ 'com.acme.app': { inAppPurchases: [IAP] } });
@@ -66,6 +68,7 @@ function describeSerializeProductsSection() {
 }
 
 describe('serializeProductsSection', describeSerializeProductsSection);
+
 function describeBuildAdoptedPiece() {
   function producesAFullPieceThatImportsDefinePieceAndEmbedsTheProductsBlock() {
     const config = buildAdoptedConfig('./apps', { 'com.acme.app': { inAppPurchases: [IAP] } });
@@ -83,6 +86,7 @@ function describeBuildAdoptedPiece() {
 }
 
 describe('buildAdoptedConfig', describeBuildAdoptedPiece);
+
 function describeRenderEntitlementsBlock() {
   function wrapsEntitlementsUnderIosForPastingIntoADynamicPiece() {
     const entitlementsBlock = renderEntitlementsBlock({ 'aps-environment': 'production' });

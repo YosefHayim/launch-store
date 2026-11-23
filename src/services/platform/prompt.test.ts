@@ -7,6 +7,7 @@ afterEach(function resetPromptSinks() {
   resetPrompts();
   resetLogger();
 });
+
 function describeFuzzyPieceThePickerSSubsequenceFilter() {
   function matchesAnInOrderSubsequenceCaseInsensitively() {
     const fuzzy = fuzzyMatch('sml', 'sampleapp');
@@ -44,6 +45,7 @@ describe(
   "fuzzyMatch - the picker's subsequence filter",
   describeFuzzyPieceThePickerSSubsequenceFilter,
 );
+
 function describePickOneNonInteractivePolicyNoTTY() {
   const choices = [
     { selection: 'a', label: 'Alpha' },
@@ -95,6 +97,7 @@ function describePickOneNonInteractivePolicyNoTTY() {
 }
 
 describe('pickOne - non-interactive policy (no TTY)', describePickOneNonInteractivePolicyNoTTY);
+
 function describeLaunchPromptSelectManyTestAnswers() {
   async function returnsTheConfiguredDomainSelections() {
     usePromptAnswers({ selectionIndexes: [0, 2] });

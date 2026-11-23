@@ -15,6 +15,7 @@ import {
 } from './cost.ts';
 const HOUR_MS = 60 * 60 * 1000;
 const allocatedAt = '2026-06-14T00:00:00.000Z';
+
 function describeEC2MacCostModelVerifiedAWSFigures() {
   function encodesTheVerified24hFloorAtTheOnDemandRate() {
     expect(EC2_MAC_HOURLY_USD).toBe(0.65);

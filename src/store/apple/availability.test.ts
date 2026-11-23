@@ -5,6 +5,7 @@ import {
   parseAvailabilityConfig,
   reconcileAvailability,
 } from './availability.ts';
+
 /** Records create/update calls so tests can assert which singleton path the reconciler selected. */
 type Calls = {
   create: {
@@ -16,6 +17,7 @@ type Calls = {
     territories: string[];
   }[];
 };
+
 /** A hand-rolled {@link AscAvailabilityApi} serving `current` and recording writes without a network. */
 function makeApi(
   current: AppAvailabilityResource | null,
@@ -44,13 +46,16 @@ function makeApi(
 
   return { api, calls };
 }
+
 /** Execute the availability reconciler at the test boundary. */
 function runReconcile(api: AscAvailabilityApi, input: Parameters<typeof reconcileAvailability>[1]) {
   return reconcileAvailability(api, input);
 }
+
 function availability(partial: Partial<AppAvailabilityResource>): AppAvailabilityResource {
   return { id: 'avail-1', availableInNewTerritories: false, availableTerritories: [], ...partial };
 }
+
 function describeParseAvailabilityPiece() {
   function parsesAndUppercasesTerritoryCodesWithTheOptionalFlag() {
     const parseAvailability = parseAvailabilityConfig({
@@ -112,6 +117,7 @@ function describeParseAvailabilityPiece() {
 }
 
 describe('parseAvailabilityConfig', describeParseAvailabilityPiece);
+
 function describeReconcileAvailability() {
   const config = { territories: ['USA', 'GBR', 'CAN'] };
 

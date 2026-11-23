@@ -1,5 +1,6 @@
 import type { AppProducts } from '@/types/catalog.js';
 import type { ReadinessContext } from '@/types/readiness.js';
+
 function declaredIapIds(readinessContext: ReadinessContext, bundleId: string): string[] {
   let inAppPurchases = readinessContext.config.products?.[bundleId]?.inAppPurchases;
 
@@ -36,6 +37,7 @@ export function sellsProducts(readinessContext: ReadinessContext, bundleId: stri
 
   return declaredSubscriptionIds(readinessContext, bundleId).length > 0;
 }
+
 export function declaredAppleProductIds(products: AppProducts | undefined): string[] {
   if (products == null) {
     return [];
@@ -66,12 +68,14 @@ export function declaredAppleProductIds(products: AppProducts | undefined): stri
 
   return [...purchases, ...subscriptions];
 }
+
 /** A `checked` finding's status + copy, without the per-app fields the probe stamps on. */
 type ProductGrade = {
   status: 'ok' | 'blocker';
   detail: string;
   hint?: string;
 };
+
 export function gradeDeclaredProduct(
   productId: string,
   live:

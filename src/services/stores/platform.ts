@@ -6,6 +6,7 @@ type PlatformMappingFailure = Readonly<{
   readonly platform: string;
   readonly message: string;
 }>;
+
 function makePlatformMappingFailure(fields: {
   operation: string;
   platform: string;
@@ -18,6 +19,7 @@ function makePlatformMappingFailure(fields: {
     message: fields.message,
   };
 }
+
 function unsupportedPlatform(operation: string, platform: string, message: string): never {
   throw makePlatformMappingFailure({ operation, platform, message });
 }
@@ -30,10 +32,12 @@ export const APPLE_PLATFORMS: ReadonlySet<Platform> = new Set<Platform>([
 ]);
 /** Every build platform Launch accepts, in CLI-help order. The single source for the `<platform>` argument across commands. */
 export const PLATFORMS: readonly Platform[] = ['ios', 'android', 'tvos', 'macos', 'visionos'];
+
 /** Whether `platform` is one of the Apple build platforms (vs Android). */
 export function isApplePlatform(platform: Platform): boolean {
   return APPLE_PLATFORMS.has(platform);
 }
+
 /** Human-facing label for a build platform, for CLI prose and headers (e.g. `iOS`, `Android`, `tvOS`, `macOS`, `visionOS`). */
 export function platformLabel(platform: Platform): string {
   switch (platform) {
@@ -49,6 +53,7 @@ export function platformLabel(platform: Platform): string {
       return 'visionOS';
   }
 }
+
 /** Parse a user-supplied `<platform>` argument into a {@link Platform} */
 export function parsePlatform(platformText: string) {
   function isRequestedPlatform(platform: 'ios' | 'android' | 'tvos' | 'macos' | 'visionos') {
@@ -66,6 +71,7 @@ export function parsePlatform(platformText: string) {
 
   return match;
 }
+
 /** The App Store Connect platform attribute for a build platform */
 export function readConnectPlatform(platform: Platform) {
   switch (platform) {
@@ -85,6 +91,7 @@ export function readConnectPlatform(platform: Platform) {
       );
   }
 }
+
 /** The App Store Connect **bundle-id** platform for a build platform */
 export function readBundleIdPlatform(platform: Platform) {
   switch (platform) {
@@ -102,6 +109,7 @@ export function readBundleIdPlatform(platform: Platform) {
       );
   }
 }
+
 /** The App Store provisioning-profile type for an Apple platform. */
 export function appStoreProfileType(platform: Platform) {
   switch (platform) {
@@ -120,6 +128,7 @@ export function appStoreProfileType(platform: Platform) {
       );
   }
 }
+
 /** The ad-hoc (install-link) provisioning-profile type for an Apple platform */
 export function adHocProfileType(platform: Platform) {
   switch (platform) {
@@ -138,6 +147,7 @@ export function adHocProfileType(platform: Platform) {
       );
   }
 }
+
 /** The `xcodebuild archive` destination for an Apple platform. */
 export function archiveDestination(platform: Platform) {
   switch (platform) {
@@ -157,6 +167,7 @@ export function archiveDestination(platform: Platform) {
       );
   }
 }
+
 /** The directory under the app root that holds an Apple platform's committed native Xcode */
 export function nativeProjectDirName(platform: Platform) {
   switch (platform) {
@@ -175,6 +186,7 @@ export function nativeProjectDirName(platform: Platform) {
       );
   }
 }
+
 /** The React Native fork / template that supplies a non-iOS Apple platform's committed native */
 export function nativeTargetHint(platform: Platform) {
   switch (platform) {
@@ -194,6 +206,7 @@ export function nativeTargetHint(platform: Platform) {
       );
   }
 }
+
 /** The file extension (no dot) of the archive `xcodebuild -exportArchive` exports for an Apple */
 export function appleArtifactExtension(platform: Platform) {
   switch (platform) {

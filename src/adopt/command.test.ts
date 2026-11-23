@@ -35,6 +35,7 @@ function targetPlanWithWrites(writes: readonly PlannedWrite[]): TargetPlan {
     errors: [],
   };
 }
+
 function describeAdoptCommandPieceSchema() {
   async function defaultsToEveryAppWithoutMutationOrConfirmationOverrides() {
     const commandInput = AdoptCommandInputSchema({});
@@ -75,6 +76,7 @@ describe('selectAdoptApps', () => {
     failsWithTheDiscoveredHandlesWhenASelectorIsUnknown,
   );
 });
+
 function describeCountAdoptMutations() {
   function countsPieceWritesAndIgnoresDetectOnlyKeychainReports() {
     const mutationCount = countAdoptMutations([
@@ -124,6 +126,7 @@ function describeCountAdoptMutations() {
 }
 
 describe('countAdoptMutations', describeCountAdoptMutations);
+
 function describeAdoptFidelityMarker() {
   function mapsEachFidelityTierToItsPlanMarker() {
     const fidelityMarker = adoptFidelityMarker('importable');
@@ -136,6 +139,7 @@ function describeAdoptFidelityMarker() {
 }
 
 describe('adoptFidelityMarker', describeAdoptFidelityMarker);
+
 function describeDetectSharedAppRoot() {
   const pathService = {
     relative(from: string, to: string): string {

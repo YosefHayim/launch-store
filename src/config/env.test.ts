@@ -15,9 +15,11 @@ import {
 } from './env.ts';
 import { expectDefined } from '../testkit/assertions-testkit.ts';
 const tempDirs: string[] = [];
+
 async function runEnvEffect<Success>(envWork: Promise<Success>): Promise<Success> {
   return envWork;
 }
+
 function makeTempDir(): string {
   const systemTemporaryDirectory = tmpdir();
   const joinedPath = join(systemTemporaryDirectory, 'launch-env-');
@@ -27,6 +29,7 @@ function makeTempDir(): string {
 
   return dir;
 }
+
 function cleanup() {
   while (tempDirs.length > 0) {
     rmSync(expectDefined(tempDirs.pop(), 'temp dir'), { recursive: true, force: true });
@@ -34,6 +37,7 @@ function cleanup() {
 }
 
 afterEach(cleanup);
+
 function describeParseDotenv() {
   function skipsBlanksAndCommentsDropsExportAndTrimsKeys() {
     const parsed = parseDotenv('# comment\n\nexport FOO=bar\n  BAZ = qux  \n');
@@ -66,6 +70,7 @@ function describeParseDotenv() {
 }
 
 describe('parseDotenv', describeParseDotenv);
+
 function describeLoadDotenvFile() {
   async function returnsAnEmptyObjectWhenTheFileIsAbsent() {
     const makeDir = makeTempDir();
@@ -94,6 +99,7 @@ function describeLoadDotenvFile() {
 }
 
 describe('loadDotenvFile', describeLoadDotenvFile);
+
 function describeMissingKeysFailBeforeAWastedBuild() {
   async function returnsNothingWhenThereIsNoPieceExampleToValidateAgainst() {
     const makeDir = makeTempDir();
@@ -157,6 +163,7 @@ function describeMissingKeysFailBeforeAWastedBuild() {
 }
 
 describe('missingKeys - fail before a wasted build', describeMissingKeysFailBeforeAWastedBuild);
+
 function describeIsPieceExcludedExactNamesAndPREFIXWildcards() {
   function matchesExactNamesCaseSensitively() {
     const isExcluded = isEnvExcluded('OPENAI_API_KEY', ['OPENAI_API_KEY']);
@@ -191,6 +198,7 @@ describe(
   'isEnvExcluded - exact names and PREFIX* wildcards',
   describeIsPieceExcludedExactNamesAndPREFIXWildcards,
 );
+
 function describeSecretLookingKeysGentleGuardAgainstBundlingASecret() {
   function flagsObviousSecretNamesAndUnqualifiedKEYNames() {
     const flagged = secretLookingKeys({
@@ -239,6 +247,7 @@ describe(
   'secretLookingKeys - gentle guard against bundling a secret',
   describeSecretLookingKeysGentleGuardAgainstBundlingASecret,
 );
+
 function describeKeepBuildEnvironment() {
   function dropsFileSecretsAndKeepsExplicitOnes() {
     const kept = keepBuildEnvironment({
@@ -276,6 +285,7 @@ function describeKeepBuildEnvironment() {
 }
 
 describe('keepBuildEnvironment', describeKeepBuildEnvironment);
+
 function describeResolvePieceTheOnePrecedenceLadder() {
   async function layersLowestHighestPiecePieceProfilePieceLocalProfilePieceSecretsFlags() {
     const dir = makeTempDir();
@@ -451,6 +461,7 @@ function describeResolvePieceTheOnePrecedenceLadder() {
 }
 
 describe('resolveEnv - the one precedence ladder', describeResolvePieceTheOnePrecedenceLadder);
+
 function describeParseCliPieceRepeatedPieceKEYVAL() {
   function splitsOnTheFirstAndKeepsInThePiece() {
     const parseCli = parseCliEnv(['A=1', 'DSN=postgres://u:p@h/db?x=1']);

@@ -4,11 +4,13 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { decodeDiagnoseCommandInput, findMostRecentBuildLog } from './diagnose-command.ts';
+
 function cleanup() {
   resetLaunchDirectories();
 }
 
 afterEach(cleanup);
+
 function describeFindMostRecentBuildLog() {
   async function returnsTheNewestLogAndIgnoresNonLogFiles() {
     const systemTemporaryDirectory = tmpdir();
@@ -58,6 +60,7 @@ function describeFindMostRecentBuildLog() {
 }
 
 describe('findMostRecentBuildLog', describeFindMostRecentBuildLog);
+
 function describeDiagnoseCommandPieceSchema() {
   function acceptsAnOmittedOrExplicitLogPath() {
     const decodeDiagnoseCommand = decodeDiagnoseCommandInput({});

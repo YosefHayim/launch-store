@@ -17,6 +17,7 @@ function credsCommand() {
 
   return creds;
 }
+
 function describeRegisterCredsCommandNonInteractiveAppSelector261() {
   function definesAppSoCredsSetupAppNameNoLongerErrorsWithUnknownOption() {
     function readLong(option: CommandOption) {

@@ -18,6 +18,7 @@ import type { DoctorCheck } from '../types/doctor.ts';
 /** The read-only App Store Connect surface the signing preflight needs. */
 type SigningPreflightAscApi = {
   findBundleId(identifier: string): Promise<{ id: string } | null>;
+
   listBundleIdCapabilities(bundleIdResourceId: string): Promise<{ capabilityType: string }[]>;
 };
 

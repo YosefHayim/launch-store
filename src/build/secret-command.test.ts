@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decodeSecretCommandInput } from './secret-command.ts';
+
 function describeSecretCommandPieceSchema() {
   function decodesTheSetBoundaryWithAnExplicitPiece() {
     const decodeSecretCommand = decodeSecretCommandInput({

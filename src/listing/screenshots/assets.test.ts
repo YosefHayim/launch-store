@@ -22,6 +22,7 @@ import {
 import type { LocalAsset } from './assets.ts';
 
 const tmpDirs: string[] = [];
+
 function workDir(): string {
   const systemTemporaryDirectory = tmpdir();
   const screenshotAssetsTestPath = join(systemTemporaryDirectory, 'screenshot-assets-test-');
@@ -31,11 +32,13 @@ function workDir(): string {
 
   return dir;
 }
+
 function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 }
 
 afterEach(cleanup);
+
 /** Write a file under `appDir`, creating parent folders, and return its absolute path. */
 function writeFile(appDir: string, relPath: string, contents: string): string {
   const path = join(appDir, relPath);
@@ -46,10 +49,12 @@ function writeFile(appDir: string, relPath: string, contents: string): string {
 
   return path;
 }
+
 function md5(text: string): string {
   const bufferBytes = Buffer.from(text);
   return createHash('md5').update(bufferBytes).digest('hex');
 }
+
 function describeHashFile() {
   async function returnsTheMD5HexAndByteLengthOfAFile() {
     const appDir = workDir();
@@ -61,6 +66,7 @@ function describeHashFile() {
 }
 
 describe('hashFile', describeHashFile);
+
 function describeDisplayTypeLabel() {
   function mapsAKnownConstantToAFriendlyLabel() {
     expect(appleDisplayTypeLabel('APP_IPHONE_67')).toBe('iPhone 6.7"');
@@ -110,6 +116,7 @@ describe('Apple asset targets', () => {
     expect(new Set(previewTypes).size).toBe(previewTypes.length);
   });
 });
+
 function describeDiscoverScreenshots() {
   async function returnsWhenTheConventionFolderIsAbsent() {
     const screenshots = await discoverScreenshots(workDir());
@@ -189,6 +196,7 @@ function describeDiscoverScreenshots() {
 }
 
 describe('discoverScreenshots', describeDiscoverScreenshots);
+
 function describePreviewTypeLabel() {
   function mapsAKnownConstantToAFriendlyLabel2() {
     expect(applePreviewTypeLabel('IPHONE_67')).toBe('iPhone 6.7"');
@@ -208,6 +216,7 @@ function describePreviewTypeLabel() {
 }
 
 describe('previewTypeLabel', describePreviewTypeLabel);
+
 function describeDiscoverPreviews() {
   async function returnsWhenTheConventionFolderIsAbsent2() {
     const previews = await discoverPreviews(workDir());
@@ -282,6 +291,7 @@ function describeDiscoverPreviews() {
 }
 
 describe('discoverPreviews', describeDiscoverPreviews);
+
 function describeFingerprintAsset() {
   async function fingerprintsADeclaredAssetResolvedRelativeToTheAppDir() {
     const appDir = workDir();

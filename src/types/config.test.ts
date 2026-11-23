@@ -6,6 +6,7 @@ import {
   DEFAULT_STORAGE_PROVIDER,
   DEFAULT_SUBMITTER,
 } from './config.ts';
+
 function describeLaunchPieceParseBoundary() {
   function fillsTheFourProviderDefaultsOnParseSoAMinimalPieceOnlyDeclaresProfiles() {
     const parsed = parseLaunchConfig({ profiles: {} });
@@ -59,6 +60,7 @@ function describeLaunchPieceParseBoundary() {
 }
 
 describe('LaunchConfig parse boundary', describeLaunchPieceParseBoundary);
+
 function describeSubmitByPlatformValidationViaLaunchPieceSchema() {
   function acceptsASinglePlatformKeyAndRejectsUnknownPlatformKeys() {
     const validateLaunch = validateLaunchConfig({

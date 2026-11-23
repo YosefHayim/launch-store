@@ -26,6 +26,7 @@ type Calls = {
     promotionalText: string;
   }[];
 };
+
 /** State the fake API serves on reads. */
 type State = {
   appId: string | null;
@@ -33,6 +34,7 @@ type State = {
   versions: CustomProductPageVersionResource[];
   localizations: CustomProductPageLocalizationResource[];
 };
+
 function makeApi(state: Partial<State>): {
   api: AscCustomPagesApi;
   calls: Calls;
@@ -74,6 +76,7 @@ function makeApi(state: Partial<State>): {
 
   return { api, calls };
 }
+
 /** Execute the custom-pages reconciler at the test boundary. */
 function runReconcile(
   api: AscCustomPagesApi,
@@ -84,9 +87,11 @@ function runReconcile(
 const CONFIG: CustomProductPagesConfig = {
   pages: [{ name: 'Spring Sale', promotionalText: { 'en-US': '50% off this week!' } }],
 };
+
 function decodeCustomProductPagesConfig(rawDocument: unknown) {
   return parseCustomProductPagesConfig(rawDocument);
 }
+
 function describeParseCustomProductPagesPiece() {
   function parsesPagesWithPromotionalPiece() {
     const config = decodeCustomProductPagesConfig(CONFIG);
@@ -131,6 +136,7 @@ function describeParseCustomProductPagesPiece() {
 }
 
 describe('parseCustomProductPagesConfig', describeParseCustomProductPagesPiece);
+
 function describeReconcileCustomProductPages() {
   async function throwsWhenTheAppHasNoAppStoreConnectPiece() {
     const { api } = makeApi({ appId: null });

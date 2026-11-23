@@ -8,8 +8,11 @@ import type { MutableDeep } from '@/types/mutable.js';
 /** The slice of GooglePlayClient the products reconciler depends on. */
 export type PlayProductsApi = {
   assertAppExists(packageName: string): Promise<void>;
+
   listInAppProducts(packageName: string): Promise<InAppProductResource[]>;
+
   insertInAppProduct(packageName: string, product: InAppProductResource): Promise<void>;
+
   updateInAppProduct(packageName: string, product: InAppProductResource): Promise<void>;
 };
 

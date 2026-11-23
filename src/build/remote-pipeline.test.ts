@@ -48,6 +48,7 @@ async function runRemoteCoreTest<Success>(runCase: () => Promise<Success>): Prom
     resetSecretStore();
   }
 }
+
 function mockCall() {
   throw new Error('fetch must not run during --dry-run');
 }
@@ -56,6 +57,7 @@ function mockCall() {
 const fetchGuard = vi.fn(mockCall);
 let originalCwd = '';
 let tempRepo = '';
+
 function prepare() {
   originalCwd = process.cwd();
   fetchGuard.mockClear();
@@ -91,6 +93,7 @@ function prepare() {
 }
 
 beforeEach(prepare);
+
 function cleanup() {
   process.chdir(originalCwd);
 
@@ -104,6 +107,7 @@ function cleanup() {
 }
 
 afterEach(cleanup);
+
 function writeRepo(): string {
   const systemTemporaryDirectory = tmpdir();
   const launchRemotePath = join(systemTemporaryDirectory, 'launch-remote-');
@@ -126,6 +130,7 @@ const base = {
   target: 'testing' as const,
   dryRun: true,
 };
+
 function describeRemoteBuildDryRunRehearsesWithNoSSHAWSNetwork() {
   async function rehearsesTheAWSRemotePath() {
     tempRepo = writeRepo();
@@ -164,6 +169,7 @@ describe(
   'remote build --dry-run rehearses with no SSH/AWS/network',
   describeRemoteBuildDryRunRehearsesWithNoSSHAWSNetwork,
 );
+
 function describeEASHandoffDryRunRehearsesWithNoEasCliNetwork() {
   async function rehearsesTheEASPath() {
     tempRepo = writeRepo();

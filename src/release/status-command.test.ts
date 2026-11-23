@@ -201,6 +201,7 @@ afterEach(function resetStatusDoubles() {
   resetLogger();
   setAppleStoreClient(null);
 });
+
 function describeStatusCommandProgramPlainStatus() {
   async function printsTheStatusLineAndExits0WhenTheVersionIsLive() {
     function mockCall() {
@@ -334,6 +335,7 @@ function describeStatusCommandProgramPlainStatus() {
 }
 
 describe('statusCommandProgram - plain status', describeStatusCommandProgramPlainStatus);
+
 function describeStatusCommandProgramUsageErrors() {
   async function exits2WhenBuildComesWithoutWatch() {
     const releaseApiFake = makeReleaseApiFake();
@@ -379,6 +381,7 @@ function describeStatusCommandProgramUsageErrors() {
 }
 
 describe('statusCommandProgram - usage errors', describeStatusCommandProgramUsageErrors);
+
 function describeStatusCommandProgramWatchAndBuild() {
   async function exitsWithTheVerdictCodeWhenTheFirstReadIsAlreadyTerminal() {
     function mockCall7() {

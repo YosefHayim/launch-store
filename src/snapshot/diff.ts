@@ -1,6 +1,8 @@
 import type { JsonValue, Snapshot, SnapshotEntity, SnapshotStore } from '../types/snapshot.ts';
+
 /** How one entity differs between the two snapshots. */
 export type DiffChange = 'added' | 'removed' | 'changed';
+
 /** One entity-level difference, carrying enough identity to render it grouped by store -> app -> surface. */
 type EntityDiff = {
   store: SnapshotStore;
@@ -11,6 +13,7 @@ type EntityDiff = {
   change: DiffChange;
   summary: string;
 };
+
 /** The full result of comparing two snapshots. */
 export type SnapshotDiff = {
   entries: EntityDiff[];
@@ -18,6 +21,7 @@ export type SnapshotDiff = {
   removedCount: number;
   changedCount: number;
 };
+
 /** A flattened entity plus the identity needed to pair and render it. */
 type FlatEntity = {
   store: SnapshotStore;
@@ -26,6 +30,7 @@ type FlatEntity = {
   app: string;
   entity: SnapshotEntity;
 };
+
 /** The composite key that pairs one entity across two snapshots. */
 function compositeKey(
   store: SnapshotStore,
@@ -35,6 +40,7 @@ function compositeKey(
 ): string {
   return JSON.stringify([store, sourceId, app, entityKey]);
 }
+
 /** Flatten a snapshot's captured surfaces to entities keyed for pairing; skipped/errored surfaces hold none. */
 function flatten(snapshot: Snapshot): Map<string, FlatEntity> {
   const flat = new Map<string, FlatEntity>();
@@ -57,6 +63,7 @@ function flatten(snapshot: Snapshot): Map<string, FlatEntity> {
 
   return flat;
 }
+
 /** Canonical JSON with recursively sorted object keys, so field order never registers as a change. */
 export function stableStringify(jsonNode: JsonValue): string {
   if (jsonNode == null) return JSON.stringify(jsonNode);
@@ -77,6 +84,7 @@ export function stableStringify(jsonNode: JsonValue): string {
 
   return `{${serializedFields}}`;
 }
+
 function unavailableScopes(snapshot: Snapshot) {
   const sources = new Set<string>();
   const apps = new Set<string>();
@@ -182,6 +190,7 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
     changedCount: entries.filter(isChangedDiff).length,
   };
 }
+
 /** Project a flattened entity to a diff entry under the given change kind. */
 function readDiffEntry(flat: FlatEntity, change: DiffChange): EntityDiff {
   return {

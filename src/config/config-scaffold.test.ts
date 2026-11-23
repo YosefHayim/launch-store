@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { configTemplate, detectAppRoot } from './config-scaffold.ts';
 import type { AppDescriptor } from '../types/app.ts';
+
 function app(dir: string): AppDescriptor {
   return { name: 'x', dir, configPath: `${dir}/app.json` };
 }
+
 function describeDetectAppRoot() {
   function returnsTheSingleSharedSubdirWhenEveryAppLivesUnderOne() {
     const appRoot = detectAppRoot([app('/repo/apps/a'), app('/repo/apps/b')], '/repo');
@@ -34,6 +36,7 @@ function describeDetectAppRoot() {
 }
 
 describe('detectAppRoot', describeDetectAppRoot);
+
 function describePieceTemplate() {
   function writesTheBlankStarterWithACommentedAppRootsHintWhenNoRootOrExtrasAreGiven() {
     const template = configTemplate(null);

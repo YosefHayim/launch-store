@@ -53,6 +53,7 @@ const noOffers: AppProducts = {
     },
   ],
 };
+
 /** A fake whose live subscription `com.acme.pro` exists, so a declared offer code plans a create. */
 function apiWithLiveSubscription(overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi {
   return makeAscApiFake({
@@ -61,6 +62,7 @@ function apiWithLiveSubscription(overrides: Partial<AscSurfacesApi> = {}): AscSu
     ...overrides,
   });
 }
+
 function makeCtx(
   api: AscSurfacesApi | null,
   products: Record<string, AppProducts> = {},
@@ -87,6 +89,7 @@ function makeCtx(
     },
   };
 }
+
 function describeOffersPlanner() {
   async function omitsItselfWhenNoAppDeclaresOffersOrPromotedPurchases() {
     const plan = await runPlanner(

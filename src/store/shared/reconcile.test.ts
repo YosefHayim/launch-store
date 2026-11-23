@@ -14,6 +14,7 @@ import {
 function applyContext(): ReconcileContext {
   return { actions: [], dryRun: false };
 }
+
 function describeAct() {
   async function recordsTheActionAndRunsItMarkingItAppliedOnSuccess() {
     const reconcileContext = applyContext();
@@ -80,6 +81,7 @@ function describeAct() {
 }
 
 describe('act', describeAct);
+
 function describePlan() {
   function appendsAPlannedActionAndReturnsItsHandleSoTheCallerCanUpdateItsStatus() {
     const reconcileContext = applyContext();
@@ -101,6 +103,7 @@ function describePlan() {
 }
 
 describe('plan', describePlan);
+
 function describeAppPieceMissing() {
   function namesTheBundleIdAndTheExactCommandToReRunAfterCreatingTheApp() {
     const appMissing = appRecordMissing('com.acme.app', 'accessibility');
@@ -118,6 +121,7 @@ function describeAppPieceMissing() {
 }
 
 describe('appRecordMissing', describeAppPieceMissing);
+
 function describeAppPieceNotFound() {
   function asksTheReadPathCallerToConfirmTheBundleIdAndAccessWithNoCreateThenRetryRemedy() {
     const appNotFound = appRecordNotFound('com.acme.app');
@@ -135,6 +139,7 @@ function describeAppPieceNotFound() {
 }
 
 describe('appRecordNotFound', describeAppPieceNotFound);
+
 function describeSkip() {
   function appendsASkippedActionWithTheGivenReason() {
     const reconcileContext = applyContext();
@@ -149,6 +154,7 @@ function describeSkip() {
 }
 
 describe('skip', describeSkip);
+
 function describeSummarize() {
   function talliesActionsByStatus() {
     const actions: PlannedAction[] = [

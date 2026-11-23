@@ -80,6 +80,7 @@ function registerDryRunBuildEngines(): void {
     });
   }
 }
+
 function mockCall() {
   throw new Error('fetch must not run during --dry-run');
 }
@@ -88,6 +89,7 @@ function mockCall() {
 const fetchGuard = vi.fn(mockCall);
 let originalCwd = '';
 let tempRepo = '';
+
 function prepare() {
   originalCwd = process.cwd();
   fetchGuard.mockClear();
@@ -114,6 +116,7 @@ function prepare() {
 }
 
 beforeEach(prepare);
+
 function cleanup() {
   process.chdir(originalCwd);
 
@@ -127,6 +130,7 @@ function cleanup() {
 }
 
 afterEach(cleanup);
+
 /** Create a one-app repo (no launch.config.ts, so loadConfig uses defaults - no jiti, fully hermetic). */
 function writeRepo(expo: Record<string, unknown>): string {
   const systemTemporaryDirectory = tmpdir();
@@ -139,6 +143,7 @@ function writeRepo(expo: Record<string, unknown>): string {
 
   return dir;
 }
+
 function describeRunBuildDryRunTheEndToEndSpine() {
   async function rehearsesEveryIOSStepWithNoNetworkAndNoSpawnedProcess() {
     tempRepo = writeRepo({
@@ -244,6 +249,7 @@ function describeRunBuildDryRunTheEndToEndSpine() {
 }
 
 describe('runBuild --dry-run (the end-to-end spine)', describeRunBuildDryRunTheEndToEndSpine);
+
 function describeSelectApp() {
   function app(name: string, bundleId?: string): AppDescriptor {
     const descriptor: AppDescriptor = { name, dir: '/repo', configPath: '/repo/app.json' };
@@ -252,6 +258,7 @@ function describeSelectApp() {
 
     return { ...descriptor, bundleId };
   }
+
   async function failsWhenNoAppsWereDiscovered() {
     function runBuildCoreTestPiece4() {
       return selectApp([], undefined);
@@ -323,6 +330,7 @@ function describeSelectApp() {
 }
 
 describe('selectApp', describeSelectApp);
+
 function describeSizeHelpersTheBothNumbersHeadlineF2() {
   const MB = 1024 * 1024;
 
@@ -332,6 +340,7 @@ function describeSizeHelpersTheBothNumbersHeadlineF2() {
       entries,
     };
   }
+
   function worstDownloadBytesPicksTheLargestPerDeviceDownload() {
     const r = report([
       { device: 'a', downloadBytes: 40 * MB, installBytes: 0 },
@@ -379,6 +388,7 @@ describe(
   'size helpers - the both-numbers headline (F2)',
   describeSizeHelpersTheBothNumbersHeadlineF2,
 );
+
 function describeUploadSizeReadoutPreUploadSizeLinesGrowthWarning() {
   const MB = 1024 * 1024;
 
@@ -388,6 +398,7 @@ function describeUploadSizeReadoutPreUploadSizeLinesGrowthWarning() {
       entries: [{ device: 'iphone', downloadBytes: downloadMB * MB, installBytes: 0 }],
     };
   }
+
   function showsDownloadOnDiskAndNoDeltaOnTheFirstBuild() {
     const { lines, grew } = uploadSizeReadout(report(38, 61));
     expect(lines).toEqual(['download 38.0 MB', 'on disk 61.0 MB']);
@@ -461,6 +472,7 @@ describe(
   'uploadSizeReadout - pre-upload size lines + growth warning',
   describeUploadSizeReadoutPreUploadSizeLinesGrowthWarning,
 );
+
 function describeResolveBuildTransportWhichForkARunTakes() {
   function resolveTransport(
     platform: Parameters<typeof resolveBuildTransport>[0],
@@ -469,6 +481,7 @@ function describeResolveBuildTransportWhichForkARunTakes() {
   ) {
     return resolveBuildTransport(platform, buildEngine, remoteTarget);
   }
+
   function alwaysBuildsAndroidLocallyNoOffMacForkAppliesEvenWithAStrayRemote() {
     const transport = resolveTransport('android', 'gradle', undefined);
     expect(transport).toEqual({ kind: 'local' });
@@ -569,6 +582,7 @@ function describeResolveBuildTransportWhichForkARunTakes() {
 
     throw new Error(`expected ${platform} ${buildEngine} transport to fail`);
   }
+
   function failsFastWhenAnOffMacForkIsExplicitlyRequestedForANonIOSApplePlatform() {
     expect(thrownTransportFailure('tvos', 'xcode', { kind: 'aws' })).toMatchObject({
       message: expect.stringMatching(/Remote builds are iOS-only/),
@@ -591,6 +605,7 @@ describe(
   'resolveBuildTransport - which fork a run takes',
   describeResolveBuildTransportWhichForkARunTakes,
 );
+
 function describeResolveBumpKindFlagRememberedPromptPrecedence() {
   function appliesAnExplicitBumpKindEvenNonInteractivelyScriptableInCI() {
     const bumpKind = resolveBumpKind({ flag: 'minor', remembered: 'patch', canPrompt: true });
@@ -668,12 +683,14 @@ describe(
   'resolveBumpKind - flag > remembered > prompt precedence',
   describeResolveBumpKindFlagRememberedPromptPrecedence,
 );
+
 function describeResolveSizeBudgetMBPerRunOverrideProfileDefaultPrecedence() {
   function profile(sizeBudgetMB?: number): Pick<BuildProfile, 'sizeBudgetMB'> {
     if (sizeBudgetMB == null) return {};
 
     return { sizeBudgetMB };
   }
+
   function usesThePerRunOverrideOverBothTheProfileAndTheDefault() {
     const resolveSizeBudgetMb = resolveSizeBudgetMB({ sizeBudgetMB: 250 }, profile(150));
     expect(resolveSizeBudgetMb).toBe(250);
@@ -709,6 +726,7 @@ describe(
   'resolveSizeBudgetMB - per-run override > profile > default precedence',
   describeResolveSizeBudgetMBPerRunOverrideProfileDefaultPrecedence,
 );
+
 function describeResolveSubmittersThePlatformstoreSeam() {
   function launchConfig(submit: LaunchConfig['submit']): LaunchConfig {
     return {
@@ -719,6 +737,7 @@ function describeResolveSubmittersThePlatformstoreSeam() {
       submit,
     };
   }
+
   function stringFormYieldsOneStoreMappingTheIOSDefaultToPlayOnAndroid() {
     const launch = launchConfig('app-store-connect');
     const submitters = resolveSubmitters(launch, 'ios');
@@ -816,6 +835,7 @@ describe(
   'resolveSubmitters - the platformstore seam',
   describeResolveSubmittersThePlatformstoreSeam,
 );
+
 function describeSubmitToStoresFansOneBuildOutToEveryConfiguredStore() {
   const buildContext: ResolvedBuildContext = {
     platform: 'android',
@@ -872,6 +892,7 @@ describe(
   'submitToStores - fans one build out to every configured store',
   describeSubmitToStoresFansOneBuildOutToEveryConfiguredStore,
 );
+
 function describeAndroidReleaseNotesForSubmitIssue309() {
   function mapsALocaleDocumentIntoPlayReleaseNoteRows() {
     expect(

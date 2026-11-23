@@ -1,6 +1,7 @@
 import { Command, type CommandOption } from '@/cli/command.js';
 import { describe, expect, it } from 'vitest';
 import { registerFingerprintCommand } from './fingerprint.ts';
+
 function describeRegisterFingerprintCommand() {
   function registersTheFingerprintCommandAndItsSelectors() {
     const program = new Command();

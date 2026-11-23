@@ -76,6 +76,7 @@ afterEach(function resetEnvironmentFixtures() {
   resetLaunchEnvironment();
   vi.unstubAllEnvs();
 });
+
 function describeReleasePieceSchema() {
   async function rejectsANonObjectAnEmptyDocumentAndArrayShapedSections() {
     const releaseDocument = decodeReleaseDocument(42);
@@ -196,6 +197,7 @@ function describeReleasePieceSchema() {
 }
 
 describe('release config schema', describeReleasePieceSchema);
+
 function describeReleaseReconciliationPreconditions() {
   async function failsWhenTheAppPieceIsMissing() {
     const appleReleaseApi = makeReleaseApi({
@@ -224,6 +226,7 @@ function describeReleaseReconciliationPreconditions() {
 }
 
 describe('release reconciliation preconditions', describeReleaseReconciliationPreconditions);
+
 function describeReleaseCategoryReconciliation() {
   async function changesOnlyCategoriesThatDiffer() {
     function mockCall() {
@@ -323,6 +326,7 @@ function describeReleaseCategoryReconciliation() {
 }
 
 describe('release category reconciliation', describeReleaseCategoryReconciliation);
+
 function describeReleaseAgeRatingReconciliation() {
   async function patchesOnlyChangedAnswers() {
     function mockCall5() {
@@ -370,6 +374,7 @@ function describeReleaseAgeRatingReconciliation() {
 }
 
 describe('release age-rating reconciliation', describeReleaseAgeRatingReconciliation);
+
 function describeReleasePricingReconciliation() {
   async function resolvesAPricePointWhenThePriceDiffers() {
     function mockCall7() {
@@ -443,6 +448,7 @@ function describeReleasePricingReconciliation() {
 }
 
 describe('release pricing reconciliation', describeReleasePricingReconciliation);
+
 function describeReleaseReviewDetailReconciliation() {
   async function createsMissingDetailsWithEveryDeclaredField() {
     const appleReleaseApi = makeReleaseApi();
@@ -582,6 +588,7 @@ function describeReleaseReviewDetailReconciliation() {
 }
 
 describe('release review-detail reconciliation', describeReleaseReviewDetailReconciliation);
+
 function describeReleaseActionSummary() {
   function countsActionStatuses() {
     expect(

@@ -105,6 +105,7 @@ const FETCHED_REPLY: FeedFetchReply = {
   coveredThrough: '2026-10-28',
   notes: [],
 };
+
 function describeSyncStats() {
   let homeDirectory: string;
 
@@ -151,6 +152,7 @@ function describeSyncStats() {
     const loadedFile = readFileSync(coveragePath, 'utf8');
     return JSON.parse(loadedFile);
   }
+
   async function writesTheFetchedDaysAndRecordsTheCoverage() {
     const report = await sync('cal friend', 30);
 

@@ -51,6 +51,7 @@ const savedFile: PortfolioFile = {
   tags: [{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: '99' }],
   playReportsBucket: null,
 };
+
 function describeCreateEmptyPortfolioFile() {
   function hasNoAppsNoTagsAndNoDiscoveryTime() {
     const emptyPortfolioFile = createEmptyPortfolioFile();
@@ -68,6 +69,7 @@ function describeCreateEmptyPortfolioFile() {
 }
 
 describe('createEmptyPortfolioFile', describeCreateEmptyPortfolioFile);
+
 function describeLoadPortfolioFile() {
   async function returnsNullWhenPortfolioPieceDoesNotExist() {
     const loaded = await loadPortfolioFile();
@@ -108,6 +110,7 @@ function describeLoadPortfolioFile() {
 }
 
 describe('loadPortfolioFile', describeLoadPortfolioFile);
+
 function describeSavePortfolioFile() {
   async function writesPortfolioPieceUnderLaunchAndReadsItBackTheSame() {
     await savePortfolioFile(savedFile);
@@ -130,6 +133,7 @@ function describeSavePortfolioFile() {
 }
 
 describe('savePortfolioFile', describeSavePortfolioFile);
+
 function describePickSavedPortfolioFile() {
   function returnsAnEmptyPortfolioWhenNothingWasSaved() {
     const savedPortfolioFile = pickSavedPortfolioFile(null);

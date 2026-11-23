@@ -17,10 +17,12 @@ function readCollectedDataType(entry: unknown): string | null {
 
   return dataType;
 }
+
 /** De-duplicate while preserving first-seen order. */
 function unique(strings: readonly string[]): string[] {
   return [...new Set(strings)];
 }
+
 /** Collect every `<string>...</string>` inside an XML fragment. */
 function stringTags(xml: string): string[] {
   function readCapturedGroup(match: RegExpExecArray) {
@@ -35,6 +37,7 @@ function stringTags(xml: string): string[] {
     .map(readCapturedGroup)
     .filter(isCapturedGroupPresent);
 }
+
 /** Parse `NS*UsageDescription` keys (and their purpose strings) out of an `Info.plist`. */
 export function parseUsageDescriptions(plistXml: string): Record<string, string> {
   const usage: Record<string, string> = {};
@@ -55,6 +58,7 @@ export function parseUsageDescriptions(plistXml: string): Record<string, string>
 
   return usage;
 }
+
 /** Parse the data types, tracking flag, and tracking domains out of a `PrivacyInfo.xcprivacy`. */
 export function parsePrivacyManifest(xml: string): {
   collectedDataTypes: string[];
@@ -88,6 +92,7 @@ export function parsePrivacyManifest(xml: string): {
     trackingDomains,
   };
 }
+
 /** Parse `<uses-permission android:name="...">` names out of an `AndroidManifest.xml`. */
 export function parseAndroidPermissions(manifestXml: string): string[] {
   function readDeclaredPermission(match: RegExpExecArray) {
@@ -111,6 +116,7 @@ const stringArray = (unknownArray: unknown): string[] => {
 
   return [];
 };
+
 /** Pull the `NSPrivacyCollectedDataType` id out of each entry of an `NSPrivacyCollectedDataTypes` array. */
 function collectedDataTypesFrom(manifestEntries: unknown): string[] {
   if (!Array.isArray(manifestEntries)) return [];
@@ -127,6 +133,7 @@ function collectedDataTypesFrom(manifestEntries: unknown): string[] {
 
   return unique(types);
 }
+
 /** Build a surface from native files. */
 export function surfaceFromNative(files: {
   infoPlists: string[];
@@ -164,6 +171,7 @@ export function surfaceFromNative(files: {
     androidPermissions: unique(androidPermissions),
   };
 }
+
 /** Build a surface from a resolved Expo config */
 export function surfaceFromExpoConfig(config: Record<string, unknown>): PrivacySurface {
   const decodedExpo = readPlainObject(config['expo']);

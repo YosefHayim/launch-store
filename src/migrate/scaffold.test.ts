@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ENV_EXAMPLE_TEMPLATE } from '../config/config-scaffold.ts';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.ts';
+
 function describeScaffoldStorePiece() {
   let dir: string;
 
@@ -59,6 +60,7 @@ function describeScaffoldStorePiece() {
 }
 
 describe('scaffoldStoreConfig', describeScaffoldStorePiece);
+
 function describeBuildPieceExample() {
   function returnsTheStarterTemplateWhenNoKeysWereDiscovered() {
     const buildExample = buildEnvExample([]);

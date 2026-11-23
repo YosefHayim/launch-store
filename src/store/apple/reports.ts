@@ -6,15 +6,18 @@ import type {
   AnalyticsReportSegmentResource,
 } from '@/types/apple-catalog.js';
 import { appRecordNotFound } from '../shared/reconcile.ts';
+
 /** Decompress an Apple report to UTF-8 text. */
 export function decompressReport(bytes: Buffer): string {
   return gunzipSync(bytes).toString('utf8');
 }
+
 /** A parsed tab-separated report. */
 export type ParsedReport = {
   headers: string[];
   rows: Record<string, string>[];
 };
+
 /** Parse an Apple tab-separated report, filling missing cells with empty text. */
 export function parseTsv(text: string): ParsedReport {
   function stripCarriageReturn(line: string) {
@@ -149,14 +152,17 @@ export function eachDate(from: string, to: string): string[] {
 /** The exact slice of {@link AppStoreConnectClient} the analytics walk depends on. */
 export type AscReportsApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   listAnalyticsReportRequests(
     appId: string,
     accessType: string,
   ): Promise<AnalyticsReportRequestResource[]>;
+
   createAnalyticsReportRequest(
     appId: string,
     accessType: string,
   ): Promise<AnalyticsReportRequestResource>;
+
   listAnalyticsReports(
     requestId: string,
     filters: {
@@ -164,6 +170,7 @@ export type AscReportsApi = {
       name?: string;
     },
   ): Promise<AnalyticsReportResource[]>;
+
   listAnalyticsReportInstances(
     reportId: string,
     filters: {
@@ -171,8 +178,10 @@ export type AscReportsApi = {
       processingDate?: string;
     },
   ): Promise<AnalyticsReportInstanceResource[]>;
+
   listAnalyticsReportSegments(instanceId: string): Promise<AnalyticsReportSegmentResource[]>;
 };
+
 /** Result of {@link ensureAnalyticsRequest}: the request to use and whether this call created it. */
 type EnsuredRequest = {
   request: AnalyticsReportRequestResource;
@@ -213,6 +222,7 @@ type AnalyticsQuery = {
   granularity: string;
   processingDate?: string;
 };
+
 /** One downloadable analytics segment, flattened with the report/instance context for naming the output. */
 type SegmentDownload = {
   reportName: string;
@@ -222,12 +232,14 @@ type SegmentDownload = {
   url: string;
   checksum?: string;
 };
+
 /** The outcome of {@link collectAnalyticsSegments}: the segment descriptors plus first-run context. */
 type AnalyticsCollection = {
   requestCreated: boolean;
   reportCount: number;
   downloads: SegmentDownload[];
 };
+
 /** Walk the analytics resource chain (request -> reports -> instances -> segments) and return */
 export async function collectAnalyticsSegments(
   api: AscReportsApi,

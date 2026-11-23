@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Command, type CommandOption } from '@/cli/command.js';
 import { registerAuditCommand } from './audit.ts';
+
 function describeRegisterAuditCommand() {
   function attachesATopLevelAuditCommandWithItsPiece() {
     const program = new Command();

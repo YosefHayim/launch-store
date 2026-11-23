@@ -55,20 +55,27 @@ export function periodFromIso(iso: string): SubscriptionPeriod | undefined {
 /** The slice of GooglePlayClient the subscriptions reconciler depends on. */
 export type PlaySubscriptionsApi = {
   assertAppExists(packageName: string): Promise<void>;
+
   listSubscriptions(packageName: string): Promise<SubscriptionResource[]>;
+
   createSubscription(packageName: string, subscription: SubscriptionResource): Promise<void>;
+
   patchSubscription(
     packageName: string,
     subscription: SubscriptionResource,
     updateMask: string,
   ): Promise<void>;
+
   activateBasePlan(packageName: string, productId: string, basePlanId: string): Promise<void>;
+
   listSubscriptionOffers(
     packageName: string,
     productId: string,
     basePlanId: string,
   ): Promise<SubscriptionOfferResource[]>;
+
   createSubscriptionOffer(packageName: string, offer: SubscriptionOfferResource): Promise<void>;
+
   activateSubscriptionOffer(
     packageName: string,
     productId: string,

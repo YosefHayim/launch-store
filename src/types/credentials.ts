@@ -15,11 +15,13 @@ export type AccountRecord = Readonly<{
   resolvedAt?: string;
   vendorNumber?: string;
 }>;
+
 /** The on-disk shape of `~/.launch/accounts.json` */
 export type AccountsFile = Readonly<{
   active: string | null;
   accounts: readonly AccountRecord[];
 }>;
+
 /** The signing assets a release build needs, resolved (reused or freshly created) before export. */
 export type SigningAssets = Readonly<{
   bundleId: string;
@@ -31,11 +33,13 @@ export type SigningAssets = Readonly<{
   profilePath: string;
   extensionProfiles?: Record<string, string>;
 }>;
+
 /** Apple credentials resolved for a build. */
 export type AppleCredentials = Readonly<{
   ascKey: AscKey;
   signing?: SigningAssets;
 }>;
+
 /** The upload keystore Launch owns (or imported) to sign Android App Bundles */
 export type KeystoreAssets = Readonly<{
   path: string;
@@ -43,6 +47,7 @@ export type KeystoreAssets = Readonly<{
   storePassword: string;
   keyPassword: string;
 }>;
+
 /** Android credentials resolved for a build - the Android twin of {@link AppleCredentials}. */
 export type AndroidCredentials = Readonly<{
   serviceAccountJson: string;
@@ -55,6 +60,7 @@ export type ServiceAccount = Readonly<{
   tokenUri: string;
   privateKeyId?: string;
 }>;
+
 /** Credentials for one build */
 export type BuildCredentials =
   | (Readonly<{

@@ -16,6 +16,7 @@ const alpha: AppDescriptor = {
 };
 /** Declaring Game Center at all is enough: the fake reports it not yet enabled, so a plan results. */
 const DECLARED: Record<string, GameCenterConfig> = { 'com.acme.alpha': {} };
+
 function makeCtx(
   api: AscSurfacesApi | null,
   gameCenter?: Record<string, GameCenterConfig>,
@@ -42,6 +43,7 @@ function makeCtx(
     },
   };
 }
+
 function describeGameCenterPlanner() {
   async function omitsItselfWhenNoAppDeclaresGameCenter() {
     const ascApiFake = makeAscApiFake();

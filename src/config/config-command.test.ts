@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ConfigCommandInputSchema } from './config-command.ts';
+
 function describePieceCommandPieceSchema() {
   function decodesSchemaAndValidationOperations() {
     const commandSchema = ConfigCommandInputSchema({

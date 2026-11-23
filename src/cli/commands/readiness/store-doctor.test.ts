@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Command, type CommandOption } from '@/cli/command.js';
 import { registerStoreCommand } from './store-doctor.ts';
+
 function describeRegisterStoreCommand() {
   function attachesAStoreGroupWithADoctorSubcommandAndItsPiece() {
     const program = new Command();

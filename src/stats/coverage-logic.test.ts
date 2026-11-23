@@ -22,6 +22,7 @@ function createCoverage(overrides: Partial<FeedCoverage>): FeedCoverage {
     ...overrides,
   };
 }
+
 function describeSubtractCoverage() {
   function asksForTheWholeRangeWhenThereIsNoCoverage() {
     const requested = { from: '2026-10-01', to: '2026-10-10' };
@@ -135,6 +136,7 @@ function describeSubtractCoverage() {
 }
 
 describe('subtractCoverage', describeSubtractCoverage);
+
 function describeMergeFeedCoverage() {
   function startsCoverageFromTheFirstPull() {
     const merged = mergeFeedCoverage(
@@ -233,6 +235,7 @@ function describeMergeFeedCoverage() {
 }
 
 describe('mergeFeedCoverage', describeMergeFeedCoverage);
+
 function describeMarkFeedCoverageFailed() {
   function createsAnEmptyCoverageWithTheErrorWhenNothingWasSyncedBefore() {
     const failed = markFeedCoverageFailed(null, 'boom');
@@ -256,6 +259,7 @@ function describeMarkFeedCoverageFailed() {
 }
 
 describe('markFeedCoverageFailed', describeMarkFeedCoverageFailed);
+
 function describeMarkFeedCoverageSkipped() {
   function createsAnEmptyCoverageWithTheSyncTimeWhenNothingWasSyncedBefore() {
     const skipped = markFeedCoverageSkipped(null, SYNCED_AT, 'not ready');
@@ -291,6 +295,7 @@ function describeMarkFeedCoverageSkipped() {
 }
 
 describe('markFeedCoverageSkipped', describeMarkFeedCoverageSkipped);
+
 function describeFindFeedCoverage() {
   const appCoverage: AppCoverage = {
     version: 1,
@@ -315,6 +320,7 @@ function describeFindFeedCoverage() {
 }
 
 describe('findFeedCoverage', describeFindFeedCoverage);
+
 function describeIsFeedCoverageStale() {
   const now = Date.parse('2026-10-29T12:00:00.000Z');
 
@@ -347,6 +353,7 @@ function describeIsFeedCoverageStale() {
 }
 
 describe('isFeedCoverageStale', describeIsFeedCoverageStale);
+
 function describeCreateNotesMessage() {
   function isNullWhenThereAreNoNotes() {
     const notesMessage = createNotesMessage([]);

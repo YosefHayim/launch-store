@@ -41,6 +41,7 @@ const IAP: AppProducts = {
     },
   ],
 };
+
 function describeSelectApps() {
   const apps = [
     app('alpha', { bundleId: 'com.acme.alpha' }),
@@ -90,6 +91,7 @@ function describeSelectApps() {
 }
 
 describe('selectApps', describeSelectApps);
+
 function describeBuildJobs() {
   async function buildsAJobForAnAppThatDeclaresProducts() {
     const jobs = await buildJobs(

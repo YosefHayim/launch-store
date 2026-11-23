@@ -5,12 +5,14 @@ import { errorMessage } from './error-message.ts';
 import { executeCommandQuietly } from './exec.ts';
 import { createLogger, type Logger } from './logger.ts';
 import { redactText } from './redact.ts';
+
 /** Fields every {@link NotifyEvent} carries, regardless of which transition fired it. */
 type NotifyEventBase = {
   app: string;
   platform: Platform;
   version: string;
 };
+
 /** A finished build or submit run - the original completion ping. */
 type CompletionEvent = NotifyEventBase & {
   event: 'build' | 'submit';
@@ -20,20 +22,24 @@ type CompletionEvent = NotifyEventBase & {
   destination?: string;
   error?: string;
 };
+
 /** An App Store review reached a verdict. */
 type ReviewEvent = NotifyEventBase & {
   event: 'review';
   status: 'approved' | 'rejected';
   detail?: string;
 };
+
 /** A phased rollout changed state. */
 type RolloutEvent = NotifyEventBase & {
   event: 'rollout';
   status: 'paused' | 'resumed' | 'completed' | 'advanced';
   detail?: string;
 };
+
 /** Every transition Launch can notify on - a discriminated union keyed on `event`. */
 export type NotifyEvent = CompletionEvent | ReviewEvent | RolloutEvent;
+
 /** A one-line human summary of the event, used as the Slack/Discord message text. */
 export function notifyMessage(event: NotifyEvent): string {
   switch (event.event) {
@@ -87,6 +93,7 @@ export function notifyMessage(event: NotifyEvent): string {
     }
   }
 }
+
 /** The JSON body POSTed to the webhook. */
 export function notificationDocument(event: NotifyEvent): Record<string, unknown> {
   const message = notifyMessage(event);
@@ -102,6 +109,7 @@ export function notificationDocument(event: NotifyEvent): Record<string, unknown
 
   return notification;
 }
+
 /** The `LAUNCH_*` environment a shell hook receives. Omitted fields simply don't appear. */
 export function notifyEnv(event: NotifyEvent): Record<string, string> {
   const message = notifyMessage(event);
@@ -130,6 +138,7 @@ export function notifyEnv(event: NotifyEvent): Record<string, string> {
 
   return env;
 }
+
 function isSuccessfulStatus(status: number): boolean {
   if (status < 200) {
     return false;

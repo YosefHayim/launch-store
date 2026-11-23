@@ -178,6 +178,7 @@ function createBucketRoutes(
 
   return [...reportObjectNames, ...earningsObjectNames].map(createObjectRoute);
 }
+
 function createNamedObject(name: string) {
   return { name };
 }
@@ -299,6 +300,7 @@ function withBucket(overrides: Partial<StatsCredentialsApi> = {}): Partial<Stats
     ...overrides,
   };
 }
+
 function cleanup() {
   useStatsCredentials(null);
   vi.unstubAllGlobals();
@@ -313,6 +315,7 @@ function statsOfMetric(stats: readonly DailyStat[], metric: DailyStat['metric'])
 
   return stats.filter(isSameMetric);
 }
+
 function describeGooglePlayFeedIsApplicable() {
   function appliesToAndroidAppsOnly() {
     expect(googlePlayFeed.isApplicable(ANDROID_APP)).toBe(true);
@@ -323,6 +326,7 @@ function describeGooglePlayFeedIsApplicable() {
 }
 
 describe('googlePlayFeed.isApplicable', describeGooglePlayFeedIsApplicable);
+
 function describeGooglePlayFeedFetchDays() {
   async function skipsAnAppThatHasNoPackageName() {
     const reply = await fetchDays({}, [], { ...ANDROID_APP, packageName: null });

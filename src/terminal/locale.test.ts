@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { UTF8_LOCALE, isUtf8ShellLocale, mergeChildEnv, shellLocaleDoctorCheck } from './locale.ts';
+
 function describeMergeChildPiece() {
   function forcesUTF8LocaleOverBrokenShellDefaults() {
     const env = mergeChildEnv({});
@@ -22,6 +23,7 @@ function describeMergeChildPiece() {
 }
 
 describe('mergeChildEnv', describeMergeChildPiece);
+
 function describeIsUtf8ShellLocale() {
   function acceptsCommonUTF8Spellings() {
     expect(isUtf8ShellLocale({ LANG: 'en_US.UTF-8' })).toBe(true);
@@ -48,6 +50,7 @@ function describeIsUtf8ShellLocale() {
 }
 
 describe('isUtf8ShellLocale', describeIsUtf8ShellLocale);
+
 function describeShellLocaleDoctorCheck() {
   function reportsOkWhenTheShellIsUTF8() {
     expect(shellLocaleDoctorCheck({ LANG: 'en_US.UTF-8' })).toEqual({

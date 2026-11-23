@@ -16,10 +16,12 @@ import {
 const dayMs = 24 * 60 * 60 * 1000;
 /** A fixed reference "now" so age math is deterministic (no wall clock in the tests). */
 const NOW = Date.parse('2026-06-15T00:00:00.000Z');
+
 /** ISO stamp for a build created `days` before {@link NOW}. */
 function daysAgo(days: number): string {
   return new Date(NOW - days * dayMs).toISOString();
 }
+
 /** A stored-build fixture; override any field to vary one dimension under test. */
 function artifact(overrides: Partial<BuildArtifact> = {}): BuildArtifact {
   return {
@@ -35,6 +37,7 @@ function artifact(overrides: Partial<BuildArtifact> = {}): BuildArtifact {
     ...overrides,
   };
 }
+
 /** A minimal valid config; retention helpers only read `artifactRetentionDays`. */
 function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
   return {
@@ -46,9 +49,11 @@ function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
     ...overrides,
   };
 }
+
 async function runArtifactEffect<Success>(artifactWork: Promise<Success>): Promise<Success> {
   return await artifactWork;
 }
+
 function describePlanPruneTheKeepNewestPerAppPlatformPolicy() {
   function prunesABuildPastTheWindowButKeepsTheNewestOfItsAppPlatform() {
     const pastDate = daysAgo(2);
@@ -207,6 +212,7 @@ describe(
   'planPrune - the keep-newest-per-app+platform policy',
   describePlanPruneTheKeepNewestPerAppPlatformPolicy,
 );
+
 function describeResolveRetentionDaysTheAutomaticSweepSWindow() {
   function defaultsTo30WhenUnset() {
     const retentionDays = resolveRetentionDays(config());
@@ -237,6 +243,7 @@ describe(
   "resolveRetentionDays - the automatic sweep's window",
   describeResolveRetentionDaysTheAutomaticSweepSWindow,
 );
+
 function describeResolveCommandRetentionDaysTheExplicitBuildsPruneWindow() {
   function usesTheConfiguredPieceWhenNoOverrideIsGiven() {
     const commandRetentionDays = resolveCommandRetentionDays(config({ artifactRetentionDays: 14 }));
@@ -284,6 +291,7 @@ describe(
   'resolveCommandRetentionDays - the explicit `builds prune` window',
   describeResolveCommandRetentionDaysTheExplicitBuildsPruneWindow,
 );
+
 function describeReadArtifactIndexWriteArtifactIndexIndexIORoundTrip() {
   let dir: string;
   let indexPath: string;
@@ -334,6 +342,7 @@ describe(
   'readArtifactIndex / writeArtifactIndex - index I/O round-trip',
   describeReadArtifactIndexWriteArtifactIndexIndexIORoundTrip,
 );
+
 function describeRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries() {
   let dir: string;
   let indexPath: string;
@@ -344,6 +353,7 @@ function describeRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries() {
     writeFileSync(binaryPath, Buffer.alloc(bytes));
     return binaryPath;
   }
+
   function prepareRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries() {
     const systemTemporaryDirectory = tmpdir();
     const launchPrunePath = join(systemTemporaryDirectory, 'launch-prune-');

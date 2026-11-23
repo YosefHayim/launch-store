@@ -49,6 +49,7 @@ type TrainRuntimeFailure = Readonly<{
 }>;
 
 type NativeSubmission = Readonly<{ buildId?: string }>;
+
 type OtaPublication = Readonly<{ manifestId?: string }>;
 
 /** Live train engine assembled for one app and profile. */

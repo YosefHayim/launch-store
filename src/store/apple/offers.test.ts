@@ -37,12 +37,15 @@ class FakeOffersApi implements AscOffersApi {
   readonly createdPromoted: PromotedPurchaseCreate[] = [];
   introCreateCount = 0;
   reorderedTo: readonly string[] | null = null;
+
   getAppId(): Promise<string | null> {
     return Promise.resolve(this.appId);
   }
+
   listSubscriptionGroups(): Promise<SubscriptionGroupResource[]> {
     return Promise.resolve(this.groups);
   }
+
   listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
     let subscriptions: SubscriptionResource[] = [];
 
@@ -50,9 +53,11 @@ class FakeOffersApi implements AscOffersApi {
 
     return Promise.resolve(subscriptions);
   }
+
   listInAppPurchases(): Promise<InAppPurchaseResource[]> {
     return Promise.resolve(this.iaps);
   }
+
   findSubscriptionPricePoint(
     _subscriptionId: string,
     territory: string,
@@ -68,16 +73,20 @@ class FakeOffersApi implements AscOffersApi {
       territory,
     });
   }
+
   listSubscriptionOfferCodes(): Promise<OfferCodeResource[]> {
     return Promise.resolve(this.offerCodes);
   }
+
   createSubscriptionOfferCode(input: OfferCodeCreate): Promise<OfferCodeResource> {
     this.createdOfferCodes.push(input);
     return Promise.resolve({ id: `oc-${input.name}`, name: input.name, active: true });
   }
+
   listPromotionalOffers(): Promise<PromotionalOfferResource[]> {
     return Promise.resolve(this.promotionalOffers);
   }
+
   createPromotionalOffer(input: PromotionalOfferCreate): Promise<PromotionalOfferResource> {
     this.createdPromotional.push(input);
 
@@ -87,23 +96,29 @@ class FakeOffersApi implements AscOffersApi {
       offerCode: input.offerCode,
     });
   }
+
   listIntroductoryOffers(): Promise<IntroductoryOfferResource[]> {
     return Promise.resolve(this.introductoryOffers);
   }
+
   createIntroductoryOffer(): Promise<void> {
     this.introCreateCount++;
     return Promise.resolve();
   }
+
   listWinBackOffers(): Promise<WinBackOfferResource[]> {
     return Promise.resolve(this.winBackOffers);
   }
+
   createWinBackOffer(input: WinBackOfferCreate): Promise<void> {
     this.createdWinBack.push(input);
     return Promise.resolve();
   }
+
   listPromotedPurchases(): Promise<PromotedPurchaseResource[]> {
     return Promise.resolve(this.promoted);
   }
+
   createPromotedPurchase(input: PromotedPurchaseCreate): Promise<PromotedPurchaseResource> {
     this.createdPromoted.push(input);
 
@@ -123,15 +138,18 @@ class FakeOffersApi implements AscOffersApi {
       visibleForAllUsers: input.visibleForAllUsers,
     });
   }
+
   reorderPromotedPurchases(_appId: string, orderedIds: readonly string[]): Promise<void> {
     this.reorderedTo = orderedIds;
     return Promise.resolve();
   }
 }
+
 /** Execute the offers reconciler at the test boundary. */
 function runReconcile(api: AscOffersApi, input: Parameters<typeof reconcileOffers>[1]) {
   return reconcileOffers(api, input);
 }
+
 /** Build a products config with one subscription carrying the given offer overrides. */
 function productsWith(overrides: Partial<SubscriptionConfig>): AppProducts {
   const subscription: SubscriptionConfig = {
@@ -152,6 +170,7 @@ function productsWith(overrides: Partial<SubscriptionConfig>): AppProducts {
     ],
   };
 }
+
 function describeReconcileOffersOfferCodes() {
   async function createsAMissingOfferCodeWithItsPricesResolvedToPricePoints() {
     const api = new FakeOffersApi();
@@ -304,6 +323,7 @@ function describeReconcileOffersOfferCodes() {
 }
 
 describe('reconcileOffers - offer codes', describeReconcileOffersOfferCodes);
+
 function describeReconcileOffersPromotionalIntroductoryWinBack() {
   async function createsEachDeclaredOfferKindThatSMissing() {
     const api = new FakeOffersApi();
@@ -391,6 +411,7 @@ describe(
   'reconcileOffers - promotional / introductory / win-back',
   describeReconcileOffersPromotionalIntroductoryWinBack,
 );
+
 function describeReconcileOffersPromotedPurchases() {
   async function promotesAMissingProductAndReordersToTheDeclaredOrder() {
     const api = new FakeOffersApi();
@@ -463,6 +484,7 @@ function describeReconcileOffersPromotedPurchases() {
 }
 
 describe('reconcileOffers - promoted purchases', describeReconcileOffersPromotedPurchases);
+
 function describeReconcileOffersPreconditions() {
   async function skipsASubscriptionThatIsnTInAppStoreConnectYet() {
     const api = new FakeOffersApi();
@@ -573,6 +595,7 @@ function describeReconcileOffersPreconditions() {
 }
 
 describe('reconcileOffers - preconditions', describeReconcileOffersPreconditions);
+
 function describeAppDeclaresOffers() {
   function isFalseForEmptyCatalogsAndPlainSubscriptions() {
     expect(appDeclaresOffers({})).toBe(false);

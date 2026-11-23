@@ -64,11 +64,13 @@ function acceptUploads(): void {
   ascFake.createBuildUpload.mockResolvedValue('upload-1');
   ascFake.uploadBuildFile.mockResolvedValue(undefined);
 }
+
 function cleanup() {
   return vi.resetAllMocks();
 }
 
 afterEach(cleanup);
+
 function describeAppStoreConnectSubmitterBuildUploadAPI() {
   async function uploadsTheBinaryForItsVersionAndBuildThenWaitsUntilAppleAcceptsIt() {
     acceptUploads();

@@ -37,12 +37,15 @@ export type AccessibilityConfig = {
 /** The exact slice of App Store Connect the accessibility reconciler depends on. */
 export type AscAccessibilityApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   listAccessibilityDeclarations(appId: string): Promise<AccessibilityDeclarationResource[]>;
+
   createAccessibilityDeclaration(
     appId: string,
     deviceFamily: DeviceFamily,
     support: AccessibilitySupport,
   ): Promise<AccessibilityDeclarationResource>;
+
   updateAccessibilityDeclaration(
     declarationId: string,
     changes: AccessibilitySupport & { publish?: boolean },

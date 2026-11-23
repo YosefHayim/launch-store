@@ -60,6 +60,7 @@ const PEM = [
   'MIGTAgEAMBMGByqGSM49AgEGCCqGSM49',
   '-----END PRIVATE KEY-----',
 ].join('\n');
+
 function file(active: string | null, ...labels: [string, string][]): AccountsFile {
   function createSavedAccount([keyId, label]: [string, string]) {
     return {
@@ -75,6 +76,7 @@ function file(active: string | null, ...labels: [string, string][]): AccountsFil
     accounts: labels.map(createSavedAccount),
   };
 }
+
 function prepare() {
   secrets.store.clear();
   useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
@@ -91,6 +93,7 @@ function prepare() {
 }
 
 beforeEach(prepare);
+
 function cleanupAll() {
   resetLaunchDirectories();
   resetSecretStore();
@@ -99,6 +102,7 @@ function cleanupAll() {
 }
 
 afterAll(cleanupAll);
+
 function describeEncodeP8DecodeP8() {
   function roundTripsAMultiLinePEMThroughBase64Unchanged() {
     expect(decodeP8(encodeP8(PEM))).toBe(PEM);
@@ -121,6 +125,7 @@ function describeEncodeP8DecodeP8() {
 }
 
 describe('encodeP8 / decodeP8', describeEncodeP8DecodeP8);
+
 function describePieceAccount() {
   const accounts = file(null, ['AAAA1111', 'Personal'], ['BBBB2222', 'Acme']).accounts;
 
@@ -147,6 +152,7 @@ function describePieceAccount() {
 }
 
 describe('matchAccount', describePieceAccount);
+
 function describeFormatAccountSummary() {
   const base: AccountRecord = {
     keyId: 'KEYABC1234',
@@ -230,6 +236,7 @@ function describeFormatAccountSummary() {
 }
 
 describe('formatAccountSummary', describeFormatAccountSummary);
+
 function describeDecideBuildAccount() {
   function errorsWithAFixWhenNoAccountsExist() {
     expect(decideBuildAccount(file(null))).toEqual({
@@ -293,6 +300,7 @@ function describeDecideBuildAccount() {
 }
 
 describe('decideBuildAccount', describeDecideBuildAccount);
+
 function describeRegistryMutations() {
   async function addsAnAccountStoresItsKeyNamespacedAndMakesItActive() {
     const account = addAccount({
@@ -439,6 +447,7 @@ function describeRegistryMutations() {
 }
 
 describe('registry mutations', describeRegistryMutations);
+
 async function addTwoAccounts() {
   const account = addAccount({
     keyId: 'AAAA1111',
@@ -452,6 +461,7 @@ async function addTwoAccounts() {
     addAccount({ keyId: 'BBBB2222', issuerId: 'issuer-b', label: 'Acme', p8: PEM }),
   );
 }
+
 function describeLoadActiveAscKey() {
   async function loadsTheActiveAccountWithoutASCACCOUNT() {
     await addTwoAccounts();
@@ -487,6 +497,7 @@ function describeLoadActiveAscKey() {
 }
 
 describe('loadActiveAscKey', describeLoadActiveAscKey);
+
 function describeLoadAscKeyForAccount() {
   function loadKeyForAccountWith(
     accountSelector: string | undefined,
@@ -496,6 +507,7 @@ function describeLoadAscKeyForAccount() {
 
     return loadAscKeyForAccount(accountSelector);
   }
+
   async function loadsTheAccountTheFlagNamesEvenWhenAnotherAccountIsActive() {
     await addTwoAccounts();
 
@@ -546,6 +558,7 @@ function describeLoadAscKeyForAccount() {
 }
 
 describe('loadAscKeyForAccount', describeLoadAscKeyForAccount);
+
 function describeMigrateLegacyAccounts() {
   async function movesALegacySingleKeyIntoTheRegistryAsTheActiveDefaultAccount() {
     secrets.store.set('asc-key-id', 'KEYXYZ7890');
@@ -597,10 +610,12 @@ function describeMigrateLegacyAccounts() {
 }
 
 describe('migrateLegacyAccounts', describeMigrateLegacyAccounts);
+
 function describeSetAccountVendorNumber() {
   function addApple(keyId: string) {
     return addAccount({ keyId, issuerId: `issuer-${keyId}`, label: `label-${keyId}`, p8: PEM });
   }
+
   async function savesTheVendorNumberOnTheAccount() {
     const apple = addApple('AAAA1111');
 

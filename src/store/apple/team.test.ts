@@ -52,6 +52,7 @@ function pendingInvitation(
     ...fieldOverrides,
   };
 }
+
 function describeGetTeam() {
   async function returnsMembersAndPendingInvitationsTogether() {
     const fulfilled = Promise.resolve([teamMember()]);
@@ -72,6 +73,7 @@ function describeGetTeam() {
 }
 
 describe('getTeam', describeGetTeam);
+
 function describeInviteTeamMember() {
   async function invitesWithNormalizedRolesAndDefaultPermissions() {
     const teamClient = makeTeamClient();
@@ -218,6 +220,7 @@ function describeInviteTeamMember() {
 }
 
 describe('inviteTeamMember', describeInviteTeamMember);
+
 function describeRemoveTeamMember() {
   async function deletesAnAcceptedMemberMatchedCaseInsensitively() {
     const fulfilled = Promise.resolve([teamMember({ id: 'u9', username: 'jane@acme.com' })]);

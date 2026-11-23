@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { parseStoreConfig, readAndroidMetadataDir, readAppleMetadataDir } from './store-config.ts';
 const tmpDirs: string[] = [];
+
 function workDir(): string {
   const systemTemporaryDirectory = tmpdir();
   const storeconfigTestPath = join(systemTemporaryDirectory, 'storeconfig-test-');
@@ -13,11 +14,13 @@ function workDir(): string {
 
   return dir;
 }
+
 function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 }
 
 afterEach(cleanup);
+
 function describeParseStorePiece() {
   function parsesTheExpoAppleSchemaPlusTheAndroidExtension() {
     const config = parseStoreConfig({
@@ -83,6 +86,7 @@ function describeParseStorePiece() {
 }
 
 describe('parseStoreConfig', describeParseStorePiece);
+
 function writeMetadataFiles(dir: string, files: Record<string, string>): void {
   for (const [relativePath, text] of Object.entries(files)) {
     const joinedPath = join(dir, relativePath);
@@ -91,6 +95,7 @@ function writeMetadataFiles(dir: string, files: Record<string, string>): void {
     writeFileSync(join(dir, relativePath), text);
   }
 }
+
 function describeAppleMetadataFolderReadDeliverLayout() {
   async function readsDeliverTxtFilesIntoTheAppleSection() {
     const dir = workDir();
@@ -135,6 +140,7 @@ describe(
   'apple metadata folder read (deliver layout)',
   describeAppleMetadataFolderReadDeliverLayout,
 );
+
 function describeAndroidMetadataFolderReadSupplyLayout() {
   async function readsSupplyTxtFilesIntoTheAndroidSection() {
     const dir = workDir();

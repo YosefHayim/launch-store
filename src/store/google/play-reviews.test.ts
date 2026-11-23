@@ -52,6 +52,7 @@ function makePlayReview(reviewFields: Partial<PlayReview> = {}): PlayReview {
 function reviewIdOf(playReview: PlayReview): string {
   return playReview.reviewId;
 }
+
 function describeListPlayReviews() {
   async function filtersByRatingAndUnansweredStatusClientSide() {
     const playReview = makePlayReview({ reviewId: 'a', rating: 5, answered: false });
@@ -91,6 +92,7 @@ function describeListPlayReviews() {
 }
 
 describe('listPlayReviews', describeListPlayReviews);
+
 function describeReplyToPlayReview() {
   async function reportsReplacedFalseWhenTheReviewHadNoDeveloperReply() {
     const playReview = makePlayReview({ reviewId: 'r1', answered: false });

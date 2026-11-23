@@ -24,11 +24,13 @@ async function parseStats(cliArguments: readonly string[]) {
   registerStatsCommand(program);
   await program.parseAsync(['node', 'launch-store', 'stats', ...cliArguments]);
 }
+
 function prepare() {
   vi.clearAllMocks();
 }
 
 beforeEach(prepare);
+
 function describeRegisterStatsCommand() {
   async function passesAppDaysAndPieceThroughToStatsSync() {
     await parseStats(['sync', '--app', 'calfriend', '--days', '30', '--json']);

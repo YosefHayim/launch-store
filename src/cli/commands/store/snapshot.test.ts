@@ -22,6 +22,7 @@ function snapshotSubcommand(commandName: string) {
 
   return snapshotCommand?.commands.find(isNamedSnapshotCommand);
 }
+
 function describeRegisterSnapshotCommand() {
   function registersEverySnapshotOperation() {
     const program = new Command();

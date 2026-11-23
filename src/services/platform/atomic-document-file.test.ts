@@ -42,6 +42,7 @@ beforeEach(function createHome() {
 afterEach(function removeHome() {
   removeTemporaryHomeDirectory(homeDirectory);
 });
+
 function describeReadDocumentFile() {
   async function returnsNullWhenTheFileDoesNotExist() {
     const missingPath = join(homeDirectory, 'missing.json');
@@ -80,6 +81,7 @@ function describeReadDocumentFile() {
 }
 
 describe('readDocumentFile', describeReadDocumentFile);
+
 function describeWriteDocumentFileAtomically() {
   async function writesTheDocumentCreatesMissingFoldersAndLeavesNoPieceFile() {
     const filePath = join(homeDirectory, 'a', 'b', 'note.json');

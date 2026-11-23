@@ -29,6 +29,7 @@ const ANDROID_MANIFEST = `<manifest xmlns:android="http://schemas.android.com/ap
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
   <uses-permission android:name="android.permission.CAMERA"/>
 </manifest>`;
+
 function describeParseUsageDescriptions() {
   function extractsUsageKeysIncludingEmptyAndSelfClosingValues() {
     const usage = parseUsageDescriptions(INFO_PLIST);
@@ -46,6 +47,7 @@ function describeParseUsageDescriptions() {
 }
 
 describe('parseUsageDescriptions', describeParseUsageDescriptions);
+
 function describeParsePrivacyManifest() {
   function readsCollectedPieceTypesTheTrackingFlagAndTrackingDomains() {
     const manifest = parsePrivacyManifest(XCPRIVACY);
@@ -75,6 +77,7 @@ function describeParsePrivacyManifest() {
 }
 
 describe('parsePrivacyManifest', describeParsePrivacyManifest);
+
 function describeParseAndroidPermissions() {
   function extractsAndDeDuplicatesPermissionNames() {
     const androidPermissions = parseAndroidPermissions(ANDROID_MANIFEST);
@@ -89,6 +92,7 @@ function describeParseAndroidPermissions() {
 }
 
 describe('parseAndroidPermissions', describeParseAndroidPermissions);
+
 function describeSurfaceFromNative() {
   function unionsTheParsedFilesIntoOneSurface() {
     const surface = surfaceFromNative({
@@ -125,6 +129,7 @@ function describeSurfaceFromNative() {
 }
 
 describe('surfaceFromNative', describeSurfaceFromNative);
+
 function describeSurfaceFromExpoPiece() {
   function readsUsageStringsTheManifestAndAndroidPermissionsFromTheResolvedPiece() {
     const surface = surfaceFromExpoConfig({

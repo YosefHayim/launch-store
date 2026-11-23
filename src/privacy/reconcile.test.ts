@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from './reconcile.ts';
 import type { PrivacySurface } from '../types/privacy.ts';
+
 /** A clean baseline surface; tests override only the fields they exercise. */
 function surface(overrides: Partial<PrivacySurface> = {}): PrivacySurface {
   return {
@@ -13,6 +14,7 @@ function surface(overrides: Partial<PrivacySurface> = {}): PrivacySurface {
     ...overrides,
   };
 }
+
 function readCode(finding: {
   readonly app: string;
   readonly platform: 'ios' | 'android';
@@ -26,6 +28,7 @@ function readCode(finding: {
 function codes(findings: ReturnType<typeof reconcilePrivacy>): string[] {
   return findings.map(readCode);
 }
+
 function describeReconcilePrivacy() {
   function flagsAnEmptyPurposeStringAsABlocker() {
     const findings = reconcilePrivacy(
@@ -206,6 +209,7 @@ function describeReconcilePrivacy() {
 }
 
 describe('reconcilePrivacy', describeReconcilePrivacy);
+
 function describeBuildPrivacyReport() {
   function exits2WhenAnyBlockerIsPresent() {
     const findings = reconcilePrivacy(
@@ -240,6 +244,7 @@ function describeBuildPrivacyReport() {
 }
 
 describe('buildPrivacyReport', describeBuildPrivacyReport);
+
 function describeRenderPrivacyReport() {
   function reportsACleanSurface() {
     const privacyReport = buildPrivacyReport([], ['app']);

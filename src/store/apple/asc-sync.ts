@@ -23,14 +23,20 @@ import { appRecordMissing } from '../shared/reconcile.ts';
 /** ASC catalog surface the reconciler depends on. */
 export type AscCatalogApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   findBundleId(identifier: string): Promise<BundleIdResource | null>;
+
   listBundleIdCapabilities(bundleIdResourceId: string): Promise<BundleIdCapabilityResource[]>;
+
   enableCapability(
     bundleIdResourceId: string,
     capabilityType: string,
   ): Promise<BundleIdCapabilityResource>;
+
   disableCapability(capabilityId: string): Promise<void>;
+
   listInAppPurchases(appId: string): Promise<InAppPurchaseResource[]>;
+
   createInAppPurchase(
     appId: string,
     purchase: {
@@ -39,7 +45,9 @@ export type AscCatalogApi = {
       inAppPurchaseType: string;
     },
   ): Promise<InAppPurchaseResource>;
+
   listInAppPurchaseLocalizations(iapId: string): Promise<LocalizationResource[]>;
+
   createInAppPurchaseLocalization(
     iapId: string,
     localization: {
@@ -48,20 +56,27 @@ export type AscCatalogApi = {
       description?: string | undefined;
     },
   ): Promise<LocalizationResource>;
+
   inAppPurchaseHasPrice(iapId: string): Promise<boolean>;
+
   findInAppPurchasePricePoint(
     iapId: string,
     territory: string,
     customerPrice: number,
   ): Promise<PricePointResource | null>;
+
   createInAppPurchasePriceSchedule(
     iapId: string,
     baseTerritory: string,
     pricePointId: string,
   ): Promise<void>;
+
   listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]>;
+
   createSubscriptionGroup(appId: string, referenceName: string): Promise<SubscriptionGroupResource>;
+
   listSubscriptionGroupLocalizations(groupId: string): Promise<LocalizationResource[]>;
+
   createSubscriptionGroupLocalization(
     groupId: string,
     localization: {
@@ -69,7 +84,9 @@ export type AscCatalogApi = {
       name: string;
     },
   ): Promise<LocalizationResource>;
+
   listSubscriptions(groupId: string): Promise<SubscriptionResource[]>;
+
   createSubscription(
     groupId: string,
     subscription: {
@@ -79,7 +96,9 @@ export type AscCatalogApi = {
       groupLevel: number;
     },
   ): Promise<SubscriptionResource>;
+
   listSubscriptionLocalizations(subscriptionId: string): Promise<LocalizationResource[]>;
+
   createSubscriptionLocalization(
     subscriptionId: string,
     localization: {
@@ -88,28 +107,39 @@ export type AscCatalogApi = {
       description?: string | undefined;
     },
   ): Promise<LocalizationResource>;
+
   subscriptionHasPrice(subscriptionId: string): Promise<boolean>;
+
   findSubscriptionPricePoint(
     subscriptionId: string,
     territory: string,
     customerPrice: number,
   ): Promise<PricePointResource | null>;
+
   createSubscriptionPrice(subscriptionId: string, pricePointId: string): Promise<void>;
+
   getEditableAppInfoId(appId: string): Promise<string | null>;
+
   listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]>;
+
   createAppInfoLocalization(
     appInfoId: string,
     locale: string,
     fields: Record<string, string>,
   ): Promise<void>;
+
   updateAppInfoLocalization(localizationId: string, fields: Record<string, string>): Promise<void>;
+
   getEditableVersionId(appId: string): Promise<string | null>;
+
   listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
+
   createVersionLocalization(
     versionId: string,
     locale: string,
     fields: Record<string, string>,
   ): Promise<void>;
+
   updateVersionLocalization(localizationId: string, fields: Record<string, string>): Promise<void>;
 };
 

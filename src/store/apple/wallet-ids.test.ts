@@ -40,6 +40,7 @@ function makeApi(existing: {
 
   return { api, created };
 }
+
 /** Execute the Wallet reconciler at the test boundary. */
 function runReconcile(api: AscWalletApi, config: WalletConfig, dryRun: boolean) {
   return reconcileWalletIds(api, config, dryRun);
@@ -51,9 +52,11 @@ const CONFIG: WalletConfig = {
     { identifier: 'pass.com.acme.ticket', name: 'Acme Ticket' },
   ],
 };
+
 function decodeWalletConfig(rawDocument: unknown) {
   return parseWalletConfig(rawDocument);
 }
+
 function describeParseWalletPiece() {
   function parsesBothIdentifierFamilies() {
     const decodeWallet = decodeWalletConfig(CONFIG);
@@ -129,6 +132,7 @@ function describeParseWalletPiece() {
 }
 
 describe('parseWalletConfig', describeParseWalletPiece);
+
 function describeReconcileWalletIds() {
   async function registersOnlyTheIdentifiersAppleDoesnTAlreadyHaveAcrossBothFamilies() {
     const { api, created } = makeApi({

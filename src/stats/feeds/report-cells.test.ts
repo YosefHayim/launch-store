@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { readCell, readNumberCell, readTotal, roundMoney, sumColumn } from './report-cells.ts';
+
 function describeReadCell() {
   function returnsTheTrimmedCellUnderTheColumn() {
     const cell = readCell({ Units: '  4 ' }, 'Units');
@@ -22,6 +23,7 @@ function describeReadCell() {
 }
 
 describe('readCell', describeReadCell);
+
 function describeReadNumberCell() {
   function readsANumber() {
     const numberCell = readNumberCell({ Units: '12.5' }, 'Units');
@@ -46,6 +48,7 @@ function describeReadNumberCell() {
 }
 
 describe('readNumberCell', describeReadNumberCell);
+
 function describeSumColumn() {
   function addsTheColumnOverManyLines() {
     const total = sumColumn([{ Counts: '2' }, { Counts: '3' }, { Counts: '' }], 'Counts');
@@ -63,6 +66,7 @@ function describeSumColumn() {
 }
 
 describe('sumColumn', describeSumColumn);
+
 function describeReadTotal() {
   function returnsTheKnownTotal() {
     const total = readTotal(new Map([['a', 7]]), 'a');
@@ -80,6 +84,7 @@ function describeReadTotal() {
 }
 
 describe('readTotal', describeReadTotal);
+
 function describeRoundMoney() {
   function removesFloatNoiseDownToCents() {
     expect(roundMoney(0.7 * 3)).toBe(2.1);

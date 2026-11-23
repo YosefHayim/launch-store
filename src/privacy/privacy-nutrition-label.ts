@@ -10,6 +10,7 @@ export const APP_PRIVACY_STEPS: readonly string[] = [
   "Declare whether any data type is used to track the user across other companies' apps and websites.",
   'Save, then Publish the App Privacy details so they appear on the App Store product page.',
 ];
+
 /** Render the App Privacy checklist as printable lines */
 export function appPrivacyChecklist(): string[] {
   function writeStepLine(step: string, index: number) {

@@ -7,7 +7,9 @@ import {
 } from './connect/list-query.ts';
 
 type AppList = components['schemas']['AppsResponse'];
+
 type BuildUploadResponse = components['schemas']['BuildUploadResponse'];
+
 type BuildUploadCreateRequest = components['schemas']['BuildUploadCreateRequest'];
 
 interface AppleResource {

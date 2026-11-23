@@ -17,6 +17,7 @@ const BASE_OPTIONS = {
   env: [],
   includeLocal: false,
 } as const;
+
 function describeReleaseTrainCommandPieceSchema() {
   function decodesAStartRequestWithExactOptionalFlags() {
     const releaseTrainCommandSchema = ReleaseTrainCommandInputSchema({
@@ -77,6 +78,7 @@ function describeReleaseTrainCommandPieceSchema() {
 }
 
 describe('ReleaseTrainCommandInputSchema', describeReleaseTrainCommandPieceSchema);
+
 function describeTrainAppSlugMintTrainId() {
   function slugifiesAppNamesForTrainIds() {
     expect(trainAppSlug('Hello World!')).toBe('hello-world');
@@ -109,6 +111,7 @@ function describeTrainAppSlugMintTrainId() {
 }
 
 describe('trainAppSlug / mintTrainId', describeTrainAppSlugMintTrainId);
+
 function describeReleaseTrainPresentation() {
   function rendersNativeCarsWithTheirBuildOrFailure() {
     expect(carLabel({ kind: 'ios', state: 'submitted', updatedAt: NOW })).toBe('ios');

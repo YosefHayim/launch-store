@@ -5,6 +5,7 @@ import {
   bundletoolInstallApksArgs,
   devicectlInstallArgs,
 } from './run-command.ts';
+
 function describeAdbInstallPiece() {
   function reinstallsWithoutASerialWhenNoneIsGiven() {
     const adbInstall = adbInstallArgs('/b/app.apk');
@@ -22,6 +23,7 @@ function describeAdbInstallPiece() {
 }
 
 describe('adbInstallArgs', describeAdbInstallPiece);
+
 function describeBundletoolArguments() {
   function createsAUniversalAPKSet() {
     const bundletoolBuildApks = bundletoolBuildApksArgs('/b/app.aab', '/tmp/app.apks');
@@ -55,6 +57,7 @@ function describeBundletoolArguments() {
 }
 
 describe('bundletool arguments', describeBundletoolArguments);
+
 function describeDevicectlInstallPiece() {
   function installsAnApplicationBundleWithAnOptionalDeviceIdentifier() {
     const devicectlInstall = devicectlInstallArgs('/tmp/Payload/Demo.app');

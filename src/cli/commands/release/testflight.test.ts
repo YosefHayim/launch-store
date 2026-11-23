@@ -19,6 +19,7 @@ function registeredTestflight(): Command {
 
   return testflightCommand;
 }
+
 function describeRegisterTestflightCommand() {
   function attachesTheTestFlightSubcommandTree() {
     const testflightCommand = registeredTestflight();

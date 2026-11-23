@@ -1,12 +1,16 @@
 export const PLATFORMS = ['ios', 'android', 'tvos', 'macos', 'visionos'] as const;
+
 /** Target build platform - one of {@link PLATFORMS}. */
 export type Platform = (typeof PLATFORMS)[number];
+
 /** How a build is distributed. */
 export type Distribution = 'store' | 'internal';
 /** A Google Play release track. */
 export const playTracks = ['internal', 'closed', 'open', 'production'] as const;
+
 /** A Google Play release track - one of {@link playTracks}. */
 export type PlayTrack = (typeof playTracks)[number];
+
 /** Which web console page `launch-store open` deep-links to. */
 export type OpenTarget =
   | 'asc'
@@ -16,25 +20,30 @@ export type OpenTarget =
   | 'reviews'
   | 'agreements'
   | 'app-record';
+
 /** One localized Play "What's new" line carried on {@link AndroidReleaseOptions} so the Google */
 export type AndroidReleaseNote = {
   language: string;
   text: string;
 };
+
 /** Resolved Android release settings for one invocation */
 export type AndroidReleaseOptions = {
   track: PlayTrack;
   rollout: number;
   releaseNotes?: readonly AndroidReleaseNote[];
 };
+
 /** Which kind of TestFlight beta feedback a {@link BetaFeedback} carries */
 export type BetaFeedbackKind = 'crash' | 'screenshot';
+
 /** One TestFlight screenshot attachment on a {@link BetaFeedback} */
 type BetaFeedbackScreenshot = {
   url: string;
   width?: number;
   height?: number;
 };
+
 /** One piece of TestFlight beta feedback */
 export type BetaFeedback = {
   id: string;
@@ -47,6 +56,7 @@ export type BetaFeedback = {
   buildVersion?: string;
   screenshots?: BetaFeedbackScreenshot[];
 };
+
 /** One app discovered in the surrounding monorepo. */
 export type AppDescriptor = {
   name: string;
@@ -60,6 +70,7 @@ export type AppDescriptor = {
   androidVersionCode?: number;
   usesNonExemptEncryption?: boolean;
 };
+
 /** One named set of build settings in `profiles`, such as `production` or `preview`. */
 export type BuildProfile = {
   /** The name you pass to `--profile`. */

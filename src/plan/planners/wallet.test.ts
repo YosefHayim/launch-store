@@ -10,6 +10,7 @@ import type { ActionStatus } from '@/types/reconcile.js';
 const DECLARED: WalletConfig = {
   merchantIds: [{ identifier: 'merchant.com.acme.app', name: 'Acme Pay' }],
 };
+
 function makeCtx(api: AscSurfacesApi | null, wallet?: WalletConfig): PlanContext {
   const baseConfig: LaunchConfig = {
     profiles: {},
@@ -33,6 +34,7 @@ function makeCtx(api: AscSurfacesApi | null, wallet?: WalletConfig): PlanContext
     },
   };
 }
+
 function describeWalletPlanner() {
   async function omitsItselfWhenNoWalletIdsAreDeclared() {
     const ascApiFake = makeAscApiFake();

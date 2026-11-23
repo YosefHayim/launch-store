@@ -16,6 +16,7 @@ function makeLine(fields: Record<string, string>): Record<string, string> {
     ...fields,
   };
 }
+
 function describeFindAppSkus() {
   function collectsTheSKUsOfTheAppOnly() {
     const skus = findAppSkus(
@@ -34,6 +35,7 @@ function describeFindAppSkus() {
 }
 
 describe('findAppSkus', describeFindAppSkus);
+
 function describeSummarizeSalesLines() {
   const day = { date: '2026-10-20', storeId: APP_ID, appSkus: new Set(['calfriend']) };
 

@@ -33,6 +33,7 @@ export function alignTableColumns<TableEntry>(
   function joinCellsIntoLine(cells: readonly string[]): string {
     return cells.map(padCell).join('  ').trimEnd();
   }
+
   function readHeader(column: {
     readonly header: string;
     readonly cell: (tableEntry: TableEntry) => string;

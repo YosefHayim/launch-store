@@ -1,4 +1,5 @@
 import type { Command } from './command.ts';
+
 /** Environment flags shared by build, release, and update. They change one run. */
 export type EnvironmentFlags = {
   env: string[];

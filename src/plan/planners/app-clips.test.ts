@@ -16,6 +16,7 @@ const alpha: AppDescriptor = {
 const DECLARED: Record<string, AppClipsConfig> = {
   'com.acme.alpha': { clips: { 'com.acme.alpha.Clip': { action: 'OPEN' } } },
 };
+
 function makeCtx(
   api: AscSurfacesApi | null,
   appClips?: Record<string, AppClipsConfig>,
@@ -42,6 +43,7 @@ function makeCtx(
     },
   };
 }
+
 function describeAppClipsPlanner() {
   async function omitsItselfWhenNoAppDeclaresAppClips() {
     const ascApiFake = makeAscApiFake();

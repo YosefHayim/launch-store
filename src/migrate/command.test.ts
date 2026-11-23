@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MigrateCommandInputSchema } from './command.ts';
+
 function describeMigrateCommandPieceSchema() {
   function acceptsEasAndFastlaneWithForceDryRunAndOptionalOut() {
     const migrateCommandSchema = MigrateCommandInputSchema({

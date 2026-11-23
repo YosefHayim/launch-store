@@ -12,6 +12,7 @@ function createStat(overrides: Partial<DailyStat>): DailyStat {
     ...overrides,
   };
 }
+
 function describeMergeStats() {
   function replacesASavedNumberWithTheNewNumberOfTheSameIdentity() {
     const stat = createStat({ value: 1 });
@@ -65,6 +66,7 @@ function describeMergeStats() {
 }
 
 describe('mergeStats', describeMergeStats);
+
 function describeGroupStatsByMonth() {
   function groupsStatsOfTheSameMonthTogether() {
     const stat = createStat({ date: '2026-09-30' });

@@ -4,6 +4,7 @@ import {
   APP_PRIVACY_STEPS,
   appPrivacyChecklist,
 } from './privacy-nutrition-label.ts';
+
 function describeAppPrivacyChecklist() {
   function emitsAUIOnlyVerdictEveryNumberedStepAndTheHelpLink() {
     const lines = appPrivacyChecklist();

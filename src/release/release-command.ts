@@ -91,9 +91,11 @@ type AppStoreBuildSelector =
   | Readonly<{ kind: 'invalid'; selector: string }>;
 
 type ReleaseInputCommon = Omit<ReleaseInput, 'versionString' | 'build' | 'dryRun'>;
+
 type BuildSource =
   | Readonly<{ kind: 'upload' }>
   | Readonly<{ kind: 'promote'; storeBuild: BuildResource }>;
+
 type SelectedStoreBuild = Readonly<{ storeBuild: BuildResource; versionString: string }>;
 
 function releaseFailure(

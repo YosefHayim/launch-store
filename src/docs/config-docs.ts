@@ -6,6 +6,7 @@ function escapeCell(cell: string): string {
     return `\\${character}`;
   });
 }
+
 /** Decode the trailing segment of a `$ref` into the definition name, e.g. `#/definitions/BuildProfile` -> `BuildProfile`. */
 function refName(ref: string): string {
   let referenceSegment = ref.split('/').pop();
@@ -14,6 +15,7 @@ function refName(ref: string): string {
 
   return decodeURIComponent(referenceSegment);
 }
+
 /** Resolve a `{@link Foo}` / `{@link Foo display}` / `{@link Foo | display}` tag down to plain */
 function resolveLink(inner: string): string {
   const [target, ...rest] = inner.split('|');
@@ -38,6 +40,7 @@ function resolveLink(inner: string): string {
 
   return finalSymbol;
 }
+
 /** Strip `{@link}` tags and collapse all whitespace so a JSDoc block renders as one clean table-cell line. */
 function cleanDescription(description: string | undefined): string {
   if (!description) return '';
@@ -51,6 +54,7 @@ function cleanDescription(description: string | undefined): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
 /** Render a property's schema as a TypeScript-flavoured type string */
 function renderType(schema: JsonSchema): string {
   if (schema.$ref) return refName(schema.$ref);
@@ -91,6 +95,7 @@ function renderType(schema: JsonSchema): string {
 
   return 'unknown';
 }
+
 /** Render an object schema's properties as a `Field | Type | Required | Description` table (or a note when it has none). */
 function renderPropertiesTable(object: JsonSchema): string {
   let documentedProperties = object.properties;
@@ -122,6 +127,7 @@ function renderPropertiesTable(object: JsonSchema): string {
     '\n',
   );
 }
+
 /** Render one named object definition as a `### Heading`, its description, and its property table. */
 function renderTypeSection(name: string, definition: JsonSchema): string {
   const description = cleanDescription(definition.description);
@@ -135,6 +141,7 @@ function renderTypeSection(name: string, definition: JsonSchema): string {
 
   return parts.join('\n');
 }
+
 /** Render the launch.config.ts field reference from its JSON Schema. */
 export function renderConfigDocs(schema: JsonSchema): string {
   let rootName = '';

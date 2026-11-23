@@ -3,6 +3,7 @@ import type { SandboxTesterResource } from '@/types/apple-catalog.js';
 /** The exact slice of App Store Connect the sandbox domain depends on. */
 export type AscSandboxApi = {
   listSandboxTesters(): Promise<SandboxTesterResource[]>;
+
   clearSandboxTesterPurchaseHistory(testerIds: readonly string[]): Promise<void>;
 };
 

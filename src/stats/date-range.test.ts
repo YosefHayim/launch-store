@@ -8,6 +8,7 @@ import {
   readYesterdayUtc,
   shiftDate,
 } from './date-range.ts';
+
 function describeShiftDate() {
   function movesForwardAcrossAMonthEnd() {
     expect(shiftDate('2026-01-30', 3)).toBe('2026-02-02');
@@ -29,6 +30,7 @@ function describeShiftDate() {
 }
 
 describe('shiftDate', describeShiftDate);
+
 function describeReadMonthOfDate() {
   function keepsTheYearAndMonth() {
     const monthOfDate = readMonthOfDate('2026-10-29');
@@ -39,6 +41,7 @@ function describeReadMonthOfDate() {
 }
 
 describe('readMonthOfDate', describeReadMonthOfDate);
+
 function describeCreateLastDaysRange() {
   function oneDayIsTheLastDateOnly() {
     const lastDaysRange = createLastDaysRange('2026-10-28', 1);
@@ -56,6 +59,7 @@ function describeCreateLastDaysRange() {
 }
 
 describe('createLastDaysRange', describeCreateLastDaysRange);
+
 function describeReadYesterdayUtc() {
   function isTheDayBeforeTheClockDateInUTC() {
     const yesterday = readYesterdayUtc(Date.parse('2026-10-29T00:30:00.000Z'));
@@ -67,6 +71,7 @@ function describeReadYesterdayUtc() {
 }
 
 describe('readYesterdayUtc', describeReadYesterdayUtc);
+
 function describeIsSyncedAtStale() {
   const now = Date.parse('2026-10-29T12:00:00.000Z');
 
@@ -90,6 +95,7 @@ function describeIsSyncedAtStale() {
 }
 
 describe('isSyncedAtStale', describeIsSyncedAtStale);
+
 function describePickEarlierDate() {
   function returnsTheEarlierOfTwoDatesInEitherOrder() {
     const earlierDate = pickEarlierDate('2026-10-01', '2026-10-05');
@@ -104,6 +110,7 @@ function describePickEarlierDate() {
 }
 
 describe('pickEarlierDate', describePickEarlierDate);
+
 function describePickLaterDate() {
   function returnsTheLaterOfTwoDatesInEitherOrder() {
     const laterDate = pickLaterDate('2026-10-01', '2026-10-05');

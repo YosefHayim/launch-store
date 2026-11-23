@@ -50,6 +50,7 @@ function probe(id: string, fixedProbeResult: ProbeResult | (() => never)): Readi
 function runProbeSet(readinessProbes: readonly ReadinessProbe[]) {
   return runProbes(readinessContext, readinessProbes);
 }
+
 function describeReadinessExitCode() {
   function returnsOk0WithNoErrorsOrBlockers() {
     expect(readinessExitCode({ errorCount: 0, blockerCount: 0 })).toBe(READINESS_EXIT.ok);
@@ -74,6 +75,7 @@ function describeReadinessExitCode() {
 }
 
 describe('readinessExitCode', describeReadinessExitCode);
+
 function describeTallyProbeReports() {
   function countsPerAppFindingsAndProbeLevelSkipErrorStates() {
     const probeReports: ProbeReport[] = [

@@ -35,6 +35,7 @@ function artifact(overrides: Partial<BuildArtifact> = {}): BuildArtifact {
     ...overrides,
   };
 }
+
 function describeBuildIdStableProviderIndependentIdFromNaturalKeys() {
   function joinsAppVersionBuildNumberAndPlatform() {
     expect(buildId(artifact())).toBe('demo-1.0.0-7-ios');
@@ -53,6 +54,7 @@ describe(
   'buildId - stable, provider-independent id from natural keys',
   describeBuildIdStableProviderIndependentIdFromNaturalKeys,
 );
+
 function describeToBuildPiece() {
   function derivesTheWorstCaseDownloadFromThePerDeviceEntries() {
     const tableRow = readBuildRow(
@@ -79,6 +81,7 @@ function describeToBuildPiece() {
 }
 
 describe('readBuildRow', describeToBuildPiece);
+
 function describeFilterBuilds() {
   const ios = artifact({ appName: 'demo', platform: 'ios' });
   const android = artifact({ appName: 'demo', platform: 'android', path: '/a/demo.aab' });
@@ -111,6 +114,7 @@ function describeFilterBuilds() {
 }
 
 describe('filterBuilds', describeFilterBuilds);
+
 function describeFindBuild() {
   const newest = artifact({ buildNumber: 9, version: '1.1.0' });
   const older = artifact({ buildNumber: 7, version: '1.0.0' });
@@ -156,6 +160,7 @@ function describeFindBuild() {
 }
 
 describe('findBuild', describeFindBuild);
+
 function describeBuildKindLabelBuildsLabel() {
   function labelsPrunedCleanAndIncrementalBuilds() {
     const kindLabel = buildKindLabel({ clean: true, prunedAt: '2026-06-14T00:00:00.000Z' });
@@ -179,6 +184,7 @@ function describeBuildKindLabelBuildsLabel() {
 }
 
 describe('buildKindLabel / buildsLabel', describeBuildKindLabelBuildsLabel);
+
 function describeFormatBuildsTable() {
   function rendersAHeaderPlusOneAlignedPiecePerBuild() {
     const table = formatBuildsTable([artifact()].map(readBuildRow));
@@ -204,6 +210,7 @@ function describeFormatBuildsTable() {
 }
 
 describe('formatBuildsTable', describeFormatBuildsTable);
+
 function describeFormatBuildDetail() {
   function showsBothSizeNumbersAndThePerDeviceBreakdown() {
     const detail = formatBuildDetail(artifact());
@@ -236,6 +243,7 @@ function describeFormatBuildDetail() {
 }
 
 describe('formatBuildDetail', describeFormatBuildDetail);
+
 function describePrunedBuildsHistorySurvivesBinaryIsMarkedGone() {
   function carriesPrunedAtOntoThePieceOnlyWhenSet() {
     const buildRow = readBuildRow(artifact());
@@ -278,6 +286,7 @@ describe(
   'pruned builds - history survives, binary is marked gone',
   describePrunedBuildsHistorySurvivesBinaryIsMarkedGone,
 );
+
 function describeFormatPrunePreview() {
   const pruned: PrunedArtifact[] = [
     {
@@ -326,6 +335,7 @@ function thrownPruneFailure(daysText: string): unknown {
 
   throw new Error(`expected parsePruneDays(${daysText}) to throw`);
 }
+
 function describeParsePruneDays() {
   function acceptsPositiveWholeNumbersAndAbsentOverrides() {
     const pruneDays = parsePruneDays(undefined);
@@ -361,6 +371,7 @@ function describeParsePruneDays() {
 }
 
 describe('parsePruneDays', describeParsePruneDays);
+
 function describePruneConfirmationBlocked() {
   function allowsInteractiveConfirmationOnlyWhenTTYAndNotPieceYes() {
     expect(pruneConfirmationBlocked({}, true)).toBe(false);
@@ -377,6 +388,7 @@ function describePruneConfirmationBlocked() {
 }
 
 describe('pruneConfirmationBlocked', describePruneConfirmationBlocked);
+
 function describeMakeBuildHistoryCommandFailure() {
   function tagsCommandFailuresForTheEffectChannel() {
     const failure = makeBuildHistoryCommandFailure({

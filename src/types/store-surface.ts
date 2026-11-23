@@ -4,8 +4,10 @@ import type {
   LEADERBOARD_SORT_TYPES,
   LEADERBOARD_SUBMISSION_TYPES,
 } from './apple-catalog.ts';
+
 /** How an approved iOS build reaches the public App Store. */
 export type ReleaseType = 'AFTER_APPROVAL' | 'MANUAL' | 'SCHEDULED';
+
 /** How `launch-store release` publishes an approved iOS version. */
 export type ReleaseConfig = {
   /** What happens after Apple approves the version. */
@@ -23,6 +25,7 @@ export type ReleaseConfig = {
   /** Locale used when `releaseNotes` is a single string. */
   readonly primaryLocale?: string;
 };
+
 /** A ping Launch sends after a build, a submit, a review verdict, or a rollout change. */
 export type NotifyConfig = {
   /** Webhook posted on each selected event. */
@@ -32,6 +35,7 @@ export type NotifyConfig = {
   /** Which events send a ping. */
   readonly events?: Array<'build' | 'submit' | 'review' | 'rollout'>;
 };
+
 /** One Game Center achievement. `launch-store game-center` creates it if Apple does not have it yet. */
 export type AchievementConfig = {
   /** Stable id you choose, such as `first_win`. */
@@ -53,6 +57,7 @@ export type AchievementConfig = {
   /** Language of `name` and the two descriptions. */
   readonly locale?: string;
 };
+
 /** One Game Center leaderboard. `launch-store game-center` creates it if Apple does not have it yet. */
 export type LeaderboardConfig = {
   /** Stable id you choose, such as `high_score`. */
@@ -70,6 +75,7 @@ export type LeaderboardConfig = {
   /** Language of `name`. */
   readonly locale?: string;
 };
+
 /** Game Center content for one app, under `gameCenter` keyed by that app's bundle id. */
 export type GameCenterConfig = {
   /** Achievements to create. */
@@ -77,11 +83,13 @@ export type GameCenterConfig = {
   /** Leaderboards to create. */
   readonly leaderboards?: readonly LeaderboardConfig[];
 };
+
 /** The subtitle on an App Clip card in one language. */
 export type AppClipLocalizationConfig = {
   /** Short line under the app name on the App Clip card, in this locale. */
   readonly subtitle: string;
 };
+
 /** The card for one App Clip. The clip binary itself comes from the Xcode build, not from this block. */
 export type AppClipConfig = {
   /** The button on the App Clip card. */
@@ -89,11 +97,13 @@ export type AppClipConfig = {
   /** Card subtitles, keyed by Apple locale such as `en-US`. */
   readonly localizations?: Record<string, AppClipLocalizationConfig>;
 };
+
 /** App Clips that belong to one parent app. */
 export type AppClipsConfig = {
   /** One card per clip, keyed by the clip bundle id, such as `com.acme.app.Clip`. */
   readonly clips: Record<string, AppClipConfig>;
 };
+
 /** One domain the team may ship iOS apps from in the EU. */
 export type EuDistributionDomainConfig = {
   /** Host name that will serve the install packages, such as `downloads.example.com`. */
@@ -101,11 +111,13 @@ export type EuDistributionDomainConfig = {
   /** Label shown in App Store Connect so you can tell this domain from the others. */
   readonly referenceName: string;
 };
+
 /** EU alternative-distribution domains for the whole Apple team. `launch-store eu-distribution` registers them. */
 export type EuDistributionConfig = {
   /** Domains to authorize. */
   readonly domains: readonly EuDistributionDomainConfig[];
 };
+
 /** One Apple Pay merchant id or one Wallet pass type id. */
 export type WalletIdConfig = {
   /** Reverse-DNS id to register, such as `merchant.com.acme.app` or `pass.com.acme.app`. */
@@ -113,6 +125,7 @@ export type WalletIdConfig = {
   /** Label shown in the Apple developer portal. */
   readonly name: string;
 };
+
 /** Apple Pay and Wallet ids for the whole team. `launch-store wallet` registers them. */
 export type WalletConfig = {
   /** Apple Pay merchant ids. */
@@ -120,6 +133,7 @@ export type WalletConfig = {
   /** Wallet pass type ids. */
   readonly passTypeIds?: readonly WalletIdConfig[];
 };
+
 /** The App Store categories shoppers browse, under `releaseAttributes`. */
 export type ReleaseCategories = {
   /** Main category id, such as `PRODUCTIVITY` or `GAMES`. */
@@ -127,6 +141,7 @@ export type ReleaseCategories = {
   /** Optional second category, the same kind of id. */
   readonly secondary?: string;
 };
+
 /** The app's price on the App Store, under `releaseAttributes`. This is the app itself, not an in-app purchase. */
 export type ReleasePricing = {
   /** Territory whose price ladder is used, such as `USA`. */
@@ -134,6 +149,7 @@ export type ReleasePricing = {
   /** Price the customer pays in that territory. */
   readonly customerPrice: number;
 };
+
 /** Who App Review contacts, and how they sign in, under `releaseAttributes`. */
 export type ReviewDetailsConfig = {
   /** First name of the person App Review should contact. */
@@ -153,6 +169,7 @@ export type ReviewDetailsConfig = {
   /** Anything else the reviewer should know, such as "No login is required." */
   readonly notes?: string;
 };
+
 /** Age rating, categories, price, and review contact for one app. */
 export type ReleaseAttributesConfig = {
   /** Answers to Apple's age-rating questions, keyed by Apple's question id */
@@ -164,6 +181,7 @@ export type ReleaseAttributesConfig = {
   /** Contact and demo account for App Review. */
   readonly reviewDetails?: ReviewDetailsConfig;
 };
+
 /** Paths to the JSON files for store surfaces that have no inline block in launch.config.ts. */
 export type SurfaceConfigFiles = {
   /** Territories the app is sold in. */

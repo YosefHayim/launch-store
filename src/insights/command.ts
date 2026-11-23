@@ -36,6 +36,7 @@ type InsightsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
+
 function insightsFailure(operation: string, cause: unknown): InsightsCommandFailure {
   let message = `${operation} failed.`;
 

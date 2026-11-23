@@ -1,4 +1,5 @@
 import type { AppDescriptor } from '../types/app.ts';
+
 /** An app scoped to one store, with the relevant identifier guaranteed present. */
 type ScopedApp = {
   name: string;

@@ -32,6 +32,7 @@ export type PlanCommandFailure = Readonly<{
 }>;
 
 type PlannedAppSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'app' }>;
+
 type PlannedTeamSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'team' }>;
 
 function makePlanCommandFailure(fields: {

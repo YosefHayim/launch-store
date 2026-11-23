@@ -5,6 +5,7 @@ import {
   summarizeExportComplianceResult,
   type ExportComplianceApi,
 } from './export-compliance.ts';
+
 /** A fully-stubbed {@link ExportComplianceApi}: build exists & unanswered, no declarations, writes succeed. */
 function makeApi(overrides: Partial<ExportComplianceApi> = {}): ExportComplianceApi {
   function mockCall() {
@@ -32,6 +33,7 @@ function makeApi(overrides: Partial<ExportComplianceApi> = {}): ExportCompliance
   };
 }
 const BASE = { bundleId: 'com.acme.app', buildNumber: 42 };
+
 function describeReconcileExportCompliance() {
   async function doesNothingWhenTheAppDeclaresNoAnswer() {
     const api = makeApi();
@@ -164,6 +166,7 @@ function describeReconcileExportCompliance() {
 }
 
 describe('reconcileExportCompliance', describeReconcileExportCompliance);
+
 function describeDescribeExportCompliancePiece() {
   function treatsAnExplicitFalseAsCleanSelfAnsweringBinary() {
     const status = describeExportComplianceConfig(false);
@@ -197,6 +200,7 @@ function describeDescribeExportCompliancePiece() {
 }
 
 describe('describeExportComplianceConfig', describeDescribeExportCompliancePiece);
+
 function describeSummarizeExportCompliancePiece() {
   function rendersADistinctLinePerPiece() {
     const summarizeExportCompliance = summarizeExportComplianceResult({ status: 'undeclared' });

@@ -2,6 +2,7 @@ import { checkCommandExists, executeCommand } from '../services/platform/exec.ts
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { checkIsMacOperatingSystem } from '../services/platform/os.ts';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.ts';
+
 /** A tool a local iOS build needs, and how to install it on macOS. */
 export type Tool = {
   label: string;
@@ -65,12 +66,14 @@ export const ANDROID_TOOLS: Tool[] = [
   },
   { label: 'Node', command: 'node', tier: 'required', install: { kind: 'brew', formula: 'node' } },
 ];
+
 /** The single-line, actionable fix for a missing tool - `brew install ...` or the guide text. */
 export function fixHint(tool: Tool): string {
   if (tool.install.kind == 'brew') return `brew install ${tool.install.formula}`;
 
   return tool.install.how;
 }
+
 /** Split missing tools into the ones we can `brew install` as a batch and the ones we can only */
 export function planInstall(missing: Tool[]): {
   brew: Tool[];
@@ -99,6 +102,7 @@ export function planInstall(missing: Tool[]): {
     guided: missing.filter(isGuideInstalled),
   };
 }
+
 /** The *required* iOS build tools currently absent from `PATH` */
 function isRequiredTool(tool: Tool): boolean {
   return tool.tier == 'required';
@@ -115,6 +119,7 @@ export async function missingRequiredTools(io?: Pick<ToolchainIo, 'exists'>): Pr
 
   return missing.filter(isRequiredTool);
 }
+
 /** Generate the bash toolchain preflight that runs ON the remote Mac before a build */
 export function remoteToolchainPreflight(mode: 'install' | 'assert'): string {
   const canInstall = mode == 'install';
@@ -160,12 +165,17 @@ export function remoteToolchainPreflight(mode: 'install' | 'assert'): string {
 
   return lines.join('\n');
 }
+
 /** Side-effecting operations {@link ensureToolchain} needs, injected so tests can supply fakes. */
 export type ToolchainIo = {
   exists(command: string): Promise<boolean>;
+
   run(command: string, args: readonly string[]): Promise<void>;
+
   confirm(message: string): Promise<boolean>;
+
   confirmText(message: string, expected: string): Promise<boolean>;
+
   log(message: string): Promise<void>;
 };
 
@@ -184,12 +194,14 @@ function realIo(logger: Logger, prompt: LaunchPromptService): ToolchainIo {
     },
   };
 }
+
 /** Options for {@link ensureToolchain}. */
 type EnsureToolchainOptions = {
   assumeYes?: boolean;
   io?: ToolchainIo;
   platform?: NodeJS.Platform;
 };
+
 async function detectMissing(
   io: Pick<ToolchainIo, 'exists'>,
   tools: readonly Tool[],
@@ -303,6 +315,7 @@ export async function ensureToolchain(options: EnsureToolchainOptions = {}): Pro
 }
 /** ccache cap and the sloppiness flags that make caching reliable for Xcode/CocoaPods ObjC/C++ builds. */
 const CCACHE_MAX_SIZE = '10G';
+
 /** Configure ccache once, right after installing it */
 async function configureCcache(io: ToolchainIo): Promise<void> {
   await io.log(`-> configuring ccache (max-size ${CCACHE_MAX_SIZE}, Xcode-friendly sloppiness)...`);
@@ -312,8 +325,10 @@ async function configureCcache(io: ToolchainIo): Promise<void> {
     `sloppiness=${'clang_index_store,file_stat_matches,include_file_ctime,include_file_mtime,ivfsoverlay,pch_defines,modules,system_headers,time_macros'}`,
   ]);
 }
+
 /** The outcome of the inline ccache offer, so a build can log it and persist a decline correctly. */
 type CcacheOfferResult = 'installed' | 'declined' | 'skipped-no-brew' | 'skipped-noninteractive';
+
 /** Offer to install + configure ccache inline during a build when it's missing */
 export async function ensureCcacheInstalled(options: {
   interactive: boolean;
@@ -352,6 +367,7 @@ export async function ensureCcacheInstalled(options: {
 
   return 'installed';
 }
+
 /** Ensure Homebrew exists (guided/consented), then install the brew-able tools in one batch. */
 function brewFormula(tool: Tool): string {
   if (tool.install.kind == 'brew') {
@@ -402,6 +418,7 @@ async function installBrewTools(
   await io.log(`-> brew install ${formulas.join(' ')}`);
   await io.run('brew', ['install', ...formulas]);
 }
+
 /** Make sure Homebrew is present */
 async function ensureHomebrew(io: ToolchainIo, assumeYes: boolean): Promise<boolean> {
   const brewExists = await io.exists('brew');

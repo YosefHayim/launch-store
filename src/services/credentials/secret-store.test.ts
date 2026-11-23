@@ -23,6 +23,7 @@ vi.mock('@napi-rs/keyring', function mockKeyring() {
 afterEach(function resetSecretFixture() {
   resetSecretStore();
 });
+
 function describeLaunchSecretStore() {
   async function storesReadsAndDeletesSecretsThroughTheTestMap() {
     const storedSecrets = new Map<string, string>();
@@ -50,6 +51,7 @@ function describeLaunchSecretStore() {
 }
 
 describe('LaunchSecretStore', describeLaunchSecretStore);
+
 function describeLaunchSecretStoreNativeKeyring() {
   beforeEach(function resetKeyring() {
     fakeKeyring.storedPassword = null;

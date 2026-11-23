@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { effectiveRefs, type SecretRef } from './build-secrets.ts';
+
 function ref(app: string, profile: string | null, name: string): SecretRef {
   return {
     app,
@@ -7,6 +8,7 @@ function ref(app: string, profile: string | null, name: string): SecretRef {
     name,
   };
 }
+
 function describeEffectiveRefs() {
   const refs = [
     ref('acme', null, 'SENTRY_AUTH_TOKEN'),

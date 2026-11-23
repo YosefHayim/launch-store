@@ -9,6 +9,7 @@ export function expectDefined<T>(candidate: T | null | undefined, label: string 
 
   return candidate;
 }
+
 export function expectArrayElement<T>(
   values: readonly T[],
   index: number,

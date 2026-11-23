@@ -17,11 +17,13 @@ const alpha: AppDescriptor = {
   bundleId: 'com.acme.alpha',
 };
 const tmpDirs: string[] = [];
+
 function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 }
 
 afterEach(cleanup);
+
 /** Write a sidecar config to a fresh temp file and return its path. */
 function writeConfig(json: unknown): string {
   const systemTemporaryDirectory = tmpdir();
@@ -37,6 +39,7 @@ function writeConfig(json: unknown): string {
 
   return path;
 }
+
 function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
   const config: LaunchConfig = {
     profiles: {},
@@ -58,6 +61,7 @@ function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
     },
   };
 }
+
 function describeAvailabilityPlanner() {
   async function omitsItselfWhenNoAvailabilitySidecarIsPresent() {
     const ascApiFake = makeAscApiFake();

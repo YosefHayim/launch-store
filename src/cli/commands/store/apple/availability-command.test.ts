@@ -4,6 +4,7 @@ import {
   AvailabilityCommandInputSchema,
   renderAvailabilityAction,
 } from './availability-command.ts';
+
 function describeAvailabilityCommandPieceSchema() {
   function decodesRequiredDefaultsAndRejectsExplicitUndefinedSelectors() {
     const availabilityCommandSchema = AvailabilityCommandInputSchema({
@@ -37,6 +38,7 @@ function describeAvailabilityCommandPieceSchema() {
 }
 
 describe('AvailabilityCommandInputSchema', describeAvailabilityCommandPieceSchema);
+
 function describeAvailabilityRendering() {
   function usesASCIIMarkersForAdditiveDestructiveAndFailedActions() {
     const availabilityAction = renderAvailabilityAction({

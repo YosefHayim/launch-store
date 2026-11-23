@@ -14,6 +14,7 @@ import {
 afterEach(function resetLoggerSink() {
   resetLogger();
 });
+
 function describeSelectProgressModeOnlyARealInteractiveTTYGetsTheSpinner() {
   function usesTheSpinnerOnAnInteractiveNonCITTYWithoutVerbose() {
     const progressMode = selectProgressMode(true, {}, false);
@@ -60,6 +61,7 @@ describe(
   'selectProgressMode - only a real interactive TTY gets the spinner',
   describeSelectProgressModeOnlyARealInteractiveTTYGetsTheSpinner,
 );
+
 function describeSelectProgressModePieceNeverStreamsPieceChildPiece() {
   function takesTheQuietPathEvenOffATTYOrUnderVerbose() {
     const progressMode = selectProgressMode(false, {}, false, true);
@@ -77,6 +79,7 @@ describe(
   'selectProgressMode - --json never streams raw child output',
   describeSelectProgressModePieceNeverStreamsPieceChildPiece,
 );
+
 function describeFormatElapsedCompactMmSsClock() {
   function showsBareSecondsUnderAMinute() {
     const elapsedLabel = formatElapsed(5000);
@@ -101,6 +104,7 @@ function describeFormatElapsedCompactMmSsClock() {
 }
 
 describe('formatElapsed - compact mm ss clock', describeFormatElapsedCompactMmSsClock);
+
 function describeXcodeProgressStepSurfaceThePieceXcodebuildStep() {
   function namesTheFileForCompileLinkAndSignLines() {
     const compileLine =
@@ -157,6 +161,7 @@ describe(
   'xcodeProgressStep - surface the raw xcodebuild step',
   describeXcodeProgressStepSurfaceThePieceXcodebuildStep,
 );
+
 function describeIsInteractivePromptOnlyOnARealNonCITTY() {
   function isTrueOnAnInteractiveTTYWithNoCIMarker() {
     expect(isInteractiveTerminal(true, {})).toBe(true);
@@ -187,6 +192,7 @@ describe(
   'isInteractive - prompt only on a real, non-CI TTY',
   describeIsInteractivePromptOnlyOnARealNonCITTY,
 );
+
 function describeWithSpinnerSilentNetworkStepsDegradeCleanlyOffTTY() {
   async function runsTheTaskAndReturnsItsPieceNoSpinnerWithoutATTY() {
     async function lookup(): Promise<number> {
@@ -218,6 +224,7 @@ describe(
   'withSpinner - silent network steps degrade cleanly off-TTY',
   describeWithSpinnerSilentNetworkStepsDegradeCleanlyOffTTY,
 );
+
 function describeWithSpinnerProgressEventsUnderPiece() {
   async function emitsStartThenDoneWithTheElapsedTime() {
     const eventLines: string[] = [];
@@ -282,6 +289,7 @@ function describeWithSpinnerProgressEventsUnderPiece() {
 }
 
 describe('withSpinner - progress events under --json', describeWithSpinnerProgressEventsUnderPiece);
+
 function describeGradleProgressStepSurfaceTheGradleTask() {
   function extractsTheTaskPath() {
     expect(gradleProgressStep('> Task :app:bundleRelease')).toBe(':app:bundleRelease');
@@ -311,6 +319,7 @@ describe(
   'gradleProgressStep - surface the Gradle task',
   describeGradleProgressStepSurfaceTheGradleTask,
 );
+
 function describeRenderBarCandyAuroraBarClampedPlainOffTTY() {
   function rendersEmptyHalfAndFullAtWidth14() {
     const bar = renderBar(0);
@@ -346,6 +355,7 @@ describe(
   'renderBar - candy Aurora bar, clamped (plain off-TTY)',
   describeRenderBarCandyAuroraBarClampedPlainOffTTY,
 );
+
 function describeFormatProgressLineBarStepCountElapsedEtaDegradingGracefully() {
   function showsOnlyTheLabelStepAndElapsedClockWhenThereSNoEstimateFirstBuildOfAKind() {
     const progressLine = formatProgressLine({

@@ -141,6 +141,7 @@ function ota(record: TrainRecord, platform: string): Car | undefined {
 
   return record.cars.find(isPlatformCar);
 }
+
 function describeStartTrain() {
   async function submitsEveryNativeCarAddsPendingOTAFollowersAndStartsRunning() {
     const engine = fakeEngine();
@@ -249,6 +250,7 @@ function describeStartTrain() {
 }
 
 describe('startTrain', describeStartTrain);
+
 function describeAdvanceTrainReleaseWhenReadyNoHold() {
   async function adoptsTheLivePieceOfAnInFlightCar() {
     const engine = fakeEngine({ ios: ['in-review'] });
@@ -308,6 +310,7 @@ function describeAdvanceTrainReleaseWhenReadyNoHold() {
 }
 
 describe('advanceTrain - release-when-ready (no hold)', describeAdvanceTrainReleaseWhenReadyNoHold);
+
 function describeAdvanceTrainHoldGate() {
   function heldTwoPlatform(iosPhase: NativeCarState, androidPhase: NativeCarState): TrainRecord {
     return {
@@ -323,6 +326,7 @@ function describeAdvanceTrainHoldGate() {
       ],
     };
   }
+
   async function holdsAnApprovedCarWhileTheOtherPlatformIsStillInReview() {
     const engine = fakeEngine();
     const record = await advanceTrain(heldTwoPlatform('approved', 'in-review'), engine, {
@@ -403,6 +407,7 @@ function describeAdvanceTrainHoldGate() {
 }
 
 describe('advanceTrain - hold gate', describeAdvanceTrainHoldGate);
+
 function describeAdvanceTrainInvariants() {
   async function neverReadsReleasesOrPublishesForATerminalDoneTrain() {
     const engine = fakeEngine({ ios: ['released'] });
@@ -449,6 +454,7 @@ function describeAdvanceTrainInvariants() {
 }
 
 describe('advanceTrain - invariants', describeAdvanceTrainInvariants);
+
 function describeReleaseGateHelpers() {
   function classifiesNativeFailuresAndApprovedOrReleasedCars() {
     expect(isNativeFailure({ kind: 'ios', state: 'rejected', updatedAt: NOW })).toBe(true);
@@ -485,6 +491,7 @@ function describeReleaseGateHelpers() {
 }
 
 describe('release gate helpers', describeReleaseGateHelpers);
+
 function describeDeriveTrainPieceTrainExitCodeIsTrainSettled() {
   function isDoneOnlyWhenEveryCarIsTerminal() {
     const deriveTrain = deriveTrainState(

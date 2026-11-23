@@ -50,6 +50,7 @@ function createServiceAccountJson(): string {
     token_uri: 'http://127.0.0.1:1/token',
   });
 }
+
 function describeMakeStatsCredentialsTest() {
   function cleanupMakeStatsCredentialsTest() {
     useStatsCredentials(null);
@@ -89,6 +90,7 @@ function describeMakeStatsCredentialsTest() {
 }
 
 describe('makeStatsCredentialsTest', describeMakeStatsCredentialsTest);
+
 function describeStatsCredentialsLive() {
   let homeDirectory: string;
   const ascClient = makeFakeAscClient([]);

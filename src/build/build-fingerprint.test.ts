@@ -20,6 +20,7 @@ const FINGERPRINT_PARTS: FingerprintParts = {
   appConfigSlice: '{"plugins":["expo-router"],"newArchEnabled":true,"iosDeploymentTarget":"15.1"}',
   toolchainVersion: 'Xcode 16.0\nBuild version 16A242d',
 };
+
 function describeComputeBuildFingerprint() {
   function isDeterministicForIdenticalInputs() {
     const buildFingerprint = computeBuildFingerprint(FINGERPRINT_PARTS);
@@ -68,6 +69,7 @@ function describeComputeBuildFingerprint() {
 }
 
 describe('computeBuildFingerprint', describeComputeBuildFingerprint);
+
 function describeExtractNativePieceSlice() {
   function readsNativeFieldsThroughTheExpoWrapper() {
     const serialized = JSON.stringify({
@@ -132,6 +134,7 @@ function describeExtractNativePieceSlice() {
 }
 
 describe('extractNativeConfigSlice', describeExtractNativePieceSlice);
+
 function describeResolveClean() {
   const storedBuild: BuildState = {
     fingerprint: 'abc',
@@ -182,6 +185,7 @@ function describeResolveClean() {
 }
 
 describe('resolveClean', describeResolveClean);
+
 function describeBuildPieceStorage() {
   let temporaryDirectory: string;
 
@@ -229,6 +233,7 @@ function describeBuildPieceStorage() {
 }
 
 describe('build state storage', describeBuildPieceStorage);
+
 function describeBuildEstimates() {
   function adoptsTheFirstSampleAndSmoothsLaterSamples() {
     const estimate = updateEstimate(undefined, { ms: 41000, steps: 28 });

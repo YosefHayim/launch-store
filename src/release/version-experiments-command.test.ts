@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decodeVersionExperimentsCommandInput } from './version-experiments-command.ts';
+
 function describeDecodeVersionExperimentsCommandPiece() {
   function decodesTheCommanderBoundaryWithAnOmittedAppSelector() {
     const decodeVersionExperimentsCommand = decodeVersionExperimentsCommandInput({

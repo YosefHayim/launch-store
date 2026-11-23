@@ -16,6 +16,7 @@ const RESULT: MigrationResult = {
     { level: 'info', message: 'Detected bundle id.' },
   ],
 };
+
 function describeRenderReport() {
   function titlesTheReportAndNamesThePiece() {
     const reportMarkdown = renderReport(RESULT);

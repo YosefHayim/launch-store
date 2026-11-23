@@ -52,6 +52,7 @@ function mutableGoogleRequest<GoogleRequest>(requestShape: unknown): GoogleReque
 type PlayTrackInfo = Readonly<{ track: string; releases: readonly PlayRelease[] }>;
 /** Region snapshot the subscriptions monetization API pins prices against */
 const REGIONS_VERSION = '2022/02';
+
 /** A generated Android Publisher request failed. */
 export type GooglePlayApiError = Readonly<{
   readonly _tag: 'GooglePlayApiError';
@@ -60,6 +61,7 @@ export type GooglePlayApiError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
+
 function makeGooglePlayApiError(fields: {
   readonly operation: string;
   readonly statusCode?: number;
@@ -85,6 +87,7 @@ function makeGooglePlayApiError(fields: {
     cause: fields.cause,
   };
 }
+
 /** Raised when a package has no Play app record or the service account cannot reach it. */
 export type PlayAppNotFoundError = Readonly<{
   readonly _tag: 'PlayAppNotFoundError';
@@ -92,6 +95,7 @@ export type PlayAppNotFoundError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
+
 function makePlayAppNotFoundError(fields: {
   readonly packageName: string;
   readonly message: string;
@@ -104,12 +108,14 @@ function makePlayAppNotFoundError(fields: {
     cause: fields.cause,
   };
 }
+
 /** A service-account key could not be decoded into the fields Google auth requires. */
 type ServiceAccountParseError = Readonly<{
   readonly _tag: 'ServiceAccountParseError';
   readonly message: string;
   readonly cause: unknown;
 }>;
+
 function makeServiceAccountParseError(fields: {
   readonly message: string;
   readonly cause: unknown;
@@ -120,6 +126,7 @@ function makeServiceAccountParseError(fields: {
     cause: fields.cause,
   };
 }
+
 /** Read the numeric status exposed by a generated-client failure, when present. */
 function googleFailureStatus(cause: unknown): number | undefined {
   if (typeof cause != 'object') return;
@@ -132,6 +139,7 @@ function googleFailureStatus(cause: unknown): number | undefined {
 
   return cause.status;
 }
+
 /** Turn a generated-client failure into the actionable text Launch already exposes. */
 function googleFailureMessage(cause: unknown): string {
   if (cause instanceof Error) return describePlayErrors(cause.message);
@@ -139,6 +147,7 @@ function googleFailureMessage(cause: unknown): string {
   const asString = String(cause);
   return describePlayErrors(asString);
 }
+
 /** Lift Google's epoch-seconds timestamp to ISO-8601, or undefined when absent. */
 function timestampToIso(
   timestamp: androidpublisher_v3.Schema$Timestamp | undefined,
@@ -148,6 +157,7 @@ function timestampToIso(
   const number = Number(timestamp.seconds);
   return new Date(number * 1000).toISOString();
 }
+
 /** Flatten the generated review DTO into the {@link PlayReview} slice Launch consumes. */
 function normalizeReview(googleReview: androidpublisher_v3.Schema$Review): PlayReview | undefined {
   if (typeof googleReview.reviewId != 'string') return;
@@ -195,6 +205,7 @@ function normalizeReview(googleReview: androidpublisher_v3.Schema$Review): PlayR
 
   return review;
 }
+
 /** Normalize Google's nullable Money DTO to Launch's consumed money fields. */
 function normalizeMoney(money: androidpublisher_v3.Schema$Money | undefined): PlayMoneyUnits {
   let currencyCode = '';
@@ -213,6 +224,7 @@ function normalizeMoney(money: androidpublisher_v3.Schema$Money | undefined): Pl
     nanos,
   };
 }
+
 /** Normalize one generated track release to the fields Launch reads and writes. */
 function normalizeTrackRelease(
   googleRelease: androidpublisher_v3.Schema$TrackRelease,
@@ -248,6 +260,7 @@ function normalizeTrackRelease(
 
   return release;
 }
+
 /** Retain a non-empty generated page token and collapse null/empty values to undefined. */
 export function nonEmptyPageToken(token: string | null | undefined): string | undefined {
   if (typeof token != 'string') return;
@@ -256,6 +269,7 @@ export function nonEmptyPageToken(token: string | null | undefined): string | un
 
   return token;
 }
+
 /** Walk every page of a token-bearing generated list into one Launch-owned collection. */
 async function collectGeneratedPages<Page, Collected>(
   loadPage: (pageToken: string | undefined) => Promise<Page>,
@@ -277,6 +291,7 @@ async function collectGeneratedPages<Page, Collected>(
 
   return collected;
 }
+
 /** Project generated track releases into the {@link PlayRelease} slice Launch reads and writes. */
 function releasesFromGoogleTrack(
   googleReleases: androidpublisher_v3.Schema$TrackRelease[] | null | undefined,
@@ -292,6 +307,7 @@ function releasesFromGoogleTrack(
 
   return releases;
 }
+
 /** Project one generated store listing into the {@link PlayListing} slice Launch reads and writes. */
 function listingFromGoogle(
   googleListing: androidpublisher_v3.Schema$Listing,
@@ -314,6 +330,7 @@ function listingFromGoogle(
 
   return listing;
 }
+
 /** Keep only offer tags that carry a real tag string. */
 function offerTagsFromGoogle(googleTags: androidpublisher_v3.Schema$OfferTag[] | null | undefined):
   | {
@@ -332,6 +349,7 @@ function offerTagsFromGoogle(googleTags: androidpublisher_v3.Schema$OfferTag[] |
 
   return offerTags;
 }
+
 /** JWT options the official Google clients accept for one service-account key + OAuth scopes. */
 export function serviceAccountJwtOptions(
   account: ServiceAccount,
@@ -357,6 +375,7 @@ export function serviceAccountJwtOptions(
 
   return authenticationOptions;
 }
+
 /** Normalize the legacy in-app-product money representation. */
 function normalizeProductMoney(
   googlePrice: androidpublisher_v3.Schema$Price | undefined,
@@ -371,6 +390,7 @@ function normalizeProductMoney(
 
   return price;
 }
+
 /** Normalize one generated in-app product to Launch's reconciler slice. */
 function normalizeInAppProduct(
   googleProduct: androidpublisher_v3.Schema$InAppProduct,
@@ -434,6 +454,7 @@ function normalizeInAppProduct(
 
   return product;
 }
+
 /** Normalize one generated subscription base plan to the fields Launch reconciles. */
 function normalizeBasePlan(
   googlePlan: androidpublisher_v3.Schema$BasePlan,
@@ -478,6 +499,7 @@ function normalizeBasePlan(
 
   return basePlan;
 }
+
 /** Normalize one generated subscription to Launch's consumed catalog shape. */
 function normalizeSubscription(
   googleSubscription: androidpublisher_v3.Schema$Subscription,
@@ -530,6 +552,7 @@ function normalizeSubscription(
 
   return subscription;
 }
+
 /** Normalize one generated subscription offer to Launch's consumed catalog shape. */
 function normalizeSubscriptionOffer(
   googleOffer: androidpublisher_v3.Schema$SubscriptionOffer,
@@ -742,12 +765,14 @@ export type GooglePlayTransport = Readonly<{
     }>;
   reviews: Pick<AndroidPublisher['reviews'], 'list' | 'get' | 'reply'>;
 }>;
+
 /** Client bound to one Play service account. */
 export class GooglePlayClient {
   /** Non-secret identity shown in actionable Play Console permission diagnostics. */
   readonly serviceAccountEmail: string;
   /** Official generated Android Publisher v3 transport. */
   private readonly publisher: GooglePlayTransport;
+
   /** Bind the adapter to one service account. */
   constructor(account: ServiceAccount, generatedPublisher?: GooglePlayTransport) {
     this.serviceAccountEmail = account.clientEmail;
@@ -764,6 +789,7 @@ export class GooglePlayClient {
 
     this.publisher = androidpublisher({ version: 'v3', auth: googleAuthentication });
   }
+
   /** Run one generated Android Publisher request and tag a failure. */
   private async executeGeneratedRequest<GoogleShape>(
     operation: string,
@@ -787,6 +813,7 @@ export class GooglePlayClient {
       throw makeGooglePlayApiError({ operation, statusCode, message, cause });
     }
   }
+
   /**
    * Open a transactional edit (no changes committed); returns its id. A 404 means the app doesn't
    * exist.
@@ -808,6 +835,7 @@ export class GooglePlayClient {
       cause: editCreation,
     });
   }
+
   /**
    * Commit an edit, applying every change made inside it atomically.
    *
@@ -822,6 +850,7 @@ export class GooglePlayClient {
       this.publisher.edits.commit(withSelectedFields({ packageName, editId }, fields)),
     );
   }
+
   /**
    * Abandon an edit so no transaction is left dangling (best-effort; callers ignore failures).
    *
@@ -836,6 +865,7 @@ export class GooglePlayClient {
       this.publisher.edits.delete(withSelectedFields({ packageName, editId }, fields)),
     );
   }
+
   /** Drop a failed abandon so it cannot hide the read or write that already finished. */
   private async abandonEdit(packageName: string, editId: string): Promise<void> {
     try {
@@ -844,6 +874,7 @@ export class GooglePlayClient {
       void abandonError;
     }
   }
+
   /** Open a throwaway edit for a read, run `read`, then always abandon it (reads never commit). */
   private async withReadEdit<ReadResult>(
     packageName: string,
@@ -857,6 +888,7 @@ export class GooglePlayClient {
       await this.abandonEdit(packageName, editId);
     }
   }
+
   /** Run edit-scoped **writes** transactionally */
   async withEdit<Applied>(
     packageName: string,
@@ -874,6 +906,7 @@ export class GooglePlayClient {
       throw applyError;
     }
   }
+
   /**
    * Lists all current Android App Bundles of the app and edit.
    *
@@ -910,6 +943,7 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readLatestVersionCode);
   }
+
   /**
    * Read the releases currently on a track (for status reporting); empty array when the track is
    * unused.
@@ -930,6 +964,7 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readTrackReleases);
   }
+
   /**
    * Lists all tracks.
    *
@@ -963,6 +998,7 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readTracks);
   }
+
   /**
    * Replace a track's releases in one committed edit - the promote/rollout/halt write.
    *
@@ -995,6 +1031,7 @@ export class GooglePlayClient {
 
     await this.withEdit(packageName, writeTrackReleases);
   }
+
   /**
    * Upload an AAB and release it on a track in one committed edit.
    *
@@ -1057,6 +1094,7 @@ export class GooglePlayClient {
 
     return this.withEdit(packageName, uploadAndRelease);
   }
+
   /**
    * Read the Google Groups configured as testers for a track (closed/internal testing).
    *
@@ -1084,6 +1122,7 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readTesters);
   }
+
   /**
    * Set the Google Groups allowed to test a track, in one committed edit.
    *
@@ -1113,6 +1152,7 @@ export class GooglePlayClient {
 
     await this.withEdit(packageName, writeTesters);
   }
+
   /**
    * Read every localized store listing (title, short and full description, video) of an app.
    *
@@ -1141,6 +1181,7 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readListings);
   }
+
   /**
    * Patch the given localized store listings inside ONE committed edit.
    *
@@ -1171,6 +1212,7 @@ export class GooglePlayClient {
 
     await this.withEdit(packageName, writeListings);
   }
+
   /**
    * Read a track's country availability. Read-only - Play exposes no API to change it.
    *
@@ -1218,6 +1260,7 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readCountryAvailability);
   }
+
   /** Confirm the service account can reach the app's Play record */
   async assertAppExists(packageName: string, fields: string | null = null): Promise<void> {
     let editId: string;
@@ -1242,6 +1285,7 @@ export class GooglePlayClient {
 
     await this.abandonEdit(packageName, editId);
   }
+
   /**
    * Lists all in-app products - both managed products and subscriptions.
    *
@@ -1282,12 +1326,14 @@ export class GooglePlayClient {
 
       return products;
     }
+
     function nextTokenFromPage(productPage: Awaited<ReturnType<typeof loadProductPage>>) {
       return productPage.tokenPagination?.nextPageToken;
     }
 
     return collectGeneratedPages(loadProductPage, productsFromPage, nextTokenFromPage);
   }
+
   /**
    * Creates an in-app product (a managed product or a subscription).
    *
@@ -1310,6 +1356,7 @@ export class GooglePlayClient {
       ),
     );
   }
+
   /**
    * Update an existing in-app managed product by SKU (PUT).
    *
@@ -1333,6 +1380,7 @@ export class GooglePlayClient {
       ),
     );
   }
+
   /**
    * Calculates the region prices, using today's exchange rate and country-specific pricing
    * patterns, based on the price in the request for a set of regions.
@@ -1403,6 +1451,7 @@ export class GooglePlayClient {
 
     return convertedPrices;
   }
+
   /**
    * Lists all subscriptions under a given app.
    *
@@ -1454,6 +1503,7 @@ export class GooglePlayClient {
       collectGeneratedPagesSubscriptionPage2,
     );
   }
+
   /**
    * Creates a new subscription. Newly added base plans will remain in draft state until activated.
    *
@@ -1481,6 +1531,7 @@ export class GooglePlayClient {
       );
     });
   }
+
   /**
    * Updates an existing subscription.
    *
@@ -1510,6 +1561,7 @@ export class GooglePlayClient {
       );
     });
   }
+
   /**
    * Activate a base plan (DRAFT -> ACTIVE), making it purchasable. Idempotent on an already-active
    * plan.
@@ -1536,6 +1588,7 @@ export class GooglePlayClient {
       ),
     );
   }
+
   /**
    * List the offers on one base plan, paging in full.
    *
@@ -1589,6 +1642,7 @@ export class GooglePlayClient {
       collectGeneratedPagesOfferPage2,
     );
   }
+
   /**
    * Creates a new subscription offer. Only auto-renewing base plans can have subscription offers.
    * The offer state will be DRAFT until it is activated.
@@ -1630,6 +1684,7 @@ export class GooglePlayClient {
       );
     });
   }
+
   /**
    * Activate a subscription offer (DRAFT -> ACTIVE), making it available.
    *
@@ -1657,6 +1712,7 @@ export class GooglePlayClient {
       ),
     );
   }
+
   /**
    * Lists all reviews.
    *
@@ -1717,6 +1773,7 @@ export class GooglePlayClient {
       collectGeneratedPagesReviewPage2,
     );
   }
+
   /**
    * Gets a single review.
    *
@@ -1756,6 +1813,7 @@ export class GooglePlayClient {
       throw requestFailure;
     }
   }
+
   /**
    * Post (or replace) the public developer reply to a review.
    *
@@ -1796,6 +1854,7 @@ export class GooglePlayClient {
     return reply;
   }
 }
+
 interface GoogleErrorObject {
   message?: string;
   status?: string;

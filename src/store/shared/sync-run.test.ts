@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PlannedAction, ReconcileReport } from '@/types/reconcile.js';
 import type { SyncJob } from './sync-jobs.ts';
 import { mergeOutcomes, summarizeRun, type JobOutcome } from './sync-run.ts';
+
 /** A minimal valid {@link SyncJob} for one app - enough to carry an outcome through the pure projections. */
 function makeJob(name: string, bundleId: string): SyncJob {
   return {
@@ -15,10 +16,12 @@ function makeJob(name: string, bundleId: string): SyncJob {
     unmapped: [],
   };
 }
+
 /** A one-action report at a given lifecycle status, for tallying tests. */
 function report(bundleId: string, status: PlannedAction['status']): ReconcileReport {
   return { bundleId, actions: [{ description: `${status} action`, destructive: false, status }] };
 }
+
 function describeSummarizeRun() {
   function talliesPerAppStatusesAndRollsThemUpAcrossApps() {
     const a = makeJob('alpha', 'com.acme.alpha');
@@ -86,6 +89,7 @@ function describeSummarizeRun() {
 }
 
 describe('summarizeRun', describeSummarizeRun);
+
 function describeMergeOutcomes() {
   function overlaysEachPlanWithItsApplyPassPieceMatchedByJobReference() {
     const a = makeJob('alpha', 'com.acme.alpha');

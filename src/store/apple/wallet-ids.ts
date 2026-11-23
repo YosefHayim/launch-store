@@ -120,8 +120,11 @@ const walletConfigSpec = {
 /** The exact slice of App Store Connect the wallet reconciler depends on. */
 export type AscWalletApi = {
   listMerchantIds(): Promise<MerchantIdResource[]>;
+
   createMerchantId(identifier: string, name: string): Promise<void>;
+
   listPassTypeIds(): Promise<PassTypeIdResource[]>;
+
   createPassTypeId(identifier: string, name: string): Promise<void>;
 };
 

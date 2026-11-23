@@ -4,6 +4,7 @@ import {
   PlayReviewsCommandInputSchema,
   renderPlayReview,
 } from './play-reviews-command.ts';
+
 function describePlayReviewsCommandPieceSchema() {
   function decodesListAndReplyInputsWithoutUnsetOptionFields() {
     const playReviewsCommandSchema = PlayReviewsCommandInputSchema({
@@ -47,6 +48,7 @@ function describePlayReviewsCommandPieceSchema() {
 }
 
 describe('PlayReviewsCommandInputSchema', describePlayReviewsCommandPieceSchema);
+
 function describePlayReviewPresentation() {
   function validatesRatingsThroughTheTaggedCommandChannel() {
     const playReviewRating = parsePlayReviewRating(' 4 ');

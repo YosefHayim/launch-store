@@ -56,6 +56,7 @@ const otaCar: OtaCar = {
   state: 'pending',
   updatedAt: '2026-06-25T00:00:00Z',
 };
+
 function describeCreateTrainRuntimePureHelpers() {
   function acceptsOnlyProcessedNonExpiredAppStoreBuilds() {
     const buildProgram = isUsableIosStoreBuild({ processingState: 'VALID', expired: false });
@@ -101,6 +102,7 @@ function describeCreateTrainRuntimePureHelpers() {
 }
 
 describe('createTrainRuntime pure helpers', describeCreateTrainRuntimePureHelpers);
+
 function describeCreateTrainRuntimeEngineGuardsFailLoudlyBeforeAnyStoreCall() {
   async function rejectsAnIOSSubmitWhenTheAppDeclaresNoBundleId() {
     await expect(engineFor({ packageName: 'com.demo' }).submitNative(iosCar)).rejects.toMatchObject(

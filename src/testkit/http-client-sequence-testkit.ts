@@ -18,6 +18,7 @@ interface HttpClientSentRequest {
 
 interface HttpClientSequenceTest {
   readonly sentRequests: HttpClientSentRequest[];
+
   answer(call: HttpClientSentRequest): Response;
 }
 

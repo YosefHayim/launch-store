@@ -77,6 +77,7 @@ const PLAY_IAP: InAppPurchaseConfig = {
   localizations: [{ locale: 'en-US', name: 'Coins' }],
   play: {},
 };
+
 function makeCtx(
   api: PlayCatalogApi | null,
   products: Record<string, AppProducts> = {},
@@ -112,6 +113,7 @@ function makeCtx(
     },
   };
 }
+
 function describePlayProductsPlanner() {
   async function omitsItselfWhenNoAppDeclaresAPlayOverriddenProduct() {
     const playApi = makePlayApi();

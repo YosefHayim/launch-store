@@ -1,6 +1,7 @@
 import { Command, type CommandOption } from '@/cli/command.js';
 import { describe, expect, it } from 'vitest';
 import { registerReleaseCommand } from './release.ts';
+
 function describeRegisterReleaseCommandThePieceFlag() {
   function exposesPieceOffByDefault() {
     const program = new Command();

@@ -1,6 +1,7 @@
 import { Command } from '@/cli/command.js';
 import { describe, expect, it } from 'vitest';
 import { registerAdoptCommand } from './adopt.ts';
+
 function describeRegisterAdoptCommand() {
   function registersAdoptWithDryRunAndConfirmationFlags() {
     const program = new Command();

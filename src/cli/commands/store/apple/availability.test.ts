@@ -1,6 +1,7 @@
 import { Command, type CommandOption } from '@/cli/command.js';
 import { describe, expect, it } from 'vitest';
 import { registerAvailabilityCommand } from './availability.ts';
+
 function describeRegisterAvailabilityCommand() {
   function preservesThePublicAvailabilityPieceAndPieceDefault() {
     const program = new Command();

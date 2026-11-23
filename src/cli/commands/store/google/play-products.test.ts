@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderPlayCatalogAction } from './play-catalog-command.ts';
+
 function describeRenderAction() {
   function marksAPlannedChangeWith() {
     const playCatalogAction = renderPlayCatalogAction({

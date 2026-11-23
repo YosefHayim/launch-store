@@ -22,6 +22,7 @@ const hostHandle: HostHandle = {
   region: 'us-east-1',
   instanceType: 'mac2.metal',
 };
+
 function describeCloudPiece() {
   let testHomeDirectory = '';
 

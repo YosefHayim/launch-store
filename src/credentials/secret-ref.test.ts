@@ -19,6 +19,7 @@ async function resolveTestReference(
 
   return resolveSecretRef(secretReference, 'demoAccountPassword');
 }
+
 function describeResolveSecretRef() {
   const environmentVariableName = 'LAUNCH_TEST_DEMO_PW';
 

@@ -97,6 +97,7 @@ function makeManifest(manifestId: string): UpdateManifest {
     extra: {},
   };
 }
+
 function describeHistoryLookup() {
   function deactivatesOnlyActiveEntriesForTheSelectedRuntimeVersion() {
     const historyEntries = [
@@ -142,6 +143,7 @@ function describeHistoryLookup() {
 }
 
 describe('history lookup', describeHistoryLookup);
+
 function describePiecePublish() {
   async function prependsThePublishAndDeactivatesThePreviousMatchingRuntime() {
     const storage = makeMemoryStorage();
@@ -246,6 +248,7 @@ function describePiecePublish() {
 }
 
 describe('recordPublish', describePiecePublish);
+
 function describeActivateUpdate() {
   async function leavesTheActiveManifestUntouchedWhenHistoryIsMalformed() {
     const storage = makeMemoryStorage();
@@ -274,6 +277,7 @@ function describeActivateUpdate() {
 }
 
 describe('activateUpdate', describeActivateUpdate);
+
 function describeRepublishUpdate() {
   async function writesAFreshActiveSnapshotSignatureAndRollbackHistoryPiece() {
     const storage = makeMemoryStorage();
@@ -364,6 +368,7 @@ function describeRepublishUpdate() {
 }
 
 describe('republishUpdate', describeRepublishUpdate);
+
 function describeRollbackDirective() {
   async function writesAnActiveSignedDirective() {
     const storage = makeMemoryStorage();

@@ -1,6 +1,7 @@
 import { Command, type CommandOption } from '@/cli/command.js';
 import { describe, expect, it } from 'vitest';
 import { registerCloudCommand } from './cloud.ts';
+
 function describeRegisterCloudCommand() {
   function keepsTheCloudActionArgumentAndExplicitTeardownConfirmationFlag() {
     const program = new Command();

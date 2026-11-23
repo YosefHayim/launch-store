@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AppDescriptor, BuildProfile } from '../types/app.ts';
 import type { LaunchConfig } from '../types/config.ts';
 import { previewBuild } from './build-preview.ts';
+
 /** A bare config with the fields the preview reads; the rest of LaunchConfig is irrelevant here. */
 function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
   const profiles: Record<string, BuildProfile> = {
@@ -18,6 +19,7 @@ function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
     ...overrides,
   };
 }
+
 /** A two-platform app descriptor; drop a field to model a single-platform app. */
 function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
   return {
@@ -29,6 +31,7 @@ function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
     ...overrides,
   };
 }
+
 function describePreviewBuild() {
   function resolvesTheIOSEngineSubmitterAndBundleIdWithoutTrackRollout() {
     const preview = previewBuild({ config: config(), apps: [app()], platform: 'ios' });

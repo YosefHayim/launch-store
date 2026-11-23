@@ -18,11 +18,13 @@ const BASE_ARCHIVE: ArchiveArgsInput = {
   shouldCleanBuild: false,
   buildDestination: 'generic/platform=iOS',
 };
+
 function cleanup() {
   resetLaunchEnvironment();
 }
 
 afterEach(cleanup);
+
 function describeComputeParallelJobLimitRAMAwareParallelismCap() {
   function returnsUndefinedNoCapWhenFloorGB2MeetsOrExceedsTheCoreCount() {
     const parallelJobLimit = computeParallelJobLimit(8, 16 * GB);
@@ -59,6 +61,7 @@ describe(
   'computeParallelJobLimit - RAM-aware parallelism cap',
   describeComputeParallelJobLimitRAMAwareParallelismCap,
 );
+
 function describeResolveCcacheEnvironmentWiresTheCompilerCacheOn() {
   function setsOnlyUSECCACHECcacheUsesItsOwnDefaultCacheDir() {
     useLaunchEnvironment({});
@@ -98,6 +101,7 @@ describe(
   'resolveCcacheEnvironment - wires the compiler cache on',
   describeResolveCcacheEnvironmentWiresTheCompilerCacheOn,
 );
+
 function describeAssembleArchiveArgumentsTheXcodebuildArchiveArgv() {
   function emitsTheCanonicalIOSVectorWithTheGenericDeviceDestination() {
     expect(assembleArchiveArguments(BASE_ARCHIVE)).toEqual([
@@ -185,6 +189,7 @@ describe(
   'assembleArchiveArguments - the xcodebuild archive argv',
   describeAssembleArchiveArgumentsTheXcodebuildArchiveArgv,
 );
+
 function describeAssembleExportArgumentsTheXcodebuildExportArchiveArgv() {
   function exportsTheArchiveWithThePiecePlistIntoTheExportPath() {
     expect(

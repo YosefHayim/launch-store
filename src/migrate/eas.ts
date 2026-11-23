@@ -16,6 +16,7 @@ import { buildEnvExample, scaffoldStoreConfig } from './scaffold.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type EasSubmitIos = NonNullable<EasSubmitProfile['ios']>;
+
 type EasSubmitAndroid = NonNullable<EasSubmitProfile['android']>;
 
 type CredentialsSummary = Readonly<{

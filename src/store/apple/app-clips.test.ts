@@ -30,6 +30,7 @@ type Calls = {
     subtitle: string;
   }[];
 };
+
 /** State the fake API serves on reads - what App Store Connect already has. */
 type State = {
   appId: string | null;
@@ -38,6 +39,7 @@ type State = {
   experiences: Record<string, AppClipDefaultExperienceResource[]>;
   localizations: Record<string, AppClipLocalizationResource[]>;
 };
+
 /** A hand-rolled {@link AscAppClipsApi} - no network - returning `state` and recording writes in `calls`. */
 function makeApi(state: Partial<State>): {
   api: AscAppClipsApi;
@@ -114,6 +116,7 @@ function makeApi(state: Partial<State>): {
 
   return { api, calls };
 }
+
 /** Execute the App Clips reconciler at the test boundary. */
 function runReconcile(api: AscAppClipsApi, input: Parameters<typeof reconcileAppClips>[1]) {
   return reconcileAppClips(api, input);
@@ -123,9 +126,11 @@ const ONE_CLIP: AppClipsConfig = {
     'com.acme.app.Clip': { action: 'OPEN', localizations: { 'en-US': { subtitle: 'Order now' } } },
   },
 };
+
 function decodeAppClipsConfig(rawDocument: unknown) {
   return parseAppClipsConfig(rawDocument);
 }
+
 function describeParseAppClipsPiece() {
   function parsesAClipWithAnActionAndLocalizations() {
     const config = decodeAppClipsConfig(ONE_CLIP);
@@ -211,6 +216,7 @@ function describeParseAppClipsPiece() {
 }
 
 describe('parseAppClipsConfig', describeParseAppClipsPiece);
+
 function describeReconcileAppClips() {
   const clip: AppClipResource = { id: 'clip-1', bundleId: 'com.acme.app.Clip' };
 

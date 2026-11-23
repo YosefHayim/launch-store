@@ -5,6 +5,7 @@ import { endWithUsageFailure, makeUsageFailure } from './usage-failure.ts';
 afterEach(function resetUsageLogger() {
   resetLogger();
 });
+
 function describeEndWithUsageFailure() {
   const usageFailure = makeUsageFailure({ message: '--days is wrong.' });
 
@@ -21,6 +22,7 @@ function describeEndWithUsageFailure() {
       return { commandExit: cause, lines };
     }
   }
+
   function printsOneJSONObjectAndExits2WithPiece() {
     const { commandExit, lines } = end(true);
 

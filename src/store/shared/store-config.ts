@@ -14,11 +14,13 @@ export type StoreConfig = {
   apple?: AppleStoreConfig;
   android?: AndroidStoreConfig;
 };
+
 /** The App Store listing: per-locale text plus app-level category ids. */
 export type AppleStoreConfig = {
   info: Record<string, AppleLocaleInfo>;
   categories?: string[];
 };
+
 /** One locale's App Store listing text. Every field is optional - only what's present is pushed. */
 export type AppleLocaleInfo = {
   title?: string;
@@ -31,10 +33,12 @@ export type AppleLocaleInfo = {
   supportUrl?: string;
   privacyPolicyUrl?: string;
 };
+
 /** The Play Store listing (Launch's extension; no EAS equivalent): per-locale text. */
 export type AndroidStoreConfig = {
   info: Record<string, AndroidLocaleInfo>;
 };
+
 /** One locale's Play Store listing text. */
 export type AndroidLocaleInfo = {
   title?: string;

@@ -76,6 +76,7 @@ function groupByKey<Member>(
 
   return keys.map(readKeyedMembers);
 }
+
 function readStatGroup(identityGroup: KeyedMembers<DailyStat>) {
   function copyStatGroup(firstStat: DailyStat) {
     return {
@@ -92,6 +93,7 @@ function readStatGroup(identityGroup: KeyedMembers<DailyStat>) {
 function groupStats(stats: readonly DailyStat[]): StatGroup[] {
   return groupByKey(stats, createGroupIdentity).flatMap(readStatGroup);
 }
+
 function sortFirst2(first: DailyStat, second: DailyStat) {
   return first.date.localeCompare(second.date);
 }
@@ -99,6 +101,7 @@ function sortFirst2(first: DailyStat, second: DailyStat) {
 function sortByDate(stats: readonly DailyStat[]): DailyStat[] {
   return [...stats].sort(sortFirst2);
 }
+
 function addStatValue(runningTotal: number, stat: DailyStat) {
   return runningTotal + stat.value;
 }
@@ -123,9 +126,11 @@ export function foldMetricStats(metric: StatsMetric, stats: readonly DailyStat[]
 
   return sumAmounts(stats);
 }
+
 function readDate(stat: DailyStat) {
   return stat.date;
 }
+
 function createMetricTotal(group: StatGroup) {
   return {
     feed: group.feed,
@@ -141,9 +146,11 @@ function createMetricTotal(group: StatGroup) {
 export function foldMetricTotals(stats: readonly DailyStat[]): MetricTotal[] {
   return groupStats(stats).map(createMetricTotal);
 }
+
 function createDailyPoint(stat: DailyStat) {
   return { date: stat.date, amount: stat.value };
 }
+
 function readSeriesFromGroup(group: StatGroup) {
   return {
     feed: group.feed,
@@ -196,6 +203,7 @@ export function readHeadlineTotal(
 
   return headlineTotals.reduce(addMetricTotal, 0);
 }
+
 function isProceedsTotal(total: MetricTotal) {
   return total.metric == 'proceeds';
 }
@@ -234,6 +242,7 @@ export function mergeHeadlinePoints(
     function addPointAmount(runningTotal: number, point: DailyPoint) {
       return runningTotal + point.amount;
     }
+
     function sumPointsOnDate(dateGroup: KeyedMembers<DailyPoint>) {
       return {
         date: dateGroup.key,

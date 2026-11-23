@@ -19,12 +19,14 @@ function useTemporaryLaunchHome(): void {
     workingDirectory: workPath,
   });
 }
+
 function prepare() {
   homeDirectory = createTemporaryHomeDirectory();
   useTemporaryLaunchHome();
 }
 
 beforeEach(prepare);
+
 function cleanup() {
   resetLaunchDirectories();
   removeTemporaryHomeDirectory(homeDirectory);
@@ -45,6 +47,7 @@ const coverage: AppCoverage = {
     },
   },
 };
+
 function describeCreateEmptyAppCoverage() {
   function hasNoFeeds() {
     const emptyAppCoverage = createEmptyAppCoverage('ios-1');
@@ -55,6 +58,7 @@ function describeCreateEmptyAppCoverage() {
 }
 
 describe('createEmptyAppCoverage', describeCreateEmptyAppCoverage);
+
 function describeLoadAppCoverage() {
   async function returnsAnEmptyCoverageWhenTheAppWasNeverSynced() {
     const loaded = await loadAppCoverage('ios-1');
@@ -77,6 +81,7 @@ function describeLoadAppCoverage() {
 }
 
 describe('loadAppCoverage', describeLoadAppCoverage);
+
 function describeLoadAppCoverageWithAFileSavedBeforeLastNoteExisted() {
   async function decodesItWithANullLastNote() {
     const oldFile = {
@@ -107,6 +112,7 @@ describe(
   'loadAppCoverage with a file saved before lastNote existed',
   describeLoadAppCoverageWithAFileSavedBeforeLastNoteExisted,
 );
+
 function describeSaveAppCoverage() {
   async function savesTheCoverageSoTheNextLoadReturnsIt() {
     await saveAppCoverage(coverage);

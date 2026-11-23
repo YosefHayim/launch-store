@@ -64,6 +64,7 @@ function thrownDateMessage(from: string, to: string): string {
 
   throw new Error('expected a failure');
 }
+
 function describeDecompressReportParseTsv() {
   function decompressesAGzippedTSVAndParsesItIntoHeaderKeyedRows() {
     const tsv = 'Provider\tUnits\tProceeds\nAPPLE\t10\t6.99\nAPPLE\t3\t2.10\n';
@@ -102,6 +103,7 @@ function describeDecompressReportParseTsv() {
 }
 
 describe('decompressReport + parseTsv', describeDecompressReportParseTsv);
+
 function describeEachDate() {
   function yieldsEveryDateInAnInclusiveRange() {
     expect(eachDate('2026-06-01', '2026-06-03')).toEqual([
@@ -140,6 +142,7 @@ function describeEachDate() {
 }
 
 describe('eachDate', describeEachDate);
+
 type ReportsApiFixtures = Readonly<{
   appId?: Record<string, string>;
   requests?: AnalyticsReportRequestResource[];
@@ -205,6 +208,7 @@ function makeApi(fixtures: ReportsApiFixtures): AscReportsApi {
     listAnalyticsReportSegments: vi.fn(mockCall6),
   };
 }
+
 function describeEnsureAnalyticsRequest() {
   async function reusesAnExistingActiveRequestInsteadOfCreatingOne() {
     const api = makeApi({ requests: [{ id: 'req1', accessType: 'ONGOING' }] });
@@ -237,6 +241,7 @@ function describeEnsureAnalyticsRequest() {
 }
 
 describe('ensureAnalyticsRequest', describeEnsureAnalyticsRequest);
+
 function describeCollectAnalyticsSegments() {
   async function throwsAnActionableErrorWhenTheAppPieceIsMissing() {
     const api = makeApi({ appId: {} });

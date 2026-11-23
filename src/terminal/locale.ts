@@ -5,7 +5,9 @@ export const UTF8_LOCALE = {
   LANGUAGE: 'en_US.UTF-8',
   LC_ALL: 'en_US.UTF-8',
 } as const;
+
 export type ShellLocaleEnv = Partial<Pick<NodeJS.ProcessEnv, 'LANG' | 'LC_ALL' | 'LANGUAGE'>>;
+
 /** Merge the environment service's raw variables with UTF-8 locale defaults for child processes. */
 export function mergeChildEnv(
   environmentVariables: NodeJS.ProcessEnv,
@@ -13,6 +15,7 @@ export function mergeChildEnv(
 ): NodeJS.ProcessEnv {
   return { ...environmentVariables, ...UTF8_LOCALE, ...extra };
 }
+
 /** Whether the effective shell locale encodes as UTF-8 (`LC_ALL` -> `LANG` -> `LANGUAGE`). */
 export function isUtf8ShellLocale(env: ShellLocaleEnv): boolean {
   let effectiveLocale = env.LC_ALL;
@@ -23,6 +26,7 @@ export function isUtf8ShellLocale(env: ShellLocaleEnv): boolean {
 
   return typeof effectiveLocale == 'string' && /UTF-?8/i.test(effectiveLocale);
 }
+
 /** Doctor line grading the interactive shell locale (build subprocesses are fixed regardless). */
 export function shellLocaleDoctorCheck(env: ShellLocaleEnv): DoctorCheck {
   if (isUtf8ShellLocale(env)) {

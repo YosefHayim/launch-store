@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeLogRedactor, redactLine, redactText } from './redact.ts';
+
 function describeRedactLine() {
   function masksSecretLookingAssignmentsButLeavesPublishableOnes() {
     expect(redactLine('API_TOKEN=abc123')).toBe('API_TOKEN=***');
@@ -36,6 +37,7 @@ function describeRedactLine() {
 }
 
 describe('redactLine', describeRedactLine);
+
 function describeRedactPiece() {
   function removesMultiLinePEMKeyBlocksWhileKeepingSurroundingLines() {
     // The PEM fences are assembled at runtime so no scannable private-key literal lives in this file;
@@ -67,6 +69,7 @@ function describeRedactPiece() {
 }
 
 describe('redactText', describeRedactPiece);
+
 function describeMakeLogRedactor() {
   function showsTheErrorLinesThatFollowAPEMBlockThatNeverCloses() {
     const redactOutputLine = makeLogRedactor();
@@ -97,6 +100,7 @@ function describeMakeLogRedactor() {
 }
 
 describe('makeLogRedactor', describeMakeLogRedactor);
+
 function describeStructuredAndStreamedSecrets() {
   function masksJSONPropertiesIncludingQuotedSecretValues() {
     expect(redactLine('{"private_key":"dummy-private-key"}')).not.toContain('dummy-private-key');

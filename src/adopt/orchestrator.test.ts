@@ -88,6 +88,7 @@ function appDescriptor(
 
   return descriptor;
 }
+
 function describeDescribeAdoptSignal() {
   function joinsLiveVersionAndBuildCountWithSingularBuildLabel() {
     const adoptSignal = describeAdoptSignal('2.1', 12);
@@ -106,6 +107,7 @@ function describeDescribeAdoptSignal() {
 }
 
 describe('describeAdoptSignal', describeDescribeAdoptSignal);
+
 function describeDetectTargets() {
   async function separatesAppsWithALivePieceFromThoseSkippedWithAConfirmingSignal() {
     const appleCatalog = emptyAdoptCatalog({
@@ -160,6 +162,7 @@ function describeDetectTargets() {
 }
 
 describe('detectTargets', describeDetectTargets);
+
 function describePlanTargets() {
   async function collectsEachAdopterSWritesAndIsolatesAnAdopterThatFails() {
     const goodAdopter: Adopter = {
@@ -220,6 +223,7 @@ function describePlanTargets() {
 }
 
 describe('planTargets', describePlanTargets);
+
 function describeCollectAdoptedProducts() {
   function aggregatesLaunchPieceProductPiecesByBundleId() {
     const iap: InAppPurchaseConfig = {
@@ -273,6 +277,7 @@ function describeCollectAdoptedProducts() {
 }
 
 describe('collectAdoptedProducts', describeCollectAdoptedProducts);
+
 function describeApplyAdopt() {
   let workspaceDir: string;
 
@@ -317,6 +322,7 @@ function describeApplyAdopt() {
       pullListing,
     };
   }
+
   async function writesAFreshLaunchPieceTsWithTheImportedProductsWhenTheRepoHasNone() {
     const target: AdoptTarget = {
       app: appDescriptor('acme', 'com.acme.app'),

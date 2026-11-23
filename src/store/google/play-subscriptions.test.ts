@@ -132,6 +132,7 @@ function sub(overrides: Partial<SubscriptionConfig> = {}): SubscriptionConfig {
     ...overrides,
   };
 }
+
 function describePeriodFromIso() {
   function mapsEveryKnownISODurationAndRejectsUnknowns() {
     expect(periodFromIso('P1W')).toBe('ONE_WEEK');
@@ -150,6 +151,7 @@ function describePeriodFromIso() {
 }
 
 describe('periodFromIso', describePeriodFromIso);
+
 function describeMicrosToMoneyUnitsToMicros() {
   function splitsMicroUnitsIntoWholeUnitsAndBillionths() {
     expect(microsToMoney({ priceMicros: '9990000', currency: 'USD' })).toEqual({
@@ -178,6 +180,7 @@ function describeMicrosToMoneyUnitsToMicros() {
 }
 
 describe('microsToMoney / unitsToMicros', describeMicrosToMoneyUnitsToMicros);
+
 function describeOfferFromPiece() {
   function buildsAFreeTrialOfferCoveringTheBasePlanSRegions() {
     const offer = runOffer('com.acme.pro', 'p1m', ['US', 'GB'], {

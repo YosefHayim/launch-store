@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type JsonSchema, validate } from './json-schema.ts';
+
 function describeValidate() {
   function flagsABaseTypeMismatchAndReportsNothingValidAlongsideIt() {
     const violations = validate(5, { type: 'string' });

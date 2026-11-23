@@ -5,6 +5,7 @@ import type { MutableDeep } from '../types/mutable.ts';
 import type { RemoteTarget } from '../types/remote.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import type { BumpKind } from '../release/version.ts';
+
 /** Options for one `launch-store build` invocation. */
 export type BuildRunOptions = {
   platform: Platform;
@@ -28,6 +29,7 @@ export type BuildRunOptions = {
   includeLocal?: boolean;
   bump?: BumpKind | 'ask';
 };
+
 /** The shared front half of every build path: config + app + profile + validated env + a logger. */
 export type PreparedBuild = {
   config: LaunchConfig;
@@ -41,6 +43,7 @@ export type PreparedBuild = {
 export const DRY_RUN_KEY = { keyId: 'DRYRUN', issuerId: 'DRYRUN', p8: '' };
 /** The soft size budget (MB) applied when neither the run nor the profile sets one. */
 export const DEFAULT_SIZE_BUDGET_MB = 200;
+
 /** The contract every build fork satisfies */
 /** Which build fork a run resolves to, plus the data that fork needs. */
 export type BuildTransportChoice =
@@ -54,6 +57,7 @@ export type BuildTransportChoice =
   | {
       kind: 'eas';
     };
+
 /** How the marketing-version bump gets chosen for one run. */
 export type BumpResolution =
   | {
@@ -67,12 +71,14 @@ export type BumpResolution =
   | {
       mode: 'leave';
     };
+
 /** What {@link BuildEngine.build} resolves to - named so the build-log wrapper can pass it through. */
 export type BuildOutput = {
   artifactPath: string;
   sizeReport: SizeReport;
   cleanBuilt: boolean;
 };
+
 /** Inputs for the pre-upload checkpoint {@link confirmUpload}. */
 export type ConfirmUploadOptions = {
   report: SizeReport;
@@ -90,6 +96,7 @@ export type ConfirmUploadOptions = {
   yes: boolean;
   log: Logger;
 };
+
 /** Inputs for the end-of-run {@link renderReceipt} summary. */
 export type ReceiptOptions = {
   app: AppDescriptor;

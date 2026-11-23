@@ -26,11 +26,13 @@ type Calls = {
     };
   }[];
 };
+
 /** State the fake API serves on reads - what App Store Connect already has. */
 type State = {
   appId: string | null;
   declarations: AccessibilityDeclarationResource[];
 };
+
 /** A hand-rolled {@link AscAccessibilityApi} - no network - returning `state` and recording writes in `calls`. */
 function makeApi(state: Partial<State>): {
   api: AscAccessibilityApi;
@@ -57,6 +59,7 @@ function makeApi(state: Partial<State>): {
 
   return { api, calls };
 }
+
 /** Execute the accessibility reconciler at the test boundary. */
 function runReconcile(
   api: AscAccessibilityApi,
@@ -79,6 +82,7 @@ const FULL_IPHONE: AccessibilitySupport = {
 const CONFIG: AccessibilityConfig = {
   declarations: [{ deviceFamily: 'IPHONE', supportsVoiceover: true, supportsCaptions: true }],
 };
+
 /** A declaration the fake API can serve as already-present state. */
 function declaration(
   partial: Partial<AccessibilityDeclarationResource> & {
@@ -87,9 +91,11 @@ function declaration(
 ): AccessibilityDeclarationResource {
   return { id: 'decl-1', state: 'PUBLISHED', support: {}, ...partial };
 }
+
 function decodeAccessibilityConfig(rawDocument: unknown) {
   return parseAccessibilityConfig(rawDocument);
 }
+
 function describeParseAccessibilityPiece() {
   function parsesDeclarationsAndThePublishFlag() {
     const config = decodeAccessibilityConfig({ publish: true, ...CONFIG });
@@ -175,6 +181,7 @@ function describeParseAccessibilityPiece() {
 }
 
 describe('parseAccessibilityConfig', describeParseAccessibilityPiece);
+
 function describeReconcileAccessibility() {
   async function throwsWhenTheAppHasNoAppStoreConnectPiece() {
     const { api } = makeApi({ appId: null });

@@ -42,15 +42,18 @@ import {
 } from './toolchain.ts';
 
 type ReadinessStatus = 'ok' | 'todo' | 'info';
+
 type ReadinessRow = Readonly<{
   label: string;
   status: ReadinessStatus;
   detail?: string;
 }>;
+
 type ReadinessGroup = Readonly<{
   title: string;
   rows: readonly ReadinessRow[];
 }>;
+
 export type SetupReadiness = Readonly<{
   groups: readonly ReadinessGroup[];
 }>;

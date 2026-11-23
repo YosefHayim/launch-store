@@ -5,6 +5,7 @@ import {
   reviewStatusForVerdict,
 } from './release-notify.ts';
 import { classifyVerdict, type ReleaseStatus } from './app-store-release.ts';
+
 /** A minimal {@link ReleaseStatus} for one poll; `appStoreState` drives the verdict unless overridden. */
 function status(over: Partial<ReleaseStatus> = {}): ReleaseStatus {
   const base: ReleaseStatus = {
@@ -28,6 +29,7 @@ function status(over: Partial<ReleaseStatus> = {}): ReleaseStatus {
 
   return merged;
 }
+
 function describeReviewStatusForVerdict() {
   function notifiesRejectedOnARejection() {
     const verdict = classifyVerdict('REJECTED');
@@ -69,6 +71,7 @@ function describeReviewStatusForVerdict() {
 }
 
 describe('reviewStatusForVerdict', describeReviewStatusForVerdict);
+
 function describePlanTransitionNotificationsReview() {
   function notifiesARealVerdictEvenAfterAnEarlierSilentTerminalPiece() {
     const tracker = createTransitionTracker();
@@ -177,6 +180,7 @@ function describePlanTransitionNotificationsReview() {
 }
 
 describe('planTransitionNotifications - review', describePlanTransitionNotificationsReview);
+
 function describePlanTransitionNotificationsRollout() {
   function treatsTheFirstPhasedPieceAsASilentBaselineThenNotifiesEachChangeOnce() {
     const tracker = createTransitionTracker();

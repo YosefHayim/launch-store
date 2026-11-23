@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { expectArrayElement, expectDefined } from '../testkit/assertions-testkit.ts';
 import { signatureHeader } from './code-sign.ts';
+
 function describeSignatureHeader() {
   function producesAnExpoSignatureHeaderWhoseRSASHA256SignatureVerifiesAgainstThePublicKey() {
     const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });

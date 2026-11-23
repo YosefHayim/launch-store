@@ -1,4 +1,5 @@
 import { readPlainObject } from '@/services/platform/plain-object.js';
+
 type SyncCommandInput = {
   app?: string;
   dryRun: boolean;

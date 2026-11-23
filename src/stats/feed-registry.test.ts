@@ -18,11 +18,13 @@ function makeApp(platform: 'ios' | 'android'): PortfolioApp {
     ga4PropertyId: null,
   };
 }
+
 function cleanup() {
   useStatsCredentials(null);
 }
 
 afterEach(cleanup);
+
 function describeSTATSFEEDPLUGINS() {
   function listsTheThreeFeedsInOrder() {
     function readFeed(plugin: StatsFeedPlugin) {

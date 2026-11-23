@@ -54,6 +54,7 @@ function makeAppleReads() {
   async function readAppId(): Promise<string | null> {
     return 'app1';
   }
+
   async function mockCall() {
     return 'appinfo1';
   }
@@ -139,6 +140,7 @@ function installStoreFakes(): void {
   createEffectPlayClient.mockReset();
   createEffectPlayClient.mockReturnValue(playClientFake as never);
 }
+
 function describeMetadataCommandPieceSchema() {
   function decodesAPullWithOmittedOptionalSelectors() {
     const metadataCommandSchema = MetadataCommandInputSchema({ operation: 'pull', dryRun: true });
@@ -170,6 +172,7 @@ function describeMetadataCommandPieceSchema() {
 }
 
 describe('MetadataCommandInputSchema', describeMetadataCommandPieceSchema);
+
 function describeAssertListingPlatform() {
   function allowsTheIOSAndAndroidListingAdapters() {
     function callAssertListingPlatform() {
@@ -201,6 +204,7 @@ function describeAssertListingPlatform() {
 }
 
 describe('assertListingPlatform', describeAssertListingPlatform);
+
 function describeMetadataCommandProgram() {
   let workspaceDirectory = '';
   let appDirectory = '';
@@ -244,6 +248,7 @@ function describeMetadataCommandProgram() {
 
     throw new Error('expected the metadata command to fail');
   }
+
   function prepareMetadataCommandProgram() {
     const systemTemporaryDirectory = tmpdir();
     const launchMetadataCmdPath = join(systemTemporaryDirectory, 'launch-metadata-cmd-');

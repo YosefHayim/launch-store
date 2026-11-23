@@ -5,6 +5,7 @@ import {
   PlayPricingCommandInputSchema,
   renderRecommendedPrices,
 } from './play-pricing.ts';
+
 function describeParsePlayPrice() {
   function normalizesDecimalMoneyToWholeUnitsAndNanos() {
     const playPrice = parsePlayPrice('007.50', 'eur');
@@ -74,6 +75,7 @@ function describeParsePlayPrice() {
 }
 
 describe('parsePlayPrice', describeParsePlayPrice);
+
 function describeFormatPlayMoney() {
   function rendersWholeTwoDecimalAndHighPrecisionMoney() {
     const playMoney = formatPlayMoney({ currencyCode: 'JPY', units: '600', nanos: 0 });
@@ -92,6 +94,7 @@ function describeFormatPlayMoney() {
 }
 
 describe('formatPlayMoney', describeFormatPlayMoney);
+
 function describePlayPricingCommandPieceSchema() {
   function decodesTheCommanderBoundaryWithoutAnAppSelector() {
     const playPricingCommandSchema = PlayPricingCommandInputSchema({
@@ -128,6 +131,7 @@ function describePlayPricingCommandPieceSchema() {
 }
 
 describe('PlayPricingCommandInputSchema', describePlayPricingCommandPieceSchema);
+
 function describeRenderRecommendedPrices() {
   function rendersRegionalAndFallbackPrices() {
     const recommendedPrices = renderRecommendedPrices(

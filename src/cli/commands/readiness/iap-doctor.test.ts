@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Command, type CommandOption } from '@/cli/command.js';
 import { registerIapCommand } from './iap-doctor.ts';
+
 function describeRegisterIapCommand() {
   function attachesAnIapGroupWithADoctorSubcommandAndItsPiece() {
     const program = new Command();

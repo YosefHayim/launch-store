@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LaunchConfig } from '../types/config.ts';
 import { checkConfigSemantics } from './config-semantics.ts';
+
 /** A schema-valid baseline config (local storage, one production profile); override a slice per case. */
 function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
   return {
@@ -12,6 +13,7 @@ function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
     ...overrides,
   };
 }
+
 /** The flagged paths, in the order the checker emits them - terser to assert on than full messages. */
 function paths(overrides: Partial<LaunchConfig> = {}): string[] {
   function readPath(issue: { path: string; message: string }) {
@@ -20,6 +22,7 @@ function paths(overrides: Partial<LaunchConfig> = {}): string[] {
 
   return checkConfigSemantics(config(overrides)).map(readPath);
 }
+
 function describeCheckPieceSemantics() {
   function returnsNothingForASoundPiece() {
     const checkSemantics = checkConfigSemantics(config());

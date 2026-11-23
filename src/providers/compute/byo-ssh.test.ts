@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseSshTarget } from './byo-ssh.ts';
+
 function describeParseSshTarget() {
   function parsesUserHostWithTheDefaultPort() {
     const sshTarget = parseSshTarget('ec2-user@1.2.3.4');

@@ -33,6 +33,7 @@ afterEach(function removeTempDirectories() {
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
 function describePathsOneCanonicalLayoutForLaunch() {
   function nestsAllLocalPieceUnderLaunch() {
     expect(LAUNCH_HOME.endsWith('.launch')).toBe(true);
@@ -80,12 +81,14 @@ function describePathsOneCanonicalLayoutForLaunch() {
 }
 
 describe('paths - one canonical layout for ~/.launch', describePathsOneCanonicalLayoutForLaunch);
+
 function describeStatsPaths() {
   const homeDirectory = '/test-home';
 
   function useTestHome(): void {
     useLaunchDirectories({ homeDirectory, workingDirectory: '/workspace' });
   }
+
   function putsTheStatsFolderAndPortfolioFileUnderLaunch() {
     useTestHome();
 

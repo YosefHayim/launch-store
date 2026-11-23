@@ -3,6 +3,7 @@ import type { AppProducts } from '@/types/catalog.js';
 import { OffersCommandInputSchema } from './offers-command.ts';
 import { renderOfferCodeState } from './offers-list.ts';
 import { hasOffersWork, renderOfferAction } from './offers-reconcile.ts';
+
 function describeOffersCommandPieceSchema() {
   function decodesReconciliationWithAnOmittedAppSelector() {
     const offersCommandSchema = OffersCommandInputSchema({
@@ -52,6 +53,7 @@ function describeOffersCommandPieceSchema() {
 }
 
 describe('OffersCommandInputSchema', describeOffersCommandPieceSchema);
+
 function describeOffersCommandRenderers() {
   function usesASCIIActionAndCampaignMarkers() {
     const offerAction = renderOfferAction({
@@ -94,6 +96,7 @@ function describeOffersCommandRenderers() {
 }
 
 describe('offers command renderers', describeOffersCommandRenderers);
+
 function describeHasOffersWork() {
   function delegatesToAppDeclaresOffersAndRejectsAnUndefinedCatalog() {
     const offerCatalog: AppProducts = {

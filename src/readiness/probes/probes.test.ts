@@ -35,6 +35,7 @@ import type {
   ReadinessContext,
   ReadinessProbe,
 } from '@/types/readiness.js';
+
 /** A minimal valid config; pass `products` to exercise the subscription-group scope. */
 function config(products?: LaunchConfig['products']): LaunchConfig {
   const launchConfig: LaunchConfig = {
@@ -49,10 +50,12 @@ function config(products?: LaunchConfig['products']): LaunchConfig {
 
   return { ...launchConfig, products };
 }
+
 /** A discovered app; override `bundleId`/`packageName` to scope it to a store. */
 function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
   return { name: 'app', dir: '/a', configPath: '/a/app.json', ...overrides };
 }
+
 /** A read-only ASC fake - only the methods readiness reads exist, so a write is impossible by construction. */
 function ascApi(overrides: Partial<AscReadinessApi> = {}): AscReadinessApi {
   function mockCall() {
@@ -166,6 +169,7 @@ function ascApi(overrides: Partial<AscReadinessApi> = {}): AscReadinessApi {
     ...overrides,
   };
 }
+
 /** A read-only Play fake, mirroring {@link ascApi}. */
 function playApi(overrides: Partial<PlayReadinessApi> = {}): PlayReadinessApi {
   function mockCall22() {
@@ -187,6 +191,7 @@ function playApi(overrides: Partial<PlayReadinessApi> = {}): PlayReadinessApi {
     ...overrides,
   };
 }
+
 /** Build a context with explicit clients (or `null` to simulate unconfigured credentials). */
 function createReadinessContext(args: {
   apps: AppDescriptor[];
@@ -213,6 +218,7 @@ function createReadinessContext(args: {
     },
   };
 }
+
 /** The per-app status + identifier of a `checked` result (empty for any other state). */
 function findings(probeResult: ProbeResult): {
   status: string;
@@ -295,6 +301,7 @@ const withOffers: LaunchConfig['products'] = {
     ],
   },
 };
+
 function describeAppPieceProbe() {
   async function omitsItselfWhenNoAppHasABundleId() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
@@ -349,6 +356,7 @@ function describeAppPieceProbe() {
 }
 
 describe('appRecordProbe', describeAppPieceProbe);
+
 function describeAgreementsProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
@@ -404,6 +412,7 @@ function describeAgreementsProbe() {
     function runPiece(): never {
       throw new Error('network down');
     }
+
     function mockCall68(): Promise<boolean> {
       return Promise.resolve(runPiece());
     }
@@ -427,6 +436,7 @@ function describeAgreementsProbe() {
 }
 
 describe('agreementsProbe', describeAgreementsProbe);
+
 function describeSubscriptionGroupProbe() {
   const withSubs = {
     'com.x': { subscriptionGroups: [{ referenceName: 'g', localizations: [], subscriptions: [] }] },
@@ -501,6 +511,7 @@ function describeSubscriptionGroupProbe() {
 }
 
 describe('subscriptionGroupProbe', describeSubscriptionGroupProbe);
+
 function describeIapProductsProbe() {
   const withIap: LaunchConfig['products'] = {
     'com.x': {
@@ -626,6 +637,7 @@ function describeIapProductsProbe() {
 }
 
 describe('iapProductsProbe', describeIapProductsProbe);
+
 function describeSubscriptionsProbe() {
   const withSub: LaunchConfig['products'] = {
     'com.x': {
@@ -701,6 +713,7 @@ function describeSubscriptionsProbe() {
 }
 
 describe('subscriptionsProbe', describeSubscriptionsProbe);
+
 function describeBundleIdProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount2() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
@@ -755,6 +768,7 @@ function describeBundleIdProbe() {
 }
 
 describe('bundleIdProbe', describeBundleIdProbe);
+
 function describeDistributionCertProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount3() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
@@ -845,6 +859,7 @@ function describeDistributionCertProbe() {
 }
 
 describe('distributionCertProbe', describeDistributionCertProbe);
+
 function describeExportComplianceProbe() {
   async function omitsWhenNoAppDeclaresABundleId() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
@@ -879,6 +894,7 @@ function describeExportComplianceProbe() {
 }
 
 describe('exportComplianceProbe', describeExportComplianceProbe);
+
 function describePlayAppProbe() {
   async function passesWhenTheAppIsReachableBlocksWhenPlayRejectsIt() {
     const createReadiness = createReadinessContext({
@@ -893,6 +909,7 @@ function describePlayAppProbe() {
     function runPiece2() {
       throw new Error('app not found');
     }
+
     function mockCall69() {
       return Promise.resolve(runPiece2());
     }
@@ -915,6 +932,7 @@ function describePlayAppProbe() {
 }
 
 describe('playAppProbe', describePlayAppProbe);
+
 function describePlayFirstUploadProbe() {
   async function passesWithAnUploadedBuildBlocksAtVersionCode0WarnsOnAReadFailure() {
     const createReadiness = createReadinessContext({
@@ -943,6 +961,7 @@ function describePlayFirstUploadProbe() {
     function runPiece3(): never {
       throw new Error('nope');
     }
+
     function mockCall70(): Promise<number> {
       return Promise.resolve(runPiece3());
     }
@@ -965,6 +984,7 @@ function describePlayFirstUploadProbe() {
 }
 
 describe('playFirstUploadProbe', describePlayFirstUploadProbe);
+
 function describePlayInternalTrackProbe() {
   async function passesWhenAnInternalTrackExistsWarnsWhenItDoesnT() {
     const createReadiness = createReadinessContext({
@@ -998,6 +1018,7 @@ function describePlayInternalTrackProbe() {
 }
 
 describe('playInternalTrackProbe', describePlayInternalTrackProbe);
+
 function describeIapPricingProbe() {
   async function omitsWhenNoAppDeclaresAPricedProductSkipsWithoutAnAppleAccount() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
@@ -1109,6 +1130,7 @@ function describeIapPricingProbe() {
 }
 
 describe('iapPricingProbe', describeIapPricingProbe);
+
 function describeSubscriptionOffersProbe() {
   async function omitsWhenNoSubscriptionDeclaresOfferCodesSkipsWithoutAnAppleAccount() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
@@ -1210,6 +1232,7 @@ function describeSubscriptionOffersProbe() {
 }
 
 describe('subscriptionOffersProbe', describeSubscriptionOffersProbe);
+
 function describeSandboxTestersProbe() {
   async function omitsWhenNoAppSellsProductsSkipsWithoutAnAppleAccount() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
@@ -1272,6 +1295,7 @@ function describeSandboxTestersProbe() {
 }
 
 describe('sandboxTestersProbe', describeSandboxTestersProbe);
+
 /** The first finding's `detail` string from a `checked` result (empty otherwise) - for asserting copy. */
 function firstDetail(probeResult: ProbeResult): string {
   if (probeResult.state != 'checked') return '';
@@ -1290,6 +1314,7 @@ const oneIap: LaunchConfig['products'] = {
     ],
   },
 };
+
 function describeIapCodeReferenceProbe() {
   async function omitsWhenTheAppDeclaresNoProductsNoScan() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
@@ -1388,6 +1413,7 @@ function describeIapCodeReferenceProbe() {
 }
 
 describe('iapCodeReferenceProbe', describeIapCodeReferenceProbe);
+
 function describeStoreKitPieceProbe() {
   async function omitsWhenTheAppDeclaresNoProducts() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
@@ -1435,6 +1461,7 @@ function describeStoreKitPieceProbe() {
 }
 
 describe('storeKitConfigProbe', describeStoreKitPieceProbe);
+
 function describeAgeRatingProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount4() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
@@ -1545,6 +1572,7 @@ function describeAgeRatingProbe() {
 }
 
 describe('ageRatingProbe', describeAgeRatingProbe);
+
 function describeAccountDeletionProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount5() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
@@ -1621,6 +1649,7 @@ function describeAccountDeletionProbe() {
 }
 
 describe('accountDeletionProbe', describeAccountDeletionProbe);
+
 function describeDemoAccountProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount6() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
@@ -1739,6 +1768,7 @@ function describeDemoAccountProbe() {
 }
 
 describe('demoAccountProbe', describeDemoAccountProbe);
+
 function describeProfileEntitlementsProbe() {
   /** An app whose entitlements require the Push Notifications capability on its App ID. */
   const pushApp = app({ bundleId: 'com.x', iosEntitlements: { 'aps-environment': 'production' } });
@@ -1812,6 +1842,7 @@ function describeProfileEntitlementsProbe() {
 }
 
 describe('profileEntitlementsProbe', describeProfileEntitlementsProbe);
+
 function describeScreenshotsProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount7() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
@@ -1931,6 +1962,7 @@ function describeScreenshotsProbe() {
 }
 
 describe('screenshotsProbe', describeScreenshotsProbe);
+
 function describeListingUrlsProbe() {
   /** Write a minimal `store.config.json` declaring one Apple privacy-policy URL, and return its dir. */
   function appDirWithPrivacyUrl(url: string): string {
@@ -1944,6 +1976,7 @@ function describeListingUrlsProbe() {
 
     return dir;
   }
+
   async function omitsWhenNoInScopeAppDeclaresAListingURL() {
     const systemTemporaryDirectory = tmpdir();
     const listingUrlsPath = join(systemTemporaryDirectory, 'listing-urls-');
@@ -2022,6 +2055,7 @@ function describeListingUrlsProbe() {
 }
 
 describe('listingUrlsProbe', describeListingUrlsProbe);
+
 function describeVersionCopyrightProbe() {
   function mockCall66() {
     return Promise.resolve({ id: 'ver-1', copyright: '' });
@@ -2081,6 +2115,7 @@ function describeVersionCopyrightProbe() {
 }
 
 describe('versionCopyrightProbe', describeVersionCopyrightProbe);
+
 function describeAppPrivacyProbe() {
   async function passesAnAppThatHasBeenReleasedBefore() {
     const createReadiness = createReadinessContext({

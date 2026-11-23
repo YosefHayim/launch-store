@@ -8,6 +8,7 @@ import { captureCommandOutput, type CommandFailed } from '../src/services/platfo
 const fileUrltoPath = fileURLToPath(import.meta.url);
 const parentDirectory = dirname(fileUrltoPath);
 const CLI = join(parentDirectory, '..', 'dist', 'cli', 'index.js');
+
 /** Run the built binary with an explicit argv and return its trimmed stdout (rejects on a non-zero exit). */
 function launch(...args: string[]): Promise<string> {
   return captureCommandOutput('node', [CLI, ...args]);
@@ -32,6 +33,7 @@ function isCommandFailed(caught: unknown): caught is CommandFailed {
 }
 /** Hermetic scratch dir holding the fixture configs the `config validate` cases point at. */
 let workdir: string;
+
 function prepareAll() {
   const systemTemporaryDirectory = tmpdir();
   const launchE2ePath = join(systemTemporaryDirectory, 'launch-e2e-');
@@ -118,11 +120,13 @@ function prepareAll() {
 }
 
 beforeAll(prepareAll);
+
 function cleanupAll() {
   rmSync(workdir, { recursive: true, force: true });
 }
 
 afterAll(cleanupAll);
+
 function describeLaunchStoreCLIOfflineSurfaceCompiledDist() {
   async function reportsItsSemverVersion() {
     expect(await launch('--version')).toMatch(/^\d+\.\d+\.\d+/);

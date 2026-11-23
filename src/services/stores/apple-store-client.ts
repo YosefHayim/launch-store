@@ -108,4 +108,5 @@ export const AppleStoreClientService = {
 };
 
 export type AppleStoreClientService = typeof AppleStoreClientService;
+
 export type EffectAppStoreConnectClient = AppStoreConnectClient;

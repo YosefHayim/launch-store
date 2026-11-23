@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeReleaseConfirmationRequired, resolveReleaseConfirmationMode } from './confirmation.ts';
+
 function describeResolveReleaseConfirmationMode() {
   function confirmsImmediatelyWhenYesWasPassed() {
     const releaseConfirmationMode = resolveReleaseConfirmationMode({ yes: true, canPrompt: false });

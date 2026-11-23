@@ -81,6 +81,7 @@ function adoptTarget(overrides: Partial<AdoptTarget> = {}): AdoptTarget {
     ...overrides,
   };
 }
+
 function describeProductsAdopter() {
   async function importsAnInAppPurchaseWithItsLocalizationsKeyedByBundleId() {
     const appleCatalog = emptyAdoptCatalog({

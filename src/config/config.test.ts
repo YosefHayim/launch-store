@@ -13,9 +13,11 @@ import { validateConfig } from './config-schema.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import { expectArrayElement, expectDefined } from '../testkit/assertions-testkit.ts';
 const tempDirs: string[] = [];
+
 async function runConfigEffect<Success>(configWork: Promise<Success>): Promise<Success> {
   return configWork;
 }
+
 function makeRepo(): string {
   const systemTemporaryDirectory = tmpdir();
   const joinedPath = join(systemTemporaryDirectory, 'launch-config-');
@@ -25,6 +27,7 @@ function makeRepo(): string {
 
   return dir;
 }
+
 /** Write an app.json (Expo `{ expo: {...} }` wrapper) into a (possibly nested) app directory. */
 function writeApp(repo: string, relDir: string, expo: Record<string, unknown>): void {
   const dir = join(repo, relDir);
@@ -36,6 +39,7 @@ function writeApp(repo: string, relDir: string, expo: Record<string, unknown>): 
 
   writeFileSync(appPath, serialized);
 }
+
 /** Write an arbitrary config file (e.g. app.config.ts) into a (possibly nested) app directory. */
 function writeConfigFile(repo: string, relDir: string, filename: string, contents: string): void {
   const dir = join(repo, relDir);
@@ -43,6 +47,7 @@ function writeConfigFile(repo: string, relDir: string, filename: string, content
   const joinedPath = join(dir, filename);
   writeFileSync(joinedPath, contents);
 }
+
 function cleanup() {
   while (tempDirs.length > 0) {
     rmSync(expectDefined(tempDirs.pop(), 'temp dir'), { recursive: true, force: true });
@@ -50,6 +55,7 @@ function cleanup() {
 }
 
 afterEach(cleanup);
+
 function describeDefinePiece() {
   function fillsTheV1DefaultsSoAMinimalPieceOnlyDeclaresProfiles() {
     const config = defineConfig({ profiles: { production: { name: 'production' } } });
@@ -164,12 +170,14 @@ function describeDefinePiece() {
 }
 
 describe('defineConfig', describeDefinePiece);
+
 function describeResolveSidecarPieceTypedFieldVsJSONSidecarPrecedenceIssue101() {
   /** A loader that reads + JSON-parses the sidecar, like the real `load*Config` helpers. */
   async function readJson(path: string): Promise<{ source: string }> {
     const loadedFile = readFileSync(path, 'utf8');
     return JSON.parse(loadedFile) as { source: string };
   }
+
   async function usesTheTypedFieldWhenPresentAndPieceWasLeftAtItsDefault() {
     const resolveSidecar = resolveSidecarConfig({
       typed: { source: 'typed' },
@@ -395,6 +403,7 @@ describe('loadConfig - auto-discovers apps, app.json stays the source of truth',
 
   it('ignores an app.json with neither slug nor name', ignoresAnAppPieceWithNeitherSlugNorName);
 });
+
 function describeLoadPieceReadsDynamicExpoPieceAppPieceTsJsAndBareReactNative() {
   async function discoversAnAppFromAnObjectExportAppPieceTs() {
     const repo = makeRepo();
@@ -489,6 +498,7 @@ describe(
   'loadConfig - reads dynamic Expo config (app.config.{ts,js}) and bare React Native',
   describeLoadPieceReadsDynamicExpoPieceAppPieceTsJsAndBareReactNative,
 );
+
 function describeLoadPieceResolvesTheLaunchStoreImportWithoutALocalDependencyIssue8() {
   async function loadsAPieceThatImportsDefinePieceFromLaunchStoreInAProjectWithNoNodeModules() {
     const repo = makeRepo();
@@ -524,6 +534,7 @@ describe(
   'loadConfig - resolves the launch-store import without a local dependency (issue #8)',
   describeLoadPieceResolvesTheLaunchStoreImportWithoutALocalDependencyIssue8,
 );
+
 function describeWriteAppVersionPersistTheBumpBackToAStaticAppPiece() {
   async function updatesExpoVersionOnADiscoveredAppLeavingSiblingsIntact() {
     const repo = makeRepo();
@@ -608,6 +619,7 @@ describe(
   'writeAppVersion - persist the bump back to a static app.json',
   describeWriteAppVersionPersistTheBumpBackToAStaticAppPiece,
 );
+
 function describeWriteAppEntitlements() {
   /** Build an AppDescriptor pointing at a freshly-written app.json in a temp repo. */
   function appWith(expo: Record<string, unknown>): AppDescriptor {
@@ -615,12 +627,14 @@ function describeWriteAppEntitlements() {
     writeApp(repo, 'app', expo);
     return { name: 'app', dir: join(repo, 'app'), configPath: join(repo, 'app', 'app.json') };
   }
+
   function runWriteAppEntitlements(
     app: AppDescriptor,
     entitlements: Parameters<typeof writeAppEntitlements>[1],
   ) {
     return writeAppEntitlements(app, entitlements);
   }
+
   async function addsEntitlementsUnderExpoIosEntitlementsAndReturnsTheKeysItWrote() {
     const app = appWith({ ios: { bundleIdentifier: 'com.acme.app' } });
     const added = await runWriteAppEntitlements(app, {

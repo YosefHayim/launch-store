@@ -34,6 +34,7 @@ const listingGenerator = {
     });
   },
 };
+
 function describeAiListingCommand() {
   let workingDirectory: string;
   let configPath: string;
@@ -69,6 +70,7 @@ function describeAiListingCommand() {
 
     return lines;
   }
+
   function decodesStableCommandDefaults() {
     const readAiListing = readAiListingInput({});
     expect(readAiListing).toEqual({ platform: 'ios', dryRun: false, yes: false });

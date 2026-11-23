@@ -12,8 +12,11 @@ import type { SchemaViolation } from './json-schema.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type SchemaCommandInput = Readonly<{ operation: 'schema'; out?: string }>;
+
 type ValidateCommandInput = Readonly<{ operation: 'validate'; file?: string }>;
+
 type DocsCommandInput = Readonly<{ operation: 'docs' }>;
+
 type ConfigCommandInput = SchemaCommandInput | ValidateCommandInput | DocsCommandInput;
 
 type ConfigCommandFailure = Readonly<{

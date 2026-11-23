@@ -59,6 +59,7 @@ const ALL_APPS_REQUEST: StatsReportRequest = {
 type ReportOutcome<Report> =
   | { readonly _tag: 'Right'; readonly right: Report }
   | { readonly _tag: 'Left'; readonly left: { readonly message?: string } };
+
 function describeCreateStatsReport() {
   let homeDirectory: string;
 
@@ -70,6 +71,7 @@ function describeCreateStatsReport() {
       workingDirectory: workPath,
     });
   }
+
   function prepareCreateStatsReport() {
     homeDirectory = createTemporaryHomeDirectory();
     useTemporaryLaunchHome();
@@ -151,6 +153,7 @@ function describeCreateStatsReport() {
       return { _tag: 'Left', left: left as { message?: string } };
     }
   }
+
   async function foldsTheSavedNumbersPerAppAndIgnoresDaysOutsideTheRange() {
     const outcome = await createReport(ALL_APPS_REQUEST);
 

@@ -24,6 +24,7 @@ vi.mock('../services/platform/exec.ts', function mockExec() {
     }),
   };
 });
+
 function describeAndroidSigningCommandSecretTransport() {
   const temporaryDirectories: string[] = [];
 

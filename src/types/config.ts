@@ -22,8 +22,10 @@ export const DEFAULT_CREDENTIALS_PROVIDER = 'local';
 export const DEFAULT_STORAGE_PROVIDER = 'local';
 export const DEFAULT_BUILD_ENGINE = 'xcode';
 export const DEFAULT_SUBMITTER = 'app-store-connect';
+
 /** The multi-store form of {@link LaunchConfig.submit} */
 type SubmitByPlatform = Partial<Record<Platform, string[]>>;
+
 /** Bucket settings for `storage: "s3"` or `storage: "supabase"`. */
 export type StorageConfig = {
   /** Address of an S3-compatible store that is not AWS. */
@@ -37,6 +39,7 @@ export type StorageConfig = {
   /** Supabase project address, such as `https://<project>.supabase.co`. */
   readonly supabaseUrl?: string;
 };
+
 /** The object you pass to `defineConfig` in launch.config.ts. */
 export type LaunchConfigInput = {
   /** Named build settings, keyed by the name you pass to `--profile`. */
@@ -85,7 +88,9 @@ export type LaunchConfigInput = {
 
 /** When a build runs `expo prebuild --clean`: only for a missing native dir, or on every build. */
 const prebuildModes = ['missing', 'always'] as const;
+
 export type PrebuildMode = (typeof prebuildModes)[number];
+
 /** The settings for one `launch-store` run */
 export type LaunchConfig = LaunchConfigInput & {
   readonly credentials: string;

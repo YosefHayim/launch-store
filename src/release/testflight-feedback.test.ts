@@ -66,6 +66,7 @@ function makeAppleStore(options: AppleStoreOptions): AscFeedbackApi {
     }),
   };
 }
+
 function describeListBetaFeedback() {
   async function failsClearlyWhenTheAppPieceIsMissing() {
     const appleStore = makeAppleStore({ appIds: {} });
@@ -223,6 +224,7 @@ function describeListBetaFeedback() {
 }
 
 describe('listBetaFeedback', describeListBetaFeedback);
+
 function describeDownloadFeedbackAttachments() {
   async function writesOneFilePerScreenshotAndSkipsCrashFeedback() {
     const bufferBytes = Buffer.from('imgbytes');

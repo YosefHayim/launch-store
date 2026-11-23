@@ -6,6 +6,7 @@ import { resetLaunchDirectories, useLaunchDirectories } from '../services/platfo
 import { readFirstRunState } from './first-run.ts';
 
 let temporaryHome: string;
+
 function prepare() {
   const systemTemporaryDirectory = tmpdir();
   const launchFirstRunPath = join(systemTemporaryDirectory, 'launch-first-run-');
@@ -14,12 +15,14 @@ function prepare() {
 }
 
 beforeEach(prepare);
+
 function cleanup() {
   resetLaunchDirectories();
   rmSync(temporaryHome, { recursive: true, force: true });
 }
 
 afterEach(cleanup);
+
 function describeFirstRunPiece() {
   async function readsAsUnseenWhenThePieceFileDoesNotExist() {
     const readFirstRun = readFirstRunState();

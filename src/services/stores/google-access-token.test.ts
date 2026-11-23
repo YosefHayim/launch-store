@@ -15,6 +15,7 @@ const SERVICE_ACCOUNT: ServiceAccount = {
 afterEach(function resetAccessToken() {
   resetGoogleAccessToken();
 });
+
 function describeGoogleAccessToken() {
   async function readsEveryKeyAsTheGivenServiceAccountAndReturnsTheGivenToken() {
     useGoogleAccessTokenFixture(SERVICE_ACCOUNT, 'token-1');

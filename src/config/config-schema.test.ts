@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfigSchema, validateConfig } from './config-schema.ts';
+
 function describeLoadPieceSchema() {
   async function loadsTheCommittedSchemaWithOnlyProfilesRequiredAndNamedNestedDefinitions() {
     const schema = await loadConfigSchema();
@@ -46,6 +47,7 @@ function describeLoadPieceSchema() {
 }
 
 describe('loadConfigSchema', describeLoadPieceSchema);
+
 function describeValidatePiece() {
   function acceptsAMinimalValidPieceProviderNamesDefaultSoTheyMayBeOmitted() {
     const validate = validateConfig({

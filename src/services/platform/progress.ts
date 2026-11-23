@@ -12,10 +12,12 @@ import { createLogger } from './logger.ts';
 import { resolveLogsDirectory } from './paths.ts';
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */
 let streamRawOutput = false;
+
 /** Set by the CLI's `--verbose` flag - makes every {@link runWithProgress} stream the full tool output. */
 export function setVerboseOutput(verbose: boolean): void {
   streamRawOutput = verbose;
 }
+
 /** Whether to render a spinner or stream raw output. */
 export function selectProgressMode(
   isTTY: boolean,
@@ -33,6 +35,7 @@ export function selectProgressMode(
 
   return 'spinner';
 }
+
 /** Options for {@link runWithProgress}. */
 export type ProgressRunOptions = {
   cwd?: string;
@@ -41,6 +44,7 @@ export type ProgressRunOptions = {
   parseStep?: (line: string) => string | undefined;
   estimate?: BuildEstimate;
 };
+
 /** Cap a step string so the spinner stays on one terminal line. */
 function truncateStep(step: string): string {
   const max = 52;
@@ -49,12 +53,14 @@ function truncateStep(step: string): string {
 
   return step;
 }
+
 /** Render the "candy" Aurora progress bar */
 export function renderBar(fraction: number, width: number = 14): string {
   const clamped = Math.max(0, Math.min(1, fraction));
   const filled = Math.floor(clamped * width);
   return `[${'#'.repeat(filled)}${'-'.repeat(width - filled)}]`;
 }
+
 /** Compose the one spinner line. */
 export function formatProgressLine(parts: {
   label: string;
@@ -90,6 +96,7 @@ export function formatProgressLine(parts: {
 
   return `${head}   ${bar} ${pct}${counter} - ${elapsed} / ~${formatElapsed(estimate.ms)}`;
 }
+
 /** Pull a compact step out of a raw `xcodebuild` line such as `CompileC ...`, `Ld ...` or `** ARCHIVE SUCCEEDED **`. */
 export function xcodeProgressStep(line: string): string | undefined {
   const trimmedLine = line.trim();
@@ -128,6 +135,7 @@ export function xcodeProgressStep(line: string): string | undefined {
 
   return truncateStep(`${verb} ${fileName}`);
 }
+
 /** Pull a compact step out of a Gradle line. */
 export function gradleProgressStep(line: string): string | undefined {
   const match = /^> Task (\S+)/.exec(line.trim());
@@ -136,6 +144,7 @@ export function gradleProgressStep(line: string): string | undefined {
 
   return undefined;
 }
+
 /** A safe-for-a-filename slug of a label, e.g. `"Building iOS - SampleApp"` -> `"building-ios-sampleapp"`. */
 function logSlug(label: string): string {
   const normalizedLabel = label
@@ -147,10 +156,12 @@ function logSlug(label: string): string {
 
   return normalizedLabel;
 }
+
 /** A filesystem-safe timestamp, e.g. `2026-06-14T02-56-32`. */
 function logStamp(epochMilliseconds: number): string {
   return new Date(epochMilliseconds).toISOString().replace(/:/g, '-').replace(/\..+$/, '');
 }
+
 /** Print a failed tool's captured tail and the path to its full log, then */
 async function reportFailure(
   label: string,
@@ -311,6 +322,7 @@ export function checkTerminalIsInteractive(): boolean {
   const launchEnvironment = readLaunchEnvironment();
   return isInteractiveTerminal(terminalIsInteractive, launchEnvironment.rawVariables);
 }
+
 export function isInteractiveTerminal(
   isTTY: boolean,
   environment: Readonly<Record<string, string | undefined>>,
@@ -319,6 +331,7 @@ export function isInteractiveTerminal(
 
   return environment['CI'] == null;
 }
+
 /** Run a silent async step under a spinner so long network round-trips (App Store Connect / */
 export async function withSpinner<TaskResult>(
   label: string,

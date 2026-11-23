@@ -72,6 +72,7 @@ function makeStorageResolver(name: string) {
     },
   };
 }
+
 function prepareAll() {
   const storageResolver = makeStorageResolver('local');
 
@@ -107,6 +108,7 @@ const r2Config: StorageConfig = {
   bucket: 'builds',
   publicBaseUrl: 'https://cdn.example.com/',
 };
+
 function describeResolveStorageProvider() {
   async function returnsTheLocalProviderForLocal() {
     const storageProvider = await resolveStorageProvider(configWith('local'));
@@ -178,6 +180,7 @@ function describeResolveStorageProvider() {
 }
 
 describe('resolveStorageProvider', describeResolveStorageProvider);
+
 function describeResolveArtifactDir() {
   function fallsBackToTheGlobalLaunchArtifactsWhenUnsetBackCompat() {
     const artifactDir = resolveArtifactDir(undefined);
@@ -236,6 +239,7 @@ function describeResolveArtifactDir() {
 }
 
 describe('resolveArtifactDir', describeResolveArtifactDir);
+
 function describeIsCloudStorage() {
   function isFalseForLocalTrueForCloudProviders() {
     expect(isCloudStorage(configWith('local'))).toBe(false);
@@ -246,6 +250,7 @@ function describeIsCloudStorage() {
 }
 
 describe('isCloudStorage', describeIsCloudStorage);
+
 function describeS3PublicUrl() {
   async function joinsThePublicBaseURLAndKeyWithASingleSlashIgnoringStraySlashes() {
     const storageProvider = await resolveStorageProvider(configWith('s3', r2Config));
@@ -263,6 +268,7 @@ function describeS3PublicUrl() {
 }
 
 describe('s3 publicUrl', describeS3PublicUrl);
+
 function describeEnsureArtifactPresent() {
   function storedBuild(overrides: Partial<BuildArtifact> = {}): BuildArtifact {
     return {
@@ -278,6 +284,7 @@ function describeEnsureArtifactPresent() {
       ...overrides,
     };
   }
+
   async function passesWhenTheArtifactSBinaryIsStillOnDisk() {
     const buildProgram = storedBuild();
     const artifactPresent = ensureArtifactPresent(buildProgram, 'Hello', 'android');

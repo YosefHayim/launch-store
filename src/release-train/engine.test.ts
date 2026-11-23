@@ -10,6 +10,7 @@ function verdict(state: ReleaseVerdict['state']): ReleaseVerdict {
     exitCode: 0,
   };
 }
+
 function describeIosCarPiece() {
   function mapsEachVerdictToANativeCarPieceKeepingTheCarPutOnUnknown() {
     const iosCar = iosCarState(verdict('released'));
@@ -29,6 +30,7 @@ function describeIosCarPiece() {
 }
 
 describe('iosCarState', describeIosCarPiece);
+
 function describeAndroidCarPiece() {
   function treatsAProcessedProductionReleaseAsLiveAndADraftAsSubmitted() {
     const androidCar = androidCarState([{ status: 'completed' }]);
@@ -57,6 +59,7 @@ function describeAndroidCarPiece() {
 }
 
 describe('androidCarState', describeAndroidCarPiece);
+
 function describePlanTrainCars() {
   const base = { runtimeVersion: '1.0.0', channel: 'production', noOta: false };
 

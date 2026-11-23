@@ -14,8 +14,11 @@ import { isCarTerminal, isNativeCar, isOtaCar } from './guards.ts';
 /** Store and OTA operations driven by the release-train state machine. */
 export type TrainEngine = Readonly<{
   submitNative(trainCar: NativeCar): Promise<Readonly<{ buildId?: string }>>;
+
   readNative(trainCar: NativeCar): Promise<NativeCarState>;
+
   releaseNative(trainCar: NativeCar): Promise<void>;
+
   publishOta(trainCar: OtaCar): Promise<Readonly<{ manifestId?: string }>>;
 }>;
 
@@ -38,6 +41,7 @@ type StartTrainInput = Readonly<{
 type AdvanceOptions = Readonly<{
   now: string;
   force?: boolean;
+
   onWarn?(warningMessage: string): void;
 }>;
 

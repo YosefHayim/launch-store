@@ -21,26 +21,34 @@ const APP_CLIPS_DOCUMENT_NAME = 'appclips.config.json';
 /** The exact slice of App Store Connect the App Clips reconciler depends on. */
 export type AscAppClipsApi = {
   getAppId(bundleId: string): Promise<string | null>;
+
   findEditableAppStoreVersion(appId: string, platform: string): Promise<{ id: string } | null>;
+
   listAppClips(appId: string): Promise<AppClipResource[]>;
+
   listAppClipDefaultExperiences(appClipId: string): Promise<AppClipDefaultExperienceResource[]>;
+
   createAppClipDefaultExperience(
     appClipId: string,
     versionId: string,
     action?: AppClipActionValue,
   ): Promise<{ id: string }>;
+
   updateAppClipDefaultExperienceAction(
     experienceId: string,
     action: AppClipActionValue,
   ): Promise<void>;
+
   listAppClipDefaultExperienceLocalizations(
     experienceId: string,
   ): Promise<AppClipLocalizationResource[]>;
+
   createAppClipDefaultExperienceLocalization(
     experienceId: string,
     locale: string,
     subtitle: string,
   ): Promise<void>;
+
   updateAppClipDefaultExperienceLocalization(
     localizationId: string,
     subtitle: string,

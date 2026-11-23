@@ -39,6 +39,7 @@ function train(over: Partial<TrainRecord> = {}): TrainRecord {
 function readTrainId(trainRecord: TrainRecord): string {
   return trainRecord.id;
 }
+
 function describeReleaseTrainPiecePureHelpers() {
   function treatsRunningAndBlockedTrainsAsLive() {
     expect(isLiveTrain(train({ state: 'running' }))).toBe(true);
@@ -59,6 +60,7 @@ function describeReleaseTrainPiecePureHelpers() {
 }
 
 describe('release-train record pure helpers', describeReleaseTrainPiecePureHelpers);
+
 function describeReleaseTrainPiece() {
   let directoryPath: string;
 

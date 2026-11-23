@@ -24,6 +24,7 @@ interface GeneratedListing {
 
 interface ListingCopyGenerator {
   readonly name: string;
+
   generate(brief: ListingBrief): Promise<DraftListing>;
 }
 

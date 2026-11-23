@@ -8,16 +8,22 @@ export type SubscriptionPeriod =
   | 'THREE_MONTHS'
   | 'SIX_MONTHS'
   | 'ONE_YEAR';
+
 /** Kind of one-off in-app purchase. */
 export type InAppPurchaseType = components['schemas']['InAppPurchaseType'];
+
 /** Who may redeem an offer code. */
 export type OfferCustomerEligibility = components['schemas']['SubscriptionCustomerEligibility'];
+
 /** What happens to the introductory offer when this offer is redeemed. */
 export type OfferEligibility = components['schemas']['SubscriptionOfferEligibility'];
+
 /** How long one period of an offer lasts. */
 export type OfferDuration = components['schemas']['SubscriptionOfferDuration'];
+
 /** How an offer charges. */
 export type OfferMode = components['schemas']['SubscriptionOfferMode'];
+
 /** The name and description customers see for one product, in one language. */
 export type ProductLocalization = {
   /** App Store language code, such as `en-US`. */
@@ -27,6 +33,7 @@ export type ProductLocalization = {
   /** Short description shown on the store. */
   readonly description?: string;
 };
+
 /** The name customers see for a subscription group, in one language. A group has no description. */
 export type GroupLocalization = {
   /** App Store language code, such as `en-US`. */
@@ -34,6 +41,7 @@ export type GroupLocalization = {
   /** Name of the group, shown where the subscription levels are listed together. */
   readonly name: string;
 };
+
 /** The everyday price of a product on the App Store. */
 export type ProductPrice = {
   /** Territory whose price ladder is used, such as `USA`. */
@@ -41,6 +49,7 @@ export type ProductPrice = {
   /** Price the customer pays in that territory, such as `4.99`. */
   readonly customerPrice: number;
 };
+
 /** The discounted price of an offer in one territory. Same ladder rule as the product price. */
 export type OfferPrice = {
   /** Territory this discount applies to, such as `USA`. */
@@ -48,6 +57,7 @@ export type OfferPrice = {
   /** Discounted price the customer pays, such as `0.99`. */
   readonly customerPrice: number;
 };
+
 /** A Google Play price. */
 export type PlayPriceConfig = {
   /** Price in millionths of the currency unit. */
@@ -55,6 +65,7 @@ export type PlayPriceConfig = {
   /** ISO currency code, such as `USD`. */
   readonly currency: string;
 };
+
 /** The length and discount shared by Apple offer codes, promotional offers, and win-back offers. */
 type OfferConfigBase = {
   /** Length of one billing period of the offer, such as `ONE_WEEK` or `ONE_MONTH`. */
@@ -66,6 +77,7 @@ type OfferConfigBase = {
   /** Discounted price in each territory. */
   readonly prices?: readonly OfferPrice[];
 };
+
 /** A code a customer can redeem for a subscription discount. */
 export type OfferCodeConfig = OfferConfigBase & {
   /** Name of the campaign in App Store Connect. */
@@ -75,6 +87,7 @@ export type OfferCodeConfig = OfferConfigBase & {
   /** Whether redeeming the code keeps the introductory offer or replaces it. */
   readonly offerEligibility: OfferEligibility;
 };
+
 /** A discount your app offers in StoreKit to someone who already subscribed or who lapsed. */
 export type PromotionalOfferConfig = OfferConfigBase & {
   /** Name shown only in App Store Connect. */
@@ -82,6 +95,7 @@ export type PromotionalOfferConfig = OfferConfigBase & {
   /** Id the app sends to StoreKit. */
   readonly offerCode: string;
 };
+
 /** The automatic first-time discount on a subscription. */
 export type IntroductoryOfferConfig = {
   /** Length of one period, such as `ONE_WEEK`. */
@@ -99,6 +113,7 @@ export type IntroductoryOfferConfig = {
   /** Last day the offer is available, as `YYYY-MM-DD`. */
   readonly endDate?: string;
 };
+
 /** A discount Apple shows on the App Store to someone who used to subscribe and stopped. */
 export type WinBackOfferConfig = OfferConfigBase & {
   /** Stable id, unique in the app. */
@@ -125,6 +140,7 @@ export type WinBackOfferConfig = OfferConfigBase & {
   /** Whether Apple draws the promotional art. */
   readonly promotionIntent?: 'NOT_PROMOTED' | 'USE_AUTO_GENERATED_ASSETS';
 };
+
 /** A free trial or introductory price on a Play subscription base plan. */
 export type PlaySubscriptionOfferConfig = {
   /** Id of the offer, unique on this base plan. */
@@ -136,6 +152,7 @@ export type PlaySubscriptionOfferConfig = {
   /** How many billing periods the introductory price lasts. */
   readonly introRecurrenceCount?: number;
 };
+
 /** The Google Play copy of a subscription. */
 export type PlaySubscriptionOverride = {
   /** Play product id. */
@@ -147,6 +164,7 @@ export type PlaySubscriptionOverride = {
   /** Free trials and introductory prices on that base plan. */
   readonly offers?: readonly PlaySubscriptionOfferConfig[];
 };
+
 /** One auto-renewable subscription inside a group, such as Pro Monthly. */
 export type SubscriptionConfig = {
   /** Apple product id, such as `com.acme.pro_monthly`. */
@@ -172,6 +190,7 @@ export type SubscriptionConfig = {
   /** Google Play product, prices, and offers for this same subscription. */
   readonly play?: PlaySubscriptionOverride;
 };
+
 /** A set of subscriptions where the customer can hold only one at a time */
 export type SubscriptionGroupConfig = {
   /** Name shown only in App Store Connect. */
@@ -181,6 +200,7 @@ export type SubscriptionGroupConfig = {
   /** The subscription levels in this group. */
   readonly subscriptions: readonly SubscriptionConfig[];
 };
+
 /** The Google Play copy of a one-off in-app purchase. */
 export type PlayProductOverride = {
   /** Play product id. */
@@ -190,6 +210,7 @@ export type PlayProductOverride = {
   /** Price overrides keyed by Play region code, such as `US`. */
   readonly prices?: Record<string, PlayPriceConfig>;
 };
+
 /** A one-off in-app purchase: coins, a permanent unlock, or a subscription that does not renew. */
 export type InAppPurchaseConfig = {
   /** Apple product id, such as `com.acme.coins_100`. */
@@ -205,6 +226,7 @@ export type InAppPurchaseConfig = {
   /** Google Play product id and prices for this same purchase. */
   readonly play?: PlayProductOverride;
 };
+
 /** A product featured on the App Store product page. */
 type PromotedPurchaseConfig = {
   /** Apple product id of a subscription or in-app purchase that already exists. */
@@ -214,6 +236,7 @@ type PromotedPurchaseConfig = {
   /** Whether the promotion is turned on. */
   readonly enabled?: boolean;
 };
+
 /** Everything one app sells, under `products` keyed by the iOS bundle id. */
 export type AppProducts = {
   /** Subscription groups. */

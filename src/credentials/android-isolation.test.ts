@@ -22,6 +22,7 @@ vi.mock('../services/platform/exec.ts', function mockExec() {
 });
 
 const temporaryRoots: string[] = [];
+
 function cleanup() {
   vi.clearAllMocks();
   resetLaunchDirectories();
@@ -67,6 +68,7 @@ function refuseCreate(): Promise<boolean> {
 function allowReplace(): Promise<boolean> {
   return Promise.resolve(true);
 }
+
 function describeAndroidPackageCredentialIsolation() {
   async function isolatesPlayAccountsAndNeverFallsBackToAnUnscopedAccount() {
     const sandbox = makeCredentialSandbox();

@@ -13,6 +13,7 @@ import {
   releaseFailureDetail,
 } from './aws-ec2-mac.ts';
 import { awsFailure, requireAws } from './aws-ec2-mac-client.ts';
+
 function describePublicAddress() {
   function prefersANonEmptyPublicDNSName() {
     expect(publicAddress('ec2.example', '1.2.3.4')).toBe('ec2.example');
@@ -42,6 +43,7 @@ function describePublicAddress() {
 }
 
 describe('publicAddress', describePublicAddress);
+
 function describeConfiguredInstanceType() {
   function defaultsToMac2Metal() {
     expect(configuredInstanceType({})).toBe(DEFAULT_INSTANCE_TYPE);
@@ -58,6 +60,7 @@ function describeConfiguredInstanceType() {
 }
 
 describe('configuredInstanceType', describeConfiguredInstanceType);
+
 function describeMacosArchitectureFor() {
   function mapsMac2FamiliesToArm64MacAndOlderFamiliesToX8664Mac() {
     expect(macosArchitectureFor('mac2.metal')).toBe('arm64_mac');
@@ -72,6 +75,7 @@ function describeMacosArchitectureFor() {
 }
 
 describe('macosArchitectureFor', describeMacosArchitectureFor);
+
 function describeIsDedicatedHostQuotaFailure() {
   function detectsQuotaStyleAllocateHostsFailures() {
     expect(isDedicatedHostQuotaFailure('HostLimitExceeded: vCPU limit')).toBe(true);
@@ -84,6 +88,7 @@ function describeIsDedicatedHostQuotaFailure() {
 }
 
 describe('isDedicatedHostQuotaFailure', describeIsDedicatedHostQuotaFailure);
+
 function describeDatedMacImagesNewestImageId() {
   function dropsImagesWithoutIdOrCreationDate() {
     expect(
@@ -117,6 +122,7 @@ function describeDatedMacImagesNewestImageId() {
 }
 
 describe('datedMacImages / newestImageId', describeDatedMacImagesNewestImageId);
+
 function describeCountLiveDedicatedHosts() {
   function countsOnlyHostsThatArePresentAndNotReleased() {
     const liveDedicatedHosts = countLiveDedicatedHosts([
@@ -137,6 +143,7 @@ function describeCountLiveDedicatedHosts() {
 }
 
 describe('countLiveDedicatedHosts', describeCountLiveDedicatedHosts);
+
 function describeHostIsReleasedOrMissing() {
   function treatsMissingAndReleasedStatesAsNotStatusable() {
     expect(hostIsReleasedOrMissing(undefined)).toBe(true);
@@ -152,6 +159,7 @@ function describeHostIsReleasedOrMissing() {
 }
 
 describe('hostIsReleasedOrMissing', describeHostIsReleasedOrMissing);
+
 function describeReleaseFailureDetail() {
   function returnsUndefinedWhenReleaseFullySucceeded() {
     expect(releaseFailureDetail(undefined)).toBeUndefined();
@@ -174,6 +182,7 @@ function describeReleaseFailureDetail() {
 }
 
 describe('releaseFailureDetail', describeReleaseFailureDetail);
+
 function describeBootstrapReportsMissingXcode() {
   function detectsTheLAUNCHNOXCODEMarkerFromTheBootstrapScript() {
     expect(bootstrapReportsMissingXcode('ok\nLAUNCH_NO_XCODE\n')).toBe(true);
@@ -187,6 +196,7 @@ function describeBootstrapReportsMissingXcode() {
 }
 
 describe('bootstrapReportsMissingXcode', describeBootstrapReportsMissingXcode);
+
 function describeAwsFailureRequireAws() {
   function tagsFailuresAndPrefersAnExplicitDetailMessage() {
     const failure = awsFailure('allocate', new Error('raw'), 'friendly detail');

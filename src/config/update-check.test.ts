@@ -9,6 +9,7 @@ import {
   type UpdateState,
   type UpgradeResult,
 } from './update-check.ts';
+
 function describeIsNewer() {
   function comparesDottedVersionsNumerically() {
     expect(isNewer('0.2.0', '0.1.0')).toBe(true);
@@ -29,6 +30,7 @@ function describeIsNewer() {
 }
 
 describe('isNewer', describeIsNewer);
+
 function describeShouldCheck() {
   const DAY = 24 * 60 * 60 * 1000;
 
@@ -47,6 +49,7 @@ function describeShouldCheck() {
 }
 
 describe('shouldCheck', describeShouldCheck);
+
 function describeAutoUpgradeBlockedReason() {
   const base = {
     environmentVariables: {},
@@ -88,6 +91,7 @@ function describeAutoUpgradeBlockedReason() {
 }
 
 describe('autoUpgradeBlockedReason', describeAutoUpgradeBlockedReason);
+
 /** Build fully-injected deps over recorded call counters; overrides tweak individual behaviors. */
 function makeDeps(overrides: Partial<UpdateCheckDeps> = {}): {
   deps: UpdateCheckDeps;
@@ -155,6 +159,7 @@ function makeDeps(overrides: Partial<UpdateCheckDeps> = {}): {
 
   return { deps, calls };
 }
+
 function describeMaybeAutoUpgrade() {
   async function doesNothingWhenBlockedEGCINoFetchNoUpgrade() {
     const { deps, calls } = makeDeps({ environmentVariables: { CI: '1' } });

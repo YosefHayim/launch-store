@@ -29,6 +29,7 @@ function jpegBytes(width: number, height: number, includeAppSegment: boolean = t
 
   return Buffer.concat([startOfImage, appSegment, frame]);
 }
+
 function describeReadImageDimensions() {
   function readsPNGDimensions() {
     const imageDimensions = readImageDimensions(pngBytes(1290, 2796));

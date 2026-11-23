@@ -5,6 +5,7 @@ import {
   readGa4Error,
   readProjectIdFromClientEmail,
 } from './ga4-client.ts';
+
 function describeReadGa4Error() {
   function readsADisabledAPIBeforeAPermissionError() {
     const errorReading = readGa4Error(403, {
@@ -58,6 +59,7 @@ function describeReadGa4Error() {
 }
 
 describe('readGa4Error', describeReadGa4Error);
+
 function describeReadProjectIdFromClientEmail() {
   function readsTheProjectIdOfAServiceAccountEmail() {
     const projectIdFromClientEmail = readProjectIdFromClientEmail(
@@ -80,6 +82,7 @@ function describeReadProjectIdFromClientEmail() {
 }
 
 describe('readProjectIdFromClientEmail', describeReadProjectIdFromClientEmail);
+
 function describeCreateServiceDisabledReason() {
   function namesTheAPIWithoutALinkWhenTheProjectIdIsUnknown() {
     const serviceDisabledReason = createServiceDisabledReason(
@@ -99,6 +102,7 @@ function describeCreateServiceDisabledReason() {
 }
 
 describe('createServiceDisabledReason', describeCreateServiceDisabledReason);
+
 function describeCreatePermissionReason() {
   function namesThePropertyWhenThereIsOne() {
     const permissionReason = createPermissionReason('42');

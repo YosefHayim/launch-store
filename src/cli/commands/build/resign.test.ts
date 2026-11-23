@@ -1,6 +1,7 @@
 import { Command, type CommandOption } from '@/cli/command.js';
 import { describe, expect, it } from 'vitest';
 import { registerResignCommand } from './resign.ts';
+
 function describeRegisterResignCommand() {
   function attachesBuildResignWithTheDocumentedOptionSurface() {
     const program = new Command();

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderConfigDocs } from './config-docs.ts';
 import type { JsonSchema } from '../config/json-schema.ts';
+
 function describeRenderPieceDocs() {
   const schema: JsonSchema = {
     $ref: '#/definitions/LaunchConfigInput',

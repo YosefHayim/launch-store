@@ -7,6 +7,7 @@ import {
   nextVersion,
   parseVersion,
 } from './version.ts';
+
 function describeParseVersionLenientInCanonicalOut() {
   function parsesAFullMAJORMINORPATCH() {
     const version = parseVersion('1.2.3');
@@ -48,6 +49,7 @@ function describeParseVersionLenientInCanonicalOut() {
 }
 
 describe('parseVersion - lenient in, canonical out', describeParseVersionLenientInCanonicalOut);
+
 function describeBumpVersionNextVersionAdvanceOneComponentZeroTheRest() {
   function bumpsEachComponentAndResetsTheLowerOnes() {
     const v = { major: 1, minor: 4, patch: 2 };
@@ -83,6 +85,7 @@ describe(
   'bumpVersion / nextVersion - advance one component, zero the rest',
   describeBumpVersionNextVersionAdvanceOneComponentZeroTheRest,
 );
+
 function describeCompareVersionsHighestVersionNumericNotLexical() {
   function ordersByNumericCore1100190TheLexicalTrap() {
     expect(compareVersions('1.10.0', '1.9.0')).toBe(1);

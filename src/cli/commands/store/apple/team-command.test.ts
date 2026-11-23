@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderTeam, TeamCommandInputSchema } from './team-command.ts';
+
 function describeTeamCommandPieceSchema() {
   function decodesEveryCommanderOperation() {
     const teamCommandSchema = TeamCommandInputSchema({ operation: 'list', json: false });
@@ -40,6 +41,7 @@ function describeTeamCommandPieceSchema() {
 }
 
 describe('TeamCommandInputSchema', describeTeamCommandPieceSchema);
+
 function describeRenderTeam() {
   function rendersMembersAndPendingInvitationsAsOneASCIIBlock() {
     const team = renderTeam({

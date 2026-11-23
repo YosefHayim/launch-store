@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameCenterCommandInputSchema } from './game-center-command.ts';
+
 function describeGameCenterCommandPieceSchema() {
   function decodesTheCommanderBoundaryWithAnOmittedAppSelector() {
     const gameCenterCommandSchema = GameCenterCommandInputSchema({

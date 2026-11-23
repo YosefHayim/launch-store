@@ -5,6 +5,7 @@ import {
   type PlayReportingTransport,
   vitalsWindowFromLatestDate,
 } from './play-reporting.ts';
+
 /** Minimal valid service-account JSON for adapter construction. */
 function makeServiceAccountJson(): string {
   return JSON.stringify({
@@ -15,6 +16,7 @@ function makeServiceAccountJson(): string {
     token_uri: 'https://oauth2.googleapis.com/token',
   });
 }
+
 /** Generated freshness shape for one DAILY end date. */
 function dailyFreshness(isoDate: string) {
   const dateSegments = isoDate.split('-').map(Number);
@@ -34,6 +36,7 @@ function dailyFreshness(isoDate: string) {
     },
   };
 }
+
 /** Generated metrics entry for one crash-rate day. */
 function crashMetricEntry(
   isoDate: string,
@@ -57,6 +60,7 @@ const getAnrFreshness = vi.fn();
 const queryCrashRate = vi.fn();
 const queryAnrRate = vi.fn();
 const searchApps = vi.fn();
+
 /** Build the generated reporting-client slice exercised by adapter tests. */
 function generatedReportingFake(): PlayReportingTransport {
   return {
@@ -68,6 +72,7 @@ function generatedReportingFake(): PlayReportingTransport {
   };
 }
 let client: PlayReportingClient;
+
 function prepare() {
   vi.clearAllMocks();
   const makeServiceAccount = makeServiceAccountJson();
@@ -76,6 +81,7 @@ function prepare() {
 }
 
 beforeEach(prepare);
+
 function describeVitalsWindowFromLatestDate() {
   function spansTheDefaultInclusiveWindowEndingAtFreshness() {
     expect(vitalsWindowFromLatestDate('2026-06-28', 28)).toEqual({
@@ -324,6 +330,7 @@ describe('PlayReportingClient generated metrics', () => {
     surfacesGoogleSErrorPieceFromAGeneratedRequestFailure,
   );
 });
+
 function describePlayReportingClientListApps() {
   async function pagesThroughEverySearchPageAndKeepsThePackageNames() {
     searchApps

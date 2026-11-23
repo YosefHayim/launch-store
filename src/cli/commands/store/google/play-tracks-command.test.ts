@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { describePlayRelease, PlayTracksCommandInputSchema } from './play-tracks-command.ts';
+
 function describePlayTracksCommandPieceSchema() {
   function decodesEachCommanderOperationWithoutUnsetOptionFields() {
     const playTracksCommandSchema = PlayTracksCommandInputSchema({
@@ -64,6 +65,7 @@ function describePlayTracksCommandPieceSchema() {
 }
 
 describe('PlayTracksCommandInputSchema', describePlayTracksCommandPieceSchema);
+
 function describeDescribePlayRelease() {
   function rendersStatusBuildsRolloutAndNotesWithASCIIPiece() {
     const playRelease = describePlayRelease({

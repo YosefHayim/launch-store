@@ -3,6 +3,7 @@ import { buildCommandProgram } from '@/build/build-command-program.js';
 import type { BuildCommandOptions } from '@/build/build-command-input.js';
 import { addEnvironmentFlags } from '@/cli/environment-flags.js';
 import { runCliProgram, runJsonCliProgram } from '@/cli/run-cli-program.js';
+
 function addAppleBuildOptions(command: Command): Command {
   return command
     .option(
@@ -18,6 +19,7 @@ function addAppleBuildOptions(command: Command): Command {
       "iOS only - version bump: patch|minor|major|keep (default: last used, else prompt) or 'ask' to force the prompt",
     );
 }
+
 function addAndroidBuildOptions(command: Command): Command {
   return command
     .option(
@@ -33,6 +35,7 @@ function addAndroidBuildOptions(command: Command): Command {
       'Android only - JSON file mapping language codes to Play release notes (Whats new); overrides config when set',
     );
 }
+
 function addSharedBuildOptions(command: Command): Command {
   return command
     .option(
@@ -63,6 +66,7 @@ function addSharedBuildOptions(command: Command): Command {
       false,
     );
 }
+
 export function registerBuildCommand(program: Command): void {
   const buildCommand = program
     .command('build')

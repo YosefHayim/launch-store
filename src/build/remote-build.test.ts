@@ -25,6 +25,7 @@ function remoteInputs(overrides: Partial<RemoteBuildInputs> = {}): RemoteBuildIn
     ...overrides,
   };
 }
+
 function describeRemoteBuildEnvironment() {
   function keepsThePersistedIosByDefault() {
     expect(remoteBuildEnvironment(remoteInputs(), 'keychain')['PREBUILD_ALWAYS']).toBe('0');
@@ -83,11 +84,13 @@ vi.mock('../services/platform/ssh.ts', function mockSsh() {
     rsyncUp: vi.fn(async () => undefined),
   };
 });
+
 function prepare() {
   vi.clearAllMocks();
 }
 
 beforeEach(prepare);
+
 function describeRemoteCredentialTransport() {
   async function usesAProtectedEnvironmentFileRatherThanSecretBearingSSHArguments() {
     const environmentDocuments: string[] = [];

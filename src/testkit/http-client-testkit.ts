@@ -13,6 +13,7 @@ interface HttpClientSentCall {
 
 interface HttpClientTest {
   readonly sentRequests: HttpClientSentCall[];
+
   answer(call: HttpClientSentCall): Response;
 }
 

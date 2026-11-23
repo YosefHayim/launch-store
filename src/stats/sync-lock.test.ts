@@ -8,6 +8,7 @@ import {
 } from '../testkit/launch-home-testkit.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { isSyncLockStale, holdSyncLock } from './sync-lock.ts';
+
 function describeIsSyncLockStale() {
   const now = Date.parse('2026-10-29T12:00:00.000Z');
 
@@ -31,6 +32,7 @@ function describeIsSyncLockStale() {
 }
 
 describe('isSyncLockStale', describeIsSyncLockStale);
+
 function describeHoldSyncLock() {
   let homeDirectory: string;
 
@@ -61,6 +63,7 @@ function describeHoldSyncLock() {
   function runLocked<Success>(syncWork: () => Promise<Success>): Promise<Success> {
     return holdSyncLock(syncWork);
   }
+
   async function holdsTheLockWhileTheProgramRunsAndRemovesItAfter() {
     async function wasLocked(): Promise<boolean> {
       return existsSync(lockPath());

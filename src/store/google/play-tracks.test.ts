@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildRelease, isReleaseStatus, parseReleaseNotes, parseRollout } from './play-tracks.ts';
+
 function describeIsReleaseStatus() {
   function recognizesPlaySStatusesAndRejectsOthers() {
     expect(isReleaseStatus('inProgress')).toBe(true);
@@ -11,6 +12,7 @@ function describeIsReleaseStatus() {
 }
 
 describe('isReleaseStatus', describeIsReleaseStatus);
+
 function describeParseRollout() {
   function acceptsAFractionStrictlyBetween0And1() {
     const rollout = parseRollout('0.1');
@@ -50,6 +52,7 @@ function describeParseRollout() {
 }
 
 describe('parseRollout', describeParseRollout);
+
 function describeParseReleaseNotes() {
   function turnsALanguageToPieceObjectIntoTheAPISArrayShape() {
     const releaseNotes = parseReleaseNotes({ 'en-US': 'Bug fixes', 'de-DE': 'Fehlerbehebungen' });
@@ -92,6 +95,7 @@ function describeParseReleaseNotes() {
 }
 
 describe('parseReleaseNotes', describeParseReleaseNotes);
+
 function describeBuildRelease() {
   function buildsACompletedFullRolloutReleaseWithNotes() {
     expect(

@@ -1,7 +1,9 @@
 /** The operating-system family Launch is running on. */
 export type HostOs = 'macos' | 'windows' | 'linux';
+
 /** A shell Launch can emit tab-completion for. */
 export type Shell = 'bash' | 'zsh' | 'fish';
+
 /** SSH connection parameters for reaching a remote Mac. */
 export type SshTarget = Readonly<{
   host: string;
@@ -9,6 +11,7 @@ export type SshTarget = Readonly<{
   port: number;
   identityFile?: string;
 }>;
+
 /** A handle to an allocated (or connected) remote Mac. */
 export type HostHandle = Readonly<{
   provider: string;
@@ -19,6 +22,7 @@ export type HostHandle = Readonly<{
   region?: string;
   instanceType?: string;
 }>;
+
 /** A live host's status, for `launch-store cloud status` and the per-command cost banner. */
 export type HostStatus = Readonly<{
   handle: HostHandle;
@@ -26,6 +30,7 @@ export type HostStatus = Readonly<{
   estimatedCostUsd: number;
   releasableAt: string;
 }>;
+
 /** AWS settings for a remote Mac, under `aws` in launch.config.ts. */
 export type AwsConfig = {
   /** Region the Mac is started in, such as `us-east-1`. */
@@ -50,6 +55,7 @@ export type CloudDoctorReport = Readonly<{
   ok: boolean;
   checks: readonly CloudCheck[];
 }>;
+
 /** Where a remote build should run, resolved from `--remote [aws|user@host]`. */
 export type RemoteTarget =
   | Readonly<{
@@ -59,10 +65,13 @@ export type RemoteTarget =
       kind: 'ssh';
       target: string;
     }>;
+
 /** Request passed to {@link ComputeHost.allocate}. */
 export type AllocateRequest = Readonly<{
   aws?: AwsConfig;
   sshTarget?: string;
+
   confirm(message: string): Promise<boolean>;
+
   onProgress?: (message: string) => void;
 }>;
