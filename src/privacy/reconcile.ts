@@ -1,6 +1,6 @@
 import { READINESS_EXIT } from '../readiness/orchestrator.ts';
 import type { PrivacyFinding, PrivacySurface } from '../types/privacy.ts';
-/** The full result of a scan */
+/** Every finding from a scan, plus the process exit code. */
 type PrivacyReport = Readonly<{
   findings: readonly PrivacyFinding[];
   scanned: readonly string[];

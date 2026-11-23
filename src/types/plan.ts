@@ -42,7 +42,7 @@ export type AppPlan = Readonly<{
 }>;
 /** How completely a surface detects drift */
 export type PlanDirection = 'two-way' | 'additive';
-/** The outcome of running one surface's planner, as a discriminated union on `state` (and */
+/** The outcome of running one surface planner. */
 export type SurfacePlan =
   | Readonly<{
       surface: string;

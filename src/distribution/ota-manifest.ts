@@ -205,7 +205,7 @@ type AppConfigSnippetInput = {
   signed: boolean;
 };
 
-/** One-time `app.json` `expo.updates` block after first publish so the app points at the */
+/** The expo.updates block written once so the app points at the published manifest. */
 export function updatesAppConfigSnippet(input: AppConfigSnippetInput): string {
   const updatesBlock: Record<string, unknown> = {
     url: input.updateUrl,

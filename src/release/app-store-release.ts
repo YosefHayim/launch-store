@@ -1076,7 +1076,7 @@ export type ReleaseStatus = {
   verdict: ReleaseVerdict;
 };
 
-/** Read the most relevant version (in-flight over live) plus build processing and */
+/** Read the in-flight or live version, plus build processing and phased release. */
 export async function readReleaseStatus(
   appleReleaseApi: AscReleaseApi,
   bundleId: string,

@@ -270,7 +270,7 @@ export async function resolveCompletions(words: string[], program: Command): Pro
 
   return readCompletionCandidates(argumentSource);
 }
-/** Every option spelling (short + long) on the resolved command or its ancestors that takes a */
+/** Every option on the command or its ancestors that takes a value. */
 function valueTakingFlags(command: Command): Set<string> {
   const flags = new Set<string>();
   for (

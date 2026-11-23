@@ -125,7 +125,7 @@ export type WinBackOfferConfig = OfferConfigBase & {
   /** Whether Apple draws the promotional art. */
   readonly promotionIntent?: 'NOT_PROMOTED' | 'USE_AUTO_GENERATED_ASSETS';
 };
-/** A discount on a Google Play subscription base plan */
+/** A free trial or introductory price on a Play subscription base plan. */
 export type PlaySubscriptionOfferConfig = {
   /** Id of the offer, unique on this base plan. */
   readonly offerId: string;

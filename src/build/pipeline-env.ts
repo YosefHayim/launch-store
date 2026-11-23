@@ -187,7 +187,7 @@ type CommandEnvironmentRequest = {
   envExclude?: readonly string[] | undefined;
 };
 
-/** Resolve the layered env for a command */
+/** Resolve keychain, dotenv, profile env, and --env flags for a command. */
 export async function resolveCommandEnv(request: CommandEnvironmentRequest): Promise<ResolvedEnv> {
   let secrets: Awaited<ReturnType<typeof resolveBuildSecrets>>;
 

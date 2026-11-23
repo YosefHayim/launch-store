@@ -96,7 +96,7 @@ function renderTypeSection(name: string, definition: JsonSchema): string {
   parts.push(propertiesTable);
   return parts.join('\n');
 }
-/** Render the full `launch.config.ts` field reference from its generated JSON Schema */
+/** Render the launch.config.ts field reference from its JSON Schema. */
 export function renderConfigDocs(schema: JsonSchema): string {
   let rootName = '';
   if (schema.$ref != null) rootName = refName(schema.$ref);

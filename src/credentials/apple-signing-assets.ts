@@ -508,7 +508,7 @@ async function createRemoteProfile(
   return profile;
 }
 
-/** Move a pre-multi-account signing index (the flat `~/.launch/credentials/index.json` plus the */
+/** Move an old flat signing index into the per-account layout. */
 export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
   const credentialsDirectory = resolveCredentialsDirectory();
   const legacyIndexPath = join(credentialsDirectory, 'index.json');

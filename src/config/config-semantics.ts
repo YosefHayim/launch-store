@@ -79,7 +79,7 @@ function checkRetention(config: LaunchConfig): SemanticIssue[] {
     },
   ];
 }
-/** Run every semantic check against a schema-valid config and return all findings (empty when */
+/** Run every semantic check and return all findings. */
 export function checkConfigSemantics(config: LaunchConfig): SemanticIssue[] {
   return [
     ...checkStorage(config),

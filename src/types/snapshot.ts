@@ -29,7 +29,7 @@ export type AppEntities = Readonly<{
   identifier: string;
   entities: readonly SnapshotEntity[];
 }>;
-/** What a source returns, as a discriminated union mirroring {@link */
+/** What a source returns: omitted, skipped, or captured. */
 export type SourceCapture =
   | Readonly<{
       state: 'omitted';
@@ -44,7 +44,7 @@ export type SourceCapture =
       apps: readonly AppEntities[];
       skippedApps?: readonly Readonly<{ app: string; identifier: string; reason: string }>[];
     }>;
-/** A {@link SourceCapture} plus the `errored` state the orchestrator synthesizes when a source */
+/** A source result, plus errored when the source throws. */
 export type CaptureOutcome =
   | SourceCapture
   | Readonly<{
