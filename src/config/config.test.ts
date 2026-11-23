@@ -256,7 +256,10 @@ function describeFindLaunchConfigNearestFile() {
   it('an app directory file replaces the fallback', anAppDirectoryFileReplacesTheFallback);
 }
 
-describe('findLaunchConfig - the nearest launch.config.ts wins', describeFindLaunchConfigNearestFile);
+describe(
+  'findLaunchConfig - the nearest launch.config.ts wins',
+  describeFindLaunchConfigNearestFile,
+);
 
 describe('loadConfig - auto-discovers apps, app.json stays the source of truth', () => {
   async function fallsBackToDefaultsAndDiscoversASingleAppSFactsFromAppPiece() {
