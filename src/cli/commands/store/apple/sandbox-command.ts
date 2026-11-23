@@ -60,6 +60,7 @@ function isPresentName(namePart: string | undefined): namePart is string {
 function renderSandboxTester(sandboxTester: SandboxTesterResource): string {
   const nameParts = [sandboxTester.firstName, sandboxTester.lastName].filter(isPresentName);
   const testerFields = [sandboxTester.acAccountName];
+
   const hasName = nameParts.length > 0;
 
   if (hasName) {
@@ -98,6 +99,7 @@ async function confirmClear(targetLabel: string, confirmed: boolean): Promise<bo
   }
 
   const terminalIsInteractive = checkTerminalIsInteractive();
+
   const needsATerminal = terminalIsInteractive == false;
 
   if (needsATerminal) {
@@ -122,6 +124,7 @@ async function confirmClear(targetLabel: string, confirmed: boolean): Promise<bo
   }
 
   LaunchPrompt.cancel('Aborted - nothing cleared.');
+
   return false;
 }
 
@@ -131,6 +134,7 @@ async function listSandboxTestersProgram(json: boolean): Promise<void> {
     const logger = createLogger(false);
     const sandboxStore = await loadActiveAppleStore();
     const sandboxTesters = await listSandboxTesters(sandboxStore);
+
     const wantsJson = json == true;
 
     if (wantsJson) {
@@ -149,7 +153,9 @@ async function listSandboxTestersProgram(json: boolean): Promise<void> {
     }
 
     logger.line(sandboxTesters.map(testerLine).join('\n'));
+
     let testerSuffix = 's';
+
     const isSingleTester = sandboxTesters.length == 1;
 
     if (isSingleTester) {
@@ -168,6 +174,7 @@ async function clearSandboxTestersProgram(
 ): Promise<void> {
   try {
     let targetLabel = `${commandInput.emails.length} sandbox tester(s)`;
+
     const clearsEveryTester = commandInput.all == true;
 
     if (clearsEveryTester) {
@@ -175,6 +182,7 @@ async function clearSandboxTestersProgram(
     }
 
     const shouldClear = await confirmClear(targetLabel, commandInput.yes);
+
     const declined = shouldClear == false;
 
     if (declined) {
@@ -187,6 +195,7 @@ async function clearSandboxTestersProgram(
       emails: [...commandInput.emails],
       all: commandInput.all,
     });
+
     const clearedSomeone = clearOutcome.cleared.length > 0;
 
     if (clearedSomeone) {

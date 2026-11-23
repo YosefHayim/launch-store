@@ -13,12 +13,15 @@ async function withStorage(
   const systemTemporaryDirectory = tmpdir();
   const launchStorageSecurityPath = join(systemTemporaryDirectory, 'launch-storage-security-');
   const directory = mkdtempSync(launchStorageSecurityPath);
+
   temporaryRoots.push(directory);
+
   const storageResolver = makeLocalStorageProviderResolver();
   const storagePath = join(directory, 'storage');
   const storage = await storageResolver.resolveStorageProvider({
     artifactDirectory: storagePath,
   });
+
   await check(storage, directory);
 }
 function cleanup() {
@@ -68,20 +71,29 @@ describe('local storage containment', () => {
     await withStorage(async (storage, directory) => {
       const outside = join(directory, 'outside');
       const objects = join(directory, 'storage', 'objects');
+
       mkdirSync(outside);
       mkdirSync(objects, { recursive: true });
+
       const secretPath = join(outside, 'secret');
+
       writeFileSync(secretPath, 'unchanged');
+
       const linkedPath = join(objects, 'linked');
+
       symlinkSync(outside, linkedPath);
+
       const newSecretPath = join(outside, 'new-secret');
       const danglingPath = join(objects, 'dangling');
+
       symlinkSync(newSecretPath, danglingPath);
       await expect(storage.getObject('linked/secret')).rejects.toThrow();
       await expect(storage.putObject('linked/secret', 'unsafe', 'text/plain')).rejects.toThrow();
       await expect(storage.putObject('dangling', 'unsafe', 'text/plain')).rejects.toThrow();
+
       const joinedPath = join(outside, 'secret');
       const loadedFile = readFileSync(joinedPath, 'utf8');
+
       expect(loadedFile).toBe('unchanged');
     });
   });

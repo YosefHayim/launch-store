@@ -9,6 +9,7 @@ function describeSyncCommandPieceSchema() {
       yes: true,
       snapshot: false,
     });
+
     expect(syncCommandSchema).toEqual({
       app: 'ios,android',
       dryRun: true,
@@ -19,6 +20,7 @@ function describeSyncCommandPieceSchema() {
   }
 
   it('decodes the complete Commander boundary', decodesTheCompleteCommanderBoundary);
+
   function rejectsMissingBooleanFlagsBeforeOrchestration() {
     function callSyncCommandPieceSchema() {
       return SyncCommandInputSchema({

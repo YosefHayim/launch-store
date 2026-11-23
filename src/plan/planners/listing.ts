@@ -58,6 +58,7 @@ export const listingPlanner: SurfacePlanner = {
 
     for (const job of jobs) {
       const target = listingTarget(job);
+
       const isMissing = target == null;
 
       if (isMissing) {

@@ -6,6 +6,7 @@ function describePieceCommandPieceSchema() {
       operation: 'schema',
       out: 'launch.schema.json',
     });
+
     expect(commandSchema).toEqual({ operation: 'schema', out: 'launch.schema.json' });
     expect(ConfigCommandInputSchema({ operation: 'validate' })).toEqual({
       operation: 'validate',
@@ -13,6 +14,7 @@ function describePieceCommandPieceSchema() {
   }
 
   it('decodes schema and validation operations', decodesSchemaAndValidationOperations);
+
   function rejectsAnUnknownOperation() {
     function callPieceCommandPieceSchema() {
       return ConfigCommandInputSchema({ operation: 'repair' });

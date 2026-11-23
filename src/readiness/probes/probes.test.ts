@@ -44,7 +44,9 @@ function config(products?: LaunchConfig['products']): LaunchConfig {
     buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
+
   if (products == null) return launchConfig;
+
   return { ...launchConfig, products };
 }
 /** A discovered app; override `bundleId`/`packageName` to scope it to a store. */
@@ -193,9 +195,13 @@ function createReadinessContext(args: {
   products?: LaunchConfig['products'];
 }): ReadinessContext {
   let appleStore: AscReadinessApi | null = null;
+
   if (args.asc != null) appleStore = args.asc;
+
   let googleStore: PlayReadinessApi | null = null;
+
   if (args.play != null) googleStore = args.play;
+
   return {
     config: config(args.products),
     apps: args.apps,
@@ -213,6 +219,7 @@ function findings(probeResult: ProbeResult): {
   identifier: string;
 }[] {
   if (probeResult.state != 'checked') return [];
+
   function mapPiece({
     status,
     identifier,
@@ -296,16 +303,19 @@ function describeAppPieceProbe() {
   }
 
   it('omits itself when no app has a bundle id', omitsItselfWhenNoAppHasABundleId);
+
   async function skipsWhenNoAppleAccountIsConfigured() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
       asc: null,
     });
     const probeResult = await checkProbe(appRecordProbe, createReadiness);
+
     expect(probeResult.state).toBe('skipped');
   }
 
   it('skips when no Apple account is configured', skipsWhenNoAppleAccountIsConfigured);
+
   async function passesWhenTheAppPieceExistsBlocksWhenItDoesnT() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -313,7 +323,9 @@ function describeAppPieceProbe() {
     });
     const ok = await checkProbe(appRecordProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
     function mockCall25() {
       return Promise.resolve(null);
     }
@@ -325,6 +337,7 @@ function describeAppPieceProbe() {
       appRecordProbe,
       createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: api }),
     );
+
     expect(findings(missing)).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
     expect(api.getAppId).toHaveBeenCalledWith('com.x');
   }
@@ -340,6 +353,7 @@ function describeAgreementsProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
     const probe = await checkProbe(agreementsProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -355,6 +369,7 @@ function describeAgreementsProbe() {
     'omits without an iOS app and skips without an Apple account',
     omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount,
   );
+
   async function passesWhenAgreementsAreInEffectBlocksWhenOneIsMissingExpiredOneAccountWideFinding() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -362,7 +377,9 @@ function describeAgreementsProbe() {
     });
     const ok = await checkProbe(agreementsProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'account-wide' }]);
+
     function mockCall26() {
       return Promise.resolve(false);
     }
@@ -374,6 +391,7 @@ function describeAgreementsProbe() {
       agreementsProbe,
       createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: missing }),
     );
+
     expect(findings(blocked)).toEqual([{ status: 'blocker', identifier: 'account-wide' }]);
   }
 
@@ -381,6 +399,7 @@ function describeAgreementsProbe() {
     'passes when agreements are in effect, blocks when one is missing/expired (one account-wide finding)',
     passesWhenAgreementsAreInEffectBlocksWhenOneIsMissingExpiredOneAccountWideFinding,
   );
+
   async function propagatesAnUnexpectedReadFailureSoTheOrchestratorRecordsItAsErrored() {
     function runPiece(): never {
       throw new Error('network down');
@@ -397,6 +416,7 @@ function describeAgreementsProbe() {
       asc: broken,
     });
     const probe = checkProbe(agreementsProbe, createReadiness);
+
     await expect(probe).rejects.toThrow('network down');
   }
 
@@ -411,6 +431,7 @@ function describeSubscriptionGroupProbe() {
   const withSubs = {
     'com.x': { subscriptionGroups: [{ referenceName: 'g', localizations: [], subscriptions: [] }] },
   };
+
   async function omitsItselfWhenNoAppDeclaresSubscriptions() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
     const probeResult = await checkProbe(subscriptionGroupProbe, createReadiness);
@@ -418,6 +439,7 @@ function describeSubscriptionGroupProbe() {
   }
 
   it('omits itself when no app declares subscriptions', omitsItselfWhenNoAppDeclaresSubscriptions);
+
   async function blocksWhenTheDeclaredGroupIsAbsentAndPassesWhenPresent() {
     function mockCall27() {
       return Promise.resolve([]);
@@ -433,7 +455,9 @@ function describeSubscriptionGroupProbe() {
     });
     const missing = await checkProbe(subscriptionGroupProbe, createReadiness);
     const listedFindings = findings(missing);
+
     expect(listedFindings).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
+
     const ok = await checkProbe(
       subscriptionGroupProbe,
       createReadinessContext({
@@ -442,6 +466,7 @@ function describeSubscriptionGroupProbe() {
         products: withSubs,
       }),
     );
+
     expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
   }
 
@@ -449,6 +474,7 @@ function describeSubscriptionGroupProbe() {
     'blocks when the declared group is absent and passes when present',
     blocksWhenTheDeclaredGroupIsAbsentAndPassesWhenPresent,
   );
+
   async function warnsInsteadOfBlockingWhenTheAppPieceIsnTThereToCheckAgainst() {
     function mockCall28() {
       return Promise.resolve(null);
@@ -464,6 +490,7 @@ function describeSubscriptionGroupProbe() {
     });
     const probeResult = await checkProbe(subscriptionGroupProbe, createReadiness);
     const listedFindings = findings(probeResult);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
   }
 
@@ -482,9 +509,11 @@ function describeIapProductsProbe() {
       ],
     },
   };
+
   async function omitsWhenNoAppDeclaresOneTimeIAPsSkipsWithoutAnAppleAccount() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
     const probe = await checkProbe(iapProductsProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -504,6 +533,7 @@ function describeIapProductsProbe() {
     'omits when no app declares one-time IAPs, skips without an Apple account',
     omitsWhenNoAppDeclaresOneTimeIAPsSkipsWithoutAnAppleAccount,
   );
+
   async function passesAPresentProductBlocksAMissingOneAndAMISSINGMETADATAOne() {
     function mockCall29() {
       return Promise.resolve([{ productId: 'com.x.coins', state: 'READY_TO_SUBMIT' }]);
@@ -519,7 +549,9 @@ function describeIapProductsProbe() {
     });
     const probe = await checkProbe(iapProductsProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x.coins' }]);
+
     function mockCall30() {
       return Promise.resolve([]);
     }
@@ -527,6 +559,7 @@ function describeIapProductsProbe() {
     const absent = ascApi({
       listInAppPurchases: vi.fn(mockCall30),
     });
+
     expect(
       findings(
         await checkProbe(
@@ -539,6 +572,7 @@ function describeIapProductsProbe() {
         ),
       ),
     ).toEqual([{ status: 'blocker', identifier: 'com.x.coins' }]);
+
     function mockCall31() {
       return Promise.resolve([{ productId: 'com.x.coins', state: 'MISSING_METADATA' }]);
     }
@@ -546,6 +580,7 @@ function describeIapProductsProbe() {
     const incomplete = ascApi({
       listInAppPurchases: vi.fn(mockCall31),
     });
+
     expect(
       findings(
         await checkProbe(
@@ -564,6 +599,7 @@ function describeIapProductsProbe() {
     'passes a present product, blocks a missing one and a MISSING_METADATA one',
     passesAPresentProductBlocksAMissingOneAndAMISSINGMETADATAOne,
   );
+
   async function warnsInsteadOfBlockingWhenTheAppPieceIsnTThereToCheckAgainst2() {
     function mockCall32() {
       return Promise.resolve(null);
@@ -579,6 +615,7 @@ function describeIapProductsProbe() {
     });
     const probeResult = await checkProbe(iapProductsProbe, createReadiness);
     const listedFindings = findings(probeResult);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
   }
 
@@ -608,6 +645,7 @@ function describeSubscriptionsProbe() {
       ],
     },
   };
+
   async function omitsWhenNoAppDeclaresSubscriptions() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
     const probe = await checkProbe(subscriptionsProbe, createReadiness);
@@ -615,6 +653,7 @@ function describeSubscriptionsProbe() {
   }
 
   it('omits when no app declares subscriptions', omitsWhenNoAppDeclaresSubscriptions);
+
   async function passesAPresentSubscriptionBlocksAMissingOneAcrossTheAppSGroups() {
     function mockCall33() {
       return Promise.resolve([{ productId: 'com.x.pro', state: 'READY_TO_SUBMIT' }]);
@@ -630,7 +669,9 @@ function describeSubscriptionsProbe() {
     });
     const probe = await checkProbe(subscriptionsProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x.pro' }]);
+
     function mockCall34() {
       return Promise.resolve([]);
     }
@@ -638,6 +679,7 @@ function describeSubscriptionsProbe() {
     const absent = ascApi({
       listSubscriptions: vi.fn(mockCall34),
     });
+
     expect(
       findings(
         await checkProbe(
@@ -663,6 +705,7 @@ function describeBundleIdProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount2() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
     const probe = await checkProbe(bundleIdProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -678,6 +721,7 @@ function describeBundleIdProbe() {
     'omits without an iOS app and skips without an Apple account',
     omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount2,
   );
+
   async function passesWhenTheBundleIDIsRegisteredBlocksWhenItIsnT() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -685,7 +729,9 @@ function describeBundleIdProbe() {
     });
     const ok = await checkProbe(bundleIdProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
     function mockCall35() {
       return Promise.resolve(null);
     }
@@ -697,6 +743,7 @@ function describeBundleIdProbe() {
       bundleIdProbe,
       createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: api }),
     );
+
     expect(findings(missing)).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
     expect(api.findBundleId).toHaveBeenCalledWith('com.x');
   }
@@ -712,6 +759,7 @@ function describeDistributionCertProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount3() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
     const probe = await checkProbe(distributionCertProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -727,6 +775,7 @@ function describeDistributionCertProbe() {
     'omits without an iOS app and skips without an Apple account',
     omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount3,
   );
+
   async function passesOnAnUnexpiredCertBlocksWhenNoneExistOrAllAreExpiredOneTeamWideFinding() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -734,7 +783,9 @@ function describeDistributionCertProbe() {
     });
     const ok = await checkProbe(distributionCertProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'team-wide' }]);
+
     function mockCall36() {
       return Promise.resolve([]);
     }
@@ -746,7 +797,9 @@ function describeDistributionCertProbe() {
       distributionCertProbe,
       createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: none }),
     );
+
     expect(findings(blockedNone)).toEqual([{ status: 'blocker', identifier: 'team-wide' }]);
+
     function mockCall37() {
       return Promise.resolve([{ id: 'c1', expirationDate: '2000-01-01T00:00:00Z' }]);
     }
@@ -758,6 +811,7 @@ function describeDistributionCertProbe() {
       distributionCertProbe,
       createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: expired }),
     );
+
     expect(findings(blockedExpired)).toEqual([{ status: 'blocker', identifier: 'team-wide' }]);
   }
 
@@ -765,6 +819,7 @@ function describeDistributionCertProbe() {
     'passes on an unexpired cert, blocks when none exist or all are expired (one team-wide finding)',
     passesOnAnUnexpiredCertBlocksWhenNoneExistOrAllAreExpiredOneTeamWideFinding,
   );
+
   async function treatsACertificateWithNoRecordedExpiryAsUsable() {
     function mockCall38() {
       return Promise.resolve([{ id: 'c1' }]);
@@ -779,6 +834,7 @@ function describeDistributionCertProbe() {
     });
     const ok = await checkProbe(distributionCertProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'team-wide' }]);
   }
 
@@ -797,6 +853,7 @@ function describeExportComplianceProbe() {
   }
 
   it('omits when no app declares a bundle id', omitsWhenNoAppDeclaresABundleId);
+
   async function passesWhenDeclaredEvenFalseWarnsWhenUndeclaredNeedsNoCredentials() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x', usesNonExemptEncryption: false })],
@@ -804,11 +861,14 @@ function describeExportComplianceProbe() {
     });
     const declared = await checkProbe(exportComplianceProbe, createReadiness);
     const listedFindings = findings(declared);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
     const undeclared = await checkProbe(
       exportComplianceProbe,
       createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: null }),
     );
+
     expect(findings(undeclared)).toEqual([{ status: 'warn', identifier: 'com.x' }]);
   }
 
@@ -827,7 +887,9 @@ function describePlayAppProbe() {
     });
     const ok = await checkProbe(playAppProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
     function runPiece2() {
       throw new Error('app not found');
     }
@@ -842,6 +904,7 @@ function describePlayAppProbe() {
       playAppProbe,
       createReadinessContext({ apps: [app({ packageName: 'com.x' })], play: denied }),
     );
+
     expect(findings(blocked)).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
   }
 
@@ -860,7 +923,9 @@ function describePlayFirstUploadProbe() {
     });
     const ok = await checkProbe(playFirstUploadProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
     function mockCall39() {
       return Promise.resolve(0);
     }
@@ -872,7 +937,9 @@ function describePlayFirstUploadProbe() {
       playFirstUploadProbe,
       createReadinessContext({ apps: [app({ packageName: 'com.x' })], play: none }),
     );
+
     expect(findings(blocked)).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
+
     function runPiece3(): never {
       throw new Error('nope');
     }
@@ -887,6 +954,7 @@ function describePlayFirstUploadProbe() {
       playFirstUploadProbe,
       createReadinessContext({ apps: [app({ packageName: 'com.x' })], play: broken }),
     );
+
     expect(findings(warned)).toEqual([{ status: 'warn', identifier: 'com.x' }]);
   }
 
@@ -905,7 +973,9 @@ function describePlayInternalTrackProbe() {
     });
     const ok = await checkProbe(playInternalTrackProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
     function mockCall40() {
       return Promise.resolve([{ track: 'production' }]);
     }
@@ -917,6 +987,7 @@ function describePlayInternalTrackProbe() {
       playInternalTrackProbe,
       createReadinessContext({ apps: [app({ packageName: 'com.x' })], play: noTrack }),
     );
+
     expect(findings(warned)).toEqual([{ status: 'warn', identifier: 'com.x' }]);
   }
 
@@ -931,6 +1002,7 @@ function describeIapPricingProbe() {
   async function omitsWhenNoAppDeclaresAPricedProductSkipsWithoutAnAppleAccount() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
     const probe = await checkProbe(iapPricingProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -950,8 +1022,10 @@ function describeIapPricingProbe() {
     'omits when no app declares a priced product, skips without an Apple account',
     omitsWhenNoAppDeclaresAPricedProductSkipsWithoutAnAppleAccount,
   );
+
   async function passesAValidPricePointBlocksAnInvalidOne() {
     const live = [{ id: 'iap1', productId: 'com.x.coins', state: 'READY_TO_SUBMIT' }];
+
     function mockCall41() {
       return Promise.resolve(live);
     }
@@ -966,7 +1040,9 @@ function describeIapPricingProbe() {
     });
     const probe = await checkProbe(iapPricingProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x.coins' }]);
+
     function mockCall42() {
       return Promise.resolve(live);
     }
@@ -979,6 +1055,7 @@ function describeIapPricingProbe() {
       listInAppPurchases: vi.fn(mockCall42),
       findInAppPurchasePricePoint: vi.fn(mockCall43),
     });
+
     expect(
       findings(
         await checkProbe(
@@ -994,6 +1071,7 @@ function describeIapPricingProbe() {
   }
 
   it('passes a valid price point, blocks an invalid one', passesAValidPricePointBlocksAnInvalidOne);
+
   async function warnsWhenTheProductIsnTOnAppStoreConnectYetAndWhenThereSNoAppPiece() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -1002,7 +1080,9 @@ function describeIapPricingProbe() {
     });
     const notLive = await checkProbe(iapPricingProbe, createReadiness);
     const listedFindings = findings(notLive);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x.coins' }]);
+
     function mockCall44() {
       return Promise.resolve(null);
     }
@@ -1018,6 +1098,7 @@ function describeIapPricingProbe() {
         products: withPricedIap,
       }),
     );
+
     expect(findings(probeResult)).toEqual([{ status: 'warn', identifier: 'com.x' }]);
   }
 
@@ -1032,6 +1113,7 @@ function describeSubscriptionOffersProbe() {
   async function omitsWhenNoSubscriptionDeclaresOfferCodesSkipsWithoutAnAppleAccount() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
     const probe = await checkProbe(subscriptionOffersProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -1051,8 +1133,10 @@ function describeSubscriptionOffersProbe() {
     'omits when no subscription declares offer codes, skips without an Apple account',
     omitsWhenNoSubscriptionDeclaresOfferCodesSkipsWithoutAnAppleAccount,
   );
+
   async function passesAPresentOfferCodeWarnsOnAMissingOne() {
     const live = [{ id: 's1', productId: 'com.x.pro', state: 'READY_TO_SUBMIT' }];
+
     function mockCall45() {
       return Promise.resolve(live);
     }
@@ -1072,7 +1156,9 @@ function describeSubscriptionOffersProbe() {
     });
     const probe = await checkProbe(subscriptionOffersProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x.pro-LAUNCH50' }]);
+
     function mockCall47() {
       return Promise.resolve(live);
     }
@@ -1085,6 +1171,7 @@ function describeSubscriptionOffersProbe() {
       listSubscriptions: vi.fn(mockCall47),
       listSubscriptionOfferCodes: vi.fn(mockCall48),
     });
+
     expect(
       findings(
         await checkProbe(
@@ -1103,6 +1190,7 @@ function describeSubscriptionOffersProbe() {
     'passes a present offer code, warns on a missing one',
     passesAPresentOfferCodeWarnsOnAMissingOne,
   );
+
   async function warnsDeferringToTheSubscriptionsProbeWhenTheSubscriptionIsnTOnAppStoreConnectYet() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -1111,6 +1199,7 @@ function describeSubscriptionOffersProbe() {
     });
     const probeResult = await checkProbe(subscriptionOffersProbe, createReadiness);
     const listedFindings = findings(probeResult);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x.pro' }]);
   }
 
@@ -1125,6 +1214,7 @@ function describeSandboxTestersProbe() {
   async function omitsWhenNoAppSellsProductsSkipsWithoutAnAppleAccount() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
     const probe = await checkProbe(sandboxTestersProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -1144,6 +1234,7 @@ function describeSandboxTestersProbe() {
     'omits when no app sells products, skips without an Apple account',
     omitsWhenNoAppSellsProductsSkipsWithoutAnAppleAccount,
   );
+
   async function passesWith1TesterWarnsWithNoneOneAccountWideFinding() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -1152,7 +1243,9 @@ function describeSandboxTestersProbe() {
     });
     const ok = await checkProbe(sandboxTestersProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'account-wide' }]);
+
     function mockCall49() {
       return Promise.resolve([]);
     }
@@ -1168,6 +1261,7 @@ function describeSandboxTestersProbe() {
         products: withPricedIap,
       }),
     );
+
     expect(findings(warned)).toEqual([{ status: 'warn', identifier: 'account-wide' }]);
   }
 
@@ -1181,8 +1275,11 @@ describe('sandboxTestersProbe', describeSandboxTestersProbe);
 /** The first finding's `detail` string from a `checked` result (empty otherwise) - for asserting copy. */
 function firstDetail(probeResult: ProbeResult): string {
   if (probeResult.state != 'checked') return '';
+
   const firstFinding = probeResult.apps[0];
+
   if (firstFinding == null) return '';
+
   return firstFinding.detail;
 }
 /** A products catalog declaring a single one-time IAP under `com.x`. */
@@ -1201,20 +1298,26 @@ function describeIapCodeReferenceProbe() {
   }
 
   it('omits when the app declares no products (no scan)', omitsWhenTheAppDeclaresNoProductsNoScan);
+
   async function passesWhenEveryDeclaredIdAppearsInPieceWarnsNamingItWhenOneDoesnT() {
     const systemTemporaryDirectory = tmpdir();
     const iapScanPath = join(systemTemporaryDirectory, 'iap-scan-');
     const dir = mkdtempSync(iapScanPath);
+
     try {
       const purchasesPath = join(dir, 'purchases.ts');
+
       writeFileSync(purchasesPath, `await buy("com.x.coins");\n`);
+
       const createReadiness = createReadinessContext({
         apps: [app({ bundleId: 'com.x', dir })],
         products: oneIap,
       });
       const ok = await checkProbe(iapCodeReferenceProbe, createReadiness);
       const listedFindings = findings(ok);
+
       expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
       const twoIds: LaunchConfig['products'] = {
         'com.x': {
           inAppPurchases: [
@@ -1237,6 +1340,7 @@ function describeIapCodeReferenceProbe() {
         iapCodeReferenceProbe,
         createReadinessContext({ apps: [app({ bundleId: 'com.x', dir })], products: twoIds }),
       );
+
       expect(findings(warned)).toEqual([{ status: 'warn', identifier: 'com.x' }]);
       expect(firstDetail(warned)).toContain('com.x.ghost');
       expect(firstDetail(warned)).not.toContain('com.x.coins');
@@ -1249,21 +1353,28 @@ function describeIapCodeReferenceProbe() {
     "passes when every declared id appears in source, warns (naming it) when one doesn't",
     passesWhenEveryDeclaredIdAppearsInPieceWarnsNamingItWhenOneDoesnT,
   );
+
   async function doesNotScanNodeModulesAReferenceThereDoesNotCountAsARealOne() {
     const systemTemporaryDirectory = tmpdir();
     const iapScanPath = join(systemTemporaryDirectory, 'iap-scan-');
     const dir = mkdtempSync(iapScanPath);
+
     try {
       const pkgPath = join(dir, 'node_modules', 'pkg');
+
       mkdirSync(pkgPath, { recursive: true });
+
       const indexPath = join(dir, 'node_modules', 'pkg', 'index.js');
+
       writeFileSync(indexPath, `const id = "com.x.coins";\n`);
+
       const createReadiness = createReadinessContext({
         apps: [app({ bundleId: 'com.x', dir })],
         products: oneIap,
       });
       const probeResult = await checkProbe(iapCodeReferenceProbe, createReadiness);
       const listedFindings = findings(probeResult);
+
       expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -1285,10 +1396,12 @@ function describeStoreKitPieceProbe() {
   }
 
   it('omits when the app declares no products', omitsWhenTheAppDeclaresNoProducts);
+
   async function warnsWhenNoStorekitFileExistsPassesOnceOneIsAdded() {
     const systemTemporaryDirectory = tmpdir();
     const storekitPath = join(systemTemporaryDirectory, 'storekit-');
     const dir = mkdtempSync(storekitPath);
+
     try {
       const createReadiness = createReadinessContext({
         apps: [app({ bundleId: 'com.x', dir })],
@@ -1296,13 +1409,18 @@ function describeStoreKitPieceProbe() {
       });
       const warned = await checkProbe(storeKitConfigProbe, createReadiness);
       const listedFindings = findings(warned);
+
       expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
+
       const productsPath = join(dir, 'Products.storekit');
+
       writeFileSync(productsPath, '{}');
+
       const ok = await checkProbe(
         storeKitConfigProbe,
         createReadinessContext({ apps: [app({ bundleId: 'com.x', dir })], products: oneIap }),
       );
+
       expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
       expect(firstDetail(ok)).toContain('Products.storekit');
     } finally {
@@ -1321,6 +1439,7 @@ function describeAgeRatingProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount4() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
     const probe = await checkProbe(ageRatingProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -1336,6 +1455,7 @@ function describeAgeRatingProbe() {
     'omits without an iOS app and skips without an Apple account',
     omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount4,
   );
+
   async function passesACompletedQuestionnaireBlocksAnEmptyOrNeverTouchedOne() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -1343,7 +1463,9 @@ function describeAgeRatingProbe() {
     });
     const ok = await checkProbe(ageRatingProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
     function mockCall50() {
       return Promise.resolve({ attributes: {} });
     }
@@ -1355,7 +1477,9 @@ function describeAgeRatingProbe() {
       ageRatingProbe,
       createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: empty }),
     );
+
     expect(findings(probe)).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
+
     function mockCall51() {
       return Promise.resolve(null);
     }
@@ -1363,6 +1487,7 @@ function describeAgeRatingProbe() {
     const untouched = ascApi({
       getAgeRatingDeclaration: vi.fn(mockCall51),
     });
+
     expect(
       findings(
         await checkProbe(
@@ -1377,6 +1502,7 @@ function describeAgeRatingProbe() {
     'passes a completed questionnaire, blocks an empty or never-touched one',
     passesACompletedQuestionnaireBlocksAnEmptyOrNeverTouchedOne,
   );
+
   async function warnsInsteadOfBlockingWhenThereSNoAppPieceOrNoEditableVersionToRead() {
     function mockCall52() {
       return Promise.resolve(null);
@@ -1391,7 +1517,9 @@ function describeAgeRatingProbe() {
     });
     const probe = await checkProbe(ageRatingProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
+
     function mockCall53() {
       return Promise.resolve(null);
     }
@@ -1399,6 +1527,7 @@ function describeAgeRatingProbe() {
     const noInfo = ascApi({
       getEditableAppInfoId: vi.fn(mockCall53),
     });
+
     expect(
       findings(
         await checkProbe(
@@ -1420,6 +1549,7 @@ function describeAccountDeletionProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount5() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
     const probe = await checkProbe(accountDeletionProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -1435,6 +1565,7 @@ function describeAccountDeletionProbe() {
     'omits without an iOS app and skips without an Apple account',
     omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount5,
   );
+
   async function passesWhenAURLIsDeclaredInAnyLocaleWarnsWhenNoneIsSet() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -1442,7 +1573,9 @@ function describeAccountDeletionProbe() {
     });
     const ok = await checkProbe(accountDeletionProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
     function mockCall54() {
       return Promise.resolve([{ locale: 'en-US', url: '' }]);
     }
@@ -1454,6 +1587,7 @@ function describeAccountDeletionProbe() {
       accountDeletionProbe,
       createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: none }),
     );
+
     expect(findings(probe)).toEqual([{ status: 'warn', identifier: 'com.x' }]);
   }
 
@@ -1461,6 +1595,7 @@ function describeAccountDeletionProbe() {
     'passes when a URL is declared in any locale, warns when none is set',
     passesWhenAURLIsDeclaredInAnyLocaleWarnsWhenNoneIsSet,
   );
+
   async function warnsWhenThereSNoAppPieceOrNoEditableAppPieceToRead() {
     function mockCall55() {
       return Promise.resolve(null);
@@ -1475,6 +1610,7 @@ function describeAccountDeletionProbe() {
     });
     const probe = await checkProbe(accountDeletionProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
   }
 
@@ -1489,6 +1625,7 @@ function describeDemoAccountProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount6() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
     const probe = await checkProbe(demoAccountProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -1504,6 +1641,7 @@ function describeDemoAccountProbe() {
     'omits without an iOS app and skips without an Apple account',
     omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount6,
   );
+
   async function passesWhenSignInIsnTRequiredOrWhenItIsAndADemoAccountIsProvided() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -1511,7 +1649,9 @@ function describeDemoAccountProbe() {
     });
     const notRequired = await checkProbe(demoAccountProbe, createReadiness);
     const listedFindings = findings(notRequired);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
     function mockCall56() {
       return Promise.resolve({
         attributes: { demoAccountRequired: true, demoAccountName: 'review@x.example' },
@@ -1525,6 +1665,7 @@ function describeDemoAccountProbe() {
       demoAccountProbe,
       createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: provided }),
     );
+
     expect(findings(probe)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
   }
 
@@ -1532,6 +1673,7 @@ function describeDemoAccountProbe() {
     "passes when sign-in isn't required, or when it is and a demo account is provided",
     passesWhenSignInIsnTRequiredOrWhenItIsAndADemoAccountIsProvided,
   );
+
   async function blocksWhenSignInIsRequiredButNoDemoAccountNameIsSet() {
     function mockCall57() {
       return Promise.resolve({ attributes: { demoAccountRequired: true } });
@@ -1546,6 +1688,7 @@ function describeDemoAccountProbe() {
     });
     const probe = await checkProbe(demoAccountProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
   }
 
@@ -1553,6 +1696,7 @@ function describeDemoAccountProbe() {
     'blocks when sign-in is required but no demo account name is set',
     blocksWhenSignInIsRequiredButNoDemoAccountNameIsSet,
   );
+
   async function warnsWhenAppReviewDetailsTheAppPieceOrAnEditableVersionAreMissing() {
     function mockCall58() {
       return Promise.resolve(null);
@@ -1567,7 +1711,9 @@ function describeDemoAccountProbe() {
     });
     const probe = await checkProbe(demoAccountProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
+
     function mockCall59() {
       return Promise.resolve(null);
     }
@@ -1575,6 +1721,7 @@ function describeDemoAccountProbe() {
     const noVersion = ascApi({
       findEditableAppStoreVersion: vi.fn(mockCall59),
     });
+
     expect(
       findings(
         await checkProbe(
@@ -1595,6 +1742,7 @@ describe('demoAccountProbe', describeDemoAccountProbe);
 function describeProfileEntitlementsProbe() {
   /** An app whose entitlements require the Push Notifications capability on its App ID. */
   const pushApp = app({ bundleId: 'com.x', iosEntitlements: { 'aps-environment': 'production' } });
+
   async function omitsWhenNoInScopeAppDeclaresCapabilityBearingEntitlements() {
     const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
     const probe = await checkProbe(profileEntitlementsProbe, createReadiness);
@@ -1605,6 +1753,7 @@ function describeProfileEntitlementsProbe() {
     'omits when no in-scope app declares capability-bearing entitlements',
     omitsWhenNoInScopeAppDeclaresCapabilityBearingEntitlements,
   );
+
   async function skipsWithoutAnAppleAccountWhenAnAppDoesDeclareEntitlements() {
     const createReadiness = createReadinessContext({ apps: [pushApp], asc: null });
     const probe = await checkProbe(profileEntitlementsProbe, createReadiness);
@@ -1615,11 +1764,14 @@ function describeProfileEntitlementsProbe() {
     'skips without an Apple account when an app does declare entitlements',
     skipsWithoutAnAppleAccountWhenAnAppDoesDeclareEntitlements,
   );
+
   async function passesWhenTheAppIDSCapabilitiesCoverTheEntitlementsBlocksWhenOneIsMissing() {
     const createReadiness = createReadinessContext({ apps: [pushApp], asc: ascApi() });
     const ok = await checkProbe(profileEntitlementsProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+
     function mockCall60() {
       return Promise.resolve([]);
     }
@@ -1631,6 +1783,7 @@ function describeProfileEntitlementsProbe() {
       profileEntitlementsProbe,
       createReadinessContext({ apps: [pushApp], asc: missing }),
     );
+
     expect(findings(blocked)).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
     expect(firstDetail(blocked)).toContain('PUSH_NOTIFICATIONS');
   }
@@ -1639,6 +1792,7 @@ function describeProfileEntitlementsProbe() {
     "passes when the App ID's capabilities cover the entitlements, blocks when one is missing",
     passesWhenTheAppIDSCapabilitiesCoverTheEntitlementsBlocksWhenOneIsMissing,
   );
+
   async function warnsWhenTheAppIDIsnTRegisteredYet() {
     function mockCall61() {
       return Promise.resolve(null);
@@ -1650,6 +1804,7 @@ function describeProfileEntitlementsProbe() {
     const createReadiness = createReadinessContext({ apps: [pushApp], asc: noBundle });
     const probe = await checkProbe(profileEntitlementsProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
   }
 
@@ -1661,6 +1816,7 @@ function describeScreenshotsProbe() {
   async function omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount7() {
     const createReadiness = createReadinessContext({ apps: [app({ packageName: 'com.x' })] });
     const probe = await checkProbe(screenshotsProbe, createReadiness);
+
     expect(probe.state).toBe('omitted');
     expect(
       (
@@ -1676,6 +1832,7 @@ function describeScreenshotsProbe() {
     'omits without an iOS app and skips without an Apple account',
     omitsWithoutAnIOSAppAndSkipsWithoutAnAppleAccount7,
   );
+
   async function passesWhenTheRequired67ClassHasAScreenshot() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -1683,6 +1840,7 @@ function describeScreenshotsProbe() {
     });
     const ok = await checkProbe(screenshotsProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
   }
 
@@ -1690,6 +1848,7 @@ function describeScreenshotsProbe() {
     'passes when the required 6.7" class has a screenshot',
     passesWhenTheRequired67ClassHasAScreenshot,
   );
+
   async function warnsWhenIPhoneScreenshotsExistButNotForTheRequiredClassBlocksWhenNoneExist() {
     function mockCall62() {
       return Promise.resolve([{ id: 'set-1', screenshotDisplayType: 'APP_IPHONE_65' }]);
@@ -1704,7 +1863,9 @@ function describeScreenshotsProbe() {
     });
     const probe = await checkProbe(screenshotsProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
+
     function mockCall63() {
       return Promise.resolve([]);
     }
@@ -1712,6 +1873,7 @@ function describeScreenshotsProbe() {
     const noShots = ascApi({
       listScreenshots: vi.fn(mockCall63),
     });
+
     expect(
       findings(
         await checkProbe(
@@ -1720,6 +1882,7 @@ function describeScreenshotsProbe() {
         ),
       ),
     ).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
+
     function mockCall64() {
       return Promise.resolve([]);
     }
@@ -1727,6 +1890,7 @@ function describeScreenshotsProbe() {
     const noSets = ascApi({
       listScreenshotSets: vi.fn(mockCall64),
     });
+
     expect(
       findings(
         await checkProbe(
@@ -1741,6 +1905,7 @@ function describeScreenshotsProbe() {
     'warns when iPhone screenshots exist but not for the required class, blocks when none exist',
     warnsWhenIPhoneScreenshotsExistButNotForTheRequiredClassBlocksWhenNoneExist,
   );
+
   async function warnsWhenThereSNoAppPieceOrNoEditableVersionToRead() {
     function mockCall65() {
       return Promise.resolve(null);
@@ -1755,6 +1920,7 @@ function describeScreenshotsProbe() {
     });
     const probe = await checkProbe(screenshotsProbe, createReadiness);
     const listedFindings = findings(probe);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
   }
 
@@ -1773,13 +1939,16 @@ function describeListingUrlsProbe() {
     const dir = mkdtempSync(listingUrlsPath);
     const storePath = join(dir, 'store.config.json');
     const serialized = JSON.stringify({ apple: { info: { 'en-US': { privacyPolicyUrl: url } } } });
+
     writeFileSync(storePath, serialized);
+
     return dir;
   }
   async function omitsWhenNoInScopeAppDeclaresAListingURL() {
     const systemTemporaryDirectory = tmpdir();
     const listingUrlsPath = join(systemTemporaryDirectory, 'listing-urls-');
     const dir = mkdtempSync(listingUrlsPath);
+
     try {
       const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x', dir })] });
       const probe = await checkProbe(listingUrlsProbe, createReadiness);
@@ -1790,26 +1959,34 @@ function describeListingUrlsProbe() {
   }
 
   it('omits when no in-scope app declares a listing URL', omitsWhenNoInScopeAppDeclaresAListingURL);
+
   async function passesA2xxURLAndBlocksANon2xxOne() {
     const dir = appDirWithPrivacyUrl('https://x.example/privacy');
+
     try {
       stubFetchStatus(200);
+
       const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x', dir })] });
       const ok = await checkProbe(listingUrlsProbe, createReadiness);
       const listedFindings = findings(ok);
+
       expect(listedFindings).toEqual([{ status: 'ok', identifier: 'https://x.example/privacy' }]);
     } finally {
       vi.unstubAllGlobals();
       rmSync(dir, { recursive: true, force: true });
     }
+
     const dir2 = appDirWithPrivacyUrl('https://x.example/gone');
+
     try {
       stubFetchStatus(404);
+
       const createReadiness = createReadinessContext({
         apps: [app({ bundleId: 'com.x', dir: dir2 })],
       });
       const blocked = await checkProbe(listingUrlsProbe, createReadiness);
       const listedFindings = findings(blocked);
+
       expect(listedFindings).toEqual([{ status: 'blocker', identifier: 'https://x.example/gone' }]);
     } finally {
       vi.unstubAllGlobals();
@@ -1818,6 +1995,7 @@ function describeListingUrlsProbe() {
   }
 
   it('passes a 2xx URL and blocks a non-2xx one', passesA2xxURLAndBlocksANon2xxOne);
+
   async function propagatesAFetchFailureSoTheOrchestratorRecordsItAsErrored() {
     const dir = appDirWithPrivacyUrl('https://x.example/privacy');
 
@@ -1852,6 +2030,7 @@ function describeVersionCopyrightProbe() {
   const emptyCopyright = ascApi({
     findEditableAppStoreVersion: vi.fn(mockCall66),
   });
+
   async function passesWhenTheEditableVersionHasACopyright() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -1859,10 +2038,12 @@ function describeVersionCopyrightProbe() {
     });
     const ok = await checkProbe(versionCopyrightProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
   }
 
   it('passes when the editable version has a copyright', passesWhenTheEditableVersionHasACopyright);
+
   async function blocksWhenTheEditableVersionHasAnEmptyCopyright() {
     const createReadiness = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -1870,6 +2051,7 @@ function describeVersionCopyrightProbe() {
     });
     const blocked = await checkProbe(versionCopyrightProbe, createReadiness);
     const listedFindings = findings(blocked);
+
     expect(listedFindings).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
   }
 
@@ -1877,6 +2059,7 @@ function describeVersionCopyrightProbe() {
     'blocks when the editable version has an empty copyright',
     blocksWhenTheEditableVersionHasAnEmptyCopyright,
   );
+
   async function passesAnEmptyCopyrightThatReleaseCopyrightWillFill() {
     const readinessContext = createReadinessContext({
       apps: [app({ bundleId: 'com.x' })],
@@ -1887,6 +2070,7 @@ function describeVersionCopyrightProbe() {
       config: { ...readinessContext.config, release: { copyright: '2026 Acme' } },
     });
     const listedFindings = findings(configured);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
   }
 
@@ -1905,10 +2089,12 @@ function describeAppPrivacyProbe() {
     });
     const ok = await checkProbe(appPrivacyProbe, createReadiness);
     const listedFindings = findings(ok);
+
     expect(listedFindings).toEqual([{ status: 'ok', identifier: 'com.x' }]);
   }
 
   it('passes an app that has been released before', passesAnAppThatHasBeenReleasedBefore);
+
   async function listsAppPrivacyAsAManualStepForAFirstVersion() {
     function mockCall67() {
       return Promise.resolve([{ appStoreState: 'PREPARE_FOR_SUBMISSION' }]);
@@ -1923,6 +2109,7 @@ function describeAppPrivacyProbe() {
     });
     const firstVersion = await checkProbe(appPrivacyProbe, createReadiness);
     const listedFindings = findings(firstVersion);
+
     expect(listedFindings).toEqual([{ status: 'warn', identifier: 'com.x' }]);
     expect(firstVersionOnly.listAppStoreVersions).toHaveBeenCalledWith('app-1', 'IOS');
   }

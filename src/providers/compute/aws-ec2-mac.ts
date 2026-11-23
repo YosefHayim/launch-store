@@ -53,18 +53,22 @@ export function publicAddress(
   publicIpAddress: string | undefined,
 ): string | undefined {
   if (publicDnsName != null && publicDnsName.length > 0) return publicDnsName;
+
   if (publicIpAddress != null && publicIpAddress.length > 0) return publicIpAddress;
+
   return undefined;
 }
 
 export function configuredInstanceType(awsConfiguration: Pick<AwsConfig, 'instanceType'>): string {
   if (awsConfiguration.instanceType != null) return awsConfiguration.instanceType;
+
   return DEFAULT_INSTANCE_TYPE;
 }
 
 /** Amazon macOS AMI architecture for an EC2 Mac instance family (`mac2*` is arm64). */
 export function macosArchitectureFor(instanceType: string): string {
   if (instanceType.startsWith('mac2')) return 'arm64_mac';
+
   return 'x86_64_mac';
 }
 
@@ -81,7 +85,9 @@ function flatMapImageDescription(imageDescription: {
   CreationDate?: string | undefined;
 }) {
   if (imageDescription.ImageId == null) return [];
+
   if (imageDescription.CreationDate == null) return [];
+
   return [{ id: imageDescription.ImageId, date: imageDescription.CreationDate }];
 }
 
@@ -97,20 +103,25 @@ export function datedMacImages(
 /** Newest by CreationDate; stable for equal dates. */
 export function newestImageId(datedImages: readonly DatedAmiImage[]): string | undefined {
   if (datedImages.length == 0) return undefined;
+
   function sortFirstImage(
     firstImage: { readonly id: string; readonly date: string },
     secondImage: { readonly id: string; readonly date: string },
   ) {
     if (firstImage.date < secondImage.date) return 1;
+
     if (firstImage.date > secondImage.date) return -1;
+
     return 0;
   }
 
   const sortedImages = datedImages.slice().sort(sortFirstImage);
+
   return sortedImages[0]?.id;
 }
 function filterDescribedHost(describedHost: { State?: string | undefined }) {
   if (describedHost.State == null) return false;
+
   return !describedHost.State.startsWith('released');
 }
 
@@ -123,6 +134,7 @@ export function countLiveDedicatedHosts(
 /** Missing or already-released hosts are not billable status targets. */
 export function hostIsReleasedOrMissing(hostState: string | undefined): boolean {
   if (hostState == null) return true;
+
   return hostState.startsWith('released');
 }
 
@@ -138,7 +150,9 @@ export function releaseFailureDetail(
     | undefined,
 ): string | undefined {
   if (failedRelease == null) return undefined;
+
   if (failedRelease.Error?.Message != null) return failedRelease.Error.Message;
+
   return 'unknown';
 }
 
@@ -257,6 +271,7 @@ async function allocateHost(
     }
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     const isQuotaFailure = isDedicatedHostQuotaFailure(failureMessage);
 
     if (isQuotaFailure) {
@@ -286,6 +301,7 @@ async function ensureKeyPair(
   client: Ec2Client,
 ): Promise<{ keyName: string; keyPath: string }> {
   const keyPath = join(LAUNCH_HOME, 'ec2-mac-key.pem');
+
   const keyExists = await pathExists(keyPath);
 
   if (keyExists) {
@@ -517,7 +533,9 @@ async function waitForSsh(
       },
     );
     const instanceDescription = instanceCatalog.Reservations?.[0]?.Instances?.[0];
+
     host = publicAddress(instanceDescription?.PublicDnsName, instanceDescription?.PublicIpAddress);
+
     const isReady = instanceIsReady(instanceDescription?.State?.Name, host);
 
     if (isReady) {
@@ -569,6 +587,7 @@ function flatMapRequiredTool(requiredTool: {
   install: { kind: 'brew'; formula: string } | { kind: 'guide'; how: string };
 }) {
   if (requiredTool.install.kind != 'brew') return [];
+
   return [
     `command -v ${requiredTool.command} >/dev/null || brew install ${requiredTool.install.formula} || true`,
   ];
@@ -716,6 +735,7 @@ async function provisionAllocatedHost(provisionRequest: ProvisionRequest): Promi
   }
 
   reportProgress('Launching the EC2 Mac instance...');
+
   const instanceId = await runInstance(ec2, client, {
     imageId,
     instanceType,
@@ -731,7 +751,9 @@ async function provisionAllocatedHost(provisionRequest: ProvisionRequest): Promi
       'First run: bootstrapping the toolchain and snapshotting a golden AMI for next time...',
     );
     await bootstrapToolchain(sshTarget);
+
     const newGoldenAmiId = await snapshotGoldenAmi(ec2, client, instanceId);
+
     await setAwsGoldenAmiId(newGoldenAmiId);
   }
 
@@ -772,6 +794,7 @@ async function runCloudDoctor(awsConfiguration: AwsConfig): Promise<CloudDoctorR
     });
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     cloudChecks.push({
       label: 'AWS credentials + region',
       ok: false,
@@ -819,6 +842,7 @@ async function runCloudDoctor(awsConfiguration: AwsConfig): Promise<CloudDoctorR
     });
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     cloudChecks.push({
       label: `${instanceType} availability`,
       ok: false,
@@ -852,6 +876,7 @@ async function runCloudDoctor(awsConfiguration: AwsConfig): Promise<CloudDoctorR
     });
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     cloudChecks.push({
       label: 'Dedicated Host quota',
       ok: false,
@@ -896,9 +921,11 @@ export function makeAwsEc2MacComputeHost(): ComputeHost {
       }
 
       const availabilityZone = await firstAvailableZone(ec2, client);
+
       reportProgress(
         `Allocating a Dedicated Host (${instanceType}) in ${availabilityZone} - the 24h billing minimum starts now.`,
       );
+
       const hostId = await allocateHost(ec2, client, instanceType, availabilityZone);
       const allocatedAt = new Date().toISOString();
 
@@ -960,6 +987,7 @@ export function makeAwsEc2MacComputeHost(): ComputeHost {
 
       if (hostHandle.instanceId != null) {
         const instanceId = hostHandle.instanceId;
+
         await sendAwsRequest('terminate the EC2 Mac instance', function terminate() {
           return client.send(new ec2.TerminateInstancesCommand({ InstanceIds: [instanceId] }));
         });

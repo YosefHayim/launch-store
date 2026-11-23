@@ -25,9 +25,11 @@ function readVersionExperiments(
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
+
   if (commandOptions.app != null) {
     experimentsInput = { ...experimentsInput, app: commandOptions.app };
   }
+
   return experimentsInput;
 }
 

@@ -75,6 +75,7 @@ function copyDefaults(defaults: Readonly<Record<string, unknown>>): Record<strin
 
   for (const key of Object.keys(defaults)) {
     const stored = defaults[key];
+
     const isList = Array.isArray(stored);
 
     if (isList) {
@@ -264,6 +265,7 @@ export class Command {
     const hasDefault = arguments.length >= 3;
 
     const argumentSpec = readArgumentSpec(spec, defaultValue, hasDefault);
+
     this.registeredArguments.push(argumentSpec);
 
     return this;
@@ -461,6 +463,7 @@ export class Command {
 
   private async parseTokens(tokens: string[]): Promise<void> {
     this.resetValues();
+
     const positionals: string[] = [];
     let index = 0;
     let optionsEnded = false;
@@ -695,6 +698,7 @@ export class Command {
 
   private async finish(positionals: readonly string[]): Promise<void> {
     this.requireOptions();
+
     const slotValues = this.readSlotValues(positionals);
 
     if (this.listener == null) {
@@ -743,6 +747,7 @@ export class Command {
     for (const argument of this.registeredArguments) {
       if (argument.variadic) {
         const remaining = positionals.slice(index);
+
         const isMissing = argument.required && remaining.length == 0;
 
         if (isMissing) {
@@ -751,6 +756,7 @@ export class Command {
 
         slotValues.push(remaining);
         index = positionals.length;
+
         continue;
       }
 
@@ -767,6 +773,7 @@ export class Command {
         }
 
         slotValues.push(undefined);
+
         continue;
       }
 

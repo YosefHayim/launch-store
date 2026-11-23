@@ -6,6 +6,7 @@ import { parseFeedbackType, renderFeedback } from './testflight-show-feedback.ts
 function describeParseTestersCsv() {
   function parsesAndTrimsNamedTesterRows() {
     const testersCsv = parseTestersCsv('a@x.com, Dana , Lee\nb@x.com,Sam,Ng');
+
     expect(testersCsv).toEqual([
       { email: 'a@x.com', firstName: 'Dana', lastName: 'Lee' },
       { email: 'b@x.com', firstName: 'Sam', lastName: 'Ng' },
@@ -13,20 +14,24 @@ function describeParseTestersCsv() {
   }
 
   it('parses and trims named tester rows', parsesAndTrimsNamedTesterRows);
+
   function skipsHeadersBlankLinesAndMalformedRows() {
     const testersCsv = parseTestersCsv('email,first,last\n\nnot-an-email\na@x.com,Dana\n');
     expect(testersCsv).toEqual([{ email: 'a@x.com', firstName: 'Dana' }]);
   }
 
   it('skips headers, blank lines, and malformed rows', skipsHeadersBlankLinesAndMalformedRows);
+
   function acceptsBareEmailsAndCRLFPiece() {
     const testersCsv = parseTestersCsv('a@x.com\r\nb@x.com,Sam\r\n');
     expect(testersCsv).toEqual([{ email: 'a@x.com' }, { email: 'b@x.com', firstName: 'Sam' }]);
   }
 
   it('accepts bare emails and CRLF input', acceptsBareEmailsAndCRLFPiece);
+
   function keepsLastNameOnlyRowsAndDropsBlankNameCells() {
     const testersCsv = parseTestersCsv('a@x.com,,Ng\nb@x.com, ,Lee');
+
     expect(testersCsv).toEqual([
       { email: 'a@x.com', lastName: 'Ng' },
       { email: 'b@x.com', lastName: 'Lee' },
@@ -47,6 +52,7 @@ function describeRenderBetaAction() {
       destructive: false,
       status: 'planned',
     });
+
     expect(betaAction).toBe('+ set "What to Test" (en-US)');
     expect(
       renderBetaAction({
@@ -98,6 +104,7 @@ function describeParseFeedbackType() {
     'accepts an omitted or case-insensitive supported type',
     acceptsAnOmittedOrCaseInsensitiveSupportedType,
   );
+
   async function rejectsAnUnknownFeedbackType() {
     const feedbackType = parseFeedbackType('video');
     await expect(feedbackType).rejects.toMatchObject({
@@ -121,6 +128,7 @@ function describeRenderFeedback() {
       osVersion: '17.5.1',
       buildVersion: '42',
     });
+
     expect(renderedFeedback).toContain('fb-crash-1  [ERROR] crash');
     expect(renderedFeedback).toContain(
       'build 42  iPhone 15 Pro - iOS 17.5.1  tester@x.com  2026-06-20',
@@ -130,6 +138,7 @@ function describeRenderFeedback() {
   }
 
   it('renders a crash with metadata and comment', rendersACrashWithMetadataAndComment);
+
   function rendersScreenshotAttachmentURLsWithAnASCIILabel() {
     const renderedFeedback = renderFeedback({
       id: 'fb-shot-1',
@@ -137,6 +146,7 @@ function describeRenderFeedback() {
       buildVersion: '42',
       screenshots: [{ url: 'https://apple.example/a.png' }, { url: 'https://apple.example/b.png' }],
     });
+
     expect(renderedFeedback).toContain('fb-shot-1  [SCREENSHOT]');
     expect(renderedFeedback).toContain('https://apple.example/a.png');
     expect(renderedFeedback).toContain('https://apple.example/b.png');
@@ -146,6 +156,7 @@ function describeRenderFeedback() {
     'renders screenshot attachment URLs with an ASCII label',
     rendersScreenshotAttachmentURLsWithAnASCIILabel,
   );
+
   function stripsTerminalControlBytesFromTesterAuthoredFields() {
     const escapeCharacter = String.fromCharCode(27);
     const renderedFeedback = renderFeedback({
@@ -155,6 +166,7 @@ function describeRenderFeedback() {
       deviceModel: `iPhone${escapeCharacter}[2J`,
       email: `t${escapeCharacter}ester@x.com`,
     });
+
     expect(renderedFeedback).not.toContain(escapeCharacter);
     expect(renderedFeedback).toContain('"[31mowned[0m"');
     expect(renderedFeedback).toContain('iPhone[2J');
@@ -176,6 +188,7 @@ function describeTestflightCommandPieceSchema() {
       dryRun: true,
       yes: false,
     });
+
     expect(testflightCommandSchema).toEqual({
       operation: 'add',
       emails: ['tester@example.com'],
@@ -185,6 +198,7 @@ function describeTestflightCommandPieceSchema() {
   }
 
   it('decodes a complete add-testers boundary', decodesACompleteAddTestersBoundary);
+
   function decodesReleaseRemoveAndFeedbackBoundaries() {
     const testflightCommandSchema = TestflightCommandInputSchema({
       operation: 'release',
@@ -194,6 +208,7 @@ function describeTestflightCommandPieceSchema() {
       dryRun: false,
       yes: true,
     });
+
     expect(testflightCommandSchema).toMatchObject({
       operation: 'release',
       review: true,
@@ -217,6 +232,7 @@ function describeTestflightCommandPieceSchema() {
   }
 
   it('decodes release, remove, and feedback boundaries', decodesReleaseRemoveAndFeedbackBoundaries);
+
   function rejectsAnUnknownOperation() {
     expect(function decodeUnknownOperation() {
       TestflightCommandInputSchema({ operation: 'erase' });

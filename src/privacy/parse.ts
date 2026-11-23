@@ -36,16 +36,21 @@ function stringTags(xml: string): string[] {
 /** Parse `NS*UsageDescription` keys (and their purpose strings) out of an `Info.plist`. */
 export function parseUsageDescriptions(plistXml: string): Record<string, string> {
   const usage: Record<string, string> = {};
+
   for (const match of plistXml.matchAll(
     /<key>(NS\w*UsageDescription)<\/key>\s*(?:<string>([^<]*)<\/string>|<string\s*\/>)/g,
   )) {
     const [, key, purposeText] = match;
+
     if (key) {
       let purpose = purposeText;
+
       if (purpose == null) purpose = '';
+
       usage[key] = purpose.trim();
     }
   }
+
   return usage;
 }
 /** Parse the data types, tracking flag, and tracking domains out of a `PrivacyInfo.xcprivacy`. */
@@ -72,7 +77,9 @@ export function parsePrivacyManifest(xml: string): {
     xml,
   )?.[1];
   let trackingDomains: string[] = [];
+
   if (domainsBlock) trackingDomains = unique(stringTags(domainsBlock));
+
   return {
     collectedDataTypes: unique(collectedDataTypes),
     tracking,
@@ -99,12 +106,15 @@ export function parseAndroidPermissions(manifestXml: string): string[] {
 const stringArray = (unknownArray: unknown): string[] => {
   if (Array.isArray(unknownArray))
     return unknownArray.filter((entry): entry is string => typeof entry == 'string');
+
   return [];
 };
 /** Pull the `NSPrivacyCollectedDataType` id out of each entry of an `NSPrivacyCollectedDataTypes` array. */
 function collectedDataTypesFrom(manifestEntries: unknown): string[] {
   if (!Array.isArray(manifestEntries)) return [];
+
   const types: string[] = [];
+
   for (const entry of manifestEntries) {
     const dataType = readCollectedDataType(entry);
 
@@ -112,6 +122,7 @@ function collectedDataTypesFrom(manifestEntries: unknown): string[] {
       types.push(dataType);
     }
   }
+
   return unique(types);
 }
 /** Build a surface from native files. */
@@ -121,19 +132,27 @@ export function surfaceFromNative(files: {
   androidManifests: string[];
 }): PrivacySurface {
   const usageDescriptions: Record<string, string> = {};
+
   for (const xml of files.infoPlists) Object.assign(usageDescriptions, parseUsageDescriptions(xml));
+
   const collectedDataTypes: string[] = [];
   const trackingDomains: string[] = [];
   let tracking = false;
+
   for (const xml of files.privacyManifests) {
     const parsed = parsePrivacyManifest(xml);
+
     collectedDataTypes.push(...parsed.collectedDataTypes);
     trackingDomains.push(...parsed.trackingDomains);
+
     if (parsed.tracking) tracking = true;
   }
+
   const androidPermissions: string[] = [];
+
   for (const xml of files.androidManifests)
     androidPermissions.push(...parseAndroidPermissions(xml));
+
   return {
     usageDescriptions,
     hasManifest: files.privacyManifests.length > 0,

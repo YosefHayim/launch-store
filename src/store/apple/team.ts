@@ -111,14 +111,17 @@ export async function getTeam(teamClient: AscTeamApi): Promise<Team> {
 /** Normalize comma-separated role fragments into Apple's canonical role names. */
 function normalizeRoles(declaredRoles: readonly string[]): string[] {
   const normalizedRoles = new Set<string>();
+
   for (const declaredRole of declaredRoles) {
     const normalizedRole = declaredRole.trim().toUpperCase();
+
     const hasRoleText = normalizedRole.length > 0;
 
     if (hasRoleText) {
       normalizedRoles.add(normalizedRole);
     }
   }
+
   return [...normalizedRoles];
 }
 
@@ -147,6 +150,7 @@ export async function inviteTeamMember(
   inviteRequest: InviteRequest,
 ): Promise<UserInvitationResource> {
   const email = inviteRequest.email.trim();
+
   const isEmailMissing = email.length == 0;
 
   if (isEmailMissing) {
@@ -154,6 +158,7 @@ export async function inviteTeamMember(
   }
 
   const normalizedRoles = normalizeRoles(inviteRequest.roles);
+
   const isRoleListEmpty = normalizedRoles.length == 0;
 
   if (isRoleListEmpty) {
@@ -173,6 +178,7 @@ export async function inviteTeamMember(
   }
 
   const unknownRoles = normalizedRoles.filter(isUnknownRole);
+
   const hasUnknownRoles = unknownRoles.length > 0;
 
   if (hasUnknownRoles) {
@@ -192,6 +198,7 @@ export async function inviteTeamMember(
 
   const normalizedEmail = email.toLowerCase();
   const memberHasEmail = hasMemberEmail(normalizedEmail);
+
   const isAlreadyMember = currentTeam.members.some(memberHasEmail);
 
   if (isAlreadyMember) {
@@ -199,6 +206,7 @@ export async function inviteTeamMember(
   }
 
   const invitationHasEmail = hasInvitationEmail(normalizedEmail);
+
   const hasPendingInvitation = currentTeam.invitations.some(invitationHasEmail);
 
   if (hasPendingInvitation) {
@@ -206,10 +214,13 @@ export async function inviteTeamMember(
   }
 
   let allAppsVisible = true;
+
   if (inviteRequest.allAppsVisible != null) {
     allAppsVisible = inviteRequest.allAppsVisible;
   }
+
   let provisioningAllowed = false;
+
   if (inviteRequest.provisioningAllowed != null) {
     provisioningAllowed = inviteRequest.provisioningAllowed;
   }
@@ -244,6 +255,7 @@ export async function removeTeamMember(
 
   const memberHasEmail = hasMemberEmail(normalizedEmail);
   const matchingMember = currentTeam.members.find(memberHasEmail);
+
   const hasMatchingMember = matchingMember != null;
 
   if (hasMatchingMember) {
@@ -258,6 +270,7 @@ export async function removeTeamMember(
 
   const invitationHasEmail = hasInvitationEmail(normalizedEmail);
   const matchingInvitation = currentTeam.invitations.find(invitationHasEmail);
+
   const hasMatchingInvitation = matchingInvitation != null;
 
   if (hasMatchingInvitation) {

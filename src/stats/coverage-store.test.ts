@@ -13,6 +13,7 @@ let homeDirectory: string;
 
 function useTemporaryLaunchHome(): void {
   const workPath = join(homeDirectory, 'work');
+
   useLaunchDirectories({
     homeDirectory,
     workingDirectory: workPath,
@@ -66,6 +67,7 @@ function describeLoadAppCoverage() {
     'returns an empty coverage when the app was never synced',
     returnsAnEmptyCoverageWhenTheAppWasNeverSynced,
   );
+
   async function failsForAnAppKeyThatIsNotValid() {
     const appCoverage = loadAppCoverage('../x');
     await expect(appCoverage).rejects.toMatchObject({ _tag: 'InvalidAppKeyFailure' });
@@ -90,6 +92,7 @@ function describeLoadAppCoverageWithAFileSavedBeforeLastNoteExisted() {
       },
     };
     const serialized = JSON.stringify(oldFile);
+
     writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', serialized);
 
     const loaded = await loadAppCoverage('ios-1');

@@ -10,6 +10,7 @@ export function computeParallelJobLimit(
   const ramBasedCap = Math.floor(totalMemoryGB / 2);
   const minimumJobLimit = 2;
   const clampedJobLimit = Math.min(Math.max(ramBasedCap, minimumJobLimit), availableCores);
+
   const isBelowCoreCount = clampedJobLimit < availableCores;
 
   if (isBelowCoreCount) {
@@ -21,6 +22,7 @@ export function computeParallelJobLimit(
 
 export function resolveCcacheEnvironment(disabled?: boolean): Record<string, string> {
   const launchEnvironment = readLaunchEnvironment();
+
   const isDisabled = disabled == true;
 
   if (isDisabled) {
@@ -72,6 +74,7 @@ export function assembleArchiveArguments(archiveInput: ArchiveArgsInput): string
     `CODE_SIGN_IDENTITY=${archiveInput.signing.certName}`,
     'COMPILER_INDEX_STORE_ENABLE=NO',
   ];
+
   const hasParallelJobLimit = archiveInput.parallelJobLimit != null;
 
   if (hasParallelJobLimit) {

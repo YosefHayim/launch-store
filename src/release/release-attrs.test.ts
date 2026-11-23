@@ -79,6 +79,7 @@ afterEach(function resetEnvironmentFixtures() {
 function describeReleasePieceSchema() {
   async function rejectsANonObjectAnEmptyDocumentAndArrayShapedSections() {
     const releaseDocument = decodeReleaseDocument(42);
+
     await expect(releaseDocument).rejects.toMatchObject({
       message: expect.stringMatching(/must be a JSON object/),
     });
@@ -94,6 +95,7 @@ function describeReleasePieceSchema() {
     'rejects a non-object, an empty document, and array-shaped sections',
     rejectsANonObjectAnEmptyDocumentAndArrayShapedSections,
   );
+
   function decodesEverySupportedSection() {
     const releaseConfig = parseReleaseConfig({
       ageRating: { violenceCartoonOrFantasy: 'NONE', gambling: false },
@@ -105,6 +107,7 @@ function describeReleasePieceSchema() {
         notes: 'n',
       },
     });
+
     expect(releaseConfig).toEqual({
       ageRating: { violenceCartoonOrFantasy: 'NONE', gambling: false },
       categories: { primary: 'PRODUCTIVITY', secondary: 'BUSINESS' },
@@ -118,8 +121,10 @@ function describeReleasePieceSchema() {
   }
 
   it('decodes every supported section', decodesEverySupportedSection);
+
   async function rejectsInvalidPricesAndAgeRatingSettings() {
     const releaseDocument = decodeReleaseDocument({ pricing: { customerPrice: -1 } });
+
     await expect(releaseDocument).rejects.toMatchObject({
       message: expect.stringMatching(/non-negative number/),
     });
@@ -136,10 +141,12 @@ function describeReleasePieceSchema() {
   }
 
   it('rejects invalid prices and age-rating settings', rejectsInvalidPricesAndAgeRatingSettings);
+
   async function rejectsDeprecatedAgeRatingValuesAndAttributesWithTheReplacement() {
     const releaseDocument = decodeReleaseDocument({
       ageRating: { violenceRealistic: 'INFREQUENT_OR_MILD' },
     });
+
     await expect(releaseDocument).rejects.toMatchObject({
       message: expect.stringMatching(
         /violenceRealistic uses deprecated value INFREQUENT_OR_MILD: use INFREQUENT/,
@@ -168,11 +175,13 @@ function describeReleasePieceSchema() {
     'rejects deprecated age-rating values and attributes with the replacement',
     rejectsDeprecatedAgeRatingValuesAndAttributesWithTheReplacement,
   );
+
   async function readsAndDecodesASidecar() {
     const systemTemporaryDirectory = tmpdir();
     const launchReleaseAttrsPath = join(systemTemporaryDirectory, 'launch-release-attrs-');
     const temporaryDirectory = mkdtempSync(launchReleaseAttrsPath);
     const configPath = join(temporaryDirectory, 'release.config.json');
+
     try {
       const serialized = JSON.stringify({ pricing: { customerPrice: 4.99 } });
       writeFileSync(configPath, serialized);
@@ -194,14 +203,17 @@ function describeReleaseReconciliationPreconditions() {
         return Promise.resolve(null);
       }),
     });
+
     await expect(
       reconcile(appleReleaseApi, { pricing: { customerPrice: 9.99 } }),
     ).rejects.toMatchObject({ message: expect.stringMatching(/No App Store Connect app record/) });
   }
 
   it('fails when the app record is missing', failsWhenTheAppPieceIsMissing);
+
   async function touchesOnlyDeclaredSections() {
     const appleReleaseApi = makeReleaseApi();
+
     await reconcile(appleReleaseApi, { pricing: { customerPrice: 4.99 } });
     expect(appleReleaseApi.getAppInfo).not.toHaveBeenCalled();
     expect(appleReleaseApi.findEditableAppStoreVersion).not.toHaveBeenCalled();
@@ -228,6 +240,7 @@ function describeReleaseCategoryReconciliation() {
     const reconciliationReport = await reconcile(appleReleaseApi, {
       categories: { primary: 'PRODUCTIVITY', secondary: 'BUSINESS' },
     });
+
     expect(appleReleaseApi.updateAppInfoCategories).toHaveBeenCalledWith('info1', {
       secondaryCategoryId: 'BUSINESS',
     });
@@ -240,6 +253,7 @@ function describeReleaseCategoryReconciliation() {
   }
 
   it('changes only categories that differ', changesOnlyCategoriesThatDiffer);
+
   async function doesNothingWhenCategoriesPiece() {
     function mockCall2() {
       return Promise.resolve({
@@ -255,11 +269,13 @@ function describeReleaseCategoryReconciliation() {
     const reconciliationReport = await reconcile(appleReleaseApi, {
       categories: { primary: 'GAMES', secondary: 'BUSINESS' },
     });
+
     expect(appleReleaseApi.updateAppInfoCategories).not.toHaveBeenCalled();
     expect(reconciliationReport.actions).toHaveLength(0);
   }
 
   it('does nothing when categories match', doesNothingWhenCategoriesPiece);
+
   async function clearsAStaleSecondaryCategory() {
     function mockCall3() {
       return Promise.resolve({
@@ -275,6 +291,7 @@ function describeReleaseCategoryReconciliation() {
     const reconciliationReport = await reconcile(appleReleaseApi, {
       categories: { primary: 'PRODUCTIVITY' },
     });
+
     expect(appleReleaseApi.updateAppInfoCategories).toHaveBeenCalledWith('info1', {
       secondaryCategoryId: null,
     });
@@ -285,6 +302,7 @@ function describeReleaseCategoryReconciliation() {
   }
 
   it('clears a stale secondary category', clearsAStaleSecondaryCategory);
+
   async function skipsWhenAppPieceIsAbsent() {
     function mockCall4() {
       return Promise.resolve(null);
@@ -296,6 +314,7 @@ function describeReleaseCategoryReconciliation() {
     const reconciliationReport = await reconcile(appleReleaseApi, {
       categories: { primary: 'GAMES' },
     });
+
     expect(reconciliationReport.actions[0]).toMatchObject({ status: 'skipped' });
     expect(appleReleaseApi.updateAppInfoCategories).not.toHaveBeenCalled();
   }
@@ -319,6 +338,7 @@ function describeReleaseAgeRatingReconciliation() {
     const reconciliationReport = await reconcile(appleReleaseApi, {
       ageRating: { violenceCartoonOrFantasy: 'NONE', gambling: true },
     });
+
     expect(appleReleaseApi.updateAgeRatingDeclaration).toHaveBeenCalledWith('age1', {
       gambling: true,
     });
@@ -329,6 +349,7 @@ function describeReleaseAgeRatingReconciliation() {
   }
 
   it('patches only changed answers', patchesOnlyChangedAnswers);
+
   async function skipsWhenTheDeclarationIsAbsent() {
     function mockCall6() {
       return Promise.resolve(null);
@@ -340,6 +361,7 @@ function describeReleaseAgeRatingReconciliation() {
     const reconciliationReport = await reconcile(appleReleaseApi, {
       ageRating: { gambling: true },
     });
+
     expect(reconciliationReport.actions[0]).toMatchObject({ status: 'skipped' });
     expect(appleReleaseApi.updateAgeRatingDeclaration).not.toHaveBeenCalled();
   }
@@ -357,12 +379,14 @@ function describeReleasePricingReconciliation() {
     const appleReleaseApi = makeReleaseApi({
       getCurrentAppPrice: vi.fn(mockCall7),
     });
+
     await reconcile(appleReleaseApi, { pricing: { customerPrice: 9.99 } });
     expect(appleReleaseApi.findAppPricePoint).toHaveBeenCalledWith('app1', 'USA', 9.99);
     expect(appleReleaseApi.createAppPriceSchedule).toHaveBeenCalledWith('app1', 'USA', 'pp1');
   }
 
   it('resolves a price point when the price differs', resolvesAPricePointWhenThePriceDiffers);
+
   async function doesNothingWhenTheCurrentPriceMatches() {
     function mockCall8() {
       return Promise.resolve('9.99');
@@ -374,11 +398,13 @@ function describeReleasePricingReconciliation() {
     const reconciliationReport = await reconcile(appleReleaseApi, {
       pricing: { customerPrice: 9.99 },
     });
+
     expect(appleReleaseApi.createAppPriceSchedule).not.toHaveBeenCalled();
     expect(reconciliationReport.actions).toHaveLength(0);
   }
 
   it('does nothing when the current price matches', doesNothingWhenTheCurrentPriceMatches);
+
   async function recordsAFailedActionWhenNoPricePointMatches() {
     function mockCall9() {
       return Promise.resolve(null);
@@ -390,6 +416,7 @@ function describeReleasePricingReconciliation() {
     const reconciliationReport = await reconcile(appleReleaseApi, {
       pricing: { customerPrice: 12.34 },
     });
+
     expect(reconciliationReport.actions[0]).toMatchObject({ status: 'failed' });
     expect(reconciliationReport.actions[0]?.error).toMatch(/No USA app price point/);
   }
@@ -398,6 +425,7 @@ function describeReleasePricingReconciliation() {
     'records a failed action when no price point matches',
     recordsAFailedActionWhenNoPricePointMatches,
   );
+
   async function plansWithoutWritingDuringADryRun() {
     const appleReleaseApi = makeReleaseApi();
     const reconciliationReport = await reconcile(
@@ -405,6 +433,7 @@ function describeReleasePricingReconciliation() {
       { pricing: { customerPrice: 9.99 } },
       true,
     );
+
     expect(reconciliationReport.actions[0]).toMatchObject({ status: 'planned' });
     expect(appleReleaseApi.findAppPricePoint).not.toHaveBeenCalled();
     expect(appleReleaseApi.createAppPriceSchedule).not.toHaveBeenCalled();
@@ -417,6 +446,7 @@ describe('release pricing reconciliation', describeReleasePricingReconciliation)
 function describeReleaseReviewDetailReconciliation() {
   async function createsMissingDetailsWithEveryDeclaredField() {
     const appleReleaseApi = makeReleaseApi();
+
     await reconcile(appleReleaseApi, {
       reviewDetails: {
         contactEmail: 'a@b.co',
@@ -433,8 +463,10 @@ function describeReleaseReviewDetailReconciliation() {
     'creates missing details with every declared field',
     createsMissingDetailsWithEveryDeclaredField,
   );
+
   async function updatesChangedFieldsWithoutRenderingADemoPassword() {
     const demoPassword = ['demo', 'review', 'pw'].join('-');
+
     function mockCall10() {
       return Promise.resolve({
         id: 'rd1',
@@ -452,6 +484,7 @@ function describeReleaseReviewDetailReconciliation() {
         demoAccountPassword: demoPassword,
       },
     });
+
     expect(appleReleaseApi.updateAppStoreReviewDetail).toHaveBeenCalledWith('rd1', {
       contactEmail: 'new@b.co',
       demoAccountPassword: demoPassword,
@@ -464,10 +497,13 @@ function describeReleaseReviewDetailReconciliation() {
     'updates changed fields without rendering a demo password',
     updatesChangedFieldsWithoutRenderingADemoPassword,
   );
+
   async function resolvesAnEnvironmentPasswordOnlyWhileApplying() {
     const environmentVariableName = 'LAUNCH_TEST_REVIEW_PW';
     const storedSecret = ['env', 'review', 'pw'].join('-');
+
     vi.stubEnv(environmentVariableName, storedSecret);
+
     const appleReleaseApi = makeReleaseApi();
     const reconciliationReport = await reconcile(appleReleaseApi, {
       reviewDetails: {
@@ -475,6 +511,7 @@ function describeReleaseReviewDetailReconciliation() {
         demoAccountPassword: `env:${environmentVariableName}`,
       },
     });
+
     expect(appleReleaseApi.createAppStoreReviewDetail).toHaveBeenCalledWith('v1', {
       contactEmail: 'a@b.co',
       demoAccountPassword: storedSecret,
@@ -487,6 +524,7 @@ function describeReleaseReviewDetailReconciliation() {
     'resolves an environment password only while applying',
     resolvesAnEnvironmentPasswordOnlyWhileApplying,
   );
+
   async function doesNotResolvePasswordsDuringADryRun() {
     const appleReleaseApi = makeReleaseApi();
     const reconciliationReport = await reconcile(
@@ -499,11 +537,13 @@ function describeReleaseReviewDetailReconciliation() {
       },
       true,
     );
+
     expect(reconciliationReport.actions[0]).toMatchObject({ status: 'planned' });
     expect(appleReleaseApi.createAppStoreReviewDetail).not.toHaveBeenCalled();
   }
 
   it('does not resolve passwords during a dry run', doesNotResolvePasswordsDuringADryRun);
+
   async function doesNothingWhenReadableFieldsPiece() {
     function mockCall11() {
       return Promise.resolve({ id: 'rd1', attributes: { contactEmail: 'a@b.co' } });
@@ -515,11 +555,13 @@ function describeReleaseReviewDetailReconciliation() {
     const reconciliationReport = await reconcile(appleReleaseApi, {
       reviewDetails: { contactEmail: 'a@b.co' },
     });
+
     expect(appleReleaseApi.updateAppStoreReviewDetail).not.toHaveBeenCalled();
     expect(reconciliationReport.actions).toHaveLength(0);
   }
 
   it('does nothing when readable fields match', doesNothingWhenReadableFieldsPiece);
+
   async function skipsWhenNoEditableVersionExists() {
     function mockCall12() {
       return Promise.resolve(null);
@@ -531,6 +573,7 @@ function describeReleaseReviewDetailReconciliation() {
     const reconciliationReport = await reconcile(appleReleaseApi, {
       reviewDetails: { contactEmail: 'a@b.co' },
     });
+
     expect(reconciliationReport.actions[0]).toMatchObject({ status: 'skipped' });
     expect(appleReleaseApi.createAppStoreReviewDetail).not.toHaveBeenCalled();
   }

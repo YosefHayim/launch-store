@@ -28,15 +28,19 @@ function readPlayReviewsList(commandOptions: PlayReviewsListOptions): PlayReview
     unanswered: commandOptions.unanswered,
     json: commandOptions.json,
   };
+
   if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
+
   if (commandOptions.rating != null) {
     commandInput = { ...commandInput, rating: commandOptions.rating };
   }
+
   if (commandOptions.lang != null) {
     commandInput = { ...commandInput, lang: commandOptions.lang };
   }
+
   return commandInput;
 }
 
@@ -50,15 +54,19 @@ function readPlayReviewsReply(
     reviewId,
     yes: commandOptions.yes,
   };
+
   if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
+
   if (commandOptions.message != null) {
     commandInput = { ...commandInput, message: commandOptions.message };
   }
+
   if (commandOptions.file != null) {
     commandInput = { ...commandInput, file: commandOptions.file };
   }
+
   return commandInput;
 }
 
@@ -67,6 +75,7 @@ export function registerPlayReviewsCommand(program: Command): void {
   const reviewsCommand = program
     .command('play-reviews')
     .description('read Google Play customer reviews and reply from the CLI');
+
   function runList(commandOptions: PlayReviewsListOptions) {
     const playReviewsList = readPlayReviewsList(commandOptions);
     const playReviewsProgram = playReviewsCommandProgram(playReviewsList);
@@ -82,6 +91,7 @@ export function registerPlayReviewsCommand(program: Command): void {
     .option('--lang <bcp47>', 'machine-translate review text into this language (e.g. en-US)')
     .option('--json', 'output machine-readable JSON', false)
     .action(runList);
+
   function runReply(reviewId: string, commandOptions: ReplyOptions) {
     const playReviewsReply = readPlayReviewsReply(reviewId, commandOptions);
     const playReviewsProgram = playReviewsCommandProgram(playReviewsReply);

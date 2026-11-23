@@ -4,13 +4,17 @@ import { registerCredsCommand } from './creds.ts';
 
 function credsCommand() {
   const program = new Command();
+
   registerCredsCommand(program);
+
   function findCommand(command: Command) {
     return command.name() == 'creds';
   }
 
   const creds = program.commands.find(findCommand);
+
   expect(creds).toBeDefined();
+
   return creds;
 }
 function describeRegisterCredsCommandNonInteractiveAppSelector261() {
@@ -20,6 +24,7 @@ function describeRegisterCredsCommandNonInteractiveAppSelector261() {
     }
 
     const longs = credsCommand()?.options.map(readLong);
+
     expect(longs).toContain('--app');
   }
 
@@ -27,12 +32,14 @@ function describeRegisterCredsCommandNonInteractiveAppSelector261() {
     'defines --app so `creds setup --app <name>` no longer errors with "unknown option"',
     definesAppSoCredsSetupAppNameNoLongerErrorsWithUnknownOption,
   );
+
   function keepsAccountAndYesAlongsideAppForAFullyNonInteractiveSetup() {
     function readLong2(option: CommandOption) {
       return option.long;
     }
 
     const longs = credsCommand()?.options.map(readLong2);
+
     expect(longs).toContain('--account');
     expect(longs).toContain('--yes');
   }

@@ -27,10 +27,14 @@ function writeConfig(json: unknown): string {
   const systemTemporaryDirectory = tmpdir();
   const launchAvailPath = join(systemTemporaryDirectory, 'launch-avail-');
   const dir = mkdtempSync(launchAvailPath);
+
   tmpDirs.push(dir);
+
   const path = join(dir, 'availability.config.json');
   const serialized = JSON.stringify(json);
+
   writeFileSync(path, serialized);
+
   return path;
 }
 function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
@@ -42,6 +46,7 @@ function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
     submit: 'app-store-connect',
     configFiles: { availability: configPath },
   };
+
   return {
     config,
     apps: [alpha],
@@ -60,6 +65,7 @@ function describeAvailabilityPlanner() {
       availabilityPlanner,
       makeCtx(ascApiFake, '/no/such/availability.config.json'),
     );
+
     expect(plan.state).toBe('omitted');
   }
 
@@ -67,13 +73,17 @@ function describeAvailabilityPlanner() {
     'omits itself when no availability sidecar is present',
     omitsItselfWhenNoAvailabilitySidecarIsPresent,
   );
+
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(
       availabilityPlanner,
       makeCtx(null, writeConfig({ territories: ['USA'] })),
     );
+
     expect(plan.state).toBe('skipped');
+
     if (plan.state != 'skipped') return;
+
     expect(plan.hint).toMatch(/creds/);
   }
 
@@ -81,16 +91,22 @@ function describeAvailabilityPlanner() {
     'skips with a creds hint when no Apple account is active',
     skipsWithACredsHintWhenNoAppleAccountIsActive,
   );
+
   async function reportsTheTerritoryChangeAFreshPieceWouldApplyTwoWay() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(
       availabilityPlanner,
       makeCtx(ascApiFake, writeConfig({ territories: ['USA'] })),
     );
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.direction).toBe('two-way');
+
     function someA(a: {
       readonly description: string;
       readonly destructive: boolean;
@@ -107,6 +123,7 @@ function describeAvailabilityPlanner() {
     'reports the territory change a fresh config would apply (two-way)',
     reportsTheTerritoryChangeAFreshPieceWouldApplyTwoWay,
   );
+
   async function rendersInSyncWhenLiveAvailabilityAlreadyMatches() {
     const api = makeAscApiFake({
       getAppAvailability: vi.fn().mockResolvedValue({
@@ -119,9 +136,13 @@ function describeAvailabilityPlanner() {
       availabilityPlanner,
       makeCtx(api, writeConfig({ territories: ['USA'], availableInNewTerritories: false })),
     );
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.actions).toHaveLength(0);
   }
 
@@ -129,15 +150,20 @@ function describeAvailabilityPlanner() {
     'renders in sync when live availability already matches',
     rendersInSyncWhenLiveAvailabilityAlreadyMatches,
   );
+
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(
       availabilityPlanner,
       makeCtx(api, writeConfig({ territories: ['USA'] })),
     );
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
   }
 
@@ -145,6 +171,7 @@ function describeAvailabilityPlanner() {
     'captures a missing app record as a per-app error, not a thrown plan',
     capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan,
   );
+
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
     await runPlanner(availabilityPlanner, makeCtx(api, writeConfig({ territories: ['USA'] })));

@@ -4,19 +4,25 @@ import { registerGameCenterCommand } from './game-center.ts';
 function describeRegisterGameCenterCommand() {
   function attachesAGameCenterCommandWithAppPieceDryRunAndYesPiece() {
     const program = new Command();
+
     registerGameCenterCommand(program);
+
     function findRegisteredCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'game-center';
     }
 
     const gameCenterCommand = program.commands.find(findRegisteredCommand);
+
     expect(gameCenterCommand).toBeDefined();
+
     if (gameCenterCommand == null) return;
+
     function readLong(option: CommandOption) {
       return option.long;
     }
 
     const optionFlags = gameCenterCommand.options.map(readLong);
+
     expect(optionFlags).toContain('--app');
     expect(optionFlags).toContain('--config');
     expect(optionFlags).toContain('--dry-run');

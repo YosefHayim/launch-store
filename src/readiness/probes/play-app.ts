@@ -58,6 +58,7 @@ export const playAppProbe = {
   categories: ['account', 'submit'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const apps = androidApps(readinessContext.apps);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {
@@ -65,6 +66,7 @@ export const playAppProbe = {
     }
 
     const appClients = await readPlayClients(readinessContext, apps);
+
     const isEveryClientMissing = appClients.every(isPlayClientMissing);
 
     if (isEveryClientMissing) {

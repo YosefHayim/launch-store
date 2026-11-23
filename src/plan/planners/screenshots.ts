@@ -83,6 +83,7 @@ export const screenshotsPlanner: SurfacePlanner = {
   async plan(planContext: PlanContext) {
     const allJobs = await buildJobs(planContext.apps, planContext.config);
     const jobs = allJobs.filter(hasAssets);
+
     const isNothingDeclared = jobs.length == 0;
 
     if (isNothingDeclared) {

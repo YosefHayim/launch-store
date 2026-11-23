@@ -28,6 +28,7 @@ function readThrownMessage(cause: unknown): string | null {
 
   for (const field of fields) {
     const message = readMessageField(field[0], field[1]);
+
     const hasMessage = message != null;
 
     if (hasMessage) return message;
@@ -53,6 +54,7 @@ function thrownDateMessage(from: string, to: string): string {
     eachDate(from, to);
   } catch (cause) {
     const message = readThrownMessage(cause);
+
     const isMissingMessage = message == null;
 
     if (isMissingMessage) throw new Error('expected a failure');
@@ -68,6 +70,7 @@ function describeDecompressReportParseTsv() {
     const bufferBytes = Buffer.from(tsv, 'utf8');
     const text = decompressReport(gzipSync(bufferBytes));
     const parsed = parseTsv(text);
+
     expect(parsed.headers).toEqual(['Provider', 'Units', 'Proceeds']);
     expect(parsed.rows).toEqual([
       { Provider: 'APPLE', Units: '10', Proceeds: '6.99' },
@@ -79,6 +82,7 @@ function describeDecompressReportParseTsv() {
     'decompresses a gzipped TSV and parses it into header-keyed rows',
     decompressesAGzippedTSVAndParsesItIntoHeaderKeyedRows,
   );
+
   function toleratesCRLFEndingsAndPadsShortRowsToEveryHeader() {
     const parsed = parseTsv('A\tB\tC\r\n1\t2\r\n');
     expect(parsed.rows).toEqual([{ A: '1', B: '2', C: '' }]);
@@ -88,6 +92,7 @@ function describeDecompressReportParseTsv() {
     'tolerates CRLF endings and pads short rows to every header',
     toleratesCRLFEndingsAndPadsShortRowsToEveryHeader,
   );
+
   function returnsEmptyForAnEmptyReport() {
     const tsv = parseTsv('');
     expect(tsv).toEqual({ headers: [], rows: [] });
@@ -107,16 +112,19 @@ function describeEachDate() {
   }
 
   it('yields every date in an inclusive range', yieldsEveryDateInAnInclusiveRange);
+
   function yieldsASingleDateWhenFromTo() {
     expect(eachDate('2026-06-01', '2026-06-01')).toEqual(['2026-06-01']);
   }
 
   it('yields a single date when from == to', yieldsASingleDateWhenFromTo);
+
   function crossesAMonthBoundaryCorrectly() {
     expect(eachDate('2026-01-31', '2026-02-01')).toEqual(['2026-01-31', '2026-02-01']);
   }
 
   it('crosses a month boundary correctly', crossesAMonthBoundaryCorrectly);
+
   function failsOnAnInvertedRangeAMalformedDateAndAnOutOfRangeDate() {
     expect(thrownDateMessage('2026-06-03', '2026-06-01')).toMatch(/before start/);
     expect(thrownDateMessage('nope', '2026-06-01')).toMatch(/Invalid date/);
@@ -146,8 +154,11 @@ function fixtureEntries<Entry>(
   parentId: string,
 ): Entry[] {
   if (entriesByParent == null) return [];
+
   const entries = entriesByParent[parentId];
+
   if (entries == null) return [];
+
   return entries;
 }
 
@@ -155,13 +166,17 @@ function fixtureEntries<Entry>(
 function makeApi(fixtures: ReportsApiFixtures): AscReportsApi {
   function mockCall(bundleId: string) {
     if (fixtures.appId == null) return Promise.resolve(null);
+
     const appId = fixtures.appId[bundleId];
+
     if (appId == null) return Promise.resolve(null);
+
     return Promise.resolve(appId);
   }
 
   function mockCall2() {
     if (fixtures.requests == null) return Promise.resolve([]);
+
     return Promise.resolve(fixtures.requests);
   }
 
@@ -194,6 +209,7 @@ function describeEnsureAnalyticsRequest() {
   async function reusesAnExistingActiveRequestInsteadOfCreatingOne() {
     const api = makeApi({ requests: [{ id: 'req1', accessType: 'ONGOING' }] });
     const { request, created } = await ensureAnalyticsRequest(api, 'app1', 'ONGOING');
+
     expect(created).toBe(false);
     expect(request.id).toBe('req1');
     expect(api.createAnalyticsReportRequest).not.toHaveBeenCalled();
@@ -203,11 +219,13 @@ function describeEnsureAnalyticsRequest() {
     'reuses an existing active request instead of creating one',
     reusesAnExistingActiveRequestInsteadOfCreatingOne,
   );
+
   async function skipsARequestStoppedForInactivityAndCreatesAFreshOne() {
     const api = makeApi({
       requests: [{ id: 'stale', accessType: 'ONGOING', stoppedDueToInactivity: true }],
     });
     const { request, created } = await ensureAnalyticsRequest(api, 'app1', 'ONGOING');
+
     expect(created).toBe(true);
     expect(request.id).toBe('new-req');
   }
@@ -227,6 +245,7 @@ function describeCollectAnalyticsSegments() {
       accessType: 'ONGOING',
       granularity: 'DAILY',
     });
+
     await expect(analyticsSegments).rejects.toThrow(/No App Store Connect app record/);
   }
 
@@ -234,6 +253,7 @@ function describeCollectAnalyticsSegments() {
     'throws an actionable error when the app record is missing',
     throwsAnActionableErrorWhenTheAppPieceIsMissing,
   );
+
   async function signalsAFreshlyCreatedRequestWithNoPieceYet() {
     const api = makeApi({ appId: { 'com.x': 'app1' }, requests: [] });
     const analyticsCollection = await collectAnalyticsSegments(api, {
@@ -241,6 +261,7 @@ function describeCollectAnalyticsSegments() {
       accessType: 'ONGOING',
       granularity: 'DAILY',
     });
+
     expect(analyticsCollection).toEqual({ requestCreated: true, reportCount: 0, downloads: [] });
   }
 
@@ -248,6 +269,7 @@ function describeCollectAnalyticsSegments() {
     'signals a freshly-created request with no data yet',
     signalsAFreshlyCreatedRequestWithNoPieceYet,
   );
+
   async function walksRequestReportsInstancesSegmentsAndFlattensWithPiece() {
     const api = makeApi({
       appId: { 'com.x': 'app1' },
@@ -265,6 +287,7 @@ function describeCollectAnalyticsSegments() {
       granularity: 'DAILY',
       processingDate: '2026-06-01',
     });
+
     expect(analyticsCollection.requestCreated).toBe(false);
     expect(analyticsCollection.reportCount).toBe(1);
     expect(analyticsCollection.downloads).toEqual([

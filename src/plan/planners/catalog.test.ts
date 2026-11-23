@@ -93,6 +93,7 @@ function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
     createVersionLocalization: vi.fn().mockResolvedValue(undefined),
     updateVersionLocalization: vi.fn().mockResolvedValue(undefined),
   };
+
   return { ...base, ...overrides };
 }
 const PRODUCTS: AppProducts = {
@@ -124,7 +125,9 @@ function makeCtx(
     submit: 'app-store-connect',
   };
   let config = baseConfig;
+
   if (Object.keys(products).length > 0) config = { ...baseConfig, products };
+
   return {
     config,
     apps: [alpha],
@@ -132,6 +135,7 @@ function makeCtx(
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
     resolveAscApi() {
       if (api == null) return Promise.resolve(null);
+
       const ascApiFake = makeAscApiFake(api);
       return Promise.resolve(ascApiFake);
     },
@@ -148,10 +152,14 @@ function describeCatalogPlanner() {
   }
 
   it('omits itself when no app declares a catalog', omitsItselfWhenNoAppDeclaresACatalog);
+
   async function skipsWithAnActionableHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(catalogPlanner, makeCtx(null, { 'com.acme.alpha': PRODUCTS }));
+
     expect(plan.state).toBe('skipped');
+
     if (plan.state != 'skipped') return;
+
     expect(plan.reason).toMatch(/Apple account/);
     expect(plan.hint).toMatch(/creds/);
   }
@@ -160,14 +168,20 @@ function describeCatalogPlanner() {
     'skips with an actionable hint when no Apple account is active',
     skipsWithAnActionableHintWhenNoAppleAccountIsActive,
   );
+
   async function reportsThePerAppDiffAFreshCatalogWouldCreate() {
     const api = makeApi();
     const plan = await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
+
     function someA(a: {
       readonly description: string;
       readonly destructive: boolean;
@@ -184,12 +198,17 @@ function describeCatalogPlanner() {
     'reports the per-app diff a fresh catalog would create',
     reportsThePerAppDiffAFreshCatalogWouldCreate,
   );
+
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   }
@@ -198,8 +217,10 @@ function describeCatalogPlanner() {
     'captures a missing app record as a per-app error, not a thrown plan',
     capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan,
   );
+
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeApi();
+
     await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
     expect(api.getAppId).toHaveBeenCalled();
     expect(api.listInAppPurchases).toHaveBeenCalled();

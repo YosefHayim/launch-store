@@ -195,6 +195,7 @@ async function importSubscriptionGroup(
 
   const subscriptionCandidates = await Promise.all(subscriptions.map(importGroupSubscription));
   const importedSubscriptions = subscriptionCandidates.filter(isImportedSubscription);
+
   const hasNoLevels = importedSubscriptions.length == 0;
 
   if (hasNoLevels) {
@@ -219,6 +220,7 @@ async function importSubscriptionGroup(
     bundleId,
     piece: { type: 'subscriptionGroup' as const, group: groupConfig },
   };
+
   const hasUnimportedPrices = unimportedPriceIds.length > 0;
 
   if (hasUnimportedPrices) {

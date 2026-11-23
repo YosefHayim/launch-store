@@ -28,7 +28,9 @@ function makeCtx(
     submit: 'app-store-connect',
   };
   let config = baseConfig;
+
   if (appClips) config = { ...baseConfig, appClips };
+
   return {
     config,
     apps: [alpha],
@@ -48,10 +50,14 @@ function describeAppClipsPlanner() {
   }
 
   it('omits itself when no app declares App Clips', omitsItselfWhenNoAppDeclaresAppClips);
+
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(appClipsPlanner, makeCtx(null, DECLARED));
+
     expect(plan.state).toBe('skipped');
+
     if (plan.state != 'skipped') return;
+
     expect(plan.hint).toMatch(/creds/);
   }
 
@@ -59,24 +65,34 @@ function describeAppClipsPlanner() {
     'skips with a creds hint when no Apple account is active',
     skipsWithACredsHintWhenNoAppleAccountIsActive,
   );
+
   async function reportsAnAdditivePlanForTheDeclaredClip() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(appClipsPlanner, makeCtx(ascApiFake, DECLARED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.direction).toBe('additive');
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
     expect(plan.apps[0]?.actions.length).toBeGreaterThan(0);
   }
 
   it('reports an additive plan for the declared clip', reportsAnAdditivePlanForTheDeclaredClip);
+
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(appClipsPlanner, makeCtx(api, DECLARED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
   }
 
@@ -84,6 +100,7 @@ function describeAppClipsPlanner() {
     'captures a missing app record as a per-app error, not a thrown plan',
     capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan,
   );
+
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
     await runPlanner(appClipsPlanner, makeCtx(api, DECLARED));

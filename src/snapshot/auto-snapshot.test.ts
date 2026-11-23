@@ -29,6 +29,7 @@ function snapshotContext(over: Partial<SnapshotContext> = {}): SnapshotContext {
 }
 function describeCaptureAutoSnapshot() {
   let dir: string;
+
   function prepareCaptureAutoSnapshot() {
     const systemTemporaryDirectory = tmpdir();
     const launchAutoSnapPath = join(systemTemporaryDirectory, 'launch-auto-snap-');
@@ -36,15 +37,18 @@ function describeCaptureAutoSnapshot() {
   }
 
   beforeEach(prepareCaptureAutoSnapshot);
+
   function cleanupCaptureAutoSnapshot() {
     rmSync(dir, { recursive: true, force: true });
   }
 
   afterEach(cleanupCaptureAutoSnapshot);
+
   async function savesAReservedPrefixBaselineEvenWhenNoStoreIsConfigured() {
     const capturedAt = '2026-06-17T08:00:00.000Z';
     const snapshot = snapshotContext();
     const savedSnapshot = await captureAutoSnapshot(snapshot, { capturedAt, dir });
+
     expect(savedSnapshot.name).toBe(autoSnapshotName(capturedAt));
     expect(savedSnapshot.name.startsWith(AUTO_SNAPSHOT_PREFIX)).toBe(true);
     expect(savedSnapshot.pruned).toEqual([]);
@@ -55,18 +59,22 @@ function describeCaptureAutoSnapshot() {
     'saves a reserved-prefix baseline even when no store is configured',
     savesAReservedPrefixBaselineEvenWhenNoStoreIsConfigured,
   );
+
   async function prunesOlderBaselinesBeyondTheRetentionWindow() {
     const snapshot = snapshotContext();
+
     await captureAutoSnapshot(snapshot, {
       capturedAt: '2026-06-15T00:00:00.000Z',
       keep: 1,
       dir,
     });
+
     const second = await captureAutoSnapshot(snapshotContext(), {
       capturedAt: '2026-06-16T00:00:00.000Z',
       keep: 1,
       dir,
     });
+
     expect(second.pruned).toEqual([autoSnapshotName('2026-06-15T00:00:00.000Z')]);
     expect(readdirSync(dir)).toHaveLength(1);
   }

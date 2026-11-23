@@ -78,6 +78,7 @@ export function makeHttpClientSequenceTest(
 
   function answer(call: HttpClientSentRequest): Response {
     const routeKey = `${call.method} ${call.url}`;
+
     sentRequests.push(call);
 
     const requestedRoute = findRoute(routes, call.method, call.url);
@@ -87,7 +88,9 @@ export function makeHttpClientSequenceTest(
     }
 
     const answeredCount = readAnsweredCount(answeredCounts, routeKey);
+
     answeredCounts.set(routeKey, answeredCount + 1);
+
     const reply = readReply(requestedRoute, answeredCount, routeKey);
     const replyDocument = JSON.stringify(reply.document);
 

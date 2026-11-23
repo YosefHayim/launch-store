@@ -52,6 +52,7 @@ export function registerReleaseCommand(program: Command): void {
       'stream progress as NDJSON events on stdout and end with one result line (never prompts)',
       false,
     );
+
   function runCommand(platformArgument: string, commandOptions: ReleaseCommandOptions) {
     function startRelease(): ReturnType<typeof releaseCommandProgram> {
       return releaseCommandProgram(platformArgument, commandOptions);

@@ -529,6 +529,7 @@ async function discoverApps(root: string, maxDepth = 4): Promise<AppDescriptor[]
       }
 
       const childPath = join(directory, entryName);
+
       const childIsDirectory = await directoryIsFolder(childPath);
 
       if (childIsDirectory) {

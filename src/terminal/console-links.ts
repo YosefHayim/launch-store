@@ -205,6 +205,7 @@ export async function selectOpenApp(
   }
 
   let identifierLabel = 'android.package';
+
   const isIosPlatform = platform == 'ios';
 
   if (isIosPlatform) {
@@ -212,6 +213,7 @@ export async function selectOpenApp(
   }
 
   let selectorDetails = '';
+
   const hasAppSelector = appSelector != null;
 
   if (hasAppSelector) {

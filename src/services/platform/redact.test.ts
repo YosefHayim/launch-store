@@ -18,6 +18,7 @@ function describeRedactLine() {
     'masks secret-looking assignments but leaves publishable ones',
     masksSecretLookingAssignmentsButLeavesPublishableOnes,
   );
+
   function stripsJWTsBearerTokensAndAWSAccessKeys() {
     expect(redactLine('auth eyJhbGciOi.eyJpayload1.sigsigsig done')).toContain('[redacted-jwt]');
     expect(redactLine('Authorization: Bearer abc.def-ghi')).toBe('Authorization: Bearer ***');
@@ -25,6 +26,7 @@ function describeRedactLine() {
   }
 
   it('strips JWTs, bearer tokens, and AWS access keys', stripsJWTsBearerTokensAndAWSAccessKeys);
+
   function leavesOrdinaryBuildPieceUntouched() {
     expect(redactLine('▸ Compiling main.m')).toBe('▸ Compiling main.m');
     expect(redactLine('> Task :app:bundleRelease')).toBe('> Task :app:bundleRelease');
@@ -41,6 +43,7 @@ function describeRedactPiece() {
     function fence(edge: 'BEGIN' | 'END'): string {
       return ['-----', edge, ' PRIVATE KEY-----'].join('');
     }
+
     const log = [
       'before the key',
       fence('BEGIN'),
@@ -50,6 +53,7 @@ function describeRedactPiece() {
       'after the key',
     ].join('\n');
     const out = redactText(log);
+
     expect(out).toContain('before the key');
     expect(out).toContain('after the key');
     expect(out).toContain('[redacted-key-material]');
@@ -66,6 +70,7 @@ describe('redactText', describeRedactPiece);
 function describeMakeLogRedactor() {
   function showsTheErrorLinesThatFollowAPEMBlockThatNeverCloses() {
     const redactOutputLine = makeLogRedactor();
+
     function mapLine(line: string) {
       return redactOutputLine(line);
     }

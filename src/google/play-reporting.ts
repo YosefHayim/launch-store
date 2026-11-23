@@ -44,7 +44,9 @@ function shiftIsoDate(iso: string, delta: number): string {
 /** DAILY query window of `days` inclusive days ending at `latestDate` (metric-set freshness */
 export function vitalsWindowFromLatestDate(latestDate: string | null, days: number): VitalsWindow {
   let endDate = new Date().toISOString().slice(0, 10);
+
   if (latestDate != null) endDate = latestDate;
+
   return { startDate: shiftIsoDate(endDate, -(days - 1)), endDate };
 }
 /** Render a Google `DateTime`'s date part as ISO `YYYY-MM-DD`, or undefined when the date is incomplete. */
@@ -52,12 +54,17 @@ function dateTimeToIso(
   date: playdeveloperreporting_v1beta1.Schema$GoogleTypeDateTime | undefined,
 ): string | undefined {
   if (date == null) return;
+
   if (typeof date.year != 'number') return;
+
   if (typeof date.month != 'number') return;
+
   if (typeof date.day != 'number') return;
+
   function pad(n: number): string {
     return String(n).padStart(2, '0');
   }
+
   return `${date.year}-${pad(date.month)}-${pad(date.day)}`;
 }
 /** Split an ISO `YYYY-MM-DD` string into the `{ year, month, day }` the API's `timelineSpec` wants. */
@@ -70,9 +77,13 @@ function isoToDateParts(iso: string): {
   let year = 0;
   let month = 0;
   let day = 0;
+
   if (typeof dateSegments[0] == 'number') year = dateSegments[0];
+
   if (typeof dateSegments[1] == 'number') month = dateSegments[1];
+
   if (typeof dateSegments[2] == 'number') day = dateSegments[2];
+
   return { year, month, day };
 }
 /** Parse a metric's string value to a number, or undefined when the column is absent/unparseable. */
@@ -87,9 +98,13 @@ function metricNumber(
   }
 
   const encodedValue = metricEntry.metrics?.find(findMetric)?.decimalValue?.value;
+
   if (typeof encodedValue != 'string') return;
+
   const metricValue = Number(encodedValue);
+
   if (Number.isNaN(metricValue)) return;
+
   return metricValue;
 }
 function isListed<Row>(candidate: readonly Row[] | null | undefined): candidate is readonly Row[] {
@@ -121,7 +136,9 @@ function createAppsSearchRequest(
   pageToken: string | undefined,
 ): playdeveloperreporting_v1beta1.Params$Resource$Apps$Search {
   const isFirstPage = pageToken == null;
+
   if (isFirstPage) return { pageSize: PLAY_APPS_PAGE_SIZE };
+
   return { pageSize: PLAY_APPS_PAGE_SIZE, pageToken };
 }
 
@@ -130,8 +147,11 @@ function readDisplayName(
   packageName: string,
 ): string {
   const displayName = googleApp.displayName;
+
   const hasDisplayName = typeof displayName == 'string';
+
   if (hasDisplayName) return displayName;
+
   return packageName;
 }
 
@@ -139,13 +159,19 @@ function listReadableApps(
   googleApps: readonly playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1App[],
 ): PlayReportingApp[] {
   const readableApps: PlayReportingApp[] = [];
+
   for (const googleApp of googleApps) {
     const packageName = googleApp.packageName;
+
     const hasPackageName = typeof packageName == 'string';
+
     if (!hasPackageName) continue;
+
     const displayName = readDisplayName(googleApp, packageName);
+
     readableApps.push({ packageName, displayName: displayName });
   }
+
   return readableApps;
 }
 
@@ -169,10 +195,12 @@ export class PlayReportingClient {
       this.reporting = generatedReporting;
       return;
     }
+
     const serviceAccountJwt = serviceAccountJwtOptions(account, [
       'https://www.googleapis.com/auth/playdeveloperreporting',
     ]);
     const googleAuthentication = new playReportingAuth.JWT(serviceAccountJwt);
+
     this.reporting = playdeveloperreporting({
       version: 'v1beta1',
       auth: googleAuthentication,
@@ -190,6 +218,7 @@ export class PlayReportingClient {
       return completedRequest.data;
     } catch (cause) {
       let failureText = String(cause);
+
       const isError = cause instanceof Error;
 
       if (isError) {
@@ -197,6 +226,7 @@ export class PlayReportingClient {
       }
 
       const playErrors = describePlayErrors(failureText);
+
       throw makePlayReportingApiError({
         operation,
         message: `Play Developer Reporting ${operation} failed: ${playErrors}`,
@@ -204,6 +234,11 @@ export class PlayReportingClient {
       });
     }
   }
+  /**
+   * Searches for Apps accessible by the user.
+   *
+   * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/apps/search
+   */
   async listApps(): Promise<PlayReportingApp[]> {
     const apps: PlayReportingApp[] = [];
     let pageToken: string | undefined;
@@ -214,6 +249,7 @@ export class PlayReportingClient {
         this.reporting.apps.search(searchRequest),
       );
       const googleApps = appsPage.apps;
+
       const hasGoogleApps = Array.isArray(googleApps);
 
       if (hasGoogleApps) {
@@ -226,7 +262,12 @@ export class PlayReportingClient {
 
     return apps;
   }
-  /** Read the latest DAILY day Google has finished aggregating for a metric set */
+  /**
+   * Read the latest DAILY day Google has finished aggregating for a metric set.
+   *
+   * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.crashrate/get
+   * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.anrrate/get
+   */
   async latestDailyDate(packageName: string, metric: PlayVitalsMetric): Promise<string | null> {
     const { resource } = METRIC_SETS[metric];
     const name = `apps/${packageName}/${resource}`;
@@ -246,6 +287,7 @@ export class PlayReportingClient {
         );
         break;
     }
+
     function findFreshness(
       freshness: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1FreshnessInfoFreshness,
     ) {
@@ -261,7 +303,12 @@ export class PlayReportingClient {
 
     return null;
   }
-  /** Fetch one vital's full DAILY timeline */
+  /**
+   * Fetch one vital's full DAILY timeline.
+   *
+   * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.crashrate/query
+   * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.anrrate/query
+   */
   async vitalsTimeline(
     packageName: string,
     metric: PlayVitalsMetric,
@@ -272,15 +319,28 @@ export class PlayReportingClient {
     const rows = await this.queryVitals(metric, packageName, window);
     return { metric, window, rows };
   }
-  /** Query the crash-rate metric set over a DAILY window, returning normalized rows. */
+  /**
+   * Query the crash-rate metric set over a DAILY window, returning normalized rows.
+   *
+   * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.crashrate/query
+   */
   async queryCrashRate(packageName: string, window: VitalsWindow): Promise<PlayVitalsRow[]> {
     return this.queryVitals('crash', packageName, window);
   }
-  /** Query the ANR-rate metric set over a DAILY window, returning normalized rows. */
+  /**
+   * Query the ANR-rate metric set over a DAILY window, returning normalized rows.
+   *
+   * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.anrrate/query
+   */
   async queryAnrRate(packageName: string, window: VitalsWindow): Promise<PlayVitalsRow[]> {
     return this.queryVitals('anr', packageName, window);
   }
-  /** Query one metric set over a DAILY window and normalize every row */
+  /**
+   * Query one metric set over a DAILY window and normalize every row.
+   *
+   * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.crashrate/query
+   * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.anrrate/query
+   */
   private async queryVitals(
     metric: PlayVitalsMetric,
     packageName: string,
@@ -300,6 +360,7 @@ export class PlayReportingClient {
           },
           metrics: [metricSet.rate, metricSet.userPerceivedRate, metricSet.distinctUsers],
         };
+
       if (pageToken != null) {
         queryRequest.pageToken = pageToken;
       }
@@ -355,6 +416,7 @@ export class PlayReportingClient {
 
       pageToken = nonEmptyPageToken(metricPage.nextPageToken);
     } while (pageToken != null);
+
     function sortLeftPiece(
       leftEntry: {
         readonly metric: PlayVitalsMetric;
@@ -375,6 +437,7 @@ export class PlayReportingClient {
     }
 
     entries.sort(sortLeftPiece);
+
     return entries;
   }
 }

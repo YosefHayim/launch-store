@@ -49,6 +49,7 @@ export function writeStatsMonthFiles(
   }
 
   const months = [...new Set(stats.map(mapDailyStat))];
+
   for (const month of months) {
     function filterDailyStat(dailyStat: DailyStat) {
       return dailyStat.date.startsWith(month);
@@ -56,6 +57,7 @@ export function writeStatsMonthFiles(
 
     const monthStats = stats.filter(filterDailyStat);
     const serialized = JSON.stringify({ version: 1, appKey, month, stats: monthStats });
+
     writeLaunchHomeFile(homeDirectory, `stats/${appKey}/${month}.json`, serialized);
   }
 }

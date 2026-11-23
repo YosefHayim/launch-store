@@ -78,6 +78,7 @@ export function findAppStream(
 function createPageUrl(listUrl: string, pageSize: number, pageToken: string | null): string {
   const pageUrl = new URL(listUrl);
   const asString = String(pageSize);
+
   pageUrl.searchParams.set('pageSize', asString);
 
   if (pageToken != null) {

@@ -114,6 +114,7 @@ export async function uploadSigningMaterial(
     const plistLocal = join(stagingDirectory, 'ExportOptions.plist');
 
     const exportPlist = exportOptionsPlist(readSigningAssets(inputs.signing));
+
     await writeFile(plistLocal, exportPlist);
     await scpUp(session.target, inputs.signing.p12Path, `${credentialsDirectory}/dist.p12`);
     await scpUp(
@@ -161,6 +162,7 @@ export function remoteBuildEnvironment(
     FORCE_CLEAN: '0',
     PREBUILD_ALWAYS: '0',
   };
+
   const shouldForceClean = inputs.forceClean == true;
 
   if (shouldForceClean) {
@@ -263,6 +265,7 @@ export async function pullArtifact(
       shellQuote(`${session.workDirectory}/out/App Thinning Size Report.txt`),
       reportPath,
     );
+
     const reportText = await readFile(reportPath, 'utf8');
 
     entries = parseThinningReport(reportText);

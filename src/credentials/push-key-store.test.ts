@@ -25,7 +25,9 @@ function prepare() {
   secrets.clear();
   useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
   useSecretStore(secrets);
+
   const pushKeysFilePath = resolvePushKeysFilePath();
+
   rmSync(pushKeysFilePath, { force: true });
 }
 
@@ -43,9 +45,13 @@ function describePushKeyVault() {
 
     expect(secrets.get('apns-p8:ABC123DEFG')).toBeDefined();
     expect(secrets.get('apns-p8:ABC123DEFG')).not.toContain('\n');
+
     const pushKey = await loadPushKey('ABC123DEFG');
+
     expect(pushKey).toBe(PEM);
+
     const pushKeys = await listPushKeys();
+
     expect(pushKeys[0]).toMatchObject({
       keyId: 'ABC123DEFG',
       teamId: 'TEAM1',
@@ -58,11 +64,13 @@ function describePushKeyVault() {
     'imports a key, vaults the secret namespaced, and round-trips the PEM',
     importsAKeyVaultsTheSecretNamespacedAndRoundTripsThePEM,
   );
+
   async function reImportingTheSameKeyIDUpdatesInPlaceAndKeepsTheOriginalImportedAt() {
     const first = await importPushKey({ keyId: 'ABC123DEFG', p8: PEM, label: 'Old' });
     const second = await importPushKey({ keyId: 'ABC123DEFG', p8: PEM, label: 'New' });
 
     const pushKeys = await listPushKeys();
+
     expect(pushKeys).toHaveLength(1);
     expect((await listPushKeys())[0]?.label).toBe('New');
     expect(second.importedAt).toBe(first.importedAt);
@@ -72,10 +80,12 @@ function describePushKeyVault() {
     're-importing the same Key ID updates in place and keeps the original importedAt',
     reImportingTheSameKeyIDUpdatesInPlaceAndKeepsTheOriginalImportedAt,
   );
+
   async function findsAVaultedKeyCaseInsensitivelyAndReturnsNullForAMissingSecret() {
     await importPushKey({ keyId: 'ABC123DEFG', p8: PEM });
 
     const pushKey = await findPushKey('abc123defg');
+
     expect(pushKey?.keyId).toBe('ABC123DEFG');
     expect(await findPushKey('NOPE')).toBeUndefined();
     expect(await loadPushKey('NOPE')).toBeNull();

@@ -14,10 +14,15 @@ function planCommandInput(
   commandOptions: PlanOptions,
 ): PlanCommandInput {
   let check = commandOptions.check == true;
+
   if (operation == 'drift') check = true;
+
   let commandInput: PlanCommandInput = { operation, check, json: commandOptions.json };
+
   if (surfaceName != null) commandInput = { ...commandInput, surface: surfaceName };
+
   if (commandOptions.app != null) commandInput = { ...commandInput, app: commandOptions.app };
+
   return commandInput;
 }
 
@@ -41,6 +46,7 @@ export function registerPlanCommand(program: Command): void {
     )
     .option('--json', 'machine-readable output for CI/agents', false)
     .action(runPlanSurface);
+
   function runDriftSurface(surfaceName: string | undefined, commandOptions: PlanOptions) {
     const planCommand = planCommandInput('drift', surfaceName, commandOptions);
     const planProgram = planCommandProgram(planCommand);

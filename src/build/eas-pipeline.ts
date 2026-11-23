@@ -27,6 +27,7 @@ export async function runEasBuild(
 
   if (isDryRun) {
     log.step('eas', 'would run `eas build --platform ios --profile <p> --json --wait`');
+
     const shouldSubmit = buildOptions.submit == true;
 
     if (shouldSubmit) {
@@ -35,18 +36,25 @@ export async function runEasBuild(
 
     log.gap();
     log.note(`Done. ${app.name} ${appVersion} - dry-run (EAS handoff), nothing changed`);
+
     return;
   }
 
   const easProvider = getHostedBuildProvider('eas');
   const cliDescription = await easProvider.describeCli();
+
   log.step('eas-cli', cliDescription, 'eas-handoff');
+
   const sessionDescription = await easProvider.authenticate();
+
   log.step('expo session', sessionDescription);
   log.note("Building in Expo's cloud (eas build)...");
+
   const built = await easProvider.build(buildContext, profile.name);
+
   log.step('build', built.artifactPath);
   await reportSize(built.sizeReport, log);
+
   const artifact: BuildArtifact = {
     path: built.artifactPath,
     platform: 'ios',
@@ -61,11 +69,14 @@ export async function runEasBuild(
   };
   const storageProvider = await resolveStorageProvider(launchConfig);
   const stored = await storageProvider.put(artifact);
+
   log.step('store', stored.location);
+
   const shouldSubmit = buildOptions.submit == true;
 
   if (shouldSubmit) {
     const sizeBudgetMB = resolveSizeBudgetMB(buildOptions, profile);
+
     await confirmUpload({
       report: built.sizeReport,
       budgetMB: sizeBudgetMB,

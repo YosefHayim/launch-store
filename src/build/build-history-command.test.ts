@@ -41,6 +41,7 @@ function describeBuildIdStableProviderIndependentIdFromNaturalKeys() {
   }
 
   it('joins app, version, build number, and platform', joinsAppVersionBuildNumberAndPlatform);
+
   function ignoresTheStoragePathAndFileExtension() {
     expect(buildId(artifact({ path: '/elsewhere/whatever.aab' }))).toBe('demo-1.0.0-7-ios');
   }
@@ -65,6 +66,7 @@ function describeToBuildPiece() {
         },
       }),
     );
+
     expect(tableRow.downloadBytes).toBe(47 * MB);
     expect(tableRow.artifactBytes).toBe(61 * MB);
     expect(tableRow.id).toBe('demo-1.0.0-7-ios');
@@ -82,21 +84,25 @@ function describeFilterBuilds() {
   const android = artifact({ appName: 'demo', platform: 'android', path: '/a/demo.aab' });
   const other = artifact({ appName: 'other', platform: 'ios' });
   const all = [ios, android, other];
+
   function returnsEverythingWhenNoFilterIsSet() {
     expect(filterBuilds(all, {})).toEqual(all);
   }
 
   it('returns everything when no filter is set', returnsEverythingWhenNoFilterIsSet);
+
   function filtersByApp() {
     expect(filterBuilds(all, { app: 'demo' })).toEqual([ios, android]);
   }
 
   it('filters by app', filtersByApp);
+
   function filtersByPlatform() {
     expect(filterBuilds(all, { platform: 'android' })).toEqual([android]);
   }
 
   it('filters by platform', filtersByPlatform);
+
   function filtersByAppAndPlatformTogether() {
     expect(filterBuilds(all, { app: 'demo', platform: 'ios' })).toEqual([ios]);
   }
@@ -109,30 +115,35 @@ function describeFindBuild() {
   const newest = artifact({ buildNumber: 9, version: '1.1.0' });
   const older = artifact({ buildNumber: 7, version: '1.0.0' });
   const history = [newest, older];
+
   function resolvesLatestToTheNewestBuild() {
     const buildProgram = findBuild(history, 'latest');
     expect(buildProgram).toBe(newest);
   }
 
   it('resolves `latest` to the newest build', resolvesLatestToTheNewestBuild);
+
   function matchesAFullBuildId() {
     const buildProgram = findBuild(history, 'demo-1.0.0-7-ios');
     expect(buildProgram).toBe(older);
   }
 
   it('matches a full build id', matchesAFullBuildId);
+
   function matchesABareBuildNumber() {
     const buildProgram = findBuild(history, '9');
     expect(buildProgram).toBe(newest);
   }
 
   it('matches a bare build number', matchesABareBuildNumber);
+
   function returnsUndefinedOnAMiss() {
     const buildProgram = findBuild(history, 'nope');
     expect(buildProgram).toBeUndefined();
   }
 
   it('returns undefined on a miss', returnsUndefinedOnAMiss);
+
   function returnsUndefinedForLatestAgainstAnEmptyHistory() {
     const buildProgram = findBuild([], 'latest');
     expect(buildProgram).toBeUndefined();
@@ -154,6 +165,7 @@ function describeBuildKindLabelBuildsLabel() {
   }
 
   it('labels pruned, clean, and incremental builds', labelsPrunedCleanAndIncrementalBuilds);
+
   function pluralizesBuildCountsForPruneAndListSummaries() {
     expect(buildsLabel(0)).toBe('0 builds');
     expect(buildsLabel(1)).toBe('1 build');
@@ -171,6 +183,7 @@ function describeFormatBuildsTable() {
   function rendersAHeaderPlusOneAlignedPiecePerBuild() {
     const table = formatBuildsTable([artifact()].map(readBuildRow));
     const [header, tableRow] = table.split('\n');
+
     expect(header).toContain('BUILD');
     expect(header).toContain('DOWNLOAD');
     expect(header).toContain('TYPE');
@@ -181,6 +194,7 @@ function describeFormatBuildsTable() {
   }
 
   it('renders a header plus one aligned row per build', rendersAHeaderPlusOneAlignedPiecePerBuild);
+
   function labelsAnIncrementalBuild() {
     const table = formatBuildsTable([artifact({ clean: false })].map(readBuildRow));
     expect(table).toContain('incremental');
@@ -193,6 +207,7 @@ describe('formatBuildsTable', describeFormatBuildsTable);
 function describeFormatBuildDetail() {
   function showsBothSizeNumbersAndThePerDeviceBreakdown() {
     const detail = formatBuildDetail(artifact());
+
     expect(detail).toContain('demo 1.0.0 (build 7) - ios');
     expect(detail).toContain('download 38.0 MB - on disk 61.0 MB');
     expect(detail).toContain('iPhone15,2');
@@ -204,10 +219,12 @@ function describeFormatBuildDetail() {
     'shows both size numbers and the per-device breakdown',
     showsBothSizeNumbersAndThePerDeviceBreakdown,
   );
+
   function omitsThePerDeviceBlockWhenThereIsNoThinningReport() {
     const detail = formatBuildDetail(
       artifact({ sizeReport: { artifactBytes: 61 * MB, entries: [] } }),
     );
+
     expect(detail).not.toContain('download / install');
     expect(detail).toContain('on disk 61.0 MB (no per-device estimate)');
   }
@@ -222,6 +239,7 @@ describe('formatBuildDetail', describeFormatBuildDetail);
 function describePrunedBuildsHistorySurvivesBinaryIsMarkedGone() {
   function carriesPrunedAtOntoThePieceOnlyWhenSet() {
     const buildRow = readBuildRow(artifact());
+
     expect(buildRow.prunedAt).toBeUndefined();
     expect(readBuildRow(artifact({ prunedAt: '2026-06-14T00:00:00.000Z' })).prunedAt).toBe(
       '2026-06-14T00:00:00.000Z',
@@ -229,17 +247,21 @@ function describePrunedBuildsHistorySurvivesBinaryIsMarkedGone() {
   }
 
   it('carries prunedAt onto the row only when set', carriesPrunedAtOntoThePieceOnlyWhenSet);
+
   function labelsAPrunedPiecePrunedInTheTYPEColumn() {
     const table = formatBuildsTable(
       [artifact({ prunedAt: '2026-06-14T00:00:00.000Z' })].map(readBuildRow),
     );
+
     expect(table).toContain('pruned');
     expect(table).not.toContain('clean');
   }
 
   it("labels a pruned row 'pruned' in the TYPE column", labelsAPrunedPiecePrunedInTheTYPEColumn);
+
   function showsTheRemovedToSaveDiskNoteInsteadOfAPathInTheDetailView() {
     const detail = formatBuildDetail(artifact({ prunedAt: '2026-06-14T09:00:00.000Z' }));
+
     expect(detail).toContain(
       'pruned 2026-06-14 09:00 - binary removed to save disk; rebuild to ship',
     );
@@ -275,8 +297,10 @@ function describeFormatPrunePreview() {
       path: '/a/demo-4.aab',
     },
   ];
+
   function rendersAHeaderPlusOneAlignedPiecePerRemovedBinary() {
     const [header, first, second] = formatPrunePreview(pruned).split('\n');
+
     expect(header).toContain('BUILD');
     expect(header).toContain('SIZE');
     expect(first).toContain('ios');
@@ -313,15 +337,23 @@ function describeParsePruneDays() {
     'accepts positive whole numbers and absent overrides',
     acceptsPositiveWholeNumbersAndAbsentOverrides,
   );
+
   function rejectsZeroFractionsAndNonNumericPiece() {
     const zero = thrownPruneFailure('0');
+
     expect(zero).toMatchObject({ operation: 'parse prune retention' });
     expect(zero).toMatchObject({ message: expect.stringContaining('0') });
+
     const fraction = thrownPruneFailure('1.5');
+
     expect(fraction).toMatchObject({ message: expect.stringContaining('1.5') });
+
     const nonNumeric = thrownPruneFailure('nope');
+
     expect(nonNumeric).toMatchObject({ message: expect.stringContaining('nope') });
+
     const empty = thrownPruneFailure('');
+
     expect(empty).toMatchObject({ _tag: 'BuildHistoryCommandFailure' });
   }
 
@@ -352,6 +384,7 @@ function describeMakeBuildHistoryCommandFailure() {
       message: 'disk full',
       cause: new Error('disk full'),
     });
+
     expect(failure._tag).toBe('BuildHistoryCommandFailure');
     expect(failure.operation).toBe('read build history');
     expect(failure.message).toBe('disk full');

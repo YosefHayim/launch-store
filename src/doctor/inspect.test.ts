@@ -277,9 +277,13 @@ describe('inspectDoctor', function describeInspectDoctor() {
     try {
       const packageJson = JSON.stringify({ packageManager: 'pnpm@9.0.0' });
       const packagePath = join(directory, 'package.json');
+
       writeFileSync(packagePath, packageJson);
+
       const pnpmLockPath = join(directory, 'pnpm-lock.yaml');
+
       writeFileSync(pnpmLockPath, '');
+
       const sampleDoctor = sampleDoctorContext({ cwd: directory });
       const report = await inspectDoctor(sampleDoctor);
 

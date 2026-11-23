@@ -11,13 +11,17 @@ function readOpenCommand(
   commandOptions: OpenCommandOptions,
 ): OpenCommandInput {
   let commandInput: OpenCommandInput = {};
+
   if (target != null) commandInput = { ...commandInput, target };
+
   if (commandOptions.platform != null) {
     commandInput = { ...commandInput, platform: commandOptions.platform };
   }
+
   if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
+
   return commandInput;
 }
 

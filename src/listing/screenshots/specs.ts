@@ -53,18 +53,25 @@ export function validateAppleDimensions(
   height: number,
 ): DimensionVerdict {
   const assetTarget = findAppleScreenshotTarget(displayType);
+
   if (assetTarget == null) return { ok: true };
+
   const foundTarget = assetTarget;
+
   function somePiece([expectedWidth, expectedHeight]: readonly [number, number]) {
     if (width == expectedWidth && height == expectedHeight) return true;
+
     if (foundTarget.dimensions.orientation != 'both') return false;
+
     return width == expectedHeight && height == expectedWidth;
   }
 
   const dimensionsMatch = foundTarget.dimensions.accepted.some(somePiece);
+
   if (dimensionsMatch) return { ok: true };
 
   const acceptedDimensions = assetTarget.dimensions.accepted.map(formatDimensions).join(', ');
+
   return {
     ok: false,
     reason: `${formatDimensions([width, height])} is not a valid ${displayType} size (expected ${acceptedDimensions})`,
@@ -75,24 +82,28 @@ export function validatePlayDimensions(width: number, height: number): Dimension
   const { minSide, maxSide, maxAspectMultiple } = playScreenshotConstraints;
   const shorterSide = Math.min(width, height);
   const longerSide = Math.max(width, height);
+
   if (shorterSide < minSide) {
     return {
       ok: false,
       reason: `${formatDimensions([width, height])} is outside Play's ${minSide}-${maxSide}px per-side range`,
     };
   }
+
   if (longerSide > maxSide) {
     return {
       ok: false,
       reason: `${formatDimensions([width, height])} is outside Play's ${minSide}-${maxSide}px per-side range`,
     };
   }
+
   if (longerSide > shorterSide * maxAspectMultiple) {
     return {
       ok: false,
       reason: `${formatDimensions([width, height])} is too elongated for Play (longest side must be <= ${maxAspectMultiple}x the shortest)`,
     };
   }
+
   return { ok: true };
 }
 
@@ -115,6 +126,7 @@ export function canonicalDimensions(
 ): readonly [number, number] | undefined {
   if (isApplePlatform(platform))
     return findAppleScreenshotTarget(screenshotTarget)?.dimensions.canonical;
+
   return findPlayDimensions(screenshotTarget);
 }
 

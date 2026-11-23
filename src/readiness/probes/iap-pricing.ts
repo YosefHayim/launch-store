@@ -223,6 +223,7 @@ export const iapPricingProbe = {
     }
 
     const apps = iosApps(readinessContext.apps).filter(keepsPricedApp);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

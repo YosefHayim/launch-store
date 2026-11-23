@@ -77,6 +77,7 @@ export async function clearPurchaseHistory(
 
   for (const email of emails) {
     const tester = byEmail.get(email.toLowerCase());
+
     const isMissing = tester == null;
 
     if (isMissing) {

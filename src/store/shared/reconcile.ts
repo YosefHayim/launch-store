@@ -33,6 +33,7 @@ export async function act(
     destructive: false,
     status: 'planned',
   };
+
   reconcileContext.actions.push(plannedAction);
 
   if (reconcileContext.dryRun) {
@@ -58,6 +59,7 @@ export function plan(
     destructive: false,
     status: 'planned',
   };
+
   reconcileContext.actions.push(plannedAction);
 
   return plannedAction;

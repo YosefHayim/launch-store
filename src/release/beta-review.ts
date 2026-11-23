@@ -93,6 +93,7 @@ function isEligibleLatestBuild(availableBuild: BuildResource): boolean {
   }
 
   const isExpired = availableBuild.expired == true;
+
   return isExpired == false;
 }
 
@@ -105,6 +106,7 @@ function selectRequestedBuild(
   }
 
   const matchedBuild = availableBuilds.find(hasRequestedVersion);
+
   const isBuildMissing = matchedBuild == null;
 
   if (isBuildMissing) {
@@ -138,6 +140,7 @@ function selectBuild(
   }
 
   const latestBuild = availableBuilds.find(isEligibleLatestBuild);
+
   const isLatestMissing = latestBuild == null;
 
   if (isLatestMissing) {
@@ -180,6 +183,7 @@ async function writeLocalizationNote(
       action,
       appleStore.createBetaBuildLocalization(buildId, locale, noteText),
     );
+
     return;
   }
 
@@ -221,6 +225,7 @@ async function reconcileNotes(
   for (const [locale, noteText] of Object.entries(localizedNotes)) {
     const currentLocalization = localizationsByLocale.get(locale);
     const currentText = localizationNote(currentLocalization);
+
     const isUnchanged = currentText == noteText;
 
     if (isUnchanged) {
@@ -228,6 +233,7 @@ async function reconcileNotes(
     }
 
     let description = `set "What to Test" (${locale})`;
+
     const hasLocalization = currentLocalization != null;
 
     if (hasLocalization) {
@@ -251,6 +257,7 @@ async function reconcileSubmission(
   buildId: string,
 ): Promise<void> {
   const existingSubmission = await appleStore.getBetaAppReviewSubmission(buildId);
+
   const isAlreadySubmitted = existingSubmission != null;
 
   if (isAlreadySubmitted) {
@@ -327,6 +334,7 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
   }
 
   const locales = Object.keys(localizedNotesObject);
+
   const hasNoLocales = locales.length == 0;
 
   if (hasNoLocales) {

@@ -56,11 +56,13 @@ function describeReadinessExitCode() {
   }
 
   it('returns ok (0) with no errors or blockers', returnsOk0WithNoErrorsOrBlockers);
+
   function returnsBlocker2WhenABlockerIsPresent() {
     expect(readinessExitCode({ errorCount: 0, blockerCount: 3 })).toBe(READINESS_EXIT.blocker);
   }
 
   it('returns blocker (2) when a blocker is present', returnsBlocker2WhenABlockerIsPresent);
+
   function letsAnError1WinOverABlockerADoctorThatCouldnTReadCanTCertify() {
     expect(readinessExitCode({ errorCount: 1, blockerCount: 3 })).toBe(READINESS_EXIT.error);
   }
@@ -109,6 +111,7 @@ function describeTallyProbeReports() {
         outcome: { state: 'errored', error: 'network' },
       },
     ];
+
     expect(tallyProbeReports(probeReports)).toEqual({
       okCount: 1,
       warnCount: 1,
@@ -141,6 +144,7 @@ describe('runProbes', () => {
         ],
       }),
     ]);
+
     expect(outcome.okCount).toBe(1);
     expect(outcome.warnCount).toBe(1);
     expect(outcome.blockerCount).toBe(1);
@@ -153,6 +157,7 @@ describe('runProbes', () => {
       probe('omitted', { state: 'omitted' }),
       probe('skipped', { state: 'skipped', reason: 'no account' }),
     ]);
+
     expect(outcome.reports.map((report) => report.id)).toEqual(['skipped']);
     expect(outcome.skippedCount).toBe(1);
     expect(outcome.exitCode).toBe(READINESS_EXIT.ok);
@@ -169,12 +174,16 @@ describe('runProbes', () => {
       }),
       probe('boom', probePiece),
     ]);
+
     expect(outcome.okCount).toBe(1);
     expect(outcome.errorCount).toBe(1);
     expect(outcome.exitCode).toBe(READINESS_EXIT.error);
+
     const errored = outcome.reports.find((report) => report.id == 'boom');
+
     expect(errored?.outcome).toEqual({ state: 'errored', error: 'network down' });
   });
+
   async function formatsNonErrorProbeFailuresViaErrorMessage() {
     const outcome = await runProbeSet([
       {
@@ -187,6 +196,7 @@ describe('runProbes', () => {
         },
       },
     ]);
+
     expect(outcome.errorCount).toBe(1);
     expect(outcome.reports[0]?.outcome).toEqual({
       state: 'errored',

@@ -59,20 +59,26 @@ function permissionFor(
   }
 
   const permission = permissions.find(findCandidate);
+
   if (!permission) throw new Error(`no permission verdict for ${feature}`);
+
   return permission;
 }
 
 function transportFailure(message: string, status?: number) {
   const cause = new Error(message);
+
   if (status == null) return makeAppleTransportFailure({ message, cause });
+
   return makeAppleTransportFailure({ message, cause, status });
 }
 function describeProbeKeyPermissions() {
   async function marksEveryFeatureAvailableWhenAllProbesSucceed() {
     const permissionClient = makePermissionClient();
     const permissions = await probeKeyPermissions(permissionClient, 'app1');
+
     expect(permissions).toHaveLength(6);
+
     function everyPermission(permission: {
       readonly feature: string;
       readonly label: string;
@@ -90,6 +96,7 @@ function describeProbeKeyPermissions() {
     'marks every feature available when all probes succeed',
     marksEveryFeatureAvailableWhenAllProbesSucceed,
   );
+
   async function flagsA403AsForbiddenForJustThatFeature() {
     function mockCall7() {
       return Promise.reject(transportFailure('Forbidden', 403));
@@ -99,11 +106,13 @@ function describeProbeKeyPermissions() {
       listCustomerReviews: vi.fn(mockCall7),
     });
     const permissions = await probeKeyPermissions(permissionClient, 'app1');
+
     expect(permissionFor(permissions, 'customer-reviews').status).toBe('forbidden');
     expect(permissionFor(permissions, 'testflight').status).toBe('available');
   }
 
   it('flags a 403 as forbidden for just that feature', flagsA403AsForbiddenForJustThatFeature);
+
   async function mapsA401ToUnauthorized() {
     function mockCall8() {
       return Promise.reject(transportFailure('Unauthorized', 401));
@@ -113,10 +122,12 @@ function describeProbeKeyPermissions() {
       listBetaGroups: vi.fn(mockCall8),
     });
     const permissions = await probeKeyPermissions(permissionClient, 'app1');
+
     expect(permissionFor(permissions, 'testflight').status).toBe('unauthorized');
   }
 
   it('maps a 401 to unauthorized', mapsA401ToUnauthorized);
+
   async function mapsATransportFailureToInconclusiveAndKeepsItsMessage() {
     function mockCall9() {
       return Promise.reject(transportFailure('network down'));
@@ -127,6 +138,7 @@ function describeProbeKeyPermissions() {
     });
     const permissions = await probeKeyPermissions(permissionClient, 'app1');
     const releasePermission = permissionFor(permissions, 'app-store-release');
+
     expect(releasePermission.status).toBe('inconclusive');
     expect(releasePermission.detail).toBe('network down');
   }
@@ -135,9 +147,11 @@ function describeProbeKeyPermissions() {
     'maps a transport failure to inconclusive and keeps its message',
     mapsATransportFailureToInconclusiveAndKeepsItsMessage,
   );
+
   async function skipsAppReadsWithoutAnAppPieceButStillRunsAccountReads() {
     const permissionClient = makePermissionClient();
     const permissions = await probeKeyPermissions(permissionClient, null);
+
     expect(permissionFor(permissions, 'provisioning').status).toBe('available');
     expect(permissionFor(permissions, 'testflight').status).toBe('inconclusive');
     expect(permissionFor(permissions, 'testflight').detail).toBe('no app record to probe');
@@ -158,12 +172,14 @@ function describeFormatPermissionLine() {
     label: 'Feature X',
     roles: ['Admin', 'App Manager'],
   } as const;
+
   function rendersAvailableWithASCIIPiece() {
     const permissionLine = formatPermissionLine({ ...permissionBase, status: 'available' });
     expect(permissionLine).toBe('OK Feature X');
   }
 
   it('renders available with ASCII text', rendersAvailableWithASCIIPiece);
+
   function rendersForbiddenWithTheRoleHint() {
     const permissionLine = formatPermissionLine({ ...permissionBase, status: 'forbidden' });
     expect(permissionLine).toBe(
@@ -172,22 +188,26 @@ function describeFormatPermissionLine() {
   }
 
   it('renders forbidden with the role hint', rendersForbiddenWithTheRoleHint);
+
   function rendersUnauthorized() {
     const permissionLine = formatPermissionLine({ ...permissionBase, status: 'unauthorized' });
     expect(permissionLine).toContain('unauthorized (401)');
   }
 
   it('renders unauthorized', rendersUnauthorized);
+
   function rendersInconclusiveWithTheDetail() {
     const permissionLine = formatPermissionLine({
       ...permissionBase,
       status: 'inconclusive',
       detail: 'no app record to probe',
     });
+
     expect(permissionLine).toBe("- Feature X - couldn't determine (no app record to probe)");
   }
 
   it('renders inconclusive with the detail', rendersInconclusiveWithTheDetail);
+
   function rendersInconclusiveWithoutADetail() {
     const permissionLine = formatPermissionLine({ ...permissionBase, status: 'inconclusive' });
     expect(permissionLine).toBe("- Feature X - couldn't determine");

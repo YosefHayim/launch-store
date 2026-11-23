@@ -11,11 +11,13 @@ function describeAvailabilityCommandPieceSchema() {
       dryRun: true,
       yes: false,
     });
+
     expect(availabilityCommandSchema).toEqual({
       config: 'availability.config.json',
       dryRun: true,
       yes: false,
     });
+
     function callAvailabilityCommandPieceSchema() {
       return AvailabilityCommandInputSchema({
         app: undefined,
@@ -42,6 +44,7 @@ function describeAvailabilityRendering() {
       destructive: false,
       status: 'planned',
     });
+
     expect(availabilityAction).toBe('+ set store availability -> 3 territories');
     expect(
       renderAvailabilityAction({
@@ -64,6 +67,7 @@ function describeAvailabilityRendering() {
     'uses ASCII markers for additive, destructive, and failed actions',
     usesASCIIMarkersForAdditiveDestructiveAndFailedActions,
   );
+
   function warnsExplicitlyBeforeRemovingTerritories() {
     expect(
       availabilityConfirmationMessage({

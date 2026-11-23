@@ -36,6 +36,7 @@ async function readPlayClients(
 async function readInternalTrack(api: PlayReadinessApi, app: ScopedApp): Promise<AppReadiness> {
   try {
     const tracks = await api.listTracks(app.identifier);
+
     const hasInternalTrack = tracks.some(isInternalTrack);
 
     if (hasInternalTrack) {
@@ -73,6 +74,7 @@ export const playInternalTrackProbe = {
   categories: ['account'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const apps = androidApps(readinessContext.apps);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {
@@ -80,6 +82,7 @@ export const playInternalTrackProbe = {
     }
 
     const appClients = await readPlayClients(readinessContext, apps);
+
     const isEveryClientMissing = appClients.every(isPlayClientMissing);
 
     if (isEveryClientMissing) {

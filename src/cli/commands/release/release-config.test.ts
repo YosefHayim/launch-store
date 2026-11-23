@@ -7,6 +7,7 @@ function describeRenderAction() {
       destructive: false,
       status: 'planned',
     });
+
     expect(action).toBe('+ set categories (primary=GAMES)');
     expect(
       renderAction({
@@ -25,6 +26,7 @@ function describeRenderAction() {
   }
 
   it('marks a change with + and a skipped area with -', marksAChangeWithAndASkippedAreaWith);
+
   function rendersAFailedActionWithXAndAppleSErrorDetail() {
     const action = renderAction({
       description: 'set app price = 9.99 (USA)',
@@ -32,6 +34,7 @@ function describeRenderAction() {
       status: 'failed',
       error: 'No USA app price point matches 9.99.',
     });
+
     expect(action).toBe('x set app price = 9.99 (USA) - No USA app price point matches 9.99.');
   }
 

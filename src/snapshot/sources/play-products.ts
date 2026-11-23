@@ -25,8 +25,11 @@ import {
 /** A Play money value as a normalized, serializable record (fields Play left unset are dropped). */
 function money(playMoney: PlayMoney): JsonValue {
   const moneyFields: Record<string, JsonValue> = {};
+
   if (playMoney.priceMicros) moneyFields['priceMicros'] = playMoney.priceMicros;
+
   if (playMoney.currency) moneyFields['currency'] = playMoney.currency;
+
   return moneyFields;
 }
 /** A product's locale -> listing copy, normalized to serializable records (empty fields dropped). */
@@ -44,8 +47,11 @@ function listings(
     JsonValue,
   ] {
     const listingFields: Record<string, JsonValue> = {};
+
     if (listing.title) listingFields['title'] = listing.title;
+
     if (listing.description) listingFields['description'] = listing.description;
+
     return [locale, listingFields];
   }
 
@@ -54,12 +60,19 @@ function listings(
 /** One captured managed product -> a snapshot entity keyed by its SKU. */
 function readSnapshotEntity(product: InAppProductResource): SnapshotEntity {
   const productFields: Record<string, JsonValue> = { sku: product.sku };
+
   if (product.status) productFields['status'] = product.status;
+
   if (product.defaultLanguage) productFields['defaultLanguage'] = product.defaultLanguage;
+
   if (product.defaultPrice) productFields['defaultPrice'] = money(product.defaultPrice);
+
   if (product.listings) productFields['listings'] = listings(product.listings);
+
   let statusSuffix = '';
+
   if (product.status) statusSuffix = ` (${product.status})`;
+
   return { key: product.sku, summary: `Play product${statusSuffix}`, data: productFields };
 }
 /** Invert a captured product's `listings` map back into the shared {@link ProductLocalization} */
@@ -68,48 +81,71 @@ function readCapturedLocalizations(
   defaultLanguage: string | undefined,
 ): ProductLocalization[] {
   const map = jsonRecord(listings);
+
   if (!map) return [];
+
   const localizations: ProductLocalization[] = [];
+
   for (const [locale, capturedListing] of Object.entries(map)) {
     const fields = jsonRecord(capturedListing);
     let name: string | undefined;
+
     if (fields) name = stringField(fields, 'title');
+
     if (name == null) continue;
+
     const localization: MutableDeep<ProductLocalization> = { locale, name };
     let description: string | undefined;
+
     if (fields) description = stringField(fields, 'description');
+
     if (description != null) localization.description = description;
+
     localizations.push(localization);
   }
+
   function sortA(
     a: { readonly locale: string; readonly name: string; readonly description?: string },
     b: { readonly locale: string; readonly name: string; readonly description?: string },
   ) {
     if (a.locale == defaultLanguage) {
       if (b.locale == defaultLanguage) return 0;
+
       return -1;
     }
+
     if (b.locale == defaultLanguage) return 1;
+
     return a.locale.localeCompare(b.locale);
   }
 
   localizations.sort(sortA);
+
   return localizations;
 }
 /** Rebuild an {@link InAppPurchaseConfig} from one captured product entity */
 function readProductConfig(entity: SnapshotEntity): InAppPurchaseConfig | null {
   const productFields = jsonRecord(entity.data);
+
   if (!productFields) return null;
+
   let sku = stringField(productFields, 'sku');
+
   if (sku == null) sku = entity.key;
+
   const localizations = readCapturedLocalizations(
     productFields['listings'],
     stringField(productFields, 'defaultLanguage'),
   );
+
   if (localizations.length == 0) return null;
+
   const play: MutableDeep<PlayProductOverride> = { sku };
+
   const defaultPrice = readPriceConfig(productFields['defaultPrice']);
+
   if (defaultPrice) play.defaultPrice = defaultPrice;
+
   return { productId: sku, referenceName: sku, type: 'NON_CONSUMABLE', localizations, play };
 }
 /** The Google Play managed-product snapshot source. */
@@ -230,6 +266,7 @@ async function restorePlayProducts({ ctx: restoreContext, saved, dryRun }: Resto
     }
 
     const appActions = await reconcileProductActions(client, app.identifier, products, dryRun);
+
     actions.push(...appActions);
   }
 

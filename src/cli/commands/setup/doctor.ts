@@ -17,12 +17,15 @@ function readDoctorCommand(commandOptions: DoctorOptions): DoctorCommandInput {
     yes: commandOptions.yes,
     json: commandOptions.json,
   };
+
   if (commandOptions.platform != null) {
     commandInput = { ...commandInput, platform: commandOptions.platform };
   }
+
   if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
+
   return commandInput;
 }
 

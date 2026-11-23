@@ -34,13 +34,17 @@ function describeCheckAppPiece() {
   }
 
   it('passes a clean config on both platforms', passesACleanPieceOnBothPlatforms);
+
   function flagsAnInvalidIOSBundleIdAsAnErrorOnlyOnIOS() {
     const config = { expo: { ...clean.expo, ios: { bundleIdentifier: 'com.acme_app' } } };
     const ios = checkAppConfig(config, 'app.json', 'ios');
+
     expect(ios).toHaveLength(1);
     expect(ios[0]).toMatchObject({ severity: 'error', key: 'ios.bundleIdentifier' });
+
     // The bundle-id rule is iOS-only; the Android pass doesn't flag it.
     const ownKeys = keys(config, 'android');
+
     expect(ownKeys).not.toContain('ios.bundleIdentifier');
   }
 
@@ -48,11 +52,13 @@ function describeCheckAppPiece() {
     'flags an invalid iOS bundle id as an error, only on iOS',
     flagsAnInvalidIOSBundleIdAsAnErrorOnlyOnIOS,
   );
+
   function flagsAnInvalidAndroidPackageHyphenDigitLedSegmentAsAnError() {
     const ownKeys = keys(
       { expo: { ...clean.expo, android: { package: 'com.acme-app' } } },
       'android',
     );
+
     expect(ownKeys).toContain('android.package');
     expect(
       keys({ expo: { ...clean.expo, android: { package: 'com.1acme.app' } } }, 'android'),
@@ -66,9 +72,11 @@ function describeCheckAppPiece() {
     'flags an invalid Android package (hyphen / digit-led segment) as an error',
     flagsAnInvalidAndroidPackageHyphenDigitLedSegmentAsAnError,
   );
+
   function flagsASplashWithNoBackgroundColorAsAnErrorOnAndroidOnly() {
     const config = { expo: { ...clean.expo, splash: { image: './assets/splash.png' } } };
     const android = checkAppConfig(config, 'app.json', 'android');
+
     function someF(f: {
       severity: 'error' | 'warn';
       file: string;
@@ -80,7 +88,9 @@ function describeCheckAppPiece() {
     }
 
     expect(android.some(someF)).toBe(true);
+
     const ownKeys = keys(config, 'ios');
+
     expect(ownKeys).not.toContain('splash');
   }
 
@@ -88,11 +98,13 @@ function describeCheckAppPiece() {
     'flags a splash with no backgroundColor as an error on Android only',
     flagsASplashWithNoBackgroundColorAsAnErrorOnAndroidOnly,
   );
+
   function acceptsASplashThatHasABackgroundColorInclAnAndroidLevelOverride() {
     const ownKeys = keys(
       { expo: { ...clean.expo, splash: { image: 'x', backgroundColor: '#fff' } } },
       'android',
     );
+
     expect(ownKeys).not.toContain('splash');
     expect(
       keys(
@@ -112,9 +124,11 @@ function describeCheckAppPiece() {
     'accepts a splash that has a backgroundColor (incl. an android-level override)',
     acceptsASplashThatHasABackgroundColorInclAnAndroidLevelOverride,
   );
+
   function warnsWhenNoAppIconIsSet() {
     const { icon: _icon, ...noIcon } = clean.expo;
     const ownKeys = keys({ expo: noIcon }, 'ios');
+
     expect(ownKeys).toContain('icon');
     // An adaptive icon alone satisfies the check.
     expect(
@@ -131,6 +145,7 @@ function describeCheckAppPiece() {
   }
 
   it('warns when no app icon is set', warnsWhenNoAppIconIsSet);
+
   function warnsWhenNoURLSchemeIsSet() {
     const { scheme: _scheme, ...noScheme } = clean.expo;
     const ownKeys = keys({ expo: noScheme }, 'ios');
@@ -138,6 +153,7 @@ function describeCheckAppPiece() {
   }
 
   it('warns when no URL scheme is set', warnsWhenNoURLSchemeIsSet);
+
   function warnsOnANonNumericMarketingVersion() {
     const ownKeys = keys({ expo: { ...clean.expo, version: 'v1' } }, 'ios');
     expect(ownKeys).toContain('version');
@@ -145,6 +161,7 @@ function describeCheckAppPiece() {
   }
 
   it('warns on a non-numeric marketing version', warnsOnANonNumericMarketingVersion);
+
   function toleratesAFlatUnwrappedPieceShape() {
     const flat = {
       slug: 'acme',
@@ -154,6 +171,7 @@ function describeCheckAppPiece() {
       ios: { bundleIdentifier: 'com.acme.app' },
     };
     const checkApp = checkAppConfig(flat, 'app.json', 'ios');
+
     expect(checkApp).toEqual([]);
   }
 

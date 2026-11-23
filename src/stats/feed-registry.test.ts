@@ -33,6 +33,7 @@ function describeSTATSFEEDPLUGINS() {
   }
 
   test('lists the three feeds in order', listsTheThreeFeedsInOrder);
+
   function appliesEachStoreFeedToItsOwnPlatformAndGa4ToBoth() {
     function readFeed2(plugin: StatsFeedPlugin) {
       return plugin.feed;
@@ -54,6 +55,7 @@ function describeSTATSFEEDPLUGINS() {
     'applies each store feed to its own platform and ga4 to both',
     appliesEachStoreFeedToItsOwnPlatformAndGa4ToBoth,
   );
+
   async function everyFeedSkipsWithAReasonWhenNothingIsSaved() {
     const credentials = makeStatsCredentialsTest();
 

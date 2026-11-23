@@ -70,7 +70,9 @@ async function mapWithConcurrency<Item, Mapped>(
 
   async function takeNext(): Promise<void> {
     const currentIndex = nextIndex;
+
     nextIndex += 1;
+
     const item = items[currentIndex];
 
     if (item == null) {
@@ -140,6 +142,7 @@ async function screenshotActions(
           destructive: false,
           status: 'skipped',
         });
+
         continue;
       }
 
@@ -278,6 +281,7 @@ export function summarizeRun(outcomes: readonly JobOutcome[]): SyncRunReport {
     }
 
     const summary = summarize(outcome.report);
+
     roll.applied += summary.applied;
     roll.failed += summary.failed;
     roll.skipped += summary.skipped;
@@ -324,6 +328,7 @@ export function mergeOutcomes(
   );
 
   const appliedFor = appliedOutcomeFor(byJob);
+
   return plans.map(appliedFor);
 }
 
@@ -353,5 +358,6 @@ export async function runSyncBatch(
   const applied = await mapWithConcurrency(jobsToApply, SYNC_CONCURRENCY, applyJob);
 
   const outcomes = mergeOutcomes(plans, applied);
+
   return summarizeRun(outcomes);
 }

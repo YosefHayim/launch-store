@@ -105,17 +105,24 @@ export async function installProfile(
   installedPath: string;
 }> {
   const credentialsDirectory = resolveAccountCredentialsDirectory(keyId);
+
   await mkdir(credentialsDirectory, { recursive: true });
+
   const backupPath = join(credentialsDirectory, `${backupName}.mobileprovision`);
   const bufferBytes = Buffer.from(profileContent, 'base64');
+
   await writeFile(backupPath, bufferBytes);
+
   const profileMetadata = await readProfileMetadata(backupPath);
   const provisioningProfilesDirectory = resolveProvisioningProfilesDirectory();
+
   await mkdir(provisioningProfilesDirectory, { recursive: true });
+
   const installedPath = join(
     provisioningProfilesDirectory,
     `${profileMetadata.uuid}.mobileprovision`,
   );
+
   await copyFile(backupPath, installedPath);
 
   return {
@@ -180,6 +187,7 @@ export async function ensureRegisteredBundleId(
     bundleOptions.appName,
     bundleIdPlatform,
   );
+
   bundleOptions.log.step('app id', `registered ${bundleOptions.bundleId}`, 'bundle-id');
 
   return createdBundle;
@@ -248,6 +256,7 @@ export async function staleCachedSigningTargets(
       }
 
       const missing = await profileStaleAgainstCapabilities(client, bundle.id, profile);
+
       const isCurrent = missing.length == 0;
 
       if (isCurrent) {
@@ -412,6 +421,7 @@ async function resolveAppStoreProfile(profileRequest: {
     profileType,
   );
   let reason = `created ${profileRequest.profileName}`;
+
   const hasStaleCapabilities = profileRequest.staleCapabilities.length > 0;
 
   if (hasStaleCapabilities) {

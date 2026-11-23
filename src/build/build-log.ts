@@ -45,6 +45,7 @@ let activeBuildLog: string | null = null;
 export async function beginBuildLog(buildIdentifier: string): Promise<string> {
   const logPath = buildLogPath(buildIdentifier);
   const parentDirectory = path.dirname(logPath);
+
   await mkdir(parentDirectory, { recursive: true });
   await writeFile(logPath, '');
   activeBuildLog = logPath;

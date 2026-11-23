@@ -68,6 +68,7 @@ export const ANDROID_TOOLS: Tool[] = [
 /** The single-line, actionable fix for a missing tool - `brew install ...` or the guide text. */
 export function fixHint(tool: Tool): string {
   if (tool.install.kind == 'brew') return `brew install ${tool.install.formula}`;
+
   return tool.install.how;
 }
 /** Split missing tools into the ones we can `brew install` as a batch and the ones we can only */
@@ -117,11 +118,14 @@ export async function missingRequiredTools(io?: Pick<ToolchainIo, 'exists'>): Pr
 /** Generate the bash toolchain preflight that runs ON the remote Mac before a build */
 export function remoteToolchainPreflight(mode: 'install' | 'assert'): string {
   const canInstall = mode == 'install';
+
   // Single-quote any message embedded in `echo` so backticks in a hint (e.g. Xcode's) stay literal.
   function q(text: string): string {
     return `'${text.replace(/'/g, "'\\''")}'`;
   }
+
   const lines: string[] = ['set -uo pipefail', 'MISSING=0'];
+
   if (canInstall) {
     // Put Homebrew on PATH in a non-interactive SSH shell before any install attempt.
     lines.push(
@@ -129,14 +133,17 @@ export function remoteToolchainPreflight(mode: 'install' | 'assert'): string {
         'elif [ -x /usr/local/bin/brew ]; then eval "$(/usr/local/bin/brew shellenv 2>/dev/null)"; fi',
     );
   }
+
   for (const tool of REQUIRED_TOOLS) {
     const present = `command -v ${tool.command} >/dev/null 2>&1`;
+
     if (canInstall && tool.install.kind == 'brew') {
       lines.push(
         `if ! ${present}; then echo ${q(`-> installing ${tool.label}`)}; ` +
           `if ! brew install ${tool.install.formula}; then echo ${q(`- ${tool.label} install failed; checking again`)}; fi; fi`,
       );
     }
+
     if (tool.tier == 'required') {
       lines.push(
         `if ! ${present}; then echo ${q(`x ${tool.label} missing - ${fixHint(tool)}`)}; MISSING=1; fi`,
@@ -147,8 +154,10 @@ export function remoteToolchainPreflight(mode: 'install' | 'assert'): string {
       );
     }
   }
+
   lines.push(`if [ "$MISSING" = 1 ]; then echo LAUNCH_PREFLIGHT_FAILED; exit 1; fi`);
   lines.push('echo LAUNCH_PREFLIGHT_OK');
+
   return lines.join('\n');
 }
 /** Side-effecting operations {@link ensureToolchain} needs, injected so tests can supply fakes. */
@@ -216,6 +225,7 @@ function readToolchainIo(options: { io?: ToolchainIo }): ToolchainIo {
   }
 
   const logger = createLogger(false);
+
   return realIo(logger, LaunchPrompt);
 }
 
@@ -240,6 +250,7 @@ export async function ensureToolchain(options: EnsureToolchainOptions = {}): Pro
   }
 
   const missing = await detectMissing(io, REQUIRED_TOOLS);
+
   const noneMissing = missing.length == 0;
 
   if (noneMissing) {
@@ -277,6 +288,7 @@ export async function ensureToolchain(options: EnsureToolchainOptions = {}): Pro
   }
 
   const requiredMissing = stillMissing.filter(isRequiredTool);
+
   const requiredArePresent = requiredMissing.length == 0;
 
   if (requiredArePresent) {
@@ -329,6 +341,7 @@ export async function ensureCcacheInstalled(options: {
 
   await io.log('-> brew install ccache...');
   await io.run('brew', ['install', 'ccache']);
+
   const ccacheExists = await io.exists('ccache');
 
   if (ccacheExists == false) {
@@ -385,6 +398,7 @@ async function installBrewTools(
   }
 
   const formulas = brewTools.map(brewFormula);
+
   await io.log(`-> brew install ${formulas.join(' ')}`);
   await io.run('brew', ['install', ...formulas]);
 }

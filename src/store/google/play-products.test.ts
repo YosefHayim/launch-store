@@ -94,6 +94,7 @@ function describeToPlayProduct() {
     'maps shared fields + the play override into an active managed product',
     mapsSharedFieldsThePlayOverrideIntoAnActiveManagedProduct,
   );
+
   function prefersPlaySkuOverTheSharedProductIdAndCarriesPerRegionPrices() {
     const mapped = readPlayProduct(
       product({
@@ -113,6 +114,7 @@ function describeToPlayProduct() {
     'prefers play.sku over the shared productId and carries per-region prices',
     prefersPlaySkuOverTheSharedProductIdAndCarriesPerRegionPrices,
   );
+
   function throwsWhenTheProductHasNoLocalizationToDeriveADefaultLanguageFrom() {
     function expectCall() {
       return readPlayProduct(product({ localizations: [] }));
@@ -130,6 +132,7 @@ function describeToPlayProduct() {
 describe('readPlayProduct', describeToPlayProduct);
 function describeProductInSync() {
   const desired = readPlayProduct(product());
+
   function ignoresPlaySAutoFannedRegionalPricesNotNamedInPiece() {
     const live: InAppProductResource = {
       ...desired,
@@ -146,6 +149,7 @@ function describeProductInSync() {
     "ignores Play's auto-fanned regional prices not named in config",
     ignoresPlaySAutoFannedRegionalPricesNotNamedInPiece,
   );
+
   function detectsADriftedListingTitleAndAChangedDefaultPrice() {
     expect(
       productInSync({ ...desired, listings: { 'en-US': { title: 'Old name' } } }, desired),
@@ -179,6 +183,7 @@ function describeReconcilePlayProducts() {
   }
 
   it('throws when the Play app record is unreachable', throwsWhenThePlayAppPieceIsUnreachable);
+
   async function createsAProductPlayDoesnTHaveYet() {
     const { api, calls } = makeApi([]);
     const productsOutcome = await reconcilePlayProducts(api, {
@@ -195,6 +200,7 @@ function describeReconcilePlayProducts() {
   }
 
   it("creates a product Play doesn't have yet", createsAProductPlayDoesnTHaveYet);
+
   async function emitsNoActionWhenTheLiveProductAlreadyMatchesSubsetDiffVsPlaySExtraRegions() {
     const live: InAppProductResource = {
       ...readPlayProduct(product()),
@@ -219,6 +225,7 @@ function describeReconcilePlayProducts() {
     "emits no action when the live product already matches (subset diff vs Play's extra regions)",
     emitsNoActionWhenTheLiveProductAlreadyMatchesSubsetDiffVsPlaySExtraRegions,
   );
+
   async function updatesADriftedProductMergingManagedFieldsOntoTheLiveOneSoPlaySRegionsSurvive() {
     const live: InAppProductResource = {
       sku: 'com.acme.coins.100',
@@ -239,6 +246,7 @@ function describeReconcilePlayProducts() {
     expect(productsOutcome.actions.map(actionLabel)).toEqual([
       'applied update Play product com.acme.coins.100',
     ]);
+
     const sent = expectArrayElement(calls.updates, 0, 'calls.updates');
 
     expect(sent.defaultPrice).toEqual({ priceMicros: '1990000', currency: 'USD' });
@@ -250,6 +258,7 @@ function describeReconcilePlayProducts() {
     "updates a drifted product, merging managed fields onto the live one so Play's regions survive",
     updatesADriftedProductMergingManagedFieldsOntoTheLiveOneSoPlaySRegionsSurvive,
   );
+
   async function leavesAPlayProductWhoseSKUIsnTInPieceUntouchedAdditive() {
     const orphan: InAppProductResource = {
       sku: 'com.acme.legacy',
@@ -272,6 +281,7 @@ function describeReconcilePlayProducts() {
     "leaves a Play product whose SKU isn't in config untouched (additive)",
     leavesAPlayProductWhoseSKUIsnTInPieceUntouchedAdditive,
   );
+
   async function plansWithoutWritingOnADryRun() {
     const { api, calls } = makeApi([]);
     const productsOutcome = await reconcilePlayProducts(api, {
@@ -285,6 +295,7 @@ function describeReconcilePlayProducts() {
   }
 
   it('plans without writing on a dry run', plansWithoutWritingOnADryRun);
+
   async function isolatesAPerProductFailureSoTheRestOfTheRunContinues() {
     const { api, calls } = makeApi([], { failSku: 'com.acme.coins.100' });
     const productsOutcome = await reconcilePlayProducts(api, {

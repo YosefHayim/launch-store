@@ -3,6 +3,7 @@ import { parseLaunchConfig, validateLaunchConfig } from './schema.ts';
 function describeParseLaunchPiece() {
   function fillsProviderDefaultsThroughEffectSchema() {
     const parsed = parseLaunchConfig({ profiles: {} });
+
     expect(parsed).toMatchObject({
       credentials: 'local',
       storage: 'local',
@@ -12,6 +13,7 @@ function describeParseLaunchPiece() {
   }
 
   it('fills provider defaults through Effect Schema', fillsProviderDefaultsThroughEffectSchema);
+
   function keepsAnExplicitProviderNameOverTheDefault() {
     const parsed = parseLaunchConfig({ profiles: {}, storage: 's3', credentials: 'local' });
     expect(parsed.storage).toBe('s3');
@@ -19,11 +21,13 @@ function describeParseLaunchPiece() {
   }
 
   it('keeps an explicit provider name over the default', keepsAnExplicitProviderNameOverTheDefault);
+
   function acceptsAPerPlatformSubmitMapForASubsetOfPlatforms() {
     const parsed = parseLaunchConfig({
       profiles: {},
       submit: { android: ['google-play', 'amazon-appstore'] },
     });
+
     expect(parsed.submit).toEqual({ android: ['google-play', 'amazon-appstore'] });
   }
 
@@ -31,6 +35,7 @@ function describeParseLaunchPiece() {
     'accepts a per-platform submit map for a subset of platforms',
     acceptsAPerPlatformSubmitMapForASubsetOfPlatforms,
   );
+
   function acceptsAFreeTrialOfferCodeWithoutPrices() {
     const parsed = parseLaunchConfig({
       profiles: {},
@@ -64,6 +69,7 @@ function describeParseLaunchPiece() {
       },
     });
     const group = parsed.products?.['com.acme.app']?.subscriptionGroups?.[0];
+
     expect(group?.subscriptions[0]?.offerCodes?.[0]?.offerMode).toBe('FREE_TRIAL');
   }
 
@@ -102,6 +108,7 @@ function describeValidateLaunchPiece() {
         },
       },
     });
+
     expect(validateLaunch).toEqual([]);
   }
 
@@ -109,6 +116,7 @@ function describeValidateLaunchPiece() {
     'accepts Apple product IDs with letters, digits, underscores, and periods',
     acceptsAppleProductIDsWithLettersDigitsUnderscoresAndPeriods,
   );
+
   function rejectsHyphensInAppleSubscriptionAndInAppPurchaseProductIdFields() {
     const violations = validateLaunchConfig({
       profiles: {},
@@ -139,6 +147,7 @@ function describeValidateLaunchPiece() {
         },
       },
     });
+
     expect(violations).toContainEqual({
       path: 'products["com.acme-app"].inAppPurchases[0].productId',
       message: 'productId may contain only letters, digits, underscores, and periods.',
@@ -153,8 +162,10 @@ function describeValidateLaunchPiece() {
     'rejects hyphens in Apple subscription and in-app purchase productId fields',
     rejectsHyphensInAppleSubscriptionAndInAppPurchaseProductIdFields,
   );
+
   function rejectsAnUnknownTopLevelKeyAsAnUnknownProperty() {
     const validateLaunch = validateLaunchConfig({ profiles: {}, nope: true });
+
     expect(validateLaunch).toContainEqual({
       path: 'nope',
       message: 'unknown property',
@@ -165,8 +176,10 @@ function describeValidateLaunchPiece() {
     'rejects an unknown top-level key as an unknown property',
     rejectsAnUnknownTopLevelKeyAsAnUnknownProperty,
   );
+
   function flagsAMissingProfilesFieldAtItsOwnPath() {
     const violations = validateLaunchConfig({});
+
     function someViolation(violation: { path: string; message: string }) {
       return violation.path == 'profiles';
     }
@@ -175,16 +188,19 @@ function describeValidateLaunchPiece() {
   }
 
   it('flags a missing profiles field at its own path', flagsAMissingProfilesFieldAtItsOwnPath);
+
   function flagsMalformedNestedFieldsAtDottedPaths() {
     const violations = validateLaunchConfig({
       profiles: { production: { name: 'production', sizeBudgetMB: 'big' } },
       release: { releaseType: 'WHENEVER' },
     });
+
     function someViolation2(violation: { path: string; message: string }) {
       return violation.path == 'profiles.production.sizeBudgetMB';
     }
 
     expect(violations.some(someViolation2)).toBe(true);
+
     function someViolation3(violation: { path: string; message: string }) {
       return violation.path == 'release.releaseType';
     }
@@ -193,12 +209,15 @@ function describeValidateLaunchPiece() {
   }
 
   it('flags malformed nested fields at dotted paths', flagsMalformedNestedFieldsAtDottedPaths);
+
   function rejectsUnknownPerPlatformSubmitKeysWithoutRequiringEveryPlatform() {
     const violations = validateLaunchConfig({
       profiles: {},
       submit: { windows: ['store'] },
     });
+
     expect(violations).toContainEqual({ path: 'submit.windows', message: 'unknown property' });
+
     function someViolation4(violation: { path: string; message: string }) {
       return violation.path == 'submit.ios';
     }
@@ -210,11 +229,13 @@ function describeValidateLaunchPiece() {
     'rejects unknown per-platform submit keys without requiring every platform',
     rejectsUnknownPerPlatformSubmitKeysWithoutRequiringEveryPlatform,
   );
+
   function acceptsASinglePlatformSubmitMapAndAnEmptySubmitMap() {
     const validateLaunch = validateLaunchConfig({
       profiles: {},
       submit: { ios: ['app-store-connect'] },
     });
+
     expect(validateLaunch).toEqual([]);
     expect(validateLaunchConfig({ profiles: {}, submit: {} })).toEqual([]);
   }
@@ -223,6 +244,7 @@ function describeValidateLaunchPiece() {
     'accepts a single-platform submit map and an empty submit map',
     acceptsASinglePlatformSubmitMapAndAnEmptySubmitMap,
   );
+
   function flagsABadPromotionalOfferEnumAtANestedDottedPath() {
     const violations = validateLaunchConfig({
       profiles: {},
@@ -254,6 +276,7 @@ function describeValidateLaunchPiece() {
         },
       },
     });
+
     function someViolation5(violation: { path: string; message: string }) {
       return violation.path.includes('promotionalOffers');
     }
@@ -265,6 +288,7 @@ function describeValidateLaunchPiece() {
     'flags a bad promotional offer enum at a nested dotted path',
     flagsABadPromotionalOfferEnumAtANestedDottedPath,
   );
+
   function flagsAWinBackOfferWithABadPriorityAtItsFieldPath() {
     const violations = validateLaunchConfig({
       profiles: {},
@@ -301,6 +325,7 @@ function describeValidateLaunchPiece() {
         },
       },
     });
+
     function someViolation6(violation: { path: string; message: string }) {
       return violation.path.includes('priority');
     }

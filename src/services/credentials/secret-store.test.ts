@@ -13,6 +13,7 @@ vi.mock('@napi-rs/keyring', function mockKeyring() {
     Entry: class {
       getPassword() {
         if (fakeKeyring.isBroken) throw new Error('Platform failure: the keyring is locked');
+
         return fakeKeyring.storedPassword;
       }
     },
@@ -25,10 +26,14 @@ afterEach(function resetSecretFixture() {
 function describeLaunchSecretStore() {
   async function storesReadsAndDeletesSecretsThroughTheTestMap() {
     const storedSecrets = new Map<string, string>();
+
     useSecretStore(storedSecrets);
     await LaunchSecretStore.storeSecret('review-password', 'secret-text');
+
     const storedSecret = await LaunchSecretStore.readSecret('review-password');
+
     await LaunchSecretStore.deleteSecret('review-password');
+
     const deletedSecret = await LaunchSecretStore.readSecret('review-password');
 
     expect({ storedSecret, deletedSecret }).toEqual({
@@ -51,6 +56,7 @@ function describeLaunchSecretStoreNativeKeyring() {
     fakeKeyring.isBroken = false;
     resetSecretStore();
   });
+
   async function readSecretReturnsNullWhenTheNativeKeyringHasNoPiece() {
     fakeKeyring.storedPassword = null;
     const storedSecret = await LaunchSecretStore.readSecret('review-password');
@@ -61,6 +67,7 @@ function describeLaunchSecretStoreNativeKeyring() {
     'readSecret returns null when the native keyring has no entry',
     readSecretReturnsNullWhenTheNativeKeyringHasNoPiece,
   );
+
   async function readSecretFailsWithAClearMessageWhenTheNativeKeyringThrows() {
     fakeKeyring.isBroken = true;
     await expect(LaunchSecretStore.readSecret('review-password')).rejects.toThrow(

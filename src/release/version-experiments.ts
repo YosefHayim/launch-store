@@ -285,6 +285,7 @@ function readExperiments(rawDocument: Record<string, unknown>): ExperimentConfig
 
 function readExperimentList(field: unknown[]): ExperimentConfig[] {
   const minimumExperimentCount = 1;
+
   const isEmpty = field.length < minimumExperimentCount;
 
   if (isEmpty) {
@@ -296,6 +297,7 @@ function readExperimentList(field: unknown[]): ExperimentConfig[] {
 
   for (const rawExperiment of field) {
     const experiment = readExperiment(rawExperiment);
+
     const isDuplicate = experimentNames.has(experiment.name);
 
     if (isDuplicate) {
@@ -412,6 +414,7 @@ async function ensureExperiment(
       platform,
       trafficProportion: desiredExperiment.trafficProportion,
     });
+
     plannedAction.status = 'applied';
 
     return { experimentId: createdExperiment.id, existed: false };
@@ -471,6 +474,7 @@ async function ensureTreatment(
       ensuredExperiment.experimentId,
       treatmentInput,
     );
+
     plannedAction.status = 'applied';
 
     return { treatmentId: createdTreatment.id, existed: false };
@@ -505,6 +509,7 @@ async function ensureTreatmentLocalization(
     false,
     createLocalization,
   );
+
   const didNotSucceed = succeededOrPlanned(createAction.status) == false;
 
   if (didNotSucceed) {
@@ -570,6 +575,7 @@ async function reconcileTreatmentScreenshots(
       locale,
       localizationIdsByLocale.get(locale),
     );
+
     if (ensuredLocalization == null) {
       continue;
     }
@@ -617,6 +623,7 @@ async function reconcileTreatments(
   const desiredTreatments = readDeclaredTreatments(desiredExperiment);
 
   const treatmentIdsByName = new Map<string, string>();
+
   const shouldListTreatments = canListExistingTreatments(ensuredExperiment);
 
   if (shouldListTreatments) {
@@ -699,6 +706,7 @@ async function submitExperiment(
 ): Promise<void> {
   const description = `submit experiment "${desiredExperiment.name}" for App Review`;
   const state = readExperimentState(existingExperiment);
+
   const cannotSubmit = submittableStates.has(state) == false;
 
   if (cannotSubmit) {
@@ -733,6 +741,7 @@ async function startExperiment(
   existingExperiment: VersionExperimentResource | undefined,
 ): Promise<void> {
   const description = `start experiment "${desiredExperiment.name}"`;
+
   if (existingExperiment == null) {
     skipAction(actionLog, `${description}: submit it and wait for Apple's approval first`);
 
@@ -740,6 +749,7 @@ async function startExperiment(
   }
 
   const approvedExperiment = existingExperiment;
+
   const alreadyStarted = approvedExperiment.startDate != null;
 
   if (alreadyStarted) {
@@ -849,6 +859,7 @@ function declaredScreenshotFolders(experimentsConfig: VersionExperimentsConfig):
 
   for (const declaredExperiment of experimentsConfig.experiments) {
     const declaredTreatments = declaredExperiment.treatments;
+
     const treatmentsAreUndeclared = declaredTreatments == null;
 
     if (treatmentsAreUndeclared) {
@@ -857,6 +868,7 @@ function declaredScreenshotFolders(experimentsConfig: VersionExperimentsConfig):
 
     for (const declaredTreatment of declaredTreatments) {
       const screenshotsFolder = declaredTreatment.screenshots;
+
       const folderIsUndeclared = screenshotsFolder == null;
 
       if (folderIsUndeclared) {

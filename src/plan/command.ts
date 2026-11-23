@@ -110,6 +110,7 @@ export function decodePlanCommandInput(rawCommandInput: unknown): PlanCommandInp
   };
   const surface = readOptionalString(rawCommandInputObject, 'surface');
   const app = readOptionalString(rawCommandInputObject, 'app');
+
   const hasSurface = surface != null;
 
   if (hasSurface) {
@@ -171,6 +172,7 @@ function renderActionLine(plannedAction: PlannedAction): string {
 function renderAppSurface(logger: Logger, plannedSurface: PlannedAppSurface): void {
   for (const appPlan of plannedSurface.apps) {
     const heading = `${appPlan.app} - ${plannedSurface.surface} (${appPlan.identifier})`;
+
     const hasError = appPlan.error != null;
 
     if (hasError) {
@@ -186,6 +188,7 @@ function renderAppSurface(logger: Logger, plannedSurface: PlannedAppSurface): vo
     }
 
     const actionLines = appPlan.actions.map(renderActionLine);
+
     logger.notice(heading, ...actionLines);
   }
 }
@@ -199,6 +202,7 @@ function renderTeamSurface(logger: Logger, plannedSurface: PlannedTeamSurface): 
   }
 
   const actionLines = plannedSurface.actions.map(renderActionLine);
+
   logger.notice(
     `${storeLabel(plannedSurface.store)} - Team - ${plannedSurface.surface}`,
     ...actionLines,
@@ -211,6 +215,7 @@ function isZeroCount(count: number): boolean {
 
 function renderSummary(logger: Logger, planOutcome: PlanOutcome): void {
   const { changeCount, appErrorCount, skippedSurfaceCount } = planOutcome;
+
   const isClean = [changeCount, appErrorCount, skippedSurfaceCount].every(isZeroCount);
 
   if (isClean) {
@@ -219,6 +224,7 @@ function renderSummary(logger: Logger, planOutcome: PlanOutcome): void {
   }
 
   const summaryParts: string[] = [];
+
   const hasChanges = changeCount > 0;
 
   if (hasChanges) {
@@ -238,6 +244,7 @@ function renderSummary(logger: Logger, planOutcome: PlanOutcome): void {
   }
 
   logger.note(summaryParts.join(' - '));
+
   const isCheck = planOutcome.check == true;
 
   if (isCheck == false) {
@@ -264,6 +271,7 @@ function renderSummary(logger: Logger, planOutcome: PlanOutcome): void {
 /** Render human plan/drift report lines for one outcome. */
 function renderPlanOutcome(logger: Logger, planOutcome: PlanOutcome): void {
   logger.gap();
+
   const isEmpty = planOutcome.surfaces.length == 0;
 
   if (isEmpty) {
@@ -277,6 +285,7 @@ function renderPlanOutcome(logger: Logger, planOutcome: PlanOutcome): void {
     switch (plannedSurface.state) {
       case 'skipped': {
         let hint = '';
+
         const hasHint = plannedSurface.hint != null;
 
         if (hasHint) {
@@ -286,6 +295,7 @@ function renderPlanOutcome(logger: Logger, planOutcome: PlanOutcome): void {
         logger.warn(
           `${storeLabel(plannedSurface.store)} - ${plannedSurface.surface}: skipped - ${plannedSurface.reason}${hint}`,
         );
+
         break;
       }
       case 'planned': {
@@ -304,6 +314,7 @@ function renderPlanOutcome(logger: Logger, planOutcome: PlanOutcome): void {
         if (isAdditive) {
           logger.note(additiveNote(plannedSurface.surface));
         }
+
         break;
       }
     }
@@ -335,6 +346,7 @@ export function selectPlanPlanners(
   }
 
   const selectedPlanner = registeredPlanners.find(matchesSurface(surfaceName));
+
   const isKnownSurface = selectedPlanner != null;
 
   if (isKnownSurface) {
@@ -342,6 +354,7 @@ export function selectPlanPlanners(
   }
 
   let availableSurfaces = registeredPlanners.map(plannerId).join(', ');
+
   const isNoneRegistered = availableSurfaces.length == 0;
 
   if (isNoneRegistered) {
@@ -360,7 +373,9 @@ export async function planCommandProgram(rawCommandInput: unknown): Promise<void
     const commandInput = decodePlanCommandInput(rawCommandInput);
     const launchDirectories = readLaunchDirectories();
     const logger = createLogger(false);
+
     registerBuiltinPlanners();
+
     const loadedConfiguration = await loadConfig(launchDirectories.workingDirectory);
 
     let selectedApps: readonly AppDescriptor[];
@@ -374,6 +389,7 @@ export async function planCommandProgram(rawCommandInput: unknown): Promise<void
     const surfacePlanners = listSurfacePlanners();
     const selectedPlanners = selectPlanPlanners(surfacePlanners, commandInput.surface);
     let check = commandInput.check;
+
     const isDrift = commandInput.operation == 'drift';
 
     if (isDrift) {
@@ -392,6 +408,7 @@ export async function planCommandProgram(rawCommandInput: unknown): Promise<void
       resolvePlayApi: resolvePlayClient,
     };
     const planOutcome = await runPlanners(planContext, selectedPlanners, { check });
+
     const isJson = commandInput.json == true;
 
     if (isJson) {

@@ -11,6 +11,7 @@ export function registerReviewsCommand(program: Command): void {
   const reviews = program
     .command('reviews')
     .description('read App Store customer reviews and reply from the CLI');
+
   function runList(
     options: Omit<ReviewsListCommandInput, 'operation' | 'unanswered' | 'json'> & {
       unanswered?: boolean;
@@ -23,6 +24,7 @@ export function registerReviewsCommand(program: Command): void {
       unanswered: options.unanswered == true,
       json: options.json == true,
     });
+
     return runCliProgram(reviewsProgram);
   }
 
@@ -35,6 +37,7 @@ export function registerReviewsCommand(program: Command): void {
     .option('--unanswered', 'only show reviews without a developer response', false)
     .option('--json', 'output machine-readable JSON', false)
     .action(runList);
+
   function runReply(
     reviewId: string,
     options: Omit<ReviewReplyCommandInput, 'operation' | 'reviewId' | 'yes'> & {
@@ -47,6 +50,7 @@ export function registerReviewsCommand(program: Command): void {
       ...options,
       yes: options.yes == true,
     });
+
     return runCliProgram(reviewsProgram);
   }
 
@@ -58,12 +62,14 @@ export function registerReviewsCommand(program: Command): void {
     .option('--file <path>', 'read the reply text from a file')
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runReply);
+
   function runDelete(reviewId: string, options: { yes?: boolean }) {
     const reviewsProgram = reviewsCommandProgram({
       operation: 'delete',
       reviewId,
       yes: options.yes == true,
     });
+
     return runCliProgram(reviewsProgram);
   }
 

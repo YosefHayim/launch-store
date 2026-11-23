@@ -90,6 +90,7 @@ function encodeJson(serviceAccountJson: string): string {
 
 function decodeJson(storedServiceAccount: string): string {
   const decodedServiceAccount = Buffer.from(storedServiceAccount, 'base64').toString('utf8');
+
   const isDecodedJson = decodedServiceAccount.trimStart().startsWith('{');
 
   if (isDecodedJson) {
@@ -238,7 +239,9 @@ async function writeAndroidIndex(
   const credentialsIndexPath = resolveAndroidCredentialsIndexPath(packageName);
 
   await mkdir(credentialsDirectory, { recursive: true });
+
   const serialized = JSON.stringify(credentialsIndex, null, 2);
+
   await writeFile(credentialsIndexPath, serialized);
 }
 
@@ -291,12 +294,16 @@ export async function storeServiceAccount(
   const directory = resolveAndroidCredentialsDirectory(packageName);
 
   await mkdir(directory, { recursive: true });
+
   const encode = encodeJson(serviceAccountJson);
+
   await LaunchSecretStore.storeSecret(
     androidSecretAccount(SERVICE_ACCOUNT_SECRET, packageName),
     encode,
   );
+
   const packagePath = join(directory, 'package.txt');
+
   await writeFile(packagePath, packageName);
 }
 
@@ -491,6 +498,7 @@ async function verifyKeystore(keystore: KeystoreImport): Promise<void> {
     const verificationPassword = randomHexSecret(verificationPasswordBytes);
 
     const verifiedPath = join(directory, 'verified.p12');
+
     await captureCommandOutput(
       'keytool',
       [
@@ -676,6 +684,7 @@ export async function adoptLegacyAndroidCredentials(
     legacyBackupExists,
     legacyIndexExists,
   );
+
   const isLegacyStoreEmpty = foundNoLegacyCredentials(legacyAccount, hasLegacyFiles);
 
   if (isLegacyStoreEmpty) {
@@ -752,6 +761,7 @@ export async function adoptLegacyAndroidCredentials(
 
 function dryRunKeystore(packageName: string): KeystoreAssets {
   const androidCredentialsDirectory = resolveAndroidCredentialsDirectory(packageName);
+
   return {
     path: join(androidCredentialsDirectory, 'dry-run-upload.keystore'),
     alias: DEFAULT_ALIAS,
@@ -849,6 +859,7 @@ export async function ensureUploadKeystore(
   const legacyBackupExists = await pathExists(legacyKeystoreBackupPath);
   const legacyAndroidCredentialsIndexPath = resolveLegacyAndroidCredentialsIndexPath();
   const legacyIndexExists = await pathExists(legacyAndroidCredentialsIndexPath);
+
   const hasLegacyKeystore = hasKeystoreTrace(
     legacyIndex.keystore,
     legacyBackupExists,

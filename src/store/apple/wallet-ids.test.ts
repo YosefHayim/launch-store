@@ -20,6 +20,7 @@ function makeApi(existing: {
   const api: AscWalletApi = {
     listMerchantIds() {
       if (existing.merchantIds == null) return Promise.resolve([]);
+
       return Promise.resolve(existing.merchantIds);
     },
     createMerchantId(identifier) {
@@ -28,6 +29,7 @@ function makeApi(existing: {
     },
     listPassTypeIds() {
       if (existing.passTypeIds == null) return Promise.resolve([]);
+
       return Promise.resolve(existing.passTypeIds);
     },
     createPassTypeId(identifier) {
@@ -35,6 +37,7 @@ function makeApi(existing: {
       return Promise.resolve();
     },
   };
+
   return { api, created };
 }
 /** Execute the Wallet reconciler at the test boundary. */
@@ -58,37 +61,44 @@ function describeParseWalletPiece() {
   }
 
   it('parses both identifier families', parsesBothIdentifierFamilies);
+
   function acceptsAPieceWithOnlyOneFamily() {
     const decodeWallet = decodeWalletConfig({
       merchantIds: [{ identifier: 'merchant.x', name: 'X' }],
     });
+
     expect(decodeWallet).toEqual({
       merchantIds: [{ identifier: 'merchant.x', name: 'X' }],
     });
   }
 
   it('accepts a config with only one family', acceptsAPieceWithOnlyOneFamily);
+
   function rejectsANonObjectAFamilyThatIsnTAnArrayAndAFileDeclaringNeitherFamily() {
     function callDecodeWalletPiece() {
       return decodeWalletConfig('nope');
     }
 
     expect(callDecodeWalletPiece).toThrow(/must be a JSON object/);
+
     function callDecodeWalletPiece2() {
       return decodeWalletConfig([]);
     }
 
     expect(callDecodeWalletPiece2).toThrow(/must be a JSON object/);
+
     function callDecodeWalletPiece3() {
       return decodeWalletConfig({});
     }
 
     expect(callDecodeWalletPiece3).toThrow(/at least one entry/);
+
     function callDecodeWalletPiece4() {
       return decodeWalletConfig({ merchantIds: [], passTypeIds: [] });
     }
 
     expect(callDecodeWalletPiece4).toThrow(/at least one entry/);
+
     function callDecodeWalletPiece5() {
       return decodeWalletConfig({ merchantIds: {} });
     }
@@ -100,12 +110,14 @@ function describeParseWalletPiece() {
     "rejects a non-object, a family that isn't an array, and a file declaring neither family",
     rejectsANonObjectAFamilyThatIsnTAnArrayAndAFileDeclaringNeitherFamily,
   );
+
   function rejectsAnPieceMissingIdentifierOrName() {
     function callDecodeWalletPiece6() {
       return decodeWalletConfig({ passTypeIds: [{ name: 'X' }] });
     }
 
     expect(callDecodeWalletPiece6).toThrow(/identifier/);
+
     function callDecodeWalletPiece7() {
       return decodeWalletConfig({ passTypeIds: [{ identifier: 'pass.x' }] });
     }
@@ -124,6 +136,7 @@ function describeReconcileWalletIds() {
       passTypeIds: [{ id: 'p1', identifier: 'pass.com.acme.coupon' }],
     });
     const actions = await runReconcile(api, CONFIG, false);
+
     expect(created.merchant).toEqual([]);
     expect(created.passType).toEqual(['pass.com.acme.ticket']);
     expect(summarize(actions)).toEqual({ applied: 1, failed: 0, skipped: 0 });
@@ -136,18 +149,22 @@ function describeReconcileWalletIds() {
     "registers only the identifiers Apple doesn't already have, across both families",
     registersOnlyTheIdentifiersAppleDoesnTAlreadyHaveAcrossBothFamilies,
   );
+
   async function registersEverythingWhenNothingExistsYet() {
     const { api, created } = makeApi({});
     const actions = await runReconcile(api, CONFIG, false);
+
     expect(created.merchant).toEqual(['merchant.com.acme.app']);
     expect(created.passType).toEqual(['pass.com.acme.coupon', 'pass.com.acme.ticket']);
     expect(summarize(actions)).toEqual({ applied: 3, failed: 0, skipped: 0 });
   }
 
   it('registers everything when nothing exists yet', registersEverythingWhenNothingExistsYet);
+
   async function skipsTheReadForAFamilyThePieceOmits() {
     let merchantListed = false;
     const { api } = makeApi({});
+
     function runPiece() {
       merchantListed = true;
       return Promise.resolve([]);
@@ -159,11 +176,14 @@ function describeReconcileWalletIds() {
   }
 
   it('skips the read for a family the config omits', skipsTheReadForAFamilyThePieceOmits);
+
   async function plansButDoesNotRegisterOnADryRun() {
     const { api, created } = makeApi({});
     const actions = await runReconcile(api, CONFIG, true);
+
     expect(created.merchant).toHaveLength(0);
     expect(created.passType).toHaveLength(0);
+
     function everyAction(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -178,19 +198,25 @@ function describeReconcileWalletIds() {
   }
 
   it('plans but does not register on a dry-run', plansButDoesNotRegisterOnADryRun);
+
   async function capturesAFailedRegistrationWithoutAbortingTheRest() {
     const { api } = makeApi({});
+
     function runIdentifier(identifier: string) {
       if (identifier == 'pass.com.acme.coupon') {
         return Promise.reject(new Error('already taken'));
       }
+
       return Promise.resolve();
     }
 
     api.createPassTypeId = runIdentifier;
+
     const actions = await runReconcile(api, CONFIG, false);
     const summary = summarize(actions);
+
     expect(summary).toEqual({ applied: 2, failed: 1, skipped: 0 });
+
     function findAction(action: {
       readonly description: string;
       readonly destructive: boolean;

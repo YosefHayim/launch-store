@@ -103,6 +103,7 @@ export async function loadStoreAppContext(
   }
 
   const onlyApp = loadedConfiguration.apps[0];
+
   const isOnlyApp = loadedConfiguration.apps.length == 1;
 
   if (isOnlyApp) {

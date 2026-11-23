@@ -11,6 +11,7 @@ export async function pathExists(candidate: string): Promise<boolean> {
     }
 
     const nodeError = error as NodeJS.ErrnoException;
+
     const isMissing = nodeError.code == 'ENOENT';
 
     if (isMissing) {

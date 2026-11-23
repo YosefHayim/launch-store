@@ -66,6 +66,7 @@ function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {
     createSubscriptionOffer: vi.fn(mockCall10),
     activateSubscriptionOffer: vi.fn(mockCall11),
   };
+
   return { ...base, ...overrides };
 }
 /** A Play-published subscription (carries a `play` override with a base-plan price). */
@@ -107,7 +108,9 @@ function makeCtx(
     submit: 'app-store-connect',
   };
   let config = baseConfig;
+
   if (Object.keys(products).length > 0) config = { ...baseConfig, products };
+
   return {
     config,
     apps,
@@ -136,6 +139,7 @@ function describePlaySubscriptionsPlanner() {
         ]),
       ),
     );
+
     expect(plan.state).toBe('omitted');
   }
 
@@ -143,6 +147,7 @@ function describePlaySubscriptionsPlanner() {
     'omits itself when no app declares a Play-overridden subscription',
     omitsItselfWhenNoAppDeclaresAPlayOverriddenSubscription,
   );
+
   async function omitsAnAppThatHasSubscriptionsButNoAndroidPackageName() {
     const noPackage: AppDescriptor = {
       name: 'alpha',
@@ -155,6 +160,7 @@ function describePlaySubscriptionsPlanner() {
       playSubscriptionsPlanner,
       makeCtx(playApi, productsWith([PLAY_SUB]), [noPackage]),
     );
+
     expect(plan.state).toBe('omitted');
   }
 
@@ -162,13 +168,17 @@ function describePlaySubscriptionsPlanner() {
     'omits an app that has subscriptions but no Android package name',
     omitsAnAppThatHasSubscriptionsButNoAndroidPackageName,
   );
+
   async function skipsWithAnActionableHintWhenNoPlayServiceAccountIsConfigured() {
     const plan = await runPlanner(
       playSubscriptionsPlanner,
       makeCtx(null, productsWith([PLAY_SUB])),
     );
+
     expect(plan.state).toBe('skipped');
+
     if (plan.state != 'skipped') return;
+
     expect(plan.reason).toMatch(/Play service account/);
     expect(plan.hint).toMatch(/android/);
   }
@@ -177,17 +187,23 @@ function describePlaySubscriptionsPlanner() {
     'skips with an actionable hint when no Play service account is configured',
     skipsWithAnActionableHintWhenNoPlayServiceAccountIsConfigured,
   );
+
   async function reportsThePerAppDiffAFreshPlaySubscriptionWouldCreate() {
     const playApi = makePlayApi();
     const plan = await runPlanner(
       playSubscriptionsPlanner,
       makeCtx(playApi, productsWith([PLAY_SUB])),
     );
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
+
     function someA(a: {
       readonly description: string;
       readonly destructive: boolean;
@@ -204,6 +220,7 @@ function describePlaySubscriptionsPlanner() {
     'reports the per-app diff a fresh Play subscription would create',
     reportsThePerAppDiffAFreshPlaySubscriptionWouldCreate,
   );
+
   async function capturesAnUnreachableAppAsAPerAppErrorNotAThrownPlan() {
     function mockCall12() {
       return Promise.reject(new Error('app not found on Play'));
@@ -213,9 +230,13 @@ function describePlaySubscriptionsPlanner() {
       assertAppExists: vi.fn(mockCall12),
     });
     const plan = await runPlanner(playSubscriptionsPlanner, makeCtx(api, productsWith([PLAY_SUB])));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.error).toMatch(/app not found on Play/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   }
@@ -224,8 +245,10 @@ function describePlaySubscriptionsPlanner() {
     'captures an unreachable app as a per-app error, not a thrown plan',
     capturesAnUnreachableAppAsAPerAppErrorNotAThrownPlan,
   );
+
   async function isStrictlyReadOnlyNeverInvokesAPlayWriteEndpoint() {
     const api = makePlayApi();
+
     await runPlanner(playSubscriptionsPlanner, makeCtx(api, productsWith([PLAY_SUB])));
     expect(api.listSubscriptions).toHaveBeenCalled();
     expect(api.createSubscription).toHaveBeenCalledTimes(0);

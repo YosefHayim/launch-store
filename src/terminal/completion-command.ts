@@ -41,14 +41,18 @@ async function showInstallOutcome(shellText: string | undefined): Promise<void> 
 
   if (installOutcome.status == 'manual') {
     logger.warn(`Could not edit ${installOutcome.rcFile} - its directory does not exist yet.`);
+
     const shellName = installOutcome.shell;
     const sourceLine = installOutcome.line;
     const manualLine = `Add this line to your ${shellName} config, then restart your shell: ${sourceLine}`;
+
     logger.tip(manualLine);
+
     return;
   }
 
   let installVerb = 'installed';
+
   const didUpdateExistingBlock = installOutcome.updated;
 
   if (didUpdateExistingBlock) {
@@ -56,6 +60,7 @@ async function showInstallOutcome(shellText: string | undefined): Promise<void> 
   }
 
   const installDetail = `${installVerb} for ${installOutcome.shell} in ${installOutcome.rcFile}`;
+
   logger.step('completion', installDetail);
   logger.tip('Restart your shell (or source the rc file) to activate it.');
 }

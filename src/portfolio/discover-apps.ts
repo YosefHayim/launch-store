@@ -196,7 +196,9 @@ async function discoverAppleAccounts(
 
   async function discoverNextAccount(): Promise<void> {
     const index = nextIndex;
+
     nextIndex += 1;
+
     const isFinished = index >= accounts.length;
 
     if (isFinished) {

@@ -9,6 +9,7 @@ import { runCliProgram } from '../../run-cli-program.ts';
 /** Attach the `ai listing` subcommand. */
 export function registerAiListingCommand(program: Command): void {
   const aiCommand = aiGroup(program);
+
   function runListing(commandOptions: AiListingInput) {
     const aiListingProgram = aiListingCommandProgram(commandOptions);
     return runCliProgram(aiListingProgram);

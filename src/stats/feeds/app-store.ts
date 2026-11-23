@@ -185,6 +185,7 @@ async function readSalesReport(
   date: string,
 ): Promise<ParsedReport | null> {
   const cacheKey = `${vendorNumber}|${date}`;
+
   const isCached = salesReportCache.has(cacheKey);
 
   if (isCached) {
@@ -207,6 +208,7 @@ async function readSalesReport(
       version: '1_0',
     });
     const parsedReport = parseTsv(decompressReport(reportBytes));
+
     salesReportCache.set(cacheKey, parsedReport);
 
     return parsedReport;
@@ -245,6 +247,7 @@ async function loadSalesStats(
 
   return dailyReports.flatMap(function readDayStats(datedReport: DatedReport) {
     const reportLines = readReportLines(datedReport.report);
+
     return summarizeSalesLines(reportLines, {
       date: datedReport.date,
       storeId: app.storeId,
@@ -309,6 +312,7 @@ async function loadAnalyticsBatches(
     }
 
     const kindBatches = await mapInChunks(wantedSegments, 4, readSegment);
+
     batches.push(...kindBatches);
   }
 

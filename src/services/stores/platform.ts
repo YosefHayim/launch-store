@@ -56,12 +56,14 @@ export function parsePlatform(platformText: string) {
   }
 
   const match = PLATFORMS.find(findPlatform);
+
   if (!match)
     return unsupportedPlatform(
       'parse platform',
       platformText,
       `Unknown platform "${platformText}". Use one of: ${PLATFORMS.join(', ')}.`,
     );
+
   return match;
 }
 /** The App Store Connect platform attribute for a build platform */

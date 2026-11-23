@@ -77,6 +77,7 @@ export function registerBuildCommand(program: Command): void {
   const appleBuildCommand = addAppleBuildOptions(buildCommand);
   const androidBuildCommand = addAndroidBuildOptions(appleBuildCommand);
   const command = addSharedBuildOptions(androidBuildCommand);
+
   function runCommand(platformArgument: string, commandOptions: BuildCommandOptions) {
     function startBuild(): ReturnType<typeof buildCommandProgram> {
       return buildCommandProgram(platformArgument, commandOptions);

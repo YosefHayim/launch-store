@@ -23,6 +23,7 @@ export function makeBuildCommandExecutionError(fields: {
 
 function wrapBuildFailure(cause: unknown): BuildCommandExecutionError {
   let failureMessage = 'Build command failed.';
+
   const causeHasMessage = hasMessage(cause);
 
   if (causeHasMessage) {
@@ -37,6 +38,7 @@ export async function buildCommandProgram(
   commandOptions: BuildCommandOptions,
 ): Promise<void> {
   const buildRunOptions = await parseBuildCommandInput(platformArgument, commandOptions);
+
   setVerboseOutput(commandOptions.verbose);
 
   try {

@@ -22,9 +22,13 @@ function describeGradleSigningTransport() {
 
     try {
       const androidPath = join(directory, 'android');
+
       mkdirSync(androidPath);
+
       const gradlewPath = join(directory, 'android', 'gradlew');
+
       writeFileSync(gradlewPath, '');
+
       const buildContext = {
         platform: 'android' as const,
         app: {
@@ -59,7 +63,9 @@ function describeGradleSigningTransport() {
       }
 
       expect(stopped).not.toBeNull();
+
       const invocation = vi.mocked(runWithProgress).mock.calls[0];
+
       expect(invocation).toBeDefined();
       expect(invocation?.[1].join(' ')).not.toContain('store-secret');
       expect(invocation?.[1].join(' ')).not.toContain('key-secret');

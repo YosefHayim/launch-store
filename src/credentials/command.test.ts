@@ -43,6 +43,7 @@ function describeCredentialDiscoveryDirectories() {
   }
 
   it('matches a key directly inside Downloads', matchesAKeyDirectlyInsideDownloads);
+
   function matchesAServiceAccountKeyDirectlyInsideTheWorkingDirectory() {
     expect(discoveryMatches('/workspace/app/service-account.json')).toBe(true);
   }
@@ -51,6 +52,7 @@ function describeCredentialDiscoveryDirectories() {
     'matches a service-account key directly inside the working directory',
     matchesAServiceAccountKeyDirectlyInsideTheWorkingDirectory,
   );
+
   function leavesADeliberatelyPlacedKeyOutsideDiscoveryDirectoriesUntouched() {
     expect(discoveryMatches('/Users/example/vault/AuthKey_ABC123.p8')).toBe(false);
   }
@@ -59,6 +61,7 @@ function describeCredentialDiscoveryDirectories() {
     'leaves a deliberately placed key outside discovery directories untouched',
     leavesADeliberatelyPlacedKeyOutsideDiscoveryDirectoriesUntouched,
   );
+
   function doesNotPieceAKeyNestedBelowADiscoveryDirectory() {
     expect(discoveryMatches('/Users/example/Downloads/keys/AuthKey_ABC123.p8')).toBe(false);
   }
@@ -76,6 +79,7 @@ function describeCredentialsCommandPieceSchema() {
       action: 'setup',
       options: { platform: 'android', yes: true },
     });
+
     expect(credentialsCommandSchema).toEqual({
       action: 'setup',
       options: { platform: 'android', yes: true },
@@ -86,6 +90,7 @@ function describeCredentialsCommandPieceSchema() {
     'decodes the Commander boundary into a known credential action',
     decodesTheCommanderBoundaryIntoAKnownCredentialAction,
   );
+
   function rejectsAnUnknownCredentialActionBeforeOrchestration() {
     function callCredentialsCommandPieceSchema() {
       return CredentialsCommandInputSchema({
@@ -101,12 +106,14 @@ function describeCredentialsCommandPieceSchema() {
     'rejects an unknown credential action before orchestration',
     rejectsAnUnknownCredentialActionBeforeOrchestration,
   );
+
   function acceptsLogoutAsARemoveAliasAtTheSchemaBoundary() {
     const credentialsCommandSchema = CredentialsCommandInputSchema({
       action: 'logout',
       firstArgument: 'acme',
       options: { yes: true },
     });
+
     expect(credentialsCommandSchema).toEqual({
       action: 'logout',
       firstArgument: 'acme',
@@ -137,6 +144,7 @@ function describeCredentialsCommandProgramValidation() {
     'preserves the rename operation tag when arguments are missing',
     preservesTheRenameOperationTagWhenArgumentsAreMissing,
   );
+
   async function preservesTheRemoveOperationTagWhenTheAccountSelectorIsMissing() {
     const failure = await runCredentialsFailure({
       action: 'remove',
@@ -152,6 +160,7 @@ function describeCredentialsCommandProgramValidation() {
     'preserves the remove operation tag when the account selector is missing',
     preservesTheRemoveOperationTagWhenTheAccountSelectorIsMissing,
   );
+
   async function requiresAnAccountSelectorForNonInteractiveUse() {
     const failure = await runCredentialsFailure({
       action: 'use',
@@ -167,6 +176,7 @@ function describeCredentialsCommandProgramValidation() {
     'requires an account selector for non-interactive use',
     requiresAnAccountSelectorForNonInteractiveUse,
   );
+
   async function rejectsAnUnknownPushKeySubcommandWithoutTouchingTheVault() {
     const failure = await runCredentialsFailure({
       action: 'push-key',
@@ -183,6 +193,7 @@ function describeCredentialsCommandProgramValidation() {
     'rejects an unknown push-key subcommand without touching the vault',
     rejectsAnUnknownPushKeySubcommandWithoutTouchingTheVault,
   );
+
   async function requiresAKeyIDForNonInteractiveAPNsExport() {
     const failure = await runCredentialsFailure({
       action: 'push-key',
@@ -205,6 +216,7 @@ describe('credentialsCommandProgram validation', describeCredentialsCommandProgr
 
 function useCommandHome(homeDirectory: string, lines: string[]): void {
   const workPath = join(homeDirectory, 'work');
+
   useLaunchDirectories({
     homeDirectory,
     workingDirectory: workPath,
@@ -216,16 +228,20 @@ function useCommandHome(homeDirectory: string, lines: string[]): void {
 }
 function describeSetVendorNumberAction() {
   let homeDirectory: string;
+
   function prepareSetVendorNumberAction() {
     homeDirectory = createTemporaryHomeDirectory();
+
     const serialized = JSON.stringify({
       active: 'KEYA',
       accounts: [{ keyId: 'KEYA', issuerId: 'issuer-a', label: 'alpha', addedAt: 't' }],
     });
+
     writeLaunchHomeFile(homeDirectory, 'accounts.json', serialized);
   }
 
   beforeEach(prepareSetVendorNumberAction);
+
   function cleanupSetVendorNumberAction() {
     resetLaunchDirectories();
     resetSecretStore();
@@ -255,6 +271,7 @@ function describeSetVendorNumberAction() {
     });
 
     expect(failed).toBeNull();
+
     function someLine(line: string) {
       return line.includes('alpha');
     }
@@ -269,6 +286,7 @@ function describeSetVendorNumberAction() {
   }
 
   it('saves the vendor number on the matching account', savesTheVendorNumberOnTheMatchingAccount);
+
   async function asksForBothFlags() {
     const withoutAccount = await runInTemporaryHome({ vendorNumber: '1' });
     const withoutNumber = await runInTemporaryHome({ account: 'alpha' });
@@ -278,6 +296,7 @@ function describeSetVendorNumberAction() {
   }
 
   it('asks for both flags', asksForBothFlags);
+
   async function rejectsAVendorNumberThatIsNotDigits() {
     const { failed } = await runInTemporaryHome({ account: 'alpha', vendorNumber: 'abc' });
 
@@ -293,11 +312,13 @@ function describeSetVendorNumberAction() {
 describe('set-vendor-number action', describeSetVendorNumberAction);
 function describeSetPlayReportsBucketAction() {
   let homeDirectory: string;
+
   function prepareSetPlayReportsBucketAction() {
     homeDirectory = createTemporaryHomeDirectory();
   }
 
   beforeEach(prepareSetPlayReportsBucketAction);
+
   function cleanupSetPlayReportsBucketAction() {
     resetLaunchDirectories();
     resetSecretStore();
@@ -332,12 +353,15 @@ function describeSetPlayReportsBucketAction() {
     });
 
     expect(failed).toBeNull();
+
     function someLine2(line: string) {
       return line.includes('pubsite_prod_rev_123');
     }
 
     expect(lines.some(someLine2)).toBe(true);
+
     const savedPortfolio = readSavedPortfolio();
+
     expect(savedPortfolio.playReportsBucket).toBe('pubsite_prod_rev_123');
   }
 
@@ -345,6 +369,7 @@ function describeSetPlayReportsBucketAction() {
     'saves the bucket name from a copied gs:// URI into portfolio.json',
     savesTheBucketNameFromACopiedGsURIIntoPortfolioPiece,
   );
+
   async function keepsTheTagsAlreadySavedInPortfolioPiece() {
     const serialized = JSON.stringify({
       version: 1,
@@ -352,6 +377,7 @@ function describeSetPlayReportsBucketAction() {
       apps: [],
       tags: [{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: null }],
     });
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     await runInTemporaryHome({ playReportsBucket: 'pubsite_prod_123' });
@@ -363,6 +389,7 @@ function describeSetPlayReportsBucketAction() {
   }
 
   it('keeps the tags already saved in portfolio.json', keepsTheTagsAlreadySavedInPortfolioPiece);
+
   async function asksForTheFlagAndRejectsPieceThatIsNotAPlayBucket() {
     const withoutFlag = await runInTemporaryHome({});
     const withWrongBucket = await runInTemporaryHome({ playReportsBucket: 'gs://my-bucket/' });
@@ -389,6 +416,7 @@ function describeAndroidCredentialStatus() {
   }
 
   afterEach(cleanupAndroidCredentialStatus);
+
   async function reportsABrokenLaunchPieceInsteadOfHidingIt() {
     const homeDirectory = createTemporaryHomeDirectory();
 
@@ -396,7 +424,9 @@ function describeAndroidCredentialStatus() {
       const work = join(homeDirectory, 'work');
 
       mkdirSync(work, { recursive: true });
+
       const launchPath = join(work, 'launch.config.js');
+
       writeFileSync(launchPath, 'throw new Error("broken config fixture")');
       useCommandHome(homeDirectory, []);
 
@@ -404,6 +434,7 @@ function describeAndroidCredentialStatus() {
         action: 'status',
         options: { yes: true },
       });
+
       await expect(credentialsProgram).rejects.toMatchObject({
         message: expect.stringContaining('Could not load launch.config.js'),
       });
@@ -416,6 +447,7 @@ function describeAndroidCredentialStatus() {
     'reports a broken Launch config instead of hiding it',
     reportsABrokenLaunchPieceInsteadOfHidingIt,
   );
+
   async function listsAllConfiguredAndroidAppsWithoutAskingForAnApp() {
     const homeDirectory = createTemporaryHomeDirectory();
 
@@ -424,10 +456,12 @@ function describeAndroidCredentialStatus() {
         const directory = join(homeDirectory, 'work', 'apps', name);
 
         mkdirSync(directory, { recursive: true });
+
         const appPath = join(directory, 'app.json');
         const serialized = JSON.stringify({
           expo: { slug: name, android: { package: `com.example.${name}` } },
         });
+
         writeFileSync(appPath, serialized);
       }
 

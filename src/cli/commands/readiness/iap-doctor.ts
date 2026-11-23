@@ -11,6 +11,7 @@ type IapDoctorOptions = {
 /** Attach the in-app-purchase readiness command group. */
 export function registerIapCommand(program: Command): void {
   const iapCommand = program.command('iap').description('in-app-purchase readiness and operations');
+
   function runDoctor(commandOptions: IapDoctorOptions) {
     const readinessProgram = readinessCommandProgram({
       category: 'iap',
@@ -20,6 +21,7 @@ export function registerIapCommand(program: Command): void {
       },
       ...commandOptions,
     });
+
     return runCliProgram(readinessProgram);
   }
 

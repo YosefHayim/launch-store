@@ -56,16 +56,23 @@ type CommandOutcome =
   | { readonly _tag: 'Left'; readonly left: unknown };
 function describeStatsReportProgram() {
   let homeDirectory: string;
+
   function prepareStatsReportProgram() {
     homeDirectory = createTemporaryHomeDirectory();
+
     const workPath = join(homeDirectory, 'work');
+
     useLaunchDirectories({
       homeDirectory,
       workingDirectory: workPath,
     });
+
     const serialized = JSON.stringify(STATS_PORTFOLIO_FILE);
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
+
     const dateDaysAgo = readDateDaysAgo(1);
+
     writeStatsMonthFiles(homeDirectory, 'ios-1', [
       {
         date: dateDaysAgo,
@@ -80,6 +87,7 @@ function describeStatsReportProgram() {
   }
 
   beforeEach(prepareStatsReportProgram);
+
   function cleanupStatsReportProgram() {
     useStatsCredentials(null);
     resetLogger();
@@ -91,6 +99,7 @@ function describeStatsReportProgram() {
 
   async function run(request: StatsCommandRequest) {
     const lines: string[] = [];
+
     useLoggerSink(function writeLine(text: string) {
       lines.push(text);
     });
@@ -111,7 +120,9 @@ function describeStatsReportProgram() {
 
     expect(outcome._tag).toBe('Right');
     expect(lines).toHaveLength(1);
+
     const report = JSON.parse(lines[0] ?? '');
+
     expect(report.ok).toBe(true);
     expect(report.days).toBe(7);
     expect(report.apps).toHaveLength(2);
@@ -121,16 +132,19 @@ function describeStatsReportProgram() {
     'prints one JSON object with the report with --json',
     printsOneJSONObjectWithTheReportWithPiece,
   );
+
   async function printsABlockPerAppWithoutPiece() {
     const { lines } = await run(ALL_APPS_REQUEST);
 
     const text = lines.join('');
+
     expect(text).toContain('Cal Friend AI (ios, mine, alpha)');
     expect(text).toContain('1,200');
     expect(text).not.toContain('Some numbers are old');
   }
 
   test('prints a block per app without --json', printsABlockPerAppWithoutPiece);
+
   async function saysWhenNoAppMatchesTheFilters() {
     const { lines } = await run({ ...ALL_APPS_REQUEST, owner: 'client' });
 
@@ -138,6 +152,7 @@ function describeStatsReportProgram() {
   }
 
   test('says when no app matches the filters', saysWhenNoAppMatchesTheFilters);
+
   async function printsAWarningWhenASyncFailed() {
     fakeFeed.isFailing = true;
 
@@ -149,15 +164,19 @@ function describeStatsReportProgram() {
   }
 
   test('prints a warning when a sync failed', printsAWarningWhenASyncFailed);
+
   async function exits2WithAJSONErrorForABadDays() {
     const { outcome, lines } = await run({ ...ALL_APPS_REQUEST, days: '0', json: true });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { _tag: 'CommandExit', exitCode: 2 } });
+
     const parsed = JSON.parse(lines[0] ?? '');
+
     expect(parsed.ok).toBe(false);
   }
 
   test('exits 2 with a JSON error for a bad --days', exits2WithAJSONErrorForABadDays);
+
   async function exits2WhenNoAppMatchesTheName() {
     const { outcome } = await run({ ...ALL_APPS_REQUEST, app: 'nothing' });
 

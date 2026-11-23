@@ -109,6 +109,7 @@ function readEuDistributionOperation(
 
 function projectPath(commandPath: string): string {
   const launchPaths = readLaunchDirectories();
+
   const isAbsolutePath = path.isAbsolute(commandPath);
 
   if (isAbsolutePath) {
@@ -143,6 +144,7 @@ async function reconcileDomains(
     commandInput.explicitConfig,
     parseEuDistributionConfig,
   );
+
   const isConfigMissing = euDistributionConfiguration == null;
 
   if (isConfigMissing) {
@@ -158,7 +160,9 @@ async function reconcileDomains(
     euDistributionConfiguration,
     true,
   );
+
   logger.gap();
+
   const isAlreadyAuthorized = plannedActions.length == 0;
 
   if (isAlreadyAuthorized) {
@@ -167,9 +171,11 @@ async function reconcileDomains(
   }
 
   const plannedLines = plannedActions.map(renderPlanned);
+
   logger.notice('EU alternative distribution', ...plannedLines);
   logger.gap();
   logger.note(`${plannedActions.length} domain(s) to authorize.`);
+
   const isDryRun = commandInput.dryRun == true;
 
   if (isDryRun) {
@@ -181,6 +187,7 @@ async function reconcileDomains(
     `Authorize ${plannedActions.length} distribution domain(s)?`,
     commandInput.yes,
   );
+
   const declined = confirmed == false;
 
   if (declined) {
@@ -194,6 +201,7 @@ async function reconcileDomains(
   );
   const failedActionCount = appliedActions.filter(isFailedAction).length;
   let receiptTitle = 'Domains authorized';
+
   const hasFailures = failedActionCount > 0;
 
   if (hasFailures) {
@@ -212,6 +220,7 @@ async function setDistributionKey(pemPath: string): Promise<void> {
   const publicKeyPath = projectPath(pemPath);
   const publicKeyFile = await readFile(publicKeyPath, 'utf8');
   const publicKey = publicKeyFile.trim();
+
   const isEmpty = publicKey.length == 0;
 
   if (isEmpty) {
@@ -224,6 +233,7 @@ async function setDistributionKey(pemPath: string): Promise<void> {
   const appleStore = await loadActiveAppleStore();
   const registeredKeys = await appleStore.listAlternativeDistributionKeys();
   const registeredKey = registeredKeys[0];
+
   const hasRegisteredKey = registeredKey != null;
 
   if (hasRegisteredKey) {
@@ -240,6 +250,7 @@ async function setDistributionKey(pemPath: string): Promise<void> {
 function domainLine(distributionDomain: { domain?: string; referenceName?: string }): string {
   let domainName = '?';
   const domainNameText = distributionDomain.domain;
+
   const hasDomain = domainNameText != null;
 
   if (hasDomain) {
@@ -247,6 +258,7 @@ function domainLine(distributionDomain: { domain?: string; referenceName?: strin
   }
 
   let referenceText = '';
+
   const hasReference = distributionDomain.referenceName != null;
 
   if (hasReference) {
@@ -266,6 +278,7 @@ async function listDistributionState(): Promise<void> {
   const domains = listed[0];
   const keys = listed[1];
   let keyStatus = 'not registered';
+
   const hasKey = keys.length > 0;
 
   if (hasKey) {
@@ -309,6 +322,7 @@ export async function euDistributionCommandProgram(rawCommandInput: unknown): Pr
 
     let operation: EuDistributionCommandInput['operation'] = 'reconcile';
     const decodedOperation = readEuDistributionOperation(rawCommandInput);
+
     const hasDecodedOperation = decodedOperation != null;
 
     if (hasDecodedOperation) {
@@ -316,6 +330,7 @@ export async function euDistributionCommandProgram(rawCommandInput: unknown): Pr
     }
 
     const failureMessage = errorMessage(cause);
+
     throw makeEuDistributionCommandFailure({
       operation,
       message: failureMessage,

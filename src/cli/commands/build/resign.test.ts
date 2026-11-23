@@ -4,19 +4,25 @@ import { registerResignCommand } from './resign.ts';
 function describeRegisterResignCommand() {
   function attachesBuildResignWithTheDocumentedOptionSurface() {
     const program = new Command();
+
     registerResignCommand(program);
+
     function findRegisteredCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'build:resign';
     }
 
     const resignCommand = program.commands.find(findRegisteredCommand);
+
     expect(resignCommand).toBeDefined();
+
     if (resignCommand == null) return;
+
     function readLong(option: CommandOption) {
       return option.long;
     }
 
     const optionFlags = resignCommand.options.map(readLong);
+
     expect(optionFlags).toContain('--id');
     expect(optionFlags).toContain('--latest');
     expect(optionFlags).toContain('--app');

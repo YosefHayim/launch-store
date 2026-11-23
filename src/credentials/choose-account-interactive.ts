@@ -36,6 +36,7 @@ export async function chooseAccountInteractive(
     message: 'Choose an Apple account:',
     choices: accounts.map(function accountChoice(account: AccountRecord) {
       let accountLabel = account.label;
+
       const isActive = account.keyId == activeKeyId;
 
       if (isActive) {

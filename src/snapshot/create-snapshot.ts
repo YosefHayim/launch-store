@@ -112,7 +112,9 @@ function renderCapture(logger: Logger, captureOutcome: CaptureResult, snapshotPa
 
 export async function createSnapshot(command: CreateCommand): Promise<void> {
   const logger = createLogger(false);
+
   registerBuiltinSources();
+
   const capturedAt = currentIsoTime();
   let snapshotName = command.name;
 

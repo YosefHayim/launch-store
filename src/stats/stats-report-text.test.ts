@@ -45,6 +45,7 @@ function describeDescribeCount() {
     'adds thousands separators and drops long decimals',
     addsThousandsSeparatorsAndDropsLongDecimals,
   );
+
   function showsADashForNoNumber() {
     expect(describeCount(null)).toBe('-');
   }
@@ -61,10 +62,12 @@ function describeDescribeProceeds() {
     ];
 
     const proceeds = describeProceeds(totals);
+
     expect(proceeds).toBe('EUR 10.00, USD 56.20');
   }
 
   test('lists one part per currency', listsOnePartPerCurrency);
+
   function showsADashWhenThereAreNoProceeds() {
     const proceeds = describeProceeds([total({})]);
     expect(proceeds).toBe('-');
@@ -86,6 +89,7 @@ function describeDescribeCrashRateAndDescribeRating() {
     'shows a fraction as a percent and a rating with two decimals',
     showsAFractionAsAPercentAndARatingWithTwoDecimals,
   );
+
   function showsADashForNoNumber2() {
     const crashRate = describeCrashRate(null);
     expect(crashRate).toBe('-');
@@ -132,6 +136,7 @@ function describeDescribeAppStats() {
     'shows a title and one line per headline with sessions',
     showsATitleAndOneLinePerHeadlineWithSessions,
   );
+
   function showsTheSavedFeedMessagesUnderTheNumbers() {
     const lines = describeAppStats(appReport({ messages: ['app-store: Apple is preparing'] }));
 
@@ -139,6 +144,7 @@ function describeDescribeAppStats() {
   }
 
   test('shows the saved feed messages under the numbers', showsTheSavedFeedMessagesUnderTheNumbers);
+
   function namesActiveUsersWhenOnlyThatFeedHasUsageAndMarksUntaggedApps() {
     const lines = describeAppStats(
       appReport({

@@ -24,6 +24,7 @@ export function registerSetupCommand(program: Command): void {
       yes: commandOptions.yes,
       rehearse: commandOptions.rehearse,
     });
+
     return runCliProgram(setupProgram);
   }
 
@@ -34,6 +35,7 @@ export function registerSetupCommand(program: Command): void {
     .option('--yes', 'non-interactive: install missing tools without asking (CI/agents)', false)
     .option('--no-rehearse', 'skip the dry-run pipeline rehearsal at the end')
     .action(runSetup);
+
   function runIos(commandOptions: SetupIosOptions) {
     const setupProgram = setupCommandProgram({
       operation: 'ios',
@@ -43,6 +45,7 @@ export function registerSetupCommand(program: Command): void {
       json: commandOptions.json,
       yes: commandOptions.yes,
     });
+
     return runCliProgram(setupProgram);
   }
 

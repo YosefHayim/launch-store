@@ -188,6 +188,7 @@ export async function planTargets(
         plannedWrites.push(...adopterWrites);
       } catch (cause) {
         const failureMessage = errorMessage(cause);
+
         adopterErrors.push({
           domain: adopter.domain,
           message: failureMessage,
@@ -297,6 +298,7 @@ async function applyProductCatalog(
 
   const configPath = join(applyContext.cwd, 'launch.config.ts');
   const buildAdopted = buildAdoptedConfig(applyContext.appRoot, productsByBundleId);
+
   await writeFile(configPath, buildAdopted);
 
   return { configWritten: configPath };
@@ -343,6 +345,7 @@ async function applyEntitlementWrites(
     }
 
     const entitlementsBlock = renderEntitlementsBlock(entitlements);
+
     appJsonBlocks.push({
       app: app.name,
       configPath: app.configPath,
@@ -372,6 +375,7 @@ async function applyListingPulls(
         listingsPulled.push(plannedWrite.change.appName);
       } catch (cause) {
         const failureMessage = errorMessage(cause);
+
         listingErrors.push({
           app: plannedWrite.change.appName,
           message: failureMessage,

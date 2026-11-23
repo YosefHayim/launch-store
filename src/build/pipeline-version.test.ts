@@ -9,7 +9,9 @@ function makeAppDir(): string {
   const systemTemporaryDirectory = tmpdir();
   const pipelineVersionTestPath = join(systemTemporaryDirectory, 'pipeline-version-test-');
   const appDir = mkdtempSync(pipelineVersionTestPath);
+
   scratchDirs.push(appDir);
+
   return appDir;
 }
 function writePrebuildFiles(nativeDirectory: string) {
@@ -22,9 +24,12 @@ function writePrebuildFiles(nativeDirectory: string) {
 function makePrebuiltNativeDir(targetName: string): string {
   const appDir = makeAppDir();
   const nativeDirectory = join(appDir, 'ios');
+
   mkdirSync(nativeDirectory);
   writePrebuildFiles(nativeDirectory);
+
   const joinedPath = join(nativeDirectory, `${targetName}.xcodeproj`);
+
   mkdirSync(joinedPath);
   mkdirSync(join(nativeDirectory, `${targetName}.xcworkspace`));
   mkdirSync(join(nativeDirectory, targetName));
@@ -40,6 +45,7 @@ function makePrebuiltNativeDir(targetName: string): string {
 </plist>
 `,
   );
+
   return nativeDirectory;
 }
 function cleanup() {
@@ -59,15 +65,21 @@ function describeFindNativeTargetDirectory() {
     'finds the app target behind the regular files expo prebuild writes beside it',
     findsTheAppTargetBehindTheRegularFilesExpoPrebuildWritesBesideIt,
   );
+
   async function returnsNullWhenNoDirectoryUnderTheNativeRootCarriesAnPiecePlist() {
     const appDir = makeAppDir();
     const nativeDirectory = join(appDir, 'ios');
+
     mkdirSync(nativeDirectory);
     writePrebuildFiles(nativeDirectory);
+
     const podsPath = join(nativeDirectory, 'Pods');
+
     mkdirSync(podsPath);
+
     const nativeTargetDirectory = findNativeTargetDirectory(nativeDirectory);
     const onNodePlatform = await runOnNodePlatform(nativeTargetDirectory);
+
     expect(onNodePlatform).toBeNull();
   }
 
@@ -82,11 +94,16 @@ function describeSetNativePlistPiece() {
   async function reportsNoTargetInsteadOfFailingWhenTheNativeRootHoldsOnlyRegularFiles() {
     const appDir = makeAppDir();
     const iosPath = join(appDir, 'ios');
+
     mkdirSync(iosPath);
+
     const joinedPath = join(appDir, 'ios');
+
     writePrebuildFiles(joinedPath);
+
     const stamping = setNativePlistValue(appDir, 'ios', 'CFBundleVersion', 575);
     const onNodePlatform = await runOnNodePlatform(stamping);
+
     expect(onNodePlatform).toBe(false);
   }
 
@@ -94,6 +111,7 @@ function describeSetNativePlistPiece() {
     'reports no target instead of failing when the native root holds only regular files',
     reportsNoTargetInsteadOfFailingWhenTheNativeRootHoldsOnlyRegularFiles,
   );
+
   async function reportsNoTargetWhenThePlatformHasNoNativeProjectDirectory() {
     const appDir = makeAppDir();
     const stamping = setNativePlistValue(appDir, 'ios', 'CFBundleVersion', 575);

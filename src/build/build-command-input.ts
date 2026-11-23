@@ -177,6 +177,7 @@ export function parseBuildRollout(rollout: string | undefined): number | undefin
   }
 
   const rolloutFraction = Number.parseFloat(rollout);
+
   const isNotANumber = Number.isNaN(rolloutFraction);
 
   if (isNotANumber) {
@@ -214,6 +215,7 @@ export function parseSizeBudget(sizeBudget: string | undefined): number | undefi
   }
 
   const sizeBudgetMB = Number.parseFloat(sizeBudget);
+
   const isNotANumber = Number.isNaN(sizeBudgetMB);
 
   if (isNotANumber) {
@@ -234,6 +236,7 @@ function parseBuildEnvironmentOverrides(envPairs: readonly string[]): Record<str
     return parseCliEnv([...envPairs]);
   } catch (cause) {
     let failureMessage = 'Invalid --env flags.';
+
     const causeHasMessage = hasMessage(cause);
 
     if (causeHasMessage) {
@@ -255,6 +258,7 @@ export function parseBuildCommandInput(
   const distribution = parseBuildDistribution(commandOptions.distribution);
   const bump = parseBuildBump(commandOptions.bump);
   let sizeBudgetText = commandOptions.budget;
+
   const hasSizeBudget = commandOptions.sizeBudget != null;
 
   if (hasSizeBudget) {
@@ -277,6 +281,7 @@ export function parseBuildCommandInput(
     includeLocal: commandOptions.includeLocal,
     printEnv: commandOptions.printEnv,
   };
+
   const hasRemote = remote != null;
 
   if (hasRemote) {

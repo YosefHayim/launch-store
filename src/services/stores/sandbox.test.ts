@@ -33,12 +33,14 @@ describe('clearPurchaseHistory', () => {
       tester({ id: 't2', acAccountName: 'two@sandbox.com' }),
     ]);
     const clearOutcome = await clearPurchaseHistory(api, { emails: [], all: true });
+
     expect(clearOutcome.cleared).toHaveLength(2);
     expect(clearOutcome.notFound).toEqual([]);
     expect(api.clearSandboxTesterPurchaseHistory).toHaveBeenCalledWith(['t1', 't2']);
   }
 
   it('clears every tester when all is set', clearsEveryTesterWhenAllIsSet);
+
   async function issuesNoRequestWhenClearingAllButThereAreNoTesters() {
     const api = makeApi([]);
     const clearOutcome = await clearPurchaseHistory(api, { emails: [], all: true });
@@ -59,6 +61,7 @@ describe('clearPurchaseHistory', () => {
       emails: ['ONE@sandbox.com', 'two@sandbox.com'],
       all: false,
     });
+
     expect(clearOutcome.cleared.map((testerRecord) => testerRecord.id)).toEqual(['t1', 't2']);
     expect(api.clearSandboxTesterPurchaseHistory).toHaveBeenCalledWith(['t1', 't2']);
   });
@@ -68,24 +71,29 @@ describe('clearPurchaseHistory', () => {
       emails: ['one@sandbox.com', 'one@sandbox.com', 'ghost@sandbox.com'],
       all: false,
     });
+
     expect(clearOutcome.cleared.map((testerRecord) => testerRecord.id)).toEqual(['t1']);
     expect(clearOutcome.notFound).toEqual(['ghost@sandbox.com']);
     expect(api.clearSandboxTesterPurchaseHistory).toHaveBeenCalledWith(['t1']);
   });
+
   async function issuesNoRequestWhenNoEmailMatches() {
     const api = makeApi([tester({ id: 't1', acAccountName: 'one@sandbox.com' })]);
     const clearOutcome = await clearPurchaseHistory(api, {
       emails: ['ghost@sandbox.com'],
       all: false,
     });
+
     expect(clearOutcome.cleared).toEqual([]);
     expect(clearOutcome.notFound).toEqual(['ghost@sandbox.com']);
     expect(api.clearSandboxTesterPurchaseHistory).not.toHaveBeenCalled();
   }
 
   it('issues no request when no email matches', issuesNoRequestWhenNoEmailMatches);
+
   async function throwsWhenNeitherEmailsNorAllAreGiven() {
     const api = makeApi();
+
     await expect(clearPurchaseHistory(api, { emails: ['  '], all: false })).rejects.toMatchObject({
       _tag: 'SandboxRequestFailure',
       message: 'Provide at least one sandbox tester email, or pass --all.',

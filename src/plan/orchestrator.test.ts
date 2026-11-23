@@ -19,6 +19,7 @@ function makeCtx(): PlanContext {
     buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
+
   return {
     config,
     apps: [],
@@ -86,6 +87,7 @@ function describeCountPlannedActions() {
       action({ status: 'skipped' }),
       action({ status: 'planned' }),
     ]);
+
     expect(plannedActions).toBe(2);
   }
 
@@ -122,6 +124,7 @@ function describeTallyPlanSurfaces() {
         reason: 'no Play credentials',
       },
     ]);
+
     expect(tallies.changeCount).toBe(2);
     expect(tallies.appErrorCount).toBe(1);
     expect(tallies.skippedSurfaceCount).toBe(1);
@@ -142,6 +145,7 @@ function describePlanExitCode() {
       appErrorCount: 0,
       skippedSurfaceCount: 2,
     });
+
     expect(exitCode).toBe(PLAN_EXIT.inSync);
   }
 
@@ -149,6 +153,7 @@ function describePlanExitCode() {
     'plain run is informational - exit 0 even with pending changes or skips',
     plainRunIsInformationalExit0EvenWithPendingChangesOrSkips,
   );
+
   function plainRunStillFailsOnAnAppLevelError() {
     const exitCode = planExitCode({
       check: false,
@@ -156,10 +161,12 @@ function describePlanExitCode() {
       appErrorCount: 1,
       skippedSurfaceCount: 0,
     });
+
     expect(exitCode).toBe(PLAN_EXIT.error);
   }
 
   it('plain run still fails on an app-level error', plainRunStillFailsOnAnAppLevelError);
+
   function checkRunGradesDrift2ThenInSync0() {
     const exitCode = planExitCode({
       check: true,
@@ -167,6 +174,7 @@ function describePlanExitCode() {
       appErrorCount: 0,
       skippedSurfaceCount: 0,
     });
+
     expect(exitCode).toBe(PLAN_EXIT.inSync);
     expect(
       planExitCode({ check: true, changeCount: 3, appErrorCount: 0, skippedSurfaceCount: 0 }),
@@ -174,6 +182,7 @@ function describePlanExitCode() {
   }
 
   it('check run grades drift (2), then in-sync (0)', checkRunGradesDrift2ThenInSync0);
+
   function checkRunTreatsAnUnreadableSurfaceAsAnError() {
     const exitCode = planExitCode({
       check: true,
@@ -181,6 +190,7 @@ function describePlanExitCode() {
       appErrorCount: 0,
       skippedSurfaceCount: 1,
     });
+
     expect(exitCode).toBe(PLAN_EXIT.error);
   }
 
@@ -188,6 +198,7 @@ function describePlanExitCode() {
     'check run treats an unreadable surface as an error',
     checkRunTreatsAnUnreadableSurfaceAsAnError,
   );
+
   function errorWinsOverDriftInACheckRun() {
     const exitCode = planExitCode({
       check: true,
@@ -195,6 +206,7 @@ function describePlanExitCode() {
       appErrorCount: 1,
       skippedSurfaceCount: 0,
     });
+
     expect(exitCode).toBe(PLAN_EXIT.error);
   }
 
@@ -214,6 +226,7 @@ function describeRunPlanners() {
       ],
       {},
     );
+
     expect(outcome.surfaces).toHaveLength(1);
     expect(outcome.changeCount).toBe(1);
   }
@@ -222,6 +235,7 @@ function describeRunPlanners() {
     'drops omitted surfaces and counts only planned actions as drift',
     dropsOmittedSurfacesAndCountsOnlyPlannedActionsAsDrift,
   );
+
   async function aPlainRunWithDriftIsInformationalExit0() {
     const outcome = await runPlannerSet(makeCtx(), [planner(planned('catalog', [appPlan()]))], {});
     expect(outcome.changeCount).toBe(1);
@@ -229,6 +243,7 @@ function describeRunPlanners() {
   }
 
   it('a plain run with drift is informational (exit 0)', aPlainRunWithDriftIsInformationalExit0);
+
   async function aCheckRunWithDriftExits2() {
     const outcome = await runPlannerSet(makeCtx(), [planner(planned('catalog', [appPlan()]))], {
       check: true,
@@ -237,10 +252,12 @@ function describeRunPlanners() {
   }
 
   it('a check run with drift exits 2', aCheckRunWithDriftExits2);
+
   async function countsATeamScopedSurfaceSPlannedActionsAsDrift() {
     const outcome = await runPlannerSet(makeCtx(), [planner(plannedTeam('wallet', [action()]))], {
       check: true,
     });
+
     expect(outcome.changeCount).toBe(1);
     expect(outcome.exitCode).toBe(PLAN_EXIT.drift);
   }
@@ -249,6 +266,7 @@ function describeRunPlanners() {
     "counts a team-scoped surface's planned actions as drift",
     countsATeamScopedSurfaceSPlannedActionsAsDrift,
   );
+
   async function aCheckRunWithASkippedUnreadableSurfaceExits1() {
     const outcome = await runPlannerSet(
       makeCtx(),
@@ -262,6 +280,7 @@ function describeRunPlanners() {
       ],
       { check: true },
     );
+
     expect(outcome.skippedSurfaceCount).toBe(1);
     expect(outcome.exitCode).toBe(PLAN_EXIT.error);
   }
@@ -270,6 +289,7 @@ function describeRunPlanners() {
     'a check run with a skipped (unreadable) surface exits 1',
     aCheckRunWithASkippedUnreadableSurfaceExits1,
   );
+
   async function anAppLevelErrorFailsBothPlainAndCheckRuns() {
     const planners = [
       planner(
@@ -277,6 +297,7 @@ function describeRunPlanners() {
       ),
     ];
     const plannerSet = await runPlannerSet(makeCtx(), planners, {});
+
     expect(plannerSet.exitCode).toBe(PLAN_EXIT.error);
     expect((await runPlannerSet(makeCtx(), planners, { check: true })).exitCode).toBe(
       PLAN_EXIT.error,

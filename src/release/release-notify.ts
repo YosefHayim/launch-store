@@ -12,8 +12,11 @@ export function createTransitionTracker(): TransitionTracker {
 /** The review notification status for a verdict */
 export function reviewStatusForVerdict(verdict: ReleaseVerdict): 'approved' | 'rejected' | null {
   if (verdict.state == 'rejected') return 'rejected';
+
   if (verdict.state == 'released') return 'approved';
+
   if (verdict.state == 'pending-release') return 'approved';
+
   return null;
 }
 /** Decide which notifications one app's latest reading should fire */
@@ -24,13 +27,18 @@ export function planTransitionNotifications(
 ): NotifyEvent[] {
   const events: NotifyEvent[] = [];
   let version = status.versionString;
+
   if (version == null) version = '';
+
   if (version == null) version = '';
+
   // Key transition memory by app *and* version so a new release of the same app during one watch
   // session is a fresh review/rollout, not blocked by the prior version's already-notified state.
   const key = `${appName}@${version}`;
+
   if (status.verdict.done && !tracker.reviewed.has(key)) {
     const reviewStatus = reviewStatusForVerdict(status.verdict);
+
     if (reviewStatus) {
       tracker.reviewed.add(key);
       events.push({
@@ -43,10 +51,14 @@ export function planTransitionNotifications(
       });
     }
   }
+
   const phased = status.phasedReleaseState;
+
   if (phased && tracker.lastPhasedState.get(key) != phased) {
     const isFirstObservation = !tracker.lastPhasedState.has(key);
+
     tracker.lastPhasedState.set(key, phased);
+
     if (!isFirstObservation) {
       events.push({
         event: 'rollout',
@@ -58,5 +70,6 @@ export function planTransitionNotifications(
       });
     }
   }
+
   return events;
 }

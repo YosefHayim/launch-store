@@ -6,6 +6,7 @@ import { readLastApp, readLastBump, readLastRun, rememberLastRun } from './last-
 function describeLastRunRememberedBuildPicksRoundTripThroughAPieceFile() {
   let dir: string;
   let file: string;
+
   function prepareLastRunRememberedBuildPicksRoundTripThroughAPieceFile() {
     const systemTemporaryDirectory = tmpdir();
     const launchLastrunPath = join(systemTemporaryDirectory, 'launch-lastrun-');
@@ -14,17 +15,24 @@ function describeLastRunRememberedBuildPicksRoundTripThroughAPieceFile() {
   }
 
   beforeEach(prepareLastRunRememberedBuildPicksRoundTripThroughAPieceFile);
+
   function cleanupLastRunRememberedBuildPicksRoundTripThroughAPieceFile() {
     rmSync(dir, { recursive: true, force: true });
   }
 
   afterEach(cleanupLastRunRememberedBuildPicksRoundTripThroughAPieceFile);
+
   async function readsAnEmptyWellFormedPieceBeforeAnythingIsWritten() {
     const lastRun = readLastRun(file);
+
     await expect(lastRun).resolves.toEqual({ apps: {} });
+
     const lastApp = readLastApp(file);
+
     await expect(lastApp).resolves.toBeUndefined();
+
     const lastBump = readLastBump('sampleapp', file);
+
     await expect(lastBump).resolves.toBeUndefined();
   }
 
@@ -32,11 +40,16 @@ function describeLastRunRememberedBuildPicksRoundTripThroughAPieceFile() {
     'reads an empty, well-formed state before anything is written',
     readsAnEmptyWellFormedPieceBeforeAnythingIsWritten,
   );
+
   async function remembersTheLastAppAndItsBumpThenReadsThemBack() {
     await rememberLastRun('sampleapp', 'patch', file);
+
     const lastApp = readLastApp(file);
+
     await expect(lastApp).resolves.toBe('sampleapp');
+
     const lastBump = readLastBump('sampleapp', file);
+
     await expect(lastBump).resolves.toBe('patch');
   }
 
@@ -44,12 +57,17 @@ function describeLastRunRememberedBuildPicksRoundTripThroughAPieceFile() {
     'remembers the last app and its bump, then reads them back',
     remembersTheLastAppAndItsBumpThenReadsThemBack,
   );
+
   async function updatesLastAppWithoutClobberingAnotherAppSRememberedBump() {
     await rememberLastRun('sampleapp', 'minor', file);
     await rememberLastRun('arcade', 'major', file);
+
     const lastApp = readLastApp(file);
+
     await expect(lastApp).resolves.toBe('arcade');
+
     const lastBump = readLastBump('sampleapp', file);
+
     await expect(lastBump).resolves.toBe('minor');
     await expect(readLastBump('arcade', file)).resolves.toBe('major');
   }
@@ -58,12 +76,17 @@ function describeLastRunRememberedBuildPicksRoundTripThroughAPieceFile() {
     "updates lastApp without clobbering another app's remembered bump",
     updatesLastAppWithoutClobberingAnotherAppSRememberedBump,
   );
+
   async function leavesAPriorBumpUntouchedWhenNoneIsApplied() {
     await rememberLastRun('sampleapp', 'patch', file);
     await rememberLastRun('sampleapp', undefined, file);
+
     const lastApp = readLastApp(file);
+
     await expect(lastApp).resolves.toBe('sampleapp');
+
     const lastBump = readLastBump('sampleapp', file);
+
     await expect(lastBump).resolves.toBe('patch');
   }
 
@@ -71,6 +94,7 @@ function describeLastRunRememberedBuildPicksRoundTripThroughAPieceFile() {
     'leaves a prior bump untouched when none is applied',
     leavesAPriorBumpUntouchedWhenNoneIsApplied,
   );
+
   async function toleratesAMalformedFileReadingAsNothingRemembered() {
     writeFileSync(file, '{ not json');
     const lastRun = readLastRun(file);

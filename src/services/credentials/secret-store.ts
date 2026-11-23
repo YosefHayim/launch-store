@@ -61,6 +61,7 @@ async function confirmMacosMissingSecret(account: string): Promise<null> {
     ]);
   } catch (cause) {
     const exitCode = readExitCode(cause);
+
     const isItemMissing = exitCode == macosItemNotFoundExitCode;
 
     if (isItemMissing) {

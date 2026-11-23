@@ -171,6 +171,7 @@ const SINGLE_TARGET = `// !$*UTF8*$!
 function describeParsePbxprojTargetsReadEachTargetBundleIdFromThePbxproj() {
   function returnsTheMainAppAndTheWidgetExtensionWithTheirAuthoritativeBundleIds() {
     const targets = parsePbxprojTargets(APP_WITH_WIDGET);
+
     expect(targets).toEqual([
       {
         name: 'SampleApp',
@@ -189,8 +190,10 @@ function describeParsePbxprojTargetsReadEachTargetBundleIdFromThePbxproj() {
     'returns the main app and the widget extension with their authoritative bundle ids',
     returnsTheMainAppAndTheWidgetExtensionWithTheirAuthoritativeBundleIds,
   );
+
   function returnsExactlyTheOneMainTargetForASingleTargetApp() {
     const pbxprojTargets = parsePbxprojTargets(SINGLE_TARGET);
+
     expect(pbxprojTargets).toEqual([
       {
         name: 'SampleApp',
@@ -204,11 +207,13 @@ function describeParsePbxprojTargetsReadEachTargetBundleIdFromThePbxproj() {
     'returns exactly the one main target for a single-target app',
     returnsExactlyTheOneMainTargetForASingleTargetApp,
   );
+
   function omitsATargetWhoseBundleIdIsStillAnUnexpandedVariable() {
     const withVariable = APP_WITH_WIDGET.replace(
       /PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp.widget;/g,
       'PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER).widget";',
     );
+
     function readBundleId(t: {
       readonly name: string;
       readonly bundleId: string;
@@ -224,6 +229,7 @@ function describeParsePbxprojTargetsReadEachTargetBundleIdFromThePbxproj() {
     'omits a target whose bundle id is still an unexpanded $(...) variable',
     omitsATargetWhoseBundleIdIsStillAnUnexpandedVariable,
   );
+
   function returnsNothingForAnEmptyOrNonPbxprojString() {
     const pbxprojTargets = parsePbxprojTargets('');
     expect(pbxprojTargets).toEqual([]);
@@ -252,6 +258,7 @@ function describeSplitMainAndExtensionsSeparateTheAppFromItsExtensions() {
     'picks the application product type as main and the rest as extensions',
     picksTheApplicationProductTypeAsMainAndTheRestAsExtensions,
   );
+
   function yieldsZeroExtensionsForASingleTargetAppByteIdenticalToToday() {
     const pbxprojTargets = parsePbxprojTargets(SINGLE_TARGET);
     const { main, extensions } = splitMainAndExtensions(pbxprojTargets);
@@ -263,6 +270,7 @@ function describeSplitMainAndExtensionsSeparateTheAppFromItsExtensions() {
     'yields zero extensions for a single-target app (byte-identical to today)',
     yieldsZeroExtensionsForASingleTargetAppByteIdenticalToToday,
   );
+
   function treatsAKnownMainBundleIdAsTheAppEvenWhenProductTypesAreAmbiguous() {
     const targets = [
       {
@@ -273,6 +281,7 @@ function describeSplitMainAndExtensionsSeparateTheAppFromItsExtensions() {
       { name: 'App', bundleId: 'com.x', productType: 'com.apple.product-type.app-extension' },
     ];
     const { main, extensions } = splitMainAndExtensions(targets, 'com.x');
+
     expect(main).toBe('com.x');
     expect(extensions).toEqual(['com.x.widget']);
   }
@@ -299,6 +308,7 @@ function describeDiscoverExtensionBundleIdsLocateAndReadTheGeneratedProject() {
     const systemTemporaryDirectory = tmpdir();
     const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
     const root = mkdtempSync(launchTargetsPath);
+
     try {
       const nativeDir = join(root, 'ios');
       seedProject(nativeDir, 'SampleApp', APP_WITH_WIDGET);
@@ -313,10 +323,12 @@ function describeDiscoverExtensionBundleIdsLocateAndReadTheGeneratedProject() {
     'discovers the widget extension from a generated ios/ project',
     discoversTheWidgetExtensionFromAGeneratedIosProject,
   );
+
   async function returnsForASingleTargetProjectNoExtensionsToProvision() {
     const systemTemporaryDirectory = tmpdir();
     const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
     const root = mkdtempSync(launchTargetsPath);
+
     try {
       const nativeDir = join(root, 'ios');
       seedProject(nativeDir, 'SampleApp', SINGLE_TARGET);
@@ -331,10 +343,12 @@ function describeDiscoverExtensionBundleIdsLocateAndReadTheGeneratedProject() {
     'returns [] for a single-target project (no extensions to provision)',
     returnsForASingleTargetProjectNoExtensionsToProvision,
   );
+
   async function returnsWhenTheNativeProjectHasNotBeenGeneratedYet() {
     const systemTemporaryDirectory = tmpdir();
     const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
     const root = mkdtempSync(launchTargetsPath);
+
     try {
       const iosPath = join(root, 'ios');
       const extensionBundleIds = discoverExtensionBundleIds(iosPath, 'com.example.sampleapp');
@@ -367,11 +381,13 @@ function describeMultiTargetSigningWarningsPreflightBeforeTheLongArchive261() {
     'is silent when every target is registered with its capabilities (single-target unchanged)',
     isSilentWhenEveryTargetIsRegisteredWithItsCapabilitiesSingleTargetUnchanged,
   );
+
   function warnsByNameAboutAnUnregisteredExtensionAppIDAndPointsAtCredsSetup() {
     const [warning] = multiTargetSigningWarnings([
       { bundleId: 'com.example.sampleapp', registered: true, missingCapabilities: [] },
       { bundleId: 'com.example.sampleapp.widget', registered: false, missingCapabilities: [] },
     ]);
+
     expect(warning).toContain('com.example.sampleapp.widget');
     expect(warning).toContain('not registered');
     expect(warning).toContain('exit 65');
@@ -382,10 +398,12 @@ function describeMultiTargetSigningWarningsPreflightBeforeTheLongArchive261() {
     'warns, by name, about an unregistered extension App ID and points at creds setup',
     warnsByNameAboutAnUnregisteredExtensionAppIDAndPointsAtCredsSetup,
   );
+
   function warnsAboutATargetWhoseAppIDIsMissingARequiredCapability() {
     const [warning] = multiTargetSigningWarnings([
       { bundleId: 'com.example.sampleapp', registered: true, missingCapabilities: ['APP_GROUPS'] },
     ]);
+
     expect(warning).toContain('com.example.sampleapp');
     expect(warning).toContain('APP_GROUPS');
     expect(warning).toContain('exit 65');
@@ -395,6 +413,7 @@ function describeMultiTargetSigningWarningsPreflightBeforeTheLongArchive261() {
     'warns about a target whose App ID is missing a required capability',
     warnsAboutATargetWhoseAppIDIsMissingARequiredCapability,
   );
+
   function emitsOneWarningPerNotReadyTarget() {
     expect(
       multiTargetSigningWarnings([
@@ -416,15 +435,23 @@ function describeFindPbxprojLocateTheProjectFileInANativeDir() {
     const systemTemporaryDirectory = tmpdir();
     const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
     const root = mkdtempSync(launchTargetsPath);
+
     try {
       const iosPath = join(root, 'ios');
       const pbxproj = findPbxproj(iosPath);
+
       await expect(pbxproj).resolves.toBeNull();
+
       const projectDir = join(root, 'ios', 'SampleApp.xcodeproj');
+
       mkdirSync(projectDir, { recursive: true });
+
       const projectPath = join(projectDir, 'project.pbxproj');
+
       writeFileSync(projectPath, SINGLE_TARGET);
+
       const joinedPath = join(root, 'ios');
+
       await expect(findPbxproj(joinedPath)).resolves.toBe(join(projectDir, 'project.pbxproj'));
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -458,6 +485,7 @@ function occurrences(haystack: string, needle: string): number {
 function describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTargetArchive289() {
   function stampsTheMainAndWidgetReleaseConfigsWithManualSigningAndTheirOwnProfiles() {
     const stamped = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
+
     expect(stamped).toContain(`PROVISIONING_PROFILE_SPECIFIER = "${MAIN_PROFILE}";`);
     expect(stamped).toContain(`PROVISIONING_PROFILE_SPECIFIER = "${WIDGET_PROFILE}";`);
     expect(stamped).toContain(`DEVELOPMENT_TEAM = ${TEAM};`);
@@ -470,6 +498,7 @@ function describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTar
     'stamps the main and widget Release configs with Manual signing and their own profiles',
     stampsTheMainAndWidgetReleaseConfigsWithManualSigningAndTheirOwnProfiles,
   );
+
   function leavesTheTargetStructureBundleIdsIntactAfterRewriting() {
     const stamped = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
     const pbxprojTargets = parsePbxprojTargets(stamped);
@@ -480,6 +509,7 @@ function describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTar
     'leaves the target structure (bundle ids) intact after rewriting',
     leavesTheTargetStructureBundleIdsIntactAfterRewriting,
   );
+
   function stampsJustTheMainAppReleasePieceForASingleTargetApp301() {
     // The plain single-target archive path: the app's own profile lands in its Release config, so xcodebuild
     // reads it from the app target and no profile is ever forced onto the (separate) Pods project.
@@ -488,11 +518,14 @@ function describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTar
       teamId: 'ABCDE12345',
       profileByBundleId: { 'com.example.sampleapp': profile },
     });
+
     expect(stamped).toContain(`PROVISIONING_PROFILE_SPECIFIER = "${profile}";`);
     expect(stamped).toContain('DEVELOPMENT_TEAM = ABCDE12345;');
     // Exactly one config touched (Release) - the Debug config keeps automatic signing for dev-client runs.
     expect(occurrences(stamped, 'CODE_SIGN_STYLE = Manual;')).toBe(1);
+
     const pbxprojTargets = parsePbxprojTargets(stamped);
+
     expect(pbxprojTargets).toEqual(parsePbxprojTargets(SINGLE_TARGET_WITH_RELEASE));
   }
 
@@ -500,6 +533,7 @@ function describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTar
     'stamps just the main app Release config for a single-target app (#301)',
     stampsJustTheMainAppReleasePieceForASingleTargetApp301,
   );
+
   function isIdempotentASecondStampChangesNothingManagedKeysReplacedNotAppended() {
     const once = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
     expect(stampManualSigningIntoPbxproj(once, SIGNING)).toBe(once);
@@ -509,11 +543,13 @@ function describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTar
     'is idempotent - a second stamp changes nothing (managed keys replaced, not appended)',
     isIdempotentASecondStampChangesNothingManagedKeysReplacedNotAppended,
   );
+
   function touchesOnlyTargetsItHasAProfileForWidgetLeftAloneWhenItsProfileIsAbsent() {
     const mainOnly = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, {
       teamId: TEAM,
       profileByBundleId: { 'com.example.sampleapp': MAIN_PROFILE },
     });
+
     expect(occurrences(mainOnly, 'CODE_SIGN_STYLE = Manual;')).toBe(1);
     expect(mainOnly).toContain(MAIN_PROFILE);
     expect(mainOnly).not.toContain(WIDGET_PROFILE);
@@ -523,11 +559,13 @@ function describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTar
     'touches only targets it has a profile for (widget left alone when its profile is absent)',
     touchesOnlyTargetsItHasAProfileForWidgetLeftAloneWhenItsProfileIsAbsent,
   );
+
   function returnsThePieceUnchangedWhenNoBundleIdMatchesAProfile() {
     const untouched = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, {
       teamId: TEAM,
       profileByBundleId: {},
     });
+
     expect(untouched).toBe(APP_WITH_WIDGET);
   }
 
@@ -535,6 +573,7 @@ function describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTar
     'returns the input unchanged when no bundle id matches a profile',
     returnsThePieceUnchangedWhenNoBundleIdMatchesAProfile,
   );
+
   function insertsTheManagedKeysInsideBuildSettingsBeforeItsCloseAndThePieceName() {
     const stamped = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
     // In the widget Release config, the specifier sits inside buildSettings (before its `};`), which in
@@ -545,6 +584,7 @@ function describeStampManualSigningIntoPbxprojPerTargetManualSigningForAMultiTar
     );
     const buildSettingsCloseAt = widgetRelease.indexOf('};');
     const nameAt = widgetRelease.indexOf('name = Release;');
+
     expect(specifierAt).toBeGreaterThan(-1);
     expect(specifierAt).toBeLessThan(buildSettingsCloseAt);
     expect(buildSettingsCloseAt).toBeLessThan(nameAt);
@@ -565,15 +605,23 @@ function describeWriteManualSigningToProjectStampTheGeneratedProjectOnDisk() {
     const systemTemporaryDirectory = tmpdir();
     const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
     const root = mkdtempSync(launchTargetsPath);
+
     try {
       const nativeDir = join(root, 'ios');
       const projectDir = join(nativeDir, 'SampleApp.xcodeproj');
+
       mkdirSync(projectDir, { recursive: true });
+
       const pbxproj = join(projectDir, 'project.pbxproj');
+
       writeFileSync(pbxproj, APP_WITH_WIDGET);
+
       const manualSigningToProject = writeManualSigningToProject(nativeDir, SIGNING);
+
       await expect(manualSigningToProject).resolves.toBe(true);
+
       const loadedFile = readFileSync(pbxproj, 'utf8');
+
       expect(loadedFile).toContain(`PROVISIONING_PROFILE_SPECIFIER = "${WIDGET_PROFILE}";`);
       // Idempotent on disk: the second run finds nothing to change.
       await expect(writeManualSigningToProject(nativeDir, SIGNING)).resolves.toBe(false);
@@ -586,10 +634,12 @@ function describeWriteManualSigningToProjectStampTheGeneratedProjectOnDisk() {
     'rewrites the pbxproj and reports the change, then no-ops on a second run',
     rewritesThePbxprojAndReportsTheChangeThenNoOpsOnASecondRun,
   );
+
   async function returnsFalseWhenTheNativeProjectHasNotBeenGeneratedYet() {
     const systemTemporaryDirectory = tmpdir();
     const launchTargetsPath = join(systemTemporaryDirectory, 'launch-targets-');
     const root = mkdtempSync(launchTargetsPath);
+
     try {
       const iosPath = join(root, 'ios');
       const manualSigningToProject = writeManualSigningToProject(iosPath, SIGNING);

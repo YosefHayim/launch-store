@@ -23,6 +23,7 @@ interface SelectManyRequest<Selection> {
 
 export function fuzzyMatch(query: string, candidate: string): boolean {
   const searchNeedle = query.trim().toLowerCase();
+
   const isBlankQuery = searchNeedle.length == 0;
 
   if (isBlankQuery) {
@@ -153,6 +154,7 @@ export class Prompts {
 
     for (let round = 0; round < SEARCH_ROUND_LIMIT; round += 1) {
       this.showChoices(request.message, visibleChoices);
+
       const answer = await this.ask('Number, or words to search');
 
       if (answer == null) {
@@ -160,6 +162,7 @@ export class Prompts {
       }
 
       const trimmed = answer.trim();
+
       const isBlank = trimmed == '';
 
       if (isBlank) {
@@ -180,6 +183,7 @@ export class Prompts {
       }
 
       const filtered = matchingChoices(trimmed, request.choices);
+
       const isOneMatch = filtered.length == 1;
 
       if (isOneMatch) {
@@ -217,6 +221,7 @@ export class Prompts {
 
     for (let round = 0; round < SEARCH_ROUND_LIMIT; round += 1) {
       this.showChoices(request.message, request.choices);
+
       const answer = await this.ask('Numbers separated by commas');
 
       if (answer == null) {
@@ -224,6 +229,7 @@ export class Prompts {
       }
 
       const trimmed = answer.trim();
+
       const isBlank = trimmed == '';
 
       if (isBlank) {
@@ -319,12 +325,14 @@ export class Prompts {
     stdout.write(`${message} `);
     stdin.setRawMode(true);
     stdin.resume();
+
     let enteredSecret = '';
 
     try {
       for (;;) {
         const keyPress = await once(stdin, 'data');
         const key = Buffer.from(keyPress[0]).toString('utf8');
+
         const isCancel = key == '\u0003';
 
         if (isCancel) {

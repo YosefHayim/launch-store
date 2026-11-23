@@ -129,6 +129,7 @@ export function parseVitalsDays(daysFlag: string | undefined): number {
   }
 
   const historyDays = Number(trimmedDays);
+
   const isBelowOne = historyDays < 1;
 
   if (isBelowOne) {
@@ -173,6 +174,7 @@ function renderVitalsTimeline(timeline: VitalsTimeline): string {
       anr: 'ANR rate',
     }[timeline.metric]
   }  (${timeline.window.startDate} -> ${timeline.window.endDate}, DAILY)`;
+
   const hasNoRows = timeline.rows.length == 0;
 
   if (hasNoRows) {
@@ -223,7 +225,9 @@ export async function playReportsCommandProgram(rawCommandInput: unknown): Promi
       });
 
       const serialized = JSON.stringify(timelineRows, null, 2);
+
       logger.line(serialized);
+
       return;
     }
 

@@ -29,6 +29,7 @@ export function GameCenterCommandInputSchema(rawCommandInput: unknown): GameCent
   if (commandRecord == null) {
     throw new Error('Game Center command input must be an object.');
   }
+
   const config = commandRecord['config'];
   const explicitConfig = commandRecord['explicitConfig'];
   const dryRun = commandRecord['dryRun'];
@@ -132,6 +133,7 @@ async function resolveGameCenterTarget(
   }
 
   const bundleId = storeAppContext.app.bundleId;
+
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
@@ -144,6 +146,7 @@ async function resolveGameCenterTarget(
 
   const gameCenterByBundle = storeAppContext.config.gameCenter;
   let typedGameCenterConfig: GameCenterConfig | undefined;
+
   const hasGameCenterByBundle = gameCenterByBundle != null;
 
   if (hasGameCenterByBundle) {
@@ -164,6 +167,7 @@ async function resolveGameCenterTarget(
   }
 
   const loadedGameCenterConfig = gameCenterConfig;
+
   const isConfigMissing = loadedGameCenterConfig == null;
 
   if (isConfigMissing) {
@@ -215,7 +219,9 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
     }
 
     const plannedActions = gameCenterPlan.actions.filter(isPlannedAction);
+
     logger.gap();
+
     const isAlreadyInSync = gameCenterPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
@@ -223,11 +229,14 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
         gameCenterTarget.bundleId,
         'Game Center achievements & leaderboards already in sync',
       );
+
       return 0;
     }
 
     const actionLines = gameCenterPlan.actions.map(renderStoreSurfaceAction);
+
     logger.notice(gameCenterTarget.bundleId, ...actionLines);
+
     const hasNothingToApply = plannedActions.length == 0;
 
     if (hasNothingToApply) {
@@ -238,6 +247,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
 
     logger.gap();
     logger.note(`${plannedActions.length} change(s) for ${gameCenterTarget.bundleId}.`);
+
     const isDryRun = commandInput.dryRun == true;
 
     if (isDryRun) {
@@ -276,6 +286,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
 
     const gameCenterSummary = summarize(appliedGameCenter.actions);
     let receiptTitle = 'Applied';
+
     const hasFailures = gameCenterSummary.failed > 0;
 
     if (hasFailures) {
@@ -283,7 +294,9 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
     }
 
     const receiptLines = appliedGameCenter.actions.map(renderAppliedStoreSurfaceAction);
+
     logger.box(receiptTitle, receiptLines);
+
     return gameCenterSummary.failed;
   } catch (cause) {
     throw gameCenterFailure('run Game Center command', cause);
@@ -293,6 +306,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
 /** Run the schema-decoded Game Center command. */
 export async function gameCenterCommandProgram(rawCommandInput: unknown): Promise<void> {
   const failureCount = await executeGameCenter(rawCommandInput);
+
   const hasFailures = failureCount > 0;
 
   if (hasFailures) {

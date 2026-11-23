@@ -10,6 +10,7 @@ function captureHumanLogger(explain: boolean): {
   lines: string[];
 } {
   const lines: string[] = [];
+
   useLoggerSink(function writeLine(text: string) {
     lines.push(text);
   });
@@ -19,6 +20,7 @@ function captureHumanLogger(explain: boolean): {
 function describeLoggerASCIIRendering() {
   function printsStableStatusPieceAndReceiptLinesThroughTheTestService() {
     const captured = captureHumanLogger(false);
+
     captured.logger.box('Synced', ['3 apps', '0 errors']);
     captured.logger.shipped(['sampleapp 1.0.0 (42)', 'download 47.2 MB - on disk 61.3 MB']);
     captured.logger.notice('Upload to TestFlight', 'sampleapp 1.0.0 (build 42)');
@@ -39,12 +41,15 @@ function describeLoggerASCIIRendering() {
     'prints stable status text and receipt lines through the test service',
     printsStableStatusPieceAndReceiptLinesThroughTheTestService,
   );
+
   function writesLabelsVerbatimAndExpandsARequestedGlossaryTopic() {
     const captured = captureHumanLogger(true);
+
     captured.logger.step('native project', 'using existing ios/', 'bundle-id');
     captured.logger.step('com.example.sampleapp', 'already in sync');
 
     const transcript = captured.lines.join('');
+
     expect(transcript).toContain('[RUN] native project - using existing ios/');
     expect(transcript).toContain('[RUN] com.example.sampleapp - already in sync');
     expect(transcript).toContain('Bundle ID');
@@ -54,6 +59,7 @@ function describeLoggerASCIIRendering() {
     'writes labels verbatim and expands a requested glossary topic',
     writesLabelsVerbatimAndExpandsARequestedGlossaryTopic,
   );
+
   function keepsChipFormattingPureAndFreeOfTerminalEscapes() {
     const captured = captureHumanLogger(false);
     const chipText = captured.logger.chip('29.7 MB');
@@ -72,6 +78,7 @@ describe('logger ASCII rendering', describeLoggerASCIIRendering);
 function describeLoggerProgressEvents() {
   function printsStartDoneAndFailAsStatusLinesForPeople() {
     const captured = captureHumanLogger(false);
+
     captured.logger.progressStart('Archiving');
     captured.logger.progressDone('Archiving', 72000);
     captured.logger.progressFail('Archiving', 'Archiving failed');
@@ -92,6 +99,7 @@ function describePieceLoggerNDJSONEvents() {
   function captureJsonLogger(): { eventLines: string[]; humanLines: string[] } {
     const eventLines: string[] = [];
     const humanLines: string[] = [];
+
     useLoggerSink(function writeEvent(text: string) {
       eventLines.push(text);
     });
@@ -104,11 +112,13 @@ function describePieceLoggerNDJSONEvents() {
   function turnsStepWarnNoteAndTipIntoOneJSONObjectPerLine() {
     const captured = captureJsonLogger();
     const logger = createLogger(true);
+
     logger.step('config', 'sampleapp - production', 'bundle-id');
     logger.step('upload');
     logger.warn('low disk');
     logger.note('using cache');
     logger.tip('pass --clean');
+
     function mapEventLine(eventLine: string) {
       return JSON.parse(eventLine);
     }
@@ -127,12 +137,15 @@ function describePieceLoggerNDJSONEvents() {
     'turns step, warn, note and tip into one JSON object per line',
     turnsStepWarnNoteAndTipIntoOneJSONObjectPerLine,
   );
+
   function turnsProgressIntoStartDoneAndFailEvents() {
     const captured = captureJsonLogger();
     const logger = createLogger(false);
+
     logger.progressStart('Archiving');
     logger.progressDone('Archiving', 1500);
     logger.progressFail('Exporting', 'Exporting failed. Last lines: boom');
+
     function mapEventLine2(eventLine: string) {
       return JSON.parse(eventLine);
     }
@@ -145,11 +158,14 @@ function describePieceLoggerNDJSONEvents() {
   }
 
   it('turns progress into start, done and fail events', turnsProgressIntoStartDoneAndFailEvents);
+
   function turnsABoxIntoOneEventAndKeepsOtherHumanPieceOffTheEventStream() {
     const captured = captureJsonLogger();
     const logger = createLogger(false);
+
     logger.box('Synced', ['3 apps']);
     logger.line('plain');
+
     function mapEventLine3(eventLine: string) {
       return JSON.parse(eventLine);
     }

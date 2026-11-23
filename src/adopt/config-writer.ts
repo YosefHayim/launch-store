@@ -10,18 +10,24 @@ import type {
 export function aggregateProductPieces(pieces: readonly ProductPiece[]): AppProducts {
   const inAppPurchases: InAppPurchaseConfig[] = [];
   const subscriptionGroups: SubscriptionGroupConfig[] = [];
+
   for (const piece of pieces) {
     if (piece.type == 'iap') {
       inAppPurchases.push(piece.iap);
       continue;
     }
+
     subscriptionGroups.push(piece.group);
   }
+
   if (inAppPurchases.length > 0 && subscriptionGroups.length > 0) {
     return { inAppPurchases, subscriptionGroups };
   }
+
   if (inAppPurchases.length > 0) return { inAppPurchases };
+
   if (subscriptionGroups.length > 0) return { subscriptionGroups };
+
   return {};
 }
 
@@ -30,13 +36,16 @@ export function serializeProductsSection(
   productsByBundleId: Readonly<Record<string, AppProducts>>,
 ): string {
   const productsJson = JSON.stringify(productsByBundleId, null, 2);
+
   function mapLine(line: string, index: number) {
     if (index == 0) return line;
+
     return `  ${line}`;
   }
 
   // Shift every line but the first right by two spaces so the block nests under `products:` cleanly.
   const indented = productsJson.split('\n').map(mapLine).join('\n');
+
   return [
     '  // Imported from App Store Connect by `launch-store adopt` - review, then commit.',
     `  products: ${indented},`,

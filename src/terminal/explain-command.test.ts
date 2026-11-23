@@ -8,6 +8,7 @@ afterEach(function resetExplainLogger() {
 
 function captureExplainWrites(): string[] {
   const terminalWrites: string[] = [];
+
   useLoggerSink(function writeLine(text: string) {
     terminalWrites.push(text);
   });
@@ -23,8 +24,10 @@ function describeExplainCommandProgram() {
   }
 
   it('lists topics when none is requested', listsTopicsWhenNoneIsRequested);
+
   function rejectsAnUnknownTopicWithTheKnownChoices() {
     captureExplainWrites();
+
     let thrownCause: unknown = null;
 
     try {

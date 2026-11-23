@@ -32,6 +32,7 @@ export function registerUpdatesCommand(program: Command): void {
   const updatesCommand = program
     .command('updates')
     .description('inspect and roll back published OTA updates');
+
   function runList(commandOptions: ListOptions) {
     return runCliProgram(provideUpdatesCommand({ operation: 'list', ...commandOptions }));
   }
@@ -44,6 +45,7 @@ export function registerUpdatesCommand(program: Command): void {
     .option('--runtime-version <v>', 'only show updates for this runtime version')
     .option('--json', 'output machine-readable JSON', false)
     .action(runList);
+
   function runView(reference: string, commandOptions: ViewOptions) {
     return runCliProgram(
       provideUpdatesCommand({ operation: 'view', reference, ...commandOptions }),
@@ -57,6 +59,7 @@ export function registerUpdatesCommand(program: Command): void {
     .option('--channel <name>', 'release channel to read', 'production')
     .option('--json', 'output machine-readable JSON', false)
     .action(runView);
+
   function runRollback(commandOptions: RollbackOptions) {
     return runCliProgram(provideUpdatesCommand({ operation: 'rollback', ...commandOptions }));
   }

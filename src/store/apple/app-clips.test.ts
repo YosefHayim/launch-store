@@ -64,6 +64,7 @@ function makeApi(state: Partial<State>): {
     },
     findEditableAppStoreVersion() {
       if (full.editableVersionId == null) return Promise.resolve(null);
+
       return Promise.resolve({ id: full.editableVersionId });
     },
     listAppClips() {
@@ -71,7 +72,9 @@ function makeApi(state: Partial<State>): {
     },
     listAppClipDefaultExperiences(appClipId) {
       let experiences: AppClipDefaultExperienceResource[] = [];
+
       if (full.experiences[appClipId] != null) experiences = full.experiences[appClipId];
+
       return Promise.resolve(experiences);
     },
     createAppClipDefaultExperience(appClipId, versionId, action) {
@@ -79,8 +82,11 @@ function makeApi(state: Partial<State>): {
         appClipId,
         versionId,
       };
+
       if (action != null) createdExperience.action = action;
+
       calls.createdExperiences.push(createdExperience);
+
       return Promise.resolve({ id: `exp-new-${++nextId}` });
     },
     updateAppClipDefaultExperienceAction(experienceId, action) {
@@ -89,9 +95,11 @@ function makeApi(state: Partial<State>): {
     },
     listAppClipDefaultExperienceLocalizations(experienceId) {
       let localizations: AppClipLocalizationResource[] = [];
+
       if (full.localizations[experienceId] != null) {
         localizations = full.localizations[experienceId];
       }
+
       return Promise.resolve(localizations);
     },
     createAppClipDefaultExperienceLocalization(experienceId, locale, subtitle) {
@@ -103,6 +111,7 @@ function makeApi(state: Partial<State>): {
       return Promise.resolve();
     },
   };
+
   return { api, calls };
 }
 /** Execute the App Clips reconciler at the test boundary. */
@@ -120,6 +129,7 @@ function decodeAppClipsConfig(rawDocument: unknown) {
 function describeParseAppClipsPiece() {
   function parsesAClipWithAnActionAndLocalizations() {
     const config = decodeAppClipsConfig(ONE_CLIP);
+
     expect(config.clips['com.acme.app.Clip']).toEqual({
       action: 'OPEN',
       localizations: { 'en-US': { subtitle: 'Order now' } },
@@ -127,27 +137,32 @@ function describeParseAppClipsPiece() {
   }
 
   it('parses a clip with an action and localizations', parsesAClipWithAnActionAndLocalizations);
+
   function rejectsANonObjectDocumentAnArrayAndAnEmptyClipsMap() {
     function callDecodeAppClipsPiece() {
       return decodeAppClipsConfig('nope');
     }
 
     expect(callDecodeAppClipsPiece).toThrow(/must be a JSON object/);
+
     function callDecodeAppClipsPiece2() {
       return decodeAppClipsConfig([]);
     }
 
     expect(callDecodeAppClipsPiece2).toThrow(/must be a JSON object/);
+
     function callDecodeAppClipsPiece3() {
       return decodeAppClipsConfig({});
     }
 
     expect(callDecodeAppClipsPiece3).toThrow(/clips/);
+
     function callDecodeAppClipsPiece4() {
       return decodeAppClipsConfig({ clips: {} });
     }
 
     expect(callDecodeAppClipsPiece4).toThrow(/at least one App Clip/);
+
     function callDecodeAppClipsPiece5() {
       return decodeAppClipsConfig({ clips: [] });
     }
@@ -159,12 +174,14 @@ function describeParseAppClipsPiece() {
     'rejects a non-object document, an array, and an empty clips map',
     rejectsANonObjectDocumentAnArrayAndAnEmptyClipsMap,
   );
+
   function rejectsAnInvalidActionAndANonStringSubtitle() {
     function callDecodeAppClipsPiece6() {
       return decodeAppClipsConfig({ clips: { c: { action: 'TAP' } } });
     }
 
     expect(callDecodeAppClipsPiece6).toThrow(/action/);
+
     function callDecodeAppClipsPiece7() {
       return decodeAppClipsConfig({
         clips: { c: { localizations: { 'en-US': { subtitle: 1 } } } },
@@ -178,6 +195,7 @@ function describeParseAppClipsPiece() {
     'rejects an invalid action and a non-string subtitle',
     rejectsAnInvalidActionAndANonStringSubtitle,
   );
+
   function rejectsAClipThatDeclaresNeitherAnActionNorLocalizations() {
     function callDecodeAppClipsPiece8() {
       return decodeAppClipsConfig({ clips: { c: {} } });
@@ -195,6 +213,7 @@ function describeParseAppClipsPiece() {
 describe('parseAppClipsConfig', describeParseAppClipsPiece);
 function describeReconcileAppClips() {
   const clip: AppClipResource = { id: 'clip-1', bundleId: 'com.acme.app.Clip' };
+
   async function throwsWhenTheAppHasNoAppStoreConnectPiece() {
     const { api } = makeApi({ appId: null });
     const reconcile = runReconcile(api, {
@@ -202,6 +221,7 @@ function describeReconcileAppClips() {
       config: ONE_CLIP,
       dryRun: true,
     });
+
     await expect(reconcile).rejects.toThrow(/No App Store Connect app record/);
   }
 
@@ -209,6 +229,7 @@ function describeReconcileAppClips() {
     'throws when the app has no App Store Connect record',
     throwsWhenTheAppHasNoAppStoreConnectPiece,
   );
+
   async function skipsEveryClipWhenThereSNoEditableAppStoreVersion() {
     const { api, calls } = makeApi({ editableVersionId: null, clips: [clip] });
     const report = await runReconcile(api, {
@@ -216,6 +237,7 @@ function describeReconcileAppClips() {
       config: ONE_CLIP,
       dryRun: false,
     });
+
     expect(report.actions).toEqual([
       {
         description: 'App Clips: no editable App Store version (create/select a version first)',
@@ -230,6 +252,7 @@ function describeReconcileAppClips() {
     "skips every clip when there's no editable App Store version",
     skipsEveryClipWhenThereSNoEditableAppStoreVersion,
   );
+
   async function skipsADeclaredClipWhoseBuildHasnTProducedAClipPiece() {
     const { api } = makeApi({ clips: [] });
     const report = await runReconcile(api, {
@@ -237,6 +260,7 @@ function describeReconcileAppClips() {
       config: ONE_CLIP,
       dryRun: false,
     });
+
     expect(report.actions).toHaveLength(1);
     expect(report.actions[0]?.status).toBe('skipped');
     expect(report.actions[0]?.description).toMatch(
@@ -248,6 +272,7 @@ function describeReconcileAppClips() {
     "skips a declared clip whose build hasn't produced a clip record",
     skipsADeclaredClipWhoseBuildHasnTProducedAClipPiece,
   );
+
   async function createsTheDefaultExperienceAndItsSubtitleWhenNoneExistsApply() {
     const { api, calls } = makeApi({ clips: [clip] });
     const report = await runReconcile(api, {
@@ -255,6 +280,7 @@ function describeReconcileAppClips() {
       config: ONE_CLIP,
       dryRun: false,
     });
+
     expect(calls.createdExperiences).toEqual([
       { appClipId: 'clip-1', versionId: 'ver-1', action: 'OPEN' },
     ]);
@@ -268,6 +294,7 @@ function describeReconcileAppClips() {
     'creates the default experience and its subtitle when none exists (apply)',
     createsTheDefaultExperienceAndItsSubtitleWhenNoneExistsApply,
   );
+
   async function plansButDoesNotPerformCreatesOnADryRunIncludingTheSubtitleOfANotYetCreatedExperience() {
     const { api, calls } = makeApi({ clips: [clip] });
     const report = await runReconcile(api, {
@@ -275,8 +302,10 @@ function describeReconcileAppClips() {
       config: ONE_CLIP,
       dryRun: true,
     });
+
     expect(calls.createdExperiences).toHaveLength(0);
     expect(calls.createdLocalizations).toHaveLength(0);
+
     function readStatus(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -294,6 +323,7 @@ function describeReconcileAppClips() {
     'plans (but does not perform) creates on a dry-run, including the subtitle of a not-yet-created experience',
     plansButDoesNotPerformCreatesOnADryRunIncludingTheSubtitleOfANotYetCreatedExperience,
   );
+
   async function updatesOnlyTheActionAndTheChangedSubtitleLeavingInSyncFieldsUntouched() {
     const { api, calls } = makeApi({
       clips: [clip],
@@ -305,6 +335,7 @@ function describeReconcileAppClips() {
       config: ONE_CLIP,
       dryRun: false,
     });
+
     expect(calls.updatedActions).toEqual([{ experienceId: 'exp-1', action: 'OPEN' }]);
     expect(calls.updatedLocalizations).toEqual([
       { localizationId: 'loc-1', subtitle: 'Order now' },
@@ -317,6 +348,7 @@ function describeReconcileAppClips() {
     'updates only the action and the changed subtitle, leaving in-sync fields untouched',
     updatesOnlyTheActionAndTheChangedSubtitleLeavingInSyncFieldsUntouched,
   );
+
   async function makesNoChangesWhenTheExperienceAndSubtitleAlreadyPiece() {
     const { api, calls } = makeApi({
       clips: [clip],
@@ -328,6 +360,7 @@ function describeReconcileAppClips() {
       config: ONE_CLIP,
       dryRun: false,
     });
+
     expect(report.actions).toHaveLength(0);
     expect(calls.updatedActions).toHaveLength(0);
     expect(calls.updatedLocalizations).toHaveLength(0);
@@ -337,11 +370,13 @@ function describeReconcileAppClips() {
     'makes no changes when the experience and subtitle already match',
     makesNoChangesWhenTheExperienceAndSubtitleAlreadyPiece,
   );
+
   async function ignoresAnExperienceTiedToADifferentNonEditableVersion() {
     const { api, calls } = makeApi({
       clips: [clip],
       experiences: { 'clip-1': [{ id: 'exp-old', action: 'OPEN', versionId: 'ver-released' }] },
     });
+
     await runReconcile(api, { bundleId: 'com.acme.app', config: ONE_CLIP, dryRun: false });
     // The editable-version experience doesn't exist yet -> a fresh one is created, not the released one reused.
     expect(calls.createdExperiences).toEqual([
@@ -353,22 +388,27 @@ function describeReconcileAppClips() {
     'ignores an experience tied to a different (non-editable) version',
     ignoresAnExperienceTiedToADifferentNonEditableVersion,
   );
+
   async function capturesAFailedExperienceCreateAndSkipsThatClipSSubtitles() {
     const { api, calls } = makeApi({ clips: [clip] });
+
     function runPiece() {
       return Promise.reject(new Error('boom'));
     }
 
     api.createAppClipDefaultExperience = runPiece;
+
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: ONE_CLIP,
       dryRun: false,
     });
     const summary = summarize(report.actions);
+
     expect(summary.failed).toBe(1);
     expect(summary.skipped).toBe(1);
     expect(calls.createdLocalizations).toHaveLength(0);
+
     function findAction(action: {
       readonly description: string;
       readonly destructive: boolean;

@@ -299,7 +299,9 @@ export async function saveSnapshot(
   const filePath = snapshotFilePath(snapshot.name, directoryOverride);
 
   await mkdir(directoryPath, { recursive: true });
+
   const serialized = JSON.stringify(snapshot, null, 2);
+
   await writeFile(filePath, serialized);
 
   return filePath;
@@ -407,6 +409,7 @@ export async function pruneSnapshots(
 
   for (const snapshot of staleSnapshots) {
     const filePath = snapshotFilePath(snapshot.name, directoryOverride);
+
     const removed = await removeSnapshotFile(filePath);
 
     if (removed) {

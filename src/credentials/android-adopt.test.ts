@@ -64,8 +64,10 @@ function setup() {
     ],
     { stdio: 'ignore' },
   );
+
   const androidPath = join(legacyDirectory, 'android.json');
   const serialized = JSON.stringify({ keystore: { path, alias: 'upload' } });
+
   writeFileSync(androidPath, serialized);
 
   const account = JSON.stringify({ client_email: 'test@example.invalid', private_key: 'dummy' });
@@ -100,7 +102,9 @@ function describeLegacyAndroidCredentialAdoption() {
     );
 
     expect(calls).toEqual([sandbox.account, 'com.example.app']);
+
     const serviceAccount = await loadServiceAccount('com.example.app');
+
     expect(serviceAccount).toBe(sandbox.account);
 
     const adopted = await loadCachedKeystore('com.example.app');
@@ -113,13 +117,16 @@ function describeLegacyAndroidCredentialAdoption() {
 
     const loadedFile = readFileSync(adopted.path);
     const fileSync = readFileSync(sandbox.path);
+
     expect(loadedFile).toEqual(fileSync);
     expect(sandbox.secrets.has('play-service-account')).toBe(true);
+
     const legacyAndroidCredentials = adoptLegacyAndroidCredentials(
       'com.example.app',
       false,
       allowPlayAccess,
     );
+
     await expect(legacyAndroidCredentials).rejects.toMatchObject({
       message: expect.stringMatching(/--yes/),
     });
@@ -130,6 +137,7 @@ function describeLegacyAndroidCredentialAdoption() {
     validatesAndCopiesBothAssetsWithoutRemovingTheOriginals,
     30_000,
   );
+
   async function rejectsAnIncorrectPrivateKeyPasswordBeforeCopyingAnything() {
     const sandbox = setup();
 
@@ -140,12 +148,17 @@ function describeLegacyAndroidCredentialAdoption() {
       false,
       allowPlayAccess,
     );
+
     await expect(legacyAndroidCredentials).rejects.toMatchObject({
       message: expect.stringMatching(/Could not open/),
     });
+
     const serviceAccount = await loadServiceAccount('com.example.app');
+
     expect(serviceAccount).toBeNull();
+
     const cachedKeystore = await loadCachedKeystore('com.example.app');
+
     expect(cachedKeystore).toBeNull();
   }
 
@@ -154,6 +167,7 @@ function describeLegacyAndroidCredentialAdoption() {
     rejectsAnIncorrectPrivateKeyPasswordBeforeCopyingAnything,
     30_000,
   );
+
   async function doesNotCopyWhenThePlayKeyCannotReadThePackage() {
     setup();
 
@@ -164,10 +178,15 @@ function describeLegacyAndroidCredentialAdoption() {
         return Promise.reject(new Error('denied'));
       },
     );
+
     await expect(legacyAndroidCredentials).rejects.toThrow(/denied/);
+
     const serviceAccount = await loadServiceAccount('com.example.app');
+
     expect(serviceAccount).toBeNull();
+
     const cachedKeystore = await loadCachedKeystore('com.example.app');
+
     expect(cachedKeystore).toBeNull();
   }
 
@@ -176,6 +195,7 @@ function describeLegacyAndroidCredentialAdoption() {
     doesNotCopyWhenThePlayKeyCannotReadThePackage,
     30_000,
   );
+
   async function rejectsAWrongKeyPasswordWhenImportingAKeystore() {
     const sandbox = setup();
 
@@ -195,10 +215,13 @@ function describeLegacyAndroidCredentialAdoption() {
         keyPassword: 'wrongpass',
       },
     });
+
     await expect(uploadKeystore).rejects.toMatchObject({
       message: expect.stringMatching(/Could not open keystore/),
     });
+
     const cachedKeystore = await loadCachedKeystore('com.example.app');
+
     expect(cachedKeystore).toBeNull();
   }
 

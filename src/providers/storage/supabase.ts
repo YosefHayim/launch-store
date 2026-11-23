@@ -126,6 +126,7 @@ export async function makeSupabaseStorageProvider(
     }
 
     requireSuccessfulRead(indexReply.status, INDEX_OBJECT_KEY);
+
     const indexText = await indexReply.text();
 
     return decodeArtifactIndex(indexText);
@@ -138,7 +139,9 @@ export async function makeSupabaseStorageProvider(
     const artifactIndex = await readIndex();
 
     artifactIndex.unshift({ ...artifact, path: uploadedArtifact.location });
+
     const serialized = JSON.stringify(artifactIndex, null, 2);
+
     await upload(INDEX_OBJECT_KEY, serialized, 'application/json');
 
     return uploadedArtifact;
@@ -165,6 +168,7 @@ export async function makeSupabaseStorageProvider(
     }
 
     requireSuccessfulRead(objectReply.status, objectKey);
+
     const objectBytes = await objectReply.arrayBuffer();
 
     return Buffer.from(objectBytes);
@@ -191,6 +195,7 @@ export function makeSupabaseStorageProviderResolver(): StorageProviderResolver {
           message:
             'Storage "supabase" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).',
         });
+
         return Promise.reject(makeProviderFailure);
       }
 

@@ -172,6 +172,7 @@ export function createTrainRuntime(
     }
 
     const activeAscKey = ascKey;
+
     const isKeyMissing = activeAscKey == null;
 
     if (isKeyMissing) {
@@ -197,6 +198,7 @@ export function createTrainRuntime(
     }
 
     const packageName = appDescriptor.packageName;
+
     const isPackageMissing = packageName == null;
 
     if (isPackageMissing) {
@@ -224,6 +226,7 @@ export function createTrainRuntime(
     }
 
     const loadedServiceAccount = serviceAccountJson;
+
     const isAccountMissing = loadedServiceAccount == null;
 
     if (isAccountMissing) {
@@ -270,6 +273,7 @@ export function createTrainRuntime(
     bundleId: string,
   ): Promise<string | undefined> {
     const configuredVersion = appDescriptor.version;
+
     const hasConfiguredVersion = configuredVersion != null;
 
     if (hasConfiguredVersion) {
@@ -280,6 +284,7 @@ export function createTrainRuntime(
       'read App Store version',
       ascClient.getLatestMarketingVersion(bundleId),
     );
+
     const isStoreVersionMissing = storeVersion == null;
 
     if (isStoreVersionMissing) {
@@ -291,6 +296,7 @@ export function createTrainRuntime(
 
   async function submitIos(): Promise<NativeSubmission> {
     const bundleId = appDescriptor.bundleId;
+
     const isBundleMissing = bundleId == null;
 
     if (isBundleMissing) {
@@ -303,6 +309,7 @@ export function createTrainRuntime(
 
     const ascClient = await loadAppleClient();
     const appId = await runTrainStep('find App Store app', ascClient.getAppId(bundleId));
+
     const isAppMissing = appId == null;
 
     if (isAppMissing) {
@@ -310,11 +317,13 @@ export function createTrainRuntime(
         bundleId,
         'launch-store release-train start',
       );
+
       throw trainRuntimeFailure('find App Store app', bundleId, appMissingMessage);
     }
 
     const storeBuilds = await runTrainStep('list App Store builds', ascClient.listBuilds(appId));
     const storeBuild = storeBuilds.find(isUsableIosStoreBuild);
+
     const isBuildMissing = storeBuild == null;
 
     if (isBuildMissing) {
@@ -327,6 +336,7 @@ export function createTrainRuntime(
 
     const versionCandidate = await readVersionCandidate(ascClient, bundleId);
     const marketingVersion = usableMarketingVersion(versionCandidate);
+
     const isMarketingVersionMissing = marketingVersion == null;
 
     if (isMarketingVersionMissing) {
@@ -355,6 +365,7 @@ export function createTrainRuntime(
       attachOnly: false,
     };
     const earliestReleaseDate = releaseTypeSettings.earliestReleaseDate;
+
     const hasEarliestReleaseDate = earliestReleaseDate != null;
 
     if (hasEarliestReleaseDate) {
@@ -362,6 +373,7 @@ export function createTrainRuntime(
     }
 
     const copyright = launchConfiguration.release?.copyright;
+
     const hasCopyright = copyright != null;
 
     if (hasCopyright) {
@@ -375,6 +387,7 @@ export function createTrainRuntime(
 
   async function submitAndroid(): Promise<NativeSubmission> {
     const packageName = appDescriptor.packageName;
+
     const isPackageMissing = packageName == null;
 
     if (isPackageMissing) {
@@ -406,6 +419,7 @@ export function createTrainRuntime(
     }
 
     const latestBuild = storedBuilds.find(isThisAppBuild);
+
     const isBuildMissing = latestBuild == null;
 
     if (isBuildMissing) {
@@ -417,6 +431,7 @@ export function createTrainRuntime(
     }
 
     const artifactPresent = ensureArtifactPresent(latestBuild, appDescriptor.name, 'android');
+
     await runTrainStep('verify stored Android build', artifactPresent);
 
     const rollout = readRolloutFraction(buildProfile.rollout);
@@ -430,6 +445,7 @@ export function createTrainRuntime(
       'read Android release notes',
       androidSubmitReleaseNotes,
     );
+
     const hasReleaseNotes = releaseNotes.length > 0;
 
     if (hasReleaseNotes) {
@@ -458,6 +474,7 @@ export function createTrainRuntime(
       'resolve Android credentials',
       credentialsProvider.resolveBuildCredentials(buildContext),
     );
+
     await runTrainStep(
       'submit Android release',
       submitToStores(launchConfiguration, 'android', latestBuild, buildCredentials, buildContext),
@@ -468,6 +485,7 @@ export function createTrainRuntime(
 
   async function readIosCar(trainCar: NativeCar): Promise<NativeCarState> {
     const bundleId = appDescriptor.bundleId;
+
     const isBundleMissing = bundleId == null;
 
     if (isBundleMissing) {
@@ -480,6 +498,7 @@ export function createTrainRuntime(
       readReleaseStatus(ascClient, bundleId, IOS_PLATFORM),
     );
     const nextCarPhase = iosCarState(releaseStatus.verdict);
+
     const isPhaseUnknown = nextCarPhase == null;
 
     if (isPhaseUnknown) {
@@ -491,6 +510,7 @@ export function createTrainRuntime(
 
   async function readAndroidCar(trainCar: NativeCar): Promise<NativeCarState> {
     const packageName = appDescriptor.packageName;
+
     const isPackageMissing = packageName == null;
 
     if (isPackageMissing) {
@@ -509,6 +529,7 @@ export function createTrainRuntime(
       playClient.getTrackReleases(packageName, 'production'),
     );
     const nextCarPhase = androidCarState(trackReleases);
+
     const isPhaseUnknown = nextCarPhase == null;
 
     if (isPhaseUnknown) {
@@ -542,6 +563,7 @@ export function createTrainRuntime(
     }
 
     const bundleId = appDescriptor.bundleId;
+
     const isBundleMissing = bundleId == null;
 
     if (isBundleMissing) {
@@ -550,6 +572,7 @@ export function createTrainRuntime(
 
     const ascClient = await loadAppleClient();
     const appId = await runTrainStep('find App Store app', ascClient.getAppId(bundleId));
+
     const isAppMissing = appId == null;
 
     if (isAppMissing) {
@@ -557,6 +580,7 @@ export function createTrainRuntime(
         bundleId,
         'launch-store release-train release',
       );
+
       throw trainRuntimeFailure('find App Store app', bundleId, appMissingMessage);
     }
 
@@ -565,6 +589,7 @@ export function createTrainRuntime(
       ascClient.listAppStoreVersions(appId, IOS_PLATFORM),
     );
     const currentVersion = pickCurrentVersion(storeVersions);
+
     const isVersionMissing = currentVersion == null;
 
     if (isVersionMissing) {
@@ -605,6 +630,7 @@ export function createTrainRuntime(
       environmentOverrides: environmentValues,
     };
     const excludedNames = launchConfiguration.envExclude;
+
     const hasExclusions = excludedNames != null;
 
     if (hasExclusions) {

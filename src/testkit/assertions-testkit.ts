@@ -2,9 +2,11 @@ export function expectDefined<T>(candidate: T | null | undefined, label: string 
   if (candidate == null) {
     throw new Error(`expected ${label} to be defined`);
   }
+
   if (candidate == null) {
     throw new Error(`expected ${label} to be defined`);
   }
+
   return candidate;
 }
 export function expectArrayElement<T>(

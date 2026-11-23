@@ -61,6 +61,7 @@ export async function findNativeTargetDirectory(nativeDirectory: string): Promis
     }
 
     const infoPlistPath = join(childPath, 'Info.plist');
+
     const hasInfoPlist = await pathExists(infoPlistPath);
 
     if (hasInfoPlist) {
@@ -211,6 +212,7 @@ async function promptVersion(
       { selection: 'custom', label: 'Custom...', hint: 'type a version' },
     ],
   });
+
   const isCustom = choice == 'custom';
 
   if (isCustom) {
@@ -312,6 +314,7 @@ export async function resolveMarketingVersion(
       `would suggest the next version above the store's latest (config has ${currentVersion})`,
       'marketing-version',
     );
+
     return undefined;
   }
 
@@ -329,6 +332,7 @@ export async function resolveMarketingVersion(
       `${currentVersion} (from app config; not prompting under --yes / non-interactive)`,
       'marketing-version',
     );
+
     return undefined;
   }
 
@@ -433,6 +437,7 @@ export async function setAndroidVersionCode(appDir: string, versionCode: number)
   const originalGradle = await readFile(gradlePath, 'utf8');
   // Replaces the first `versionCode <number>` assignment in the Gradle file.
   const updatedGradle = originalGradle.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
+
   const isUnchanged = updatedGradle == originalGradle;
 
   if (isUnchanged) {

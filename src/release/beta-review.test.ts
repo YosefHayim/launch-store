@@ -69,9 +69,11 @@ function makeAppleStore(
       }
 
       calls.submitted.push(buildId);
+
       return Promise.resolve();
     },
   };
+
   return { appleStore, calls };
 }
 
@@ -85,6 +87,7 @@ function describeParseBetaReviewPiece() {
   }
 
   it('decodes a non-empty localized note map', decodesANonEmptyLocalizedNoteMap);
+
   function rejectsMalformedDocumentsAtTheSchemaBoundary() {
     for (const invalidConfiguration of [
       'nope',
@@ -116,20 +119,25 @@ function describeReconcileBetaReview() {
       submitForReview: true,
       dryRun: false,
     });
+
     expect(report.buildVersion).toBe('42');
     expect(calls.created).toEqual([
       { buildId: 'build-1', locale: 'en-US', whatsNew: 'Bug fixes.' },
     ]);
     expect(calls.submitted).toEqual(['build-1']);
+
     const betaReview = summarizeBetaReview(report.actions);
+
     expect(betaReview).toEqual({ applied: 2, failed: 0, skipped: 0 });
   }
 
   it('sets a new note and submits the build for review', setsANewNoteAndSubmitsTheBuildForReview);
+
   async function updatesChangedNotesAndLeavesIdenticalNotesAlone() {
     const changed = makeAppleStore({
       localizations: [{ id: 'loc-1', locale: 'en-US', whatsNew: 'Old notes.' }],
     });
+
     await reconcileBetaReview(changed.appleStore, {
       appId: 'app-1',
       whatToTest: WHAT_TO_TEST,
@@ -148,6 +156,7 @@ function describeReconcileBetaReview() {
       submitForReview: false,
       dryRun: false,
     });
+
     expect(identical.calls.updated).toHaveLength(0);
     expect(report.actions).toHaveLength(0);
   }
@@ -156,6 +165,7 @@ function describeReconcileBetaReview() {
     'updates changed notes and leaves identical notes alone',
     updatesChangedNotesAndLeavesIdenticalNotesAlone,
   );
+
   async function skipsABuildThatWasAlreadySubmitted() {
     const { appleStore, calls } = makeAppleStore({
       submission: { id: 'sub-1', state: 'IN_REVIEW' },
@@ -166,13 +176,17 @@ function describeReconcileBetaReview() {
       submitForReview: true,
       dryRun: false,
     });
+
     expect(calls.submitted).toHaveLength(0);
+
     const betaReview = summarizeBetaReview(report.actions);
+
     expect(betaReview).toEqual({ applied: 0, failed: 0, skipped: 1 });
     expect(report.actions[0]?.description).toContain('in review');
   }
 
   it('skips a build that was already submitted', skipsABuildThatWasAlreadySubmitted);
+
   async function targetsARequestedBuildAndRejectsExpiredOrMissingBuilds() {
     const builds: BuildResource[] = [
       { id: 'build-2', version: '43', processingState: 'VALID', expired: false },
@@ -186,6 +200,7 @@ function describeReconcileBetaReview() {
       submitForReview: false,
       dryRun: false,
     });
+
     expect(report.buildVersion).toBe('43');
     expect(calls.created[0]?.buildId).toBe('build-2');
     await expect(
@@ -212,6 +227,7 @@ function describeReconcileBetaReview() {
     'targets a requested build and rejects expired or missing builds',
     targetsARequestedBuildAndRejectsExpiredOrMissingBuilds,
   );
+
   async function picksTheNewestValidBuildWhenNoVersionIsGiven() {
     const { appleStore } = makeAppleStore({
       builds: [
@@ -226,6 +242,7 @@ function describeReconcileBetaReview() {
       submitForReview: false,
       dryRun: false,
     });
+
     expect(report.buildVersion).toBe('43');
   }
 
@@ -233,10 +250,12 @@ function describeReconcileBetaReview() {
     'picks the newest valid build when no version is given',
     picksTheNewestValidBuildWhenNoVersionIsGiven,
   );
+
   async function rejectsWhenNoBuildIsEligible() {
     const { appleStore } = makeAppleStore({
       builds: [{ id: 'p', version: '1', processingState: 'PROCESSING', expired: false }],
     });
+
     await expect(
       reconcileBetaReview(appleStore, {
         appId: 'app-1',
@@ -250,6 +269,7 @@ function describeReconcileBetaReview() {
   }
 
   it('rejects when no build is eligible', rejectsWhenNoBuildIsEligible);
+
   async function plansWithoutWritesOnADryRun() {
     const { appleStore, calls } = makeAppleStore({});
     const report = await reconcileBetaReview(appleStore, {
@@ -258,8 +278,10 @@ function describeReconcileBetaReview() {
       submitForReview: true,
       dryRun: true,
     });
+
     expect(calls.created).toHaveLength(0);
     expect(calls.submitted).toHaveLength(0);
+
     function everyAction(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -274,6 +296,7 @@ function describeReconcileBetaReview() {
   }
 
   it('plans without writes on a dry run', plansWithoutWritesOnADryRun);
+
   async function capturesASubmissionFailureAfterApplyingNotes() {
     const { appleStore } = makeAppleStore({ submissionFailure: 'build is still processing' });
     const report = await reconcileBetaReview(appleStore, {
@@ -283,7 +306,9 @@ function describeReconcileBetaReview() {
       dryRun: false,
     });
     const betaReview = summarizeBetaReview(report.actions);
+
     expect(betaReview).toEqual({ applied: 1, failed: 1, skipped: 0 });
+
     function findAction(action: {
       readonly description: string;
       readonly destructive: boolean;

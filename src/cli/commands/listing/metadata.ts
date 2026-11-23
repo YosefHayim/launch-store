@@ -18,15 +18,19 @@ function metadataInputFromOptions(
   commandOptions: MetadataOptions,
 ): MetadataCommandInput {
   let metadataInput: MetadataCommandInput = { operation, dryRun: commandOptions.dryRun };
+
   if (commandOptions.platform != null) {
     metadataInput = { ...metadataInput, platform: commandOptions.platform };
   }
+
   if (commandOptions.app != null) {
     metadataInput = { ...metadataInput, app: commandOptions.app };
   }
+
   if (commandOptions.config != null) {
     metadataInput = { ...metadataInput, config: commandOptions.config };
   }
+
   return metadataInput;
 }
 
@@ -46,6 +50,7 @@ export function registerMetadataCommand(program: Command): void {
   const pullCommand = metadataCommand
     .command('pull')
     .description('download the live store listing into store.config.json');
+
   function runCommand(commandOptions: MetadataOptions) {
     const metadataFrom = metadataInputFromOptions('pull', commandOptions);
     const metadataProgram = metadataCommandProgram(metadataFrom);
@@ -55,9 +60,11 @@ export function registerMetadataCommand(program: Command): void {
   attachMetadataSelectionOptions(pullCommand)
     .option('--dry-run', 'read the store and report what would be written, write nothing', false)
     .action(runCommand);
+
   const pushCommand = metadataCommand
     .command('push')
     .description('upload store.config.json to the store listing (metadata only; no binary)');
+
   function runCommand2(commandOptions: MetadataOptions) {
     const metadataFrom = metadataInputFromOptions('push', commandOptions);
     const metadataProgram = metadataCommandProgram(metadataFrom);

@@ -176,6 +176,7 @@ export async function act<CreatedResource>(
   actionValue?: CreatedResource;
 }> {
   const plannedAction: PlannedAction = { description, destructive, status: 'planned' };
+
   actionLog.actions.push(plannedAction);
 
   const isDryRun = actionLog.dryRun == true;
@@ -222,6 +223,7 @@ function parentIdAfterCreate<CreatedResource extends { readonly id: string }>(cr
   }
 
   const createdResource = createAction.actionValue;
+
   const hasCreatedResource = createdResource != null;
 
   if (hasCreatedResource) {
@@ -233,6 +235,7 @@ function parentIdAfterCreate<CreatedResource extends { readonly id: string }>(cr
 
 function territoryForPrice(productPrice: ProductPrice): string {
   const baseTerritory = productPrice.baseTerritory;
+
   const hasBaseTerritory = baseTerritory != null;
 
   if (hasBaseTerritory) {
@@ -267,6 +270,7 @@ async function assignInitialPrice(
 ): Promise<{ status: ActionStatus }> {
   async function writeInitialPrice(): Promise<void> {
     const pricePoint = await findPricePoint();
+
     const isPricePointMissing = pricePoint == null;
 
     if (isPricePointMissing) {
@@ -326,10 +330,12 @@ export async function reconcileApp(
     reconcileInput.allowDestructive,
   );
   const appId = await requireAppStoreRecordId(api, reconcileInput.bundleId);
+
   await reconcileCapabilities(catalogContext, reconcileInput.bundleId, reconcileInput.capabilities);
 
   let desiredInAppPurchases: readonly InAppPurchaseConfig[] = [];
   const declaredPurchases = reconcileInput.products.inAppPurchases;
+
   const hasDeclaredPurchases = declaredPurchases != null;
 
   if (hasDeclaredPurchases) {
@@ -340,6 +346,7 @@ export async function reconcileApp(
 
   let desiredSubscriptionGroups: NonNullable<AppProducts['subscriptionGroups']> = [];
   const declaredGroups = reconcileInput.products.subscriptionGroups;
+
   const hasDeclaredGroups = declaredGroups != null;
 
   if (hasDeclaredGroups) {
@@ -349,6 +356,7 @@ export async function reconcileApp(
   await reconcileSubscriptionGroups(catalogContext, appId, desiredSubscriptionGroups);
 
   const listing = reconcileInput.listing;
+
   const hasListing = listing != null;
 
   if (hasListing) {
@@ -406,6 +414,7 @@ async function reconcileCapabilities(
   desiredCapabilities: CapabilityType[],
 ): Promise<void> {
   const bundleIdResource = await catalogContext.api.findBundleId(bundleId);
+
   const isBundleMissing = bundleIdResource == null;
 
   if (isBundleMissing) {
@@ -500,6 +509,7 @@ async function bindInAppPurchase(
     },
   );
   const createdId = parentIdAfterCreate(createAction);
+
   const isCreateMissing = createdId == null;
 
   if (isCreateMissing) {
@@ -538,6 +548,7 @@ async function reconcileInAppPurchases(
       desiredPurchase,
       existingPurchase,
     );
+
     const isPurchaseMissing = purchaseBinding == null;
 
     if (isPurchaseMissing) {
@@ -564,11 +575,13 @@ async function reconcileInAppPurchases(
     }
 
     const priceToAssign = readUnpricedProduct(desiredPurchase.price, purchaseBinding.alreadyPriced);
+
     const hasPriceToAssign = priceToAssign != null;
 
     if (hasPriceToAssign) {
       const territory = territoryForPrice(priceToAssign);
       const customerPrice = priceToAssign.customerPrice;
+
       await assignInitialPrice(
         catalogContext,
         `set IAP price ${desiredPurchase.productId} = ${customerPrice} (${territory})`,
@@ -625,6 +638,7 @@ async function bindSubscriptionGroup(
     },
   );
   const createdId = parentIdAfterCreate(createAction);
+
   const isCreateMissing = createdId == null;
 
   if (isCreateMissing) {
@@ -663,6 +677,7 @@ async function reconcileSubscriptionGroups(
       desiredGroup.referenceName,
       existingGroup,
     );
+
     const isGroupMissing = groupBinding == null;
 
     if (isGroupMissing) {
@@ -746,6 +761,7 @@ async function bindSubscription(
     },
   );
   const createdId = parentIdAfterCreate(createAction);
+
   const isCreateMissing = createdId == null;
 
   if (isCreateMissing) {
@@ -773,6 +789,7 @@ async function reconcileSubscription(
     desiredSubscription,
     groupLevel,
   );
+
   const isSubscriptionMissing = subscriptionBinding == null;
 
   if (isSubscriptionMissing) {
@@ -802,11 +819,13 @@ async function reconcileSubscription(
     desiredSubscription.price,
     subscriptionBinding.alreadyPriced,
   );
+
   const hasPriceToAssign = priceToAssign != null;
 
   if (hasPriceToAssign) {
     const territory = territoryForPrice(priceToAssign);
     const customerPrice = priceToAssign.customerPrice;
+
     await assignInitialPrice(
       catalogContext,
       `set subscription price ${desiredSubscription.productId} = ${customerPrice} (${territory})`,
@@ -874,14 +893,17 @@ function readKeywordList(keywords: readonly string[] | undefined): string | null
 /** Map one locale's store config into ASC app-info vs version field sets. */
 function routeListing(localeListing: AppleLocaleInfo): RoutedListing {
   const appInfo: Record<string, string> = {};
+
   assignPresentText(appInfo, 'name', localeListing.title);
   assignPresentText(appInfo, 'subtitle', localeListing.subtitle);
   assignPresentText(appInfo, 'privacyPolicyUrl', localeListing.privacyPolicyUrl);
 
   const version: Record<string, string> = {};
+
   assignPresentText(version, 'description', localeListing.description);
 
   const keywordList = readKeywordList(localeListing.keywords);
+
   const hasKeywords = keywordList != null;
 
   if (hasKeywords) {
@@ -892,6 +914,7 @@ function routeListing(localeListing: AppleLocaleInfo): RoutedListing {
   assignPresentText(version, 'promotionalText', localeListing.promotionalText);
   assignPresentText(version, 'supportUrl', localeListing.supportUrl);
   assignPresentText(version, 'marketingUrl', localeListing.marketingUrl);
+
   return { appInfo, version };
 }
 
@@ -927,6 +950,7 @@ function validateListingFields(fields: Record<string, string>): {
 
   for (const [fieldName, fieldText] of Object.entries(fields)) {
     const limitError = listingLimitError(fieldName, fieldText);
+
     const isOverLimit = limitError != null;
 
     if (isOverLimit) {
@@ -964,6 +988,7 @@ function fieldPreview(fieldText: string | undefined): string {
   }
 
   let previewText = fieldText;
+
   const isLong = fieldText.length > 24;
 
   if (isLong) {
@@ -1044,6 +1069,7 @@ async function updateLiveListing(
   const localizationId = liveLocalization.id;
   const liveFields = liveLocalization.fields;
   const fieldChanges = describeFieldChanges(changed, liveFields);
+
   await act(
     catalogContext,
     `update listing [${levelWork.locale}] ${listingLevelLabel(levelWork.level)}: ${fieldChanges}`,
@@ -1075,6 +1101,7 @@ async function reconcileListingLevel(
   }
 
   const parentId = readParentId(levelWork.parentId);
+
   const isParentMissing = parentId == null;
 
   if (isParentMissing) {
@@ -1082,10 +1109,12 @@ async function reconcileListingLevel(
       catalogContext,
       `listing [${levelWork.locale}] ${levelLabel}: no editable ${levelLabel} to update - prepare one in App Store Connect`,
     );
+
     return;
   }
 
   const liveLocalization = levelWork.liveLocalization;
+
   const hasLiveLocalization = liveLocalization != null;
 
   if (hasLiveLocalization) {
@@ -1100,10 +1129,12 @@ async function reconcileListingLevel(
       catalogContext,
       `listing [${levelWork.locale}] ${levelLabel}: needs ${levelWork.requiredKey} to create the locale - skipped`,
     );
+
     return;
   }
 
   const validFields = checkedFields.valid;
+
   await act(
     catalogContext,
     `create listing [${levelWork.locale}] ${levelLabel}: ${Object.keys(validFields).join(', ')}`,
@@ -1132,6 +1163,7 @@ async function reconcileListing(
   listing: AppleStoreConfig,
 ): Promise<void> {
   const locales = Object.entries(listing.info);
+
   const hasNoLocales = locales.length == 0;
 
   if (hasNoLocales) {
@@ -1141,6 +1173,7 @@ async function reconcileListing(
   const appInfoId = await catalogContext.api.getEditableAppInfoId(appId);
   const versionId = await catalogContext.api.getEditableVersionId(appId);
   let appInfoLocales: ListingLocalization[] = [];
+
   const hasAppInfo = appInfoId != null;
 
   if (hasAppInfo) {
@@ -1148,6 +1181,7 @@ async function reconcileListing(
   }
 
   let versionLocales: ListingLocalization[] = [];
+
   const hasVersion = versionId != null;
 
   if (hasVersion) {

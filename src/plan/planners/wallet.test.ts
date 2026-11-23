@@ -19,7 +19,9 @@ function makeCtx(api: AscSurfacesApi | null, wallet?: WalletConfig): PlanContext
     submit: 'app-store-connect',
   };
   let config = baseConfig;
+
   if (wallet) config = { ...baseConfig, wallet };
+
   return {
     config,
     apps: [],
@@ -39,10 +41,14 @@ function describeWalletPlanner() {
   }
 
   it('omits itself when no wallet ids are declared', omitsItselfWhenNoWalletIdsAreDeclared);
+
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(walletPlanner, makeCtx(null, DECLARED));
+
     expect(plan.state).toBe('skipped');
+
     if (plan.state != 'skipped') return;
+
     expect(plan.hint).toMatch(/creds/);
   }
 
@@ -50,13 +56,19 @@ function describeWalletPlanner() {
     'skips with a creds hint when no Apple account is active',
     skipsWithACredsHintWhenNoAppleAccountIsActive,
   );
+
   async function reportsATeamScopedAdditivePlanForAFreshMerchantId() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(walletPlanner, makeCtx(ascApiFake, DECLARED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'team') return;
+
     expect(plan.direction).toBe('additive');
+
     function someA(a: {
       readonly description: string;
       readonly destructive: boolean;
@@ -73,6 +85,7 @@ function describeWalletPlanner() {
     'reports a team-scoped additive plan for a fresh merchant id',
     reportsATeamScopedAdditivePlanForAFreshMerchantId,
   );
+
   async function rendersInSyncWhenTheMerchantIdAlreadyExists() {
     const api = makeAscApiFake({
       listMerchantIds: vi
@@ -80,9 +93,13 @@ function describeWalletPlanner() {
         .mockResolvedValue([{ id: 'm1', identifier: 'merchant.com.acme.app' }]),
     });
     const plan = await runPlanner(walletPlanner, makeCtx(api, DECLARED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'team') return;
+
     expect(plan.actions).toHaveLength(0);
   }
 
@@ -90,6 +107,7 @@ function describeWalletPlanner() {
     'renders in sync when the merchant id already exists',
     rendersInSyncWhenTheMerchantIdAlreadyExists,
   );
+
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
     await runPlanner(walletPlanner, makeCtx(api, DECLARED));

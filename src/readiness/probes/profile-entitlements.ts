@@ -54,6 +54,7 @@ function entitledApps(apps: readonly AppDescriptor[]): EntitledApp[] {
 
   for (const app of apps) {
     const entitledApp = readEntitledApp(app);
+
     const isOutsideScope = entitledApp == null;
 
     if (isOutsideScope) {
@@ -92,6 +93,7 @@ async function readEntitlements(api: AscReadinessApi, app: EntitledApp): Promise
   }
 
   const missing = app.required.filter(isMissing);
+
   const coversEntitlements = missing.length == 0;
 
   if (coversEntitlements) {
@@ -120,6 +122,7 @@ export const profileEntitlementsProbe = {
   categories: ['signing', 'submit'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const apps = entitledApps(readinessContext.apps);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

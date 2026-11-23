@@ -93,6 +93,7 @@ async function resolvePrices(
   for (const price of prices) {
     let territory = 'USA';
     const declaredTerritory = price.territory;
+
     const hasTerritory = declaredTerritory != null;
 
     if (hasTerritory) {
@@ -104,6 +105,7 @@ async function resolvePrices(
       territory,
       price.customerPrice,
     );
+
     const isPointMissing = point == null;
 
     if (isPointMissing) {
@@ -170,6 +172,7 @@ async function createWithResolvedPrices(
     }
 
     const resolvedPrices = await resolvePrices(offersContext.api, subscriptionId, offerPrices);
+
     await write(resolvedPrices);
   }
 
@@ -198,6 +201,7 @@ async function reconcileOfferCodes(
     }
 
     const invalid = priceModeError(offer.offerMode, offer.prices);
+
     const isInvalid = invalid != null;
 
     if (isInvalid) {
@@ -216,6 +220,7 @@ async function reconcileOfferCodes(
         numberOfPeriods: offer.numberOfPeriods,
         prices: resolvedPrices,
       };
+
       await offersContext.api.createSubscriptionOfferCode(create);
     }
 
@@ -251,6 +256,7 @@ async function reconcilePromotionalOffers(
     }
 
     const invalid = priceModeError(offer.offerMode, offer.prices);
+
     const isInvalid = invalid != null;
 
     if (isInvalid) {
@@ -258,6 +264,7 @@ async function reconcilePromotionalOffers(
         offersContext,
         `promotional offer "${offer.offerCode}" on ${productId}: ${invalid} - skipped`,
       );
+
       continue;
     }
 
@@ -271,6 +278,7 @@ async function reconcilePromotionalOffers(
         numberOfPeriods: offer.numberOfPeriods,
         prices: resolvedPrices,
       };
+
       await offersContext.api.createPromotionalOffer(create);
     }
 
@@ -317,6 +325,7 @@ async function reconcileIntroductoryOffers(
   for (const offer of desired) {
     let territory: string | null = null;
     const declaredTerritory = offer.territory;
+
     const hasTerritory = declaredTerritory != null;
 
     if (hasTerritory) {
@@ -330,6 +339,7 @@ async function reconcileIntroductoryOffers(
     }
 
     const isFreeTrial = offer.offerMode == 'FREE_TRIAL';
+
     const freeTrialHasPrice = isFreeTrialWithPrice(isFreeTrial, offer.price);
 
     if (freeTrialHasPrice) {
@@ -337,6 +347,7 @@ async function reconcileIntroductoryOffers(
         offersContext,
         `introductory offer on ${productId}: FREE_TRIAL offers take no price - skipped`,
       );
+
       continue;
     }
 
@@ -347,6 +358,7 @@ async function reconcileIntroductoryOffers(
         offersContext,
         `introductory offer on ${productId}: ${offer.offerMode} offers need a price - skipped`,
       );
+
       continue;
     }
 
@@ -359,6 +371,7 @@ async function reconcileIntroductoryOffers(
     async function writeIntroductoryOffer(): Promise<void> {
       let resolvedPrice: ResolvedOfferPrice | null = null;
       const declaredPrice = offer.price;
+
       const hasDeclaredPrice = declaredPrice != null;
 
       if (hasDeclaredPrice) {
@@ -366,6 +379,7 @@ async function reconcileIntroductoryOffers(
           declaredPrice,
         ]);
         const firstPrice = resolvedPrices[0];
+
         const hasFirstPrice = firstPrice != null;
 
         if (hasFirstPrice) {
@@ -382,6 +396,7 @@ async function reconcileIntroductoryOffers(
         territory,
       };
       const startDate = offer.startDate;
+
       const hasStartDate = startDate != null;
 
       if (hasStartDate) {
@@ -389,6 +404,7 @@ async function reconcileIntroductoryOffers(
       }
 
       const endDate = offer.endDate;
+
       const hasEndDate = endDate != null;
 
       if (hasEndDate) {
@@ -428,6 +444,7 @@ async function reconcileWinBackOffers(
     }
 
     const invalid = priceModeError(offer.offerMode, offer.prices);
+
     const isInvalid = invalid != null;
 
     if (isInvalid) {
@@ -435,6 +452,7 @@ async function reconcileWinBackOffers(
         offersContext,
         `win-back offer "${offer.offerId}" on ${productId}: ${invalid} - skipped`,
       );
+
       continue;
     }
 
@@ -446,12 +464,14 @@ async function reconcileWinBackOffers(
         offersContext,
         `win-back offer "${offer.offerId}" on ${productId}: monthsSinceLastSubscribed min > max - skipped`,
       );
+
       continue;
     }
 
     async function writeWinBackOffer(resolvedPrices: ResolvedOfferPrice[]): Promise<void> {
       let priority: WinBackOfferCreate['priority'] = 'NORMAL';
       const declaredPriority = offer.priority;
+
       const hasPriority = declaredPriority != null;
 
       if (hasPriority) {
@@ -472,6 +492,7 @@ async function reconcileWinBackOffers(
         prices: resolvedPrices,
       };
       const waitBetweenOffersMonths = offer.waitBetweenOffersMonths;
+
       const hasWait = waitBetweenOffersMonths != null;
 
       if (hasWait) {
@@ -479,6 +500,7 @@ async function reconcileWinBackOffers(
       }
 
       const endDate = offer.endDate;
+
       const hasEndDate = endDate != null;
 
       if (hasEndDate) {
@@ -486,6 +508,7 @@ async function reconcileWinBackOffers(
       }
 
       const promotionIntent = offer.promotionIntent;
+
       const hasPromotionIntent = promotionIntent != null;
 
       if (hasPromotionIntent) {
@@ -666,6 +689,7 @@ async function reconcilePromotedPurchases(
 
   for (const livePromotion of livePromotions) {
     const subscriptionId = livePromotion.subscriptionId;
+
     const hasSubscription = subscriptionId != null;
 
     if (hasSubscription) {
@@ -673,6 +697,7 @@ async function reconcilePromotedPurchases(
     }
 
     const inAppPurchaseId = livePromotion.inAppPurchaseId;
+
     const hasInAppPurchase = inAppPurchaseId != null;
 
     if (hasInAppPurchase) {
@@ -685,6 +710,7 @@ async function reconcilePromotedPurchases(
   for (const promoted of desired) {
     const subscriptionId = subscriptionIdByProduct.get(promoted.productId);
     const inAppPurchaseId = inAppPurchaseIdByProduct.get(promoted.productId);
+
     const isUnknownProduct = isUnknownPromotedProduct(subscriptionId, inAppPurchaseId);
 
     if (isUnknownProduct) {
@@ -692,6 +718,7 @@ async function reconcilePromotedPurchases(
         offersContext,
         `promoted purchase ${promoted.productId}: no matching subscription or in-app purchase - run \`launch-store sync\` first`,
       );
+
       continue;
     }
 
@@ -701,6 +728,7 @@ async function reconcilePromotedPurchases(
       promotionIdBySubscription,
       promotionIdByInAppPurchase,
     );
+
     const hasExistingPromotion = existingPromotionId != null;
 
     if (hasExistingPromotion) {
@@ -714,6 +742,7 @@ async function reconcilePromotedPurchases(
       enabled: true,
     };
     const visibleForAllUsers = promoted.visibleForAllUsers;
+
     const hasVisibility = visibleForAllUsers != null;
 
     if (hasVisibility) {
@@ -721,6 +750,7 @@ async function reconcilePromotedPurchases(
     }
 
     const enabled = promoted.enabled;
+
     const hasEnabled = enabled != null;
 
     if (hasEnabled) {
@@ -771,6 +801,7 @@ async function reconcilePromotedPurchases(
   }
 
   const orderChanged = hasPromotionOrderChanged(targetOrder, liveOrder);
+
   const applyReorder = shouldApplyReorder(orderChanged, offersContext.dryRun);
 
   if (applyReorder) {
@@ -789,6 +820,7 @@ async function reconcilePromotedPurchases(
     }
 
     await act(offersContext, `reorder promoted purchases (${realIds.length})`, reorderPromotions);
+
     return;
   }
 
@@ -806,6 +838,7 @@ export async function reconcileOffers(
 ): Promise<ReconcileReport> {
   const offersContext: OffersContext = { api, actions: [], dryRun: reconcileInput.dryRun };
   const appId = await api.getAppId(reconcileInput.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -823,6 +856,7 @@ export async function reconcileOffers(
 
     for (const subscription of subscriptions) {
       const productId = readProductId(subscription.productId);
+
       const hasProductId = productId != null;
 
       if (hasProductId) {
@@ -846,6 +880,7 @@ export async function reconcileOffers(
       }
 
       const subscriptionId = subscriptionIdByProduct.get(subscription.productId);
+
       const isSubscriptionMissing = subscriptionId == null;
 
       if (isSubscriptionMissing) {
@@ -853,6 +888,7 @@ export async function reconcileOffers(
           offersContext,
           `subscription ${subscription.productId}: not in App Store Connect yet - run \`launch-store sync\` first`,
         );
+
         continue;
       }
 
@@ -905,14 +941,17 @@ export async function reconcileOffers(
   const inAppPurchaseIdByProduct = new Map<string, string>();
   let promotedPurchases: NonNullable<AppProducts['promotedPurchases']> = [];
   const declaredPromotions = reconcileInput.products.promotedPurchases;
+
   const hasDeclaredPromotions = declaredPromotions != null;
 
   if (hasDeclaredPromotions) {
     promotedPurchases = declaredPromotions;
+
     const inAppPurchases = await api.listInAppPurchases(appId);
 
     for (const inAppPurchase of inAppPurchases) {
       const productId = readProductId(inAppPurchase.productId);
+
       const hasProductId = productId != null;
 
       if (hasProductId) {
@@ -928,5 +967,6 @@ export async function reconcileOffers(
     subscriptionIdByProduct,
     inAppPurchaseIdByProduct,
   );
+
   return { bundleId: reconcileInput.bundleId, actions: offersContext.actions };
 }

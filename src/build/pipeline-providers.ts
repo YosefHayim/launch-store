@@ -73,6 +73,7 @@ function configuredSubmitters(
   platform: Platform,
 ): string[] {
   const configured = submitByPlatform[platform];
+
   const isMissing = configured == null;
 
   if (isMissing) {
@@ -91,6 +92,7 @@ function configuredSubmitters(
 /** The store(s) a build for `platform` is submitted to. */
 export function resolveSubmitters(launchConfig: LaunchConfig, platform: Platform): string[] {
   const submitSetting = launchConfig.submit;
+
   const isMap = isSubmitByPlatform(submitSetting);
 
   if (isMap) {
@@ -115,6 +117,7 @@ export function resolveSubmitters(launchConfig: LaunchConfig, platform: Platform
 /** The primary store for a platform - the first of {@link resolveSubmitters}. */
 export function resolveSubmitterName(launchConfig: LaunchConfig, platform: Platform): string {
   const primarySubmitter = resolveSubmitters(launchConfig, platform)[0];
+
   const isMissing = primarySubmitter == null;
 
   if (isMissing) {
@@ -232,6 +235,7 @@ export function resolveSizeBudgetMB(
   profile: Pick<BuildProfile, 'sizeBudgetMB'>,
 ): number {
   const runBudget = buildOptions.sizeBudgetMB;
+
   const hasRunBudget = runBudget != null;
 
   if (hasRunBudget) {
@@ -239,6 +243,7 @@ export function resolveSizeBudgetMB(
   }
 
   const profileBudget = profile.sizeBudgetMB;
+
   const hasProfileBudget = profileBudget != null;
 
   if (hasProfileBudget) {
@@ -324,6 +329,7 @@ export function resolveBuildTransport(
   }
 
   const remote = defaultRemoteTarget(remoteFlag, buildEngine);
+
   const isIos = platform == 'ios';
 
   if (isIos) {

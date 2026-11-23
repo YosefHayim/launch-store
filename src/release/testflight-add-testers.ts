@@ -161,6 +161,7 @@ function betaTesterEmail(betaTester: BetaTesterResource): string {
 
 export async function addTesters(commandInput: AddCommandInput): Promise<void> {
   const requestedTesters = await collectTesters(commandInput);
+
   const hasNoTesters = requestedTesters.length == 0;
 
   if (hasNoTesters) {
@@ -184,6 +185,7 @@ export async function addTesters(commandInput: AddCommandInput): Promise<void> {
   const pendingTesters = requestedTesters.filter(keepNewTester);
   const skippedCount = requestedTesters.length - pendingTesters.length;
   const logger = createLogger(false);
+
   const hasNoPendingTesters = pendingTesters.length == 0;
 
   if (hasNoPendingTesters) {
@@ -198,6 +200,7 @@ export async function addTesters(commandInput: AddCommandInput): Promise<void> {
       `[dry-run] would add ${pendingTesters.length} tester(s) to "${betaGroup.name}" (${selectedApp.name}); ${skippedCount} already present`,
       ...pendingTesters.map(testerEmail),
     );
+
     return;
   }
 
@@ -205,6 +208,7 @@ export async function addTesters(commandInput: AddCommandInput): Promise<void> {
     `Add ${pendingTesters.length} tester(s) to "${betaGroup.name}" for ${selectedApp.name}? New emails get a TestFlight invite.`,
     commandInput.yes,
   );
+
   const isDeclined = confirmed == false;
 
   if (isDeclined) {

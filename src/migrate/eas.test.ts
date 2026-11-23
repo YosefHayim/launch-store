@@ -65,7 +65,9 @@ function artifact(artifacts: readonly MigrationArtifact[], path: string): Migrat
   }
 
   const found = artifacts.find(findPiece);
+
   expect(found, `expected artifact ${path}`).toBeDefined();
+
   return expectDefined(found, `artifact ${path}`);
 }
 
@@ -84,6 +86,7 @@ function sampleEasConfiguration(): EasJson {
 function describeParseEasPiece() {
   function parsesBuildSubmitAndCliIntoTheNarrowedShape() {
     const eas = parseEasJson(SAMPLE_EAS);
+
     expect(Object.keys(eas.build).sort()).toEqual(['development', 'production']);
     expect(eas.build['production']?.env).toEqual({ API_URL: 'https://prod', SENTRY_DSN: 'x' });
     expect(eas.build['development']?.distribution).toBe('internal');
@@ -95,23 +98,27 @@ function describeParseEasPiece() {
     'parses build, submit, and cli into the narrowed shape',
     parsesBuildSubmitAndCliIntoTheNarrowedShape,
   );
+
   function defaultsMissingSectionsRatherThanFailing() {
     const eas = parseEasJson('{}');
     expect(eas).toEqual({ build: {}, submit: {} });
   }
 
   it('defaults missing sections rather than failing', defaultsMissingSectionsRatherThanFailing);
+
   function dropsNonStringPieceValuesAndEmptyHalves() {
     const serialized = JSON.stringify({
       build: { p: { env: { A: '1', B: 2 } } },
       submit: { p: { ios: {} } },
     });
     const eas = parseEasJson(serialized);
+
     expect(eas.build['p']?.env).toEqual({ A: '1' });
     expect(eas.submit['p']?.ios).toBeUndefined();
   }
 
   it('drops non-string env values and empty halves', dropsNonStringPieceValuesAndEmptyHalves);
+
   function returnsATaggedFailureForInvalidJSON() {
     let parsingFailure: unknown = null;
 
@@ -125,6 +132,7 @@ function describeParseEasPiece() {
   }
 
   it('returns a tagged failure for invalid JSON', returnsATaggedFailureForInvalidJSON);
+
   function returnsATaggedFailureForANonObjectDocument() {
     let parsingFailure: unknown = null;
 
@@ -156,6 +164,7 @@ function describeLaunchProfilesFromEas() {
     'lifts a valid Play track from the matching submit profile',
     liftsAValidPlayTrackFromTheMatchingSubmitProfile,
   );
+
   function fallsBackToASingleProductionProfileWhenEasPieceDeclaresNone() {
     const launchProfiles = launchProfilesFromEas({ build: {}, submit: {} });
     const ownKeys = Object.keys(launchProfiles);
@@ -167,11 +176,13 @@ function describeLaunchProfilesFromEas() {
     'falls back to a single production profile when eas.json declares none',
     fallsBackToASingleProductionProfileWhenEasPieceDeclaresNone,
   );
+
   function ignoresUnrecognizedPlayTracksInsteadOfWritingThemOntoLaunchProfiles() {
     const launchProfiles = launchProfilesFromEas({
       build: { beta: {} },
       submit: { beta: { android: { track: 'alpha-track' } } },
     });
+
     expect(launchProfiles['beta']?.track).toBeUndefined();
   }
 
@@ -189,6 +200,7 @@ function describeCollectEnvironmentKeys() {
   }
 
   it('unions profile env keys and sorts them', unionsProfilePieceKeysAndSortsThem);
+
   function returnsAnEmptyListWhenNoProfileDeclaresPiece() {
     const environmentKeys = collectEnvironmentKeys({ build: { production: {} }, submit: {} });
     expect(environmentKeys).toEqual([]);
@@ -206,51 +218,61 @@ function describeNotesFromEasConfiguration() {
     const notes = notesFromEasConfiguration(sampleEasConfiguration(), [
       app({ packageName: 'com.acme.alpha' }),
     ]);
+
     function readMessage(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const mapped = notesAt(notes, 'mapped').map(readMessage);
+
     function readMessage2(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const manual = notesAt(notes, 'manual').map(readMessage2);
+
     function readMessage3(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const informational = notesAt(notes, 'info').map(readMessage3);
+
     function someMessage(message: string) {
       return message.includes('Build profile "production"');
     }
 
     expect(mapped.some(someMessage)).toBe(true);
+
     function someMessage2(message: string) {
       return message.includes('appVersionSource');
     }
 
     expect(mapped.some(someMessage2)).toBe(true);
+
     function someMessage3(message: string) {
       return message.includes('channel');
     }
 
     expect(manual.some(someMessage3)).toBe(true);
+
     function someMessage4(message: string) {
       return message.includes('internal (ad-hoc) distribution');
     }
 
     expect(manual.some(someMessage4)).toBe(true);
+
     function someMessage5(message: string) {
       return message.includes('Apple account details');
     }
 
     expect(manual.some(someMessage5)).toBe(true);
+
     function someMessage6(message: string) {
       return message.includes('Play service account');
     }
 
     expect(manual.some(someMessage6)).toBe(true);
+
     function someMessage7(message: string) {
       return message.includes('com.acme.alpha') && message.includes('package');
     }
@@ -262,6 +284,7 @@ function describeNotesFromEasConfiguration() {
     'maps profiles and flags channels, internal distribution, and submit credentials as manual',
     mapsProfilesAndFlagsChannelsInternalDistributionAndSubmitCredentialsAsManual,
   );
+
   function flagsAnUnrecognizedPlayTrackAsManualWithoutMappingIt() {
     const notes = notesFromEasConfiguration(
       {
@@ -270,6 +293,7 @@ function describeNotesFromEasConfiguration() {
       },
       [],
     );
+
     function someNote(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message.includes('unrecognized Play track');
     }
@@ -301,6 +325,7 @@ function describeCredentialsSummaryFromPieceNotesFromCredentialsSummary() {
       },
     });
     const credentialsSummary = credentialsSummaryFromJson(serialized);
+
     expect(credentialsSummary).toEqual({
       ios: {
         distributionCertificatePath: 'ios/certs/dist.p12',
@@ -311,7 +336,9 @@ function describeCredentialsSummaryFromPieceNotesFromCredentialsSummary() {
         keyAlias: 'upload',
       },
     });
+
     const summaryJson = JSON.stringify(credentialsSummary);
+
     expect(summaryJson).not.toContain('SUPER_SECRET_PW');
     expect(summaryJson).not.toContain('KS_SECRET');
     expect(summaryJson).not.toContain('KEY_SECRET');
@@ -321,11 +348,15 @@ function describeCredentialsSummaryFromPieceNotesFromCredentialsSummary() {
     'keeps path and alias facts while dropping password fields',
     keepsPathAndAliasFactsWhileDroppingPasswordFields,
   );
+
   function returnsNullForEmptyOrUnusableCredentialsDocuments() {
     const credentialsSummaryFrom = credentialsSummaryFromJson('{}');
+
     expect(credentialsSummaryFrom).toBeNull();
     expect(credentialsSummaryFromJson('{ not json')).toBeNull();
+
     const serialized = JSON.stringify({ ios: {} });
+
     expect(credentialsSummaryFromJson(serialized)).toBeNull();
   }
 
@@ -333,32 +364,39 @@ function describeCredentialsSummaryFromPieceNotesFromCredentialsSummary() {
     'returns null for empty or unusable credentials documents',
     returnsNullForEmptyOrUnusableCredentialsDocuments,
   );
+
   function emitsManualCredsFollowUpsThatPointAtLaunchStoreCredsForPathFactsOnly() {
     const notes = notesFromCredentialsSummary({
       ios: { distributionCertificatePath: 'ios/certs/dist.p12' },
       android: { keystorePath: 'android/release.keystore', keyAlias: 'upload' },
     });
+
     function readMessage4(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const messages = notes.map(readMessage4);
+
     function someMessage8(message: string) {
       return message.includes('ios/certs/dist.p12');
     }
 
     expect(messages.some(someMessage8)).toBe(true);
+
     function someMessage9(message: string) {
       return message.includes('android/release.keystore');
     }
 
     expect(messages.some(someMessage9)).toBe(true);
+
     function someMessage10(message: string) {
       return message.includes('"upload"');
     }
 
     expect(messages.some(someMessage10)).toBe(true);
+
     const serialized = JSON.stringify(notes);
+
     expect(serialized).not.toContain('SUPER_SECRET');
   }
 
@@ -382,31 +420,41 @@ function describeExpoFactsFromResolvedPieceNotesFromExpoFacts() {
         extra: { eas: { projectId: '11111111-2222-3333-4444-555555555555' } },
       },
     });
+
     expect(expoFacts).not.toBeNull();
+
     if (expoFacts == null) return;
+
     expect(expoFacts.runtimeVersion).toEqual({ policy: 'sdkVersion' });
+
     if (expoFacts.runtimeVersion == null) return;
+
     expect(describeRuntimeVersion(expoFacts.runtimeVersion)).toBe('policy "sdkVersion"');
+
     function readMessage5(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const informational = notesFromExpoFacts('alpha', expoFacts).map(readMessage5);
+
     function someMessage11(message: string) {
       return message.includes('11111111-2222-3333-4444-555555555555');
     }
 
     expect(informational.some(someMessage11)).toBe(true);
+
     function someMessage12(message: string) {
       return message.includes('acme-org');
     }
 
     expect(informational.some(someMessage12)).toBe(true);
+
     function someMessage13(message: string) {
       return message.includes('sdkVersion');
     }
 
     expect(informational.some(someMessage13)).toBe(true);
+
     function someMessage14(message: string) {
       return message.includes('expo.updates');
     }
@@ -418,15 +466,21 @@ function describeExpoFactsFromResolvedPieceNotesFromExpoFacts() {
     'reads wrapped expo facts and describes policy runtime versions',
     readsWrappedExpoFactsAndDescribesPolicyRuntimeVersions,
   );
+
   function acceptsABareExpoDocumentAndAStringRuntimeVersion() {
     const expoFacts = expoFactsFromResolvedConfig({
       owner: 'solo',
       runtimeVersion: '1.2.3',
     });
+
     expect(expoFacts).not.toBeNull();
+
     if (expoFacts == null) return;
+
     expect(expoFacts.runtimeVersion).toBe('1.2.3');
+
     if (expoFacts.runtimeVersion == null) return;
+
     expect(describeRuntimeVersion(expoFacts.runtimeVersion)).toBe('1.2.3');
   }
 
@@ -442,25 +496,32 @@ describe(
 );
 function describeMigrateEas() {
   let dir: string;
+
   function prepareMigrateEas() {
     const systemTemporaryDirectory = tmpdir();
     const launchMigratePath = join(systemTemporaryDirectory, 'launch-migrate-');
+
     dir = mkdtempSync(launchMigratePath);
+
     const easPath = join(dir, 'eas.json');
+
     writeFileSync(easPath, SAMPLE_EAS);
   }
 
   beforeEach(prepareMigrateEas);
+
   function cleanupMigrateEas() {
     rmSync(dir, { recursive: true, force: true });
   }
 
   afterEach(cleanupMigrateEas);
+
   function runMigrateEas(workingDirectory: string, apps: AppDescriptor[]) {
     return migrateEas(workingDirectory, apps);
   }
   async function returnsATaggedFailureWhenThereIsNoEasPiece() {
     const easPath = join(dir, 'eas.json');
+
     rmSync(easPath);
     await expect(migrateEas(dir, [app()])).rejects.toMatchObject({
       _tag: 'EasMigrationFailure',
@@ -472,9 +533,11 @@ function describeMigrateEas() {
     'returns a tagged failure when there is no eas.json',
     returnsATaggedFailureWhenThereIsNoEasPiece,
   );
+
   async function emitsLaunchPieceTsCarryingEveryEASBuildProfile() {
     const migration = await runMigrateEas(dir, [app()]);
     const config = artifact(migration.artifacts, 'launch.config.ts').contents;
+
     expect(config).toContain('"development"');
     expect(config).toContain('"production"');
     expect(config).toContain('defineConfig');
@@ -484,11 +547,13 @@ function describeMigrateEas() {
     'emits launch.config.ts carrying every EAS build profile',
     emitsLaunchPieceTsCarryingEveryEASBuildProfile,
   );
+
   async function liftsThePlayTrackFromTheMatchingSubmitProfileOntoTheBuildProfile() {
     const config = artifact(
       (await runMigrateEas(dir, [app()])).artifacts,
       'launch.config.ts',
     ).contents;
+
     expect(config).toContain('"track": "internal"');
   }
 
@@ -496,6 +561,7 @@ function describeMigrateEas() {
     'lifts the Play track from the matching submit profile onto the build profile',
     liftsThePlayTrackFromTheMatchingSubmitProfileOntoTheBuildProfile,
   );
+
   async function collectsPieceKeysSortedValuesBlankedIntoPieceExample() {
     const env = artifact((await runMigrateEas(dir, [app()])).artifacts, '.env.example').contents;
     expect(env).toContain('API_URL=');
@@ -507,15 +573,18 @@ function describeMigrateEas() {
     'collects env keys (sorted, values blanked) into .env.example',
     collectsPieceKeysSortedValuesBlankedIntoPieceExample,
   );
+
   async function emitsAPieceProfileFileKeysOnlyForEachProfileThatCarriesItsOwnPiece() {
     const migration = await runMigrateEas(dir, [app()]);
     const dev = artifact(migration.artifacts, '.env.development').contents;
     const prod = artifact(migration.artifacts, '.env.production').contents;
+
     expect(dev).toContain('API_URL=');
     expect(dev).not.toContain('https://dev');
     expect(prod).toContain('API_URL=');
     expect(prod).toContain('SENTRY_DSN=');
     expect(prod).not.toContain('https://prod');
+
     function someNote2(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message.includes('.env.production');
     }
@@ -527,18 +596,22 @@ function describeMigrateEas() {
     'emits a .env.<profile> file (keys only) for each profile that carries its own env',
     emitsAPieceProfileFileKeysOnlyForEachProfileThatCarriesItsOwnPiece,
   );
+
   async function scaffoldsStorePiecePieceWhenAbsentAndNotesItAsManual() {
     const migration = await runMigrateEas(dir, [app()]);
+
     function readPath(migrationArtifact: { readonly path: string; readonly contents: string }) {
       return migrationArtifact.path;
     }
 
     expect(migration.artifacts.map(readPath)).toContain('store.config.json');
+
     function readMessage6(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const manual = notesAt(migration.notes, 'manual').map(readMessage6);
+
     function someMessage15(message: string) {
       return message.includes('store.config.json');
     }
@@ -550,15 +623,20 @@ function describeMigrateEas() {
     'scaffolds store.config.json when absent and notes it as manual',
     scaffoldsStorePiecePieceWhenAbsentAndNotesItAsManual,
   );
+
   async function skipsStorePiecePieceWhenOneAlreadyExists() {
     const storePath = join(dir, 'store.config.json');
+
     writeFileSync(storePath, '{}');
+
     const migration = await runMigrateEas(dir, [app()]);
+
     function readPath2(migrationArtifact: { readonly path: string; readonly contents: string }) {
       return migrationArtifact.path;
     }
 
     expect(migration.artifacts.map(readPath2)).not.toContain('store.config.json');
+
     function someNote3(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message.includes('store.config.json');
     }
@@ -567,27 +645,32 @@ function describeMigrateEas() {
   }
 
   it('skips store.config.json when one already exists', skipsStorePiecePieceWhenOneAlreadyExists);
+
   async function reportsEASUpdateChannelsInternalDistributionAndSubmitCredentialsAsManual() {
     function readMessage7(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const manual = notesAt((await runMigrateEas(dir, [app()])).notes, 'manual').map(readMessage7);
+
     function someMessage16(message: string) {
       return message.includes('channel');
     }
 
     expect(manual.some(someMessage16)).toBe(true);
+
     function someMessage17(message: string) {
       return message.includes('internal (ad-hoc) distribution');
     }
 
     expect(manual.some(someMessage17)).toBe(true);
+
     function someMessage18(message: string) {
       return message.includes('Apple account details');
     }
 
     expect(manual.some(someMessage18)).toBe(true);
+
     function someMessage19(message: string) {
       return message.includes('Play service account');
     }
@@ -599,6 +682,7 @@ function describeMigrateEas() {
     'reports EAS Update channels, internal distribution, and submit credentials as manual',
     reportsEASUpdateChannelsInternalDistributionAndSubmitCredentialsAsManual,
   );
+
   async function importsLocalCredentialsPieceAsManualNotesWithoutEverSurfacingAPassword() {
     const credentialsPath = join(dir, 'credentials.json');
     const serialized = JSON.stringify({
@@ -615,24 +699,31 @@ function describeMigrateEas() {
         },
       },
     });
+
     writeFileSync(credentialsPath, serialized);
+
     const migration = await runMigrateEas(dir, [app()]);
+
     function readMessage8(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const manual = notesAt(migration.notes, 'manual').map(readMessage8);
+
     function someMessage20(message: string) {
       return message.includes('ios/certs/dist.p12') && message.includes('launch-store creds');
     }
 
     expect(manual.some(someMessage20)).toBe(true);
+
     function someMessage21(message: string) {
       return message.includes('android/release.keystore') && message.includes('"upload"');
     }
 
     expect(manual.some(someMessage21)).toBe(true);
+
     const migrationJson = JSON.stringify(migration);
+
     expect(migrationJson).not.toContain('SUPER_SECRET_PW');
     expect(migrationJson).not.toContain('KS_SECRET');
     expect(migrationJson).not.toContain('KEY_SECRET');
@@ -642,23 +733,28 @@ function describeMigrateEas() {
     'imports local credentials.json as manual notes without ever surfacing a password',
     importsLocalCredentialsPieceAsManualNotesWithoutEverSurfacingAPassword,
   );
+
   async function reportsRemoteAppVersionPieceAndDetectedIdsAsNonManual() {
     const migration = await runMigrateEas(dir, [app({ packageName: 'com.acme.alpha' })]);
+
     function someNote4(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message.includes('appVersionSource');
     }
 
     expect(notesAt(migration.notes, 'mapped').some(someNote4)).toBe(true);
+
     function readMessage9(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const informationalNotes = notesAt(migration.notes, 'info').map(readMessage9);
+
     function someMessage22(message: string) {
       return message.includes('com.acme.alpha') && message.includes('bundle id');
     }
 
     expect(informationalNotes.some(someMessage22)).toBe(true);
+
     function someMessage23(message: string) {
       return message.includes('com.acme.alpha') && message.includes('package');
     }
@@ -670,12 +766,15 @@ function describeMigrateEas() {
     'reports remote appVersionSource and detected ids as non-manual',
     reportsRemoteAppVersionPieceAndDetectedIdsAsNonManual,
   );
+
   async function surfacesEASAppFactsProjectIdOwnerRuntimeVersionUpdatesFromAppPieceAsPieceNotes() {
     const systemTemporaryDirectory = tmpdir();
     const launchMigrateAppPath = join(systemTemporaryDirectory, 'launch-migrate-app-');
     const appDir = mkdtempSync(launchMigrateAppPath);
     const easPath = join(appDir, 'eas.json');
+
     writeFileSync(easPath, SAMPLE_EAS);
+
     const appPath = join(appDir, 'app.json');
     const serialized = JSON.stringify({
       expo: {
@@ -687,10 +786,13 @@ function describeMigrateEas() {
         extra: { eas: { projectId: '11111111-2222-3333-4444-555555555555' } },
       },
     });
+
     writeFileSync(appPath, serialized);
+
     try {
       const appPath = join(appDir, 'app.json');
       const migration = await runMigrateEas(appDir, [app({ dir: appDir, configPath: appPath })]);
+
       function readMessage10(note: {
         readonly level: MigrationNoteLevel;
         readonly message: string;
@@ -699,21 +801,25 @@ function describeMigrateEas() {
       }
 
       const informationalNotes = notesAt(migration.notes, 'info').map(readMessage10);
+
       function someMessage24(message: string) {
         return message.includes('11111111-2222-3333-4444-555555555555');
       }
 
       expect(informationalNotes.some(someMessage24)).toBe(true);
+
       function someMessage25(message: string) {
         return message.includes('acme-org');
       }
 
       expect(informationalNotes.some(someMessage25)).toBe(true);
+
       function someMessage26(message: string) {
         return message.includes('sdkVersion');
       }
 
       expect(informationalNotes.some(someMessage26)).toBe(true);
+
       function someMessage27(message: string) {
         return message.includes('expo.updates');
       }
@@ -728,14 +834,18 @@ function describeMigrateEas() {
     'surfaces EAS app facts (projectId, owner, runtimeVersion, updates) from app.json as info notes',
     surfacesEASAppFactsProjectIdOwnerRuntimeVersionUpdatesFromAppPieceAsPieceNotes,
   );
+
   async function fallsBackToASingleProductionProfileWhenEasPieceDeclaresNone2() {
     const easPath = join(dir, 'eas.json');
     const serialized = JSON.stringify({ submit: {} });
+
     writeFileSync(easPath, serialized);
+
     const config = artifact(
       (await runMigrateEas(dir, [app()])).artifacts,
       'launch.config.ts',
     ).contents;
+
     expect(config).toContain('"production"');
   }
 

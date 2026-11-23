@@ -92,16 +92,19 @@ function prepare() {
   originalCwd = process.cwd();
   fetchGuard.mockClear();
   vi.stubGlobal('fetch', fetchGuard);
+
   function mockImplementationPiece() {
     return undefined;
   }
 
   vi.spyOn(console, 'log').mockImplementation(mockImplementationPiece);
+
   function mockImplementationPiece2() {
     return undefined;
   }
 
   vi.spyOn(console, 'warn').mockImplementation(mockImplementationPiece2);
+
   function mockImplementationPiece3() {
     return undefined;
   }
@@ -113,10 +116,12 @@ function prepare() {
 beforeEach(prepare);
 function cleanup() {
   process.chdir(originalCwd);
+
   if (tempRepo) {
     rmSync(tempRepo, { recursive: true, force: true });
     tempRepo = '';
   }
+
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 }
@@ -129,7 +134,9 @@ function writeRepo(expo: Record<string, unknown>): string {
   const dir = mkdtempSync(launchPipelinePath);
   const appPath = join(dir, 'app.json');
   const serialized = JSON.stringify({ expo });
+
   writeFileSync(appPath, serialized);
+
   return dir;
 }
 function describeRunBuildDryRunTheEndToEndSpine() {
@@ -140,6 +147,7 @@ function describeRunBuildDryRunTheEndToEndSpine() {
       ios: { bundleIdentifier: 'com.example.hello' },
     });
     process.chdir(tempRepo);
+
     function runBuildCoreTestPiece() {
       return runBuild({
         platform: 'ios',
@@ -152,6 +160,7 @@ function describeRunBuildDryRunTheEndToEndSpine() {
     }
 
     const buildCoreTest = runBuildCoreTest(runBuildCoreTestPiece);
+
     await expect(buildCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   }
@@ -160,6 +169,7 @@ function describeRunBuildDryRunTheEndToEndSpine() {
     'rehearses every iOS step with no network and no spawned process',
     rehearsesEveryIOSStepWithNoNetworkAndNoSpawnedProcess,
   );
+
   async function rehearsesEveryAndroidStepWithNoNetworkAndNoSpawnedProcess() {
     tempRepo = writeRepo({
       slug: 'hello',
@@ -167,6 +177,7 @@ function describeRunBuildDryRunTheEndToEndSpine() {
       android: { package: 'com.example.hello', versionCode: 3 },
     });
     process.chdir(tempRepo);
+
     function runBuildCoreTestPiece2() {
       return runBuild({
         platform: 'android',
@@ -179,6 +190,7 @@ function describeRunBuildDryRunTheEndToEndSpine() {
     }
 
     const buildCoreTest = runBuildCoreTest(runBuildCoreTestPiece2);
+
     await expect(buildCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   }
@@ -187,19 +199,24 @@ function describeRunBuildDryRunTheEndToEndSpine() {
     'rehearses every Android step with no network and no spawned process',
     rehearsesEveryAndroidStepWithNoNetworkAndNoSpawnedProcess,
   );
+
   async function rejectsAnUnregisteredBuildEngineBeforeAnyNativeWork() {
     tempRepo = writeRepo({
       slug: 'hello',
       version: '1.0.0',
       ios: { bundleIdentifier: 'com.example.hello' },
     });
+
     const launchPath = join(tempRepo, 'launch.config.mjs');
+
     writeFileSync(
       launchPath,
       "export default { buildEngine: 'missing-engine', profiles: { production: { name: 'production' } } };",
     );
     process.chdir(tempRepo);
+
     const loggedLines: string[] = [];
+
     function runBuildCoreTestPiece3() {
       return runBuild({
         platform: 'ios',
@@ -212,6 +229,7 @@ function describeRunBuildDryRunTheEndToEndSpine() {
     }
 
     const iosBuild = runBuildCoreTest(runBuildCoreTestPiece3, loggedLines);
+
     await expect(iosBuild).rejects.toMatchObject({
       _tag: 'ProviderNotRegistered',
       message: expect.stringMatching(/Unknown build engine.*missing-engine/),
@@ -229,7 +247,9 @@ describe('runBuild --dry-run (the end-to-end spine)', describeRunBuildDryRunTheE
 function describeSelectApp() {
   function app(name: string, bundleId?: string): AppDescriptor {
     const descriptor: AppDescriptor = { name, dir: '/repo', configPath: '/repo/app.json' };
+
     if (bundleId == null) return descriptor;
+
     return { ...descriptor, bundleId };
   }
   async function failsWhenNoAppsWereDiscovered() {
@@ -238,6 +258,7 @@ function describeSelectApp() {
     }
 
     const buildCoreTest = runBuildCoreTest(runBuildCoreTestPiece4);
+
     await expect(buildCoreTest).rejects.toMatchObject({
       _tag: 'AppSelectionFailure',
       message: expect.stringMatching(/No apps found/),
@@ -245,26 +266,33 @@ function describeSelectApp() {
   }
 
   it('fails when no apps were discovered', failsWhenNoAppsWereDiscovered);
+
   async function returnsTheSoleAppWithoutPrompting() {
     const only = app('solo', 'com.example.solo');
+
     function runBuildCoreTestPiece5() {
       return selectApp([only], undefined);
     }
 
     const buildCoreTest = await runBuildCoreTest(runBuildCoreTestPiece5);
+
     expect(buildCoreTest).toBe(only);
   }
 
   it('returns the sole app without prompting', returnsTheSoleAppWithoutPrompting);
+
   async function resolvesAnExplicitAppAndErrorsOnAMiss() {
     const alpha = app('alpha');
     const beta = app('beta');
+
     function runBuildCoreTestPiece6() {
       return selectApp([alpha, beta], 'beta');
     }
 
     const buildCoreTest = await runBuildCoreTest(runBuildCoreTestPiece6);
+
     expect(buildCoreTest).toBe(beta);
+
     function runBuildCoreTestPiece7() {
       return selectApp([alpha, beta], 'gamma');
     }
@@ -276,6 +304,7 @@ function describeSelectApp() {
   }
 
   it('resolves an explicit --app and errors on a miss', resolvesAnExplicitAppAndErrorsOnAMiss);
+
   async function refusesToGuessWithMultipleAppsAndNoTTYPointingAtApp() {
     function runBuildCoreTestPiece8() {
       return selectApp([app('alpha'), app('beta')], undefined);
@@ -283,6 +312,7 @@ function describeSelectApp() {
 
     // The vitest process has no TTY, so the picker must not hang - it throws an actionable error.
     const buildCoreTest = runBuildCoreTest(runBuildCoreTestPiece8);
+
     await expect(buildCoreTest).rejects.toMatchObject({ message: expect.stringMatching(/--app/) });
   }
 
@@ -295,6 +325,7 @@ function describeSelectApp() {
 describe('selectApp', describeSelectApp);
 function describeSizeHelpersTheBothNumbersHeadlineF2() {
   const MB = 1024 * 1024;
+
   function report(entries: SizeReport['entries'], artifactBytes: number = 64 * MB): SizeReport {
     return {
       artifactBytes,
@@ -306,6 +337,7 @@ function describeSizeHelpersTheBothNumbersHeadlineF2() {
       { device: 'a', downloadBytes: 40 * MB, installBytes: 0 },
       { device: 'b', downloadBytes: 47 * MB, installBytes: 0 },
     ]);
+
     expect(worstDownloadBytes(r)).toBe(47 * MB);
   }
 
@@ -313,6 +345,7 @@ function describeSizeHelpersTheBothNumbersHeadlineF2() {
     'worstDownloadBytes picks the largest per-device download',
     worstDownloadBytesPicksTheLargestPerDeviceDownload,
   );
+
   function worstDownloadBytesFallsBackToTheOnDiskSizeWithNoPerDeviceEntries() {
     expect(worstDownloadBytes(report([], 61 * MB))).toBe(61 * MB);
   }
@@ -321,6 +354,7 @@ function describeSizeHelpersTheBothNumbersHeadlineF2() {
     'worstDownloadBytes falls back to the on-disk size with no per-device entries',
     worstDownloadBytesFallsBackToTheOnDiskSizeWithNoPerDeviceEntries,
   );
+
   function sizeSummaryShowsBothNumbersWhenAPerDeviceEstimateExists() {
     const r = report([{ device: 'a', downloadBytes: 47.2 * MB, installBytes: 0 }], 61.3 * MB);
     expect(sizeSummary(r)).toBe('download 47.2 MB - on disk 61.3 MB');
@@ -330,6 +364,7 @@ function describeSizeHelpersTheBothNumbersHeadlineF2() {
     'sizeSummary shows both numbers when a per-device estimate exists',
     sizeSummaryShowsBothNumbersWhenAPerDeviceEstimateExists,
   );
+
   function sizeSummaryFallsBackToOnDiskAloneWhenThereSNoPerDeviceEstimate() {
     expect(sizeSummary(report([], 61.3 * MB))).toBe('on disk 61.3 MB (no per-device estimate)');
   }
@@ -346,6 +381,7 @@ describe(
 );
 function describeUploadSizeReadoutPreUploadSizeLinesGrowthWarning() {
   const MB = 1024 * 1024;
+
   function report(downloadMB: number, artifactMB: number = 64): SizeReport {
     return {
       artifactBytes: artifactMB * MB,
@@ -362,6 +398,7 @@ function describeUploadSizeReadoutPreUploadSizeLinesGrowthWarning() {
     'shows download + on-disk and no delta on the first build',
     showsDownloadOnDiskAndNoDeltaOnTheFirstBuild,
   );
+
   function appendsASignedDeltaAgainstThePreviousBuild() {
     const { lines } = uploadSizeReadout(report(38), { downloadBytes: 33.8 * MB, buildNumber: 41 });
     expect(lines[0]).toBe('download 38.0 MB (+4.2 MB since build 41)');
@@ -371,6 +408,7 @@ function describeUploadSizeReadoutPreUploadSizeLinesGrowthWarning() {
     'appends a signed delta against the previous build',
     appendsASignedDeltaAgainstThePreviousBuild,
   );
+
   function warnsWhenTheDownloadGrowsMoreThan10OverThePreviousBuild() {
     const { grew } = uploadSizeReadout(report(38), { downloadBytes: 33.8 * MB, buildNumber: 41 });
     expect(grew).toEqual({ pct: 12, buildNumber: 41 });
@@ -380,17 +418,20 @@ function describeUploadSizeReadoutPreUploadSizeLinesGrowthWarning() {
     'warns when the download grows more than 10% over the previous build',
     warnsWhenTheDownloadGrowsMoreThan10OverThePreviousBuild,
   );
+
   function doesNotWarnForGrowthAtOrUnder10() {
     const { grew } = uploadSizeReadout(report(36), { downloadBytes: 33.8 * MB, buildNumber: 41 });
     expect(grew).toBeNull();
   }
 
   it('does not warn for growth at or under 10%', doesNotWarnForGrowthAtOrUnder10);
+
   function showsANegativeDeltaAndNoWarningWhenTheBuildShrank() {
     const { lines, grew } = uploadSizeReadout(report(30), {
       downloadBytes: 33.8 * MB,
       buildNumber: 41,
     });
+
     expect(lines[0]).toBe('download 30.0 MB (-3.8 MB since build 41)');
     expect(grew).toBeNull();
   }
@@ -399,11 +440,13 @@ function describeUploadSizeReadoutPreUploadSizeLinesGrowthWarning() {
     'shows a negative delta and no warning when the build shrank',
     showsANegativeDeltaAndNoWarningWhenTheBuildShrank,
   );
+
   function fallsBackToOnDiskOnlyNoDeltaWhenThereSNoPerDeviceEstimate() {
     const readout = uploadSizeReadout(
       { artifactBytes: 61 * MB, entries: [] },
       { downloadBytes: 10 * MB, buildNumber: 1 },
     );
+
     expect(readout.lines).toEqual(['on disk 61.0 MB (no per-device estimate)']);
     expect(readout.grew).toBeNull();
   }
@@ -436,14 +479,17 @@ function describeResolveBuildTransportWhichForkARunTakes() {
     'always builds Android locally - no off-Mac fork applies, even with a stray --remote',
     alwaysBuildsAndroidLocallyNoOffMacForkAppliesEvenWithAStrayRemote,
   );
+
   function buildsIOSLocallyByDefault() {
     const transport = resolveTransport('ios', 'xcode', undefined);
     expect(transport).toEqual({ kind: 'local' });
   }
 
   it('builds iOS locally by default', buildsIOSLocallyByDefault);
+
   function routesIOSToTheRemotePipelineOnRemoteCarryingTheTarget() {
     const transport = resolveTransport('ios', 'xcode', { kind: 'aws' });
+
     expect(transport).toEqual({
       kind: 'remote',
       remote: { kind: 'aws' },
@@ -458,8 +504,10 @@ function describeResolveBuildTransportWhichForkARunTakes() {
     'routes iOS to the remote pipeline on --remote, carrying the target',
     routesIOSToTheRemotePipelineOnRemoteCarryingTheTarget,
   );
+
   function defaultsABuildEngineRemoteMacPieceToAnAWSRemoteWhenNoRemoteIsPassed() {
     const transport = resolveTransport('ios', 'remote-mac', undefined);
+
     expect(transport).toEqual({
       kind: 'remote',
       remote: { kind: 'aws' },
@@ -470,14 +518,17 @@ function describeResolveBuildTransportWhichForkARunTakes() {
     "defaults a buildEngine: 'remote-mac' config to an AWS remote when no --remote is passed",
     defaultsABuildEngineRemoteMacPieceToAnAWSRemoteWhenNoRemoteIsPassed,
   );
+
   function handsIOSOffToEASWhenBuildEngineIsEas() {
     const transport = resolveTransport('ios', 'eas', undefined);
     expect(transport).toEqual({ kind: 'eas' });
   }
 
   it("hands iOS off to EAS when buildEngine is 'eas'", handsIOSOffToEASWhenBuildEngineIsEas);
+
   function letsRemoteWinOverAnEasRemoteMacPieceTheFlagIsTheOverride() {
     const transport = resolveTransport('ios', 'eas', { kind: 'aws' });
+
     expect(transport).toEqual({
       kind: 'remote',
       remote: { kind: 'aws' },
@@ -492,6 +543,7 @@ function describeResolveBuildTransportWhichForkARunTakes() {
     'lets --remote win over an eas / remote-mac config (the flag is the override)',
     letsRemoteWinOverAnEasRemoteMacPieceTheFlagIsTheOverride,
   );
+
   function buildsTvOSMacOSVisionOSLocallyOffMacForksAreIOSOnlyInV1() {
     const transport = resolveTransport('tvos', 'xcode', undefined);
     expect(transport).toEqual({ kind: 'local' });
@@ -503,6 +555,7 @@ function describeResolveBuildTransportWhichForkARunTakes() {
     'builds tvOS/macOS/visionOS locally (off-Mac forks are iOS-only in v1)',
     buildsTvOSMacOSVisionOSLocallyOffMacForksAreIOSOnlyInV1,
   );
+
   function thrownTransportFailure(
     platform: Parameters<typeof resolveBuildTransport>[0],
     buildEngine: string,
@@ -541,6 +594,7 @@ describe(
 function describeResolveBumpKindFlagRememberedPromptPrecedence() {
   function appliesAnExplicitBumpKindEvenNonInteractivelyScriptableInCI() {
     const bumpKind = resolveBumpKind({ flag: 'minor', remembered: 'patch', canPrompt: true });
+
     expect(bumpKind).toEqual({
       mode: 'apply',
       kind: 'minor',
@@ -557,6 +611,7 @@ function describeResolveBumpKindFlagRememberedPromptPrecedence() {
     'applies an explicit --bump kind, even non-interactively (scriptable in CI)',
     appliesAnExplicitBumpKindEvenNonInteractivelyScriptableInCI,
   );
+
   function forcesThePromptOnBumpAskIgnoringARememberedPick() {
     const bumpKind = resolveBumpKind({ flag: 'ask', remembered: 'patch', canPrompt: true });
     expect(bumpKind).toEqual({
@@ -568,8 +623,10 @@ function describeResolveBumpKindFlagRememberedPromptPrecedence() {
     'forces the prompt on --bump ask, ignoring a remembered pick',
     forcesThePromptOnBumpAskIgnoringARememberedPick,
   );
+
   function autoAppliesARememberedPickWhenNoFlagIsGivenAndWeCanPrompt() {
     const bumpKind = resolveBumpKind({ flag: undefined, remembered: 'patch', canPrompt: true });
+
     expect(bumpKind).toEqual({
       mode: 'apply',
       kind: 'patch',
@@ -581,6 +638,7 @@ function describeResolveBumpKindFlagRememberedPromptPrecedence() {
     'auto-applies a remembered pick when no flag is given and we can prompt',
     autoAppliesARememberedPickWhenNoFlagIsGivenAndWeCanPrompt,
   );
+
   function promptsOnAFirstRunNoFlagNothingRemembered() {
     const bumpKind = resolveBumpKind({ flag: undefined, remembered: undefined, canPrompt: true });
     expect(bumpKind).toEqual({
@@ -592,6 +650,7 @@ function describeResolveBumpKindFlagRememberedPromptPrecedence() {
     'prompts on a first run (no flag, nothing remembered)',
     promptsOnAFirstRunNoFlagNothingRemembered,
   );
+
   function leavesThePieceVersionUntouchedUnderYesCIWithNoFlag() {
     const bumpKind = resolveBumpKind({ flag: undefined, remembered: 'patch', canPrompt: false });
     expect(bumpKind).toEqual({
@@ -612,6 +671,7 @@ describe(
 function describeResolveSizeBudgetMBPerRunOverrideProfileDefaultPrecedence() {
   function profile(sizeBudgetMB?: number): Pick<BuildProfile, 'sizeBudgetMB'> {
     if (sizeBudgetMB == null) return {};
+
     return { sizeBudgetMB };
   }
   function usesThePerRunOverrideOverBothTheProfileAndTheDefault() {
@@ -623,6 +683,7 @@ function describeResolveSizeBudgetMBPerRunOverrideProfileDefaultPrecedence() {
     'uses the per-run override over both the profile and the default',
     usesThePerRunOverrideOverBothTheProfileAndTheDefault,
   );
+
   function fallsBackToTheProfileBudgetWhenNoPerRunOverrideIsGiven() {
     const sizeBudgetMB = resolveSizeBudgetMB({}, profile(150));
     expect(sizeBudgetMB).toBe(150);
@@ -632,6 +693,7 @@ function describeResolveSizeBudgetMBPerRunOverrideProfileDefaultPrecedence() {
     'falls back to the profile budget when no per-run override is given',
     fallsBackToTheProfileBudgetWhenNoPerRunOverrideIsGiven,
   );
+
   function fallsBackToTheDefaultWhenNeitherTheRunNorTheProfileSetsOne() {
     const sizeBudgetMB = resolveSizeBudgetMB({}, profile());
     expect(sizeBudgetMB).toBe(DEFAULT_SIZE_BUDGET_MB);
@@ -660,6 +722,7 @@ function describeResolveSubmittersThePlatformstoreSeam() {
   function stringFormYieldsOneStoreMappingTheIOSDefaultToPlayOnAndroid() {
     const launch = launchConfig('app-store-connect');
     const submitters = resolveSubmitters(launch, 'ios');
+
     expect(submitters).toEqual(['app-store-connect']);
     expect(resolveSubmitters(launchConfig('app-store-connect'), 'android')).toEqual([
       'google-play',
@@ -670,6 +733,7 @@ function describeResolveSubmittersThePlatformstoreSeam() {
     'string form yields one store, mapping the iOS default to Play on Android',
     stringFormYieldsOneStoreMappingTheIOSDefaultToPlayOnAndroid,
   );
+
   function aNonDefaultStringEGEasIsUsedAsIsOnBothPlatforms() {
     const launch = launchConfig('eas');
     const submitters = resolveSubmitters(launch, 'ios');
@@ -681,12 +745,14 @@ function describeResolveSubmittersThePlatformstoreSeam() {
     'a non-default string (e.g. eas) is used as-is on both platforms',
     aNonDefaultStringEGEasIsUsedAsIsOnBothPlatforms,
   );
+
   function mapFormReturnsTheConfiguredStoreListPerPlatform() {
     const config = launchConfig({
       ios: ['app-store-connect'],
       android: ['google-play', 'amazon-appstore'],
     });
     const submitters = resolveSubmitters(config, 'android');
+
     expect(submitters).toEqual(['google-play', 'amazon-appstore']);
     expect(resolveSubmitters(config, 'ios')).toEqual(['app-store-connect']);
   }
@@ -695,9 +761,11 @@ function describeResolveSubmittersThePlatformstoreSeam() {
     'map form returns the configured store list per platform',
     mapFormReturnsTheConfiguredStoreListPerPlatform,
   );
+
   function mapFormDefaultsToThePlatformSStandardStoreWhenItSOmittedOrEmpty() {
     const launch = launchConfig({ android: ['amazon-appstore'] });
     const submitters = resolveSubmitters(launch, 'ios');
+
     expect(submitters).toEqual(['app-store-connect']);
     expect(resolveSubmitters(launchConfig({ ios: [] }), 'ios')).toEqual(['app-store-connect']);
     expect(resolveSubmitters(launchConfig({ ios: ['app-store-connect'] }), 'android')).toEqual([
@@ -709,10 +777,12 @@ function describeResolveSubmittersThePlatformstoreSeam() {
     "map form defaults to the platform's standard store when it's omitted or empty",
     mapFormDefaultsToThePlatformSStandardStoreWhenItSOmittedOrEmpty,
   );
+
   function tvOSMacOSVisionOSDefaultToAppStoreConnectWithNoPieceChange() {
     for (const platform of ['tvos', 'macos', 'visionos'] as const) {
       const launch = launchConfig('app-store-connect');
       const submitters = resolveSubmitters(launch, platform);
+
       expect(submitters).toEqual(['app-store-connect']);
       expect(resolveSubmitters(launchConfig({ android: ['google-play'] }), platform)).toEqual([
         'app-store-connect',
@@ -724,12 +794,14 @@ function describeResolveSubmittersThePlatformstoreSeam() {
     'tvOS/macOS/visionOS default to App Store Connect with no config change',
     tvOSMacOSVisionOSDefaultToAppStoreConnectWithNoPieceChange,
   );
+
   function aPerPlatformMapCanTargetTheNewApplePlatformsExplicitly() {
     const config = launchConfig({
       tvos: ['app-store-connect'],
       macos: ['app-store-connect'],
     });
     const submitters = resolveSubmitters(config, 'tvos');
+
     expect(submitters).toEqual(['app-store-connect']);
     expect(resolveSubmitters(config, 'macos')).toEqual(['app-store-connect']);
   }
@@ -755,8 +827,10 @@ function describeSubmitToStoresFansOneBuildOutToEveryConfiguredStore() {
     forceClean: false,
   };
   const buildCredentials: BuildCredentials = { platform: 'android', serviceAccountJson: '{}' };
+
   async function submitsToEachStoreInOrderAndReturnsTheirNames() {
     const calls: string[] = [];
+
     function fakeStore(name: string): Submitter {
       return {
         name,
@@ -765,8 +839,10 @@ function describeSubmitToStoresFansOneBuildOutToEveryConfiguredStore() {
         },
       };
     }
+
     registerSubmitter(fakeStore('alt-store-a'));
     registerSubmitter(fakeStore('alt-store-b'));
+
     const config: LaunchConfig = {
       profiles: {},
       credentials: 'local',
@@ -781,6 +857,7 @@ function describeSubmitToStoresFansOneBuildOutToEveryConfiguredStore() {
       buildCredentials,
       buildContext,
     );
+
     expect(stores).toEqual(['alt-store-a', 'alt-store-b']);
     expect(calls).toEqual(['alt-store-a:/tmp/app.aab', 'alt-store-b:/tmp/app.aab']);
   }
@@ -812,13 +889,16 @@ function describeAndroidReleaseNotesForSubmitIssue309() {
     'maps a locale document into Play release-note rows',
     mapsALocaleDocumentIntoPlayReleaseNoteRows,
   );
+
   async function readsNotesJSONWhenProvided() {
     const systemTemporaryDirectory = tmpdir();
     const launchNotesPath = join(systemTemporaryDirectory, 'launch-notes-');
     const notesDirectory = mkdtempSync(launchNotesPath);
     const notesPath = join(notesDirectory, 'notes.json');
     const serialized = JSON.stringify({ 'en-US': 'From CLI notes file' });
+
     writeFileSync(notesPath, serialized);
+
     try {
       const releaseNotes = await resolveAndroidSubmitReleaseNotes(
         {
@@ -831,6 +911,7 @@ function describeAndroidReleaseNotesForSubmitIssue309() {
         notesDirectory,
         notesPath,
       );
+
       expect(releaseNotes).toEqual([{ language: 'en-US', text: 'From CLI notes file' }]);
     } finally {
       rmSync(notesDirectory, { recursive: true, force: true });
@@ -838,10 +919,12 @@ function describeAndroidReleaseNotesForSubmitIssue309() {
   }
 
   it('reads --notes JSON when provided', readsNotesJSONWhenProvided);
+
   async function fallsBackToReleaseReleaseNotesFromLaunchStorePieceWhenNoNotesPath() {
     const systemTemporaryDirectory = tmpdir();
     const launchAppPath = join(systemTemporaryDirectory, 'launch-app-');
     const appDirectory = mkdtempSync(launchAppPath);
+
     try {
       const releaseNotes = await resolveAndroidSubmitReleaseNotes(
         {
@@ -855,6 +938,7 @@ function describeAndroidReleaseNotesForSubmitIssue309() {
         appDirectory,
         undefined,
       );
+
       expect(releaseNotes).toEqual([{ language: 'en-US', text: 'From launch.config' }]);
     } finally {
       rmSync(appDirectory, { recursive: true, force: true });

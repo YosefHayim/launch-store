@@ -16,9 +16,12 @@ function describeReadLaunchEnvironment() {
   }
 
   it('provides an empty environment', providesAnEmptyEnvironment);
+
   function readsASecretAsAStringAndReturnsNullWhenItIsMissing() {
     useLaunchEnvironment({ DEMO_PASSWORD: 'review-secret' });
+
     const environment = readLaunchEnvironment();
+
     expect(environment.readSecret('DEMO_PASSWORD')).toBe('review-secret');
     expect(environment.readSecret('MISSING_PASSWORD')).toBeNull();
     expect(environment.values).toEqual({});

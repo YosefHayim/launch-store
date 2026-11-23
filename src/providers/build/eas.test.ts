@@ -20,6 +20,7 @@ function describeEASAdapterParsingEasBuildPiecePiece() {
     'extracts the downloadable artifact URL despite leading log lines',
     extractsTheDownloadableArtifactURLDespiteLeadingLogLines,
   );
+
   function fallsBackToBuildUrlWhenApplicationArchiveUrlIsAbsent() {
     const json = '[{"artifacts":{"buildUrl":"https://expo.dev/b/x.ipa"}}]';
     const artifactUrl = parseArtifactUrl(json);
@@ -30,6 +31,7 @@ function describeEASAdapterParsingEasBuildPiecePiece() {
     'falls back to buildUrl when applicationArchiveUrl is absent',
     fallsBackToBuildUrlWhenApplicationArchiveUrlIsAbsent,
   );
+
   function returnsNullWhenNoArtifactURLIsPresentCLIShapeDrift() {
     const artifactUrl = parseArtifactUrl('[{"status":"ERRORED"}]');
     expect(artifactUrl).toBeNull();
@@ -40,8 +42,10 @@ function describeEASAdapterParsingEasBuildPiecePiece() {
     'returns null when no artifact URL is present (CLI shape drift)',
     returnsNullWhenNoArtifactURLIsPresentCLIShapeDrift,
   );
+
   function readsTheBuildNumberDefaultingTo0WhenEASDoesnTReportOne() {
     const buildNumber = parseBuildNumber(easJson);
+
     expect(buildNumber).toBe(42);
     expect(parseBuildNumber('[{"buildNumber":7}]')).toBe(7);
     expect(parseBuildNumber('[{}]')).toBe(0);

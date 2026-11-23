@@ -9,6 +9,7 @@ import {
 function describeLaunchPieceParseBoundary() {
   function fillsTheFourProviderDefaultsOnParseSoAMinimalPieceOnlyDeclaresProfiles() {
     const parsed = parseLaunchConfig({ profiles: {} });
+
     expect(parsed).toMatchObject({
       credentials: DEFAULT_CREDENTIALS_PROVIDER,
       storage: DEFAULT_STORAGE_PROVIDER,
@@ -21,6 +22,7 @@ function describeLaunchPieceParseBoundary() {
     'fills the four provider defaults on parse, so a minimal config only declares profiles',
     fillsTheFourProviderDefaultsOnParseSoAMinimalPieceOnlyDeclaresProfiles,
   );
+
   function keepsACallerSetProviderNameOverTheDefault() {
     const parsed = parseLaunchConfig({ profiles: {}, storage: 's3' });
     expect(parsed.storage).toBe('s3');
@@ -30,6 +32,7 @@ function describeLaunchPieceParseBoundary() {
     'keeps a caller-set provider name over the default',
     keepsACallerSetProviderNameOverTheDefault,
   );
+
   function rejectsAnUnknownTopLevelKeyStrictRootThe197Gate() {
     const validateLaunch = validateLaunchConfig({ profiles: {}, nope: 1 });
     expect(validateLaunch.length).toBeGreaterThan(0);
@@ -39,11 +42,13 @@ function describeLaunchPieceParseBoundary() {
     'rejects an unknown top-level key (strict root - the #197 gate)',
     rejectsAnUnknownTopLevelKeyStrictRootThe197Gate,
   );
+
   function acceptsThePerPlatformSubmitFormForASubsetOfPlatforms() {
     const parsed = parseLaunchConfig({
       profiles: {},
       submit: { android: ['google-play', 'amazon-appstore'] },
     });
+
     expect(parsed.submit).toEqual({ android: ['google-play', 'amazon-appstore'] });
   }
 
@@ -60,6 +65,7 @@ function describeSubmitByPlatformValidationViaLaunchPieceSchema() {
       profiles: {},
       submit: { ios: ['app-store-connect'] },
     });
+
     expect(validateLaunch).toEqual([]);
     expect(validateLaunchConfig({ profiles: {}, submit: {} })).toEqual([]);
     expect(

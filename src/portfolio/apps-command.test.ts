@@ -87,6 +87,7 @@ async function runProgram(startProgram: () => Promise<void>): Promise<{
   lines: string[];
 }> {
   const lines: string[] = [];
+
   useLoggerSink(function writeLine(text: string) {
     lines.push(text);
   });
@@ -111,6 +112,7 @@ function describeParsePlatformFlag() {
   }
 
   test('accepts ios, android and no flag', acceptsIosAndroidAndNoFlag);
+
   async function rejectsAnotherPlatform() {
     const platformFlag = parsePlatformFlag('web');
     await expect(platformFlag).rejects.toMatchObject({
@@ -131,6 +133,7 @@ function describeParseOwnerFlag() {
   }
 
   test('accepts mine, client and no flag', acceptsMineClientAndNoFlag);
+
   async function rejectsAnotherOwner() {
     const ownerFlag = parseOwnerFlag('me');
     await expect(ownerFlag).rejects.toMatchObject({
@@ -147,6 +150,7 @@ function describeParseTagRequest() {
     const expected = 'Pass exactly one of --app <name> or --account <label>.';
 
     const tagRequest = parseTagRequest({ ...TAG_BASE, app: undefined });
+
     await expect(tagRequest).rejects.toMatchObject({
       message: expected,
     });
@@ -156,6 +160,7 @@ function describeParseTagRequest() {
   }
 
   test('needs one of --app or --account', needsOneOfAppOrAccount);
+
   async function needsAtLeastOneChange() {
     const tagRequest = parseTagRequest({ ...TAG_BASE, owner: undefined });
     await expect(tagRequest).rejects.toMatchObject({
@@ -164,6 +169,7 @@ function describeParseTagRequest() {
   }
 
   test('needs at least one change', needsAtLeastOneChange);
+
   async function rejectsAGA4PropertyThatIsNotANumber() {
     const tagRequest = parseTagRequest({ ...TAG_BASE, ga4Property: 'abc' });
     await expect(tagRequest).rejects.toMatchObject({
@@ -172,6 +178,7 @@ function describeParseTagRequest() {
   }
 
   test('rejects a GA4 property that is not a number', rejectsAGA4PropertyThatIsNotANumber);
+
   async function rejectsAnUnknownOwner() {
     const tagRequest = parseTagRequest({ ...TAG_BASE, owner: 'boss' });
     await expect(tagRequest).rejects.toMatchObject({
@@ -180,6 +187,7 @@ function describeParseTagRequest() {
   }
 
   test('rejects an unknown owner', rejectsAnUnknownOwner);
+
   async function acceptsOwnerOnlyPropertyOnlyOrBoth() {
     const ownerOnly = await parseTagRequest(TAG_BASE);
     const propertyOnly = await parseTagRequest({
@@ -203,12 +211,16 @@ function describeAppsListProgramAndAppsTagProgram() {
 
   beforeEach(function setAppsHome() {
     homeDirectory = createTemporaryHomeDirectory();
+
     const project = join(homeDirectory, 'work');
+
     mkdirSync(project, { recursive: true });
+
     const appPath = join(project, 'app.json');
     const serialized = JSON.stringify({
       expo: { slug: 'fit', android: { package: 'com.jts.fit' } },
     });
+
     writeFileSync(appPath, serialized);
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
     useLaunchDirectories({ homeDirectory, workingDirectory: project });
@@ -234,6 +246,7 @@ function describeAppsListProgramAndAppsTagProgram() {
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
+
   async function appsListPrintsOneJSONObjectWithTheAppsAndTheWarnings() {
     const { outcome, lines } = await runProgram(function startList() {
       return appsListProgram({ platform: undefined, owner: undefined, isJson: true });
@@ -241,8 +254,11 @@ function describeAppsListProgramAndAppsTagProgram() {
 
     expect(outcome._tag).toBe('Right');
     expect(lines).toHaveLength(1);
+
     const listing = JSON.parse(lines[0] ?? '');
+
     expect(listing.ok).toBe(true);
+
     function readName(app: { name: string }) {
       return app.name;
     }
@@ -255,20 +271,24 @@ function describeAppsListProgramAndAppsTagProgram() {
     'apps list prints one JSON object with the apps and the warnings',
     appsListPrintsOneJSONObjectWithTheAppsAndTheWarnings,
   );
+
   async function appsListShowsWarningsAndOneLinePerAppFilteredByPlatform() {
     const { lines } = await runProgram(function startList() {
       return appsListProgram({ platform: 'android', owner: undefined, isJson: false });
     });
+
     function someLine(line: string) {
       return line.includes('beta: 401 revoked');
     }
 
     expect(lines.some(someLine)).toBe(true);
+
     function filterLine(line: string) {
       return line.includes('Fit (com.jts.fit) - Google Play');
     }
 
     expect(lines.filter(filterLine)).toHaveLength(1);
+
     function someLine2(line: string) {
       return line.includes('Cal Friend AI');
     }
@@ -280,10 +300,12 @@ function describeAppsListProgramAndAppsTagProgram() {
     'apps list shows warnings and one line per app, filtered by platform',
     appsListShowsWarningsAndOneLinePerAppFilteredByPlatform,
   );
+
   async function appsListSaysSoWhenNoAppMatchesTheFilter() {
     const { lines } = await runProgram(function startList() {
       return appsListProgram({ platform: undefined, owner: 'client', isJson: false });
     });
+
     function someLine3(line: string) {
       return line.includes('No apps found.');
     }
@@ -292,13 +314,16 @@ function describeAppsListProgramAndAppsTagProgram() {
   }
 
   test('apps list says so when no app matches the filter', appsListSaysSoWhenNoAppMatchesTheFilter);
+
   async function appsListExits2OnABadPlatformAsJSONWithPiece() {
     const { outcome, lines } = await runProgram(function startList() {
       return appsListProgram({ platform: 'web', owner: undefined, isJson: true });
     });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { _tag: 'CommandExit', exitCode: 2 } });
+
     const parsed = JSON.parse(lines[0] ?? '');
+
     expect(parsed).toEqual({
       ok: false,
       error: '--platform must be ios or android.',
@@ -309,23 +334,29 @@ function describeAppsListProgramAndAppsTagProgram() {
     'apps list exits 2 on a bad platform, as JSON with --json',
     appsListExits2OnABadPlatformAsJSONWithPiece,
   );
+
   async function appsTagSavesTheOwnerSoTheNextListShowsIt() {
     const tagged = await runProgram(function startTag() {
       return appsTagProgram(TAG_BASE);
     });
+
     function someLine4(line: string) {
       return line.includes('Tagged Cal Friend AI');
     }
 
     expect(tagged.lines.some(someLine4)).toBe(true);
+
     const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
     const loadedFile = readFileSync(portfolioPath, 'utf8');
     const savedFile = JSON.parse(loadedFile);
+
     expect(savedFile.tags).toEqual([{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: null }]);
+
     const listed = await runProgram(function startList() {
       return appsListProgram({ platform: undefined, owner: 'mine', isJson: true });
     });
     const parsed = JSON.parse(listed.lines[0] ?? '');
+
     expect(parsed.apps).toHaveLength(1);
   }
 
@@ -333,6 +364,7 @@ function describeAppsListProgramAndAppsTagProgram() {
     'apps tag saves the owner so the next list shows it',
     appsTagSavesTheOwnerSoTheNextListShowsIt,
   );
+
   async function appsTagAccountTagsEveryAppOfThatAccountAndPrintsJSONWithPiece() {
     const { lines } = await runProgram(function startTag() {
       return appsTagProgram({
@@ -345,6 +377,7 @@ function describeAppsListProgramAndAppsTagProgram() {
     });
 
     const tagging = JSON.parse(lines[0] ?? '');
+
     expect(tagging.tagged).toHaveLength(1);
     expect(tagging.tagged[0]).toMatchObject({ name: 'Fit', owner: 'client' });
   }
@@ -353,6 +386,7 @@ function describeAppsListProgramAndAppsTagProgram() {
     'apps tag --account tags every app of that account and prints JSON with --json',
     appsTagAccountTagsEveryAppOfThatAccountAndPrintsJSONWithPiece,
   );
+
   async function appsTagKeepsTheOldOwnerWhenOnlyThePropertyIsGiven() {
     await runProgram(function startTag() {
       return appsTagProgram(TAG_BASE);
@@ -363,6 +397,7 @@ function describeAppsListProgramAndAppsTagProgram() {
     });
 
     const parsed = JSON.parse(lines[0] ?? '');
+
     expect(parsed.tagged[0]).toMatchObject({
       owner: 'mine',
       ga4PropertyId: '555',
@@ -373,12 +408,14 @@ function describeAppsListProgramAndAppsTagProgram() {
     'apps tag keeps the old owner when only the property is given',
     appsTagKeepsTheOldOwnerWhenOnlyThePropertyIsGiven,
   );
+
   async function appsTagExits2AndListsTheKnownAppsWhenNothingMatches() {
     const { outcome, lines } = await runProgram(function startTag() {
       return appsTagProgram({ ...TAG_BASE, app: 'zzz' });
     });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
+
     function someLine5(line: string) {
       return line.includes('Known apps: Cal Friend AI, Fit');
     }
@@ -390,6 +427,7 @@ function describeAppsListProgramAndAppsTagProgram() {
     'apps tag exits 2 and lists the known apps when nothing matches',
     appsTagExits2AndListsTheKnownAppsWhenNothingMatches,
   );
+
   async function appsTagExits2OnBadFlags() {
     const { outcome } = await runProgram(function startTag() {
       return appsTagProgram({ ...TAG_BASE, owner: undefined });

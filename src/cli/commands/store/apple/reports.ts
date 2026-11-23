@@ -39,6 +39,7 @@ export function registerReportsCommand(program: Command): void {
   const reportsCommand = program
     .command('reports')
     .description('download App Store Connect sales, finance, and analytics reports');
+
   function runSales(commandOptions: SalesCommandOptions) {
     const reportsProgram = reportsCommandProgram({ operation: 'sales', ...commandOptions });
     return runCliProgram(reportsProgram);
@@ -58,6 +59,7 @@ export function registerReportsCommand(program: Command): void {
     .option('--out <directory>', 'directory to write the reports into', '.')
     .option('--json', 'write parsed JSON instead of raw TSV', false)
     .action(runSales);
+
   function runFinance(commandOptions: FinanceCommandOptions) {
     const reportsProgram = reportsCommandProgram({ operation: 'finance', ...commandOptions });
     return runCliProgram(reportsProgram);
@@ -73,6 +75,7 @@ export function registerReportsCommand(program: Command): void {
     .option('--out <directory>', 'directory to write the report into', '.')
     .option('--json', 'write parsed JSON instead of raw TSV', false)
     .action(runFinance);
+
   function runAnalytics(commandOptions: AnalyticsCommandOptions) {
     const reportsProgram = reportsCommandProgram({ operation: 'analytics', ...commandOptions });
     return runCliProgram(reportsProgram);

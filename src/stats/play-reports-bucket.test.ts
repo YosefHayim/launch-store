@@ -8,6 +8,7 @@ function describeParsePlayReportsBucket() {
   }
 
   test('reads a bare bucket name', readsABareBucketName);
+
   function stripsTheGsPrefixTheTrailingSlashAndSurroundingSpaces() {
     const playReportsBucket = parsePlayReportsBucket('  gs://pubsite_prod_rev_123/  ');
     expect(playReportsBucket).toBe('pubsite_prod_rev_123');
@@ -17,6 +18,7 @@ function describeParsePlayReportsBucket() {
     'strips the gs:// prefix, the trailing slash and surrounding spaces',
     stripsTheGsPrefixTheTrailingSlashAndSurroundingSpaces,
   );
+
   function keepsOnlyTheBucketWhenTheURIContinuesWithAFolder() {
     const playReportsBucket = parsePlayReportsBucket('gs://pubsite_prod_123/stats/installs');
     expect(playReportsBucket).toBe('pubsite_prod_123');
@@ -26,6 +28,7 @@ function describeParsePlayReportsBucket() {
     'keeps only the bucket when the URI continues with a folder',
     keepsOnlyTheBucketWhenTheURIContinuesWithAFolder,
   );
+
   function returnsNullForPieceThatIsNotAPlayReportsBucket() {
     const playReportsBucket = parsePlayReportsBucket('');
     expect(playReportsBucket).toBeNull();

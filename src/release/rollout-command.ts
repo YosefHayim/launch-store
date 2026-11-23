@@ -84,6 +84,7 @@ export function decodeRolloutCommandInput(rawCommandInput: unknown): RolloutComm
 
   const action = readRolloutAction(rawCommandInputObject);
   const appField = rawCommandInputObject['app'];
+
   const isAppAbsent = appField == null;
 
   if (isAppAbsent) {
@@ -155,6 +156,7 @@ async function updateAppRollout(
 ): Promise<boolean> {
   const logger = createLogger(false);
   const appId = await appleStore.getAppId(selectedApp.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -165,6 +167,7 @@ async function updateAppRollout(
 
   const appStoreVersions = await appleStore.listAppStoreVersions(appId, IOS_PLATFORM);
   const currentVersion = pickCurrentVersion(appStoreVersions);
+
   const isVersionMissing = currentVersion == null;
 
   if (isVersionMissing) {
@@ -173,6 +176,7 @@ async function updateAppRollout(
   }
 
   const phasedRelease = await appleStore.getPhasedRelease(currentVersion.id);
+
   const isPhasedReleaseMissing = phasedRelease == null;
 
   if (isPhasedReleaseMissing) {
@@ -195,6 +199,7 @@ async function updateAppRollout(
     version: currentVersion.versionString,
     detail: phasedReleaseState,
   });
+
   return false;
 }
 
@@ -206,6 +211,7 @@ export async function rolloutCommandProgram(rawCommandInput: unknown): Promise<v
     const logger = createLogger(false);
     const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
     const selectedApps = await selectIosApps(loadedConfiguration.apps, commandInput.app);
+
     const isThereNoIosApp = selectedApps.length == 0;
 
     if (isThereNoIosApp) {
@@ -214,6 +220,7 @@ export async function rolloutCommandProgram(rawCommandInput: unknown): Promise<v
     }
 
     const ascKey = await loadActiveAscKey();
+
     const isAccountMissing = ascKey == null;
 
     if (isAccountMissing) {

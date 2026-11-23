@@ -32,6 +32,7 @@ export function findAppSkus(
   }
 
   const appLines = reportLines.filter(filterLine);
+
   function mapLine(line: { readonly [x: string]: string }) {
     return readCell(line, 'SKU');
   }
@@ -41,15 +42,18 @@ export function findAppSkus(
   }
 
   const skus = appLines.map(mapLine).filter(filterSku);
+
   return new Set(skus);
 }
 
 function isLineOfApp(line: ReportLine, kind: SalesReportKind, day: SalesDay): boolean {
   const isInAppPurchase = kind == 'in-app-purchase';
+
   if (isInAppPurchase) {
     const cell = readCell(line, 'Parent Identifier');
     return day.appSkus.has(cell);
   }
+
   return readCell(line, APPLE_IDENTIFIER_COLUMN) == day.storeId;
 }
 
@@ -60,32 +64,49 @@ export function summarizeSalesLines(
 ): readonly DailyStat[] {
   const unitsByKind = new Map<SalesReportKind, number>();
   const proceedsByCurrency = new Map<string, number>();
+
   for (const line of reportLines) {
     const cell = readCell(line, 'Product Type Identifier');
     const kind = findSalesReportKind(cell);
+
     if (kind == null) continue;
+
     const isLineAboutApp = isLineOfApp(line, kind, day);
+
     if (!isLineAboutApp) continue;
+
     const units = readNumberCell(line, 'Units');
     const total = readTotal(unitsByKind, kind);
+
     unitsByKind.set(kind, total + units);
+
     const currency = readCell(line, 'Currency of Proceeds');
     const lineProceeds = readNumberCell(line, 'Developer Proceeds') * units;
+
     proceedsByCurrency.set(currency, readTotal(proceedsByCurrency, currency) + lineProceeds);
   }
+
   function flatMapPiece({ kind, metric }: SalesCountMetric): DailyStat[] {
     const units = unitsByKind.get(kind);
+
     if (units == null) return [];
+
     return [{ date: day.date, feed: 'app-store', metric, value: units, currency: null }];
   }
 
   const countStats = salesCountMetrics.flatMap(flatMapPiece);
+
   function flatMapPiece2([currency, proceeds]: [string, number]): DailyStat[] {
     const roundedProceeds = roundMoney(proceeds);
+
     const isProceedsZero = roundedProceeds == 0;
+
     if (isProceedsZero) return [];
+
     const isCurrencyMissing = currency == '';
+
     if (isCurrencyMissing) return [];
+
     return [
       {
         date: day.date,
@@ -98,5 +119,6 @@ export function summarizeSalesLines(
   }
 
   const proceedsStats = [...proceedsByCurrency.entries()].flatMap(flatMapPiece2);
+
   return [...countStats, ...proceedsStats];
 }

@@ -24,9 +24,11 @@ const hostHandle: HostHandle = {
 };
 function describeCloudPiece() {
   let testHomeDirectory = '';
+
   function prepareCloudPiece() {
     const systemTemporaryDirectory = tmpdir();
     const joinedPath = join(systemTemporaryDirectory, 'launch-cloud-state-');
+
     testHomeDirectory = mkdtempSync(joinedPath);
     useLaunchDirectories({
       homeDirectory: testHomeDirectory,
@@ -35,28 +37,40 @@ function describeCloudPiece() {
   }
 
   beforeEach(prepareCloudPiece);
+
   function cleanupCloudPiece() {
     resetLaunchDirectories();
     rmSync(testHomeDirectory, { recursive: true, force: true });
   }
 
   afterEach(cleanupCloudPiece);
+
   async function isEmptyWhenTheFileDoesNotExist() {
     const readCloud = await readCloudState();
+
     expect(readCloud).toEqual({});
+
     const liveHost = await getLiveHost();
+
     expect(liveHost).toBeNull();
+
     const amiId = await getAmiId();
+
     expect(amiId).toBeNull();
   }
 
   it('is empty when the file does not exist', isEmptyWhenTheFileDoesNotExist);
+
   async function roundTripsTheLiveHostAndClearsItWithoutLosingTheAMIId() {
     await setAmiId('ami-abc');
     await setLiveHost(hostHandle);
+
     const liveHost = await getLiveHost();
+
     expect(liveHost).toEqual(hostHandle);
+
     const amiId = await getAmiId();
+
     expect(amiId).toBe('ami-abc');
     await clearLiveHost();
     expect(await getLiveHost()).toBeNull();
@@ -67,12 +81,18 @@ function describeCloudPiece() {
     'round-trips the live host and clears it without losing the AMI id',
     roundTripsTheLiveHostAndClearsItWithoutLosingTheAMIId,
   );
+
   async function toleratesAMalformedFileByReturningEmptyPiece() {
     const launchDirectory = join(testHomeDirectory, '.launch');
+
     await setAmiId('ami-before-corruption');
+
     const cloudPath = join(launchDirectory, 'cloud.json');
+
     writeFileSync(cloudPath, '{ not json');
+
     const readCloud = await readCloudState();
+
     expect(readCloud).toEqual({});
   }
 

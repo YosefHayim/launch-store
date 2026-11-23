@@ -60,13 +60,17 @@ export function buildListingPrompt(listingBrief: ListingBrief): string {
     '',
     `Write natural, compelling copy in the ${listingBrief.locale} locale. Respect every character limit exactly.`,
   ];
+
   if (listingBrief.about != null) promptLines.push('', `What the app does: ${listingBrief.about}`);
+
   if (listingBrief.keywords != null && listingBrief.keywords.length > 0)
     promptLines.push('', `Themes to weave in: ${serializeKeywords(listingBrief.keywords)}`);
+
   if (listingBrief.current != null && Object.keys(listingBrief.current).length > 0) {
     const serialized = JSON.stringify(listingBrief.current, null, 2);
     promptLines.push('', 'Improve on the current listing (do not copy it verbatim):', serialized);
   }
+
   return promptLines.join('\n');
 }
 
@@ -75,15 +79,20 @@ function stripJsonFence(completionText: string): string {
   const trimmedText = completionText.trim();
   const fencedMatch = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(trimmedText);
   const fencedJson = fencedMatch?.[1];
+
   if (fencedJson == null) return trimmedText;
+
   return fencedJson;
 }
 
 /** Keep one non-blank generated text field. */
 function normalizeGeneratedText(generatedText: string | undefined): string | undefined {
   if (generatedText == null) return undefined;
+
   const trimmedText = generatedText.trim();
+
   if (trimmedText.length == 0) return undefined;
+
   return trimmedText;
 }
 
@@ -92,9 +101,12 @@ function normalizeGeneratedKeywords(
   generatedKeywords: readonly string[] | string | undefined,
 ): string[] | undefined {
   if (generatedKeywords == null) return undefined;
+
   let keywordCandidates: readonly string[];
+
   if (typeof generatedKeywords == 'string') keywordCandidates = generatedKeywords.split(',');
   else keywordCandidates = generatedKeywords;
+
   function mapKeywordCandidate(keywordCandidate: string) {
     return keywordCandidate.trim();
   }
@@ -106,7 +118,9 @@ function normalizeGeneratedKeywords(
   const normalizedKeywords = keywordCandidates
     .map(mapKeywordCandidate)
     .filter(filterKeywordCandidate);
+
   if (normalizedKeywords.length == 0) return undefined;
+
   return normalizedKeywords;
 }
 
@@ -387,6 +401,7 @@ async function requestAnthropicListing(
 
   try {
     const serialized = JSON.stringify(requestDocument);
+
     anthropicReply = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {

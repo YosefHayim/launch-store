@@ -27,10 +27,12 @@ function makePlayReviewsApi(cannedReviews: readonly PlayReview[]): Readonly<{
     },
     async replyToReview(_packageName, reviewId, replyText) {
       calls.replies.push({ reviewId, replyText });
+
       const storedReply: PlayReplyResult = {
         replyText,
         lastEdited: '2026-06-14T00:00:00.000Z',
       };
+
       return storedReply;
     },
   };
@@ -71,6 +73,7 @@ function describeListPlayReviews() {
     'filters by rating and unanswered status client-side',
     filtersByRatingAndUnansweredStatusClientSide,
   );
+
   async function passesATranslationLanguageThroughAndOmitsItOtherwise() {
     const playReview = makePlayReview();
     const { playReviewsApi, calls } = makePlayReviewsApi([playReview]);
@@ -109,6 +112,7 @@ function describeReplyToPlayReview() {
     'reports replaced=false when the review had no developer reply',
     reportsReplacedFalseWhenTheReviewHadNoDeveloperReply,
   );
+
   async function reportsReplacedTrueWhenADeveloperReplyAlreadyExisted() {
     const playReview = makePlayReview({
       reviewId: 'r1',

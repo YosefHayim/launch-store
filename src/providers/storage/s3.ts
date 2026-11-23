@@ -395,7 +395,9 @@ export async function makeS3StorageProvider(
     const artifactIndex = await readIndex();
 
     artifactIndex.unshift({ ...artifact, path: uploadedArtifact.location });
+
     const serialized = JSON.stringify(artifactIndex, null, 2);
+
     await upload(INDEX_OBJECT_KEY, serialized, 'application/json');
 
     return uploadedArtifact;
@@ -461,6 +463,7 @@ export function makeS3StorageProviderResolver(): StorageProviderResolver {
           message:
             'Storage "s3" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).',
         });
+
         return Promise.reject(makeProviderFailure);
       }
 

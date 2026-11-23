@@ -106,6 +106,7 @@ async function writeFileIfAbsent(filePath: string, fileContents: string): Promis
 
 function showDiscoveredApps(discoveredApps: AppDescriptor[]): void {
   const logger = createLogger(false);
+
   const noneFound = discoveredApps.length == 0;
 
   if (noneFound) {
@@ -129,6 +130,7 @@ function showDiscoveredApps(discoveredApps: AppDescriptor[]): void {
 
   const appLines = discoveredApps.map(describeApp);
   let appSuffix = 's';
+
   const isOneApp = discoveredApps.length == 1;
 
   if (isOneApp) {
@@ -140,6 +142,7 @@ function showDiscoveredApps(discoveredApps: AppDescriptor[]): void {
 
 function requireInteractiveTerminal(operation: string): void {
   const prompts = new Prompts();
+
   const isInteractive = prompts.isInteractive();
 
   if (isInteractive) {
@@ -153,6 +156,7 @@ function requireInteractiveTerminal(operation: string): void {
 
 async function readArtifactDirectory(): Promise<string | null> {
   requireInteractiveTerminal('read artifact directory');
+
   const prompts = new Prompts();
   const enteredDirectory = await prompts.text(
     `Where should build artifacts be stored? [${DEFAULT_IN_REPO_ARTIFACT_DIR}] `,
@@ -165,6 +169,7 @@ async function readArtifactDirectory(): Promise<string | null> {
   }
 
   const trimmedDirectory = enteredDirectory.trim();
+
   const isBlank = trimmedDirectory.length == 0;
 
   if (isBlank) {
@@ -189,6 +194,7 @@ function showInitReceipt(writtenFiles: string): void {
 function resolveInitArtifactDirectory(artifactDir: string, projectDirectory: string): string {
   const directories = readLaunchDirectories();
   const configuredDirectory = artifactDir.trim();
+
   const isEmpty = configuredDirectory.length == 0;
 
   if (isEmpty) {
@@ -232,9 +238,12 @@ export async function runInitProgram(rawCommandInput: unknown): Promise<boolean>
     }
 
     const loadedConfiguration = await loadConfig(workingDirectory);
+
     showDiscoveredApps(loadedConfiguration.apps);
     requireInteractiveTerminal('start init prompt');
+
     const configPath = join(workingDirectory, 'launch.config.ts');
+
     const configExists = await pathExists(configPath);
 
     if (configExists) {
@@ -257,7 +266,9 @@ export async function runInitProgram(rawCommandInput: unknown): Promise<boolean>
 
     const detectedAppRoot = detectAppRoot(loadedConfiguration.apps, workingDirectory);
     const initialConfig = configTemplate(detectedAppRoot, undefined, undefined, artifactDirectory);
+
     await writeFile(configPath, initialConfig);
+
     const joinedPath = join(workingDirectory, '.env.example');
     const environmentExampleWritten = await writeFileIfAbsent(joinedPath, ENV_EXAMPLE_TEMPLATE);
     const resolvedArtifactDirectory = resolveInitArtifactDirectory(

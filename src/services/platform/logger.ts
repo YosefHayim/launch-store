@@ -77,6 +77,7 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
       }
 
       const statusLine = statusText('RUN', `${label}${detailText}`);
+
       display(statusLine);
 
       if (explain == false) {
@@ -109,6 +110,7 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
 
       const detailLines = details.map(mapDetail).join('');
       const statusLine = statusText('RUN', lead);
+
       display(`${statusLine}${detailLines}`);
     },
     box(title, receiptLines) {
@@ -118,6 +120,7 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
 
       const receipt = receiptLines.map(mapReceiptLine).join('');
       const statusLine = statusText('OK', title);
+
       display(`${statusLine}${receipt}`);
     },
     shipped(receiptLines) {
@@ -127,6 +130,7 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
 
       const receipt = receiptLines.map(mapReceiptLine2).join('');
       const statusLine = statusText('OK', 'Shipped');
+
       display(`${statusLine}${receipt}`);
     },
     line(message) {

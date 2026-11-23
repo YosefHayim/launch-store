@@ -21,12 +21,14 @@ function describeResolveNativeDirAbsoluteNativeProjectPathSoGymCanTDoubleTheSubp
     'returns an absolute path for a relative app dir (the monorepo `appRoots` case)',
     returnsAnAbsolutePathForARelativeAppDirTheMonorepoAppRootsCase,
   );
+
   function leavesAnAlreadyAbsoluteAppDirUntouched() {
     const nativeDir = resolveNativeDir('/Users/x/acme/apps/sampleapp', 'ios');
     expect(nativeDir).toBe('/Users/x/acme/apps/sampleapp/ios');
   }
 
   it('leaves an already-absolute app dir untouched', leavesAnAlreadyAbsoluteAppDirUntouched);
+
   function mapsEachApplePlatformToItsNativeProjectDirectoryTvOSSharesIos() {
     expect(resolveNativeDir('/a', 'tvos').endsWith('/a/ios')).toBe(true);
     expect(resolveNativeDir('/a', 'macos').endsWith('/a/macos')).toBe(true);
@@ -57,6 +59,7 @@ function describeParseThinningReportPerDeviceDownloadInstallBeforeAnyUpload() {
   Supported variant descriptors: Universal
   App size: 50.0 MB compressed, 100.0 MB uncompressed
   `);
+
     expect(sizeEntries).toEqual([
       {
         device: 'iPhone15,2',
@@ -75,6 +78,7 @@ function describeParseThinningReportPerDeviceDownloadInstallBeforeAnyUpload() {
     'extracts one entry per variant with compressed/uncompressed sizes in bytes',
     extractsOnePiecePerVariantWithCompressedUncompressedSizesInBytes,
   );
+
   function handlesKBUnitsAndIgnoresVariantsWithNoParseableSizeLine() {
     const reportText = `Variant: a.ipa
   iPhone14,5
@@ -85,6 +89,7 @@ function describeParseThinningReportPerDeviceDownloadInstallBeforeAnyUpload() {
   (no size here)
   `;
     const sizeEntries = parseThinningReport(reportText);
+
     expect(sizeEntries).toEqual([
       { device: 'iPhone14,5', downloadBytes: 512 * 1024, installBytes: 1024 * 1024 },
     ]);
@@ -94,6 +99,7 @@ function describeParseThinningReportPerDeviceDownloadInstallBeforeAnyUpload() {
     'handles KB units and ignores variants with no parseable size line',
     handlesKBUnitsAndIgnoresVariantsWithNoParseableSizeLine,
   );
+
   function degradesToAnEmptyArrayRatherThanThrowingOnUnrecognizedPiece() {
     const thinningReport = parseThinningReport('totally unrelated output');
     expect(thinningReport).toEqual([]);
@@ -119,8 +125,10 @@ function describeExportPiecePlistManualAppStoreSigningInputs() {
     profileUuid: 'uuid-1',
     profilePath: '/tmp/uuid-1.mobileprovision',
   };
+
   function emitsManualAppStoreSigningKeyedByTheBundleId() {
     const plist = exportOptionsPlist(signing);
+
     expect(plist).toContain('<key>method</key><string>app-store</string>');
     expect(plist).toContain('<key>signingStyle</key><string>manual</string>');
     expect(plist).toContain('<key>teamID</key><string>ABCDE12345</string>');
@@ -135,6 +143,7 @@ function describeExportPiecePlistManualAppStoreSigningInputs() {
     'emits manual app-store signing keyed by the bundle id',
     emitsManualAppStoreSigningKeyedByTheBundleId,
   );
+
   function addsOneProvisioningProfilesPiecePerEmbeddedExtensionSoEveryBundleInTheIpaSigns() {
     const plist = exportOptionsPlist({
       ...signing,
@@ -143,6 +152,7 @@ function describeExportPiecePlistManualAppStoreSigningInputs() {
         'com.example.hello.share': 'Launch_com.example.hello.share_AppStore',
       },
     });
+
     expect(plist).toContain(
       '<key>com.example.hello</key><string>Launch_com.example.hello_AppStore</string>',
     );
@@ -174,8 +184,10 @@ function describeAssertDeviceArtifactRejectANonSubmittableBuildBeforeUpload() {
   }
 
   it('accepts a real device .ipa with a positive size', acceptsARealDeviceIpaWithAPositiveSize);
+
   function rejectsASimulatorArtifactTheReportedXcrunSimctlFailureMode() {
     const simulatorPath = '/path/ios/build/Build/Products/Release-iphonesimulator/SampleApp.app';
+
     function callAssertDeviceArtifact2() {
       assertDeviceArtifact(simulatorPath, 8 * MB, 'ios');
     }
@@ -187,6 +199,7 @@ function describeAssertDeviceArtifactRejectANonSubmittableBuildBeforeUpload() {
     'rejects a simulator artifact (the reported xcrun simctl failure mode)',
     rejectsASimulatorArtifactTheReportedXcrunSimctlFailureMode,
   );
+
   function rejectsAAppBundleThatIsnTAPackagedIpa() {
     function callAssertDeviceArtifact3() {
       assertDeviceArtifact('/tmp/SampleApp.app', 8 * MB, 'ios');
@@ -196,6 +209,7 @@ function describeAssertDeviceArtifactRejectANonSubmittableBuildBeforeUpload() {
   }
 
   it("rejects a .app bundle that isn't a packaged .ipa", rejectsAAppBundleThatIsnTAPackagedIpa);
+
   function rejectsA0ByteArtifactFromASilentlyFailedExport() {
     function callAssertDeviceArtifact4() {
       assertDeviceArtifact('/tmp/SampleApp.ipa', 0, 'ios');
@@ -208,8 +222,10 @@ function describeAssertDeviceArtifactRejectANonSubmittableBuildBeforeUpload() {
     'rejects a 0-byte artifact from a silently-failed export',
     rejectsA0ByteArtifactFromASilentlyFailedExport,
   );
+
   function catchesATvOSSimulatorArtifactBuiltForAppletvsimulator() {
     const simulatorPath = '/path/ios/build/Build/Products/Release-appletvsimulator/SampleApp.app';
+
     function callAssertDeviceArtifact5() {
       assertDeviceArtifact(simulatorPath, 8 * MB, 'tvos');
     }
@@ -221,12 +237,14 @@ function describeAssertDeviceArtifactRejectANonSubmittableBuildBeforeUpload() {
     'catches a tvOS simulator artifact built for -appletvsimulator',
     catchesATvOSSimulatorArtifactBuiltForAppletvsimulator,
   );
+
   function acceptsAMacOSPkgNoSimulatorRuleButRejectsAMacOSIpa() {
     function callAssertDeviceArtifact6() {
       assertDeviceArtifact('/tmp/SampleApp.pkg', 20 * MB, 'macos');
     }
 
     expect(callAssertDeviceArtifact6).not.toThrow();
+
     function callAssertDeviceArtifact7() {
       assertDeviceArtifact('/tmp/SampleApp.ipa', 20 * MB, 'macos');
     }
@@ -250,17 +268,20 @@ function describeXcodebuildPieceForwardsLaunchSResolvedPieceToTheBundleStepCcach
       { EXPO_PUBLIC_CDN_URL: 'https://real.cdn', EXPO_PUBLIC_FLAG: 'on' },
       {},
     );
+
     expect(buildEnvironment['EXPO_PUBLIC_CDN_URL']).toBe('https://real.cdn');
     expect(buildEnvironment['EXPO_PUBLIC_FLAG']).toBe('on');
   }
 
   it('forwards the resolved build env', forwardsTheResolvedBuildPiece);
+
   function letsCcacheOverrideACollidingUserVar() {
     const buildEnvironment = xcodebuildEnv({ CC: 'user-cc' }, { CC: 'ccache-cc' });
     expect(buildEnvironment['CC']).toBe('ccache-cc');
   }
 
   it('lets ccache override a colliding user var', letsCcacheOverrideACollidingUserVar);
+
   function addsNoAppStoreConnectKeyVariablesWhichOnlyFastlaneRead() {
     const buildEnvironment = xcodebuildEnv({ EXPO_PUBLIC_FLAG: 'on' }, {});
     const ownKeys = Object.keys(buildEnvironment);

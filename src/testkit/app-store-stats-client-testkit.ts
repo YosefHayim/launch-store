@@ -233,6 +233,7 @@ export function makeFakeAppStoreStatsClient(scenario: Partial<FakeAppStoreStatsS
     const reportName = readReportName(filters);
     const reportKey = `${accessType}|${reportName}`;
     const doesReportExist = reportKey in analyticsInstances;
+
     const isReportMissing = doesReportExist == false;
 
     if (isReportMissing) {

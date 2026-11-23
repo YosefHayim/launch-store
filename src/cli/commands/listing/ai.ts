@@ -6,6 +6,8 @@ export function aiGroup(program: Command): Command {
   }
 
   const existing = program.commands.find(findCommand);
+
   if (existing != null) return existing;
+
   return program.command('ai').description('AI-assisted authoring for your store presence');
 }

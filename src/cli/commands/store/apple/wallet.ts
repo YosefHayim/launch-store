@@ -17,6 +17,7 @@ export function registerWalletCommand(program: Command): void {
       dryRun: commandOptions.dryRun,
       yes: commandOptions.yes,
     });
+
     return runCliProgram(walletProgram);
   }
 
@@ -27,6 +28,7 @@ export function registerWalletCommand(program: Command): void {
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runWallet);
+
   function runList() {
     const walletProgram = walletCommandProgram({ operation: 'list' });
     return runCliProgram(walletProgram);

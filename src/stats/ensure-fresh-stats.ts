@@ -26,6 +26,7 @@ async function isAnyFeedStale(
       }
 
       const feedCoverage = findFeedCoverage(appCoverage, plugin.feed);
+
       const isFeedOutOfDate = isFeedCoverageStale(feedCoverage, nowMilliseconds);
 
       if (isFeedOutOfDate) {
@@ -39,6 +40,7 @@ async function isAnyFeedStale(
 
 async function findAppsToCheck(appName: string | null): Promise<readonly PortfolioApp[]> {
   const portfolioLoad = await loadStatsPortfolio('cache-first');
+
   const isEveryAppWanted = appName == null;
 
   if (isEveryAppWanted) {

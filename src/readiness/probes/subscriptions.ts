@@ -72,6 +72,7 @@ export const subscriptionsProbe = {
     }
 
     const apps = iosApps(readinessContext.apps).filter(keepsSellingApp);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

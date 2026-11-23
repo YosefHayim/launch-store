@@ -31,9 +31,11 @@ export function registerStatsCommand(program: Command): void {
     .option('--days <n>', 'how many days to show (1 to 365, default 30)')
     .option('--json', 'output machine-readable JSON', false)
     .action(runStats);
+
   function runSync(_syncOwnFlags: unknown, syncCommand: Command) {
     // Commander gives the same-named options to the parent `stats` command, so read them from there.
     const flags = syncCommand.optsWithGlobals<{ app?: string; days?: string; json?: boolean }>();
+
     return runCliProgram(
       statsSyncProgram({
         app: flags.app,

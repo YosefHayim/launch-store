@@ -14,11 +14,13 @@ function describeShiftDate() {
   }
 
   test('moves forward across a month end', movesForwardAcrossAMonthEnd);
+
   function movesBackwardAcrossAYearStart() {
     expect(shiftDate('2026-01-01', -1)).toBe('2025-12-31');
   }
 
   test('moves backward across a year start', movesBackwardAcrossAYearStart);
+
   function handlesALeapDay() {
     expect(shiftDate('2028-02-28', 1)).toBe('2028-02-29');
   }
@@ -44,6 +46,7 @@ function describeCreateLastDaysRange() {
   }
 
   test('one day is the last date only', oneDayIsTheLastDateOnly);
+
   function manyDaysEndAtTheLastDate() {
     const lastDaysRange = createLastDaysRange('2026-10-28', 30);
     expect(lastDaysRange).toEqual({ from: '2026-09-29', to: '2026-10-28' });
@@ -66,16 +69,19 @@ function describeReadYesterdayUtc() {
 describe('readYesterdayUtc', describeReadYesterdayUtc);
 function describeIsSyncedAtStale() {
   const now = Date.parse('2026-10-29T12:00:00.000Z');
+
   function isFreshWithin12Hours() {
     expect(isSyncedAtStale('2026-10-29T00:30:00.000Z', now)).toBe(false);
   }
 
   test('is fresh within 12 hours', isFreshWithin12Hours);
+
   function isStaleAfter12Hours() {
     expect(isSyncedAtStale('2026-10-28T23:00:00.000Z', now)).toBe(true);
   }
 
   test('is stale after 12 hours', isStaleAfter12Hours);
+
   function isStaleWhenTheTimeCannotBeRead() {
     expect(isSyncedAtStale('not a time', now)).toBe(true);
   }

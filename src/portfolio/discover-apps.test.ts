@@ -67,12 +67,16 @@ function describeDiscoverApps() {
 
   beforeEach(function setDiscoverHome() {
     homeDirectory = createTemporaryHomeDirectory();
+
     const project = join(homeDirectory, 'work');
+
     mkdirSync(project, { recursive: true });
+
     const appPath = join(project, 'app.json');
     const serialized = JSON.stringify({
       expo: { name: 'Play', slug: 'play', android: { package: 'com.play' } },
     });
+
     writeFileSync(appPath, serialized);
     useLaunchDirectories({ homeDirectory, workingDirectory: project });
   });
@@ -82,6 +86,7 @@ function describeDiscoverApps() {
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
+
   async function listsTheAppsOfEveryAccountAndThePlayAccount() {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
 
@@ -98,7 +103,9 @@ function describeDiscoverApps() {
     }
 
     makeStatsCredentialsTest({ ascClientForAccount, playReportingClient });
+
     const report = await discoverApps();
+
     function mapApp(app: DiscoveredApp) {
       return [app.key, app.accountLabel];
     }
@@ -129,8 +136,10 @@ function describeDiscoverApps() {
     'lists the apps of every account and the Play account',
     listsTheAppsOfEveryAccountAndThePlayAccount,
   );
+
   async function keepsTheFirstAccountWhenTwoAccountsSeeTheSameApp() {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
+
     const sharedApp = [{ id: '1', name: 'Shared', bundleId: 'com.shared' }];
 
     async function ascClientForAccount(): Promise<AppStoreStatsClient | null> {
@@ -138,7 +147,9 @@ function describeDiscoverApps() {
     }
 
     makeStatsCredentialsTest({ ascClientForAccount });
+
     const report = await discoverApps();
+
     function readAccountLabel(app: DiscoveredApp) {
       return app.accountLabel;
     }
@@ -150,6 +161,7 @@ function describeDiscoverApps() {
     'keeps the first account when two accounts see the same app',
     keepsTheFirstAccountWhenTwoAccountsSeeTheSameApp,
   );
+
   async function turnsAFailingAccountIntoAWarningAndStillListsTheOthers() {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
 
@@ -162,7 +174,9 @@ function describeDiscoverApps() {
     }
 
     makeStatsCredentialsTest({ ascClientForAccount });
+
     const report = await discoverApps();
+
     function readKey(app: DiscoveredApp) {
       return app.key;
     }
@@ -177,10 +191,13 @@ function describeDiscoverApps() {
     'turns a failing account into a warning and still lists the others',
     turnsAFailingAccountIntoAWarningAndStillListsTheOthers,
   );
+
   async function warnsWhenAnAccountHasNoSavedKey() {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
     makeStatsCredentialsTest();
+
     const report = await discoverApps();
+
     function readAccountLabel2(warning: DiscoveryWarning) {
       return warning.accountLabel;
     }
@@ -190,12 +207,14 @@ function describeDiscoverApps() {
   }
 
   test('warns when an account has no saved key', warnsWhenAnAccountHasNoSavedKey);
+
   async function turnsAFailingPlayAccountIntoAWarning() {
     async function playReportingClient(): Promise<PlayVitalsReader | null> {
       return makePlayClient(new Error('403 denied'));
     }
 
     makeStatsCredentialsTest({ playReportingClient });
+
     const report = await discoverApps();
 
     expect(report.warnings).toEqual([{ accountLabel: 'google-play', message: '403 denied' }]);
@@ -203,8 +222,10 @@ function describeDiscoverApps() {
   }
 
   test('turns a failing Play account into a warning', turnsAFailingPlayAccountIntoAWarning);
+
   async function doesNotCountThePlayPieceWhenNoServiceAccountIsSaved() {
     makeStatsCredentialsTest();
+
     const report = await discoverApps();
 
     expect(report).toEqual({

@@ -50,6 +50,7 @@ type QuietCommandExecutionOptions = CommandExecutionOptions &
 function commandPlatformFailure(executable: string, cause: unknown): CommandFailed {
   const asString = String(cause);
   const redact = redactText(asString);
+
   return makeCommandFailed({
     command: executable,
     exitCode: null,
@@ -66,6 +67,7 @@ function checkExitCode(executable: string, exitCode: number | null, standardErro
   }
 
   const redact = redactText(standardError);
+
   throw makeCommandFailed({
     command: executable,
     exitCode,
@@ -187,14 +189,19 @@ export async function executeCommand(
 
   if (shouldHideOutput) {
     const child = startProcess(executable, commandArguments, commandOptions, 'pipe');
+
     child.stdin?.end();
+
     const captured = await captureProcess(child, executable);
+
     checkExitCode(executable, captured.exitCode, captured.stderr.trim());
+
     return;
   }
 
   const child = startProcess(executable, commandArguments, commandOptions, 'inherit');
   const exitCode = await waitForExit(child, executable);
+
   checkExitCode(executable, exitCode, '');
 }
 
@@ -204,9 +211,12 @@ export async function captureCommandOutput(
   commandOptions: CommandExecutionOptions = {},
 ): Promise<string> {
   const child = startProcess(executable, commandArguments, commandOptions, 'pipe');
+
   child.stdin?.end();
+
   const captured = await captureProcess(child, executable);
   const diagnostics = combineCapturedDiagnostics(captured.stdout, captured.stderr);
+
   checkExitCode(executable, captured.exitCode, diagnostics);
 
   return captured.stdout.trim();
@@ -218,6 +228,7 @@ function takeCompleteLines(
   onLine: (line: string) => void,
 ): void {
   pending.text += chunk;
+
   let newlineAt = pending.text.indexOf('\n');
 
   while (newlineAt != -1) {
@@ -234,7 +245,9 @@ export async function executeCommandQuietly(
   commandOptions: QuietCommandExecutionOptions = {},
 ): Promise<void> {
   const child = startProcess(executable, commandArguments, commandOptions, 'pipe');
+
   child.stdin?.end();
+
   const redactOutputLine = makeLogRedactor();
   const writes: Promise<void>[] = [];
   const stdoutPending = { text: '' };

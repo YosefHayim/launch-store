@@ -198,6 +198,7 @@ async function inspectPrivacySurface(appDescriptor: AppDescriptor): Promise<Priv
   }
 
   const resolvedExpoConfiguration = await readResolvedConfig(appDescriptor.dir);
+
   const hasNoExpoConfig = resolvedExpoConfiguration == null;
 
   if (hasNoExpoConfig) {
@@ -235,6 +236,7 @@ export async function privacyCommandProgram(commandOptions: PrivacyCommandOption
 
   for (const appDescriptor of selectedApps) {
     const privacySurface = await inspectPrivacySurface(appDescriptor);
+
     appFindings.push({
       appName: appDescriptor.name,
       findings: reconcilePrivacy(appDescriptor.name, privacySurface),
@@ -246,6 +248,7 @@ export async function privacyCommandProgram(commandOptions: PrivacyCommandOption
     appFindings.map(appNameFromFinding),
   );
   let reportText = renderPrivacyReport(privacyReport);
+
   const isJsonReport = commandOptions.json == true;
 
   if (isJsonReport) {

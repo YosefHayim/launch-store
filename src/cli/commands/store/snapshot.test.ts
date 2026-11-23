@@ -5,13 +5,17 @@ import { registerSnapshotCommand } from './snapshot.ts';
 /** Find one registered snapshot subcommand. */
 function snapshotSubcommand(commandName: string) {
   const program = new Command();
+
   registerSnapshotCommand(program);
+
   function findRegisteredCommand(registeredCommand: Command) {
     return registeredCommand.name() == 'snapshot';
   }
 
   const snapshotCommand = program.commands.find(findRegisteredCommand);
+
   expect(snapshotCommand).toBeDefined();
+
   function findRegisteredCommand2(registeredCommand: Command) {
     return registeredCommand.name() == commandName;
   }
@@ -21,17 +25,21 @@ function snapshotSubcommand(commandName: string) {
 function describeRegisterSnapshotCommand() {
   function registersEverySnapshotOperation() {
     const program = new Command();
+
     registerSnapshotCommand(program);
+
     function findRegisteredCommand3(registeredCommand: Command) {
       return registeredCommand.name() == 'snapshot';
     }
 
     const snapshotCommand = program.commands.find(findRegisteredCommand3);
+
     function mapRegisteredCommand(registeredCommand: Command) {
       return registeredCommand.name();
     }
 
     const operationNames = snapshotCommand?.commands.map(mapRegisteredCommand).sort();
+
     expect(operationNames).toEqual([
       'create',
       'delete',
@@ -44,6 +52,7 @@ function describeRegisterSnapshotCommand() {
   }
 
   it('registers every snapshot operation', registersEverySnapshotOperation);
+
   function keepsCaptureAndRestoreSelectorsOnTheirOwningOperations() {
     function readLong(commandOption: CommandOption) {
       return commandOption.long;
@@ -52,6 +61,7 @@ function describeRegisterSnapshotCommand() {
     expect(snapshotSubcommand('create')?.options.map(readLong)).toEqual(
       expect.arrayContaining(['--app', '--json']),
     );
+
     function readLong2(commandOption: CommandOption) {
       return commandOption.long;
     }
@@ -59,6 +69,7 @@ function describeRegisterSnapshotCommand() {
     expect(snapshotSubcommand('diff')?.options.map(readLong2)).toEqual(
       expect.arrayContaining(['--app', '--json']),
     );
+
     function readLong3(commandOption: CommandOption) {
       return commandOption.long;
     }
@@ -72,17 +83,20 @@ function describeRegisterSnapshotCommand() {
     'keeps capture and restore selectors on their owning operations',
     keepsCaptureAndRestoreSelectorsOnTheirOwningOperations,
   );
+
   function keepsPersistenceFlagsOnTheirOwningOperations() {
     function readLong4(commandOption: CommandOption) {
       return commandOption.long;
     }
 
     expect(snapshotSubcommand('export')?.options.map(readLong4)).toContain('--out');
+
     function readLong5(commandOption: CommandOption) {
       return commandOption.long;
     }
 
     expect(snapshotSubcommand('delete')?.options.map(readLong5)).toContain('--json');
+
     function readLong6(commandOption: CommandOption) {
       return commandOption.long;
     }

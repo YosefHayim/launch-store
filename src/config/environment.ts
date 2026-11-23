@@ -88,6 +88,7 @@ export function decodeLaunchEnvironment(
     }
 
     const fieldName = ENVIRONMENT_FIELDS[environmentName as keyof typeof ENVIRONMENT_FIELDS];
+
     decoded[fieldName] = text;
   }
 

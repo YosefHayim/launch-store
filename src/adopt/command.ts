@@ -255,6 +255,7 @@ function printTargetPlan(logger: Logger, targetPlan: TargetPlan): void {
 
   for (const plannedWrite of targetPlan.writes) {
     const fidelityMarker = adoptFidelityMarker(plannedWrite.fidelity);
+
     planLines.push(`${fidelityMarker} ${plannedWrite.description}`);
 
     if (plannedWrite.note != null) {
@@ -345,6 +346,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
     const logger = createLogger(false);
     const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
     const selectedApps = selectAdoptApps(loadedConfiguration.apps, commandInput.app);
+
     const hasNoApps = selectedApps.length == 0;
 
     if (hasNoApps) {
@@ -365,12 +367,15 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
     const appleCatalog: AdoptCatalogApi = AppleStoreClientService.createEffectClient(ascKey);
     const launchConfigPath = join(launchPaths.workingDirectory, 'launch.config.ts');
     const hasLaunchConfig = await pathExists(launchConfigPath);
+
     registerBuiltinAdopters();
+
     const detection = await detectTargets(appleCatalog, selectedApps, {
       keyId: ascKey.keyId,
       cwd: launchPaths.workingDirectory,
       hasLaunchConfig,
     });
+
     const hasSkippedApps = detection.skipped.length > 0;
 
     if (hasSkippedApps) {
@@ -388,6 +393,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
 
     const adopters = listAdopters();
     const targetPlans = await planTargets(appleCatalog, detection, adopters);
+
     logger.gap();
 
     for (const targetPlan of targetPlans) {
@@ -395,7 +401,9 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
     }
 
     const mutationCount = countAdoptMutations(targetPlans);
+
     logger.gap();
+
     const hasNoMutations = mutationCount == 0;
 
     if (hasNoMutations) {
@@ -443,8 +451,10 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
         return pullAppleListing(bundleId, configPath, false);
       },
     });
+
     logger.gap();
     printAdoptReceipt(logger, launchPaths.workingDirectory, adoptionSummary);
+
     const hasListingErrors = adoptionSummary.listingErrors.length > 0;
 
     if (hasListingErrors) {

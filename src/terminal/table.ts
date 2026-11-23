@@ -19,10 +19,14 @@ export function alignTableColumns<TableEntry>(
   }
 
   const widths = columns.map(mapColumn);
+
   function mapCell(cell: string, columnIndex: number) {
     const columnWidth = widths[columnIndex];
+
     const isColumnWidthMissing = columnWidth == null;
+
     if (isColumnWidthMissing) return cell;
+
     return cell.padEnd(columnWidth);
   }
 

@@ -206,6 +206,7 @@ export function buildRelease(releaseInput: ReleaseInput): PlayRelease {
 
 export function parseRollout(rolloutText: string): number {
   const rolloutFraction = Number(rolloutText);
+
   const fractionIsUnusable = Number.isFinite(rolloutFraction) == false;
 
   if (fractionIsUnusable) {

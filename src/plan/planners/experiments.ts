@@ -27,6 +27,7 @@ export const experimentsPlanner: SurfacePlanner = {
         false,
         parseVersionExperimentsConfig,
       );
+
       const isUndeclared = experimentsConfig == null;
 
       if (isUndeclared) {

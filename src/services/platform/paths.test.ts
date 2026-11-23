@@ -42,6 +42,7 @@ function describePathsOneCanonicalLayoutForLaunch() {
   }
 
   it('nests all local state under ~/.launch', nestsAllLocalPieceUnderLaunch);
+
   function pointsTheProfileInstallDirAtWhereXcodeLooks() {
     const provisioningProfilesPath = join('Library', 'MobileDevice', 'Provisioning Profiles');
     expect(PROVISIONING_PROFILES_DIR).toContain(provisioningProfilesPath);
@@ -51,18 +52,23 @@ function describePathsOneCanonicalLayoutForLaunch() {
     'points the profile install dir at where Xcode looks',
     pointsTheProfileInstallDirAtWhereXcodeLooks,
   );
+
   async function createsDirectoriesThroughTheFileSystem() {
     const systemTemporaryDirectory = tmpdir();
     const launchEffectPathsPath = join(systemTemporaryDirectory, 'launch-effect-paths-');
     const rootDirectory = mkdtempSync(launchEffectPathsPath);
+
     tempDirs.push(rootDirectory);
+
     const nestedDirectory = join(rootDirectory, 'a', 'b', 'c');
     const directoryExists = ensureDirectoryExists(nestedDirectory);
+
     await expect(directoryExists).resolves.toBe(nestedDirectory);
     expect(statSync(nestedDirectory).isDirectory()).toBe(true);
   }
 
   it('creates directories through the file system', createsDirectoriesThroughTheFileSystem);
+
   function buildsAccountPathsFromTheHomeDirectory() {
     const accountDirectory = resolveAccountCredentialsDirectory('KEY/42');
     const homeDirectory = homedir();
@@ -82,11 +88,15 @@ function describeStatsPaths() {
   }
   function putsTheStatsFolderAndPortfolioFileUnderLaunch() {
     useTestHome();
+
     const statsDirectory = locateStatsDirectory();
     const statsPath = join(homeDirectory, '.launch', 'stats');
+
     expect(statsDirectory).toBe(statsPath);
+
     const portfolioFilePath = locatePortfolioFilePath();
     const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
+
     expect(portfolioFilePath).toBe(portfolioPath);
   }
 
@@ -94,6 +104,7 @@ function describeStatsPaths() {
     'puts the stats folder and portfolio file under ~/.launch',
     putsTheStatsFolderAndPortfolioFileUnderLaunch,
   );
+
   function putsTheStatsOfOneAppInItsOwnFolder() {
     useTestHome();
     const appStatsDirectory = locateAppStatsDirectory('android-com.acme.app');
@@ -102,8 +113,10 @@ function describeStatsPaths() {
   }
 
   it('puts the stats of one app in its own folder', putsTheStatsOfOneAppInItsOwnFolder);
+
   function refusesAnAppKeyThatCouldLeaveTheStatsFolder() {
     useTestHome();
+
     let failure: unknown = null;
 
     try {

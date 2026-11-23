@@ -19,6 +19,7 @@ function playReleaseFor(
   releaseNotes: readonly AndroidReleaseNote[] | undefined,
 ): Omit<PlayRelease, 'versionCodes'> {
   let release: Omit<PlayRelease, 'versionCodes'> = { status: 'completed' };
+
   const isPartialRollout = rollout < 1;
 
   if (isPartialRollout) {

@@ -63,6 +63,7 @@ function describeMergeDiscoveredApps() {
     const secondSeen = createApp({ accountLabel: 'other' });
 
     const merged = mergeDiscoveredApps([[IOS_APP], [secondSeen, ANDROID_APP]]);
+
     function readAccountLabel(app: DiscoveredApp) {
       return app.accountLabel;
     }
@@ -74,6 +75,7 @@ function describeMergeDiscoveredApps() {
     'keeps the first account when two accounts see the same app key',
     keepsTheFirstAccountWhenTwoAccountsSeeTheSameAppKey,
   );
+
   function returnsAnEmptyListForNoSources() {
     const discoveredApps = mergeDiscoveredApps([]);
     expect(discoveredApps).toEqual([]);
@@ -96,6 +98,7 @@ function describeKeepCachedAppsOfFailedAccounts() {
     'keeps cached apps of a failed account and drops cached apps of an account that answered',
     keepsCachedAppsOfAFailedAccountAndDropsCachedAppsOfAnAccountThatAnswered,
   );
+
   function prefersTheFreshAppOverTheCachedCopy() {
     const fresh = createApp({ name: 'Renamed' });
 
@@ -116,6 +119,7 @@ function describeJoinTags() {
   }
 
   test('gives untagged apps null owner and property', givesUntaggedAppsNullOwnerAndProperty);
+
   function copiesTheTagOfATaggedApp() {
     const joined = joinTags([IOS_APP], [{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: '99' }]);
 
@@ -128,24 +132,28 @@ function describeJoinTags() {
 describe('joinTags', describeJoinTags);
 function describeFindAppsByName() {
   const apps = [IOS_APP, ANDROID_APP];
+
   function matchesTheNameWithoutCase() {
     const appsByName = findAppsByName(apps, 'cal FRIEND');
     expect(appsByName).toEqual([IOS_APP]);
   }
 
   test('matches the name without case', matchesTheNameWithoutCase);
+
   function matchesTheBundleId() {
     const appsByName = findAppsByName(apps, 'jts.calfriend');
     expect(appsByName).toEqual([IOS_APP]);
   }
 
   test('matches the bundle id', matchesTheBundleId);
+
   function matchesThePackageName() {
     const appsByName = findAppsByName(apps, 'jts.fit');
     expect(appsByName).toEqual([ANDROID_APP]);
   }
 
   test('matches the package name', matchesThePackageName);
+
   function returnsNothingWhenTheQueryIsEmptyOrBlank() {
     const appsByName = findAppsByName(apps, '   ');
     expect(appsByName).toEqual([]);
@@ -155,12 +163,14 @@ function describeFindAppsByName() {
     'returns nothing when the query is empty or blank',
     returnsNothingWhenTheQueryIsEmptyOrBlank,
   );
+
   function returnsNothingWhenNoAppMatches() {
     const appsByName = findAppsByName(apps, 'zzz');
     expect(appsByName).toEqual([]);
   }
 
   test('returns nothing when no app matches', returnsNothingWhenNoAppMatches);
+
   function returnsManyAppsWhenManyPiece() {
     const appsByName = findAppsByName(apps, 'jts');
     expect(appsByName).toEqual(apps);
@@ -184,11 +194,13 @@ function describeFilterPortfolioApps() {
   const mineIos = { ...IOS_APP, owner: 'mine' as const, ga4PropertyId: null };
   const clientAndroid = { ...ANDROID_APP, owner: 'client' as const, ga4PropertyId: null };
   const apps = [mineIos, clientAndroid];
+
   function keepsEverythingWithNoFilter() {
     expect(filterPortfolioApps(apps, { platform: null, owner: null })).toEqual(apps);
   }
 
   test('keeps everything with no filter', keepsEverythingWithNoFilter);
+
   function filtersByPlatform() {
     expect(filterPortfolioApps(apps, { platform: 'android', owner: null })).toEqual([
       clientAndroid,
@@ -196,11 +208,13 @@ function describeFilterPortfolioApps() {
   }
 
   test('filters by platform', filtersByPlatform);
+
   function filtersByOwner() {
     expect(filterPortfolioApps(apps, { platform: null, owner: 'mine' })).toEqual([mineIos]);
   }
 
   test('filters by owner', filtersByOwner);
+
   function combinesPlatformAndOwner() {
     expect(filterPortfolioApps(apps, { platform: 'ios', owner: 'client' })).toEqual([]);
   }
@@ -217,6 +231,7 @@ function describeApplyTagChange() {
   }
 
   test('adds a tag for an untagged app', addsATagForAnUntaggedApp);
+
   function keepsTheCurrentOwnerWhenTheChangeHasNone() {
     const current = [{ appKey: 'ios-1', owner: 'client' as const, ga4PropertyId: null }];
 
@@ -229,6 +244,7 @@ function describeApplyTagChange() {
     'keeps the current owner when the change has none',
     keepsTheCurrentOwnerWhenTheChangeHasNone,
   );
+
   function keepsTheCurrentPropertyWhenTheChangeHasNoneAndLeavesOtherAppsAlone() {
     const current = [
       { appKey: 'ios-1', owner: null, ga4PropertyId: '7' },
@@ -252,6 +268,7 @@ function describeApplyTagChange() {
 describe('applyTagChange', describeApplyTagChange);
 function describeApplyTagChangeToApp() {
   const TAGGED_APP = { ...IOS_APP, owner: 'client' as const, ga4PropertyId: '7' };
+
   function replacesTheOwnerAndThePropertyTheChangeGives() {
     const changed = applyTagChangeToApp(TAGGED_APP, { owner: 'mine', ga4PropertyId: '9' });
 
@@ -262,6 +279,7 @@ function describeApplyTagChangeToApp() {
     'replaces the owner and the property the change gives',
     replacesTheOwnerAndThePropertyTheChangeGives,
   );
+
   function keepsTheOwnerAndThePropertyTheChangeLeavesOut() {
     const changed = applyTagChangeToApp(TAGGED_APP, { owner: null, ga4PropertyId: null });
 

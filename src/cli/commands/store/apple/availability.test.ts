@@ -4,12 +4,15 @@ import { registerAvailabilityCommand } from './availability.ts';
 function describeRegisterAvailabilityCommand() {
   function preservesThePublicAvailabilityPieceAndPieceDefault() {
     const program = new Command();
+
     registerAvailabilityCommand(program);
+
     function findRegisteredCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'availability';
     }
 
     const availabilityCommand = program.commands.find(findRegisteredCommand);
+
     function readLong(commandOption: CommandOption) {
       return commandOption.long;
     }
@@ -20,11 +23,13 @@ function describeRegisterAvailabilityCommand() {
       '--dry-run',
       '--yes',
     ]);
+
     function findCommandOption(commandOption: CommandOption) {
       return commandOption.long == '--config';
     }
 
     const configOption = availabilityCommand?.options.find(findCommandOption);
+
     expect(configOption?.defaultValue).toBe('availability.config.json');
   }
 

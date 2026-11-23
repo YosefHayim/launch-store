@@ -120,6 +120,7 @@ async function performAction(
     destructive: false,
     status: 'planned',
   };
+
   reconcileContext.actions.push(plannedAction);
 
   if (reconcileContext.dryRun) {
@@ -166,6 +167,7 @@ function changedPrimaryCategoryId(
   appInformation: AppInfoResource,
 ): string | null {
   const primaryCategoryId = categories.primary;
+
   const isPrimaryMissing = primaryCategoryId == null;
 
   if (isPrimaryMissing) {
@@ -186,6 +188,7 @@ function changedSecondaryCategoryId(
   appInformation: AppInfoResource,
 ): string | null {
   const secondaryCategoryId = categories.secondary;
+
   const isSecondaryMissing = secondaryCategoryId == null;
 
   if (isSecondaryMissing) {
@@ -229,6 +232,7 @@ async function reconcileCategories(
   } = {};
 
   const primaryCategoryId = changedPrimaryCategoryId(categories, appInformation);
+
   const hasPrimaryCategoryChange = primaryCategoryId != null;
 
   if (hasPrimaryCategoryChange) {
@@ -236,6 +240,7 @@ async function reconcileCategories(
   }
 
   const secondaryCategoryId = changedSecondaryCategoryId(categories, appInformation);
+
   const hasSecondaryCategoryChange = secondaryCategoryId != null;
 
   if (hasSecondaryCategoryChange) {
@@ -280,6 +285,7 @@ async function reconcileAgeRating(
   }
 
   const currentDeclaration = await appleReleaseApi.getAgeRatingDeclaration(appInformation.id);
+
   const isDeclarationMissing = currentDeclaration == null;
 
   if (isDeclarationMissing) {
@@ -287,6 +293,7 @@ async function reconcileAgeRating(
       reconcileContext,
       'age rating: no declaration on the app yet (create the version, then re-run)',
     );
+
     return;
   }
 
@@ -307,6 +314,7 @@ async function reconcileAgeRating(
   }
 
   const answerNames = Object.keys(changedAnswers).join(', ');
+
   await performAction(
     reconcileContext,
     `set age rating (${answerNames})`,
@@ -338,6 +346,7 @@ async function reconcilePricing(
   }
 
   const currentPrice = await appleReleaseApi.getCurrentAppPrice(appId, baseTerritory);
+
   const priceAlreadyMatches = isCurrentPrice(currentPrice, pricing.customerPrice);
 
   if (priceAlreadyMatches) {
@@ -353,6 +362,7 @@ async function reconcilePricing(
         baseTerritory,
         pricing.customerPrice,
       );
+
       const isPricePointMissing = pricePoint == null;
 
       if (isPricePointMissing) {
@@ -407,6 +417,7 @@ async function resolveReviewWrite(
   }
 
   const resolvedPassword = await resolveDemoSecret(passwordReference, DEMO_PASSWORD_KEY);
+
   return {
     ...attributes,
     [DEMO_PASSWORD_KEY]: resolvedPassword,
@@ -423,6 +434,7 @@ async function reconcileReviewDetails(
   resolveDemoSecret: SecretResolver,
 ): Promise<void> {
   const desiredAttributes = reviewAttributes(reviewDetails);
+
   const hasNoReviewFields = Object.keys(desiredAttributes).length == 0;
 
   if (hasNoReviewFields) {
@@ -430,6 +442,7 @@ async function reconcileReviewDetails(
   }
 
   const editableVersion = await appleReleaseApi.findEditableAppStoreVersion(appId, platform);
+
   const isVersionMissing = editableVersion == null;
 
   if (isVersionMissing) {
@@ -437,14 +450,17 @@ async function reconcileReviewDetails(
       reconcileContext,
       'App Review details: no editable App Store version (create/select a version first)',
     );
+
     return;
   }
 
   const currentReviewDetails = await appleReleaseApi.getAppStoreReviewDetail(editableVersion.id);
+
   const isReviewMissing = currentReviewDetails == null;
 
   if (isReviewMissing) {
     const fieldNames = renderFieldNames(desiredAttributes);
+
     await performAction(
       reconcileContext,
       `set App Review details (${fieldNames})`,
@@ -453,6 +469,7 @@ async function reconcileReviewDetails(
         await appleReleaseApi.createAppStoreReviewDetail(editableVersion.id, resolvedAttributes);
       },
     );
+
     return;
   }
 
@@ -485,6 +502,7 @@ async function reconcileReviewDetails(
   }
 
   const fieldNames = renderFieldNames(changedAttributes);
+
   await performAction(
     reconcileContext,
     `update App Review details (${fieldNames})`,
@@ -523,6 +541,7 @@ async function reconcileReleaseWith(
   };
   const releaseConfig = reconciliationInput.config;
   const appId = await appleReleaseApi.getAppId(reconciliationInput.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -531,6 +550,7 @@ async function reconcileReleaseWith(
 
   if (needsAppInformation(releaseConfig)) {
     const appInformation = await appleReleaseApi.getAppInfo(appId);
+
     const isAppInformationMissing = appInformation == null;
 
     if (isAppInformationMissing) {
@@ -848,6 +868,7 @@ function decodeAgeRating(candidate: unknown): Record<string, AgeRatingValue> {
   }
 
   const verdict = deprecatedAgeRatingVerdict(answers);
+
   const isDeprecated = verdict != true;
 
   if (isDeprecated) {

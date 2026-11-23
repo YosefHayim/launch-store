@@ -8,6 +8,7 @@ function describeDiagnoseBuildLogMapsNativeErrorsToACauseFix() {
   }
 
   it('recognizes a missing signing profile', recognizesAMissingSigningProfile);
+
   function recognizesTheXcode26CocoaPodsProvisioningProfileArchiveFailureIssue301() {
     const log = [
       'Pods.xcodeproj: error: SomeLibraryPod does not support provisioning profiles. SomeLibraryPod does',
@@ -16,6 +17,7 @@ function describeDiagnoseBuildLogMapsNativeErrorsToACauseFix() {
       'Exit status: 65',
     ].join('\n');
     const [diagnosis] = diagnoseBuildLog(log);
+
     expect(diagnosis?.title).toContain('leaked onto CocoaPods');
     expect(diagnosis?.fix).toContain('app target');
   }
@@ -24,6 +26,7 @@ function describeDiagnoseBuildLogMapsNativeErrorsToACauseFix() {
     'recognizes the Xcode 26 CocoaPods provisioning-profile archive failure (issue #301)',
     recognizesTheXcode26CocoaPodsProvisioningProfileArchiveFailureIssue301,
   );
+
   function recognizesTheCocoaPodsSandboxOutOfSyncError() {
     const [diagnosis] = diagnoseBuildLog('The sandbox is not in sync with the Podfile.lock.');
     expect(diagnosis?.title).toContain('sandbox out of sync');
@@ -34,6 +37,7 @@ function describeDiagnoseBuildLogMapsNativeErrorsToACauseFix() {
     'recognizes the CocoaPods sandbox-out-of-sync error',
     recognizesTheCocoaPodsSandboxOutOfSyncError,
   );
+
   function recognizesAMissingAndroidSDK() {
     const [diagnosis] = diagnoseBuildLog('SDK location not found. Define a valid SDK location.');
     expect(diagnosis?.title).toContain('Android SDK location');
@@ -41,6 +45,7 @@ function describeDiagnoseBuildLogMapsNativeErrorsToACauseFix() {
   }
 
   it('recognizes a missing Android SDK', recognizesAMissingAndroidSDK);
+
   function recognizesAWrongJDKVersion() {
     const [diagnosis] = diagnoseBuildLog('Unsupported class file major version 65');
     expect(diagnosis?.title).toContain('JDK');
@@ -48,6 +53,7 @@ function describeDiagnoseBuildLogMapsNativeErrorsToACauseFix() {
   }
 
   it('recognizes a wrong JDK version', recognizesAWrongJDKVersion);
+
   function recognizesAGradleOutOfMemoryFailure() {
     const [diagnosis] = diagnoseBuildLog('> java.lang.OutOfMemoryError: Java heap space');
     expect(diagnosis?.title).toContain('out of memory');
@@ -55,22 +61,26 @@ function describeDiagnoseBuildLogMapsNativeErrorsToACauseFix() {
   }
 
   it('recognizes a Gradle out-of-memory failure', recognizesAGradleOutOfMemoryFailure);
+
   function returnsNothingForAnUnrecognizedLog() {
     expect(diagnoseBuildLog('some entirely unremarkable output line')).toEqual([]);
   }
 
   it('returns nothing for an unrecognized log', returnsNothingForAnUnrecognizedLog);
+
   function deDuplicatesAndPreservesTableOrderAcrossManyMatchingLines() {
     const log = [
       'SDK location not found',
       "error: No profiles for 'com.acme.app' were found",
       "error: No profiles for 'com.acme.app' were found", // repeated - must not duplicate
     ].join('\n');
+
     function readTitle(d: { title: string; cause: string; fix: string }) {
       return d.title;
     }
 
     const titles = diagnoseBuildLog(log).map(readTitle);
+
     expect(titles).toEqual([
       'Code signing - no usable certificate or profile',
       'Android SDK location not found',
@@ -96,6 +106,7 @@ function describeFormatDiagnoses() {
   }
 
   it('renders a single-cause block with why + fix', rendersASingleCauseBlockWithWhyFix);
+
   function usesThePluralHeaderWhenMoreThanOneMatched() {
     const text = formatDiagnoses(
       diagnoseBuildLog('SDK location not found\nUnsupported class file major version 65'),
@@ -107,6 +118,7 @@ function describeFormatDiagnoses() {
     'uses the plural header when more than one matched',
     usesThePluralHeaderWhenMoreThanOneMatched,
   );
+
   function returnsAnEmptyStringWhenThereIsNothingToReport() {
     const diagnoses = formatDiagnoses([]);
     expect(diagnoses).toBe('');

@@ -57,6 +57,7 @@ export function decodeDiagnoseCommandInput(rawCommandInput: unknown): DiagnoseCo
   }
 
   const logfile = rawCommandInputObject['logfile'];
+
   const logfileIsMissing = logfile == null;
 
   if (logfileIsMissing) {
@@ -157,6 +158,7 @@ export async function diagnoseCommandProgram(rawCommandInput: unknown): Promise<
     const commandInput = decodeDiagnoseCommandInput(rawCommandInput);
     const logPath = await readDiagnoseLogPath(commandInput.logfile);
     const logger = createLogger(false);
+
     const hasNoLog = logPath == null;
 
     if (hasNoLog) {
@@ -177,6 +179,7 @@ export async function diagnoseCommandProgram(rawCommandInput: unknown): Promise<
 
     const logText = await readFile(logPath, 'utf8');
     const diagnoses = diagnoseBuildLog(logText);
+
     const hasNoDiagnoses = diagnoses.length == 0;
 
     if (hasNoDiagnoses) {
@@ -195,6 +198,7 @@ export async function diagnoseCommandProgram(rawCommandInput: unknown): Promise<
     }
 
     const failureMessage = errorMessage(cause);
+
     throw makeDiagnoseCommandFailure({
       operation: 'diagnose build log',
       message: failureMessage,

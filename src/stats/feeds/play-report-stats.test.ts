@@ -55,6 +55,7 @@ function describeReadInstallStats() {
     'maps the documented install columns to metrics for each day in range',
     mapsTheDocumentedInstallColumnsToMetricsForEachDayInRange,
   );
+
   function readsActiveInstallsFromTheDocumentedInstallsOnActiveDevicesHeaderToo() {
     const table = readPlayCsvTable(
       'Date,Daily Device Installs,Installs on Active Devices\n2026-10-01,12,75\n',
@@ -69,12 +70,14 @@ function describeReadInstallStats() {
     'reads active installs from the documented "installs on active devices" header too',
     readsActiveInstallsFromTheDocumentedInstallsOnActiveDevicesHeaderToo,
   );
+
   function keepsOnlyDaysInsideTheRange() {
     const table = readPlayCsvTable(
       'Date,Daily Device Installs\n2026-09-30,1\n2026-10-01,2\n2026-10-31,3\n2026-11-01,4\n',
     );
 
     const stats = readInstallStats(table, OCTOBER);
+
     function readDate(stat: DailyStat) {
       return stat.date;
     }
@@ -83,6 +86,7 @@ function describeReadInstallStats() {
   }
 
   test('keeps only days inside the range', keepsOnlyDaysInsideTheRange);
+
   function skipsBlankAndUnreadableCellsAndLinesWithABadDate() {
     const table = readPlayCsvTable(
       'Date,Daily Device Installs,Daily Device Uninstalls\n2026-10-01,,abc\nnot-a-date,5,5\n,5,5\n2026-10-02,6,\n',
@@ -97,6 +101,7 @@ function describeReadInstallStats() {
     'skips blank and unreadable cells and lines with a bad date',
     skipsBlankAndUnreadableCellsAndLinesWithABadDate,
   );
+
   function givesNothingForAFileWithoutADateColumn() {
     const table = readPlayCsvTable('Daily Device Installs\n5\n');
 
@@ -169,6 +174,7 @@ function describeFindLatestCsvDate() {
     );
 
     const latestCsvDate = findLatestCsvDate(table);
+
     expect(latestCsvDate).toBe('2026-10-09');
   }
 
@@ -176,6 +182,7 @@ function describeFindLatestCsvDate() {
     'returns the newest date in the file, even outside any range',
     returnsTheNewestDateInTheFileEvenOutsideAnyRange,
   );
+
   function returnsNullForAFileWithNoReadableDate() {
     const table = readPlayCsvTable('Date,Daily Crashes\nsoon,1\n');
 
@@ -212,6 +219,7 @@ function describeReadEarningsStats() {
     'adds signed merchant amounts per day and currency for the package',
     addsSignedMerchantAmountsPerDayAndCurrencyForThePackage,
   );
+
   function leavesOutTaxLinesOtherPackagesAndDaysOutsideTheRange() {
     const table = readPlayCsvTable(
       [
@@ -233,6 +241,7 @@ function describeReadEarningsStats() {
     'leaves out tax lines, other packages and days outside the range',
     leavesOutTaxLinesOtherPackagesAndDaysOutsideTheRange,
   );
+
   function skipsLinesWithAnUnreadableDateNoCurrencyOrNoAmount() {
     const table = readPlayCsvTable(
       [
@@ -245,6 +254,7 @@ function describeReadEarningsStats() {
     );
 
     const earningsStats = readEarningsStats(table, 'com.fit', OCTOBER);
+
     expect(earningsStats).toEqual([]);
   }
 
@@ -252,6 +262,7 @@ function describeReadEarningsStats() {
     'skips lines with an unreadable date, no currency or no amount',
     skipsLinesWithAnUnreadableDateNoCurrencyOrNoAmount,
   );
+
   function givesNothingWhenTheFileLacksTheEarningsColumns() {
     const table = readPlayCsvTable('Date,Daily Crashes\n2026-10-01,1\n');
 
@@ -273,6 +284,7 @@ function describeListReportMonths() {
   }
 
   test('lists one month for a range inside a month', listsOneMonthForARangeInsideAMonth);
+
   function listsEveryMonthARangeTouchesAcrossAYearEnd() {
     const months = listReportMonths({ from: '2025-11-20', to: '2026-02-03' });
 

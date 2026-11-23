@@ -130,6 +130,7 @@ export function decodeVersionExperimentsCommandInput(
 /** Convert a dependency failure into the experiments command channel. */
 function experimentsFailure(operation: string, cause: unknown): VersionExperimentsCommandFailure {
   let message = `${operation} failed.`;
+
   const isText = typeof cause == 'string';
 
   if (isText) {
@@ -166,6 +167,7 @@ async function resolveExperimentsTarget(
   }
 
   const bundleId = storeAppContext.app.bundleId;
+
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
@@ -190,6 +192,7 @@ async function resolveExperimentsTarget(
   }
 
   const loadedExperimentsConfig = experimentsConfig;
+
   const isConfigMissing = loadedExperimentsConfig == null;
 
   if (isConfigMissing) {
@@ -251,7 +254,9 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
     }
 
     const plannedActions = experimentsPlan.actions.filter(isPlannedAction);
+
     logger.gap();
+
     const isAlreadyInSync = experimentsPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
@@ -260,7 +265,9 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
     }
 
     const plannedLines = experimentsPlan.actions.map(renderStoreSurfaceAction);
+
     logger.notice(experimentsTarget.bundleId, ...plannedLines);
+
     const hasNothingToApply = plannedActions.length == 0;
 
     if (hasNothingToApply) {
@@ -307,6 +314,7 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
 
     const experimentsSummary = summarizeExperiments(appliedExperiments.actions);
     let receiptTitle = 'Applied';
+
     const hasFailedActions = experimentsSummary.failed > 0;
 
     if (hasFailedActions) {
@@ -314,7 +322,9 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
     }
 
     const receiptLines = appliedExperiments.actions.map(renderAppliedStoreSurfaceAction);
+
     logger.box(receiptTitle, receiptLines);
+
     return experimentsSummary.failed;
   } catch (cause) {
     throw experimentsFailure('run experiments command', cause);
@@ -324,6 +334,7 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
 /** Run the decoded experiments command. */
 export async function versionExperimentsCommandProgram(rawCommandInput: unknown): Promise<void> {
   const failureCount = await executeVersionExperiments(rawCommandInput);
+
   const hasFailures = failureCount > 0;
 
   if (hasFailures) {

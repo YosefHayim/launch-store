@@ -20,6 +20,7 @@ export function registerTeamCommand(program: Command): void {
   const teamCommand = program
     .command('team')
     .description('read and manage the App Store Connect team (members & invitations) from the CLI');
+
   function runList(commandOptions: Omit<TeamListInput, 'operation'>) {
     const teamProgram = teamCommandProgram({ operation: 'list', json: commandOptions.json });
     return runCliProgram(teamProgram);
@@ -30,6 +31,7 @@ export function registerTeamCommand(program: Command): void {
     .description('list team members and pending invitations')
     .option('--json', 'output machine-readable JSON', false)
     .action(runList);
+
   function runInvite(email: string, commandOptions: InviteOptions) {
     const commandInput: TeamInviteInput = {
       operation: 'invite',
@@ -41,6 +43,7 @@ export function registerTeamCommand(program: Command): void {
       yes: commandOptions.yes,
     };
     const teamProgram = teamCommandProgram(commandInput);
+
     return runCliProgram(teamProgram);
   }
 
@@ -54,6 +57,7 @@ export function registerTeamCommand(program: Command): void {
     .option('--provisioning', 'allow the member to create signing assets', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runInvite);
+
   function runRemove(email: string, commandOptions: Readonly<{ yes: boolean }>) {
     const commandInput: TeamRemoveInput = {
       operation: 'remove',
@@ -61,6 +65,7 @@ export function registerTeamCommand(program: Command): void {
       yes: commandOptions.yes,
     };
     const teamProgram = teamCommandProgram(commandInput);
+
     return runCliProgram(teamProgram);
   }
 

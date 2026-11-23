@@ -82,6 +82,7 @@ function assignLocale(
 
 function readShellLocale(variables: Readonly<Record<string, string | undefined>>): ShellLocale {
   const shellLocale: ShellLocale = {};
+
   assignLocale(shellLocale, 'LANG', variables['LANG']);
   assignLocale(shellLocale, 'LANGUAGE', variables['LANGUAGE']);
   assignLocale(shellLocale, 'LC_ALL', variables['LC_ALL']);

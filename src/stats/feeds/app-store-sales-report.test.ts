@@ -36,6 +36,7 @@ function describeFindAppSkus() {
 describe('findAppSkus', describeFindAppSkus);
 function describeSummarizeSalesLines() {
   const day = { date: '2026-10-20', storeId: APP_ID, appSkus: new Set(['calfriend']) };
+
   function countsUnitsPerKindAndSumsProceedsPerCurrency() {
     const stats = summarizeSalesLines(
       [
@@ -72,6 +73,7 @@ function describeSummarizeSalesLines() {
     'counts units per kind and sums proceeds per currency',
     countsUnitsPerKindAndSumsProceedsPerCurrency,
   );
+
   function skipsOtherAppsUnknownProductTypesAndInAppPurchasesOfOtherApps() {
     const stats = summarizeSalesLines(
       [
@@ -89,6 +91,7 @@ function describeSummarizeSalesLines() {
     'skips other apps, unknown product types and In-App Purchases of other apps',
     skipsOtherAppsUnknownProductTypesAndInAppPurchasesOfOtherApps,
   );
+
   function netsARefundAgainstItsSaleAndSkipsZeroProceeds() {
     const stats = summarizeSalesLines(
       [
@@ -115,11 +118,13 @@ function describeSummarizeSalesLines() {
     'nets a refund against its sale and skips zero proceeds',
     netsARefundAgainstItsSaleAndSkipsZeroProceeds,
   );
+
   function skipsProceedsThatHaveNoCurrency() {
     const stats = summarizeSalesLines(
       [makeLine({ 'Developer Proceeds': '2', 'Currency of Proceeds': '' })],
       day,
     );
+
     function readMetric(stat: DailyStat) {
       return stat.metric;
     }
@@ -128,6 +133,7 @@ function describeSummarizeSalesLines() {
   }
 
   test('skips proceeds that have no currency', skipsProceedsThatHaveNoCurrency);
+
   function isEmptyForNoLines() {
     const salesLines = summarizeSalesLines([], day);
     expect(salesLines).toEqual([]);

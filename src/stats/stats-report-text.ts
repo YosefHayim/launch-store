@@ -8,6 +8,7 @@ const NO_NUMBER_MARK = '-';
 /** A count with thousands separators, or a dash when the feed gave no number. */
 export function describeCount(count: number | null): string {
   if (count == null) return NO_NUMBER_MARK;
+
   const countMaximumDecimals = 1;
   return count.toLocaleString('en-US', { maximumFractionDigits: countMaximumDecimals });
 }
@@ -15,9 +16,13 @@ export function describeCount(count: number | null): string {
 /** Proceeds as `USD 56.20, EUR 10.00`, one part per currency, or a dash when there are none. */
 export function describeProceeds(totals: readonly MetricTotal[]): string {
   const proceedsTotals = listProceedsTotals(totals);
+
   const hasNoProceeds = proceedsTotals.length == 0;
+
   if (hasNoProceeds) return NO_NUMBER_MARK;
+
   const moneyDecimals = 2;
+
   function mapTotal(total: MetricTotal) {
     return `${total.currency} ${total.total.toFixed(moneyDecimals)}`;
   }
@@ -28,14 +33,17 @@ export function describeProceeds(totals: readonly MetricTotal[]): string {
 /** A stored crash rate (a fraction) as a percent, or a dash. */
 export function describeCrashRate(crashRate: number | null): string {
   if (crashRate == null) return NO_NUMBER_MARK;
+
   const percentFactor = 100;
   const crashRateDecimals = 2;
+
   return `${(crashRate * percentFactor).toFixed(crashRateDecimals)}%`;
 }
 
 /** A rating average, or a dash. */
 export function describeRating(ratingAverage: number | null): string {
   if (ratingAverage == null) return NO_NUMBER_MARK;
+
   const ratingDecimals = 2;
   return ratingAverage.toFixed(ratingDecimals);
 }
@@ -43,6 +51,7 @@ export function describeRating(ratingAverage: number | null): string {
 /** The owner of an app, or `untagged`. */
 export function describeOwner(owner: string | null): string {
   if (owner == null) return 'untagged';
+
   return owner;
 }
 
@@ -52,7 +61,9 @@ function readUsageLabel(usageTotals: readonly MetricTotal[]): string {
   }
 
   const isActiveUsers = usageTotals.some(someTotal);
+
   if (isActiveUsers) return 'active users';
+
   return 'sessions';
 }
 
@@ -66,6 +77,7 @@ export function describeAppStats(appReport: AppStatsReport): string[] {
   const crashRate = readHeadlineTotal(appReport.totals, ['crashRate']);
   const rating = readHeadlineTotal(appReport.totals, ['ratingAverage']);
   const labelWidth = 14;
+
   function mapLine(line: { label: string; figure: string }) {
     return `  ${line.label.padEnd(labelWidth)}${line.figure}`;
   }
@@ -77,11 +89,13 @@ export function describeAppStats(appReport: AppStatsReport): string[] {
     { label: 'crash rate', figure: describeCrashRate(crashRate) },
     { label: 'rating', figure: describeRating(rating) },
   ].map(mapLine);
+
   function mapMessage(message: string) {
     return `  note: ${message}`;
   }
 
   const messageLines = appReport.messages.map(mapMessage);
+
   return [
     `${appReport.name} (${appReport.platform}, ${owner}, ${appReport.accountLabel})`,
     ...lines,

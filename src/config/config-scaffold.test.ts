@@ -14,12 +14,14 @@ function describeDetectAppRoot() {
     'returns the single shared subdir when every app lives under one',
     returnsTheSingleSharedSubdirWhenEveryAppLivesUnderOne,
   );
+
   function returnsNullWhenAnAppSitsAtTheRepoRoot() {
     const appRoot = detectAppRoot([app('/repo')], '/repo');
     expect(appRoot).toBeNull();
   }
 
   it('returns null when an app sits at the repo root', returnsNullWhenAnAppSitsAtTheRepoRoot);
+
   function returnsNullWhenAppsSpanMoreThanOneTopLevelSubdir() {
     const appRoot = detectAppRoot([app('/repo/apps/a'), app('/repo/packages/b')], '/repo');
     expect(appRoot).toBeNull();
@@ -35,6 +37,7 @@ describe('detectAppRoot', describeDetectAppRoot);
 function describePieceTemplate() {
   function writesTheBlankStarterWithACommentedAppRootsHintWhenNoRootOrExtrasAreGiven() {
     const template = configTemplate(null);
+
     expect(template).toContain('import { defineConfig } from "launch-store";');
     expect(template).toContain('// appRoots:');
     expect(template).not.toContain('products:');
@@ -45,6 +48,7 @@ function describePieceTemplate() {
     'writes the blank starter (with a commented appRoots hint) when no root or extras are given',
     writesTheBlankStarterWithACommentedAppRootsHintWhenNoRootOrExtrasAreGiven,
   );
+
   function injectsAnExtraSectionJustBeforeTheClosingCall() {
     const template = configTemplate('./apps', '  products: { foo: {} },');
     expect(template).toContain('appRoots: ["./apps"]');
@@ -56,6 +60,7 @@ function describePieceTemplate() {
     'injects an extra section just before the closing call',
     injectsAnExtraSectionJustBeforeTheClosingCall,
   );
+
   function emitsAnArtifactDirLineOnlyWhenOneIsSupplied() {
     const template = configTemplate(null);
     expect(template).not.toContain('artifactDir:');

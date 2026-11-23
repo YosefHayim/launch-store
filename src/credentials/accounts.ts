@@ -48,6 +48,7 @@ export function encodeP8(pem: string): string {
 /** Decode a stored `.p8` back to its PEM */
 export function decodeP8(stored: string): string {
   const fromBase64 = Buffer.from(stored, 'base64').toString('utf8');
+
   const isPem = fromBase64.includes('PRIVATE KEY');
 
   if (isPem) {
@@ -62,6 +63,7 @@ export function decodeP8(stored: string): string {
   }
 
   const fromHex = Buffer.from(stored, 'hex').toString('utf8');
+
   const isHexPem = fromHex.includes('PRIVATE KEY');
 
   if (isHexPem) {
@@ -238,6 +240,7 @@ function decodeAccountsFile(candidate: unknown): AccountsFile | null {
   }
 
   let active: string | null = null;
+
   const activeIsString = typeof activeField == 'string';
 
   if (activeIsString) {
@@ -299,9 +302,12 @@ async function readAccounts(): Promise<AccountsFile> {
 async function writeAccounts(accountsFile: AccountsFile): Promise<void> {
   try {
     const launchHomeDirectory = resolveLaunchHomeDirectory();
+
     await mkdir(launchHomeDirectory, { recursive: true });
+
     const accountsFilePath = resolveAccountsFilePath();
     const serialized = JSON.stringify(accountsFile, null, 2);
+
     await writeFile(accountsFilePath, serialized);
   } catch (error) {
     const isWriteFailure = error != null;
@@ -548,6 +554,7 @@ export async function updateAccountIdentity(
   }
 
   const accounts = accountsFile.accounts.map(refreshAccount);
+
   await writeAccounts({ active: accountsFile.active, accounts });
 }
 
@@ -563,6 +570,7 @@ function requireSavedAccount(accountsFile: AccountsFile, keyId: string): void {
 
 export async function setAccountVendorNumber(keyId: string, vendorNumber: string): Promise<void> {
   const accountsFile = await readAccounts();
+
   requireSavedAccount(accountsFile, keyId);
 
   function withVendorNumber(account: AccountRecord): AccountRecord {
@@ -574,6 +582,7 @@ export async function setAccountVendorNumber(keyId: string, vendorNumber: string
   }
 
   const accounts = accountsFile.accounts.map(withVendorNumber);
+
   await writeAccounts({ active: accountsFile.active, accounts });
 }
 
@@ -587,6 +596,7 @@ export async function setActiveKeyId(keyId: string): Promise<void> {
 /** Rename an account's label; throws if it isn't registered. Caller enforces label uniqueness. */
 export async function renameAccount(keyId: string, newLabel: string): Promise<void> {
   const accountsFile = await readAccounts();
+
   requireSavedAccount(accountsFile, keyId);
 
   function withLabel(account: AccountRecord): AccountRecord {
@@ -598,6 +608,7 @@ export async function renameAccount(keyId: string, newLabel: string): Promise<vo
   }
 
   const accounts = accountsFile.accounts.map(withLabel);
+
   await writeAccounts({ active: accountsFile.active, accounts });
 }
 
@@ -645,6 +656,7 @@ export async function removeAccount(keyId: string): Promise<void> {
 
   const accounts = accountsFile.accounts.filter(isOtherAccount);
   const active = nextActiveKeyId(accountsFile.active, keyId, accounts);
+
   await writeAccounts({ active, accounts });
 }
 
@@ -776,6 +788,7 @@ export function decideBuildAccount(
   }
 
   const sole = accountsFile.accounts[0];
+
   const isSoleAccount = accountsFile.accounts.length == 1;
 
   if (isSoleAccount) {
@@ -850,6 +863,7 @@ export async function refreshIdentityIfStale(
 /** One-time, silent upgrade from the pre-multi-account layout. */
 export async function migrateLegacyAccounts(): Promise<void> {
   const accountsFilePath = resolveAccountsFilePath();
+
   const registryExists = await pathExists(accountsFilePath);
 
   if (registryExists) {
@@ -895,6 +909,7 @@ export async function migrateLegacyAccounts(): Promise<void> {
   }
 
   const timestamp = currentTimestamp();
+
   await writeAccounts({
     active: keyId,
     accounts: [{ keyId, issuerId, label: 'default', addedAt: timestamp }],

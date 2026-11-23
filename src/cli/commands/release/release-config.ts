@@ -21,8 +21,11 @@ export function registerReleaseConfigCommand(program: Command): void {
     const commandInput: typeof requiredCommandInput & { app?: string } = {
       ...requiredCommandInput,
     };
+
     if (commandOptions.app != null) commandInput.app = commandOptions.app;
+
     const releaseCommandProgram = releaseConfigCommandProgram(commandInput);
+
     return runCliProgram(releaseCommandProgram);
   }
 

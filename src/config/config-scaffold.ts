@@ -10,6 +10,7 @@ export function detectAppRoot(
 
   for (const app of apps) {
     const relativeAppPath = relative(workingDirectory, app.dir);
+
     const isAtRoot = relativeAppPath == '';
 
     if (isAtRoot) {
@@ -55,14 +56,19 @@ export function configTemplate(
   artifactDir?: string,
 ): string {
   let appRootsLine = `  // appRoots: ["./apps"], // uncomment if your apps live in a subfolder`;
+
   if (appRoot != null) {
     appRootsLine = `  appRoots: ["${appRoot}"], // every app.json lives under here`;
   }
+
   let injected = '';
+
   if (extraSections != null && extraSections.length > 0) {
     injected = `\n${extraSections}\n`;
   }
+
   let profilesBlock = profilesSection;
+
   if (profilesBlock == null)
     profilesBlock = `  profiles: {
     production: {
@@ -71,10 +77,13 @@ export function configTemplate(
       sizeBudgetMB: 200, // soft-gate: confirm before uploading a build over this download size
     },
   },`;
+
   let artifactDirLine = '';
+
   if (artifactDir != null && artifactDir.length > 0) {
     artifactDirLine = `\n  artifactDir: ${JSON.stringify(artifactDir)}, // where local build binaries land (auto-added to .gitignore)`;
   }
+
   return `import { defineConfig } from "launch-store";
 
 /** Launch configuration. */

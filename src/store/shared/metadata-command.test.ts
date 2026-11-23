@@ -142,6 +142,7 @@ function installStoreFakes(): void {
 function describeMetadataCommandPieceSchema() {
   function decodesAPullWithOmittedOptionalSelectors() {
     const metadataCommandSchema = MetadataCommandInputSchema({ operation: 'pull', dryRun: true });
+
     expect(metadataCommandSchema).toEqual({
       operation: 'pull',
       dryRun: true,
@@ -149,6 +150,7 @@ function describeMetadataCommandPieceSchema() {
   }
 
   it('decodes a pull with omitted optional selectors', decodesAPullWithOmittedOptionalSelectors);
+
   function rejectsAnExplicitUndefinedExactOptionalPlatform() {
     function callMetadataCommandPieceSchema() {
       return MetadataCommandInputSchema({
@@ -175,6 +177,7 @@ function describeAssertListingPlatform() {
     }
 
     expect(callAssertListingPlatform).not.toThrow();
+
     function callAssertListingPlatform2() {
       return assertListingPlatform('android');
     }
@@ -183,6 +186,7 @@ function describeAssertListingPlatform() {
   }
 
   it('allows the iOS and Android listing adapters', allowsTheIOSAndAndroidListingAdapters);
+
   function rejectsUnsupportedAppleListingTargets() {
     for (const platform of ['tvos', 'macos', 'visionos'] as const) {
       function callAssertListingPlatform3() {
@@ -243,6 +247,7 @@ function describeMetadataCommandProgram() {
   function prepareMetadataCommandProgram() {
     const systemTemporaryDirectory = tmpdir();
     const launchMetadataCmdPath = join(systemTemporaryDirectory, 'launch-metadata-cmd-');
+
     workspaceDirectory = mkdtempSync(launchMetadataCmdPath);
     appDirectory = join(workspaceDirectory, 'apps', 'demo');
     mkdirSync(appDirectory, { recursive: true });
@@ -264,14 +269,17 @@ function describeMetadataCommandProgram() {
   }
 
   beforeEach(prepareMetadataCommandProgram);
+
   function cleanupMetadataCommandProgram() {
     resetLogger();
     rmSync(workspaceDirectory, { recursive: true, force: true });
   }
 
   afterEach(cleanupMetadataCommandProgram);
+
   async function failsDecodeBeforeContactingTheStore() {
     const commandFailure = await failRawCommand({ operation: 'pull' });
+
     expect(commandFailure).toMatchObject({
       _tag: 'MetadataCommandFailure',
       operation: 'decode metadata command input',
@@ -280,12 +288,14 @@ function describeMetadataCommandProgram() {
   }
 
   it('fails decode before contacting the store', failsDecodeBeforeContactingTheStore);
+
   async function rejectsListingPlatformsWithoutAStoreListingAPI() {
     const commandFailure = await failRawCommand({
       operation: 'pull',
       platform: 'tvos',
       dryRun: true,
     });
+
     expect(commandFailure).toMatchObject({
       message: expect.stringMatching(/iOS and Android store listing only/),
     });
@@ -296,16 +306,19 @@ function describeMetadataCommandProgram() {
     'rejects listing platforms without a store listing API',
     rejectsListingPlatformsWithoutAStoreListingAPI,
   );
+
   async function requiresABundleIdentifierBeforeAppStorePull() {
     vi.mocked(loadStoreAppContext).mockResolvedValue({
       config: stubLaunchConfig,
       app: makeApp({ dir: appDirectory, name: 'no-bundle' }),
     });
+
     const commandFailure = await failRawCommand({
       operation: 'pull',
       platform: 'ios',
       dryRun: true,
     });
+
     expect(commandFailure).toMatchObject({
       operation: 'resolve App Store listing',
       message: expect.stringMatching(/bundle identifier/),
@@ -316,16 +329,19 @@ function describeMetadataCommandProgram() {
     'requires a bundle identifier before App Store pull',
     requiresABundleIdentifierBeforeAppStorePull,
   );
+
   async function requiresAnAndroidPackageBeforePlayPull() {
     vi.mocked(loadStoreAppContext).mockResolvedValue({
       config: stubLaunchConfig,
       app: makeApp({ dir: appDirectory, name: 'no-package' }),
     });
+
     const commandFailure = await failRawCommand({
       operation: 'pull',
       platform: 'android',
       dryRun: true,
     });
+
     expect(commandFailure).toMatchObject({
       operation: 'resolve Play listing',
       message: expect.stringMatching(/android\.package/),
@@ -333,9 +349,12 @@ function describeMetadataCommandProgram() {
   }
 
   it('requires an Android package before Play pull', requiresAnAndroidPackageBeforePlayPull);
+
   async function failsAppStorePullWhenNoActiveAppleAccountIsConfigured() {
     vi.mocked(loadActiveAscKey).mockResolvedValue(null);
+
     const commandFailure = await failCommand('pull', 'ios', true);
+
     expect(commandFailure).toMatchObject({
       operation: 'load active Apple account',
       message: expect.stringMatching(/No active Apple account/),
@@ -347,9 +366,12 @@ function describeMetadataCommandProgram() {
     'fails App Store pull when no active Apple account is configured',
     failsAppStorePullWhenNoActiveAppleAccountIsConfigured,
   );
+
   async function failsPlayPullWhenNoServiceAccountIsConfigured() {
     vi.mocked(loadServiceAccount).mockResolvedValue(null);
+
     const commandFailure = await failCommand('pull', 'android', true);
+
     expect(commandFailure).toMatchObject({
       operation: 'load Play service account',
       message: expect.stringMatching(/No Play service account/),
@@ -361,9 +383,12 @@ function describeMetadataCommandProgram() {
     'fails Play pull when no service account is configured',
     failsPlayPullWhenNoServiceAccountIsConfigured,
   );
+
   async function refusesAppStorePushWhenStorePiecePieceHasNoAppleSection() {
     writeStoreConfig({ android: { info: { 'en-US': { title: 'Demo' } } } });
+
     const commandFailure = await failCommand('push', 'ios', true);
+
     expect(commandFailure).toMatchObject({
       operation: 'read App Store metadata',
       message: expect.stringMatching(/no "apple" section/),
@@ -375,9 +400,12 @@ function describeMetadataCommandProgram() {
     'refuses App Store push when store.config.json has no apple section',
     refusesAppStorePushWhenStorePiecePieceHasNoAppleSection,
   );
+
   async function refusesPlayPushWhenStorePiecePieceHasNoAndroidSection() {
     writeStoreConfig({ apple: { info: { 'en-US': { title: 'Demo' } } } });
+
     const commandFailure = await failCommand('push', 'android', true);
+
     expect(commandFailure).toMatchObject({
       operation: 'read Play metadata',
       message: expect.stringMatching(/no "android" section/),
@@ -389,8 +417,10 @@ function describeMetadataCommandProgram() {
     'refuses Play push when store.config.json has no android section',
     refusesPlayPushWhenStorePiecePieceHasNoAndroidSection,
   );
+
   async function refusesPushWhenStorePiecePieceIsMissing() {
     const commandFailure = await failCommand('push', 'ios', true);
+
     expect(commandFailure).toMatchObject({
       message: expect.stringMatching(/No store\.config\.json/),
     });
@@ -400,6 +430,7 @@ function describeMetadataCommandProgram() {
   }
 
   it('refuses push when store.config.json is missing', refusesPushWhenStorePiecePieceIsMissing);
+
   function describeAppStorePull() {
     function prepareAppStorePull() {
       vi.mocked(loadActiveAscKey).mockResolvedValue(ascKey);
@@ -416,11 +447,14 @@ function describeMetadataCommandProgram() {
     }
 
     beforeEach(prepareAppStorePull);
+
     async function readsTheLiveListingAndMergesItIntoStorePiecePiece() {
       writeStoreConfig({ android: { info: { 'en-US': { title: 'Droid' } } } });
       await runCommand('pull', 'ios', false);
       expect(createEffectAppleClient).toHaveBeenCalledWith(ascKey);
+
       const readStore = readStoreConfig();
+
       expect(readStore).toEqual({
         android: { info: { 'en-US': { title: 'Droid' } } },
         apple: {
@@ -442,10 +476,13 @@ function describeMetadataCommandProgram() {
       'reads the live listing and merges it into store.config.json',
       readsTheLiveListingAndMergesItIntoStorePiecePiece,
     );
+
     async function keepsTheConfiguredAppStoreCategoriesWhichAPullDoesNotRead() {
       writeStoreConfig({ apple: { info: { 'en-US': { title: 'Old' } }, categories: ['GAMES'] } });
       await runCommand('pull', 'ios', false);
+
       const readStore = readStoreConfig();
+
       expect(readStore).toMatchObject({
         apple: { info: { 'en-US': { title: 'Demo' } }, categories: ['GAMES'] },
       });
@@ -455,6 +492,7 @@ function describeMetadataCommandProgram() {
       'keeps the configured App Store categories, which a pull does not read',
       keepsTheConfiguredAppStoreCategoriesWhichAPullDoesNotRead,
     );
+
     async function dryRunReadsTheStoreAndReportsLocalesWithoutWritingThePiece() {
       await runCommand('pull', 'ios', true);
       const pathExists = existsSync(configPath);
@@ -466,13 +504,18 @@ function describeMetadataCommandProgram() {
       'dry-run reads the store and reports locales without writing the config',
       dryRunReadsTheStoreAndReportsLocalesWithoutWritingThePiece,
     );
+
     async function failsWhenTheAppHasNoAppStoreConnectPiece() {
       appleReads.getAppId.mockResolvedValue(null);
+
       const commandFailure = await failCommand('pull', 'ios', false);
+
       expect(commandFailure).toMatchObject({
         message: expect.stringMatching(/No App Store Connect app for com\.demo\.app/),
       });
+
       const pathExists = existsSync(configPath);
+
       expect(pathExists).toBe(false);
     }
 
@@ -480,6 +523,7 @@ function describeMetadataCommandProgram() {
       'fails when the app has no App Store Connect record',
       failsWhenTheAppHasNoAppStoreConnectPiece,
     );
+
     async function isCallableForAdoptStylePulls() {
       await pullAppleListing('com.demo.app', configPath, false);
       const pathExists = existsSync(configPath);
@@ -490,6 +534,7 @@ function describeMetadataCommandProgram() {
   }
 
   describe('App Store pull', describeAppStorePull);
+
   function describeAppStorePush() {
     function prepareAppStorePush() {
       vi.mocked(loadActiveAscKey).mockResolvedValue(ascKey);
@@ -499,9 +544,12 @@ function describeMetadataCommandProgram() {
     }
 
     beforeEach(prepareAppStorePush);
+
     async function dryRunPrintsThePlannedActionsAndWritesNothingToTheStore() {
       await runCommand('push', 'ios', true);
+
       const output = terminalWrites.join('');
+
       expect(output).toMatch(/planned: create listing \[en-US\] App Info/);
       expect(output).toMatch(/planned: create listing \[en-US\] App Store version/);
       expect(output).toMatch(/nothing was written to App Store Connect/);
@@ -513,6 +561,7 @@ function describeMetadataCommandProgram() {
       'dry-run prints the planned actions and writes nothing to the store',
       dryRunPrintsThePlannedActionsAndWritesNothingToTheStore,
     );
+
     async function writesTheListingThroughTheAppStoreConnectClient() {
       await runCommand('push', 'ios', false);
       expect(appleReads.createAppInfoLocalization).toHaveBeenCalledWith('appinfo1', 'en-US', {
@@ -528,9 +577,12 @@ function describeMetadataCommandProgram() {
       'writes the listing through the App Store Connect client',
       writesTheListingThroughTheAppStoreConnectClient,
     );
+
     async function failsWhenTheAppHasNoAppStoreConnectPiece2() {
       appleReads.getAppId.mockResolvedValue(null);
+
       const commandFailure = await failCommand('push', 'ios', false);
+
       expect(commandFailure).toMatchObject({
         message: expect.stringMatching(/No App Store Connect app|app record/i),
       });
@@ -541,9 +593,12 @@ function describeMetadataCommandProgram() {
       'fails when the app has no App Store Connect record',
       failsWhenTheAppHasNoAppStoreConnectPiece2,
     );
+
     async function failsWhenAListingWriteFails() {
       appleReads.createAppInfoLocalization.mockRejectedValue(new Error('rejected by Apple'));
+
       const commandFailure = await failCommand('push', 'ios', false);
+
       expect(commandFailure).toMatchObject({
         message: expect.stringMatching(/rejected by Apple/),
       });
@@ -553,6 +608,7 @@ function describeMetadataCommandProgram() {
   }
 
   describe('App Store push', describeAppStorePush);
+
   function describePlayPull() {
     function preparePlayPull() {
       vi.mocked(loadServiceAccount).mockResolvedValue(serviceAccountJson);
@@ -563,12 +619,15 @@ function describeMetadataCommandProgram() {
     }
 
     beforeEach(preparePlayPull);
+
     async function readsTheLiveListingsAndMergesThemIntoStorePiecePiece() {
       writeStoreConfig({ apple: { info: { 'en-US': { title: 'Demo' } } } });
       await runCommand('pull', 'android', false);
       expect(createEffectPlayClient).toHaveBeenCalledWith(serviceAccountJson);
       expect(playClientFake.listListings).toHaveBeenCalledWith('com.demo.app');
+
       const readStore = readStoreConfig();
+
       expect(readStore).toEqual({
         apple: { info: { 'en-US': { title: 'Demo' } } },
         android: {
@@ -581,6 +640,7 @@ function describeMetadataCommandProgram() {
       'reads the live listings and merges them into store.config.json',
       readsTheLiveListingsAndMergesThemIntoStorePiecePiece,
     );
+
     async function dryRunReadsTheStoreAndReportsLocalesWithoutWritingThePiece2() {
       await runCommand('pull', 'android', true);
       const pathExists = existsSync(configPath);
@@ -595,6 +655,7 @@ function describeMetadataCommandProgram() {
   }
 
   describe('Play pull', describePlayPull);
+
   function describePlayPush() {
     function preparePlayPush() {
       vi.mocked(loadServiceAccount).mockResolvedValue(serviceAccountJson);
@@ -609,9 +670,12 @@ function describeMetadataCommandProgram() {
     }
 
     beforeEach(preparePlayPush);
+
     async function dryRunPrintsThePlannedListingsAndNeverContactsGooglePlay() {
       await runCommand('push', 'android', true);
+
       const output = terminalWrites.join('');
+
       expect(output).toMatch(/planned: update Play listing en-US \(title, shortDescription\)/);
       expect(output).toMatch(/planned: update Play listing de-DE \(fullDescription\)/);
       expect(output).toMatch(/nothing was written to Google Play/);
@@ -623,6 +687,7 @@ function describeMetadataCommandProgram() {
       'dry-run prints the planned listings and never contacts Google Play',
       dryRunPrintsThePlannedListingsAndNeverContactsGooglePlay,
     );
+
     async function updatesEveryListingThroughThePlayClientInOneCall() {
       await runCommand('push', 'android', false);
       expect(playClientFake.updateListings).toHaveBeenCalledTimes(1);
@@ -637,9 +702,12 @@ function describeMetadataCommandProgram() {
       'updates every listing through the Play client in one call',
       updatesEveryListingThroughThePlayClientInOneCall,
     );
+
     async function failsWhenThePlayUpdateFails() {
       playClientFake.updateListings.mockRejectedValue(new Error('Play said no'));
+
       const commandFailure = await failCommand('push', 'android', false);
+
       expect(commandFailure).toMatchObject({
         operation: 'upload Play listings',
         message: expect.stringMatching(/Play said no/),

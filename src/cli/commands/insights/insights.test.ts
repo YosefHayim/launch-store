@@ -17,6 +17,7 @@ function describeRenderInsights() {
     'explains the empty case instead of rendering a blank block',
     explainsTheEmptyCaseInsteadOfRenderingABlankBlock,
   );
+
   function rendersAHeadlineDistributionBarsSentimentAndTrend() {
     const report = buildInsightsReport([
       {
@@ -29,6 +30,7 @@ function describeRenderInsights() {
       },
     ]);
     const out = renderInsights(report);
+
     expect(out).toContain('Insights - 1 app - 3 reviews');
     expect(out).toContain('myapp');
     expect(out).toContain('Rating 3.3/5 - 3 reviews - 33% answered');
@@ -40,12 +42,15 @@ function describeRenderInsights() {
     'renders a headline, distribution bars, sentiment, and trend',
     rendersAHeadlineDistributionBarsSentimentAndTrend,
   );
+
   function addsAPerStoreBreakdownOnlyWhenAnAppSpansBothStores() {
     const insightsReport = buildInsightsReport([
       { app: 'ios', reviews: [review({ store: 'appstore', rating: 5 })] },
     ]);
     const oneStore = renderInsights(insightsReport);
+
     expect(oneStore).not.toContain('App Store:');
+
     const bothStores = renderInsights(
       buildInsightsReport([
         {
@@ -54,6 +59,7 @@ function describeRenderInsights() {
         },
       ]),
     );
+
     expect(bothStores).toContain('App Store:');
     expect(bothStores).toContain('Play:');
   }

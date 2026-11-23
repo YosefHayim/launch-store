@@ -56,6 +56,7 @@ function describeMakeStatsCredentialsTest() {
   }
 
   afterEach(cleanupMakeStatsCredentialsTest);
+
   async function answersNullForEveryMethodByDefault() {
     const credentials = makeStatsCredentialsTest();
 
@@ -68,6 +69,7 @@ function describeMakeStatsCredentialsTest() {
   }
 
   test('answers null for every method by default', answersNullForEveryMethodByDefault);
+
   async function usesTheAnswerATestPassesIn() {
     const playClient: PlayVitalsReader = {
       async vitalsTimeline() {
@@ -90,9 +92,12 @@ describe('makeStatsCredentialsTest', describeMakeStatsCredentialsTest);
 function describeStatsCredentialsLive() {
   let homeDirectory: string;
   const ascClient = makeFakeAscClient([]);
+
   function prepareStatsCredentialsLive() {
     homeDirectory = createTemporaryHomeDirectory();
+
     const workPath = join(homeDirectory, 'work');
+
     useLaunchDirectories({
       homeDirectory,
       workingDirectory: workPath,
@@ -102,6 +107,7 @@ function describeStatsCredentialsLive() {
   }
 
   beforeEach(prepareStatsCredentialsLive);
+
   function cleanupStatsCredentialsLive() {
     useStatsCredentials(null);
     useAppleStoreClientFactory(null);
@@ -129,6 +135,7 @@ function describeStatsCredentialsLive() {
   const encodedP8 = Buffer.from(
     '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----',
   ).toString('base64');
+
   async function buildsTheAppStoreClientOfTheAccountThatOwnsTheKeyId() {
     installLiveFixtures(new Map([['asc-p8:KEYB', encodedP8]]));
 
@@ -141,6 +148,7 @@ function describeStatsCredentialsLive() {
     'builds the App Store client of the account that owns the key id',
     buildsTheAppStoreClientOfTheAccountThatOwnsTheKeyId,
   );
+
   async function answersNullForAnAccountWithNoSavedKeyAndForAnUnknownAccount() {
     installLiveFixtures(new Map());
 
@@ -152,6 +160,7 @@ function describeStatsCredentialsLive() {
     'answers null for an account with no saved key and for an unknown account',
     answersNullForAnAccountWithNoSavedKeyAndForAnUnknownAccount,
   );
+
   async function readsTheVendorNumberOfTheAccountThenTheEnvironmentThenNull() {
     installLiveFixtures(new Map(), { ASC_VENDOR_NUMBER: '999' });
 
@@ -167,6 +176,7 @@ function describeStatsCredentialsLive() {
     'reads the vendor number of the account, then the environment, then null',
     readsTheVendorNumberOfTheAccountThenTheEnvironmentThenNull,
   );
+
   async function hasNoPlayAccountClientOrTokenWhenNoServiceAccountIsSaved() {
     installLiveFixtures(new Map());
 
@@ -179,8 +189,10 @@ function describeStatsCredentialsLive() {
     'has no Play account, client or token when no service account is saved',
     hasNoPlayAccountClientOrTokenWhenNoServiceAccountIsSaved,
   );
+
   async function readsThePlayAccountBuildsTheReportingClientAndGetsATokenWhenOneIsSaved() {
     const createServiceAccount = createServiceAccountJson();
+
     installLiveFixtures(new Map([['play-service-account:com.example.app', createServiceAccount]]));
 
     expect(await StatsCredentialsLive.playServiceAccount('com.example.app')).toEqual(
@@ -198,8 +210,10 @@ function describeStatsCredentialsLive() {
     'reads the Play account, builds the reporting client and gets a token when one is saved',
     readsThePlayAccountBuildsTheReportingClientAndGetsATokenWhenOneIsSaved,
   );
+
   async function usesOnlyTheRequestedAppSlotAndIgnoresAnUnscopedKey() {
     const serialized = JSON.stringify(SERVICE_ACCOUNT);
+
     installLiveFixtures(
       new Map([
         ['play-service-account:com.example.app', serialized],
@@ -218,10 +232,14 @@ function describeStatsCredentialsLive() {
     'uses only the requested app slot and ignores an unscoped key',
     usesOnlyTheRequestedAppSlotAndIgnoresAnUnscopedKey,
   );
+
   async function mapsAnIOSAppToItsUniquelyMatchedConfiguredAndroidPackage() {
     installLiveFixtures(new Map());
+
     const project = join(homeDirectory, 'work');
+
     mkdirSync(project, { recursive: true });
+
     const appPath = join(project, 'app.json');
     const serialized = JSON.stringify({
       expo: {
@@ -230,7 +248,9 @@ function describeStatsCredentialsLive() {
         android: { package: 'com.example.android' },
       },
     });
+
     writeFileSync(appPath, serialized);
+
     const app = {
       key: 'ios-1',
       platform: 'ios' as const,
@@ -254,8 +274,10 @@ function describeStatsCredentialsLive() {
     'maps an iOS app to its uniquely matched configured Android package',
     mapsAnIOSAppToItsUniquelyMatchedConfiguredAndroidPackage,
   );
+
   async function readsThePlayReportsBucketFromPortfolioPieceOrNullWhenNoneIsSaved() {
     installLiveFixtures(new Map());
+
     const bucketBefore = await StatsCredentialsLive.playReportsBucket();
     const serialized = JSON.stringify({
       version: 1,
@@ -264,6 +286,7 @@ function describeStatsCredentialsLive() {
       tags: [],
       playReportsBucket: 'pubsite_prod_rev_123',
     });
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     const bucketAfter = await StatsCredentialsLive.playReportsBucket();

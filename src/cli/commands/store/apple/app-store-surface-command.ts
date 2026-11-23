@@ -57,11 +57,15 @@ function surfaceFailure(
 /** Render one planned App Store surface action with ASCII markers. */
 export function renderStoreSurfaceAction(plannedAction: PlannedAction): string {
   if (plannedAction.status == 'skipped') return `- ${plannedAction.description}`;
+
   if (plannedAction.status == 'failed') {
     let failureText = '';
+
     if (plannedAction.error != null) failureText = ` - ${plannedAction.error}`;
+
     return `x ${plannedAction.description}${failureText}`;
   }
+
   return `+ ${plannedAction.description}`;
 }
 
@@ -69,10 +73,14 @@ export function renderStoreSurfaceAction(plannedAction: PlannedAction): string {
 export function renderAppliedStoreSurfaceAction(appliedAction: PlannedAction): string {
   if (appliedAction.status == 'failed') {
     let failureText = 'failed';
+
     if (appliedAction.error != null) failureText = appliedAction.error;
+
     return `x ${appliedAction.description} - ${failureText}`;
   }
+
   if (appliedAction.status == 'skipped') return `- ${appliedAction.description}`;
+
   return `OK ${appliedAction.description}`;
 }
 
@@ -171,6 +179,7 @@ export async function confirmStoreSurfaceWrite(
   }
 
   const isInteractive = checkTerminalIsInteractive();
+
   const needsATerminal = isInteractive == false;
 
   if (needsATerminal) {
@@ -194,5 +203,6 @@ export async function confirmStoreSurfaceWrite(
   }
 
   LaunchPrompt.cancel('Aborted - no changes made.');
+
   return false;
 }

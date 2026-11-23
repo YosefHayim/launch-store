@@ -7,19 +7,23 @@ function describePlaySubscriptionsCommandPieceSchema() {
       dryRun: false,
       yes: true,
     });
+
     expect(playSubscriptionsCommandSchema).toEqual({ app: 'mobile', dryRun: false, yes: true });
   }
 
   it('decodes the Commander boundary', decodesTheCommanderBoundary);
+
   function acceptsAnOmittedAppSelector() {
     const playSubscriptionsCommandSchema = PlaySubscriptionsCommandInputSchema({
       dryRun: true,
       yes: false,
     });
+
     expect(playSubscriptionsCommandSchema).toEqual({ dryRun: true, yes: false });
   }
 
   it('accepts an omitted app selector', acceptsAnOmittedAppSelector);
+
   function rejectsAnUndefinedExactOptionalApp() {
     function callPlaySubscriptionsCommandPieceSchema() {
       return PlaySubscriptionsCommandInputSchema({

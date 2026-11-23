@@ -21,6 +21,7 @@ function readThrownMessage(cause: unknown): string | null {
 
   for (const field of fields) {
     const message = readMessageField(field[0], field[1]);
+
     const hasMessage = message != null;
 
     if (hasMessage) return message;
@@ -46,6 +47,7 @@ async function captureThrown(work: Promise<unknown>): Promise<{ message: string 
     await work;
   } catch (cause) {
     const message = readThrownMessage(cause);
+
     const isMissingMessage = message == null;
 
     if (isMissingMessage) throw new Error('expected a failure');
@@ -98,6 +100,7 @@ function makeApi(overrides: Partial<AscAppEventsApi> = {}): AscAppEventsApi {
     createAppEventLocalization: vi.fn().mockImplementation(mockImplementationEventId),
     updateAppEventLocalization: vi.fn().mockImplementation(mockImplementationId),
   };
+
   return { ...base, ...overrides };
 }
 function describeListEvents() {
@@ -115,6 +118,7 @@ function describeListEvents() {
       listAppEventLocalizations: vi.fn().mockImplementation(mockImplementationPiece),
     });
     const found = await listEvents(api, 'com.acme.app');
+
     expect(found).toHaveLength(1);
     expect(found[0]?.event.referenceName).toBe('Summer');
     expect(found[0]?.localizations).toHaveLength(1);
@@ -122,6 +126,7 @@ function describeListEvents() {
   }
 
   it('pairs each event with its localizations', pairsEachEventWithItsLocalizations);
+
   async function throwsAnActionableErrorWhenTheAppHasNoAppStoreConnectPiece() {
     function mockCall6() {
       return Promise.resolve(null);
@@ -130,6 +135,7 @@ function describeListEvents() {
     const api = makeApi({ getAppId: vi.fn(mockCall6) });
     const events = listEvents(api, 'com.acme.app');
     const missingApp = await captureThrown(events);
+
     expect(missingApp.message).toContain('No App Store Connect app record');
   }
 
@@ -143,6 +149,7 @@ describe('listEvents', describeListEvents);
 function describeCreateEvent() {
   async function createsWithATrimmedNameAndUpperCasedValidatedEnums() {
     const api = makeApi();
+
     await createEvent(api, 'com.acme.app', {
       referenceName: ' Summer Sale ',
       badge: 'live_event',
@@ -165,6 +172,7 @@ function describeCreateEvent() {
     'creates with a trimmed name and upper-cased, validated enums',
     createsWithATrimmedNameAndUpperCasedValidatedEnums,
   );
+
   async function rejectsAnEmptyReferenceName() {
     const api = makeApi();
     const event = createEvent(api, 'com.acme.app', { referenceName: '  ' });
@@ -173,6 +181,7 @@ function describeCreateEvent() {
   }
 
   it('rejects an empty reference name', rejectsAnEmptyReferenceName);
+
   async function rejectsAnUnknownBadgeWithTheValidList() {
     const api = makeApi();
     const event = createEvent(api, 'com.acme.app', {
@@ -180,10 +189,12 @@ function describeCreateEvent() {
       badge: 'MEGA_EVENT',
     });
     const invalidBadge = await captureThrown(event);
+
     expect(invalidBadge.message).toContain('Invalid badge "MEGA_EVENT"');
   }
 
   it('rejects an unknown badge with the valid list', rejectsAnUnknownBadgeWithTheValidList);
+
   async function rejectsAnUnknownPriority() {
     const api = makeApi();
     const event = createEvent(api, 'com.acme.app', { referenceName: 'X', priority: 'URGENT' });
@@ -192,6 +203,7 @@ function describeCreateEvent() {
   }
 
   it('rejects an unknown priority', rejectsAnUnknownPriority);
+
   async function rejectsAnUnknownPurpose() {
     const api = makeApi();
     const event = createEvent(api, 'com.acme.app', { referenceName: 'X', purpose: 'FOR_FUN' });
@@ -200,6 +212,7 @@ function describeCreateEvent() {
   }
 
   it('rejects an unknown purpose', rejectsAnUnknownPurpose);
+
   async function throwsWhenTheAppHasNoPieceAfterValidationPasses() {
     function mockCall7() {
       return Promise.resolve(null);
@@ -208,6 +221,7 @@ function describeCreateEvent() {
     const api = makeApi({ getAppId: vi.fn(mockCall7) });
     const event = createEvent(api, 'com.acme.app', { referenceName: 'X' });
     const missingApp = await captureThrown(event);
+
     expect(missingApp.message).toContain('No App Store Connect app record');
     expect(api.createAppEvent).not.toHaveBeenCalled();
   }
@@ -223,6 +237,7 @@ function describeLocalizeEvent() {
   async function createsALocalizationWhenNoneExistsForTheLocale() {
     const api = makeApi();
     const localizationOutcome = await localizeEvent(api, 'e1', { locale: 'en-US', name: 'Hello' });
+
     expect(localizationOutcome.replaced).toBe(false);
     expect(api.createAppEventLocalization).toHaveBeenCalledWith('e1', 'en-US', { name: 'Hello' });
     expect(api.updateAppEventLocalization).not.toHaveBeenCalled();
@@ -232,6 +247,7 @@ function describeLocalizeEvent() {
     'creates a localization when none exists for the locale',
     createsALocalizationWhenNoneExistsForTheLocale,
   );
+
   async function updatesTheExistingLocalizationCaseInsensitiveAndCarriesTheLocaleThrough() {
     function mockImplementationPiece2() {
       return Promise.resolve([{ id: 'l9', locale: 'en-US', name: 'Old' }]);
@@ -241,6 +257,7 @@ function describeLocalizeEvent() {
       listAppEventLocalizations: vi.fn().mockImplementation(mockImplementationPiece2),
     });
     const localizationOutcome = await localizeEvent(api, 'e1', { locale: 'EN-us', name: 'New' });
+
     expect(localizationOutcome.replaced).toBe(true);
     expect(localizationOutcome.localization.locale).toBe('en-US');
     expect(api.updateAppEventLocalization).toHaveBeenCalledWith('l9', { name: 'New' });
@@ -251,15 +268,18 @@ function describeLocalizeEvent() {
     'updates the existing localization (case-insensitive) and carries the locale through',
     updatesTheExistingLocalizationCaseInsensitiveAndCarriesTheLocaleThrough,
   );
+
   async function rejectsAnEmptyLocale() {
     const api = makeApi();
     const invalidLocale = await captureThrown(
       localizeEvent(api, 'e1', { locale: '  ', name: 'x' }),
     );
+
     expect(invalidLocale.message).toContain('locale is required');
   }
 
   it('rejects an empty locale', rejectsAnEmptyLocale);
+
   async function rejectsWhenNoCopyFieldsAreProvided() {
     const api = makeApi();
     const missingCopy = await captureThrown(localizeEvent(api, 'e1', { locale: 'en-US' }));

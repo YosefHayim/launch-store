@@ -15,6 +15,7 @@ function describeDecodePlayCsvBytes() {
   }
 
   test('decodes UTF-16LE and drops the byte order mark', decodesUTF16LEAndDropsTheByteOrderMark);
+
   function decodesUTF8WhenThereIsNoUTF16ByteOrderMark() {
     const csvBytes = Buffer.from('Description,Amount\nGPA.1,1.5', 'utf8');
 
@@ -27,6 +28,7 @@ function describeDecodePlayCsvBytes() {
     'decodes UTF-8 when there is no UTF-16 byte order mark',
     decodesUTF8WhenThereIsNoUTF16ByteOrderMark,
   );
+
   function decodesAnEmptyFileAsAnEmptyDocument() {
     const playCsvBytes = decodePlayCsvBytes(new Uint8Array());
     expect(playCsvBytes).toBe('');
@@ -50,6 +52,7 @@ function describeReadPlayCsvTable() {
     'keys every line by its lower-cased, trimmed header names',
     keysEveryLineByItsLowerCasedTrimmedHeaderNames,
   );
+
   function readsWindowsLineBreaksAndSkipsBlankLines() {
     const table = readPlayCsvTable('Date,Daily Crashes\r\n2026-10-01,2\r\n\r\n2026-10-02,0\r\n');
 
@@ -58,6 +61,7 @@ function describeReadPlayCsvTable() {
   }
 
   test('reads Windows line breaks and skips blank lines', readsWindowsLineBreaksAndSkipsBlankLines);
+
   function readsQuotedCellsWithCommasDoubledQuotesAndNewLines() {
     const table = readPlayCsvTable('Product Title,Note\n"Coins, big","He said ""hi""\nthere"\n');
 
@@ -68,6 +72,7 @@ function describeReadPlayCsvTable() {
     'reads quoted cells with commas, doubled quotes and new lines',
     readsQuotedCellsWithCommasDoubledQuotesAndNewLines,
   );
+
   function keepsALastLineThatHasNoPieceLineBreak() {
     const table = readPlayCsvTable('Date,Daily Crashes\n2026-10-01,2');
 
@@ -75,6 +80,7 @@ function describeReadPlayCsvTable() {
   }
 
   test('keeps a last line that has no final line break', keepsALastLineThatHasNoPieceLineBreak);
+
   function leavesOutCellsAShortLineDoesNotHave() {
     const table = readPlayCsvTable('Date,Daily Crashes\n2026-10-01\n');
 
@@ -82,6 +88,7 @@ function describeReadPlayCsvTable() {
   }
 
   test('leaves out cells a short line does not have', leavesOutCellsAShortLineDoesNotHave);
+
   function givesNoLinesForAnEmptyDocumentOrAHeaderOnly() {
     const playCsvTable = readPlayCsvTable('');
     expect(playCsvTable.lines).toEqual([]);

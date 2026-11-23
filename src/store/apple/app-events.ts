@@ -74,6 +74,7 @@ type LocalizeResult = Readonly<{
 /** Convert a transport failure into the in-app-event error channel. */
 function appEventFailure(operation: string, cause: unknown): AppEventFailure {
   const fallback = `${operation} failed.`;
+
   const hasCauseMessage = hasMessage(cause);
 
   if (hasCauseMessage) return makeAppEventFailure({ operation, message: cause.message, cause });
@@ -117,6 +118,7 @@ function validateEventEnum(
   }
 
   const normalizedField = fieldText.trim().toUpperCase();
+
   const isAllowed = allowedValues.includes(normalizedField);
 
   if (isAllowed) {
@@ -136,6 +138,7 @@ export async function listEvents(
   bundleId: string,
 ): Promise<readonly AppEventWithLocalizations[]> {
   const appId = await runEventRequest('resolve App Store app', appEventsStore.getAppId(bundleId));
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -154,6 +157,7 @@ export async function listEvents(
       'list event localizations',
       appEventsStore.listAppEventLocalizations(appEvent.id),
     );
+
     return { event: appEvent, localizations };
   }
 
@@ -167,6 +171,7 @@ export async function createEvent(
   eventRequest: CreateEventRequest,
 ): Promise<AppEventResource> {
   const referenceName = eventRequest.referenceName.trim();
+
   const isReferenceNameMissing = referenceName.length == 0;
 
   if (isReferenceNameMissing) {
@@ -194,6 +199,7 @@ export async function createEvent(
     'BRING_BACK_LAPSED_USERS',
   ]);
   const appId = await runEventRequest('resolve App Store app', appEventsStore.getAppId(bundleId));
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -201,14 +207,19 @@ export async function createEvent(
   }
 
   const eventAttributes: MutableDeep<NewAppEvent> = { referenceName };
+
   if (badge != null) eventAttributes.badge = badge;
+
   if (eventRequest.primaryLocale != null) {
     eventAttributes.primaryLocale = eventRequest.primaryLocale.trim();
   }
+
   if (eventRequest.deepLink != null) {
     eventAttributes.deepLink = eventRequest.deepLink.trim();
   }
+
   if (priority != null) eventAttributes.priority = priority;
+
   if (purpose != null) eventAttributes.purpose = purpose;
 
   return runEventRequest(
@@ -224,6 +235,7 @@ export async function localizeEvent(
   localizationRequest: LocalizeEventRequest,
 ): Promise<LocalizeResult> {
   const locale = localizationRequest.locale.trim();
+
   const isLocaleMissing = locale.length == 0;
 
   if (isLocaleMissing) {
@@ -235,12 +247,15 @@ export async function localizeEvent(
   }
 
   const localizationAttributes: MutableDeep<AppEventLocalizationInput> = {};
+
   if (localizationRequest.name != null) {
     localizationAttributes.name = localizationRequest.name;
   }
+
   if (localizationRequest.shortDescription != null) {
     localizationAttributes.shortDescription = localizationRequest.shortDescription;
   }
+
   if (localizationRequest.longDescription != null) {
     localizationAttributes.longDescription = localizationRequest.longDescription;
   }
@@ -265,6 +280,7 @@ export async function localizeEvent(
   }
 
   const existingLocalization = localizations.find(localizationMatchesLocale);
+
   const hasExistingLocalization = existingLocalization != null;
 
   if (hasExistingLocalization) {
@@ -272,6 +288,7 @@ export async function localizeEvent(
       'update event localization',
       appEventsStore.updateAppEventLocalization(existingLocalization.id, localizationAttributes),
     );
+
     return {
       localization: { ...storedLocalization, locale: existingLocalization.locale },
       replaced: true,
@@ -282,6 +299,7 @@ export async function localizeEvent(
     'create event localization',
     appEventsStore.createAppEventLocalization(eventId, locale, localizationAttributes),
   );
+
   return { localization: storedLocalization, replaced: false };
 }
 

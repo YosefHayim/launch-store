@@ -39,6 +39,7 @@ export const catalogPlanner: SurfacePlanner = {
   store: 'appstore',
   async plan(planContext: PlanContext) {
     const jobs = await buildJobs(planContext.apps, planContext.config);
+
     const isNothingDeclared = jobs.length == 0;
 
     if (isNothingDeclared) {

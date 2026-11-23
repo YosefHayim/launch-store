@@ -19,6 +19,7 @@ export function registerCredsCommand(program: Command): void {
       secondArgument,
       options: commandOptions,
     });
+
     return runCliProgram(credentialsProgram);
   }
 

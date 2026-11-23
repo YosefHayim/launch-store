@@ -127,6 +127,7 @@ export async function reconcileEuDistributionDomains(
       reconcileContext,
       `authorize distribution domain ${declaredDomain.domain} (${declaredDomain.referenceName})`,
     );
+
     const isDryRun = dryRun == true;
 
     if (isDryRun) {

@@ -110,12 +110,14 @@ function makeLocalStorageProvider(directoryOverride?: string): StorageProvider {
     }
 
     await mkdir(objectsDirectory, { recursive: true });
+
     const canonicalRoot = await realpath(objectsDirectory);
     const destination = objectPath(objectKey);
     let existingAncestor = destination;
 
     while (existingAncestor != objectsDirectory) {
       const linkTarget = await readLinkTarget(existingAncestor);
+
       const isSymlink = linkTarget != null;
 
       if (isSymlink) {
@@ -133,6 +135,7 @@ function makeLocalStorageProvider(directoryOverride?: string): StorageProvider {
 
     const canonicalAncestor = await realpath(existingAncestor);
     const relativeAncestor = relative(canonicalRoot, canonicalAncestor);
+
     const escapesParent = relativeAncestor == '..';
 
     if (escapesParent) {
@@ -156,10 +159,14 @@ function makeLocalStorageProvider(directoryOverride?: string): StorageProvider {
 
   async function putArtifact(artifact: BuildArtifact) {
     await mkdir(baseDirectory, { recursive: true });
+
     const artifactId = `${artifact.appName}-${artifact.version}-${artifact.buildNumber}-${artifact.platform}${extname(artifact.path)}`;
     const destination = join(baseDirectory, artifactId);
+
     await copyFile(artifact.path, destination);
+
     const artifactIndex = await readArtifactIndex(artifactIndexPath);
+
     await writeArtifactIndex(
       [{ ...artifact, path: destination }, ...artifactIndex],
       artifactIndexPath,
@@ -171,6 +178,7 @@ function makeLocalStorageProvider(directoryOverride?: string): StorageProvider {
   async function locateArtifact(artifactId: string): Promise<string> {
     const fileName = basename(artifactId);
     const artifactPath = join(baseDirectory, fileName);
+
     const artifactExists = await pathExists(artifactPath);
 
     if (artifactExists) {
@@ -190,6 +198,7 @@ function makeLocalStorageProvider(directoryOverride?: string): StorageProvider {
   ) {
     const destination = await checkObjectPath(objectKey);
     const parentDirectory = dirname(destination);
+
     await mkdir(parentDirectory, { recursive: true });
     await writeFile(destination, objectContents);
 

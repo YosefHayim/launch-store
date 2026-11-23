@@ -12,18 +12,26 @@ import type { components } from '../../apple-api-types.ts';
 export class ConnectAppClips {
   constructor(private readonly client: AscHost) {}
 
+  /**
+   * List your app’s associated App Clips.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appclips
+   */
   async listAppClips(appId: string): Promise<AppClipResource[]> {
     const appleResources = await this.client.requestAll<{
       bundleId?: string;
     }>(`/apps/${appId}/appClips?limit=200`);
+
     function mapClip(clip: {
       id: string;
       attributes: { bundleId?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       const appClip: AppClipResource = { id: clip.id };
+
       if (clip.attributes.bundleId != null)
         Object.assign(appClip, { bundleId: clip.attributes.bundleId });
+
       return appClip;
     }
 
@@ -37,25 +45,38 @@ export class ConnectAppClips {
     let next: string | undefined =
       `/appClips/${appClipId}/appClipDefaultExperiences` +
       `?include=releaseWithAppStoreVersion&fields[appClipDefaultExperiences]=action,releaseWithAppStoreVersion&limit=200`;
+
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page: AppClipExperiencePage = await this.client.request<AppClipExperiencePage>(
         'GET',
         next,
       );
+
       for (const experience of page.data) {
         const defaultExperience: AppClipDefaultExperienceResource = { id: experience.id };
+
         if (experience.attributes?.action != null)
           Object.assign(defaultExperience, { action: experience.attributes.action });
+
         const versionId = experience.relationships?.releaseWithAppStoreVersion?.data?.id;
+
         if (versionId != null) Object.assign(defaultExperience, { versionId });
+
         all.push(defaultExperience);
       }
+
       next = page.links?.next;
     }
+
     return all;
   }
 
+  /**
+   * Configure a new default App Clip experience.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-appclipdefaultexperiences
+   */
   async createAppClipDefaultExperience(
     appClipId: string,
     versionId: string,
@@ -70,7 +91,9 @@ export class ConnectAppClips {
         releaseWithAppStoreVersion: { data: { type: 'appStoreVersions', id: versionId } },
       },
     };
+
     if (action != null) Object.assign(experienceData, { attributes: { action } });
+
     const requestDocument: components['schemas']['AppClipDefaultExperienceCreateRequest'] = {
       data: experienceData,
     };
@@ -79,9 +102,15 @@ export class ConnectAppClips {
         action?: string;
       }>
     >('POST', '/appClipDefaultExperiences', requestDocument);
+
     return { id: appleResources.id };
   }
 
+  /**
+   * Update a default App Clip experience.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-appclipdefaultexperiences-_id_
+   */
   async updateAppClipDefaultExperienceAction(
     experienceId: string,
     action: AppClipActionValue,
@@ -89,6 +118,7 @@ export class ConnectAppClips {
     const requestDocument: components['schemas']['AppClipDefaultExperienceUpdateRequest'] = {
       data: { type: 'appClipDefaultExperiences', id: experienceId, attributes: { action } },
     };
+
     await this.client.request<unknown>(
       'PATCH',
       `/appClipDefaultExperiences/${experienceId}`,
@@ -96,6 +126,12 @@ export class ConnectAppClips {
     );
   }
 
+  /**
+   * Get localized metadata that appears on the App Clip card for a specific default App Clip
+   * experience.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appclipdefaultexperiences-_id_-appclipdefaultexperiencelocalizations
+   */
   async listAppClipDefaultExperienceLocalizations(
     experienceId: string,
   ): Promise<AppClipLocalizationResource[]> {
@@ -105,25 +141,35 @@ export class ConnectAppClips {
     }>(
       `/appClipDefaultExperiences/${experienceId}/appClipDefaultExperienceLocalizations?limit=200`,
     );
+
     function mapLocalization(localization: {
       id: string;
       attributes: { locale?: string; subtitle?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let locale = localization.attributes.locale;
+
       if (locale == null) locale = '';
+
       const localizedExperience: MutableDeep<AppClipLocalizationResource> = {
         id: localization.id,
         locale,
       };
+
       if (localization.attributes.subtitle != null)
         localizedExperience.subtitle = localization.attributes.subtitle;
+
       return localizedExperience;
     }
 
     return appleResources.map(mapLocalization);
   }
 
+  /**
+   * Provide localized metadata that appears on the App Clip card of a default App Clip experience.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-appclipdefaultexperiencelocalizations
+   */
   async createAppClipDefaultExperienceLocalization(
     experienceId: string,
     locale: string,
@@ -141,6 +187,7 @@ export class ConnectAppClips {
           },
         },
       };
+
     await this.client.request<unknown>(
       'POST',
       '/appClipDefaultExperienceLocalizations',
@@ -148,6 +195,11 @@ export class ConnectAppClips {
     );
   }
 
+  /**
+   * Update localized metadata for a specific default App Clip experience.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-appclipdefaultexperiencelocalizations-_id_
+   */
   async updateAppClipDefaultExperienceLocalization(
     localizationId: string,
     subtitle: string,
@@ -160,6 +212,7 @@ export class ConnectAppClips {
           attributes: { subtitle },
         },
       };
+
     await this.client.request<unknown>(
       'PATCH',
       `/appClipDefaultExperienceLocalizations/${localizationId}`,

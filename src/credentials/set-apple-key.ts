@@ -113,6 +113,7 @@ async function selectAccountLabel(
   canPrompt: boolean,
 ): Promise<string> {
   let accountLabel = commandOptions.label;
+
   const needsPrompt = accountLabel == null;
 
   if (needsPrompt) {
@@ -188,6 +189,7 @@ async function verifyAppleKey(ascKey: AscKey): Promise<AppStoreIdentity> {
     }
 
     const failureMessage = errorMessage(cause);
+
     logger.warn(
       `Could not verify the key with Apple (${failureMessage}). Saving it unresolved; run \`launch-store creds refresh\` later.`,
     );

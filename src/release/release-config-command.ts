@@ -77,6 +77,7 @@ export function renderAction(plannedAction: PlannedAction): string {
 
   if (isFailed) {
     let errorDetail = '';
+
     const hasError = plannedAction.error != null;
 
     if (hasError) {
@@ -111,6 +112,7 @@ function renderReceiptLine(appliedAction: PlannedAction): string {
   }
 
   let marker = 'OK';
+
   const isSkipped = appliedAction.status == 'skipped';
 
   if (isSkipped) {
@@ -163,6 +165,7 @@ export async function releaseConfigCommandProgram(
     selectedApp = await selectApp(loadedConfiguration.apps, commandInput.app);
   } catch (cause) {
     let explicitMessage: string | undefined;
+
     const causeHasMessage = hasMessage(cause);
 
     if (causeHasMessage) {
@@ -173,6 +176,7 @@ export async function releaseConfigCommandProgram(
   }
 
   const bundleId = selectedApp.bundleId;
+
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
@@ -197,6 +201,7 @@ export async function releaseConfigCommandProgram(
   }
 
   const loadedReleaseAttributes = releaseAttributes;
+
   const isReleaseAttributesMissing = loadedReleaseAttributes == null;
 
   if (isReleaseAttributesMissing) {
@@ -216,6 +221,7 @@ export async function releaseConfigCommandProgram(
   }
 
   const activeAscKey = ascKey;
+
   const isAccountMissing = activeAscKey == null;
 
   if (isAccountMissing) {
@@ -247,7 +253,9 @@ export async function releaseConfigCommandProgram(
   }
 
   const plannedActions = releasePlan.actions.filter(isPlannedAction);
+
   logger.gap();
+
   const isAlreadyInSync = releasePlan.actions.length == 0;
 
   if (isAlreadyInSync) {
@@ -256,7 +264,9 @@ export async function releaseConfigCommandProgram(
   }
 
   const plannedLines = releasePlan.actions.map(renderAction);
+
   logger.notice(bundleId, ...plannedLines);
+
   const hasNothingToApply = plannedActions.length == 0;
 
   if (hasNothingToApply) {
@@ -265,6 +275,7 @@ export async function releaseConfigCommandProgram(
       'release-config',
       'nothing to apply (everything in sync; skipped areas need a version first)',
     );
+
     return;
   }
 
@@ -277,6 +288,7 @@ export async function releaseConfigCommandProgram(
   }
 
   const confirmed = await confirmReleaseChanges(plannedActions.length, commandInput.yes);
+
   const isDeclined = confirmed == false;
 
   if (isDeclined) {
@@ -299,6 +311,7 @@ export async function releaseConfigCommandProgram(
   const releaseSummary = summarize(appliedRelease.actions);
   const receiptLines = appliedRelease.actions.map(renderReceiptLine);
   let receiptTitle = 'Applied';
+
   const hasFailedActions = releaseSummary.failed > 0;
 
   if (hasFailedActions) {

@@ -28,14 +28,22 @@ interface BuildUploadRequest {
 export class AppStoreConnect {
   constructor(private readonly token = new AppStoreToken()) {}
 
-  /** Lists the apps this key can see. */
+  /**
+   * Lists the apps this key can see.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps
+   */
   async listApps(): Promise<AppList> {
     const page = await this.send('GET', '/v1/apps', null);
 
     return page as AppList;
   }
 
-  /** Opens a build upload for one version of an app. */
+  /**
+   * Opens a build upload for one version of an app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-builduploads
+   */
   async createBuildUpload(buildUpload: BuildUploadRequest): Promise<string> {
     const requestDocument: BuildUploadCreateRequest = {
       data: {
@@ -56,6 +64,7 @@ export class AppStoreConnect {
       requestDocument,
     )) as BuildUploadResponse;
     const uploadId = created.data.id;
+
     const isMissing = uploadId == null;
 
     if (isMissing) {
@@ -65,21 +74,33 @@ export class AppStoreConnect {
     return uploadId;
   }
 
-  /** Lists App Store versions for one app. */
+  /**
+   * Lists App Store versions for one app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appstoreversions
+   */
   async listVersions(appId: string): Promise<readonly string[]> {
     const page = await this.readPage(`/v1/apps/${appId}/appStoreVersions`);
 
     return namesFrom(page, 'versionString');
   }
 
-  /** Lists in-app purchases for one app. */
+  /**
+   * Lists in-app purchases for one app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-inapppurchasesv2
+   */
   async listInAppPurchases(appId: string): Promise<readonly string[]> {
     const page = await this.readPage(`/v1/apps/${appId}/inAppPurchasesV2`);
 
     return namesFrom(page, 'productId');
   }
 
-  /** Lists the app info records that hold the privacy details. */
+  /**
+   * Lists the app info records that hold the privacy details.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appinfos
+   */
   async listAppInfo(appId: string): Promise<readonly string[]> {
     const page = await this.readPage(`/v1/apps/${appId}/appInfos`);
 
@@ -94,6 +115,7 @@ export class AppStoreConnect {
     }
 
     const app = apps.data.find(isThisApp);
+
     const isMissing = app == null;
 
     if (isMissing) {
@@ -152,6 +174,7 @@ export class AppStoreConnect {
 
 function namesFrom(page: ApplePage, field: 'name' | 'productId' | 'versionString'): string[] {
   const rows = page.data;
+
   const isMissing = rows == null;
 
   if (isMissing) {
@@ -162,6 +185,7 @@ function namesFrom(page: ApplePage, field: 'name' | 'productId' | 'versionString
 
   for (const row of rows) {
     const attributes = row.attributes;
+
     const isBlankAttributes = attributes == null;
 
     if (isBlankAttributes) {
@@ -169,6 +193,7 @@ function namesFrom(page: ApplePage, field: 'name' | 'productId' | 'versionString
     }
 
     const name = attributes[field];
+
     const isBlank = name == null;
 
     if (isBlank) {

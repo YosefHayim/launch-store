@@ -10,6 +10,7 @@ function describeCloudCommandPieceSchema() {
     'decodes the %s operation',
     runOperation,
   );
+
   function rejectsUnknownOperationsBeforeAnyProviderIsCalled() {
     function callCloudCommandPieceSchema() {
       return CloudCommandInputSchema({ operation: 'restart', yes: false });

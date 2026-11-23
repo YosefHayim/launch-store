@@ -90,6 +90,7 @@ async function classifyProbe(
     return { ...featureSummary, status: 'available' };
   } catch (cause) {
     const failure = cause as AppleTransportFailure;
+
     const isForbidden = failure.status == 403;
 
     if (isForbidden) {
@@ -126,6 +127,7 @@ async function probeFeature(
   featureProbe: FeatureProbe,
 ): Promise<AscPermissionResult> {
   const needsApp = featureProbe.needsApp;
+
   const cannotProbe = isProbeBlocked(needsApp, appId);
 
   if (cannotProbe) {
@@ -139,7 +141,9 @@ async function probeFeature(
   }
 
   let resolvedAppId = '';
+
   if (appId != null) resolvedAppId = appId;
+
   return classifyProbe(featureProbe, permissionClient, resolvedAppId);
 }
 
@@ -209,7 +213,9 @@ export function formatPermissionLine(permission: AscPermissionResult): string {
       return `x ${permission.label} - key unauthorized (401); re-check the key id, issuer id, and expiry`;
     case 'inconclusive': {
       const explanation = permission.detail;
+
       if (explanation == null) return `- ${permission.label} - couldn't determine`;
+
       return `- ${permission.label} - couldn't determine (${explanation})`;
     }
   }

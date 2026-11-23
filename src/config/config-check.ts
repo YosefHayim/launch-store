@@ -168,6 +168,7 @@ export function checkAppConfig(
   const ios = decodedRecordOrNull(expo['ios']);
   const android = decodedRecordOrNull(expo['android']);
   const findings: ConfigFinding[] = [];
+
   const applePlatform = isApplePlatform(platform);
 
   if (applePlatform) {
@@ -201,6 +202,7 @@ export function checkAppConfig(
 
     const splash = decodedRecordOrNull(expo['splash']);
     const androidSplash = readAdaptiveSplash(android);
+
     const splashIsBroken = splashScreenIsBroken(splash, androidSplash);
 
     if (splashIsBroken) {
@@ -277,6 +279,7 @@ export async function checkApp(app: AppDescriptor, platform: Platform): Promise<
   }
 
   const fileName = basename(app.configPath);
+
   return checkAppConfig(raw, fileName, platform);
 }
 

@@ -40,6 +40,7 @@ export async function readDocumentFile<Document>(
     }
 
     const failureMessage = errorMessage(cause);
+
     throw makeDocumentFileFailure({
       filePath,
       message: `Could not read ${filePath}: ${failureMessage}`,
@@ -54,13 +55,17 @@ export async function writeDocumentFileAtomically(
 ): Promise<void> {
   try {
     const folderPath = dirname(filePath);
+
     await mkdir(folderPath, { recursive: true });
+
     const draftFilePath = `${filePath}.${randomUUID()}.draft`;
     const documentAsString = JSON.stringify(document, null, 2);
+
     await writeFile(draftFilePath, `${documentAsString}\n`);
     await rename(draftFilePath, filePath);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     throw makeDocumentFileFailure({
       filePath,
       message: `Could not write ${filePath}: ${failureMessage}`,

@@ -118,11 +118,13 @@ function describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelect
   }
 
   beforeEach(prepareLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection);
+
   function cleanupLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection() {
     useCredentialsReader(null);
   }
 
   afterEach(cleanupLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection);
+
   async function loadsTheActiveAccountSKeyWhenThePieceNamesNone() {
     const provider = makeLocalCredentialsProvider();
     const ios = iosContext();
@@ -139,6 +141,7 @@ function describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelect
     "loads the active account's key when the context names none",
     loadsTheActiveAccountSKeyWhenThePieceNamesNone,
   );
+
   async function loadsThePieceSNamedAccountOverridingTheActiveOne() {
     const provider = makeLocalCredentialsProvider();
     const ios = iosContext('BBBB2222');
@@ -153,11 +156,14 @@ function describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelect
     "loads the context's named account, overriding the active one",
     loadsThePieceSNamedAccountOverridingTheActiveOne,
   );
+
   async function returnsAnActionableFailureWhenNoAccountIsAvailable() {
     credentialState.activeAppleKeyId = null;
+
     const provider = makeLocalCredentialsProvider();
 
     const ios = iosContext();
+
     await expect(provider.resolveBuildCredentials(ios)).rejects.toMatchObject({
       _tag: 'MissingCredentialsFailure',
       platform: 'apple',
@@ -193,11 +199,13 @@ function describeLocalCredentialsProviderStatus() {
   }
 
   beforeEach(prepareLocalCredentialsProviderStatus);
+
   function cleanupLocalCredentialsProviderStatus() {
     useCredentialsReader(null);
   }
 
   afterEach(cleanupLocalCredentialsProviderStatus);
+
   async function listsEachAccountWithTheActiveOneMarked() {
     const provider = makeLocalCredentialsProvider();
     const status = await provider.status();
@@ -208,6 +216,7 @@ function describeLocalCredentialsProviderStatus() {
   }
 
   it('lists each account with the active one marked', listsEachAccountWithTheActiveOneMarked);
+
   async function surfacesTheAccountSAppsWithANOverflow() {
     credentialState.appleAccountStatuses = [
       {
@@ -220,6 +229,7 @@ function describeLocalCredentialsProviderStatus() {
         profileCount: 0,
       },
     ];
+
     const provider = makeLocalCredentialsProvider();
     const status = await provider.status();
 
@@ -227,6 +237,7 @@ function describeLocalCredentialsProviderStatus() {
   }
 
   it("surfaces the account's apps with a +N overflow", surfacesTheAccountSAppsWithANOverflow);
+
   async function flagsAnUnresolvedAccountSoTheFixIsOneCommandAway() {
     credentialState.appleAccountStatuses = [
       {
@@ -239,6 +250,7 @@ function describeLocalCredentialsProviderStatus() {
         profileCount: 0,
       },
     ];
+
     const provider = makeLocalCredentialsProvider();
     const status = await provider.status();
 
@@ -249,8 +261,10 @@ function describeLocalCredentialsProviderStatus() {
     'flags an unresolved account so the fix is one command away',
     flagsAnUnresolvedAccountSoTheFixIsOneCommandAway,
   );
+
   async function reportsAnEmptyRegistryPlainly() {
     credentialState.appleAccountStatuses = [];
+
     const provider = makeLocalCredentialsProvider();
     const status = await provider.status();
 
@@ -258,10 +272,12 @@ function describeLocalCredentialsProviderStatus() {
   }
 
   it('reports an empty registry plainly', reportsAnEmptyRegistryPlainly);
+
   async function checksAndroidCredentialsAgainstEachConfiguredAppPackage() {
     credentialState.androidStatuses = {
       'com.x.sampleapp': { keystoreAlias: 'upload-key', hasServiceAccount: true },
     };
+
     const provider = makeLocalCredentialsProvider();
     const status = await provider.status(['com.x.sampleapp']);
 
@@ -279,22 +295,27 @@ function describeLocalCredentialsProviderStatus() {
 describe('localCredentialsProvider.status', describeLocalCredentialsProviderStatus);
 function describeLegacyAndroidBuildGuidance() {
   let homeDirectory: string;
+
   function prepareLegacyAndroidBuildGuidance() {
     const systemTemporaryDirectory = tmpdir();
     const launchLegacyGuidancePath = join(systemTemporaryDirectory, 'launch-legacy-guidance-');
+
     homeDirectory = mkdtempSync(launchLegacyGuidancePath);
     useCredentialsReader(null);
     useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
     useLaunchEnvironment({});
+
     const serialized = JSON.stringify({
       client_email: 'robot@example.invalid',
       private_key: 'dummy',
     });
     const legacyAccount = Buffer.from(serialized).toString('base64');
+
     useSecretStore(new Map([['play-service-account', legacyAccount]]));
   }
 
   beforeEach(prepareLegacyAndroidBuildGuidance);
+
   function cleanupLegacyAndroidBuildGuidance() {
     useCredentialsReader(null);
     resetLaunchDirectories();
@@ -304,6 +325,7 @@ function describeLegacyAndroidBuildGuidance() {
   }
 
   afterEach(cleanupLegacyAndroidBuildGuidance);
+
   async function tellsALegacyOnlyUserHowToAdoptForTheSelectedApp() {
     const provider = makeLocalCredentialsProvider();
     const context: ResolvedBuildContext = {

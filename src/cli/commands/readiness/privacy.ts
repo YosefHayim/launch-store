@@ -13,6 +13,7 @@ export function registerPrivacyCommand(program: Command): void {
   const privacyCommand = program
     .command('privacy')
     .description('reconcile your permission/data surface against your privacy declarations');
+
   function runScan(commandOptions: PrivacyScanOptions) {
     const privacyProgram = privacyCommandProgram(commandOptions);
     return runCliProgram(privacyProgram);

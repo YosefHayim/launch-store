@@ -37,6 +37,7 @@ export class CredentialsCommand {
 
   private showStatus = async (): Promise<void> => {
     const saved = await readSavedAccounts();
+
     const isMissing = saved == null;
 
     if (isMissing) {
@@ -46,6 +47,7 @@ export class CredentialsCommand {
 
     const account = findActiveAccount(saved);
     const namedKey = await this.keychain.read(applePrivateKeyAccount(account.keyId));
+
     const hasNamedKey = namedKey != null;
 
     if (hasNamedKey) {
@@ -54,6 +56,7 @@ export class CredentialsCommand {
     }
 
     const legacyKey = await this.keychain.read(LEGACY_APPLE_PRIVATE_KEY_ACCOUNT);
+
     const hasLegacyKey = legacyKey != null;
 
     if (hasLegacyKey) {

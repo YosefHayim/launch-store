@@ -117,6 +117,7 @@ export function readGa4Error(httpStatus: number, errorDocument: unknown): Ga4Err
   }
 
   const message = readGoogleMessage(googleMessage, fallbackMessage);
+
   const isServiceDisabled = hasServiceDisabledReason(googleErrorObject['details']);
 
   if (isServiceDisabled) {
@@ -227,6 +228,7 @@ function readJsonDocument(session: Ga4Session, reply: FetchReply): unknown {
     return JSON.parse(reply.documentText);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     throw createGa4Failure(
       session,
       `Google Analytics reply (HTTP ${reply.status}) was not JSON: ${failureMessage}`,
@@ -247,6 +249,7 @@ export async function requestGa4Document(session: Ga4Session, call: Ga4Call): Pr
   }
 
   const analyticsDocument = readJsonDocument(session, analyticsReply);
+
   const isSuccess = isHttpSuccess(analyticsReply.status);
 
   if (isSuccess) {

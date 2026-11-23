@@ -229,6 +229,7 @@ export async function runAndroidBuild(
       appVersion,
       versionCode,
     );
+
     return;
   }
 
@@ -346,6 +347,7 @@ async function submitAndroidWhenRequested(
 
   const releaseNotes = prepared.buildContext.android?.releaseNotes;
   const notesDescription = notesDescriptionFor(releaseNotes);
+
   const isDryRun = buildOptions.dryRun == true;
 
   if (isDryRun) {
@@ -354,12 +356,14 @@ async function submitAndroidWhenRequested(
       `would upload to the ${track} track via the Google Play API${notesDescription}`,
       'play-track',
     );
+
     return;
   }
 
   const priorBuild = await previousBuild(prepared.config, prepared.app, 'android', versionCode);
 
   const sizeBudgetMB = resolveSizeBudgetMB(buildOptions, prepared.profile);
+
   await confirmUpload({
     report: sizeReport,
     budgetMB: sizeBudgetMB,
@@ -380,6 +384,7 @@ async function submitAndroidWhenRequested(
     prepared.buildContext,
   );
   let submissionDescription = `uploaded to the ${track} track${notesDescription}`;
+
   const hasExtraStores = stores.length > 1;
 
   if (hasExtraStores) {

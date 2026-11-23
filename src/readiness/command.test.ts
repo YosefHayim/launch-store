@@ -106,6 +106,7 @@ function describeFormatReadinessSummaryDetail() {
   }
 
   it('returns all clear when every tally is zero', returnsAllClearWhenEveryTallyIsZero);
+
   function joinsBlockerUnreadableWarningAndSkippedTalliesInPriorityOrder() {
     const empty = emptyOutcome({
       blockerCount: 2,
@@ -115,6 +116,7 @@ function describeFormatReadinessSummaryDetail() {
       exitCode: READINESS_EXIT.error,
     });
     const readinessSummaryDetail = formatReadinessSummaryDetail(empty);
+
     expect(readinessSummaryDetail).toBe('2 blocker(s) - 1 unreadable - 3 warning(s) - 4 skipped');
   }
 
@@ -133,6 +135,7 @@ function describeReadinessCommandProgram() {
   }
 
   afterEach(cleanupReadinessCommandProgram);
+
   async function passesItsCategoryThroughToTheProbeSelector() {
     probes = [];
     await runReadinessCommand({ category: 'iap', labels: LABELS });
@@ -143,6 +146,7 @@ function describeReadinessCommandProgram() {
     'passes its category through to the probe selector',
     passesItsCategoryThroughToTheProbeSelector,
   );
+
   async function setsExitCode0WhenEveryProbeIsClear() {
     probes = [
       probe('clear', {
@@ -150,11 +154,14 @@ function describeReadinessCommandProgram() {
         apps: [{ app: 'x', identifier: 'com.x', status: 'ok', detail: 'ready' }],
       }),
     ];
+
     const exitCode = await runReadinessCommand({ category: 'submit', labels: LABELS });
+
     expect(exitCode).toBe(READINESS_EXIT.ok);
   }
 
   it('sets exit code 0 when every probe is clear', setsExitCode0WhenEveryProbeIsClear);
+
   async function setsExitCode2WhenAProbeReportsABlocker() {
     probes = [
       probe('blocked', {
@@ -162,11 +169,14 @@ function describeReadinessCommandProgram() {
         apps: [{ app: 'y', identifier: 'com.y', status: 'blocker', detail: 'missing' }],
       }),
     ];
+
     const exitCode = await runReadinessCommand({ category: 'account', labels: LABELS });
+
     expect(exitCode).toBe(READINESS_EXIT.blocker);
   }
 
   it('sets exit code 2 when a probe reports a blocker', setsExitCode2WhenAProbeReportsABlocker);
+
   async function emitsThePiecePieceAsJSONUnderPiece() {
     probes = [
       probe('clear', {
@@ -174,18 +184,26 @@ function describeReadinessCommandProgram() {
         apps: [{ app: 'x', identifier: 'com.x', status: 'ok', detail: 'ready' }],
       }),
     ];
+
     const terminalWrites: string[] = [];
+
     await runReadinessCommand({ category: 'submit', labels: LABELS, json: true }, terminalWrites);
     expect(terminalWrites).toHaveLength(1);
+
     const printedText = terminalWrites[0];
+
     expect(printedText).toEqual(expect.any(String));
+
     if (typeof printedText != 'string') return;
+
     const printedOutcome: unknown = JSON.parse(printedText);
+
     expect(printedOutcome).toMatchObject({ exitCode: READINESS_EXIT.ok });
     expect(printedOutcome).toMatchObject({ reports: [expect.any(Object)] });
   }
 
   it('emits the raw outcome as JSON under --json', emitsThePiecePieceAsJSONUnderPiece);
+
   async function rendersHumanSummaryWithCommandLabelsWhenNotInJSONMode() {
     probes = [
       probe('clear', {
@@ -193,8 +211,11 @@ function describeReadinessCommandProgram() {
         apps: [{ app: 'x', identifier: 'com.x', status: 'ok', detail: 'ready' }],
       }),
     ];
+
     const terminalWrites: string[] = [];
+
     await runReadinessCommand({ category: 'submit', labels: LABELS }, terminalWrites);
+
     function someLine(line: string) {
       return line.includes('Test readiness: all clear');
     }

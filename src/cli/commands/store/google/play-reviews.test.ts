@@ -17,6 +17,7 @@ function describeParseRating() {
   }
 
   it('returns undefined when the flag is absent', returnsUndefinedWhenTheFlagIsAbsent);
+
   function acceptsWholeNumbers15() {
     const playReviewRating = parsePlayReviewRating('1');
     expect(playReviewRating).toBe(1);
@@ -25,8 +26,10 @@ function describeParseRating() {
   }
 
   it('accepts whole numbers 1-5', acceptsWholeNumbers15);
+
   function rejectsOutOfRangeAndNonNumericPieceInsteadOfSilentlyTruncating() {
     const ratingFailure = readRatingFailure('0');
+
     expect(ratingFailure).toMatchObject({ message: expect.stringContaining('1-5') });
     expect(readRatingFailure('6')).toMatchObject({ message: expect.stringContaining('1-5') });
     expect(readRatingFailure('3x')).toMatchObject({ message: expect.stringContaining('1-5') });

@@ -27,6 +27,7 @@ export function loadPublishedConfigSchema(): JsonSchema {
 
   const schemaText = readFileSync(schemaPath, 'utf8');
   const loadedSchema = JSON.parse(schemaText) as JsonSchema;
+
   cachedSchema = loadedSchema;
 
   return loadedSchema;
@@ -90,6 +91,7 @@ function verdictFor(bundleId: string, ageRating: Record<string, unknown>): Schem
   }
 
   const verdict = deprecatedAgeRatingVerdict(answers);
+
   const isAllowed = verdict == true;
 
   if (isAllowed) {

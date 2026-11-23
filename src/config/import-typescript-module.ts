@@ -50,6 +50,7 @@ export async function importTypeScriptModule<Exported extends { default?: unknow
 ): Promise<Exported> {
   launchStoreEntryUrl = runningEntryUrl(runningEntryPath);
   registerLaunchStoreHooks();
+
   const moduleUrl = pathToFileURL(modulePath).href;
   const importedModule = (await import(moduleUrl)) as Exported;
 
@@ -184,6 +185,7 @@ function aliasUrlFor(specifier: string): string | null {
 
     const joinedPath = join(folder, relativePath);
     const existingFile = existingSourceFile(joinedPath);
+
     return pathToFileURL(existingFile).href;
   }
 
@@ -209,6 +211,7 @@ function typescriptSiblingUrl(specifier: string, parentURL: string | undefined):
   const parentDirectory = dirname(parentPath);
   const resolvedPath = join(parentDirectory, specifier);
   const existingPath = existingSourceFile(resolvedPath);
+
   const changed = existingPath != resolvedPath;
 
   if (changed) {

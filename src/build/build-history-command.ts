@@ -391,6 +391,7 @@ export function parsePruneDays(daysText: string | undefined): number | undefined
   }
 
   const retentionDays = Number(daysText);
+
   const isValidRetention = isPositiveWholeDayCount(retentionDays);
 
   if (isValidRetention) {
@@ -659,6 +660,7 @@ async function runPrune(commandOptions: PruneCommandOptions): Promise<void> {
   }
 
   const megabytes = mb(pruneOutcome.freedBytes);
+
   tools.logger.line(
     `Pruned ${buildsLabel(pruneOutcome.pruned.length)}, freed ${megabytes}. History kept (shown as "pruned" in \`builds list\`).`,
   );
@@ -697,7 +699,9 @@ function renderDryRunPrune(
   }
 
   logger.line(formatPrunePreview(prunePreview.pruned));
+
   const megabytes = mb(prunePreview.freedBytes);
+
   logger.line(
     `\nDry run - would remove ${buildsLabel(prunePreview.pruned.length)}, freeing ${megabytes}. Nothing deleted.`,
   );
@@ -720,6 +724,7 @@ async function listBuilds(
   }
 
   const buildRows = filterBuilds(storedBuilds, buildFilters).map(readBuildRow);
+
   const wantsJson = commandInput.json == true;
 
   if (wantsJson) {
@@ -736,6 +741,7 @@ async function listBuilds(
   }
 
   const buildsTable = formatBuildsTable(buildRows);
+
   tools.logger.line(buildsTable);
   tools.logger.line(`\n${buildsLabel(buildRows.length)}.`);
 }
@@ -745,6 +751,7 @@ async function viewBuild(
 ): Promise<void> {
   const tools = readBuildHistoryTools();
   const storedBuild = await requireStoredBuild(commandInput.reference);
+
   const wantsJson = commandInput.json == true;
 
   if (wantsJson) {
@@ -755,6 +762,7 @@ async function viewBuild(
   }
 
   const buildDetail = formatBuildDetail(storedBuild);
+
   tools.logger.line(buildDetail);
 }
 

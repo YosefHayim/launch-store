@@ -8,6 +8,7 @@ function describeFindSalesReportKind() {
   }
 
   test('reads first-time download ids as downloads', readsFirstTimeDownloadIdsAsDownloads);
+
   function readsReDownloadIdsAsRedownloads() {
     const salesReportKind = findSalesReportKind('3');
     expect(salesReportKind).toBe('redownload');
@@ -15,6 +16,7 @@ function describeFindSalesReportKind() {
   }
 
   test('reads re-download ids as redownloads', readsReDownloadIdsAsRedownloads);
+
   function readsUpdateIdsAsUpdates() {
     const salesReportKind = findSalesReportKind('7');
     expect(salesReportKind).toBe('update');
@@ -22,6 +24,7 @@ function describeFindSalesReportKind() {
   }
 
   test('reads update ids as updates', readsUpdateIdsAsUpdates);
+
   function readsInAppPurchaseIdsAsInAppPurchases() {
     const salesReportKind = findSalesReportKind('IA1');
     expect(salesReportKind).toBe('in-app-purchase');
@@ -29,6 +32,7 @@ function describeFindSalesReportKind() {
   }
 
   test('reads In-App Purchase ids as in-app purchases', readsInAppPurchaseIdsAsInAppPurchases);
+
   function ignoresBundlesAndUnknownIds() {
     const salesReportKind = findSalesReportKind('1-B');
     expect(salesReportKind).toBeNull();

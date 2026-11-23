@@ -141,6 +141,7 @@ function describeAppleProductsPiece() {
   }
 
   it('omits when no iOS apps are in scope', omitsWhenNoIOSAppsAreInScope);
+
   async function skipsWhenNoAppleAccountIsActive() {
     const snapshot = snapshotContext({ apps: [app({ bundleId: 'com.acme.alpha' })] });
     const capture = await captureSource(appleProductsSource, snapshot);
@@ -148,6 +149,7 @@ function describeAppleProductsPiece() {
   }
 
   it('skips when no Apple account is active', skipsWhenNoAppleAccountIsActive);
+
   async function capturesEachInAppPurchaseKeyedByProductId() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
@@ -156,7 +158,9 @@ function describeAppleProductsPiece() {
       },
     });
     const capture = await captureSource(appleProductsSource, snapshot);
+
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
+
     expect(capture.apps[0]?.entities).toEqual([
       {
         key: 'com.acme.coins',
@@ -170,6 +174,7 @@ function describeAppleProductsPiece() {
     'captures each in-app purchase keyed by product id',
     capturesEachInAppPurchaseKeyedByProductId,
   );
+
   async function dropsAnAppWithNoAppStoreConnectPieceYet() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
@@ -183,7 +188,9 @@ function describeAppleProductsPiece() {
       },
     });
     const capture = await captureSource(appleProductsSource, snapshot);
+
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
+
     expect(capture.apps).toEqual([]);
   }
 
@@ -200,7 +207,9 @@ function describeAppleSubscriptionsPiece() {
       },
     });
     const capture = await captureSource(appleSubscriptionsSource, snapshot);
+
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
+
     expect(capture.apps[0]?.entities).toEqual([
       {
         key: 'com.acme.pro',
@@ -226,7 +235,9 @@ function describeAppleListingPiece() {
       },
     });
     const capture = await captureSource(appleListingSource, snapshot);
+
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
+
     expect(capture.apps[0]?.entities).toEqual([
       {
         key: 'en-US',
@@ -248,6 +259,7 @@ function describeAppleListingPiece() {
     'merges app-info and version listing fields into one entity per locale',
     mergesAppPieceAndVersionListingFieldsIntoOneEntityPerLocale,
   );
+
   async function capturesAnEmptyListingWhenTheAppHasNoListingYet() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
@@ -264,7 +276,9 @@ function describeAppleListingPiece() {
       },
     });
     const capture = await captureSource(appleListingSource, snapshot);
+
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
+
     expect(capture.apps[0]?.entities).toEqual([]);
   }
 
@@ -272,6 +286,7 @@ function describeAppleListingPiece() {
     'captures an empty listing when the app has no listing yet',
     capturesAnEmptyListingWhenTheAppHasNoListingYet,
   );
+
   async function dropsAnAppWithNoAppStoreConnectPieceYet2() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
@@ -285,7 +300,9 @@ function describeAppleListingPiece() {
       },
     });
     const capture = await captureSource(appleListingSource, snapshot);
+
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
+
     expect(capture.apps).toEqual([]);
   }
 
@@ -301,6 +318,7 @@ function describePlayProductsPiece() {
   }
 
   it('skips when no Play service account is configured', skipsWhenNoPlayServiceAccountIsConfigured);
+
   async function capturesManagedProductsKeyedBySKUDroppingTheFannedOutRegionPrices() {
     const snapshot = snapshotContext({
       apps: [app({ packageName: 'com.acme.alpha' })],
@@ -309,7 +327,9 @@ function describePlayProductsPiece() {
       },
     });
     const capture = await captureSource(playProductsSource, snapshot);
+
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
+
     expect(capture.apps[0]?.entities).toEqual([
       {
         key: 'coins',
@@ -341,7 +361,9 @@ function describePlaySubscriptionsPiece() {
       },
     });
     const capture = await captureSource(playSubscriptionsSource, snapshot);
+
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
+
     expect(capture.apps[0]?.entities).toEqual([
       {
         key: 'sub.pro',
@@ -377,6 +399,7 @@ function describeAppleCapabilitiesPiece() {
   }
 
   it('omits when no iOS apps are in scope', omitsWhenNoIOSAppsAreInScope2);
+
   async function skipsWhenNoAppleAccountIsActive2() {
     const snapshot = snapshotContext({ apps: [app({ bundleId: 'com.acme.alpha' })] });
     const capture = await captureSource(appleCapabilitiesSource, snapshot);
@@ -384,6 +407,7 @@ function describeAppleCapabilitiesPiece() {
   }
 
   it('skips when no Apple account is active', skipsWhenNoAppleAccountIsActive2);
+
   async function capturesEnabledCapabilitiesKeyedAndSortedByCapabilityType() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
@@ -392,7 +416,9 @@ function describeAppleCapabilitiesPiece() {
       },
     });
     const capture = await captureSource(appleCapabilitiesSource, snapshot);
+
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
+
     expect(capture.apps[0]?.entities).toEqual([
       { key: 'ICLOUD', summary: 'capability ICLOUD', data: { capabilityType: 'ICLOUD' } },
       {
@@ -407,6 +433,7 @@ function describeAppleCapabilitiesPiece() {
     'captures enabled capabilities keyed and sorted by capability type',
     capturesEnabledCapabilitiesKeyedAndSortedByCapabilityType,
   );
+
   async function capturesAnEmptyListWhenTheAppIDIsnTRegisteredYet() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
@@ -420,7 +447,9 @@ function describeAppleCapabilitiesPiece() {
       },
     });
     const capture = await captureSource(appleCapabilitiesSource, snapshot);
+
     if (capture.state != 'captured') throw new Error(`expected captured, got ${capture.state}`);
+
     expect(capture.apps[0]?.entities).toEqual([]);
   }
 
@@ -455,10 +484,13 @@ function describeAppleListingPieceRestore() {
       ],
     },
   ];
+
   /** Narrow the optional `restore` to a callable, failing the test if the source ever drops it. */
   function restoreOf(): NonNullable<typeof appleListingSource.restore> {
     const restore = appleListingSource.restore;
+
     if (!restore) throw new Error('expected appleListingSource to implement restore');
+
     return restore;
   }
   function input(over: Partial<RestoreInput>): RestoreInput {
@@ -480,6 +512,7 @@ function describeAppleListingPieceRestore() {
   }
   async function skipsWithNoWritesWhenNoAppleAccountIsActive() {
     const report = await runRestore(restoreOf(), input({}));
+
     expect(report.actions).toEqual([
       {
         description: 'App Store listing: skipped - no active Apple account',
@@ -493,6 +526,7 @@ function describeAppleListingPieceRestore() {
     'skips with no writes when no Apple account is active',
     skipsWithNoWritesWhenNoAppleAccountIsActive,
   );
+
   async function plansTheRoutedListingFieldsInADryRunWithoutWriting() {
     const api = makeAscCatalogApiFake();
     const report = await runRestore(
@@ -510,6 +544,7 @@ function describeAppleListingPieceRestore() {
         },
       }),
     );
+
     function readDescription(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -520,16 +555,19 @@ function describeAppleListingPieceRestore() {
     }
 
     const descriptions = report.actions.map(readDescription);
+
     function someLine(line: string) {
       return line.includes('App Info') && line.includes('name');
     }
 
     expect(descriptions.some(someLine)).toBe(true);
+
     function someLine2(line: string) {
       return line.includes('App Store version') && line.includes('description');
     }
 
     expect(descriptions.some(someLine2)).toBe(true);
+
     function everyAction(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -548,6 +586,7 @@ function describeAppleListingPieceRestore() {
     'plans the routed listing fields in a dry-run without writing',
     plansTheRoutedListingFieldsInADryRunWithoutWriting,
   );
+
   async function appliesTheInvertedListingRoundTrippingKeywordsBackToACommaString() {
     const api = makeAscCatalogApiFake();
     const report = await runRestore(
@@ -566,6 +605,7 @@ function describeAppleListingPieceRestore() {
         },
       }),
     );
+
     expect(api.createAppInfoLocalization).toHaveBeenCalledWith(
       'appinfo1',
       'en-US',
@@ -580,6 +620,7 @@ function describeAppleListingPieceRestore() {
         whatsNew: 'Bug fixes',
       }),
     );
+
     function everyAction2(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -658,6 +699,7 @@ function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {
     createSubscriptionOffer: vi.fn(mockCall10),
     activateSubscriptionOffer: vi.fn(mockCall11),
   };
+
   return { ...base, ...overrides };
 }
 /** A restore context defaulting both write resolvers to "no account"; override the one under test. */
@@ -695,10 +737,13 @@ function describePlayProductsPieceRestore() {
       ],
     },
   ];
+
   /** Narrow the optional `restore` to a callable, failing the test if the source ever drops it. */
   function restoreOf(): NonNullable<typeof playProductsSource.restore> {
     const restore = playProductsSource.restore;
+
     if (!restore) throw new Error('expected playProductsSource to implement restore');
+
     return restore;
   }
   function input(over: Partial<RestoreInput>): RestoreInput {
@@ -706,6 +751,7 @@ function describePlayProductsPieceRestore() {
   }
   async function skipsWithNoWritesWhenNoPlayServiceAccountIsConfigured() {
     const report = await runRestore(restoreOf(), input({}));
+
     expect(report.actions).toEqual([
       {
         description: 'Google Play: skipped - no Play service account for com.acme.alpha',
@@ -719,6 +765,7 @@ function describePlayProductsPieceRestore() {
     'skips with no writes when no Play service account is configured',
     skipsWithNoWritesWhenNoPlayServiceAccountIsConfigured,
   );
+
   async function plansACreateInADryRunWithoutInserting() {
     const api = makePlayApi();
     const restore = restoreCtx({
@@ -727,6 +774,7 @@ function describePlayProductsPieceRestore() {
       },
     });
     const report = await runRestore(restoreOf(), input({ ctx: restore }));
+
     expect(report.actions).toEqual([
       { description: 'create Play product coins', destructive: false, status: 'planned' },
     ]);
@@ -734,6 +782,7 @@ function describePlayProductsPieceRestore() {
   }
 
   it('plans a create in a dry-run without inserting', plansACreateInADryRunWithoutInserting);
+
   async function appliesACreateInvertingTheCapturedListingAndDefaultPrice() {
     const api = makePlayApi();
     const restore = restoreCtx({
@@ -748,6 +797,7 @@ function describePlayProductsPieceRestore() {
         ctx: restore,
       }),
     );
+
     expect(api.insertInAppProduct).toHaveBeenCalledWith(
       'com.acme.alpha',
       expect.objectContaining({
@@ -756,6 +806,7 @@ function describePlayProductsPieceRestore() {
         defaultPrice: { priceMicros: '990000', currency: 'USD' },
       }),
     );
+
     function everyAction3(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -772,6 +823,7 @@ function describePlayProductsPieceRestore() {
     'applies a create, inverting the captured listing and default price',
     appliesACreateInvertingTheCapturedListingAndDefaultPrice,
   );
+
   async function skipsAProductWithNoCapturedListing() {
     const api = makePlayApi();
     const restore = restoreCtx({
@@ -792,6 +844,7 @@ function describePlayProductsPieceRestore() {
         ],
       }),
     );
+
     expect(report.actions).toEqual([
       {
         description: 'Play product coins: skipped - no listing to restore',
@@ -832,10 +885,13 @@ function describePlaySubscriptionsPieceRestore() {
       ],
     },
   ];
+
   /** Narrow the optional `restore` to a callable, failing the test if the source ever drops it. */
   function restoreOf(): NonNullable<typeof playSubscriptionsSource.restore> {
     const restore = playSubscriptionsSource.restore;
+
     if (!restore) throw new Error('expected playSubscriptionsSource to implement restore');
+
     return restore;
   }
   function input(over: Partial<RestoreInput>): RestoreInput {
@@ -843,6 +899,7 @@ function describePlaySubscriptionsPieceRestore() {
   }
   async function skipsWithNoWritesWhenNoPlayServiceAccountIsConfigured2() {
     const report = await runRestore(restoreOf(), input({}));
+
     expect(report.actions).toEqual([
       {
         description: 'Google Play: skipped - no Play service account for com.acme.alpha',
@@ -856,6 +913,7 @@ function describePlaySubscriptionsPieceRestore() {
     'skips with no writes when no Play service account is configured',
     skipsWithNoWritesWhenNoPlayServiceAccountIsConfigured2,
   );
+
   async function plansTheCreateBasePlanActivationInADryRunWithoutWriting() {
     const api = makePlayApi();
     const restore = restoreCtx({
@@ -864,6 +922,7 @@ function describePlaySubscriptionsPieceRestore() {
       },
     });
     const report = await runRestore(restoreOf(), input({ ctx: restore }));
+
     function readDescription2(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -874,10 +933,12 @@ function describePlaySubscriptionsPieceRestore() {
     }
 
     const descriptions = report.actions.map(readDescription2);
+
     expect(descriptions).toEqual([
       'create Play subscription sub.pro',
       'activate base plan monthly',
     ]);
+
     function everyAction4(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -895,6 +956,7 @@ function describePlaySubscriptionsPieceRestore() {
     'plans the create + base-plan activation in a dry-run without writing',
     plansTheCreateBasePlanActivationInADryRunWithoutWriting,
   );
+
   async function appliesTheCreateInvertingTheBasePlanSPeriodAndPrices() {
     const api = makePlayApi();
     const restore = restoreCtx({
@@ -902,6 +964,7 @@ function describePlaySubscriptionsPieceRestore() {
         return Promise.resolve(api);
       },
     });
+
     await runRestore(
       restoreOf(),
       input({
@@ -920,6 +983,7 @@ function describePlaySubscriptionsPieceRestore() {
     "applies the create, inverting the base plan's period and prices",
     appliesTheCreateInvertingTheBasePlanSPeriodAndPrices,
   );
+
   async function skipsASubscriptionWhoseBasePlanHasNoKnownPeriodOrPrices() {
     const api = makePlayApi();
     const restore = restoreCtx({
@@ -946,6 +1010,7 @@ function describePlaySubscriptionsPieceRestore() {
         ],
       }),
     );
+
     expect(report.actions).toEqual([
       {
         description:
@@ -977,8 +1042,10 @@ function describeMixedAndroidSnapshotCapture() {
         },
       });
       const capture = await captureSource(source, snapshot);
+
       if (capture.state != 'captured')
         throw new Error(`Expected partial capture: ${capture.state}`);
+
       function readApp(item: {
         readonly app: string;
         readonly identifier: string;

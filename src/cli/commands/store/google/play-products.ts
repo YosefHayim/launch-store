@@ -18,10 +18,13 @@ export function registerPlayProductsCommand(program: Command): void {
       dryRun: commandOptions.dryRun,
       yes: commandOptions.yes,
     };
+
     if (commandOptions.app != null) {
       playProductsInput = { ...playProductsInput, app: commandOptions.app };
     }
+
     const playProductsProgram = playProductsCommandProgram(playProductsInput);
+
     return runCliProgram(playProductsProgram);
   }
 

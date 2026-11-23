@@ -91,8 +91,10 @@ export function tallyPlanSurfaces(surfaces: readonly RenderableSurface[]): PlanS
 
               changeCount += countPlannedActions(appPlan.actions);
             }
+
             break;
         }
+
         break;
     }
   }
@@ -155,6 +157,7 @@ export async function runPlanners(
   const surfaces = planned.filter(isRenderableSurface);
   const tallies = tallyPlanSurfaces(surfaces);
   let check = false;
+
   const isCheckRun = options.check == true;
 
   if (isCheckRun) {

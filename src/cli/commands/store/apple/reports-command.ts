@@ -122,6 +122,7 @@ function readOptionalString(record: Record<string, unknown>, field: string): str
   }
 
   const fieldText = record[field];
+
   const isOmitted = typeof fieldText == 'undefined';
 
   if (isOmitted) {
@@ -159,12 +160,16 @@ function decodeSalesReportsCommand(record: Record<string, unknown>): SalesReport
     json: readRequiredBoolean(record, 'json'),
   };
   const optionalSetting = readOptionalString(record, 'vendorNumber');
+
   assignOptionalString(salesCommand, 'vendorNumber', optionalSetting);
+
   const optionalString = readOptionalString(record, 'date');
+
   assignOptionalString(salesCommand, 'date', optionalString);
   assignOptionalString(salesCommand, 'from', readOptionalString(record, 'from'));
   assignOptionalString(salesCommand, 'to', readOptionalString(record, 'to'));
   assignOptionalString(salesCommand, 'version', readOptionalString(record, 'version'));
+
   return salesCommand;
 }
 
@@ -177,9 +182,13 @@ function decodeFinanceReportsCommand(record: Record<string, unknown>): FinanceRe
     json: readRequiredBoolean(record, 'json'),
   };
   const optionalSetting = readOptionalString(record, 'vendorNumber');
+
   assignOptionalString(financeCommand, 'vendorNumber', optionalSetting);
+
   const optionalString = readOptionalString(record, 'date');
+
   assignOptionalString(financeCommand, 'date', optionalString);
+
   return financeCommand;
 }
 
@@ -193,11 +202,15 @@ function decodeAnalyticsReportsCommand(
     out: readRequiredString(record, 'out'),
   };
   const optionalSetting = readOptionalString(record, 'app');
+
   assignOptionalString(analyticsCommand, 'app', optionalSetting);
+
   const optionalString = readOptionalString(record, 'category');
+
   assignOptionalString(analyticsCommand, 'category', optionalString);
   assignOptionalString(analyticsCommand, 'name', readOptionalString(record, 'name'));
   assignOptionalString(analyticsCommand, 'date', readOptionalString(record, 'date'));
+
   return analyticsCommand;
 }
 
@@ -232,6 +245,7 @@ function readReportsOperation(rawCommandInput: unknown): ReportsOperation | null
 function selectVendorNumber(explicitVendorNumber: string | undefined): string {
   const environment = readLaunchEnvironment();
   let vendorNumber = environment.values.appleVendorNumber;
+
   const hasExplicitVendorNumber = explicitVendorNumber != null;
 
   if (hasExplicitVendorNumber) {
@@ -260,6 +274,7 @@ function selectVendorNumber(explicitVendorNumber: string | undefined): string {
 /** Convert a relative output directory into a path rooted at the current project. */
 function projectOutputDirectory(outputDirectory: string): string {
   const launchPaths = readLaunchDirectories();
+
   const isAbsolute = path.isAbsolute(outputDirectory);
 
   if (isAbsolute) {
@@ -275,6 +290,7 @@ function reportNameSlug(reportName: string): string {
   const dashedName = reportName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   // Trims dashes from the start and end of the slug.
   const reportSlug = dashedName.replace(/^-+|-+$/g, '');
+
   const isSlugEmpty = reportSlug.length == 0;
 
   if (isSlugEmpty) {
@@ -292,7 +308,9 @@ async function writeReport(
   writeJson: boolean,
 ): Promise<WrittenReport> {
   await mkdir(outputDirectory, { recursive: true });
+
   const parsedReport = parseTsv(reportText);
+
   const shouldWriteJson = writeJson == true;
 
   if (shouldWriteJson) {
@@ -304,6 +322,7 @@ async function writeReport(
 
   const reportPath = path.join(outputDirectory, `${fileStem}.tsv`);
   let persistedText = reportText;
+
   const needsTrailingNewline = persistedText.endsWith('\n') == false;
 
   if (needsTrailingNewline) {
@@ -311,6 +330,7 @@ async function writeReport(
   }
 
   await writeFile(reportPath, persistedText);
+
   return { reportPath, reportEntryCount: parsedReport.rows.length };
 }
 
@@ -336,6 +356,7 @@ async function downloadReport(
     const reportText = decompressReport(compressedBytes);
     const writtenReport = await writeReport(outputDirectory, fileStem, reportText, writeJson);
     let pluralSuffix = 's';
+
     const isSingleRow = writtenReport.reportEntryCount == 1;
 
     if (isSingleRow) {
@@ -348,6 +369,7 @@ async function downloadReport(
     );
   } catch (cause) {
     const message = errorMessage(cause);
+
     const isEmptyPeriod = isMissingReportPeriod(emptyPeriodOnNotFound, message);
 
     if (isEmptyPeriod) {
@@ -409,6 +431,7 @@ function selectSalesDates(commandInput: SalesReportsCommandInput): string[] {
       return eachDate(firstReportDate, lastReportDate);
     } catch (cause) {
       const failureMessage = errorMessage(cause);
+
       throw makeReportsCommandFailure({
         operation: 'sales',
         message: failureMessage,
@@ -436,6 +459,7 @@ function selectSalesDates(commandInput: SalesReportsCommandInput): string[] {
   }
 
   const reportDate = commandInput.date;
+
   const hasReportDate = reportDate != null;
 
   if (hasReportDate) {
@@ -465,6 +489,7 @@ async function downloadSalesReports(commandInput: SalesReportsCommandInput): Pro
       reportDate,
     };
     const reportVersion = commandInput.version;
+
     const hasReportVersion = reportVersion != null;
 
     if (hasReportVersion) {
@@ -485,6 +510,7 @@ async function downloadSalesReports(commandInput: SalesReportsCommandInput): Pro
 /** Download one Apple finance report for its fiscal period. */
 async function downloadFinanceReport(commandInput: FinanceReportsCommandInput): Promise<void> {
   const fiscalPeriod = commandInput.date;
+
   const isFiscalPeriodMissing = fiscalPeriod == null;
 
   if (isFiscalPeriodMissing) {
@@ -504,6 +530,7 @@ async function downloadFinanceReport(commandInput: FinanceReportsCommandInput): 
     regionCode: commandInput.region,
     reportType: commandInput.reportType,
   };
+
   await downloadReport(
     logger,
     `finance-${commandInput.region}-${fiscalPeriod}`,
@@ -544,6 +571,7 @@ async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInp
     granularity: commandInput.granularity,
   };
   const category = commandInput.category;
+
   const hasCategory = category != null;
 
   if (hasCategory) {
@@ -551,6 +579,7 @@ async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInp
   }
 
   const reportName = commandInput.name;
+
   const hasReportName = reportName != null;
 
   if (hasReportName) {
@@ -558,6 +587,7 @@ async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInp
   }
 
   const processingDate = commandInput.date;
+
   const hasProcessingDate = processingDate != null;
 
   if (hasProcessingDate) {
@@ -565,6 +595,7 @@ async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInp
   }
 
   const analyticsCollection = await collectAnalyticsSegments(appleStore, analyticsQuery);
+
   const hasNoDownloads = analyticsCollection.downloads.length == 0;
 
   if (hasNoDownloads) {
@@ -576,6 +607,7 @@ async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInp
 
   for (const segmentDownload of analyticsCollection.downloads) {
     let processingDateLabel = 'all';
+
     const hasSegmentDate = segmentDownload.processingDate.length > 0;
 
     if (hasSegmentDate) {
@@ -583,6 +615,7 @@ async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInp
     }
 
     const fileStem = `analytics-${reportNameSlug(segmentDownload.reportName)}-${processingDateLabel}-${segmentIndex}`;
+
     segmentIndex += 1;
     await downloadReport(
       logger,
@@ -619,6 +652,7 @@ export async function reportsCommandProgram(rawCommandInput: unknown): Promise<v
   } catch (cause) {
     let operation: ReportsOperation = 'sales';
     const decodedOperation = readReportsOperation(rawCommandInput);
+
     const hasOperation = decodedOperation != null;
 
     if (hasOperation) {
@@ -626,6 +660,7 @@ export async function reportsCommandProgram(rawCommandInput: unknown): Promise<v
     }
 
     const failureMessage = errorMessage(cause);
+
     throw makeReportsCommandFailure({
       operation,
       message: failureMessage,

@@ -12,7 +12,9 @@ export const offersPlanner: SurfacePlanner = {
       direction: 'additive',
       configFor(bundleId) {
         const products = planContext.config.products?.[bundleId];
+
         if (products && appDeclaresOffers(products)) return products;
+
         return undefined;
       },
       reconcile(api, bundleId, products) {

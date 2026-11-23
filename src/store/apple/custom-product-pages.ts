@@ -117,6 +117,7 @@ function readPage(entry: unknown): CustomProductPageConfig {
 
   const page: CustomProductPageConfig = { name: readPageName(entryObject) };
   const promotionalText = readPromotionalText(entryObject);
+
   const hasPromotionalText = promotionalText != null;
 
   if (hasPromotionalText) {
@@ -152,6 +153,7 @@ function decodeCustomProductPagesDocument(rawDocument: unknown): CustomProductPa
 
   for (const entry of pagesField) {
     const page = readPage(entry);
+
     const isDuplicate = declaredPageNames.has(page.name);
 
     if (isDuplicate) {
@@ -205,6 +207,7 @@ async function ensurePage(
   }
 
   const action = plan(reconcileContext, `create custom product page "${name}"`);
+
   const isDryRun = reconcileContext.dryRun == true;
 
   if (isDryRun) {
@@ -279,6 +282,7 @@ async function reconcilePromoText(
     const existing = current.get(locale);
     let existingText = '';
     const existingPromotionalText = existing?.promotionalText;
+
     const hasExistingText = existingPromotionalText != null;
 
     if (hasExistingText) {
@@ -302,6 +306,7 @@ async function reconcilePromoText(
     }
 
     const action = plan(reconcileContext, actionDescription);
+
     const isDryRun = reconcileContext.dryRun == true;
 
     if (isDryRun) {
@@ -334,6 +339,7 @@ export async function reconcileCustomProductPages(
 ): Promise<{ bundleId: string; actions: PlannedAction[] }> {
   const reconcileContext: ReconcileContext = { actions: [], dryRun: reconcileInput.dryRun };
   const appId = await api.getAppId(reconcileInput.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -351,6 +357,7 @@ export async function reconcileCustomProductPages(
       page.name,
       existing.get(page.name),
     );
+
     await reconcilePromoText(reconcileContext, api, page, pageId);
   }
 

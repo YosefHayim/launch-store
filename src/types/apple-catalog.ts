@@ -467,17 +467,21 @@ export function deprecatedAgeRatingVerdict(
       kidsAgeBand: 'Apple deprecated it in App Store Connect API 4.2; remove it',
       ageRatingOverride: 'use ageRatingOverrideV2',
     }[attributeName];
+
     if (attributeAdvice != null) {
       return `ageRating.${attributeName} is deprecated: ${attributeAdvice}.`;
     }
+
     const replacementAnswer = {
       INFREQUENT_OR_MILD: 'INFREQUENT',
       FREQUENT_OR_INTENSE: 'FREQUENT',
     }[String(answer)];
+
     if (replacementAnswer != null) {
       return `ageRating.${attributeName} uses deprecated value ${String(answer)}: use ${replacementAnswer}.`;
     }
   }
+
   return true;
 }
 /** An app's age-rating declaration. */

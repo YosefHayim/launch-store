@@ -14,9 +14,13 @@ function sshFlags(target: SshTarget): string[] {
     '-o',
     'ConnectTimeout=30',
   ];
+
   if (target.identityFile) flags.push('-i', target.identityFile);
+
   const asString = String(target.port);
+
   flags.push('-p', asString);
+
   return flags;
 }
 /** scp shares the ssh options but spells the port `-P` (uppercase). */
@@ -29,9 +33,13 @@ function scpFlags(target: SshTarget): string[] {
     '-o',
     'ConnectTimeout=30',
   ];
+
   if (target.identityFile) flags.push('-i', target.identityFile);
+
   const asString = String(target.port);
+
   flags.push('-P', asString);
+
   return flags;
 }
 /** Run a command on the remote host, streaming output. `remoteCommand` runs in the remote shell. */
@@ -79,8 +87,11 @@ export function rsyncUp(
 ) {
   const sshCommand = ['ssh', ...sshFlags(target)].join(' ');
   const args = ['-az', '--delete', '-e', sshCommand];
+
   for (const exclude of excludes) args.push('--exclude', exclude);
+
   args.push(`${localDir}/`, `${userHost(target)}:${remoteDir}/`);
+
   return executeCommand('rsync', args);
 }
 

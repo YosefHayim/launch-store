@@ -215,6 +215,7 @@ export function classifyVerdict(appStoreState: string): ReleaseVerdict {
       };
     default: {
       let label = appStoreState;
+
       const isLabelEmpty = label.length == 0;
 
       if (isLabelEmpty) {
@@ -302,6 +303,7 @@ async function performReleaseAction<ActionValue>(
   runAction: () => Promise<ActionValue>,
 ): Promise<PerformedReleaseAction<ActionValue>> {
   const releaseAction: ReleaseAction = { description, status: 'planned' };
+
   releaseContext.actions.push(releaseAction);
 
   if (releaseContext.dryRun) {
@@ -324,6 +326,7 @@ function requireValidStoreBuild(storeBuild: BuildResource): void {
 
   if (isValid == false) {
     let processingState = storeBuild.processingState;
+
     const isStateMissing = processingState == null;
 
     if (isStateMissing) {
@@ -376,6 +379,7 @@ function checkBuildCanJoinVersion(
   storeVersions: ReadonlyArray<AppStoreVersionResource>,
 ): void {
   const buildMarketingVersion = storeBuild.marketingVersion;
+
   const isBuildMarketingVersionUnknown = buildMarketingVersion == null;
 
   if (isBuildMarketingVersionUnknown) {
@@ -383,6 +387,7 @@ function checkBuildCanJoinVersion(
   }
 
   const liveVersion = findLiveMarketingVersion(buildMarketingVersion, storeVersions);
+
   const isNoLiveVersionFound = liveVersion == null;
 
   if (isNoLiveVersionFound) {
@@ -439,6 +444,7 @@ export async function releaseApp(
   }
 
   const foundAppId = appId;
+
   const isAppMissing = foundAppId == null;
 
   if (isAppMissing) {
@@ -447,6 +453,7 @@ export async function releaseApp(
   }
 
   const storeBuild = releaseInput.build;
+
   const hasStoreBuild = storeBuild != null;
 
   if (hasStoreBuild) {
@@ -469,6 +476,7 @@ export async function releaseApp(
     appId: foundAppId,
     storeVersions,
   });
+
   const isAlreadyInReview = selectedVersion.idempotentState != null;
 
   if (isAlreadyInReview) {
@@ -476,6 +484,7 @@ export async function releaseApp(
       description: `version ${selectedVersion.versionString} already ${selectedVersion.idempotentState} - nothing to submit`,
       status: 'skipped',
     });
+
     return {
       bundleId: releaseInput.bundleId,
       versionId: selectedVersion.versionId,
@@ -489,6 +498,7 @@ export async function releaseApp(
 
   const versionId = selectedVersion.versionId;
   const isCreateMissing = versionId == DRY_RUN_ID;
+
   const isRealRun = releaseContext.dryRun == false;
 
   if (isRealRun) {
@@ -507,6 +517,7 @@ export async function releaseApp(
 
   const isAttachOnly = releaseInput.attachOnly;
   const isBuildAlreadyAttached = isAttachedBuild(hasStoreBuild, selectedVersion, storeBuild);
+
   const isAttachNoOp = isAttachOnly;
 
   if (isAttachNoOp) {
@@ -515,6 +526,7 @@ export async function releaseApp(
         description: `build already attached to version ${selectedVersion.versionString} - nothing to change`,
         status: 'skipped',
       });
+
       return {
         bundleId: releaseInput.bundleId,
         versionId,
@@ -549,7 +561,9 @@ export async function releaseApp(
     releaseInput.whatsNew,
     selectedVersion.appReleasedBefore,
   );
+
   const versionUpdate = readVersionUpdate(releaseInput);
+
   await performReleaseAction(releaseContext, versionUpdate.description, function updateVersion() {
     return appleReleaseApi.updateAppStoreVersion(versionId, versionUpdate.versionUpdate);
   });
@@ -623,6 +637,7 @@ function hasConflictStatus(cause: object): boolean {
   }
 
   const status = cause.status;
+
   return status == 409;
 }
 
@@ -634,6 +649,7 @@ function isExportComplianceAlreadySetError(cause: unknown): boolean {
   }
 
   const message = cause.message.toLowerCase();
+
   const cannotUpdate = message.includes('cannot update when the value is already set');
 
   if (cannotUpdate) {
@@ -664,6 +680,7 @@ async function applyExportCompliance(
 ): Promise<void> {
   const description = `declare export compliance (usesNonExemptEncryption=${String(usesNonExemptEncryption)})`;
   const buildNumber = Number.parseInt(storeBuild.version, 10);
+
   const isBuildNumber = Number.isNaN(buildNumber) == false;
 
   if (isBuildNumber) {
@@ -684,6 +701,7 @@ async function applyExportCompliance(
           status: 'skipped',
           note: 'already answered on this build',
         });
+
         return;
       }
     }
@@ -709,10 +727,12 @@ async function applyExportCompliance(
         status: 'skipped',
         note: 'already answered on this build',
       });
+
       return;
     }
 
     const failureMessage = errorMessage(cause);
+
     releaseContext.actions.push({
       description,
       status: 'failed',
@@ -742,6 +762,7 @@ async function selectReleaseVersion(
   }
 
   const foundVersion = versionLookup.storeVersions.find(hasMatchingVersion);
+
   const hasFoundVersion = foundVersion != null;
 
   if (hasFoundVersion) {
@@ -749,6 +770,7 @@ async function selectReleaseVersion(
   }
 
   const editableVersion = versionLookup.storeVersions.find(isEditableVersion);
+
   const hasEditableVersion = editableVersion != null;
 
   if (hasEditableVersion) {
@@ -761,6 +783,7 @@ async function selectReleaseVersion(
         });
       },
     );
+
     return {
       versionId: editableVersion.id,
       versionString: releaseInput.versionString,
@@ -814,6 +837,7 @@ function reuseMatchingVersion(
   appReleasedBefore: boolean,
 ): SelectedReleaseVersion {
   const releasePhase = nextReleaseAction(matchingStoreVersion.appStoreState);
+
   const isLive = releasePhase == 'live';
 
   if (isLive) {
@@ -860,6 +884,7 @@ async function applyReleaseNotes(
   appReleasedBefore: boolean,
 ): Promise<void> {
   const localeEntries = Object.entries(whatsNew);
+
   const hasNoNotes = localeEntries.length == 0;
 
   if (hasNoNotes) {
@@ -874,6 +899,7 @@ async function applyReleaseNotes(
       status: 'skipped',
       note: "first version - Apple shows What's New only on updates",
     });
+
     return;
   }
 
@@ -911,6 +937,7 @@ async function applyReleaseNotes(
           );
         },
       );
+
       continue;
     }
 
@@ -962,6 +989,7 @@ async function applyPhasedRelease(
           return releaseContext.appleReleaseApi.createPhasedRelease(versionId);
         },
       );
+
       return;
     }
   }
@@ -975,6 +1003,7 @@ async function applyPhasedRelease(
   }
 
   const phasedReleaseId = existingPhasedRelease.id;
+
   await performReleaseAction(
     releaseContext,
     'disable phased release (immediate 100% rollout)',
@@ -1099,6 +1128,7 @@ export async function readAppStoreAppId(
   }
 
   const foundAppId = appId;
+
   const isThereNoAppRecord = foundAppId == null;
 
   if (isThereNoAppRecord) {
@@ -1124,6 +1154,7 @@ export async function readReleaseStatusForApp(
   }
 
   const currentVersion = pickCurrentVersion(storeVersions);
+
   const isThereNoCurrentVersion = currentVersion == null;
 
   if (isThereNoCurrentVersion) {
@@ -1273,6 +1304,7 @@ export async function waitForValidBuild(
     }
 
     const onTick = options.onTick;
+
     const isProgressReported = onTick != null;
 
     if (isProgressReported) {

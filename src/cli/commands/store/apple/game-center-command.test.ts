@@ -8,6 +8,7 @@ function describeGameCenterCommandPieceSchema() {
       dryRun: true,
       yes: false,
     });
+
     expect(gameCenterCommandSchema).toEqual({
       config: 'gamecenter.config.json',
       explicitConfig: false,
@@ -20,6 +21,7 @@ function describeGameCenterCommandPieceSchema() {
     'decodes the Commander boundary with an omitted app selector',
     decodesTheCommanderBoundaryWithAnOmittedAppSelector,
   );
+
   function rejectsAnExplicitUndefinedExactOptionalApp() {
     function callGameCenterCommandPieceSchema() {
       return GameCenterCommandInputSchema({

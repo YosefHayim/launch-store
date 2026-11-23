@@ -138,6 +138,7 @@ const signatures: DiagnosticSignature[] = [
 /** Scan a build log and return the distinct diagnoses whose signatures matched, in table order. */
 export function diagnoseBuildLog(log: string): BuildDiagnosis[] {
   const matched: BuildDiagnosis[] = [];
+
   for (const signature of signatures) {
     function somePattern(pattern: RegExp) {
       return pattern.test(log);
@@ -147,17 +148,22 @@ export function diagnoseBuildLog(log: string): BuildDiagnosis[] {
       matched.push({ title: signature.title, cause: signature.cause, fix: signature.fix });
     }
   }
+
   return matched;
 }
 /** Render diagnoses as an indented, human-readable block for the terminal. Empty input -> empty string. */
 export function formatDiagnoses(diagnoses: readonly BuildDiagnosis[]): string {
   if (diagnoses.length == 0) return '';
+
   let header = 'Likely causes:';
+
   if (diagnoses.length == 1) header = 'Likely cause:';
+
   function mapDiagnosis(diagnosis: { title: string; cause: string; fix: string }) {
     return `  - ${diagnosis.title}\n    Why: ${diagnosis.cause}\n    Fix: ${diagnosis.fix}`;
   }
 
   const blocks = diagnoses.map(mapDiagnosis);
+
   return [header, ...blocks].join('\n');
 }

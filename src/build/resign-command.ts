@@ -139,8 +139,11 @@ function decodeResignCommandInput(rawCommandInput: unknown): ResignCommandInput 
 
   let commandInput: ResignCommandInput = { dryRun };
   const optionalSetting = readOptionalString(rawCommandInputObject, 'id');
+
   commandInput = withOptionalString(commandInput, 'id', optionalSetting);
+
   const optionalString = readOptionalString(rawCommandInputObject, 'app');
+
   commandInput = withOptionalString(commandInput, 'app', optionalString);
   commandInput = withOptionalString(
     commandInput,
@@ -244,6 +247,7 @@ export function androidResignSpec(
     [STORE_PASSWORD_VARIABLE]: keystore.storePassword,
     [KEY_PASSWORD_VARIABLE]: keystore.keyPassword,
   };
+
   const isApk = artifactPath.endsWith('.apk');
 
   if (isApk) {
@@ -356,7 +360,9 @@ async function resignAppleArtifact(
 
   try {
     const unzip = unzipArgs(artifact.path, temporaryDirectory);
+
     await executeCommand('unzip', unzip);
+
     const applicationDirectory = path.join(temporaryDirectory, 'Payload');
     const applicationNames = await readdir(applicationDirectory);
     const applicationName = applicationNames.find(isApplicationBundle);
@@ -387,7 +393,9 @@ async function resignAppleArtifact(
     );
 
     await writeFile(entitlementsPath, entitlements);
+
     const iosCodesign = iosCodesignArgs(applicationPath, signingAssets.certName, entitlementsPath);
+
     await executeCommand('codesign', iosCodesign);
 
     const outputExists = await pathExists(outputPath);
@@ -397,6 +405,7 @@ async function resignAppleArtifact(
     }
 
     const zip = zipArgs(outputPath);
+
     await executeCommand('zip', zip, { workingDirectory: temporaryDirectory });
   } finally {
     await removeTemporaryDirectory(temporaryDirectory);
@@ -427,6 +436,7 @@ function printApplePlan(
   const logger = createLogger(false);
 
   const fileName = path.basename(artifact.path);
+
   logger.line(`Would re-sign ${fileName} with Apple signing:`);
   logger.line(`  identity: ${signingAssets.certName} (team ${signingAssets.teamId})`);
   logger.line(`  profile: ${signingAssets.profileName}`);
@@ -442,6 +452,7 @@ function printAndroidPlan(
   const resignSpec = androidResignSpec(outputPath, keystore);
 
   const fileName = path.basename(artifact.path);
+
   logger.line(`Would re-sign ${fileName} with Android signing:`);
   logger.line(`  keystore: ${keystore.path} (alias ${keystore.alias})`);
   logger.line(`  tool: ${resignSpec.command} (passwords supplied through environment)`);
@@ -629,6 +640,7 @@ export async function resignCommandProgram(rawCommandInput: unknown): Promise<vo
     assertResignablePlatform(artifact.platform);
 
     const outputPath = selectOutputPath(artifact, commandInput.output, workspace.workingDirectory);
+
     const isApple = isApplePlatform(artifact.platform);
 
     if (isApple) {

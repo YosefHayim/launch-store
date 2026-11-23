@@ -186,6 +186,7 @@ export function parsePlayPrice(amountText: string, currencyText: string): PlayMo
 
   const units = BigInt(wholeDigits).toString();
   const nanos = Number(fractionalDigits.padEnd(9, '0'));
+
   const isZeroMoney = isZeroPlayAmount(units, nanos);
 
   if (isZeroMoney) {
@@ -207,6 +208,7 @@ export function formatPlayMoney(playMoney: PlayMoneyUnits): string {
 
   // Drop trailing zeroes, then keep at least two fractional digits.
   let fractionalDigits = String(playMoney.nanos).padStart(9, '0').replace(/0+$/, '');
+
   const needsTwoDigits = fractionalDigits.length < 2;
 
   if (needsTwoDigits) {
@@ -223,6 +225,7 @@ export function renderRecommendedPrices(
 ): string {
   const basePriceText = formatPlayMoney(basePrice);
   const heading = `\nRecommended prices for base ${basePriceText}  (${convertedPrices.regions.length} regions)`;
+
   const hasNoRegions = convertedPrices.regions.length == 0;
 
   if (hasNoRegions) {
@@ -241,6 +244,7 @@ export function renderRecommendedPrices(
   if (convertedPrices.otherRegions != null) {
     const usdPriceText = formatPlayMoney(convertedPrices.otherRegions.usdPrice);
     const eurPriceText = formatPlayMoney(convertedPrices.otherRegions.eurPrice);
+
     fallbackLines.push(
       '\n  Other regions (no local currency):',
       `    ${usdPriceText}`,
@@ -302,5 +306,6 @@ export async function playPricingCommandProgram(rawCommandInput: unknown): Promi
   }
 
   const recommendedPrices = renderRecommendedPrices(basePrice, convertedPrices);
+
   logger.line(recommendedPrices);
 }

@@ -8,6 +8,7 @@ function describeReadCell() {
   }
 
   test('returns the trimmed cell under the column', returnsTheTrimmedCellUnderTheColumn);
+
   function returnsAnEmptyStringWhenTheReportHasNoSuchColumn() {
     const cell = readCell({ Units: '4' }, 'SKU');
 
@@ -28,12 +29,14 @@ function describeReadNumberCell() {
   }
 
   test('reads a number', readsANumber);
+
   function countsABlankCellAs0() {
     const numberCell = readNumberCell({ Units: ' ' }, 'Units');
     expect(numberCell).toBe(0);
   }
 
   test('counts a blank cell as 0', countsABlankCellAs0);
+
   function countsACellThatIsNotANumberAs0() {
     const numberCell = readNumberCell({ Units: 'n/a' }, 'Units');
     expect(numberCell).toBe(0);
@@ -51,6 +54,7 @@ function describeSumColumn() {
   }
 
   test('adds the column over many lines', addsTheColumnOverManyLines);
+
   function is0ForNoLines() {
     expect(sumColumn([], 'Counts')).toBe(0);
   }
@@ -66,6 +70,7 @@ function describeReadTotal() {
   }
 
   test('returns the known total', returnsTheKnownTotal);
+
   function returns0ForAnUnknownKey() {
     const total = readTotal(new Map<string, number>(), 'a');
     expect(total).toBe(0);

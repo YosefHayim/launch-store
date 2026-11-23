@@ -461,6 +461,7 @@ function decodeEasDocument(rawDocument: unknown): EasJson {
   }
 
   easConfiguration.build = buildProfiles;
+
   const submitProfiles = decodeSubmitProfiles(readDefaultSection(rawDocumentObject, 'submit'));
 
   if (submitProfiles == null) {
@@ -597,6 +598,7 @@ function profileEnvironmentArtifactsFromEas(easConfiguration: EasJson): Migratio
     }
 
     const buildExample = buildEnvExample(Object.keys(buildProfile.env).sort());
+
     environmentArtifacts.push({
       path: `.env.${profileName}`,
       contents: buildExample,
@@ -1379,7 +1381,9 @@ export async function migrateEas(
   }
 
   const expoNotes = await notesFromAppExpoFacts(apps);
+
   migrationNotes.push(...expoNotes);
+
   const storeScaffold = await scaffoldStoreConfig(workingDirectory);
 
   if (storeScaffold.artifact != null) {

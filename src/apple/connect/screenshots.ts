@@ -57,19 +57,28 @@ export class ConnectScreenshots {
     }>(
       `/${ownerType}/${ownerId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
     );
+
     function mapScreenshotSet(screenshotSet: {
       id: string;
       attributes: { screenshotDisplayType?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let screenshotDisplayType = screenshotSet.attributes.screenshotDisplayType;
+
       if (screenshotDisplayType == null) screenshotDisplayType = '';
+
       return { id: screenshotSet.id, screenshotDisplayType };
     }
 
     return appleResources.map(mapScreenshotSet);
   }
 
+  /**
+   * Add a new screenshot set to an App Store version localization for a specific screenshot type
+   * and display size.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-appscreenshotsets
+   */
   private async createScreenshotSetOf(
     ownerRelationship: string,
     ownerType: string,
@@ -84,10 +93,17 @@ export class ConnectScreenshots {
       relationships: { [ownerRelationship]: { data: { type: ownerType, id: ownerId } } },
     });
     let screenshotDisplayType = appleResources.attributes.screenshotDisplayType;
+
     if (screenshotDisplayType == null) screenshotDisplayType = displayType;
+
     return { id: appleResources.id, screenshotDisplayType };
   }
 
+  /**
+   * List all ordered screenshots in a screenshot set.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appscreenshotsets-_id_-appscreenshots
+   */
   async listScreenshots(setId: string): Promise<ScreenshotResource[]> {
     const appleResources = await this.client.requestAll<{
       fileName?: string;
@@ -98,6 +114,7 @@ export class ConnectScreenshots {
     }>(
       `/appScreenshotSets/${setId}/appScreenshots?fields[appScreenshots]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
     );
+
     function mapScreenshot(screenshot: {
       id: string;
       attributes: {
@@ -108,28 +125,43 @@ export class ConnectScreenshots {
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let fileName = screenshot.attributes.fileName;
+
       if (fileName == null) fileName = '';
+
       const screenshotResource: ScreenshotResource = { id: screenshot.id, fileName };
+
       if (screenshot.attributes.sourceFileChecksum != null)
         Object.assign(screenshotResource, {
           sourceFileChecksum: screenshot.attributes.sourceFileChecksum,
         });
+
       if (screenshot.attributes.assetDeliveryState?.state != null)
         Object.assign(screenshotResource, {
           assetDeliveryState: screenshot.attributes.assetDeliveryState.state,
         });
+
       return screenshotResource;
     }
 
     return appleResources.map(mapScreenshot);
   }
 
+  /**
+   * Delete an app screenshot that is associated with a screenshot set.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/delete-v1-appscreenshots-_id_
+   */
   async deleteScreenshot(screenshotId: string): Promise<void> {
     await this.client.getOptional(() =>
       this.client.deleteResource(`/appScreenshots/${screenshotId}`),
     );
   }
 
+  /**
+   * Change the order of the screenshots in a screenshot set.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-appscreenshotsets-_id_-relationships-appscreenshots
+   */
   async reorderScreenshots(setId: string, screenshotIds: readonly string[]): Promise<void> {
     function mapScreenshotId(screenshotId: string) {
       return { type: 'appScreenshots', id: screenshotId };
@@ -152,11 +184,18 @@ export class ConnectScreenshots {
       fileName,
       bytes.byteLength,
     );
+
     await putAssetFile(operations, filePath, bytes.byteLength);
     await this.client.commitAsset('appScreenshots', id, bytes);
+
     return id;
   }
 
+  /**
+   * Get information about review screenshot for a specific auto-renewable subscription.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-appstorereviewscreenshot
+   */
   async getSubscriptionReviewScreenshot(
     subscriptionId: string,
   ): Promise<ReviewScreenshotResource | null> {
@@ -174,16 +213,21 @@ export class ConnectScreenshots {
       'GET',
       `/subscriptions/${subscriptionId}/appStoreReviewScreenshot?fields[subscriptionAppStoreReviewScreenshots]=sourceFileChecksum,assetDeliveryState`,
     );
+
     if (!appleResources) return null;
+
     const reviewScreenshot: ReviewScreenshotResource = { id: appleResources.id };
+
     if (appleResources.attributes.sourceFileChecksum != null)
       Object.assign(reviewScreenshot, {
         sourceFileChecksum: appleResources.attributes.sourceFileChecksum,
       });
+
     if (appleResources.attributes.assetDeliveryState?.state != null)
       Object.assign(reviewScreenshot, {
         assetDeliveryState: appleResources.attributes.assetDeliveryState.state,
       });
+
     return reviewScreenshot;
   }
 
@@ -199,29 +243,44 @@ export class ConnectScreenshots {
       fileName,
       bytes.byteLength,
     );
+
     await putAssetFile(operations, filePath, bytes.byteLength);
     await this.client.commitAsset('subscriptionAppStoreReviewScreenshots', id, bytes);
   }
 
+  /**
+   * List all app preview sets for a specific localization.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appstoreversionlocalizations-_id_-apppreviewsets
+   */
   async listPreviewSets(versionLocalizationId: string): Promise<PreviewSetResource[]> {
     const appleResources = await this.client.requestAll<{
       previewType?: string;
     }>(
       `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets?fields[appPreviewSets]=previewType&limit=200`,
     );
+
     function mapPreviewSet(previewSet: {
       id: string;
       attributes: { previewType?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let previewType = previewSet.attributes.previewType;
+
       if (previewType == null) previewType = '';
+
       return { id: previewSet.id, previewType };
     }
 
     return appleResources.map(mapPreviewSet);
   }
 
+  /**
+   * Add a new app preview set to an App Store version localization for a specific app preview type
+   * and display size.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-apppreviewsets
+   */
   async createPreviewSet(
     versionLocalizationId: string,
     previewType: string,
@@ -238,10 +297,17 @@ export class ConnectScreenshots {
       },
     });
     let createdPreviewType = appleResources.attributes.previewType;
+
     if (createdPreviewType == null) createdPreviewType = previewType;
+
     return { id: appleResources.id, previewType: createdPreviewType };
   }
 
+  /**
+   * List all ordered app previews in a preview set.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apppreviewsets-_id_-apppreviews
+   */
   async listPreviews(setId: string): Promise<PreviewResource[]> {
     const appleResources = await this.client.requestAll<{
       fileName?: string;
@@ -252,6 +318,7 @@ export class ConnectScreenshots {
     }>(
       `/appPreviewSets/${setId}/appPreviews?fields[appPreviews]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
     );
+
     function mapPreview(preview: {
       id: string;
       attributes: {
@@ -262,16 +329,21 @@ export class ConnectScreenshots {
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let fileName = preview.attributes.fileName;
+
       if (fileName == null) fileName = '';
+
       const previewResource: PreviewResource = { id: preview.id, fileName };
+
       if (preview.attributes.sourceFileChecksum != null)
         Object.assign(previewResource, {
           sourceFileChecksum: preview.attributes.sourceFileChecksum,
         });
+
       if (preview.attributes.assetDeliveryState?.state != null)
         Object.assign(previewResource, {
           assetDeliveryState: preview.attributes.assetDeliveryState.state,
         });
+
       return previewResource;
     }
 
@@ -286,6 +358,7 @@ export class ConnectScreenshots {
       fileName,
       bytes.byteLength,
     );
+
     await putAssetFile(operations, filePath, bytes.byteLength);
     await this.client.commitAsset('appPreviews', id, bytes);
   }

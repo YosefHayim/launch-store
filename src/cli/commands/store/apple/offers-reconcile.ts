@@ -48,6 +48,7 @@ export function renderOfferAction(plannedAction: PlannedAction): string {
     case 'failed': {
       let failureText = 'failed';
       const actionError = plannedAction.error;
+
       const hasActionError = actionError != null;
 
       if (hasActionError) {
@@ -97,6 +98,7 @@ function selectOffersApps(apps: AppDescriptor[], appSelector: string | undefined
 
   for (const requestedName of requestedNames) {
     const selectedApp = appsByName.get(requestedName);
+
     const isUnknownApp = selectedApp == null;
 
     if (isUnknownApp) {
@@ -136,6 +138,7 @@ async function resolveOffersJobs(appSelector: string | undefined): Promise<Offer
 
   for (const selectedApp of selectedApps) {
     const bundleId = selectedApp.bundleId;
+
     const isBundleMissing = bundleId == null;
 
     if (isBundleMissing) {
@@ -143,6 +146,7 @@ async function resolveOffersJobs(appSelector: string | undefined): Promise<Offer
     }
 
     const productCatalog = loadedConfiguration.config.products;
+
     const isCatalogMissing = productCatalog == null;
 
     if (isCatalogMissing) {
@@ -150,6 +154,7 @@ async function resolveOffersJobs(appSelector: string | undefined): Promise<Offer
     }
 
     const appProducts = productCatalog[bundleId];
+
     const isProductsMissing = appProducts == null;
 
     if (isProductsMissing) {
@@ -180,6 +185,7 @@ async function reconcileOffersJob(
       products: offersJob.products,
       dryRun,
     });
+
     return { _tag: 'OffersJobSucceeded', job: offersJob, report: reconcileReport };
   } catch (cause) {
     return {
@@ -223,6 +229,7 @@ async function confirmOffersWrite(mutationCount: number, assumeYes: boolean): Pr
   }
 
   LaunchPrompt.cancel('Aborted - no changes made.');
+
   return false;
 }
 
@@ -237,8 +244,11 @@ async function mapWithConcurrency<Member, Mapped>(
   async function runWorker(): Promise<void> {
     while (nextIndex < members.length) {
       const memberIndex = nextIndex;
+
       nextIndex += 1;
+
       const member = members[memberIndex];
+
       const isMemberMissing = member == null;
 
       if (isMemberMissing) {
@@ -258,6 +268,7 @@ async function mapWithConcurrency<Member, Mapped>(
   }
 
   await Promise.all(workers);
+
   return mappedMembers;
 }
 
@@ -292,6 +303,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
   try {
     const logger = createLogger(false);
     const offersJobs = await resolveOffersJobs(commandInput.app);
+
     const hasNoJobs = offersJobs.length == 0;
 
     if (hasNoJobs) {
@@ -318,6 +330,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
     const planOutcomes = await mapWithConcurrency(offersJobs, offerJobConcurrency, planOffersJob);
     let mutationCount = 0;
     let planFailureCount = 0;
+
     logger.gap();
 
     for (const planOutcome of planOutcomes) {
@@ -328,11 +341,14 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
         logger.error(
           `${planOutcome.job.app.name} (${planOutcome.job.bundleId}): ${planOutcome.message}`,
         );
+
         continue;
       }
 
       const plannedActions = planOutcome.report.actions;
+
       mutationCount += countPlannedActions(plannedActions);
+
       const isAlreadyInSync = plannedActions.length == 0;
 
       if (isAlreadyInSync) {
@@ -354,6 +370,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
 
     if (hasNoMutations) {
       logger.gap();
+
       const hasPlanFailures = planFailureCount > 0;
 
       if (hasPlanFailures) {
@@ -362,11 +379,13 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
       }
 
       logger.step('offers', 'everything is already in sync');
+
       return 0;
     }
 
     logger.gap();
     logger.note(`${mutationCount} change(s) across ${offersJobs.length} app(s).`);
+
     const isDryRun = commandInput.dryRun == true;
 
     if (isDryRun) {
@@ -418,8 +437,11 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
       }
 
       const offersSummary = summarize(applyOutcome.report.actions);
+
       failureCount += offersSummary.failed;
+
       let receiptStatus = 'OK';
+
       const hasFailedActions = offersSummary.failed > 0;
 
       if (hasFailedActions) {
@@ -439,6 +461,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
 
         let failureText = 'failed';
         const actionError = appliedAction.error;
+
         const hasActionError = actionError != null;
 
         if (hasActionError) {
@@ -450,6 +473,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
     }
 
     let receiptTitle = 'Offers synced';
+
     const hasFailures = failureCount > 0;
 
     if (hasFailures) {
@@ -457,6 +481,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
     }
 
     logger.box(receiptTitle, receiptLines);
+
     return failureCount;
   } catch (cause) {
     throw offersFailure('reconcile offers', cause);

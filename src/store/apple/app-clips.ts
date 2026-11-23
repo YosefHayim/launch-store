@@ -129,6 +129,7 @@ function readClip(entry: unknown): AppClipConfig {
     action?: AppClipActionValue;
     localizations?: Record<string, AppClipLocalizationConfig>;
   } = {};
+
   const hasAction = Object.hasOwn(entryObject, 'action');
 
   if (hasAction) {
@@ -143,6 +144,7 @@ function readClip(entry: unknown): AppClipConfig {
   }
 
   const localizations = readLocalizations(entryObject);
+
   const hasLocalizations = localizations != null;
 
   if (hasLocalizations) {
@@ -261,6 +263,7 @@ async function ensureExperience(
     const currentActionText = existing.action;
     const isKnownAction = isListedText(currentActionText, APP_CLIP_ACTIONS);
     const currentAction = isKnownAction ? currentActionText : undefined;
+
     const shouldUpdateAction = needsActionUpdate(currentAction, action);
 
     if (shouldUpdateAction) {
@@ -285,6 +288,7 @@ async function ensureExperience(
   }
 
   let actionDetail = '';
+
   const hasAction = action != null;
 
   if (hasAction) {
@@ -296,7 +300,9 @@ async function ensureExperience(
     destructive: false,
     status: 'planned',
   };
+
   reconcileContext.actions.push(create);
+
   const isDryRun = reconcileContext.dryRun == true;
 
   if (isDryRun) {
@@ -327,6 +333,7 @@ async function reconcileLocalizations(
 
   for (const [locale, localization] of Object.entries(declared)) {
     const current = existing.get(locale);
+
     const isMissing = current == null;
 
     if (isMissing) {
@@ -353,6 +360,7 @@ async function reconcileLocalizations(
     }
 
     const updateAction = plan(reconcileContext, `update ${clipBundleId} card subtitle (${locale})`);
+
     const isDryRun = reconcileContext.dryRun == true;
 
     if (isDryRun) {
@@ -388,6 +396,7 @@ async function reconcileClip(
     declared.action,
   );
   let declaredLocalizations: Record<string, AppClipLocalizationConfig> = {};
+
   const hasDeclaredLocalizations = declared.localizations != null;
 
   if (hasDeclaredLocalizations) {
@@ -402,6 +411,7 @@ async function reconcileClip(
       clipBundleId,
       declaredLocalizations,
     );
+
     return;
   }
 
@@ -434,6 +444,7 @@ export async function reconcileAppClips(
 ): Promise<ReconcileReport> {
   const reconcileContext: ReconcileContext = { actions: [], dryRun: reconcileInput.dryRun };
   const appId = await api.getAppId(reconcileInput.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -456,6 +467,7 @@ export async function reconcileAppClips(
       reconcileContext,
       'App Clips: no editable App Store version (create/select a version first)',
     );
+
     return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
   }
 
@@ -475,6 +487,7 @@ export async function reconcileAppClips(
 
   for (const [clipBundleId, declared] of Object.entries(reconcileInput.config.clips)) {
     const clip = clipsByBundleId.get(clipBundleId);
+
     const isClipMissing = clip == null;
 
     if (isClipMissing) {
@@ -482,6 +495,7 @@ export async function reconcileAppClips(
         reconcileContext,
         `App Clip ${clipBundleId}: no clip record yet - upload a build with this App Clip target first`,
       );
+
       continue;
     }
 

@@ -21,6 +21,11 @@ import {
 export class ConnectApps {
   constructor(private readonly client: AscHost) {}
 
+  /**
+   * Find and list apps in App Store Connect.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps
+   */
   async getAppId(bundleId: string): Promise<string | null> {
     const uRIComponent = encodeURIComponent(bundleId);
     const { data: appleResources } = await this.client.request<
@@ -29,7 +34,9 @@ export class ConnectApps {
       }>
     >('GET', `/apps?filter[bundleId]=${uRIComponent}&limit=1`);
     const appResource = appleResources[0];
+
     if (appResource == null) return null;
+
     return appResource.id;
   }
 
@@ -41,22 +48,37 @@ export class ConnectApps {
   async getCurrentAppInfoId(appId: string): Promise<string | null> {
     const appInfos = await this.listAppInfoStates(appId);
     const editableAppInfoId = findAppInfoId(appInfos, EDITABLE_APPINFO_STATES);
+
     if (editableAppInfoId != null) return editableAppInfoId;
+
     return findAppInfoId(appInfos, LIVE_STATES);
   }
 
+  /**
+   * Get information about an app that is currently live on App Store, or that goes live with the
+   * next version.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appinfos
+   */
   async listAppInfoStates(appId: string): Promise<ResourceList<AppInfoStates>['data']> {
     const { data: appInfos } = await this.client.request<ResourceList<AppInfoStates>>(
       'GET',
       `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState&limit=20`,
     );
+
     return appInfos;
   }
 
+  /**
+   * Get a list of localized, app-level information for an app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appinfos-_id_-appinfolocalizations
+   */
   async listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]> {
     const appleResources = await this.client.requestAll<Record<string, unknown>>(
       `/appInfos/${appInfoId}/appInfoLocalizations?limit=200`,
     );
+
     function mapLocalization(localization: {
       id: string;
       attributes: Record<string, unknown>;
@@ -64,7 +86,9 @@ export class ConnectApps {
     }) {
       const localeAttribute = localization.attributes['locale'];
       let locale = '';
+
       if (typeof localeAttribute == 'string') locale = localeAttribute;
+
       return {
         id: localization.id,
         locale,
@@ -75,6 +99,11 @@ export class ConnectApps {
     return appleResources.map(mapLocalization);
   }
 
+  /**
+   * Get a list of localized, app-level information for an app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appinfos-_id_-appinfolocalizations
+   */
   async listAccountDeletionUrls(appInfoId: string): Promise<
     {
       locale: string;
@@ -87,21 +116,31 @@ export class ConnectApps {
     }>(
       `/appInfos/${appInfoId}/appInfoLocalizations?limit=200&fields[appInfoLocalizations]=locale,privacyChoicesUrl`,
     );
+
     function mapLocalization2(localization: {
       id: string;
       attributes: { locale?: string; privacyChoicesUrl?: string | null };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let locale = localization.attributes.locale;
+
       if (locale == null) locale = '';
+
       let accountDeletionUrl = localization.attributes.privacyChoicesUrl;
+
       if (typeof accountDeletionUrl != 'string') accountDeletionUrl = '';
+
       return { locale, url: accountDeletionUrl };
     }
 
     return appleResources.map(mapLocalization2);
   }
 
+  /**
+   * Add app-level localized information for a new locale.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-appinfolocalizations
+   */
   async createAppInfoLocalization(
     appInfoId: string,
     locale: string,
@@ -114,6 +153,11 @@ export class ConnectApps {
     });
   }
 
+  /**
+   * Modify localized app-level information for a particular language.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-appinfolocalizations-_id_
+   */
   async updateAppInfoLocalization(
     localizationId: string,
     fields: Record<string, string>,
@@ -125,10 +169,20 @@ export class ConnectApps {
     });
   }
 
+  /**
+   * Find and list bundle IDs that are registered to your team.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids
+   */
   async assertReady(): Promise<void> {
     await this.client.request<ResourceList<unknown>>('GET', '/bundleIds?limit=1');
   }
 
+  /**
+   * Find and list bundle IDs that are registered to your team.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids
+   */
   async checkRequiredAgreements(): Promise<boolean> {
     try {
       await this.client.request<ResourceList<unknown>>('GET', '/bundleIds?limit=1');
@@ -141,10 +195,16 @@ export class ConnectApps {
       if (error instanceof AscRequestError && error.status == 403 && error.codes.some(someCode)) {
         return false;
       }
+
       throw error;
     }
   }
 
+  /**
+   * Find and list bundle IDs that are registered to your team.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids
+   */
   async resolveTeamId(): Promise<string | null> {
     const { data: appleResources } = await this.client.request<
       ResourceList<{
@@ -152,16 +212,26 @@ export class ConnectApps {
       }>
     >('GET', '/bundleIds?limit=1&fields[bundleIds]=seedId');
     const bundleIdResource = appleResources[0];
+
     if (bundleIdResource == null) return null;
+
     const teamId = bundleIdResource.attributes.seedId;
+
     if (teamId == null) return null;
+
     return teamId;
   }
 
+  /**
+   * Find and list apps in App Store Connect.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps
+   */
   async listAppNames(): Promise<string[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
     }>('/apps?fields[apps]=name&limit=200');
+
     function readName(entry: {
       id: string;
       attributes: { name?: string };
@@ -177,14 +247,26 @@ export class ConnectApps {
     return appleResources.map(readName).filter(filterName);
   }
 
+  /**
+   * Find and list apps in App Store Connect.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps
+   */
   async listApps(): Promise<{ id: string; name: string; bundleId: string | null }[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
       bundleId?: string;
     }>('/apps?fields[apps]=name,bundleId&limit=200');
+
     return appleResources.map(summarizeAppleApp);
   }
 
+  /**
+   * Get information about an app that is currently live on App Store, or that goes live with the
+   * next version.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appinfos
+   */
   async getAppInfo(appId: string): Promise<AppInfoResource | null> {
     const { data: appleResources } = await this.client.request<{
       data: {
@@ -207,7 +289,9 @@ export class ConnectApps {
         };
       }[];
     }>('GET', `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory&limit=200`);
+
     if (appleResources.length == 0) return null;
+
     function findAppInformation(appInformation: {
       id: string;
       attributes?: { state?: string; appStoreState?: string };
@@ -217,27 +301,44 @@ export class ConnectApps {
       };
     }) {
       let appInformationState = appInformation.attributes?.state;
+
       if (appInformationState == null)
         appInformationState = appInformation.attributes?.appStoreState;
+
       if (appInformationState == null) return false;
+
       return EDITABLE_METADATA_STATES.has(appInformationState);
     }
 
     const editable = appleResources.find(findAppInformation);
     let selectedAppInformation = editable;
+
     if (selectedAppInformation == null) selectedAppInformation = appleResources[0];
+
     if (selectedAppInformation == null) return null;
+
     let state = selectedAppInformation.attributes?.state;
+
     if (state == null) state = selectedAppInformation.attributes?.appStoreState;
+
     const primaryCategoryId = selectedAppInformation.relationships?.primaryCategory?.data?.id;
     const secondaryCategoryId = selectedAppInformation.relationships?.secondaryCategory?.data?.id;
     const appInformationResource: AppInfoResource = { id: selectedAppInformation.id };
+
     if (state != null) Object.assign(appInformationResource, { state });
+
     if (primaryCategoryId != null) Object.assign(appInformationResource, { primaryCategoryId });
+
     if (secondaryCategoryId != null) Object.assign(appInformationResource, { secondaryCategoryId });
+
     return appInformationResource;
   }
 
+  /**
+   * Update the App Store categories and sub-categories for your app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-appinfos-_id_
+   */
   async updateAppInfoCategories(
     appInfoId: string,
     categories: {
@@ -267,11 +368,13 @@ export class ConnectApps {
         } | null;
       }
     > = {};
+
     if (categories.primaryCategoryId) {
       relationships['primaryCategory'] = {
         data: { type: 'appCategories', id: categories.primaryCategoryId },
       };
     }
+
     const secondaryCategoryId = categories.secondaryCategoryId;
     const secondaryCategoryIsOmitted = typeof secondaryCategoryId == 'undefined';
 
@@ -280,11 +383,17 @@ export class ConnectApps {
         data: secondaryCategoryRelationship(secondaryCategoryId),
       };
     }
+
     await this.client.request<unknown>('PATCH', `/appInfos/${appInfoId}`, {
       data: { type: 'appInfos', id: appInfoId, relationships },
     });
   }
 
+  /**
+   * Get the age-rating declaration for an app info.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appinfos-_id_-ageratingdeclaration
+   */
   async getAgeRatingDeclaration(appInfoId: string): Promise<AgeRatingDeclarationResource | null> {
     return this.client.getOptional(async () => {
       const { data: appleResources } = await this.client.request<{
@@ -293,13 +402,22 @@ export class ConnectApps {
           attributes?: Record<string, AgeRatingValue>;
         } | null;
       }>('GET', `/appInfos/${appInfoId}/ageRatingDeclaration`);
+
       if (appleResources == null) return null;
+
       let declarationAttributes = appleResources.attributes;
+
       if (declarationAttributes == null) declarationAttributes = {};
+
       return { id: appleResources.id, attributes: declarationAttributes };
     });
   }
 
+  /**
+   * Provide age-related information so the App Store can determine the age rating for your app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-ageratingdeclarations-_id_
+   */
   async updateAgeRatingDeclaration(
     declarationId: string,
     attributes: Record<string, AgeRatingValue>,

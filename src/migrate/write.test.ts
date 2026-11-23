@@ -18,6 +18,7 @@ function migration(): MigrationResult {
 }
 function describeWriteArtifacts() {
   let dir: string;
+
   function prepareWriteArtifacts() {
     const systemTemporaryDirectory = tmpdir();
     const launchMigrateWritePath = join(systemTemporaryDirectory, 'launch-migrate-write-');
@@ -25,60 +26,80 @@ function describeWriteArtifacts() {
   }
 
   beforeEach(prepareWriteArtifacts);
+
   function cleanupWriteArtifacts() {
     rmSync(dir, { recursive: true, force: true });
   }
 
   afterEach(cleanupWriteArtifacts);
+
   async function writesEveryArtifactIntoThePieceDirectory() {
     const outcome = await writeArtifacts(migration(), { outDir: dir });
 
     expect(outcome.written.sort()).toEqual(['.env.example', 'launch.config.ts']);
     expect(outcome.skipped).toEqual([]);
+
     const launchPath = join(dir, 'launch.config.ts');
     const loadedFile = readFileSync(launchPath, 'utf8');
+
     expect(loadedFile).toBe('// config\n');
   }
 
   it('writes every artifact into the output directory', writesEveryArtifactIntoThePieceDirectory);
+
   async function keepsAnExistingFileUntouchedWithoutForce() {
     const launchPath = join(dir, 'launch.config.ts');
+
     writeFileSync(launchPath, '// mine\n');
+
     const outcome = await writeArtifacts(migration(), { outDir: dir });
 
     expect(outcome.skipped).toEqual(['launch.config.ts']);
     expect(outcome.written).toEqual(['.env.example']);
+
     const joinedPath = join(dir, 'launch.config.ts');
     const loadedFile = readFileSync(joinedPath, 'utf8');
+
     expect(loadedFile).toBe('// mine\n');
   }
 
   it('keeps an existing file untouched without --force', keepsAnExistingFileUntouchedWithoutForce);
+
   async function overwritesAnExistingFileWithForce() {
     const launchPath = join(dir, 'launch.config.ts');
+
     writeFileSync(launchPath, '// mine\n');
+
     const outcome = await writeArtifacts(migration(), { outDir: dir, force: true });
 
     expect(outcome.skipped).toEqual([]);
+
     const joinedPath = join(dir, 'launch.config.ts');
     const loadedFile = readFileSync(joinedPath, 'utf8');
+
     expect(loadedFile).toBe('// config\n');
   }
 
   it('overwrites an existing file with --force', overwritesAnExistingFileWithForce);
+
   async function classifiesWithoutWritingUnderDryRun() {
     const outcome = await writeArtifacts(migration(), { outDir: dir, dryRun: true });
 
     expect(outcome.written.sort()).toEqual(['.env.example', 'launch.config.ts']);
+
     const launchPath = join(dir, 'launch.config.ts');
     const pathExists = existsSync(launchPath);
+
     expect(pathExists).toBe(false);
   }
 
   it('classifies without writing under dryRun', classifiesWithoutWritingUnderDryRun);
+
   async function dryRunStillReportsAnExistingFileAsSkipped() {
     const joinedPath = join(dir, '.env.example');
+
     writeFileSync(joinedPath, 'X=\n');
+
     const outcome = await writeArtifacts(migration(), { outDir: dir, dryRun: true });
 
     expect(outcome.skipped).toEqual(['.env.example']);

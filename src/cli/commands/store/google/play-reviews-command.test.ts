@@ -11,6 +11,7 @@ function describePlayReviewsCommandPieceSchema() {
       unanswered: false,
       json: true,
     });
+
     expect(playReviewsCommandSchema).toEqual({ operation: 'list', unanswered: false, json: true });
     expect(
       PlayReviewsCommandInputSchema({
@@ -25,6 +26,7 @@ function describePlayReviewsCommandPieceSchema() {
     'decodes list and reply inputs without unset option fields',
     decodesListAndReplyInputsWithoutUnsetOptionFields,
   );
+
   function rejectsExplicitUndefinedExactOptionalFields() {
     function callPlayReviewsCommandPieceSchema() {
       return PlayReviewsCommandInputSchema({
@@ -48,7 +50,9 @@ describe('PlayReviewsCommandInputSchema', describePlayReviewsCommandPieceSchema)
 function describePlayReviewPresentation() {
   function validatesRatingsThroughTheTaggedCommandChannel() {
     const playReviewRating = parsePlayReviewRating(' 4 ');
+
     expect(playReviewRating).toBe(4);
+
     function callParsePlayReviewRating() {
       return parsePlayReviewRating('4.5');
     }
@@ -60,6 +64,7 @@ function describePlayReviewPresentation() {
     'validates ratings through the tagged command channel',
     validatesRatingsThroughTheTaggedCommandChannel,
   );
+
   function rendersAnAnsweredReviewWithCleanASCIIStatusPiece() {
     const playReview = renderPlayReview({
       reviewId: 'review-1',
@@ -72,6 +77,7 @@ function describePlayReviewPresentation() {
       answered: true,
       developerReply: 'Thank you.',
     });
+
     expect(playReview).toBe(
       'review-1  5/5\n  en  2026-08-04  v2.0  by Ada  OK answered\n  Useful.\n  -> reply: Thank you.',
     );

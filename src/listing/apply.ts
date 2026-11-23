@@ -22,6 +22,7 @@ const ANDROID_LIMITS = {
 /** Hard-truncate to `max`, trimming a trailing partial word's whitespace so the cut reads cleanly. */
 function clampText(listingText: string, maxCharacters: number): string {
   if (listingText.length <= maxCharacters) return listingText;
+
   return listingText.slice(0, maxCharacters).trimEnd();
 }
 /** The comma-joined serialization Apple counts against the 100-char keyword limit. */
@@ -31,10 +32,13 @@ export function serializeKeywords(keywords: readonly string[]): string {
 /** Keep keywords from the front until adding the next would overflow the joined-string limit. */
 function clampKeywords(keywords: readonly string[], maxCharacters: number): string[] {
   const keptKeywords: string[] = [];
+
   for (const keyword of keywords) {
     if (serializeKeywords([...keptKeywords, keyword]).length > maxCharacters) break;
+
     keptKeywords.push(keyword);
   }
+
   return keptKeywords;
 }
 /** Clamp every field of a draft to its App Store limit */
@@ -44,6 +48,7 @@ export function clampDraft(listingDraft: DraftListing): {
 } {
   const warningMessages: string[] = [];
   const clampedDraft: MutableDeep<DraftListing> = {};
+
   /** Clamp one optional text field, recording a warning when it was over the limit. */
   function fitText(
     listingText: string | undefined,
@@ -51,35 +56,49 @@ export function clampDraft(listingDraft: DraftListing): {
     fieldLabel: string,
   ): string | undefined {
     if (listingText == null) return undefined;
+
     if (listingText.length > maxCharacters) {
       warningMessages.push(
         `${fieldLabel} was ${listingText.length} chars; trimmed to the ${maxCharacters}-char limit.`,
       );
       return clampText(listingText, maxCharacters);
     }
+
     return listingText;
   }
+
   const title = fitText(listingDraft.title, APPLE_LIMITS.title, 'title');
+
   if (title != null) clampedDraft.title = title;
+
   const subtitle = fitText(listingDraft.subtitle, APPLE_LIMITS.subtitle, 'subtitle');
+
   if (subtitle != null) clampedDraft.subtitle = subtitle;
+
   const promotionalText = fitText(
     listingDraft.promotionalText,
     APPLE_LIMITS.promotionalText,
     'promotional text',
   );
+
   if (promotionalText != null) clampedDraft.promotionalText = promotionalText;
+
   const description = fitText(listingDraft.description, APPLE_LIMITS.description, 'description');
+
   if (description != null) clampedDraft.description = description;
+
   if (listingDraft.keywords != null) {
     const keptKeywords = clampKeywords(listingDraft.keywords, APPLE_LIMITS.keywords);
+
     if (keptKeywords.length < listingDraft.keywords.length) {
       warningMessages.push(
         `keywords exceeded the ${APPLE_LIMITS.keywords}-char limit; kept ${keptKeywords.length} of ${listingDraft.keywords.length}.`,
       );
     }
+
     if (keptKeywords.length > 0) clampedDraft.keywords = keptKeywords;
   }
+
   return { draft: clampedDraft, warnings: warningMessages };
 }
 /** Build the brief for one locale. */
@@ -91,29 +110,41 @@ export function briefFor(
 ): ListingBrief {
   const listingBrief: MutableDeep<ListingBrief> = { locale: localeName, appName: displayName };
   let aboutText = aboutOverride;
+
   if (aboutText == null && currentListing != null) aboutText = currentListing.promotionalText;
+
   if (aboutText == null && currentListing != null) aboutText = currentListing.subtitle;
+
   if (aboutText != null && aboutText.length > 0) listingBrief.about = aboutText;
+
   if (currentListing?.keywords != null && currentListing.keywords.length > 0)
     listingBrief.keywords = currentListing.keywords;
+
   if (currentListing != null) listingBrief.current = currentListing;
+
   return listingBrief;
 }
 /** Derive a Play listing from the App Store draft */
 export function deriveAndroidLocale(listingDraft: DraftListing): AndroidLocaleInfo {
   const androidListing: AndroidLocaleInfo = {};
+
   if (listingDraft.title != null)
     androidListing.title = clampText(listingDraft.title, ANDROID_LIMITS.title);
+
   let shortDescription = listingDraft.subtitle;
+
   if (shortDescription == null) shortDescription = listingDraft.promotionalText;
+
   if (shortDescription != null) {
     androidListing.shortDescription = clampText(shortDescription, ANDROID_LIMITS.shortDescription);
   }
+
   if (listingDraft.description != null)
     androidListing.fullDescription = clampText(
       listingDraft.description,
       ANDROID_LIMITS.fullDescription,
     );
+
   return androidListing;
 }
 /** Fold a draft into a config for one locale, immutably */
@@ -123,27 +154,42 @@ function mergeAppleLocale(
   listingDraft: DraftListing,
 ): AppleLocaleInfo {
   const mergedLocale: MutableDeep<AppleLocaleInfo> = {};
+
   if (existingLocale != null) {
     if (existingLocale.title != null) mergedLocale.title = existingLocale.title;
+
     if (existingLocale.subtitle != null) mergedLocale.subtitle = existingLocale.subtitle;
+
     if (existingLocale.description != null) mergedLocale.description = existingLocale.description;
+
     if (existingLocale.keywords != null) mergedLocale.keywords = [...existingLocale.keywords];
+
     if (existingLocale.releaseNotes != null)
       mergedLocale.releaseNotes = existingLocale.releaseNotes;
+
     if (existingLocale.promotionalText != null)
       mergedLocale.promotionalText = existingLocale.promotionalText;
+
     if (existingLocale.marketingUrl != null)
       mergedLocale.marketingUrl = existingLocale.marketingUrl;
+
     if (existingLocale.supportUrl != null) mergedLocale.supportUrl = existingLocale.supportUrl;
+
     if (existingLocale.privacyPolicyUrl != null)
       mergedLocale.privacyPolicyUrl = existingLocale.privacyPolicyUrl;
   }
+
   if (listingDraft.title != null) mergedLocale.title = listingDraft.title;
+
   if (listingDraft.subtitle != null) mergedLocale.subtitle = listingDraft.subtitle;
+
   if (listingDraft.description != null) mergedLocale.description = listingDraft.description;
+
   if (listingDraft.promotionalText != null)
     mergedLocale.promotionalText = listingDraft.promotionalText;
+
   if (listingDraft.keywords != null) mergedLocale.keywords = [...listingDraft.keywords];
+
   return mergedLocale;
 }
 
@@ -157,19 +203,26 @@ export function applyDraft(
   },
 ): StoreConfig {
   const updatedStoreConfiguration: StoreConfig = { ...storeConfiguration };
+
   if (listingTargets.ios) {
     let appleListing = storeConfiguration.apple;
+
     if (appleListing == null) appleListing = { info: {} };
+
     const localeInfo: Record<string, AppleLocaleInfo> = { ...appleListing.info };
+
     localeInfo[localeName] = mergeAppleLocale(appleListing.info[localeName], listingDraft);
     updatedStoreConfiguration.apple = {
       ...appleListing,
       info: localeInfo,
     };
   }
+
   if (listingTargets.android) {
     let androidListing = storeConfiguration.android;
+
     if (androidListing == null) androidListing = { info: {} };
+
     updatedStoreConfiguration.android = {
       ...androidListing,
       info: {
@@ -181,12 +234,15 @@ export function applyDraft(
       },
     };
   }
+
   return updatedStoreConfiguration;
 }
 /** Collapse a long field to a single trimmed line for the preview, with an ellipsis when cut. */
 function previewText(listingText: string): string {
   const singleLineText = listingText.replace(/\s+/g, ' ').trim();
+
   if (singleLineText.length > 60) return `${singleLineText.slice(0, 57)}...`;
+
   return singleLineText;
 }
 /** Format one aligned preview line with its character budget. */
@@ -216,17 +272,21 @@ export function renderDraftPreview(
     readonly warnings: readonly string[];
   }) {
     const lines = [`  ${locale}`];
+
     if (listingTargets.ios) {
       if (draft.title != null)
         lines.push(previewLine('title', draft.title, draft.title.length, APPLE_LIMITS.title));
+
       if (draft.subtitle != null)
         lines.push(
           previewLine('subtitle', draft.subtitle, draft.subtitle.length, APPLE_LIMITS.subtitle),
         );
+
       if (draft.keywords != null) {
         const joined = serializeKeywords(draft.keywords);
         lines.push(previewLine('keywords', joined, joined.length, APPLE_LIMITS.keywords));
       }
+
       if (draft.promotionalText != null)
         lines.push(
           previewLine(
@@ -236,6 +296,7 @@ export function renderDraftPreview(
             APPLE_LIMITS.promotionalText,
           ),
         );
+
       if (draft.description != null)
         lines.push(
           previewLine(
@@ -246,11 +307,15 @@ export function renderDraftPreview(
           ),
         );
     }
+
     if (listingTargets.android) {
       const android = deriveAndroidLocale(draft);
+
       lines.push('    android');
+
       if (android.title != null)
         lines.push(previewLine('title', android.title, android.title.length, ANDROID_LIMITS.title));
+
       if (android.shortDescription != null)
         lines.push(
           previewLine(
@@ -260,6 +325,7 @@ export function renderDraftPreview(
             ANDROID_LIMITS.shortDescription,
           ),
         );
+
       if (android.fullDescription != null)
         lines.push(
           previewLine(
@@ -270,11 +336,14 @@ export function renderDraftPreview(
           ),
         );
     }
+
     for (const warning of warnings) lines.push(`    WARN ${warning}`);
+
     return lines.join('\n');
   }
 
   const localePreviews = listingDrafts.map(mapPiece);
+
   return ['listing draft (nothing is written until you confirm):', '', ...localePreviews].join(
     '\n',
   );

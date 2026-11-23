@@ -73,7 +73,9 @@ function makeCtx(
     submit: 'app-store-connect',
   };
   let config = baseConfig;
+
   if (Object.keys(products).length > 0) config = { ...baseConfig, products };
+
   return {
     config,
     apps: [alpha],
@@ -91,6 +93,7 @@ function describeOffersPlanner() {
       offersPlanner,
       makeCtx(apiWithLiveSubscription(), { 'com.acme.alpha': noOffers }),
     );
+
     expect(plan.state).toBe('omitted');
   }
 
@@ -98,10 +101,14 @@ function describeOffersPlanner() {
     'omits itself when no app declares offers or promoted purchases',
     omitsItselfWhenNoAppDeclaresOffersOrPromotedPurchases,
   );
+
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(offersPlanner, makeCtx(null, { 'com.acme.alpha': WITH_OFFER }));
+
     expect(plan.state).toBe('skipped');
+
     if (plan.state != 'skipped') return;
+
     expect(plan.hint).toMatch(/creds/);
   }
 
@@ -109,15 +116,21 @@ function describeOffersPlanner() {
     'skips with a creds hint when no Apple account is active',
     skipsWithACredsHintWhenNoAppleAccountIsActive,
   );
+
   async function reportsAnAdditivePlanToCreateADeclaredOfferCodeThatDoesnTExistYet() {
     const plan = await runPlanner(
       offersPlanner,
       makeCtx(apiWithLiveSubscription(), { 'com.acme.alpha': WITH_OFFER }),
     );
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.direction).toBe('additive');
+
     function someA(a: {
       readonly description: string;
       readonly destructive: boolean;
@@ -134,12 +147,17 @@ function describeOffersPlanner() {
     "reports an additive plan to create a declared offer code that doesn't exist yet",
     reportsAnAdditivePlanToCreateADeclaredOfferCodeThatDoesnTExistYet,
   );
+
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = apiWithLiveSubscription({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(offersPlanner, makeCtx(api, { 'com.acme.alpha': WITH_OFFER }));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
   }
 
@@ -147,8 +165,10 @@ function describeOffersPlanner() {
     'captures a missing app record as a per-app error, not a thrown plan',
     capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan,
   );
+
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = apiWithLiveSubscription();
+
     await runPlanner(offersPlanner, makeCtx(api, { 'com.acme.alpha': WITH_OFFER }));
     expect(api.createSubscriptionOfferCode).toHaveBeenCalledTimes(0);
     expect(api.createPromotionalOffer).toHaveBeenCalledTimes(0);

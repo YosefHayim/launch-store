@@ -353,6 +353,7 @@ export function offerFromConfig(
   }
 
   const regions = offerRegions(phases);
+
   const hasNoSharedRegion = regions.length == 0;
 
   if (hasNoSharedRegion) {
@@ -438,6 +439,7 @@ function collectOffers(
         reconcileContext,
         `create offer ${offerConfig.offerId} on base plan ${basePlanId}`,
       );
+
       action.status = 'failed';
       action.error = errorMessage(configurationFailure);
     }
@@ -802,6 +804,7 @@ export async function reconcilePlaySubscriptions(
         existing,
         desired,
       );
+
       continue;
     }
 

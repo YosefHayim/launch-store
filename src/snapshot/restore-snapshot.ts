@@ -148,6 +148,7 @@ function renderRestore(
   sourceFilter: string | undefined,
 ): void {
   logger.note(`Restore "${snapshotName}" -> live`);
+
   const actionCount = sourceRestores.reduce(function addActions(totalActions, sourceRestore) {
     return totalActions + sourceRestore.actions.length;
   }, 0);
@@ -289,6 +290,7 @@ export async function restoreSnapshot(command: RestoreCommand): Promise<void> {
   }
 
   registerBuiltinSources();
+
   const restorableSources = listSnapshotSources()
     .filter(isRestorableSource)
     .filter(function selectedSource(snapshotSource) {
@@ -317,6 +319,7 @@ export async function restoreSnapshot(command: RestoreCommand): Promise<void> {
       command.app,
       dryRun,
     );
+
     sourceRestores.push(sourceRestore);
   }
 

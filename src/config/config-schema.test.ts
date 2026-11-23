@@ -7,12 +7,15 @@ function describeLoadPieceSchema() {
     // via `$ref` -> `#/definitions/LaunchConfig` when the root carries an identifier.
     const rootName = schema.$ref?.split('/').pop();
     let root = schema;
+
     if (rootName != null) {
       const rootDefinition = schema.definitions?.[rootName];
+
       if (rootDefinition != null) {
         root = rootDefinition;
       }
     }
+
     expect(root.type).toBe('object');
     expect(root.required).toEqual(['profiles']);
     expect(root.properties?.['profiles']).toBeDefined();
@@ -32,6 +35,7 @@ function describeLoadPieceSchema() {
     'loads the committed schema with only `profiles` required and named nested definitions',
     loadsTheCommittedSchemaWithOnlyProfilesRequiredAndNamedNestedDefinitions,
   );
+
   async function memoizesTheCommittedSchemaAcrossLoads() {
     const first = await loadConfigSchema();
     const second = await loadConfigSchema();
@@ -54,8 +58,10 @@ function describeValidatePiece() {
     'accepts a minimal valid config (provider names default, so they may be omitted)',
     acceptsAMinimalValidPieceProviderNamesDefaultSoTheyMayBeOmitted,
   );
+
   function flagsAMissingProfilesAtItsOwnPath() {
     const violations = validateConfig({});
+
     function someViolation(violation: { path: string; message: string }) {
       return violation.path == 'profiles';
     }
@@ -64,11 +70,13 @@ function describeValidatePiece() {
   }
 
   it('flags a missing `profiles` at its own path', flagsAMissingProfilesAtItsOwnPath);
+
   function rejectsABadEnumPieceAtItsFieldPath() {
     const violations = validateConfig({
       profiles: { production: { name: 'production' } },
       release: { releaseType: 'WHENEVER' },
     });
+
     function someViolation2(violation: { path: string; message: string }) {
       return violation.path == 'release.releaseType';
     }
@@ -77,10 +85,12 @@ function describeValidatePiece() {
   }
 
   it('rejects a bad enum value at its field path', rejectsABadEnumPieceAtItsFieldPath);
+
   function flagsAMalformedNestedFieldAtItsDottedPath() {
     const violations = validateConfig({
       profiles: { production: { name: 'production', sizeBudgetMB: 'big' } },
     });
+
     function someViolation3(violation: { path: string; message: string }) {
       return violation.path == 'profiles.production.sizeBudgetMB';
     }
@@ -92,11 +102,13 @@ function describeValidatePiece() {
     'flags a malformed nested field at its dotted path',
     flagsAMalformedNestedFieldAtItsDottedPath,
   );
+
   function rejectsAnUnknownTopLevelKeyAsUnknownPropertyIssue197() {
     const violations = validateConfig({
       profiles: { production: { name: 'production' } },
       nope: true,
     });
+
     expect(violations).toContainEqual({ path: 'nope', message: 'unknown property' });
   }
 
@@ -104,6 +116,7 @@ function describeValidatePiece() {
     'rejects an unknown top-level key as `unknown property` (issue #197)',
     rejectsAnUnknownTopLevelKeyAsUnknownPropertyIssue197,
   );
+
   function acceptsSharedOfferCodeBaseFieldsForPromotionalOffers() {
     const validate = validateConfig({
       profiles: { production: { name: 'production' } },
@@ -135,6 +148,7 @@ function describeValidatePiece() {
         },
       },
     });
+
     expect(validate).toEqual([]);
   }
 

@@ -19,6 +19,7 @@ export function registerAuditCommand(program: Command): void {
       },
       ...commandOptions,
     });
+
     return runCliProgram(readinessProgram);
   }
 

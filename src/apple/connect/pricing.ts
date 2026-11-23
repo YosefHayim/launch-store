@@ -5,6 +5,11 @@ import { matchPricePoint } from './shared.ts';
 export class ConnectPricing {
   constructor(private readonly client: AscHost) {}
 
+  /**
+   * Get all the available price points for a specific app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-apppricepoints
+   */
   async findAppPricePoint(
     appId: string,
     territory: string,
@@ -15,6 +20,7 @@ export class ConnectPricing {
       customerPrice?: string;
       territory?: string;
     }>(`/apps/${appId}/appPricePoints?filter[territory]=${uRIComponent}&limit=8000`);
+
     return matchPricePoint(points, territory, customerPrice);
   }
 
@@ -47,9 +53,13 @@ export class ConnectPricing {
         `/apps/${appId}/appPriceSchedule/manualPrices?include=appPricePoint&limit=200`,
       ),
     );
+
     if (!requestDocument) return null;
+
     let includedPricePoints = requestDocument.included;
+
     if (includedPricePoints == null) includedPricePoints = [];
+
     function filterPiece(entry: {
       type: string;
       id: string;
@@ -67,17 +77,29 @@ export class ConnectPricing {
     }
 
     const pointsById = new Map(includedPricePoints.filter(filterPiece).map(mapPiece));
+
     for (const price of requestDocument.data) {
       if (price.attributes?.startDate != null) continue;
+
       if (price.attributes?.endDate != null) continue;
+
       const pointId = price.relationships?.appPricePoint?.data?.id;
+
       if (pointId == null) continue;
+
       const point = pointsById.get(pointId);
+
       if (point?.territory == territory && point.customerPrice != null) return point.customerPrice;
     }
+
     return null;
   }
 
+  /**
+   * Create a scheduled price change for an app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-apppriceschedules
+   */
   async createAppPriceSchedule(
     appId: string,
     baseTerritory: string,
@@ -86,6 +108,7 @@ export class ConnectPricing {
     // Apple's JSON:API inline creation requires the temp id wrapped as ${local-id} (a bare string 409s
     // "invalid format"); the same const feeds both the relationship and the included price so they match.
     const priceRef = '${launch-base-price}';
+
     await this.client.request<unknown>('POST', '/appPriceSchedules', {
       data: {
         type: 'appPriceSchedules',

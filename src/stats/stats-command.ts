@@ -111,6 +111,7 @@ function showAppReport(appReport: AppStatsReport): void {
 
 function showReport(report: StatsReport): void {
   const logger = createLogger(false);
+
   const hasNoApps = report.apps.length == 0;
 
   if (hasNoApps) {

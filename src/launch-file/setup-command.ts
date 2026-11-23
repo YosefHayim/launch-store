@@ -40,6 +40,7 @@ export class SetupCommand {
     }
 
     const launchFileScaffold = createLaunchFileScaffold();
+
     await writeFile(launchFilePath, launchFileScaffold);
     console.log('Wrote launch.config.ts');
   };

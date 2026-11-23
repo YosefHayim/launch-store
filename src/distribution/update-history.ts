@@ -331,6 +331,7 @@ export async function clearRollbackDirective(
     const clearedDirective: StoredRollbackDirective = { active: false, body: '' };
 
     const serialized = JSON.stringify(clearedDirective, null, 2);
+
     await storage.putObject(directiveKey, serialized, 'application/json');
 
     return;
@@ -343,6 +344,7 @@ export async function clearRollbackDirective(
   const clearedDirective: StoredRollbackDirective = { active: false, body: '' };
 
   const serialized = JSON.stringify(clearedDirective, null, 2);
+
   await storage.putObject(directiveKey, serialized, 'application/json');
 }
 
@@ -492,6 +494,7 @@ export async function setRollbackToEmbedded(input: SetRollbackToEmbeddedInput): 
   }
 
   const serialized = JSON.stringify(storedDirective, null, 2);
+
   await storage.putObject(
     rollbackDirectiveKey(channel, platform, runtimeVersion),
     serialized,

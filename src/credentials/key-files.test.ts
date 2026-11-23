@@ -21,6 +21,7 @@ function describeExtractKeyId() {
   }
 
   it('reads and normalizes the Apple key filename', readsAndNormalizesTheAppleKeyFilename);
+
   function rejectsUnrelatedAndUndersizedFilenames() {
     const keyId = extractKeyId('other.p8');
     expect(keyId).toBeNull();
@@ -36,16 +37,24 @@ function describeFindAuthKeyFiles() {
     const systemTemporaryDirectory = tmpdir();
     const launchKeyFilesPath = join(systemTemporaryDirectory, 'launch-key-files-');
     const temporaryDirectory = mkdtempSync(launchKeyFilesPath);
+
     temporaryDirectories.push(temporaryDirectory);
+
     const authkeyAaaaaaaaPath = join(temporaryDirectory, 'AuthKey_AAAAAAAA.p8');
+
     writeFileSync(authkeyAaaaaaaaPath, 'first');
+
     const authkeyZzzzzzzzPath = join(temporaryDirectory, 'AuthKey_ZZZZZZZZ.p8');
+
     writeFileSync(authkeyZzzzzzzzPath, 'second');
+
     const notesPath = join(temporaryDirectory, 'notes.txt');
+
     writeFileSync(notesPath, 'ignore');
 
     const authKeyFiles = findAuthKeyFiles(temporaryDirectory);
     const joinedPath = join(temporaryDirectory, 'AuthKey_ZZZZZZZZ.p8');
+
     await expect(authKeyFiles).resolves.toEqual([
       joinedPath,
       join(temporaryDirectory, 'AuthKey_AAAAAAAA.p8'),
@@ -56,6 +65,7 @@ function describeFindAuthKeyFiles() {
     'returns only matching keys in stable reverse-name order',
     returnsOnlyMatchingKeysInStableReverseNameOrder,
   );
+
   async function returnsAnEmptyListForAMissingDirectory() {
     const authKeyFiles = findAuthKeyFiles('/missing/launch-key-files');
     await expect(authKeyFiles).resolves.toEqual([]);
@@ -71,6 +81,7 @@ function describeReconcileKeyId() {
   }
 
   it('prefers a matching explicit identifier', prefersAMatchingExplicitIdentifier);
+
   function failsWhenTheFlagAndFilenameIdentifyDifferentKeys() {
     function callReconcileKeyId() {
       return reconcileKeyId('WRONGKEY12', 'KEYABC1234');

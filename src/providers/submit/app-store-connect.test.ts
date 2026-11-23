@@ -76,7 +76,9 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
       .mockResolvedValueOnce(uploadStatus('AWAITING_UPLOAD'))
       .mockResolvedValueOnce(uploadStatus('PROCESSING'))
       .mockResolvedValueOnce(uploadStatus('COMPLETE'));
+
     const ios = iosContext();
+
     await submitter.submit(artifact, IOS_CREDENTIALS, ios);
     expect(ascFake.getAppId).toHaveBeenCalledWith('com.example.hello');
     expect(ascFake.createBuildUpload).toHaveBeenCalledWith('app-1', '1.4.0', 42, 'IOS');
@@ -92,21 +94,27 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
     'uploads the binary for its version and build, then waits until Apple accepts it',
     uploadsTheBinaryForItsVersionAndBuildThenWaitsUntilAppleAcceptsIt,
   );
+
   async function uploadsATvOSBuildForTheTVOSPlatform() {
     acceptUploads();
     ascFake.getBuildUploadStatus.mockResolvedValue(uploadStatus('COMPLETE'));
+
     const ios = iosContext('tvos');
+
     await submitter.submit(artifact, IOS_CREDENTIALS, ios);
     expect(ascFake.createBuildUpload).toHaveBeenCalledWith('app-1', '1.4.0', 42, 'TV_OS');
   }
 
   it('uploads a tvOS build for the TV_OS platform', uploadsATvOSBuildForTheTVOSPlatform);
+
   async function tellsTheUserToBumpTheVersionWhenTheVersionTrainIsClosed() {
     acceptUploads();
     ascFake.getBuildUploadStatus.mockResolvedValue(
       uploadStatus('FAILED', [{ code: '90186', description: 'Invalid Pre-Release Train.' }]),
     );
+
     const ios = iosContext();
+
     await expect(submitter.submit(artifact, IOS_CREDENTIALS, ios)).rejects.toThrow(
       /no longer takes builds for version 1\.4\.0\. Bump the app version/,
     );
@@ -116,6 +124,7 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
     'tells the user to bump the version when the version train is closed',
     tellsTheUserToBumpTheVersionWhenTheVersionTrainIsClosed,
   );
+
   async function stillNamesTheClosedVersionTrainWhenAppleGivesOtherReasonsToo() {
     acceptUploads();
     ascFake.getBuildUploadStatus.mockResolvedValue(
@@ -124,7 +133,9 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
         { code: '90087', description: 'Unsupported Architectures.' },
       ]),
     );
+
     const ios = iosContext();
+
     await expect(submitter.submit(artifact, IOS_CREDENTIALS, ios)).rejects.toThrow(
       /Bump the app version[\s\S]*Unsupported Architectures\. \(90087\)/,
     );
@@ -134,8 +145,10 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
     'still names the closed version train when Apple gives other reasons too',
     stillNamesTheClosedVersionTrainWhenAppleGivesOtherReasonsToo,
   );
+
   async function countsSlowStatusRepliesTowardTheWaitSoItGivesUpOnTime() {
     acceptUploads();
+
     async function mockImplementationPiece() {
       await new Promise(function statusReplied(done) {
         setTimeout(done, 30);
@@ -144,8 +157,10 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
     }
 
     ascFake.getBuildUploadStatus.mockImplementation(mockImplementationPiece);
+
     const shortWait = makeAppStoreConnectSubmitter(1, 100);
     const ios = iosContext();
+
     await expect(shortWait.submit(artifact, IOS_CREDENTIALS, ios)).rejects.toThrow(
       /still processing build upload upload-1/,
     );
@@ -156,6 +171,7 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
     'counts slow status replies toward the wait, so it gives up on time',
     countsSlowStatusRepliesTowardTheWaitSoItGivesUpOnTime,
   );
+
   async function listsEveryReasonAppleGivesForARejectedUpload() {
     acceptUploads();
     ascFake.getBuildUploadStatus.mockResolvedValue({
@@ -163,7 +179,9 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
       fileState: 'FAILED',
       errors: [{ code: '90087', description: 'Unsupported Architectures.' }],
     });
+
     const ios = iosContext();
+
     await expect(submitter.submit(artifact, IOS_CREDENTIALS, ios)).rejects.toMatchObject({
       _tag: 'StoreUploadFailure',
       provider: 'app-store-connect',
@@ -175,9 +193,12 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
     'lists every reason Apple gives for a rejected upload',
     listsEveryReasonAppleGivesForARejectedUpload,
   );
+
   async function failsBeforeUploadingWhenTheAppPieceDoesNotExist() {
     ascFake.getAppId.mockResolvedValue(null);
+
     const ios = iosContext();
+
     await expect(submitter.submit(artifact, IOS_CREDENTIALS, ios)).rejects.toThrow(
       /com\.example\.hello/,
     );
@@ -188,9 +209,11 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
     'fails before uploading when the app record does not exist',
     failsBeforeUploadingWhenTheAppPieceDoesNotExist,
   );
+
   async function rejectsANonAppleCredential() {
     const androidCredentials: BuildCredentials = { platform: 'android', serviceAccountJson: '{}' };
     const ios = iosContext();
+
     await expect(submitter.submit(artifact, androidCredentials, ios)).rejects.toThrow(
       /Apple platforms only/,
     );

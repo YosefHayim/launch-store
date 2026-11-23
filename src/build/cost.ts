@@ -55,8 +55,11 @@ export function costBanner(
 ): string {
   const ageMs = now - new Date(handle.allocatedAt).getTime();
   let hostId = 'remote host';
+
   if (handle.instanceId != null) hostId = handle.instanceId;
+
   const release = new Date(releasableAt(handle.allocatedAt));
   const releaseLabel = `${release.getHours().toString().padStart(2, '0')}:${release.getMinutes().toString().padStart(2, '0')}`;
+
   return `host ${hostId} up ${formatAge(ageMs)}, ~${usd(costForDurationUsd(ageMs))} so far, releasable after ${releaseLabel}`;
 }

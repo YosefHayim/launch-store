@@ -19,7 +19,9 @@ let homeDirectory: string;
 
 beforeEach(function setPortfolioHome() {
   homeDirectory = createTemporaryHomeDirectory();
+
   const workPath = join(homeDirectory, 'work');
+
   useLaunchDirectories({
     homeDirectory,
     workingDirectory: workPath,
@@ -52,6 +54,7 @@ const savedFile: PortfolioFile = {
 function describeCreateEmptyPortfolioFile() {
   function hasNoAppsNoTagsAndNoDiscoveryTime() {
     const emptyPortfolioFile = createEmptyPortfolioFile();
+
     expect(emptyPortfolioFile).toEqual({
       version: 1,
       discoveredAt: null,
@@ -76,6 +79,7 @@ function describeLoadPortfolioFile() {
     'returns null when portfolio.json does not exist',
     returnsNullWhenPortfolioPieceDoesNotExist,
   );
+
   async function decodesAFileWithoutPlayReportsBucketAsNull() {
     writeLaunchHomeFile(
       homeDirectory,
@@ -92,6 +96,7 @@ function describeLoadPortfolioFile() {
     'decodes a file without playReportsBucket as null',
     decodesAFileWithoutPlayReportsBucketAsNull,
   );
+
   async function failsWhenPortfolioPieceIsBroken() {
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', '{"version":2}');
 
@@ -106,12 +111,15 @@ describe('loadPortfolioFile', describeLoadPortfolioFile);
 function describeSavePortfolioFile() {
   async function writesPortfolioPieceUnderLaunchAndReadsItBackTheSame() {
     await savePortfolioFile(savedFile);
+
     const loaded = await loadPortfolioFile();
 
     expect(loaded).toEqual(savedFile);
+
     const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
     const savedFileText = readFileSync(portfolioPath, 'utf8');
     const parsed = JSON.parse(savedFileText);
+
     expect(parsed).toEqual(savedFile);
   }
 
@@ -133,6 +141,7 @@ function describePickSavedPortfolioFile() {
     'returns an empty portfolio when nothing was saved',
     returnsAnEmptyPortfolioWhenNothingWasSaved,
   );
+
   function returnsTheSavedPortfolioAsItIs() {
     const cachedFile = { ...createEmptyPortfolioFile(), discoveredAt: '2026-10-29T10:00:00.000Z' };
 

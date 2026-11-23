@@ -14,11 +14,14 @@ import type { AppFeedSyncReport } from '../types/stats.ts';
 
 function listMonthsFrom(month: string, lastMonth: string): string[] {
   const isPastLastMonth = month > lastMonth;
+
   if (isPastLastMonth) return [];
+
   const safeDayToReachNextMonth = 4;
   const lastSafeDayOfAnyMonth = 28;
   const dayInNextMonth = shiftDate(`${month}-${lastSafeDayOfAnyMonth}`, safeDayToReachNextMonth);
   const monthOfDate = readMonthOfDate(dayInNextMonth);
+
   return [month, ...listMonthsFrom(monthOfDate, lastMonth)];
 }
 
@@ -62,6 +65,7 @@ function groupByKey<Member>(
   }
 
   const keys = [...new Set(members.map(readKey))].sort(sortFirst);
+
   function mapKey(key: string) {
     function filterMember(member: Member) {
       return readKey(member) == key;
@@ -108,10 +112,15 @@ export function foldMetricStats(metric: StatsMetric, stats: readonly DailyStat[]
   const aggregation = METRIC_AGGREGATION[metric];
   const sortedStats = sortByDate(stats);
   const latestStat = sortedStats[sortedStats.length - 1];
+
   const isLatestRule = aggregation == 'latest' && latestStat != null;
+
   if (isLatestRule) return latestStat.value;
+
   const isAverageRule = aggregation == 'average' && stats.length > 0;
+
   if (isAverageRule) return sumAmounts(stats) / stats.length;
+
   return sumAmounts(stats);
 }
 function readDate(stat: DailyStat) {
@@ -160,9 +169,12 @@ export function pickHeadlineTotals(
     }
 
     const metricTotals = totals.filter(filterTotal);
+
     const hasMetricTotals = metricTotals.length > 0;
+
     if (hasMetricTotals) return metricTotals;
   }
+
   return [];
 }
 
@@ -173,8 +185,11 @@ export function readHeadlineTotal(
 ): number | null {
   const headlineTotals = pickHeadlineTotals(totals, preferredMetrics);
   const firstTotal = headlineTotals[0];
+
   if (firstTotal == null) return null;
+
   if (firstTotal.aggregation != 'sum') return firstTotal.total;
+
   function reduceRunningTotal2(runningTotal: number, total: MetricTotal) {
     return runningTotal + total.total;
   }
@@ -201,13 +216,17 @@ export function mergeHeadlinePoints(
     }
 
     const metricSeries = series.filter(filterOneSeries);
+
     const hasMetricSeries = metricSeries.length > 0;
+
     if (!hasMetricSeries) continue;
+
     function readPoints(oneSeries: MetricSeries) {
       return oneSeries.points;
     }
 
     const allPoints = metricSeries.flatMap(readPoints);
+
     function groupByKeyPoint(point: DailyPoint) {
       return point.date;
     }
@@ -224,13 +243,16 @@ export function mergeHeadlinePoints(
 
     return groupByKey(allPoints, groupByKeyPoint).map(mapDateGroup);
   }
+
   return [];
 }
 
 /** An app is stale when the sync could not run, or one of its own feeds failed. */
 export function isAppStale(freshness: StatsFreshness, appKey: string): boolean {
   if (!freshness.isStale) return false;
+
   if (freshness.report == null) return true;
+
   function someAppFeed(appFeed: AppFeedSyncReport) {
     return appFeed.appKey == appKey && appFeed.status == 'failed';
   }
@@ -242,8 +264,11 @@ export function isAppStale(freshness: StatsFreshness, appKey: string): boolean {
 export function listAppMessages(appCoverage: AppCoverage): string[] {
   function flatMapFeed(feed: 'app-store' | 'google-play' | 'ga4') {
     const feedCoverage = findFeedCoverage(appCoverage, feed);
+
     const isFeedNeverSynced = feedCoverage == null;
+
     if (isFeedNeverSynced) return [];
+
     function filterMessage(message: string | null) {
       return message != null;
     }

@@ -11,6 +11,7 @@ function describeValidate() {
     'flags a base-type mismatch and reports nothing valid alongside it',
     flagsABaseTypeMismatchAndReportsNothingValidAlongsideIt,
   );
+
   function acceptsIntegerOnlyForWholeNumbers() {
     expect(validate(3, { type: 'integer' })).toEqual([]);
     expect(validate(3.5, { type: 'integer' })).toHaveLength(1);
@@ -18,6 +19,7 @@ function describeValidate() {
   }
 
   it('accepts integer only for whole numbers', acceptsIntegerOnlyForWholeNumbers);
+
   function acceptsAUnionTypeList() {
     const schema: JsonSchema = { type: ['string', 'number'] };
     expect(validate('x', schema)).toEqual([]);
@@ -26,17 +28,23 @@ function describeValidate() {
   }
 
   it('accepts a union type list', acceptsAUnionTypeList);
+
   function acceptsAnEnumMemberAndRejectsANonMember() {
     const schema: JsonSchema = { type: 'string', enum: ['a', 'b'] };
+
     expect(validate('a', schema)).toEqual([]);
+
     const violations = validate('c', schema);
+
     expect(violations).toHaveLength(1);
     expect(violations[0]?.message).toContain('"a" | "b"');
   }
 
   it('accepts an enum member and rejects a non-member', acceptsAnEnumMemberAndRejectsANonMember);
+
   function enforcesConstEquality() {
     const schema: JsonSchema = { const: 'ship' };
+
     expect(validate('ship', schema)).toEqual([]);
     expect(validate('hold', schema)).toEqual([
       { path: '', message: 'expected "ship", got "hold"' },
@@ -44,8 +52,10 @@ function describeValidate() {
   }
 
   it('enforces const equality', enforcesConstEquality);
+
   function enforcesStringPatterns() {
     const schema: JsonSchema = { type: 'string', pattern: '^[A-Za-z0-9._]+$' };
+
     expect(validate('com.acme.coins_100', schema)).toEqual([]);
     expect(validate('com.acme.coins-100', schema)).toEqual([
       {
@@ -56,6 +66,7 @@ function describeValidate() {
   }
 
   it('enforces string patterns', enforcesStringPatterns);
+
   function reportsAMissingRequiredPropertyAtItsOwnPath() {
     const schema: JsonSchema = {
       type: 'object',
@@ -63,6 +74,7 @@ function describeValidate() {
       required: ['name'],
     };
     const violations = validate({}, schema);
+
     expect(violations).toEqual([{ path: 'name', message: 'missing required property' }]);
   }
 
@@ -70,6 +82,7 @@ function describeValidate() {
     'reports a missing required property at its own path',
     reportsAMissingRequiredPropertyAtItsOwnPath,
   );
+
   function rejectsAnUnknownPropertyWhenAdditionalPropertiesIsFalse() {
     const schema: JsonSchema = {
       type: 'object',
@@ -77,6 +90,7 @@ function describeValidate() {
       additionalProperties: false,
     };
     const violations = validate({ name: 'ok', extra: 1 }, schema);
+
     expect(violations).toEqual([{ path: 'extra', message: 'unknown property' }]);
   }
 
@@ -84,11 +98,13 @@ function describeValidate() {
     'rejects an unknown property when additionalProperties is false',
     rejectsAnUnknownPropertyWhenAdditionalPropertiesIsFalse,
   );
+
   function validatesAdditionalPropertiesWhenItIsANestedSchema() {
     const schema: JsonSchema = {
       type: 'object',
       additionalProperties: { type: 'number' },
     };
+
     expect(validate({ a: 1, b: 2 }, schema)).toEqual([]);
     expect(validate({ a: 1, b: 'x' }, schema)).toEqual([
       { path: 'b', message: 'expected number, got string' },
@@ -99,6 +115,7 @@ function describeValidate() {
     'validates additionalProperties when it is a nested schema',
     validatesAdditionalPropertiesWhenItIsANestedSchema,
   );
+
   function resolvesAPercentEncodedRefPointerAndValidatesTheReferencedMapSValues() {
     const root: JsonSchema = {
       definitions: {
@@ -108,8 +125,11 @@ function describeValidate() {
       properties: { counts: { $ref: '#/definitions/Record%3Cstring%2Cnumber%3E' } },
       type: 'object',
     };
+
     expect(validate({ counts: { a: 1, b: 2 } }, root)).toEqual([]);
+
     const violations = validate({ counts: { a: 1, b: 'two' } }, root);
+
     expect(violations).toEqual([{ path: 'counts.b', message: 'expected number, got string' }]);
   }
 
@@ -117,6 +137,7 @@ function describeValidate() {
     "resolves a percent-encoded $ref pointer and validates the referenced map's values",
     resolvesAPercentEncodedRefPointerAndValidatesTheReferencedMapSValues,
   );
+
   function reportsAnUnresolvedRef() {
     expect(validate(1, { $ref: '#/definitions/Missing' })).toEqual([
       { path: '', message: 'unresolved schema reference #/definitions/Missing' },
@@ -124,6 +145,7 @@ function describeValidate() {
   }
 
   it('reports an unresolved $ref', reportsAnUnresolvedRef);
+
   function passesAnyOfWhenAtLeastOneBranchMatches() {
     const schema: JsonSchema = { anyOf: [{ type: 'string' }, { type: 'number' }] };
     expect(validate('x', schema)).toEqual([]);
@@ -132,6 +154,7 @@ function describeValidate() {
   }
 
   it('passes anyOf when at least one branch matches', passesAnyOfWhenAtLeastOneBranchMatches);
+
   function requiresExactlyOneOneOfBranchToPiece() {
     const schema: JsonSchema = {
       oneOf: [
@@ -139,6 +162,7 @@ function describeValidate() {
         { type: 'string', enum: ['a', 'b'] },
       ],
     };
+
     // 'b' matches only the second branch.
     expect(validate('b', schema)).toEqual([]);
     // 'a' matches both branches -> oneOf failure.
@@ -147,6 +171,7 @@ function describeValidate() {
   }
 
   it('requires exactly one oneOf branch to match', requiresExactlyOneOneOfBranchToPiece);
+
   function aggregatesAllOfBranchViolations() {
     const schema: JsonSchema = {
       allOf: [
@@ -154,13 +179,17 @@ function describeValidate() {
         { type: 'object', properties: { age: { type: 'number' } }, required: ['age'] },
       ],
     };
+
     expect(validate({ name: 'x', age: 1 }, schema)).toEqual([]);
+
     const violations = validate({}, schema);
+
     expect(violations).toContainEqual({ path: 'name', message: 'missing required property' });
     expect(violations).toContainEqual({ path: 'age', message: 'missing required property' });
   }
 
   it('aggregates allOf branch violations', aggregatesAllOfBranchViolations);
+
   function validatesArrayPieceByIndex() {
     const schema: JsonSchema = { type: 'array', items: { type: 'number' } };
     const violations = validate([1, 'x', 3], schema);
@@ -168,12 +197,14 @@ function describeValidate() {
   }
 
   it('validates array items by index', validatesArrayPieceByIndex);
+
   function bracketQuotesNonIdentifierObjectKeysInPaths() {
     const schema: JsonSchema = {
       type: 'object',
       additionalProperties: { type: 'number' },
     };
     const violations = validate({ 'a.b': 'nope' }, schema);
+
     expect(violations).toEqual([{ path: '["a.b"]', message: 'expected number, got string' }]);
   }
 
@@ -181,6 +212,7 @@ function describeValidate() {
     'bracket-quotes non-identifier object keys in paths',
     bracketQuotesNonIdentifierObjectKeysInPaths,
   );
+
   function returnsNoViolationsForAPieceThatMatchesANestedObjectSchema() {
     const schema: JsonSchema = {
       type: 'object',
@@ -189,6 +221,7 @@ function describeValidate() {
       },
       required: ['profile'],
     };
+
     expect(validate({ profile: { name: 'production' } }, schema)).toEqual([]);
   }
 

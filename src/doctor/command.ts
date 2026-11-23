@@ -185,6 +185,7 @@ function readDoctorPlatform(platformText: string | undefined): DoctorPlatform {
   }
 
   const parsedPlatform = parsePlatform(requestedPlatform);
+
   const isApple = isApplePlatform(parsedPlatform);
 
   if (isApple) {
@@ -262,6 +263,7 @@ async function readComplianceLine(
 
   try {
     const buildNumber = await appleStore.getLatestBuildNumber(selectedApp.bundleId);
+
     const isMissingBuild = buildNumber == 0;
 
     if (isMissingBuild) {
@@ -326,6 +328,7 @@ async function showDoctorJson(doctorContext: DoctorContext): Promise<boolean> {
   const logger = createLogger(false);
   const jsonIndent = 2;
   const serialized = JSON.stringify(doctorReport, null, jsonIndent);
+
   logger.line(serialized);
 
   return doctorReport.ok;
@@ -336,6 +339,7 @@ async function runDoctorProgram(rawCommandInput: unknown): Promise<boolean> {
     const commandInput = DoctorCommandInputSchema(rawCommandInput);
     const doctorPlatform = readDoctorPlatform(commandInput.platform);
     const doctorContext = await buildDoctorContext(doctorPlatform, commandInput.app);
+
     const isJson = commandInput.json;
 
     if (isJson) {
@@ -349,6 +353,7 @@ async function runDoctorProgram(rawCommandInput: unknown): Promise<boolean> {
     }
 
     const doctorReport = await inspectDoctor(doctorContext);
+
     showDoctorReport(doctorReport);
 
     if (shouldFixIos) {

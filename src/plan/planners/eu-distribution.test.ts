@@ -19,7 +19,9 @@ function makeCtx(api: AscSurfacesApi | null, euDistribution?: EuDistributionConf
     submit: 'app-store-connect',
   };
   let config = baseConfig;
+
   if (euDistribution) config = { ...baseConfig, euDistribution };
+
   return {
     config,
     apps: [],
@@ -42,10 +44,14 @@ function describeEuDistributionPlanner() {
     'omits itself when no distribution domains are declared',
     omitsItselfWhenNoDistributionDomainsAreDeclared,
   );
+
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(euDistributionPlanner, makeCtx(null, DECLARED));
+
     expect(plan.state).toBe('skipped');
+
     if (plan.state != 'skipped') return;
+
     expect(plan.hint).toMatch(/creds/);
   }
 
@@ -53,13 +59,19 @@ function describeEuDistributionPlanner() {
     'skips with a creds hint when no Apple account is active',
     skipsWithACredsHintWhenNoAppleAccountIsActive,
   );
+
   async function reportsATeamScopedAdditivePlanForAFreshDomain() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(euDistributionPlanner, makeCtx(ascApiFake, DECLARED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'team') return;
+
     expect(plan.direction).toBe('additive');
+
     function someA(a: {
       readonly description: string;
       readonly destructive: boolean;
@@ -76,6 +88,7 @@ function describeEuDistributionPlanner() {
     'reports a team-scoped additive plan for a fresh domain',
     reportsATeamScopedAdditivePlanForAFreshDomain,
   );
+
   async function rendersInSyncWhenTheDomainIsAlreadyAuthorized() {
     const api = makeAscApiFake({
       listAlternativeDistributionDomains: vi
@@ -83,9 +96,13 @@ function describeEuDistributionPlanner() {
         .mockResolvedValue([{ id: 'd1', domain: 'downloads.acme.com' }]),
     });
     const plan = await runPlanner(euDistributionPlanner, makeCtx(api, DECLARED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'team') return;
+
     expect(plan.actions).toHaveLength(0);
   }
 
@@ -93,6 +110,7 @@ function describeEuDistributionPlanner() {
     'renders in sync when the domain is already authorized',
     rendersInSyncWhenTheDomainIsAlreadyAuthorized,
   );
+
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
     await runPlanner(euDistributionPlanner, makeCtx(api, DECLARED));

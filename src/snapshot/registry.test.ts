@@ -3,9 +3,11 @@ import { listSnapshotSources, registerBuiltinSources } from './registry.ts';
 describe('snapshot source registry', () => {
   it('registers the six built-in sources', () => {
     registerBuiltinSources();
+
     const ids = listSnapshotSources()
       .map((source) => source.id)
       .sort();
+
     expect(ids).toEqual([
       'apple-capabilities',
       'apple-listing',
@@ -15,6 +17,7 @@ describe('snapshot source registry', () => {
       'play-subscriptions',
     ]);
   });
+
   function isIdempotentReRegisteringKeyedByIdDoesNotDuplicate() {
     registerBuiltinSources();
     registerBuiltinSources();

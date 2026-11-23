@@ -37,9 +37,11 @@ function readTrackStatus(commandOptions: StatusOptions): PlayTracksStatusInput {
     operation: 'status',
     json: commandOptions.json,
   };
+
   if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
+
   return commandInput;
 }
 
@@ -50,24 +52,31 @@ function readTrackPromote(commandOptions: PromoteOptions): PlayTracksPromoteInpu
     track: commandOptions.track,
     yes: commandOptions.yes,
   };
+
   if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
+
   if (commandOptions.versionCode != null) {
     commandInput = { ...commandInput, versionCode: commandOptions.versionCode };
   }
+
   if (commandOptions.status != null) {
     commandInput = { ...commandInput, status: commandOptions.status };
   }
+
   if (commandOptions.rollout != null) {
     commandInput = { ...commandInput, rollout: commandOptions.rollout };
   }
+
   if (commandOptions.notes != null) {
     commandInput = { ...commandInput, notes: commandOptions.notes };
   }
+
   if (commandOptions.name != null) {
     commandInput = { ...commandInput, name: commandOptions.name };
   }
+
   return commandInput;
 }
 
@@ -78,12 +87,15 @@ function readTrackTesters(commandOptions: TestersOptions): PlayTracksTestersInpu
     track: commandOptions.track,
     yes: commandOptions.yes,
   };
+
   if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
+
   if (commandOptions.groups != null) {
     commandInput = { ...commandInput, groups: commandOptions.groups };
   }
+
   return commandInput;
 }
 
@@ -92,6 +104,7 @@ export function registerPlayTracksCommand(program: Command): void {
   const tracksCommand = program
     .command('play-tracks')
     .description('manage Google Play release tracks from the CLI');
+
   function runStatus(commandOptions: StatusOptions) {
     const trackStatus = readTrackStatus(commandOptions);
     const playTracksProgram = playTracksCommandProgram(trackStatus);
@@ -104,6 +117,7 @@ export function registerPlayTracksCommand(program: Command): void {
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('--json', 'output machine-readable JSON', false)
     .action(runStatus);
+
   function runPromote(commandOptions: PromoteOptions) {
     const trackPromote = readTrackPromote(commandOptions);
     const playTracksProgram = playTracksCommandProgram(trackPromote);
@@ -131,6 +145,7 @@ export function registerPlayTracksCommand(program: Command): void {
     .option('--name <name>', 'release name (Play derives one from the version when omitted)')
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runPromote);
+
   function runTesters(commandOptions: TestersOptions) {
     const trackTesters = readTrackTesters(commandOptions);
     const playTracksProgram = playTracksCommandProgram(trackTesters);

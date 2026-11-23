@@ -17,8 +17,10 @@ export type CodeSigner = Readonly<{
 /** Format an RSA-SHA256 signature as an Expo Updates signature header. */
 export function signatureHeader(manifestBody: string, privateKeyPem: string): string {
   const signer = createSign('RSA-SHA256');
+
   signer.update(manifestBody);
   signer.end();
+
   const signature = signer.sign(privateKeyPem).toString('base64');
 
   return `sig="${signature}", keyid="main", alg="rsa-v1_5-sha256"`;
@@ -38,6 +40,7 @@ export async function ensureCodeSigner(dryRun: boolean, logger: Logger): Promise
   }
 
   const existingPrivateKey = await LaunchSecretStore.readSecret(PRIVATE_KEY_ACCOUNT);
+
   const hasPrivateKey = existingPrivateKey != null;
 
   if (hasPrivateKey) {

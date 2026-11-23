@@ -93,6 +93,7 @@ export async function reconcileExportCompliance(
 ): Promise<ExportComplianceResult> {
   try {
     const { bundleId, buildNumber, usesNonExemptEncryption } = reconciliationInput;
+
     const isAnswerMissing = usesNonExemptEncryption == null;
 
     if (isAnswerMissing) {
@@ -100,6 +101,7 @@ export async function reconcileExportCompliance(
     }
 
     const storeBuild = await exportComplianceApi.findBuild(bundleId, buildNumber);
+
     const isBuildMissing = storeBuild == null;
 
     if (isBuildMissing) {
@@ -122,10 +124,12 @@ export async function reconcileExportCompliance(
     const encryptionDeclarations = await exportComplianceApi.listEncryptionDeclarations(bundleId);
     /** Apple marks an App Encryption Declaration reusable only once it reaches this review state. */
     const approvedDeclaration = encryptionDeclarations.find(isApprovedDeclaration);
+
     const hasApprovedDeclaration = approvedDeclaration != null;
 
     if (hasApprovedDeclaration) {
       await exportComplianceApi.linkBuildToDeclaration(approvedDeclaration.id, storeBuild.id);
+
       return exportComplianceOutcome({
         status: 'reused-declaration',
         declarationId: approvedDeclaration.id,
@@ -133,6 +137,7 @@ export async function reconcileExportCompliance(
     }
 
     await exportComplianceApi.setBuildUsesNonExemptEncryption(storeBuild.id, true);
+
     return exportComplianceOutcome({ status: 'needs-declaration' });
   } catch (cause) {
     throw exportComplianceFailure('reconcile App Store export compliance', cause);

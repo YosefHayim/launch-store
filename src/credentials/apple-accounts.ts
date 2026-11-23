@@ -150,6 +150,7 @@ function isPortfolioFile(candidate: unknown): candidate is PortfolioFile {
 
 async function readPortfolioDocument(): Promise<PortfolioFile | null> {
   const portfolioFilePath = locatePortfolioFilePath();
+
   return readDocumentFile(portfolioFilePath, function decodePortfolio(documentText) {
     const parsed: unknown = JSON.parse(documentText);
 
@@ -185,6 +186,7 @@ export async function setPlayReportsBucket(
   const portfolioFile = pickSavedPortfolioFile(savedFile);
 
   const portfolioFilePath = locatePortfolioFilePath();
+
   await writeDocumentFileAtomically(portfolioFilePath, {
     ...portfolioFile,
     playReportsBucket: bucketName,
@@ -202,6 +204,7 @@ export async function removeAppleAccount(
 
   const accounts = await listAccounts();
   const matchedAccount = requireMatchedAccount(accounts, selector, 'remove Apple account');
+
   const canPrompt = commandCanPrompt(commandOptions);
 
   if (canPrompt) {

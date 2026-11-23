@@ -43,6 +43,7 @@ export class StoreAdopt {
     await this.printLive(adoptRequest);
 
     const launchFilePath = join(adoptRequest.directory, 'launch.config.ts');
+
     const exists = await pathExists(launchFilePath);
 
     if (exists) {
@@ -51,12 +52,14 @@ export class StoreAdopt {
     }
 
     const launchFileScaffold = createLaunchFileScaffold();
+
     await writeFile(launchFilePath, launchFileScaffold);
     console.log('Wrote launch.config.ts');
   }
 
   private async printLive(adoptRequest: AdoptRequest): Promise<void> {
     const bundleId = adoptRequest.bundleId;
+
     const hasBundle = bundleId != null;
 
     if (hasBundle) {
@@ -76,6 +79,7 @@ export class StoreAdopt {
       const appInfo = await privacy.list(appId);
 
       const serialized = JSON.stringify({ versionNames, productIds, appInfo });
+
       console.log(serialized);
     }
 
@@ -92,6 +96,7 @@ export class StoreAdopt {
     const trackNames = await tracks.list(packageName);
 
     const serialized = JSON.stringify({ languages, trackNames });
+
     console.log(serialized);
   }
 

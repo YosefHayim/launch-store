@@ -152,7 +152,9 @@ export function pickNewestVersion(versions: ProductVersion[]): ProductVersion | 
   const [newestVersion] = versionsNewestFirst;
 
   const hasNoVersion = newestVersion == null;
+
   if (hasNoVersion) return null;
+
   return newestVersion;
 }
 
@@ -183,7 +185,9 @@ export class AscAvailabilityUpdateError {
 
 export function isRetryableAscError(error: unknown): boolean {
   if (!(error instanceof AscRequestError)) return false;
+
   if (error.status == 429) return true;
+
   return error.status >= 500;
 }
 
@@ -193,6 +197,7 @@ export function isRejectedToken(requestFailure: unknown): boolean {
 
 export function isRetryableIdempotentFailure(requestFailure: unknown): boolean {
   if (requestFailure instanceof TypeError) return true;
+
   return isRetryableAscError(requestFailure);
 }
 
@@ -237,12 +242,16 @@ export function findAppInfoId(
 ): string | null {
   function findCandidate(candidate: { id: string; attributes: AppInfoStates }) {
     let state = candidate.attributes.state;
+
     if (state == null) state = candidate.attributes.appStoreState;
+
     return state != null && states.has(state);
   }
 
   const appInformation = appInfos.find(findCandidate);
+
   if (appInformation == null) return null;
+
   return appInformation.id;
 }
 
@@ -255,7 +264,9 @@ export function findVersionId(
   }
 
   const version = versions.find(findCandidate2);
+
   if (version == null) return null;
+
   return version.id;
 }
 export type ResourceSingle<A> = {
@@ -335,6 +346,7 @@ async function readTransportRange(
   try {
     const rangeBuffer = Buffer.alloc(byteCount);
     const fileRead = await fileHandle.read(rangeBuffer, 0, byteCount, offset);
+
     const isComplete = fileRead.bytesRead == byteCount;
 
     if (isComplete) return rangeBuffer;
@@ -379,10 +391,13 @@ export function pickListingFields(
   keys: readonly string[],
 ): Record<string, string> {
   const fields: Record<string, string> = {};
+
   for (const key of keys) {
     const fieldValue = attributes[key];
+
     if (typeof fieldValue == 'string' && fieldValue.length > 0) fields[key] = fieldValue;
   }
+
   return fields;
 }
 
@@ -390,10 +405,13 @@ export function pickAccessibilitySupport(
   attributes: Partial<AccessibilitySupport>,
 ): AccessibilitySupport {
   const support: MutableDeep<AccessibilitySupport> = {};
+
   for (const key of ACCESSIBILITY_SUPPORT_KEYS) {
     const fieldValue = attributes[key];
+
     if (typeof fieldValue == 'boolean') support[key] = fieldValue;
   }
+
   return support;
 }
 
@@ -459,7 +477,9 @@ export const BUILD_PAGE_QUERY =
   'fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion&fields[preReleaseVersions]=version';
 export function createMarketingVersionFilter(marketingVersion: string | undefined): string {
   const isMarketingVersionGiven = marketingVersion != null;
+
   if (!isMarketingVersionGiven) return '';
+
   return `&filter[preReleaseVersion.version]=${marketingVersion}`;
 }
 type BuildPageIncluded = {
@@ -598,6 +618,7 @@ export async function reusableToken(key: AscKey): Promise<string> {
   const tokenKey = tokenCacheKey(key);
   const currentSeconds = Math.floor(Date.now() / 1000);
   const mintedToken = mintedTokens.get(tokenKey);
+
   if (
     mintedToken != null &&
     currentSeconds >= mintedToken.issuedAt &&
@@ -605,8 +626,11 @@ export async function reusableToken(key: AscKey): Promise<string> {
   ) {
     return mintedToken.token;
   }
+
   const token = await mintToken(key, currentSeconds);
+
   mintedTokens.set(tokenKey, { token, issuedAt: currentSeconds });
+
   return token;
 }
 
@@ -616,25 +640,36 @@ async function putAssetChunk(
   fileByteLength: number,
 ): Promise<void> {
   let offset = operation.offset;
+
   if (offset == null) offset = 0;
+
   let operationLength = operation.length;
+
   if (operationLength == null) operationLength = fileByteLength - offset;
+
   const chunk = await readTransportRange(filePath, offset, operationLength);
   const headers: Record<string, string> = {};
   let requestHeaders = operation.requestHeaders;
+
   if (requestHeaders == null) requestHeaders = [];
+
   for (const header of requestHeaders) {
     if (header.name && header.value != null) headers[header.name] = header.value;
   }
+
   let requestMethod = operation.method;
+
   if (requestMethod == null) requestMethod = 'PUT';
+
   const uploadMethod = requestMethod;
+
   async function retryAppleTransportRequestPiece() {
     const appleResponse = await fetch(operation.url, {
       method: uploadMethod,
       headers,
       body: chunk as Uint8Array<ArrayBuffer>,
     });
+
     if (!appleResponse.ok) {
       throw new AscRequestError(
         `asset upload chunk failed (${appleResponse.status})`,
@@ -652,11 +687,16 @@ export function buildUploadProblems(
   stateDetails: readonly components['schemas']['StateDetail'][] | undefined,
 ): BuildUploadProblem[] {
   if (stateDetails == null) return [];
+
   function mapPieceDetail(stateDetail: { code?: string; description?: string }) {
     let code = stateDetail.code;
+
     if (code == null) code = '';
+
     let description = stateDetail.description;
+
     if (description == null) description = '';
+
     return { code, description };
   }
 
@@ -670,6 +710,7 @@ export async function putAssetFile(
 ): Promise<void> {
   for (let batchStart = 0; batchStart < operations.length; batchStart += ASSET_UPLOAD_CONCURRENCY) {
     const operationBatch = operations.slice(batchStart, batchStart + ASSET_UPLOAD_CONCURRENCY);
+
     function mapOperation(operation: {
       method?: string;
       url: string;
@@ -683,6 +724,7 @@ export async function putAssetFile(
     const chunkUploads = operationBatch.map(mapOperation);
     // biome-ignore lint/performance/noAwaitInLoops: bounded batches - each part is its own byte range, so a batch uploads in parallel without flooding Apple's CDN
     const settledChunkUploads = await Promise.allSettled(chunkUploads);
+
     function findChunkUpload(
       chunkUpload: PromiseRejectedResult | PromiseFulfilledResult<void>,
     ): chunkUpload is PromiseRejectedResult {
@@ -690,6 +732,7 @@ export async function putAssetFile(
     }
 
     const failedChunkUpload = settledChunkUploads.find(findChunkUpload);
+
     if (failedChunkUpload != null) return Promise.reject(failedChunkUpload.reason);
   }
 }
@@ -702,7 +745,9 @@ interface AppleAppSummary {
 
 function readNonEmptyAttribute(attribute: string | undefined): string | null {
   const isAttributePresent = typeof attribute == 'string' && attribute.length > 0;
+
   if (isAttributePresent) return attribute;
+
   return null;
 }
 
@@ -712,8 +757,11 @@ export function summarizeAppleApp(appleResource: {
 }): AppleAppSummary {
   const name = readNonEmptyAttribute(appleResource.attributes.name);
   const bundleId = readNonEmptyAttribute(appleResource.attributes.bundleId);
+
   const isNameMissing = name == null;
+
   if (isNameMissing) return { id: appleResource.id, name: appleResource.id, bundleId };
+
   return { id: appleResource.id, name, bundleId };
 }
 
@@ -722,20 +770,29 @@ function readBuildResource(
   preReleaseVersions: readonly BuildPageIncluded[],
 ): BuildResource {
   let version = entry.attributes.version;
+
   if (version == null) version = '';
+
   let processingState = entry.attributes.processingState;
+
   if (processingState == null) processingState = '';
+
   let expired = entry.attributes.expired;
+
   if (expired == null) expired = false;
+
   const buildResource: BuildResource = {
     id: entry.id,
     version,
     processingState,
     expired,
   };
+
   if (entry.attributes.uploadedDate != null)
     Object.assign(buildResource, { uploadedDate: entry.attributes.uploadedDate });
+
   const preReleaseVersionId = entry.relationships?.preReleaseVersion?.data?.id;
+
   function findIncludedResource(includedResource: {
     type: string;
     id: string;
@@ -748,7 +805,9 @@ function readBuildResource(
 
   const preReleaseVersion = preReleaseVersions.find(findIncludedResource);
   const marketingVersion = preReleaseVersion?.attributes?.version;
+
   if (marketingVersion != null) Object.assign(buildResource, { marketingVersion });
+
   return buildResource;
 }
 export function readBuildResources({ data: builds, included = [] }: BuildPage): BuildResource[] {
@@ -778,12 +837,17 @@ export function readVersionResource(
   includedBuilds: readonly BuildPageIncluded[] = [],
 ): AppStoreVersionResource {
   let versionString = entry.attributes.versionString;
+
   if (versionString == null) versionString = fallbackVersion;
+
   let appStoreState = entry.attributes.appStoreState;
+
   if (appStoreState == null) appStoreState = '';
+
   const releaseType = entry.attributes.releaseType;
   const attachedBuildId = entry.relationships?.build?.data?.id;
   const isBuildAttached = attachedBuildId != null;
+
   function findIncludedBuild(includedBuild: {
     type: string;
     id: string;
@@ -804,6 +868,7 @@ export function readVersionResource(
     ...(attachedBuildNumber != null && { attachedBuildNumber }),
     ...(attachedBuildProcessingState != null && { attachedBuildProcessingState }),
   };
+
   return version;
 }
 
@@ -815,13 +880,17 @@ export function readPhasedRelease(entry: {
   };
 }): PhasedReleaseResource {
   let phasedReleaseState = entry.attributes.phasedReleaseState;
+
   if (phasedReleaseState == null) phasedReleaseState = '';
+
   const phasedRelease: PhasedReleaseResource = {
     id: entry.id,
     phasedReleaseState,
   };
+
   if (entry.attributes.currentDayNumber != null)
     Object.assign(phasedRelease, { currentDayNumber: entry.attributes.currentDayNumber });
+
   return phasedRelease;
 }
 
@@ -838,9 +907,12 @@ export function matchPricePoint(
 ): PricePointResource | null {
   for (const point of points) {
     const price = point.attributes.customerPrice;
+
     if (price != null && Number.parseFloat(price) == customerPrice) {
       let priceTerritory = point.attributes.territory;
+
       if (priceTerritory == null) priceTerritory = territory;
+
       return {
         id: point.id,
         customerPrice: price,
@@ -848,6 +920,7 @@ export function matchPricePoint(
       };
     }
   }
+
   return null;
 }
 
@@ -865,14 +938,20 @@ export function readFeedbackScreenshots(
   height?: number;
 }[] {
   if (!raw) return [];
+
   function flatMapScreenshot(screenshot: { url?: string; width?: number; height?: number }) {
     const screenshotUrl = screenshot.url;
+
     if (screenshotUrl == null) return [];
+
     const feedbackScreenshot: { url: string; width?: number; height?: number } = {
       url: screenshotUrl,
     };
+
     if (screenshot.width != null) Object.assign(feedbackScreenshot, { width: screenshot.width });
+
     if (screenshot.height != null) Object.assign(feedbackScreenshot, { height: screenshot.height });
+
     return [feedbackScreenshot];
   }
 
@@ -888,15 +967,20 @@ export function readReviewResponse(appleResources: {
   };
 }): CustomerReviewResponseResource {
   let responseBody = appleResources.attributes.responseBody;
+
   if (responseBody == null) responseBody = '';
+
   const reviewResponse: CustomerReviewResponseResource = {
     id: appleResources.id,
     responseBody,
   };
+
   if (appleResources.attributes.state != null)
     Object.assign(reviewResponse, { state: appleResources.attributes.state });
+
   if (appleResources.attributes.lastModifiedDate != null)
     Object.assign(reviewResponse, { lastModifiedDate: appleResources.attributes.lastModifiedDate });
+
   return reviewResponse;
 }
 
@@ -908,20 +992,29 @@ export function readAppEvent(
   fallbackReferenceName: string,
 ): AppEventResource {
   let referenceName = appleEvent.attributes.referenceName;
+
   if (referenceName == null) referenceName = fallbackReferenceName;
+
   const appEvent: AppEventResource = { id: appleEvent.id, referenceName };
+
   if (typeof appleEvent.attributes.badge == 'string')
     Object.assign(appEvent, { badge: appleEvent.attributes.badge });
+
   if (appleEvent.attributes.eventState != null)
     Object.assign(appEvent, { eventState: appleEvent.attributes.eventState });
+
   if (typeof appleEvent.attributes.primaryLocale == 'string')
     Object.assign(appEvent, { primaryLocale: appleEvent.attributes.primaryLocale });
+
   if (typeof appleEvent.attributes.deepLink == 'string')
     Object.assign(appEvent, { deepLink: appleEvent.attributes.deepLink });
+
   if (typeof appleEvent.attributes.priority == 'string')
     Object.assign(appEvent, { priority: appleEvent.attributes.priority });
+
   if (typeof appleEvent.attributes.purpose == 'string')
     Object.assign(appEvent, { purpose: appleEvent.attributes.purpose });
+
   return appEvent;
 }
 
@@ -933,21 +1026,27 @@ export function readAppEventLocalization(
   fallbackLocale: string,
 ): AppEventLocalizationResource {
   let locale = appleResources.attributes.locale;
+
   if (locale == null) locale = fallbackLocale;
+
   const eventLocalization: AppEventLocalizationResource = {
     id: appleResources.id,
     locale,
   };
+
   if (typeof appleResources.attributes.name == 'string')
     Object.assign(eventLocalization, { name: appleResources.attributes.name });
+
   if (typeof appleResources.attributes.shortDescription == 'string')
     Object.assign(eventLocalization, {
       shortDescription: appleResources.attributes.shortDescription,
     });
+
   if (typeof appleResources.attributes.longDescription == 'string')
     Object.assign(eventLocalization, {
       longDescription: appleResources.attributes.longDescription,
     });
+
   return eventLocalization;
 }
 
@@ -962,15 +1061,19 @@ export function readReportRequest(
   fallbackAccessType: string,
 ): AnalyticsReportRequestResource {
   let accessType = entry.attributes.accessType;
+
   if (accessType == null) accessType = fallbackAccessType;
+
   const reportRequest: AnalyticsReportRequestResource = {
     id: entry.id,
     accessType,
   };
+
   if (entry.attributes.stoppedDueToInactivity != null)
     Object.assign(reportRequest, {
       stoppedDueToInactivity: entry.attributes.stoppedDueToInactivity,
     });
+
   return reportRequest;
 }
 
@@ -980,14 +1083,22 @@ export function clockSkewHint(args: {
   platform: NodeJS.Platform;
 }): string {
   if (args.platform != 'darwin') return '';
+
   if (args.appleDate == null) return '';
+
   const appleMs = Date.parse(args.appleDate);
+
   if (Number.isNaN(appleMs)) return '';
+
   const skewSeconds = Math.abs(args.nowMs - appleMs) / 1000;
   const clockSkewToleranceSeconds = 60;
+
   if (skewSeconds < clockSkewToleranceSeconds) return '';
+
   let drift = `~${Math.round(skewSeconds)} seconds`;
+
   if (skewSeconds >= 120) drift = `~${Math.round(skewSeconds / 60)} minutes`;
+
   return ` Your Mac's clock is off by ${drift} from Apple's, which makes the signed token read as expired - run \`sudo sntp -sS time.apple.com\` to resync, then retry.`;
 }
 
@@ -1080,11 +1191,13 @@ function readOptionalPointerGroup(appleFields: Record<string, unknown>): Pointer
 
 function readPointerGroup(appleFields: Record<string, unknown>): PointerGroup {
   const pointerField = readOptionalString(appleFields, 'pointer');
+
   const isPointerInvalid = pointerField.kind == 'invalid';
 
   if (isPointerInvalid) return { kind: 'invalid' };
 
   const parameterField = readOptionalString(appleFields, 'parameter');
+
   const isParameterInvalid = parameterField.kind == 'invalid';
 
   if (isParameterInvalid) return { kind: 'invalid' };
@@ -1108,6 +1221,7 @@ function readAscErrorList(listedErrors: readonly unknown[]): readonly AscError[]
 
   for (const listedError of listedErrors) {
     const appleError = readAscError(listedError);
+
     const isInvalid = appleError == null;
 
     if (isInvalid) return null;
@@ -1133,6 +1247,7 @@ function readAssociatedErrorObject(
 
   for (const resourcePath of Object.keys(appleFields)) {
     const errors = readAscErrors(appleFields[resourcePath]);
+
     const isInvalid = errors == null;
 
     if (isInvalid) return null;
@@ -1163,6 +1278,7 @@ function readMetaGroup(appleFields: Record<string, unknown>): MetaGroup {
   if (hasAssociated == false) return { kind: 'present', metaGroup: {} };
 
   const associatedErrors = readAssociatedErrors(appleFields['associatedErrors']);
+
   const isInvalid = associatedErrors == null;
 
   if (isInvalid) return { kind: 'invalid' };
@@ -1180,31 +1296,37 @@ function readAscError(candidate: unknown): AscError | null {
 
 function readAscErrorObject(appleFields: Record<string, unknown>): AscError | null {
   const statusField = readOptionalString(appleFields, 'status');
+
   const isStatusInvalid = statusField.kind == 'invalid';
 
   if (isStatusInvalid) return null;
 
   const codeField = readOptionalString(appleFields, 'code');
+
   const isCodeInvalid = codeField.kind == 'invalid';
 
   if (isCodeInvalid) return null;
 
   const titleField = readOptionalString(appleFields, 'title');
+
   const isTitleInvalid = titleField.kind == 'invalid';
 
   if (isTitleInvalid) return null;
 
   const detailField = readOptionalString(appleFields, 'detail');
+
   const isDetailInvalid = detailField.kind == 'invalid';
 
   if (isDetailInvalid) return null;
 
   const pointerGroup = readOptionalPointerGroup(appleFields);
+
   const isPointerGroupInvalid = pointerGroup.kind == 'invalid';
 
   if (isPointerGroupInvalid) return null;
 
   const metaGroup = readOptionalMetaGroup(appleFields);
+
   const isMetaInvalid = metaGroup.kind == 'invalid';
 
   if (isMetaInvalid) return null;
@@ -1260,6 +1382,7 @@ function readAppleErrorDocument(
   appleBody: string,
 ): { readonly errors?: readonly AscError[] } | null {
   const parsed = parseAppleBody(appleBody);
+
   const isUnparsed = parsed == null;
 
   if (isUnparsed) return null;
@@ -1279,6 +1402,7 @@ function readAppleErrorObject(
   if (hasErrors == false) return {};
 
   const errors = readAscErrors(appleFields['errors']);
+
   const isInvalid = errors == null;
 
   if (isInvalid) return null;
@@ -1296,17 +1420,24 @@ function describeUnparsedAppleBody(appleBody: string): string {
 
 function describeAscError(error: AscError): string {
   let message = error.detail;
+
   if (message == null) message = error.title;
+
   if (message == null) message = error.code;
+
   if (message == null) message = 'unknown App Store Connect error';
+
   const associated = describeAssociatedErrors(error.meta?.associatedErrors);
+
   if (associated.length > 0) return `${message}; ${associated.join('; ')}`;
+
   return message;
 }
 function describeAssociatedErrors(
   associatedErrors: Record<string, readonly AscError[]> | undefined,
 ): string[] {
   if (!associatedErrors) return [];
+
   function flatMapPiece([resource, errors]: [string, readonly AscError[]]) {
     function mapError(error: {
       status?: string;
@@ -1327,11 +1458,13 @@ function describeAssociatedErrors(
 
 export function describeErrors(responseText: string): string {
   const decodedDocument = readAppleErrorDocument(responseText);
+
   const isMissingDocument = decodedDocument == null;
 
   if (isMissingDocument) return describeUnparsedAppleBody(responseText);
 
   const errors = decodedDocument.errors;
+
   const isMissingErrors = errors == null;
 
   if (isMissingErrors) return describeUnparsedAppleBody(responseText);
@@ -1345,6 +1478,7 @@ export function describeErrors(responseText: string): string {
 
 function readErrorCode(appleError: AscError): string[] {
   const code = appleError.code;
+
   const isMissingCode = code == null;
 
   if (isMissingCode) return [];
@@ -1354,11 +1488,13 @@ function readErrorCode(appleError: AscError): string[] {
 
 export function parseErrorCodes(responseText: string): string[] {
   const decodedDocument = readAppleErrorDocument(responseText);
+
   const isMissingDocument = decodedDocument == null;
 
   if (isMissingDocument) return [];
 
   const errors = decodedDocument.errors;
+
   const isMissingErrors = errors == null;
 
   if (isMissingErrors) return [];

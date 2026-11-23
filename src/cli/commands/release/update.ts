@@ -40,6 +40,7 @@ export function registerUpdateCommand(program: Command): void {
       'rehearse: print the layout, worker, and app config without exporting or uploading',
       false,
     );
+
   function runCommand(commandOptions: UpdateOptions) {
     const requiredCommandInput = {
       channel: commandOptions.channel,
@@ -54,11 +55,15 @@ export function registerUpdateCommand(program: Command): void {
     const commandInput: typeof requiredCommandInput & { app?: string; runtimeVersion?: string } = {
       ...requiredCommandInput,
     };
+
     if (commandOptions.app != null) commandInput.app = commandOptions.app;
+
     if (commandOptions.runtimeVersion != null) {
       commandInput.runtimeVersion = commandOptions.runtimeVersion;
     }
+
     const updateProgram = updateCommandProgram(commandInput);
+
     return runCliProgram(updateProgram);
   }
 

@@ -60,6 +60,7 @@ function describeWorstDownloadBytes() {
   }
 
   it('picks the largest per-device download', picksTheLargestPerDeviceDownload);
+
   function fallsBackToOnDiskSizeWhenThereAreNoPerDeviceEntries() {
     expect(worstDownloadBytes(sizeReport([], 61 * MB))).toBe(61 * MB);
   }
@@ -84,6 +85,7 @@ function describeSizeSummary() {
     'shows both numbers when a per-device estimate exists',
     showsBothNumbersWhenAPerDeviceEstimateExists,
   );
+
   function fallsBackToOnDiskAloneWhenThereIsNoPerDeviceEstimate() {
     expect(sizeSummary(sizeReport([], 61.3 * MB))).toBe('on disk 61.3 MB (no per-device estimate)');
   }
@@ -92,6 +94,7 @@ function describeSizeSummary() {
     'falls back to on-disk alone when there is no per-device estimate',
     fallsBackToOnDiskAloneWhenThereIsNoPerDeviceEstimate,
   );
+
   function appliesWrapSizeToEachSizeToken() {
     function sizeSummarySize(size: string) {
       return `[${size}]`;
@@ -126,11 +129,13 @@ function describeUploadSizeReadout() {
     'shows download + on-disk with no growth on the first build',
     showsDownloadOnDiskWithNoGrowthOnTheFirstBuild,
   );
+
   function appendsASignedDeltaAgainstThePreviousBuild() {
     const readout = uploadSizeReadout(reportWithDownload(38), {
       downloadBytes: 33.8 * MB,
       buildNumber: 41,
     });
+
     expect(readout.lines[0]).toBe('download 38.0 MB (+4.2 MB since build 41)');
   }
 
@@ -138,11 +143,13 @@ function describeUploadSizeReadout() {
     'appends a signed delta against the previous build',
     appendsASignedDeltaAgainstThePreviousBuild,
   );
+
   function warnsWhenDownloadGrowsMoreThan10OverThePreviousBuild() {
     const readout = uploadSizeReadout(reportWithDownload(38), {
       downloadBytes: 33.8 * MB,
       buildNumber: 41,
     });
+
     expect(readout.grew).toEqual({ pct: 12, buildNumber: 41 });
   }
 
@@ -150,20 +157,24 @@ function describeUploadSizeReadout() {
     'warns when download grows more than 10% over the previous build',
     warnsWhenDownloadGrowsMoreThan10OverThePreviousBuild,
   );
+
   function doesNotWarnForGrowthAtOrUnder10() {
     const readout = uploadSizeReadout(reportWithDownload(36), {
       downloadBytes: 33.8 * MB,
       buildNumber: 41,
     });
+
     expect(readout.grew).toBeNull();
   }
 
   it('does not warn for growth at or under 10%', doesNotWarnForGrowthAtOrUnder10);
+
   function showsANegativeDeltaWithoutAGrowthWarningWhenTheBuildShrank() {
     const readout = uploadSizeReadout(reportWithDownload(30), {
       downloadBytes: 33.8 * MB,
       buildNumber: 41,
     });
+
     expect(readout.lines[0]).toBe('download 30.0 MB (-3.8 MB since build 41)');
     expect(readout.grew).toBeNull();
   }
@@ -172,11 +183,13 @@ function describeUploadSizeReadout() {
     'shows a negative delta without a growth warning when the build shrank',
     showsANegativeDeltaWithoutAGrowthWarningWhenTheBuildShrank,
   );
+
   function fallsBackToOnDiskOnlyWhenThereIsNoPerDeviceEstimate() {
     const readout = uploadSizeReadout(sizeReport([], 61 * MB), {
       downloadBytes: 10 * MB,
       buildNumber: 1,
     });
+
     expect(readout.lines).toEqual(['on disk 61.0 MB (no per-device estimate)']);
     expect(readout.grew).toBeNull();
   }
@@ -195,18 +208,21 @@ function describeReceiptDestination() {
   }
 
   it('reports not uploaded when submit is off', reportsNotUploadedWhenSubmitIsOff);
+
   function namesTestFlightForUploadedAppleBuilds() {
     const buildRun = buildRunOptions();
     expect(receiptDestination('ios', buildRun)).toBe('TestFlight');
   }
 
   it('names TestFlight for uploaded Apple builds', namesTestFlightForUploadedAppleBuilds);
+
   function defaultsAndroidTrackToInternal() {
     const buildRun = buildRunOptions({ platform: 'android' });
     expect(receiptDestination('android', buildRun)).toBe('Play - internal track');
   }
 
   it('defaults Android track to internal', defaultsAndroidTrackToInternal);
+
   function usesTheNamedAndroidTrackWhenProvided() {
     const buildRun = buildRunOptions({ platform: 'android' });
     expect(receiptDestination('android', buildRun, 'production')).toBe('Play - production track');
@@ -222,6 +238,7 @@ function describeMakeNativeProjectFailure() {
       platform: 'macos',
       message: 'commit a native project',
     });
+
     expect(failure).toEqual({
       _tag: 'NativeProjectFailure',
       platform: 'macos',
@@ -279,8 +296,10 @@ async function nativeProjectLog(nativeCase: NativeProjectCase): Promise<string> 
   useLoggerSink(function keepLine(text: string): void {
     lines.push(text);
   });
+
   const systemTemporaryDirectory = tmpdir();
   const launchNativePath = join(systemTemporaryDirectory, 'launch-native-');
+
   nativeAppDirectory = mkdtempSync(launchNativePath);
 
   try {
@@ -303,6 +322,7 @@ async function nativeProjectLog(nativeCase: NativeProjectCase): Promise<string> 
     }
 
     await ensureNativeProject(buildContext, log, nativeCase.prebuild);
+
     return lines.join('');
   } finally {
     resetLogger();
@@ -315,6 +335,7 @@ function describeNativeProjectPrebuildMode() {
   }
 
   beforeEach(prepareNativeProjectPrebuildMode);
+
   async function reusesAnExistingIosByDefault() {
     const logged = await nativeProjectLog({ platform: 'ios', nativeDirExists: true });
     expect(logged).toContain('using existing ios/ (no prebuild needed)');
@@ -322,18 +343,21 @@ function describeNativeProjectPrebuildMode() {
   }
 
   it('reuses an existing ios/ by default', reusesAnExistingIosByDefault);
+
   async function prebuildsAMissingIosByDefault() {
     const logged = await nativeProjectLog({ platform: 'ios', nativeDirExists: false });
     expect(logged).toContain('would run `expo prebuild --platform ios --clean` (no ios/ found)');
   }
 
   it('prebuilds a missing ios/ by default', prebuildsAMissingIosByDefault);
+
   async function regeneratesAnExistingIosWithPrebuildAlways() {
     const logged = await nativeProjectLog({
       platform: 'ios',
       nativeDirExists: true,
       prebuild: 'always',
     });
+
     expect(logged).toContain(
       "would run `expo prebuild --platform ios --clean` (prebuild: 'always')",
     );
@@ -344,12 +368,14 @@ function describeNativeProjectPrebuildMode() {
     "regenerates an existing ios/ with prebuild: 'always'",
     regeneratesAnExistingIosWithPrebuildAlways,
   );
+
   async function keepsACommittedTvOSProjectWithPrebuildAlways() {
     const logged = await nativeProjectLog({
       platform: 'tvos',
       nativeDirExists: true,
       prebuild: 'always',
     });
+
     expect(logged).toContain('using existing ios/ (no prebuild needed)');
     expect(logged).not.toContain('expo prebuild');
   }
@@ -358,6 +384,7 @@ function describeNativeProjectPrebuildMode() {
     "keeps a committed tvOS project with prebuild: 'always'",
     keepsACommittedTvOSProjectWithPrebuildAlways,
   );
+
   async function reusesAnExistingAndroidByDefault() {
     const logged = await nativeProjectLog({ platform: 'android', nativeDirExists: true });
     expect(logged).toContain('using existing android/ (no prebuild needed)');
@@ -365,12 +392,14 @@ function describeNativeProjectPrebuildMode() {
   }
 
   it('reuses an existing android/ by default', reusesAnExistingAndroidByDefault);
+
   async function regeneratesAnExistingAndroidWithPrebuildAlways() {
     const logged = await nativeProjectLog({
       platform: 'android',
       nativeDirExists: true,
       prebuild: 'always',
     });
+
     expect(logged).toContain(
       "would run `expo prebuild --platform android --clean` (prebuild: 'always')",
     );
@@ -381,6 +410,7 @@ function describeNativeProjectPrebuildMode() {
     "regenerates an existing android/ with prebuild: 'always'",
     regeneratesAnExistingAndroidWithPrebuildAlways,
   );
+
   async function runsACleanIOSPrebuildInTheAppDirOnARealBuildWithPrebuildAlways() {
     await nativeProjectLog({
       platform: 'ios',
@@ -399,6 +429,7 @@ function describeNativeProjectPrebuildMode() {
     "runs a clean iOS prebuild in the app dir on a real build with prebuild: 'always'",
     runsACleanIOSPrebuildInTheAppDirOnARealBuildWithPrebuildAlways,
   );
+
   async function runsACleanAndroidPrebuildInTheAppDirOnARealBuildWithPrebuildAlways() {
     await nativeProjectLog({
       platform: 'android',
@@ -417,6 +448,7 @@ function describeNativeProjectPrebuildMode() {
     "runs a clean Android prebuild in the app dir on a real build with prebuild: 'always'",
     runsACleanAndroidPrebuildInTheAppDirOnARealBuildWithPrebuildAlways,
   );
+
   async function runsNoPrebuildOnARealBuildThatReusesTheNativeDir() {
     await nativeProjectLog({ platform: 'ios', nativeDirExists: true, dryRun: false });
     await nativeProjectLog({ platform: 'android', nativeDirExists: true, dryRun: false });

@@ -84,6 +84,7 @@ export const LocalCredentialsStore = {
     for (const appleAccount of appleAccounts) {
       const storedCredentials = await describeStoredCredentials(appleAccount.keyId);
       const accountSummary = formatAccountSummary(appleAccount, { includeLabel: false });
+
       statuses.push({
         keyId: appleAccount.keyId,
         label: appleAccount.label,

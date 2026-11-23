@@ -468,7 +468,9 @@ async function promoteTrackRelease(commandInput: PlayTracksPromoteInput): Promis
   }
 
   await googleStore.setTrackReleases(selectedApp.packageName, commandInput.track, [playRelease]);
+
   const logger = createLogger(false);
+
   logger.step(
     'promoted',
     `v${versionCode} -> ${commandInput.track} (${releaseStatus}${rolloutDescription})`,
@@ -501,6 +503,7 @@ async function manageTrackTesters(commandInput: PlayTracksTestersInput): Promise
     }
 
     logger.line(testerGroups.map(formatTesterGroup).join('\n'));
+
     return;
   }
 

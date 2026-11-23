@@ -34,6 +34,7 @@ function listComplianceApps(readinessContext: ReadinessContext): ComplianceApp[]
 
   for (const app of readinessContext.apps) {
     const complianceApp = readComplianceApp(app);
+
     const isOutsideScope = complianceApp == null;
 
     if (isOutsideScope) {
@@ -75,6 +76,7 @@ export const exportComplianceProbe = {
   categories: ['submit'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const apps = listComplianceApps(readinessContext);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

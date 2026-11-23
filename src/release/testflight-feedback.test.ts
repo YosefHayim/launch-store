@@ -71,6 +71,7 @@ function describeListBetaFeedback() {
     const appleStore = makeAppleStore({ appIds: {} });
 
     const betaFeedback = listBetaFeedback(appleStore, 'com.x.missing');
+
     await expect(betaFeedback).rejects.toMatchObject({
       _tag: 'TestflightFeedbackFailure',
       message: expect.stringContaining('No App Store Connect app record'),
@@ -78,6 +79,7 @@ function describeListBetaFeedback() {
   }
 
   it('fails clearly when the app record is missing', failsClearlyWhenTheAppPieceIsMissing);
+
   async function mergesCrashAndScreenshotFeedbackNewestFirst() {
     const appleStore = makeAppleStore({
       appIds: { 'com.x': 'app1' },
@@ -103,9 +105,11 @@ function describeListBetaFeedback() {
         return feedbackEntry.id == 'c1';
       })?.kind,
     ).toBe('crash');
+
     const screenshotFeedback = feedbackEntries.find(function screenshotEntry(feedbackEntry) {
       return feedbackEntry.id == 's1';
     });
+
     expect(screenshotFeedback?.kind).toBe('screenshot');
     expect(screenshotFeedback?.screenshots).toEqual([{ url: 'https://a/1.png' }]);
   }
@@ -114,6 +118,7 @@ function describeListBetaFeedback() {
     'merges crash and screenshot feedback newest-first',
     mergesCrashAndScreenshotFeedbackNewestFirst,
   );
+
   async function skipsScreenshotReadsWhenCrashFeedbackIsRequested() {
     const appleStore = makeAppleStore({
       appIds: { 'com.x': 'app1' },
@@ -134,6 +139,7 @@ function describeListBetaFeedback() {
     'skips screenshot reads when crash feedback is requested',
     skipsScreenshotReadsWhenCrashFeedbackIsRequested,
   );
+
   async function skipsCrashReadsWhenScreenshotFeedbackIsRequested() {
     const appleStore = makeAppleStore({
       appIds: { 'com.x': 'app1' },
@@ -154,6 +160,7 @@ function describeListBetaFeedback() {
     'skips crash reads when screenshot feedback is requested',
     skipsCrashReadsWhenScreenshotFeedbackIsRequested,
   );
+
   async function resolvesABuildVersionIntoTheServerSideBuildFilter() {
     const appleStore = makeAppleStore({
       appIds: { 'com.x': 'app1' },
@@ -175,10 +182,12 @@ function describeListBetaFeedback() {
     'resolves a build version into the server-side build filter',
     resolvesABuildVersionIntoTheServerSideBuildFilter,
   );
+
   async function rejectsMissingAndNonNumericBuilds() {
     const appleStore = makeAppleStore({ appIds: { 'com.x': 'app1' }, builds: {} });
 
     const betaFeedback = listBetaFeedback(appleStore, 'com.x', { build: '99' });
+
     await expect(betaFeedback).rejects.toMatchObject({
       message: expect.stringContaining('No build 99'),
     });
@@ -189,6 +198,7 @@ function describeListBetaFeedback() {
   }
 
   it('rejects missing and non-numeric builds', rejectsMissingAndNonNumericBuilds);
+
   async function omitsAnEmptyScreenshotCollection() {
     const appleStore = makeAppleStore({
       appIds: { 'com.x': 'app1' },
@@ -198,6 +208,7 @@ function describeListBetaFeedback() {
     const [feedbackEntry] = await listBetaFeedback(appleStore, 'com.x', { kind: 'screenshot' });
 
     expect(feedbackEntry).toBeDefined();
+
     const isFeedbackMissing = feedbackEntry == null;
 
     if (isFeedbackMissing) {
@@ -236,13 +247,16 @@ function describeDownloadFeedbackAttachments() {
 
     const s11Path = join(outputDirectory, 's1-1.png');
     const s12Path = join(outputDirectory, 's1-2.png');
+
     expect(
       downloadedAttachments.map(function attachmentPath(attachment) {
         return attachment.path;
       }),
     ).toEqual([s11Path, s12Path]);
     expect(readdirSync(outputDirectory).sort()).toEqual(['s1-1.png', 's1-2.png']);
+
     const joinedPath = join(outputDirectory, 's1-1.png');
+
     expect(readFileSync(joinedPath).toString()).toBe('imgbytes');
     expect(appleStore.downloadBetaFeedbackScreenshot).toHaveBeenCalledTimes(2);
   }
@@ -251,6 +265,7 @@ function describeDownloadFeedbackAttachments() {
     'writes one file per screenshot and skips crash feedback',
     writesOneFilePerScreenshotAndSkipsCrashFeedback,
   );
+
   async function encodesUnsafeFeedbackIdsIntoDistinctChildPaths() {
     const bufferBytes = Buffer.from('x');
     const appleStore = makeAppleStore({ screenshotBytes: bufferBytes });

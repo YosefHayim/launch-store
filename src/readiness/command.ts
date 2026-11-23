@@ -67,6 +67,7 @@ function makeReadinessCommandFailure(fields: {
 
 function commandFailure(operation: string, cause: unknown): ReadinessCommandFailure {
   const failureMessage = errorMessage(cause);
+
   return makeReadinessCommandFailure({
     operation,
     message: failureMessage,
@@ -166,6 +167,7 @@ export function readinessStoreLabel(store: ReadinessStore): string {
 /** Build the human summary detail after probe tallies (without the command-specific prefix). */
 export function formatReadinessSummaryDetail(readinessOutcome: ReadinessOutcome): string {
   const summaryParts: string[] = [];
+
   const hasBlockers = readinessOutcome.blockerCount > 0;
 
   if (hasBlockers) {
@@ -268,6 +270,7 @@ function renderReadinessOutcome(
 
   for (const store of readinessStores) {
     const storeReports = readinessOutcome.reports.filter(belongsToStore(store));
+
     const isStoreEmpty = storeReports.length == 0;
 
     if (isStoreEmpty) {
@@ -282,7 +285,9 @@ function renderReadinessOutcome(
   }
 
   logger.gap();
+
   const summary = `${labels.summary}: ${formatReadinessSummaryDetail(readinessOutcome)}`;
+
   const isClear = readinessOutcome.exitCode == READINESS_EXIT.ok;
 
   if (isClear) {
@@ -299,7 +304,9 @@ export async function readinessCommandProgram(rawCommandInput: unknown): Promise
     const commandInput = decodeReadinessCommandInput(rawCommandInput);
     const launchDirectories = readLaunchDirectories();
     const logger = createLogger(false);
+
     registerBuiltinProbes();
+
     const loadedConfiguration = await loadConfig(launchDirectories.workingDirectory);
     const selectedApps = await selectApps(loadedConfiguration.apps, commandInput.app ?? undefined);
     const resolveAscClient = createAscClientResolver();
@@ -316,6 +323,7 @@ export async function readinessCommandProgram(rawCommandInput: unknown): Promise
     };
     const readinessProbes = selectReadinessProbes(commandInput.category);
     const readinessOutcome = await runProbes(readinessContext, readinessProbes);
+
     const isJson = commandInput.json == true;
 
     if (isJson) {

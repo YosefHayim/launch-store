@@ -4,18 +4,23 @@ import { registerDoctorCommand } from './doctor.ts';
 function describeRegisterDoctorCommand() {
   function attachesADoctorCommandWithPlatformAppFixYesAndPiecePiece() {
     const program = new Command();
+
     registerDoctorCommand(program);
+
     function findCommand(command: Command) {
       return command.name() == 'doctor';
     }
 
     const doctor = program.commands.find(findCommand);
+
     expect(doctor).toBeDefined();
+
     function readLong(option: CommandOption) {
       return option.long;
     }
 
     const options = doctor?.options.map(readLong);
+
     expect(options).toContain('--platform');
     expect(options).toContain('--app');
     expect(options).toContain('--fix');

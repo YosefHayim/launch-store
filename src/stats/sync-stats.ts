@@ -179,6 +179,7 @@ function decodePortfolioFile(documentText: string): PortfolioFile {
   }
 
   let playReportsBucket: string | null = null;
+
   const hasBucket = 'playReportsBucket' in parsedObject;
 
   if (hasBucket) {
@@ -237,6 +238,7 @@ export async function loadStatsPortfolio(mode: PortfolioLoadMode): Promise<Portf
 
 async function recordFetchedFeed(fetched: FetchedFeed): Promise<FeedSync> {
   const reply = fetched.reply;
+
   const isFeedSkipped = reply.status == 'skipped';
 
   if (isFeedSkipped) {
@@ -282,6 +284,7 @@ async function syncOneFeed(
   syncedAt: string,
 ): Promise<FeedSync> {
   const missingRange = subtractCoverage(requestedRange, savedCoverage);
+
   const isFeedUpToDate = missingRange == null;
 
   if (isFeedUpToDate) {
@@ -344,7 +347,9 @@ async function syncOneApp(
 
     const savedFeedCoverage = findFeedCoverage(savedCoverage, plugin.feed);
     const feedSync = await syncOneFeed(app, plugin, requestedRange, savedFeedCoverage, syncedAt);
+
     appFeedReports.push(feedSync.report);
+
     const nextCoverage = feedSync.coverage;
 
     if (nextCoverage != null) {
@@ -359,6 +364,7 @@ async function syncOneApp(
 
 async function loadAppsToSync(appName: string | null): Promise<PortfolioApp[]> {
   const cachedLoad = await loadStatsPortfolio('cache-first');
+
   const isEveryAppWanted = appName == null;
 
   if (isEveryAppWanted) {
@@ -366,6 +372,7 @@ async function loadAppsToSync(appName: string | null): Promise<PortfolioApp[]> {
   }
 
   const appsFoundInCache = findAppsByName(cachedLoad.apps, appName);
+
   const isAppInCache = appsFoundInCache.length > 0;
 
   if (isAppInCache) {
@@ -374,6 +381,7 @@ async function loadAppsToSync(appName: string | null): Promise<PortfolioApp[]> {
 
   const discoveredLoad = await loadDiscoveredPortfolio('discover');
   const appsFoundByDiscovery = findAppsByName(discoveredLoad.apps, appName);
+
   const isAppDiscovered = appsFoundByDiscovery.length > 0;
 
   if (isAppDiscovered) {

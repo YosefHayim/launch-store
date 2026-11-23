@@ -35,7 +35,9 @@ let workdir: string;
 function prepareAll() {
   const systemTemporaryDirectory = tmpdir();
   const launchE2ePath = join(systemTemporaryDirectory, 'launch-e2e-');
+
   workdir = mkdtempSync(launchE2ePath);
+
   // A minimal schema-valid config (mirrors the built-in DEFAULT_CONFIG's profile shape).
   const goodPath = join(workdir, 'good.json');
   const serialized = JSON.stringify({
@@ -67,15 +69,20 @@ function prepareAll() {
       },
     },
   });
+
   writeFileSync(goodPath, serialized);
+
   // Valid but for one unknown top-level key. The root schema sets additionalProperties to false,
   // so this is the #197 unknown-key rejection.
   const badPath = join(workdir, 'bad.json');
+
   writeFileSync(
     badPath,
     JSON.stringify({ profiles: { production: { name: 'production' } }, totallyBogusKey: true }),
   );
+
   const badProductIdPath = join(workdir, 'bad-product-id.json');
+
   writeFileSync(
     badProductIdPath,
     JSON.stringify({
@@ -122,6 +129,7 @@ function describeLaunchStoreCLIOfflineSurfaceCompiledDist() {
   }
 
   it('reports its semver version', reportsItsSemverVersion);
+
   async function printsHelpThatListsThePieceCommand() {
     const help = await launch('--help');
     expect(help).toContain('Usage:');
@@ -129,13 +137,16 @@ function describeLaunchStoreCLIOfflineSurfaceCompiledDist() {
   }
 
   it('prints help that lists the config command', printsHelpThatListsThePieceCommand);
+
   async function explainsAGlossaryTopic() {
     expect((await launch('explain', 'csr')).length).toBeGreaterThan(0);
   }
 
   it('explains a glossary topic', explainsAGlossaryTopic);
+
   async function emitsAJSONSchemaThatDescribesThePiece() {
     const raw = await launch('config', 'schema');
+
     function expectCall() {
       return JSON.parse(raw);
     }
@@ -145,17 +156,20 @@ function describeLaunchStoreCLIOfflineSurfaceCompiledDist() {
   }
 
   it('emits a JSON Schema that describes the config', emitsAJSONSchemaThatDescribesThePiece);
+
   async function printsThePieceFieldReference() {
     expect((await launch('config', 'docs')).length).toBeGreaterThan(0);
   }
 
   it('prints the config field reference', printsThePieceFieldReference);
+
   async function validatesAGoodPieceWithExit0() {
     const goodPath = join(workdir, 'good.json');
     expect(await launch('config', 'validate', goodPath)).toContain('Config valid');
   }
 
   it('validates a good config with exit 0', validatesAGoodPieceWithExit0);
+
   async function rejectsABadPieceWithANonZeroExitThatNamesTheOffendingKey() {
     const badPath = join(workdir, 'bad.json');
     await expect(launch('config', 'validate', badPath)).rejects.toMatchObject({
@@ -167,6 +181,7 @@ function describeLaunchStoreCLIOfflineSurfaceCompiledDist() {
     'rejects a bad config with a non-zero exit that names the offending key',
     rejectsABadPieceWithANonZeroExitThatNamesTheOffendingKey,
   );
+
   async function rejectsInvalidAppleProductIDsAndExplainsTheAllowedCharacters() {
     const badProductIdPath = join(workdir, 'bad-product-id.json');
     await expect(launch('config', 'validate', badProductIdPath)).rejects.toMatchObject({
@@ -178,6 +193,7 @@ function describeLaunchStoreCLIOfflineSurfaceCompiledDist() {
     'rejects invalid Apple product IDs and explains the allowed characters',
     rejectsInvalidAppleProductIDsAndExplainsTheAllowedCharacters,
   );
+
   async function printsAFailedCommandSMessageNotItsPieceFailureObject() {
     let commandFailure: CommandFailed | null = null;
 

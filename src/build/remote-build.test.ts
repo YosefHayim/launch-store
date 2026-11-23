@@ -31,6 +31,7 @@ function describeRemoteBuildEnvironment() {
   }
 
   it('keeps the persisted ios/ by default', keepsThePersistedIosByDefault);
+
   function tellsTheHostToRegenerateIosWithPrebuildAlways() {
     const environment = remoteBuildEnvironment(remoteInputs({ prebuildAlways: true }), 'keychain');
     expect(environment['PREBUILD_ALWAYS']).toBe('1');
@@ -40,11 +41,13 @@ function describeRemoteBuildEnvironment() {
     "tells the host to regenerate ios/ with prebuild: 'always'",
     tellsTheHostToRegenerateIosWithPrebuildAlways,
   );
+
   function turnsEachBuildSwitchOnIndependently() {
     const environment = remoteBuildEnvironment(
       remoteInputs({ forceClean: true, ccacheEnabled: true }),
       'keychain',
     );
+
     expect(environment).toMatchObject({
       FORCE_CLEAN: '1',
       PREBUILD_ALWAYS: '0',
@@ -55,8 +58,10 @@ function describeRemoteBuildEnvironment() {
   }
 
   it('turns each build switch on independently', turnsEachBuildSwitchOnIndependently);
+
   function keepsTheAppStoreConnectKeyOffTheHost() {
     const environment = remoteBuildEnvironment(remoteInputs(), 'keychain');
+
     function filterName(name: string) {
       return name.startsWith('ASC_');
     }
@@ -86,6 +91,7 @@ beforeEach(prepare);
 function describeRemoteCredentialTransport() {
   async function usesAProtectedEnvironmentFileRatherThanSecretBearingSSHArguments() {
     const environmentDocuments: string[] = [];
+
     vi.mocked(scpUp).mockImplementation(
       async function captureEnvironment(_target, localPath, remotePath) {
         const isEnvironmentFile = remotePath.endsWith('/environment.sh');
@@ -95,6 +101,7 @@ function describeRemoteCredentialTransport() {
         }
 
         const loadedFile = readFileSync(localPath, 'utf8');
+
         environmentDocuments.push(loadedFile);
         expect(statSync(localPath).mode & 0o077).toBe(0);
       },
@@ -108,10 +115,13 @@ function describeRemoteCredentialTransport() {
       },
       remoteInputs({ env: { BACKEND_TOKEN: "dummy'quoted-token" } }),
     );
+
     const environmentDocument = environmentDocuments.join('');
+
     expect(environmentDocument).toContain('export KEYCHAIN_PASSWORD=');
     expect(environmentDocument).toContain('dummy-keychain-password');
     expect(environmentDocument).toContain('export BACKEND_TOKEN=');
+
     for (const invocation of vi.mocked(sshRun).mock.calls) {
       expect(invocation[1]).not.toContain('dummy-keychain-password');
       expect(invocation[1]).not.toContain('p12-password');

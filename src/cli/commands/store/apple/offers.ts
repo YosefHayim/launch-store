@@ -32,7 +32,9 @@ function readOffersReconcile(commandOptions: OffersOptions): OffersReconcileInpu
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
+
   if (commandOptions.app != null) offersInput = { ...offersInput, app: commandOptions.app };
+
   return offersInput;
 }
 
@@ -48,22 +50,28 @@ function readOfferCodes(
     offerName,
     count: commandOptions.count,
   };
+
   if (commandOptions.app != null) {
     generateCodesInput = { ...generateCodesInput, app: commandOptions.app };
   }
+
   if (commandOptions.expires != null) {
     generateCodesInput = { ...generateCodesInput, expires: commandOptions.expires };
   }
+
   if (commandOptions.custom != null) {
     generateCodesInput = { ...generateCodesInput, custom: commandOptions.custom };
   }
+
   return generateCodesInput;
 }
 
 /** Map a list request without an explicit undefined app. */
 function readOffersList(productId: string, commandOptions: AppScopedOptions): OffersListInput {
   let listInput: OffersListInput = { operation: 'list', productId };
+
   if (commandOptions.app != null) listInput = { ...listInput, app: commandOptions.app };
+
   return listInput;
 }
 
@@ -74,9 +82,11 @@ function readOffersDeactivate(
   commandOptions: AppScopedOptions,
 ): OffersDeactivateInput {
   let deactivateInput: OffersDeactivateInput = { operation: 'deactivate', productId, offerName };
+
   if (commandOptions.app != null) {
     deactivateInput = { ...deactivateInput, app: commandOptions.app };
   }
+
   return deactivateInput;
 }
 
@@ -100,6 +110,7 @@ export function registerOffersCommand(program: Command): void {
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runOffers);
+
   function runGenerateCodesProductIdOfferName(
     productId: string,
     offerName: string,
@@ -121,6 +132,7 @@ export function registerOffersCommand(program: Command): void {
       'create one shareable custom code with this value instead of one-time-use codes',
     )
     .action(runGenerateCodesProductIdOfferName);
+
   function runListProductId(productId: string, commandOptions: AppScopedOptions) {
     const offersList = readOffersList(productId, commandOptions);
     const offersProgram = offersCommandProgram(offersList);
@@ -132,6 +144,7 @@ export function registerOffersCommand(program: Command): void {
     .description("list a subscription's offer-code campaigns and their states")
     .option('-a, --app <name>', 'app handle (default: the only app)')
     .action(runListProductId);
+
   function runDeactivateProductIdOfferName(
     productId: string,
     offerName: string,

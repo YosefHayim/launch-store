@@ -33,6 +33,7 @@ export class BuildCommand {
       shouldSubmit: flags.submit,
     };
     const binaryPath = await this.pipeline.run(shipBuild);
+
     const isDryRun = binaryPath == null;
 
     if (isDryRun) {

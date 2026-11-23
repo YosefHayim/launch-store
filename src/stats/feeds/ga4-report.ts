@@ -152,6 +152,7 @@ function readRowStats(reportRow: ReportRow): DailyStat[] {
   const date = readReportDate(compactDate);
 
   const metricStat = readMetricStat(date, reportRow.metricValues);
+
   return GA4_METRICS.flatMap(metricStat);
 }
 

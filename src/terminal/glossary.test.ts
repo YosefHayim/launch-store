@@ -10,6 +10,7 @@ function describeGlossaryTheSinglePieceForExplainAndDocs() {
   }
 
   it('returns non-empty teaching text for every topic', returnsNonEmptyTeachingPieceForEveryTopic);
+
   function narrowsKnownStringsAndRejectsUnknownOnes() {
     expect(isGlossaryTopic('csr')).toBe(true);
     expect(isGlossaryTopic('app-record')).toBe(true);

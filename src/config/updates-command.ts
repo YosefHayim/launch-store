@@ -620,8 +620,11 @@ async function listUpdates(
   }
 
   const updatesTable = formatUpdatesTable(updateRows);
+
   commandService.logger.line(updatesTable);
+
   const noun = updateNoun(updateRows.length);
+
   commandService.logger.line(`\n${updateRows.length} ${noun} on "${commandInput.channel}".`);
 }
 
@@ -681,6 +684,7 @@ async function viewUpdate(
   }
 
   const updateDetail = formatUpdateDetail(updateRow, updateManifest);
+
   commandService.logger.line(updateDetail);
 }
 

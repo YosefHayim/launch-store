@@ -12,6 +12,7 @@ function describeIosInstallManifestPlist() {
       version: '1.2.0',
       title: 'Hello',
     });
+
     expect(plist).toContain('<key>kind</key><string>software-package</string>');
     expect(plist).toContain('<key>url</key><string>https://cdn.example.com/app.ipa</string>');
     expect(plist).toContain('<key>bundle-identifier</key><string>com.example.hello</string>');
@@ -22,6 +23,7 @@ function describeIosInstallManifestPlist() {
     'embeds the ipa url, bundle id, and version in the software-package shape iOS requires',
     embedsTheIpaUrlBundleIdAndVersionInTheSoftwarePackageShapeIOSRequires,
   );
+
   function escapesXMLSpecialCharactersInTheTitleSoItCanTBreakThePlist() {
     const plist = iosInstallManifestPlist({
       ipaUrl: 'u',
@@ -29,6 +31,7 @@ function describeIosInstallManifestPlist() {
       version: '1',
       title: 'A & B <C>',
     });
+
     expect(plist).toContain('A &amp; B &lt;C&gt;');
     expect(plist).not.toContain('A & B <C>');
   }
@@ -60,6 +63,7 @@ function describeInstallLandingPage() {
       platform: 'ios',
       installUrl: 'itms-services://?action=download-manifest&url=x',
     });
+
     expect(page).toContain('href="itms-services://?action=download-manifest&amp;url=x"');
     expect(page).toContain('Version 1.0.0 (build 7)');
     expect(page).toContain('Device Management');
@@ -69,6 +73,7 @@ function describeInstallLandingPage() {
     'wires the install button to the given install URL',
     wiresTheInstallButtonToTheGivenInstallURL,
   );
+
   function linksStraightToTheApkForAndroid() {
     const page = installLandingPage({
       title: 'Hello',
@@ -77,6 +82,7 @@ function describeInstallLandingPage() {
       platform: 'android',
       installUrl: 'https://cdn.example.com/app.apk',
     });
+
     expect(page).toContain('href="https://cdn.example.com/app.apk"');
     expect(page).toContain('allow installs');
   }

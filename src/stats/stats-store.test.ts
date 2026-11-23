@@ -21,9 +21,12 @@ function createStat(overrides: Partial<DailyStat>): DailyStat {
 }
 function describeSaveDailyStats() {
   let homeDirectory: string;
+
   function prepareSaveDailyStats() {
     homeDirectory = createTemporaryHomeDirectory();
+
     const workPath = join(homeDirectory, 'work');
+
     useLaunchDirectories({
       homeDirectory,
       workingDirectory: workPath,
@@ -31,6 +34,7 @@ function describeSaveDailyStats() {
   }
 
   beforeEach(prepareSaveDailyStats);
+
   function cleanupSaveDailyStats() {
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
@@ -53,8 +57,10 @@ function describeSaveDailyStats() {
   }
 
   test('writes one file per month', writesOneFilePerMonth);
+
   async function mergesWithTheDaysAlreadySavedInThatMonth() {
     const stat = createStat({ date: '2026-10-01', value: 1 });
+
     await saveInHome([stat, createStat({ date: '2026-10-02', value: 2 })]);
 
     await saveInHome([
@@ -65,6 +71,7 @@ function describeSaveDailyStats() {
     const joinedPath = join(appFolder(), '2026-10.json');
     const loadedFile = readFileSync(joinedPath, 'utf8');
     const monthFile = JSON.parse(loadedFile);
+
     function mapStat(stat: DailyStat) {
       return [stat.date, stat.value];
     }
@@ -81,8 +88,10 @@ function describeSaveDailyStats() {
     'merges with the days already saved in that month',
     mergesWithTheDaysAlreadySavedInThatMonth,
   );
+
   async function writesNothingForNoStats() {
     await saveInHome([]);
+
     function expectCall() {
       return readdirSync(appFolder());
     }
@@ -91,6 +100,7 @@ function describeSaveDailyStats() {
   }
 
   test('writes nothing for no stats', writesNothingForNoStats);
+
   async function failsForAnAppKeyThatIsNotValid() {
     const stat = createStat({});
     await expect(saveDailyStats('bad key', [stat])).rejects.toMatchObject({

@@ -19,6 +19,7 @@ function describeReadGa4Error() {
   }
 
   test('reads a disabled API before a permission error', readsADisabledAPIBeforeAPermissionError);
+
   function readsA403PERMISSIONDENIEDAsPermissionDenied() {
     const errorReading = readGa4Error(403, { error: { status: 'PERMISSION_DENIED' } });
 
@@ -29,6 +30,7 @@ function describeReadGa4Error() {
     'reads a 403 PERMISSION_DENIED as permission denied',
     readsA403PERMISSIONDENIEDAsPermissionDenied,
   );
+
   function readsAnyOtherStatusAsOtherWithTheGoogleMessage() {
     const errorReading = readGa4Error(429, { error: { message: 'slow down' } });
 
@@ -39,6 +41,7 @@ function describeReadGa4Error() {
     'reads any other status as other with the Google message',
     readsAnyOtherStatusAsOtherWithTheGoogleMessage,
   );
+
   function fallsBackToTheHTTPStatusWhenThePieceIsNotAGoogleError() {
     const errorReading = readGa4Error(502, 'bad gateway');
 
@@ -64,6 +67,7 @@ function describeReadProjectIdFromClientEmail() {
   }
 
   test('reads the project id of a service account email', readsTheProjectIdOfAServiceAccountEmail);
+
   function returnsNullForAnEmailThatIsNotAServiceAccount() {
     const projectIdFromClientEmail = readProjectIdFromClientEmail('person@example.com');
     expect(projectIdFromClientEmail).toBeNull();
@@ -82,6 +86,7 @@ function describeCreateServiceDisabledReason() {
       'https://analyticsdata.googleapis.com/v1beta/x',
       null,
     );
+
     expect(serviceDisabledReason).toBe(
       'Enable the analyticsdata.googleapis.com API for the project of the launch Google service account',
     );

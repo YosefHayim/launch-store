@@ -343,12 +343,16 @@ export function findApplePreviewTarget(previewType: string): AppleAssetTarget | 
 /** Return a display type's friendly label, falling back to an unknown future enum value. */
 export function appleDisplayTypeLabel(displayType: string): string {
   const assetTarget = findAppleScreenshotTarget(displayType);
+
   if (assetTarget == null) return displayType;
+
   return assetTarget.label;
 }
 /** Return a preview type's friendly label, falling back to an unknown future enum value. */
 export function applePreviewTypeLabel(previewType: string): string {
   const assetTarget = findApplePreviewTarget(previewType);
+
   if (assetTarget == null) return previewType;
+
   return assetTarget.label;
 }

@@ -7,6 +7,7 @@ function describeRenderAction() {
       destructive: false,
       status: 'planned',
     });
+
     expect(storeSurfaceAction).toBe('+ set com.acme.app.Clip card action = OPEN');
     expect(
       renderStoreSurfaceAction({
@@ -25,6 +26,7 @@ function describeRenderAction() {
   }
 
   it('marks a change with + and a skipped clip with -', marksAChangeWithAndASkippedClipWith);
+
   function rendersAFailedActionWithXAndAppleSErrorDetail() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'create com.acme.app.Clip App Clip default experience (action=OPEN)',
@@ -32,6 +34,7 @@ function describeRenderAction() {
       status: 'failed',
       error: 'appClip is in an invalid state',
     });
+
     expect(storeSurfaceAction).toBe(
       'x create com.acme.app.Clip App Clip default experience (action=OPEN) - appClip is in an invalid state',
     );

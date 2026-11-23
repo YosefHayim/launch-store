@@ -21,14 +21,17 @@ export function registerSecretCommand(program: Command): void {
         profile: commandOptions.profile,
         yes: commandOptions.yes == true,
       });
+
       return runCliProgram(secretProgram);
     }
+
     const secretProgram = secretCommandProgram({
       action,
       name,
       app: commandOptions.app,
       profile: commandOptions.profile,
     });
+
     return runCliProgram(secretProgram);
   }
 

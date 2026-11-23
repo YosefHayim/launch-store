@@ -9,6 +9,7 @@ function describeMergeChildPiece() {
   }
 
   it('forces UTF-8 locale over broken shell defaults', forcesUTF8LocaleOverBrokenShellDefaults);
+
   function letsExplicitCallerPieceOverrideTheUTF8Defaults() {
     const env = mergeChildEnv({}, { LC_ALL: 'fr_FR.UTF-8' });
     expect(env['LC_ALL']).toBe('fr_FR.UTF-8');
@@ -29,6 +30,7 @@ function describeIsUtf8ShellLocale() {
   }
 
   it('accepts common UTF-8 spellings', acceptsCommonUTF8Spellings);
+
   function rejectsUSASCIIAndUnsetLocale() {
     expect(isUtf8ShellLocale({ LANG: 'C' })).toBe(false);
     expect(isUtf8ShellLocale({ LC_ALL: 'US-ASCII' })).toBe(false);
@@ -36,6 +38,7 @@ function describeIsUtf8ShellLocale() {
   }
 
   it('rejects US-ASCII and unset locale', rejectsUSASCIIAndUnsetLocale);
+
   function prefersLCALLOverLANG() {
     expect(isUtf8ShellLocale({ LC_ALL: 'US-ASCII', LANG: 'en_US.UTF-8' })).toBe(false);
     expect(isUtf8ShellLocale({ LC_ALL: 'en_US.UTF-8', LANG: 'C' })).toBe(true);
@@ -54,6 +57,7 @@ function describeShellLocaleDoctorCheck() {
   }
 
   it('reports ok when the shell is UTF-8', reportsOkWhenTheShellIsUTF8);
+
   function reportsPieceWithAFixHintWhenTheShellIsNotUTF8() {
     const check = shellLocaleDoctorCheck({ LANG: 'C' });
     expect(check.status).toBe('info');

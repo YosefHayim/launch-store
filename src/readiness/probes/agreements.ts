@@ -40,6 +40,7 @@ export const agreementsProbe = {
   categories: ['account', 'submit'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const apps = iosApps(readinessContext.apps);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {
@@ -53,6 +54,7 @@ export const agreementsProbe = {
     }
 
     const signed = await api.checkRequiredAgreements();
+
     const isSigned = signed == true;
 
     if (isSigned) {

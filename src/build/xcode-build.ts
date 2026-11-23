@@ -44,7 +44,9 @@ export class XcodeBuild {
     const plistPath = join(iosDirectory, 'build', 'ExportOptions.plist');
 
     await mkdir(exportDirectory, { recursive: true });
+
     const exportPlist = exportOptionsPlist(archiveRequest.signing.teamId);
+
     await writeFile(plistPath, exportPlist);
     await this.runXcode(
       [
@@ -66,6 +68,7 @@ export class XcodeBuild {
     }
 
     const signedAppName = names.find(isSignedApp);
+
     const isMissing = signedAppName == null;
 
     if (isMissing) {
@@ -83,6 +86,7 @@ export class XcodeBuild {
     }
 
     const workspaceName = workspacePath.split('/').pop();
+
     const isNameMissing = workspaceName == null;
 
     if (isNameMissing) {
@@ -112,6 +116,7 @@ export class XcodeBuild {
     }
 
     const workspaceName = names.find(isAppWorkspace);
+
     const isMissing = workspaceName == null;
 
     if (isMissing) {

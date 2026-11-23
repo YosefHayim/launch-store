@@ -119,6 +119,7 @@ function decodeBuildArtifact(candidate: unknown): BuildArtifact {
   }
 
   const prunedAt = candidateObject['prunedAt'];
+
   const prunedAtIsMissing = prunedAt == null;
 
   if (prunedAtIsMissing) {
@@ -177,14 +178,18 @@ export async function writeArtifactIndex(
 ): Promise<void> {
   const artifactIndexPath = resolveArtifactIndexPath(indexPath);
   const parentDirectory = path.dirname(artifactIndexPath);
+
   await mkdir(parentDirectory, { recursive: true });
+
   const serialized = JSON.stringify(artifactIndex, null, 2);
+
   await writeFile(artifactIndexPath, serialized);
 }
 
 /** Automatic post-store retention window from config (default 30; 0 disables). */
 export function resolveRetentionDays(launchConfig: LaunchConfig): number {
   const configuredRetentionDays = launchConfig.artifactRetentionDays;
+
   const isUnset = configuredRetentionDays == null;
 
   if (isUnset) {
@@ -206,6 +211,7 @@ export function resolveCommandRetentionDays(
   }
 
   const configuredRetentionDays = launchConfig.artifactRetentionDays;
+
   const isUnset = configuredRetentionDays == null;
 
   if (isUnset) {
@@ -223,6 +229,7 @@ export function resolveCommandRetentionDays(
 
 function artifactAgeDays(buildArtifact: BuildArtifact, currentTime: number): number | null {
   const createdTime = Date.parse(buildArtifact.createdAt);
+
   const createdTimeIsInvalid = Number.isNaN(createdTime);
 
   if (createdTimeIsInvalid) {
@@ -254,6 +261,7 @@ function newestArtifactByGroup(
 
     const candidateCreated = Date.parse(buildArtifact.createdAt);
     const newestCreated = Date.parse(currentNewest.createdAt);
+
     const candidateIsNewer = candidateCreated > newestCreated;
 
     if (candidateIsNewer) {
@@ -327,6 +335,7 @@ export function planPrune(
   for (const buildArtifact of artifactIndex) {
     const ageInDays = artifactAgeDays(buildArtifact, pruneOptions.now);
     const isGroupNewest = newestByGroup.get(artifactGroupKey(buildArtifact)) == buildArtifact;
+
     const shouldPrune = shouldPruneArtifact(buildArtifact, pruneOptions, isGroupNewest, ageInDays);
 
     if (shouldPrune) {
@@ -400,6 +409,7 @@ export async function runArtifactPrune(
       now: pruneOptions.now,
       retentionDays: pruneOptions.retentionDays,
     };
+
   const hasApp = pruneOptions.app != null;
 
   if (hasApp) {
@@ -416,6 +426,7 @@ export async function runArtifactPrune(
   const prunedEntries: PrunedArtifact[] = [];
   let freedBytes = 0;
   let dryRun = false;
+
   const dryRunIsSet = pruneOptions.dryRun != null;
 
   if (dryRunIsSet) {
@@ -427,6 +438,7 @@ export async function runArtifactPrune(
   for (const buildArtifact of artifactsToPrune) {
     const artifactBytes = await readArtifactBytes(buildArtifact);
     const prunedArtifact = prunedArtifactEntry(buildArtifact, artifactBytes);
+
     prunedEntries.push(prunedArtifact);
     freedBytes += artifactBytes;
 

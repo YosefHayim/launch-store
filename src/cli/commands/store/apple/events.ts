@@ -11,12 +11,14 @@ export function registerEventsCommand(program: Command): void {
   const events = program
     .command('events')
     .description('read and manage App Store in-app events from the CLI');
+
   function runList(options: { app?: string; json?: boolean }) {
     const eventsProgram = eventsCommandProgram({
       operation: 'list',
       app: options.app,
       json: options.json == true,
     });
+
     return runCliProgram(eventsProgram);
   }
 
@@ -26,6 +28,7 @@ export function registerEventsCommand(program: Command): void {
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('--json', 'output machine-readable JSON', false)
     .action(runList);
+
   function runCreate(
     referenceName: string,
     options: Omit<CreateEventCommandInput, 'operation' | 'referenceName'>,
@@ -35,6 +38,7 @@ export function registerEventsCommand(program: Command): void {
       referenceName,
       ...options,
     });
+
     return runCliProgram(eventsProgram);
   }
 
@@ -49,6 +53,7 @@ export function registerEventsCommand(program: Command): void {
     .option('--priority <priority>', 'HIGH or NORMAL')
     .option('--purpose <purpose>', 'marketing purpose (e.g. ATTRACT_NEW_USERS)')
     .action(runCreate);
+
   function runLocalize(
     eventId: string,
     options: Omit<LocalizeEventCommandInput, 'operation' | 'eventId'>,
@@ -66,12 +71,14 @@ export function registerEventsCommand(program: Command): void {
     .option('--short <text>', 'the short description')
     .option('--long <text>', 'the long description')
     .action(runLocalize);
+
   function runDelete(eventId: string, options: { yes?: boolean }) {
     const eventsProgram = eventsCommandProgram({
       operation: 'delete',
       eventId,
       yes: options.yes == true,
     });
+
     return runCliProgram(eventsProgram);
   }
 

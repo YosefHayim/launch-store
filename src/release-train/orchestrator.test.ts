@@ -38,6 +38,7 @@ function fakeEngine(
 
   async function readNative(trainCar: NativeCar): Promise<NativeCarState> {
     calls.push(`read:${trainCar.kind}`);
+
     const stateQueue = queues.get(trainCar.kind);
 
     if (stateQueue == null) {
@@ -154,6 +155,7 @@ function describeStartTrain() {
       },
       engine,
     );
+
     expect(engine.calls).toEqual(['submit:ios', 'submit:android']);
     expect(record.state).toBe('running');
     expect(native(record, 'ios')).toMatchObject({ state: 'submitted', buildId: 'ios-100' });
@@ -165,6 +167,7 @@ function describeStartTrain() {
     'submits every native car, adds pending OTA followers, and starts running',
     submitsEveryNativeCarAddsPendingOTAFollowersAndStartsRunning,
   );
+
   async function recordsASubmitPreconditionFailureOnThatCarWithoutAbortingTheOthers() {
     async function submitNative(trainCar: NativeCar): Promise<{ buildId: string }> {
       if (trainCar.kind == 'ios') {
@@ -186,6 +189,7 @@ function describeStartTrain() {
       },
       engine,
     );
+
     expect(native(record, 'ios')).toMatchObject({ state: 'failed', error: 'no processed build' });
     expect(native(record, 'android')).toMatchObject({ state: 'submitted' });
   }
@@ -194,6 +198,7 @@ function describeStartTrain() {
     'records a submit precondition failure on that car without aborting the others',
     recordsASubmitPreconditionFailureOnThatCarWithoutAbortingTheOthers,
   );
+
   async function submitsNativeCarsAtTheSameTimeInsteadOfOneAfterAnother() {
     let markAndroidSubmitted: (() => void) | null = null;
     const androidSubmitted = new Promise<void>(function captureAndroidStart(
@@ -232,6 +237,7 @@ function describeStartTrain() {
       },
       engine,
     );
+
     expect(native(record, 'ios')).toMatchObject({ state: 'submitted', buildId: 'ios-100' });
     expect(native(record, 'android')).toMatchObject({ state: 'submitted', buildId: 'android-100' });
   }
@@ -252,9 +258,11 @@ function describeAdvanceTrainReleaseWhenReadyNoHold() {
   }
 
   it('adopts the live state of an in-flight car', adoptsTheLivePieceOfAnInFlightCar);
+
   async function publishesTheOTAFollowerOnceItsPlatformReadsReleasedAndNeverCallsReleaseNative() {
     const engine = fakeEngine({ ios: ['released'] });
     const record = await advanceTrain(iosTrain('in-review'), engine, { now: LATER });
+
     expect(native(record, 'ios')).toMatchObject({ state: 'released' });
     expect(ota(record, 'ios')).toMatchObject({ state: 'published', manifestId: 'ios-manifest' });
     expect(record.state).toBe('done');
@@ -265,6 +273,7 @@ function describeAdvanceTrainReleaseWhenReadyNoHold() {
     'publishes the OTA follower once its platform reads released, and never calls releaseNative',
     publishesTheOTAFollowerOnceItsPlatformReadsReleasedAndNeverCallsReleaseNative,
   );
+
   async function doesNotPublishTheOTAFollowerWhileItsPlatformIsStillInReview() {
     const engine = fakeEngine({ ios: ['in-review'] });
     const record = await advanceTrain(iosTrain('submitted'), engine, { now: LATER });
@@ -276,6 +285,7 @@ function describeAdvanceTrainReleaseWhenReadyNoHold() {
     'does not publish the OTA follower while its platform is still in review',
     doesNotPublishTheOTAFollowerWhileItsPlatformIsStillInReview,
   );
+
   async function leavesTheOTACarPendingAndWarnsWhenPublishThrowsRetriedNextReconcile() {
     const onWarn = vi.fn();
 
@@ -285,6 +295,7 @@ function describeAdvanceTrainReleaseWhenReadyNoHold() {
 
     const engine = fakeEngine({ ios: ['released'] }, { publishOta });
     const record = await advanceTrain(iosTrain('in-review'), engine, { now: LATER, onWarn });
+
     expect(ota(record, 'ios')).toMatchObject({ state: 'pending' });
     expect(onWarn).toHaveBeenCalledOnce();
     expect(record.state).toBe('running');
@@ -317,6 +328,7 @@ function describeAdvanceTrainHoldGate() {
     const record = await advanceTrain(heldTwoPlatform('approved', 'in-review'), engine, {
       now: LATER,
     });
+
     expect(native(record, 'ios')).toMatchObject({ state: 'approved' });
     expect(engine.calls).not.toContain('release:ios');
     expect(record.state).toBe('running');
@@ -326,11 +338,13 @@ function describeAdvanceTrainHoldGate() {
     'holds an approved car while the other platform is still in review',
     holdsAnApprovedCarWhileTheOtherPlatformIsStillInReview,
   );
+
   async function releasesEveryCarTogetherOnceAllNativeCarsAreApproved() {
     const engine = fakeEngine({ android: ['approved'] });
     const record = await advanceTrain(heldTwoPlatform('approved', 'in-review'), engine, {
       now: LATER,
     });
+
     expect(engine.calls).toContain('release:ios');
     expect(engine.calls).toContain('release:android');
     expect(native(record, 'ios')).toMatchObject({ state: 'released' });
@@ -342,11 +356,13 @@ function describeAdvanceTrainHoldGate() {
     'releases every car together once all native cars are approved',
     releasesEveryCarTogetherOnceAllNativeCarsAreApproved,
   );
+
   async function entersBlockedWhenAHeldCarIsRejectedFiringNoReleases() {
     const engine = fakeEngine({ ios: ['rejected'] });
     const record = await advanceTrain(heldTwoPlatform('submitted', 'approved'), engine, {
       now: LATER,
     });
+
     expect(record.state).toBe('blocked');
     expect(native(record, 'ios')).toMatchObject({ state: 'rejected' });
     expect(engine.calls).not.toContain('release:android');
@@ -357,6 +373,7 @@ function describeAdvanceTrainHoldGate() {
     'enters blocked when a held car is rejected, firing no releases',
     entersBlockedWhenAHeldCarIsRejectedFiringNoReleases,
   );
+
   async function forceReleasesTheReadyCarsOnABlockedTrainLeavingTheFailedCarTracked() {
     const blocked = {
       id: 'app-ab12',
@@ -372,6 +389,7 @@ function describeAdvanceTrainHoldGate() {
     };
     const engine = fakeEngine();
     const record = await advanceTrain(blocked, engine, { now: LATER, force: true });
+
     expect(engine.calls).toContain('release:android');
     expect(native(record, 'android')).toMatchObject({ state: 'released' });
     expect(native(record, 'ios')).toMatchObject({ state: 'failed', error: 'rejected' });
@@ -390,6 +408,7 @@ function describeAdvanceTrainInvariants() {
     const engine = fakeEngine({ ios: ['released'] });
     const done = iosTrain('released', { state: 'done' });
     const record = await advanceTrain(done, engine, { now: LATER });
+
     expect(engine.calls).toEqual([]);
     expect(record).toBe(done);
   }
@@ -398,6 +417,7 @@ function describeAdvanceTrainInvariants() {
     'never reads, releases, or publishes for a terminal (done) train',
     neverReadsReleasesOrPublishesForATerminalDoneTrain,
   );
+
   async function doesNotMutateThePiecePiece() {
     const engine = fakeEngine({ ios: ['released'] });
     const inputRecord = iosTrain('in-review');
@@ -406,6 +426,7 @@ function describeAdvanceTrainInvariants() {
   }
 
   it('does not mutate the input record', doesNotMutateThePiecePiece);
+
   async function neverInvokesAnyUndoRollbackPathAcrossAFullReleaseNoSuchMethodExists() {
     const engine = fakeEngine({ ios: ['released'] });
     const record = await advanceTrain(iosTrain('approved', { hold: true }), engine, {
@@ -448,6 +469,7 @@ function describeReleaseGateHelpers() {
     'classifies native failures and approved-or-released cars',
     classifiesNativeFailuresAndApprovedOrReleasedCars,
   );
+
   function opensTheGateForReleaseWhenReadyHoldAllApprovedAndForce() {
     expect(isReleaseGateOpen(false, false, false, false)).toBe(true);
     expect(isReleaseGateOpen(true, false, false, false)).toBe(false);
@@ -480,22 +502,26 @@ function describeDeriveTrainPieceTrainExitCodeIsTrainSettled() {
       false,
       false,
     );
+
     expect(deriveTrain).toBe('done');
   }
 
   it('is done only when every car is terminal', isDoneOnlyWhenEveryCarIsTerminal);
+
   function blocksAHeldTrainWithAFailureUnlessForced() {
     const cars: Car[] = [
       { kind: 'ios', state: 'failed', updatedAt: NOW },
       { kind: 'android', state: 'in-review', updatedAt: NOW },
     ];
     const deriveTrain = deriveTrainState(cars, true, false);
+
     expect(deriveTrain).toBe('blocked');
     expect(deriveTrainState(cars, true, true)).toBe('running');
     expect(deriveTrainState(cars, false, false)).toBe('running');
   }
 
   it('blocks a held train with a failure unless forced', blocksAHeldTrainWithAFailureUnlessForced);
+
   function ranksExitCodesOkInProgressBlocked() {
     const allTerminal: TrainRecord = {
       id: 'app-ab12',
@@ -516,12 +542,14 @@ function describeDeriveTrainPieceTrainExitCodeIsTrainSettled() {
         },
       ],
     };
+
     expect(trainExitCode(allTerminal)).toBe(0);
     expect(trainExitCode(iosTrain('in-review'))).toBe(3);
     expect(trainExitCode(iosTrain('rejected'))).toBe(2);
   }
 
   it('ranks exit codes ok < in-progress < blocked', ranksExitCodesOkInProgressBlocked);
+
   function settlesAWatchLoopOnDoneAbortedBlockedOnly() {
     expect(isTrainSettled(iosTrain('released', { state: 'done' }))).toBe(true);
     expect(isTrainSettled(iosTrain('failed', { state: 'aborted' }))).toBe(true);

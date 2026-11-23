@@ -60,6 +60,7 @@ function readTerritoryCode(entry: unknown): string {
   }
 
   const territoryCode = entry.trim().toUpperCase();
+
   const isEmpty = territoryCode.length == 0;
 
   if (isEmpty) {
@@ -111,6 +112,7 @@ export function parseAvailabilityConfig(rawConfig: unknown): AvailabilityConfig 
   }
 
   availabilityConfig.availableInNewTerritories = flag;
+
   return availabilityConfig;
 }
 
@@ -153,6 +155,7 @@ export async function readAvailabilityConfig(configPath: string): Promise<Availa
     return parseAvailabilityConfig(rawConfig);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     throw makeAvailabilityConfigFailure({
       path: configPath,
       message: `Invalid availability config at ${configPath}: ${failureMessage}`,
@@ -187,6 +190,7 @@ function difference(included: Set<string>, excluded: Set<string>): string[] {
   }
 
   missing.sort();
+
   return missing;
 }
 
@@ -214,6 +218,7 @@ type AvailabilityChange = {
 /** Build the human description of the availability change. */
 function describeChange(change: AvailabilityChange): string {
   let territoryLabel = 'territories';
+
   const isSingleTerritory = change.total == 1;
 
   if (isSingleTerritory) {
@@ -242,6 +247,7 @@ function describeChange(change: AvailabilityChange): string {
 
   if (flagFlipped) {
     let flagState = 'off';
+
     const flagIsOn = change.availableInNewTerritories == true;
 
     if (flagIsOn) {
@@ -249,6 +255,7 @@ function describeChange(change: AvailabilityChange): string {
     }
 
     let notice = '';
+
     const needsManualUpdate = change.flagRequiresManualUpdate == true;
 
     if (needsManualUpdate) {
@@ -345,6 +352,7 @@ export async function reconcileAvailability(
   reconcileInput: AvailabilityReconcileInput,
 ): Promise<{ bundleId: string; actions: PlannedAction[] }> {
   const appId = await api.getAppId(reconcileInput.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -355,6 +363,7 @@ export async function reconcileAvailability(
   const availableInNewTerritories = reconcileInput.config.availableInNewTerritories == true;
   const current = await api.getAppAvailability(appId);
   let currentSet = new Set<string>();
+
   const hasCurrentTerritories = current != null;
 
   if (hasCurrentTerritories) {
@@ -365,6 +374,7 @@ export async function reconcileAvailability(
   const removed = difference(currentSet, desired);
   let currentNewTerritoriesFlag = false;
   const currentFlag = current?.availableInNewTerritories;
+
   const hasCurrentFlag = currentFlag != null;
 
   if (hasCurrentFlag) {
@@ -372,6 +382,7 @@ export async function reconcileAvailability(
   }
 
   const flagChanged = currentNewTerritoriesFlag != availableInNewTerritories;
+
   const alreadyInSync = isAlreadyInSync(current, added, removed, flagChanged);
 
   if (alreadyInSync) {
@@ -392,6 +403,7 @@ export async function reconcileAvailability(
     status: 'planned',
   };
   const actions = [action];
+
   const isDryRun = reconcileInput.dryRun == true;
 
   if (isDryRun) {
@@ -410,6 +422,7 @@ export async function reconcileAvailability(
 
     if (territoriesChanged) {
       const updated = await applyTerritoryUpdate(api, action, current.id, desiredTerritories);
+
       const updateFailed = updated == false;
 
       if (updateFailed) {

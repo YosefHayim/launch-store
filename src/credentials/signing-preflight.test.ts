@@ -34,6 +34,7 @@ function describeResolveExtensionBundleIdsForApp() {
           iosExtensions: ['com.example.sampleapp.widget'],
         }),
       );
+
       await expect(extensionBundleIdsForApp).resolves.toEqual(['com.example.sampleapp.widget']);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -44,6 +45,7 @@ function describeResolveExtensionBundleIdsForApp() {
     'returns configured extensions when ios/ has not been generated yet',
     returnsConfiguredExtensionsWhenIosHasNotBeenGeneratedYet,
   );
+
   async function discoversWidgetExtensionsFromAGeneratedIosProject() {
     const systemTemporaryDirectory = tmpdir();
     const launchPreflightPath = join(systemTemporaryDirectory, 'launch-preflight-');
@@ -52,8 +54,11 @@ function describeResolveExtensionBundleIdsForApp() {
     try {
       const appDir = join(root, 'app');
       const projectDir = join(appDir, 'ios', 'SampleApp.xcodeproj');
+
       mkdirSync(projectDir, { recursive: true });
+
       const projectPath = join(projectDir, 'project.pbxproj');
+
       writeFileSync(
         projectPath,
         `// !$*UTF8*$!
@@ -119,6 +124,7 @@ function describeResolveExtensionBundleIdsForApp() {
       );
 
       const extensionBundleIdsForApp = resolveExtensionBundleIdsForApp(app({ dir: appDir }));
+
       await expect(extensionBundleIdsForApp).resolves.toEqual(['com.example.sampleapp.widget']);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -147,6 +153,7 @@ function describeAppGroupPreflightNotice() {
     'returns the portal notice when App Groups are declared',
     returnsThePortalNoticeWhenAppGroupsAreDeclared,
   );
+
   function isNullWhenNoAppGroupsAreDeclared() {
     expect(appGroupPreflightNotice(undefined)).toBeNull();
   }
@@ -228,6 +235,7 @@ function describeSigningPreflightDoctorChecks() {
       status: 'info',
       title: 'App Groups require portal setup',
     });
+
     function filterCheck(check: {
       readonly status: 'ok' | 'info' | 'fail';
       readonly title: string;
@@ -238,6 +246,7 @@ function describeSigningPreflightDoctorChecks() {
     }
 
     expect(checks.filter(filterCheck)).toHaveLength(2);
+
     function someCheck(check: {
       readonly status: 'ok' | 'info' | 'fail';
       readonly title: string;
@@ -248,6 +257,7 @@ function describeSigningPreflightDoctorChecks() {
     }
 
     expect(checks.some(someCheck)).toBe(true);
+
     function someCheck2(check: {
       readonly status: 'ok' | 'info' | 'fail';
       readonly title: string;
@@ -264,6 +274,7 @@ function describeSigningPreflightDoctorChecks() {
     'emits an info check for App Groups and fail checks for not-ready targets',
     emitsAnPieceCheckForAppGroupsAndFailChecksForNotReadyTargets,
   );
+
   function isSilentWhenEveryTargetIsReadyAndNoAppGroupsAreDeclared() {
     expect(
       signingPreflightDoctorChecks([

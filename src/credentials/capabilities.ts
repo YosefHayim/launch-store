@@ -123,15 +123,19 @@ export function mapEntitlementsToCapabilities(
   const enable = new Set<CapabilityType>();
   const unmapped: string[] = [];
   let configuredEntitlements = entitlements;
+
   if (configuredEntitlements == null) configuredEntitlements = {};
+
   for (const key of Object.keys(configuredEntitlements)) {
     const capability = ENTITLEMENT_TO_CAPABILITY[key];
+
     if (capability) {
       enable.add(capability);
     } else if (!ignoredEntitlements.has(key)) {
       unmapped.push(key);
     }
   }
+
   return { enable: [...enable].sort(), unmapped: unmapped.sort() };
 }
 export function staleProfileCapabilities(
@@ -139,20 +143,28 @@ export function staleProfileCapabilities(
   profileEntitlements: Record<string, unknown> | null,
 ): CapabilityType[] {
   if (!profileEntitlements) return [];
+
   const profileCapabilities = new Set(mapEntitlementsToCapabilities(profileEntitlements).enable);
   const missing = new Set<CapabilityType>();
+
   for (const capabilityType of enabledOnAppId) {
     if (!isCapabilityType(capabilityType)) continue;
+
     if (!entitlementForCapability(capabilityType)) continue;
+
     if (!profileCapabilities.has(capabilityType)) missing.add(capabilityType);
   }
+
   return [...missing].sort();
 }
 /** The `group.*` App Group container ids declared by one bundle's entitlements. */
 export const appGroupContainers = (entitlements: Record<string, unknown> | undefined): string[] => {
   const entitlementValue = entitlements?.['com.apple.security.application-groups'];
+
   if (typeof entitlementValue == 'string') return [entitlementValue];
+
   if (!Array.isArray(entitlementValue)) return [];
+
   return entitlementValue.filter((id): id is string => typeof id == 'string' && id.length > 0);
 };
 /** The Apple Developer portal page where App Group container ids are created and assigned to bundle ids. */
@@ -161,13 +173,16 @@ export const APP_GROUP_PORTAL_URL =
 /** The actionable message to print when an app (or one of its extensions) declares App Group */
 export function appGroupPortalNotice(containers: readonly string[]): string | null {
   if (containers.length == 0) return null;
+
   function mapId(id: string) {
     return `"${id}"`;
   }
 
   const groups = containers.map(mapId).join(', ');
   let plural = 'App Groups';
+
   if (containers.length == 1) plural = 'App Group';
+
   return (
     `This app uses ${plural} (${groups}). Launch can register the App ID and enable the App Groups ` +
     `capability, but the public Apple API can't create the group container or assign it to your bundle ` +

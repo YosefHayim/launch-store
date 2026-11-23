@@ -54,6 +54,7 @@ export function DeviceCommandInputSchema(rawCommandInput: unknown): DeviceComman
   }
 
   const operation = rawCommandInputObject['operation'];
+
   const isAdd = operation == 'add';
 
   if (isAdd) {
@@ -65,6 +66,7 @@ export function DeviceCommandInputSchema(rawCommandInput: unknown): DeviceComman
     }
 
     const name = readRequiredString(rawCommandInputObject, 'name');
+
     return { operation: 'add', udid, name };
   }
 
@@ -113,7 +115,9 @@ function deviceCommandFailure(
 /** Render one registered device for the list view. */
 export function renderRegisteredDevice(registeredDevice: DeviceResource): string {
   let statusSuffix = '';
+
   if (registeredDevice.status == 'DISABLED') statusSuffix = ' (disabled)';
+
   return `- ${registeredDevice.name} - ${registeredDevice.udid}${statusSuffix}`;
 }
 
@@ -122,9 +126,12 @@ async function addDevice(commandInput: DeviceAddInput): Promise<void> {
   try {
     const appleStore = await loadActiveAppleStore();
     let deviceName = commandInput.udid;
+
     if (commandInput.name != null) deviceName = commandInput.name;
+
     const registeredDevice = await appleStore.registerDevice(commandInput.udid, deviceName);
     const logger = createLogger(false);
+
     logger.line(`OK Registered ${registeredDevice.name} (${registeredDevice.udid})`);
     logger.line(
       "- It'll be included on the next `launch-store build ios --distribution internal`.",
@@ -140,6 +147,7 @@ async function listDevices(): Promise<void> {
     const appleStore = await loadActiveAppleStore();
     const registeredDevices = await appleStore.listDevices();
     const logger = createLogger(false);
+
     const isDeviceListEmpty = registeredDevices.length == 0;
 
     if (isDeviceListEmpty) {

@@ -69,6 +69,7 @@ function readOptionalString(record: Record<string, unknown>, key: string): strin
   }
 
   const field = record[key];
+
   const isMissing = field == null;
 
   if (isMissing) {
@@ -89,6 +90,7 @@ function assignOptional(
   record: Record<string, unknown>,
 ): void {
   const appName = readOptionalString(record, 'app');
+
   const hasApp = appName != null;
 
   if (hasApp) {
@@ -96,6 +98,7 @@ function assignOptional(
   }
 
   const profileName = readOptionalString(record, 'profile');
+
   const hasProfile = profileName != null;
 
   if (hasProfile) {
@@ -171,6 +174,7 @@ export function decodeSecretCommandInput(rawCommandInput: unknown): SecretComman
   }
 
   const action = rawCommandInputObject['action'];
+
   const isList = isListAction(action);
 
   if (isList) {
@@ -192,7 +196,9 @@ export function decodeSecretCommandInput(rawCommandInput: unknown): SecretComman
     const secretName = readOptionalString(rawCommandInputObject, 'name');
     const secretText = readOptionalString(rawCommandInputObject, 'value');
     const setInput = createSecretSetInput({ yes, name: secretName, value: secretText });
+
     assignOptional(setInput, rawCommandInputObject);
+
     return setInput;
   }
 
@@ -206,6 +212,7 @@ export function decodeSecretCommandInput(rawCommandInput: unknown): SecretComman
   }
 
   const asString = String(action);
+
   throw new Error(`Unknown secret action "${asString}".`);
 }
 
@@ -227,6 +234,7 @@ function makeSecretReference(
   environmentName: string,
 ): SecretRef {
   let profile: string | null = null;
+
   const hasProfile = profileName != null;
 
   if (hasProfile) {
@@ -292,8 +300,11 @@ async function setSecretValue(commandInput: SecretSetInput): Promise<void> {
     commandInput.profile,
     commandInput.name,
   );
+
   await setBuildSecret(secretReference, secretText);
+
   const logger = createLogger(false);
+
   logger.ok(
     `Stored ${commandInput.name} for ${selectedApp.name} - ${scopeLabel(secretReference)} - in the keychain.`,
   );
@@ -335,6 +346,7 @@ async function removeSecretValue(commandInput: SecretRemoveInput): Promise<void>
 async function listSecrets(commandInput: SecretListInput): Promise<void> {
   const secretReferences = await listSecretRefs(commandInput.app);
   const logger = createLogger(false);
+
   const hasSecrets = secretReferences.length > 0;
 
   if (hasSecrets) {
@@ -379,6 +391,7 @@ export async function secretCommandProgram(rawCommandInput: unknown): Promise<vo
     }
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     throw makeSecretCommandFailure({
       action: 'run',
       message: failureMessage,

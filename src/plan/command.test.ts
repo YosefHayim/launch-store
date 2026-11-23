@@ -38,7 +38,9 @@ function describeDecodePlanCommandPiece() {
       check: false,
       json: true,
     });
+
     expect(decodePlanCommand).toEqual({ operation: 'plan', check: false, json: true });
+
     function callDecodePlanCommandPiece() {
       return decodePlanCommandInput({
         operation: 'drift',
@@ -61,6 +63,7 @@ describe('decodePlanCommandInput', describeDecodePlanCommandPiece);
 function describePlanGlyph() {
   function usesASCIIMarkersForAdditionsUpdatesRemovalsAndSkips() {
     const glyph = planGlyph(plannedAction());
+
     expect(glyph).toBe('+');
     expect(planGlyph(plannedAction({ description: 'update listing name none->Acme' }))).toBe('~');
     expect(planGlyph(plannedAction({ destructive: true }))).toBe('-');
@@ -99,6 +102,7 @@ describe('selectPlanPlanners', () => {
     const selected = selectPlanPlanners(registered, 'listing');
     expect(selected.map((planner) => planner.id)).toEqual(['listing']);
   });
+
   async function failsWithAvailableSurfacesWhenTheIdIsUnknown() {
     const registered = [fakePlanner('catalog')];
     let failure: unknown = null;
@@ -114,6 +118,7 @@ describe('selectPlanPlanners', () => {
       expect(failure.operation).toBe('select plan surface');
       expect(failure.message).toContain('wallet');
       expect(failure.message).toContain('catalog');
+
       return;
     }
 

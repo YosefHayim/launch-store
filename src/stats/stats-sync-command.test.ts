@@ -78,6 +78,7 @@ function describeParseDaysFlag() {
   }
 
   test('uses 30 days when the flag is absent', uses30DaysWhenTheFlagIsAbsent);
+
   function acceptsWholeNumbersFrom1To365() {
     const daysFlag = parseDaysFlag('1');
     expect(daysFlag).toBe(1);
@@ -85,9 +86,11 @@ function describeParseDaysFlag() {
   }
 
   test('accepts whole numbers from 1 to 365', acceptsWholeNumbersFrom1To365);
+
   function rejectsZeroTooManyAndPieceThatIsNotAWholeNumber() {
     const invalidDaysFlags = ['0', '366', '2.5', '-3', 'abc', ''];
     const failures = invalidDaysFlags.map(readDaysFailure);
+
     function mapFailure(failure: unknown) {
       return (failure as { message: string }).message;
     }
@@ -108,20 +111,26 @@ function describeParseDaysFlag() {
 describe('parseDaysFlag', describeParseDaysFlag);
 function describeStatsSyncProgram() {
   let homeDirectory: string;
+
   function prepareStatsSyncProgram() {
     homeDirectory = createTemporaryHomeDirectory();
+
     const workPath = join(homeDirectory, 'work');
+
     useLaunchDirectories({
       homeDirectory,
       workingDirectory: workPath,
     });
+
     const serialized = JSON.stringify(portfolioFile);
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
     makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
   }
 
   beforeEach(prepareStatsSyncProgram);
+
   function cleanupStatsSyncProgram() {
     useStatsCredentials(null);
     resetLogger();
@@ -137,6 +146,7 @@ function describeStatsSyncProgram() {
     isJson: boolean;
   }) {
     const lines: string[] = [];
+
     useLoggerSink(function writeLine(text: string) {
       lines.push(text);
     });
@@ -157,7 +167,9 @@ function describeStatsSyncProgram() {
 
     expect(outcome._tag).toBe('Right');
     expect(lines).toHaveLength(1);
+
     const report = JSON.parse(lines[0] ?? '');
+
     expect(report.ok).toBe(true);
     expect(report.appFeeds).toEqual([
       {
@@ -174,6 +186,7 @@ function describeStatsSyncProgram() {
     'prints one JSON object with the feed reports with --json',
     printsOneJSONObjectWithTheFeedReportsWithPiece,
   );
+
   async function printsOneLinePerFeedWithoutPieceSyncingEveryAppWhenNoNameIsGiven() {
     const { lines } = await run({ app: undefined, days: undefined, isJson: false });
 
@@ -184,6 +197,7 @@ function describeStatsSyncProgram() {
     'prints one line per feed without --json, syncing every app when no name is given',
     printsOneLinePerFeedWithoutPieceSyncingEveryAppWhenNoNameIsGiven,
   );
+
   async function exits1WhenAFeedFailed() {
     fakeFeed.isFailing = true;
 
@@ -194,11 +208,14 @@ function describeStatsSyncProgram() {
   }
 
   test('exits 1 when a feed failed', exits1WhenAFeedFailed);
+
   async function exits2WithAJSONErrorForABadDays() {
     const { outcome, lines } = await run({ app: undefined, days: '0', isJson: true });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
+
     const parsed = JSON.parse(lines[0] ?? '');
+
     expect(parsed).toEqual({
       ok: false,
       error: '--days must be a whole number from 1 to 365.',
@@ -206,6 +223,7 @@ function describeStatsSyncProgram() {
   }
 
   test('exits 2 with a JSON error for a bad --days', exits2WithAJSONErrorForABadDays);
+
   async function exits2WhenTheAppNameMatchesNothing() {
     const { outcome } = await run({ app: 'zzz', days: undefined, isJson: false });
 

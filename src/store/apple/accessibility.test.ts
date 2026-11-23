@@ -54,6 +54,7 @@ function makeApi(state: Partial<State>): {
       return Promise.resolve();
     },
   };
+
   return { api, calls };
 }
 /** Execute the accessibility reconciler at the test boundary. */
@@ -98,22 +99,26 @@ function describeParseAccessibilityPiece() {
   }
 
   it('parses declarations and the publish flag', parsesDeclarationsAndThePublishFlag);
+
   function rejectsANonObjectAnArrayAndAnEmptyDeclarationList() {
     function callDecodeAccessibilityPiece() {
       return decodeAccessibilityConfig('nope');
     }
 
     expect(callDecodeAccessibilityPiece).toThrow(/must be a JSON object/);
+
     function callDecodeAccessibilityPiece2() {
       return decodeAccessibilityConfig([]);
     }
 
     expect(callDecodeAccessibilityPiece2).toThrow(/must be a JSON object/);
+
     function callDecodeAccessibilityPiece3() {
       return decodeAccessibilityConfig({});
     }
 
     expect(callDecodeAccessibilityPiece3).toThrow(/declarations/);
+
     function callDecodeAccessibilityPiece4() {
       return decodeAccessibilityConfig({ declarations: [] });
     }
@@ -125,12 +130,14 @@ function describeParseAccessibilityPiece() {
     'rejects a non-object, an array, and an empty declaration list',
     rejectsANonObjectAnArrayAndAnEmptyDeclarationList,
   );
+
   function rejectsABadDeviceFamilyANonBooleanFlagAndANonBooleanPublish() {
     function callDecodeAccessibilityPiece5() {
       return decodeAccessibilityConfig({ declarations: [{ deviceFamily: 'WATCH' }] });
     }
 
     expect(callDecodeAccessibilityPiece5).toThrow(/deviceFamily/);
+
     function callDecodeAccessibilityPiece6() {
       return decodeAccessibilityConfig({
         declarations: [{ deviceFamily: 'IPHONE', supportsCaptions: 'yes' }],
@@ -138,6 +145,7 @@ function describeParseAccessibilityPiece() {
     }
 
     expect(callDecodeAccessibilityPiece6).toThrow(/supportsCaptions/);
+
     function callDecodeAccessibilityPiece7() {
       return decodeAccessibilityConfig({ publish: 'yes', ...CONFIG });
     }
@@ -149,6 +157,7 @@ function describeParseAccessibilityPiece() {
     'rejects a bad device family, a non-boolean flag, and a non-boolean publish',
     rejectsABadDeviceFamilyANonBooleanFlagAndANonBooleanPublish,
   );
+
   function rejectsTwoDeclarationsForTheSameDeviceFamily() {
     function callDecodeAccessibilityPiece8() {
       return decodeAccessibilityConfig({
@@ -177,6 +186,7 @@ function describeReconcileAccessibility() {
     'throws when the app has no App Store Connect record',
     throwsWhenTheAppHasNoAppStoreConnectPiece,
   );
+
   async function createsADeclarationWithTheFullNineFlagPieceWhenTheFamilyHasNoneApply() {
     const { api, calls } = makeApi({});
     const report = await runReconcile(api, {
@@ -184,9 +194,12 @@ function describeReconcileAccessibility() {
       config: CONFIG,
       dryRun: false,
     });
+
     expect(calls.created).toEqual([{ deviceFamily: 'IPHONE', support: FULL_IPHONE }]);
     expect(calls.updated).toHaveLength(0); // no publish requested
+
     const accessibility = summarizeAccessibility(report.actions);
+
     expect(accessibility).toEqual({ applied: 1, failed: 0, skipped: 0 });
   }
 
@@ -194,6 +207,7 @@ function describeReconcileAccessibility() {
     'creates a declaration with the full nine-flag payload when the family has none (apply)',
     createsADeclarationWithTheFullNineFlagPieceWhenTheFamilyHasNoneApply,
   );
+
   async function publishesAFreshlyCreatedDraftInAFollowUpCallWhenPublishTrue() {
     const { api, calls } = makeApi({});
     const report = await runReconcile(api, {
@@ -201,9 +215,12 @@ function describeReconcileAccessibility() {
       config: { ...CONFIG, publish: true },
       dryRun: false,
     });
+
     expect(calls.created).toHaveLength(1);
     expect(calls.updated).toEqual([{ id: 'decl-new', changes: { publish: true } }]);
+
     const accessibility = summarizeAccessibility(report.actions);
+
     expect(accessibility).toEqual({ applied: 2, failed: 0, skipped: 0 });
   }
 
@@ -211,12 +228,14 @@ function describeReconcileAccessibility() {
     'publishes a freshly-created draft in a follow-up call when publish:true',
     publishesAFreshlyCreatedDraftInAFollowUpCallWhenPublishTrue,
   );
+
   async function updatesAnExistingDeclarationWhoseFlagsDifferNoPublishKeyWhenPublishIsOff() {
     const { api, calls } = makeApi({
       declarations: [
         declaration({ deviceFamily: 'IPHONE', support: { supportsVoiceover: false } }),
       ],
     });
+
     await runReconcile(api, { bundleId: 'com.acme.app', config: CONFIG, dryRun: false });
     expect(calls.created).toHaveLength(0);
     expect(calls.updated).toEqual([{ id: 'decl-1', changes: FULL_IPHONE }]);
@@ -226,12 +245,14 @@ function describeReconcileAccessibility() {
     'updates an existing declaration whose flags differ (no publish key when publish is off)',
     updatesAnExistingDeclarationWhoseFlagsDifferNoPublishKeyWhenPublishIsOff,
   );
+
   async function foldsPublishIntoTheUpdatePATCHWhenPublishTrueAndFlagsChanged() {
     const { api, calls } = makeApi({
       declarations: [
         declaration({ deviceFamily: 'IPHONE', support: { supportsVoiceover: false } }),
       ],
     });
+
     await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: { ...CONFIG, publish: true },
@@ -244,10 +265,12 @@ function describeReconcileAccessibility() {
     'folds publish into the update PATCH when publish:true and flags changed',
     foldsPublishIntoTheUpdatePATCHWhenPublishTrueAndFlagsChanged,
   );
+
   async function publishesAnUnchangedDraftPublishTrueWithoutTouchingItsFlags() {
     const { api, calls } = makeApi({
       declarations: [declaration({ deviceFamily: 'IPHONE', state: 'DRAFT', support: FULL_IPHONE })],
     });
+
     await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: { ...CONFIG, publish: true },
@@ -260,6 +283,7 @@ function describeReconcileAccessibility() {
     'publishes an unchanged draft (publish:true) without touching its flags',
     publishesAnUnchangedDraftPublishTrueWithoutTouchingItsFlags,
   );
+
   async function isANoOpWhenTheDeclarationIsAlreadyPublishedAndInSync() {
     const { api, calls } = makeApi({
       declarations: [
@@ -271,6 +295,7 @@ function describeReconcileAccessibility() {
       config: { ...CONFIG, publish: true },
       dryRun: false,
     });
+
     expect(calls.created).toHaveLength(0);
     expect(calls.updated).toHaveLength(0);
     expect(report.actions).toHaveLength(0);
@@ -280,6 +305,7 @@ function describeReconcileAccessibility() {
     'is a no-op when the declaration is already published and in sync',
     isANoOpWhenTheDeclarationIsAlreadyPublishedAndInSync,
   );
+
   async function prefersTheEditableDRAFTOverTheLivePUBLISHEDOneAndIgnoresREPLACEDHistory() {
     const { api, calls } = makeApi({
       declarations: [
@@ -293,6 +319,7 @@ function describeReconcileAccessibility() {
         declaration({ id: 'draft-1', deviceFamily: 'IPHONE', state: 'DRAFT', support: {} }),
       ],
     });
+
     await runReconcile(api, { bundleId: 'com.acme.app', config: CONFIG, dryRun: false });
     expect(calls.created).toHaveLength(0);
     expect(calls.updated).toEqual([{ id: 'draft-1', changes: FULL_IPHONE }]);
@@ -302,6 +329,7 @@ function describeReconcileAccessibility() {
     'prefers the editable DRAFT over the live PUBLISHED one, and ignores REPLACED history',
     prefersTheEditableDRAFTOverTheLivePUBLISHEDOneAndIgnoresREPLACEDHistory,
   );
+
   async function plansButPerformsNothingOnADryRun() {
     const { api, calls } = makeApi({});
     const report = await runReconcile(api, {
@@ -309,8 +337,10 @@ function describeReconcileAccessibility() {
       config: { ...CONFIG, publish: true },
       dryRun: true,
     });
+
     expect(calls.created).toHaveLength(0);
     expect(calls.updated).toHaveLength(0);
+
     function everyAction(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -325,20 +355,25 @@ function describeReconcileAccessibility() {
   }
 
   it('plans but performs nothing on a dry-run', plansButPerformsNothingOnADryRun);
+
   async function capturesAFailedCreateAndSkipsThatFamilySPublish() {
     const { api } = makeApi({});
+
     function runPiece() {
       return Promise.reject(new Error('device family not eligible'));
     }
 
     api.createAccessibilityDeclaration = runPiece;
+
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: { ...CONFIG, publish: true },
       dryRun: false,
     });
     const summary = summarizeAccessibility(report.actions);
+
     expect(summary).toEqual({ applied: 0, failed: 1, skipped: 1 });
+
     function findAction(action: {
       readonly description: string;
       readonly destructive: boolean;

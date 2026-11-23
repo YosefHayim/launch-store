@@ -8,6 +8,7 @@ export interface AppleSigningIdentity {
 export class AppleSigning {
   async read(): Promise<AppleSigningIdentity> {
     const saved = await readSavedAccounts();
+
     const isMissing = saved == null;
 
     if (isMissing) {
@@ -16,6 +17,7 @@ export class AppleSigning {
 
     const account = findActiveAccount(saved);
     const teamId = account.teamId;
+
     const isTeamMissing = teamId == null;
 
     if (isTeamMissing) {

@@ -59,6 +59,7 @@ function describeStoreServiceAccountLoadServiceAccount() {
     'stores the JSON as a single base64 line so `security -w` cannot hex-encode it',
     storesTheJSONAsASingleBase64LineSoSecurityWCannotHexEncodeIt,
   );
+
   async function roundTripsAMultiLineKeyThroughStoreLoadUnchanged() {
     await storeServiceAccount(SERVICE_ACCOUNT, 'com.example.app');
 
@@ -70,8 +71,10 @@ function describeStoreServiceAccountLoadServiceAccount() {
     'round-trips a multi-line key through store -> load unchanged',
     roundTripsAMultiLineKeyThroughStoreLoadUnchanged,
   );
+
   async function validatesTheKeyShapeBeforeStoringAnything() {
     const serialized = JSON.stringify({ type: 'authorized_user' });
+
     await expect(storeServiceAccount(serialized, 'com.example.app')).rejects.toMatchObject({
       message: expect.stringMatching(/client_email.*private_key/),
     });
@@ -79,6 +82,7 @@ function describeStoreServiceAccountLoadServiceAccount() {
   }
 
   it('validates the key shape before storing anything', validatesTheKeyShapeBeforeStoringAnything);
+
   async function returnsNullWhenNoServiceAccountHasBeenImported() {
     const serviceAccount = await loadServiceAccount('com.example.app');
     expect(serviceAccount).toBeNull();
@@ -94,6 +98,7 @@ describe('storeServiceAccount / loadServiceAccount', describeStoreServiceAccount
 function describeDescribeStoredAndroidCredentials() {
   async function reportsNothingCachedOnAFreshMachine() {
     const storedAndroidCredentials = await describeStoredAndroidCredentials('com.example.app');
+
     expect(storedAndroidCredentials).toEqual({
       keystoreAlias: null,
       hasServiceAccount: false,
@@ -101,6 +106,7 @@ function describeDescribeStoredAndroidCredentials() {
   }
 
   it('reports nothing cached on a fresh machine', reportsNothingCachedOnAFreshMachine);
+
   async function reportsTheServiceAccountOnceImported() {
     await storeServiceAccount(SERVICE_ACCOUNT, 'com.example.app');
 
@@ -112,14 +118,17 @@ function describeDescribeStoredAndroidCredentials() {
   }
 
   it('reports the service account once imported', reportsTheServiceAccountOnceImported);
+
   async function failsInsteadOfReadingACorruptCredentialsIndexAsEmpty() {
     const indexPath = resolveAndroidCredentialsIndexPath('com.example.app');
 
     const parentDirectory = dirname(indexPath);
+
     mkdirSync(parentDirectory, { recursive: true });
     writeFileSync(indexPath, '{ "keystore": ');
 
     const storedAndroidCredentials = describeStoredAndroidCredentials('com.example.app');
+
     await expect(storedAndroidCredentials).rejects.toMatchObject({
       _tag: 'AndroidCredentialFailure',
       message: expect.stringContaining('is corrupt'),
@@ -148,6 +157,7 @@ function describeLegacyAndroidRecoveryGuidance() {
     'names the selected app and distinguishes an upload keystore from a Play key',
     namesTheSelectedAppAndDistinguishesAnUploadKeystoreFromAPlayKey,
   );
+
   async function quotesAppHandlesSafelyInTheAdoptionCommand() {
     secrets.set('play-service-account', 'fixture');
 

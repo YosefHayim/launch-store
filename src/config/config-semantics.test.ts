@@ -27,6 +27,7 @@ function describeCheckPieceSemantics() {
   }
 
   it('returns nothing for a sound config', returnsNothingForASoundPiece);
+
   function describeStorage() {
     function flagsACloudProviderWithNoStoragePiece() {
       expect(paths({ storage: 's3' })).toEqual(['storageConfig']);
@@ -34,6 +35,7 @@ function describeCheckPieceSemantics() {
     }
 
     it('flags a cloud provider with no storageConfig', flagsACloudProviderWithNoStoragePiece);
+
     function acceptsACloudProviderOnceStoragePieceIsSet() {
       const storageConfig = { bucket: 'artifacts', publicBaseUrl: 'https://cdn.example.com' };
       expect(paths({ storage: 's3', storageConfig })).toEqual([]);
@@ -43,6 +45,7 @@ function describeCheckPieceSemantics() {
       'accepts a cloud provider once storageConfig is set',
       acceptsACloudProviderOnceStoragePieceIsSet,
     );
+
     function neverRequiresStoragePieceForLocalStorage() {
       expect(paths({ storage: 'local' })).toEqual([]);
     }
@@ -51,6 +54,7 @@ function describeCheckPieceSemantics() {
   }
 
   describe('storage', describeStorage);
+
   function describeRelease() {
     function requiresEarliestReleaseDateForASCHEDULEDRelease() {
       expect(paths({ release: { releaseType: 'SCHEDULED' } })).toEqual([
@@ -62,6 +66,7 @@ function describeCheckPieceSemantics() {
       'requires earliestReleaseDate for a SCHEDULED release',
       requiresEarliestReleaseDateForASCHEDULEDRelease,
     );
+
     function acceptsASCHEDULEDReleaseWithAValidInstant() {
       expect(
         paths({
@@ -74,6 +79,7 @@ function describeCheckPieceSemantics() {
       'accepts a SCHEDULED release with a valid instant',
       acceptsASCHEDULEDReleaseWithAValidInstant,
     );
+
     function rejectsAnUnparseableEarliestReleaseDate() {
       expect(paths({ release: { earliestReleaseDate: 'next tuesday' } })).toEqual([
         'release.earliestReleaseDate',
@@ -81,6 +87,7 @@ function describeCheckPieceSemantics() {
     }
 
     it('rejects an unparseable earliestReleaseDate', rejectsAnUnparseableEarliestReleaseDate);
+
     function flagsPerLocaleReleaseNotesMissingThePrimaryLocale() {
       expect(paths({ release: { releaseNotes: { 'fr-FR': 'Corrections.' } } })).toEqual([
         'release.releaseNotes',
@@ -91,6 +98,7 @@ function describeCheckPieceSemantics() {
       'flags per-locale release notes missing the primary locale',
       flagsPerLocaleReleaseNotesMissingThePrimaryLocale,
     );
+
     function acceptsPerLocaleNotesThatIncludeThePrimaryLocale() {
       expect(paths({ release: { releaseNotes: { 'en-US': 'Bug fixes.' } } })).toEqual([]);
     }
@@ -99,6 +107,7 @@ function describeCheckPieceSemantics() {
       'accepts per-locale notes that include the primary locale',
       acceptsPerLocaleNotesThatIncludeThePrimaryLocale,
     );
+
     function honorsAnExplicitPrimaryLocaleWhenCheckingPerLocaleNotes() {
       expect(
         paths({ release: { primaryLocale: 'fr-FR', releaseNotes: { 'fr-FR': 'Corrections.' } } }),
@@ -112,6 +121,7 @@ function describeCheckPieceSemantics() {
       'honors an explicit primaryLocale when checking per-locale notes',
       honorsAnExplicitPrimaryLocaleWhenCheckingPerLocaleNotes,
     );
+
     function acceptsABareStringReleaseNoteItAppliesToThePrimaryLocale() {
       expect(paths({ release: { releaseNotes: 'Bug fixes.' } })).toEqual([]);
     }
@@ -123,6 +133,7 @@ function describeCheckPieceSemantics() {
   }
 
   describe('release', describeRelease);
+
   function describeProfiles() {
     function flagsARolloutFractionOutside0ExclusiveTo1() {
       expect(paths({ profiles: { production: { name: 'production', rollout: 1.5 } } })).toEqual([
@@ -140,6 +151,7 @@ function describeCheckPieceSemantics() {
       'flags a rollout fraction outside 0 (exclusive) to 1',
       flagsARolloutFractionOutside0ExclusiveTo1,
     );
+
     function acceptsAFullRolloutAndAnInteriorFraction() {
       expect(paths({ profiles: { production: { name: 'production', rollout: 1 } } })).toEqual([]);
       expect(paths({ profiles: { production: { name: 'production', rollout: 0.25 } } })).toEqual(
@@ -151,12 +163,14 @@ function describeCheckPieceSemantics() {
   }
 
   describe('profiles', describeProfiles);
+
   function describeRetention() {
     function flagsANegativeArtifactRetentionDays() {
       expect(paths({ artifactRetentionDays: -1 })).toEqual(['artifactRetentionDays']);
     }
 
     it('flags a negative artifactRetentionDays', flagsANegativeArtifactRetentionDays);
+
     function accepts0DisabledAndAnyPositiveDayCount() {
       expect(paths({ artifactRetentionDays: 0 })).toEqual([]);
       expect(paths({ artifactRetentionDays: 30 })).toEqual([]);
@@ -166,6 +180,7 @@ function describeCheckPieceSemantics() {
   }
 
   describe('retention', describeRetention);
+
   function collectsMultipleFindingsInAStableOrderStorageReleaseProfilesRetention() {
     expect(
       paths({

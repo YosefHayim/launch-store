@@ -26,6 +26,7 @@ const reconcilableDataTypes = new Set(ownValues);
 /** Reconcile one app's surface into findings. Pure; the order is empty -> manifest -> collection -> tracking -> android. */
 export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyFinding[] {
   const findings: PrivacyFinding[] = [];
+
   function add(
     platform: PrivacyFinding['platform'],
     severity: PrivacyFinding['severity'],
@@ -34,7 +35,9 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
   ): void {
     findings.push({ app, platform, severity, code, message });
   }
+
   const usageKeys = Object.keys(surface.usageDescriptions);
+
   // 1. Empty purpose strings - App Review auto-rejects a blank usage description.
   for (const [key, purpose] of Object.entries(surface.usageDescriptions)) {
     if (purpose.length == 0) {
@@ -46,6 +49,7 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
       );
     }
   }
+
   // 2. No privacy manifest at all, yet the app accesses sensitive resources.
   if (!surface.hasManifest && usageKeys.length > 0) {
     add(
@@ -55,9 +59,11 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
       `No iOS privacy manifest found, but ${usageKeys.length} permission(s) are declared - ship a PrivacyInfo.xcprivacy (or set ios.privacyManifests).`,
     );
   }
+
   // 3. Undeclared collection - accesses a resource but the manifest omits its data type.
   if (surface.hasManifest) {
     const declared = new Set(surface.collectedDataTypes);
+
     for (const [key, dataType] of Object.entries(USAGE_TO_DATA_TYPE)) {
       if (surface.usageDescriptions[key] != null && !declared.has(dataType)) {
         add(
@@ -69,6 +75,7 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
       }
     }
   }
+
   function mapKey(key: string) {
     return USAGE_TO_DATA_TYPE[key];
   }
@@ -79,6 +86,7 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
 
   // 4. Over-declaration - the manifest claims a data type no permission/usage string backs.
   const backed = new Set(usageKeys.map(mapKey).filter(filterT));
+
   for (const dataType of surface.collectedDataTypes) {
     if (reconcilableDataTypes.has(dataType) && !backed.has(dataType)) {
       add(
@@ -89,6 +97,7 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
       );
     }
   }
+
   // 5. Tracking-flag consistency.
   if (
     surface.usageDescriptions['NSUserTrackingUsageDescription'] != null &&
@@ -102,6 +111,7 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
       'NSUserTrackingUsageDescription is present but the privacy manifest sets NSPrivacyTracking to false.',
     );
   }
+
   if (surface.tracking && surface.trackingDomains.length == 0) {
     add(
       'ios',
@@ -110,6 +120,7 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
       'NSPrivacyTracking is true but no NSPrivacyTrackingDomains are listed.',
     );
   }
+
   // 6. Android - advisory Data Safety reminders (the form is UI-only; Launch can't verify it).
   for (const permission of surface.androidPermissions) {
     const category = {
@@ -128,6 +139,7 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
       'android.permission.READ_MEDIA_VIDEO': 'Photos and videos',
       'android.permission.READ_MEDIA_AUDIO': 'Music and audio',
     }[permission];
+
     if (category) {
       add(
         'android',
@@ -137,6 +149,7 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
       );
     }
   }
+
   return findings;
 }
 /** Roll findings across the scanned apps into a report. */
@@ -145,6 +158,7 @@ export function buildPrivacyReport(
   scanned: readonly string[],
 ): PrivacyReport {
   let exitCode: PrivacyReport['exitCode'] = READINESS_EXIT.ok;
+
   function someFinding(finding: {
     readonly app: string;
     readonly platform: 'ios' | 'android';
@@ -156,7 +170,9 @@ export function buildPrivacyReport(
   }
 
   if (findings.some(someFinding)) exitCode = READINESS_EXIT.blocker;
+
   if (scanned.length == 0) exitCode = READINESS_EXIT.error;
+
   return { findings, scanned, exitCode };
 }
 /** Render a report as human-readable lines: per-app findings, then a blocker/warning tally. */
@@ -164,10 +180,13 @@ export function renderPrivacyReport(report: PrivacyReport): string {
   if (report.scanned.length == 0) {
     return 'No apps to scan - none with a native project or Expo config were found.';
   }
+
   if (report.findings.length == 0) {
     return `Privacy surface clean across ${report.scanned.length} app(s) - no permission/declaration mismatches found.`;
   }
+
   const lines: string[] = [];
+
   for (const app of report.scanned) {
     function filterFinding(finding: {
       readonly app: string;
@@ -180,11 +199,14 @@ export function renderPrivacyReport(report: PrivacyReport): string {
     }
 
     const appFindings = report.findings.filter(filterFinding);
+
     lines.push(app);
+
     if (appFindings.length == 0) {
       lines.push('  OK no issues');
       continue;
     }
+
     for (const finding of appFindings) {
       lines.push(
         `  ${
@@ -197,6 +219,7 @@ export function renderPrivacyReport(report: PrivacyReport): string {
       );
     }
   }
+
   function filterFinding2(finding: {
     readonly app: string;
     readonly platform: 'ios' | 'android';
@@ -208,6 +231,7 @@ export function renderPrivacyReport(report: PrivacyReport): string {
   }
 
   const blockers = report.findings.filter(filterFinding2).length;
+
   function filterFinding3(finding: {
     readonly app: string;
     readonly platform: 'ios' | 'android';
@@ -219,6 +243,8 @@ export function renderPrivacyReport(report: PrivacyReport): string {
   }
 
   const warnings = report.findings.filter(filterFinding3).length;
+
   lines.push('', `${blockers} blocker(s), ${warnings} warning(s).`);
+
   return lines.join('\n');
 }

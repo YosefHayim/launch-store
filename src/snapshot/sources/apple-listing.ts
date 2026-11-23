@@ -31,15 +31,22 @@ async function captureListing(api: SnapshotAscApi, appId: string): Promise<Snaps
 /** Rebuild the `AppleStoreConfig` listing from one app's captured per-locale entities (skips malformed ones). */
 function readSavedListing(saved: AppEntities): AppleStoreConfig {
   const localeInfoByLocale: Record<string, AppleLocaleInfo> = {};
+
   for (const entity of saved.entities) {
     const capturedListing = readPlainObject(entity.data);
+
     if (capturedListing == null) continue;
+
     const locale = capturedListing['locale'];
     const fields = readPlainObject(capturedListing['fields']);
+
     if (typeof locale != 'string') continue;
+
     if (fields == null) continue;
+
     localeInfoByLocale[locale] = readLocaleInfo(fields as Readonly<{ [key: string]: JsonValue }>);
   }
+
   return { info: localeInfoByLocale };
 }
 /** The App Store Connect store-listing snapshot source. */

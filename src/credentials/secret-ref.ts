@@ -32,6 +32,7 @@ export async function resolveSecretRef(secretReference: string, label = 'secret'
 
 async function readEnvironmentSecret(secretReference: string, label: string): Promise<string> {
   const name = secretReference.slice(ENV_PREFIX.length);
+
   const isNameMissing = name == '';
 
   if (isNameMissing) {
@@ -41,6 +42,7 @@ async function readEnvironmentSecret(secretReference: string, label: string): Pr
   }
 
   const resolvedSecret = readLaunchEnvironment().readSecret(name);
+
   const isUnset = resolvedSecret == null;
 
   if (isUnset) {
@@ -54,6 +56,7 @@ async function readEnvironmentSecret(secretReference: string, label: string): Pr
 
 async function readKeychainSecret(secretReference: string, label: string): Promise<string> {
   const account = secretReference.slice(KEYCHAIN_PREFIX.length);
+
   const isAccountMissing = account == '';
 
   if (isAccountMissing) {
@@ -63,6 +66,7 @@ async function readKeychainSecret(secretReference: string, label: string): Promi
   }
 
   const resolvedSecret = await LaunchSecretStore.readSecret(account);
+
   const isMissing = resolvedSecret == null;
 
   if (isMissing) {

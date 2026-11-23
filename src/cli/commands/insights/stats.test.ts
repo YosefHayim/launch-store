@@ -42,6 +42,7 @@ function describeRegisterStatsCommand() {
   }
 
   it('passes app, days and json through to stats sync', passesAppDaysAndPieceThroughToStatsSync);
+
   async function keepsStatsSyncInPieceModeWhenNoFlagsAreGiven() {
     await parseStats(['sync']);
 
@@ -56,6 +57,7 @@ function describeRegisterStatsCommand() {
     'keeps stats sync in text mode when no flags are given',
     keepsStatsSyncInPieceModeWhenNoFlagsAreGiven,
   );
+
   async function stillPassesAppAndPieceToTheStatsReport() {
     await parseStats(['--app', 'calfriend', '--json', '--owner', 'mine']);
 

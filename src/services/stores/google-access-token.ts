@@ -56,6 +56,7 @@ export const GoogleAccessToken = {
       return await createServiceAccountAccessToken(account, scopes);
     } catch (cause) {
       const failureMessage = errorMessage(cause);
+
       throw makeGoogleAccessTokenFailure({
         message: `Could not get a Google access token: ${failureMessage}`,
         cause,

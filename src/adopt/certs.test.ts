@@ -28,10 +28,15 @@ function describePlanCertReports() {
       local: { certSerial: null, bundleIds: [] },
       bundleId: 'com.acme.app',
     });
+
     expect(writes).toHaveLength(1);
+
     const firstWrite = writes[0];
+
     expect(firstWrite).toBeDefined();
+
     if (firstWrite == null) return;
+
     expect(firstWrite.description).toBe('certs: no distribution certificates on this account');
     expect(firstWrite.note).toMatch(/launch-store creds setup/);
     expect(firstWrite.change).toEqual({ home: 'keychain' });
@@ -41,6 +46,7 @@ function describePlanCertReports() {
     'reports a delegation hint when the account has no distribution certificate',
     reportsADelegationHintWhenTheAccountHasNoDistributionCertificate,
   );
+
   function confirmsACertificateWhosePrivateKeyIsInThisKeychainWithNoDelegationNote() {
     const writes = planCertReports({
       certificates: [
@@ -51,8 +57,11 @@ function describePlanCertReports() {
       bundleId: 'com.acme.app',
     });
     const firstWrite = writes[0];
+
     expect(firstWrite).toBeDefined();
+
     if (firstWrite == null) return;
+
     expect(firstWrite.description).toBe(
       'certs: distribution certificate ABC123 (expires 2027-01-02) - private key present in this keychain',
     );
@@ -63,6 +72,7 @@ function describePlanCertReports() {
     'confirms a certificate whose private key is in this keychain, with no delegation note',
     confirmsACertificateWhosePrivateKeyIsInThisKeychainWithNoDelegationNote,
   );
+
   function flagsACertificateWhoseKeyIsAbsentLocallyAndDelegatesToCredsSetup() {
     const writes = planCertReports({
       certificates: [certificate({ serialNumber: 'ZZZ999' })],
@@ -71,8 +81,11 @@ function describePlanCertReports() {
       bundleId: 'com.acme.app',
     });
     const firstWrite = writes[0];
+
     expect(firstWrite).toBeDefined();
+
     if (firstWrite == null) return;
+
     expect(firstWrite.description).toContain('private key not in this keychain');
     expect(firstWrite.note).toMatch(/never returns the private key/);
   }
@@ -81,6 +94,7 @@ function describePlanCertReports() {
     'flags a certificate whose key is absent locally and delegates to creds setup',
     flagsACertificateWhoseKeyIsAbsentLocallyAndDelegatesToCredsSetup,
   );
+
   function reportsAProfileSLocalInstallVerdictForTheAdoptedBundleId() {
     const installed = planCertReports({
       certificates: [],
@@ -89,8 +103,11 @@ function describePlanCertReports() {
       bundleId: 'com.acme.app',
     });
     const installedWrite = installed.at(-1);
+
     expect(installedWrite).toBeDefined();
+
     if (installedWrite == null) return;
+
     expect(installedWrite.description).toBe(
       'certs: profile "Acme App Store" (uuid-1) - installed locally',
     );
@@ -103,8 +120,11 @@ function describePlanCertReports() {
       bundleId: 'com.acme.app',
     });
     const missingWrite = missing.at(-1);
+
     expect(missingWrite).toBeDefined();
+
     if (missingWrite == null) return;
+
     expect(missingWrite.description).toContain('not installed locally');
     expect(missingWrite.note).toMatch(/launch-store creds setup/);
   }

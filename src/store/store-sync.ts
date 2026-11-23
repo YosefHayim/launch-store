@@ -23,6 +23,7 @@ export class StoreSync {
 
   async run(syncRequest: SyncRequest): Promise<void> {
     const changes = planStore(syncRequest.desired, syncRequest.live);
+
     const isEmpty = changes.length == 0;
 
     if (isEmpty) {

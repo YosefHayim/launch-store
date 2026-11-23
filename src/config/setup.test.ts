@@ -32,6 +32,7 @@ const tools: Tool[] = [
 ];
 function describeToolchainReadinessRows() {
   const readinessRows = toolchainReadinessRows(tools, new Set(['pod']));
+
   function marksAPresentToolOkWithNoFixHint() {
     function findReadinessPiece(readinessRow: {
       readonly label: string;
@@ -48,6 +49,7 @@ function describeToolchainReadinessRows() {
   }
 
   it('marks a present tool ok with no fix hint', marksAPresentToolOkWithNoFixHint);
+
   function marksAMissingRequiredToolATodoCarryingItsInstallHint() {
     function findReadinessPiece2(readinessRow: {
       readonly label: string;
@@ -68,6 +70,7 @@ function describeToolchainReadinessRows() {
     'marks a missing required tool a todo carrying its install hint',
     marksAMissingRequiredToolATodoCarryingItsInstallHint,
   );
+
   function marksAMissingRecommendedToolAdvisoryPieceNeverAGap() {
     function findReadinessPiece3(readinessRow: {
       readonly label: string;
@@ -78,6 +81,7 @@ function describeToolchainReadinessRows() {
     }
 
     const ccacheRow = readinessRows.find(findReadinessPiece3);
+
     expect(ccacheRow?.status).toBe('info');
     expect(ccacheRow?.detail).toContain('brew install ccache');
   }
@@ -110,10 +114,12 @@ function describeFormatPendingTodoLine() {
       status: 'todo',
       detail: 'Install Xcode.',
     });
+
     expect(pendingTodoLine).toBe('Xcode - Install Xcode.');
   }
 
   it('joins label and detail when a detail is present', joinsLabelAndDetailWhenADetailIsPresent);
+
   function returnsTheBareLabelWhenNoDetailIsSet() {
     const pendingTodoLine = formatPendingTodoLine({ label: 'Apps', status: 'todo' });
     expect(pendingTodoLine).toBe('Apps');
@@ -132,6 +138,7 @@ function describeMayInstallToolchain() {
     'allows installs on an interactive TTY without --yes',
     allowsInstallsOnAnInteractiveTTYWithoutYes,
   );
+
   function allowsInstallsWhenYesIsSetEvenWithoutATTY() {
     expect(mayInstallToolchain(false, true)).toBe(true);
   }
@@ -140,6 +147,7 @@ function describeMayInstallToolchain() {
     'allows installs when --yes is set even without a TTY',
     allowsInstallsWhenYesIsSetEvenWithoutATTY,
   );
+
   function blocksInstallsWhenNonInteractiveAndYesIsAbsent() {
     expect(mayInstallToolchain(false, false)).toBe(false);
   }
@@ -165,6 +173,7 @@ function describeFormatSetupBoard() {
     ],
   };
   const boardLines = formatSetupBoard(readiness);
+
   function rendersEachGroupTitleWithItsChecksIndentedUnderIt() {
     expect(boardLines).toContain('Config');
     expect(boardLines).toContain('  OK launch.config.ts - present');
@@ -177,6 +186,7 @@ function describeFormatSetupBoard() {
     'renders each group title with its checks indented under it',
     rendersEachGroupTitleWithItsChecksIndentedUnderIt,
   );
+
   function separatesGroupsWithABlankLineButNeverLeadsWithOne() {
     expect(boardLines[0]).toBe('Config');
     expect(boardLines).toContain('');
@@ -208,6 +218,7 @@ function describePendingTodos() {
         },
       ],
     };
+
     expect(pendingTodos(readiness)).toEqual([
       { label: 'Xcode', status: 'todo', detail: 'Install Xcode.' },
       { label: 'Apple account', status: 'todo', detail: 'launch-store creds set-key' },

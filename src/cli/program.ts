@@ -61,6 +61,7 @@ import { registerStatsCommand } from './commands/insights/stats.ts';
 /** Assemble the full `launch-store` command tree and return it unparsed. */
 export function buildProgram(launchVersion: string = '0.0.0'): Command {
   const program = new Command();
+
   program
     .name('launch-store')
     .description(
@@ -126,10 +127,12 @@ export function buildProgram(launchVersion: string = '0.0.0'): Command {
   registerFingerprintCommand(program);
   registerDiagnoseCommand(program);
   registerResignCommand(program);
+
   function showHelp() {
     program.outputHelp();
   }
 
   program.action(showHelp);
+
   return program;
 }

@@ -90,6 +90,7 @@ export async function ensureArtifactDirIgnored(
   }
 
   const root = await repoRoot(projectDirectory);
+
   const hasNoRepo = root == null;
 
   if (hasNoRepo) {
@@ -97,6 +98,7 @@ export async function ensureArtifactDirIgnored(
   }
 
   const relativePath = relative(root, resolvedDir);
+
   const isRepoRoot = relativePath == '';
 
   if (isRepoRoot) {
@@ -138,6 +140,7 @@ export async function ensureArtifactDirIgnored(
   }
 
   let base = existing;
+
   const needsTrailingNewline = base.length > 0;
 
   if (needsTrailingNewline) {

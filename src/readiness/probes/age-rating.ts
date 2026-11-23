@@ -96,6 +96,7 @@ export const ageRatingProbe = {
   categories: ['listing', 'submit'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const apps = iosApps(readinessContext.apps);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

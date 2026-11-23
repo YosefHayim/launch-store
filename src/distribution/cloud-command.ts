@@ -33,6 +33,7 @@ function makeCloudCommandFailure(fields: {
   cause?: unknown;
 }): CloudCommandFailure {
   const failureCause = fields.cause;
+
   const isCauseMissing = failureCause == null;
 
   if (isCauseMissing) {
@@ -125,6 +126,7 @@ async function showCloudStatus(): Promise<void> {
 
   if (hostHandle.provider == 'byo-ssh') {
     const age = formatAge(hostStatus.ageMs);
+
     logger.line(
       `Connected to your Mac at ${hostHandle.ssh.user}@${hostHandle.ssh.host} (up ${age}; not billed by Launch).`,
     );
@@ -133,6 +135,7 @@ async function showCloudStatus(): Promise<void> {
   }
 
   logger.line(costBanner(hostHandle));
+
   let regionLabel = '?';
 
   if (hostHandle.region != null) {
@@ -173,6 +176,7 @@ async function confirmCloudTeardown(hostHandle: HostHandle, confirmed: boolean):
     shouldTearDown = await LaunchPrompt.confirm(`Tear down ${hostLabel(hostHandle)}?`);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     throw makeCloudCommandFailure({
       operation: 'teardown',
       message: failureMessage,
@@ -289,6 +293,7 @@ async function showCloudSetup(): Promise<void> {
   }
 
   logger.line(regionLine);
+
   let goldenAmiId: string | undefined = awsConfiguration.amiId;
 
   if (goldenAmiId == null) {
@@ -360,6 +365,7 @@ export async function cloudCommandProgram(rawCommandInput: unknown): Promise<voi
 
     const knownOperation = readKnownOperation(rawCommandInput);
     const failureMessage = errorMessage(cause);
+
     throw makeCloudCommandFailure({
       operation: knownOperation,
       message: failureMessage,

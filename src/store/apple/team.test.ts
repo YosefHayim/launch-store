@@ -9,6 +9,7 @@ import { getTeam, inviteTeamMember, removeTeamMember, type AscTeamApi } from './
 /** Build an empty Effect-native team client with optional method replacements. */
 function makeTeamClient(methodOverrides: Partial<AscTeamApi> = {}): AscTeamApi {
   const fulfilled = Promise.resolve([]);
+
   function mockImplementationNewInvitation(newInvitation: NewUserInvitation) {
     return Promise.resolve({
       id: 'inv-new',
@@ -24,6 +25,7 @@ function makeTeamClient(methodOverrides: Partial<AscTeamApi> = {}): AscTeamApi {
     deleteUser: vi.fn().mockReturnValue(Promise.resolve()),
     cancelUserInvitation: vi.fn().mockReturnValue(Promise.resolve()),
   };
+
   return { ...defaultClient, ...methodOverrides };
 }
 
@@ -58,6 +60,7 @@ function describeGetTeam() {
       listUserInvitations: vi.fn().mockReturnValue(Promise.resolve([pendingInvitation()])),
     });
     const currentTeam = await getTeam(teamClient);
+
     expect(currentTeam.members).toHaveLength(1);
     expect(currentTeam.invitations).toHaveLength(1);
   }
@@ -78,6 +81,7 @@ function describeInviteTeamMember() {
       lastName: ' Lee ',
       roles: ['developer', 'Developer', ' app_manager '],
     });
+
     expect(teamClient.inviteUser).toHaveBeenCalledWith({
       email: 'new@acme.com',
       firstName: 'Pat',
@@ -93,8 +97,10 @@ function describeInviteTeamMember() {
     'invites with normalized roles and default permissions',
     invitesWithNormalizedRolesAndDefaultPermissions,
   );
+
   async function passesThroughAProvisioningOverride() {
     const teamClient = makeTeamClient();
+
     await inviteTeamMember(teamClient, {
       email: 'new@acme.com',
       firstName: 'Pat',
@@ -108,8 +114,10 @@ function describeInviteTeamMember() {
   }
 
   it('passes through a provisioning override', passesThroughAProvisioningOverride);
+
   async function rejectsAnEmptyEmail() {
     const teamClient = makeTeamClient();
+
     await expect(
       inviteTeamMember(teamClient, {
         email: '  ',
@@ -121,8 +129,10 @@ function describeInviteTeamMember() {
   }
 
   it('rejects an empty email', rejectsAnEmptyEmail);
+
   async function rejectsWhenNoRolesAreGiven() {
     const teamClient = makeTeamClient();
+
     await expect(
       inviteTeamMember(teamClient, {
         email: 'new@acme.com',
@@ -134,8 +144,10 @@ function describeInviteTeamMember() {
   }
 
   it('rejects when no roles are given', rejectsWhenNoRolesAreGiven);
+
   async function rejectsTheDeprecatedACCESSTOREPORTSPermissionAndNamesTheRolesToUse() {
     const teamClient = makeTeamClient();
+
     await expect(
       inviteTeamMember(teamClient, {
         email: 'new@acme.com',
@@ -150,8 +162,10 @@ function describeInviteTeamMember() {
     'rejects the deprecated ACCESS_TO_REPORTS permission and names the roles to use',
     rejectsTheDeprecatedACCESSTOREPORTSPermissionAndNamesTheRolesToUse,
   );
+
   async function rejectsAnUnknownRoleWithTheValidList() {
     const teamClient = makeTeamClient();
+
     await expect(
       inviteTeamMember(teamClient, {
         email: 'new@acme.com',
@@ -163,11 +177,13 @@ function describeInviteTeamMember() {
   }
 
   it('rejects an unknown role with the valid list', rejectsAnUnknownRoleWithTheValidList);
+
   async function rejectsAnExistingMemberCaseInsensitively() {
     const fulfilled = Promise.resolve([teamMember({ username: 'Jane@Acme.com' })]);
     const teamClient = makeTeamClient({
       listUsers: vi.fn().mockReturnValue(fulfilled),
     });
+
     await expect(
       inviteTeamMember(teamClient, {
         email: 'jane@acme.com',
@@ -180,11 +196,13 @@ function describeInviteTeamMember() {
   }
 
   it('rejects an existing member case-insensitively', rejectsAnExistingMemberCaseInsensitively);
+
   async function rejectsAnExistingPendingInvitation() {
     const fulfilled = Promise.resolve([pendingInvitation({ email: 'john@acme.com' })]);
     const teamClient = makeTeamClient({
       listUserInvitations: vi.fn().mockReturnValue(fulfilled),
     });
+
     await expect(
       inviteTeamMember(teamClient, {
         email: 'john@acme.com',
@@ -207,6 +225,7 @@ function describeRemoveTeamMember() {
       listUsers: vi.fn().mockReturnValue(fulfilled),
     });
     const removeOutcome = await removeTeamMember(teamClient, 'JANE@acme.com');
+
     expect(removeOutcome).toEqual({
       kind: 'member',
       user: expect.objectContaining({ id: 'u9' }),
@@ -219,12 +238,14 @@ function describeRemoveTeamMember() {
     'deletes an accepted member matched case-insensitively',
     deletesAnAcceptedMemberMatchedCaseInsensitively,
   );
+
   async function cancelsAPendingInvitationWhenNoMemberMatches() {
     const fulfilled = Promise.resolve([pendingInvitation({ id: 'i9', email: 'john@acme.com' })]);
     const teamClient = makeTeamClient({
       listUserInvitations: vi.fn().mockReturnValue(fulfilled),
     });
     const removeOutcome = await removeTeamMember(teamClient, 'john@acme.com');
+
     expect(removeOutcome).toEqual({
       kind: 'invitation',
       invitation: expect.objectContaining({ id: 'i9' }),
@@ -237,9 +258,11 @@ function describeRemoveTeamMember() {
     'cancels a pending invitation when no member matches',
     cancelsAPendingInvitationWhenNoMemberMatches,
   );
+
   async function reportsNoneWhenNothingMatches() {
     const teamClient = makeTeamClient();
     const removeOutcome = await removeTeamMember(teamClient, 'ghost@acme.com');
+
     expect(removeOutcome).toEqual({ kind: 'none' });
     expect(teamClient.deleteUser).not.toHaveBeenCalled();
     expect(teamClient.cancelUserInvitation).not.toHaveBeenCalled();

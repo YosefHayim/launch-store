@@ -76,6 +76,7 @@ export function groupBy<Member>(
   for (const member of members) {
     const groupKey = keyOf(member);
     const existingGroup = groups.get(groupKey);
+
     const hasGroup = existingGroup != null;
 
     if (hasGroup) {
@@ -100,8 +101,11 @@ async function mapWithConcurrency<Member, Mapped>(
   async function runWorker(): Promise<void> {
     while (nextIndex < members.length) {
       const memberIndex = nextIndex;
+
       nextIndex += 1;
+
       const member = members[memberIndex];
+
       const isMemberMissing = member == null;
 
       if (isMemberMissing) {
@@ -121,6 +125,7 @@ async function mapWithConcurrency<Member, Mapped>(
   }
 
   await Promise.all(workers);
+
   return mappedMembers;
 }
 
@@ -137,7 +142,9 @@ async function reconcileSetsInOrder<SetMember>(
     const setType = setGroup[0];
     const setMembers = setGroup[1];
     const setLog: ActionLog = { ...log, actions: [] };
+
     await reconcileSet(setLog, setType, setMembers);
+
     return setLog;
   }
 
@@ -170,6 +177,7 @@ export async function reconcileScreenshots(
     dryRun: reconcileInput.dryRun,
     allowDestructive: reconcileInput.allowDestructive,
   };
+
   const isNothingToUpload = hasNoScreenshotWork(reconcileInput);
 
   if (isNothingToUpload) {
@@ -177,6 +185,7 @@ export async function reconcileScreenshots(
   }
 
   const appId = await api.getAppId(reconcileInput.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -184,6 +193,7 @@ export async function reconcileScreenshots(
       log,
       `screenshots: no App Store Connect app record for ${reconcileInput.bundleId} - create the app, then re-run`,
     );
+
     return log.actions;
   }
 
@@ -214,6 +224,7 @@ async function reconcileAppScreenshots(
   screenshots: readonly LocalScreenshot[],
 ): Promise<void> {
   const versionId = await api.getEditableVersionId(appId);
+
   const isVersionMissing = versionId == null;
 
   if (isVersionMissing) {
@@ -221,6 +232,7 @@ async function reconcileAppScreenshots(
       log,
       'screenshots: no editable App Store version - prepare a version in App Store Connect, then re-run',
     );
+
     return;
   }
 
@@ -237,6 +249,7 @@ async function reconcileAppScreenshots(
 
   for (const [locale, localeScreenshots] of groupBy(screenshots, screenshotLocale)) {
     const localizationId = localizationIdByLocale.get(locale);
+
     const isLocaleMissing = localizationId == null;
 
     if (isLocaleMissing) {
@@ -245,6 +258,7 @@ async function reconcileAppScreenshots(
         `screenshots [${locale}]: locale not on the editable version - sync the listing for ${locale} first ` +
           `(${localeScreenshots.length} screenshot(s) waiting)`,
       );
+
       continue;
     }
 
@@ -258,6 +272,7 @@ async function reconcileAppScreenshots(
       },
       exact: false,
     };
+
     await reconcileOwnerScreenshots(api, log, setOwner, localeScreenshots);
   }
 }
@@ -307,6 +322,7 @@ function holdsChecksumOf(screenshot: ScreenshotResource, checksums: ReadonlySet<
   }
 
   const checksum = screenshot.sourceFileChecksum;
+
   const isChecksumMissing = checksum == null;
 
   if (isChecksumMissing) {
@@ -375,6 +391,7 @@ function readOrderedScreenshotIds(
 
   for (const checksum of localChecksums) {
     const screenshotId = idByChecksum.get(checksum);
+
     const isIdMissing = screenshotId == null;
 
     if (isIdMissing) {
@@ -408,6 +425,7 @@ async function orderScreenshots(
 
   for (let position = 0; position < heldScreenshots.length; position += 1) {
     const heldScreenshot = heldScreenshots[position];
+
     const isPositionMissing = heldScreenshot == null;
 
     if (isPositionMissing) {
@@ -459,6 +477,7 @@ function readHeldScreenshots(existingScreenshots: readonly ScreenshotResource[])
     }
 
     const checksum = screenshot.sourceFileChecksum;
+
     const isChecksumMissing = checksum == null;
 
     if (isChecksumMissing) {
@@ -505,7 +524,9 @@ async function reconcileScreenshotSet(
     }
 
     const createdSetId = createAction.actionValue?.id;
+
     setId = DRY_RUN_ID;
+
     const hasCreatedSetId = createdSetId != null;
 
     if (hasCreatedSetId) {
@@ -550,6 +571,7 @@ async function reconcileScreenshotSet(
         log,
         `screenshot ${label} [${locale}] ${screenshot.fileName}: set is full (${MAX_SCREENSHOTS_PER_SET} max) - skipped`,
       );
+
       continue;
     }
 
@@ -561,11 +583,13 @@ async function reconcileScreenshotSet(
         return api.uploadScreenshot(setId, screenshot.fileName, screenshot.path);
       },
     );
+
     const wasUploaded = succeededOrPlanned(uploadAction.status);
 
     if (wasUploaded) {
       let uploadedId = DRY_RUN_ID;
       const uploadedScreenshotId = uploadAction.actionValue;
+
       const hasUploadedId = uploadedScreenshotId != null;
 
       if (hasUploadedId) {
@@ -628,6 +652,7 @@ async function reconcileSubscriptionReviewScreenshots(
 
   for (const reviewScreenshot of reviewScreenshots) {
     const subscriptionId = subscriptionIdByProduct.get(reviewScreenshot.productId);
+
     const isSubscriptionMissing = subscriptionId == null;
 
     if (isSubscriptionMissing) {
@@ -636,10 +661,12 @@ async function reconcileSubscriptionReviewScreenshots(
         `subscription review screenshot ${reviewScreenshot.productId}: subscription not on App Store Connect yet - ` +
           "re-run after it's created",
       );
+
       continue;
     }
 
     const currentScreenshot = await api.getSubscriptionReviewScreenshot(subscriptionId);
+
     const alreadyMatches = reviewScreenshotMatches(currentScreenshot, reviewScreenshot.asset);
 
     if (alreadyMatches) {
@@ -687,6 +714,7 @@ export async function reconcilePreviews(
     dryRun: reconcileInput.dryRun,
     allowDestructive: reconcileInput.allowDestructive,
   };
+
   const hasNoPreviews = reconcileInput.previews.length == 0;
 
   if (hasNoPreviews) {
@@ -694,6 +722,7 @@ export async function reconcilePreviews(
   }
 
   const appId = await api.getAppId(reconcileInput.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -701,10 +730,12 @@ export async function reconcilePreviews(
       log,
       `previews: no App Store Connect app record for ${reconcileInput.bundleId} - create the app, then re-run`,
     );
+
     return log.actions;
   }
 
   const versionId = await api.getEditableVersionId(appId);
+
   const isVersionMissing = versionId == null;
 
   if (isVersionMissing) {
@@ -712,6 +743,7 @@ export async function reconcilePreviews(
       log,
       'previews: no editable App Store version - prepare a version in App Store Connect, then re-run',
     );
+
     return log.actions;
   }
 
@@ -728,6 +760,7 @@ export async function reconcilePreviews(
 
   for (const [locale, localePreviews] of groupBy(reconcileInput.previews, previewLocale)) {
     const localizationId = localizationIdByLocale.get(locale);
+
     const isLocaleMissing = localizationId == null;
 
     if (isLocaleMissing) {
@@ -736,6 +769,7 @@ export async function reconcilePreviews(
         `previews [${locale}]: locale not on the editable version - sync the listing for ${locale} first ` +
           `(${localePreviews.length} preview(s) waiting)`,
       );
+
       continue;
     }
 
@@ -831,7 +865,9 @@ async function reconcilePreviewSet(
     }
 
     const createdSetId = createAction.actionValue?.id;
+
     setId = DRY_RUN_ID;
+
     const hasCreatedSetId = createdSetId != null;
 
     if (hasCreatedSetId) {
@@ -858,6 +894,7 @@ async function reconcilePreviewSet(
         log,
         `preview ${label} [${locale}] ${preview.fileName}: set is full (${MAX_PREVIEWS_PER_SET} max) - skipped`,
       );
+
       continue;
     }
 

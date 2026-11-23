@@ -59,15 +59,18 @@ function installNote(platform: Platform): string {
   if (platform == 'macos') {
     return '<p>macOS: if Gatekeeper blocks the app, right-click it and choose Open, or allow it in System Settings -> Privacy &amp; Security.</p>';
   }
+
   if (isApplePlatform(platform)) {
     return '<p>Apple: your device must be registered for this build. After installing, trust the developer in Settings -> General -> VPN &amp; Device Management.</p>';
   }
+
   return '<p>Android: you may need to allow installs from this browser/source.</p>';
 }
 
 /** Tester-facing install landing page */
 export function installLandingPage(options: LandingPageOptions): string {
   const platformNote = installNote(options.platform);
+
   return [
     '<!doctype html>',
     '<html lang="en"><head><meta charset="utf-8" />',

@@ -24,43 +24,59 @@ type NativeTargetRef = {
 /** Read one parser line without leaking undefined into regex operations. */
 function lineAt(lines: readonly string[], lineIndex: number): string {
   const sourceLine = lines[lineIndex];
+
   if (sourceLine == null) return '';
+
   return sourceLine;
 }
 /** Pull the object id assigned on a line like `<key> = <id> /* ... */
 function assignedId(line: string): string | null {
   const match = /[=]\s*([^\s;]+)/.exec(line);
   const assignedIdentifier = match?.[1];
+
   if (assignedIdentifier == null) return null;
+
   return assignedIdentifier;
 }
 /** Pull a bare `<key> = <value>;` string value (e.g. */
 function stringValue(line: string, key: string): string | null {
   const match = new RegExp(`^\\s*${key}\\s*=\\s*"?([^";]+)"?\\s*;`).exec(line);
   const assignedText = match?.[1]?.trim();
+
   if (assignedText == null) return null;
+
   return assignedText;
 }
 /** Parse every `PBXNativeTarget` block */
 function parseNativeTargets(lines: string[]): NativeTargetRef[] {
   const targets: NativeTargetRef[] = [];
+
   for (let i = 0; i < lines.length; i++) {
     if (!/isa\s*=\s*PBXNativeTarget;/.test(lineAt(lines, i))) continue;
+
     let name: string | null = null;
     let buildConfigurationListId: string | null = null;
     let productType: string | null = null;
+
     // The object's fields sit between its `isa` line and the closing `};` at the same indent.
     for (let j = i + 1; j < lines.length; j++) {
       const line = lineAt(lines, j);
+
       if (/^\s*};/.test(line)) break;
+
       if (name == null) name = stringValue(line, 'name');
+
       if (productType == null) productType = stringValue(line, 'productType');
+
       if (/^\s*buildConfigurationList\s*=/.test(line) && buildConfigurationListId == null)
         buildConfigurationListId = assignedId(line);
     }
+
     if (name != null && buildConfigurationListId != null) {
       let resolvedProductType = '';
+
       if (productType != null) resolvedProductType = productType;
+
       targets.push({
         name,
         buildConfigurationListId,
@@ -68,55 +84,75 @@ function parseNativeTargets(lines: string[]): NativeTargetRef[] {
       });
     }
   }
+
   return targets;
 }
 /** Map each `XCConfigurationList` object id to the `XCBuildConfiguration` object ids it lists. */
 function parseConfigurationLists(lines: string[]): Map<string, string[]> {
   const lists = new Map<string, string[]>();
+
   for (let i = 0; i < lines.length; i++) {
     const header = /^\s*([0-9A-Fa-f]+)\b.*=\s*\{/.exec(lineAt(lines, i));
+
     if (!(header && /isa\s*=\s*XCConfigurationList;/.test(lineAt(lines, i + 1)))) continue;
+
     const configIds: string[] = [];
     let inList = false;
+
     for (let j = i + 1; j < lines.length; j++) {
       const line = lineAt(lines, j);
+
       if (/^\s*};/.test(line)) break;
+
       if (/buildConfigurations\s*=\s*\(/.test(line)) {
         inList = true;
         continue;
       }
+
       if (inList) {
         if (line.includes(')')) break;
+
         const id = line.trim().split(/\s/)[0];
+
         if (id) configIds.push(id);
       }
     }
+
     if (header[1]) lists.set(header[1], configIds);
   }
+
   return lists;
 }
 /** Map each `XCBuildConfiguration` object id to its `PRODUCT_BUNDLE_IDENTIFIER` */
 function parseBundleIdsByConfig(lines: string[]): Map<string, string> {
   const bundleIds = new Map<string, string>();
+
   for (let i = 0; i < lines.length; i++) {
     const header = /^\s*([0-9A-Fa-f]+)\b.*=\s*\{/.exec(lineAt(lines, i));
+
     if (!(header && /isa\s*=\s*XCBuildConfiguration;/.test(lineAt(lines, i + 1)))) continue;
+
     for (let j = i + 1; j < lines.length; j++) {
       const line = lineAt(lines, j);
+
       if (/^\s*};/.test(line)) break;
+
       const bundleIdentifier = stringValue(line, 'PRODUCT_BUNDLE_IDENTIFIER');
+
       if (bundleIdentifier && !bundleIdentifier.includes('$(') && header[1]) {
         bundleIds.set(header[1], bundleIdentifier);
         break;
       }
     }
   }
+
   return bundleIds;
 }
 export function parsePbxprojTargets(pbxproj: string): DiscoveredTarget[] {
   const lines = pbxproj.split('\n');
   const configLists = parseConfigurationLists(lines);
   const bundleIdsByConfig = parseBundleIdsByConfig(lines);
+
   function flatMapTarget(target: {
     name: string;
     buildConfigurationListId: string;
@@ -124,7 +160,9 @@ export function parsePbxprojTargets(pbxproj: string): DiscoveredTarget[] {
   }) {
     let configIds: string[] = [];
     const configuredIds = configLists.get(target.buildConfigurationListId);
+
     if (configuredIds != null) configIds = configuredIds;
+
     function mapId(id: string) {
       return bundleIdsByConfig.get(id);
     }
@@ -134,7 +172,9 @@ export function parsePbxprojTargets(pbxproj: string): DiscoveredTarget[] {
     }
 
     const bundleId = configIds.map(mapId).find(findId);
+
     if (bundleId == null) return [];
+
     return [{ name: target.name, bundleId, productType: target.productType }];
   }
 
@@ -156,6 +196,7 @@ export function splitMainAndExtensions(
   }
 
   let main = targets.find(findTarget)?.bundleId;
+
   if (main == null) {
     function findTarget2(target: {
       readonly name: string;
@@ -168,6 +209,7 @@ export function splitMainAndExtensions(
     /** The Xcode product type marking the primary app target (everything else is an embedded extension). */
     main = targets.find(findTarget2)?.bundleId;
   }
+
   function filterTarget(target: {
     readonly name: string;
     readonly bundleId: string;
@@ -185,6 +227,7 @@ export function splitMainAndExtensions(
   }
 
   const extensions = targets.filter(filterTarget).map(readBundleId);
+
   // De-dupe in case Debug/Release configs surfaced the same extension twice, preserving first-seen order.
   return { main, extensions: [...new Set(extensions)] };
 }
@@ -234,14 +277,17 @@ export async function discoverExtensionBundleIds(
 }
 export function multiTargetSigningWarnings(readiness: readonly TargetSigningReadiness[]): string[] {
   const warnings: string[] = [];
+
   for (const target of readiness) {
     if (!target.registered) {
       warnings.push(
         `Signing preflight: App ID "${target.bundleId}" is not registered yet - the archive will fail ` +
           'to sign this target (exit 65). Run `launch-store creds setup --app <name>` to register and provision it first.',
       );
+
       continue;
     }
+
     if (target.missingCapabilities.length > 0) {
       warnings.push(
         `Signing preflight: App ID "${target.bundleId}" is missing the ${target.missingCapabilities.join(', ')} ` +
@@ -250,6 +296,7 @@ export function multiTargetSigningWarnings(readiness: readonly TargetSigningRead
       );
     }
   }
+
   return warnings;
 }
 /** The per-target manual-signing inputs stamped into a multi-target project before archiving */
@@ -260,29 +307,41 @@ type ManualSigningTargets = {
 /** Count the net brace balance a line contributes (`{` opens minus `}` closes) - the pbxproj is brace-nested. */
 function braceDelta(line: string): number {
   let openingBraces = line.match(/\{/g)?.length;
+
   if (openingBraces == null) openingBraces = 0;
+
   let closingBraces = line.match(/\}/g)?.length;
+
   if (closingBraces == null) closingBraces = 0;
+
   return openingBraces - closingBraces;
 }
 /** Map each `XCBuildConfiguration` object id to its `name` (`Debug` / `Release` / ...). */
 function parseConfigNames(lines: string[]): Map<string, string> {
   const names = new Map<string, string>();
+
   for (let i = 0; i < lines.length; i++) {
     const header = /^\s*([0-9A-Fa-f]+)\b.*=\s*\{/.exec(lineAt(lines, i));
+
     if (!(header?.[1] && /isa\s*=\s*XCBuildConfiguration;/.test(lineAt(lines, i + 1)))) continue;
+
     let depth = 1;
+
     for (let j = i + 1; j < lines.length && depth > 0; j++) {
       const line = lineAt(lines, j);
       let name: string | null = null;
+
       if (depth == 1) name = stringValue(line, 'name');
+
       if (name) {
         names.set(header[1], name);
         break;
       }
+
       depth += braceDelta(line);
     }
   }
+
   return names;
 }
 /** For every target that has a resolved profile */
@@ -294,15 +353,19 @@ function releaseConfigProfiles(
   const configNames = parseConfigNames(lines);
   const bundleIdsByConfig = parseBundleIdsByConfig(lines);
   const profilesByReleaseConfiguration = new Map<string, string>();
+
   for (const target of parseNativeTargets(lines)) {
     let configIds: string[] = [];
     const configuredIds = configLists.get(target.buildConfigurationListId);
+
     if (configuredIds != null) configIds = configuredIds;
+
     function findId2(id: string) {
       return configNames.get(id) == 'Release';
     }
 
     const releaseConfigId = configIds.find(findId2);
+
     function mapId2(id: string) {
       return bundleIdsByConfig.get(id);
     }
@@ -313,10 +376,13 @@ function releaseConfigProfiles(
 
     const bundleId = configIds.map(mapId2).find(findId3);
     let profileName: string | undefined;
+
     if (bundleId != null) profileName = profileByBundleId[bundleId];
+
     if (releaseConfigId && profileName)
       profilesByReleaseConfiguration.set(releaseConfigId, profileName);
   }
+
   return profilesByReleaseConfiguration;
 }
 /** Stamp per-target manual signing into a project's `project.pbxproj` and return the rewritten */
@@ -326,60 +392,82 @@ export function stampManualSigningIntoPbxproj(
 ): string {
   const lines = pbxproj.split('\n');
   const releaseProfiles = releaseConfigProfiles(lines, signing.profileByBundleId);
+
   if (releaseProfiles.size == 0) return pbxproj;
+
   const out: string[] = [];
   /** Profile of the wanted Release config we're currently inside, or null when outside any. */
   let profile: string | null = null;
   /** Brace depth relative to that config object's opening `{` (1 = object body, 2 = its buildSettings). */
   let depth = 0;
   let inBuildSettings = false;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lineAt(lines, i);
+
     if (profile == null) {
       const id = /^\s*([0-9A-Fa-f]+)\b.*=\s*\{\s*$/.exec(line)?.[1];
+
       if (
         id &&
         releaseProfiles.has(id) &&
         /isa\s*=\s*XCBuildConfiguration;/.test(lineAt(lines, i + 1))
       ) {
         const releaseProfile = releaseProfiles.get(id);
+
         if (releaseProfile != null) profile = releaseProfile;
+
         depth = 1;
         inBuildSettings = false;
       }
+
       out.push(line);
+
       continue;
     }
+
     const delta = braceDelta(line);
+
     if (!inBuildSettings && /^\s*buildSettings\s*=\s*\{\s*$/.test(line)) {
       inBuildSettings = true;
       depth += delta;
       out.push(line);
       continue;
     }
+
     if (inBuildSettings && depth + delta == 1) {
       // This line closes buildSettings - insert the managed keys just inside it, then emit the `};`.
       let leadingWhitespace = /^(\s*)/.exec(line)?.[1];
+
       if (leadingWhitespace == null) leadingWhitespace = '';
+
       const indent = `${leadingWhitespace}\t`;
+
       out.push(`${indent}CODE_SIGN_STYLE = Manual;`);
       out.push(`${indent}DEVELOPMENT_TEAM = ${signing.teamId};`);
       out.push(`${indent}PROVISIONING_PROFILE_SPECIFIER = "${profile}";`);
       out.push(line);
       inBuildSettings = false;
       depth = 1;
+
       continue;
     }
+
     if (inBuildSettings) {
       depth += delta;
+
       if (!/^\s*(?:CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER)\s*=/.test(line))
         out.push(line); // drop the old managed keys; re-added at close
+
       continue;
     }
+
     out.push(line);
     depth += delta;
+
     if (depth == 0) profile = null; // the config object closed
   }
+
   return out.join('\n');
 }
 export async function writeManualSigningToProject(

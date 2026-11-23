@@ -61,6 +61,7 @@ function installFetch(routes: readonly HttpRoute[]): void {
       }
 
       const createReply = createReplyBody(matchedRoute.body);
+
       return new Response(createReply, { status: matchedRoute.status });
     },
   );
@@ -90,6 +91,7 @@ function describeDownloadBucketObject() {
         body,
       },
     ]);
+
     function settlePiece() {
       return downloadBucketObject(
         'pubsite_prod_rev_1',
@@ -110,6 +112,7 @@ function describeDownloadBucketObject() {
   }
 
   test('returns the bytes of an object that exists', returnsTheBytesOfAnObjectThatExists);
+
   async function saysMissingForA404AMonthPlayHasNotPublishedYet() {
     const reply = await downloadInstalls(404, { error: 'not found' });
 
@@ -120,6 +123,7 @@ function describeDownloadBucketObject() {
     'says missing for a 404, a month Play has not published yet',
     saysMissingForA404AMonthPlayHasNotPublishedYet,
   );
+
   async function saysForbiddenForA403() {
     const reply = await downloadInstalls(403, { error: 'forbidden' });
 
@@ -127,6 +131,7 @@ function describeDownloadBucketObject() {
   }
 
   test('says forbidden for a 403', saysForbiddenForA403);
+
   async function failsWithAReadableMessageForAnyOtherStatus() {
     const reply = await downloadInstalls(500, { error: 'boom' });
 
@@ -149,6 +154,7 @@ describe('downloadBucketObject', describeDownloadBucketObject);
 function describeListBucketObjectNames() {
   function listEarnings(routes: readonly HttpRoute[]) {
     installFetch(routes);
+
     function settlePiece2() {
       return listBucketObjectNames('pubsite_prod_rev_1', 'earnings/earnings_', 'token-1');
     }
@@ -181,6 +187,7 @@ function describeListBucketObjectNames() {
   }
 
   test('collects the names over every page', collectsTheNamesOverEveryPage);
+
   async function listsNothingWhenTheBucketHasNoMatchingObject() {
     const reply = await listEarnings([{ method: 'GET', url: LIST_URL, status: 200, body: {} }]);
 
@@ -191,6 +198,7 @@ function describeListBucketObjectNames() {
     'lists nothing when the bucket has no matching object',
     listsNothingWhenTheBucketHasNoMatchingObject,
   );
+
   async function saysForbiddenForA4032() {
     const reply = await listEarnings([{ method: 'GET', url: LIST_URL, status: 403, body: {} }]);
 
@@ -198,6 +206,7 @@ function describeListBucketObjectNames() {
   }
 
   test('says forbidden for a 403', saysForbiddenForA4032);
+
   async function failsForAMissingBucketOrAnUnreadableListing() {
     const missingBucket = await listEarnings([
       { method: 'GET', url: LIST_URL, status: 404, body: {} },

@@ -107,6 +107,7 @@ async function parseGa4PropertyFlag(ga4PropertyFlag: string | undefined): Promis
 export async function parseTagRequest(request: AppsTagRequest): Promise<AppTagChange> {
   const hasApp = request.app != null;
   const hasAccount = request.account != null;
+
   const isSelectionAmbiguous = hasApp == hasAccount;
 
   if (isSelectionAmbiguous) {
@@ -227,7 +228,9 @@ export async function appsListProgram(request: AppsListRequest): Promise<void> {
         isFromCache: portfolioLoad.isFromCache,
       };
       const listingLine = JSON.stringify(listing);
+
       logger.line(listingLine);
+
       return;
     }
 
@@ -259,6 +262,7 @@ export async function appsTagProgram(request: AppsTagRequest): Promise<void> {
     const change = await parseTagRequest(request);
     const portfolioLoad = await loadPortfolioApps('discover');
     const appsToTag = findAppsToTag(portfolioLoad.apps, request);
+
     const isNothingFound = appsToTag.length == 0;
 
     if (isNothingFound) {
@@ -271,7 +275,9 @@ export async function appsTagProgram(request: AppsTagRequest): Promise<void> {
     }
 
     const appKeys = appsToTag.map(readAppKey);
+
     await saveAppTags(appKeys, change);
+
     const applyChange = tagApp(change);
     const taggedApps = appsToTag.map(applyChange);
 

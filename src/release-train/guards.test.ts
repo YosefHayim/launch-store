@@ -28,6 +28,7 @@ function describeReleaseTrainCarGuards() {
   }
 
   it('discriminates native vs OTA cars', discriminatesNativeVsOTACars);
+
   function treatsReleasedFailedNativeAndPublishedOTACarsAsTerminal() {
     expect(isCarTerminal(ios('released'))).toBe(true);
     expect(isCarTerminal(ios('failed'))).toBe(true);

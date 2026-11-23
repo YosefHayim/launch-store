@@ -33,8 +33,10 @@ function describeRenderPieceDocs() {
       },
     },
   };
+
   function rendersTheTopLevelFieldsTableWithRequiredFlagsAndRenderedTypes() {
     const docs = renderConfigDocs(schema);
+
     expect(docs).toContain('# Launch config reference');
     expect(docs).toContain('## Top-level fields');
     expect(docs).toContain('| `profiles` | `Record<string,BuildProfile>` | Yes |');
@@ -45,8 +47,10 @@ function describeRenderPieceDocs() {
     'renders the top-level fields table with required flags and rendered types',
     rendersTheTopLevelFieldsTableWithRequiredFlagsAndRenderedTypes,
   );
+
   function rendersASectionPerNestedObjectDefinitionButNotForTheRootOrPieceEnumDefs() {
     const docs = renderConfigDocs(schema);
+
     expect(docs).toContain('### `BuildProfile`');
     expect(docs).toContain('A named build profile.');
     expect(docs).not.toContain('### `LaunchConfigInput`');
@@ -57,6 +61,7 @@ function describeRenderPieceDocs() {
     'renders a section per nested object definition but not for the root or Record/enum defs',
     rendersASectionPerNestedObjectDefinitionButNotForTheRootOrPieceEnumDefs,
   );
+
   function stripsLinkTagsFromRenderedDescriptions() {
     const renderDocs = renderConfigDocs(schema);
     expect(renderDocs).not.toContain('@link');

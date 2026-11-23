@@ -13,6 +13,7 @@ export function registerStoreCommand(program: Command): void {
   const storeCommand = program
     .command('store')
     .description('store-account readiness and operations');
+
   function runDoctor(commandOptions: StoreDoctorOptions) {
     const readinessProgram = readinessCommandProgram({
       category: 'account',
@@ -23,6 +24,7 @@ export function registerStoreCommand(program: Command): void {
       },
       ...commandOptions,
     });
+
     return runCliProgram(readinessProgram);
   }
 

@@ -319,6 +319,7 @@ async function appleAccountReadinessRows(apps: readonly AppDescriptor[]): Promis
   } catch (cause) {
     const failureMessage = errorMessage(cause);
     const makeReadiness = makeReadinessRow('Apple agreements', 'todo', failureMessage);
+
     readinessEntries.push(makeReadiness);
 
     return readinessEntries;
@@ -329,7 +330,9 @@ async function appleAccountReadinessRows(apps: readonly AppDescriptor[]): Promis
     'ok',
     'accepted - API-key auth (no password, no 2FA)',
   );
+
   readinessEntries.push(makeReadiness);
+
   const appleBundle = checkAppleBundle(ascKey);
   const storeRows = await collectStoreAppRows({
     apps,
@@ -393,6 +396,7 @@ async function playRowsForPackage(
   }
 
   const playPackage = checkPlayPackage(serviceAccountJson);
+
   return collectStoreAppRows({
     apps: [app],
     selectAppId: playPackageName,
@@ -568,6 +572,7 @@ async function collectReadiness(
   }
 
   const appReadinessRows = await appConfigReadinessRows(apps, platform);
+
   readinessGroups.push({
     title: 'App config',
     rows: appReadinessRows,
@@ -579,6 +584,7 @@ async function collectReadiness(
 function resolveConfiguredArtifactDirectory(artifactDir: string, projectDirectory: string): string {
   const directories = readLaunchDirectories();
   const configuredDirectory = artifactDir.trim();
+
   const isEmpty = configuredDirectory.length == 0;
 
   if (isEmpty) {
@@ -624,6 +630,7 @@ async function scaffoldConfig(apps: readonly AppDescriptor[]): Promise<void> {
 
   const launchPath = join(projectDirectory, 'launch.config.ts');
   const template = configTemplate(appRoot, undefined, undefined, DEFAULT_IN_REPO_ARTIFACT_DIR);
+
   await writeFile(launchPath, template);
 
   const environmentExamplePath = join(projectDirectory, '.env.example');
@@ -637,6 +644,7 @@ async function scaffoldConfig(apps: readonly AppDescriptor[]): Promise<void> {
     DEFAULT_IN_REPO_ARTIFACT_DIR,
     projectDirectory,
   );
+
   await ensureArtifactDirIgnored(setupArtifactDirectory, projectDirectory);
 }
 
@@ -675,6 +683,7 @@ async function ensureLaunchConfig(
 ): Promise<readonly AppDescriptor[]> {
   let loadedConfiguration = await loadConfig(projectDirectory);
   const launchPath = join(projectDirectory, 'launch.config.ts');
+
   const configExists = await pathExists(launchPath);
 
   if (configExists) {
@@ -773,6 +782,7 @@ export async function runSetup(options: SetupOptions): Promise<void> {
   const terminalIsInteractive = new Prompts().isInteractive();
 
   const isMacOperatingSystem = checkIsMacOperatingSystem();
+
   await installToolchainWhenAllowed({
     platform: options.platform,
     yes: options.yes,
@@ -784,7 +794,9 @@ export async function runSetup(options: SetupOptions): Promise<void> {
   const readiness = await collectReadiness(options.platform, apps);
 
   logger.gap();
+
   const setupBoard = formatSetupBoard(readiness);
+
   logger.box('Launch setup', setupBoard);
   await rehearsePipeline(options, apps, logger);
   reportRemainingTodos({

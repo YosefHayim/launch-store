@@ -14,6 +14,7 @@ export class GooglePlay {
 
   async connect(packageName: string): Promise<androidpublisher_v3.Androidpublisher> {
     const saved = this.publishers.get(packageName);
+
     const isConnected = saved != null;
 
     if (isConnected) {
@@ -50,6 +51,7 @@ export class GooglePlay {
     }
 
     const editId = opened.data.id;
+
     const isMissing = editId == null;
 
     if (isMissing) {
@@ -86,6 +88,7 @@ export class GooglePlay {
     bundleUpload: androidpublisher_v3.Params$Resource$Edits$Bundles$Upload,
   ): Promise<androidpublisher_v3.Schema$Bundle> {
     const packageName = bundleUpload.packageName;
+
     const isPackageMissing = packageName == null;
 
     if (isPackageMissing) {
@@ -117,6 +120,7 @@ export class GooglePlay {
 
     try {
       const asString = String(versionCode);
+
       await publisher.edits.tracks.update({
         packageName,
         editId,
@@ -144,6 +148,7 @@ export class GooglePlay {
     }
 
     const products = listed.data.inappproduct;
+
     const isMissing = products == null;
 
     if (isMissing) {
@@ -154,6 +159,7 @@ export class GooglePlay {
 
     for (const product of products) {
       const productId = product.sku;
+
       const isBlank = productId == null;
 
       if (isBlank) {
@@ -177,6 +183,7 @@ export class GooglePlay {
     }
 
     const listings = listed.data.listings;
+
     const isMissing = listings == null;
 
     if (isMissing) {
@@ -187,6 +194,7 @@ export class GooglePlay {
 
     for (const listing of listings) {
       const language = listing.language;
+
       const isBlank = language == null;
 
       if (isBlank) {
@@ -210,6 +218,7 @@ export class GooglePlay {
     }
 
     const tracks = listed.data.tracks;
+
     const isMissing = tracks == null;
 
     if (isMissing) {
@@ -220,6 +229,7 @@ export class GooglePlay {
 
     for (const track of tracks) {
       const trackName = track.track;
+
       const isBlank = trackName == null;
 
       if (isBlank) {

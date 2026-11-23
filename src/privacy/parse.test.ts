@@ -32,6 +32,7 @@ const ANDROID_MANIFEST = `<manifest xmlns:android="http://schemas.android.com/ap
 function describeParseUsageDescriptions() {
   function extractsUsageKeysIncludingEmptyAndSelfClosingValues() {
     const usage = parseUsageDescriptions(INFO_PLIST);
+
     expect(usage['NSCameraUsageDescription']).toBe('We use the camera to scan receipts.');
     expect(usage['NSLocationWhenInUseUsageDescription']).toBe('');
     expect(usage['NSContactsUsageDescription']).toBe('');
@@ -48,6 +49,7 @@ describe('parseUsageDescriptions', describeParseUsageDescriptions);
 function describeParsePrivacyManifest() {
   function readsCollectedPieceTypesTheTrackingFlagAndTrackingDomains() {
     const manifest = parsePrivacyManifest(XCPRIVACY);
+
     expect(manifest.collectedDataTypes).toEqual([
       'NSPrivacyCollectedDataTypePhotosorVideos',
       'NSPrivacyCollectedDataTypeContacts',
@@ -60,6 +62,7 @@ function describeParsePrivacyManifest() {
     'reads collected data types, the tracking flag, and tracking domains',
     readsCollectedPieceTypesTheTrackingFlagAndTrackingDomains,
   );
+
   function defaultsTrackingToFalseWhenTheKeyIsAbsent() {
     const privacyManifest = parsePrivacyManifest('<dict></dict>');
     expect(privacyManifest.tracking).toBe(false);
@@ -75,6 +78,7 @@ describe('parsePrivacyManifest', describeParsePrivacyManifest);
 function describeParseAndroidPermissions() {
   function extractsAndDeDuplicatesPermissionNames() {
     const androidPermissions = parseAndroidPermissions(ANDROID_MANIFEST);
+
     expect(androidPermissions).toEqual([
       'android.permission.CAMERA',
       'android.permission.ACCESS_FINE_LOCATION',
@@ -92,20 +96,25 @@ function describeSurfaceFromNative() {
       privacyManifests: [XCPRIVACY],
       androidManifests: [ANDROID_MANIFEST],
     });
+
     expect(surface.hasManifest).toBe(true);
     expect(surface.tracking).toBe(true);
+
     const ownKeys = Object.keys(surface.usageDescriptions);
+
     expect(ownKeys).toContain('NSCameraUsageDescription');
     expect(surface.androidPermissions).toContain('android.permission.CAMERA');
   }
 
   it('unions the parsed files into one surface', unionsTheParsedFilesIntoOneSurface);
+
   function reportsNoManifestWhenNoXcprivacyWasParsed() {
     const surface = surfaceFromNative({
       infoPlists: [INFO_PLIST],
       privacyManifests: [],
       androidManifests: [],
     });
+
     expect(surface.hasManifest).toBe(false);
   }
 
@@ -132,6 +141,7 @@ function describeSurfaceFromExpoPiece() {
         android: { permissions: ['android.permission.CAMERA', 42] },
       },
     });
+
     expect(surface.usageDescriptions).toEqual({ NSCameraUsageDescription: 'Scan receipts' });
     expect(surface.hasManifest).toBe(true);
     expect(surface.collectedDataTypes).toEqual(['NSPrivacyCollectedDataTypePhotosorVideos']);
@@ -142,6 +152,7 @@ function describeSurfaceFromExpoPiece() {
     'reads usage strings, the manifest, and android permissions from the resolved config',
     readsUsageStringsTheManifestAndAndroidPermissionsFromTheResolvedPiece,
   );
+
   function toleratesAPieceWithNoIosAndroidSections() {
     const surface = surfaceFromExpoConfig({});
     expect(surface.hasManifest).toBe(false);

@@ -23,25 +23,39 @@ import { byoSshComputeHost } from './compute/byo-ssh.ts';
 /** Register every provider that ships with Launch. */
 export async function registerBuiltins(): Promise<void> {
   const localCredentialsProvider = makeLocalCredentialsProvider();
+
   registerCredentialsProvider(localCredentialsProvider);
 
   const localStorageResolver = makeLocalStorageProviderResolver();
+
   registerStorageProviderResolver(localStorageResolver);
+
   const localStorage = await localStorageResolver.resolveStorageProvider({});
+
   registerStorageProvider(localStorage);
+
   const s3StorageProviderResolver = makeS3StorageProviderResolver();
+
   registerStorageProviderResolver(s3StorageProviderResolver);
+
   const supabaseStorageProviderResolver = makeSupabaseStorageProviderResolver();
+
   registerStorageProviderResolver(supabaseStorageProviderResolver);
+
   const xcodeBuildEngine = makeXcodeBuildEngine();
+
   registerBuildEngine(xcodeBuildEngine);
+
   const gradleBuildEngine = makeGradleBuildEngine();
+
   registerBuildEngine(gradleBuildEngine);
   registerHostedBuildProvider(easHostedBuildProvider);
   registerSubmitter(appStoreConnectSubmitter);
   registerSubmitter(googlePlaySubmitter);
   registerSubmitter(easSubmitter);
+
   const awsEc2MacComputeHost = makeAwsEc2MacComputeHost();
+
   registerComputeHost(awsEc2MacComputeHost);
   registerComputeHost(byoSshComputeHost);
 }

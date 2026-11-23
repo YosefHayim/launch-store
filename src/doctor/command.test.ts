@@ -8,6 +8,7 @@ describe('DoctorCommandInputSchema', function describeDoctorCommandInput() {
       yes: false,
       json: true,
     });
+
     expect(doctorCommandSchema).toEqual({ fix: false, yes: false, json: true });
   });
 
@@ -31,6 +32,7 @@ describe('renderDoctorCheckLines', function describeRenderedDoctorChecks() {
       hint: 'Install Xcode.',
       detail: 'missing xcodebuild\n  already indented',
     });
+
     expect(doctorCheckLines).toEqual([
       'x Xcode  - Install Xcode.',
       '  missing xcodebuild',

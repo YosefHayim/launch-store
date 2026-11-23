@@ -36,6 +36,7 @@ import type { PlayMoneyUnits } from '../../types/play-pricing.ts';
 /** A base plan's per-region prices -> the snapshot's `{ priceMicros */
 function regionalPrices(configs: readonly RegionalBasePlanConfig[]): Record<string, JsonValue> {
   const prices: Record<string, JsonValue> = {};
+
   function sortA(
     a: {
       readonly regionCode: string;
@@ -59,18 +60,25 @@ function regionalPrices(configs: readonly RegionalBasePlanConfig[]): Record<stri
       };
     }
   }
+
   return prices;
 }
 /** A subscription's base plans, normalized to serializable records (id, state, billing period, prices). */
 const basePlans = (plans: readonly BasePlan[]): JsonValue => {
   return plans.map((plan): JsonValue => {
     let prices: Record<string, JsonValue> = {};
+
     if (plan.regionalConfigs) prices = regionalPrices(plan.regionalConfigs);
+
     const planFields: Record<string, JsonValue> = { basePlanId: plan.basePlanId };
+
     if (plan.state) planFields['state'] = plan.state;
+
     if (plan.autoRenewingBasePlanType)
       planFields['period'] = plan.autoRenewingBasePlanType.billingPeriodDuration;
+
     if (Object.keys(prices).length > 0) planFields['prices'] = prices;
+
     return planFields;
   });
 };
@@ -90,10 +98,15 @@ function listings(items: readonly SubscriptionListing[]): JsonValue {
 /** One captured subscription -> a snapshot entity keyed by its product id. */
 function readSnapshotEntity(subscription: SubscriptionResource): SnapshotEntity {
   const subscriptionFields: Record<string, JsonValue> = { productId: subscription.productId };
+
   if (subscription.basePlans) subscriptionFields['basePlans'] = basePlans(subscription.basePlans);
+
   if (subscription.listings) subscriptionFields['listings'] = listings(subscription.listings);
+
   let planCount = subscription.basePlans?.length;
+
   if (planCount == null) planCount = 0;
+
   return {
     key: subscription.productId,
     summary: `Play subscription (${planCount} base plan(s))`,
@@ -109,21 +122,31 @@ type RestorableBasePlan = {
 /** Invert a captured `prices` map (`{ region: { priceMicros, currency } }`) back to per-region price configs. */
 function readPriceMap(capturedPrices: JsonValue | undefined): Record<string, PlayPriceConfig> {
   const map = jsonRecord(capturedPrices);
+
   if (!map) return {};
+
   const prices: Record<string, PlayPriceConfig> = {};
+
   for (const [region, raw] of Object.entries(map)) {
     const price = readPriceConfig(raw);
+
     if (price) prices[region] = price;
   }
+
   return prices;
 }
 /** Read the first captured base plan back into a {@link RestorableBasePlan}. */
 function firstBasePlan(capturedBasePlans: JsonValue | undefined): RestorableBasePlan | null {
   if (!Array.isArray(capturedBasePlans)) return null;
+
   const first = jsonRecord(capturedBasePlans[0]);
+
   if (!first) return null;
+
   const basePlanId = stringField(first, 'basePlanId');
+
   if (basePlanId == null) return null;
+
   return {
     basePlanId,
     period: stringField(first, 'period'),
@@ -133,12 +156,17 @@ function firstBasePlan(capturedBasePlans: JsonValue | undefined): RestorableBase
 /** Invert a captured `listings` array (`{ languageCode, title }`) back into the shared localization list. */
 function readCapturedLocalizations(capturedListings: JsonValue | undefined): ProductLocalization[] {
   if (!Array.isArray(capturedListings)) return [];
+
   const localizations: ProductLocalization[] = [];
+
   for (const capturedListing of capturedListings) {
     const record = jsonRecord(capturedListing);
+
     if (!record) continue;
+
     const locale = stringField(record, 'languageCode');
     const name = stringField(record, 'title');
+
     if (locale == null) {
       continue;
     }
@@ -149,24 +177,35 @@ function readCapturedLocalizations(capturedListings: JsonValue | undefined): Pro
 
     localizations.push({ locale, name });
   }
+
   return localizations;
 }
 /** Rebuild a {@link SubscriptionConfig} from one captured subscription entity */
 function readSubscriptionConfig(entity: SnapshotEntity): SubscriptionConfig | null {
   const subscriptionFields = jsonRecord(entity.data);
+
   if (!subscriptionFields) return null;
+
   let productId = stringField(subscriptionFields, 'productId');
+
   if (productId == null) productId = entity.key;
+
   const basePlan = firstBasePlan(subscriptionFields['basePlans']);
+
   if (!basePlan?.period) return null;
+
   const subscriptionPeriod = periodFromIso(basePlan.period);
+
   if (!subscriptionPeriod) return null;
+
   if (Object.keys(basePlan.prices).length == 0) return null;
+
   const play: PlaySubscriptionOverride = {
     productId,
     basePlanId: basePlan.basePlanId,
     prices: basePlan.prices,
   };
+
   return {
     productId,
     referenceName: productId,
@@ -286,6 +325,7 @@ async function restorePlaySubscriptions({ ctx: restoreContext, saved, dryRun }: 
             `Play subscription ${entity.key}: skipped - needs a base plan with a known period and prices`,
           ),
         );
+
         continue;
       }
 
@@ -302,6 +342,7 @@ async function restorePlaySubscriptions({ ctx: restoreContext, saved, dryRun }: 
       subscriptions,
       dryRun,
     );
+
     actions.push(...appActions);
   }
 

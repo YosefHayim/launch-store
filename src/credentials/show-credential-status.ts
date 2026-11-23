@@ -52,6 +52,7 @@ export async function showCredentialStatus(
   for (const account of accounts) {
     const storedSigning = await describeStoredCredentials(account.keyId);
     let activeMarker = '';
+
     const isActiveAccount = account.keyId == activeKeyId;
 
     if (isActiveAccount) {
@@ -59,6 +60,7 @@ export async function showCredentialStatus(
     }
 
     const accountSummary = formatAccountSummary(account);
+
     logger.line(`Apple account: ${accountSummary}${activeMarker}`);
 
     if (storedSigning.certSerial != null) {

@@ -195,8 +195,11 @@ export class AppStoreConnectClient implements AscHost {
     // minted per attempt, so a retry that straddles the 19-minute TTL re-signs rather than 401s.
     // A write that lost its connection may already have landed, so only a GET retries one.
     let isRetryableFailure = isRetryableAscError;
+
     if (method == 'GET') isRetryableFailure = isRetryableIdempotentFailure;
+
     const client = this;
+
     function requestWithBackoff() {
       function requestOnceNow() {
         return client.requestOnce<T>(method, pathOrUrl, requestDocument);
@@ -206,10 +209,12 @@ export class AppStoreConnectClient implements AscHost {
         isRetryableFailure,
       });
     }
+
     try {
       return await requestWithBackoff();
     } catch (requestFailure) {
       if (!isRejectedToken(requestFailure)) throw requestFailure;
+
       forgetToken(this.key);
       return requestWithBackoff();
     }
@@ -221,41 +226,51 @@ export class AppStoreConnectClient implements AscHost {
     requestDocument?: unknown,
   ): Promise<T> {
     let url = pathOrUrl;
+
     if (!pathOrUrl.startsWith('http')) url = `${BASE_URL}${pathOrUrl}`;
+
     const requestHeaders: Record<string, string> = {
       Authorization: `Bearer ${await this.token()}`,
     };
     const requestInit: RequestInit = { method, headers: requestHeaders };
+
     if (requestDocument != null) {
       requestHeaders['Content-Type'] = 'application/json';
       requestInit.body = JSON.stringify(requestDocument);
     }
+
     const appleResponse = await fetch(url, requestInit);
+
     const isEmptyResponse = appleResponse.status == 204;
 
     if (isEmptyResponse) return undefined as T;
 
     const responseText = await appleResponse.text();
+
     const isFailedResponse = appleResponse.ok == false;
 
     if (isFailedResponse) {
       // A 401 most often means a wrong/expired token - but the sneaky cause is a skewed local clock,
       // since `exp`/`iat` are signed off it. Apple's `Date` header is the authoritative reference.
       let clockHint = '';
+
       if (appleResponse.status == 401)
         clockHint = clockSkewHint({
           appleDate: appleResponse.headers.get('date'),
           nowMs: Date.now(),
           platform: this.operatingSystem,
         });
+
       const errors = describeErrors(responseText);
       const errorCodes = parseErrorCodes(responseText);
+
       throw new AscRequestError(
         `App Store Connect ${method} ${pathOrUrl} failed (${appleResponse.status}): ${errors}${clockHint}`,
         appleResponse.status,
         errorCodes,
       );
     }
+
     const responseDocument: unknown = JSON.parse(responseText);
 
     return responseDocument as T;
@@ -267,6 +282,7 @@ export class AppStoreConnectClient implements AscHost {
 
   async requestAll<A>(path: string): Promise<AppleResource<A>[]> {
     const pages = await this.requestPages<PagedList<A>>(path);
+
     function readPiece(page: { data: AppleResource<A>[]; links?: { next?: string } }) {
       return page.data;
     }
@@ -277,12 +293,14 @@ export class AppStoreConnectClient implements AscHost {
   async requestPages<Page extends { links?: { next?: string } }>(path: string): Promise<Page[]> {
     const pages: Page[] = [];
     let next: string | undefined = path;
+
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page: Page = await this.request<Page>('GET', next);
       pages.push(page);
       next = page.links?.next;
     }
+
     return pages;
   }
 
@@ -291,6 +309,7 @@ export class AppStoreConnectClient implements AscHost {
       return await load();
     } catch (error) {
       if (error instanceof AscRequestError && error.status == 404) return null;
+
       throw error;
     }
   }
@@ -349,7 +368,9 @@ export class AppStoreConnectClient implements AscHost {
       },
     });
     let operations = reservation.data.attributes.uploadOperations;
+
     if (operations == null) operations = [];
+
     return { id: reservation.data.id, operations };
   }
 

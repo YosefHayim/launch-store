@@ -18,6 +18,7 @@ const EMPTY_SECRETS_INDEX: SecretsIndex = { secrets: [] };
 /** Resolve the secret-store account for one scoped build secret. */
 function secretAccount(secretReference: SecretRef): string {
   let profile = '*';
+
   const hasProfile = secretReference.profile != null;
 
   if (hasProfile) {
@@ -133,6 +134,7 @@ async function readIndex(): Promise<SecretsIndex> {
   }
 
   const secretIndex = decodeSecretsIndex(decodedIndex);
+
   const isInvalid = secretIndex == null;
 
   if (isInvalid) {
@@ -146,8 +148,11 @@ async function readIndex(): Promise<SecretsIndex> {
 async function writeIndex(secretIndex: SecretsIndex): Promise<void> {
   const indexPath = resolveSecretsFilePath();
   const parentDirectory = path.dirname(indexPath);
+
   await mkdir(parentDirectory, { recursive: true });
+
   const serialized = JSON.stringify(secretIndex, null, 2);
+
   await writeFile(indexPath, serialized);
 }
 
@@ -181,7 +186,9 @@ export async function setBuildSecret(
   secretText: string,
 ): Promise<void> {
   await LaunchSecretStore.storeSecret(secretAccount(secretReference), secretText);
+
   const secretIndex = await readIndex();
+
   const alreadyRecorded = secretIndex.secrets.some(matchesReference(secretReference));
 
   if (alreadyRecorded) {
@@ -200,8 +207,10 @@ function isDifferentSecret(secretReference: SecretRef): (existingReference: Secr
 /** Delete a secret value and remove its coordinates from the index. */
 export async function removeBuildSecret(secretReference: SecretRef): Promise<boolean> {
   await LaunchSecretStore.deleteSecret(secretAccount(secretReference));
+
   const secretIndex = await readIndex();
   const remainingReferences = secretIndex.secrets.filter(isDifferentSecret(secretReference));
+
   const existed = remainingReferences.length != secretIndex.secrets.length;
 
   if (existed) {
@@ -242,6 +251,7 @@ export async function resolveBuildSecrets(
 
   for (const secretReference of effectiveRefs(secretReferences, appName, profileName)) {
     const secretText = await LaunchSecretStore.readSecret(secretAccount(secretReference));
+
     const hasSecret = secretText != null;
 
     if (hasSecret) {

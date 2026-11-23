@@ -50,6 +50,7 @@ function isUserSnapshot(savedSnapshot: Snapshot): boolean {
 
 export async function pruneUserSnapshots(pruneOptions: PruneOptions): Promise<void> {
   const logger = createLogger(false);
+
   if (hasPruneBound(pruneOptions) == false) {
     throw snapshotFailure(
       'prune snapshots',
@@ -81,6 +82,7 @@ export async function pruneUserSnapshots(pruneOptions: PruneOptions): Promise<vo
       null,
       2,
     );
+
     logger.line(serialized);
 
     return;

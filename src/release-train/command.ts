@@ -231,6 +231,7 @@ export function trainAppSlug(appName: string): string {
   const dashedName = loweredName.replace(/[^a-z0-9]+/g, '-');
   // Drops dashes left at the start or end of the slug.
   const appSlug = dashedName.replace(/^-+|-+$/g, '');
+
   const isSlugEmpty = appSlug == '';
 
   if (isSlugEmpty) {
@@ -302,6 +303,7 @@ export function carStatusLine(trainCar: Car): string {
 
 function renderTrain(trainRecord: TrainRecord, logger: Logger): void {
   let holdDetail = '';
+
   const isHeld = trainRecord.hold == true;
 
   if (isHeld) {
@@ -309,6 +311,7 @@ function renderTrain(trainRecord: TrainRecord, logger: Logger): void {
   }
 
   const statusLines = trainRecord.cars.map(carStatusLine);
+
   logger.box(
     `Train ${trainRecord.id} - ${trainRecord.app} - ${trainRecord.state}${holdDetail}`,
     statusLines,
@@ -348,6 +351,7 @@ async function failMissingNamedTrain(trainId: string): Promise<TrainRecord> {
 
   const knownTrainIds = knownTrains.map(readTrainId);
   let knownTrainSummary = knownTrainIds.join(', ');
+
   const isSummaryEmpty = knownTrainSummary == '';
 
   if (isSummaryEmpty) {
@@ -363,6 +367,7 @@ async function failMissingNamedTrain(trainId: string): Promise<TrainRecord> {
 
 async function readNamedTrain(trainId: string): Promise<TrainRecord> {
   const namedTrain = await readTrainRecord(trainId);
+
   const isMissing = namedTrain == null;
 
   if (isMissing) {
@@ -406,6 +411,7 @@ function readTrainProfile(
   profileName: string,
 ): BuildProfile {
   const selectedProfile = profiles[profileName];
+
   const isProfileMissing = selectedProfile == null;
 
   if (isProfileMissing) {
@@ -570,6 +576,7 @@ async function startReleaseTrain(commandFlags: ReleaseTrainCommandOptions): Prom
     channel: commandFlags.channel,
     noOta: skipsOta,
   };
+
   const hasPlatformFilter = platformFilter != null;
 
   if (hasPlatformFilter) {
@@ -577,6 +584,7 @@ async function startReleaseTrain(commandFlags: ReleaseTrainCommandOptions): Prom
   }
 
   const trainCars = planTrainCars(trainCarInput);
+
   const hasNoPlatforms = trainCars.platforms.length == 0;
 
   if (hasNoPlatforms) {
@@ -588,6 +596,7 @@ async function startReleaseTrain(commandFlags: ReleaseTrainCommandOptions): Prom
   }
 
   let otaDetail = '';
+
   const hasOta = trainCars.ota.length > 0;
 
   if (hasOta) {
@@ -598,6 +607,7 @@ async function startReleaseTrain(commandFlags: ReleaseTrainCommandOptions): Prom
     'release-train',
     `starting ${preparedTrain.app.name}: ${trainCars.platforms.join(' + ')}${otaDetail}`,
   );
+
   const trainRecord = await startTrain(
     {
       id: mintTrainId(preparedTrain.app.name),
@@ -609,6 +619,7 @@ async function startReleaseTrain(commandFlags: ReleaseTrainCommandOptions): Prom
     },
     preparedTrain.runtime.engine,
   );
+
   await persistTrain(trainRecord);
   preparedTrain.logger.note(
     `Track it with \`launch-store release-train status ${trainRecord.id} --watch\`.`,
@@ -675,6 +686,7 @@ async function statusReleaseTrain(
     false,
     preparedTrain.logger,
   );
+
   const shouldWatch = shouldWatchTrain(commandFlags);
 
   if (shouldWatch) {
@@ -696,6 +708,7 @@ async function releaseHeldTrain(
     true,
     preparedTrain.logger,
   );
+
   await reportTrain(trainRecord, commandFlags, preparedTrain.logger);
 }
 
@@ -710,6 +723,7 @@ async function abortReleaseTrain(
     state: 'aborted',
     updatedAt: currentIsoTime(),
   };
+
   await persistTrain(abortedTrain);
   logger.note(
     `Aborted ${abortedTrain.id}. Live cars are untouched - roll back explicitly with \`launch-store rollout pause\` or \`launch-store updates rollback\`.`,

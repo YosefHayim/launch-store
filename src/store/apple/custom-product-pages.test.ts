@@ -71,6 +71,7 @@ function makeApi(state: Partial<State>): {
       return Promise.resolve();
     },
   };
+
   return { api, calls };
 }
 /** Execute the custom-pages reconciler at the test boundary. */
@@ -94,22 +95,26 @@ function describeParseCustomProductPagesPiece() {
   }
 
   it('parses pages with promotional text', parsesPagesWithPromotionalPiece);
+
   function rejectsANonObjectAnEmptyListADuplicateNameAndBadPromoPiece() {
     function callDecodeCustomProductPagesPiece() {
       return decodeCustomProductPagesConfig('nope');
     }
 
     expect(callDecodeCustomProductPagesPiece).toThrow(/must be a JSON object/);
+
     function callDecodeCustomProductPagesPiece2() {
       return decodeCustomProductPagesConfig({ pages: [] });
     }
 
     expect(callDecodeCustomProductPagesPiece2).toThrow(/at least one entry/);
+
     function callDecodeCustomProductPagesPiece3() {
       return decodeCustomProductPagesConfig({ pages: [{ name: 'A' }, { name: 'A' }] });
     }
 
     expect(callDecodeCustomProductPagesPiece3).toThrow(/duplicate page name/);
+
     function callDecodeCustomProductPagesPiece4() {
       return decodeCustomProductPagesConfig({
         pages: [{ name: 'A', promotionalText: { 'en-US': '' } }],
@@ -137,6 +142,7 @@ function describeReconcileCustomProductPages() {
     'throws when the app has no App Store Connect record',
     throwsWhenTheAppHasNoAppStoreConnectPiece,
   );
+
   async function createsAMissingPageAndSetsItsPromotionalPieceApply() {
     const { api, calls } = makeApi({});
     const report = await runReconcile(api, {
@@ -144,11 +150,14 @@ function describeReconcileCustomProductPages() {
       config: CONFIG,
       dryRun: false,
     });
+
     expect(calls.createdPages).toEqual(['Spring Sale']);
     expect(calls.createdLocs).toEqual([
       { versionId: 'ver-1', locale: 'en-US', promotionalText: '50% off this week!' },
     ]);
+
     const customPages = summarizeCustomPages(report.actions);
+
     expect(customPages).toEqual({ applied: 2, failed: 0, skipped: 0 });
   }
 
@@ -156,11 +165,13 @@ function describeReconcileCustomProductPages() {
     'creates a missing page and sets its promotional text (apply)',
     createsAMissingPageAndSetsItsPromotionalPieceApply,
   );
+
   async function updatesPromotionalPieceOnAnExistingPageWhenItDiffersAndSkipsAnIdenticalOne() {
     const { api, calls } = makeApi({
       pages: [{ id: 'page-1', name: 'Spring Sale' }],
       localizations: [{ id: 'loc-1', locale: 'en-US', promotionalText: 'Old copy' }],
     });
+
     await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: CONFIG,
@@ -168,6 +179,7 @@ function describeReconcileCustomProductPages() {
     });
     expect(calls.createdPages).toHaveLength(0); // page already exists
     expect(calls.updatedLocs).toEqual([{ id: 'loc-1', promotionalText: '50% off this week!' }]);
+
     const { api: api2, calls: calls2 } = makeApi({
       pages: [{ id: 'page-1', name: 'Spring Sale' }],
       localizations: [{ id: 'loc-1', locale: 'en-US', promotionalText: '50% off this week!' }],
@@ -177,6 +189,7 @@ function describeReconcileCustomProductPages() {
       config: CONFIG,
       dryRun: false,
     });
+
     expect(calls2.updatedLocs).toHaveLength(0); // identical -> no-op
     expect(report.actions).toHaveLength(0);
   }
@@ -185,6 +198,7 @@ function describeReconcileCustomProductPages() {
     'updates promotional text on an existing page when it differs, and skips an identical one',
     updatesPromotionalPieceOnAnExistingPageWhenItDiffersAndSkipsAnIdenticalOne,
   );
+
   async function skipsPromotionalPieceWhenThereSNoEditableVersion() {
     const { api, calls } = makeApi({
       pages: [{ id: 'page-1', name: 'Spring Sale' }],
@@ -195,8 +209,11 @@ function describeReconcileCustomProductPages() {
       config: CONFIG,
       dryRun: false,
     });
+
     expect(calls.createdLocs).toHaveLength(0);
+
     const customPages = summarizeCustomPages(report.actions);
+
     expect(customPages).toEqual({ applied: 0, failed: 0, skipped: 1 });
   }
 
@@ -204,6 +221,7 @@ function describeReconcileCustomProductPages() {
     "skips promotional text when there's no editable version",
     skipsPromotionalPieceWhenThereSNoEditableVersion,
   );
+
   async function plansButPerformsNothingOnADryRunNewPage() {
     const { api, calls } = makeApi({});
     const report = await runReconcile(api, {
@@ -211,8 +229,10 @@ function describeReconcileCustomProductPages() {
       config: CONFIG,
       dryRun: true,
     });
+
     expect(calls.createdPages).toHaveLength(0);
     expect(calls.createdLocs).toHaveLength(0);
+
     function everyAction(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -227,20 +247,25 @@ function describeReconcileCustomProductPages() {
   }
 
   it('plans but performs nothing on a dry-run (new page)', plansButPerformsNothingOnADryRunNewPage);
+
   async function skipsAPageSPromotionalPieceWhenThePageCreateFailed() {
     const { api } = makeApi({});
+
     function runPiece() {
       return Promise.reject(new Error('page name taken'));
     }
 
     api.createCustomProductPage = runPiece;
+
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: CONFIG,
       dryRun: false,
     });
     const summary = summarizeCustomPages(report.actions);
+
     expect(summary).toEqual({ applied: 0, failed: 1, skipped: 1 });
+
     function findAction(action: {
       readonly description: string;
       readonly destructive: boolean;

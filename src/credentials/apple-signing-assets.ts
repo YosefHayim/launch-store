@@ -238,6 +238,7 @@ export async function ensureSigningCredentials(
       confirmCreate: signingOptions.confirmCreate,
       log: signingOptions.log,
     });
+
     extensionProfiles[extensionId] = provisioned.profileName;
   }
 
@@ -284,6 +285,7 @@ export async function ensureAdHocSigningCredentials(
     signingOptions.log.note(
       `[dry-run] would ensure App ID + distribution cert + an ad-hoc profile over registered devices for ${signingOptions.bundleId}`,
     );
+
     const assets = dryRunAssets(signingOptions.bundleId);
 
     return { ...assets, profileName: `Launch_${signingOptions.bundleId}_AdHoc` };
@@ -319,6 +321,7 @@ export async function ensureAdHocSigningCredentials(
   }
 
   const enabledDevices = devices.filter(isEnabledDevice);
+
   const hasNoDevices = enabledDevices.length == 0;
 
   if (hasNoDevices) {
@@ -356,7 +359,9 @@ export async function ensureAdHocSigningCredentials(
     `${signingOptions.bundleId}.adhoc`,
     profile.profileContent,
   );
+
   signingOptions.log.step('profile', `created ${profileName} (ad-hoc)`, 'provisioning-profile');
+
   const teamId = resolveProfileTeamId(installed.teamId, bundle.seedId);
 
   return {
@@ -388,6 +393,7 @@ export async function ensureRemoteSigningAssets(
 ): Promise<RemoteSigningBundle> {
   if (signingOptions.dryRun) {
     const credentialsDirectory = resolveAccountCredentialsDirectory(signingOptions.ascKey.keyId);
+
     signingOptions.log.note(
       `[dry-run] would ensure App ID + distribution .p12 + App Store profile for ${signingOptions.bundleId}, ready to upload`,
     );
@@ -437,10 +443,14 @@ export async function ensureRemoteSigningAssets(
     log: signingOptions.log,
   });
   const credentialsDirectory = resolveAccountCredentialsDirectory(keyId);
+
   await mkdir(credentialsDirectory, { recursive: true });
+
   const profilePath = join(credentialsDirectory, `${signingOptions.bundleId}.mobileprovision`);
   const bufferBytes = Buffer.from(profile.profileContent, 'base64');
+
   await writeFile(profilePath, bufferBytes);
+
   let teamId = '';
 
   if (bundle.seedId != null) {
@@ -503,6 +513,7 @@ async function createRemoteProfile(
     remoteProfile.certId,
     profileType,
   );
+
   remoteProfile.log.step('profile', `created ${profileName}`, 'provisioning-profile');
 
   return profile;
@@ -553,6 +564,7 @@ export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
   }
 
   const destinationDirectory = resolveAccountCredentialsDirectory(keyId);
+
   await mkdir(destinationDirectory, { recursive: true });
 
   async function moveInto(sourcePath: string | undefined): Promise<string | undefined> {
@@ -602,6 +614,7 @@ export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
 
   const indexPath = join(destinationDirectory, 'index.json');
   const serialized = JSON.stringify(index, null, 2);
+
   await writeFile(indexPath, serialized);
 
   try {

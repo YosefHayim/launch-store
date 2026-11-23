@@ -70,6 +70,7 @@ export function renderAccessibilityAction(plannedAction: PlannedAction): string 
   }
 
   let errorDetail = '';
+
   const hasError = plannedAction.error != null;
 
   if (hasError) {
@@ -93,6 +94,7 @@ function receiptLine(appliedAction: PlannedAction): string {
   if (isFailed) {
     let errorDetail = 'failed';
     const actionError = appliedAction.error;
+
     const hasError = actionError != null;
 
     if (hasError) {
@@ -103,6 +105,7 @@ function receiptLine(appliedAction: PlannedAction): string {
   }
 
   let marker = 'OK';
+
   const isSkipped = appliedAction.status == 'skipped';
 
   if (isSkipped) {
@@ -117,6 +120,7 @@ export async function accessibilityCommandProgram(
   commandInput: AccessibilityCommandInput,
 ): Promise<void> {
   const logger = createLogger(false);
+
   try {
     var loadedConfiguration = await loadConfig();
   } catch (cause) {
@@ -136,6 +140,7 @@ export async function accessibilityCommandProgram(
   }
 
   const bundleId = selectedApp.bundleId;
+
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
@@ -159,6 +164,7 @@ export async function accessibilityCommandProgram(
   }
 
   const loadedAscKey = ascKey;
+
   const isAccountMissing = loadedAscKey == null;
 
   if (isAccountMissing) {
@@ -186,7 +192,9 @@ export async function accessibilityCommandProgram(
   }
 
   const plannedActions = accessibilityPlan.actions.filter(isPlannedAction);
+
   logger.gap();
+
   const isAlreadyInSync = accessibilityPlan.actions.length == 0;
 
   if (isAlreadyInSync) {
@@ -197,6 +205,7 @@ export async function accessibilityCommandProgram(
   logger.notice(bundleId, ...accessibilityPlan.actions.map(renderPlanned));
   logger.gap();
   logger.note(`${plannedActions.length} change(s) for ${bundleId}.`);
+
   const isDryRun = commandInput.dryRun == true;
 
   if (isDryRun) {
@@ -208,6 +217,7 @@ export async function accessibilityCommandProgram(
 
   if (skipConfirmation == false) {
     const terminalIsInteractive = checkTerminalIsInteractive();
+
     const needsATerminal = terminalIsInteractive == false;
 
     if (needsATerminal) {
@@ -248,6 +258,7 @@ export async function accessibilityCommandProgram(
 
   const accessibilitySummary = summarizeAccessibility(appliedAccessibility.actions);
   let receiptTitle = 'Applied';
+
   const hasFailures = accessibilitySummary.failed > 0;
 
   if (hasFailures) {

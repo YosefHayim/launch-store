@@ -37,6 +37,7 @@ type OptionalText =
 
 function recordFailure(operation: string, cause: unknown): TrainRecordFailure {
   let message = errorMessage(cause);
+
   const isMessageEmpty = message.length == 0;
 
   if (isMessageEmpty) {
@@ -354,6 +355,7 @@ export function isLiveTrain(trainRecord: TrainRecord): boolean {
 export function safeTrainId(trainId: string): string {
   // Keeps letters, digits, underscores, and dashes so the id can be a filename.
   const sanitizedTrainId = trainId.replace(/[^A-Za-z0-9_-]/g, '');
+
   const isEmpty = sanitizedTrainId.length == 0;
 
   if (isEmpty) {

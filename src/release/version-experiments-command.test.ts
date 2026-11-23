@@ -9,6 +9,7 @@ function describeDecodeVersionExperimentsCommandPiece() {
       dryRun: true,
       yes: false,
     });
+
     expect(decodeVersionExperimentsCommand).toEqual({
       config: 'experiments.config.json',
       submit: true,
@@ -22,6 +23,7 @@ function describeDecodeVersionExperimentsCommandPiece() {
     'decodes the Commander boundary with an omitted app selector',
     decodesTheCommanderBoundaryWithAnOmittedAppSelector,
   );
+
   function rejectsAnExplicitUndefinedExactOptionalApp() {
     function callDecodeVersionExperimentsCommandPiece() {
       return decodeVersionExperimentsCommandInput({

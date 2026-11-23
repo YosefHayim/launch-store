@@ -53,6 +53,7 @@ function describeIsApplePlatformAppleVsAndroidToolchainSplit() {
     'is true for every Apple platform and false for Android',
     isTrueForEveryApplePlatformAndFalseForAndroid,
   );
+
   function aPPLEPLATFORMSAndPLATFORMSAgreeOnMembership() {
     expect([...APPLE_PLATFORMS].sort()).toEqual([...APPLE].sort());
     expect(PLATFORMS.filter(isApplePlatform).sort()).toEqual([...APPLE].sort());
@@ -77,10 +78,12 @@ function describeParsePlatformTheSingleCLIPlatformGuard() {
   }
 
   it('accepts all five platforms verbatim', acceptsAllFivePlatformsVerbatim);
+
   function rejectsJunkWithAMessageThatListsTheValidValues() {
     const platformFailure = thrownMessage(function readPlatform() {
       parsePlatform('web');
     });
+
     expect(platformFailure).toMatch(/Unknown platform "web"/);
     expect(platformFailure).toMatch(/ios, android, tvos, macos, visionos/);
   }
@@ -120,6 +123,7 @@ function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMap
     'maps the version/filter platform to the four distinct ASC values',
     mapsTheVersionFilterPlatformToTheFourDistinctASCValues,
   );
+
   function collapsesTheBundleIdPlatformTvOSVisionOSRegisterAsIOSFamilyOnlyMacOSIsMACOS() {
     expect(readBundleIdPlatform('ios')).toBe('IOS');
     expect(readBundleIdPlatform('tvos')).toBe('IOS');
@@ -131,6 +135,7 @@ function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMap
     'collapses the bundle-id platform - tvOS/visionOS register as iOS-family, only macOS is MAC_OS',
     collapsesTheBundleIdPlatformTvOSVisionOSRegisterAsIOSFamilyOnlyMacOSIsMACOS,
   );
+
   function provesTheSplitVisionOSIsVISIONOSForAVersionFilterButIOSForABundleId() {
     expect(readConnectPlatform('visionos')).toBe('VISION_OS');
     expect(readBundleIdPlatform('visionos')).toBe('IOS');
@@ -140,6 +145,7 @@ function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMap
     'proves the split: visionOS is VISION_OS for a version filter but IOS for a bundle id',
     provesTheSplitVisionOSIsVISIONOSForAVersionFilterButIOSForABundleId,
   );
+
   function bothThrowForAndroidNoAppStoreConnectPresence() {
     const ascPlatformFailure = thrownMessage(function readAscPlatform() {
       readConnectPlatform('android');
@@ -147,6 +153,7 @@ function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMap
     const bundleIdPlatformFailure = thrownMessage(function readBundlePlatform() {
       readBundleIdPlatform('android');
     });
+
     expect(ascPlatformFailure).toMatch(/Android/);
     expect(bundleIdPlatformFailure).toMatch(/Android/);
   }
@@ -173,6 +180,7 @@ function describeProvisioningProfileTypesVisionOSReusesIOSMacOSHasNoAdHoc() {
     'appStoreProfileType maps each Apple platform (visionOS -> IOS_APP_STORE)',
     appStoreProfileTypeMapsEachApplePlatformVisionOSIOSAPPSTORE,
   );
+
   function adHocProfileTypeIsDefinedForTheDeviceInstallablePlatformsUndefinedForMacOS() {
     expect(adHocProfileType('ios')).toBe('IOS_APP_ADHOC');
     expect(adHocProfileType('visionos')).toBe('IOS_APP_ADHOC');
@@ -184,6 +192,7 @@ function describeProvisioningProfileTypesVisionOSReusesIOSMacOSHasNoAdHoc() {
     'adHocProfileType is defined for the device-installable platforms, undefined for macOS',
     adHocProfileTypeIsDefinedForTheDeviceInstallablePlatformsUndefinedForMacOS,
   );
+
   function bothThrowForAndroid() {
     const appStoreProfileFailure = thrownMessage(function readAppStoreProfile() {
       appStoreProfileType('android');
@@ -191,6 +200,7 @@ function describeProvisioningProfileTypesVisionOSReusesIOSMacOSHasNoAdHoc() {
     const adHocProfileFailure = thrownMessage(function readAdHocProfile() {
       adHocProfileType('android');
     });
+
     expect(appStoreProfileFailure).toMatch(/Android/);
     expect(adHocProfileFailure).toMatch(/Android/);
   }
@@ -211,6 +221,7 @@ function describeArchiveDestinationEveryApplePlatformTargetsGenericPlatform() {
     'targets a generic device for iOS so an archive never builds for a simulator',
     targetsAGenericDeviceForIOSSoAnArchiveNeverBuildsForASimulator,
   );
+
   function returnsTheXcodebuildGenericDestinationForEachOtherApplePlatform() {
     expect(archiveDestination('tvos')).toBe('generic/platform=tvOS');
     expect(archiveDestination('macos')).toBe('generic/platform=macOS');
@@ -221,6 +232,7 @@ function describeArchiveDestinationEveryApplePlatformTargetsGenericPlatform() {
     'returns the xcodebuild generic destination for each other Apple platform',
     returnsTheXcodebuildGenericDestinationForEachOtherApplePlatform,
   );
+
   function throwsForAndroidNotAnXcodeBuild() {
     const destinationFailure = thrownMessage(function readDestination() {
       archiveDestination('android');
@@ -247,6 +259,7 @@ function describeNativeProjectDirNameNativeTargetHintAppleArtifactExtension() {
     'maps each Apple platform to its committed native directory (tvOS shares ios/)',
     mapsEachApplePlatformToItsCommittedNativeDirectoryTvOSSharesIos,
   );
+
   function hintsTheRightRNForkForTheNonIOSPlatforms() {
     expect(nativeTargetHint('tvos')).toMatch(/tvos/i);
     expect(nativeTargetHint('macos')).toMatch(/macos/i);
@@ -254,6 +267,7 @@ function describeNativeProjectDirNameNativeTargetHintAppleArtifactExtension() {
   }
 
   it('hints the right RN fork for the non-iOS platforms', hintsTheRightRNForkForTheNonIOSPlatforms);
+
   function exportsIpaForTheIOSFamilyPlatformsAndPkgForMacOS() {
     expect(appleArtifactExtension('ios')).toBe('ipa');
     expect(appleArtifactExtension('tvos')).toBe('ipa');
@@ -265,6 +279,7 @@ function describeNativeProjectDirNameNativeTargetHintAppleArtifactExtension() {
     'exports .ipa for the iOS-family platforms and .pkg for macOS',
     exportsIpaForTheIOSFamilyPlatformsAndPkgForMacOS,
   );
+
   function allThreeThrowForAndroid() {
     const directoryFailure = thrownMessage(function readDirectory() {
       nativeProjectDirName('android');
@@ -275,6 +290,7 @@ function describeNativeProjectDirNameNativeTargetHintAppleArtifactExtension() {
     const artifactFailure = thrownMessage(function readArtifact() {
       appleArtifactExtension('android');
     });
+
     expect(directoryFailure).toMatch(/Android/);
     expect(targetFailure).toMatch(/Android/);
     expect(artifactFailure).toMatch(/Android/);

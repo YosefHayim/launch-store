@@ -18,9 +18,11 @@ function readAvailabilityCommand(commandOptions: AvailabilityOptions): Availabil
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
+
   if (commandOptions.app != null) {
     availabilityInput = { ...availabilityInput, app: commandOptions.app };
   }
+
   return availabilityInput;
 }
 

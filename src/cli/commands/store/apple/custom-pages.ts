@@ -21,9 +21,11 @@ function readCustomProductPages(
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
+
   if (commandOptions.app != null) {
     customPagesInput = { ...customPagesInput, app: commandOptions.app };
   }
+
   return customPagesInput;
 }
 

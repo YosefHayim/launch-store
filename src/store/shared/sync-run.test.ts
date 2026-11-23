@@ -28,6 +28,7 @@ function describeSummarizeRun() {
       { job: b, report: report('com.acme.beta', 'failed') },
     ];
     const run = summarizeRun(outcomes);
+
     expect(run.summary).toEqual({ apps: 2, applied: 1, failed: 1, skipped: 0, planErrors: 0 });
     expect(run.apps[0]).toMatchObject({
       app: 'alpha',
@@ -45,9 +46,11 @@ function describeSummarizeRun() {
     'tallies per-app statuses and rolls them up across apps',
     talliesPerAppStatusesAndRollsThemUpAcrossApps,
   );
+
   function countsAPlanFailureAsAPlanErrorAndOmitsActionsSummaryForThatApp() {
     const job = makeJob('alpha', 'com.acme.alpha');
     const run = summarizeRun([{ job, error: 'no ASC app record' }]);
+
     expect(run.summary).toEqual({ apps: 1, applied: 0, failed: 0, skipped: 0, planErrors: 1 });
     expect(run.apps[0]).toEqual({
       app: 'alpha',
@@ -62,9 +65,11 @@ function describeSummarizeRun() {
     'counts a plan failure as a planError and omits actions/summary for that app',
     countsAPlanFailureAsAPlanErrorAndOmitsActionsSummaryForThatApp,
   );
+
   function reportsAnAlreadyInSyncAppWithAnEmptyActionListAndAZeroSummary() {
     const job = makeJob('alpha', 'com.acme.alpha');
     const run = summarizeRun([{ job, report: { bundleId: 'com.acme.alpha', actions: [] } }]);
+
     expect(run.summary).toEqual({ apps: 1, applied: 0, failed: 0, skipped: 0, planErrors: 0 });
     expect(run.apps[0]).toEqual({
       app: 'alpha',
@@ -91,6 +96,7 @@ function describeMergeOutcomes() {
     ];
     const applied: JobOutcome[] = [{ job: a, report: report('com.acme.alpha', 'applied') }];
     const merged = mergeOutcomes(plans, applied);
+
     expect(merged[0]).toBe(applied[0]);
     expect(merged[1]).toBe(plans[1]);
   }
@@ -99,6 +105,7 @@ function describeMergeOutcomes() {
     'overlays each plan with its apply-pass result, matched by job reference',
     overlaysEachPlanWithItsApplyPassPieceMatchedByJobReference,
   );
+
   function keepsThePlanPieceForAnAlreadyInSyncAppWithNoApplyPiece() {
     const job = makeJob('alpha', 'com.acme.alpha');
     const plan: JobOutcome = { job, report: { bundleId: 'com.acme.alpha', actions: [] } };

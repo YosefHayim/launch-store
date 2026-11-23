@@ -38,8 +38,10 @@ function compositeKey(
 /** Flatten a snapshot's captured surfaces to entities keyed for pairing; skipped/errored surfaces hold none. */
 function flatten(snapshot: Snapshot): Map<string, FlatEntity> {
   const flat = new Map<string, FlatEntity>();
+
   for (const report of snapshot.reports) {
     if (report.outcome.state != 'captured') continue;
+
     for (const app of report.outcome.apps) {
       for (const entity of app.entities) {
         flat.set(compositeKey(report.store, report.id, app.app, entity.key), {
@@ -52,13 +54,17 @@ function flatten(snapshot: Snapshot): Map<string, FlatEntity> {
       }
     }
   }
+
   return flat;
 }
 /** Canonical JSON with recursively sorted object keys, so field order never registers as a change. */
 export function stableStringify(jsonNode: JsonValue): string {
   if (jsonNode == null) return JSON.stringify(jsonNode);
+
   if (typeof jsonNode != 'object') return JSON.stringify(jsonNode);
+
   if (Array.isArray(jsonNode)) return `[${jsonNode.map(stableStringify).join(',')}]`;
+
   function sortPiece([leftKey]: [string, JsonValue], [rightKey]: [string, JsonValue]) {
     return leftKey.localeCompare(rightKey);
   }
@@ -68,16 +74,19 @@ export function stableStringify(jsonNode: JsonValue): string {
   }
 
   const serializedFields = Object.entries(jsonNode).sort(sortPiece).map(mapPiece).join(',');
+
   return `{${serializedFields}}`;
 }
 function unavailableScopes(snapshot: Snapshot) {
   const sources = new Set<string>();
   const apps = new Set<string>();
+
   for (const report of snapshot.reports) {
     if (report.outcome.state == 'skipped' || report.outcome.state == 'errored') {
       const serialized = JSON.stringify([report.store, report.id]);
       sources.add(serialized);
     }
+
     if (report.outcome.state == 'captured' && report.outcome.skippedApps != null) {
       for (const app of report.outcome.skippedApps) {
         const serialized = JSON.stringify([report.store, report.id, app.app]);
@@ -85,6 +94,7 @@ function unavailableScopes(snapshot: Snapshot) {
       }
     }
   }
+
   return { sources, apps };
 }
 
@@ -95,14 +105,18 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
   const unavailableBefore = unavailableScopes(a);
   const unavailableAfter = unavailableScopes(b);
   const entries: EntityDiff[] = [];
+
   for (const key of [...new Set([...before.keys(), ...after.keys()])].sort()) {
     const prev = before.get(key);
     const next = after.get(key);
     const entry = prev ?? next;
+
     const isThereEntry = entry != null;
+
     if (isThereEntry) {
       const sourceKey = JSON.stringify([entry.store, entry.sourceId]);
       const appKey = JSON.stringify([entry.store, entry.sourceId, entry.app]);
+
       if (
         unavailableBefore.sources.has(sourceKey) ||
         unavailableAfter.sources.has(sourceKey) ||
@@ -111,6 +125,7 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
       )
         continue;
     }
+
     if (prev && !next) {
       entries.push(readDiffEntry(prev, 'removed'));
     } else if (!prev && next) {
@@ -123,6 +138,7 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
       entries.push(readDiffEntry(next, 'changed'));
     }
   }
+
   function filterPiece(entry: {
     store: SnapshotStore;
     sourceId: string;

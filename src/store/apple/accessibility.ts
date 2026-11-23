@@ -112,6 +112,7 @@ function readDeclaration(entry: unknown): AccessibilityDeclarationConfig {
 
   for (const supportKey of ACCESSIBILITY_SUPPORT_KEYS) {
     const supportFlag = readSupportFlag(entryObject, supportKey);
+
     const hasFlag = supportFlag != null;
 
     if (hasFlag) {
@@ -152,6 +153,7 @@ function decodeAccessibilityDocument(rawDocument: unknown): AccessibilityConfig 
 
   for (const entry of declarationsField) {
     const declaration = readDeclaration(entry);
+
     const isDuplicate = declaredFamilies.has(declaration.deviceFamily);
 
     if (isDuplicate) {
@@ -179,6 +181,7 @@ function decodeAccessibilityDocument(rawDocument: unknown): AccessibilityConfig 
   }
 
   accessibilityConfig.publish = publish;
+
   return accessibilityConfig;
 }
 
@@ -238,6 +241,7 @@ function indexEditableByFamily(
     }
 
     const existing = byFamily.get(declaration.deviceFamily);
+
     const isFirst = existing == null;
 
     if (isFirst) {
@@ -319,7 +323,9 @@ async function createDeclaration(
   } catch (writeFailure) {
     create.status = 'failed';
     create.error = errorMessage(writeFailure);
+
     const plannedPublish = publishAction;
+
     const hasPublishAction = plannedPublish != null;
 
     if (hasPublishAction) {
@@ -359,6 +365,7 @@ async function updateDeclaration(
 ): Promise<void> {
   const changed = supportEquals(current.support, desired) == false;
   const shouldPublish = shouldPublishDeclaration(publish, changed, current.state);
+
   const isCurrent = changed == false;
 
   if (isCurrent) {
@@ -380,6 +387,7 @@ async function updateDeclaration(
   }
 
   const action = plan(reconcileContext, actionDescription);
+
   const isDryRun = reconcileContext.dryRun == true;
 
   if (isDryRun) {
@@ -409,6 +417,7 @@ export async function reconcileAccessibility(
   const reconcileContext: ReconcileContext = { actions: [], dryRun: reconcileInput.dryRun };
   const publish = reconcileInput.config.publish == true;
   const appId = await api.getAppId(reconcileInput.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -421,6 +430,7 @@ export async function reconcileAccessibility(
   for (const declared of reconcileInput.config.declarations) {
     const desired = normalizeSupport(declared);
     const current = byFamily.get(declared.deviceFamily);
+
     const hasCurrent = current != null;
 
     if (hasCurrent) {

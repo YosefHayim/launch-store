@@ -44,6 +44,7 @@ async function p12Password(keyId: string): Promise<string> {
   }
 
   const password = randomHexSecret(24);
+
   await LaunchSecretStore.storeSecret(account, password);
 
   return password;
@@ -88,6 +89,7 @@ async function packageP12(
   const certPemPath = join(workDirectory, 'dist.crt.pem');
 
   const bufferBytes = Buffer.from(certBase64, 'base64');
+
   await writeFile(cerPath, bufferBytes);
   await captureCommandOutput('openssl', [
     'x509',
@@ -122,6 +124,7 @@ async function packageP12(
 // security(1) says the item is already in the login keychain.
 function describesExistingKeychainItem(cause: unknown): boolean {
   const failureMessage = errorMessage(cause);
+
   const mentionsMessage = /already exists/i.test(failureMessage);
 
   if (mentionsMessage) {

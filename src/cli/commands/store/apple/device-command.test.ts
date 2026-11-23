@@ -7,6 +7,7 @@ function describeDeviceCommandPieceSchema() {
       udid: 'ABC123',
       name: 'Test iPhone',
     });
+
     expect(deviceCommandSchema).toEqual({ operation: 'add', udid: 'ABC123', name: 'Test iPhone' });
     expect(DeviceCommandInputSchema({ operation: 'list' })).toEqual({
       operation: 'list',
@@ -14,6 +15,7 @@ function describeDeviceCommandPieceSchema() {
   }
 
   it('decodes add and list inputs', decodesAddAndListInputs);
+
   function rejectsAnExplicitUndefinedExactOptionalName() {
     function callDeviceCommandPieceSchema() {
       return DeviceCommandInputSchema({
@@ -41,6 +43,7 @@ function describeRenderRegisteredDevice() {
       name: 'Test iPhone',
       status: 'DISABLED',
     });
+
     expect(registeredDevice).toBe('- Test iPhone - ABC123 (disabled)');
   }
 

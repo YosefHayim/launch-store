@@ -119,6 +119,7 @@ export async function gatherTargetSigningReadiness(
 
   async function readTarget(targetRequirement: TargetRequirement): Promise<TargetSigningReadiness> {
     const bundle = await asc.findBundleId(targetRequirement.id);
+
     const isUnregistered = bundle == null;
 
     if (isUnregistered) {

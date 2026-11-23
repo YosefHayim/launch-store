@@ -5,6 +5,7 @@ export class AndroidKeystore {
 
   async read(packageName: string): Promise<string> {
     const named = await this.keychain.read(playServiceAccount(packageName));
+
     const hasNamed = named != null;
 
     if (hasNamed) {
@@ -12,6 +13,7 @@ export class AndroidKeystore {
     }
 
     const legacy = await this.keychain.read(LEGACY_PLAY_SERVICE_ACCOUNT);
+
     const isMissing = legacy == null;
 
     if (isMissing) {

@@ -72,6 +72,7 @@ function resolveProfileName(
   requestedProfile: string | undefined,
 ): string {
   const profileNames = Object.keys(launchConfig.profiles);
+
   const hasRequestedProfile = requestedProfile != null;
 
   if (hasRequestedProfile) {
@@ -82,6 +83,7 @@ function resolveProfileName(
     }
 
     let declaredProfiles = profileNames.join(', ');
+
     const hasNoDeclaredProfiles = declaredProfiles.length == 0;
 
     if (hasNoDeclaredProfiles) {
@@ -101,6 +103,7 @@ function resolveProfileName(
   }
 
   const firstProfileName = profileNames[0];
+
   const hasFirstProfile = firstProfileName != null;
 
   if (hasFirstProfile) {
@@ -126,6 +129,7 @@ function planApp(
       buildEngine: resolveBuildEngineName(previewInput.config, previewInput.platform),
       submitter: resolveSubmitterName(previewInput.config, previewInput.platform),
     };
+
     const hasIdentifier = identifier != null;
 
     if (hasIdentifier) {
@@ -139,6 +143,7 @@ function planApp(
     }
 
     let releaseOptions: Pick<BuildRunOptions, 'track' | 'rollout'> = {};
+
     const hasTrack = previewInput.track != null;
 
     if (hasTrack) {

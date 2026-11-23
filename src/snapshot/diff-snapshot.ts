@@ -70,6 +70,7 @@ async function readComparisonSnapshot(
 ): Promise<Snapshot | null> {
   if (command.against == LIVE_SNAPSHOT) {
     registerBuiltinSources();
+
     const storeSession = await loadSnapshotStoreSession(command.app);
     const captureFromSession = captureContextFromSession(storeSession);
     const snapshotSources = listSnapshotSources();

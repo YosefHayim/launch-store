@@ -85,6 +85,7 @@ async function readStatsReport(
 ): Promise<StatsReport> {
   const portfolioLoad = await loadStatsPortfolio('cache-first');
   const namedApps = selectNamedApps(portfolioLoad.apps, request.appName);
+
   const isNamedAppMissing = isRequestedNameMissing(request.appName, namedApps);
 
   if (isNamedAppMissing) {

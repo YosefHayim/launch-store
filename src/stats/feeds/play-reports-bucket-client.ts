@@ -38,6 +38,7 @@ function makePlayReportsBucketFailure(fields: {
 
 export function failBucketRead(operation: string, cause: unknown): PlayReportsBucketFailure {
   const failureMessage = errorMessage(cause);
+
   return makePlayReportsBucketFailure({
     message: `Could not ${operation}: ${failureMessage}`,
     cause,
@@ -64,6 +65,7 @@ async function readBucketObject(
 ): Promise<BucketObjectReply> {
   const objectUrl = `${STORAGE_API_ROOT}/${bucket}/o/${encodeURIComponent(objectName)}?alt=media`;
   const objectReply = await fetchBucket(objectUrl, accessToken);
+
   const isForbidden = objectReply.status == HTTP_FORBIDDEN;
 
   if (isForbidden) {
@@ -171,6 +173,7 @@ async function listBucketPage(
 ): Promise<BucketListReply> {
   const listUrl = createListUrl(bucket, prefix, pageToken);
   const listReply = await fetchBucket(listUrl, accessToken);
+
   const isForbidden = listReply.status == HTTP_FORBIDDEN;
 
   if (isForbidden) {

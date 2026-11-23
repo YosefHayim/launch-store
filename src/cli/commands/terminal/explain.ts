@@ -10,6 +10,7 @@ export function registerExplainCommand(program: Command): void {
     }
 
     const explain = startExplain();
+
     return runCliProgram(explain);
   }
 

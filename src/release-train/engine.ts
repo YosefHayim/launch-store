@@ -24,7 +24,9 @@ export function iosCarState(verdict: ReleaseVerdict): NativeCarState | null {
 /** Map a Play production track to a native car state. */
 export function androidCarState(releases: readonly PlayRelease[]): NativeCarState | null {
   const release = releases[0];
+
   if (release == null) return null;
+
   switch (release.status) {
     case 'completed':
     case 'inProgress':
@@ -57,9 +59,13 @@ export type TrainCarPlanInput = Readonly<{
 /** Plan train cars from config + flags */
 export function planTrainCars(planInput: TrainCarPlanInput): TrainCarPlan {
   const platforms: TrainPlatform[] = [];
+
   if (planInput.hasBundleId && planInput.platformFilter != 'android') platforms.push('ios');
+
   if (planInput.hasPackageName && planInput.platformFilter != 'ios') platforms.push('android');
+
   let ota: OtaCarSpec[] = [];
+
   if (!planInput.noOta && planInput.hasCloudStorage) {
     function mapPlatform(platform: 'ios' | 'android') {
       return {
@@ -71,5 +77,6 @@ export function planTrainCars(planInput: TrainCarPlanInput): TrainCarPlan {
 
     ota = platforms.map(mapPlatform);
   }
+
   return { platforms, ota };
 }

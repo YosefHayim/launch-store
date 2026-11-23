@@ -337,6 +337,7 @@ async function listSavedSnapshots(json: boolean | undefined): Promise<void> {
       null,
       2,
     );
+
     logger.line(serialized);
 
     return;
@@ -350,6 +351,7 @@ async function listSavedSnapshots(json: boolean | undefined): Promise<void> {
 
   for (const savedSnapshot of savedSnapshots) {
     const entities = countEntities(savedSnapshot);
+
     logger.step(
       'snapshot',
       `${savedSnapshot.name} - ${savedSnapshot.capturedAt} - ${entities} item(s)`,

@@ -3,6 +3,7 @@ import type { AllocateRequest, HostHandle, HostStatus, SshTarget } from '../../t
 
 export function parseSshTarget(spec: string): SshTarget {
   const trimmed = spec.trim();
+
   const isBlank = trimmed.length == 0;
 
   if (isBlank) {
@@ -14,6 +15,7 @@ export function parseSshTarget(spec: string): SshTarget {
 
   const at = trimmed.indexOf('@');
   let user = 'ec2-user';
+
   const hasUser = at != -1;
 
   if (hasUser) {
@@ -28,6 +30,7 @@ export function parseSshTarget(spec: string): SshTarget {
 
   const colon = hostPort.lastIndexOf(':');
   let host = hostPort;
+
   const hasPort = colon != -1;
 
   if (hasPort) {

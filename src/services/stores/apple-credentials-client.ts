@@ -56,6 +56,7 @@ export type AppleCredentialsClientFactory = Readonly<{
 function readDomainBundleId(bundleIdentifier: AscBundleIdResource): BundleIdResource {
   if (bundleIdentifier.seedId == null)
     return { id: bundleIdentifier.id, identifier: bundleIdentifier.identifier };
+
   return {
     id: bundleIdentifier.id,
     identifier: bundleIdentifier.identifier,
@@ -68,6 +69,7 @@ function readOptionalDomainBundleId(
   bundleIdentifier: AscBundleIdResource | null,
 ): BundleIdResource | null {
   if (bundleIdentifier == null) return null;
+
   return readDomainBundleId(bundleIdentifier);
 }
 
@@ -80,6 +82,7 @@ function readDomainCertificate(certificate: AscCertificateResource): Certificate
       certificateContent: certificate.certificateContent,
     };
   }
+
   return {
     id: certificate.id,
     serialNumber: certificate.serialNumber,
@@ -91,6 +94,7 @@ function readDomainCertificate(certificate: AscCertificateResource): Certificate
 /** Translate an Apple device while preserving an absent status as an absent field. */
 function readDomainDevice(device: AscDeviceResource): AppleDeviceResource {
   if (device.status == null) return { id: device.id, udid: device.udid, name: device.name };
+
   return { id: device.id, udid: device.udid, name: device.name, status: device.status };
 }
 
@@ -100,11 +104,13 @@ function readDomainCapability(
 ): BundleIdCapabilityResource {
   if (capability.settings == null)
     return { id: capability.id, capabilityType: capability.capabilityType };
+
   function mapSetting(setting: {
     readonly key: string;
     readonly options?: Readonly<{ key: string }>[];
   }) {
     if (setting.options == null) return { key: setting.key };
+
     return { key: setting.key, options: setting.options };
   }
 

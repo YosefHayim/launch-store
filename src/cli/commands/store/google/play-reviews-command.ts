@@ -215,6 +215,7 @@ export function parsePlayReviewRating(ratingText: string | undefined): number | 
   }
 
   const parsedRating = Number(trimmedRating);
+
   const isTooSmall = parsedRating < 1;
 
   if (isTooSmall) {
@@ -337,6 +338,7 @@ async function listRecentPlayReviews(commandInput: PlayReviewsListInput): Promis
   }
 
   logger.line(matchingReviews.map(renderOneReview).join('\n\n'));
+
   let reviewSuffix = 's';
 
   if (matchingReviews.length == 1) {

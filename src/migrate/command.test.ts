@@ -8,6 +8,7 @@ function describeMigrateCommandPieceSchema() {
       dryRun: true,
       out: '/tmp/out',
     });
+
     expect(migrateCommandSchema).toEqual({
       source: 'eas',
       force: false,
@@ -31,6 +32,7 @@ function describeMigrateCommandPieceSchema() {
     'accepts eas and fastlane with force, dryRun, and optional out',
     acceptsEasAndFastlaneWithForceDryRunAndOptionalOut,
   );
+
   function rejectsAnUnknownMigrationPiece() {
     function callMigrateCommandPieceSchema() {
       return MigrateCommandInputSchema({

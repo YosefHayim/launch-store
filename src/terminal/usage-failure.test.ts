@@ -10,6 +10,7 @@ function describeEndWithUsageFailure() {
 
   function end(isJson: boolean): { commandExit: unknown; lines: string[] } {
     const lines: string[] = [];
+
     useLoggerSink(function writeLine(text: string) {
       lines.push(text);
     });
@@ -25,11 +26,14 @@ function describeEndWithUsageFailure() {
 
     expect(commandExit).toMatchObject({ _tag: 'CommandExit', exitCode: 2 });
     expect(lines).toHaveLength(1);
+
     const parsed = JSON.parse(lines[0] ?? '');
+
     expect(parsed).toEqual({ ok: false, error: '--days is wrong.' });
   }
 
   test('prints one JSON object and exits 2 with --json', printsOneJSONObjectAndExits2WithPiece);
+
   function printsTheMessageAsAnErrorLineAndExits2WithoutPiece() {
     const { commandExit, lines } = end(false);
 

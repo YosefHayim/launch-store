@@ -25,6 +25,7 @@ function describeRenderReport() {
   }
 
   it('titles the report and names the source', titlesTheReportAndNamesThePiece);
+
   function listsTheEmittedArtifacts() {
     const reportMarkdown = renderReport(RESULT);
 
@@ -33,6 +34,7 @@ function describeRenderReport() {
   }
 
   it('lists the emitted artifacts', listsTheEmittedArtifacts);
+
   function rendersASectionPerPresentNoteLevelActionableFirst() {
     const reportMarkdown = renderReport(RESULT);
 
@@ -49,6 +51,7 @@ function describeRenderReport() {
     'renders a section per present note level, actionable first',
     rendersASectionPerPresentNoteLevelActionableFirst,
   );
+
   function omitsSectionsWithNoNotes() {
     const reportMarkdown = renderReport({
       ...RESULT,

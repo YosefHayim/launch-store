@@ -9,6 +9,7 @@ export class AppleListing {
 
     for (const app of apps.data) {
       const name = app.attributes?.name;
+
       const isBlank = name == null;
 
       if (isBlank) {

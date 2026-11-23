@@ -129,6 +129,7 @@ async function resolveAppClipsTarget(
   }
 
   const bundleId = storeAppContext.app.bundleId;
+
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
@@ -141,6 +142,7 @@ async function resolveAppClipsTarget(
 
   let typedAppClipsConfig: AppClipsConfig | undefined;
   const typedClips = storeAppContext.config.appClips;
+
   const hasTypedClips = typedClips != null;
 
   if (hasTypedClips) {
@@ -161,6 +163,7 @@ async function resolveAppClipsTarget(
   }
 
   const loadedAppClipsConfig = appClipsConfig;
+
   const isConfigMissing = loadedAppClipsConfig == null;
 
   if (isConfigMissing) {
@@ -187,6 +190,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
 
     const appClipsTarget = await resolveAppClipsTarget(commandInput);
     const logger = createLogger(false);
+
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
@@ -204,7 +208,9 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
     }
 
     const plannedActions = appClipsPlan.actions.filter(isPlannedAction);
+
     logger.gap();
+
     const isAlreadyInSync = appClipsPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
@@ -213,6 +219,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
     }
 
     logger.notice(appClipsTarget.bundleId, ...appClipsPlan.actions.map(renderPlanned));
+
     const hasNothingToApply = plannedActions.length == 0;
 
     if (hasNothingToApply) {
@@ -221,11 +228,13 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
         'app-clips',
         'nothing to apply (everything in sync; skipped clips need a build or version first)',
       );
+
       return 0;
     }
 
     logger.gap();
     logger.note(`${plannedActions.length} change(s) for ${appClipsTarget.bundleId}.`);
+
     const isDryRun = commandInput.dryRun == true;
 
     if (isDryRun) {
@@ -262,6 +271,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
 
     const appClipsSummary = summarize(appliedAppClips.actions);
     let receiptTitle = 'Applied';
+
     const hasFailures = appClipsSummary.failed > 0;
 
     if (hasFailures) {
@@ -269,6 +279,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
     }
 
     logger.box(receiptTitle, appliedAppClips.actions.map(renderApplied));
+
     return appClipsSummary.failed;
   } catch (cause) {
     throw appClipsFailure('run App Clips command', cause);
@@ -278,6 +289,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
 /** Run the decoded App Clips command. */
 export async function appClipsCommandProgram(rawCommandInput: unknown): Promise<void> {
   const failureCount = await executeAppClips(rawCommandInput);
+
   const hasFailures = failureCount > 0;
 
   if (hasFailures) {

@@ -4,6 +4,11 @@ import type { SandboxTesterResource } from '../../types/apple-catalog.ts';
 export class ConnectSandbox {
   constructor(private readonly client: AscHost) {}
 
+  /**
+   * Get a list of Sandbox Testers for your team.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v2-sandboxtesters
+   */
   async listSandboxTesters(): Promise<SandboxTesterResource[]> {
     const appleResources = await this.client.requestAll<{
       acAccountName?: string;
@@ -14,28 +19,43 @@ export class ConnectSandbox {
       interruptPurchases?: boolean;
       subscriptionRenewalRate?: string;
     }>(this.client.v2('/sandboxTesters?limit=200'));
+
     return appleResources.map((tester) => {
       let accountName = tester.attributes.acAccountName;
+
       if (accountName == null) accountName = '';
+
       const sandboxTester: SandboxTesterResource = { id: tester.id, acAccountName: accountName };
+
       if (tester.attributes.firstName != null)
         Object.assign(sandboxTester, { firstName: tester.attributes.firstName });
+
       if (tester.attributes.lastName != null)
         Object.assign(sandboxTester, { lastName: tester.attributes.lastName });
+
       if (tester.attributes.territory != null)
         Object.assign(sandboxTester, { territory: tester.attributes.territory });
+
       if (tester.attributes.applePayCompatible != null)
         Object.assign(sandboxTester, { applePayCompatible: tester.attributes.applePayCompatible });
+
       if (tester.attributes.interruptPurchases != null)
         Object.assign(sandboxTester, { interruptPurchases: tester.attributes.interruptPurchases });
+
       if (tester.attributes.subscriptionRenewalRate != null)
         Object.assign(sandboxTester, {
           subscriptionRenewalRate: tester.attributes.subscriptionRenewalRate,
         });
+
       return sandboxTester;
     });
   }
 
+  /**
+   * Remove purchase history from a Sandbox Apple Account.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v2-sandboxtestersclearpurchasehistoryrequest
+   */
   async clearSandboxTesterPurchaseHistory(testerIds: readonly string[]): Promise<void> {
     function mapId(id: string) {
       return { type: 'sandboxTesters', id };

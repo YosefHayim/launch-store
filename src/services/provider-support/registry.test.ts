@@ -40,8 +40,10 @@ function describeProviderRegistryTheDISeam() {
   }
 
   it('registers a provider and looks it up by name', registersAProviderAndLooksItUpByName);
+
   function throwsAClearErrorNamingTheAvailableProvidersWhenOneIsMissing() {
     registerStorageProvider(fakeStorage('local'));
+
     let failure: unknown = null;
 
     try {
@@ -57,9 +59,11 @@ function describeProviderRegistryTheDISeam() {
     'throws a clear error naming the available providers when one is missing',
     throwsAClearErrorNamingTheAvailableProvidersWhenOneIsMissing,
   );
+
   function rejectsTheRetiredFastlaneBuildEngineNameAndNamesTheValidEngines() {
     registerBuildEngine({ name: 'xcode', buildArtifact: unusedStorageCall });
     registerBuildEngine({ name: 'gradle', buildArtifact: unusedStorageCall });
+
     let failure: unknown = null;
 
     try {

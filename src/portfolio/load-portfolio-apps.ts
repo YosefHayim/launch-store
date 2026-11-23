@@ -35,6 +35,7 @@ export async function loadPortfolioApps(mode: PortfolioLoadMode): Promise<Portfo
 
   const report = await discoverApps();
   const savedFile = pickSavedPortfolioFile(cachedFile);
+
   const isDiscoveryUseless = isEveryAccountFailed(
     report.attemptedAccountCount,
     report.failedAccountLabels.length,

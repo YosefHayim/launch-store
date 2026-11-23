@@ -17,6 +17,7 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
   try {
     const logger = createLogger(false);
     const codeCount = Number.parseInt(commandInput.count, 10);
+
     const countIsInvalid = isInvalidCodeCount(codeCount);
 
     if (countIsInvalid) {
@@ -37,6 +38,7 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
       commandInput.offerName,
     );
     const customCode = commandInput.custom;
+
     const hasCustomCode = customCode != null;
 
     if (hasCustomCode) {
@@ -55,10 +57,12 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
         'offers',
         `created custom code "${customCode}" (${codeCount} uses) on "${commandInput.offerName}"`,
       );
+
       return;
     }
 
     const expirationDate = commandInput.expires;
+
     const isExpirationMissing = expirationDate == null;
 
     if (isExpirationMissing) {

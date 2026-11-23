@@ -20,6 +20,7 @@ export class AppStoreToken {
 
   private async readKey(): Promise<AscKey> {
     const saved = await readSavedAccounts();
+
     const isMissing = saved == null;
 
     if (isMissing) {
@@ -28,6 +29,7 @@ export class AppStoreToken {
 
     const account = findActiveAccount(saved);
     const namedKey = await this.keychain.read(applePrivateKeyAccount(account.keyId));
+
     const hasNamedKey = namedKey != null;
 
     if (hasNamedKey) {
@@ -35,6 +37,7 @@ export class AppStoreToken {
     }
 
     const legacyKey = await this.keychain.read(LEGACY_APPLE_PRIVATE_KEY_ACCOUNT);
+
     const isLegacyMissing = legacyKey == null;
 
     if (isLegacyMissing) {

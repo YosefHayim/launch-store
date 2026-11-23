@@ -138,6 +138,7 @@ function bunLockfileMatches(managerName: PackageManagerName, lockfile: string): 
 export function packageManagerWarnings(input: PackageManagerWarningInput): string[] {
   const packageManagerInfo = input.info;
   const warnings: string[] = [];
+
   const corepackIsMissing = needsCorepackWarning(input);
 
   if (corepackIsMissing) {
@@ -223,6 +224,7 @@ const lockfileNames = [
 async function lockfileIn(directory: string): Promise<string | null> {
   for (const name of lockfileNames) {
     const lockfilePath = join(directory, name);
+
     const lockfileExists = await pathExists(lockfilePath);
 
     if (lockfileExists) {
@@ -238,6 +240,7 @@ export async function findWorkspaceRoot(appDirectory: string): Promise<Workspace
 
   for (;;) {
     const pnpmWorkspacePath = join(directory, 'pnpm-workspace.yaml');
+
     const pnpmWorkspaceExists = await pathExists(pnpmWorkspacePath);
 
     if (pnpmWorkspaceExists) {
@@ -253,6 +256,7 @@ export async function findWorkspaceRoot(appDirectory: string): Promise<Workspace
     }
 
     const parentDirectory = dirname(directory);
+
     const isFilesystemRoot = parentDirectory == directory;
 
     if (isFilesystemRoot) {
@@ -303,6 +307,7 @@ export async function detectPackageManager(directory: string): Promise<PackageMa
   }
 
   const yarnrcPath = join(directory, '.yarnrc.yml');
+
   const yarnrcExists = await pathExists(yarnrcPath);
 
   if (yarnrcExists) {

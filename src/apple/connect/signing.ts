@@ -19,6 +19,11 @@ import {
 export class ConnectSigning {
   constructor(private readonly client: AscHost) {}
 
+  /**
+   * Find and list bundle IDs that are registered to your team.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids
+   */
   async findBundleId(identifier: string): Promise<BundleIdResource | null> {
     const uRIComponent = encodeURIComponent(identifier);
     const { data: appleResources } = await this.client.request<
@@ -27,12 +32,15 @@ export class ConnectSigning {
         seedId?: string;
       }>
     >('GET', `/bundleIds?filter[identifier]=${uRIComponent}&limit=200`);
+
     function findPiece(entry: { id: string; attributes: { identifier: string; seedId?: string } }) {
       return entry.attributes.identifier == identifier;
     }
 
     const exact = appleResources.find(findPiece);
+
     if (!exact) return null;
+
     return {
       id: exact.id,
       identifier: exact.attributes.identifier,
@@ -40,6 +48,11 @@ export class ConnectSigning {
     };
   }
 
+  /**
+   * Register a new bundle ID for app development.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-bundleids
+   */
   async createBundleId(
     identifier: string,
     name: string,
@@ -52,6 +65,7 @@ export class ConnectSigning {
       type: 'bundleIds',
       attributes: { identifier, name, platform: bundleIdPlatform },
     });
+
     return {
       id: appleResources.id,
       identifier: appleResources.attributes.identifier,
@@ -59,12 +73,18 @@ export class ConnectSigning {
     };
   }
 
+  /**
+   * Find and list certificates and download their data.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-certificates
+   */
   async listDistributionCertificates(): Promise<CertificateResource[]> {
     const appleResources = await this.client.requestAll<{
       serialNumber: string;
       certificateContent: string;
       expirationDate?: string;
     }>(`/certificates?filter[certificateType]=${DISTRIBUTION_CERT_TYPE}&limit=200`);
+
     function mapPiece(entry: {
       id: string;
       attributes: { serialNumber: string; certificateContent: string; expirationDate?: string };
@@ -81,6 +101,11 @@ export class ConnectSigning {
     return appleResources.map(mapPiece);
   }
 
+  /**
+   * Create a new certificate using a certificate signing request.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-certificates
+   */
   async createCertificate(csrContent: string): Promise<CertificateResource> {
     const appleResources = await this.client.createResource<{
       serialNumber: string;
@@ -90,6 +115,7 @@ export class ConnectSigning {
       type: 'certificates',
       attributes: { csrContent, certificateType: DISTRIBUTION_CERT_TYPE },
     });
+
     return {
       id: appleResources.id,
       serialNumber: appleResources.attributes.serialNumber,
@@ -98,6 +124,11 @@ export class ConnectSigning {
     };
   }
 
+  /**
+   * Find and list provisioning profiles and download their data.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-profiles
+   */
   async findProfileByName(name: string): Promise<ProfileResource | null> {
     const uRIComponent = encodeURIComponent(name);
     const { data: appleResources } = await this.client.request<
@@ -107,8 +138,11 @@ export class ConnectSigning {
         profileContent: string;
       }>
     >('GET', `/profiles?filter[name]=${uRIComponent}&limit=1`);
+
     const first = appleResources[0];
+
     if (!first) return null;
+
     return {
       id: first.id,
       name: first.attributes.name,
@@ -117,6 +151,11 @@ export class ConnectSigning {
     };
   }
 
+  /**
+   * Create a new provisioning profile.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-profiles
+   */
   async createAppStoreProfile(
     name: string,
     bundleIdResourceId: string,
@@ -135,6 +174,7 @@ export class ConnectSigning {
         certificates: { data: [{ type: 'certificates', id: certificateId }] },
       },
     });
+
     return {
       id: appleResources.id,
       name: appleResources.attributes.name,
@@ -143,16 +183,27 @@ export class ConnectSigning {
     };
   }
 
+  /**
+   * Delete a provisioning profile that is used for app development or distribution.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/delete-v1-profiles-_id_
+   */
   async deleteProfile(id: string): Promise<void> {
     await this.client.deleteResource(`/profiles/${id}`);
   }
 
+  /**
+   * Find and list devices registered to your team.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-devices
+   */
   async listDevices(): Promise<DeviceResource[]> {
     const appleResources = await this.client.requestAll<{
       udid: string;
       name: string;
       status?: string;
     }>('/devices?limit=200');
+
     function mapPiece2(entry: {
       id: string;
       attributes: { udid: string; name: string; status?: string };
@@ -171,6 +222,7 @@ export class ConnectSigning {
 
   async findDeviceByUdid(udid: string): Promise<DeviceResource | null> {
     const wanted = udid.toLowerCase();
+
     function findDevice(device: {
       readonly id: string;
       readonly udid: string;
@@ -181,10 +233,17 @@ export class ConnectSigning {
     }
 
     const matchingDevice = (await this.listDevices()).find(findDevice);
+
     if (matchingDevice == null) return null;
+
     return matchingDevice;
   }
 
+  /**
+   * Register a new device for app development.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-devices
+   */
   async registerDevice(udid: string, name: string): Promise<DeviceResource> {
     const appleResources = await this.client.createResource<{
       udid: string;
@@ -194,6 +253,7 @@ export class ConnectSigning {
       type: 'devices',
       attributes: { udid, name, platform: IOS_DEVICE_PLATFORM },
     });
+
     return {
       id: appleResources.id,
       udid: appleResources.attributes.udid,
@@ -202,6 +262,11 @@ export class ConnectSigning {
     };
   }
 
+  /**
+   * Create a new provisioning profile.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-profiles
+   */
   async createAdHocProfile(
     name: string,
     bundleIdResourceId: string,
@@ -226,6 +291,7 @@ export class ConnectSigning {
         devices: { data: deviceIds.map(mapId) },
       },
     });
+
     return {
       id: appleResources.id,
       name: appleResources.attributes.name,
@@ -234,6 +300,11 @@ export class ConnectSigning {
     };
   }
 
+  /**
+   * Get a list of all capabilities for a specific bundle ID.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids-_id_-bundleidcapabilities
+   */
   async listBundleIdCapabilities(
     bundleIdResourceId: string,
   ): Promise<BundleIdCapabilityResource[]> {
@@ -245,25 +316,35 @@ export class ConnectSigning {
       // parameter") unlike most collections; pagination still works through links.next in requestAll.
       `/bundleIds/${bundleIdResourceId}/bundleIdCapabilities?fields[bundleIdCapabilities]=capabilityType,settings`,
     );
+
     function flatMapCapability(capability: {
       id: string;
       attributes: { capabilityType?: string; settings?: CapabilitySetting[] | null };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       const capabilityType = capability.attributes.capabilityType;
+
       if (capabilityType == null) return [];
+
       const enabledCapability: BundleIdCapabilityResource = {
         id: capability.id,
         capabilityType,
       };
+
       if (capability.attributes.settings != null && capability.attributes.settings != null)
         Object.assign(enabledCapability, { settings: capability.attributes.settings });
+
       return [enabledCapability];
     }
 
     return appleResources.flatMap(flatMapCapability);
   }
 
+  /**
+   * Get a list of all profiles for a specific bundle ID.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids-_id_-profiles
+   */
   async listProfilesForBundleId(bundleIdResourceId: string): Promise<ProfileResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
@@ -272,23 +353,35 @@ export class ConnectSigning {
     }>(
       `/bundleIds/${bundleIdResourceId}/profiles?limit=200&fields[profiles]=name,uuid,profileContent`,
     );
+
     function flatMapProfile(profile: {
       id: string;
       attributes: { name?: string; uuid?: string; profileContent?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       const profileName = profile.attributes.name;
+
       if (profileName == null) return [];
+
       const profileUuid = profile.attributes.uuid;
+
       if (profileUuid == null) return [];
+
       const profileContent = profile.attributes.profileContent;
+
       if (profileContent == null) return [];
+
       return [{ id: profile.id, name: profileName, uuid: profileUuid, profileContent }];
     }
 
     return appleResources.flatMap(flatMapProfile);
   }
 
+  /**
+   * Enable a capability for a bundle ID.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-bundleidcapabilities
+   */
   async enableCapability(
     bundleIdResourceId: string,
     capabilityType: string,
@@ -301,10 +394,17 @@ export class ConnectSigning {
       relationships: { bundleId: { data: { type: 'bundleIds', id: bundleIdResourceId } } },
     });
     let enabledCapabilityType = appleResources.attributes.capabilityType;
+
     if (enabledCapabilityType == null) enabledCapabilityType = capabilityType;
+
     return { id: appleResources.id, capabilityType: enabledCapabilityType };
   }
 
+  /**
+   * Disable a capability for a bundle ID.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/delete-v1-bundleidcapabilities-_id_
+   */
   async disableCapability(capabilityId: string): Promise<void> {
     await this.client.deleteResource(`/bundleIdCapabilities/${capabilityId}`);
   }

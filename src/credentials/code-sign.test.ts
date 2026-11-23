@@ -10,13 +10,16 @@ function describeSignatureHeader() {
       manifestBody,
       privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
     );
+
     // Structured-field shape the expo-updates client parses.
     expect(header).toMatch(/^sig="[^"]+", keyid="main", alg="rsa-v1_5-sha256"$/);
+
     // The embedded signature must actually verify over the exact manifest body.
     const signatureMatch = expectDefined(/sig="([^"]+)"/.exec(header), 'signature match');
     const arrayElement = expectArrayElement(signatureMatch, 1, 'signature match');
     const signature = Buffer.from(arrayElement, 'base64');
     const verifier = createVerify('RSA-SHA256');
+
     verifier.update(manifestBody);
     verifier.end();
     expect(verifier.verify(publicKey, signature)).toBe(true);

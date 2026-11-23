@@ -191,6 +191,7 @@ async function attachAndroidRelease(
     );
   } catch (error) {
     const failureDetail = readFailureDetail(error);
+
     throw makeBuildPreparationFailure({
       appName: preparedAppName,
       message: `Could not resolve Android release notes for ${preparedAppName}: ${failureDetail}`,
@@ -281,6 +282,7 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
   }
 
   const configErrors = findings.filter(isConfigError);
+
   const hasConfigErrors = configErrors.length > 0;
 
   if (hasConfigErrors) {
@@ -311,6 +313,7 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
     forceClean: buildOptions.forceClean == true,
   };
   const ccacheFlag = buildOptions.ccache;
+
   const hasCcacheFlag = ccacheFlag != null;
 
   if (hasCcacheFlag) {
@@ -330,6 +333,7 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
   }
 
   const chosenDistribution = buildOptions.distribution;
+
   const hasDistribution = chosenDistribution != null;
 
   if (hasDistribution) {
@@ -378,6 +382,7 @@ async function buildSuccessEvent(
   const storedArtifacts = await storageProvider.list();
   const latest = storedArtifacts.find(isStoredForApp(app.name, buildOptions.platform));
   let eventName: NotifyEvent['event'] = 'build';
+
   const shouldNameSubmit = wantsStoreEvent(buildOptions.submit, isInternal);
 
   if (shouldNameSubmit) {
@@ -451,6 +456,7 @@ function buildFailureEvent(
 ): NotifyEvent {
   const isInternal = prepared.buildContext.distribution == 'internal';
   let eventName: NotifyEvent['event'] = 'build';
+
   const shouldNameSubmit = wantsStoreEvent(buildOptions.submit, isInternal);
 
   if (shouldNameSubmit) {
@@ -506,6 +512,7 @@ async function notifyBuildFailure(
   }
 
   const failureEvent = buildFailureEvent(prepared, buildOptions, error);
+
   await notify(prepared.config, failureEvent);
 }
 

@@ -25,8 +25,10 @@ async function withStorageReply(
   }
 
   const server = createServer(createServerRequest);
+
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
+
   const address = server.address();
 
   if (address == null) {
@@ -80,6 +82,7 @@ for (const createProvider of storageProviders) {
   function describeSuite() {
     async function readStorage(endpoint: string, objectKey?: string) {
       useStorageSecrets();
+
       const storage = await createProvider({
         bucket: 'test-bucket',
         region: 'us-east-1',
@@ -108,6 +111,7 @@ for (const createProvider of storageProviders) {
     }
 
     it('returns empty history only for a missing index', returnsEmptyHistoryOnlyForAMissingIndex);
+
     async function rejectsDeniedIndexReads() {
       async function withStorageReplyEndpoint2(endpoint: string) {
         const storage = readStorage(endpoint);
@@ -122,6 +126,7 @@ for (const createProvider of storageProviders) {
     }
 
     it('rejects denied index reads', rejectsDeniedIndexReads);
+
     async function rejectsMalformedIndexContentsAsAParseFailureNotAFailedRead() {
       async function withStorageReplyEndpoint3(endpoint: string) {
         const storage = readStorage(endpoint);
@@ -135,6 +140,7 @@ for (const createProvider of storageProviders) {
       'rejects malformed index contents as a parse failure, not a failed read',
       rejectsMalformedIndexContentsAsAParseFailureNotAFailedRead,
     );
+
     async function readsAMissingObjectAsAbsent() {
       async function withStorageReplyEndpoint4(endpoint: string) {
         const objectBytes = await readStorage(endpoint, 'manifest.json');
@@ -149,8 +155,10 @@ for (const createProvider of storageProviders) {
     }
 
     it('reads a missing object as absent', readsAMissingObjectAsAbsent);
+
     async function decodesAValidIndex() {
       const serialized = JSON.stringify([storedArtifact]);
+
       async function withStorageReplyEndpoint5(endpoint: string) {
         const artifacts = await readStorage(endpoint);
         expect(artifacts).toEqual([storedArtifact]);
@@ -160,6 +168,7 @@ for (const createProvider of storageProviders) {
     }
 
     it('decodes a valid index', decodesAValidIndex);
+
     async function doesNotDisguiseDeniedObjectReadsAsAbsentObjects() {
       async function withStorageReplyEndpoint6(endpoint: string) {
         const storage = readStorage(endpoint, 'manifest.json');

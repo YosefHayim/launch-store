@@ -32,6 +32,7 @@ async function readPlayClients(
 async function readFirstUpload(api: PlayReadinessApi, app: ScopedApp): Promise<AppReadiness> {
   try {
     const versionCode = await api.getLatestVersionCode(app.identifier);
+
     const hasUpload = versionCode > 0;
 
     if (hasUpload) {
@@ -69,6 +70,7 @@ export const playFirstUploadProbe = {
   categories: ['account'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const apps = androidApps(readinessContext.apps);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {
@@ -76,6 +78,7 @@ export const playFirstUploadProbe = {
     }
 
     const appClients = await readPlayClients(readinessContext, apps);
+
     const isEveryClientMissing = appClients.every(isPlayClientMissing);
 
     if (isEveryClientMissing) {

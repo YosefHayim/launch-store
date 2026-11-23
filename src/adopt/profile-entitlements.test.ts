@@ -17,6 +17,7 @@ const captureMock = vi.mocked(captureCommandOutput);
 
 function readCaptureCall(index: number) {
   const call = captureMock.mock.calls.at(index);
+
   expect(call).toBeDefined();
 
   if (call == null) {
@@ -37,8 +38,11 @@ function describeExtractProfileEntitlements() {
       exitCode: 1,
       stderr: 'security cms failed',
     });
+
     captureMock.mockRejectedValueOnce(commandFailed);
+
     const profileEntitlements = await extractProfileEntitlements('bm90LWEtcHJvZmlsZQ==');
+
     expect(profileEntitlements).toBeNull();
   }
 
@@ -46,23 +50,29 @@ function describeExtractProfileEntitlements() {
     "returns null for content that isn't a decodable provisioning profile (or off-Mac)",
     returnsNullForPieceThatIsnTADecodableProvisioningProfileOrOffMac,
   );
+
   async function extractsEntitlementsAsXml1BeforeConvertingTheSubPlistToJSON() {
     const serialized = JSON.stringify({
       'com.apple.security.application-groups': ['group.com.acme.app'],
     });
+
     captureMock
       .mockResolvedValueOnce(
         '<plist><dict><key>DeveloperCertificates</key><data>abc</data></dict></plist>',
       )
       .mockResolvedValueOnce('')
       .mockResolvedValueOnce(serialized);
+
     const profileEntitlements = extractProfileEntitlements('cHJvZmlsZQ==');
+
     await expect(profileEntitlements).resolves.toEqual({
       'com.apple.security.application-groups': ['group.com.acme.app'],
     });
+
     const securityCall = readCaptureCall(0);
     const extractCall = readCaptureCall(1);
     const convertCall = readCaptureCall(2);
+
     expect(securityCall).toEqual([
       'security',
       expect.arrayContaining([

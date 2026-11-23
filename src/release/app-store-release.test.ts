@@ -94,6 +94,7 @@ function makeReleaseApiFake(methodOverrides: Partial<AscReleaseApi> = {}): AscRe
       return Promise.resolve();
     }),
   };
+
   return { ...baseApi, ...methodOverrides };
 }
 
@@ -148,6 +149,7 @@ describe(
 function describeClassifyVerdictTheWatchExitCodeContract() {
   function mapsStatesToVerdictsWithTheDocumentedExitCodes() {
     const verdict = classifyVerdict('READY_FOR_SALE');
+
     expect(verdict).toMatchObject({
       state: 'released',
       done: true,
@@ -186,6 +188,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
   async function createsTheVersionAttachesTheBuildDeclaresComplianceWritesNotesAndSubmits() {
     const api = makeReleaseApiFake();
     const report = await runRelease(api, releaseInput());
+
     expect(api.createAppStoreVersion).toHaveBeenCalledWith(
       'app1',
       expect.objectContaining({
@@ -216,6 +219,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'creates the version, attaches the build, declares compliance, writes notes, and submits',
     createsTheVersionAttachesTheBuildDeclaresComplianceWritesNotesAndSubmits,
   );
+
   async function updatesAnExistingLocalizationSNotesInsteadOfCreatingADuplicate() {
     const fulfilled = Promise.resolve([
       { id: 'v5', versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
@@ -227,6 +231,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
         .fn()
         .mockReturnValue(Promise.resolve([{ id: 'loc-1', locale: 'en-US', whatsNew: 'old' }])),
     });
+
     await runRelease(api, releaseInput());
     expect(api.updateAppStoreVersionLocalization).toHaveBeenCalledWith('loc-1', 'Bug fixes.');
     expect(api.createAppStoreVersionLocalization).not.toHaveBeenCalled();
@@ -236,6 +241,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     "updates an existing localization's notes instead of creating a duplicate",
     updatesAnExistingLocalizationSNotesInsteadOfCreatingADuplicate,
   );
+
   async function skipsReleaseNotesOnTheAppSFirstVersionAppleHasNoWhatSNewThere() {
     const fulfilled = Promise.resolve([
       { id: 'v1', versionString: '1.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
@@ -244,9 +250,11 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       listAppStoreVersions: vi.fn().mockReturnValue(fulfilled),
     });
     const report = await runRelease(api, releaseInput({ versionString: '1.0' }));
+
     expect(api.listAppStoreVersionLocalizations).not.toHaveBeenCalled();
     expect(api.createAppStoreVersionLocalization).not.toHaveBeenCalled();
     expect(api.updateAppStoreVersionLocalization).not.toHaveBeenCalled();
+
     function findAction(action: {
       description: string;
       status: 'skipped' | 'planned' | 'applied' | 'failed';
@@ -257,6 +265,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     }
 
     const notesAction = report.actions.find(findAction);
+
     expect(notesAction).toMatchObject({
       status: 'skipped',
       note: expect.stringContaining('first version'),
@@ -268,13 +277,16 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     "skips release notes on the app's first version (Apple has no What's New there)",
     skipsReleaseNotesOnTheAppSFirstVersionAppleHasNoWhatSNewThere,
   );
+
   async function sendsReleaseCopyrightInTheVersionPATCHWithTheReleaseType() {
     const api = makeReleaseApiFake();
     const report = await runRelease(api, releaseInput({ copyright: '2026 Acme Inc.' }));
+
     expect(api.updateAppStoreVersion).toHaveBeenCalledWith('v-new', {
       releaseType: 'AFTER_APPROVAL',
       copyright: '2026 Acme Inc.',
     });
+
     function readDescription(action: {
       description: string;
       status: 'skipped' | 'planned' | 'applied' | 'failed';
@@ -293,6 +305,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'sends release.copyright in the version PATCH with the release type',
     sendsReleaseCopyrightInTheVersionPATCHWithTheReleaseType,
   );
+
   async function retargetsTheOpenEditableVersionWhenItsVersionStringDiffersOneEditableAllowedAtATime() {
     const fulfilled = Promise.resolve([
       { id: 'v5', versionString: '1.1.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
@@ -300,6 +313,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     const api = makeReleaseApiFake({
       listAppStoreVersions: vi.fn().mockReturnValue(fulfilled),
     });
+
     await runRelease(api, releaseInput({ versionString: '1.2.0' }));
     expect(api.updateAppStoreVersion).toHaveBeenCalledWith('v5', { versionString: '1.2.0' });
     expect(api.createAppStoreVersion).not.toHaveBeenCalled();
@@ -309,6 +323,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'retargets the open editable version when its version string differs (one editable allowed at a time)',
     retargetsTheOpenEditableVersionWhenItsVersionStringDiffersOneEditableAllowedAtATime,
   );
+
   async function isAnIdempotentNoOpWhenTheVersionIsAlreadyInReview() {
     const fulfilled = Promise.resolve([
       { id: 'v9', versionString: '1.2.0', appStoreState: 'WAITING_FOR_REVIEW' },
@@ -317,6 +332,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       listAppStoreVersions: vi.fn().mockReturnValue(fulfilled),
     });
     const report = await runRelease(api, releaseInput());
+
     expect(report).toMatchObject({
       submitted: false,
       alreadyInReview: true,
@@ -329,6 +345,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'is an idempotent no-op when the version is already in review',
     isAnIdempotentNoOpWhenTheVersionIsAlreadyInReview,
   );
+
   async function skipsExportComplianceWritesWhenTheBuildAlreadyHasTheDesiredAnswer() {
     function mockCall() {
       return Promise.resolve({ id: 'b-1', usesNonExemptEncryption: false });
@@ -338,6 +355,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       findBuild: vi.fn(mockCall),
     });
     const report = await runRelease(api, releaseInput());
+
     expect(api.setBuildUsesNonExemptEncryption).not.toHaveBeenCalled();
     expect(report.actions).toContainEqual(
       expect.objectContaining({
@@ -352,11 +370,13 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'skips export-compliance writes when the build already has the desired answer',
     skipsExportComplianceWritesWhenTheBuildAlreadyHasTheDesiredAnswer,
   );
+
   async function treatsApple409AlreadySetExportComplianceAsSkippedSuccess() {
     const alreadySetError = Object.assign(
       new Error('PATCH /builds/b-1 failed (409): You cannot update when the value is already set.'),
       { status: 409 },
     );
+
     function mockCall2() {
       return Promise.resolve({ id: 'b-1', usesNonExemptEncryption: null });
     }
@@ -371,6 +391,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       setBuildUsesNonExemptEncryption: vi.fn(mockCall3),
     });
     const report = await runRelease(api, releaseInput());
+
     expect(api.setBuildUsesNonExemptEncryption).toHaveBeenCalledWith('b-1', false);
     expect(report.actions).toContainEqual(
       expect.objectContaining({
@@ -387,6 +408,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'treats Apple 409 "already set" export-compliance as skipped success',
     treatsApple409AlreadySetExportComplianceAsSkippedSuccess,
   );
+
   async function enablesAPhasedReleaseWhenOptedIn() {
     const api = makeReleaseApiFake();
     await runRelease(api, releaseInput({ phasedRelease: true }));
@@ -394,6 +416,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
   }
 
   it('enables a phased release when opted in', enablesAPhasedReleaseWhenOptedIn);
+
   async function errorsWhenTheExactVersionIsAlreadyLiveYouMustBump() {
     const fulfilled = Promise.resolve([
       { id: 'v1', versionString: '1.2.0', appStoreState: 'READY_FOR_SALE' },
@@ -401,6 +424,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     const api = makeReleaseApiFake({
       listAppStoreVersions: vi.fn().mockReturnValue(fulfilled),
     });
+
     await expect(runRelease(api, releaseInput())).rejects.toMatchObject({
       message: expect.stringMatching(
         /already on the App Store \(READY_FOR_SALE\)\. Next step: set a new marketing version/,
@@ -412,6 +436,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'errors when the exact version is already live (you must bump)',
     errorsWhenTheExactVersionIsAlreadyLiveYouMustBump,
   );
+
   async function refusesABuildWhoseMarketingVersionIsAlreadyLiveBeforeAnyAppStoreWrite() {
     const fulfilled = Promise.resolve([
       { id: 'v-live', versionString: '1.1.0', appStoreState: 'READY_FOR_SALE' },
@@ -437,6 +462,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'refuses a build whose marketing version is already live, before any App Store write',
     refusesABuildWhoseMarketingVersionIsAlreadyLiveBeforeAnyAppStoreWrite,
   );
+
   async function attachesABuildWhoseMarketingVersionIsNotLiveYetToItsEditableVersion() {
     const fulfilled = Promise.resolve([
       { id: 'v-live', versionString: '1.1.0', appStoreState: 'READY_FOR_SALE' },
@@ -456,6 +482,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'attaches a build whose marketing version is not live yet, to its editable version',
     attachesABuildWhoseMarketingVersionIsNotLiveYetToItsEditableVersion,
   );
+
   async function errorsWithoutChangingAnythingWhenTheExactVersionIsInAnUnknownPiece() {
     const fulfilled = Promise.resolve([
       { id: 'v1', versionString: '1.2.0', appStoreState: 'SOME_NEW_STATE' },
@@ -463,6 +490,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     const api = makeReleaseApiFake({
       listAppStoreVersions: vi.fn().mockReturnValue(fulfilled),
     });
+
     await expect(runRelease(api, releaseInput())).rejects.toMatchObject({
       message: expect.stringMatching(/launch-store will not change/),
     });
@@ -473,12 +501,14 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'errors without changing anything when the exact version is in an unknown state',
     errorsWithoutChangingAnythingWhenTheExactVersionIsInAnUnknownPiece,
   );
+
   async function errorsWithThePortalChecklistWhenTheAppHasNoAppStoreConnectPiece() {
     function mockCall4() {
       return Promise.resolve(null);
     }
 
     const api = makeReleaseApiFake({ getAppId: vi.fn(mockCall4) });
+
     await expect(runRelease(api, releaseInput())).rejects.toMatchObject({
       message: expect.stringMatching(/No App Store Connect app record.*Apple has no API/s),
     });
@@ -488,6 +518,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'errors with the portal checklist when the app has no App Store Connect record',
     errorsWithThePortalChecklistWhenTheAppHasNoAppStoreConnectPiece,
   );
+
   async function refusesABuildThatHasnTFinishedProcessing() {
     const api = makeReleaseApiFake();
     const processing: BuildResource = {
@@ -496,6 +527,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       processingState: 'PROCESSING',
       expired: false,
     };
+
     await expect(runRelease(api, releaseInput({ build: processing }))).rejects.toMatchObject({
       message: expect.stringMatching(/still processing|PROCESSING/),
     });
@@ -503,9 +535,11 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
   }
 
   it("refuses a build that hasn't finished processing", refusesABuildThatHasnTFinishedProcessing);
+
   async function plansEveryStepInADryRunWithoutPerformingAnyWrite() {
     const api = makeReleaseApiFake();
     const report = await runRelease(api, releaseInput({ dryRun: true }));
+
     for (const write of [
       api.createAppStoreVersion,
       api.selectBuildForVersion,
@@ -517,8 +551,10 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     ]) {
       expect(write).not.toHaveBeenCalled();
     }
+
     expect(report.submitted).toBe(false);
     expect(report.actions.length).toBeGreaterThan(0);
+
     function everyAction(action: {
       description: string;
       status: 'skipped' | 'planned' | 'applied' | 'failed';
@@ -529,6 +565,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     }
 
     expect(report.actions.every(everyAction)).toBe(true);
+
     function readDescription2(action: {
       description: string;
       status: 'skipped' | 'planned' | 'applied' | 'failed';
@@ -545,10 +582,12 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'plans every step in a dry-run without performing any write',
     plansEveryStepInADryRunWithoutPerformingAnyWrite,
   );
+
   async function capturesAFailedStepAndKeepsGoingOneFailureNoLongerAbortsTheRest() {
     const fulfilled = Promise.resolve([
       { id: 'v5', versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
     ]);
+
     function mockCall5() {
       return Promise.reject(new Error('build attach boom'));
     }
@@ -558,6 +597,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       selectBuildForVersion: vi.fn(mockCall5),
     });
     const report = await runRelease(api, releaseInput());
+
     function findAction2(action: {
       description: string;
       status: 'skipped' | 'planned' | 'applied' | 'failed';
@@ -568,6 +608,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     }
 
     const attach = report.actions.find(findAction2);
+
     expect(attach).toMatchObject({ status: 'failed', error: expect.stringContaining('boom') });
     // The walk continued past the failure all the way to submit.
     expect(api.submitReviewSubmission).toHaveBeenCalled();
@@ -577,6 +618,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'captures a failed step and keeps going (one failure no longer aborts the rest)',
     capturesAFailedStepAndKeepsGoingOneFailureNoLongerAbortsTheRest,
   );
+
   async function isAnIdempotentNoOpWhenTheVersionIsPendingDeveloperRelease() {
     const fulfilled = Promise.resolve([
       {
@@ -589,6 +631,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       listAppStoreVersions: vi.fn().mockReturnValue(fulfilled),
     });
     const report = await runRelease(api, releaseInput());
+
     expect(report).toMatchObject({
       submitted: false,
       alreadyInReview: true,
@@ -601,9 +644,11 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'is an idempotent no-op when the version is pending developer release',
     isAnIdempotentNoOpWhenTheVersionIsPendingDeveloperRelease,
   );
+
   async function passesEarliestReleaseDateWhenCreatingAndUpdatingTheVersion() {
     const earliestReleaseDate = '2026-09-01T12:00:00.000Z';
     const api = makeReleaseApiFake();
+
     await runRelease(api, releaseInput({ earliestReleaseDate, releaseType: 'SCHEDULED' }));
     expect(api.createAppStoreVersion).toHaveBeenCalledWith(
       'app1',
@@ -626,10 +671,12 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'passes earliestReleaseDate when creating and updating the version',
     passesEarliestReleaseDateWhenCreatingAndUpdatingTheVersion,
   );
+
   async function disablesAnExistingPhasedReleaseWhenOptedOut() {
     const fulfilled = Promise.resolve([
       { id: 'v5', versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
     ]);
+
     function mockCall6() {
       return Promise.resolve({ id: 'ph-1', phasedReleaseState: 'ACTIVE' });
     }
@@ -638,6 +685,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       listAppStoreVersions: vi.fn().mockReturnValue(fulfilled),
       getPhasedRelease: vi.fn(mockCall6),
     });
+
     await runRelease(api, releaseInput({ phasedRelease: false }));
     expect(api.deletePhasedRelease).toHaveBeenCalledWith('ph-1');
     expect(api.createPhasedRelease).not.toHaveBeenCalled();
@@ -647,6 +695,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     'disables an existing phased release when opted out',
     disablesAnExistingPhasedReleaseWhenOptedOut,
   );
+
   async function refusesAnExpiredBuildBeforeAttachingIt() {
     const api = makeReleaseApiFake();
     const expiredBuild: BuildResource = {
@@ -655,6 +704,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       processingState: 'VALID',
       expired: true,
     };
+
     await expect(runRelease(api, releaseInput({ build: expiredBuild }))).rejects.toMatchObject({
       message: expect.stringMatching(/expired/),
     });
@@ -662,6 +712,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
   }
 
   it('refuses an expired build before attaching it', refusesAnExpiredBuildBeforeAttachingIt);
+
   async function reusesAnOpenREADYFORREVIEWSubmissionInsteadOfCreatingAnother() {
     function mockCall7() {
       return Promise.resolve([{ id: 'rs-open', state: 'READY_FOR_REVIEW' }]);
@@ -670,6 +721,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     const api = makeReleaseApiFake({
       listReviewSubmissions: vi.fn(mockCall7),
     });
+
     await runRelease(api, releaseInput());
     expect(api.createReviewSubmission).not.toHaveBeenCalled();
     expect(api.addReviewSubmissionItem).toHaveBeenCalledWith('rs-open', 'v-new');
@@ -689,6 +741,7 @@ function describeReleaseAppAttachOnlyNoReviewSubmission() {
     versionString: '1.2.0',
     appStoreState: 'PREPARE_FOR_SUBMISSION',
   };
+
   async function attachesTheBuildToTheEditableVersionAndNeverSubmitsIt() {
     function mockCall8() {
       return Promise.resolve([LIVE_VERSION, EDITABLE_VERSION]);
@@ -698,6 +751,7 @@ function describeReleaseAppAttachOnlyNoReviewSubmission() {
       listAppStoreVersions: vi.fn(mockCall8),
     });
     const report = await runRelease(api, releaseInput({ attachOnly: true }));
+
     expect(api.selectBuildForVersion).toHaveBeenCalledWith('v-edit', 'b-1');
     expect(api.createReviewSubmission).not.toHaveBeenCalled();
     expect(api.addReviewSubmissionItem).not.toHaveBeenCalled();
@@ -714,6 +768,7 @@ function describeReleaseAppAttachOnlyNoReviewSubmission() {
     'attaches the build to the editable version and never submits it',
     attachesTheBuildToTheEditableVersionAndNeverSubmitsIt,
   );
+
   async function sendsNoWriteWhenTheSameBuildIsAlreadyAttached() {
     function mockCall9() {
       return Promise.resolve([{ ...EDITABLE_VERSION, attachedBuildId: 'b-1' }]);
@@ -723,6 +778,7 @@ function describeReleaseAppAttachOnlyNoReviewSubmission() {
       listAppStoreVersions: vi.fn(mockCall9),
     });
     const report = await runRelease(api, releaseInput({ attachOnly: true }));
+
     expect(api.selectBuildForVersion).not.toHaveBeenCalled();
     expect(api.updateAppStoreVersion).not.toHaveBeenCalled();
     expect(api.updateAppStoreVersionLocalization).not.toHaveBeenCalled();
@@ -734,6 +790,7 @@ function describeReleaseAppAttachOnlyNoReviewSubmission() {
     'sends no write when the same build is already attached',
     sendsNoWriteWhenTheSameBuildIsAlreadyAttached,
   );
+
   async function swapsAnAttachedBuildForTheNewOneWhileTheVersionIsEditable() {
     function mockCall10() {
       return Promise.resolve([{ ...EDITABLE_VERSION, attachedBuildId: 'b-old' }]);
@@ -742,6 +799,7 @@ function describeReleaseAppAttachOnlyNoReviewSubmission() {
     const api = makeReleaseApiFake({
       listAppStoreVersions: vi.fn(mockCall10),
     });
+
     await runRelease(api, releaseInput({ attachOnly: true }));
     expect(api.selectBuildForVersion).toHaveBeenCalledWith('v-edit', 'b-1');
     expect(api.submitReviewSubmission).not.toHaveBeenCalled();
@@ -764,15 +822,18 @@ function describePickCurrentVersion() {
       { id: 'v2', versionString: '1.1.0', appStoreState: 'IN_REVIEW' },
     ];
     const currentVersion = pickCurrentVersion(versions);
+
     expect(currentVersion?.id).toBe('v2');
   }
 
   it('prefers an in-flight version over a live one', prefersAnInFlightVersionOverALiveOne);
+
   function fallsBackToTheFirstLiveVersionWhenNothingIsInFlight() {
     const versions: AppStoreVersionResource[] = [
       { id: 'v1', versionString: '1.0.0', appStoreState: 'READY_FOR_SALE' },
     ];
     const currentVersion = pickCurrentVersion(versions);
+
     expect(currentVersion?.id).toBe('v1');
   }
 
@@ -780,6 +841,7 @@ function describePickCurrentVersion() {
     'falls back to the first live version when nothing is in flight',
     fallsBackToTheFirstLiveVersionWhenNothingIsInFlight,
   );
+
   function returnsNullForAnAppWithNoVersions() {
     const currentVersion = pickCurrentVersion([]);
     expect(currentVersion).toBeNull();
@@ -812,6 +874,7 @@ function describeReadReleaseStatus() {
       getPhasedRelease: vi.fn(mockCall12),
     });
     const releaseStatus = await readReleaseStatus(api, 'com.acme.app', IOS_PLATFORM);
+
     expect(releaseStatus).toMatchObject({
       bundleId: 'com.acme.app',
       versionString: '1.1.0',
@@ -827,6 +890,7 @@ function describeReadReleaseStatus() {
     'classifies the current version and the build attached to it',
     classifiesTheCurrentVersionAndTheBuildAttachedToIt,
   );
+
   async function reportsNoBuildWhenTheCurrentVersionHasNoneAttached() {
     function mockCall13() {
       return Promise.resolve([
@@ -838,6 +902,7 @@ function describeReadReleaseStatus() {
       listAppStoreVersions: vi.fn(mockCall13),
     });
     const releaseStatus = await readReleaseStatus(api, 'com.acme.app', IOS_PLATFORM);
+
     expect(releaseStatus).toMatchObject({ versionString: '1.1.0', buildNumber: null });
   }
 
@@ -845,6 +910,7 @@ function describeReadReleaseStatus() {
     'reports no build when the current version has none attached',
     reportsNoBuildWhenTheCurrentVersionHasNoneAttached,
   );
+
   async function returnsAnEmptyPreparingVerdictWhenTheAppHasNoVersionsYet() {
     function mockCall14() {
       return Promise.resolve([]);
@@ -852,6 +918,7 @@ function describeReadReleaseStatus() {
 
     const api = makeReleaseApiFake({ listAppStoreVersions: vi.fn(mockCall14) });
     const releaseStatus = await readReleaseStatus(api, 'com.acme.app', IOS_PLATFORM);
+
     expect(releaseStatus).toMatchObject({
       versionString: null,
       appStoreState: null,
@@ -879,10 +946,12 @@ function describeWaitForValidBuild() {
       findBuildByVersion: vi.fn(mockCall15),
     });
     const buildProgram = waitForValidBuild(api, 'app1', 42, { sleep: noSleep });
+
     await expect(buildProgram).resolves.toEqual(VALID_BUILD);
   }
 
   it('returns the build once it reaches VALID', returnsTheBuildOnceItReachesVALID);
+
   async function pollsUntilVALIDSleepingBetweenAttempts() {
     const fulfilled = Promise.resolve({
       id: 'b',
@@ -895,6 +964,7 @@ function describeWaitForValidBuild() {
       .mockReturnValueOnce(fulfilled)
       .mockReturnValueOnce(Promise.resolve(VALID_BUILD));
     const api = makeReleaseApiFake({ findBuildByVersion });
+
     function mockCall16() {
       return Promise.resolve();
     }
@@ -904,11 +974,13 @@ function describeWaitForValidBuild() {
       sleep: sleepBetweenPolls,
       intervalMs: 1,
     });
+
     expect(storeBuild).toEqual(VALID_BUILD);
     expect(sleepBetweenPolls).toHaveBeenCalledTimes(1);
   }
 
   it('polls until VALID, sleeping between attempts', pollsUntilVALIDSleepingBetweenAttempts);
+
   async function throwsOnINVALIDProcessing() {
     const fulfilled = Promise.resolve({
       id: 'b',
@@ -920,12 +992,14 @@ function describeWaitForValidBuild() {
       findBuildByVersion: vi.fn().mockReturnValue(fulfilled),
     });
     const buildProgram = waitForValidBuild(api, 'app1', 42, { sleep: noSleep });
+
     await expect(buildProgram).rejects.toMatchObject({
       message: expect.stringMatching(/INVALID/),
     });
   }
 
   it('throws on INVALID processing', throwsOnINVALIDProcessing);
+
   async function throwsOnFAILEDProcessing() {
     function mockCall17() {
       return Promise.resolve({ id: 'b', version: '42', processingState: 'FAILED', expired: false });
@@ -935,12 +1009,14 @@ function describeWaitForValidBuild() {
       findBuildByVersion: vi.fn(mockCall17),
     });
     const buildProgram = waitForValidBuild(api, 'app1', 42, { sleep: noSleep });
+
     await expect(buildProgram).rejects.toMatchObject({
       message: expect.stringMatching(/FAILED/),
     });
   }
 
   it('throws on FAILED processing', throwsOnFAILEDProcessing);
+
   async function throwsANotFoundMessageWhenTheBuildNeverAppearsBeforeTheTimeout() {
     function mockCall18() {
       return Promise.resolve(null);
@@ -948,6 +1024,7 @@ function describeWaitForValidBuild() {
 
     const api = makeReleaseApiFake({ findBuildByVersion: vi.fn(mockCall18) });
     const buildProgram = waitForValidBuild(api, 'app1', 42, { sleep: noSleep, timeoutMs: 0 });
+
     await expect(buildProgram).rejects.toMatchObject({
       message: expect.stringMatching(/was not found on App Store Connect/),
     });
@@ -957,6 +1034,7 @@ function describeWaitForValidBuild() {
     'throws a not-found message when the build never appears before the timeout',
     throwsANotFoundMessageWhenTheBuildNeverAppearsBeforeTheTimeout,
   );
+
   async function throwsOnTimeout() {
     function mockCall19() {
       return Promise.resolve({
@@ -971,12 +1049,14 @@ function describeWaitForValidBuild() {
       findBuildByVersion: vi.fn(mockCall19),
     });
     const buildProgram = waitForValidBuild(api, 'app1', 42, { sleep: noSleep, timeoutMs: 0 });
+
     await expect(buildProgram).rejects.toMatchObject({
       message: expect.stringMatching(/still PROCESSING/),
     });
   }
 
   it('throws on timeout', throwsOnTimeout);
+
   async function waitsForTheBuildOfTheGivenMarketingVersionNotAnotherVersionWithTheSameNumber() {
     function mockCall20(_appId: string, _buildNumber: number, marketingVersion?: string) {
       return Promise.resolve(

@@ -20,6 +20,7 @@ export class SubmitToPlay {
       },
     });
     const versionCode = uploaded.versionCode;
+
     const isMissingCode = typeof versionCode != 'number';
 
     if (isMissingCode) {

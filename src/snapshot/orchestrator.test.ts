@@ -63,6 +63,7 @@ function describeCaptureSnapshot() {
     }
 
     const captureResult = await runCapture([source('a', 'appstore', piecePiece)]);
+
     expect(captureResult.snapshot.version).toBe(SNAPSHOT_VERSION);
     expect(captureResult.snapshot.name).toBe('before-sync');
     expect(captureResult.snapshot.capturedAt).toBe('2026-06-16T00:00:00.000Z');
@@ -72,6 +73,7 @@ function describeCaptureSnapshot() {
     'assembles the record with version, name, and capture time',
     assemblesThePieceWithVersionNameAndCaptureTime,
   );
+
   async function talliesCapturedEntitiesAcrossSourcesAndExitsOk() {
     function piecePiece2() {
       return Promise.resolve(captured(2));
@@ -85,6 +87,7 @@ function describeCaptureSnapshot() {
       source('a', 'appstore', piecePiece2),
       source('b', 'play', piecePiece3),
     ]);
+
     expect(captureResult.entityCount).toBe(5);
     expect(captureResult.exitCode).toBe(SNAPSHOT_EXIT.ok);
   }
@@ -93,6 +96,7 @@ function describeCaptureSnapshot() {
     'tallies captured entities across sources and exits ok',
     talliesCapturedEntitiesAcrossSourcesAndExitsOk,
   );
+
   async function dropsOmittedSurfacesFromThePersistedPiece() {
     function piecePiece4() {
       return Promise.resolve(captured(1));
@@ -106,6 +110,7 @@ function describeCaptureSnapshot() {
       source('a', 'appstore', piecePiece4),
       source('b', 'play', piecePiece5),
     ]);
+
     function readId(report: {
       readonly id: string;
       readonly title: string;
@@ -119,12 +124,14 @@ function describeCaptureSnapshot() {
   }
 
   it('drops omitted surfaces from the persisted record', dropsOmittedSurfacesFromThePersistedPiece);
+
   async function recordsASkippedSurfaceWithoutFailingTheRun() {
     function piecePiece6() {
       return Promise.resolve({ state: 'skipped', reason: 'no Play credentials' } as const);
     }
 
     const captureResult = await runCapture([source('a', 'play', piecePiece6)]);
+
     expect(captureResult.skippedCount).toBe(1);
     expect(captureResult.errorCount).toBe(0);
     expect(captureResult.exitCode).toBe(SNAPSHOT_EXIT.ok);
@@ -134,6 +141,7 @@ function describeCaptureSnapshot() {
     'records a skipped surface without failing the run',
     recordsASkippedSurfaceWithoutFailingTheRun,
   );
+
   async function convertsAThrownPieceIntoAnErroredReportAndExits1() {
     function piecePiece7() {
       return Promise.resolve(captured(1));
@@ -147,6 +155,7 @@ function describeCaptureSnapshot() {
       source('ok', 'appstore', piecePiece7),
       source('boom', 'play', piecePiece8),
     ]);
+
     function findReport(report: {
       readonly id: string;
       readonly title: string;
@@ -157,6 +166,7 @@ function describeCaptureSnapshot() {
     }
 
     const errored = captureResult.snapshot.reports.find(findReport);
+
     expect(errored?.outcome).toEqual({ state: 'errored', error: 'network down' });
     expect(captureResult.errorCount).toBe(1);
     expect(captureResult.exitCode).toBe(SNAPSHOT_EXIT.error);

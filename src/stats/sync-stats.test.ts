@@ -42,6 +42,7 @@ vi.mock('./feed-registry.ts', function mockFeedRegistry() {
     },
     async fetchDays(request: { range: unknown }) {
       fakeFeed.askedRanges.push(request.range);
+
       const reply = fakeFeed.reply;
 
       if (isTaggedFailure(reply)) {
@@ -106,21 +107,27 @@ const FETCHED_REPLY: FeedFetchReply = {
 };
 function describeSyncStats() {
   let homeDirectory: string;
+
   function prepareSyncStats() {
     homeDirectory = createTemporaryHomeDirectory();
+
     const workPath = join(homeDirectory, 'work');
+
     useLaunchDirectories({
       homeDirectory,
       workingDirectory: workPath,
     });
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
+
     const serialized = JSON.stringify(PORTFOLIO_FILE);
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
     fakeFeed.reply = FETCHED_REPLY;
     fakeFeed.askedRanges = [];
   }
 
   beforeEach(prepareSyncStats);
+
   function cleanupSyncStats() {
     useStatsCredentials(null);
     resetLaunchDirectories();
@@ -150,11 +157,15 @@ function describeSyncStats() {
     expect(report.appFeeds).toEqual([
       { appKey: 'ios-1', feed: 'app-store', status: 'synced', statsWritten: 1, message: null },
     ]);
+
     const joinedPath = join(homeDirectory, '.launch', 'stats', 'ios-1', '2026-10.json');
     const loadedFile = readFileSync(joinedPath, 'utf8');
     const monthFile = JSON.parse(loadedFile);
+
     expect(monthFile.stats).toHaveLength(1);
+
     const coverage = readCoverage('ios-1');
+
     expect(coverage.feeds['app-store']).toMatchObject({
       coveredThrough: '2026-10-28',
       lastError: null,
@@ -166,8 +177,10 @@ function describeSyncStats() {
     'writes the fetched days and records the coverage',
     writesTheFetchedDaysAndRecordsTheCoverage,
   );
+
   async function syncsEveryAppWhenNoNameIsGivenAndReportsTheSkippedFeed() {
     const report = await sync(null, 5);
+
     function mapAppFeed(appFeed: AppFeedSyncReport) {
       return [appFeed.appKey, appFeed.status];
     }
@@ -183,22 +196,28 @@ function describeSyncStats() {
     'syncs every app when no name is given and reports the skipped feed',
     syncsEveryAppWhenNoNameIsGivenAndReportsTheSkippedFeed,
   );
+
   async function joinsTheFeedNotesIntoTheReportMessage() {
     fakeFeed.reply = { ...FETCHED_REPLY, notes: ['month 2026-09 missing', 'currency mixed'] };
 
     const report = await sync('cal friend', 30);
 
     expect(report.appFeeds[0]?.message).toBe('month 2026-09 missing; currency mixed');
+
     const coverage = readCoverage('ios-1');
+
     expect(coverage.feeds['app-store']?.lastNote).toBe('month 2026-09 missing; currency mixed');
   }
 
   test('joins the feed notes into the report message', joinsTheFeedNotesIntoTheReportMessage);
+
   async function recordsASkippedFeedAsCheckedSoTheNextReadDoesNotSyncAgain() {
     const report = await sync('fit', 5);
 
     expect(report.appFeeds[0]?.status).toBe('skipped');
+
     const coverage = readCoverage('android-com.fit');
+
     expect(coverage.feeds['google-play']).toMatchObject({
       lastSyncedAt: report.syncedAt,
       lastError: null,
@@ -210,6 +229,7 @@ function describeSyncStats() {
     'records a skipped feed as checked so the next read does not sync again',
     recordsASkippedFeedAsCheckedSoTheNextReadDoesNotSyncAgain,
   );
+
   async function asksOnlyForTheDaysThatAreNotCoveredYetOnTheSecondRun() {
     await sync('cal friend', 30);
     fakeFeed.askedRanges = [];
@@ -224,6 +244,7 @@ function describeSyncStats() {
     'asks only for the days that are not covered yet on the second run',
     asksOnlyForTheDaysThatAreNotCoveredYetOnTheSecondRun,
   );
+
   async function reportsUpToDateAndDoesNotCallTheFeedWhenEverythingIsCovered() {
     const coverage: AppCoverage = {
       version: 1,
@@ -239,6 +260,7 @@ function describeSyncStats() {
       },
     };
     const serialized = JSON.stringify(coverage);
+
     writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', serialized);
 
     const report = await sync('cal friend', 3);
@@ -251,6 +273,7 @@ function describeSyncStats() {
     'reports up-to-date and does not call the feed when everything is covered',
     reportsUpToDateAndDoesNotCallTheFeedWhenEverythingIsCovered,
   );
+
   async function recordsAFailingFeedAsFailedWithItsMessageAndKeepsGoing() {
     fakeFeed.reply = {
       _tag: 'StatsFeedFailure',
@@ -261,13 +284,16 @@ function describeSyncStats() {
     } satisfies StatsFeedFailure;
 
     const report = await sync(null, 5);
+
     function readStatus(appFeed: AppFeedSyncReport) {
       return appFeed.status;
     }
 
     expect(report.appFeeds.map(readStatus)).toEqual(['failed', 'skipped']);
     expect(report.appFeeds[0]?.message).toBe('report not ready');
+
     const coverage = readCoverage('ios-1');
+
     expect(coverage.feeds['app-store']?.lastError).toBe('report not ready');
   }
 
@@ -275,8 +301,10 @@ function describeSyncStats() {
     'records a failing feed as failed with its message and keeps going',
     recordsAFailingFeedAsFailedWithItsMessageAndKeepsGoing,
   );
+
   async function findsAnAppThatIsNotInTheSavedPortfolioByDiscoveringAgain() {
     const serialized = JSON.stringify({ ...PORTFOLIO_FILE, apps: [] });
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     const report = await sync('fresh', 5, {
@@ -284,6 +312,7 @@ function describeSyncStats() {
         return makeFakeAscClient([{ id: '9', name: 'Fresh App', bundleId: null }]);
       },
     });
+
     function readAppKey(appFeed: AppFeedSyncReport) {
       return appFeed.appKey;
     }
@@ -295,6 +324,7 @@ function describeSyncStats() {
     'finds an app that is not in the saved portfolio by discovering again',
     findsAnAppThatIsNotInTheSavedPortfolioByDiscoveringAgain,
   );
+
   async function failsWithTheKnownAppNamesWhenTheAppDoesNotExistAnywhere() {
     makeStatsCredentialsTest();
 

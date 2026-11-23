@@ -195,6 +195,7 @@ function readAchievement(entry: unknown): AchievementConfig {
     afterEarnedDescription: readRequiredText(entryObject, 'afterEarnedDescription'),
   };
   const showBeforeEarned = readExactOptionalBoolean(entryObject, 'showBeforeEarned');
+
   const hasShowBeforeEarned = showBeforeEarned != null;
 
   if (hasShowBeforeEarned) {
@@ -202,6 +203,7 @@ function readAchievement(entry: unknown): AchievementConfig {
   }
 
   const repeatable = readExactOptionalBoolean(entryObject, 'repeatable');
+
   const hasRepeatable = repeatable != null;
 
   if (hasRepeatable) {
@@ -209,6 +211,7 @@ function readAchievement(entry: unknown): AchievementConfig {
   }
 
   const locale = readExactOptionalText(entryObject, 'locale');
+
   const hasLocale = locale != null;
 
   if (hasLocale) {
@@ -267,6 +270,7 @@ function readLeaderboard(entry: unknown): LeaderboardConfig {
     name: readRequiredText(entryObject, 'name'),
   };
   const locale = readExactOptionalText(entryObject, 'locale');
+
   const hasLocale = locale != null;
 
   if (hasLocale) {
@@ -328,6 +332,7 @@ function decodeGameCenterDocument(rawDocument: unknown): GameCenterConfig {
     achievements?: readonly AchievementConfig[];
     leaderboards?: readonly LeaderboardConfig[];
   } = {};
+
   const hasAchievements = achievements != null;
 
   if (hasAchievements) {
@@ -362,6 +367,7 @@ function vendorIdentifiersOf(
 
   for (const resource of resources) {
     const vendorIdentifier = resource.vendorIdentifier;
+
     const isMissing = vendorIdentifier == null;
 
     if (isMissing) {
@@ -420,6 +426,7 @@ async function createItemWithLocalization(
 ): Promise<void> {
   const createAction = plan(reconcileContext, createDescription);
   const localizationAction = plan(reconcileContext, localizationDescription);
+
   const isDryRun = reconcileContext.dryRun == true;
 
   if (isDryRun) {
@@ -449,6 +456,7 @@ async function ensureDetail(
   appId: string,
 ): Promise<EnsuredDetail> {
   const existingDetail = await api.getGameCenterDetail(appId);
+
   const hasDetail = existingDetail != null;
 
   if (hasDetail) {
@@ -456,6 +464,7 @@ async function ensureDetail(
   }
 
   const enableAction = plan(reconcileContext, 'enable Game Center for the app');
+
   const isDryRun = reconcileContext.dryRun == true;
 
   if (isDryRun) {
@@ -492,6 +501,7 @@ async function reconcileAchievements(
   declaredAchievements: readonly AchievementConfig[],
 ): Promise<void> {
   let existingIdentifiers = new Set<string>();
+
   const shouldListExisting = hasExistingDetailId(detail);
 
   if (shouldListExisting) {
@@ -553,6 +563,7 @@ async function reconcileLeaderboards(
   declaredLeaderboards: readonly LeaderboardConfig[],
 ): Promise<void> {
   let existingIdentifiers = new Set<string>();
+
   const shouldListExisting = hasExistingDetailId(detail);
 
   if (shouldListExisting) {
@@ -612,6 +623,7 @@ export async function reconcileGameCenter(
   const reconcileContext: ReconcileContext = { actions: [], dryRun: reconcileInput.dryRun };
   const gameCenterConfig = reconcileInput.config;
   const appId = await api.getAppId(reconcileInput.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -619,6 +631,7 @@ export async function reconcileGameCenter(
   }
 
   const detail = await ensureDetail(reconcileContext, api, appId);
+
   const isDetailMissing = detail == null;
 
   if (isDetailMissing) {
@@ -626,10 +639,12 @@ export async function reconcileGameCenter(
       reconcileContext,
       'achievements / leaderboards: skipped - Game Center could not be enabled for the app',
     );
+
     return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
   }
 
   let achievements: readonly AchievementConfig[] = [];
+
   const hasAchievements = gameCenterConfig.achievements != null;
 
   if (hasAchievements) {
@@ -637,6 +652,7 @@ export async function reconcileGameCenter(
   }
 
   let leaderboards: readonly LeaderboardConfig[] = [];
+
   const hasLeaderboards = gameCenterConfig.leaderboards != null;
 
   if (hasLeaderboards) {
@@ -645,6 +661,7 @@ export async function reconcileGameCenter(
 
   await reconcileAchievements(reconcileContext, api, detail, achievements);
   await reconcileLeaderboards(reconcileContext, api, detail, leaderboards);
+
   return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
 }
 

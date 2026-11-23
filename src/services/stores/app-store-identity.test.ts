@@ -22,6 +22,7 @@ function installClient(methods: {
 }): void {
   useAppleStoreClientFactory(function createClient() {
     const client = Object.create(AppStoreConnectClient.prototype);
+
     client.assertReady = methods.assertReady;
     client.resolveTeamId = methods.resolveTeamId;
     client.listAppNames = methods.listAppNames;
@@ -34,6 +35,7 @@ function describeAppStoreIdentityService() {
     const assertReady = vi.fn(async function ready() {
       return undefined;
     });
+
     installClient({
       assertReady,
       resolveTeamId: async function resolveTeamId() {
@@ -55,6 +57,7 @@ function describeAppStoreIdentityService() {
     'verifies the key before returning its best-effort identity',
     verifiesTheKeyBeforeReturningItsBestEffortIdentity,
   );
+
   async function keepsVerificationFailuresInTheTypedErrorChannel() {
     installClient({
       assertReady: async function failReady() {
@@ -78,6 +81,7 @@ function describeAppStoreIdentityService() {
     'keeps verification failures in the typed error channel',
     keepsVerificationFailuresInTheTypedErrorChannel,
   );
+
   async function doesNotRejectAVerifiedKeyWhenIdentityDiscoveryIsUnavailable() {
     installClient({
       assertReady: async function ready() {

@@ -8,6 +8,7 @@ function describeAppClipsCommandPieceSchema() {
       dryRun: true,
       yes: false,
     });
+
     expect(appClipsCommandSchema).toEqual({
       config: 'appclips.config.json',
       explicitConfig: false,
@@ -20,6 +21,7 @@ function describeAppClipsCommandPieceSchema() {
     'decodes the Commander boundary with an omitted app selector',
     decodesTheCommanderBoundaryWithAnOmittedAppSelector,
   );
+
   function rejectsAnExplicitUndefinedExactOptionalApp() {
     function callAppClipsCommandPieceSchema() {
       return AppClipsCommandInputSchema({

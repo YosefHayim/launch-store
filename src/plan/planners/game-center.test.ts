@@ -28,7 +28,9 @@ function makeCtx(
     submit: 'app-store-connect',
   };
   let config = baseConfig;
+
   if (gameCenter) config = { ...baseConfig, gameCenter };
+
   return {
     config,
     apps: [alpha],
@@ -48,10 +50,14 @@ function describeGameCenterPlanner() {
   }
 
   it('omits itself when no app declares Game Center', omitsItselfWhenNoAppDeclaresGameCenter);
+
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(gameCenterPlanner, makeCtx(null, DECLARED));
+
     expect(plan.state).toBe('skipped');
+
     if (plan.state != 'skipped') return;
+
     expect(plan.hint).toMatch(/creds/);
   }
 
@@ -59,14 +65,20 @@ function describeGameCenterPlanner() {
     'skips with a creds hint when no Apple account is active',
     skipsWithACredsHintWhenNoAppleAccountIsActive,
   );
+
   async function reportsAnAdditivePlanWhenGameCenterIsnTEnabledYet() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(gameCenterPlanner, makeCtx(ascApiFake, DECLARED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.direction).toBe('additive');
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
+
     function someA(a: {
       readonly description: string;
       readonly destructive: boolean;
@@ -83,14 +95,19 @@ function describeGameCenterPlanner() {
     "reports an additive plan when Game Center isn't enabled yet",
     reportsAnAdditivePlanWhenGameCenterIsnTEnabledYet,
   );
+
   async function rendersInSyncWhenGameCenterIsAlreadyEnabledAndNothingIsDeclaredUnderIt() {
     const api = makeAscApiFake({
       getGameCenterDetail: vi.fn().mockResolvedValue({ id: 'detail1' }),
     });
     const plan = await runPlanner(gameCenterPlanner, makeCtx(api, DECLARED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.actions).toHaveLength(0);
   }
 
@@ -98,12 +115,17 @@ function describeGameCenterPlanner() {
     'renders in sync when Game Center is already enabled and nothing is declared under it',
     rendersInSyncWhenGameCenterIsAlreadyEnabledAndNothingIsDeclaredUnderIt,
   );
+
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(gameCenterPlanner, makeCtx(api, DECLARED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
   }
 
@@ -111,6 +133,7 @@ function describeGameCenterPlanner() {
     'captures a missing app record as a per-app error, not a thrown plan',
     capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan,
   );
+
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
     await runPlanner(gameCenterPlanner, makeCtx(api, DECLARED));

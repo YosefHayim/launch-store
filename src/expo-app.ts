@@ -34,6 +34,7 @@ export async function readExpoApp(directory: string): Promise<ExpoApp> {
   }
 
   const expo = appDocument.expo;
+
   const isMissingExpo = expo == null;
 
   if (isMissingExpo) {

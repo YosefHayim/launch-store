@@ -30,6 +30,7 @@ function isClosedTrainCode(problem: BuildUploadProblem): boolean {
 
 function rejectionMessage(version: string, problems: readonly BuildUploadProblem[]): string {
   const problemList = problems.map(describeProblem).join('\n');
+
   const isClosedTrain = problems.some(isClosedTrainCode);
 
   if (isClosedTrain) {
@@ -47,6 +48,7 @@ function rejectionMessage(version: string, problems: readonly BuildUploadProblem
 
 function describeWait(waitMilliseconds: number): string {
   const waitMinutes = waitMilliseconds / 60_000;
+
   const isWholeMinutes = waitMinutes == Math.floor(waitMinutes);
 
   if (isWholeMinutes) {
@@ -60,6 +62,7 @@ function describeWait(waitMilliseconds: number): string {
   }
 
   const waitSeconds = waitMilliseconds / 1000;
+
   const isOneSecond = waitSeconds == 1;
 
   if (isOneSecond) {
@@ -88,6 +91,7 @@ async function waitForBuildUpload(
 
   while (checkedAt < deadline) {
     const uploadStatus = await appStoreClient.getBuildUploadStatus(buildUploadId);
+
     const isComplete = uploadStatus.state == 'COMPLETE';
 
     if (isComplete) {
@@ -108,6 +112,7 @@ async function waitForBuildUpload(
   }
 
   const wait = describeWait(uploadWaitMilliseconds);
+
   throw makeStoreUploadFailure({
     provider: PROVIDER,
     message: `App Store Connect is still processing build upload ${buildUploadId} after ${wait}. Check TestFlight before uploading again.`,
@@ -148,6 +153,7 @@ async function submitAppleBuild(
       bundleId,
       `launch-store build ${buildContext.platform}`,
     );
+
     throw makeProviderInputFailure({
       provider: PROVIDER,
       message: appMissingMessage,
@@ -161,6 +167,7 @@ async function submitAppleBuild(
     ascPlatform,
   );
   const fileName = basename(artifact.path);
+
   await appStoreClient.uploadBuildFile(buildUploadId, fileName, artifact.path);
   await waitForBuildUpload(
     appStoreClient,

@@ -148,6 +148,7 @@ function makeReleaseApiFake(methodOverrides: Partial<AscReleaseApi> = {}): AscRe
       return promiseValue(undefined);
     }),
   } satisfies AscReleaseApi;
+
   return { ...baseApi, ...methodOverrides };
 }
 
@@ -161,8 +162,11 @@ async function runStatusCommand(
 
   try {
     const workDirectory = join(homeDirectory, 'work');
+
     mkdirSync(workDirectory, { recursive: true });
+
     const appPath = join(workDirectory, 'app.json');
+
     writeFileSync(appPath, appJsonText);
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFileText);
     useLaunchDirectories({ homeDirectory, workingDirectory: workDirectory });
@@ -217,6 +221,7 @@ function describeStatusCommandProgramPlainStatus() {
     'prints the status line and exits 0 when the version is live',
     printsTheStatusLineAndExits0WhenTheVersionIsLive,
   );
+
   async function annotatesAnAttachedBuildThatIsStillProcessing() {
     function mockCall2() {
       return Promise.resolve([
@@ -237,6 +242,7 @@ function describeStatusCommandProgramPlainStatus() {
     'annotates an attached build that is still processing',
     annotatesAnAttachedBuildThatIsStillProcessing,
   );
+
   async function neverListsBuildsWithoutBuilds() {
     function mockCall3() {
       const buildProgram = makeBuild();
@@ -244,6 +250,7 @@ function describeStatusCommandProgramPlainStatus() {
     }
 
     const listBuilds = vi.fn(mockCall3);
+
     function mockCall4() {
       return Promise.resolve([liveVersion()]);
     }
@@ -259,6 +266,7 @@ function describeStatusCommandProgramPlainStatus() {
   }
 
   it('never lists builds without --builds', neverListsBuildsWithoutBuilds);
+
   async function listsEachRecentBuildInItsOwnPieceWithBuildsLookingUpTheAppIdOnce() {
     function mockCall5() {
       return Promise.resolve([liveVersion()]);
@@ -270,6 +278,7 @@ function describeStatusCommandProgramPlainStatus() {
         version: '43',
         uploadedDate: '2026-11-03T10:00:00Z',
       });
+
       return Promise.resolve([
         buildProgram,
         makeBuild({ id: 'b-42', version: '42', uploadedDate: '2026-10-20T10:00:00Z' }),
@@ -284,6 +293,7 @@ function describeStatusCommandProgramPlainStatus() {
     const run = await runStatusCommand({ builds: true }, api);
 
     const printedText = run.logLines.join('\n');
+
     expect(printedText).toContain('2026-11-03 10:00');
     expect(printedText).toContain('2026-10-20 10:00');
     expect(api.getAppId).toHaveBeenCalledTimes(1);
@@ -293,6 +303,7 @@ function describeStatusCommandProgramPlainStatus() {
     'lists each recent build in its own row with --builds, looking up the app id once',
     listsEachRecentBuildInItsOwnPieceWithBuildsLookingUpTheAppIdOnce,
   );
+
   async function exits0WithANoteWhenTheProjectHasNoIOSApp() {
     const api = makeReleaseApiFake();
 
@@ -306,6 +317,7 @@ function describeStatusCommandProgramPlainStatus() {
     'exits 0 with a note when the project has no iOS app',
     exits0WithANoteWhenTheProjectHasNoIOSApp,
   );
+
   async function failsWithExit1OnAnAppNameThatIsNotAnIOSApp() {
     const api = makeReleaseApiFake();
 
@@ -332,6 +344,7 @@ function describeStatusCommandProgramUsageErrors() {
   }
 
   it('exits 2 when --build comes without --watch', exits2WhenBuildComesWithoutWatch);
+
   async function exits2WhenBuildsComesWithWatch() {
     const releaseApiFake = makeReleaseApiFake();
     const run = await runStatusCommand({ builds: true, watch: true }, releaseApiFake);
@@ -341,6 +354,7 @@ function describeStatusCommandProgramUsageErrors() {
   }
 
   it('exits 2 when --builds comes with --watch', exits2WhenBuildsComesWithWatch);
+
   async function exits2WithTheUsageMessageForABuildThatIsNotAWholeNumber() {
     const releaseApiFake = makeReleaseApiFake();
     const run = await runStatusCommand({ build: '4.5', watch: true }, releaseApiFake);
@@ -353,6 +367,7 @@ function describeStatusCommandProgramUsageErrors() {
     'exits 2 with the usage message for a --build that is not a whole number',
     exits2WithTheUsageMessageForABuildThatIsNotAWholeNumber,
   );
+
   async function exits2ForABuildOf0() {
     const releaseApiFake = makeReleaseApiFake();
     const run = await runStatusCommand({ build: '0', watch: true }, releaseApiFake);
@@ -383,6 +398,7 @@ function describeStatusCommandProgramWatchAndBuild() {
     'exits with the verdict code when the first read is already terminal',
     exitsWithTheVerdictCodeWhenTheFirstReadIsAlreadyTerminal,
   );
+
   async function reportsTheBuildAsReadyOnceAppStoreConnectReportsItVALID() {
     function mockCall8() {
       const buildProgram = makeBuild({ processingState: 'VALID' });
@@ -403,6 +419,7 @@ function describeStatusCommandProgramWatchAndBuild() {
     'reports the build as ready once App Store Connect reports it VALID',
     reportsTheBuildAsReadyOnceAppStoreConnectReportsItVALID,
   );
+
   async function failsWithExit1WhenAppStoreConnectRejectsTheBuild() {
     function mockCall9() {
       const buildProgram = makeBuild({ processingState: 'FAILED' });
@@ -423,6 +440,7 @@ function describeStatusCommandProgramWatchAndBuild() {
     'fails with exit 1 when App Store Connect rejects the build',
     failsWithExit1WhenAppStoreConnectRejectsTheBuild,
   );
+
   async function printsOkTrueWithTheBuildUnderPieceWhenTheBuildIsVALID() {
     function mockCall10() {
       const buildProgram = makeBuild({ processingState: 'VALID' });
@@ -442,6 +460,7 @@ function describeStatusCommandProgramWatchAndBuild() {
     'prints ok true with the build under --json when the build is VALID',
     printsOkTrueWithTheBuildUnderPieceWhenTheBuildIsVALID,
   );
+
   async function printsOkFalseWithTheErrorUnderPieceWhenTheBuildIsRejected() {
     function mockCall11() {
       const buildProgram = makeBuild({ processingState: 'INVALID' });
@@ -462,6 +481,7 @@ function describeStatusCommandProgramWatchAndBuild() {
     'prints ok false with the error under --json when the build is rejected',
     printsOkFalseWithTheErrorUnderPieceWhenTheBuildIsRejected,
   );
+
   async function failsWithExit1AndAClearMessageWhenBuildHasNoIOSAppToWatch() {
     const releaseApiFake = makeReleaseApiFake();
     const run = await runStatusCommand(

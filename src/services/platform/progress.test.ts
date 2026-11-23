@@ -24,6 +24,7 @@ function describeSelectProgressModeOnlyARealInteractiveTTYGetsTheSpinner() {
     'uses the spinner on an interactive, non-CI TTY without --verbose',
     usesTheSpinnerOnAnInteractiveNonCITTYWithoutVerbose,
   );
+
   function streamsPiecePieceUnderVerboseSoTheFullLogIsVisible() {
     const progressMode = selectProgressMode(true, {}, true);
     expect(progressMode).toBe('stream');
@@ -33,6 +34,7 @@ function describeSelectProgressModeOnlyARealInteractiveTTYGetsTheSpinner() {
     'streams raw output under --verbose so the full log is visible',
     streamsPiecePieceUnderVerboseSoTheFullLogIsVisible,
   );
+
   function streamsWhenNotATTYPipedPieceLogFilesAgents() {
     const progressMode = selectProgressMode(false, {}, false);
     expect(progressMode).toBe('stream');
@@ -42,6 +44,7 @@ function describeSelectProgressModeOnlyARealInteractiveTTYGetsTheSpinner() {
     'streams when not a TTY (piped output, log files, agents)',
     streamsWhenNotATTYPipedPieceLogFilesAgents,
   );
+
   function streamsInCISoTranscriptsKeepTheCompletePiece() {
     const progressMode = selectProgressMode(true, { CI: 'true' }, false);
     expect(progressMode).toBe('stream');
@@ -83,6 +86,7 @@ function describeFormatElapsedCompactMmSsClock() {
   }
 
   it('shows bare seconds under a minute', showsBareSecondsUnderAMinute);
+
   function showsMinutesWithZeroPaddedSecondsPastAMinute() {
     const elapsedLabel = formatElapsed(72000);
     expect(elapsedLabel).toBe('1m 12s');
@@ -103,6 +107,7 @@ function describeXcodeProgressStepSurfaceThePieceXcodebuildStep() {
       "CompileC /b/Pods/yuv_sse2.o /s/yuv_sse2.c normal arm64 c com.apple.compilers.llvm.clang.1_0.compiler (in target 'libwebp' from project 'Pods')";
     const swiftLine =
       "SwiftCompile normal arm64 /s/AppDelegate.swift (in target 'App' from project 'App')";
+
     expect(xcodeProgressStep(compileLine)).toBe('CompileC yuv_sse2.o');
     expect(xcodeProgressStep(swiftLine)).toBe('SwiftCompile AppDelegate.swift');
     expect(xcodeProgressStep('Ld /b/App.app/App normal')).toBe('Ld App');
@@ -110,6 +115,7 @@ function describeXcodeProgressStepSurfaceThePieceXcodebuildStep() {
   }
 
   it('names the file for compile, link and sign lines', namesTheFileForCompileLinkAndSignLines);
+
   function namesTheBuildPhaseScriptInsteadOfItsPath() {
     const scriptLine =
       "PhaseScriptExecution [CP]\\ Embed\\ Pods\\ Frameworks /b/Script-1.sh (in target 'App' from project 'App')";
@@ -117,21 +123,25 @@ function describeXcodeProgressStepSurfaceThePieceXcodebuildStep() {
   }
 
   it('names the build phase script instead of its path', namesTheBuildPhaseScriptInsteadOfItsPath);
+
   function reportsTheArchiveAndExportSuccessMarkers() {
     expect(xcodeProgressStep('** ARCHIVE SUCCEEDED **')).toBe('archive succeeded');
     expect(xcodeProgressStep('** EXPORT SUCCEEDED **')).toBe('export succeeded');
   }
 
   it('reports the archive and export success markers', reportsTheArchiveAndExportSuccessMarkers);
+
   function ignoresLinesThatAreNotBuildSteps() {
     expect(xcodeProgressStep('note: Using new build system')).toBeUndefined();
     expect(xcodeProgressStep('')).toBeUndefined();
   }
 
   it('ignores lines that are not build steps', ignoresLinesThatAreNotBuildSteps);
+
   function truncatesAnOverLongStepSoItStaysOnOneLine() {
     const long = `CompileC /b/${'LongName'.repeat(12)}.o /s/x.c normal arm64`;
     const step = xcodeProgressStep(long);
+
     expect(step).toBeDefined();
     expect(step?.length).toBeLessThanOrEqual(52);
     expect(step?.endsWith('...')).toBe(true);
@@ -153,6 +163,7 @@ function describeIsInteractivePromptOnlyOnARealNonCITTY() {
   }
 
   it('is true on an interactive TTY with no CI marker', isTrueOnAnInteractiveTTYWithNoCIMarker);
+
   function isFalseWhenStdoutIsnTATTYPipesLogFilesAgents() {
     expect(isInteractiveTerminal(false, {})).toBe(false);
   }
@@ -161,6 +172,7 @@ function describeIsInteractivePromptOnlyOnARealNonCITTY() {
     "is false when stdout isn't a TTY (pipes, log files, agents)",
     isFalseWhenStdoutIsnTATTYPipesLogFilesAgents,
   );
+
   function isFalseInCIEvenOnATTYSoItNeverBlocksOnStdin() {
     expect(isInteractiveTerminal(true, { CI: 'true' })).toBe(false);
   }
@@ -182,6 +194,7 @@ function describeWithSpinnerSilentNetworkStepsDegradeCleanlyOffTTY() {
     }
 
     const lookedUp = await withSpinner('looking up', lookup);
+
     expect(lookedUp).toBe(42);
   }
 
@@ -189,6 +202,7 @@ function describeWithSpinnerSilentNetworkStepsDegradeCleanlyOffTTY() {
     'runs the task and returns its result (no spinner without a TTY)',
     runsTheTaskAndReturnsItsPieceNoSpinnerWithoutATTY,
   );
+
   async function propagatesATaskRejection() {
     async function failLookup(): Promise<number> {
       throw new Error('boom');
@@ -207,6 +221,7 @@ describe(
 function describeWithSpinnerProgressEventsUnderPiece() {
   async function emitsStartThenDoneWithTheElapsedTime() {
     const eventLines: string[] = [];
+
     useLoggerSink(function writeEvent(text: string) {
       eventLines.push(text);
     });
@@ -219,20 +234,24 @@ function describeWithSpinnerProgressEventsUnderPiece() {
     }
 
     await withSpinner('looking up', lookup);
+
     function mapEventLine(eventLine: string) {
       return JSON.parse(eventLine);
     }
 
     const events = eventLines.map(mapEventLine);
+
     expect(events[0]).toEqual({ event: 'progress', label: 'looking up', status: 'start' });
     expect(events[1]).toMatchObject({ event: 'progress', label: 'looking up', status: 'done' });
     expect(typeof events[1].elapsedMs).toBe('number');
   }
 
   it('emits start then done with the elapsed time', emitsStartThenDoneWithTheElapsedTime);
+
   async function emitsStartThenFailWhenTheTaskFails() {
     const eventLines: string[] = [];
     const humanLines: string[] = [];
+
     useLoggerSink(function writeEvent(text: string) {
       eventLines.push(text);
     });
@@ -245,11 +264,13 @@ function describeWithSpinnerProgressEventsUnderPiece() {
     }
 
     await expect(withSpinner('looking up', failLookup)).rejects.toThrow('boom');
+
     function mapEventLine2(eventLine: string) {
       return JSON.parse(eventLine);
     }
 
     const events = eventLines.map(mapEventLine2);
+
     expect(events).toEqual([
       { event: 'progress', label: 'looking up', status: 'start' },
       { event: 'progress', label: 'looking up', status: 'fail' },
@@ -267,6 +288,7 @@ function describeGradleProgressStepSurfaceTheGradleTask() {
   }
 
   it('extracts the task path', extractsTheTaskPath);
+
   function extractsTheTaskEvenWithSurroundingPieceAndIndentation() {
     expect(gradleProgressStep('  > Task :app:compileReleaseKotlin UP-TO-DATE')).toBe(
       ':app:compileReleaseKotlin',
@@ -277,6 +299,7 @@ function describeGradleProgressStepSurfaceTheGradleTask() {
     'extracts the task even with surrounding state and indentation',
     extractsTheTaskEvenWithSurroundingPieceAndIndentation,
   );
+
   function ignoresNonTaskLines() {
     expect(gradleProgressStep('BUILD SUCCESSFUL in 1m 12s')).toBeUndefined();
   }
@@ -299,6 +322,7 @@ function describeRenderBarCandyAuroraBarClampedPlainOffTTY() {
   // Under vitest stdout isn't a TTY, so the bar renders plain (no color): rounded caps ..., a heavy
   // fill, and a dim  track - exactly the captured-log path.
   it('renders empty, half, and full at width 14', rendersEmptyHalfAndFullAtWidth14);
+
   function clampsOutOfRangeFractionsInsteadOfOverflowingTheLine() {
     const bar = renderBar(1.7);
     expect(bar).toBe('[##############]');
@@ -309,6 +333,7 @@ function describeRenderBarCandyAuroraBarClampedPlainOffTTY() {
     'clamps out-of-range fractions instead of overflowing the line',
     clampsOutOfRangeFractionsInsteadOfOverflowingTheLine,
   );
+
   function honorsACustomWidth() {
     const bar = renderBar(0.5, 4);
     expect(bar).toBe('[##--]');
@@ -329,6 +354,7 @@ function describeFormatProgressLineBarStepCountElapsedEtaDegradingGracefully() {
       elapsedMs: 25000,
       steps: 12,
     });
+
     expect(progressLine).toBe('Building iOS - sampleapp - Compiling X.m   25s');
   }
 
@@ -336,6 +362,7 @@ function describeFormatProgressLineBarStepCountElapsedEtaDegradingGracefully() {
     "shows only the label, step, and elapsed clock when there's no estimate (first build of a kind)",
     showsOnlyTheLabelStepAndElapsedClockWhenThereSNoEstimateFirstBuildOfAKind,
   );
+
   function fillsTheBarByStepCountAndShowsCountTotalElapsedEta() {
     const line = formatProgressLine({
       label: 'Building iOS - sampleapp',
@@ -344,6 +371,7 @@ function describeFormatProgressLineBarStepCountElapsedEtaDegradingGracefully() {
       steps: 21,
       estimate: { ms: 41000, steps: 28 },
     });
+
     expect(line).toContain('21/~28');
     expect(line).toContain('18s / ~41s');
     expect(line).toContain('[##########----]');
@@ -353,6 +381,7 @@ function describeFormatProgressLineBarStepCountElapsedEtaDegradingGracefully() {
     'fills the bar by step-count and shows count/~total - elapsed / ~eta',
     fillsTheBarByStepCountAndShowsCountTotalElapsedEta,
   );
+
   function fallsBackToTheTimeFractionBeforeAnyStepParsesSteps0() {
     const line = formatProgressLine({
       label: 'Building iOS - sampleapp',
@@ -361,6 +390,7 @@ function describeFormatProgressLineBarStepCountElapsedEtaDegradingGracefully() {
       steps: 0,
       estimate: { ms: 41000, steps: 28 },
     });
+
     expect(line).not.toContain('/~28'); // no step counter when steps haven't parsed yet
     expect(line).toContain('[#######-------]');
     expect(line).toContain('20s / ~41s');
@@ -370,6 +400,7 @@ function describeFormatProgressLineBarStepCountElapsedEtaDegradingGracefully() {
     'falls back to the time fraction before any step parses (steps 0)',
     fallsBackToTheTimeFractionBeforeAnyStepParsesSteps0,
   );
+
   function capsTheBarBelow100WhenTheBuildRunsLongerLargerThanTheEstimate() {
     const line = formatProgressLine({
       label: 'Building iOS - sampleapp',
@@ -378,6 +409,7 @@ function describeFormatProgressLineBarStepCountElapsedEtaDegradingGracefully() {
       steps: 99,
       estimate: { ms: 41000, steps: 28 },
     });
+
     expect(line).toContain('[#############-]');
   }
 

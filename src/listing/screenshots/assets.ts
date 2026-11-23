@@ -158,6 +158,7 @@ export async function fingerprintAsset(
   declaredPath: string,
 ): Promise<LocalAsset | null> {
   let assetPath = declaredPath;
+
   const isRelativePath = isAbsolute(declaredPath) == false;
 
   if (isRelativePath) {

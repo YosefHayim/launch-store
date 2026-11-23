@@ -55,6 +55,7 @@ function seedCredentials(
   const p12Path = join(dir, 'dist-SERIAL.p12');
 
   writeFileSync(p12Path, 'p12-bytes');
+
   const indexPath = join(dir, 'index.json');
   const serialized = JSON.stringify({
     certificate: { id: 'cert-1', serial: 'SERIAL', p12Path },
@@ -64,6 +65,7 @@ function seedCredentials(
       }),
     ),
   });
+
   writeFileSync(indexPath, serialized);
 
   const provisioningProfilesDirectory = resolveProvisioningProfilesDirectory();
@@ -101,6 +103,7 @@ function describeLoadCachedSigningAssetsMultiBundleAppExtensionsFastPath221() {
     "returns the main app's assets with no extensionProfiles when no extensions are requested",
     returnsTheMainAppSAssetsWithNoExtensionProfilesWhenNoExtensionsAreRequested,
   );
+
   async function foldsEachExtensionSBundleIdProfileNameInWhenEveryExtensionProfileIsCached() {
     seedCredentials({ [MAIN]: { uuid: 'uuid-main' }, [WIDGET]: { uuid: 'uuid-widget' } }, [
       'uuid-main',
@@ -116,6 +119,7 @@ function describeLoadCachedSigningAssetsMultiBundleAppExtensionsFastPath221() {
     "folds each extension's bundle id -> profile name in when every extension profile is cached",
     foldsEachExtensionSBundleIdProfileNameInWhenEveryExtensionProfileIsCached,
   );
+
   async function returnsNullWhenARequestedExtensionHasNoProfileInTheIndex() {
     seedCredentials({ [MAIN]: { uuid: 'uuid-main' } }, ['uuid-main']);
 
@@ -127,12 +131,14 @@ function describeLoadCachedSigningAssetsMultiBundleAppExtensionsFastPath221() {
     'returns null when a requested extension has no profile in the index',
     returnsNullWhenARequestedExtensionHasNoProfileInTheIndex,
   );
+
   async function returnsNullWhenAnExtensionSProfileIsInTheIndexButNotInstalledOnDisk() {
     seedCredentials({ [MAIN]: { uuid: 'uuid-main' }, [WIDGET]: { uuid: 'uuid-widget' } }, [
       'uuid-main',
     ]);
 
     const cachedSigningAssets = await loadCachedSigningAssets(KEY_ID, MAIN, [WIDGET]);
+
     expect(cachedSigningAssets).toBeNull();
   }
 
@@ -160,6 +166,7 @@ function describeEnsureAdHocSigningCredentialsMacOSHasNoAdHocDistribution() {
         return Promise.resolve(true);
       },
     });
+
     await expect(adHocSigningCredentials).rejects.toMatchObject({
       message: expect.stringMatching(/macOS has no ad-hoc/i),
     });
@@ -212,6 +219,7 @@ function describeProfileStaleAgainstCapabilitiesRegenerateVsReuseDecision261() {
     'regenerates when App Groups was enabled after the profile was minted',
     regeneratesWhenAppGroupsWasEnabledAfterTheProfileWasMinted,
   );
+
   async function reusesWhenTheProfileAlreadyCoversEveryEnabledCapability() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({
       'aps-environment': 'production',
@@ -308,6 +316,7 @@ function describeStaleCachedSigningTargetsBuildPathReuseGuard292() {
     'flags every target whose profile predates an enabled capability (App Groups)',
     flagsEveryTargetWhoseProfilePredatesAnEnabledCapabilityAppGroups,
   );
+
   async function returnsWhenEveryCachedProfileAlreadyCoversTheEnabledCapabilities() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({
       'com.apple.security.application-groups': ['group.com.example.sampleapp'],
@@ -325,6 +334,7 @@ function describeStaleCachedSigningTargetsBuildPathReuseGuard292() {
     'returns [] when every cached profile already covers the enabled capabilities',
     returnsWhenEveryCachedProfileAlreadyCoversTheEnabledCapabilities,
   );
+
   async function treatsAnUnreadableProfileAsCurrentBestEffortNeverANeedlessRegenerate() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue(null);
 
@@ -340,6 +350,7 @@ function describeStaleCachedSigningTargetsBuildPathReuseGuard292() {
     'treats an unreadable profile as current - best-effort, never a needless regenerate',
     treatsAnUnreadableProfileAsCurrentBestEffortNeverANeedlessRegenerate,
   );
+
   async function gradesTheMainBundleAloneWhenTheAppHasNoExtensionProfiles() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
 
@@ -355,6 +366,7 @@ function describeStaleCachedSigningTargetsBuildPathReuseGuard292() {
     'grades the main bundle alone when the app has no extension profiles',
     gradesTheMainBundleAloneWhenTheAppHasNoExtensionProfiles,
   );
+
   async function skipsAnUnregisteredTargetFindBundleIdNull() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
 

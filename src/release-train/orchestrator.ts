@@ -114,6 +114,7 @@ export function deriveTrainState(
   }
 
   const nativeCars = trainCars.filter(isNativeCar);
+
   const hasNativeFailure = nativeCars.some(isNativeFailure);
 
   if (hasNativeFailure) {
@@ -144,7 +145,9 @@ async function submitNativeCar(
   }
 
   nativeCar.state = 'submitted';
+
   const submittedBuildId = submission.buildId;
+
   const hasBuildId = submittedBuildId != null;
 
   if (hasBuildId) {
@@ -175,6 +178,7 @@ export async function startTrain(
       state: 'pending',
       updatedAt: trainInput.now,
     };
+
     trainCars.push(otaCar);
   }
 
@@ -201,6 +205,7 @@ async function adoptNativeState(
   }
 
   const nextCarPhase = await trainEngine.readNative(trainCar);
+
   const phaseIsUnchanged = nextCarPhase == trainCar.state;
 
   if (phaseIsUnchanged) {
@@ -209,6 +214,7 @@ async function adoptNativeState(
 
   trainCar.state = nextCarPhase;
   trainCar.updatedAt = advanceOptions.now;
+
   const failed = isNativeFailure(trainCar);
 
   if (failed) {
@@ -276,6 +282,7 @@ async function publishReadyOta(
     var publishedUpdate = await trainEngine.publishOta(otaCar);
   } catch (cause) {
     const warn = advanceOptions.onWarn;
+
     const hasWarning = warn != null;
 
     if (hasWarning) {
@@ -289,7 +296,9 @@ async function publishReadyOta(
   }
 
   otaCar.state = 'published';
+
   const publishedManifestId = publishedUpdate.manifestId;
+
   const hasManifestId = publishedManifestId != null;
 
   if (hasManifestId) {
@@ -341,6 +350,7 @@ export async function advanceTrain(
 
   const hasNativeFailure = nativeCars.some(isNativeFailure);
   const allApproved = nativeCars.every(isNativeApprovedOrReleased);
+
   const gateOpen = isReleaseGateOpen(trainRecord.hold, isForced, hasNativeFailure, allApproved);
 
   if (gateOpen) {
@@ -371,6 +381,7 @@ function isCarStillMoving(trainCar: Car): boolean {
 export function trainExitCode(trainRecord: TrainRecord): number {
   const nativeCars = trainRecord.cars.filter(isNativeCar);
   const hasNativeFailure = nativeCars.some(isNativeFailure);
+
   const isBlocked = trainRecord.state == 'blocked';
 
   if (isBlocked) {

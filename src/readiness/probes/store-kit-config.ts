@@ -94,6 +94,7 @@ export const storeKitConfigProbe = {
 
     for (const configuredApp of readinessContext.apps) {
       const scopedApp = readScopedApp(readinessContext, configuredApp);
+
       const isOutsideScope = scopedApp == null;
 
       if (isOutsideScope) {

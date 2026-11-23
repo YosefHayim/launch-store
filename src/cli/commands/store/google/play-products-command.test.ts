@@ -7,19 +7,23 @@ function describePlayProductsCommandPieceSchema() {
       dryRun: true,
       yes: false,
     });
+
     expect(playProductsCommandSchema).toEqual({ app: 'mobile', dryRun: true, yes: false });
   }
 
   it('decodes the Commander boundary', decodesTheCommanderBoundary);
+
   function acceptsAnOmittedAppSelector() {
     const playProductsCommandSchema = PlayProductsCommandInputSchema({
       dryRun: false,
       yes: false,
     });
+
     expect(playProductsCommandSchema).toEqual({ dryRun: false, yes: false });
   }
 
   it('accepts an omitted app selector', acceptsAnOmittedAppSelector);
+
   function rejectsMissingConfirmationBooleans() {
     function callPlayProductsCommandPieceSchema() {
       return PlayProductsCommandInputSchema({ dryRun: true });

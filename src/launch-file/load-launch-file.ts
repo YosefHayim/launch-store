@@ -27,6 +27,7 @@ export class LoadLaunchFile {
 
     for (let hop = 0; hop < maxParentHops; hop += 1) {
       const foundPath = await this.findInDirectory(directory);
+
       const isFound = foundPath != null;
 
       if (isFound) {
@@ -34,6 +35,7 @@ export class LoadLaunchFile {
       }
 
       const parent = dirname(directory);
+
       const isRoot = parent == directory;
 
       if (isRoot) {
@@ -49,6 +51,7 @@ export class LoadLaunchFile {
   private async findInDirectory(directory: string): Promise<string | null> {
     for (const fileName of ['launch.config.ts', 'launch.config.mjs', 'launch.config.js']) {
       const candidate = join(directory, fileName);
+
       const exists = await pathExists(candidate);
 
       if (exists) {

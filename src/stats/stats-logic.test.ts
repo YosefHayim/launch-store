@@ -24,9 +24,11 @@ function describeMergeStats() {
     'replaces a saved number with the new number of the same identity',
     replacesASavedNumberWithTheNewNumberOfTheSameIdentity,
   );
+
   function keepsSavedDaysThatAreNotSentAgainSortedByDate() {
     const stat = createStat({ date: '2026-10-03' });
     const merged = mergeStats([stat], [createStat({ date: '2026-10-01' })]);
+
     function readDate(stat: DailyStat) {
       return stat.date;
     }
@@ -38,6 +40,7 @@ function describeMergeStats() {
     'keeps saved days that are not sent again, sorted by date',
     keepsSavedDaysThatAreNotSentAgainSortedByDate,
   );
+
   function treatsAnotherCurrencyOrMetricAsAnotherIdentity() {
     const stat = createStat({ metric: 'proceeds', currency: 'USD' });
     const merged = mergeStats(
@@ -52,6 +55,7 @@ function describeMergeStats() {
     'treats another currency or metric as another identity',
     treatsAnotherCurrencyOrMetricAsAnotherIdentity,
   );
+
   function returnsAnEmptyListForEmptyInputs() {
     const stats = mergeStats([], []);
     expect(stats).toEqual([]);
@@ -75,6 +79,7 @@ function describeGroupStatsByMonth() {
   }
 
   test('groups stats of the same month together', groupsStatsOfTheSameMonthTogether);
+
   function returnsAnEmptyMapForNoStats() {
     expect(groupStatsByMonth([]).size).toBe(0);
   }

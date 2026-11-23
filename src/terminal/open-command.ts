@@ -79,6 +79,7 @@ export async function openCommandProgram(rawCommandInput: unknown): Promise<void
 
     const consoleUrl = await resolveOpenUrl(commandInput.target, openOptions);
     const logger = createLogger(false);
+
     logger.line(`Opening ${consoleUrl}`);
     await openUrl(consoleUrl);
   } catch (cause) {

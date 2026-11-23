@@ -28,6 +28,7 @@ function describeReleaseTrainCommandPieceSchema() {
         hold: true,
       },
     });
+
     expect(releaseTrainCommandSchema).toEqual({
       action: 'start',
       options: {
@@ -43,12 +44,14 @@ function describeReleaseTrainCommandPieceSchema() {
     'decodes a start request with exact optional flags',
     decodesAStartRequestWithExactOptionalFlags,
   );
+
   function decodesAStatusRequestWithATrainId() {
     const releaseTrainCommandSchema = ReleaseTrainCommandInputSchema({
       action: 'status',
       id: 'demo-ab12',
       options: { ...BASE_OPTIONS, watch: true, json: false },
     });
+
     expect(releaseTrainCommandSchema).toEqual({
       action: 'status',
       id: 'demo-ab12',
@@ -57,6 +60,7 @@ function describeReleaseTrainCommandPieceSchema() {
   }
 
   it('decodes a status request with a train id', decodesAStatusRequestWithATrainId);
+
   function rejectsExplicitUndefinedExactOptionals() {
     function decodeExplicitUndefined(): void {
       ReleaseTrainCommandInputSchema({
@@ -80,12 +84,14 @@ function describeTrainAppSlugMintTrainId() {
   }
 
   it('slugifies app names for train ids', slugifiesAppNamesForTrainIds);
+
   function usesAnAppSlugAndShortRandomSuffix() {
     const mintedTrainId = mintTrainId('Hello World!');
     expect(mintedTrainId).toMatch(/^hello-world-[0-9a-f]{4}$/);
   }
 
   it('uses an app slug and short random suffix', usesAnAppSlugAndShortRandomSuffix);
+
   function usesTheTrainFallbackForAPunctuationOnlyName() {
     expect(mintTrainId('!!!')).toMatch(/^train-[0-9a-f]{4}$/);
   }
@@ -94,6 +100,7 @@ function describeTrainAppSlugMintTrainId() {
     'uses the train fallback for a punctuation-only name',
     usesTheTrainFallbackForAPunctuationOnlyName,
   );
+
   function mintsANewSuffixForEachTrain() {
     expect(mintTrainId('app')).not.toBe(mintTrainId('app'));
   }
@@ -117,6 +124,7 @@ function describeReleaseTrainPresentation() {
   }
 
   it('renders native cars with their build or failure', rendersNativeCarsWithTheirBuildOrFailure);
+
   function rendersAPublishedOTAFollowerWithItsManifestId() {
     const otaCar: Car = {
       kind: 'ota',
@@ -127,6 +135,7 @@ function describeReleaseTrainPresentation() {
       manifestId: 'm-9',
       updatedAt: NOW,
     };
+
     expect(carLabel(otaCar)).toBe('OTA android (production/1.0.0)');
     expect(carStatusDetail(otaCar)).toBe(' - m-9');
     expect(carStatusLine(otaCar)).toBe('OTA android (production/1.0.0): published - m-9');
@@ -136,6 +145,7 @@ function describeReleaseTrainPresentation() {
     'renders a published OTA follower with its manifest id',
     rendersAPublishedOTAFollowerWithItsManifestId,
   );
+
   function omitsDetailWhenACarHasNoBuildErrorOrManifest() {
     expect(carStatusDetail({ kind: 'ios', state: 'building', updatedAt: NOW })).toBe('');
     expect(

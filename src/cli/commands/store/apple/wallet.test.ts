@@ -7,6 +7,7 @@ function describeRenderAction() {
       destructive: false,
       status: 'planned',
     });
+
     expect(storeSurfaceAction).toBe(
       '+ register Apple Pay merchant id merchant.com.acme.app (Acme Pay)',
     );
@@ -20,6 +21,7 @@ function describeRenderAction() {
   }
 
   it('marks a planned/applied registration with +', marksAPlannedAppliedRegistrationWith);
+
   function rendersAFailedRegistrationWithXAndAppleSErrorDetail() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'register Apple Pay merchant id merchant.com.acme.app (Acme Pay)',
@@ -27,6 +29,7 @@ function describeRenderAction() {
       status: 'failed',
       error: 'identifier already exists',
     });
+
     expect(storeSurfaceAction).toBe(
       'x register Apple Pay merchant id merchant.com.acme.app (Acme Pay) - identifier already exists',
     );

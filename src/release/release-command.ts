@@ -162,6 +162,7 @@ export function parseAppStoreBuildSelector(selector: string): AppStoreBuildSelec
   }
 
   const buildNumber = Number.parseInt(selector, 10);
+
   const isNotANumber = Number.isNaN(buildNumber);
 
   if (isNotANumber) {
@@ -197,6 +198,7 @@ export function androidReleasePlanLines(
     `submit ${artifact.version} (${artifact.buildNumber}) to the PUBLIC Play production track`,
     `roll out to ${Math.round(rollout * fullRolloutPercent)}% of users`,
   ];
+
   const needsCleanBuild = shouldNudgeRelease(artifact);
 
   if (needsCleanBuild) {
@@ -401,6 +403,7 @@ function renderReleasePlan(releaseReport: ReleaseReport, appName: string, logger
   const planLines = releaseReport.actions.map(function planLine(releaseAction) {
     return formatReleaseActionLine(releaseAction, 'plan');
   });
+
   const planIsEmpty = planLines.length == 0;
 
   if (planIsEmpty) {
@@ -424,6 +427,7 @@ function attachedWithFailures(isAttachOnly: boolean, hasFailedSteps: boolean): b
 
 function pickReceiptTitle(isAttachOnly: boolean, buildLabel: string, failureCount: number): string {
   const hasFailedSteps = failureCount > 0;
+
   const attachedAndFailed = attachedWithFailures(isAttachOnly, hasFailedSteps);
 
   if (attachedAndFailed) {
@@ -578,6 +582,7 @@ async function resolveBuildSource(
 
   const storeBuilds = await attemptRead('list App Store builds', ascClient.listBuilds(appId));
   const verifiedBuilds = storeBuilds.filter(isVerifiedStoreBuild);
+
   const explainMissingBuild = shouldExplainMissingBuild(
     verifiedBuilds.length,
     terminalIsInteractive,
@@ -713,10 +718,12 @@ async function resolveIosBuild(
 
   const downloadBytes = worstDownloadBytes(artifact.sizeReport);
   const noticeDetails = readDownloadNotice(downloadBytes);
+
   logger.notice(
     `Release ${appDescriptor.name} ${artifact.version} (build ${artifact.buildNumber}) to the App Store`,
     ...noticeDetails,
   );
+
   const uploadConfirmed = await confirmOrCancel(
     commandService,
     `Upload and submit ${appDescriptor.name} ${artifact.version} (${artifact.buildNumber}) for review?`,
@@ -739,6 +746,7 @@ async function resolveIosBuild(
   }
 
   const buildCredentials = await readBuildCredentials(launchConfig, buildContext);
+
   logger.step(
     'upload',
     `uploading build ${artifact.buildNumber} to App Store Connect`,
@@ -766,6 +774,7 @@ async function resolveIosBuild(
   }
 
   logger.step('processing', 'waiting for App Store Connect to finish processing the build');
+
   const buildProgram = waitForValidBuild(ascClient, appId, artifact.buildNumber, {
     marketingVersion: artifact.version,
   });
@@ -915,6 +924,7 @@ async function releaseAppleBuild(
   }
 
   const whatsNew = await readWhatsNew(launchConfig, appDescriptor.dir);
+
   const whatsNewIsEmpty = Object.keys(whatsNew).length == 0;
 
   if (whatsNewIsEmpty) {
@@ -1001,12 +1011,14 @@ async function releaseAppleBuild(
     },
     logger,
   );
+
   const hasFailedSteps = failureCount > 0;
 
   if (hasFailedSteps) {
     const failureMessage = `${failureCount} release step(s) failed`;
 
     const failedSubmitEvent = readFailedSubmitEvent(notifyEvent, failureMessage);
+
     await sendReleaseNotification(launchConfig, failedSubmitEvent);
     completeCommand(1, failureMessage);
 
@@ -1111,6 +1123,7 @@ async function planAppleRelease(
       dryRun: true,
     }),
   );
+
   renderReleasePlan(releaseReport, appDescriptor.name, logger);
 }
 
@@ -1140,6 +1153,7 @@ function readFailedSubmitEvent(
   };
 
   const buildNumber = notifyEvent.buildNumber;
+
   const hasBuildNumber = buildNumber != null;
 
   if (hasBuildNumber) {
@@ -1147,6 +1161,7 @@ function readFailedSubmitEvent(
   }
 
   const sizeBytes = notifyEvent.sizeBytes;
+
   const hasSizeBytes = sizeBytes != null;
 
   if (hasSizeBytes) {
@@ -1154,6 +1169,7 @@ function readFailedSubmitEvent(
   }
 
   const destination = notifyEvent.destination;
+
   const hasDestination = destination != null;
 
   if (hasDestination) {
@@ -1177,6 +1193,7 @@ function readAppleNotifyEvent(
     destination: 'App Store review',
   };
   const parsedBuildNumber = Number.parseInt(selectedBuild.storeBuild.version, 10);
+
   const hasBuildNumber = Number.isNaN(parsedBuildNumber) == false;
 
   if (hasBuildNumber) {
@@ -1342,6 +1359,7 @@ function readAndroidNotifyEvent(appName: string, latestBuild: BuildArtifact): Re
     destination: 'the Play production track',
   };
   const downloadBytes = worstDownloadBytes(latestBuild.sizeReport);
+
   const hasDownloadSize = downloadBytes > 0;
 
   if (hasDownloadSize) {
@@ -1406,6 +1424,7 @@ export async function releaseCommandProgram(
   if (commandOptions.printEnv) {
     const logger = createLogger(false);
     const formatTable = formatEnvTable(resolvedEnvironment);
+
     logger.line(formatTable);
 
     return;

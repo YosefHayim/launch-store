@@ -26,6 +26,7 @@ vi.mock('../services/platform/exec.ts', function mockExec() {
 });
 function describeAndroidSigningCommandSecretTransport() {
   const temporaryDirectories: string[] = [];
+
   function cleanupAndroidSigningCommandSecretTransport() {
     resetLaunchDirectories();
     resetSecretStore();
@@ -38,6 +39,7 @@ function describeAndroidSigningCommandSecretTransport() {
   }
 
   afterEach(cleanupAndroidSigningCommandSecretTransport);
+
   async function passesKeytoolPasswordVariableNamesNotTheGeneratedSecretInArgv() {
     const systemTemporaryDirectory = tmpdir();
     const launchKeytoolTestPath = join(systemTemporaryDirectory, 'launch-keytool-test-');
@@ -48,6 +50,7 @@ function describeAndroidSigningCommandSecretTransport() {
     useSecretStore(new Map());
 
     const logger = createLogger(false);
+
     await ensureUploadKeystore({
       appName: 'Demo',
       packageName: 'com.example.demo',

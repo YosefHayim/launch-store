@@ -34,6 +34,7 @@ export async function writeArtifacts(
     const artifactPath = join(writeOptions.outDir, migrationArtifact.path);
     const artifactExists = await pathExists(artifactPath);
     const isForced = writeOptions.force == true;
+
     const shouldKeepExisting = shouldKeepExistingFile(artifactExists, isForced);
 
     if (shouldKeepExisting) {

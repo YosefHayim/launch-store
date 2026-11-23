@@ -16,7 +16,9 @@ export const customPagesPlanner: SurfacePlanner = {
       direction: 'two-way',
       configFor() {
         let configPath = planContext.config.configFiles?.customPages;
+
         if (configPath == null) configPath = 'custom-pages.config.json';
+
         return resolveSidecarConfig({
           typed: undefined,
           configPath,

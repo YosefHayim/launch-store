@@ -15,13 +15,17 @@ export function shiftDate(date: string, dayCount: number): string {
 // ISO dates sort as text, so a plain string compare orders them.
 export function pickEarlierDate(firstDate: string, secondDate: string): string {
   const isFirstEarlier = firstDate < secondDate;
+
   if (isFirstEarlier) return firstDate;
+
   return secondDate;
 }
 
 export function pickLaterDate(firstDate: string, secondDate: string): string {
   const isFirstLater = firstDate > secondDate;
+
   if (isFirstLater) return firstDate;
+
   return secondDate;
 }
 
@@ -42,8 +46,12 @@ export function readYesterdayUtc(nowMilliseconds: number = Date.now()): string {
 
 export function isSyncedAtStale(lastSyncedAt: string, nowMilliseconds: number): boolean {
   const lastSyncedMilliseconds = Date.parse(lastSyncedAt);
+
   const isTimeUnreadable = Number.isNaN(lastSyncedMilliseconds);
+
   if (isTimeUnreadable) return true;
+
   const statsStaleAfterHours = 12;
+
   return nowMilliseconds - lastSyncedMilliseconds > statsStaleAfterHours * hourMilliseconds;
 }

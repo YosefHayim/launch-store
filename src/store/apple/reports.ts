@@ -26,23 +26,32 @@ export function parseTsv(text: string): ParsedReport {
   }
 
   const lines = text.split('\n').map(mapLine).filter(filterLine);
+
   const headerLine = lines.shift();
+
   if (!headerLine) return { headers: [], rows: [] };
+
   const headers = headerLine.split('\t');
+
   function mapLine2(line: string) {
     const cells = line.split('\t');
     const reportFields: Record<string, string> = {};
+
     function forEachHeader(header: string, index: number) {
       let cellText = '';
+
       if (cells[index] != null) cellText = cells[index];
+
       reportFields[header] = cellText;
     }
 
     headers.forEach(forEachHeader);
+
     return reportFields;
   }
 
   const rows = lines.map(mapLine2);
+
   return { headers, rows };
 }
 /** Milliseconds in a day - the step for {@link eachDate}'s UTC walk. */
@@ -61,6 +70,7 @@ function makeReportDateFailure(message: string): ReportDateFailure {
 function parseYmd(date: string): number {
   // Four-digit year, two-digit month, two-digit day, nothing else.
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+
   const isFormatWrong = match == null;
 
   if (isFormatWrong) {
@@ -70,6 +80,7 @@ function parseYmd(date: string): number {
   const yearText = match[1];
   const monthText = match[2];
   const dayText = match[3];
+
   const isYearMissing = yearText == null;
 
   if (isYearMissing) {
@@ -93,6 +104,7 @@ function parseYmd(date: string): number {
   const day = Number(dayText);
   const ms = Date.UTC(year, month - 1, day);
   const back = new Date(ms);
+
   const isYearWrong = back.getUTCFullYear() != year;
 
   if (isYearWrong) {
@@ -118,6 +130,7 @@ function parseYmd(date: string): number {
 export function eachDate(from: string, to: string): string[] {
   const start = parseYmd(from);
   const end = parseYmd(to);
+
   const isRangeInverted = end < start;
 
   if (isRangeInverted) {
@@ -179,6 +192,7 @@ export async function ensureAnalyticsRequest(
 ): Promise<EnsuredRequest> {
   const existingRequests = await api.listAnalyticsReportRequests(appId, accessType);
   const usableRequest = existingRequests.find(isUsableRequest);
+
   const hasUsableRequest = usableRequest != null;
 
   if (hasUsableRequest) {
@@ -186,6 +200,7 @@ export async function ensureAnalyticsRequest(
   }
 
   const createdRequest = await api.createAnalyticsReportRequest(appId, accessType);
+
   return { request: createdRequest, created: true };
 }
 
@@ -219,6 +234,7 @@ export async function collectAnalyticsSegments(
   query: AnalyticsQuery,
 ): Promise<AnalyticsCollection> {
   const appId = await api.getAppId(query.bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -227,8 +243,11 @@ export async function collectAnalyticsSegments(
 
   const ensuredRequest = await ensureAnalyticsRequest(api, appId, query.accessType);
   const reportFilters: { category?: string; name?: string } = {};
+
   if (query.category != null) reportFilters.category = query.category;
+
   if (query.name != null) reportFilters.name = query.name;
+
   const analyticsReports = await api.listAnalyticsReports(ensuredRequest.request.id, reportFilters);
   const segmentDownloads: SegmentDownload[] = [];
 
@@ -236,9 +255,11 @@ export async function collectAnalyticsSegments(
     const instanceFilters: { granularity?: string; processingDate?: string } = {
       granularity: query.granularity,
     };
+
     if (query.processingDate != null) {
       instanceFilters.processingDate = query.processingDate;
     }
+
     const reportInstances = await api.listAnalyticsReportInstances(
       analyticsReport.id,
       instanceFilters,
@@ -249,11 +270,15 @@ export async function collectAnalyticsSegments(
 
       for (const reportSegment of reportSegments) {
         let category = '';
+
         if (analyticsReport.category != null) category = analyticsReport.category;
+
         let processingDate = '';
+
         if (reportInstance.processingDate != null) {
           processingDate = reportInstance.processingDate;
         }
+
         const segmentDownload: SegmentDownload = {
           reportName: analyticsReport.name,
           category,
@@ -261,9 +286,11 @@ export async function collectAnalyticsSegments(
           processingDate,
           url: reportSegment.url,
         };
+
         if (reportSegment.checksum != null) {
           segmentDownload.checksum = reportSegment.checksum;
         }
+
         segmentDownloads.push(segmentDownload);
       }
     }

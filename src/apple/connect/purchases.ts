@@ -38,6 +38,11 @@ import {
 export class ConnectPurchases {
   constructor(private readonly client: AscHost) {}
 
+  /**
+   * Get a list of the In-App Purchases for a specific app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-inapppurchasesv2
+   */
   async listInAppPurchases(appId: string): Promise<InAppPurchaseResource[]> {
     const appleResources = await this.client.requestAll<{
       productId?: string;
@@ -47,31 +52,46 @@ export class ConnectPurchases {
     }>(
       `/apps/${appId}/inAppPurchasesV2?limit=200&fields[inAppPurchases]=productId,name,inAppPurchaseType,state`,
     );
+
     function mapPurchase(purchase: {
       id: string;
       attributes: { productId?: string; name?: string; inAppPurchaseType?: string; state?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let productId = purchase.attributes.productId;
+
       if (productId == null) productId = '';
+
       let purchaseName = purchase.attributes.name;
+
       if (purchaseName == null) purchaseName = '';
+
       let purchaseType = purchase.attributes.inAppPurchaseType;
+
       if (purchaseType == null) purchaseType = '';
+
       const inAppPurchase: InAppPurchaseResource = {
         id: purchase.id,
         productId,
         name: purchaseName,
         inAppPurchaseType: purchaseType,
       };
+
       if (purchase.attributes.state != null)
         Object.assign(inAppPurchase, { state: purchase.attributes.state });
+
       return inAppPurchase;
     }
 
     return appleResources.map(mapPurchase);
   }
 
+  /**
+   * Create an In-App Purchase, including a consumable, non-consumable, or non-renewing
+   * subscription.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v2-inapppurchases
+   */
   async createInAppPurchase(
     appId: string,
     input: {
@@ -94,11 +114,17 @@ export class ConnectPurchases {
       relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     let productId = appleResources.attributes.productId;
+
     if (productId == null) productId = input.productId;
+
     let purchaseName = appleResources.attributes.name;
+
     if (purchaseName == null) purchaseName = input.name;
+
     let purchaseType = appleResources.attributes.inAppPurchaseType;
+
     if (purchaseType == null) purchaseType = input.inAppPurchaseType;
+
     return {
       id: appleResources.id,
       productId,
@@ -118,23 +144,36 @@ export class ConnectPurchases {
     return this.createLocalization(IN_APP_PURCHASE_VERSION_RESOURCES, iapId, copy);
   }
 
+  /**
+   * Get a list of subscription groups for a specific app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-subscriptiongroups
+   */
   async listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]> {
     const appleResources = await this.client.requestAll<{
       referenceName?: string;
     }>(`/apps/${appId}/subscriptionGroups?limit=200&fields[subscriptionGroups]=referenceName`);
+
     function flatMapGroup(group: {
       id: string;
       attributes: { referenceName?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       const referenceName = group.attributes.referenceName;
+
       if (referenceName == null) return [];
+
       return [{ id: group.id, referenceName }];
     }
 
     return appleResources.flatMap(flatMapGroup);
   }
 
+  /**
+   * Create a subscription group for an app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-subscriptiongroups
+   */
   async createSubscriptionGroup(
     appId: string,
     referenceName: string,
@@ -147,7 +186,9 @@ export class ConnectPurchases {
       relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     let createdReferenceName = appleResources.attributes.referenceName;
+
     if (createdReferenceName == null) createdReferenceName = referenceName;
+
     return { id: appleResources.id, referenceName: createdReferenceName };
   }
 
@@ -162,6 +203,11 @@ export class ConnectPurchases {
     return this.createLocalization(SUBSCRIPTION_GROUP_VERSION_RESOURCES, groupId, copy);
   }
 
+  /**
+   * Get a list of all auto-renewable subscriptions in a subscription group.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptiongroups-_id_-subscriptions
+   */
   async listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
     const appleResources = await this.client.requestAll<{
       productId?: string;
@@ -171,6 +217,7 @@ export class ConnectPurchases {
     }>(
       `/subscriptionGroups/${groupId}/subscriptions?limit=200&fields[subscriptions]=productId,name,subscriptionPeriod,state`,
     );
+
     function mapSubscription(subscription: {
       id: string;
       attributes: {
@@ -182,26 +229,38 @@ export class ConnectPurchases {
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let productId = subscription.attributes.productId;
+
       if (productId == null) productId = '';
+
       let subscriptionName = subscription.attributes.name;
+
       if (subscriptionName == null) subscriptionName = '';
+
       const subscriptionResource: SubscriptionResource = {
         id: subscription.id,
         productId,
         name: subscriptionName,
       };
+
       if (subscription.attributes.subscriptionPeriod != null)
         Object.assign(subscriptionResource, {
           subscriptionPeriod: subscription.attributes.subscriptionPeriod,
         });
+
       if (subscription.attributes.state != null)
         Object.assign(subscriptionResource, { state: subscription.attributes.state });
+
       return subscriptionResource;
     }
 
     return appleResources.map(mapSubscription);
   }
 
+  /**
+   * Create an auto-renewable subscription for your app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-subscriptions
+   */
   async createSubscription(
     groupId: string,
     input: {
@@ -225,9 +284,13 @@ export class ConnectPurchases {
       relationships: { group: { data: { type: 'subscriptionGroups', id: groupId } } },
     });
     let productId = appleResources.attributes.productId;
+
     if (productId == null) productId = input.productId;
+
     let subscriptionName = appleResources.attributes.name;
+
     if (subscriptionName == null) subscriptionName = input.name;
+
     return { id: appleResources.id, productId, name: subscriptionName };
   }
 
@@ -242,14 +305,25 @@ export class ConnectPurchases {
     return this.createLocalization(SUBSCRIPTION_VERSION_RESOURCES, subscriptionId, copy);
   }
 
+  /**
+   * Get a list of prices for an auto-renewable subscription, by territory.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-prices
+   */
   async subscriptionHasPrice(subscriptionId: string): Promise<boolean> {
     const { data: appleResources } = await this.client.request<ResourceList<unknown>>(
       'GET',
       `/subscriptions/${subscriptionId}/prices?limit=1`,
     );
+
     return appleResources.length > 0;
   }
 
+  /**
+   * Get a list of price points for an auto-renewable subscription by territory.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-pricepoints
+   */
   async findSubscriptionPricePoint(
     subscriptionId: string,
     territory: string,
@@ -260,9 +334,15 @@ export class ConnectPurchases {
       customerPrice?: string;
       territory?: string;
     }>(`/subscriptions/${subscriptionId}/pricePoints?filter[territory]=${uRIComponent}&limit=8000`);
+
     return matchPricePoint(points, territory, customerPrice);
   }
 
+  /**
+   * Schedule a subscription price change for a specific territory.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-subscriptionprices
+   */
   async createSubscriptionPrice(subscriptionId: string, pricePointId: string): Promise<void> {
     await this.client.createResource('/subscriptionPrices', {
       type: 'subscriptionPrices',
@@ -274,26 +354,41 @@ export class ConnectPurchases {
     });
   }
 
+  /**
+   * Get a list of subscription offer codes for a specific auto-renewable subscription.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-offercodes
+   */
   async listSubscriptionOfferCodes(subscriptionId: string): Promise<OfferCodeResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
       active?: boolean;
     }>(`/subscriptions/${subscriptionId}/offerCodes?limit=200`);
+
     function mapOfferCode(offerCode: {
       id: string;
       attributes: { name?: string; active?: boolean };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let offerName = offerCode.attributes.name;
+
       if (offerName == null) offerName = '';
+
       let active = offerCode.attributes.active;
+
       if (active == null) active = false;
+
       return { id: offerCode.id, name: offerName, active };
     }
 
     return appleResources.map(mapOfferCode);
   }
 
+  /**
+   * Create a subscription offer that provides offer codes for an auto-renewable subscription.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-subscriptionoffercodes
+   */
   async createSubscriptionOfferCode(input: OfferCodeCreate): Promise<OfferCodeResource> {
     function mapPiece(
       _: { readonly territory: string; readonly pricePointId: string },
@@ -348,16 +443,26 @@ export class ConnectPurchases {
       }>
     >('POST', '/subscriptionOfferCodes', requestDocument);
     let offerName = appleResources.attributes.name;
+
     if (offerName == null) offerName = input.name;
+
     let active = appleResources.attributes.active;
+
     if (active == null) active = true;
+
     return { id: appleResources.id, name: offerName, active };
   }
 
+  /**
+   * Deactivate a subscription offer that has offer codes for an auto-renewable subscription.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-subscriptionoffercodes-_id_
+   */
   async deactivateOfferCode(offerCodeId: string): Promise<void> {
     const requestDocument: components['schemas']['SubscriptionOfferCodeUpdateRequest'] = {
       data: { type: 'subscriptionOfferCodes', id: offerCodeId, attributes: { active: false } },
     };
+
     await this.client.request<unknown>(
       'PATCH',
       `/subscriptionOfferCodes/${offerCodeId}`,
@@ -365,6 +470,11 @@ export class ConnectPurchases {
     );
   }
 
+  /**
+   * Create one-time use codes for an auto-renewable subscription offer.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-subscriptionoffercodeonetimeusecodes
+   */
   async createOfferCodeOneTimeUseBatch(
     offerCodeId: string,
     numberOfCodes: number,
@@ -380,6 +490,7 @@ export class ConnectPurchases {
           },
         },
       };
+
     await this.client.request<unknown>(
       'POST',
       '/subscriptionOfferCodeOneTimeUseCodes',
@@ -387,6 +498,11 @@ export class ConnectPurchases {
     );
   }
 
+  /**
+   * Create custom offer codes for an auto-renewable subscription offer.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-subscriptionoffercodecustomcodes
+   */
   async createOfferCodeCustomCode(
     offerCodeId: string,
     customCode: string,
@@ -394,7 +510,9 @@ export class ConnectPurchases {
     expirationDate?: string,
   ): Promise<void> {
     const customCodeAttributes = { customCode, numberOfCodes };
+
     if (expirationDate != null) Object.assign(customCodeAttributes, { expirationDate });
+
     const requestDocument: components['schemas']['SubscriptionOfferCodeCustomCodeCreateRequest'] = {
       data: {
         type: 'subscriptionOfferCodeCustomCodes',
@@ -402,6 +520,7 @@ export class ConnectPurchases {
         relationships: { offerCode: { data: { type: 'subscriptionOfferCodes', id: offerCodeId } } },
       },
     };
+
     await this.client.request<unknown>(
       'POST',
       '/subscriptionOfferCodeCustomCodes',
@@ -409,26 +528,41 @@ export class ConnectPurchases {
     );
   }
 
+  /**
+   * Get a list of promotional offers for a specific auto-renewable subscription.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-promotionaloffers
+   */
   async listPromotionalOffers(subscriptionId: string): Promise<PromotionalOfferResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
       offerCode?: string;
     }>(`/subscriptions/${subscriptionId}/promotionalOffers?limit=200`);
+
     function mapOffer(offer: {
       id: string;
       attributes: { name?: string; offerCode?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let offerName = offer.attributes.name;
+
       if (offerName == null) offerName = '';
+
       let offerCode = offer.attributes.offerCode;
+
       if (offerCode == null) offerCode = '';
+
       return { id: offer.id, name: offerName, offerCode };
     }
 
     return appleResources.map(mapOffer);
   }
 
+  /**
+   * Create a promotional offer for an auto-renewable subscription.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-subscriptionpromotionaloffers
+   */
   async createPromotionalOffer(input: PromotionalOfferCreate): Promise<PromotionalOfferResource> {
     function mapPiece2(
       _: { readonly territory: string; readonly pricePointId: string },
@@ -482,12 +616,21 @@ export class ConnectPurchases {
       }>
     >('POST', '/subscriptionPromotionalOffers', requestDocument);
     let offerName = appleResources.attributes.name;
+
     if (offerName == null) offerName = input.name;
+
     let offerCode = appleResources.attributes.offerCode;
+
     if (offerCode == null) offerCode = input.offerCode;
+
     return { id: appleResources.id, name: offerName, offerCode };
   }
 
+  /**
+   * Get a list of introductory offers for a specific auto-renewable subscription.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-introductoryoffers
+   */
   async listIntroductoryOffers(subscriptionId: string): Promise<IntroductoryOfferResource[]> {
     const { data: appleResources } = await this.client.request<{
       data: {
@@ -501,42 +644,56 @@ export class ConnectPurchases {
         };
       }[];
     }>('GET', `/subscriptions/${subscriptionId}/introductoryOffers?include=territory&limit=200`);
+
     function mapOffer2(offer: {
       id: string;
       relationships?: { territory?: { data?: { id: string } | null } };
     }) {
       let territoryId: string | null = null;
       const returnedTerritoryId = offer.relationships?.territory?.data?.id;
+
       if (returnedTerritoryId != null) territoryId = returnedTerritoryId;
+
       return { id: offer.id, territory: territoryId };
     }
 
     return appleResources.map(mapOffer2);
   }
 
+  /**
+   * Create an introductory offer for an auto-renewable subscription.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-subscriptionintroductoryoffers
+   */
   async createIntroductoryOffer(input: IntroductoryOfferCreate): Promise<void> {
     const introductoryOfferAttributes = {
       duration: input.duration,
       offerMode: input.offerMode,
       numberOfPeriods: input.numberOfPeriods,
     };
+
     if (input.startDate != null)
       Object.assign(introductoryOfferAttributes, { startDate: input.startDate });
+
     if (input.endDate != null)
       Object.assign(introductoryOfferAttributes, { endDate: input.endDate });
+
     const introductoryOfferRelationships = {
       subscription: { data: { type: 'subscriptions' as const, id: input.subscriptionId } },
     };
+
     if (input.territory != null)
       Object.assign(introductoryOfferRelationships, {
         territory: { data: { type: 'territories', id: input.territory } },
       });
+
     if (input.price != null)
       Object.assign(introductoryOfferRelationships, {
         subscriptionPricePoint: {
           data: { type: 'subscriptionPricePoints', id: input.price.pricePointId },
         },
       });
+
     const requestDocument: components['schemas']['SubscriptionIntroductoryOfferCreateRequest'] = {
       data: {
         type: 'subscriptionIntroductoryOffers',
@@ -544,26 +701,40 @@ export class ConnectPurchases {
         relationships: introductoryOfferRelationships,
       },
     };
+
     await this.client.request<unknown>('POST', '/subscriptionIntroductoryOffers', requestDocument);
   }
 
+  /**
+   * List Win-Back Offers.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-winbackoffers
+   */
   async listWinBackOffers(subscriptionId: string): Promise<WinBackOfferResource[]> {
     const appleResources = await this.client.requestAll<{
       offerId?: string;
     }>(`/subscriptions/${subscriptionId}/winBackOffers?limit=200`);
+
     function mapOffer3(offer: {
       id: string;
       attributes: { offerId?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let offerId = offer.attributes.offerId;
+
       if (offerId == null) offerId = '';
+
       return { id: offer.id, offerId };
     }
 
     return appleResources.map(mapOffer3);
   }
 
+  /**
+   * Create a win-back offer for a specific subscription.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-winbackoffers
+   */
   async createWinBackOffer(input: WinBackOfferCreate): Promise<void> {
     const winBackAttributes = {
       referenceName: input.referenceName,
@@ -579,13 +750,17 @@ export class ConnectPurchases {
       startDate: input.startDate,
       priority: input.priority,
     };
+
     if (input.waitBetweenOffersMonths != null)
       Object.assign(winBackAttributes, {
         customerEligibilityWaitBetweenOffersInMonths: input.waitBetweenOffersMonths,
       });
+
     if (input.endDate != null) Object.assign(winBackAttributes, { endDate: input.endDate });
+
     if (input.promotionIntent != null)
       Object.assign(winBackAttributes, { promotionIntent: input.promotionIntent });
+
     function mapPiece3(
       _: { readonly territory: string; readonly pricePointId: string },
       index: number,
@@ -625,29 +800,46 @@ export class ConnectPurchases {
       },
       included: input.prices.map(mapPrice3),
     };
+
     await this.client.request<unknown>('POST', '/winBackOffers', requestDocument);
   }
 
+  /**
+   * Get a list of promoted In-App Purchases, including promoted auto-renewable subscriptions, for
+   * an app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-promotedpurchases
+   */
   async listPromotedPurchases(appId: string): Promise<PromotedPurchaseResource[]> {
     const all: PromotedPurchaseResource[] = [];
     let next: string | undefined = `/apps/${appId}/promotedPurchases?limit=200`;
+
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page: PromotedPurchasePage = await this.client.request<PromotedPurchasePage>(
         'GET',
         next,
       );
+
       for (const promotedPurchase of page.data) {
         let inAppPurchaseId: string | null = null;
         const returnedInAppPurchaseId = promotedPurchase.relationships?.inAppPurchaseV2?.data?.id;
+
         if (returnedInAppPurchaseId != null) inAppPurchaseId = returnedInAppPurchaseId;
+
         let subscriptionId: string | null = null;
         const returnedSubscriptionId = promotedPurchase.relationships?.subscription?.data?.id;
+
         if (returnedSubscriptionId != null) subscriptionId = returnedSubscriptionId;
+
         let enabled = promotedPurchase.attributes?.enabled;
+
         if (enabled == null) enabled = false;
+
         let visibleForAllUsers = promotedPurchase.attributes?.visibleForAllUsers;
+
         if (visibleForAllUsers == null) visibleForAllUsers = false;
+
         all.push({
           id: promotedPurchase.id,
           inAppPurchaseId,
@@ -656,23 +848,34 @@ export class ConnectPurchases {
           visibleForAllUsers,
         });
       }
+
       next = page.links?.next;
     }
+
     return all;
   }
 
+  /**
+   * Add an existing In-App Purchase or auto-renewable subscription to the promoted In-App Purchases
+   * on an app listing in the App Store.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-promotedpurchases
+   */
   async createPromotedPurchase(input: PromotedPurchaseCreate): Promise<PromotedPurchaseResource> {
     const promotedPurchaseRelationships = {
       app: { data: { type: 'apps' as const, id: input.appId } },
     };
+
     if (input.inAppPurchaseId != null)
       Object.assign(promotedPurchaseRelationships, {
         inAppPurchaseV2: { data: { type: 'inAppPurchases', id: input.inAppPurchaseId } },
       });
+
     if (input.subscriptionId != null)
       Object.assign(promotedPurchaseRelationships, {
         subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
       });
+
     const requestDocument: components['schemas']['PromotedPurchaseCreateRequest'] = {
       data: {
         type: 'promotedPurchases',
@@ -687,16 +890,29 @@ export class ConnectPurchases {
       }>
     >('POST', '/promotedPurchases', requestDocument);
     let inAppPurchaseId: string | null = null;
+
     if (input.inAppPurchaseId != null) inAppPurchaseId = input.inAppPurchaseId;
+
     let subscriptionId: string | null = null;
+
     if (input.subscriptionId != null) subscriptionId = input.subscriptionId;
+
     let enabled = appleResources.attributes.enabled;
+
     if (enabled == null) enabled = input.enabled;
+
     let visibleForAllUsers = appleResources.attributes.visibleForAllUsers;
+
     if (visibleForAllUsers == null) visibleForAllUsers = input.visibleForAllUsers;
+
     return { id: appleResources.id, inAppPurchaseId, subscriptionId, enabled, visibleForAllUsers };
   }
 
+  /**
+   * Update the order of promoted purchases.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-apps-_id_-relationships-promotedpurchases
+   */
   async reorderPromotedPurchases(appId: string, orderedIds: readonly string[]): Promise<void> {
     function mapId(id: string) {
       return { type: 'promotedPurchases', id } as const;
@@ -705,6 +921,7 @@ export class ConnectPurchases {
     const requestDocument: components['schemas']['AppPromotedPurchasesLinkagesRequest'] = {
       data: orderedIds.map(mapId),
     };
+
     await this.client.request<unknown>(
       'PATCH',
       `/apps/${appId}/relationships/promotedPurchases`,
@@ -712,6 +929,11 @@ export class ConnectPurchases {
     );
   }
 
+  /**
+   * Get a list of the scheduled prices for an In-App Purchase.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v2-inapppurchases-_id_-iappriceschedule
+   */
   async inAppPurchaseHasPrice(iapId: string): Promise<boolean> {
     // No schedule yet reads as a 404 on some accounts - {@link getOptional} maps that to "unpriced".
     const schedule = await this.client.getOptional(() =>
@@ -722,9 +944,15 @@ export class ConnectPurchases {
         } | null;
       }>('GET', this.client.v2(`/inAppPurchases/${iapId}/iapPriceSchedule`)),
     );
+
     return schedule?.data != null;
   }
 
+  /**
+   * Get a list of possible price points for an In-App Purchase.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v2-inapppurchases-_id_-pricepoints
+   */
   async findInAppPurchasePricePoint(
     iapId: string,
     territory: string,
@@ -739,9 +967,15 @@ export class ConnectPurchases {
         `/inAppPurchases/${iapId}/pricePoints?filter[territory]=${uRIComponent}&limit=8000`,
       ),
     );
+
     return matchPricePoint(points, territory, customerPrice);
   }
 
+  /**
+   * Create a scheduled price change for an In-App Purchase.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-inapppurchasepriceschedules
+   */
   async createInAppPurchasePriceSchedule(
     iapId: string,
     baseTerritory: string,
@@ -750,6 +984,7 @@ export class ConnectPurchases {
     // Apple's JSON:API inline creation requires the temp id wrapped as ${local-id} (a bare string 409s
     // "invalid format"); the same const feeds both the relationship and the included price so they match.
     const priceRef = '${launch-base-price}';
+
     await this.client.request<unknown>('POST', '/inAppPurchasePriceSchedules', {
       data: {
         type: 'inAppPurchasePriceSchedules',
@@ -781,22 +1016,29 @@ export class ConnectPurchases {
       name?: string;
       description?: string | null;
     }>(path);
+
     function flatMapLocalization(localization: {
       id: string;
       attributes: { locale?: string; name?: string; description?: string | null };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       const locale = localization.attributes.locale;
+
       if (locale == null) return [];
+
       const localizationName = localization.attributes.name;
+
       if (localizationName == null) return [];
+
       const localizedProduct: LocalizationResource = {
         id: localization.id,
         locale,
         name: localizationName,
       };
+
       if (typeof localization.attributes.description == 'string')
         Object.assign(localizedProduct, { description: localization.attributes.description });
+
       return [localizedProduct];
     }
 
@@ -827,6 +1069,7 @@ export class ConnectPurchases {
     const draftVersion = pickDraftVersion(versions);
 
     const hasDraftVersion = draftVersion != null;
+
     if (hasDraftVersion) return draftVersion.id;
 
     const createdVersion = await this.client.createResource(`/${resources.versionType}`, {
@@ -835,6 +1078,7 @@ export class ConnectPurchases {
         [resources.parentRelationship]: { data: { type: resources.parentType, id: parentId } },
       },
     });
+
     return createdVersion.id;
   }
 
@@ -848,7 +1092,9 @@ export class ConnectPurchases {
     const versionToRead = draftVersion ?? newestVersion;
 
     const hasNoVersion = versionToRead == null;
+
     if (hasNoVersion) return [];
+
     return this.localizationsOnVersion(resources, versionToRead.id);
   }
 
@@ -881,8 +1127,10 @@ export class ConnectPurchases {
     };
 
     const hasSavedDescription = typeof appleResources.attributes.description == 'string';
+
     if (hasSavedDescription)
       Object.assign(localizedProduct, { description: appleResources.attributes.description });
+
     return localizedProduct;
   }
 

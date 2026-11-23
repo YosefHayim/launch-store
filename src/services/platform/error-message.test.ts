@@ -7,6 +7,7 @@ function describeErrorMessage() {
   }
 
   it("returns an Error's message verbatim", returnsAnErrorSMessageVerbatim);
+
   function returnsTheMessageOfAnErrorSubclass() {
     class HttpError extends Error {}
     const failureMessage = errorMessage(new HttpError('404 not found'));
@@ -14,14 +15,17 @@ function describeErrorMessage() {
   }
 
   it('returns the message of an Error subclass', returnsTheMessageOfAnErrorSubclass);
+
   function coercesAThrownStringToItself() {
     const failureMessage = errorMessage('plain string');
     expect(failureMessage).toBe('plain string');
   }
 
   it('coerces a thrown string to itself', coercesAThrownStringToItself);
+
   function coercesNonErrorThrownValuesWithString() {
     const failureMessage = errorMessage(42);
+
     expect(failureMessage).toBe('42');
     expect(errorMessage(null)).toBe('null');
     expect(errorMessage(undefined)).toBe('undefined');
@@ -42,6 +46,7 @@ function describeHasMessage() {
     'accepts an Error and a tagged failure with a message',
     acceptsAnErrorAndATaggedFailureWithAMessage,
   );
+
   function rejectsValuesWithoutAStringMessage() {
     expect(hasMessage({ message: 42 })).toBe(false);
     expect(hasMessage({ code: 'X' })).toBe(false);

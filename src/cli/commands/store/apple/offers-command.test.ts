@@ -10,6 +10,7 @@ function describeOffersCommandPieceSchema() {
       dryRun: true,
       yes: false,
     });
+
     expect(offersCommandSchema).toEqual({ operation: 'reconcile', dryRun: true, yes: false });
   }
 
@@ -17,6 +18,7 @@ function describeOffersCommandPieceSchema() {
     'decodes reconciliation with an omitted app selector',
     decodesReconciliationWithAnOmittedAppSelector,
   );
+
   function decodesCodeGenerationAndRejectsExplicitUndefinedOptionals() {
     const offersCommandSchema = OffersCommandInputSchema({
       operation: 'generate-codes',
@@ -24,12 +26,14 @@ function describeOffersCommandPieceSchema() {
       offerName: 'LAUNCH',
       count: '100',
     });
+
     expect(offersCommandSchema).toEqual({
       operation: 'generate-codes',
       productId: 'com.acme.pro',
       offerName: 'LAUNCH',
       count: '100',
     });
+
     function callOffersCommandPieceSchema() {
       return OffersCommandInputSchema({
         operation: 'list',
@@ -56,6 +60,7 @@ function describeOffersCommandRenderers() {
       status: 'failed',
       error: 'Apple rejected it',
     });
+
     expect(offerAction).toBe('x create offer LAUNCH - Apple rejected it');
     expect(
       renderOfferAction({
@@ -78,7 +83,9 @@ function describeOffersCommandRenderers() {
         status: 'applied',
       }),
     ).toBe('+ create offer LAUNCH');
+
     const renderOfferCode = renderOfferCodeState({ name: 'LAUNCH', active: true });
+
     expect(renderOfferCode).toBe('[active] LAUNCH');
     expect(renderOfferCodeState({ name: 'OLD', active: false })).toBe('[inactive] OLD');
   }
@@ -117,6 +124,7 @@ function describeHasOffersWork() {
         },
       ],
     };
+
     expect(hasOffersWork(offerCatalog)).toBe(true);
     expect(hasOffersWork({ promotedPurchases: [{ productId: 'com.acme.pro' }] })).toBe(true);
     expect(hasOffersWork({})).toBe(false);

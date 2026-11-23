@@ -51,6 +51,7 @@ type ReplyResult = Readonly<{
 /** Convert a transport failure to the reviews error channel. */
 function reviewFailure(operation: string, cause: unknown): ReviewFailure {
   const fallback = `${operation} failed.`;
+
   const hasCauseMessage = hasMessage(cause);
 
   if (hasCauseMessage) return makeReviewFailure({ operation, message: cause.message, cause });
@@ -82,6 +83,7 @@ export async function listReviews(
   filters: ReviewFilters = {},
 ): Promise<readonly CustomerReviewResource[]> {
   const appId = await runReviewRequest('resolve App Store app', reviewsStore.getAppId(bundleId));
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -95,13 +97,16 @@ export async function listReviews(
   }
 
   const serverFilters: { rating?: number; territory?: string } = {};
+
   if (filters.rating != null) serverFilters.rating = filters.rating;
+
   if (filters.territory != null) serverFilters.territory = filters.territory;
 
   const customerReviews = await runReviewRequest(
     'list customer reviews',
     reviewsStore.listCustomerReviews(appId, serverFilters),
   );
+
   const isUnansweredOnly = filters.unansweredOnly == true;
 
   if (isUnansweredOnly) {
@@ -139,6 +144,7 @@ export async function deleteReviewResponse(
     'read existing review reply',
     reviewsStore.getCustomerReviewResponse(reviewId),
   );
+
   const isReplyMissing = existingReply == null;
 
   if (isReplyMissing) {

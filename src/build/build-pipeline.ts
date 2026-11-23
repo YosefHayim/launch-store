@@ -33,6 +33,7 @@ export class BuildPipeline {
 
   async run(shipBuild: ShipBuild): Promise<string | null> {
     const prepared = await this.prepare(shipBuild);
+
     const isDryRun = shipBuild.isDryRun;
 
     if (isDryRun) {
@@ -51,6 +52,7 @@ export class BuildPipeline {
   private async prepare(shipBuild: ShipBuild): Promise<PreparedBuild> {
     const launchFile = await this.loadLaunchFile.read(shipBuild.workspaceDirectory);
     const profile = launchFile.profiles[shipBuild.profileName];
+
     const isMissing = profile == null;
 
     if (isMissing) {
@@ -64,6 +66,7 @@ export class BuildPipeline {
 
   private async runIos(shipBuild: ShipBuild, prepared: PreparedBuild): Promise<string> {
     const bundleId = prepared.expoApp.bundleId;
+
     const isBundleMissing = bundleId == null;
 
     if (isBundleMissing) {
@@ -92,6 +95,7 @@ export class BuildPipeline {
 
   private async runAndroid(shipBuild: ShipBuild, prepared: PreparedBuild): Promise<string> {
     const packageName = prepared.expoApp.packageName;
+
     const isPackageMissing = packageName == null;
 
     if (isPackageMissing) {

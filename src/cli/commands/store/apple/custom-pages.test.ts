@@ -7,6 +7,7 @@ function describeRenderAction() {
       destructive: false,
       status: 'planned',
     });
+
     expect(storeSurfaceAction).toBe('+ create custom product page "Spring Sale"');
     expect(
       renderStoreSurfaceAction({
@@ -18,6 +19,7 @@ function describeRenderAction() {
   }
 
   it('marks a change with +, a skip with -', marksAChangeWithASkipWith);
+
   function rendersAFailedActionWithXAndAppleSErrorDetail() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'create custom product page "Spring Sale"',
@@ -25,6 +27,7 @@ function describeRenderAction() {
       status: 'failed',
       error: 'page name taken',
     });
+
     expect(storeSurfaceAction).toBe('x create custom product page "Spring Sale" - page name taken');
   }
 

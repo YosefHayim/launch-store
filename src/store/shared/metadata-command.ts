@@ -461,6 +461,7 @@ export async function pullAppleListing(
         'metadata',
         `would write ${localeCount} App Store locale(s) for ${bundleId} -> ${configPath}`,
       );
+
       return;
     }
 
@@ -476,6 +477,7 @@ function androidStoreConfigFromListings(listings: readonly PlayListing[]): Andro
 
   for (const listing of listings) {
     const { language, ...localeInfo } = listing;
+
     const hasLocaleFields = Object.keys(localeInfo).length > 0;
 
     if (hasLocaleFields) {
@@ -511,6 +513,7 @@ async function pullAndroidListing(
         'metadata',
         `would write ${localeCount} Play locale(s) for ${packageName} -> ${configPath}`,
       );
+
       return;
     }
 
@@ -624,6 +627,7 @@ async function pushAndroidListing(
     if (dryRun) {
       for (const listing of listings) {
         const fieldNames = Object.keys(listing).filter(isNotLanguage);
+
         logger.step(
           'metadata',
           `planned: update Play listing ${listing.language} (${fieldNames.join(', ')}) for ${packageName}`,
@@ -631,6 +635,7 @@ async function pushAndroidListing(
       }
 
       logger.note('dry run: nothing was written to Google Play');
+
       return;
     }
 
@@ -696,6 +701,7 @@ async function runAndroidMetadataCommand(
       metadataTarget.configPath,
       commandInput.dryRun,
     );
+
     return;
   }
 
@@ -732,6 +738,7 @@ export async function metadataCommandProgram(rawCommandInput: unknown): Promise<
   }
 
   assertListingPlatform(platform);
+
   const metadataTarget = await selectMetadataTarget(commandInput.app, commandInput.config);
 
   if (isApplePlatform(platform)) {

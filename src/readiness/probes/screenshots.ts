@@ -54,6 +54,7 @@ async function populatedIphoneDisplayTypes(
 
   async function readPopulatedDisplayType(screenshotSet: ScreenshotSet): Promise<string | null> {
     const screenshots = await api.listScreenshots(screenshotSet.id);
+
     const hasScreenshots = screenshots.length > 0;
 
     if (hasScreenshots) {
@@ -142,6 +143,7 @@ export const screenshotsProbe = {
   categories: ['listing', 'submit'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const apps = iosApps(readinessContext.apps);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

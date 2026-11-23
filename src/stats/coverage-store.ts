@@ -41,6 +41,7 @@ function decodeFeedCoverage(feedDocument: unknown): FeedCoverage {
   }
 
   let lastNote: string | null = null;
+
   const hasLastNote = 'lastNote' in feedDocumentObject;
 
   if (hasLastNote) {
@@ -110,6 +111,7 @@ function locateCoverageFile(appKey: string): string {
 export async function loadAppCoverage(appKey: string): Promise<AppCoverage> {
   const coverageFilePath = locateCoverageFile(appKey);
   const savedCoverage = await readDocumentFile(coverageFilePath, decodeAppCoverage);
+
   const isCoverageMissing = savedCoverage == null;
 
   if (isCoverageMissing) {

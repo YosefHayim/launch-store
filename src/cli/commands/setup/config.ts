@@ -11,6 +11,7 @@ export function registerConfigCommand(program: Command): void {
     .description(
       'work with launch.config.ts - emit JSON Schema, validate a config, or print the field reference',
     );
+
   function runSchema(commandOptions: SchemaOptions) {
     const commandProgram = configCommandProgram({ operation: 'schema', out: commandOptions.out });
     return runCliProgram(commandProgram);
@@ -21,6 +22,7 @@ export function registerConfigCommand(program: Command): void {
     .description('print the JSON Schema for launch.config.ts')
     .option('--out <file>', 'write the schema to this file instead of stdout')
     .action(runSchema);
+
   function runValidate(file: string | undefined) {
     const commandProgram = configCommandProgram({ operation: 'validate', file });
     return runCliProgram(commandProgram);
@@ -34,6 +36,7 @@ export function registerConfigCommand(program: Command): void {
     )
     .description('validate a config and report each problem with its field path')
     .action(runValidate);
+
   function runDocs() {
     const commandProgram = configCommandProgram({ operation: 'docs' });
     return runCliProgram(commandProgram);

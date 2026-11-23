@@ -49,6 +49,7 @@ export function gradleBuildArguments(
 async function gradleWrapper(androidDirectory: string): Promise<string> {
   const operatingSystem = detectHostOperatingSystem();
   let wrapperName = 'gradlew';
+
   const isWindows = operatingSystem == 'windows';
 
   if (isWindows) {
@@ -56,6 +57,7 @@ async function gradleWrapper(androidDirectory: string): Promise<string> {
   }
 
   const wrapperPath = join(androidDirectory, wrapperName);
+
   const wrapperExists = await pathExists(wrapperPath);
 
   if (wrapperExists) {
@@ -79,6 +81,7 @@ async function findReleaseArtifact(
 ): Promise<string> {
   let extension = '.aab';
   let taskName = 'bundleRelease';
+
   const isApk = artifactKind == 'apk';
 
   if (isApk) {
@@ -137,6 +140,7 @@ export function parseBundletoolSize(csv: string): { minBytes: number; maxBytes: 
   const header = headerLine.split(',').map(trimCell);
   const minColumn = header.indexOf('MIN');
   const maxColumn = header.indexOf('MAX');
+
   const isMinMissing = minColumn == -1;
 
   if (isMinMissing) {
@@ -167,6 +171,7 @@ export function parseBundletoolSize(csv: string): { minBytes: number; maxBytes: 
 
     const parsedMinimum = Number.parseInt(minimumCell, 10);
     const parsedMaximum = Number.parseInt(maximumCell, 10);
+
     const minimumIsNumber = Number.isNaN(parsedMinimum) == false;
 
     if (minimumIsNumber) {
@@ -201,6 +206,7 @@ async function estimateDownload(
     const apksPath = join(workingDirectory, 'app.apks');
     const storePasswordPath = join(workingDirectory, 'store-password');
     const keyPasswordPath = join(workingDirectory, 'key-password');
+
     await writeFile(storePasswordPath, keystore.storePassword, { mode: 0o600 });
     await writeFile(keyPasswordPath, keystore.keyPassword, { mode: 0o600 });
     await executeCommand('bundletool', [
@@ -213,6 +219,7 @@ async function estimateDownload(
       `--ks-key-alias=${keystore.alias}`,
       `--key-pass=file:${keyPasswordPath}`,
     ]);
+
     const sizeTable = await captureCommandOutput('bundletool', [
       'get-size',
       'total',
@@ -254,6 +261,7 @@ async function buildAndroidArtifact(
   }
 
   const keystore = buildCredentials.keystore;
+
   const isKeystoreMissing = keystore == null;
 
   if (isKeystoreMissing) {
@@ -287,6 +295,7 @@ async function buildAndroidArtifact(
       'ORG_GRADLE_PROJECT_android.injected.signing.key.password': keystore.keyPassword,
     },
   };
+
   const hasEstimate = estimate != null;
 
   if (hasEstimate) {
@@ -302,6 +311,7 @@ async function buildAndroidArtifact(
   }
 
   let recordedStepCount = priorStepCount;
+
   const parsedSteps = buildRun.steps > 0;
 
   if (parsedSteps) {

@@ -41,7 +41,9 @@ function makeCredentialSandbox() {
   const secrets = new Map<string, string>();
 
   temporaryRoots.push(directory);
+
   const projectPath = join(directory, 'project');
+
   useLaunchDirectories({
     homeDirectory: directory,
     workingDirectory: projectPath,
@@ -78,7 +80,9 @@ function describeAndroidPackageCredentialIsolation() {
     expect(await loadServiceAccount('com.example.alpha')).toBe(serviceAccount('alpha'));
     expect(await loadServiceAccount('com.example.beta')).toBeNull();
     expect(sandbox.secrets.has('play-service-account')).toBe(true);
+
     const storedAndroidPackages = await listStoredAndroidPackages();
+
     expect(storedAndroidPackages).toEqual(['com.example.alpha']);
   }
 
@@ -86,6 +90,7 @@ function describeAndroidPackageCredentialIsolation() {
     'isolates Play accounts and never falls back to an unscoped account',
     isolatesPlayAccountsAndNeverFallsBackToAnUnscopedAccount,
   );
+
   async function importsDifferentAppKeysConcurrentlyAndHonorsAnExplicitReplacementBeforeTheCache() {
     const sandbox = makeCredentialSandbox();
     const alphaInput = join(sandbox.directory, 'alpha.jks');
@@ -96,6 +101,7 @@ function describeAndroidPackageCredentialIsolation() {
 
     async function importForPackage(packageName: string, inputPath: string, password: string) {
       const logger = createLogger(false);
+
       return ensureUploadKeystore({
         appName: 'same-display-name',
         packageName,
@@ -118,9 +124,13 @@ function describeAndroidPackageCredentialIsolation() {
     ]);
 
     expect(alpha.path).not.toBe(beta.path);
+
     const loadedFile = readFileSync(alpha.path, 'utf8');
+
     expect(loadedFile).toBe('dummy alpha key');
+
     const fileSync = readFileSync(beta.path, 'utf8');
+
     expect(fileSync).toBe('dummy beta key');
 
     const verificationCalls = vi.mocked(captureCommandOutput).mock.calls.slice(0, 2);
@@ -133,7 +143,9 @@ function describeAndroidPackageCredentialIsolation() {
     expect(secondPassword).toMatch(/^[a-f0-9]{64}$/);
     expect(firstPassword).not.toBe(secondPassword);
     expect(verificationCalls[0]?.[1].join(' ')).not.toContain(firstPassword);
+
     const cachedKeystore = await loadCachedKeystore('com.example.alpha');
+
     expect(cachedKeystore?.storePassword).toBe('alpha-password');
     expect((await loadCachedKeystore('com.example.beta'))?.storePassword).toBe('beta-password');
     expect(await loadCachedKeystore('com.example.gamma')).toBeNull();
@@ -153,6 +165,7 @@ function describeAndroidPackageCredentialIsolation() {
     'imports different app keys concurrently and honors an explicit replacement before the cache',
     importsDifferentAppKeysConcurrentlyAndHonorsAnExplicitReplacementBeforeTheCache,
   );
+
   async function doesNotGenerateAReplacementWhenAnExistingKeyHasMissingPasswords() {
     const sandbox = makeCredentialSandbox();
     const input = join(sandbox.directory, 'upload.jks');
@@ -197,6 +210,7 @@ function describeAndroidPackageCredentialIsolation() {
     'does not generate a replacement when an existing key has missing passwords',
     doesNotGenerateAReplacementWhenAnExistingKeyHasMissingPasswords,
   );
+
   async function requiresExplicitApprovalBeforeReplacingASavedKeystore() {
     const sandbox = makeCredentialSandbox();
     const first = join(sandbox.directory, 'first.jks');
@@ -207,6 +221,7 @@ function describeAndroidPackageCredentialIsolation() {
 
     function provision(path: string, confirmReplace: () => Promise<boolean>) {
       const logger = createLogger(false);
+
       return ensureUploadKeystore({
         appName: 'demo',
         packageName: 'com.example.app',
@@ -231,7 +246,9 @@ function describeAndroidPackageCredentialIsolation() {
     ).rejects.toMatchObject({
       message: expect.stringMatching(/not replaced/),
     });
+
     const loadedFile = readFileSync(original.path, 'utf8');
+
     expect(loadedFile).toBe('first key');
   }
 
@@ -239,6 +256,7 @@ function describeAndroidPackageCredentialIsolation() {
     'requires explicit approval before replacing a saved keystore',
     requiresExplicitApprovalBeforeReplacingASavedKeystore,
   );
+
   async function neverReusesOrRegeneratesWhenOnlyALegacyKeystoreExists() {
     const sandbox = makeCredentialSandbox();
     const legacyDirectory = join(sandbox.directory, '.launch', 'credentials');
@@ -248,13 +266,16 @@ function describeAndroidPackageCredentialIsolation() {
     const legacyPath = join(legacyDirectory, 'upload.keystore');
 
     writeFileSync(legacyPath, 'legacy key');
+
     const androidPath = join(legacyDirectory, 'android.json');
     const serialized = JSON.stringify({ keystore: { path: legacyPath, alias: 'upload' } });
+
     writeFileSync(androidPath, serialized);
     sandbox.secrets.set('android-keystore-store-password', 'store-password');
     sandbox.secrets.set('android-keystore-key-password', 'key-password');
 
     const cachedKeystore = await loadCachedKeystore('com.example.app');
+
     expect(cachedKeystore).toBeNull();
 
     let offered = false;
@@ -271,11 +292,14 @@ function describeAndroidPackageCredentialIsolation() {
         return Promise.resolve(false);
       },
     });
+
     await expect(uploadKeystore).rejects.toMatchObject({
       message: expect.stringMatching(/launch-store creds adopt --platform android --app 'demo'/),
     });
     expect(offered).toBe(false);
+
     const loadedFile = readFileSync(legacyPath, 'utf8');
+
     expect(loadedFile).toBe('legacy key');
   }
 

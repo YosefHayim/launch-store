@@ -44,6 +44,7 @@ function isStatsAppNotFound(
 
 function finishUsageFailure(usageFailure: UsageFailure, isJson: boolean): never {
   const logger = createLogger(false);
+
   const isJsonOutput = isJson;
 
   if (isJsonOutput) {
@@ -68,6 +69,7 @@ function isDaysInRange(daysFlag: string): boolean {
   }
 
   const days = Number(daysFlag);
+
   const isBelowOne = days < 1;
 
   if (isBelowOne) {

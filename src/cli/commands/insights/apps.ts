@@ -6,6 +6,7 @@ export function registerAppsCommand(program: Command): void {
   const apps = program
     .command('apps')
     .description('list the apps of every saved store account and tag them as yours or a client');
+
   function runList(flags: { platform?: string; owner?: string; json?: boolean }) {
     return runCliProgram(
       appsListProgram({
@@ -23,6 +24,7 @@ export function registerAppsCommand(program: Command): void {
     .option('--owner <owner>', 'only apps tagged mine or client')
     .option('--json', 'output machine-readable JSON', false)
     .action(runList);
+
   function runTag(flags: {
     app?: string;
     account?: string;

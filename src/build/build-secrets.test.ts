@@ -14,6 +14,7 @@ function describeEffectiveRefs() {
     ref('acme', 'preview', 'API_KEY'),
     ref('other', null, 'OTHER_TOKEN'),
   ];
+
   function includesOnlyTheRequestedAppSSecrets() {
     function readName(r: {
       readonly app: string;
@@ -24,6 +25,7 @@ function describeEffectiveRefs() {
     }
 
     expect(effectiveRefs(refs, 'acme', 'production').map(readName)).not.toContain('OTHER_TOKEN');
+
     function readName2(r: {
       readonly app: string;
       readonly profile: string | null;
@@ -36,6 +38,7 @@ function describeEffectiveRefs() {
   }
 
   it("includes only the requested app's secrets", includesOnlyTheRequestedAppSSecrets);
+
   function includesAppWideSecretsAndTheMatchingProfileSAppWideFirst() {
     function readName3(r: {
       readonly app: string;
@@ -46,7 +49,9 @@ function describeEffectiveRefs() {
     }
 
     const names = effectiveRefs(refs, 'acme', 'production').map(readName3);
+
     expect(names).toEqual(['SENTRY_AUTH_TOKEN', 'API_KEY']);
+
     function readProfile(r: {
       readonly app: string;
       readonly profile: string | null;
@@ -57,6 +62,7 @@ function describeEffectiveRefs() {
 
     // The 'preview' profile's API_KEY must not leak into a 'production' build.
     const profiles = effectiveRefs(refs, 'acme', 'production').map(readProfile);
+
     expect(profiles).toEqual([null, 'production']);
   }
 
@@ -64,9 +70,11 @@ function describeEffectiveRefs() {
     "includes app-wide secrets and the matching profile's, app-wide first",
     includesAppWideSecretsAndTheMatchingProfileSAppWideFirst,
   );
+
   function ordersAppWideBeforeProfileScopedSoTheProfilePieceOverridesOnMerge() {
     const collision = [ref('acme', 'production', 'API_KEY'), ref('acme', null, 'API_KEY')];
     const ordered = effectiveRefs(collision, 'acme', 'production');
+
     function readProfile2(r: {
       readonly app: string;
       readonly profile: string | null;
@@ -83,6 +91,7 @@ function describeEffectiveRefs() {
     'orders app-wide before profile-scoped so the profile value overrides on merge',
     ordersAppWideBeforeProfileScopedSoTheProfilePieceOverridesOnMerge,
   );
+
   function returnsNothingForAnAppWithNoSecrets() {
     expect(effectiveRefs(refs, 'ghost', 'production')).toEqual([]);
   }

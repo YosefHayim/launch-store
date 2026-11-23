@@ -94,6 +94,7 @@ export const playProductsPlanner: SurfacePlanner = {
   store: 'play',
   async plan(planContext: PlanContext) {
     const targets = targetsFor(planContext.apps, planContext.config);
+
     const isNothingDeclared = targets.length == 0;
 
     if (isNothingDeclared) {

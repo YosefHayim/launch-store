@@ -18,6 +18,7 @@ function isAppRecordMissing(appId: string | null): appId is null {
 
 function declaredGroupCount(readinessContext: ReadinessContext, bundleId: string): number {
   const groupCount = readinessContext.config.products?.[bundleId]?.subscriptionGroups?.length;
+
   const isUndeclared = groupCount == null;
 
   if (isUndeclared) {
@@ -50,6 +51,7 @@ async function readSubscriptionGroups(
   }
 
   const groups = await api.listSubscriptionGroups(appId);
+
   const hasGroups = groups.length > 0;
 
   if (hasGroups) {
@@ -82,6 +84,7 @@ export const subscriptionGroupProbe = {
     }
 
     const apps = iosApps(readinessContext.apps).filter(keepsSellingApp);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

@@ -33,8 +33,10 @@ function describeFormatProvisioningReport() {
       { name: 'Old iPad', udid: '222-333', disabled: true },
     ],
   };
+
   function rendersEverySectionWithTheAppHeadingAndDeviceLines() {
     const reportText = formatProvisioningReport(readyReport);
+
     expect(reportText).toContain('sampleapp (com.example.sampleapp)');
     expect(reportText).toContain('Personal (key ABC123, team TEAM01)');
     expect(reportText).toContain('registered');
@@ -47,6 +49,7 @@ function describeFormatProvisioningReport() {
     'renders every section with the app heading and device lines',
     rendersEverySectionWithTheAppHeadingAndDeviceLines,
   );
+
   function flagsEachGapWhenNothingIsProvisionedYet() {
     const reportText = formatProvisioningReport({
       ...readyReport,
@@ -57,6 +60,7 @@ function describeFormatProvisioningReport() {
       profileName: null,
       devices: [],
     });
+
     expect(reportText).toContain('Work (key ZZZ999)');
     expect(reportText).not.toContain('team');
     expect(reportText).toContain('NOT registered');
@@ -66,6 +70,7 @@ function describeFormatProvisioningReport() {
   }
 
   it('flags each gap when nothing is provisioned yet', flagsEachGapWhenNothingIsProvisionedYet);
+
   function listsDeclaredExtensionsWithEachProvisioningStatus() {
     const reportText = formatProvisioningReport({
       ...readyReport,
@@ -74,6 +79,7 @@ function describeFormatProvisioningReport() {
         { bundleId: 'com.example.sampleapp.share', provisioned: false },
       ],
     });
+
     expect(reportText).toContain('extensions:   2 declared');
     expect(reportText).toContain('com.example.sampleapp.widget - profile cached');
     expect(reportText).toContain('com.example.sampleapp.share - not provisioned');
@@ -83,6 +89,7 @@ function describeFormatProvisioningReport() {
     'lists declared extensions with each provisioning status',
     listsDeclaredExtensionsWithEachProvisioningStatus,
   );
+
   function omitsTheExtensionsSectionWhenNoneAreDeclared() {
     const provisioningReport = formatProvisioningReport(readyReport);
     expect(provisioningReport).not.toContain('extensions:');

@@ -90,6 +90,7 @@ function makeExperimentsApi(
     },
     createVersionExperiment(_appId, experimentInput) {
       experimentWrites.createdExperiments.push(experimentInput);
+
       return Promise.resolve({
         id: 'exp-new',
         name: experimentInput.name,
@@ -104,6 +105,7 @@ function makeExperimentsApi(
         experimentId,
         name: treatmentInput.name,
       });
+
       return Promise.resolve({ id: 'treat-new', name: treatmentInput.name });
     },
     startVersionExperiment(experimentId) {
@@ -119,7 +121,9 @@ function makeExperimentsApi(
     },
     listTreatmentScreenshotSets(localizationId) {
       let localizationSets = experimentStore.screenshotSetsByLocalization[localizationId];
+
       if (localizationSets == null) localizationSets = [];
+
       return Promise.resolve(localizationSets);
     },
     createTreatmentScreenshotSet(localizationId, displayType) {
@@ -128,20 +132,28 @@ function makeExperimentsApi(
     },
     listScreenshots(setId) {
       let setScreenshots = experimentStore.screenshotsBySet[setId];
+
       if (setScreenshots == null) setScreenshots = [];
+
       return Promise.resolve(setScreenshots);
     },
     uploadScreenshot(setId, fileName) {
       experimentWrites.uploads.push({ setId, fileName });
+
       let setScreenshots = experimentStore.screenshotsBySet[setId];
+
       if (setScreenshots == null) setScreenshots = [];
+
       const uploadedId = `up-${fileName}`;
+
       // Apple fills sourceFileChecksum only after it processes the upload.
       experimentStore.screenshotsBySet[setId] = [...setScreenshots, { id: uploadedId, fileName }];
+
       return Promise.resolve(uploadedId);
     },
     deleteScreenshot(screenshotId) {
       experimentWrites.removedScreenshots.push(screenshotId);
+
       for (const [setId, setScreenshots] of Object.entries(experimentStore.screenshotsBySet)) {
         function filterScreenshot(screenshot: {
           readonly id: string;
@@ -154,6 +166,7 @@ function makeExperimentsApi(
 
         experimentStore.screenshotsBySet[setId] = setScreenshots.filter(filterScreenshot);
       }
+
       return Promise.resolve();
     },
     reorderScreenshots(setId, screenshotIds) {
@@ -177,6 +190,7 @@ function makeExperimentsApi(
     },
     ...methodOverrides,
   };
+
   return { appleExperimentsApi, experimentWrites };
 }
 
@@ -319,7 +333,9 @@ function descriptionsWithStatus(
 function describeVersionExperimentsSchema() {
   async function decodesExperimentsWithTreatments() {
     const decodedConfig = await parseVersionExperimentsConfig(experimentConfig);
+
     expect(decodedConfig.experiments[0]?.name).toBe('Icon Test');
+
     function readName(declaredTreatment: TreatmentConfig) {
       return declaredTreatment.name;
     }
@@ -331,8 +347,10 @@ function describeVersionExperimentsSchema() {
   }
 
   it('decodes experiments with treatments', decodesExperimentsWithTreatments);
+
   async function rejectsMalformedDocumentsAndDuplicateNames() {
     const parseVersionExperiments = parseVersionExperimentsConfig('nope');
+
     await expect(parseVersionExperiments).rejects.toMatchObject({
       message: expect.stringMatching(/must be a JSON object/),
     });
@@ -359,6 +377,7 @@ function describeVersionExperimentsSchema() {
   }
 
   it('rejects malformed documents and duplicate names', rejectsMalformedDocumentsAndDuplicateNames);
+
   async function readsTreatmentScreenshotFoldersRelativeToThePieceFile() {
     const systemTemporaryDirectory = tmpdir();
     const launchExperimentsPath = join(systemTemporaryDirectory, 'launch-experiments-');
@@ -371,11 +390,16 @@ function describeVersionExperimentsSchema() {
       'he',
       'APP_IPHONE_67',
     );
+
     try {
       mkdirSync(displayTypeDirectory, { recursive: true });
+
       const joinedPath = join(displayTypeDirectory, '01.png');
+
       writeFileSync(joinedPath, 'png');
+
       const discoveredScreenshots = await discoverTreatmentScreenshots(configPath, mediaConfig);
+
       function mapScreenshot(
         screenshot: LocalAsset & {
           readonly locale: string;
@@ -388,11 +412,13 @@ function describeVersionExperimentsSchema() {
       expect(discoveredScreenshots.get('treatment')?.map(mapScreenshot)).toEqual([
         ['he', 'APP_IPHONE_67', '01.png'],
       ]);
+
       const missingFolderConfig: VersionExperimentsConfig = {
         experiments: [
           { name: 'X', trafficProportion: 10, treatments: [{ name: 'Y', screenshots: 'missing' }] },
         ],
       };
+
       await expect(
         discoverTreatmentScreenshots(configPath, missingFolderConfig),
       ).rejects.toMatchObject({
@@ -407,11 +433,13 @@ function describeVersionExperimentsSchema() {
     'reads treatment screenshot folders relative to the config file',
     readsTreatmentScreenshotFoldersRelativeToThePieceFile,
   );
+
   async function readsAndDecodesASidecar() {
     const systemTemporaryDirectory = tmpdir();
     const launchExperimentsPath = join(systemTemporaryDirectory, 'launch-experiments-');
     const temporaryDirectory = mkdtempSync(launchExperimentsPath);
     const configPath = join(temporaryDirectory, 'experiments.config.json');
+
     try {
       const serialized = JSON.stringify(experimentConfig);
       writeFileSync(configPath, serialized);
@@ -435,9 +463,11 @@ function describeVersionExperimentReconciliation() {
   }
 
   it('fails when the App Store record is absent', failsWhenTheAppStorePieceIsAbsent);
+
   async function createsAMissingExperimentAndItsTreatments() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({});
     const reconciliationReport = await reconcileExperiments(appleExperimentsApi, false);
+
     expect(experimentWrites.createdExperiments).toEqual([
       { name: 'Icon Test', platform: 'IOS', trafficProportion: 50 },
     ]);
@@ -445,7 +475,9 @@ function describeVersionExperimentReconciliation() {
       { experimentId: 'exp-new', name: 'Variant A' },
       { experimentId: 'exp-new', name: 'Variant B' },
     ]);
+
     const experiments = summarizeExperiments(reconciliationReport.actions);
+
     expect(experiments).toEqual({
       applied: 3,
       failed: 0,
@@ -454,11 +486,13 @@ function describeVersionExperimentReconciliation() {
   }
 
   it('creates a missing experiment and its treatments', createsAMissingExperimentAndItsTreatments);
+
   async function createsOnlyMissingTreatmentsOnAnExistingExperiment() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [{ id: 'exp-1', name: 'Icon Test', state: 'PREPARE_FOR_SUBMISSION' }],
       treatments: [{ id: 't-a', name: 'Variant A' }],
     });
+
     await reconcileExperiments(appleExperimentsApi, false);
     expect(experimentWrites.createdExperiments).toHaveLength(0);
     expect(experimentWrites.createdTreatments).toEqual([
@@ -470,11 +504,14 @@ function describeVersionExperimentReconciliation() {
     'creates only missing treatments on an existing experiment',
     createsOnlyMissingTreatmentsOnAnExistingExperiment,
   );
+
   async function plansWithoutApplyingWrites() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({});
     const reconciliationReport = await reconcileExperiments(appleExperimentsApi, true);
+
     expect(experimentWrites.createdExperiments).toHaveLength(0);
     expect(experimentWrites.createdTreatments).toHaveLength(0);
+
     function everyPlannedAction(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
@@ -489,6 +526,7 @@ function describeVersionExperimentReconciliation() {
   }
 
   it('plans without applying writes', plansWithoutApplyingWrites);
+
   async function skipsTreatmentsWhenExperimentCreationFails() {
     const { appleExperimentsApi } = makeExperimentsApi(
       {},
@@ -500,11 +538,13 @@ function describeVersionExperimentReconciliation() {
     );
     const reconciliationReport = await reconcileExperiments(appleExperimentsApi, false);
     const experiments = summarizeExperiments(reconciliationReport.actions);
+
     expect(experiments).toEqual({
       applied: 0,
       failed: 1,
       skipped: 2,
     });
+
     function findPlannedAction(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
@@ -528,6 +568,7 @@ function describeVersionExperimentTreatmentScreenshots() {
       treatments: [{ id: 't-1', name: 'Colorful' }],
     });
     const reconciliationReport = await reconcileMediaExperiments(appleExperimentsApi, {});
+
     expect(experimentWrites.createdLocalizations).toEqual([
       { treatmentId: 't-1', locale: 'en-US' },
       { treatmentId: 't-1', locale: 'he' },
@@ -541,7 +582,9 @@ function describeVersionExperimentTreatmentScreenshots() {
       { setId: 'set-loc-en-US', fileName: '02.png' },
       { setId: 'set-loc-he', fileName: '01.png' },
     ]);
+
     const experiments = summarizeExperiments(reconciliationReport.actions);
+
     expect(experiments).toEqual({
       applied: 7,
       failed: 0,
@@ -553,6 +596,7 @@ function describeVersionExperimentTreatmentScreenshots() {
     'adds missing locales and sets, then uploads in name order',
     addsMissingLocalesAndSetsThenUploadsInNameOrder,
   );
+
   async function uploadsOnlyTheScreenshotsAppleDoesNotHaveYet() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
@@ -563,6 +607,7 @@ function describeVersionExperimentTreatmentScreenshots() {
         'set-2': [storedScreenshot('s-2', 'he', '01.png')],
       },
     });
+
     await reconcileMediaExperiments(appleExperimentsApi, {});
     expect(experimentWrites.createdLocalizations).toHaveLength(0);
     expect(experimentWrites.createdSets).toHaveLength(0);
@@ -575,6 +620,7 @@ function describeVersionExperimentTreatmentScreenshots() {
     'uploads only the screenshots Apple does not have yet',
     uploadsOnlyTheScreenshotsAppleDoesNotHaveYet,
   );
+
   async function replacesTheOriginalPageSScreenshotsAppleCopiedIntoTheTreatment() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
@@ -589,6 +635,7 @@ function describeVersionExperimentTreatmentScreenshots() {
       },
     });
     const reconciliationReport = await reconcileMediaExperiments(appleExperimentsApi, {});
+
     expect(experimentWrites.removedScreenshots).toEqual(['o-1', 'o-2']);
     expect(experimentWrites.uploads).toEqual([
       { setId: 'set-1', fileName: '01.png' },
@@ -605,6 +652,7 @@ function describeVersionExperimentTreatmentScreenshots() {
     "replaces the original page's screenshots Apple copied into the treatment",
     replacesTheOriginalPageSScreenshotsAppleCopiedIntoTheTreatment,
   );
+
   async function keepsAMatchingScreenshotAndPutsTheSetBackInFileOrder() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
@@ -618,6 +666,7 @@ function describeVersionExperimentTreatmentScreenshots() {
         'set-2': [storedScreenshot('s-3', 'he', '01.png')],
       },
     });
+
     await reconcileMediaExperiments(appleExperimentsApi, {});
     expect(experimentWrites.removedScreenshots).toEqual(['o-1']);
     expect(experimentWrites.uploads).toEqual([{ setId: 'set-1', fileName: '01.png' }]);
@@ -630,12 +679,14 @@ function describeVersionExperimentTreatmentScreenshots() {
     'keeps a matching screenshot and puts the set back in file order',
     keepsAMatchingScreenshotAndPutsTheSetBackInFileOrder,
   );
+
   async function plansTheWholeNewExperimentWithoutWrites() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({});
     const reconciliationReport = await reconcileMediaExperiments(appleExperimentsApi, {
       submit: true,
       dryRun: true,
     });
+
     expect(descriptionsWithStatus(reconciliationReport, 'planned')).toEqual([
       'create experiment "Screenshots Test" (50% traffic)',
       'create treatment "Colorful" on experiment "Screenshots Test"',
@@ -667,6 +718,7 @@ function describeVersionExperimentReviewAndStart() {
       treatments: [{ id: 't-1', name: 'Colorful' }],
       reviewSubmissions: [{ id: 'sub-old', state: 'COMPLETE' }],
     });
+
     await reconcileMediaExperiments(appleExperimentsApi, {
       treatmentScreenshots: new Map(),
       submit: true,
@@ -682,12 +734,14 @@ function describeVersionExperimentReviewAndStart() {
     'submits a synced experiment in a new review submission',
     submitsASyncedExperimentInANewReviewSubmission,
   );
+
   async function reusesAnOpenReviewSubmission() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
       treatments: [{ id: 't-1', name: 'Colorful' }],
       reviewSubmissions: [{ id: 'sub-open', state: 'READY_FOR_REVIEW' }],
     });
+
     await reconcileMediaExperiments(appleExperimentsApi, {
       treatmentScreenshots: new Map(),
       submit: true,
@@ -697,6 +751,7 @@ function describeVersionExperimentReviewAndStart() {
   }
 
   it('reuses an open review submission', reusesAnOpenReviewSubmission);
+
   async function doesNotSubmitAnExperimentAlreadyInReviewOrAfterAFailedUpload() {
     const inReview = makeExperimentsApi({
       experiments: [{ ...existingScreenshotsExperiment, state: 'WAITING_FOR_REVIEW' }],
@@ -706,9 +761,11 @@ function describeVersionExperimentReviewAndStart() {
       treatmentScreenshots: new Map(),
       submit: true,
     });
+
     expect(descriptionsWithStatus(inReviewReport, 'skipped')).toEqual([
       'submit experiment "Screenshots Test" for App Review: it is already WAITING_FOR_REVIEW',
     ]);
+
     const failedUpload = makeExperimentsApi(
       {
         experiments: [existingScreenshotsExperiment],
@@ -723,6 +780,7 @@ function describeVersionExperimentReviewAndStart() {
     const failedUploadReport = await reconcileMediaExperiments(failedUpload.appleExperimentsApi, {
       submit: true,
     });
+
     expect(failedUpload.experimentWrites.reviewItems).toHaveLength(0);
     expect(descriptionsWithStatus(failedUploadReport, 'skipped')).toEqual([
       'submit experiment "Screenshots Test" for App Review: an earlier change failed - fix it, then re-run',
@@ -733,16 +791,19 @@ function describeVersionExperimentReviewAndStart() {
     'does not submit an experiment already in review or after a failed upload',
     doesNotSubmitAnExperimentAlreadyInReviewOrAfterAFailedUpload,
   );
+
   async function startsOnlyAnApprovedExperimentThatHasNotStarted() {
     const approved = makeExperimentsApi({
       experiments: [{ ...existingScreenshotsExperiment, state: 'ACCEPTED' }],
       treatments: [{ id: 't-1', name: 'Colorful' }],
     });
+
     await reconcileMediaExperiments(approved.appleExperimentsApi, {
       treatmentScreenshots: new Map(),
       start: true,
     });
     expect(approved.experimentWrites.startedExperiments).toEqual(['exp-1']);
+
     const running = makeExperimentsApi({
       experiments: [
         { ...existingScreenshotsExperiment, state: 'APPROVED', startDate: '2026-11-01T00:00:00Z' },
@@ -753,10 +814,12 @@ function describeVersionExperimentReviewAndStart() {
       treatmentScreenshots: new Map(),
       start: true,
     });
+
     expect(running.experimentWrites.startedExperiments).toHaveLength(0);
     expect(descriptionsWithStatus(runningReport, 'skipped')).toEqual([
       'start experiment "Screenshots Test": it already started on 2026-11-01T00:00:00Z',
     ]);
+
     const inReview = makeExperimentsApi({
       experiments: [{ ...existingScreenshotsExperiment, state: 'IN_REVIEW' }],
       treatments: [{ id: 't-1', name: 'Colorful' }],
@@ -765,6 +828,7 @@ function describeVersionExperimentReviewAndStart() {
       treatmentScreenshots: new Map(),
       start: true,
     });
+
     expect(descriptionsWithStatus(inReviewReport, 'skipped')).toEqual([
       'start experiment "Screenshots Test": it is IN_REVIEW - Apple must approve it first',
     ]);

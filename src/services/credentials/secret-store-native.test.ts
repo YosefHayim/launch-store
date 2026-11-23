@@ -34,7 +34,9 @@ vi.mock('@napi-rs/keyring', function mockKeyring() {
       ) {}
       getPassword() {
         if (this.account == 'denied') throw new Error('access denied');
+
         if (this.account == 'denied-null') return null;
+
         return secrets.get(`${this.service}:${this.account}`) ?? null;
       }
       setPassword(secret: string) {
@@ -58,6 +60,7 @@ function describeNativeSecretStoreWithAMockedBinding() {
     'round trips a multiline secret and reports missing entries',
     roundTripsAMultilineSecretAndReportsMissingEntries,
   );
+
   async function propagatesADeniedKeychainReadInsteadOfTreatingItAsMissing() {
     await expect(LaunchSecretStore.readSecret('denied')).rejects.toThrow(
       'Could not read denied from the keychain',
@@ -68,6 +71,7 @@ function describeNativeSecretStoreWithAMockedBinding() {
     'propagates a denied keychain read instead of treating it as missing',
     propagatesADeniedKeychainReadInsteadOfTreatingItAsMissing,
   );
+
   async function treatsNullFromAnExistingMacOSPieceAsAFailedRead() {
     await expect(LaunchSecretStore.readSecret('denied-null')).rejects.toThrow(
       'Could not read denied-null from the keychain',

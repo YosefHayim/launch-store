@@ -179,7 +179,9 @@ function decodeCreateGroup(commandRecord: Record<string, unknown>): CreateGroupC
     operation: 'create-group',
     groupName: readRequiredString(commandRecord, 'groupName'),
   };
+
   assignApp(createGroupCommand, commandRecord);
+
   return createGroupCommand;
 }
 
@@ -197,6 +199,7 @@ function decodeAdd(commandRecord: Record<string, unknown>): AddCommandInput {
     dryRun: readRequiredBoolean(commandRecord, 'dryRun'),
     yes: readRequiredBoolean(commandRecord, 'yes'),
   };
+
   assignApp(addCommand, commandRecord);
   assignGroup(addCommand, commandRecord);
 
@@ -228,8 +231,10 @@ function decodeRemove(commandRecord: Record<string, unknown>): RemoveCommandInpu
     dryRun: readRequiredBoolean(commandRecord, 'dryRun'),
     yes: readRequiredBoolean(commandRecord, 'yes'),
   };
+
   assignApp(removeCommand, commandRecord);
   assignGroup(removeCommand, commandRecord);
+
   return removeCommand;
 }
 
@@ -242,6 +247,7 @@ function decodeRelease(commandRecord: Record<string, unknown>): ReleaseCommandIn
     dryRun: readRequiredBoolean(commandRecord, 'dryRun'),
     yes: readRequiredBoolean(commandRecord, 'yes'),
   };
+
   assignApp(releaseCommand, commandRecord);
 
   const build = optionalTextField(commandRecord, 'build');
@@ -264,6 +270,7 @@ function decodeFeedback(commandRecord: Record<string, unknown>): FeedbackCommand
     operation: 'feedback',
     json: readRequiredBoolean(commandRecord, 'json'),
   };
+
   assignApp(feedbackCommand, commandRecord);
 
   const build = optionalTextField(commandRecord, 'build');
@@ -336,6 +343,7 @@ async function listGroups(commandInput: GroupsCommandInput): Promise<void> {
   const selectedApp = await loadSelectedAppleApp(appleStore, commandInput.app);
   const betaGroups = await appleStore.listBetaGroups(selectedApp.appId);
   const logger = createLogger(false);
+
   const isEmpty = betaGroups.length == 0;
 
   if (isEmpty) {
@@ -369,6 +377,7 @@ async function createGroup(commandInput: CreateGroupCommandInput): Promise<void>
   }
 
   const createdGroup = await appleStore.createBetaGroup(selectedApp.appId, commandInput.groupName);
+
   logger.ok(`Created external beta group "${createdGroup.name}" for ${selectedApp.name}.`);
   logger.line(
     `- Add testers with \`launch-store testflight add <email> --group "${createdGroup.name}"\`.`,
@@ -398,6 +407,7 @@ function formatTesterLine(betaTester: BetaTesterResource): string {
 
   const isLabelEmpty = betaTester.email.length == 0;
   const testerLabel = isLabelEmpty ? '(no email, public link)' : betaTester.email;
+
   return `- ${testerLabel}${nameDetail}${stateDetail}`;
 }
 
@@ -407,6 +417,7 @@ async function listTesters(commandInput: TestersCommandInput): Promise<void> {
   const betaGroup = await selectBetaGroup(appleStore, selectedApp.appId, commandInput.group, false);
   const betaTesters = await appleStore.listBetaTestersInGroup(betaGroup.id);
   const logger = createLogger(false);
+
   const isEmpty = betaTesters.length == 0;
 
   if (isEmpty) {

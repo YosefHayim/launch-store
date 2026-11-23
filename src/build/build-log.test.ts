@@ -20,6 +20,7 @@ function describeBuildLogId() {
       buildNumber: 7,
       platform: 'ios',
     });
+
     expect(logId).toBe('demo-1.2.0-7-ios');
   }
 
@@ -39,6 +40,7 @@ function describeBuildLogPath() {
     'derives a .log filename under the logs dir from the id',
     derivesALogFilenameUnderTheLogsDirFromTheId,
   );
+
   function sanitizesFilesystemUnsafeCharactersInTheId() {
     expect(resolveTestLogPath('a/b c').endsWith('a-b-c.log')).toBe(true);
   }

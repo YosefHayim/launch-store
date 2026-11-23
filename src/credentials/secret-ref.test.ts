@@ -21,6 +21,7 @@ async function resolveTestReference(
 }
 function describeResolveSecretRef() {
   const environmentVariableName = 'LAUNCH_TEST_DEMO_PW';
+
   async function returnsALiteralPieceVerbatim() {
     const literalSecret = ['plain', 'demo', 'pw'].join('-');
 
@@ -29,12 +30,14 @@ function describeResolveSecretRef() {
   }
 
   it('returns a literal value verbatim', returnsALiteralPieceVerbatim);
+
   async function resolvesAnEnvironmentReferenceFromTheEnvironmentService() {
     const environmentSecret = ['env', 'demo', 'pw'].join('-');
 
     const testReference = await resolveTestReference(`env:${environmentVariableName}`, {
       [environmentVariableName]: environmentSecret,
     });
+
     expect(testReference).toBe(environmentSecret);
   }
 
@@ -42,8 +45,10 @@ function describeResolveSecretRef() {
     'resolves an environment reference from the environment service',
     resolvesAnEnvironmentReferenceFromTheEnvironmentService,
   );
+
   async function failsWhenAnEnvironmentReferenceNamesAnUnsetVariable() {
     const testReference = resolveTestReference(`env:${environmentVariableName}`);
+
     await expect(testReference).rejects.toMatchObject({
       _tag: 'SecretReferenceFailure',
       message: expect.stringMatching(/environment variable LAUNCH_TEST_DEMO_PW is not set/),
@@ -54,6 +59,7 @@ function describeResolveSecretRef() {
     'fails when an environment reference names an unset variable',
     failsWhenAnEnvironmentReferenceNamesAnUnsetVariable,
   );
+
   async function failsWhenAnEnvironmentReferenceHasNoVariableName() {
     const testReference = resolveTestReference('env:');
     await expect(testReference).rejects.toMatchObject({
@@ -65,6 +71,7 @@ function describeResolveSecretRef() {
     'fails when an environment reference has no variable name',
     failsWhenAnEnvironmentReferenceHasNoVariableName,
   );
+
   async function resolvesAKeychainReferenceThroughTheSecretStoreService() {
     const keychainSecret = ['kc', 'demo', 'pw'].join('-');
 
@@ -73,6 +80,7 @@ function describeResolveSecretRef() {
       {},
       new Map([['my-app-review', keychainSecret]]),
     );
+
     expect(testReference).toBe(keychainSecret);
   }
 
@@ -80,6 +88,7 @@ function describeResolveSecretRef() {
     'resolves a keychain reference through the secret-store service',
     resolvesAKeychainReferenceThroughTheSecretStoreService,
   );
+
   async function failsWhenAKeychainReferenceHasNoStoredSecret() {
     const testReference = resolveTestReference('keychain:absent');
     await expect(testReference).rejects.toMatchObject({

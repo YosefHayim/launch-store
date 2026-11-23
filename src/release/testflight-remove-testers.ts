@@ -48,6 +48,7 @@ export async function removeTesters(commandInput: RemoveCommandInput): Promise<v
 
   const matchedTesters = groupTesters.filter(isRequestedTester);
   const logger = createLogger(false);
+
   const hasNoMatches = matchedTesters.length == 0;
 
   if (hasNoMatches) {
@@ -62,6 +63,7 @@ export async function removeTesters(commandInput: RemoveCommandInput): Promise<v
       `[dry-run] would remove ${matchedTesters.length} tester(s) from "${betaGroup.name}"`,
       ...matchedTesters.map(betaTesterAddress),
     );
+
     return;
   }
 
@@ -69,6 +71,7 @@ export async function removeTesters(commandInput: RemoveCommandInput): Promise<v
     `Remove ${matchedTesters.length} tester(s) from "${betaGroup.name}"?`,
     commandInput.yes,
   );
+
   const isDeclined = confirmed == false;
 
   if (isDeclined) {
@@ -77,6 +80,7 @@ export async function removeTesters(commandInput: RemoveCommandInput): Promise<v
   }
 
   const testerIds = matchedTesters.map(betaTesterId);
+
   await appleStore.removeTestersFromGroup(betaGroup.id, testerIds);
   logger.ok(`Removed ${matchedTesters.length} tester(s) from "${betaGroup.name}".`);
 }

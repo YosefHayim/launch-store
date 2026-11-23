@@ -15,6 +15,7 @@ export function registerInsightsCommand(program: Command): void {
       app: commandOptions.app,
       json: commandOptions.json == true,
     });
+
     return runCliProgram(insightsProgram);
   }
 

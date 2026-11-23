@@ -100,8 +100,11 @@ function describeProductsAdopter() {
     });
     const target = adoptTarget();
     const writes = await productsAdopter.read(appleCatalog, target);
+
     expect(writes).toHaveLength(1);
+
     const firstWrite = writes[0];
+
     expect(firstWrite).toBeDefined();
 
     if (firstWrite == null) {
@@ -131,6 +134,7 @@ function describeProductsAdopter() {
     'imports an in-app purchase with its localizations, keyed by bundle id',
     importsAnInAppPurchaseWithItsLocalizationsKeyedByBundleId,
   );
+
   async function notesAPricedProductWhoseAmountTheAPIWonTCheaplyReturn() {
     const appleCatalog = emptyAdoptCatalog({
       listInAppPurchases() {
@@ -150,6 +154,7 @@ function describeProductsAdopter() {
     const target = adoptTarget();
     const writes = await productsAdopter.read(appleCatalog, target);
     const firstWrite = writes[0];
+
     expect(firstWrite).toBeDefined();
 
     if (firstWrite == null) {
@@ -163,6 +168,7 @@ function describeProductsAdopter() {
     "notes a priced product whose amount the API won't cheaply return",
     notesAPricedProductWhoseAmountTheAPIWonTCheaplyReturn,
   );
+
   async function skipsAnInAppPurchaseWhoseTypeLaunchDoesnTModel() {
     const appleCatalog = emptyAdoptCatalog({
       listInAppPurchases() {
@@ -172,6 +178,7 @@ function describeProductsAdopter() {
       },
     });
     const target = adoptTarget();
+
     expect(await productsAdopter.read(appleCatalog, target)).toEqual([]);
   }
 
@@ -179,6 +186,7 @@ function describeProductsAdopter() {
     "skips an in-app purchase whose type Launch doesn't model",
     skipsAnInAppPurchaseWhoseTypeLaunchDoesnTModel,
   );
+
   async function importsASubscriptionGroupWithItsLevelsAndBillingPeriod() {
     const appleCatalog = emptyAdoptCatalog({
       listSubscriptionGroups() {
@@ -204,6 +212,7 @@ function describeProductsAdopter() {
     const target = adoptTarget();
     const writes = await productsAdopter.read(appleCatalog, target);
     const firstWrite = writes[0];
+
     expect(firstWrite).toBeDefined();
 
     if (firstWrite == null) {
@@ -236,6 +245,7 @@ function describeProductsAdopter() {
     'imports a subscription group with its levels and billing period',
     importsASubscriptionGroupWithItsLevelsAndBillingPeriod,
   );
+
   async function dropsASubscriptionGroupWhoseOnlyLevelIsMissingItsBillingPeriod() {
     const appleCatalog = emptyAdoptCatalog({
       listSubscriptionGroups() {
@@ -246,6 +256,7 @@ function describeProductsAdopter() {
       },
     });
     const target = adoptTarget();
+
     expect(await productsAdopter.read(appleCatalog, target)).toEqual([]);
   }
 

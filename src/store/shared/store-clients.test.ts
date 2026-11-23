@@ -75,6 +75,7 @@ beforeEach(prepare);
 function describeCreateAscClientResolver() {
   async function loadsCredentialsAndConstructsTheClientOnce() {
     vi.mocked(loadActiveAscKey).mockResolvedValue({ keyId: 'K', issuerId: 'I', p8: 'pem' });
+
     const createClient = vi
       .spyOn(AppleStoreClientService, 'createEffectClient')
       .mockReturnValue(appStoreClient);
@@ -92,8 +93,10 @@ function describeCreateAscClientResolver() {
     'loads credentials and constructs the client once',
     loadsCredentialsAndConstructsTheClientOnce,
   );
+
   async function cachesAnUnconfiguredAccountWithoutCreatingAClient() {
     vi.mocked(loadActiveAscKey).mockResolvedValue(null);
+
     const createClient = vi
       .spyOn(AppleStoreClientService, 'createEffectClient')
       .mockReturnValue(appStoreClient);
@@ -115,6 +118,7 @@ describe('createAscClientResolver', describeCreateAscClientResolver);
 function describeCreatePlayClientResolver() {
   async function loadsTheServiceAccountAndConstructsTheClientOnce() {
     vi.mocked(loadServiceAccount).mockResolvedValue('{}');
+
     const createClient = vi
       .spyOn(GoogleStoreClientService, 'createEffectClient')
       .mockReturnValue(playStoreClient);
@@ -132,8 +136,10 @@ function describeCreatePlayClientResolver() {
     'loads the service account and constructs the client once',
     loadsTheServiceAccountAndConstructsTheClientOnce,
   );
+
   async function cachesAnUnconfiguredAccountWithoutCreatingAClient2() {
     vi.mocked(loadServiceAccount).mockResolvedValue(null);
+
     const createClient = vi
       .spyOn(GoogleStoreClientService, 'createEffectClient')
       .mockReturnValue(playStoreClient);
@@ -158,6 +164,7 @@ function describePerPackagePlayClientResolution() {
       const serialized = JSON.stringify({ packageName });
       return Promise.resolve(serialized);
     });
+
     const createClient = vi
       .spyOn(GoogleStoreClientService, 'createEffectClient')
       .mockReturnValue(playStoreClient);
@@ -170,10 +177,14 @@ function describePerPackagePlayClientResolution() {
     expect(loadServiceAccount).toHaveBeenCalledTimes(2);
     expect(loadServiceAccount).toHaveBeenCalledWith('com.example.alpha');
     expect(loadServiceAccount).toHaveBeenCalledWith('com.example.beta');
+
     const serialized = JSON.stringify({ packageName: 'com.example.alpha' });
+
     expect(createClient).toHaveBeenCalledWith(serialized);
     expect(createClient).toHaveBeenCalledWith(JSON.stringify({ packageName: 'com.example.beta' }));
+
     const packageClient = await resolvePackageClient();
+
     expect(packageClient).toBeNull();
   }
 

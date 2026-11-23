@@ -68,49 +68,64 @@ function readStarRating(rating: number): StarRating | null {
 /** Normalize App Store reviews to the aggregate's store-neutral fields. */
 function normalizeAscReviews(customerReviews: readonly CustomerReviewResource[]): ReviewDatum[] {
   const normalizedReviews: ReviewDatum[] = [];
+
   for (const customerReview of customerReviews) {
     const starRating = readStarRating(customerReview.rating);
+
     if (starRating == null) continue;
+
     const normalizedReview: MutableDeep<ReviewDatum> = {
       store: 'appstore',
       rating: starRating,
       answered: customerReview.answered,
     };
+
     if (customerReview.createdDate != null) {
       normalizedReview.date = customerReview.createdDate;
     }
+
     normalizedReviews.push(normalizedReview);
   }
+
   return normalizedReviews;
 }
 
 /** Normalize Google Play reviews to the aggregate's store-neutral fields. */
 function normalizePlayReviews(playReviews: readonly PlayReview[]): ReviewDatum[] {
   const normalizedReviews: ReviewDatum[] = [];
+
   for (const playReview of playReviews) {
     const starRating = readStarRating(playReview.rating);
+
     if (starRating == null) continue;
+
     const normalizedReview: MutableDeep<ReviewDatum> = {
       store: 'play',
       rating: starRating,
       answered: playReview.answered,
     };
+
     if (playReview.lastModified != null) normalizedReview.date = playReview.lastModified;
+
     normalizedReviews.push(normalizedReview);
   }
+
   return normalizedReviews;
 }
 
 /** Human label for a normalized store key. */
 function storeLabel(store: InsightsStore): string {
   if (store == 'appstore') return 'App Store';
+
   return 'Play';
 }
 
 /** Build one fixed-width ASCII bar scaled against the largest rating bucket. */
 function distributionBar(count: number, maximum: number, width: number = 12): string {
   let filled = 0;
+
   if (maximum > 0) filled = Math.round((count / maximum) * width);
+
   return '#'.repeat(filled) + '.'.repeat(width - filled);
 }
 
@@ -118,7 +133,9 @@ function distributionBar(count: number, maximum: number, width: number = 12): st
 function ratingSummaryLine(ratingSummary: RatingSummary): string {
   const answeredPercentage = Math.round(ratingSummary.answeredRate * 100);
   let reviewNoun = 'reviews';
+
   if (ratingSummary.total == 1) reviewNoun = 'review';
+
   return `Rating ${ratingSummary.average.toFixed(1)}/5 - ${ratingSummary.total} ${reviewNoun} - ${answeredPercentage}% answered`;
 }
 
@@ -127,45 +144,59 @@ export function renderInsights(insightsReport: InsightsReport): string {
   if (insightsReport.apps.length == 0) {
     return 'No review data - no selected app returned reviews from the App Store or Play.';
   }
+
   let appNoun = 'apps';
+
   if (insightsReport.apps.length == 1) appNoun = 'app';
+
   let reviewNoun = 'reviews';
+
   if (insightsReport.overall.total == 1) reviewNoun = 'review';
+
   const reportLines: string[] = [
     `Insights - ${insightsReport.apps.length} ${appNoun} - ${insightsReport.overall.total} ${reviewNoun}`,
   ];
   const descendingStars: readonly StarRating[] = [5, 4, 3, 2, 1];
+
   for (const appInsights of insightsReport.apps) {
     function mapStarRating(starRating: 2 | 1 | 3 | 5 | 4) {
       return appInsights.ratings.distribution[starRating];
     }
 
     const maximumCount = Math.max(...STARS.map(mapStarRating));
+
     reportLines.push('', appInsights.app, `  ${ratingSummaryLine(appInsights.ratings)}`);
+
     for (const starRating of descendingStars) {
       const ratingCount = appInsights.ratings.distribution[starRating];
       reportLines.push(
         `  ${starRating} ${distributionBar(ratingCount, maximumCount)} ${ratingCount}`,
       );
     }
+
     reportLines.push(
       `  sentiment: ${appInsights.ratings.sentiment.positive} positive - ` +
         `${appInsights.ratings.sentiment.neutral} neutral - ${appInsights.ratings.sentiment.negative} negative`,
     );
+
     const stores: readonly InsightsStore[] = ['appstore', 'play'];
+
     function filterStore(store: 'appstore' | 'play') {
       return appInsights.byStore[store] != null;
     }
 
     const presentStores = stores.filter(filterStore);
+
     if (presentStores.length > 1) {
       for (const store of presentStores) {
         const storeSummary = appInsights.byStore[store];
+
         if (storeSummary != null) {
           reportLines.push(`  ${storeLabel(store)}: ${ratingSummaryLine(storeSummary)}`);
         }
       }
     }
+
     if (appInsights.trend.length > 0) {
       function mapTrendPoint(trendPoint: {
         readonly month: string;
@@ -176,9 +207,11 @@ export function renderInsights(insightsReport: InsightsReport): string {
       }
 
       const trendPoints = appInsights.trend.map(mapTrendPoint);
+
       reportLines.push(`  trend: ${trendPoints.join(' - ')}`);
     }
   }
+
   return reportLines.join('\n');
 }
 
@@ -199,6 +232,7 @@ async function readAscInsights(
   logger: Logger,
 ): Promise<ReviewDatum[]> {
   const bundleId = appDescriptor.bundleId;
+
   const hasNoBundleId = bundleId == null;
 
   if (hasNoBundleId) {
@@ -229,6 +263,7 @@ async function readPlayInsights(
   logger: Logger,
 ): Promise<ReviewDatum[]> {
   const packageName = appDescriptor.packageName;
+
   const hasNoPackageName = packageName == null;
 
   if (hasNoPackageName) {
@@ -297,6 +332,7 @@ export async function insightsCommandProgram(
     const appReviews = await Promise.all(selectedApps.map(collectAppReviews));
     const insightsReport = buildInsightsReport(appReviews.filter(hasCollectedReviews));
     let reportText = renderInsights(insightsReport);
+
     const isJsonReport = commandOptions.json == true;
 
     if (isJsonReport) {

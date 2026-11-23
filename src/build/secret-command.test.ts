@@ -9,6 +9,7 @@ function describeSecretCommandPieceSchema() {
       app: 'demo',
       yes: true,
     });
+
     expect(decodeSecretCommand).toEqual({
       action: 'set',
       name: 'API_TOKEN',
@@ -19,6 +20,7 @@ function describeSecretCommandPieceSchema() {
   }
 
   it('decodes the set boundary with an explicit value', decodesTheSetBoundaryWithAnExplicitPiece);
+
   function rejectsAnUnknownSecretAction() {
     function callDecodeSecretCommandPiece() {
       return decodeSecretCommandInput({ action: 'show-values' });

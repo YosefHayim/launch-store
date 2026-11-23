@@ -58,6 +58,7 @@ function readOptionalString(record: Record<string, unknown>, fieldName: string):
 
 function readMigrationSource(record: Record<string, unknown>): MigrateCommandInput['source'] {
   const field = record['source'];
+
   const isEas = field == 'eas';
 
   if (isEas) {
@@ -181,6 +182,7 @@ async function persistMigration(
   force: boolean,
 ): Promise<void> {
   await mkdir(outputDirectory, { recursive: true });
+
   const writeOutcome = await writeArtifacts(migration, {
     outDir: outputDirectory,
     force,
@@ -189,6 +191,7 @@ async function persistMigration(
   const reportMarkdown = renderReport(migration);
 
   const joinedPath = join(outputDirectory, REPORT_FILE);
+
   await writeFile(joinedPath, reportMarkdown);
 
   const receiptLines = [
@@ -197,6 +200,7 @@ async function persistMigration(
     `[OK] wrote ${REPORT_FILE}`,
   ];
   let receiptTitle = 'Migrated';
+
   const keptExistingFiles = writeOutcome.skipped.length > 0;
 
   if (keptExistingFiles) {
@@ -236,6 +240,7 @@ export async function migrateCommandProgram(rawCommandInput: unknown): Promise<v
     await persistMigration(logger, migration, outputDirectory, commandInput.force);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     throw makeMigrateCommandFailure({
       operation: 'migrate project configuration',
       message: failureMessage,

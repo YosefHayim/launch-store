@@ -19,6 +19,7 @@ function describeFuzzyPieceThePickerSSubsequenceFilter() {
     'matches an in-order subsequence, case-insensitively',
     matchesAnInOrderSubsequenceCaseInsensitively,
   );
+
   function rejectsCharactersThatArenTASubsequence() {
     const fuzzy = fuzzyMatch('pms', 'sampleapp');
     expect(fuzzy).toBe(false);
@@ -26,6 +27,7 @@ function describeFuzzyPieceThePickerSSubsequenceFilter() {
   }
 
   it("rejects characters that aren't a subsequence", rejectsCharactersThatArenTASubsequence);
+
   function treatsABlankQueryAsAPieceSoTheFullListShows() {
     const fuzzy = fuzzyMatch('', 'anything');
     expect(fuzzy).toBe(true);
@@ -47,6 +49,7 @@ function describePickOneNonInteractivePolicyNoTTY() {
     { selection: 'a', label: 'Alpha' },
     { selection: 'b', label: 'Beta' },
   ];
+
   async function throwsWithTheFlagHintUnderTheRequirePolicy() {
     const one = pickOne({
       message: 'Which app? (2 found)',
@@ -54,6 +57,7 @@ function describePickOneNonInteractivePolicyNoTTY() {
       canPrompt: false,
       nonInteractive: { kind: 'require', flagHint: '- pass --app <name>.' },
     });
+
     await expect(one).rejects.toMatchObject({ message: expect.stringContaining('--app') });
   }
 
@@ -61,11 +65,14 @@ function describePickOneNonInteractivePolicyNoTTY() {
     'throws with the flag hint under the require policy',
     throwsWithTheFlagHintUnderTheRequirePolicy,
   );
+
   async function returnsTheFallbackPieceAndPrintsItsNoteUnderTheFallbackPolicy() {
     const terminalWrites: string[] = [];
+
     useLoggerSink(function writeLine(text: string) {
       terminalWrites.push(text);
     });
+
     const chosen = await pickOne({
       message: 'Multiple keys found',
       choices,
@@ -76,6 +83,7 @@ function describePickOneNonInteractivePolicyNoTTY() {
         note: 'using Beta; pass --p8 to choose another.',
       },
     });
+
     expect(chosen).toBe('b');
     expect(terminalWrites.join('')).toContain('using Beta; pass --p8 to choose another.');
   }
@@ -90,6 +98,7 @@ describe('pickOne - non-interactive policy (no TTY)', describePickOneNonInteract
 function describeLaunchPromptSelectManyTestAnswers() {
   async function returnsTheConfiguredDomainSelections() {
     usePromptAnswers({ selectionIndexes: [0, 2] });
+
     const selectedAgents = await LaunchPrompt.selectMany({
       message: 'Choose agents',
       choices: [
@@ -98,6 +107,7 @@ function describeLaunchPromptSelectManyTestAnswers() {
         { selection: 'cursor', label: 'Cursor' },
       ],
     });
+
     expect(selectedAgents).toEqual(['claude', 'cursor']);
   }
 

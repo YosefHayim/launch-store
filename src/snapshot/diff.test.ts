@@ -29,6 +29,7 @@ function describeStableStringify() {
   }
 
   it('is insensitive to object key order', isInsensitiveToObjectKeyOrder);
+
   function sortsKeysRecursivelyButPreservesArrayOrder() {
     expect(stableStringify({ outer: { z: 1, a: 2 } })).toBe('{"outer":{"a":2,"z":1}}');
     expect(stableStringify([3, 1, 2])).toBe('[3,1,2]');
@@ -44,6 +45,7 @@ describe('stableStringify', describeStableStringify);
 function describeDiffSnapshots() {
   function reportsAnEntityPresentOnlyInTheNewerSnapshotAsAdded() {
     const diff = diffSnapshots(snap([]), snap([entity('coins', { id: 1 })]));
+
     expect(diff.addedCount).toBe(1);
     expect(diff.entries[0]).toMatchObject({
       change: 'added',
@@ -57,6 +59,7 @@ function describeDiffSnapshots() {
     'reports an entity present only in the newer snapshot as added',
     reportsAnEntityPresentOnlyInTheNewerSnapshotAsAdded,
   );
+
   function reportsAnEntityPresentOnlyInTheBaselineAsRemoved() {
     const diff = diffSnapshots(snap([entity('coins', { id: 1 })]), snap([]));
     expect(diff.removedCount).toBe(1);
@@ -67,11 +70,13 @@ function describeDiffSnapshots() {
     'reports an entity present only in the baseline as removed',
     reportsAnEntityPresentOnlyInTheBaselineAsRemoved,
   );
+
   function reportsASameKeyEntityWithDifferingPieceAsChanged() {
     const diff = diffSnapshots(
       snap([entity('coins', { price: 1 })]),
       snap([entity('coins', { price: 2 })]),
     );
+
     expect(diff.changedCount).toBe(1);
     expect(diff.entries[0]).toMatchObject({ change: 'changed', key: 'coins' });
   }
@@ -80,15 +85,18 @@ function describeDiffSnapshots() {
     'reports a same-key entity with differing data as changed',
     reportsASameKeyEntityWithDifferingPieceAsChanged,
   );
+
   function treatsReorderedKeysAsNoChange() {
     const diff = diffSnapshots(
       snap([entity('coins', { a: 1, b: 2 })]),
       snap([entity('coins', { b: 2, a: 1 })]),
     );
+
     expect(diff.entries).toHaveLength(0);
   }
 
   it('treats reordered keys as no change', treatsReorderedKeysAsNoChange);
+
   function pairsEntitiesByStorePieceAppKeyNotByPieceKeyAlone() {
     const before: Snapshot = {
       ...snap([entity('dup', { id: 1 })]),
@@ -107,6 +115,7 @@ function describeDiffSnapshots() {
         },
       ],
     };
+
     // The same key under a different source must not collide - re-capturing identical state yields no diff.
     expect(diffSnapshots(before, before).entries).toHaveLength(0);
   }
@@ -115,6 +124,7 @@ function describeDiffSnapshots() {
     'pairs entities by (store, source, app, key), not by raw key alone',
     pairsEntitiesByStorePieceAppKeyNotByPieceKeyAlone,
   );
+
   function doesNotReportSkippedAppPieceAsRemoved() {
     const before = snap([entity('coins', { id: 1 })]);
     const after: Snapshot = {
@@ -132,6 +142,7 @@ function describeDiffSnapshots() {
         },
       ],
     };
+
     expect(diffSnapshots(before, after).entries).toEqual([]);
   }
 

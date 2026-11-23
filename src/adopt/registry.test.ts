@@ -15,6 +15,7 @@ describe('adopter registry', () => {
 
   it('replaces an adopter registered under the same domain rather than duplicating it', () => {
     registerBuiltinAdopters();
+
     const stub: Adopter = {
       domain: 'products',
       fidelity: 'importable',
@@ -22,8 +23,11 @@ describe('adopter registry', () => {
         return [];
       },
     };
+
     registerAdopter(stub);
+
     const products = listAdopters().filter((adopter) => adopter.domain == 'products');
+
     expect(products).toHaveLength(1);
     expect(products[0]).toBe(stub);
   });

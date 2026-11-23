@@ -41,6 +41,7 @@ export function parseDotenv(content: string): Record<string, string> {
 
   for (const dotenvLine of content.split('\n')) {
     const line = dotenvLine.trim();
+
     const isBlank = line == '';
 
     if (isBlank) {
@@ -54,6 +55,7 @@ export function parseDotenv(content: string): Record<string, string> {
     }
 
     let withoutExport = line;
+
     const hasExportPrefix = line.startsWith('export ');
 
     if (hasExportPrefix) {
@@ -75,6 +77,7 @@ export function parseDotenv(content: string): Record<string, string> {
     }
 
     const environmentValue = stripMatchingQuotes(withoutExport.slice(separatorAt + 1).trim());
+
     environmentValues[key] = environmentValue;
   }
 
@@ -229,6 +232,7 @@ export async function resolveEnv(input: ResolveEnvInput): Promise<ResolvedEnv> {
   if (input.includeLocal) {
     const joinedPath = join(input.appDir, '.env.local');
     const dotenvFile = await loadDotenvFile(joinedPath);
+
     layers.push({
       source: ENV_SOURCE.local,
       vars: dotenvFile,
@@ -301,6 +305,7 @@ export function parseCliEnv(pairs: string[]): Record<string, string> {
     }
 
     const key = pair.slice(0, separatorAt).trim();
+
     const keyIsEmpty = key == '';
 
     if (keyIsEmpty) {
@@ -336,6 +341,7 @@ function maskedEnvValue(key: string, resolved: ResolvedEnv): string {
 /** Render a resolved env as a masked provenance table for `--print-env` */
 export function formatEnvTable(resolved: ResolvedEnv): string {
   const keys = Object.keys(resolved.values).sort();
+
   const hasNoKeys = keys.length == 0;
 
   if (hasNoKeys) {
@@ -379,6 +385,7 @@ export function formatEnvTable(resolved: ResolvedEnv): string {
 /** Per-key provenance rows for the in-build env log */
 export function envInjectionRows(resolved: ResolvedEnv): string[] {
   const keys = Object.keys(resolved.values).sort();
+
   const hasNoKeys = keys.length == 0;
 
   if (hasNoKeys) {

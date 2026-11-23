@@ -8,7 +8,9 @@ function workDir(): string {
   const systemTemporaryDirectory = tmpdir();
   const storeconfigTestPath = join(systemTemporaryDirectory, 'storeconfig-test-');
   const dir = mkdtempSync(storeconfigTestPath);
+
   tmpDirs.push(dir);
+
   return dir;
 }
 function cleanup() {
@@ -26,6 +28,7 @@ function describeParseStorePiece() {
       },
       android: { info: { 'en-US': { title: 'Hello', shortDescription: 'short' } } },
     });
+
     expect(config.apple?.info['en-US']).toEqual({
       title: 'Hello',
       keywords: ['a', 'b'],
@@ -39,6 +42,7 @@ function describeParseStorePiece() {
     'parses the Expo apple schema plus the android extension',
     parsesTheExpoAppleSchemaPlusTheAndroidExtension,
   );
+
   function rejectsANonObjectDocument() {
     function callParseStorePiece() {
       return parseStoreConfig('nope');
@@ -48,6 +52,7 @@ function describeParseStorePiece() {
   }
 
   it('rejects a non-object document', rejectsANonObjectDocument);
+
   function rejectsADocumentWithNeitherPlatformSection() {
     function callParseStorePiece2() {
       return parseStoreConfig({ configVersion: 0 });
@@ -60,6 +65,7 @@ function describeParseStorePiece() {
     'rejects a document with neither platform section',
     rejectsADocumentWithNeitherPlatformSection,
   );
+
   function rejectsANonStringListingFieldAtTheSchemaBoundary() {
     function callParseStorePiece3() {
       return parseStoreConfig({
@@ -95,6 +101,7 @@ function describeAppleMetadataFolderReadDeliverLayout() {
     const releaseNotesPath = join('en-US', 'release_notes.txt');
     const privacyUrlPath = join('en-US', 'privacy_url.txt');
     const supportUrlPath = join('en-US', 'support_url.txt');
+
     writeMetadataFiles(dir, {
       [namePath]: 'Hello',
       [subtitlePath]: 'Sub',
@@ -104,7 +111,9 @@ function describeAppleMetadataFolderReadDeliverLayout() {
       [privacyUrlPath]: 'https://example.com/privacy',
       [supportUrlPath]: '   ',
     });
+
     const appleMetadataDir = await readAppleMetadataDir(dir);
+
     expect(appleMetadataDir).toEqual({
       info: {
         'en-US': {
@@ -132,12 +141,15 @@ function describeAndroidMetadataFolderReadSupplyLayout() {
     const titlePath = join('en-US', 'title.txt');
     const shortDescriptionPath = join('en-US', 'short_description.txt');
     const fullDescriptionPath = join('en-US', 'full_description.txt');
+
     writeMetadataFiles(dir, {
       [titlePath]: 'Hello',
       [shortDescriptionPath]: 'short',
       [fullDescriptionPath]: 'the full thing',
     });
+
     const androidMetadataDir = await readAndroidMetadataDir(dir);
+
     expect(androidMetadataDir).toEqual({
       info: {
         'en-US': { title: 'Hello', shortDescription: 'short', fullDescription: 'the full thing' },

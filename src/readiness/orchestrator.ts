@@ -71,6 +71,7 @@ export function tallyProbeReports(probeReports: readonly ProbeReport[]): ProbeRe
               break;
           }
         }
+
         break;
       case 'omitted':
         break;

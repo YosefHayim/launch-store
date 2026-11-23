@@ -37,10 +37,12 @@ function renderBuiltDiagnostics(): Promise<string> {
     );
     process.stdout.write(JSON.stringify({ permission, payments }));
   `;
+
   return captureCommandOutput('node', ['--input-type=module', '--eval', diagnosticScript]);
 }
 function prepareAll() {
   if (!existsSync(CLI)) throw new Error('Build dist before running the built-CLI e2e suite.');
+
   if (!existsSync(PLAY_SUBSCRIPTIONS)) {
     throw new Error('The built Play subscriptions program is missing from dist.');
   }
@@ -50,7 +52,9 @@ beforeAll(prepareAll);
 function describeLaunchStorePlaySubscriptionsSetupGuidanceCompiledDist() {
   async function shipsTheDistinctCatalogPermissionAndPaymentsProfileFixes() {
     expect(await launch('play-subscriptions', '--help')).toContain('play-subscriptions');
+
     const diagnosticText = await renderBuiltDiagnostics();
+
     expect(diagnosticText).toContain('launch-catalog@proj.iam.gserviceaccount.com');
     expect(diagnosticText).toContain('Manage store presence');
     expect(diagnosticText).toContain('Admin (all permissions)');

@@ -74,6 +74,7 @@ export function decodeFingerprintCommandInput(rawCommandInput: unknown): Fingerp
   }
 
   const appName = rawCommandInputObject['app'];
+
   const appIsMissing = appName == null;
 
   if (appIsMissing) {
@@ -103,10 +104,12 @@ function shortHash(hash: string): string {
 /** Render a fingerprint report for a human terminal. */
 export function formatFingerprintReport(fingerprintReport: FingerprintReport): string {
   let lastBuild = 'none on this host yet';
+
   const hasStoredBuild = fingerprintReport.stored != null;
 
   if (hasStoredBuild) {
     let buildKind = 'incremental';
+
     const wasClean = fingerprintReport.stored.cleanBuilt == true;
 
     if (wasClean) {
@@ -117,6 +120,7 @@ export function formatFingerprintReport(fingerprintReport: FingerprintReport): s
   }
 
   let verdict = 'incremental (reuses warm caches)';
+
   const nextIsClean = fingerprintReport.decision.clean == true;
 
   if (nextIsClean) {
@@ -160,6 +164,7 @@ export async function fingerprintCommandProgram(rawCommandInput: unknown): Promi
       decision: resolveClean(false, storedBuild, currentFingerprint),
     };
     let reportText = formatFingerprintReport(fingerprintReport);
+
     const wantsJson = commandInput.json == true;
 
     if (wantsJson) {

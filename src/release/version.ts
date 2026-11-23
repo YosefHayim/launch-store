@@ -12,13 +12,17 @@ const ZERO_VERSION: SemVer = { major: 0, minor: 0, patch: 0 };
 export function parseVersion(input: string): SemVer | null {
   const versionParts = input.trim().replace(/^v/i, '').split(/[-+]/);
   let core = versionParts[0];
+
   if (core == null) core = '';
+
   if (!/^\d+(\.\d+){0,2}$/.test(core)) return null;
+
   function mapPart(part: string) {
     return Number.parseInt(part, 10);
   }
 
   const [major = 0, minor = 0, patch = 0] = core.split('.').map(mapPart);
+
   return { major, minor, patch };
 }
 /** Render a {@link SemVer} back to the canonical `MAJOR.MINOR.PATCH` string. */
@@ -39,20 +43,29 @@ export function bumpVersion(version: SemVer, bump: VersionBump): SemVer {
 /** The next version string for a bump, starting from `current`. */
 export function nextVersion(current: string, bump: VersionBump): string {
   let parsed = parseVersion(current);
+
   if (parsed == null) parsed = ZERO_VERSION;
+
   const version = bumpVersion(parsed, bump);
+
   return formatVersion(version);
 }
 /** Compare two versions by numeric core: `-1` if `a < b`, `1` if `a > b`, `0` if equal. */
 export function compareVersions(a: string, b: string): number {
   let left = parseVersion(a);
+
   if (left == null) left = ZERO_VERSION;
+
   let right = parseVersion(b);
+
   if (right == null) right = ZERO_VERSION;
+
   for (const key of ['major', 'minor', 'patch'] as const) {
     if (left[key] < right[key]) return -1;
+
     if (left[key] > right[key]) return 1;
   }
+
   return 0;
 }
 /** The highest parseable version in a list, returned in its original form */
@@ -62,9 +75,12 @@ export function highestVersion(versions: readonly string[]): string | null {
   }
 
   const parseable = versions.filter(filterVersion);
+
   if (parseable.length == 0) return null;
+
   function reduceHighest(highest: string, version: string) {
     if (compareVersions(version, highest) > 0) return version;
+
     return highest;
   }
 

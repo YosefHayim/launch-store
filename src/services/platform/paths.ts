@@ -184,6 +184,7 @@ export function locateAppStatsDirectory(appKey: string): string {
   }
 
   const statsDirectory = locateStatsDirectory();
+
   return join(statsDirectory, appKey);
 }
 

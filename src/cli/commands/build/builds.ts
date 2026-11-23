@@ -15,11 +15,13 @@ export function registerBuildsCommand(program: Command): void {
   const buildsCommand = program
     .command('builds')
     .description('inspect and trim local build history (the artifact index)');
+
   function runList(commandOptions: { app?: string; platform?: string; json: boolean }) {
     const buildHistoryCommand = provideBuildHistoryCommand({
       operation: 'list',
       ...commandOptions,
     });
+
     return runCliProgram(buildHistoryCommand);
   }
 
@@ -33,12 +35,14 @@ export function registerBuildsCommand(program: Command): void {
     )
     .option('--json', 'output machine-readable JSON', false)
     .action(runList);
+
   function runView(reference: string, commandOptions: { json: boolean }) {
     const buildHistoryCommand = provideBuildHistoryCommand({
       operation: 'view',
       reference,
       json: commandOptions.json,
     });
+
     return runCliProgram(buildHistoryCommand);
   }
 
@@ -48,12 +52,14 @@ export function registerBuildsCommand(program: Command): void {
     .argument('<id|latest>', 'a build id from `builds list`, a build number, or `latest`')
     .option('--json', 'output machine-readable JSON', false)
     .action(runView);
+
   function runLog(reference: string, commandOptions: { open: boolean }) {
     const buildHistoryCommand = provideBuildHistoryCommand({
       operation: 'log',
       reference,
       open: commandOptions.open,
     });
+
     return runCliProgram(buildHistoryCommand);
   }
 
@@ -65,11 +71,13 @@ export function registerBuildsCommand(program: Command): void {
     .argument('<id|latest>', 'a build id from `builds list`, a build number, or `latest`')
     .option('--open', 'reveal the log in your editor / OS viewer instead of printing it', false)
     .action(runLog);
+
   function runPrune(commandOptions: PruneCommandOptions) {
     const buildHistoryCommand = provideBuildHistoryCommand({
       operation: 'prune',
       options: commandOptions,
     });
+
     return runCliProgram(buildHistoryCommand);
   }
 

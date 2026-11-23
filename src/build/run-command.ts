@@ -95,6 +95,7 @@ function decodeRunCommandInput(rawCommandInput: unknown): RunCommandInput {
 /** Build the `adb install` arguments for an optional device serial. */
 export function adbInstallArgs(apkPath: string, serial: string | undefined = undefined): string[] {
   const commandArguments = ['install', '-r', apkPath];
+
   const isMissingSerial = serial == null;
 
   if (isMissingSerial) {
@@ -121,6 +122,7 @@ export function bundletoolInstallApksArgs(
   serial: string | undefined = undefined,
 ): string[] {
   const commandArguments = ['install-apks', `--apks=${apksPath}`];
+
   const isMissingSerial = serial == null;
 
   if (isMissingSerial) {
@@ -136,6 +138,7 @@ export function devicectlInstallArgs(
   device: string | undefined = undefined,
 ): string[] {
   const commandArguments = ['devicectl', 'device', 'install', 'app'];
+
   const isMissingDevice = device == null;
 
   if (isMissingDevice) {
@@ -174,8 +177,11 @@ async function installAndroidArtifact(
     const apksPath = join(temporaryDirectory, 'app.apks');
 
     const bundletoolBuildApks = bundletoolBuildApksArgs(artifactPath, apksPath);
+
     await executeCommand('bundletool', bundletoolBuildApks);
+
     const bundletoolInstallApks = bundletoolInstallApksArgs(apksPath, serial);
+
     await executeCommand('bundletool', bundletoolInstallApks);
   } finally {
     await removeTemporaryDirectory(temporaryDirectory);
@@ -193,6 +199,7 @@ async function installAppleArtifact(
 
   try {
     await executeCommand('unzip', ['-oq', artifactPath, '-d', temporaryDirectory]);
+
     const applicationDirectory = join(temporaryDirectory, 'Payload');
     const applicationNames = await readdir(applicationDirectory);
     const applicationName = applicationNames.find(isApplicationBundle);
@@ -205,6 +212,7 @@ async function installAppleArtifact(
     }
 
     const logger = createLogger(false);
+
     const isMissingDevice = device == null;
 
     if (isMissingDevice) {
@@ -214,6 +222,7 @@ async function installAppleArtifact(
     const applicationPath = join(applicationDirectory, applicationName);
 
     const devicectlInstall = devicectlInstallArgs(applicationPath, device);
+
     await executeCommand('xcrun', devicectlInstall);
   } finally {
     await removeTemporaryDirectory(temporaryDirectory);
@@ -272,6 +281,7 @@ export async function runCommandProgram(commandInput: unknown): Promise<void> {
     logger.ok("Installed. Launch it from the device's home screen.");
   } catch (error) {
     const failureMessage = errorMessage(error);
+
     throw makeRunCommandFailure({
       operation: 'install stored artifact',
       message: failureMessage,

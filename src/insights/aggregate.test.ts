@@ -27,6 +27,7 @@ describe('sentimentOf', describeSentimentOf);
 function describeSummarizeRatings() {
   function returnsAnAllZeroSummaryForAnEmptySetWithoutDividingByZero() {
     const ratings = summarizeRatings([]);
+
     expect(ratings).toEqual({
       total: 0,
       average: 0,
@@ -41,6 +42,7 @@ function describeSummarizeRatings() {
     'returns an all-zero summary for an empty set without dividing by zero',
     returnsAnAllZeroSummaryForAnEmptySetWithoutDividingByZero,
   );
+
   function talliesDistributionMeanAnsweredRateAndSentimentInOnePass() {
     const summary = summarizeRatings([
       review({ rating: 5, answered: true }),
@@ -49,6 +51,7 @@ function describeSummarizeRatings() {
       review({ rating: 3, answered: false }),
       review({ rating: 1, answered: false }),
     ]);
+
     expect(summary.total).toBe(5);
     expect(summary.average).toBe(3.6); // (5+5+4+3+1)/5 = 3.6
     expect(summary.distribution).toEqual({ 1: 1, 2: 0, 3: 1, 4: 1, 5: 2 });
@@ -61,12 +64,14 @@ function describeSummarizeRatings() {
     'tallies distribution, mean, answered rate, and sentiment in one pass',
     talliesDistributionMeanAnsweredRateAndSentimentInOnePass,
   );
+
   function roundsTheAverageToOneDecimal() {
     const ratings = summarizeRatings([
       review({ rating: 5 }),
       review({ rating: 4 }),
       review({ rating: 4 }),
     ]);
+
     expect(ratings.average).toBe(4.3);
   }
 
@@ -82,6 +87,7 @@ function describeMonthlyTrend() {
       review({ rating: 5, date: '2026-04-01T00:00:00Z' }),
       review({ rating: 5 }), // undated -> excluded from the timeline
     ]);
+
     expect(trend).toEqual([
       { month: '2026-04', count: 1, average: 5 },
       { month: '2026-05', count: 2, average: 3 },
@@ -102,6 +108,7 @@ function describeBuildAppInsights() {
       review({ store: 'appstore', rating: 3 }),
       review({ store: 'play', rating: 4 }),
     ]);
+
     expect(insights.app).toBe('myapp');
     expect(insights.ratings.total).toBe(3);
     expect(insights.byStore.appstore?.total).toBe(2);
@@ -112,6 +119,7 @@ function describeBuildAppInsights() {
     'splits per-store summaries and only includes stores with reviews',
     splitsPerStoreSummariesAndOnlyIncludesStoresWithReviews,
   );
+
   function omitsAStoreTheAppLeftNoReviewsIn() {
     const insights = buildAppInsights('ios-only', [review({ store: 'appstore', rating: 5 })]);
     expect(insights.byStore.appstore).toBeDefined();
@@ -128,6 +136,7 @@ describe('buildInsightsReport', () => {
       { app: 'a', reviews: [review({ rating: 5 }), review({ rating: 5 })] },
       { app: 'b', reviews: [review({ rating: 1 })] },
     ]);
+
     expect(report.apps.map((a) => a.app)).toEqual(['a', 'b']);
     expect(report.overall.total).toBe(3);
     expect(report.overall.average).toBe(3.7); // (5+5+1)/3 = 3.666... -> 3.7

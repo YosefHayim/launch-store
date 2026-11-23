@@ -169,6 +169,7 @@ export async function ciCommandProgram(rawCommandInput: unknown): Promise<void> 
     const launchDirectories = readLaunchDirectories();
     const workflowPath = join(launchDirectories.workingDirectory, WORKFLOW_PATH);
     const workflowExists = await pathExists(workflowPath);
+
     const refuseOverwrite = shouldRefuseOverwrite(workflowExists, commandInput.force);
 
     if (refuseOverwrite) {
@@ -180,9 +181,12 @@ export async function ciCommandProgram(rawCommandInput: unknown): Promise<void> 
     }
 
     const parentDirectory = dirname(workflowPath);
+
     await mkdir(parentDirectory, { recursive: true });
     await writeFile(workflowPath, workflowYaml(commandInput.android));
+
     const logger = createLogger(false);
+
     logger.ok(`Wrote ${WORKFLOW_PATH}`);
     logger.line('\nSet these repository secrets (Settings -> Secrets and variables -> Actions):');
     logger.line('  - ASC_KEY_ID, ASC_ISSUER_ID');

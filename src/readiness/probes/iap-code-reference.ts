@@ -54,6 +54,7 @@ function scopedProductApp(
   app: AppDescriptor & { bundleId: string },
 ): ScopedApp | null {
   const productIds = declaredAppleProductIds(readinessContext.config.products?.[app.bundleId]);
+
   const isUndeclared = productIds.length == 0;
 
   if (isUndeclared) {
@@ -158,6 +159,7 @@ async function readCodeReference(app: ScopedApp): Promise<AppReadiness> {
   }
 
   const missingIds = app.productIds.filter(isMissing);
+
   const isComplete = missingIds.length == 0;
 
   if (isComplete) {
@@ -189,6 +191,7 @@ export const iapCodeReferenceProbe = {
 
     for (const configuredApp of readinessContext.apps) {
       const scopedApp = readScopedApp(readinessContext, configuredApp);
+
       const isOutsideScope = scopedApp == null;
 
       if (isOutsideScope) {

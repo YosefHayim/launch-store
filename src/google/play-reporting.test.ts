@@ -18,6 +18,7 @@ function makeServiceAccountJson(): string {
 /** Generated freshness shape for one DAILY end date. */
 function dailyFreshness(isoDate: string) {
   const dateSegments = isoDate.split('-').map(Number);
+
   return {
     freshnessInfo: {
       freshnesses: [
@@ -41,6 +42,7 @@ function crashMetricEntry(
   distinctUsers: string,
 ) {
   const dateSegments = isoDate.split('-').map(Number);
+
   return {
     startTime: { year: dateSegments[0], month: dateSegments[1], day: dateSegments[2] },
     metrics: [
@@ -86,6 +88,7 @@ function describeVitalsWindowFromLatestDate() {
     'spans the default inclusive window ending at freshness',
     spansTheDefaultInclusiveWindowEndingAtFreshness,
   );
+
   function honorsACustomDayCountAcrossMonthBoundaries() {
     expect(vitalsWindowFromLatestDate('2026-03-03', 7)).toEqual({
       startDate: '2026-02-25',
@@ -97,9 +100,11 @@ function describeVitalsWindowFromLatestDate() {
     'honors a custom day count across month boundaries',
     honorsACustomDayCountAcrossMonthBoundaries,
   );
+
   function fallsBackToTodaySDateWhenFreshnessIsUnknown() {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
+
     try {
       expect(vitalsWindowFromLatestDate(null, 1)).toEqual({
         startDate: '2026-06-15',
@@ -120,15 +125,18 @@ describe('vitalsWindowFromLatestDate', describeVitalsWindowFromLatestDate);
 describe('PlayReportingClient generated metrics', () => {
   async function queriesAndNormalizesCrashRateEntriesInDateOrder() {
     const crashMetric = crashMetricEntry('2026-06-02', '0.0123', '0.0099', '5000');
+
     queryCrashRate.mockResolvedValue({
       data: {
         rows: [crashMetric, crashMetricEntry('2026-06-01', '0.02', '0.015', '4800')],
       },
     });
+
     const entries = await client.queryCrashRate('com.example.app', {
       startDate: '2026-06-01',
       endDate: '2026-06-02',
     });
+
     expect(queryCrashRate).toHaveBeenCalledWith({
       name: 'apps/com.example.app/crashRateMetricSet',
       requestBody: {
@@ -164,6 +172,7 @@ describe('PlayReportingClient generated metrics', () => {
   );
   it('pages through the generated nextPageToken', async () => {
     const crashMetric = crashMetricEntry('2026-06-01', '0.02', '0.01', '10');
+
     queryCrashRate
       .mockResolvedValueOnce({
         data: {
@@ -174,14 +183,17 @@ describe('PlayReportingClient generated metrics', () => {
       .mockResolvedValueOnce({
         data: { rows: [crashMetricEntry('2026-06-02', '0.03', '0.02', '11')] },
       });
+
     const entries = await client.queryCrashRate('com.example.app', {
       startDate: '2026-06-01',
       endDate: '2026-06-02',
     });
+
     expect(entries.map((metricEntry) => metricEntry.date)).toEqual(['2026-06-01', '2026-06-02']);
     expect(queryCrashRate).toHaveBeenCalledTimes(2);
     expect(queryCrashRate.mock.calls[1]?.[0].requestBody.pageToken).toBe('second-page');
   });
+
   async function usesTheANRResourceAndMetricNames() {
     queryAnrRate.mockResolvedValue({
       data: {
@@ -215,6 +227,7 @@ describe('PlayReportingClient generated metrics', () => {
   }
 
   it('uses the ANR resource and metric names', usesTheANRResourceAndMetricNames);
+
   async function omitsMissingMetricColumns() {
     queryCrashRate.mockResolvedValue({
       data: { rows: [{ startTime: { year: 2026, month: 6, day: 1 }, metrics: [] }] },
@@ -228,6 +241,7 @@ describe('PlayReportingClient generated metrics', () => {
   }
 
   it('omits missing metric columns', omitsMissingMetricColumns);
+
   async function readsDAILYFreshnessFromTheMatchingGeneratedMetricSet() {
     getCrashFreshness.mockResolvedValue({ data: dailyFreshness('2026-06-20') });
     getAnrFreshness.mockResolvedValue({ data: {} });
@@ -242,13 +256,18 @@ describe('PlayReportingClient generated metrics', () => {
     'reads DAILY freshness from the matching generated metric set',
     readsDAILYFreshnessFromTheMatchingGeneratedMetricSet,
   );
+
   async function boundsTheTimelineQueryByGeneratedFreshness() {
     getCrashFreshness.mockResolvedValue({ data: dailyFreshness('2026-06-20') });
+
     const crashMetric = crashMetricEntry('2026-06-20', '0.01', '0.008', '1000');
+
     queryCrashRate.mockResolvedValue({
       data: { rows: [crashMetric] },
     });
+
     const timeline = await client.vitalsTimeline('com.example.app', 'crash', 7);
+
     expect(timeline.window).toEqual({ startDate: '2026-06-14', endDate: '2026-06-20' });
     expect(timeline.rows[0]?.date).toBe('2026-06-20');
     expect(queryCrashRate.mock.calls[0]?.[0].requestBody.timelineSpec).toMatchObject({
@@ -261,6 +280,7 @@ describe('PlayReportingClient generated metrics', () => {
     'bounds the timeline query by generated freshness',
     boundsTheTimelineQueryByGeneratedFreshness,
   );
+
   async function surfacesGoogleSErrorPieceFromAGeneratedRequestFailure() {
     queryCrashRate.mockRejectedValue(new Error('Reporting API not enabled.'));
     await expect(
@@ -305,6 +325,7 @@ function describePlayReportingClientListApps() {
     'pages through every search page and keeps the package names',
     pagesThroughEverySearchPageAndKeepsThePackageNames,
   );
+
   async function returnsAnEmptyListWhenAPageHasNoApps() {
     searchApps.mockResolvedValueOnce({ data: {} });
 
@@ -314,6 +335,7 @@ function describePlayReportingClientListApps() {
   }
 
   it('returns an empty list when a page has no apps', returnsAnEmptyListWhenAPageHasNoApps);
+
   async function failsWithAReportingErrorWhenTheSearchRequestFails() {
     searchApps.mockRejectedValueOnce(new Error('forbidden'));
 

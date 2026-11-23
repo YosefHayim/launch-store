@@ -87,6 +87,7 @@ function decodeConfigCommandInput(rawCommandInput: Record<string, unknown>): Con
 
 function reportViolations(violations: SchemaViolation[], source: string): boolean {
   const logger = createLogger(false);
+
   const isValid = violations.length == 0;
 
   if (isValid) {
@@ -97,6 +98,7 @@ function reportViolations(violations: SchemaViolation[], source: string): boolea
 
   for (const violation of violations) {
     let violationPath = violation.path;
+
     const pathIsEmpty = violationPath.length == 0;
 
     if (pathIsEmpty) {
@@ -107,7 +109,9 @@ function reportViolations(violations: SchemaViolation[], source: string): boolea
   }
 
   logger.gap();
+
   let problemSuffix = 's';
+
   const isOneProblem = violations.length == 1;
 
   if (isOneProblem) {
@@ -121,6 +125,7 @@ function reportViolations(violations: SchemaViolation[], source: string): boolea
 
 function reportSemantics(config: LaunchConfig): void {
   const semanticIssues = checkConfigSemantics(config);
+
   const hasNoIssues = semanticIssues.length == 0;
 
   if (hasNoIssues) {
@@ -128,6 +133,7 @@ function reportSemantics(config: LaunchConfig): void {
   }
 
   const logger = createLogger(false);
+
   logger.gap();
 
   for (const semanticIssue of semanticIssues) {
@@ -135,7 +141,9 @@ function reportSemantics(config: LaunchConfig): void {
   }
 
   logger.gap();
+
   let warningSuffix = 's';
+
   const isOneWarning = semanticIssues.length == 1;
 
   if (isOneWarning) {
@@ -180,6 +188,7 @@ async function validateConfiguration(commandInput: ValidateCommandInput): Promis
     }
 
     const violations = validateConfig(foundConfig.config);
+
     const configIsValid = reportViolations(violations, foundConfig.path);
 
     if (configIsValid) {

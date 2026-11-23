@@ -23,6 +23,7 @@ function declaredPurchases(
   bundleId: string,
 ): InAppPurchaseConfig[] {
   const declared = readinessContext.config.products?.[bundleId]?.inAppPurchases;
+
   const isUndeclared = declared == null;
 
   if (isUndeclared) {
@@ -85,6 +86,7 @@ export const iapProductsProbe = {
     }
 
     const apps = iosApps(readinessContext.apps).filter(keepsSellingApp);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

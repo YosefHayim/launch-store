@@ -17,6 +17,7 @@ export class Cli {
         }
 
         process.exitCode = error.exitCode;
+
         return;
       }
 

@@ -82,6 +82,7 @@ function readAppName(app: AppDescriptor): string {
 
 function appChoice(app: AppDescriptor): PickOneArgs<AppDescriptor>['choices'][number] {
   const bundleId = app.bundleId;
+
   const hasBundleId = bundleId != null;
 
   if (hasBundleId) {
@@ -89,6 +90,7 @@ function appChoice(app: AppDescriptor): PickOneArgs<AppDescriptor>['choices'][nu
   }
 
   const packageName = app.packageName;
+
   const hasPackageName = packageName != null;
 
   if (hasPackageName) {
@@ -102,6 +104,7 @@ function findNamedApp(apps: readonly AppDescriptor[], appName: string): AppDescr
   const namedApp = apps.find(function sameName(app: AppDescriptor): boolean {
     return app.name == appName;
   });
+
   const isMissing = namedApp == null;
 
   if (isMissing) {
@@ -143,6 +146,7 @@ export async function selectApp(
   }
 
   const soleApp = apps[0];
+
   const isSoleApp = isOnlyDiscoveredApp(apps, soleApp);
 
   if (isSoleApp) {
@@ -164,6 +168,7 @@ export async function selectApp(
       flagHint: '- pass --app <name> to choose one non-interactively.',
     },
   };
+
   const hasLastApp = lastApp != null;
 
   if (hasLastApp) {
@@ -245,6 +250,7 @@ export async function validateResolvedEnv(
 
   for (const environmentName of secretLookingKeys(resolved.values)) {
     const environmentSource = resolved.sources[environmentName];
+
     const isKeychainSecret = environmentSource == ENV_SOURCE.secret;
 
     if (isKeychainSecret) {
@@ -283,5 +289,6 @@ export async function previewEnv(buildOptions: BuildRunOptions): Promise<void> {
   const logger = createLogger(false);
 
   const formatTable = formatEnvTable(resolved);
+
   logger.line(formatTable);
 }

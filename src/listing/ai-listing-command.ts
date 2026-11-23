@@ -699,6 +699,7 @@ async function selectListingApp(
   }
 
   const onlyApp = discoveredApps[0];
+
   const isOnlyApp = discoveredApps.length == 1;
 
   if (isOnlyApp) {
@@ -854,6 +855,7 @@ export async function runAiListing(
     );
 
     const draftPreview = renderDraftPreview(localeDrafts, listingTargets);
+
     logger.line(draftPreview);
 
     if (commandInput.dryRun) {

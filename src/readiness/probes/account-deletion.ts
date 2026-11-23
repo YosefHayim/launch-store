@@ -54,6 +54,7 @@ async function readAccountDeletion(
 
   const urls = await api.listAccountDeletionUrls(appInfoId);
   const declared = urls.filter(hasDeletionUrl);
+
   const hasDeclaredUrl = declared.length > 0;
 
   if (hasDeclaredUrl) {
@@ -82,6 +83,7 @@ export const accountDeletionProbe = {
   categories: ['listing', 'submit'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const apps = iosApps(readinessContext.apps);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

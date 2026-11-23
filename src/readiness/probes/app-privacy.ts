@@ -34,6 +34,7 @@ async function readAppPrivacy(
   }
 
   const storeVersions = await api.listAppStoreVersions(appId, 'IOS');
+
   const wasReleased = hasReleasedVersion(storeVersions);
 
   if (wasReleased) {
@@ -62,6 +63,7 @@ export const appPrivacyProbe = {
   categories: ['privacy', 'submit'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const apps = iosApps(readinessContext.apps);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

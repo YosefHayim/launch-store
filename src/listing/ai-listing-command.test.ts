@@ -37,9 +37,11 @@ const listingGenerator = {
 function describeAiListingCommand() {
   let workingDirectory: string;
   let configPath: string;
+
   function prepareAiListingCommand() {
     const systemTemporaryDirectory = tmpdir();
     const launchAiListingPath = join(systemTemporaryDirectory, 'launch-ai-listing-');
+
     workingDirectory = mkdtempSync(launchAiListingPath);
     configPath = join(workingDirectory, 'store.config.json');
     useLoggerSink(function discardLine() {});
@@ -73,6 +75,7 @@ function describeAiListingCommand() {
   }
 
   it('decodes stable command defaults', decodesStableCommandDefaults);
+
   async function writesGeneratedGooglePlayCopyWhenAndroidIsSelected() {
     const terminalWrites = captureLogs();
 
@@ -88,6 +91,7 @@ function describeAiListingCommand() {
 
     const loadedFile = readFileSync(configPath, 'utf8');
     const writtenStoreConfig = JSON.parse(loadedFile);
+
     expect(writtenStoreConfig.android.info['en-US']).toEqual({
       title: 'Focus App',
       shortDescription: 'Stay focused',
@@ -100,6 +104,7 @@ function describeAiListingCommand() {
     'writes generated Google Play copy when Android is selected',
     writesGeneratedGooglePlayCopyWhenAndroidIsSelected,
   );
+
   async function previewsWithoutCreatingAFileDuringADryRun() {
     await runAiListing(
       {
@@ -110,7 +115,9 @@ function describeAiListingCommand() {
       },
       listingGenerator,
     );
+
     const pathExists = existsSync(configPath);
+
     expect(pathExists).toBe(false);
   }
 
@@ -118,6 +125,7 @@ function describeAiListingCommand() {
     'previews without creating a file during a dry run',
     previewsWithoutCreatingAFileDuringADryRun,
   );
+
   async function rejectsUnknownPlatformSelectors() {
     async function rejectUnknownPlatform(): Promise<void> {
       parseListingTargets('windows');
@@ -130,8 +138,10 @@ function describeAiListingCommand() {
   }
 
   it('rejects unknown platform selectors', rejectsUnknownPlatformSelectors);
+
   async function usesExplicitLocalesAndRejectsAnEmptyLocaleSelector() {
     const listingLocales = resolveListingLocales('en-US, fr-FR', {});
+
     expect(listingLocales).toEqual(['en-US', 'fr-FR']);
 
     async function rejectEmptyLocales(): Promise<void> {

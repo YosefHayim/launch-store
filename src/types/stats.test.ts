@@ -18,6 +18,7 @@ function describeStatsTypes() {
     'STATS_FEEDS lists the same feeds as the plugin registry',
     sTATSFEEDSListsTheSameFeedsAsThePluginRegistry,
   );
+
   function everyMetricHasAKnownWayToAddUpDays() {
     const ownValues = Object.values(METRIC_AGGREGATION);
     const aggregations = new Set(ownValues);

@@ -84,6 +84,7 @@ export async function planAppStoreSurface<TConfig>(
     }
 
     const surfaceConfig = await readMaybe(spec.configFor(bundleId));
+
     const isUndeclared = surfaceConfig == null;
 
     if (isUndeclared) {
@@ -145,6 +146,7 @@ export async function planTeamSurface<TConfig>(
   spec: TeamSurfaceSpec<TConfig>,
 ): Promise<SurfacePlan> {
   const surfaceConfig = await readMaybe(spec.config());
+
   const isUndeclared = surfaceConfig == null;
 
   if (isUndeclared) {

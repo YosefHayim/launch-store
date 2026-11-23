@@ -51,6 +51,7 @@ function readEasArtifacts(candidate: unknown): EasArtifacts | null {
   }
 
   const artifacts: EasArtifacts = {};
+
   const hasArchiveUrl = 'applicationArchiveUrl' in candidateObject;
 
   if (hasArchiveUrl) {
@@ -105,6 +106,7 @@ function readEasBuildEntry(candidate: unknown): EasBuildEntry | null {
   }
 
   const buildRecord: EasBuildEntry = {};
+
   const hasArtifacts = 'artifacts' in candidateObject;
 
   if (hasArtifacts) {
@@ -156,6 +158,7 @@ async function readEasCommand(): Promise<EasInvocation> {
 
 async function detectEasCli(): Promise<string> {
   const easInvocation = await readEasCommand();
+
   const isGlobalInstall = easInvocation.command == 'eas';
 
   if (isGlobalInstall) {
@@ -186,6 +189,7 @@ async function ensureExpoSession(): Promise<string> {
 function firstBuildEntry(jsonText: string): EasBuildEntry | null {
   const start = jsonText.indexOf('[');
   const end = jsonText.lastIndexOf(']');
+
   const isMissingStart = start == -1;
 
   if (isMissingStart) {
@@ -264,6 +268,7 @@ export function parseBuildNumber(jsonText: string): number {
   }
 
   const parsedBuildNumber = Number.parseInt(reportedBuildNumber, 10);
+
   const isNotANumber = Number.isNaN(parsedBuildNumber);
 
   if (isNotANumber) {
@@ -280,6 +285,7 @@ async function downloadFile(artifactUrl: string, destinationPath: string): Promi
     artifactReply = await fetch(artifactUrl);
   } catch (cause) {
     const asString = String(cause);
+
     throw makeProviderInputFailure({
       provider: 'eas',
       message: `Could not download the EAS artifact: ${asString}`,
@@ -301,6 +307,7 @@ async function downloadFile(artifactUrl: string, destinationPath: string): Promi
     artifactBytes = await artifactReply.arrayBuffer();
   } catch (cause) {
     const asString = String(cause);
+
     throw makeProviderInputFailure({
       provider: 'eas',
       message: `Could not read the EAS artifact: ${asString}`,
@@ -344,7 +351,9 @@ async function easBuildToIpa(
   const launchEasPath = join(systemTemporaryDirectory, 'launch-eas-');
   const temporaryDirectory = await mkdtemp(launchEasPath);
   const ipaPath = join(temporaryDirectory, `${buildContext.app.name}.ipa`);
+
   await downloadFile(artifactUrl, ipaPath);
+
   const ipaStat = await stat(ipaPath);
 
   return {
@@ -360,6 +369,7 @@ export async function easSubmit(
   profileName: string,
 ): Promise<void> {
   const easInvocation = await readEasCommand();
+
   await executeCommand(
     easInvocation.command,
     [

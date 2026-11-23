@@ -8,7 +8,9 @@ import { appleArtifactExtension, platformLabel } from '../stores/platform.ts';
 function thinningBytes(sizeAmount: number, unit: string): number {
   const unitScales: Record<string, number> = { KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3 };
   let unitScale = unitScales[unit.toUpperCase()];
+
   if (unitScale == null) unitScale = 1;
+
   return Math.round(sizeAmount * unitScale);
 }
 
@@ -16,25 +18,36 @@ function thinningBytes(sizeAmount: number, unit: string): number {
 export function parseThinningReport(reportText: string): SizeReportEntry[] {
   const entries: SizeReportEntry[] = [];
   const variants = reportText.split(/Variant:/).slice(1);
+
   for (const variant of variants) {
     let deviceName = /(iPhone[\d,]+|iPad[\d,]+|Universal)/.exec(variant)?.[1];
+
     if (deviceName == null) deviceName = 'Universal';
+
     const sizeMatch =
       /App size:\s*([\d.]+)\s*(KB|MB|GB)\s*compressed,\s*([\d.]+)\s*(KB|MB|GB)\s*uncompressed/i.exec(
         variant,
       );
+
     if (sizeMatch == null) continue;
+
     const [, downloadValue, downloadUnit, installValue, installUnit] = sizeMatch;
+
     if (downloadValue == null) continue;
+
     if (downloadUnit == null) continue;
+
     if (installValue == null) continue;
+
     if (installUnit == null) continue;
+
     entries.push({
       device: deviceName,
       downloadBytes: thinningBytes(Number.parseFloat(downloadValue), downloadUnit),
       installBytes: thinningBytes(Number.parseFloat(installValue), installUnit),
     });
   }
+
   return entries;
 }
 
@@ -87,11 +100,13 @@ export function exportOptionsPlist(
     [signing.bundleId]: signing.profileName,
     ...signing.extensionProfiles,
   };
+
   function mapPiece([bundleId, profileName]: [string, string]) {
     return `<key>${bundleId}</key><string>${profileName}</string>`;
   }
 
   const profileEntries = Object.entries(profiles).map(mapPiece);
+
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',

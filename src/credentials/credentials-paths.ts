@@ -9,6 +9,7 @@ export function expandHomePath(enteredPath: string): string {
   }
 
   const launchDirectories = readLaunchDirectories();
+
   return join(launchDirectories.homeDirectory, enteredPath.slice(1));
 }
 

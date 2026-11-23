@@ -53,8 +53,11 @@ export function detectShell(
   environmentVariables: Readonly<Record<string, string | undefined>>,
 ): Shell | undefined {
   const shellPath = environmentVariables['SHELL'];
+
   if (!shellPath) return undefined;
+
   const shellName = shellPath.slice(shellPath.lastIndexOf('/') + 1);
+
   function findShell(shell: 'bash' | 'zsh' | 'fish') {
     return shellName == shell;
   }
@@ -180,16 +183,20 @@ function descendCommandTree(
 } {
   let command = program;
   const commandPath: string[] = [];
+
   for (const word of words) {
     function findCandidate(candidate: Command) {
       return candidate.name() == word;
     }
 
     const matchingSubcommand = command.commands.find(findCandidate);
+
     if (!matchingSubcommand) break;
+
     command = matchingSubcommand;
     commandPath.push(word);
   }
+
   return { command, commandPath };
 }
 /** Resolve the completion candidates for a partially-typed `launch-store` command line */
@@ -262,6 +269,7 @@ export async function resolveCompletions(words: string[], program: Command): Pro
   }
 
   const takingFlags = valueTakingFlags(descended.command);
+
   const positionalIsFilled = hasPositional(words, descended.commandPath.length, takingFlags);
 
   if (positionalIsFilled) {
@@ -273,6 +281,7 @@ export async function resolveCompletions(words: string[], program: Command): Pro
 /** Every option on the command or its ancestors that takes a value. */
 function valueTakingFlags(command: Command): Set<string> {
   const flags = new Set<string>();
+
   for (
     let ancestorCommand: Command | null = command;
     ancestorCommand;
@@ -280,10 +289,13 @@ function valueTakingFlags(command: Command): Set<string> {
   ) {
     for (const option of ancestorCommand.options) {
       if (!option.flags.includes('<') && !option.flags.includes('[')) continue;
+
       if (option.short) flags.add(option.short);
+
       if (option.long) flags.add(option.long);
     }
   }
+
   return flags;
 }
 /** Whether a real positional argument has already been supplied to the resolved command. */
@@ -293,13 +305,19 @@ function hasPositional(
   valueFlags: ReadonlySet<string>,
 ): boolean {
   const afterCommand = words.slice(pathLength, -1); // drop the command path and the in-progress word
+
   for (const [i, word] of afterCommand.entries()) {
     if (word.startsWith('-')) continue; // a flag, not a positional
+
     let previousWord: string | undefined;
+
     if (i > 0) previousWord = afterCommand[i - 1];
+
     if (previousWord != null && valueFlags.has(previousWord)) continue;
+
     return true;
   }
+
   return false;
 }
 // A completion menu must not fail the shell, so a bad read becomes no candidates.
@@ -319,6 +337,7 @@ async function readCompletionCandidates(source: CompletionCandidateSource): Prom
 /** The single line, per shell, that sources Launch's completion script when the rc file loads. */
 function completionSourceLine(shell: Shell): string {
   if (shell == 'fish') return 'launch-store completion fish | source';
+
   return `source <(launch-store completion ${shell})`;
 }
 /** The outcome of an {@link installCompletion} attempt. */
@@ -362,19 +381,25 @@ export function spliceManagedBlock(
 } {
   const start = existing.indexOf(BLOCK_START);
   const end = existing.indexOf(BLOCK_END);
+
   if (start != -1 && end != -1 && end > start) {
     const before = existing.slice(0, start);
     const after = existing.slice(end + BLOCK_END.length);
     return { contents: `${before}${block}${after}`, updated: true };
   }
+
   let existingWithTrailingNewline = existing;
+
   if (existing.length > 0 && !existing.endsWith('\n')) {
     existingWithTrailingNewline = `${existing}\n`;
   }
+
   let blockSeparator = '';
+
   if (existingWithTrailingNewline.length > 0 && !existingWithTrailingNewline.endsWith('\n\n')) {
     blockSeparator = '\n';
   }
+
   return {
     contents: `${existingWithTrailingNewline}${blockSeparator}${block}\n`,
     updated: false,
@@ -397,6 +422,7 @@ async function writeCompletionBlock(completionInstall: {
 }): Promise<InstallResult> {
   const rcFileExists = await pathExists(completionInstall.rcFile);
   const rcDirectoryExists = await pathExists(completionInstall.rcDirectory);
+
   const manualInstall = isManualInstall(rcFileExists, rcDirectoryExists);
 
   if (manualInstall) {
@@ -415,6 +441,7 @@ async function writeCompletionBlock(completionInstall: {
   }
 
   const splicedBlock = spliceManagedBlock(existingContents, completionInstall.completionBlock);
+
   await mkdir(completionInstall.rcDirectory, { recursive: true });
   await writeFile(completionInstall.rcFile, splicedBlock.contents);
 

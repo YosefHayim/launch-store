@@ -49,6 +49,7 @@ export class Keychain {
 
   async read(account: string): Promise<string | null> {
     const memorySecrets = this.secrets;
+
     const usesNativeKeychain = memorySecrets == null;
 
     if (usesNativeKeychain) {
@@ -56,6 +57,7 @@ export class Keychain {
     }
 
     const secretText = memorySecrets.get(account);
+
     const isMissing = secretText == null;
 
     if (isMissing) {
@@ -99,6 +101,7 @@ export class Keychain {
       ['find-generic-password', '-s', KEYCHAIN_SERVICE_NAME, '-a', account],
       { encoding: 'utf8' },
     );
+
     const isMissing = security.status == 44;
 
     if (isMissing) {
@@ -120,6 +123,7 @@ export async function readSavedAccounts(): Promise<SavedAccounts | null> {
     }
 
     const nodeError = error as NodeJS.ErrnoException;
+
     const isMissing = nodeError.code == 'ENOENT';
 
     if (isMissing) {
@@ -146,6 +150,7 @@ export async function readSavedAccounts(): Promise<SavedAccounts | null> {
 
   for (const row of rows) {
     const keyId = row.keyId;
+
     const isKeyMissing = keyId == null;
 
     if (isKeyMissing) {
@@ -153,6 +158,7 @@ export async function readSavedAccounts(): Promise<SavedAccounts | null> {
     }
 
     const issuerId = row.issuerId;
+
     const isIssuerMissing = issuerId == null;
 
     if (isIssuerMissing) {
@@ -172,6 +178,7 @@ export async function readSavedAccounts(): Promise<SavedAccounts | null> {
 
 export function findActiveAccount(saved: SavedAccounts): SavedAccount {
   const activeKeyId = saved.activeKeyId;
+
   const isNoneActive = activeKeyId == null;
 
   if (isNoneActive) {
@@ -183,6 +190,7 @@ export function findActiveAccount(saved: SavedAccounts): SavedAccount {
   }
 
   const account = saved.accounts.find(isActiveAccount);
+
   const isAccountMissing = account == null;
 
   if (isAccountMissing) {

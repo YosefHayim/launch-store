@@ -54,6 +54,7 @@ async function readLocalizedNotes(
   }
 
   const betaReviewConfig = await loadBetaReviewConfig(commandInput.config);
+
   return betaReviewConfig.whatToTest;
 }
 
@@ -95,7 +96,9 @@ export async function releaseBuild(commandInput: ReleaseCommandInput): Promise<v
   const plannedActions = planReport.actions.filter(isPlannedAction);
   const releaseLabel = `${selectedApp.name} build ${planReport.buildVersion}`;
   const logger = createLogger(false);
+
   logger.gap();
+
   const hasNoActions = planReport.actions.length == 0;
 
   if (hasNoActions) {
@@ -106,6 +109,7 @@ export async function releaseBuild(commandInput: ReleaseCommandInput): Promise<v
   logger.notice(releaseLabel, ...planReport.actions.map(renderBetaAction));
   logger.gap();
   logger.line(`${plannedActions.length} change(s) for ${releaseLabel}.`);
+
   const isDryRun = commandInput.dryRun == true;
 
   if (isDryRun) {
@@ -124,6 +128,7 @@ export async function releaseBuild(commandInput: ReleaseCommandInput): Promise<v
     `Apply ${plannedActions.length} change(s) to ${releaseLabel}?`,
     commandInput.yes,
   );
+
   const isDeclined = confirmed == false;
 
   if (isDeclined) {
@@ -138,7 +143,9 @@ export async function releaseBuild(commandInput: ReleaseCommandInput): Promise<v
   const actionSummary = summarizeBetaReview(appliedReport.actions);
   const appliedTitle = receiptTitle(actionSummary.failed);
   const appliedLines = appliedReport.actions.map(renderBetaAction);
+
   logger.box(appliedTitle, appliedLines);
+
   const hasFailedActions = actionSummary.failed > 0;
 
   if (hasFailedActions) {

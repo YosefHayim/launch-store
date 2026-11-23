@@ -9,6 +9,7 @@ interface PlayColumnMapping {
 
 export function pickLaterKnownDate(firstDate: string | null, secondDate: string): string {
   if (firstDate == null) return secondDate;
+
   return pickLaterDate(firstDate, secondDate);
 }
 
@@ -18,12 +19,19 @@ function isDateInRange(date: string, range: DateRange): boolean {
 
 function readNumber(cell: string | undefined): number | null {
   if (cell == null) return null;
+
   const withoutThousandsSeparators = cell.replaceAll(',', '');
+
   const isCellBlank = withoutThousandsSeparators == '';
+
   if (isCellBlank) return null;
+
   const cellNumber = Number(withoutThousandsSeparators);
+
   const isCellNumeric = Number.isFinite(cellNumber);
+
   if (!isCellNumeric) return null;
+
   return cellNumber;
 }
 
@@ -36,15 +44,21 @@ function readFirstColumn(
   }
 
   const presentColumnName = columnNames.find(findColumnName);
+
   if (presentColumnName == null) return undefined;
+
   return line[presentColumnName];
 }
 
 function readDateOfLine(line: Readonly<Record<string, string>>): string | null {
   const date = line['date'];
+
   if (date == null) return null;
+
   const isDateIso = /^\d{4}-\d{2}-\d{2}$/.test(date);
+
   if (!isDateIso) return null;
+
   return date;
 }
 
@@ -55,13 +69,19 @@ function readMappedStats(
 ): DailyStat[] {
   function flatMapLine3(line: { readonly [x: string]: string }) {
     const date = readDateOfLine(line);
+
     if (date == null) return [];
+
     if (!isDateInRange(date, range)) return [];
+
     const statDate = date;
+
     function flatMapMapping(mapping: PlayColumnMapping) {
       const firstColumn = readFirstColumn(line, mapping.columnNames);
       const cellNumber = readNumber(firstColumn);
+
       if (cellNumber == null) return [];
+
       return [
         {
           date: statDate,
@@ -81,15 +101,19 @@ function readMappedStats(
 
 function sumStatsByIdentity(stats: readonly DailyStat[]): DailyStat[] {
   const totals = new Map<string, DailyStat>();
+
   for (const stat of stats) {
     const identity = `${stat.date}|${stat.metric}|${String(stat.currency)}`;
     const total = totals.get(identity);
+
     if (total == null) {
       totals.set(identity, stat);
       continue;
     }
+
     totals.set(identity, { ...total, value: total.value + stat.value });
   }
+
   return [...totals.values()];
 }
 
@@ -130,11 +154,14 @@ export function readStorePerformanceStats(table: PlayCsvTable, range: DateRange)
 export function findLatestCsvDate(table: PlayCsvTable): string | null {
   function flatMapLine(line: { readonly [x: string]: string }) {
     const date = readDateOfLine(line);
+
     if (date == null) return [];
+
     return [date];
   }
 
   const dates = table.lines.flatMap(flatMapLine);
+
   function reduceLatestDate(latestDate: string | null, date: string) {
     return pickLaterKnownDate(latestDate, date);
   }
@@ -145,9 +172,13 @@ export function findLatestCsvDate(table: PlayCsvTable): string | null {
 /** `Nov 30, 2016` (Pacific Time, as the earnings report writes it) as `2016-11-30`. */
 function readEarningsDate(earningsDate: string): string | null {
   const dateParts = /^([A-Za-z]{3}) (\d{1,2}), (\d{4})$/.exec(earningsDate);
+
   if (dateParts == null) return null;
+
   const [, monthName, dayOfMonth, year] = dateParts;
+
   if (monthName == null || dayOfMonth == null || year == null) return null;
+
   const monthPosition = [
     'jan',
     'feb',
@@ -162,14 +193,19 @@ function readEarningsDate(earningsDate: string): string | null {
     'nov',
     'dec',
   ].indexOf(monthName.toLowerCase());
+
   const isMonthUnknown = monthPosition == -1;
+
   if (isMonthUnknown) return null;
+
   const month = String(monthPosition + 1).padStart(2, '0');
+
   return `${year}-${month}-${dayOfMonth.padStart(2, '0')}`;
 }
 
 function isTaxTransaction(transactionType: string | undefined): boolean {
   if (transactionType == null) return false;
+
   return transactionType.toLowerCase().includes('tax');
 }
 
@@ -181,18 +217,31 @@ export function readEarningsStats(
 ): DailyStat[] {
   function flatMapLine2(line: { readonly [x: string]: string }) {
     const isOtherPackage = line['package id'] != packageName;
+
     if (isOtherPackage) return [];
+
     if (isTaxTransaction(line['transaction type'])) return [];
+
     const transactionDate = line['transaction date'];
+
     if (transactionDate == null) return [];
+
     const date = readEarningsDate(transactionDate);
+
     if (date == null) return [];
+
     if (!isDateInRange(date, range)) return [];
+
     const merchantCurrency = line['merchant currency'];
+
     const isCurrencyMissing = merchantCurrency == null || merchantCurrency == '';
+
     if (isCurrencyMissing) return [];
+
     const amount = readNumber(line['amount (merchant currency)']);
+
     if (amount == null) return [];
+
     return [
       {
         date,
@@ -205,6 +254,7 @@ export function readEarningsStats(
   }
 
   const proceeds = table.lines.flatMap(flatMapLine2);
+
   return sumStatsByIdentity(proceeds);
 }
 
@@ -219,6 +269,7 @@ export function listReportMonths(range: DateRange): string[] {
     lastMonth.getUTCMonth() -
     firstMonth.getUTCMonth() +
     1;
+
   function fromPiece(_: unknown, monthOffset: number) {
     const monthStart = new Date(
       Date.UTC(firstMonth.getUTCFullYear(), firstMonth.getUTCMonth() + monthOffset, 1),

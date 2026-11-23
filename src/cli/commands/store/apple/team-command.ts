@@ -124,6 +124,7 @@ function teamCommandFailure(
 function teamMemberFullName(person: { firstName?: string; lastName?: string }): string {
   const nameParts: string[] = [];
   const firstName = person.firstName;
+
   const hasFirstName = firstName != null;
 
   if (hasFirstName) {
@@ -131,6 +132,7 @@ function teamMemberFullName(person: { firstName?: string; lastName?: string }): 
   }
 
   const lastName = person.lastName;
+
   const hasLastName = lastName != null;
 
   if (hasLastName) {
@@ -144,6 +146,7 @@ function teamMemberFullName(person: { firstName?: string; lastName?: string }): 
 function renderTeamMember(teamMember: UserResource): string {
   const memberDetails = [teamMember.username];
   const memberName = teamMemberFullName(teamMember);
+
   const hasName = memberName.length > 0;
 
   if (hasName) {
@@ -151,6 +154,7 @@ function renderTeamMember(teamMember: UserResource): string {
   }
 
   memberDetails.push(`[${teamMember.roles.join(', ')}]`);
+
   return memberDetails.join('  ');
 }
 
@@ -158,6 +162,7 @@ function renderTeamMember(teamMember: UserResource): string {
 function renderTeamInvitation(pendingInvitation: UserInvitationResource): string {
   const invitationDetails = [pendingInvitation.email];
   const invitationName = teamMemberFullName(pendingInvitation);
+
   const hasName = invitationName.length > 0;
 
   if (hasName) {
@@ -165,6 +170,7 @@ function renderTeamInvitation(pendingInvitation: UserInvitationResource): string
   }
 
   invitationDetails.push(`[${pendingInvitation.roles.join(', ')}]`);
+
   const hasExpiration = pendingInvitation.expirationDate != null;
 
   if (hasExpiration) {
@@ -179,6 +185,7 @@ export function renderTeam(currentTeam: Team): string {
   const teamLines = [
     `Team - ${currentTeam.members.length} member(s), ${currentTeam.invitations.length} pending invitation(s)`,
   ];
+
   const hasMembers = currentTeam.members.length > 0;
 
   if (hasMembers) {
@@ -212,6 +219,7 @@ async function confirmTeamWrite(confirmationMessage: string, assumeYes: boolean)
   }
 
   const terminalIsInteractive = checkTerminalIsInteractive();
+
   const needsATerminal = terminalIsInteractive == false;
 
   if (needsATerminal) {
@@ -236,6 +244,7 @@ async function confirmTeamWrite(confirmationMessage: string, assumeYes: boolean)
   }
 
   LaunchPrompt.cancel('Aborted - no team changes made.');
+
   return false;
 }
 
@@ -245,6 +254,7 @@ async function listTeam(commandInput: TeamListInput): Promise<void> {
     const appleStore = await loadActiveAppleStore();
     const currentTeam = await getTeam(appleStore);
     const logger = createLogger(false);
+
     const wantsJson = commandInput.json == true;
 
     if (wantsJson) {
@@ -254,6 +264,7 @@ async function listTeam(commandInput: TeamListInput): Promise<void> {
     }
 
     const team = renderTeam(currentTeam);
+
     logger.line(team);
   } catch (cause) {
     throw teamCommandFailure('list', cause);
@@ -267,6 +278,7 @@ async function inviteTeam(commandInput: TeamInviteInput): Promise<void> {
       `Invite ${commandInput.email} to the team (sends them an email)?`,
       commandInput.yes,
     );
+
     const declined = confirmed == false;
 
     if (declined) {
@@ -282,6 +294,7 @@ async function inviteTeam(commandInput: TeamInviteInput): Promise<void> {
       provisioningAllowed: commandInput.provisioning,
     });
     const logger = createLogger(false);
+
     logger.step('invited', `${createdInvitation.email} - [${createdInvitation.roles.join(', ')}]`);
   } catch (cause) {
     throw teamCommandFailure('invite', cause);
@@ -295,6 +308,7 @@ async function removeFromTeam(commandInput: TeamRemoveInput): Promise<void> {
       `Remove ${commandInput.email} from the team (revoke access / cancel invitation)?`,
       commandInput.yes,
     );
+
     const declined = confirmed == false;
 
     if (declined) {

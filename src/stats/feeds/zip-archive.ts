@@ -60,11 +60,13 @@ function findEndRecord(zipBytes: Uint8Array, view: DataView): number {
 
   while (start >= earliest) {
     const header = view.getUint32(start, true);
+
     const isEnd = header == endHeader;
 
     if (isEnd) {
       const commentLength = view.getUint16(start + 20, true);
       const recordEnd = start + END_RECORD_LENGTH + commentLength;
+
       const coversFile = recordEnd == zipBytes.length;
 
       if (coversFile) {

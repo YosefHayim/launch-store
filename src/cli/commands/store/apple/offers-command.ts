@@ -242,6 +242,7 @@ async function executeOffersCommand(rawCommandInput: unknown): Promise<number> {
     }
 
     await executeDeactivateOfferCode(commandInput);
+
     return 0;
   } catch (cause) {
     throw offersFailure('run offers command', cause);
@@ -251,6 +252,7 @@ async function executeOffersCommand(rawCommandInput: unknown): Promise<number> {
 /** Run a schema-decoded offers operation. */
 export async function offersCommandProgram(rawCommandInput: unknown): Promise<void> {
   const failureCount = await executeOffersCommand(rawCommandInput);
+
   const hasFailures = failureCount > 0;
 
   if (hasFailures) {

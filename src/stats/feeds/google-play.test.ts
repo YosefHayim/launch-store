@@ -127,6 +127,7 @@ function installFetch(routes: readonly HttpRoute[]): void {
       }
 
       const createReply = createReplyBody(matchedRoute.body);
+
       return new Response(createReply, { status: matchedRoute.status });
     },
   );
@@ -154,19 +155,24 @@ function createBucketRoutes(
   }
 
   const reportObjectNames = reportMonths.flatMap(flatMapReportMonth);
+
   function filterObjectName(objectName: string) {
     return objectName.startsWith('earnings/');
   }
 
   const earningsObjectNames = Object.keys(foundObjects).filter(filterObjectName);
+
   function mapObjectName(objectName: string) {
     const found = foundObjects[objectName];
+
     if (found == null) {
       return { method: 'GET', url: objectUrl(objectName), status: 404, body: {} };
     }
+
     if (found == 403) {
       return { method: 'GET', url: objectUrl(objectName), status: 403, body: {} };
     }
+
     return { method: 'GET', url: objectUrl(objectName), status: 200, body: found };
   }
 
@@ -192,6 +198,7 @@ function createEarningsZip(earningsLines: readonly string[]): Uint8Array {
   ].join('\n');
 
   const bufferBytes = Buffer.from(csvText, 'utf8');
+
   return writeDeflatedZip({ 'earnings_202610.csv': bufferBytes });
 }
 
@@ -262,6 +269,7 @@ async function fetchDays(
   app: PortfolioApp = ANDROID_APP,
 ): Promise<Settled<FeedFetchReply>> {
   installFetch(routes);
+
   const credentials = makeStatsCredentialsTest(credentialsOverrides);
 
   try {
@@ -325,6 +333,7 @@ function describeGooglePlayFeedFetchDays() {
   }
 
   test('skips an app that has no package name', skipsAnAppThatHasNoPackageName);
+
   async function skipsWhenNoPlayServiceAccountIsSaved() {
     const reply = await fetchDays({});
 
@@ -334,6 +343,7 @@ function describeGooglePlayFeedFetchDays() {
   }
 
   test('skips when no Play service account is saved', skipsWhenNoPlayServiceAccountIsSaved);
+
   async function returnsVitalsAsFractionsWithANoteWhenNoReportsBucketIsSet() {
     const askedWindows: number[] = [];
     const vitalsTimeline = createVitalsTimeline('crash', '2026-10-19', {
@@ -361,7 +371,9 @@ function describeGooglePlayFeedFetchDays() {
         notes: [expect.stringContaining('Play reports bucket not set')],
       },
     });
+
     const stats = reply._tag == 'Right' && reply.right.status == 'fetched' ? reply.right.stats : [];
+
     expect(stats).toEqual([
       { date: '2026-10-01', feed: 'google-play', metric: 'crashRate', value: 0.01, currency: null },
       { date: '2026-10-19', feed: 'google-play', metric: 'crashRate', value: 0.02, currency: null },
@@ -374,6 +386,7 @@ function describeGooglePlayFeedFetchDays() {
     'returns vitals as fractions with a note when no reports bucket is set',
     returnsVitalsAsFractionsWithANoteWhenNoReportsBucketIsSet,
   );
+
   async function neverCoversDaysAfterTheEndOfTheAskedRange() {
     const vitalsTimeline = createVitalsTimeline('crash', '2026-10-25', {});
     const playClient = createPlayClient(
@@ -396,6 +409,7 @@ function describeGooglePlayFeedFetchDays() {
     'never covers days after the end of the asked range',
     neverCoversDaysAfterTheEndOfTheAskedRange,
   );
+
   async function mapsEveryCSVColumnOfTheBucketAndCoversThroughTheLastInstallsDay() {
     const installs = encodeUtf16(
       `${'Date,Package Name,Current Device Installs,Daily Device Installs,Daily Device Uninstalls,Daily Device Upgrades,Current User Installs,Total User Installs,Daily User Installs,Daily User Uninstalls,Active Device Installs'}\r\n2026-10-01,com.fit,100,12,3,40,90,500,10,2,80\r\n2026-10-18,com.fit,100,5,1,2,90,500,10,2,81\r\n`,
@@ -424,37 +438,45 @@ function describeGooglePlayFeedFetchDays() {
     expect(reply).toMatchObject({
       right: { status: 'fetched', coveredThrough: '2026-10-18', notes: [] },
     });
+
     const stats = reply._tag == 'Right' && reply.right.status == 'fetched' ? reply.right.stats : [];
+
     function readPiece(stat: DailyStat) {
       return stat.value;
     }
 
     expect(statsOfMetric(stats, 'installs').map(readPiece)).toEqual([12, 5]);
+
     function readPiece2(stat: DailyStat) {
       return stat.value;
     }
 
     expect(statsOfMetric(stats, 'uninstalls').map(readPiece2)).toEqual([3, 1]);
+
     function readPiece3(stat: DailyStat) {
       return stat.value;
     }
 
     expect(statsOfMetric(stats, 'updates').map(readPiece3)).toEqual([40, 2]);
+
     function readPiece4(stat: DailyStat) {
       return stat.value;
     }
 
     expect(statsOfMetric(stats, 'activeInstalls').map(readPiece4)).toEqual([80, 81]);
+
     function readPiece5(stat: DailyStat) {
       return stat.value;
     }
 
     expect(statsOfMetric(stats, 'ratingAverage').map(readPiece5)).toEqual([4.16]);
+
     function readPiece6(stat: DailyStat) {
       return stat.value;
     }
 
     expect(statsOfMetric(stats, 'crashes').map(readPiece6)).toEqual([4]);
+
     function readPiece7(stat: DailyStat) {
       return stat.value;
     }
@@ -468,6 +490,7 @@ function describeGooglePlayFeedFetchDays() {
     'maps every CSV column of the bucket and covers through the last installs day',
     mapsEveryCSVColumnOfTheBucketAndCoversThroughTheLastInstallsDay,
   );
+
   async function readsTheFilesOfEveryMonthARangeTouches() {
     const septemberInstalls = encodeUtf16(
       'Date,Daily Device Installs\r\n2026-09-29,7\r\n2026-09-30,8\r\n',
@@ -488,6 +511,7 @@ function describeGooglePlayFeedFetchDays() {
     const twoMonthRange = { from: '2026-09-29', to: '2026-10-20' };
 
     installFetch(routes);
+
     const credentials = makeStatsCredentialsTest(
       withBucket({
         async playReportingClient() {
@@ -502,7 +526,9 @@ function describeGooglePlayFeedFetchDays() {
     });
 
     expect(reply).toMatchObject({ status: 'fetched', coveredThrough: '2026-10-01' });
+
     const stats = reply.status == 'fetched' ? reply.stats : [];
+
     function readDate(stat: DailyStat) {
       return stat.date;
     }
@@ -515,6 +541,7 @@ function describeGooglePlayFeedFetchDays() {
   }
 
   test('reads the files of every month a range touches', readsTheFilesOfEveryMonthARangeTouches);
+
   async function coversNothingFromTheCSVsWhenTheMonthIsNotPublishedYet() {
     const routes = [...createBucketRoutes(['202610'], {}), createEarningsListRoute([])];
 
@@ -529,6 +556,7 @@ function describeGooglePlayFeedFetchDays() {
     'covers nothing from the CSVs when the month is not published yet',
     coversNothingFromTheCSVsWhenTheMonthIsNotPublishedYet,
   );
+
   async function sumsEarningsPerDayAndCurrencyFromTheZippedCSV() {
     const earningsZip = createEarningsZip([
       earningsLine('Oct 1, 2026', 'Charge', '10.00'),
@@ -547,7 +575,9 @@ function describeGooglePlayFeedFetchDays() {
     const reply = await fetchDays(withBucket(), routes);
 
     expect(reply).toMatchObject({ right: { status: 'fetched', coveredThrough: '2026-10-18' } });
+
     const stats = reply._tag == 'Right' && reply.right.status == 'fetched' ? reply.right.stats : [];
+
     expect(statsOfMetric(stats, 'proceeds')).toEqual([
       { date: '2026-10-01', feed: 'google-play', metric: 'proceeds', value: 8.5, currency: 'EUR' },
     ]);
@@ -557,6 +587,7 @@ function describeGooglePlayFeedFetchDays() {
     'sums earnings per day and currency from the zipped CSV',
     sumsEarningsPerDayAndCurrencyFromTheZippedCSV,
   );
+
   async function holdsCoverageAtTheEndOfTheLastPublishedEarningsMonth() {
     const installs = encodeUtf16('Date,Daily Device Installs\r\n2026-10-18,5\r\n');
     const routes = [
@@ -573,8 +604,10 @@ function describeGooglePlayFeedFetchDays() {
     'holds coverage at the end of the last published earnings month',
     holdsCoverageAtTheEndOfTheLastPublishedEarningsMonth,
   );
+
   async function notesTheMissingPermissionWhenACSVAnswers403() {
     const routes = createBucketRoutes(['202610'], {});
+
     function mapRoute(route: HttpRoute) {
       return { ...route, status: 403 };
     }
@@ -590,7 +623,9 @@ function describeGooglePlayFeedFetchDays() {
         notes: [expect.stringContaining('View app information and download bulk reports')],
       },
     });
+
     const stats = reply._tag == 'Right' && reply.right.status == 'fetched' ? reply.right.stats : [];
+
     function readMetric(stat: DailyStat) {
       return stat.metric;
     }
@@ -602,6 +637,7 @@ function describeGooglePlayFeedFetchDays() {
     'notes the missing permission when a CSV answers 403',
     notesTheMissingPermissionWhenACSVAnswers403,
   );
+
   async function notesTheMissingPermissionWhenTheEarningsListingAnswers403() {
     const routes = [
       ...createBucketRoutes(['202610'], {}),
@@ -619,6 +655,7 @@ function describeGooglePlayFeedFetchDays() {
     'notes the missing permission when the earnings listing answers 403',
     notesTheMissingPermissionWhenTheEarningsListingAnswers403,
   );
+
   async function notesTheMissingPermissionWhenAnEarningsFileAnswers403() {
     const routes = [
       ...createBucketRoutes(['202610'], { 'earnings/earnings_202610.zip': 403 }),
@@ -636,6 +673,7 @@ function describeGooglePlayFeedFetchDays() {
     'notes the missing permission when an earnings file answers 403',
     notesTheMissingPermissionWhenAnEarningsFileAnswers403,
   );
+
   async function skipsAnEarningsFileThatVanishedBetweenTheListingAndTheDownload() {
     const routes = [
       ...createBucketRoutes(['202610'], {}),
@@ -659,6 +697,7 @@ function describeGooglePlayFeedFetchDays() {
     'skips an earnings file that vanished between the listing and the download',
     skipsAnEarningsFileThatVanishedBetweenTheListingAndTheDownload,
   );
+
   async function failsWhenAnEarningsFileIsNotAZip() {
     const routes = [
       ...createBucketRoutes(['202610'], {
@@ -681,6 +720,7 @@ function describeGooglePlayFeedFetchDays() {
   }
 
   test('fails when an earnings file is not a zip', failsWhenAnEarningsFileIsNotAZip);
+
   async function failsWhenTheBucketIsSetButNoTokenCanBeMade() {
     const reply = await fetchDays(
       withBucket({
@@ -700,6 +740,7 @@ function describeGooglePlayFeedFetchDays() {
     'fails when the bucket is set but no token can be made',
     failsWhenTheBucketIsSetButNoTokenCanBeMade,
   );
+
   async function failsWithTheFeedAndAppNamedWhenTheVitalsCallFails() {
     const brokenClient: PlayVitalsReader = {
       async vitalsTimeline() {

@@ -96,7 +96,9 @@ function describeLoadPortfolioApps() {
 
   beforeEach(function setPortfolioHome() {
     homeDirectory = createTemporaryHomeDirectory();
+
     const workPath = join(homeDirectory, 'work');
+
     useLaunchDirectories({
       homeDirectory,
       workingDirectory: workPath,
@@ -126,11 +128,13 @@ function describeLoadPortfolioApps() {
   }
   async function cacheFirstUsesTheSavedFileWithoutAskingTheStores() {
     const serialized = JSON.stringify(CACHED_FILE);
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     const portfolioLoad = await load('cache-first', {});
 
     expect(portfolioLoad.isFromCache).toBe(true);
+
     function readName(app: PortfolioApp) {
       return app.name;
     }
@@ -143,10 +147,12 @@ function describeLoadPortfolioApps() {
     'cache-first uses the saved file without asking the stores',
     cacheFirstUsesTheSavedFileWithoutAskingTheStores,
   );
+
   async function cacheFirstDiscoversAndSavesWhenThereIsNoSavedFile() {
     const portfolioLoad = await load('cache-first', answerWithFreshApps);
 
     expect(portfolioLoad.isFromCache).toBe(false);
+
     function readName2(app: DiscoveredApp) {
       return app.name;
     }
@@ -158,13 +164,16 @@ function describeLoadPortfolioApps() {
     'cache-first discovers and saves when there is no saved file',
     cacheFirstDiscoversAndSavesWhenThereIsNoSavedFile,
   );
+
   async function discoverSavesTheFreshAppsAndKeepsTheTags() {
     const serialized = JSON.stringify(CACHED_FILE);
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     const portfolioLoad = await load('discover', answerWithFreshApps);
 
     expect(portfolioLoad.isFromCache).toBe(false);
+
     function mapApp(app: PortfolioApp) {
       return [app.name, app.owner];
     }
@@ -173,7 +182,9 @@ function describeLoadPortfolioApps() {
       ['Fresh KEYA', 'mine'],
       ['Fresh KEYB', null],
     ]);
+
     const savedFile = readSavedFile();
+
     expect(savedFile.discoveredAt).not.toBe(CACHED_FILE.discoveredAt);
     expect(readSavedFile().tags).toEqual(CACHED_FILE.tags);
   }
@@ -182,8 +193,10 @@ function describeLoadPortfolioApps() {
     'discover saves the fresh apps and keeps the tags',
     discoverSavesTheFreshAppsAndKeepsTheTags,
   );
+
   async function discoverKeepsTheCachedAppsOfAnAccountThatFailedAndWarns() {
     const serialized = JSON.stringify(CACHED_FILE);
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     async function ascClientForAccount(keyId: string): Promise<AppStoreStatsClient | null> {
@@ -195,11 +208,13 @@ function describeLoadPortfolioApps() {
     }
 
     const portfolioLoad = await load('discover', { ascClientForAccount });
+
     function readName3(app: PortfolioApp) {
       return app.name;
     }
 
     expect(portfolioLoad.apps.map(readName3)).toEqual(['Fresh One', 'Cached Two']);
+
     function readAccountLabel(warning: DiscoveryWarning) {
       return warning.accountLabel;
     }
@@ -212,8 +227,10 @@ function describeLoadPortfolioApps() {
     'discover keeps the cached apps of an account that failed and warns',
     discoverKeepsTheCachedAppsOfAnAccountThatFailedAndWarns,
   );
+
   async function discoverAnswersFromTheSavedFileAndDoesNotOverwriteItWhenEveryStoreFails() {
     const serialized = JSON.stringify(CACHED_FILE);
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     async function ascClientForAccount(): Promise<AppStoreStatsClient | null> {
@@ -224,12 +241,15 @@ function describeLoadPortfolioApps() {
 
     expect(portfolioLoad.isFromCache).toBe(true);
     expect(portfolioLoad.warnings).toHaveLength(2);
+
     function readName4(app: PortfolioApp) {
       return app.name;
     }
 
     expect(portfolioLoad.apps.map(readName4)).toEqual(['Cached One', 'Cached Two']);
+
     const savedFile = readSavedFile();
+
     expect(savedFile).toEqual(CACHED_FILE);
   }
 
@@ -237,6 +257,7 @@ function describeLoadPortfolioApps() {
     'discover answers from the saved file and does not overwrite it when every store fails',
     discoverAnswersFromTheSavedFileAndDoesNotOverwriteItWhenEveryStoreFails,
   );
+
   async function discoverWithEveryStoreFailingAndNoSavedFileReturnsNoApps() {
     const portfolioLoad = await load('discover', {});
 
@@ -248,14 +269,18 @@ function describeLoadPortfolioApps() {
     'discover with every store failing and no saved file returns no apps',
     discoverWithEveryStoreFailingAndNoSavedFileReturnsNoApps,
   );
+
   async function discoverWithNoAccountsAtAllSavesAnEmptyPortfolio() {
     const serialized = JSON.stringify({ active: null, accounts: [] });
+
     writeLaunchHomeFile(homeDirectory, 'accounts.json', serialized);
 
     const portfolioLoad = await load('discover', {});
 
     expect(portfolioLoad).toMatchObject({ apps: [], warnings: [], isFromCache: false });
+
     const savedFile = readSavedFile();
+
     expect(savedFile.apps).toEqual([]);
   }
 

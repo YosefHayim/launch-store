@@ -57,6 +57,7 @@ function subscriptionsWithOfferCodes(
   bundleId: string,
 ): SubscriptionConfig[] {
   const subscriptionGroups = readinessContext.config.products?.[bundleId]?.subscriptionGroups;
+
   const isUndeclared = subscriptionGroups == null;
 
   if (isUndeclared) {
@@ -68,6 +69,7 @@ function subscriptionsWithOfferCodes(
   for (const subscriptionGroup of subscriptionGroups) {
     for (const subscription of subscriptionGroup.subscriptions) {
       const offerCodes = subscription.offerCodes;
+
       const isUndeclaredOffers = offerCodes == null;
 
       if (isUndeclaredOffers) {
@@ -94,6 +96,7 @@ async function gradeOfferCodes(
   liveSubscription: LiveSubscription | undefined,
 ): Promise<AppReadiness[]> {
   const liveSubscriptionId = readLiveSubscriptionId(liveSubscription);
+
   const isNotOnStore = liveSubscriptionId == null;
 
   if (isNotOnStore) {
@@ -109,6 +112,7 @@ async function gradeOfferCodes(
   }
 
   const declaredOffers = subscription.offerCodes;
+
   const isUndeclared = declaredOffers == null;
 
   if (isUndeclared) {
@@ -128,6 +132,7 @@ async function gradeOfferCodes(
       app: appName,
       identifier: `${subscription.productId}-${offer.name}`,
     };
+
     const isPresent = liveNames.has(offer.name);
 
     if (isPresent) {
@@ -213,6 +218,7 @@ export const subscriptionOffersProbe = {
     }
 
     const apps = iosApps(readinessContext.apps).filter(keepsOfferApp);
+
     const isNothingSelected = apps.length == 0;
 
     if (isNothingSelected) {

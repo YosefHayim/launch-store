@@ -17,6 +17,7 @@ export function registerEuDistributionCommand(program: Command): void {
       dryRun: commandOptions.dryRun,
       yes: commandOptions.yes,
     });
+
     return runCliProgram(euDistributionProgram);
   }
 
@@ -33,6 +34,7 @@ export function registerEuDistributionCommand(program: Command): void {
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runEuDistribution);
+
   function runSetKeyPemPath(pemPath: string) {
     const euDistributionProgram = euDistributionCommandProgram({ operation: 'set-key', pemPath });
     return runCliProgram(euDistributionProgram);
@@ -44,6 +46,7 @@ export function registerEuDistributionCommand(program: Command): void {
       "register the team's package-signing public key (the public half - a plain .pem file)",
     )
     .action(runSetKeyPemPath);
+
   function runList() {
     const euDistributionProgram = euDistributionCommandProgram({ operation: 'list' });
     return runCliProgram(euDistributionProgram);

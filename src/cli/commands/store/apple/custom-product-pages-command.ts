@@ -136,6 +136,7 @@ async function resolveCustomPagesTarget(
   }
 
   const bundleId = storeAppContext.app.bundleId;
+
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
@@ -160,6 +161,7 @@ async function resolveCustomPagesTarget(
   }
 
   const loadedCustomPagesConfig = customPagesConfig;
+
   const isConfigMissing = loadedCustomPagesConfig == null;
 
   if (isConfigMissing) {
@@ -186,6 +188,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
 
     const customPagesTarget = await resolveCustomPagesTarget(commandInput);
     const logger = createLogger(false);
+
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
@@ -203,7 +206,9 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
     }
 
     const plannedActions = customPagesPlan.actions.filter(isPlannedAction);
+
     logger.gap();
+
     const isAlreadyInSync = customPagesPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
@@ -212,6 +217,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
     }
 
     logger.notice(customPagesTarget.bundleId, ...customPagesPlan.actions.map(renderPlanned));
+
     const hasNothingToApply = plannedActions.length == 0;
 
     if (hasNothingToApply) {
@@ -222,6 +228,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
 
     logger.gap();
     logger.note(`${plannedActions.length} change(s) for ${customPagesTarget.bundleId}.`);
+
     const isDryRun = commandInput.dryRun == true;
 
     if (isDryRun) {
@@ -258,6 +265,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
 
     const customPagesSummary = summarizeCustomPages(appliedCustomPages.actions);
     let receiptTitle = 'Applied';
+
     const hasFailures = customPagesSummary.failed > 0;
 
     if (hasFailures) {
@@ -265,6 +273,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
     }
 
     logger.box(receiptTitle, appliedCustomPages.actions.map(renderApplied));
+
     return customPagesSummary.failed;
   } catch (cause) {
     throw customPagesFailure('run custom pages command', cause);
@@ -274,6 +283,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
 /** Run the decoded custom-pages command. */
 export async function customProductPagesCommandProgram(rawCommandInput: unknown): Promise<void> {
   const failureCount = await executeCustomProductPages(rawCommandInput);
+
   const hasFailures = failureCount > 0;
 
   if (hasFailures) {

@@ -19,16 +19,22 @@ function writePng(width: number, height: number): string {
   const systemTemporaryDirectory = tmpdir();
   const launchSpecsPath = join(systemTemporaryDirectory, 'launch-specs-');
   const dir = mkdtempSync(launchSpecsPath);
+
   tmpDirs.push(dir);
+
   const head = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const ihdr = Buffer.alloc(16);
+
   ihdr.writeUInt32BE(13, 0);
   ihdr.write('IHDR', 4, 'ascii');
   ihdr.writeUInt32BE(width, 8);
   ihdr.writeUInt32BE(height, 12);
+
   const path = join(dir, 'shot.png');
   const concatenated = Buffer.concat([head, ihdr]);
+
   writeFileSync(path, concatenated);
+
   return path;
 }
 function describeValidateAppleDimensions() {
@@ -41,6 +47,7 @@ function describeValidateAppleDimensions() {
     'accepts the canonical portrait size for a known slot',
     acceptsTheCanonicalPortraitSizeForAKnownSlot,
   );
+
   function acceptsANonCanonicalButListedResolutionForTheSlot() {
     const appleDimensions = validateAppleDimensions('APP_IPHONE_67', 1284, 2778);
     expect(appleDimensions).toEqual({ ok: true });
@@ -50,6 +57,7 @@ function describeValidateAppleDimensions() {
     'accepts a non-canonical-but-listed resolution for the slot',
     acceptsANonCanonicalButListedResolutionForTheSlot,
   );
+
   function acceptsTheLandscapeSwapForAnOrientationBothSlot() {
     const appleDimensions = validateAppleDimensions('APP_IPHONE_67', 2796, 1290);
     expect(appleDimensions).toEqual({ ok: true });
@@ -59,10 +67,14 @@ function describeValidateAppleDimensions() {
     'accepts the landscape swap for an orientation-both slot',
     acceptsTheLandscapeSwapForAnOrientationBothSlot,
   );
+
   function rejectsAnOffSpecSizeWithTheAcceptedListInTheReason() {
     const verdict = validateAppleDimensions('APP_IPHONE_67', 1080, 1920);
+
     expect(verdict.ok).toBe(false);
+
     if (verdict.ok) return;
+
     expect(verdict.reason).toContain('1290x2796');
   }
 
@@ -70,6 +82,7 @@ function describeValidateAppleDimensions() {
     'rejects an off-spec size with the accepted list in the reason',
     rejectsAnOffSpecSizeWithTheAcceptedListInTheReason,
   );
+
   function doesNOTSwapOrientationForAFixedSlotMacIsLandscapeOnly() {
     const appleDimensions = validateAppleDimensions('APP_DESKTOP', 1280, 800);
     expect(appleDimensions.ok).toBe(true);
@@ -80,6 +93,7 @@ function describeValidateAppleDimensions() {
     'does NOT swap orientation for a fixed slot (Mac is landscape-only)',
     doesNOTSwapOrientationForAFixedSlotMacIsLandscapeOnly,
   );
+
   function passesAnUnknownSlotAppleSEnumLagsNewHardwareNeverRejectWhatWeCanTCheck() {
     const appleDimensions = validateAppleDimensions('APP_IPHONE_69_FUTURE', 9999, 9999);
     expect(appleDimensions).toEqual({ ok: true });
@@ -99,22 +113,28 @@ function describeValidatePlayDimensions() {
   }
 
   it('accepts a 9:16 phone screenshot', acceptsA916PhoneScreenshot);
+
   function rejectsASideBelowThe320pxFloor() {
     const playDimensions = validatePlayDimensions(200, 400);
     expect(playDimensions.ok).toBe(false);
   }
 
   it('rejects a side below the 320px floor', rejectsASideBelowThe320pxFloor);
+
   function rejectsASideAboveThe3840pxCeiling() {
     const playDimensions = validatePlayDimensions(4000, 2000);
     expect(playDimensions.ok).toBe(false);
   }
 
   it('rejects a side above the 3840px ceiling', rejectsASideAboveThe3840pxCeiling);
+
   function rejectsAnOverElongatedImageLongestSide2xShortest() {
     const verdict = validatePlayDimensions(500, 1200);
+
     expect(verdict.ok).toBe(false);
+
     if (verdict.ok) return;
+
     expect(verdict.reason).toContain('elongated');
   }
 
@@ -131,16 +151,19 @@ function describeCanonicalDimensions() {
   }
 
   it("returns the Apple slot's canonical size", returnsTheAppleSlotSCanonicalSize);
+
   function returnsUndefinedForAnUnknownAppleSlot() {
     expect(canonicalDimensions('ios', 'NOPE')).toBeUndefined();
   }
 
   it('returns undefined for an unknown Apple slot', returnsUndefinedForAnUnknownAppleSlot);
+
   function returnsThePlayFormFactorSize() {
     expect(canonicalDimensions('android', 'phone')).toEqual([1080, 1920]);
   }
 
   it('returns the Play form-factor size', returnsThePlayFormFactorSize);
+
   function routesTheNewApplePlatformsToTheAppleSpecsNOTPlayMisrouteRegression() {
     // tvOS/macOS/visionOS must take the Apple branch; a `== "ios"` check would drop them into Play and
     // these slot ids don't exist there, so the bug would surface as `undefined`.
@@ -164,15 +187,20 @@ function describeCheckScreenshotFile() {
   }
 
   it('measures and passes an in-spec iOS screenshot', measuresAndPassesAnInSpecIOSScreenshot);
+
   async function measuresAndFlagsAnOffSpecIOSScreenshot() {
     const png = writePng(1080, 1920);
     const check = await checkScreenshotFile('ios', 'APP_IPHONE_67', png);
+
     expect(check.measured).toBe(true);
+
     if (!check.measured) return;
+
     expect(check.verdict.ok).toBe(false);
   }
 
   it('measures and flags an off-spec iOS screenshot', measuresAndFlagsAnOffSpecIOSScreenshot);
+
   async function validatesAnAndroidScreenshotAgainstPlaySConstraint() {
     const png = writePng(1080, 1920);
     const check = await checkScreenshotFile('android', 'phone', png);
@@ -183,14 +211,20 @@ function describeCheckScreenshotFile() {
     "validates an Android screenshot against Play's constraint",
     validatesAnAndroidScreenshotAgainstPlaySConstraint,
   );
+
   async function reportsMeasuredFalseForAFileWhosePixelsCanTBeRead() {
     const systemTemporaryDirectory = tmpdir();
     const launchSpecsPath = join(systemTemporaryDirectory, 'launch-specs-');
     const dir = mkdtempSync(launchSpecsPath);
+
     tmpDirs.push(dir);
+
     const path = join(dir, 'not-an-image.png');
+
     writeFileSync(path, 'just some text, not a PNG');
+
     const screenshotFile = await checkScreenshotFile('ios', 'APP_IPHONE_67', path);
+
     expect(screenshotFile).toEqual({
       measured: false,
     });
@@ -200,6 +234,7 @@ function describeCheckScreenshotFile() {
     "reports measured:false for a file whose pixels can't be read",
     reportsMeasuredFalseForAFileWhosePixelsCanTBeRead,
   );
+
   async function validatesATvOSScreenshotAgainstTheAppleAppleTVSpecNotPlay() {
     const png = writePng(1920, 1080);
     const check = await checkScreenshotFile('tvos', 'APP_APPLE_TV', png);

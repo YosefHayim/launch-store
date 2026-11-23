@@ -98,6 +98,7 @@ function readWalletOperation(rawCommandInput: unknown): WalletCommandInput['oper
 
 function projectPath(commandPath: string): string {
   const launchPaths = readLaunchDirectories();
+
   const isAbsolutePath = path.isAbsolute(commandPath);
 
   if (isAbsolutePath) {
@@ -132,6 +133,7 @@ async function reconcileWallet(
     commandInput.explicitConfig,
     parseWalletConfig,
   );
+
   const isConfigMissing = walletConfiguration == null;
 
   if (isConfigMissing) {
@@ -143,7 +145,9 @@ async function reconcileWallet(
 
   const appleStore = await loadActiveAppleStore();
   const plannedActions = await reconcileWalletIds(appleStore, walletConfiguration, true);
+
   logger.gap();
+
   const isAlreadyRegistered = plannedActions.length == 0;
 
   if (isAlreadyRegistered) {
@@ -154,6 +158,7 @@ async function reconcileWallet(
   logger.notice('Apple Pay / Wallet identifiers', ...plannedActions.map(renderPlanned));
   logger.gap();
   logger.note(`${plannedActions.length} identifier(s) to register.`);
+
   const isDryRun = commandInput.dryRun == true;
 
   if (isDryRun) {
@@ -165,6 +170,7 @@ async function reconcileWallet(
     `Register ${plannedActions.length} identifier(s)?`,
     commandInput.yes,
   );
+
   const declined = confirmed == false;
 
   if (declined) {
@@ -174,6 +180,7 @@ async function reconcileWallet(
   const appliedActions = await reconcileWalletIds(appleStore, walletConfiguration, false);
   const failedActionCount = appliedActions.filter(isFailedAction).length;
   let receiptTitle = 'Identifiers registered';
+
   const hasFailures = failedActionCount > 0;
 
   if (hasFailures) {
@@ -195,6 +202,7 @@ function identifierLines(
 
   for (const registeredIdentifier of identifiers) {
     let identifier = '?';
+
     const hasIdentifier = registeredIdentifier.identifier != null;
 
     if (hasIdentifier) {
@@ -202,6 +210,7 @@ function identifierLines(
     }
 
     let nameText = '';
+
     const hasName = registeredIdentifier.name != null;
 
     if (hasName) {
@@ -226,6 +235,7 @@ async function listWalletIdentifiers(): Promise<void> {
   const listed = await Promise.all([appleStore.listMerchantIds(), appleStore.listPassTypeIds()]);
   const merchantSection = identifierLines('Apple Pay merchant ids', listed[0]);
   const passSection = identifierLines('Wallet pass type ids', listed[1]);
+
   logger.notice(merchantSection.title, ...merchantSection.lines);
   logger.notice(passSection.title, ...passSection.lines);
 }
@@ -247,6 +257,7 @@ export async function walletCommandProgram(rawCommandInput: unknown): Promise<vo
 
     let operation: WalletCommandInput['operation'] = 'reconcile';
     const decodedOperation = readWalletOperation(rawCommandInput);
+
     const hasDecodedOperation = decodedOperation != null;
 
     if (hasDecodedOperation) {
@@ -254,6 +265,7 @@ export async function walletCommandProgram(rawCommandInput: unknown): Promise<vo
     }
 
     const failureMessage = errorMessage(cause);
+
     throw makeWalletCommandFailure({
       operation,
       message: failureMessage,

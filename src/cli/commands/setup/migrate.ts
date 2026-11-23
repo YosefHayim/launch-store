@@ -12,6 +12,7 @@ export function registerMigrateCommand(program: Command): void {
   const migrateCommand = program
     .command('migrate')
     .description('import an existing EAS or fastlane setup into a Launch config');
+
   function runEas(commandOptions: MigrateOptions) {
     const migrateProgram = migrateCommandProgram({
       source: 'eas',
@@ -19,6 +20,7 @@ export function registerMigrateCommand(program: Command): void {
       dryRun: commandOptions.dryRun,
       out: commandOptions.out,
     });
+
     return runCliProgram(migrateProgram);
   }
 
@@ -34,6 +36,7 @@ export function registerMigrateCommand(program: Command): void {
       'write the migrated files to this directory (default: current directory)',
     )
     .action(runEas);
+
   function runFastlane(commandOptions: MigrateOptions) {
     const migrateProgram = migrateCommandProgram({
       source: 'fastlane',
@@ -41,6 +44,7 @@ export function registerMigrateCommand(program: Command): void {
       dryRun: commandOptions.dryRun,
       out: commandOptions.out,
     });
+
     return runCliProgram(migrateProgram);
   }
 

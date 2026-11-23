@@ -90,6 +90,7 @@ async function stampManualSigning(nativeDirectory: string, signing: SigningAsset
     });
   } catch (cause) {
     const asString = String(cause);
+
     throw makeProviderInputFailure({
       provider: 'xcode',
       message: `Could not configure manual signing in ${nativeDirectory}: ${asString}`,
@@ -162,6 +163,7 @@ async function buildAppleArtifact(
   }
 
   const signing = buildCredentials.signing;
+
   const isSigningMissing = signing == null;
 
   if (isSigningMissing) {
@@ -199,6 +201,7 @@ async function buildAppleArtifact(
 
   const podsDirectory = join(nativeDirectory, 'Pods');
   const podsInstalled = await pathExists(podsDirectory);
+
   const shouldInstallMissingPods = nativeDependenciesChanged == false;
 
   if (shouldInstallMissingPods) {
@@ -210,6 +213,7 @@ async function buildAppleArtifact(
   }
 
   await stampManualSigning(nativeDirectory, signing);
+
   const hostResources = readHostResources();
   const parallelJobLimit = await computeParallelJobLimit(
     hostResources.cores,
@@ -220,6 +224,7 @@ async function buildAppleArtifact(
   const outputDirectory = await mkdtemp(launchBuildPath);
   const plistPath = join(outputDirectory, 'ExportOptions.plist');
   let exportMethod: 'app-store' | 'ad-hoc' = 'app-store';
+
   const isInternalDistribution = buildContext.distribution == 'internal';
 
   if (isInternalDistribution) {
@@ -227,7 +232,9 @@ async function buildAppleArtifact(
   }
 
   const exportPlist = exportOptionsPlist(signing, exportMethod);
+
   await writeFile(plistPath, exportPlist);
+
   const archiveExtension = appleArtifactExtension(buildContext.platform);
   const buildDestination = archiveDestination(buildContext.platform);
   const archivePath = join(outputDirectory, `${buildContext.app.name}.xcarchive`);
@@ -252,6 +259,7 @@ async function buildAppleArtifact(
     cwd: buildContext.app.dir,
     env: buildEnvironment,
   };
+
   const hasEstimate = estimate != null;
 
   if (hasEstimate) {
@@ -280,7 +288,9 @@ async function buildAppleArtifact(
   const artifactPath = join(outputDirectory, archiveName);
   const artifactStat = await stat(artifactPath);
   const archiveBytes = Number(artifactStat.size);
+
   assertDeviceArtifact(artifactPath, archiveBytes, buildContext.platform);
+
   const priorEstimate = storedBuild?.estimates?.[buildKind];
   let priorStepCount = 0;
 
@@ -289,6 +299,7 @@ async function buildAppleArtifact(
   }
 
   let recordedStepCount = priorStepCount;
+
   const parsedSteps = buildRun.steps > 0;
 
   if (parsedSteps) {
@@ -316,6 +327,7 @@ async function buildAppleArtifact(
 
   const reportPath = join(outputDirectory, 'App Thinning Size Report.txt');
   let sizeEntries: SizeReportEntry[] = [];
+
   const reportExists = await pathExists(reportPath);
 
   if (reportExists) {

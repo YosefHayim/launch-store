@@ -21,11 +21,13 @@ function describeInitCommandPieceSchema() {
     'decodes the standalone boundary using the injected working directory',
     decodesTheStandaloneBoundaryUsingTheInjectedWorkingDirectory,
   );
+
   function decodesTheGuidedSetupBoundaryWithAnExplicitDirectory() {
     const initCommandSchema = InitCommandInputSchema({
       workingDirectory: '/workspace',
       framed: false,
     });
+
     expect(initCommandSchema).toEqual({ workingDirectory: '/workspace', framed: false });
   }
 
@@ -33,6 +35,7 @@ function describeInitCommandPieceSchema() {
     'decodes the guided setup boundary with an explicit directory',
     decodesTheGuidedSetupBoundaryWithAnExplicitDirectory,
   );
+
   function rejectsAnExplicitUndefinedExactOptionalDirectory() {
     function callInitCommandPieceSchema() {
       return InitCommandInputSchema({
@@ -48,14 +51,17 @@ function describeInitCommandPieceSchema() {
     'rejects an explicit undefined exact optional directory',
     rejectsAnExplicitUndefinedExactOptionalDirectory,
   );
+
   async function refusesNonInteractiveScaffoldingBeforeWritingFiles() {
     const systemTemporaryDirectory = tmpdir();
     const launchInitCommandPath = join(systemTemporaryDirectory, 'launch-init-command-');
     const temporaryDirectory = mkdtempSync(launchInitCommandPath);
+
     useLaunchDirectories({
       homeDirectory: temporaryDirectory,
       workingDirectory: temporaryDirectory,
     });
+
     try {
       const initProgram = runInitProgram({ framed: false });
       await expect(initProgram).rejects.toThrow(/interactive terminal/);

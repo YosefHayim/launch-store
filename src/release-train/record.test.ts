@@ -48,6 +48,7 @@ function describeReleaseTrainPiecePureHelpers() {
   }
 
   it('treats running and blocked trains as live', treatsRunningAndBlockedTrainsAsLive);
+
   function sanitizesTrainIdsForFilenames() {
     expect(safeTrainId('hello-world_ab12')).toBe('hello-world_ab12');
     expect(safeTrainId('weird/../id')).toBe('weirdid');
@@ -60,6 +61,7 @@ function describeReleaseTrainPiecePureHelpers() {
 describe('release-train record pure helpers', describeReleaseTrainPiecePureHelpers);
 function describeReleaseTrainPiece() {
   let directoryPath: string;
+
   function prepareReleaseTrainPiece() {
     const systemTemporaryDirectory = tmpdir();
     const launchTrainsPath = join(systemTemporaryDirectory, 'launch-trains-');
@@ -67,11 +69,13 @@ function describeReleaseTrainPiece() {
   }
 
   beforeEach(prepareReleaseTrainPiece);
+
   function cleanupReleaseTrainPiece() {
     rmSync(directoryPath, { recursive: true, force: true });
   }
 
   afterEach(cleanupReleaseTrainPiece);
+
   async function roundTripsAPieceThroughWriteReadUnchanged() {
     const trainRecord = train();
     await writeTrainRecord(trainRecord, directoryPath);
@@ -83,19 +87,26 @@ function describeReleaseTrainPiece() {
     'round-trips a record through write -> read unchanged',
     roundTripsAPieceThroughWriteReadUnchanged,
   );
+
   async function returnsNullForAnUnknownId() {
     const readTrain = await readTrainRecord('nope', directoryPath);
     expect(readTrain).toBeNull();
   }
 
   it('returns null for an unknown id', returnsNullForAnUnknownId);
+
   async function toleratesACorruptPieceFileReadsAsNullSkipsItInLists() {
     const brokenPath = join(directoryPath, 'broken.json');
+
     writeFileSync(brokenPath, '{ not json');
     await writeTrainRecord(train(), directoryPath);
+
     const readTrain = await readTrainRecord('broken', directoryPath);
+
     expect(readTrain).toBeNull();
+
     const trainRecords = await listTrainRecords(directoryPath);
+
     expect(trainRecords).toHaveLength(1);
   }
 
@@ -103,6 +114,7 @@ function describeReleaseTrainPiece() {
     'tolerates a corrupt record file (reads as null / skips it in lists)',
     toleratesACorruptPieceFileReadsAsNullSkipsItInLists,
   );
+
   async function listsRecordsNewestFirstByCreatedAt() {
     await writeTrainRecord(
       train({ id: 'old', createdAt: '2026-06-10T00:00:00.000Z' }),
@@ -112,11 +124,14 @@ function describeReleaseTrainPiece() {
       train({ id: 'new', createdAt: '2026-06-15T00:00:00.000Z' }),
       directoryPath,
     );
+
     const trainRecords = await listTrainRecords(directoryPath);
+
     expect(trainRecords.map(readTrainId)).toEqual(['new', 'old']);
   }
 
   it('lists records newest-first by createdAt', listsRecordsNewestFirstByCreatedAt);
+
   async function latestTrainPiecePrefersALiveTrainOverANewerTerminalOne() {
     await writeTrainRecord(
       train({ id: 'done-newer', state: 'done', createdAt: '2026-06-15T00:00:00.000Z' }),
@@ -130,7 +145,9 @@ function describeReleaseTrainPiece() {
       }),
       directoryPath,
     );
+
     const latestTrain = await latestTrainRecord(directoryPath);
+
     expect(latestTrain?.id).toBe('running-older');
   }
 
@@ -138,6 +155,7 @@ function describeReleaseTrainPiece() {
     'latestTrainRecord prefers a live train over a newer terminal one',
     latestTrainPiecePrefersALiveTrainOverANewerTerminalOne,
   );
+
   async function latestTrainPieceFallsBackToTheNewestTerminalTrainWhenNoneAreLive() {
     await writeTrainRecord(
       train({ id: 'done-older', state: 'done', createdAt: '2026-06-13T00:00:00.000Z' }),
@@ -151,7 +169,9 @@ function describeReleaseTrainPiece() {
       }),
       directoryPath,
     );
+
     const latestTrain = await latestTrainRecord(directoryPath);
+
     expect(latestTrain?.id).toBe('aborted-newer');
   }
 
@@ -159,6 +179,7 @@ function describeReleaseTrainPiece() {
     'latestTrainRecord falls back to the newest terminal train when none are live',
     latestTrainPieceFallsBackToTheNewestTerminalTrainWhenNoneAreLive,
   );
+
   async function returnsNullFromLatestTrainPieceWhenNoTrainsExist() {
     const latestTrain = await latestTrainRecord(directoryPath);
     expect(latestTrain).toBeNull();
@@ -168,6 +189,7 @@ function describeReleaseTrainPiece() {
     'returns null from latestTrainRecord when no trains exist',
     returnsNullFromLatestTrainPieceWhenNoTrainsExist,
   );
+
   async function removesAPiece() {
     await writeTrainRecord(train(), directoryPath);
     await removeTrainRecord('helloworld-ab12', directoryPath);

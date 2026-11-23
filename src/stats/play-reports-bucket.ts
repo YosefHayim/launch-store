@@ -2,7 +2,10 @@
 export function parsePlayReportsBucket(copiedBucketUri: string): string | null {
   const trimmedUri = copiedBucketUri.trim();
   const [bucketName] = trimmedUri.replace('gs://', '').split('/');
+
   const isBucketNameValid = bucketName != null && /^pubsite_prod(_rev)?_[0-9]+$/.test(bucketName);
+
   if (!isBucketNameValid) return null;
+
   return bucketName;
 }

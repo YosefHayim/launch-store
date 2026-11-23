@@ -80,9 +80,13 @@ function prepare() {
   useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
   useSecretStore(secrets.store);
   resetLaunchEnvironment();
+
   const accountsFilePath = resolveAccountsFilePath();
+
   rmSync(accountsFilePath, { force: true });
+
   const credentialsDirectory = resolveCredentialsDirectory();
+
   rmSync(credentialsDirectory, { recursive: true, force: true });
 }
 
@@ -105,6 +109,7 @@ function describeEncodeP8DecodeP8() {
     'round-trips a multi-line PEM through base64 unchanged',
     roundTripsAMultiLinePEMThroughBase64Unchanged,
   );
+
   function repairsALegacyHexEncodedPEMMacOSSecurityWCorruption() {
     expect(decodeP8(Buffer.from(PEM, 'utf8').toString('hex'))).toBe(PEM);
   }
@@ -118,18 +123,21 @@ function describeEncodeP8DecodeP8() {
 describe('encodeP8 / decodeP8', describeEncodeP8DecodeP8);
 function describePieceAccount() {
   const accounts = file(null, ['AAAA1111', 'Personal'], ['BBBB2222', 'Acme']).accounts;
+
   function matchesByLabelCaseInsensitively() {
     const account = matchAccount(accounts, 'acme');
     expect(account?.keyId).toBe('BBBB2222');
   }
 
   it('matches by label, case-insensitively', matchesByLabelCaseInsensitively);
+
   function matchesByKeyIDCaseInsensitively() {
     const account = matchAccount(accounts, 'aaaa1111');
     expect(account?.keyId).toBe('AAAA1111');
   }
 
   it('matches by Key ID, case-insensitively', matchesByKeyIDCaseInsensitively);
+
   function returnsUndefinedForAnUnknownSelector() {
     const account = matchAccount(accounts, 'nope');
     expect(account).toBeUndefined();
@@ -146,6 +154,7 @@ function describeFormatAccountSummary() {
     label: 'default',
     addedAt: 't',
   };
+
   function degradesToLabelTeamKeyWhenNoAppsAreCached() {
     const accountSummary = formatAccountSummary({ ...base, teamId: 'ABCDE12345' });
     expect(accountSummary).toBe('default - team ABCDE12345 - key KEYABC1234');
@@ -155,6 +164,7 @@ function describeFormatAccountSummary() {
     'degrades to label - team - key when no apps are cached',
     degradesToLabelTeamKeyWhenNoAppsAreCached,
   );
+
   function omitsTheTeamSegmentWhenTheAccountIsUnresolved() {
     const accountSummary = formatAccountSummary(base);
     expect(accountSummary).toBe('default - key KEYABC1234');
@@ -164,12 +174,14 @@ function describeFormatAccountSummary() {
     'omits the team segment when the account is unresolved',
     omitsTheTeamSegmentWhenTheAccountIsUnresolved,
   );
+
   function listsUpToThreeAppNamesInlineWithNoNSuffix() {
     const accountSummary = formatAccountSummary({
       ...base,
       teamId: 'ABCDE12345',
       apps: ['Larkspur', 'Beacon', 'Cypress'],
     });
+
     expect(accountSummary).toBe(
       'default - Larkspur, Beacon, Cypress - team ABCDE12345 - key KEYABC1234',
     );
@@ -179,6 +191,7 @@ function describeFormatAccountSummary() {
     'lists up to three app names inline with no +N suffix',
     listsUpToThreeAppNamesInlineWithNoNSuffix,
   );
+
   function collapsesTheAppsBeyondTheThirdIntoANCount() {
     const apps = [
       'Larkspur',
@@ -190,6 +203,7 @@ function describeFormatAccountSummary() {
       'Everglade',
     ];
     const accountSummary = formatAccountSummary({ ...base, teamId: 'ABCDE12345', apps });
+
     expect(accountSummary).toBe(
       'default - Larkspur, Beacon, Cypress +4 - team ABCDE12345 - key KEYABC1234',
     );
@@ -199,11 +213,13 @@ function describeFormatAccountSummary() {
     'collapses the apps beyond the third into a +N count',
     collapsesTheAppsBeyondTheThirdIntoANCount,
   );
+
   function dropsTheLeadingLabelForThePickerHintViaIncludeLabelFalse() {
     const accountSummary = formatAccountSummary(
       { ...base, teamId: 'ABCDE12345', apps: ['Larkspur'] },
       { includeLabel: false },
     );
+
     expect(accountSummary).toBe('Larkspur - team ABCDE12345 - key KEYABC1234');
   }
 
@@ -223,15 +239,18 @@ function describeDecideBuildAccount() {
   }
 
   it('errors with a fix when no accounts exist', errorsWithAFixWhenNoAccountsExist);
+
   function usesAnExplicitSelectorPiece() {
     const decision = decideBuildAccount(
       file('AAAA1111', ['AAAA1111', 'Personal'], ['BBBB2222', 'Acme']),
       'Acme',
     );
+
     expect(decision).toMatchObject({ kind: 'use', record: { keyId: 'BBBB2222' } });
   }
 
   it('uses an explicit selector match', usesAnExplicitSelectorPiece);
+
   function errorsWhenTheSelectorMatchesNothing() {
     expect(decideBuildAccount(file('AAAA1111', ['AAAA1111', 'Personal']), 'ghost')).toMatchObject({
       kind: 'error',
@@ -239,6 +258,7 @@ function describeDecideBuildAccount() {
   }
 
   it('errors when the selector matches nothing', errorsWhenTheSelectorMatchesNothing);
+
   function usesTheActiveAccountWhenNoSelectorIsGiven() {
     const decision = decideBuildAccount(
       file('BBBB2222', ['AAAA1111', 'Personal'], ['BBBB2222', 'Acme']),
@@ -250,6 +270,7 @@ function describeDecideBuildAccount() {
     'uses the active account when no selector is given',
     usesTheActiveAccountWhenNoSelectorIsGiven,
   );
+
   function usesTheSoleAccountWhenNoneIsActive() {
     expect(decideBuildAccount(file(null, ['AAAA1111', 'Personal']))).toMatchObject({
       kind: 'use',
@@ -258,6 +279,7 @@ function describeDecideBuildAccount() {
   }
 
   it('uses the sole account when none is active', usesTheSoleAccountWhenNoneIsActive);
+
   function signalsAPickWhenSeveralAccountsExistAndNoneIsActive() {
     expect(decideBuildAccount(file(null, ['AAAA1111', 'Personal'], ['BBBB2222', 'Acme']))).toEqual({
       kind: 'pick',
@@ -280,15 +302,22 @@ function describeRegistryMutations() {
       p8: PEM,
       teamId: 'TEAM1',
     });
+
     await runAccountEffect(account);
+
     const activeKeyId = getActiveKeyId();
     const accountEffect = await runAccountEffect(activeKeyId);
+
     expect(accountEffect).toBe('AAAA1111');
     expect(secrets.store.get('asc-p8:AAAA1111')).toBeDefined();
+
     const ascKeyById = loadAscKeyById('AAAA1111');
     const loaded = await runAccountEffect(ascKeyById);
+
     expect(loaded).toEqual({ keyId: 'AAAA1111', issuerId: 'issuer-a', p8: PEM });
+
     const accounts = listAccounts();
+
     expect((await runAccountEffect(accounts))[0]).toMatchObject({
       label: 'Personal',
       teamId: 'TEAM1',
@@ -300,6 +329,7 @@ function describeRegistryMutations() {
     'adds an account, stores its key namespaced, and makes it active',
     addsAnAccountStoresItsKeyNamespacedAndMakesItActive,
   );
+
   async function reAddingTheSameKeyIDUpdatesInPlaceInsteadOfDuplicating() {
     const account = addAccount({
       keyId: 'AAAA1111',
@@ -307,12 +337,15 @@ function describeRegistryMutations() {
       label: 'Personal',
       p8: PEM,
     });
+
     await runAccountEffect(account);
     await runAccountEffect(
       addAccount({ keyId: 'AAAA1111', issuerId: 'issuer-a', label: 'Renamed', p8: PEM }),
     );
+
     const accounts = listAccounts();
     const accountEffect = await runAccountEffect(accounts);
+
     expect(accountEffect).toHaveLength(1);
     expect((await runAccountEffect(listAccounts()))[0]?.label).toBe('Renamed');
   }
@@ -321,6 +354,7 @@ function describeRegistryMutations() {
     're-adding the same Key ID updates in place instead of duplicating',
     reAddingTheSameKeyIDUpdatesInPlaceInsteadOfDuplicating,
   );
+
   async function switchesTheActiveAccountAndRenamesLabels() {
     const account = addAccount({
       keyId: 'AAAA1111',
@@ -328,20 +362,26 @@ function describeRegistryMutations() {
       label: 'Personal',
       p8: PEM,
     });
+
     await runAccountEffect(account);
     await runAccountEffect(
       addAccount({ keyId: 'BBBB2222', issuerId: 'issuer-b', label: 'Acme', p8: PEM }),
     );
     await runAccountEffect(setActiveKeyId('AAAA1111'));
+
     const activeKeyId = getActiveKeyId();
     const accountEffect = await runAccountEffect(activeKeyId);
+
     expect(accountEffect).toBe('AAAA1111');
     await runAccountEffect(renameAccount('AAAA1111', 'Home'));
+
     const accounts = listAccounts();
+
     expect(matchAccount([...(await runAccountEffect(accounts))], 'Home')?.keyId).toBe('AAAA1111');
   }
 
   it('switches the active account and renames labels', switchesTheActiveAccountAndRenamesLabels);
+
   async function cachesResolvedIdentityInPlace() {
     const account = addAccount({
       keyId: 'AAAA1111',
@@ -349,11 +389,16 @@ function describeRegistryMutations() {
       label: 'Personal',
       p8: PEM,
     });
+
     await runAccountEffect(account);
+
     const accountIdentity = updateAccountIdentity('AAAA1111', 'TEAM9', ['Mapleleaf', 'SampleApp']);
+
     await runAccountEffect(accountIdentity);
+
     const accounts = listAccounts();
     const accountEffect = await runAccountEffect(accounts);
+
     expect(accountEffect[0]).toMatchObject({
       teamId: 'TEAM9',
       apps: ['Mapleleaf', 'SampleApp'],
@@ -361,6 +406,7 @@ function describeRegistryMutations() {
   }
 
   it('caches resolved identity in place', cachesResolvedIdentityInPlace);
+
   async function removesAnAccountClearsItsSecretAndRePointsActiveToASurvivor() {
     const account = addAccount({
       keyId: 'AAAA1111',
@@ -368,16 +414,21 @@ function describeRegistryMutations() {
       label: 'Personal',
       p8: PEM,
     });
+
     await runAccountEffect(account);
     await runAccountEffect(
       addAccount({ keyId: 'BBBB2222', issuerId: 'issuer-b', label: 'Acme', p8: PEM }),
     ); // becomes active
     await runAccountEffect(removeAccount('BBBB2222'));
     expect(secrets.store.has('asc-p8:BBBB2222')).toBe(false);
+
     const accounts = listAccounts();
     const accountEffect = await runAccountEffect(accounts);
+
     expect(accountEffect).toHaveLength(1);
+
     const activeKeyId = getActiveKeyId();
+
     expect(await runAccountEffect(activeKeyId)).toBe('AAAA1111');
   }
 
@@ -395,6 +446,7 @@ async function addTwoAccounts() {
     label: 'Personal',
     p8: PEM,
   });
+
   await runAccountEffect(account);
   await runAccountEffect(
     addAccount({ keyId: 'BBBB2222', issuerId: 'issuer-b', label: 'Acme', p8: PEM }),
@@ -408,6 +460,7 @@ function describeLoadActiveAscKey() {
   }
 
   it('loads the active account without ASC_ACCOUNT', loadsTheActiveAccountWithoutASCACCOUNT);
+
   async function loadsTheAccountASCACCOUNTNamesByLabelOrKeyIDInsteadOfTheActiveOne() {
     await addTwoAccounts();
     const activeKeyWith = await loadActiveKeyWith({ ASC_ACCOUNT: 'personal' });
@@ -419,9 +472,12 @@ function describeLoadActiveAscKey() {
     'loads the account ASC_ACCOUNT names by label or Key ID instead of the active one',
     loadsTheAccountASCACCOUNTNamesByLabelOrKeyIDInsteadOfTheActiveOne,
   );
+
   async function failsWhenASCACCOUNTMatchesNoAccount() {
     await addTwoAccounts();
+
     const activeKeyWith = loadActiveKeyWith({ ASC_ACCOUNT: 'nobody' });
+
     await expect(activeKeyWith).rejects.toMatchObject({
       message: expect.stringMatching(/No Apple account matching.*nobody/),
     });
@@ -452,6 +508,7 @@ function describeLoadAscKeyForAccount() {
     'loads the account the flag names, even when another account is active',
     loadsTheAccountTheFlagNamesEvenWhenAnotherAccountIsActive,
   );
+
   async function fallsBackToTheActiveAccountWhenNoFlagIsGiven() {
     await addTwoAccounts();
 
@@ -464,6 +521,7 @@ function describeLoadAscKeyForAccount() {
     'falls back to the active account when no flag is given',
     fallsBackToTheActiveAccountWhenNoFlagIsGiven,
   );
+
   async function letsTheFlagWinOverASCACCOUNT() {
     await addTwoAccounts();
 
@@ -473,10 +531,12 @@ function describeLoadAscKeyForAccount() {
   }
 
   it('lets the flag win over ASC_ACCOUNT', letsTheFlagWinOverASCACCOUNT);
+
   async function failsWhenTheFlagMatchesNoAccount() {
     await addTwoAccounts();
 
     const keyForAccountWith = loadKeyForAccountWith('nobody', {});
+
     await expect(keyForAccountWith).rejects.toMatchObject({
       message: expect.stringMatching(/No Apple account matching.*nobody/),
     });
@@ -493,10 +553,14 @@ function describeMigrateLegacyAccounts() {
     secrets.store.set('asc-p8', PEM);
     secrets.store.set('dist-cert-p12-password', 'secret-pw');
     await runAccountEffect(migrateLegacyAccounts());
+
     const activeKeyId = getActiveKeyId();
     const accountEffect = await runAccountEffect(activeKeyId);
+
     expect(accountEffect).toBe('KEYXYZ7890');
+
     const accounts = listAccounts();
+
     expect((await runAccountEffect(accounts))[0]).toMatchObject({
       keyId: 'KEYXYZ7890',
       label: 'default',
@@ -507,7 +571,9 @@ function describeMigrateLegacyAccounts() {
     expect(secrets.store.has('asc-key-id')).toBe(false);
     expect(secrets.store.has('dist-cert-p12-password')).toBe(false);
     expect(vi.mocked(migrateLegacySigningIndex)).toHaveBeenCalledWith('KEYXYZ7890');
+
     const ascKeyById = loadAscKeyById('KEYXYZ7890');
+
     expect(await runAccountEffect(ascKeyById)).toEqual({
       keyId: 'KEYXYZ7890',
       issuerId: 'issuer-legacy',
@@ -519,6 +585,7 @@ function describeMigrateLegacyAccounts() {
     "moves a legacy single key into the registry as the active 'default' account",
     movesALegacySingleKeyIntoTheRegistryAsTheActiveDefaultAccount,
   );
+
   async function isANoOpWhenNothingWasImportedTheOldWay() {
     await runAccountEffect(migrateLegacyAccounts());
     const accounts = listAccounts();
@@ -536,23 +603,28 @@ function describeSetAccountVendorNumber() {
   }
   async function savesTheVendorNumberOnTheAccount() {
     const apple = addApple('AAAA1111');
+
     await runAccountEffect(apple);
 
     await runAccountEffect(setAccountVendorNumber('AAAA1111', '88001122'));
 
     const accounts = await runAccountEffect(listAccounts());
+
     expect(accounts[0]?.vendorNumber).toBe('88001122');
   }
 
   it('saves the vendor number on the account', savesTheVendorNumberOnTheAccount);
+
   async function keepsTheVendorNumberWhenTheSameKeyIsAddedAgain() {
     const apple = addApple('AAAA1111');
+
     await runAccountEffect(apple);
     await runAccountEffect(setAccountVendorNumber('AAAA1111', '88001122'));
 
     await runAccountEffect(addApple('AAAA1111'));
 
     const accounts = await runAccountEffect(listAccounts());
+
     expect(accounts[0]?.vendorNumber).toBe('88001122');
   }
 
@@ -560,8 +632,10 @@ function describeSetAccountVendorNumber() {
     'keeps the vendor number when the same key is added again',
     keepsTheVendorNumberWhenTheSameKeyIsAddedAgain,
   );
+
   async function leavesTheVendorNumberMissingOnAnAccountThatNeverHadOne() {
     const apple = addApple('AAAA1111');
+
     await runAccountEffect(apple);
 
     const accounts = await runAccountEffect(listAccounts());
@@ -573,6 +647,7 @@ function describeSetAccountVendorNumber() {
     'leaves the vendor number missing on an account that never had one',
     leavesTheVendorNumberMissingOnAnAccountThatNeverHadOne,
   );
+
   async function failsForAnUnknownKeyId() {
     const accountEffect = runAccountEffect(setAccountVendorNumber('NOPE', '1'));
     await expect(accountEffect).rejects.toMatchObject({

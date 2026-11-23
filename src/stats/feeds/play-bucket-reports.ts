@@ -277,6 +277,7 @@ async function readEarningsReports(request: BucketReportsRequest): Promise<
 
       return readEarningsStats(earningsTable, packageName, range);
     });
+
     statsPerZip.push(zipStats);
   }
 

@@ -137,5 +137,6 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     createPreviewSet: vi.fn(),
     uploadPreview: vi.fn(),
   };
+
   return { ...base, ...overrides };
 }

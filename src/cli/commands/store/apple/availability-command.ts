@@ -90,6 +90,7 @@ function commandFailure(
   explicitMessage?: string,
 ): AvailabilityCommandFailure {
   let message = errorMessage(cause);
+
   const hasExplicitMessage = explicitMessage != null;
 
   if (hasExplicitMessage) {
@@ -103,6 +104,7 @@ export function renderAvailabilityAction(plannedAction: PlannedAction): string {
   if (plannedAction.status == 'failed') {
     let failureText = 'failed';
     const actionError = plannedAction.error;
+
     const hasError = actionError != null;
 
     if (hasError) {
@@ -148,6 +150,7 @@ async function confirmAvailabilityWrite(
   }
 
   const terminalIsInteractive = checkTerminalIsInteractive();
+
   const needsATerminal = terminalIsInteractive == false;
 
   if (needsATerminal) {
@@ -171,6 +174,7 @@ async function confirmAvailabilityWrite(
   }
 
   LaunchPrompt.cancel('Aborted - no changes made.');
+
   return false;
 }
 
@@ -186,7 +190,9 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
       config: availabilityConfig,
       dryRun: true,
     });
+
     logger.gap();
+
     const isAlreadyInSync = availabilityPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
@@ -196,6 +202,7 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
 
     logger.notice(bundleId, ...availabilityPlan.actions.map(renderPlanned));
     logger.gap();
+
     const isDryRun = commandInput.dryRun == true;
 
     if (isDryRun) {
@@ -204,6 +211,7 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
     }
 
     const confirmed = await confirmAvailabilityWrite(availabilityPlan.actions[0], commandInput.yes);
+
     const declined = confirmed == false;
 
     if (declined) {
@@ -216,6 +224,7 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
       dryRun: false,
     });
     const appliedAction = appliedAvailability.actions[0];
+
     const hasAppliedAction = appliedAction != null;
 
     if (hasAppliedAction) {

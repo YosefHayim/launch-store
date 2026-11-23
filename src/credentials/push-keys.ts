@@ -23,6 +23,7 @@ async function showPushKeys(): Promise<void> {
 
   for (const pushKey of pushKeys) {
     const details: string[] = [];
+
     const hasDistinctLabel = pushKey.label != null;
 
     if (hasDistinctLabel) {
@@ -38,6 +39,7 @@ async function showPushKeys(): Promise<void> {
     }
 
     let detailText = '';
+
     const hasDetails = details.length > 0;
 
     if (hasDetails) {

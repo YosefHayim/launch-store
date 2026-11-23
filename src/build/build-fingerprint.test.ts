@@ -27,12 +27,14 @@ function describeComputeBuildFingerprint() {
   }
 
   it('is deterministic for identical inputs', isDeterministicForIdenticalInputs);
+
   function changesWhenAnyNativePieceChanges() {
     const baseFingerprint = computeBuildFingerprint(FINGERPRINT_PARTS);
     const buildFingerprint = computeBuildFingerprint({
       ...FINGERPRINT_PARTS,
       podfileLock: `${FINGERPRINT_PARTS.podfileLock} `,
     });
+
     expect(buildFingerprint).not.toBe(baseFingerprint);
     expect(computeBuildFingerprint({ ...FINGERPRINT_PARTS, podfileProperties: '{}' })).not.toBe(
       baseFingerprint,
@@ -46,6 +48,7 @@ function describeComputeBuildFingerprint() {
   }
 
   it('changes when any native input changes', changesWhenAnyNativePieceChanges);
+
   function separatesAdjacentFields() {
     const firstFingerprint = computeBuildFingerprint({
       ...FINGERPRINT_PARTS,
@@ -57,6 +60,7 @@ function describeComputeBuildFingerprint() {
       podfileLock: 'a',
       podfileProperties: 'bc',
     });
+
     expect(firstFingerprint).not.toBe(secondFingerprint);
   }
 
@@ -76,6 +80,7 @@ function describeExtractNativePieceSlice() {
     });
     const nativeSlice = extractNativeConfigSlice(serialized);
     const parsed = JSON.parse(nativeSlice);
+
     expect(parsed).toEqual({
       plugins: ['expo-router'],
       newArchEnabled: true,
@@ -84,12 +89,14 @@ function describeExtractNativePieceSlice() {
   }
 
   it('reads native fields through the Expo wrapper', readsNativeFieldsThroughTheExpoWrapper);
+
   function ignoresFieldsThatDoNotAffectTheNativeGraph() {
     const serialized = JSON.stringify({ expo: { name: 'Before', plugins: ['x'] } });
     const beforeSlice = extractNativeConfigSlice(serialized);
     const afterSlice = extractNativeConfigSlice(
       JSON.stringify({ expo: { name: 'After', plugins: ['x'] } }),
     );
+
     expect(beforeSlice).toBe(afterSlice);
   }
 
@@ -97,10 +104,12 @@ function describeExtractNativePieceSlice() {
     'ignores fields that do not affect the native graph',
     ignoresFieldsThatDoNotAffectTheNativeGraph,
   );
+
   function supportsAFlatPieceShape() {
     const serialized = JSON.stringify({ plugins: ['a'], newArchEnabled: false });
     const nativeSlice = extractNativeConfigSlice(serialized);
     const parsed = JSON.parse(nativeSlice);
+
     expect(parsed).toEqual({
       plugins: ['a'],
       newArchEnabled: false,
@@ -109,6 +118,7 @@ function describeExtractNativePieceSlice() {
   }
 
   it('supports a flat config shape', supportsAFlatPieceShape);
+
   function keepsDynamicPiecePieceSoEditsInvalidateTheFingerprint() {
     const dynamicConfig = "export default ({ config }) => ({ ...config, plugins: ['x'] });";
     const extractNativeSlice = extractNativeConfigSlice(dynamicConfig);
@@ -128,8 +138,10 @@ function describeResolveClean() {
     builtAt: '2026-06-14T00:00:00Z',
     cleanBuilt: true,
   };
+
   function forcesACleanWhenRequested() {
     const clean = resolveClean(true, storedBuild, 'abc');
+
     expect(clean).toMatchObject({
       clean: true,
       nativeChanged: false,
@@ -141,8 +153,10 @@ function describeResolveClean() {
   }
 
   it('forces a clean when requested', forcesACleanWhenRequested);
+
   function cleansOnTheFirstBuildOrAChangedFingerprint() {
     const clean = resolveClean(false, null, 'abc');
+
     expect(clean).toMatchObject({ clean: true, nativeChanged: true });
     expect(resolveClean(false, storedBuild, 'xyz')).toMatchObject({
       clean: true,
@@ -154,8 +168,10 @@ function describeResolveClean() {
     'cleans on the first build or a changed fingerprint',
     cleansOnTheFirstBuildOrAChangedFingerprint,
   );
+
   function reusesCachesWhenTheFingerprintMatches() {
     const clean = resolveClean(false, storedBuild, 'abc');
+
     expect(clean).toMatchObject({
       clean: false,
       nativeChanged: false,
@@ -168,6 +184,7 @@ function describeResolveClean() {
 describe('resolveClean', describeResolveClean);
 function describeBuildPieceStorage() {
   let temporaryDirectory: string;
+
   function prepareBuildPieceStorage() {
     const systemTemporaryDirectory = tmpdir();
     const launchFpPath = join(systemTemporaryDirectory, 'launch-fp-');
@@ -175,17 +192,20 @@ function describeBuildPieceStorage() {
   }
 
   beforeEach(prepareBuildPieceStorage);
+
   function cleanupBuildPieceStorage() {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
 
   afterEach(cleanupBuildPieceStorage);
+
   async function returnsNullBeforeAPieceIsWritten() {
     const storedBuild = await readBuildState('demo', 'ios', temporaryDirectory);
     expect(storedBuild).toBeNull();
   }
 
   it('returns null before a state is written', returnsNullBeforeAPieceIsWritten);
+
   async function roundTripsPieceByAppAndPlatform() {
     const buildState: BuildState = {
       fingerprint: 'abc',
@@ -196,8 +216,11 @@ function describeBuildPieceStorage() {
         incremental: { ms: 41000, steps: 28 },
       },
     };
+
     await writeBuildState('demo', 'ios', buildState, temporaryDirectory);
+
     const readBuild = await readBuildState('demo', 'ios', temporaryDirectory);
+
     expect(readBuild).toEqual(buildState);
     expect(await readBuildState('demo', 'android', temporaryDirectory)).toBeNull();
   }
@@ -209,6 +232,7 @@ describe('build state storage', describeBuildPieceStorage);
 function describeBuildEstimates() {
   function adoptsTheFirstSampleAndSmoothsLaterSamples() {
     const estimate = updateEstimate(undefined, { ms: 41000, steps: 28 });
+
     expect(estimate).toEqual({
       ms: 41000,
       steps: 28,
@@ -223,8 +247,10 @@ function describeBuildEstimates() {
     'adopts the first sample and smooths later samples',
     adoptsTheFirstSampleAndSmoothsLaterSamples,
   );
+
   function usesACustomSmoothingWeight() {
     const estimate = updateEstimate({ ms: 100, steps: 10 }, { ms: 200, steps: 20 }, 0.25);
+
     expect(estimate).toEqual({
       ms: 125,
       steps: 13,
@@ -232,6 +258,7 @@ function describeBuildEstimates() {
   }
 
   it('uses a custom smoothing weight', usesACustomSmoothingWeight);
+
   function selectsTheEstimateForTheRequestedBuildKind() {
     const buildState: BuildState = {
       fingerprint: 'abc',
@@ -239,6 +266,7 @@ function describeBuildEstimates() {
       cleanBuilt: false,
       estimates: { incremental: { ms: 41000, steps: 28 } },
     };
+
     expect(estimateFor(buildState, 'incremental')).toEqual({ ms: 41000, steps: 28 });
     expect(estimateFor(buildState, 'clean')).toBeUndefined();
     expect(estimateFor(null, 'clean')).toBeUndefined();

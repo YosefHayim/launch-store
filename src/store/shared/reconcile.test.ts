@@ -23,6 +23,7 @@ function describeAct() {
     }
 
     const runActionMock = vi.fn(runAction);
+
     await act(reconcileContext, 'create thing', runActionMock);
     expect(runActionMock).toHaveBeenCalledOnce();
     expect(reconcileContext.actions).toEqual([
@@ -34,6 +35,7 @@ function describeAct() {
     'records the action and runs it, marking it applied on success',
     recordsTheActionAndRunsItMarkingItAppliedOnSuccess,
   );
+
   async function recordsAPlannedActionAndPerformsNoWorkInADryRun() {
     const reconcileContext: ReconcileContext = { actions: [], dryRun: true };
 
@@ -42,6 +44,7 @@ function describeAct() {
     }
 
     const runActionMock = vi.fn(runAction);
+
     await act(reconcileContext, 'create thing', runActionMock);
     expect(runActionMock).not.toHaveBeenCalled();
     expect(reconcileContext.actions).toEqual([
@@ -53,6 +56,7 @@ function describeAct() {
     'records a planned action and performs no work in a dry-run',
     recordsAPlannedActionAndPerformsNoWorkInADryRun,
   );
+
   async function capturesAThrownErrorOnTheActionInsteadOfPropagatingIt() {
     const reconcileContext = applyContext();
 
@@ -80,6 +84,7 @@ function describePlan() {
   function appendsAPlannedActionAndReturnsItsHandleSoTheCallerCanUpdateItsStatus() {
     const reconcileContext = applyContext();
     const action = plan(reconcileContext, 'create thing');
+
     expect(reconcileContext.actions).toEqual([
       { description: 'create thing', destructive: false, status: 'planned' },
     ]);
@@ -99,6 +104,7 @@ describe('plan', describePlan);
 function describeAppPieceMissing() {
   function namesTheBundleIdAndTheExactCommandToReRunAfterCreatingTheApp() {
     const appMissing = appRecordMissing('com.acme.app', 'accessibility');
+
     expect(appMissing.message).toBe(
       'No App Store Connect app record for com.acme.app. Create the app once in App Store Connect ' +
         '(Apple has no API to create the app record), then re-run `launch-store accessibility`.',
@@ -115,6 +121,7 @@ describe('appRecordMissing', describeAppPieceMissing);
 function describeAppPieceNotFound() {
   function asksTheReadPathCallerToConfirmTheBundleIdAndAccessWithNoCreateThenRetryRemedy() {
     const appNotFound = appRecordNotFound('com.acme.app');
+
     expect(appNotFound.message).toBe(
       'No App Store Connect app record for com.acme.app. Confirm the bundle id and that this account ' +
         "can access the app (Apple has no API to create an app record - it's created once in App Store Connect).",
@@ -131,6 +138,7 @@ describe('appRecordNotFound', describeAppPieceNotFound);
 function describeSkip() {
   function appendsASkippedActionWithTheGivenReason() {
     const reconcileContext = applyContext();
+
     skip(reconcileContext, 'no editable version');
     expect(reconcileContext.actions).toEqual([
       { description: 'no editable version', destructive: false, status: 'skipped' },
@@ -150,10 +158,12 @@ function describeSummarize() {
       { description: 'd', destructive: false, status: 'skipped' },
       { description: 'e', destructive: false, status: 'planned' },
     ];
+
     expect(summarize(actions)).toEqual({ applied: 2, failed: 1, skipped: 1 });
   }
 
   it('tallies actions by status', talliesActionsByStatus);
+
   function returnsZerosForAnEmptyReport() {
     expect(summarize([])).toEqual({ applied: 0, failed: 0, skipped: 0 });
   }

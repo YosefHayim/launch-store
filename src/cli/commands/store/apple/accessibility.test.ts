@@ -7,6 +7,7 @@ function describeRenderAction() {
       destructive: false,
       status: 'planned',
     });
+
     expect(accessibilityAction).toBe('+ create accessibility declaration (IPHONE)');
     expect(
       renderAccessibilityAction({
@@ -18,6 +19,7 @@ function describeRenderAction() {
   }
 
   it('marks a planned or applied change with +', marksAPlannedOrAppliedChangeWith);
+
   function rendersAFailedActionWithXAndAppleSErrorDetail() {
     const accessibilityAction = renderAccessibilityAction({
       description: 'publish accessibility declaration (IPHONE)',
@@ -25,6 +27,7 @@ function describeRenderAction() {
       status: 'failed',
       error: 'declaration incomplete',
     });
+
     expect(accessibilityAction).toBe(
       'x publish accessibility declaration (IPHONE) - declaration incomplete',
     );

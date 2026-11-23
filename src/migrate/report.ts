@@ -40,6 +40,7 @@ export function renderReport(migration: MigrationResult): string {
     const levelNotes = migration.notes.filter(function noteMatchesLevel(migrationNote) {
       return migrationNote.level == noteLevel;
     });
+
     const hasNoNotes = levelNotes.length == 0;
 
     if (hasNoNotes) {

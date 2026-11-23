@@ -10,6 +10,7 @@ export class SubmitToAppStore {
 
   async upload(signedApp: SignedAppUpload): Promise<string> {
     const appId = await this.apple.findAppId(signedApp.bundleId);
+
     const isMissing = appId == null;
 
     if (isMissing) {

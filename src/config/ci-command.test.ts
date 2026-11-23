@@ -3,6 +3,7 @@ import { workflowYaml } from './ci-command.ts';
 function describeWorkflowYaml() {
   function targetsMacOSWithTheUnattendedIOSShipSequence() {
     const workflow = workflowYaml(false);
+
     expect(workflow).toContain('runs-on: macos-latest');
     expect(workflow).toContain('launch-store creds set-key --yes');
     expect(workflow).toContain('launch-store creds setup --yes');
@@ -14,8 +15,10 @@ function describeWorkflowYaml() {
     'targets macOS with the unattended iOS ship sequence',
     targetsMacOSWithTheUnattendedIOSShipSequence,
   );
+
   function wiresAppStoreConnectSecretsIntoTheExpectedEnvironmentVariables() {
     const workflow = workflowYaml(false);
+
     expect(workflow).toContain('ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}');
     expect(workflow).toContain('ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}');
     expect(workflow).toContain('ASC_API_KEY_PATH: ${{ runner.temp }}/launch/AuthKey.p8');
@@ -27,6 +30,7 @@ function describeWorkflowYaml() {
     'wires App Store Connect secrets into the expected environment variables',
     wiresAppStoreConnectSecretsIntoTheExpectedEnvironmentVariables,
   );
+
   function omitsAndroidUnlessRequested() {
     const workflow = workflowYaml(false);
     expect(workflow).not.toContain('ubuntu-latest');
@@ -34,8 +38,10 @@ function describeWorkflowYaml() {
   }
 
   it('omits Android unless requested', omitsAndroidUnlessRequested);
+
   function addsTheAndroidJobAndSecretsWhenRequested() {
     const workflow = workflowYaml(true);
+
     expect(workflow).toContain('runs-on: ubuntu-latest');
     expect(workflow).toContain('launch-store build android --app "$LAUNCH_APP_NAME" --yes');
     expect(workflow).toContain(
@@ -47,6 +53,7 @@ function describeWorkflowYaml() {
   }
 
   it('adds the Android job and secrets when requested', addsTheAndroidJobAndSecretsWhenRequested);
+
   function documentsRequiredSecretsInTheHeader() {
     const workflow = workflowYaml(true);
     expect(workflow.startsWith('# Launch')).toBe(true);

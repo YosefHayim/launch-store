@@ -3,6 +3,7 @@ import { renderTeam, TeamCommandInputSchema } from './team-command.ts';
 function describeTeamCommandPieceSchema() {
   function decodesEveryCommanderOperation() {
     const teamCommandSchema = TeamCommandInputSchema({ operation: 'list', json: false });
+
     expect(teamCommandSchema).toEqual({
       operation: 'list',
       json: false,
@@ -60,6 +61,7 @@ function describeRenderTeam() {
         },
       ],
     });
+
     expect(team).toBe(
       'Team - 1 member(s), 1 pending invitation(s)\n\nMembers:\n  member@acme.com  Ada Lovelace  [ADMIN]\n\nPending invitations:\n  invitee@acme.com  [DEVELOPER]  expires 2026-08-20',
     );

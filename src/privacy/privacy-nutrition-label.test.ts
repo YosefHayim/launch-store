@@ -7,7 +7,9 @@ import {
 function describeAppPrivacyChecklist() {
   function emitsAUIOnlyVerdictEveryNumberedStepAndTheHelpLink() {
     const lines = appPrivacyChecklist();
+
     expect(lines[0]).toContain('UI-only');
+
     function forEachStep(step: string, index: number) {
       function someLine(line: string) {
         return line.includes(`${index + 1}. ${step}`);
@@ -24,6 +26,7 @@ function describeAppPrivacyChecklist() {
     'emits a UI-only verdict, every numbered step, and the help link',
     emitsAUIOnlyVerdictEveryNumberedStepAndTheHelpLink,
   );
+
   function coversTheQuestionnaireSDimensionsCategoriesPurposesLinkageTrackingPublish() {
     const text = APP_PRIVACY_STEPS.join(' ').toLowerCase();
     for (const dimension of ['categor', 'purpose', 'linked', 'track', 'publish']) {

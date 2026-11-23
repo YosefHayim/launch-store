@@ -47,11 +47,13 @@ function describeSelectApps() {
     app('beta'),
     app('gamma', { bundleId: 'com.acme.gamma' }),
   ];
+
   async function returnsEveryAppWhenNoSelectorIsGiven() {
     await expect(selectApps(apps, undefined)).resolves.toEqual(apps);
   }
 
   it('returns every app when no selector is given', returnsEveryAppWhenNoSelectorIsGiven);
+
   async function narrowsToTheNamedAppsInSelectorOrder() {
     const selectedApps = await selectApps(apps, 'gamma,alpha');
 
@@ -63,6 +65,7 @@ function describeSelectApps() {
   }
 
   it('narrows to the named apps, in selector order', narrowsToTheNamedAppsInSelectorOrder);
+
   async function trimsWhitespaceAndIgnoresEmptyEntries() {
     const selectedApps = await selectApps(apps, ' alpha , ');
 
@@ -74,6 +77,7 @@ function describeSelectApps() {
   }
 
   it('trims whitespace and ignores empty entries', trimsWhitespaceAndIgnoresEmptyEntries);
+
   async function failsWithTaggedPieceForAnUnknownAppName() {
     await expect(selectApps(apps, 'delta')).rejects.toMatchObject({
       _tag: 'AppSelectionFailure',
@@ -102,12 +106,14 @@ function describeBuildJobs() {
   }
 
   it('builds a job for an app that declares products', buildsAJobForAnAppThatDeclaresProducts);
+
   async function skipsAnAppWithNoIOSBundleId() {
     const jobs = await buildJobs([app('beta')], config({ 'com.acme.beta': IAP }));
     expect(jobs).toHaveLength(0);
   }
 
   it('skips an app with no iOS bundle id', skipsAnAppWithNoIOSBundleId);
+
   async function skipsAnAppWithNothingToSyncNoCapabilitiesProductsListingOrAssets() {
     const jobs = await buildJobs([app('alpha', { bundleId: 'com.acme.alpha' })], config());
     expect(jobs).toHaveLength(0);

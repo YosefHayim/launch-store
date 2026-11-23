@@ -14,6 +14,7 @@ function describeParseVersionLenientInCanonicalOut() {
   }
 
   it('parses a full MAJOR.MINOR.PATCH', parsesAFullMAJORMINORPATCH);
+
   function defaultsMissingMinorPatchTo0() {
     const version = parseVersion('2');
     expect(version).toEqual({ major: 2, minor: 0, patch: 0 });
@@ -21,8 +22,10 @@ function describeParseVersionLenientInCanonicalOut() {
   }
 
   it('defaults missing minor/patch to 0', defaultsMissingMinorPatchTo0);
+
   function toleratesALeadingVWhitespaceAndAPrereleaseBuildSuffix() {
     const version = parseVersion('v1.2.3');
+
     expect(version).toEqual({ major: 1, minor: 2, patch: 3 });
     expect(parseVersion('  1.2.3  ')).toEqual({ major: 1, minor: 2, patch: 3 });
     expect(parseVersion('1.2.3-beta.1')).toEqual({ major: 1, minor: 2, patch: 3 });
@@ -33,6 +36,7 @@ function describeParseVersionLenientInCanonicalOut() {
     'tolerates a leading v, whitespace, and a prerelease/build suffix',
     toleratesALeadingVWhitespaceAndAPrereleaseBuildSuffix,
   );
+
   function rejectsNonVersionStringsAndOverLongCores() {
     const version = parseVersion('');
     expect(version).toBeNull();
@@ -48,12 +52,14 @@ function describeBumpVersionNextVersionAdvanceOneComponentZeroTheRest() {
   function bumpsEachComponentAndResetsTheLowerOnes() {
     const v = { major: 1, minor: 4, patch: 2 };
     const version = bumpVersion(v, 'major');
+
     expect(formatVersion(version)).toBe('2.0.0');
     expect(formatVersion(bumpVersion(v, 'minor'))).toBe('1.5.0');
     expect(formatVersion(bumpVersion(v, 'patch'))).toBe('1.4.3');
   }
 
   it('bumps each component and resets the lower ones', bumpsEachComponentAndResetsTheLowerOnes);
+
   function nextVersionDrivesTheSuggestion100101() {
     expect(nextVersion('1.0.0', 'patch')).toBe('1.0.1');
     expect(nextVersion('1.0.0', 'minor')).toBe('1.1.0');
@@ -61,6 +67,7 @@ function describeBumpVersionNextVersionAdvanceOneComponentZeroTheRest() {
   }
 
   it('nextVersion drives the suggestion 1.0.0 -> 1.0.1', nextVersionDrivesTheSuggestion100101);
+
   function treatsAnUnparseableCurrentAs000InsteadOfThrowing() {
     expect(nextVersion('', 'patch')).toBe('0.0.1');
     expect(nextVersion('nope', 'minor')).toBe('0.1.0');
@@ -87,6 +94,7 @@ function describeCompareVersionsHighestVersionNumericNotLexical() {
     'orders by numeric core (1.10.0 > 1.9.0, the lexical trap)',
     ordersByNumericCore1100190TheLexicalTrap,
   );
+
   function picksTheHighestVersionPreservingItsOriginalForm() {
     expect(highestVersion(['1.0.0', '1.10.0', '1.9.0', '1.2.0'])).toBe('1.10.0');
     expect(highestVersion(['v2.0.0', '1.9.9'])).toBe('v2.0.0');
@@ -96,6 +104,7 @@ function describeCompareVersionsHighestVersionNumericNotLexical() {
     'picks the highest version, preserving its original form',
     picksTheHighestVersionPreservingItsOriginalForm,
   );
+
   function ignoresUnparseableEntriesAndReturnsNullWhenNoneParse() {
     expect(highestVersion(['garbage', '1.2.0', ''])).toBe('1.2.0');
     expect(highestVersion(['garbage', ''])).toBeNull();

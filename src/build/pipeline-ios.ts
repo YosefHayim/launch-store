@@ -177,6 +177,7 @@ export async function runIosBuild(
   const bundleId = bundleIdentifier(app);
   const isInternal = buildContext.distribution == 'internal';
   let resolvedBump: BumpKind | undefined;
+
   const shouldSuggestVersion = shouldSuggestMarketingVersion(buildOptions.submit, isInternal);
 
   if (shouldSuggestVersion) {
@@ -262,6 +263,7 @@ export async function runIosBuild(
       bundleId,
       resolvedBump,
     );
+
     return;
   }
 
@@ -289,6 +291,7 @@ export async function runIosBuild(
   }
 
   let link: string | undefined;
+
   const shouldLink = shouldResolveStoreLink(buildOptions.submit, bundleId);
 
   if (shouldLink) {

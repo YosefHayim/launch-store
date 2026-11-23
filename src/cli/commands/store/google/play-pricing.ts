@@ -21,9 +21,11 @@ function readPlayPricing(
     currency: commandOptions.currency,
     json: commandOptions.json,
   };
+
   if (commandOptions.app != null) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
+
   return commandInput;
 }
 
@@ -32,6 +34,7 @@ export function registerPlayPricingCommand(program: Command): void {
   const pricingCommand = program
     .command('play-pricing')
     .description('compute recommended Google Play prices for every region from one base price');
+
   function runLocalizeAmount(amount: string, commandOptions: PlayPricingOptions) {
     const playPricing = readPlayPricing(amount, commandOptions);
     const playPricingProgram = playPricingCommandProgram(playPricing);

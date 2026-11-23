@@ -32,6 +32,7 @@ function describeAggregateProductPieces() {
       { type: 'subscriptionGroup', group: GROUP },
     ];
     const productPieces = aggregateProductPieces(pieces);
+
     expect(productPieces).toEqual({
       inAppPurchases: [IAP],
       subscriptionGroups: [GROUP],
@@ -50,6 +51,7 @@ describe('aggregateProductPieces', describeAggregateProductPieces);
 function describeSerializeProductsSection() {
   function rendersACommentedPasteReadyProductsBlockKeyedByBundleId() {
     const section = serializeProductsSection({ 'com.acme.app': { inAppPurchases: [IAP] } });
+
     expect(section).toContain('// Imported from App Store Connect by `launch-store adopt`');
     expect(section).toContain('products: {');
     expect(section).toContain('"com.acme.app"');
@@ -67,6 +69,7 @@ describe('serializeProductsSection', describeSerializeProductsSection);
 function describeBuildAdoptedPiece() {
   function producesAFullPieceThatImportsDefinePieceAndEmbedsTheProductsBlock() {
     const config = buildAdoptedConfig('./apps', { 'com.acme.app': { inAppPurchases: [IAP] } });
+
     expect(config).toContain('import { defineConfig } from "launch-store";');
     expect(config).toContain('appRoots: ["./apps"]');
     expect(config).toContain('products: {');
@@ -84,6 +87,7 @@ function describeRenderEntitlementsBlock() {
   function wrapsEntitlementsUnderIosForPastingIntoADynamicPiece() {
     const entitlementsBlock = renderEntitlementsBlock({ 'aps-environment': 'production' });
     const parsed = JSON.parse(entitlementsBlock);
+
     expect(parsed).toEqual({
       ios: { entitlements: { 'aps-environment': 'production' } },
     });

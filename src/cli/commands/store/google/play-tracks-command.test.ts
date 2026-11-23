@@ -6,6 +6,7 @@ function describePlayTracksCommandPieceSchema() {
       operation: 'status',
       json: false,
     });
+
     expect(playTracksCommandSchema).toEqual({ operation: 'status', json: false });
     expect(
       PlayTracksCommandInputSchema({
@@ -42,6 +43,7 @@ function describePlayTracksCommandPieceSchema() {
     'decodes each Commander operation without unset option fields',
     decodesEachCommanderOperationWithoutUnsetOptionFields,
   );
+
   function rejectsExplicitUndefinedExactOptionalFields() {
     function callPlayTracksCommandPieceSchema() {
       return PlayTracksCommandInputSchema({
@@ -70,6 +72,7 @@ function describeDescribePlayRelease() {
       userFraction: 0.25,
       releaseNotes: [{ language: 'en-US', text: 'Faster startup' }],
     });
+
     expect(playRelease).toBe('inProgress  v42  25% rollout  1 note(s)');
   }
 

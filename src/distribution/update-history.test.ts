@@ -54,6 +54,7 @@ function makeMemoryStorage(): MemoryStorage {
       }
 
       const bufferBytes = Buffer.from(storedText);
+
       return Promise.resolve(bufferBytes);
     },
     publicUrl(objectKey) {
@@ -104,6 +105,7 @@ function describeHistoryLookup() {
       makeHistoryEntry({ id: 'three', active: false }),
     ];
     const updatedEntries = deactivateRuntimeVersion(historyEntries, '1.0.0');
+
     function readActive(historyEntry: {
       id: string;
       runtimeVersion: string;
@@ -122,9 +124,11 @@ function describeHistoryLookup() {
     'deactivates only active entries for the selected runtime version',
     deactivatesOnlyActiveEntriesForTheSelectedRuntimeVersion,
   );
+
   function resolvesLatestExactAndShortIdentifierReferences() {
     const historyEntries = [makeHistoryEntry({ id: 'abcdef' }), makeHistoryEntry({ id: '123456' })];
     const findHistory = findHistoryEntry(historyEntries, 'latest');
+
     expect(findHistory?.id).toBe('abcdef');
     expect(findHistoryEntry(historyEntries, '123456')?.id).toBe('123456');
     expect(findHistoryEntry(historyEntries, 'abc')?.id).toBe('abcdef');
@@ -142,9 +146,12 @@ function describePiecePublish() {
   async function prependsThePublishAndDeactivatesThePreviousMatchingRuntime() {
     const storage = makeMemoryStorage();
     const makeHistory = makeHistoryEntry({ id: 'first' });
+
     await recordPublish(storage, 'production', 'ios', makeHistory);
     await recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'second' }));
+
     const historyEntries = await readHistory(storage, 'production', 'ios');
+
     function readId(historyEntry: {
       id: string;
       runtimeVersion: string;
@@ -157,6 +164,7 @@ function describePiecePublish() {
     }
 
     expect(historyEntries.map(readId)).toEqual(['second', 'first']);
+
     function findHistoryPiece(historyEntry: {
       id: string;
       runtimeVersion: string;
@@ -169,6 +177,7 @@ function describePiecePublish() {
     }
 
     expect(historyEntries.find(findHistoryPiece)?.active).toBe(true);
+
     function findHistoryPiece2(historyEntry: {
       id: string;
       runtimeVersion: string;
@@ -187,9 +196,11 @@ function describePiecePublish() {
     'prepends the publish and deactivates the previous matching runtime',
     prependsThePublishAndDeactivatesThePreviousMatchingRuntime,
   );
+
   async function keepsActiveEntriesForOtherRuntimeVersions() {
     const storage = makeMemoryStorage();
     const makeHistory = makeHistoryEntry({ id: 'runtime-one' });
+
     await recordPublish(storage, 'production', 'ios', makeHistory);
     await recordPublish(
       storage,
@@ -197,7 +208,9 @@ function describePiecePublish() {
       'ios',
       makeHistoryEntry({ id: 'runtime-two', runtimeVersion: '2.0.0' }),
     );
+
     const historyEntries = await readHistory(storage, 'production', 'ios');
+
     function isActive(historyEntry: {
       id: string;
       runtimeVersion: string;
@@ -213,11 +226,15 @@ function describePiecePublish() {
   }
 
   it('keeps active entries for other runtime versions', keepsActiveEntriesForOtherRuntimeVersions);
+
   async function preservesMalformedHistoryAndRefusesToOverwriteIt() {
     const storage = makeMemoryStorage();
+
     storage.objects.set('updates/production/ios/history.json', '{broken');
+
     const makeHistory = makeHistoryEntry();
     const publish = recordPublish(storage, 'production', 'ios', makeHistory);
+
     await expect(publish).rejects.toThrow();
     expect(storage.objects.get('updates/production/ios/history.json')).toBe('{broken');
   }
@@ -232,8 +249,11 @@ describe('recordPublish', describePiecePublish);
 function describeActivateUpdate() {
   async function leavesTheActiveManifestUntouchedWhenHistoryIsMalformed() {
     const storage = makeMemoryStorage();
+
     storage.objects.set('updates/production/ios/history.json', '{broken');
+
     const manifest = makeManifest('new-id');
+
     await expect(
       activateUpdate({
         storage,
@@ -261,8 +281,11 @@ function describeRepublishUpdate() {
     const platform = 'ios';
     const manifest = makeManifest('old-id');
     const serialized = JSON.stringify(manifest);
+
     storage.objects.set(historySnapshotKey(channel, platform, '1.0.0', 'old-id'), serialized);
+
     const makeHistory = makeHistoryEntry({ id: 'old-id' });
+
     await recordPublish(storage, channel, platform, makeHistory);
     await recordPublish(storage, channel, platform, makeHistoryEntry({ id: 'bad-id' }));
 
@@ -279,11 +302,13 @@ function describeRepublishUpdate() {
     expect(republishedUpdate.manifest.id).toBe('rollback-id');
     expect(republishedUpdate.manifest.launchAsset.url).toBe('https://cdn/bundle.hbc');
     expect(republishedUpdate.entry.kind).toBe('rollback');
+
     const activeManifestText = expectDefined(
       storage.objects.get(manifestKey(channel, platform, '1.0.0')),
       'active manifest',
     );
     const activeManifest = JSON.parse(activeManifestText) as { id: string };
+
     expect(activeManifest.id).toBe('rollback-id');
     expect(storage.objects.has(historySnapshotKey(channel, platform, '1.0.0', 'rollback-id'))).toBe(
       true,
@@ -291,8 +316,11 @@ function describeRepublishUpdate() {
     expect(storage.objects.get(manifestSignatureKey(channel, platform, '1.0.0'))).toContain(
       'sig="FAKE"',
     );
+
     const historyEntries = await readHistory(storage, channel, platform);
+
     expect(historyEntries[0]?.id).toBe('rollback-id');
+
     function findHistoryPiece3(historyEntry: {
       id: string;
       runtimeVersion: string;
@@ -311,9 +339,11 @@ function describeRepublishUpdate() {
     'writes a fresh active snapshot, signature, and rollback history entry',
     writesAFreshActiveSnapshotSignatureAndRollbackHistoryPiece,
   );
+
   async function failsWithATypedErrorWhenTheTargetSnapshotIsAbsent() {
     const storage = makeMemoryStorage();
     const makeHistory = makeHistoryEntry({ id: 'ghost' });
+
     await expect(
       republishUpdate({
         storage,
@@ -337,6 +367,7 @@ describe('republishUpdate', describeRepublishUpdate);
 function describeRollbackDirective() {
   async function writesAnActiveSignedDirective() {
     const storage = makeMemoryStorage();
+
     await setRollbackToEmbedded({
       storage,
       channel: 'production',
@@ -345,6 +376,7 @@ function describeRollbackDirective() {
       commitTime: '2026-06-14T12:00:00.000Z',
       signer: fixedSigner,
     });
+
     const directiveText = expectDefined(
       storage.objects.get(rollbackDirectiveKey('production', 'ios', '1.0.0')),
       'rollback directive',
@@ -354,9 +386,12 @@ function describeRollbackDirective() {
       signature: string;
       body: string;
     };
+
     expect(storedDirective.active).toBe(true);
     expect(storedDirective.signature).toContain('sig="FAKE"');
+
     const parsed = JSON.parse(storedDirective.body);
+
     expect(parsed).toEqual({
       type: 'rollBackToEmbedded',
       parameters: { commitTime: '2026-06-14T12:00:00.000Z' },
@@ -364,10 +399,14 @@ function describeRollbackDirective() {
   }
 
   it('writes an active signed directive', writesAnActiveSignedDirective);
+
   async function deactivatesAnActiveDirectiveAndDoesNothingWhenAbsent() {
     const storage = makeMemoryStorage();
+
     await clearRollbackDirective(storage, 'production', 'ios', '1.0.0');
+
     const directiveKey = rollbackDirectiveKey('production', 'ios', '1.0.0');
+
     expect(storage.objects.has(directiveKey)).toBe(false);
 
     await setRollbackToEmbedded({
@@ -379,8 +418,10 @@ function describeRollbackDirective() {
       signer: null,
     });
     await clearRollbackDirective(storage, 'production', 'ios', '1.0.0');
+
     const clearedText = expectDefined(storage.objects.get(directiveKey), 'cleared directive');
     const clearedDirective = JSON.parse(clearedText) as { active: boolean };
+
     expect(clearedDirective.active).toBe(false);
   }
 

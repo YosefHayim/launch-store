@@ -114,6 +114,7 @@ function installSequenceFetch(routes: readonly SequenceRoute[], sentRequests: Se
       const routeKey = `${method} ${requestUrl}`;
       const authorization = readAuthorization(init?.headers);
       const sentDocument = readSentDocument(init?.body);
+
       sentRequests.push({
         method,
         url: requestUrl,
@@ -136,7 +137,9 @@ function installSequenceFetch(routes: readonly SequenceRoute[], sentRequests: Se
       }
 
       const answeredCount = answeredCounts.get(routeKey) ?? 0;
+
       answeredCounts.set(routeKey, answeredCount + 1);
+
       const lastReplyIndex = requestedRoute.replies.length - 1;
       const reply = requestedRoute.replies[Math.min(answeredCount, lastReplyIndex)];
 
@@ -145,6 +148,7 @@ function installSequenceFetch(routes: readonly SequenceRoute[], sentRequests: Se
       }
 
       const createReply = createReplyBody(reply.document);
+
       return new Response(createReply, { status: reply.status });
     },
   );
@@ -220,7 +224,9 @@ interface Ga4Run {
 
 async function runFeed(run: Ga4Run) {
   const sentRequests: SentRequest[] = [];
+
   installSequenceFetch(run.routes, sentRequests);
+
   const reply = await ga4Feed.fetchDays({
     app: run.app,
     range: RANGE,
@@ -252,6 +258,7 @@ function readThrownMessage(cause: unknown): string | null {
 
 async function readFailureMessage(run: Ga4Run): Promise<string> {
   const sentRequests: SentRequest[] = [];
+
   installSequenceFetch(run.routes, sentRequests);
 
   try {
@@ -289,6 +296,7 @@ function readSentQuery(sentRequest: SentRequest | undefined) {
 
 function readSkippedReason(reply: FeedFetchReply): string {
   if (reply.status != 'skipped') throw new Error('expected a skipped reply');
+
   return reply.reason;
 }
 
@@ -302,12 +310,15 @@ describe('ga4Feed', () => {
     });
 
     expect(reply.status).toBe('skipped');
+
     const skippedReason = readSkippedReason(reply);
+
     expect(skippedReason).toContain('No Google service account saved');
     expect(sentRequests).toHaveLength(0);
   }
 
   test('skips when no Google service account is saved', skipsWhenNoGoogleServiceAccountIsSaved);
+
   async function findsThePropertyByIOSBundleIdAndFiltersTheReportByItsStream() {
     const twoPropertySummaries = readTwoPropertySummaries();
     const credentials = makeCredentials();
@@ -326,12 +337,14 @@ describe('ga4Feed', () => {
       ],
       credentials: credentials,
     });
+
     function findSent(sent: SentRequest) {
       return sent.url == RUN_REPORT_URL;
     }
 
     const reportRequest = sentRequests.find(findSent);
     const reportQuery = readSentQuery(reportRequest);
+
     expect(reply).toEqual({
       status: 'fetched',
       coveredThrough: '2026-10-03',
@@ -354,6 +367,7 @@ describe('ga4Feed', () => {
     'finds the property by iOS bundle id and filters the report by its stream',
     findsThePropertyByIOSBundleIdAndFiltersTheReportByItsStream,
   );
+
   async function findsThePropertyByAndroidPackageName() {
     const twoPropertySummaries = readTwoPropertySummaries();
     const credentials = makeCredentials();
@@ -380,6 +394,7 @@ describe('ga4Feed', () => {
       notes: [],
       stats: [],
     });
+
     function someSent(sent: SentRequest) {
       return sent.url.includes('properties/222:runReport');
     }
@@ -388,6 +403,7 @@ describe('ga4Feed', () => {
   }
 
   test('finds the property by Android package name', findsThePropertyByAndroidPackageName);
+
   async function skipsWithATagHintWhenNoPropertyHasAStreamForTheApp() {
     const twoPropertySummaries = readTwoPropertySummaries();
     const credentials = makeCredentials();
@@ -402,6 +418,7 @@ describe('ga4Feed', () => {
     });
 
     const skippedReason = readSkippedReason(reply);
+
     expect(skippedReason).toBe(
       'No GA4 property with a stream for com.example.calfriend; tag one with launch-store apps tag --app calfriend --ga4-property <id>',
     );
@@ -411,6 +428,7 @@ describe('ga4Feed', () => {
     'skips with a tag hint when no property has a stream for the app',
     skipsWithATagHintWhenNoPropertyHasAStreamForTheApp,
   );
+
   async function usesTheTaggedPropertyAndFiltersByStreamWhenItHasOne() {
     const credentials = makeCredentials();
     const { reply, sentRequests } = await runFeed({
@@ -421,18 +439,23 @@ describe('ga4Feed', () => {
       ],
       credentials: credentials,
     });
+
     function findSent2(sent: SentRequest) {
       return sent.url == RUN_REPORT_URL;
     }
 
     const reportRequest = sentRequests.find(findSent2);
+
     expect(reply.status).toBe('fetched');
+
     function someSent2(sent: SentRequest) {
       return sent.url == ACCOUNT_SUMMARIES_URL;
     }
 
     expect(sentRequests.some(someSent2)).toBe(false);
+
     const sentQuery = readSentQuery(reportRequest);
+
     expect(sentQuery.dimensionFilter).toBeDefined();
   }
 
@@ -440,6 +463,7 @@ describe('ga4Feed', () => {
     'uses the tagged property and filters by stream when it has one',
     usesTheTaggedPropertyAndFiltersByStreamWhenItHasOne,
   );
+
   async function reportsTheWholeTaggedPropertyWithoutAStreamFilterWhenItHasNoStreamForTheApp() {
     const credentials = makeCredentials();
     const { reply, sentRequests } = await runFeed({
@@ -450,15 +474,19 @@ describe('ga4Feed', () => {
       ],
       credentials: credentials,
     });
+
     function findSent3(sent: SentRequest) {
       return sent.url == RUN_REPORT_URL;
     }
 
     const reportRequest = sentRequests.find(findSent3);
+
     expect(reply.status == 'fetched' && reply.notes).toEqual([
       'GA4 property 111 has no stream for this app, so the numbers cover the whole property',
     ]);
+
     const sentQuery = readSentQuery(reportRequest);
+
     expect(sentQuery.dimensionFilter).toBeUndefined();
   }
 
@@ -466,6 +494,7 @@ describe('ga4Feed', () => {
     'reports the whole tagged property without a stream filter when it has no stream for the app',
     reportsTheWholeTaggedPropertyWithoutAStreamFilterWhenItHasNoStreamForTheApp,
   );
+
   async function pagesTheAccountSummariesAndPieceStreams() {
     const credentials = makeCredentials();
     const { reply, sentRequests } = await runFeed({
@@ -515,6 +544,7 @@ describe('ga4Feed', () => {
     });
 
     expect(reply.status).toBe('fetched');
+
     function someSent3(sent: SentRequest) {
       return sent.url.endsWith('pageToken=streams-2');
     }
@@ -537,6 +567,7 @@ describe('ga4Feed', () => {
       ],
       credentials: credentials,
     });
+
     function filterSent(sent: SentRequest) {
       return sent.url == RUN_REPORT_URL;
     }
@@ -547,9 +578,11 @@ describe('ga4Feed', () => {
     }
 
     const reportQueries = sentRequests.filter(filterSent).map(mapSent);
+
     expect(reportQueries.map((reportQuery) => reportQuery.offset)).toEqual(['0', '1']);
     expect(reply.status == 'fetched' && reply.stats).toHaveLength(6);
   });
+
   async function skipsWithTheViewerHintWhenTheReportIsPermissionDenied() {
     const credentials = makeCredentials();
     const { reply } = await runFeed({
@@ -567,6 +600,7 @@ describe('ga4Feed', () => {
     });
 
     const skippedReason = readSkippedReason(reply);
+
     expect(skippedReason).toBe(
       'Add the launch Google service account as a Viewer on GA4 property 111',
     );
@@ -576,6 +610,7 @@ describe('ga4Feed', () => {
     'skips with the Viewer hint when the report is permission denied',
     skipsWithTheViewerHintWhenTheReportIsPermissionDenied,
   );
+
   async function skipsWithTheViewerHintWhenTheStreamListIsPermissionDenied() {
     const credentials = makeCredentials();
     const { reply } = await runFeed({
@@ -591,6 +626,7 @@ describe('ga4Feed', () => {
     });
 
     const skippedReason = readSkippedReason(reply);
+
     expect(skippedReason).toContain('Viewer on GA4 property 111');
   }
 
@@ -598,6 +634,7 @@ describe('ga4Feed', () => {
     'skips with the Viewer hint when the stream list is permission denied',
     skipsWithTheViewerHintWhenTheStreamListIsPermissionDenied,
   );
+
   async function skipsWithTheEnableLinkAndNoSecretsWhenAnAPIIsDisabled() {
     const credentials = makeCredentials();
     const { reply } = await runFeed({
@@ -624,6 +661,7 @@ describe('ga4Feed', () => {
     });
 
     const reason = readSkippedReason(reply);
+
     expect(reason).toBe(
       'Enable the analyticsadmin.googleapis.com API for the launch Google service account project: https://console.developers.google.com/apis/api/analyticsadmin.googleapis.com/overview?project=client-project',
     );
@@ -635,6 +673,7 @@ describe('ga4Feed', () => {
     'skips with the enable link and no secrets when an API is disabled',
     skipsWithTheEnableLinkAndNoSecretsWhenAnAPIIsDisabled,
   );
+
   async function skipsWhenPermissionIsDeniedWhileListingProperties() {
     const credentials = makeCredentials();
     const { reply } = await runFeed({
@@ -650,6 +689,7 @@ describe('ga4Feed', () => {
     });
 
     const skippedReason = readSkippedReason(reply);
+
     expect(skippedReason).toContain('refused to list properties');
   }
 
@@ -657,6 +697,7 @@ describe('ga4Feed', () => {
     'skips when permission is denied while listing properties',
     skipsWhenPermissionIsDeniedWhileListingProperties,
   );
+
   async function failsWithTheGoogleMessageOnAnyOtherError() {
     const credentials = makeCredentials();
     const message = await readFailureMessage({
@@ -677,6 +718,7 @@ describe('ga4Feed', () => {
     'fails with the Google message on any other error',
     failsWithTheGoogleMessageOnAnyOtherError,
   );
+
   async function failsWithTheHTTPStatusWhenAnErrorReplyIsNotJSON() {
     vi.stubGlobal('fetch', async function fetchHtml(): Promise<Response> {
       return new Response('<html>Bad Gateway</html>', { status: 502 });

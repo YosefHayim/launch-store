@@ -14,6 +14,7 @@ function describePlanCapabilityEntitlements() {
       profileEntitlements: { 'com.apple.security.application-groups': ['group.com.acme'] },
       existing: {},
     });
+
     expect(planned).toEqual([
       { key: 'com.apple.security.application-groups', value: ['group.com.acme'] },
     ]);
@@ -23,6 +24,7 @@ function describePlanCapabilityEntitlements() {
     'recovers a real identifier value from the provisioning profile',
     recoversARealIdentifierPieceFromTheProvisioningProfile,
   );
+
   function flagsAnEnabledCapabilityWithNEEDSVALUEAndAnOffMacNoteWhenNoProfileIsAvailable() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['APP_GROUPS'],
@@ -31,6 +33,7 @@ function describePlanCapabilityEntitlements() {
       existing: {},
     });
     const first = planned[0];
+
     expect(first).toBeDefined();
 
     if (first == null) {
@@ -45,6 +48,7 @@ function describePlanCapabilityEntitlements() {
     'flags an enabled capability with NEEDS_VALUE and an off-Mac note when no profile is available',
     flagsAnEnabledCapabilityWithNEEDSVALUEAndAnOffMacNoteWhenNoProfileIsAvailable,
   );
+
   function flagsAnEnabledCapabilityTheProfileOmitsWithAProfileGapNote() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['PUSH_NOTIFICATIONS'],
@@ -52,6 +56,7 @@ function describePlanCapabilityEntitlements() {
       profileEntitlements: {},
       existing: {},
     });
+
     expect(planned).toEqual([
       {
         key: 'aps-environment',
@@ -65,6 +70,7 @@ function describePlanCapabilityEntitlements() {
     'flags an enabled capability the profile omits with a profile-gap note',
     flagsAnEnabledCapabilityTheProfileOmitsWithAProfileGapNote,
   );
+
   function neverOverwritesAnEntitlementTheAppPieceAlreadyDeclares() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['APP_GROUPS'],
@@ -72,6 +78,7 @@ function describePlanCapabilityEntitlements() {
       profileEntitlements: { 'com.apple.security.application-groups': ['group.com.acme'] },
       existing: { 'com.apple.security.application-groups': ['group.existing'] },
     });
+
     expect(planned).toEqual([]);
   }
 
@@ -79,6 +86,7 @@ function describePlanCapabilityEntitlements() {
     'never overwrites an entitlement the app.json already declares',
     neverOverwritesAnEntitlementTheAppPieceAlreadyDeclares,
   );
+
   function ignoresAlwaysOnCapabilitiesThatCarryNoEntitlement() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['IN_APP_PURCHASE', 'GAME_CENTER'],
@@ -86,6 +94,7 @@ function describePlanCapabilityEntitlements() {
       profileEntitlements: {},
       existing: {},
     });
+
     expect(planned).toEqual([]);
   }
 
@@ -93,6 +102,7 @@ function describePlanCapabilityEntitlements() {
     'ignores always-on capabilities that carry no entitlement',
     ignoresAlwaysOnCapabilitiesThatCarryNoEntitlement,
   );
+
   function appendsCapabilitySettingsToANEEDSVALUENoteAsAdvisoryDetail() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['ICLOUD'],
@@ -101,6 +111,7 @@ function describePlanCapabilityEntitlements() {
       existing: {},
     });
     const first = planned[0];
+
     expect(first).toBeDefined();
 
     if (first == null) {
@@ -196,6 +207,7 @@ function describeCapabilitiesAdopter() {
         return ready(null);
       },
     });
+
     expect(await capabilitiesAdopter.read(appleCatalog, TARGET)).toEqual([]);
   }
 
@@ -203,6 +215,7 @@ function describeCapabilitiesAdopter() {
     "returns no writes when the bundle id isn't registered yet",
     returnsNoWritesWhenTheBundleIdIsnTRegisteredYet,
   );
+
   async function plansAppPieceEntitlementWritesForEnabledCapabilitiesWithNoProfileToRead() {
     const appleCatalog = emptyAdoptCatalog({
       listBundleIdCapabilities() {
@@ -213,8 +226,11 @@ function describeCapabilitiesAdopter() {
       },
     });
     const writes = await capabilitiesAdopter.read(appleCatalog, TARGET);
+
     expect(writes).toHaveLength(1);
+
     const firstWrite = writes[0];
+
     expect(firstWrite).toBeDefined();
 
     if (firstWrite == null) {

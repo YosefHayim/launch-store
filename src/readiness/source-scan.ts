@@ -47,6 +47,7 @@ async function readIgnoredDirectories(sourceRoot: string): Promise<Set<string>> 
 
   for (const rawLine of gitignoreSource.split('\n')) {
     let ignorePattern = rawLine.trim();
+
     const isBlank = ignorePattern.length == 0;
 
     if (isBlank) {
@@ -201,6 +202,7 @@ export async function walkAppSource(
       }
 
       scannedFileCount += 1;
+
       const scanStopped = await inspectFile(entryPath, extname(entryName).toLowerCase());
 
       if (scanStopped) {

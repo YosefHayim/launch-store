@@ -8,6 +8,7 @@ import {
 function describeParsePlayPrice() {
   function normalizesDecimalMoneyToWholeUnitsAndNanos() {
     const playPrice = parsePlayPrice('007.50', 'eur');
+
     expect(playPrice).toEqual({
       currencyCode: 'EUR',
       units: '7',
@@ -19,8 +20,10 @@ function describeParsePlayPrice() {
     'normalizes decimal money to whole units and nanos',
     normalizesDecimalMoneyToWholeUnitsAndNanos,
   );
+
   function acceptsWholeAmountsAndTheFullNineDecimalPrecision() {
     const playPrice = parsePlayPrice('600', 'JPY');
+
     expect(playPrice).toEqual({
       currencyCode: 'JPY',
       units: '600',
@@ -37,22 +40,26 @@ function describeParsePlayPrice() {
     'accepts whole amounts and the full nine-decimal precision',
     acceptsWholeAmountsAndTheFullNineDecimalPrecision,
   );
+
   function returnsTypedFailuresForInvalidCurrencyAmountAndZero() {
     function callParsePlayPrice() {
       return parsePlayPrice('4.99', 'US');
     }
 
     expect(callParsePlayPrice).toThrow(/3-letter ISO code/);
+
     function callParsePlayPrice2() {
       return parsePlayPrice('-1', 'USD');
     }
 
     expect(callParsePlayPrice2).toThrow(/non-negative decimal/);
+
     function callParsePlayPrice3() {
       return parsePlayPrice('4.9999999999', 'USD');
     }
 
     expect(callParsePlayPrice3).toThrow(/non-negative decimal/);
+
     function callParsePlayPrice4() {
       return parsePlayPrice('0', 'USD');
     }
@@ -70,6 +77,7 @@ describe('parsePlayPrice', describeParsePlayPrice);
 function describeFormatPlayMoney() {
   function rendersWholeTwoDecimalAndHighPrecisionMoney() {
     const playMoney = formatPlayMoney({ currencyCode: 'JPY', units: '600', nanos: 0 });
+
     expect(playMoney).toBe('JPY 600');
     expect(formatPlayMoney({ currencyCode: 'USD', units: '4', nanos: 500000000 })).toBe('USD 4.50');
     expect(formatPlayMoney({ currencyCode: 'USD', units: '4', nanos: 123456789 })).toBe(
@@ -91,6 +99,7 @@ function describePlayPricingCommandPieceSchema() {
       currency: 'USD',
       json: false,
     });
+
     expect(playPricingCommandSchema).toEqual({ amount: '4.99', currency: 'USD', json: false });
   }
 
@@ -98,6 +107,7 @@ function describePlayPricingCommandPieceSchema() {
     'decodes the Commander boundary without an app selector',
     decodesTheCommanderBoundaryWithoutAnAppSelector,
   );
+
   function rejectsAnExplicitUndefinedExactOptionalApp() {
     function callPlayPricingCommandPieceSchema() {
       return PlayPricingCommandInputSchema({
@@ -135,6 +145,7 @@ function describeRenderRecommendedPrices() {
         },
       },
     );
+
     expect(recommendedPrices).toContain('DE  EUR 4.49');
   }
 

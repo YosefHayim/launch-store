@@ -21,16 +21,19 @@ export function registerSnapshotCommand(program: Command): void {
   const snapshotCommand = program
     .command('snapshot')
     .description('capture, diff, and export point-in-time copies of live store state (read-only)');
+
   function runCreateName(name: string | undefined, commandOptions: CaptureOptions) {
     if (name == null) {
       const snapshotProgram = snapshotCommandProgram({ operation: 'create', ...commandOptions });
       return runCliProgram(snapshotProgram);
     }
+
     const snapshotProgram = snapshotCommandProgram({
       operation: 'create',
       name,
       ...commandOptions,
     });
+
     return runCliProgram(snapshotProgram);
   }
 
@@ -40,6 +43,7 @@ export function registerSnapshotCommand(program: Command): void {
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
     .action(runCreateName);
+
   function runList(commandOptions: { json?: boolean }) {
     const snapshotProgram = snapshotCommandProgram({ operation: 'list', ...commandOptions });
     return runCliProgram(snapshotProgram);
@@ -50,19 +54,23 @@ export function registerSnapshotCommand(program: Command): void {
     .description('list saved snapshots, newest first')
     .option('--json', 'machine-readable output for CI/agents', false)
     .action(runList);
+
   function runDiffBaselineAgainst(
     baseline: string,
     against: string | undefined,
     commandOptions: CaptureOptions,
   ) {
     let comparisonName = against;
+
     if (comparisonName == null) comparisonName = 'live';
+
     const snapshotProgram = snapshotCommandProgram({
       operation: 'diff',
       baseline,
       against: comparisonName,
       ...commandOptions,
     });
+
     return runCliProgram(snapshotProgram);
   }
 
@@ -74,12 +82,14 @@ export function registerSnapshotCommand(program: Command): void {
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
     .action(runDiffBaselineAgainst);
+
   function runExportName(name: string, commandOptions: { out?: string }) {
     const snapshotProgram = snapshotCommandProgram({
       operation: 'export',
       name,
       ...commandOptions,
     });
+
     return runCliProgram(snapshotProgram);
   }
 
@@ -88,12 +98,14 @@ export function registerSnapshotCommand(program: Command): void {
     .description('print a saved snapshot as JSON, or write it to a file with --out')
     .option('--out <file>', 'write the snapshot JSON to this file instead of stdout')
     .action(runExportName);
+
   function runDeleteName(name: string, commandOptions: { json?: boolean }) {
     const snapshotProgram = snapshotCommandProgram({
       operation: 'delete',
       name,
       ...commandOptions,
     });
+
     return runCliProgram(snapshotProgram);
   }
 
@@ -102,11 +114,13 @@ export function registerSnapshotCommand(program: Command): void {
     .description('delete a saved snapshot by name')
     .option('--json', 'machine-readable output for CI/agents', false)
     .action(runDeleteName);
+
   function runPrune(commandOptions: PruneOptions) {
     const snapshotProgram = snapshotCommandProgram({
       operation: 'prune',
       options: commandOptions,
     });
+
     return runCliProgram(snapshotProgram);
   }
 
@@ -120,12 +134,14 @@ export function registerSnapshotCommand(program: Command): void {
     .option('--yes', 'actually delete (without it, a dry-run preview is shown)', false)
     .option('--json', 'machine-readable output for CI/agents', false)
     .action(runPrune);
+
   function runRestoreName(name: string, commandOptions: RestoreOptions) {
     const snapshotProgram = snapshotCommandProgram({
       operation: 'restore',
       name,
       ...commandOptions,
     });
+
     return runCliProgram(snapshotProgram);
   }
 

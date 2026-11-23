@@ -7,12 +7,14 @@ function describeResolveReleaseConfirmationMode() {
   }
 
   it('confirms immediately when --yes was passed', confirmsImmediatelyWhenYesWasPassed);
+
   function allowsTheCLIToPromptWhenATTYIsAvailable() {
     const releaseConfirmationMode = resolveReleaseConfirmationMode({ yes: false, canPrompt: true });
     expect(releaseConfirmationMode).toBe('prompt');
   }
 
   it('allows the CLI to prompt when a TTY is available', allowsTheCLIToPromptWhenATTYIsAvailable);
+
   function failsClearlyWhenANonInteractiveReleaseHasNoYes() {
     function callResolveReleaseConfirmationMode() {
       return resolveReleaseConfirmationMode({ yes: false, canPrompt: false });
@@ -30,6 +32,7 @@ function describeResolveReleaseConfirmationMode() {
     'fails clearly when a non-interactive release has no --yes',
     failsClearlyWhenANonInteractiveReleaseHasNoYes,
   );
+
   function usesTheTypedConfirmationRequiredError() {
     const error = makeReleaseConfirmationRequired({ message: 'needs approval' });
 

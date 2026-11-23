@@ -91,6 +91,7 @@ function appDescriptor(
 function describeDescribeAdoptSignal() {
   function joinsLiveVersionAndBuildCountWithSingularBuildLabel() {
     const adoptSignal = describeAdoptSignal('2.1', 12);
+
     expect(adoptSignal).toBe('v2.1 live - 12 builds');
     expect(describeAdoptSignal('1.0', 1)).toBe('v1.0 live - 1 build');
     expect(describeAdoptSignal(null, 0)).toBe('registered, no builds yet');
@@ -129,8 +130,11 @@ function describeDetectTargets() {
         hasLaunchConfig: false,
       },
     );
+
     expect(detection.detected).toHaveLength(1);
+
     const detectedApp = detection.detected[0];
+
     expect(detectedApp).toBeDefined();
 
     if (detectedApp == null) {
@@ -138,6 +142,7 @@ function describeDetectTargets() {
     }
 
     expect(detectedApp.signal).toBe('v2.1 live - 12 builds');
+
     function mapSkipped(skipped: { readonly app: AppDescriptor; readonly reason: string }) {
       return `${skipped.app.name}: ${skipped.reason}`;
     }
@@ -197,6 +202,7 @@ function describePlanTargets() {
       goodAdopter,
       badAdopter,
     ]);
+
     expect(targetPlan).toBeDefined();
 
     if (targetPlan == null) {
@@ -254,6 +260,7 @@ function describeCollectAdoptedProducts() {
         errors: [],
       },
     ]);
+
     expect(products).toEqual({
       'com.acme.app': { inAppPurchases: [iap] },
     });
@@ -268,6 +275,7 @@ function describeCollectAdoptedProducts() {
 describe('collectAdoptedProducts', describeCollectAdoptedProducts);
 function describeApplyAdopt() {
   let workspaceDir: string;
+
   function prepareApplyAdopt() {
     const systemTemporaryDirectory = tmpdir();
     const launchAdoptTestPath = join(systemTemporaryDirectory, 'launch-adopt-test-');
@@ -275,6 +283,7 @@ function describeApplyAdopt() {
   }
 
   beforeEach(prepareApplyAdopt);
+
   function cleanupApplyAdopt() {
     rmSync(workspaceDir, { recursive: true, force: true });
   }
@@ -335,9 +344,12 @@ function describeApplyAdopt() {
       apply,
     );
     const launchPath = join(workspaceDir, 'launch.config.ts');
+
     expect(adoptionSummary.configWritten).toBe(launchPath);
+
     const joinedPath = join(workspaceDir, 'launch.config.ts');
     const written = readFileSync(joinedPath, 'utf8');
+
     expect(written).toContain('"com.acme.app"');
     expect(written).toContain('"com.acme.coins"');
   }
@@ -346,6 +358,7 @@ function describeApplyAdopt() {
     'writes a fresh launch.config.ts with the imported products when the repo has none',
     writesAFreshLaunchPieceTsWithTheImportedProductsWhenTheRepoHasNone,
   );
+
   async function printsDoesNotSpliceTheProductsBlockWhenALaunchPieceTsAlreadyExists() {
     const target: AdoptTarget = {
       app: appDescriptor('acme', 'com.acme.app'),
@@ -376,6 +389,7 @@ function describeApplyAdopt() {
         pullListing: pullNothing,
       },
     );
+
     expect(adoptionSummary.configWritten).toBeUndefined();
     expect(adoptionSummary.configBlock).toContain('products: {');
   }
@@ -384,6 +398,7 @@ function describeApplyAdopt() {
     'prints (does not splice) the products block when a launch.config.ts already exists',
     printsDoesNotSpliceTheProductsBlockWhenALaunchPieceTsAlreadyExists,
   );
+
   async function patchesAStaticAppPieceSEntitlementsAndReportsTheAddedKeys() {
     const configPath = join(workspaceDir, 'app.json');
     const serialized = JSON.stringify(
@@ -391,7 +406,9 @@ function describeApplyAdopt() {
       null,
       2,
     );
+
     writeFileSync(configPath, serialized);
+
     const target: AdoptTarget = {
       app: appDescriptor('acme', 'com.acme.app', configPath),
       appId: 'a',
@@ -417,11 +434,14 @@ function describeApplyAdopt() {
         pullListing: pullNothing,
       },
     );
+
     expect(adoptionSummary.appJsonPatched).toEqual([
       { app: 'acme', configPath, added: ['aps-environment'] },
     ]);
+
     const loadedFile = readFileSync(configPath, 'utf8');
     const patchedDocument: unknown = JSON.parse(loadedFile);
+
     expect(patchedDocument).toMatchObject({
       expo: { ios: { entitlements: { 'aps-environment': 'production' } } },
     });
@@ -431,6 +451,7 @@ function describeApplyAdopt() {
     "patches a static app.json's entitlements and reports the added keys",
     patchesAStaticAppPieceSEntitlementsAndReportsTheAddedKeys,
   );
+
   async function printsAPasteBlockWritesNothingForADynamicAppPieceJs() {
     const configPath = join(workspaceDir, 'app.config.js');
     const target: AdoptTarget = {
@@ -458,9 +479,12 @@ function describeApplyAdopt() {
         pullListing: pullNothing,
       },
     );
+
     expect(adoptionSummary.appJsonPatched).toEqual([]);
     expect(adoptionSummary.appJsonBlocks).toHaveLength(1);
+
     const pasteBlock = adoptionSummary.appJsonBlocks[0];
+
     expect(pasteBlock).toBeDefined();
 
     if (pasteBlock == null) {
@@ -474,6 +498,7 @@ function describeApplyAdopt() {
     'prints a paste block (writes nothing) for a dynamic app.config.js',
     printsAPasteBlockWritesNothingForADynamicAppPieceJs,
   );
+
   async function delegatesAListingPullAndRecordsSuccessCapturesADelegateFailure() {
     const target: AdoptTarget = {
       app: appDescriptor('acme', 'com.acme.app'),
@@ -503,6 +528,7 @@ function describeApplyAdopt() {
       appRoot: null,
       pullListing: successfulPull,
     });
+
     expect(successfulPull).toHaveBeenCalledWith('com.acme.app', storeConfig);
     expect(successfulAdoption.listingsPulled).toEqual(['acme']);
 
@@ -517,6 +543,7 @@ function describeApplyAdopt() {
       appRoot: null,
       pullListing: failedPull,
     });
+
     expect(failedAdoption.listingErrors).toEqual([
       { app: 'acme', message: 'App Store Connect unreachable' },
     ]);

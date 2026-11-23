@@ -30,12 +30,16 @@ function describeFirstRunPiece() {
     'reads as unseen when the state file does not exist',
     readsAsUnseenWhenThePieceFileDoesNotExist,
   );
+
   async function treatsMalformedPieceAsUnseen() {
     const launchHome = join(temporaryHome, '.launch');
     const stateFile = join(launchHome, 'state.json');
+
     mkdirSync(launchHome, { recursive: true });
     writeFileSync(stateFile, '{ not json');
+
     const readFirstRun = readFirstRunState();
+
     await expect(readFirstRun).resolves.toEqual({});
   }
 

@@ -39,12 +39,14 @@ function describeReconcileExportCompliance() {
       ...BASE,
       usesNonExemptEncryption: undefined,
     });
+
     expect(complianceOutcome).toEqual({ status: 'undeclared' });
     expect(api.findBuild).not.toHaveBeenCalled();
     expect(api.setBuildUsesNonExemptEncryption).not.toHaveBeenCalled();
   }
 
   it('does nothing when the app declares no answer', doesNothingWhenTheAppDeclaresNoAnswer);
+
   async function reportsBuildNotFoundWhenTheBuildHasnTIngestedYet() {
     function mockCall5() {
       return Promise.resolve(null);
@@ -55,6 +57,7 @@ function describeReconcileExportCompliance() {
       ...BASE,
       usesNonExemptEncryption: false,
     });
+
     expect(complianceOutcome).toEqual({ status: 'build-not-found', buildNumber: 42 });
     expect(api.setBuildUsesNonExemptEncryption).not.toHaveBeenCalled();
   }
@@ -63,6 +66,7 @@ function describeReconcileExportCompliance() {
     "reports build-not-found when the build hasn't ingested yet",
     reportsBuildNotFoundWhenTheBuildHasnTIngestedYet,
   );
+
   async function isANoOpWhenTheBuildAlreadyCarriesTheDesiredAnswer() {
     function mockCall6() {
       return Promise.resolve({ id: 'build1', usesNonExemptEncryption: false });
@@ -75,6 +79,7 @@ function describeReconcileExportCompliance() {
       ...BASE,
       usesNonExemptEncryption: false,
     });
+
     expect(complianceOutcome).toEqual({
       status: 'already-answered',
       usesNonExemptEncryption: false,
@@ -87,12 +92,14 @@ function describeReconcileExportCompliance() {
     'is a no-op when the build already carries the desired answer',
     isANoOpWhenTheBuildAlreadyCarriesTheDesiredAnswer,
   );
+
   async function answersTheNoExemptEncryptionCaseWithASingleBuildWrite() {
     const api = makeApi();
     const complianceOutcome = await reconcileExportCompliance(api, {
       ...BASE,
       usesNonExemptEncryption: false,
     });
+
     expect(complianceOutcome).toEqual({ status: 'answered', usesNonExemptEncryption: false });
     expect(api.setBuildUsesNonExemptEncryption).toHaveBeenCalledWith('build1', false);
     expect(api.linkBuildToDeclaration).not.toHaveBeenCalled();
@@ -102,6 +109,7 @@ function describeReconcileExportCompliance() {
     'answers the no/exempt-encryption case with a single build write',
     answersTheNoExemptEncryptionCaseWithASingleBuildWrite,
   );
+
   async function reusesAnApprovedDeclarationForNonExemptEncryption() {
     function mockCall7() {
       return Promise.resolve([
@@ -117,6 +125,7 @@ function describeReconcileExportCompliance() {
       ...BASE,
       usesNonExemptEncryption: true,
     });
+
     expect(complianceOutcome).toEqual({
       status: 'reused-declaration',
       declarationId: 'decl-good',
@@ -129,6 +138,7 @@ function describeReconcileExportCompliance() {
     'reuses an approved declaration for non-exempt encryption',
     reusesAnApprovedDeclarationForNonExemptEncryption,
   );
+
   async function flagsNeedsDeclarationWhenNoApprovedDeclarationExistsToReuse() {
     function mockCall8() {
       return Promise.resolve([{ id: 'decl-pending', state: 'IN_REVIEW' }]);
@@ -141,6 +151,7 @@ function describeReconcileExportCompliance() {
       ...BASE,
       usesNonExemptEncryption: true,
     });
+
     expect(complianceOutcome).toEqual({ status: 'needs-declaration' });
     expect(api.setBuildUsesNonExemptEncryption).toHaveBeenCalledWith('build1', true);
     expect(api.linkBuildToDeclaration).not.toHaveBeenCalled();
@@ -164,6 +175,7 @@ function describeDescribeExportCompliancePiece() {
     'treats an explicit false as clean (self-answering binary)',
     treatsAnExplicitFalseAsCleanSelfAnsweringBinary,
   );
+
   function flagsTrueAsDeclaredButOwingADocumentedDeclaration() {
     const status = describeExportComplianceConfig(true);
     expect(status.ok).toBe(false);
@@ -174,6 +186,7 @@ function describeDescribeExportCompliancePiece() {
     'flags true as declared-but-owing a documented declaration',
     flagsTrueAsDeclaredButOwingADocumentedDeclaration,
   );
+
   function flagsAnUnsetFieldAsNotDeclared() {
     const status = describeExportComplianceConfig(undefined);
     expect(status.ok).toBe(false);
@@ -187,6 +200,7 @@ describe('describeExportComplianceConfig', describeDescribeExportCompliancePiece
 function describeSummarizeExportCompliancePiece() {
   function rendersADistinctLinePerPiece() {
     const summarizeExportCompliance = summarizeExportComplianceResult({ status: 'undeclared' });
+
     expect(summarizeExportCompliance).toContain('left as-is');
     expect(
       summarizeExportComplianceResult({ status: 'build-not-found', buildNumber: 7 }),

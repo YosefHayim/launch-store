@@ -7,6 +7,7 @@ function describeRenderAction() {
       destructive: false,
       status: 'planned',
     });
+
     expect(storeSurfaceAction).toBe('+ create experiment "Icon Test" (50% traffic)');
     expect(
       renderStoreSurfaceAction({
@@ -18,6 +19,7 @@ function describeRenderAction() {
   }
 
   it('marks a change with +, a skip with -', marksAChangeWithASkipWith);
+
   function rendersAFailedActionWithXAndAppleSErrorDetail() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'create experiment "Icon Test" (50% traffic)',
@@ -25,6 +27,7 @@ function describeRenderAction() {
       status: 'failed',
       error: 'name already in use',
     });
+
     expect(storeSurfaceAction).toBe(
       'x create experiment "Icon Test" (50% traffic) - name already in use',
     );

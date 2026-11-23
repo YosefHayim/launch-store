@@ -7,6 +7,7 @@ function describeCustomProductPagesCommandPieceSchema() {
       dryRun: true,
       yes: false,
     });
+
     expect(customProductPagesCommandSchema).toEqual({
       config: 'custom-pages.config.json',
       dryRun: true,
@@ -18,6 +19,7 @@ function describeCustomProductPagesCommandPieceSchema() {
     'decodes the Commander boundary with an omitted app selector',
     decodesTheCommanderBoundaryWithAnOmittedAppSelector,
   );
+
   function rejectsAnExplicitUndefinedExactOptionalApp() {
     function callCustomProductPagesCommandPieceSchema() {
       return CustomProductPagesCommandInputSchema({

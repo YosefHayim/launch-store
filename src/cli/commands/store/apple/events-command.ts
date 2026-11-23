@@ -82,6 +82,7 @@ function renderAppEvent(appEvent: AppEventWithLocalizations): string {
   const event = appEvent.event;
   const localizations = appEvent.localizations;
   const eventDetails = [event.badge, event.eventState].filter(isPresentDetail);
+
   const hasPrimaryLocale = event.primaryLocale != null;
 
   if (hasPrimaryLocale) {
@@ -89,6 +90,7 @@ function renderAppEvent(appEvent: AppEventWithLocalizations): string {
   }
 
   const eventLines = [`${event.id}  ${event.referenceName}`];
+
   const hasDetails = eventDetails.length > 0;
 
   if (hasDetails) {
@@ -103,6 +105,7 @@ function renderAppEvent(appEvent: AppEventWithLocalizations): string {
 
   for (const localization of localizations) {
     let localizedName = '(no name)';
+
     const hasName = localization.name != null;
 
     if (hasName) {
@@ -128,6 +131,7 @@ async function listEventsProgram(
     const appleStore = await loadActiveAppleStore();
     const appEvents = await listEvents(appleStore, bundleId);
     const logger = createLogger(false);
+
     const wantsJson = commandInput.json == true;
 
     if (wantsJson) {
@@ -146,7 +150,9 @@ async function listEventsProgram(
     }
 
     logger.line(appEvents.map(eventBlock).join('\n\n'));
+
     let eventSuffix = 's';
+
     const isSingleEvent = appEvents.length == 1;
 
     if (isSingleEvent) {
@@ -173,6 +179,7 @@ async function createEventProgram(commandInput: CreateEventCommandInput): Promis
       purpose: commandInput.purpose,
     });
     let eventState = 'DRAFT';
+
     const hasEventState = createdEvent.eventState != null;
 
     if (hasEventState) {
@@ -180,6 +187,7 @@ async function createEventProgram(commandInput: CreateEventCommandInput): Promis
     }
 
     const logger = createLogger(false);
+
     logger.step(
       'event created',
       `${createdEvent.id} - ${createdEvent.referenceName} (${eventState})`,
@@ -200,6 +208,7 @@ async function localizeEventProgram(commandInput: LocalizeEventCommandInput): Pr
       longDescription: commandInput.long,
     });
     let operationLabel = 'localization created';
+
     const replacedExisting = localizationOutcome.replaced == true;
 
     if (replacedExisting) {
@@ -207,6 +216,7 @@ async function localizeEventProgram(commandInput: LocalizeEventCommandInput): Pr
     }
 
     const logger = createLogger(false);
+
     logger.step(
       operationLabel,
       `[${localizationOutcome.localization.locale}] ${commandInput.eventId}`,
@@ -225,6 +235,7 @@ async function deleteEventProgram(
 
     if (skipConfirmation == false) {
       const terminalIsInteractive = checkTerminalIsInteractive();
+
       const needsATerminal = terminalIsInteractive == false;
 
       if (needsATerminal) {
@@ -236,6 +247,7 @@ async function deleteEventProgram(
       }
 
       const confirmed = await LaunchPrompt.confirm(`Delete in-app event ${commandInput.eventId}?`);
+
       const declined = confirmed == false;
 
       if (declined) {
@@ -245,8 +257,11 @@ async function deleteEventProgram(
     }
 
     const appleStore = await loadActiveAppleStore();
+
     await deleteEvent(appleStore, commandInput.eventId);
+
     const logger = createLogger(false);
+
     logger.step('event deleted', commandInput.eventId);
   } catch (cause) {
     throw eventsFailure('delete', cause);

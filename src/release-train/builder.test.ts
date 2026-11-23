@@ -68,6 +68,7 @@ function describeCreateTrainRuntimePureHelpers() {
     'accepts only processed, non-expired App Store builds',
     acceptsOnlyProcessedNonExpiredAppStoreBuilds,
   );
+
   function matchesStoredAndroidBuildsByAppNameAndPlatform() {
     const buildProgram = isStoredAndroidBuild({ appName: 'Demo', platform: 'android' }, 'Demo');
     expect(buildProgram).toBe(true);
@@ -79,6 +80,7 @@ function describeCreateTrainRuntimePureHelpers() {
     'matches stored Android builds by app name and platform',
     matchesStoredAndroidBuildsByAppNameAndPlatform,
   );
+
   function namesTheMarketingVersionFixInTheFailureMessage() {
     expect(marketingVersionMissingMessage('Demo')).toContain('Demo');
     expect(marketingVersionMissingMessage('Demo')).toContain('version');
@@ -88,6 +90,7 @@ function describeCreateTrainRuntimePureHelpers() {
     'names the marketing-version fix in the failure message',
     namesTheMarketingVersionFixInTheFailureMessage,
   );
+
   function keepsOnlyNonEmptyMarketingVersions() {
     expect(usableMarketingVersion(undefined)).toBeNull();
     expect(usableMarketingVersion('')).toBeNull();
@@ -112,6 +115,7 @@ function describeCreateTrainRuntimeEngineGuardsFailLoudlyBeforeAnyStoreCall() {
     'rejects an iOS submit when the app declares no bundle id',
     rejectsAnIOSSubmitWhenTheAppDeclaresNoBundleId,
   );
+
   async function rejectsAnAndroidSubmitWhenTheAppDeclaresNoPackageName() {
     await expect(
       engineFor({ bundleId: 'com.demo' }).submitNative(androidCar),
@@ -125,6 +129,7 @@ function describeCreateTrainRuntimeEngineGuardsFailLoudlyBeforeAnyStoreCall() {
     'rejects an Android submit when the app declares no package name',
     rejectsAnAndroidSubmitWhenTheAppDeclaresNoPackageName,
   );
+
   async function rejectsAnOTAPublishWhenStorageIsNotACloudProvider() {
     await expect(
       engineFor({ bundleId: 'com.demo' }, { storage: 'local' }).publishOta(otaCar),
@@ -138,6 +143,7 @@ function describeCreateTrainRuntimeEngineGuardsFailLoudlyBeforeAnyStoreCall() {
     'rejects an OTA publish when storage is not a cloud provider',
     rejectsAnOTAPublishWhenStorageIsNotACloudProvider,
   );
+
   async function keepsANativeCarPutOnReadWhenItsPlatformIsUndeclaredNoClientConstructed() {
     expect(await engineFor({ packageName: 'com.demo' }).readNative(iosCar)).toBe('building');
     expect(await engineFor({ bundleId: 'com.demo' }).readNative(androidCar)).toBe('building');
@@ -147,6 +153,7 @@ function describeCreateTrainRuntimeEngineGuardsFailLoudlyBeforeAnyStoreCall() {
     'keeps a native car put on read when its platform is undeclared (no client constructed)',
     keepsANativeCarPutOnReadWhenItsPlatformIsUndeclaredNoClientConstructed,
   );
+
   async function isANoOpToReleaseANonIOSCarOrAnIOSCarWithNoBundleId() {
     await expect(
       engineFor({ bundleId: 'com.demo' }).releaseNative(androidCar),

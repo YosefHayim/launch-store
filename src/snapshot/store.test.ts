@@ -34,6 +34,7 @@ function snap(over: Partial<Snapshot> = {}): Snapshot {
 }
 function describeSnapshotStore() {
   let dir: string;
+
   function prepareSnapshotStore() {
     const systemTemporaryDirectory = tmpdir();
     const launchSnapshotsPath = join(systemTemporaryDirectory, 'launch-snapshots-');
@@ -41,11 +42,13 @@ function describeSnapshotStore() {
   }
 
   beforeEach(prepareSnapshotStore);
+
   function cleanupSnapshotStore() {
     rmSync(dir, { recursive: true, force: true });
   }
 
   afterEach(cleanupSnapshotStore);
+
   async function roundTripsASnapshotThroughSaveLoadUnchanged() {
     const snapshot = snap();
     await saveSnapshot(snapshot, dir);
@@ -56,6 +59,7 @@ function describeSnapshotStore() {
     'round-trips a snapshot through save -> load unchanged',
     roundTripsASnapshotThroughSaveLoadUnchanged,
   );
+
   async function preservesPerAppSkipReasonsWhenSavingAPartialCapture() {
     const snapshot = snap({
       reports: [
@@ -73,6 +77,7 @@ function describeSnapshotStore() {
         },
       ],
     });
+
     await saveSnapshot(snapshot, dir);
     expect(await loadSnapshot(snapshot.name, dir)).toEqual(snapshot);
   }
@@ -81,12 +86,17 @@ function describeSnapshotStore() {
     'preserves per-app skip reasons when saving a partial capture',
     preservesPerAppSkipReasonsWhenSavingAPartialCapture,
   );
+
   async function overwritesASnapshotReSavedUnderTheSameName() {
     await saveSnapshot(snap({ capturedAt: '2026-06-16T00:00:00.000Z' }), dir);
     await saveSnapshot(snap({ capturedAt: '2026-06-16T12:00:00.000Z' }), dir);
+
     const snapshot = await loadSnapshot('before-sync', dir);
+
     expect(snapshot?.capturedAt).toBe('2026-06-16T12:00:00.000Z');
+
     const snapshots = await listSnapshots(dir);
+
     expect(snapshots).toHaveLength(1);
   }
 
@@ -94,19 +104,26 @@ function describeSnapshotStore() {
     'overwrites a snapshot re-saved under the same name',
     overwritesASnapshotReSavedUnderTheSameName,
   );
+
   async function returnsNullForAnUnknownName() {
     const snapshot = await loadSnapshot('nope', dir);
     expect(snapshot).toBeNull();
   }
 
   it('returns null for an unknown name', returnsNullForAnUnknownName);
+
   async function toleratesACorruptPieceReadsAsNullSkipsItInLists() {
     const brokenPath = join(dir, 'broken.json');
+
     writeFileSync(brokenPath, '{ not json');
     await saveSnapshot(snap(), dir);
+
     const snapshot = await loadSnapshot('broken', dir);
+
     expect(snapshot).toBeNull();
+
     const snapshots = await listSnapshots(dir);
+
     expect(snapshots).toHaveLength(1);
   }
 
@@ -114,9 +131,11 @@ function describeSnapshotStore() {
     'tolerates a corrupt record (reads as null, skips it in lists)',
     toleratesACorruptPieceReadsAsNullSkipsItInLists,
   );
+
   async function listsSnapshotsNewestFirstByCapturedAt() {
     await saveSnapshot(snap({ name: 'old', capturedAt: '2026-06-10T00:00:00.000Z' }), dir);
     await saveSnapshot(snap({ name: 'new', capturedAt: '2026-06-15T00:00:00.000Z' }), dir);
+
     function readName(snapshot: {
       readonly version: number;
       readonly name: string;
@@ -130,6 +149,7 @@ function describeSnapshotStore() {
   }
 
   it('lists snapshots newest-first by capturedAt', listsSnapshotsNewestFirstByCapturedAt);
+
   async function returnsAnEmptyListWhenNoSnapshotsDirectoryExists() {
     const missingPath = join(dir, 'missing');
     const snapshots = await listSnapshots(missingPath);
@@ -140,11 +160,13 @@ function describeSnapshotStore() {
     'returns an empty list when no snapshots directory exists',
     returnsAnEmptyListWhenNoSnapshotsDirectoryExists,
   );
+
   async function prunesTheOldestPrefixedSnapshotsBeyondTheRetentionWindow() {
     await saveSnapshot(snap({ name: 'pre-sync-1', capturedAt: '2026-06-10T00:00:00.000Z' }), dir);
     await saveSnapshot(snap({ name: 'pre-sync-2', capturedAt: '2026-06-11T00:00:00.000Z' }), dir);
     await saveSnapshot(snap({ name: 'pre-sync-3', capturedAt: '2026-06-12T00:00:00.000Z' }), dir);
     expect(await pruneSnapshots('pre-sync-', 2, dir)).toEqual(['pre-sync-1']);
+
     function readName2(snapshot: {
       readonly version: number;
       readonly name: string;
@@ -161,11 +183,13 @@ function describeSnapshotStore() {
     'prunes the oldest prefixed snapshots beyond the retention window',
     prunesTheOldestPrefixedSnapshotsBeyondTheRetentionWindow,
   );
+
   async function neverPrunesASnapshotWhoseNameDoesNotPieceThePrefix() {
     await saveSnapshot(snap({ name: 'manual', capturedAt: '2026-06-09T00:00:00.000Z' }), dir);
     await saveSnapshot(snap({ name: 'pre-sync-1', capturedAt: '2026-06-10T00:00:00.000Z' }), dir);
     await saveSnapshot(snap({ name: 'pre-sync-2', capturedAt: '2026-06-11T00:00:00.000Z' }), dir);
     expect(await pruneSnapshots('pre-sync-', 1, dir)).toEqual(['pre-sync-1']);
+
     function readName3(snapshot: {
       readonly version: number;
       readonly name: string;
@@ -182,10 +206,13 @@ function describeSnapshotStore() {
     'never prunes a snapshot whose name does not match the prefix',
     neverPrunesASnapshotWhoseNameDoesNotPieceThePrefix,
   );
+
   async function deletesASnapshotByNameReportingWhetherAFileWasRemoved() {
     await saveSnapshot(snap({ name: 'scratch' }), dir);
     expect(await deleteSnapshot('scratch', dir)).toBe(true);
+
     const snapshot = await loadSnapshot('scratch', dir);
+
     expect(snapshot).toBeNull();
     expect(await deleteSnapshot('scratch', dir)).toBe(false);
   }
@@ -204,6 +231,7 @@ function describePlanPrune() {
     snap({ name: 'd10', capturedAt: '2026-06-11T00:00:00.000Z' }),
     snap({ name: 'd30', capturedAt: '2026-05-22T00:00:00.000Z' }),
   ];
+
   function keepsTheNNewestMarkingTheRestForDeletion() {
     function readName4(saved: {
       readonly version: number;
@@ -218,6 +246,7 @@ function describePlanPrune() {
   }
 
   it('keeps the N newest, marking the rest for deletion', keepsTheNNewestMarkingTheRestForDeletion);
+
   function deletesSnapshotsOlderThanTheDayThreshold() {
     function readName5(saved: {
       readonly version: number;
@@ -232,6 +261,7 @@ function describePlanPrune() {
   }
 
   it('deletes snapshots older than the day threshold', deletesSnapshotsOlderThanTheDayThreshold);
+
   function unionsTheTwoRulesASnapshotMatchingEitherIsDeleted() {
     function readName6(saved: {
       readonly version: number;
@@ -252,6 +282,7 @@ function describePlanPrune() {
     'unions the two rules - a snapshot matching either is deleted',
     unionsTheTwoRulesASnapshotMatchingEitherIsDeleted,
   );
+
   function sortsByCapturedAtBeforeApplyingKeepRegardlessOfPieceOrder() {
     function filterSaved(
       saved:
@@ -267,6 +298,7 @@ function describePlanPrune() {
     }
 
     const shuffled = [snaps[1], snaps[2], snaps[0]].filter(filterSaved);
+
     function readName7(saved: {
       readonly version: number;
       readonly name: string;

@@ -8,23 +8,36 @@ import type {
 export class ConnectCustomProductPages {
   constructor(private readonly client: AscHost) {}
 
+  /**
+   * Get a list of all custom product pages for a specific app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appcustomproductpages
+   */
   async listCustomProductPages(appId: string): Promise<CustomProductPageResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
     }>(`/apps/${appId}/appCustomProductPages?limit=200&fields[appCustomProductPages]=name`);
+
     function flatMapCustomPage(customPage: {
       id: string;
       attributes: { name?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       const pageName = customPage.attributes.name;
+
       if (pageName == null) return [];
+
       return [{ id: customPage.id, name: pageName }];
     }
 
     return appleResources.flatMap(flatMapCustomPage);
   }
 
+  /**
+   * Add a custom product page for your app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-appcustomproductpages
+   */
   async createCustomProductPage(appId: string, name: string): Promise<CustomProductPageResource> {
     const appleResources = await this.client.createResource<Record<string, never>>(
       '/appCustomProductPages',
@@ -34,28 +47,42 @@ export class ConnectCustomProductPages {
         relationships: { app: { data: { type: 'apps', id: appId } } },
       },
     );
+
     return { id: appleResources.id, name };
   }
 
+  /**
+   * List the versions for a custom product page version.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appcustomproductpages-_id_-appcustomproductpageversions
+   */
   async listCustomProductPageVersions(pageId: string): Promise<CustomProductPageVersionResource[]> {
     const appleResources = await this.client.requestAll<{
       state?: string;
     }>(
       `/appCustomProductPages/${pageId}/appCustomProductPageVersions?limit=200&fields[appCustomProductPageVersions]=state`,
     );
+
     function mapVersion(version: {
       id: string;
       attributes: { state?: string };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       let state = version.attributes.state;
+
       if (state == null) state = '';
+
       return { id: version.id, state };
     }
 
     return appleResources.map(mapVersion);
   }
 
+  /**
+   * List all localizations for an app custom product page.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appcustomproductpageversions-_id_-appcustomproductpagelocalizations
+   */
   async listCustomProductPageLocalizations(
     versionId: string,
   ): Promise<CustomProductPageLocalizationResource[]> {
@@ -65,27 +92,37 @@ export class ConnectCustomProductPages {
     }>(
       `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?limit=200&fields[appCustomProductPageLocalizations]=locale,promotionalText`,
     );
+
     function flatMapLocalization(localization: {
       id: string;
       attributes: { locale?: string; promotionalText?: string | null };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       const locale = localization.attributes.locale;
+
       if (locale == null) return [];
+
       const customPageLocalization: CustomProductPageLocalizationResource = {
         id: localization.id,
         locale,
       };
+
       if (typeof localization.attributes.promotionalText == 'string')
         Object.assign(customPageLocalization, {
           promotionalText: localization.attributes.promotionalText,
         });
+
       return [customPageLocalization];
     }
 
     return appleResources.flatMap(flatMapLocalization);
   }
 
+  /**
+   * Add a localization for your app custom product page.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-appcustomproductpagelocalizations
+   */
   async createCustomProductPageLocalization(
     versionId: string,
     locale: string,
@@ -102,6 +139,11 @@ export class ConnectCustomProductPages {
     });
   }
 
+  /**
+   * Update the promotional text for an app custom product page localization.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-appcustomproductpagelocalizations-_id_
+   */
   async updateCustomProductPageLocalization(
     localizationId: string,
     promotionalText: string,

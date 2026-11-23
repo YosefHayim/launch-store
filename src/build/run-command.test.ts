@@ -12,6 +12,7 @@ function describeAdbInstallPiece() {
   }
 
   it('reinstalls without a serial when none is given', reinstallsWithoutASerialWhenNoneIsGiven);
+
   function scopesInstallationToOneDeviceSerial() {
     const adbInstall = adbInstallArgs('/b/app.apk', 'emulator-5554');
     expect(adbInstall).toEqual(['-s', 'emulator-5554', 'install', '-r', '/b/app.apk']);
@@ -24,6 +25,7 @@ describe('adbInstallArgs', describeAdbInstallPiece);
 function describeBundletoolArguments() {
   function createsAUniversalAPKSet() {
     const bundletoolBuildApks = bundletoolBuildApksArgs('/b/app.aab', '/tmp/app.apks');
+
     expect(bundletoolBuildApks).toEqual([
       'build-apks',
       '--bundle=/b/app.aab',
@@ -34,8 +36,10 @@ function describeBundletoolArguments() {
   }
 
   it('creates a universal APK set', createsAUniversalAPKSet);
+
   function installsAnAPKSetWithAnOptionalDeviceSerial() {
     const bundletoolInstallApks = bundletoolInstallApksArgs('/tmp/app.apks');
+
     expect(bundletoolInstallApks).toEqual(['install-apks', '--apks=/tmp/app.apks']);
     expect(bundletoolInstallApksArgs('/tmp/app.apks', 'emulator-5554')).toEqual([
       'install-apks',
@@ -54,6 +58,7 @@ describe('bundletool arguments', describeBundletoolArguments);
 function describeDevicectlInstallPiece() {
   function installsAnApplicationBundleWithAnOptionalDeviceIdentifier() {
     const devicectlInstall = devicectlInstallArgs('/tmp/Payload/Demo.app');
+
     expect(devicectlInstall).toEqual([
       'devicectl',
       'device',

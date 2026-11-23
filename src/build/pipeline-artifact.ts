@@ -57,6 +57,7 @@ export async function runBuildStep(
 ): Promise<BuildOutput> {
   const buildContext = prepared.buildContext;
   const app = prepared.app;
+
   const isDryRun = buildContext.dryRun == true;
 
   if (isDryRun) {
@@ -71,6 +72,7 @@ export async function runBuildStep(
     buildNumber,
     platform: buildContext.platform,
   });
+
   beginBuildLog(logId);
 
   try {
@@ -134,6 +136,7 @@ async function sweepStoredArtifacts(
   }
 
   const swept = await storageProvider.prune({ now: Date.now(), retentionDays });
+
   const removedNothing = swept.pruned.length == 0;
 
   if (removedNothing) {
@@ -147,6 +150,7 @@ async function sweepStoredArtifacts(
   }
 
   const megabytes = mb(swept.freedBytes);
+
   log.step(
     'prune',
     `removed ${swept.pruned.length} old ${noun} >${retentionDays}d - freed ${megabytes}`,
@@ -166,6 +170,7 @@ export async function storeArtifact(
   const profile = prepared.profile;
   const buildContext = prepared.buildContext;
   const log = prepared.log;
+
   const isDryRun = buildContext.dryRun == true;
 
   if (isDryRun) {
@@ -193,6 +198,7 @@ export async function storeArtifact(
   log.step('store', stored.location);
 
   const retentionDays = resolveRetentionDays(launchConfig);
+
   const shouldSweep = retentionDays > 0;
 
   if (shouldSweep) {
@@ -305,6 +311,7 @@ async function runExpoPrebuild(
       `would run \`expo prebuild --platform ${platform} --clean\` (${reason})`,
       'prebuild',
     );
+
     return;
   }
 
@@ -345,6 +352,7 @@ export async function ensureNativeProject(
   const platform = buildContext.platform;
   const dirName = nativeProjectDirName(platform);
   const nativeDir = join(buildContext.app.dir, dirName);
+
   const alwaysPrebuild = shouldAlwaysPrebuildIos(prebuild, platform);
 
   if (alwaysPrebuild) {
@@ -397,6 +405,7 @@ export async function ensureAndroidProject(
   }
 
   const androidDir = join(buildContext.app.dir, 'android');
+
   const androidExists = await pathExists(androidDir);
 
   if (androidExists) {
@@ -450,6 +459,7 @@ async function pollAppleProcessingState(
     await waitForAppleProcessingPoll();
 
     const currentState = await readAppleProcessingState(appStoreClient, bundleId, buildNumber);
+
     const isUnknown = currentState == null;
 
     if (isUnknown) {
@@ -485,6 +495,7 @@ export async function reportProcessing(
     "Processing on Apple's side (safe to Ctrl-C; it keeps processing)",
     pollProcessing,
   );
+
   const stillProcessing = processingState == null;
 
   if (stillProcessing) {
@@ -532,6 +543,7 @@ export function sizeSummary(
   }
 
   const megabytes = mb(worstDownloadBytes(sizeReport));
+
   return `download ${wrapSize(megabytes)} - on disk ${wrapSize(mb(sizeReport.artifactBytes))}`;
 }
 
@@ -659,6 +671,7 @@ export async function reportSize(
 
   for (const sizeEntry of sizeReport.entries) {
     let installSuffix = '';
+
     const hasInstallBytes = sizeEntry.installBytes > 0;
 
     if (hasInstallBytes) {
@@ -666,6 +679,7 @@ export async function reportSize(
     }
 
     const megabytes = mb(sizeEntry.downloadBytes);
+
     log.step(
       'size',
       `${sizeEntry.device}: download ${log.chip(megabytes)}${installSuffix}`,
@@ -726,6 +740,7 @@ export async function confirmUpload(uploadOptions: ConfirmUploadOptions): Promis
   }
 
   const launchPrompt = LaunchPrompt;
+
   const proceed = await launchPrompt.confirm('Continue?');
 
   if (proceed) {
@@ -739,6 +754,7 @@ export async function confirmUpload(uploadOptions: ConfirmUploadOptions): Promis
   }
 
   launchPrompt.cancel(cancellationMessage);
+
   throw makeCommandExit({ exitCode: 0 });
 }
 
@@ -762,6 +778,7 @@ export async function uploadIosBuild(
   );
 
   const sizeBudgetMB = resolveSizeBudgetMB(buildOptions, prepared.profile);
+
   await confirmUpload({
     report: sizeReport,
     budgetMB: sizeBudgetMB,

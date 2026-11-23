@@ -33,6 +33,7 @@ function describeSubtractCoverage() {
     'asks for the whole range when there is no coverage',
     asksForTheWholeRangeWhenThereIsNoCoverage,
   );
+
   function asksForTheWholeRangeWhenCoverageHoldsNoDays() {
     const requested = { from: '2026-10-01', to: '2026-10-10' };
 
@@ -45,6 +46,7 @@ function describeSubtractCoverage() {
     'asks for the whole range when coverage holds no days',
     asksForTheWholeRangeWhenCoverageHoldsNoDays,
   );
+
   function asksForNothingWhenTheRangeIsCoveredAndOlderThanTheRefreshTail() {
     expect(subtractCoverage({ from: '2026-10-02', to: '2026-10-10' }, COVERED)).toBeNull();
   }
@@ -53,6 +55,7 @@ function describeSubtractCoverage() {
     'asks for nothing when the range is covered and older than the refresh tail',
     asksForNothingWhenTheRangeIsCoveredAndOlderThanTheRefreshTail,
   );
+
   function rePullsTheLastThreeCoveredDaysAndTheNewDays() {
     const missing = subtractCoverage({ from: '2026-10-05', to: '2026-10-25' }, COVERED);
 
@@ -63,6 +66,7 @@ function describeSubtractCoverage() {
     're-pulls the last three covered days and the new days',
     rePullsTheLastThreeCoveredDaysAndTheNewDays,
   );
+
   function pullsOnlyTheTailWhenTheRangeEndsInsideIt() {
     const missing = subtractCoverage({ from: '2026-10-05', to: '2026-10-19' }, COVERED);
 
@@ -73,6 +77,7 @@ function describeSubtractCoverage() {
     'pulls only the tail when the range ends inside it',
     pullsOnlyTheTailWhenTheRangeEndsInsideIt,
   );
+
   function startsAtTheRangeStartWhenItIsInsideTheTail() {
     const missing = subtractCoverage({ from: '2026-10-19', to: '2026-10-25' }, COVERED);
 
@@ -83,6 +88,7 @@ function describeSubtractCoverage() {
     'starts at the range start when it is inside the tail',
     startsAtTheRangeStartWhenItIsInsideTheTail,
   );
+
   function startsAfterTheCoveredDaysWhenTheRangeStartsLater() {
     const missing = subtractCoverage({ from: '2026-10-23', to: '2026-10-25' }, COVERED);
 
@@ -93,6 +99,7 @@ function describeSubtractCoverage() {
     'starts after the covered days when the range starts later',
     startsAfterTheCoveredDaysWhenTheRangeStartsLater,
   );
+
   function asksForTheWholeRangeWhenItStartsBeforeCoverageAndReachesTheTail() {
     const requested = { from: '2026-09-20', to: '2026-10-25' };
 
@@ -103,6 +110,7 @@ function describeSubtractCoverage() {
     'asks for the whole range when it starts before coverage and reaches the tail',
     asksForTheWholeRangeWhenItStartsBeforeCoverageAndReachesTheTail,
   );
+
   function asksForTheOlderDaysWhenTheRangeStartsBeforeCoverageAndEndsInsideIt() {
     const missing = subtractCoverage({ from: '2026-09-20', to: '2026-10-05' }, COVERED);
 
@@ -113,6 +121,7 @@ function describeSubtractCoverage() {
     'asks for the older days when the range starts before coverage and ends inside it',
     asksForTheOlderDaysWhenTheRangeStartsBeforeCoverageAndEndsInsideIt,
   );
+
   function stopsAtTheDayBeforeCoverageWhenTheRangeEndsBeforeCoverage() {
     const missing = subtractCoverage({ from: '2026-09-20', to: '2026-09-25' }, COVERED);
 
@@ -145,6 +154,7 @@ function describeMergeFeedCoverage() {
   }
 
   test('starts coverage from the first pull', startsCoverageFromTheFirstPull);
+
   function recordsNoCoveredDaysWhenTheFirstPullReachedNothing() {
     const merged = mergeFeedCoverage(
       null,
@@ -160,6 +170,7 @@ function describeMergeFeedCoverage() {
     'records no covered days when the first pull reached nothing',
     recordsNoCoveredDaysWhenTheFirstPullReachedNothing,
   );
+
   function widensBothEndsAndClearsTheError() {
     const previous = createCoverage({ lastError: 'boom' });
 
@@ -180,6 +191,7 @@ function describeMergeFeedCoverage() {
   }
 
   test('widens both ends and clears the error', widensBothEndsAndClearsTheError);
+
   function keepsTheWiderOldCoverageWhenTheNewPullIsSmaller() {
     const coverage = createCoverage({});
     const merged = mergeFeedCoverage(
@@ -196,6 +208,7 @@ function describeMergeFeedCoverage() {
     'keeps the wider old coverage when the new pull is smaller',
     keepsTheWiderOldCoverageWhenTheNewPullIsSmaller,
   );
+
   function keepsTheOldDaysWhenTheNewPullReachedNothing() {
     const coverage = createCoverage({ lastError: 'boom' });
     const merged = mergeFeedCoverage(
@@ -231,6 +244,7 @@ function describeMarkFeedCoverageFailed() {
     'creates an empty coverage with the error when nothing was synced before',
     createsAnEmptyCoverageWithTheErrorWhenNothingWasSyncedBefore,
   );
+
   function keepsTheCoveredDaysAndTheSyncTime() {
     const coverage = createCoverage({});
     const failed = markFeedCoverageFailed(coverage, 'boom');
@@ -259,12 +273,14 @@ function describeMarkFeedCoverageSkipped() {
     'creates an empty coverage with the sync time when nothing was synced before',
     createsAnEmptyCoverageWithTheSyncTimeWhenNothingWasSyncedBefore,
   );
+
   function keepsTheCoveredDaysAndMovesTheSyncTimeAndClearsTheError() {
     const previous = createCoverage({ lastSyncedAt: '2026-10-01T00:00:00.000Z', lastError: 'old' });
 
     const skipped = markFeedCoverageSkipped(previous, SYNCED_AT, 'not ready');
 
     const coverage = createCoverage({ lastNote: 'not ready' });
+
     expect(skipped).toEqual(coverage);
   }
 
@@ -281,6 +297,7 @@ function describeFindFeedCoverage() {
     appKey: 'ios-1',
     feeds: { 'app-store': createCoverage({}) },
   };
+
   function returnsTheSavedCoverageOfAFeed() {
     const feedCoverage = findFeedCoverage(appCoverage, 'app-store');
     const coverage = createCoverage({});
@@ -288,6 +305,7 @@ function describeFindFeedCoverage() {
   }
 
   test('returns the saved coverage of a feed', returnsTheSavedCoverageOfAFeed);
+
   function returnsNullForAFeedThatWasNeverSynced() {
     const feedCoverage = findFeedCoverage(appCoverage, 'ga4');
     expect(feedCoverage).toBeNull();
@@ -299,23 +317,27 @@ function describeFindFeedCoverage() {
 describe('findFeedCoverage', describeFindFeedCoverage);
 function describeIsFeedCoverageStale() {
   const now = Date.parse('2026-10-29T12:00:00.000Z');
+
   function isStaleWhenNeverSynced() {
     expect(isFeedCoverageStale(null, now)).toBe(true);
   }
 
   test('is stale when never synced', isStaleWhenNeverSynced);
+
   function isStaleWhenTheLastSyncFailed() {
     const coverage = createCoverage({ lastError: 'boom' });
     expect(isFeedCoverageStale(coverage, now)).toBe(true);
   }
 
   test('is stale when the last sync failed', isStaleWhenTheLastSyncFailed);
+
   function isStaleWhenOld() {
     const coverage = createCoverage({ lastSyncedAt: '2026-10-20T00:00:00.000Z' });
     expect(isFeedCoverageStale(coverage, now)).toBe(true);
   }
 
   test('is stale when old', isStaleWhenOld);
+
   function isFreshWhenRecentAndWithoutError() {
     const coverage = createCoverage({});
     expect(isFeedCoverageStale(coverage, now)).toBe(false);
@@ -332,6 +354,7 @@ function describeCreateNotesMessage() {
   }
 
   test('is null when there are no notes', isNullWhenThereAreNoNotes);
+
   function joinsTheNotesWithASemicolon() {
     const notesMessage = createNotesMessage(['first', 'second']);
     expect(notesMessage).toBe('first; second');

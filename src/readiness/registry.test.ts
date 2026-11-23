@@ -9,21 +9,29 @@ import type { ReadinessProbe } from '../types/readiness.ts';
 describe('readiness registry', () => {
   it('registers the built-in probes idempotently (re-registering replaces, never duplicates)', () => {
     registerBuiltinProbes();
+
     const first = listReadinessProbes().length;
+
     registerBuiltinProbes();
+
     const readinessProbes = listReadinessProbes();
+
     expect(readinessProbes.length).toBe(first);
     expect(listReadinessProbes().map((probe) => probe.id)).toContain('apple-app-record');
     expect(listReadinessProbes().map((probe) => probe.id)).toContain('play-first-upload');
   });
   it('selects probes by category - each command sees only its slice', () => {
     registerBuiltinProbes();
+
     const account = selectReadinessProbes('account').map((probe) => probe.id);
+
     expect(account).toContain('apple-app-record');
     expect(account).toContain('apple-agreements');
     expect(account).toContain('play-app-access');
     expect(account).not.toContain('apple-distribution-cert'); // signing/submit, not an onboarding check
+
     const iap = selectReadinessProbes('iap').map((probe) => probe.id);
+
     expect(iap).toEqual(
       expect.arrayContaining([
         'apple-subscription-group',
@@ -37,9 +45,11 @@ describe('readiness registry', () => {
       ]),
     );
     expect(iap).not.toContain('apple-app-record');
+
     // `listing` is the store-listing-completeness slice - the deferred pre-submit probes that grade copy,
     // URLs, age rating, demo account, and screenshots all file under it (alongside `submit`).
     const listing = selectReadinessProbes('listing').map((probe) => probe.id);
+
     expect(listing).toEqual(
       expect.arrayContaining([
         'apple-age-rating',
@@ -50,9 +60,11 @@ describe('readiness registry', () => {
       ]),
     );
     expect(listing).not.toContain('apple-profile-entitlements'); // signing/submit, not a listing check
+
     // audit is the cross-cutting `submit` selector: it picks up blocking probes across categories,
     // including the account/signing/iap ones tagged `submit`, but not advisory-only checks.
     const submit = selectReadinessProbes('submit').map((probe) => probe.id);
+
     expect(submit).toEqual(
       expect.arrayContaining([
         'apple-app-record',
@@ -81,6 +93,7 @@ describe('readiness registry', () => {
   });
   it('replaces a probe registered under an existing id', () => {
     const id = 'test-only-probe';
+
     function make(title: string): ReadinessProbe {
       return {
         id,
@@ -92,6 +105,7 @@ describe('readiness registry', () => {
         },
       };
     }
+
     registerReadinessProbe(make('first'));
     registerReadinessProbe(make('second'));
     expect(listReadinessProbes().filter((probe) => probe.id == id)).toHaveLength(1);

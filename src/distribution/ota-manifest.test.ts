@@ -14,6 +14,7 @@ import {
 function describePieceTypeFor() {
   function mapsKnownExtensionsAndDefaultsUnknownOnesToOctetStream() {
     const typeFor = contentTypeFor('_expo/static/js/ios/index-abc.hbc');
+
     expect(typeFor).toBe('application/javascript');
     expect(contentTypeFor('assets/logo.png')).toBe('image/png');
     expect(contentTypeFor('fonts/Inter.ttf')).toBe('font/ttf');
@@ -42,6 +43,7 @@ function describeAssembleManifest() {
         { key: 'logo', contentType: 'image/png', url: 'https://cdn/logo', fileExtension: '.png' },
       ],
     });
+
     expect(manifest).toMatchObject({
       id: 'uuid-1',
       runtimeVersion: '1.0.0',
@@ -114,6 +116,7 @@ describe('assembleRollbackDirective', describeAssembleRollbackDirective);
 function describeUpdatesWorkerScript() {
   function readsTheExpoHeadersAndRoutesToTheStaticManifestUnderThePublicBase() {
     const script = updatesWorkerScript('https://cdn.example.com/');
+
     expect(script).toContain('expo-runtime-version');
     expect(script).toContain('expo-channel-name');
     expect(script).toContain('"https://cdn.example.com"');
@@ -125,8 +128,10 @@ function describeUpdatesWorkerScript() {
     'reads the expo headers and routes to the static manifest under the public base',
     readsTheExpoHeadersAndRoutesToTheStaticManifestUnderThePublicBase,
   );
+
   function emitsAProtocolV1MultipartPieceWithARollbackDirectivePart() {
     const script = updatesWorkerScript('https://cdn.example.com');
+
     expect(script).toContain('multipart/mixed');
     expect(script).toContain("'expo-protocol-version': '1'");
     expect(script).toContain('rollback.json');
@@ -148,13 +153,16 @@ function describeUpdatesAppPieceSnippet() {
       runtimeVersion: '1.0.0',
       signed: true,
     });
+
     expect(signed).toContain('codeSigningCertificate');
     expect(signed).toContain('rsa-v1_5-sha256');
+
     const unsigned = updatesAppConfigSnippet({
       updateUrl: 'https://w',
       runtimeVersion: '1.0.0',
       signed: false,
     });
+
     expect(unsigned).not.toContain('codeSigningCertificate');
   }
 

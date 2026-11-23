@@ -47,11 +47,13 @@ export function registerTestflightCommand(program: Command): void {
   const testflightCommand = program
     .command('testflight')
     .description('manage TestFlight beta groups and testers');
+
   function runGroups(commandOptions: AppOption) {
     const testflightProgram = testflightCommandProgram({
       operation: 'groups',
       app: commandOptions.app,
     });
+
     return runCliProgram(testflightProgram);
   }
 
@@ -60,12 +62,14 @@ export function registerTestflightCommand(program: Command): void {
     .description("list the app's TestFlight beta groups")
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .action(runGroups);
+
   function runCreateGroup(groupName: string, commandOptions: AppOption) {
     const testflightProgram = testflightCommandProgram({
       operation: 'create-group',
       groupName,
       app: commandOptions.app,
     });
+
     return runCliProgram(testflightProgram);
   }
 
@@ -75,11 +79,13 @@ export function registerTestflightCommand(program: Command): void {
     .argument('<name>', 'the group name, e.g. "External Testers"')
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .action(runCreateGroup);
+
   function runTesters(commandOptions: GroupOption) {
     const testflightProgram = testflightCommandProgram({
       operation: 'testers',
       ...commandOptions,
     });
+
     return runCliProgram(testflightProgram);
   }
 
@@ -89,6 +95,7 @@ export function registerTestflightCommand(program: Command): void {
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('-g, --group <name>', "beta group (auto-selected if there's only one)")
     .action(runTesters);
+
   function runAdd(emails: readonly string[], commandOptions: AddTesterOptions) {
     const testflightProgram = testflightCommandProgram({
       operation: 'add',
@@ -101,6 +108,7 @@ export function registerTestflightCommand(program: Command): void {
       dryRun: commandOptions.dryRun,
       yes: commandOptions.yes,
     });
+
     return runCliProgram(testflightProgram);
   }
 
@@ -119,12 +127,14 @@ export function registerTestflightCommand(program: Command): void {
     .option('--dry-run', 'report what would change without inviting anyone', false)
     .option('-y, --yes', 'skip the confirmation prompt', false)
     .action(runAdd);
+
   function runRm(emails: readonly string[], commandOptions: TesterMutationOptions) {
     const testflightProgram = testflightCommandProgram({
       operation: 'remove',
       emails,
       ...commandOptions,
     });
+
     return runCliProgram(testflightProgram);
   }
 
@@ -137,11 +147,13 @@ export function registerTestflightCommand(program: Command): void {
     .option('--dry-run', 'report what would change without removing anyone', false)
     .option('-y, --yes', 'skip the confirmation prompt', false)
     .action(runRm);
+
   function runRelease(commandOptions: ReleaseOptions) {
     const testflightProgram = testflightCommandProgram({
       operation: 'release',
       ...commandOptions,
     });
+
     return runCliProgram(testflightProgram);
   }
 
@@ -164,11 +176,13 @@ export function registerTestflightCommand(program: Command): void {
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runRelease);
+
   function runFeedback(commandOptions: FeedbackOptions) {
     const testflightProgram = testflightCommandProgram({
       operation: 'feedback',
       ...commandOptions,
     });
+
     return runCliProgram(testflightProgram);
   }
 

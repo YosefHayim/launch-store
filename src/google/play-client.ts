@@ -112,14 +112,19 @@ function makeServiceAccountParseError(fields: {
 /** Read the numeric status exposed by a generated-client failure, when present. */
 function googleFailureStatus(cause: unknown): number | undefined {
   if (typeof cause != 'object') return;
+
   if (cause == null) return;
+
   if (!('status' in cause)) return;
+
   if (typeof cause.status != 'number') return;
+
   return cause.status;
 }
 /** Turn a generated-client failure into the actionable text Launch already exposes. */
 function googleFailureMessage(cause: unknown): string {
   if (cause instanceof Error) return describePlayErrors(cause.message);
+
   const asString = String(cause);
   return describePlayErrors(asString);
 }
@@ -128,41 +133,55 @@ function timestampToIso(
   timestamp: androidpublisher_v3.Schema$Timestamp | undefined,
 ): string | undefined {
   if (typeof timestamp?.seconds != 'string') return;
+
   const number = Number(timestamp.seconds);
   return new Date(number * 1000).toISOString();
 }
 /** Flatten the generated review DTO into the {@link PlayReview} slice Launch consumes. */
 function normalizeReview(googleReview: androidpublisher_v3.Schema$Review): PlayReview | undefined {
   if (typeof googleReview.reviewId != 'string') return;
+
   function isUserComment(comment: androidpublisher_v3.Schema$Comment) {
     return comment.userComment;
   }
 
   const userComment = googleReview.comments?.find(isUserComment)?.userComment;
+
   function isDeveloperComment(comment: androidpublisher_v3.Schema$Comment) {
     return comment.developerComment;
   }
 
   const developerComment = googleReview.comments?.find(isDeveloperComment)?.developerComment;
   let rating = 0;
+
   if (typeof userComment?.starRating == 'number') rating = userComment.starRating;
+
   const review: MutableDeep<PlayReview> = {
     reviewId: googleReview.reviewId,
     rating,
     answered: developerComment != null,
   };
+
   if (typeof googleReview.authorName == 'string') review.authorName = googleReview.authorName;
+
   if (typeof userComment?.text == 'string') review.text = userComment.text;
+
   if (typeof userComment?.reviewerLanguage == 'string') {
     review.reviewerLanguage = userComment.reviewerLanguage;
   }
+
   if (typeof userComment?.device == 'string') review.device = userComment.device;
+
   if (typeof userComment?.appVersionName == 'string') {
     review.appVersionName = userComment.appVersionName;
   }
+
   const lastModified = timestampToIso(userComment?.lastModified);
+
   if (lastModified != null) review.lastModified = lastModified;
+
   if (typeof developerComment?.text == 'string') review.developerReply = developerComment.text;
+
   return review;
 }
 /** Normalize Google's nullable Money DTO to Launch's consumed money fields. */
@@ -170,9 +189,13 @@ function normalizeMoney(money: androidpublisher_v3.Schema$Money | undefined): Pl
   let currencyCode = '';
   let units = '0';
   let nanos = 0;
+
   if (typeof money?.currencyCode == 'string') currencyCode = money.currencyCode;
+
   if (typeof money?.units == 'string') units = money.units;
+
   if (typeof money?.nanos == 'number') nanos = money.nanos;
+
   return {
     currencyCode,
     units,
@@ -184,30 +207,42 @@ function normalizeTrackRelease(
   googleRelease: androidpublisher_v3.Schema$TrackRelease,
 ): PlayRelease {
   const release: MutableDeep<PlayRelease> = {};
+
   if (typeof googleRelease.name == 'string') release.name = googleRelease.name;
+
   if (Array.isArray(googleRelease.versionCodes)) release.versionCodes = googleRelease.versionCodes;
+
   if (typeof googleRelease.status == 'string') release.status = googleRelease.status;
+
   if (typeof googleRelease.userFraction == 'number') {
     release.userFraction = googleRelease.userFraction;
   }
+
   if (Array.isArray(googleRelease.releaseNotes)) {
     const releaseNotes: {
       language: string;
       text: string;
     }[] = [];
+
     for (const googleNote of googleRelease.releaseNotes) {
       if (typeof googleNote.language != 'string') continue;
+
       if (typeof googleNote.text != 'string') continue;
+
       releaseNotes.push({ language: googleNote.language, text: googleNote.text });
     }
+
     release.releaseNotes = releaseNotes;
   }
+
   return release;
 }
 /** Retain a non-empty generated page token and collapse null/empty values to undefined. */
 export function nonEmptyPageToken(token: string | null | undefined): string | undefined {
   if (typeof token != 'string') return;
+
   if (token.length == 0) return;
+
   return token;
 }
 /** Walk every page of a token-bearing generated list into one Launch-owned collection. */
@@ -236,11 +271,14 @@ function releasesFromGoogleTrack(
   googleReleases: androidpublisher_v3.Schema$TrackRelease[] | null | undefined,
 ): PlayRelease[] {
   const releases: PlayRelease[] = [];
+
   if (!Array.isArray(googleReleases)) return releases;
+
   for (const googleRelease of googleReleases) {
     const trackRelease = normalizeTrackRelease(googleRelease);
     releases.push(trackRelease);
   }
+
   return releases;
 }
 /** Project one generated store listing into the {@link PlayListing} slice Launch reads and writes. */
@@ -248,15 +286,21 @@ function listingFromGoogle(
   googleListing: androidpublisher_v3.Schema$Listing,
 ): PlayListing | undefined {
   if (typeof googleListing.language != 'string') return undefined;
+
   const listing: MutableDeep<PlayListing> = { language: googleListing.language };
+
   if (typeof googleListing.title == 'string') listing.title = googleListing.title;
+
   if (typeof googleListing.shortDescription == 'string') {
     listing.shortDescription = googleListing.shortDescription;
   }
+
   if (typeof googleListing.fullDescription == 'string') {
     listing.fullDescription = googleListing.fullDescription;
   }
+
   if (typeof googleListing.video == 'string') listing.video = googleListing.video;
+
   return listing;
 }
 /** Keep only offer tags that carry a real tag string. */
@@ -266,12 +310,15 @@ function offerTagsFromGoogle(googleTags: androidpublisher_v3.Schema$OfferTag[] |
     }[]
   | undefined {
   if (!Array.isArray(googleTags)) return;
+
   const offerTags: {
     tag: string;
   }[] = [];
+
   for (const googleTag of googleTags) {
     if (typeof googleTag.tag == 'string') offerTags.push({ tag: googleTag.tag });
   }
+
   return offerTags;
 }
 /** JWT options the official Google clients accept for one service-account key + OAuth scopes. */
@@ -294,7 +341,9 @@ export function serviceAccountJwtOptions(
     key: account.privateKey,
     scopes: [...scopes],
   };
+
   if (account.privateKeyId != null) authenticationOptions.keyId = account.privateKeyId;
+
   return authenticationOptions;
 }
 /** Normalize the legacy in-app-product money representation. */
@@ -302,9 +351,13 @@ function normalizeProductMoney(
   googlePrice: androidpublisher_v3.Schema$Price | undefined,
 ): PlayMoney | undefined {
   if (googlePrice == null) return;
+
   const price: MutableDeep<PlayMoney> = {};
+
   if (typeof googlePrice.priceMicros == 'string') price.priceMicros = googlePrice.priceMicros;
+
   if (typeof googlePrice.currency == 'string') price.currency = googlePrice.currency;
+
   return price;
 }
 /** Normalize one generated in-app product to Launch's reconciler slice. */
@@ -312,24 +365,35 @@ function normalizeInAppProduct(
   googleProduct: androidpublisher_v3.Schema$InAppProduct,
 ): InAppProductResource | undefined {
   if (typeof googleProduct.sku != 'string') return;
+
   const product: MutableDeep<InAppProductResource> = { sku: googleProduct.sku };
+
   if (typeof googleProduct.status == 'string') product.status = googleProduct.status;
+
   if (typeof googleProduct.purchaseType == 'string') {
     product.purchaseType = googleProduct.purchaseType;
   }
+
   if (typeof googleProduct.defaultLanguage == 'string') {
     product.defaultLanguage = googleProduct.defaultLanguage;
   }
+
   const defaultPrice = normalizeProductMoney(googleProduct.defaultPrice);
+
   if (defaultPrice != null) product.defaultPrice = defaultPrice;
+
   if (googleProduct.prices != null && googleProduct.prices != null) {
     const prices: Record<string, PlayMoney> = {};
+
     for (const [regionCode, googlePrice] of Object.entries(googleProduct.prices)) {
       const price = normalizeProductMoney(googlePrice);
+
       if (price != null) prices[regionCode] = price;
     }
+
     product.prices = prices;
   }
+
   if (googleProduct.listings != null && googleProduct.listings != null) {
     const listings: Record<
       string,
@@ -338,19 +402,25 @@ function normalizeInAppProduct(
         description?: string;
       }
     > = {};
+
     for (const [locale, googleListing] of Object.entries(googleProduct.listings)) {
       const listing: {
         title?: string;
         description?: string;
       } = {};
+
       if (typeof googleListing.title == 'string') listing.title = googleListing.title;
+
       if (typeof googleListing.description == 'string') {
         listing.description = googleListing.description;
       }
+
       listings[locale] = listing;
     }
+
     product.listings = listings;
   }
+
   return product;
 }
 /** Normalize one generated subscription base plan to the fields Launch reconciles. */
@@ -358,29 +428,43 @@ function normalizeBasePlan(
   googlePlan: androidpublisher_v3.Schema$BasePlan,
 ): MutableDeep<BasePlan> | undefined {
   if (typeof googlePlan.basePlanId != 'string') return;
+
   const basePlan: MutableDeep<BasePlan> = { basePlanId: googlePlan.basePlanId };
+
   if (typeof googlePlan.state == 'string') basePlan.state = googlePlan.state;
+
   const billingPeriod = googlePlan.autoRenewingBasePlanType?.billingPeriodDuration;
+
   if (typeof billingPeriod == 'string') {
     basePlan.autoRenewingBasePlanType = { billingPeriodDuration: billingPeriod };
   }
+
   if (Array.isArray(googlePlan.regionalConfigs)) {
     const regionalConfigs: MutableDeep<RegionalBasePlanConfig>[] = [];
+
     for (const googleRegion of googlePlan.regionalConfigs) {
       if (typeof googleRegion.regionCode != 'string') continue;
+
       const regionalConfig: MutableDeep<RegionalBasePlanConfig> = {
         regionCode: googleRegion.regionCode,
       };
+
       if (typeof googleRegion.newSubscriberAvailability == 'boolean') {
         regionalConfig.newSubscriberAvailability = googleRegion.newSubscriberAvailability;
       }
+
       if (googleRegion.price != null) regionalConfig.price = normalizeMoney(googleRegion.price);
+
       regionalConfigs.push(regionalConfig);
     }
+
     basePlan.regionalConfigs = regionalConfigs;
   }
+
   const offerTags = offerTagsFromGoogle(googlePlan.offerTags);
+
   if (offerTags != null) basePlan.offerTags = offerTags;
+
   return basePlan;
 }
 /** Normalize one generated subscription to Launch's consumed catalog shape. */
@@ -388,36 +472,51 @@ function normalizeSubscription(
   googleSubscription: androidpublisher_v3.Schema$Subscription,
 ): SubscriptionResource | undefined {
   if (typeof googleSubscription.productId != 'string') return;
+
   const subscription: MutableDeep<SubscriptionResource> = {
     productId: googleSubscription.productId,
   };
+
   if (typeof googleSubscription.packageName == 'string') {
     subscription.packageName = googleSubscription.packageName;
   }
+
   if (Array.isArray(googleSubscription.basePlans)) {
     const basePlans: MutableDeep<BasePlan>[] = [];
+
     for (const googlePlan of googleSubscription.basePlans) {
       const basePlan = normalizeBasePlan(googlePlan);
+
       if (basePlan != null) basePlans.push(basePlan);
     }
+
     subscription.basePlans = basePlans;
   }
+
   if (Array.isArray(googleSubscription.listings)) {
     const listings: MutableDeep<SubscriptionListing>[] = [];
+
     for (const googleListing of googleSubscription.listings) {
       if (typeof googleListing.languageCode != 'string') continue;
+
       if (typeof googleListing.title != 'string') continue;
+
       if (typeof googleListing.description != 'string') continue;
+
       const listing: MutableDeep<SubscriptionListing> = {
         languageCode: googleListing.languageCode,
         title: googleListing.title,
         description: googleListing.description,
       };
+
       if (Array.isArray(googleListing.benefits)) listing.benefits = googleListing.benefits;
+
       listings.push(listing);
     }
+
     subscription.listings = listings;
   }
+
   return subscription;
 }
 /** Normalize one generated subscription offer to Launch's consumed catalog shape. */
@@ -425,51 +524,72 @@ function normalizeSubscriptionOffer(
   googleOffer: androidpublisher_v3.Schema$SubscriptionOffer,
 ): SubscriptionOfferResource | undefined {
   if (typeof googleOffer.offerId != 'string') return;
+
   const offer: MutableDeep<SubscriptionOfferResource> = {
     offerId: googleOffer.offerId,
     phases: [],
     regionalConfigs: [],
   };
+
   if (typeof googleOffer.packageName == 'string') offer.packageName = googleOffer.packageName;
+
   if (typeof googleOffer.productId == 'string') offer.productId = googleOffer.productId;
+
   if (typeof googleOffer.basePlanId == 'string') offer.basePlanId = googleOffer.basePlanId;
+
   if (typeof googleOffer.state == 'string') offer.state = googleOffer.state;
+
   if (Array.isArray(googleOffer.regionalConfigs)) {
     for (const googleRegion of googleOffer.regionalConfigs) {
       if (typeof googleRegion.regionCode != 'string') continue;
+
       const regionalConfig: MutableDeep<RegionalSubscriptionOfferConfig> = {
         regionCode: googleRegion.regionCode,
       };
+
       if (typeof googleRegion.newSubscriberAvailability == 'boolean') {
         regionalConfig.newSubscriberAvailability = googleRegion.newSubscriberAvailability;
       }
+
       offer.regionalConfigs.push(regionalConfig);
     }
   }
+
   if (Array.isArray(googleOffer.phases)) {
     for (const googlePhase of googleOffer.phases) {
       if (typeof googlePhase.recurrenceCount != 'number') continue;
+
       const phase: MutableDeep<SubscriptionOfferPhase> = {
         recurrenceCount: googlePhase.recurrenceCount,
         regionalConfigs: [],
       };
+
       if (typeof googlePhase.duration == 'string') phase.duration = googlePhase.duration;
+
       if (Array.isArray(googlePhase.regionalConfigs)) {
         for (const googleRegion of googlePhase.regionalConfigs) {
           if (typeof googleRegion.regionCode != 'string') continue;
+
           const regionalConfig: MutableDeep<OfferPhaseRegionalConfig> = {
             regionCode: googleRegion.regionCode,
           };
+
           if (googleRegion.price != null) regionalConfig.price = normalizeMoney(googleRegion.price);
+
           if (googleRegion.free != null) regionalConfig.free = {};
+
           phase.regionalConfigs.push(regionalConfig);
         }
       }
+
       offer.phases.push(phase);
     }
   }
+
   const offerTags = offerTagsFromGoogle(googleOffer.offerTags);
+
   if (offerTags != null) offer.offerTags = offerTags;
+
   return offer;
 }
 const SERVICE_ACCOUNT_JSON_MESSAGE =
@@ -620,14 +740,17 @@ export class GooglePlayClient {
   /** Bind the adapter to one service account. */
   constructor(account: ServiceAccount, generatedPublisher?: GooglePlayTransport) {
     this.serviceAccountEmail = account.clientEmail;
+
     if (generatedPublisher != null) {
       this.publisher = generatedPublisher;
       return;
     }
+
     const serviceAccountJwt = serviceAccountJwtOptions(account, [
       'https://www.googleapis.com/auth/androidpublisher',
     ]);
     const googleAuthentication = new androidPublisherAuth.JWT(serviceAccountJwt);
+
     this.publisher = androidpublisher({ version: 'v3', auth: googleAuthentication });
   }
   /** Run one generated Android Publisher request and tag a failure. */
@@ -643,6 +766,7 @@ export class GooglePlayClient {
     } catch (cause) {
       const statusCode = googleFailureStatus(cause);
       const message = `Google Play ${operation} failed: ${googleFailureMessage(cause)}`;
+
       const isStatusMissing = statusCode == null;
 
       if (isStatusMissing) {
@@ -652,11 +776,17 @@ export class GooglePlayClient {
       throw makeGooglePlayApiError({ operation, statusCode, message, cause });
     }
   }
-  /** Open a transactional edit (no changes committed); returns its id. A 404 means the app doesn't exist. */
+  /**
+   * Open a transactional edit (no changes committed); returns its id. A 404 means the app doesn't
+   * exist.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits/insert
+   */
   private async createEdit(packageName: string): Promise<string> {
     const editCreation = await this.executeGeneratedRequest('create edit', () =>
       this.publisher.edits.insert({ packageName }),
     );
+
     if (editCreation.id != null) {
       return editCreation.id;
     }
@@ -667,13 +797,21 @@ export class GooglePlayClient {
       cause: editCreation,
     });
   }
-  /** Commit an edit, applying every change made inside it atomically. */
+  /**
+   * Commit an edit, applying every change made inside it atomically.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits/commit
+   */
   private async commitEdit(packageName: string, editId: string): Promise<void> {
     await this.executeGeneratedRequest('commit edit', () =>
       this.publisher.edits.commit({ packageName, editId }),
     );
   }
-  /** Abandon an edit so no transaction is left dangling (best-effort; callers ignore failures). */
+  /**
+   * Abandon an edit so no transaction is left dangling (best-effort; callers ignore failures).
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits/delete
+   */
   private async deleteEdit(packageName: string, editId: string): Promise<void> {
     await this.executeGeneratedRequest('delete edit', () =>
       this.publisher.edits.delete({ packageName, editId }),
@@ -716,7 +854,11 @@ export class GooglePlayClient {
       throw applyError;
     }
   }
-  /** Return the highest `versionCode` already uploaded for an app, or 0 if none exist yet. */
+  /**
+   * Lists all current Android App Bundles of the app and edit.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.bundles/list
+   */
   async getLatestVersionCode(packageName: string): Promise<number> {
     const readLatestVersionCode = async (editId: string): Promise<number> => {
       const bundlePage = await this.executeGeneratedRequest('list bundles', () =>
@@ -728,6 +870,7 @@ export class GooglePlayClient {
       if (Array.isArray(bundles)) {
         for (const bundle of bundles) {
           const versionCode = bundle.versionCode;
+
           const isVersionCode = typeof versionCode == 'number';
 
           if (isVersionCode) {
@@ -747,7 +890,12 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readLatestVersionCode);
   }
-  /** Read the releases currently on a track (for status reporting); empty array when the track is unused. */
+  /**
+   * Read the releases currently on a track (for status reporting); empty array when the track is
+   * unused.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.tracks/get
+   */
   async getTrackReleases(packageName: string, track: string): Promise<PlayRelease[]> {
     const readTrackReleases = async (editId: string): Promise<PlayRelease[]> => {
       const trackSnapshot = await this.executeGeneratedRequest('get track', () =>
@@ -758,7 +906,11 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readTrackReleases);
   }
-  /** Read every track and its releases (for `launch-store play-tracks status`). */
+  /**
+   * Lists all tracks.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.tracks/list
+   */
   async listTracks(packageName: string): Promise<PlayTrackInfo[]> {
     const readTracks = async (editId: string): Promise<PlayTrackInfo[]> => {
       const trackCatalog = await this.executeGeneratedRequest('list tracks', () =>
@@ -770,6 +922,7 @@ export class GooglePlayClient {
       if (Array.isArray(googleTracks)) {
         for (const googleTrack of googleTracks) {
           const trackName = googleTrack.track;
+
           const hasTrackName = typeof trackName == 'string';
 
           if (hasTrackName) {
@@ -786,7 +939,11 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readTracks);
   }
-  /** Replace a track's releases in one committed edit - the promote/rollout/halt write. */
+  /**
+   * Replace a track's releases in one committed edit - the promote/rollout/halt write.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.tracks/update
+   */
   async setTrackReleases(
     packageName: string,
     track: string,
@@ -805,7 +962,12 @@ export class GooglePlayClient {
 
     await this.withEdit(packageName, writeTrackReleases);
   }
-  /** Upload an AAB and release it on a track in one committed edit. */
+  /**
+   * Upload an AAB and release it on a track in one committed edit.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.bundles/upload
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.tracks/update
+   */
   async uploadBundleToTrack(
     packageName: string,
     bundleStream: Readable,
@@ -821,10 +983,12 @@ export class GooglePlayClient {
         }),
       );
       const versionCode = uploadedBundle.versionCode;
+
       const hasVersionCode = typeof versionCode == 'number';
 
       if (hasVersionCode) {
         const trackRelease: PlayRelease = { ...release, versionCodes: [String(versionCode)] };
+
         await this.executeGeneratedRequest('update track', () => {
           return this.publisher.edits.tracks.update({
             packageName,
@@ -836,6 +1000,7 @@ export class GooglePlayClient {
             }),
           });
         });
+
         return versionCode;
       }
 
@@ -848,7 +1013,11 @@ export class GooglePlayClient {
 
     return this.withEdit(packageName, uploadAndRelease);
   }
-  /** Read the Google Groups configured as testers for a track (closed/internal testing). */
+  /**
+   * Read the Google Groups configured as testers for a track (closed/internal testing).
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.testers/get
+   */
   async getTesters(packageName: string, track: string): Promise<string[]> {
     const readTesters = async (editId: string): Promise<string[]> => {
       const testerGroupSet = await this.executeGeneratedRequest('get testers', () =>
@@ -865,7 +1034,11 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readTesters);
   }
-  /** Set the Google Groups allowed to test a track, in one committed edit. */
+  /**
+   * Set the Google Groups allowed to test a track, in one committed edit.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.testers/update
+   */
   async setTesters(
     packageName: string,
     track: string,
@@ -884,7 +1057,11 @@ export class GooglePlayClient {
 
     await this.withEdit(packageName, writeTesters);
   }
-  /** Read every localized store listing (title, short and full description, video) of an app. */
+  /**
+   * Read every localized store listing (title, short and full description, video) of an app.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.listings/list
+   */
   async listListings(packageName: string): Promise<PlayListing[]> {
     const readListings = async (editId: string): Promise<PlayListing[]> => {
       const listingCatalog = await this.executeGeneratedRequest('list listings', () =>
@@ -908,7 +1085,11 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readListings);
   }
-  /** Patch the given localized store listings inside ONE committed edit */
+  /**
+   * Patch the given localized store listings inside ONE committed edit.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.listings/patch
+   */
   async updateListings(packageName: string, listings: readonly PlayListing[]): Promise<void> {
     const writeListings = async (editId: string): Promise<void> => {
       for (const listing of listings) {
@@ -925,7 +1106,11 @@ export class GooglePlayClient {
 
     await this.withEdit(packageName, writeListings);
   }
-  /** Read a track's country availability. Read-only - Play exposes no API to change it. */
+  /**
+   * Read a track's country availability. Read-only - Play exposes no API to change it.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.countryavailability/get
+   */
   async getCountryAvailability(
     packageName: string,
     track: string,
@@ -941,6 +1126,7 @@ export class GooglePlayClient {
       if (Array.isArray(googleCountries)) {
         for (const googleCountry of googleCountries) {
           const countryCode = googleCountry.countryCode;
+
           const hasCountryCode = typeof countryCode == 'string';
 
           if (hasCountryCode) {
@@ -951,6 +1137,7 @@ export class GooglePlayClient {
 
       const availability: MutableDeep<PlayCountryAvailability> = { countries };
       const restOfWorld = countryAvailability.restOfWorld;
+
       const hasRestOfWorld = typeof restOfWorld == 'boolean';
 
       if (hasRestOfWorld) {
@@ -986,12 +1173,17 @@ export class GooglePlayClient {
 
     await this.abandonEdit(packageName, editId);
   }
-  /** List the app's in-app **managed products** (`inappproducts`). */
+  /**
+   * Lists all in-app products - both managed products and subscriptions.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/inappproducts/list
+   */
   async listInAppProducts(packageName: string): Promise<InAppProductResource[]> {
     const loadProductPage = (pageToken: string | undefined) => {
       const listParameters: androidpublisher_v3.Params$Resource$Inappproducts$List = {
         packageName,
       };
+
       if (pageToken != null) {
         listParameters.token = pageToken;
       }
@@ -1000,6 +1192,7 @@ export class GooglePlayClient {
         this.publisher.inappproducts.list(listParameters),
       );
     };
+
     function productsFromPage(
       productPage: Awaited<ReturnType<typeof loadProductPage>>,
     ): InAppProductResource[] {
@@ -1024,7 +1217,11 @@ export class GooglePlayClient {
 
     return collectGeneratedPages(loadProductPage, productsFromPage, nextTokenFromPage);
   }
-  /** Create a new in-app managed product (POST). The product carries its `sku`. */
+  /**
+   * Creates an in-app product (a managed product or a subscription).
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/inappproducts/insert
+   */
   async insertInAppProduct(packageName: string, product: InAppProductResource): Promise<void> {
     await this.executeGeneratedRequest('insert in-app product', () =>
       this.publisher.inappproducts.insert({
@@ -1033,7 +1230,11 @@ export class GooglePlayClient {
       }),
     );
   }
-  /** Update an existing in-app managed product by SKU (PUT). */
+  /**
+   * Update an existing in-app managed product by SKU (PUT).
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/inappproducts/update
+   */
   async updateInAppProduct(packageName: string, product: InAppProductResource): Promise<void> {
     await this.executeGeneratedRequest('update in-app product', () =>
       this.publisher.inappproducts.update({
@@ -1043,13 +1244,19 @@ export class GooglePlayClient {
       }),
     );
   }
-  /** Convert a single base price into Google's **recommended local price for every Play */
+  /**
+   * Calculates the region prices, using today's exchange rate and country-specific pricing
+   * patterns, based on the price in the request for a set of regions.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/monetization/convertRegionPrices
+   */
   async convertRegionPrices(
     packageName: string,
     price: PlayMoneyUnits,
     productTaxCategoryCode?: string,
   ): Promise<ConvertedPrices> {
     const priceRequest: androidpublisher_v3.Schema$ConvertRegionPricesRequest = { price };
+
     if (productTaxCategoryCode != null) {
       priceRequest.productTaxCategoryCode = productTaxCategoryCode;
     }
@@ -1066,10 +1273,12 @@ export class GooglePlayClient {
     if (regionPrices != null) {
       for (const googlePrice of Object.values(regionPrices)) {
         const regionCode = googlePrice.regionCode;
+
         const hasRegionCode = typeof regionCode == 'string';
 
         if (hasRegionCode) {
           const money = normalizeMoney(googlePrice.price);
+
           regions.push({
             regionCode,
             price: money,
@@ -1077,6 +1286,7 @@ export class GooglePlayClient {
         }
       }
     }
+
     function sortLeftPrice(
       leftPrice: { readonly regionCode: string; readonly price: PlayMoneyUnits },
       rightPrice: { readonly regionCode: string; readonly price: PlayMoneyUnits },
@@ -1085,6 +1295,7 @@ export class GooglePlayClient {
     }
 
     regions.sort(sortLeftPrice);
+
     const convertedPrices: MutableDeep<ConvertedPrices> = { regions };
     const fallbackPrice = priceConversion.convertedOtherRegionsPrice;
 
@@ -1097,7 +1308,11 @@ export class GooglePlayClient {
 
     return convertedPrices;
   }
-  /** List the app's subscription products (`monetization.subscriptions`), paging in full. */
+  /**
+   * Lists all subscriptions under a given app.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions/list
+   */
   async listSubscriptions(packageName: string): Promise<SubscriptionResource[]> {
     function collectGeneratedPagesSubscriptionPage(
       subscriptionPage: androidpublisher_v3.Schema$ListSubscriptionsResponse,
@@ -1130,6 +1345,7 @@ export class GooglePlayClient {
           {
             packageName,
           };
+
         if (pageToken != null) {
           listParameters.pageToken = pageToken;
         }
@@ -1142,7 +1358,11 @@ export class GooglePlayClient {
       collectGeneratedPagesSubscriptionPage2,
     );
   }
-  /** Create a subscription with its base plans (which Play creates in DRAFT */
+  /**
+   * Creates a new subscription. Newly added base plans will remain in draft state until activated.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions/create
+   */
   async createSubscription(packageName: string, subscription: SubscriptionResource): Promise<void> {
     await this.executeGeneratedRequest('create subscription', () => {
       return this.publisher.monetization.subscriptions.create({
@@ -1156,7 +1376,11 @@ export class GooglePlayClient {
       });
     });
   }
-  /** Patch a subscription's masked fields (PATCH with an `updateMask` */
+  /**
+   * Updates an existing subscription.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions/patch
+   */
   async patchSubscription(
     packageName: string,
     subscription: SubscriptionResource,
@@ -1175,7 +1399,12 @@ export class GooglePlayClient {
       });
     });
   }
-  /** Activate a base plan (DRAFT -> ACTIVE), making it purchasable. Idempotent on an already-active plan. */
+  /**
+   * Activate a base plan (DRAFT -> ACTIVE), making it purchasable. Idempotent on an already-active
+   * plan.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions.basePlans/activate
+   */
   async activateBasePlan(
     packageName: string,
     productId: string,
@@ -1190,7 +1419,11 @@ export class GooglePlayClient {
       }),
     );
   }
-  /** List the offers on one base plan, paging in full. */
+  /**
+   * List the offers on one base plan, paging in full.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions.basePlans.offers/list
+   */
   async listSubscriptionOffers(
     packageName: string,
     productId: string,
@@ -1225,6 +1458,7 @@ export class GooglePlayClient {
       (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Monetization$Subscriptions$Baseplans$Offers$List =
           { packageName, productId, basePlanId };
+
         if (pageToken != null) {
           listParameters.pageToken = pageToken;
         }
@@ -1237,13 +1471,19 @@ export class GooglePlayClient {
       collectGeneratedPagesOfferPage2,
     );
   }
-  /** Create a subscription offer (in DRAFT - activate it separately). `regionsVersion.version` is required. */
+  /**
+   * Creates a new subscription offer. Only auto-renewing base plans can have subscription offers.
+   * The offer state will be DRAFT until it is activated.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions.basePlans.offers/create
+   */
   async createSubscriptionOffer(
     packageName: string,
     offer: SubscriptionOfferResource,
   ): Promise<void> {
     let productId = '';
     let basePlanId = '';
+
     if (offer.productId != null) {
       productId = offer.productId;
     }
@@ -1266,7 +1506,11 @@ export class GooglePlayClient {
       });
     });
   }
-  /** Activate a subscription offer (DRAFT -> ACTIVE), making it available. */
+  /**
+   * Activate a subscription offer (DRAFT -> ACTIVE), making it available.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions.basePlans.offers/activate
+   */
   async activateSubscriptionOffer(
     packageName: string,
     productId: string,
@@ -1283,7 +1527,11 @@ export class GooglePlayClient {
       }),
     );
   }
-  /** List the app's customer reviews (flattened to {@link PlayReview}), paging in full. */
+  /**
+   * Lists all reviews.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/reviews/list
+   */
   async listReviews(
     packageName: string,
     options: Readonly<{
@@ -1318,6 +1566,7 @@ export class GooglePlayClient {
     return collectGeneratedPages(
       (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Reviews$List = { packageName };
+
         if (options.translationLanguage != null) {
           listParameters.translationLanguage = options.translationLanguage;
         }
@@ -1334,13 +1583,18 @@ export class GooglePlayClient {
       collectGeneratedPagesReviewPage2,
     );
   }
-  /** Fetch one review by id (flattened to {@link PlayReview}), or null when it doesn't exist / is too old. */
+  /**
+   * Gets a single review.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/reviews/get
+   */
   async getReview(packageName: string, reviewId: string): Promise<PlayReview | null> {
     try {
       const googleReview = await this.executeGeneratedRequest('get review', () =>
         this.publisher.reviews.get({ packageName, reviewId }),
       );
       const review = normalizeReview(googleReview);
+
       const isReviewMissing = review == null;
 
       if (isReviewMissing) {
@@ -1364,7 +1618,11 @@ export class GooglePlayClient {
       throw requestFailure;
     }
   }
-  /** Post (or replace) the public developer reply to a review. */
+  /**
+   * Post (or replace) the public developer reply to a review.
+   *
+   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/reviews/reply
+   */
   async replyToReview(
     packageName: string,
     reviewId: string,
@@ -1379,6 +1637,7 @@ export class GooglePlayClient {
     );
     let storedReplyText = replyText;
     const confirmedReplyText = replyConfirmation.result?.replyText;
+
     if (confirmedReplyText != null) {
       storedReplyText = confirmedReplyText;
     }
@@ -1496,6 +1755,7 @@ function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument |
 
   const document: GoogleErrorDocument = {};
   const errorDescription = readOptionalErrorString(parsedObject, 'error_description');
+
   const isDescriptionInvalid = errorDescription.status == 'invalid';
 
   if (isDescriptionInvalid) {
@@ -1515,6 +1775,7 @@ function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument |
   }
 
   const errorField = parsedObject['error'];
+
   const isStringError = typeof errorField == 'string';
 
   if (isStringError) {
@@ -1529,6 +1790,7 @@ function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument |
   }
 
   const message = readOptionalErrorString(errorFields, 'message');
+
   const isMessageInvalid = message.status == 'invalid';
 
   if (isMessageInvalid) {
@@ -1536,6 +1798,7 @@ function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument |
   }
 
   const status = readOptionalErrorString(errorFields, 'status');
+
   const isStatusInvalid = status.status == 'invalid';
 
   if (isStatusInvalid) {
@@ -1543,6 +1806,7 @@ function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument |
   }
 
   const errorObject: GoogleErrorObject = {};
+
   const isMessagePresent = message.status == 'present';
 
   if (isMessagePresent) {
@@ -1556,12 +1820,14 @@ function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument |
   }
 
   document.error = errorObject;
+
   return document;
 }
 
 /** Extract Google's human-readable error detail, falling back to the raw transport text. */
 export function describePlayErrors(googleErrorText: string): string {
   const googleErrorDocument = readGoogleErrorDocument(googleErrorText);
+
   const isDocumentMissing = googleErrorDocument == null;
 
   if (isDocumentMissing) {
@@ -1569,6 +1835,7 @@ export function describePlayErrors(googleErrorText: string): string {
   }
 
   const message = readGoogleErrorMessage(googleErrorDocument);
+
   const isMessageEmpty = message.length == 0;
 
   if (isMessageEmpty) {

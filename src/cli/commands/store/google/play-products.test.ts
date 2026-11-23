@@ -7,10 +7,12 @@ function describeRenderAction() {
       destructive: false,
       status: 'planned',
     });
+
     expect(playCatalogAction).toBe('+ create Play product com.acme.coins.100');
   }
 
   it('marks a planned change with +', marksAPlannedChangeWith);
+
   function rendersAFailedActionWithXAndPlaySErrorDetail() {
     const playCatalogAction = renderPlayCatalogAction({
       description: 'update Play product com.acme.coins.100',
@@ -18,6 +20,7 @@ function describeRenderAction() {
       status: 'failed',
       error: 'price not on a valid tier',
     });
+
     expect(playCatalogAction).toBe(
       'x update Play product com.acme.coins.100 - price not on a valid tier',
     );

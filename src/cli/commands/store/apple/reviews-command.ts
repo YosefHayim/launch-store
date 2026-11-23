@@ -93,6 +93,7 @@ export function parseReviewRating(ratingText: string | undefined): number | unde
   const parsedRating = Number(trimmedRating);
   // Matches a whole number made only of digits.
   const isWholeNumber = /^\d+$/.test(trimmedRating);
+
   const isValidRating = isValidReviewRating(isWholeNumber, parsedRating);
 
   if (isValidRating) {
@@ -113,6 +114,7 @@ function isPresentDetail(reviewDetail: string | undefined): reviewDetail is stri
 /** Render one App Store customer review as a readable block. */
 function renderCustomerReview(customerReview: CustomerReviewResource): string {
   const reviewDetails = [customerReview.territory];
+
   const hasCreatedDate = customerReview.createdDate != null;
 
   if (hasCreatedDate) {
@@ -141,6 +143,7 @@ function renderCustomerReview(customerReview: CustomerReviewResource): string {
     `${customerReview.id}  ${customerReview.rating}/5`,
     `  ${reviewDetails.filter(isPresentDetail).join('  ')}`,
   ];
+
   const hasTitle = customerReview.title != null;
 
   if (hasTitle) {
@@ -173,11 +176,13 @@ async function confirmReviewWrite(
   }
 
   const terminalIsInteractive = checkTerminalIsInteractive();
+
   const needsATerminal = terminalIsInteractive == false;
 
   if (needsATerminal) {
     let refusalMessage =
       'Refusing to post without confirmation. Re-run with --yes (non-interactive).';
+
     const isDelete = operation == 'delete';
 
     if (isDelete) {
@@ -205,6 +210,7 @@ async function confirmReviewWrite(
   }
 
   LaunchPrompt.cancel('Aborted - nothing posted.');
+
   return false;
 }
 
@@ -217,6 +223,7 @@ async function listReviewsProgram(commandInput: ReviewsListCommandInput): Promis
       territory?: string;
       unansweredOnly: boolean;
     } = { unansweredOnly: commandInput.unanswered };
+
     const hasRating = rating != null;
 
     if (hasRating) {
@@ -233,6 +240,7 @@ async function listReviewsProgram(commandInput: ReviewsListCommandInput): Promis
     const appleStore = await loadActiveAppleStore();
     const customerReviews = await listReviews(appleStore, bundleId, reviewFilters);
     const logger = createLogger(false);
+
     const wantsJson = commandInput.json == true;
 
     if (wantsJson) {
@@ -249,7 +257,9 @@ async function listReviewsProgram(commandInput: ReviewsListCommandInput): Promis
     }
 
     logger.line(customerReviews.map(reviewBlock).join('\n\n'));
+
     let reviewSuffix = 's';
+
     const isSingleReview = customerReviews.length == 1;
 
     if (isSingleReview) {
@@ -295,6 +305,7 @@ async function replyToReviewProgram(commandInput: ReviewReplyCommandInput): Prom
     const appleStore = await loadActiveAppleStore();
     const existingReply = await appleStore.getCustomerReviewResponse(commandInput.reviewId);
     let confirmationVerb = 'Post a public reply to';
+
     const replacesReply = existingReply != null;
 
     if (replacesReply) {
@@ -306,6 +317,7 @@ async function replyToReviewProgram(commandInput: ReviewReplyCommandInput): Prom
       `${confirmationVerb} review ${commandInput.reviewId}?`,
       commandInput.yes,
     );
+
     const declined = shouldReply == false;
 
     if (declined) {
@@ -314,6 +326,7 @@ async function replyToReviewProgram(commandInput: ReviewReplyCommandInput): Prom
 
     const replyOutcome = await replyToReview(appleStore, commandInput.reviewId, replyText);
     let operationLabel = 'reply posted';
+
     const replacedExisting = replyOutcome.replaced == true;
 
     if (replacedExisting) {
@@ -321,6 +334,7 @@ async function replyToReviewProgram(commandInput: ReviewReplyCommandInput): Prom
     }
 
     const logger = createLogger(false);
+
     logger.step(operationLabel, replyOutcome.reviewReply.state);
   } catch (cause) {
     throw reviewsFailure('reply', cause);
@@ -337,6 +351,7 @@ async function deleteReviewReplyProgram(
       `Delete the developer response to review ${commandInput.reviewId}?`,
       commandInput.yes,
     );
+
     const declined = shouldDelete == false;
 
     if (declined) {

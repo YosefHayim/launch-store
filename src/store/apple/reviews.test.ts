@@ -18,6 +18,7 @@ function readThrownMessage(cause: unknown): string | null {
 
   for (const field of fields) {
     const message = readMessageField(field[0], field[1]);
+
     const hasMessage = message != null;
 
     if (hasMessage) return message;
@@ -43,6 +44,7 @@ async function captureThrown(work: Promise<unknown>): Promise<{ message: string 
     await work;
   } catch (cause) {
     const message = readThrownMessage(cause);
+
     const isMissingMessage = message == null;
 
     if (isMissingMessage) throw new Error('expected a failure');
@@ -79,17 +81,21 @@ function makeReviewsStore(fixtures: {
 }): AscReviewsApi {
   function mockCall3(bundleId: string) {
     const appId = fixtures.appIds?.[bundleId];
+
     if (appId == null) return Promise.resolve(null);
+
     return Promise.resolve(appId);
   }
 
   function mockCall4() {
     if (fixtures.customerReviews == null) return Promise.resolve([]);
+
     return Promise.resolve(fixtures.customerReviews);
   }
 
   function mockCall5() {
     if (fixtures.existingReply == null) return Promise.resolve(null);
+
     return Promise.resolve(fixtures.existingReply);
   }
 
@@ -114,6 +120,7 @@ describe('listReviews', () => {
     'returns an actionable failure when the app record is missing',
     returnsAnActionableFailureWhenTheAppPieceIsMissing,
   );
+
   async function pushesRatingAndTerritoryToAppleAndReturnsTheListUnchanged() {
     const customerReviews = [
       customerReview({ id: 'r1', rating: 5 }),
@@ -124,6 +131,7 @@ describe('listReviews', () => {
       customerReviews,
     });
     const listedReviews = await listReviews(reviewsStore, 'com.x', { rating: 5, territory: 'USA' });
+
     expect(listedReviews).toBe(customerReviews);
     expect(reviewsStore.listCustomerReviews).toHaveBeenCalledWith('app1', {
       rating: 5,
@@ -146,6 +154,7 @@ describe('listReviews', () => {
       customerReviews,
     });
     const listedReviews = await listReviews(reviewsStore, 'com.x', { unansweredOnly: true });
+
     expect(listedReviews.map((listedReview) => listedReview.id)).toEqual(['r2']);
     expect(reviewsStore.listCustomerReviews).toHaveBeenCalledWith('app1', {});
   });
@@ -154,6 +163,7 @@ function describeReplyToReview() {
   async function postsANewReplyAndReportsThatItDidNotReplaceOne() {
     const reviewsStore = makeReviewsStore({ existingReply: null });
     const replyOutcome = await replyToReview(reviewsStore, 'r1', 'Thanks for the feedback!');
+
     expect(replyOutcome.replaced).toBe(false);
     expect(replyOutcome.reviewReply).toMatchObject({ responseBody: 'Thanks for the feedback!' });
     expect(reviewsStore.createCustomerReviewResponse).toHaveBeenCalledWith(
@@ -166,11 +176,13 @@ function describeReplyToReview() {
     'posts a new reply and reports that it did not replace one',
     postsANewReplyAndReportsThatItDidNotReplaceOne,
   );
+
   async function reportsReplacementWhenAReplyAlreadyExists() {
     const reviewsStore = makeReviewsStore({
       existingReply: { id: 'resp-old', responseBody: 'old' },
     });
     const replyOutcome = await replyToReview(reviewsStore, 'r1', 'Updated reply');
+
     expect(replyOutcome.replaced).toBe(true);
   }
 
@@ -187,11 +199,13 @@ function describeDeleteReviewPiece() {
   }
 
   it('returns false when no reply exists', returnsFalseWhenNoReplyExists);
+
   async function deletesTheReplyResourceAndReturnsTrue() {
     const reviewsStore = makeReviewsStore({
       existingReply: { id: 'resp-1', responseBody: 'hi' },
     });
     const deleteReview = await deleteReviewResponse(reviewsStore, 'r1');
+
     expect(deleteReview).toBe(true);
     expect(reviewsStore.deleteCustomerReviewResponse).toHaveBeenCalledWith('resp-1');
   }

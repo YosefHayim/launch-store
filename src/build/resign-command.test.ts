@@ -91,6 +91,7 @@ function describeStoredArtifactReference() {
   }
 
   it('keeps an explicit build id', keepsAnExplicitBuildId);
+
   function defaultsToLatestWhenNoIdIsProvided() {
     expect(storedArtifactReference({ dryRun: true })).toBe('latest');
   }
@@ -105,6 +106,7 @@ function describeFilterStoredArtifactsByApp() {
   }
 
   it('returns the full history when no app scope is set', returnsTheFullHistoryWhenNoAppScopeIsSet);
+
   function keepsOnlyArtifactsForTheSelectedAppHandle() {
     expect(filterStoredArtifactsByApp([ipa, androidApk], 'otherapp')).toEqual([androidApk]);
   }
@@ -116,14 +118,23 @@ describe('filterStoredArtifactsByApp', describeFilterStoredArtifactsByApp);
 function describeAppleSigningArguments() {
   function createsTheExpectedUnzipZipProfileAndCodesignArguments() {
     const unzip = unzipArgs('/a.ipa', '/w');
+
     expect(unzip).toEqual(['-oq', '/a.ipa', '-d', '/w']);
+
     const zip = zipArgs('/out.ipa');
+
     expect(zip).toEqual(['-qr', '/out.ipa', 'Payload']);
+
     const securityCms = securityCmsArgs('/p.mobileprovision');
+
     expect(securityCms).toEqual(['cms', '-D', '-i', '/p.mobileprovision']);
+
     const plistBuddyEntitlements = plistBuddyEntitlementsArgs('/p.plist');
+
     expect(plistBuddyEntitlements).toEqual(['-x', '-c', 'Print :Entitlements', '/p.plist']);
+
     const iosCodesign = iosCodesignArgs('/w/Payload/App.app', 'Apple Distribution', '/w/ent.plist');
+
     expect(iosCodesign).toEqual([
       '-f',
       '-s',
@@ -153,8 +164,10 @@ function describeAndroidResignSpec() {
     'uses apksigner for APK files without putting passwords in argv',
     usesApksignerForAPKFilesWithoutPuttingPasswordsInArgv,
   );
+
   function usesJarsignerForAABFilesWithoutPuttingPasswordsInArgv() {
     const resignSpec = androidResignSpec('/out.aab', keystore);
+
     expect(resignSpec.command).toBe('jarsigner');
     expect(resignSpec.arguments).toContain('-storepass:env');
     expect(resignSpec.arguments).not.toContain(storePassword);
@@ -174,6 +187,7 @@ function describeMakeResignCommandFailure() {
       operation: 'select stored artifact',
       message: 'No stored build matches "latest".',
     });
+
     expect(failure._tag).toBe('ResignCommandFailure');
     expect(failure.operation).toBe('select stored artifact');
   }

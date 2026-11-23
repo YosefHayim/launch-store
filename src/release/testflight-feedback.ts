@@ -82,6 +82,7 @@ async function buildIdForVersion(
 
   const buildNumber = Number.parseInt(normalizedVersion, 10);
   const matchedBuild = await appleStore.findBuildByVersion(appId, buildNumber);
+
   const isBuildMissing = matchedBuild == null;
 
   if (isBuildMissing) {
@@ -145,6 +146,7 @@ export async function listBetaFeedback(
   filters: FeedbackFilters = {},
 ): Promise<BetaFeedback[]> {
   const appId = await appleStore.getAppId(bundleId);
+
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
@@ -156,6 +158,7 @@ export async function listBetaFeedback(
 
   let query: BetaFeedbackQuery = {};
   const buildFilter = filters.build;
+
   const hasBuildFilter = buildFilter != null;
 
   if (hasBuildFilter) {
@@ -175,6 +178,7 @@ export async function listBetaFeedback(
 
   for (const screenshotSubmission of screenshotSubmissions) {
     const { screenshots, ...submissionDetails } = screenshotSubmission;
+
     const hasNoScreenshots = screenshots.length == 0;
 
     if (hasNoScreenshots) {
@@ -190,6 +194,7 @@ export async function listBetaFeedback(
   }
 
   feedbackEntries.sort(compareCreatedDateDescending);
+
   return feedbackEntries;
 }
 
@@ -212,10 +217,12 @@ export async function downloadFeedbackAttachments(
   outputDirectory: string,
 ): Promise<DownloadedAttachment[]> {
   await mkdir(outputDirectory, { recursive: true });
+
   const downloadedAttachments: DownloadedAttachment[] = [];
 
   for (const feedbackEntry of feedbackEntries) {
     const listedScreenshots = feedbackEntry.screenshots;
+
     const hasNoScreenshots = listedScreenshots == null;
 
     if (hasNoScreenshots) {
@@ -229,6 +236,7 @@ export async function downloadFeedbackAttachments(
       const firstAttachmentNumber = 1;
       const attachmentNumber = screenshotIndex + firstAttachmentNumber;
       const attachmentPath = join(outputDirectory, `${safeIdentifier}-${attachmentNumber}.png`);
+
       await writeFile(attachmentPath, screenshotBytes);
       downloadedAttachments.push({ path: attachmentPath, url: screenshot.url });
     }

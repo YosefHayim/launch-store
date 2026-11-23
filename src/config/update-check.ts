@@ -287,6 +287,7 @@ async function fetchLatestVersion(packageName: string): Promise<string | null> {
     const registryReply = await fetch(`https://registry.npmjs.org/${packageName}/latest`, {
       signal: AbortSignal.timeout(1500),
     });
+
     const statusIsLow = registryReply.status < 200;
 
     if (statusIsLow) {
@@ -348,6 +349,7 @@ async function performUpgrade(
   homeDirectory: string,
 ): Promise<UpgradeResult> {
   const logger = createLogger(false);
+
   logger.line(`Upgrading launch-store ${current} -> ${latest}`);
 
   try {
@@ -359,6 +361,7 @@ async function performUpgrade(
     return 'upgraded';
   } catch (cause) {
     logger.warn(`launch-store ${latest} available - automatic upgrade failed`);
+
     const isPermissionDenied = permissionDenied(cause);
 
     if (isPermissionDenied) {
@@ -381,12 +384,14 @@ function reexecLaunch(
       stdio: 'inherit',
       env: childEnvironment,
     });
+
     function onPiece() {
       const commandExit = makeCommandExit({ exitCode: 1 });
       reject(commandExit);
     }
 
     child.on('error', onPiece);
+
     function onExitCode(exitCode: number | null) {
       let code = 1;
 
@@ -395,6 +400,7 @@ function reexecLaunch(
       }
 
       const commandExit = makeCommandExit({ exitCode: code });
+
       reject(commandExit);
     }
 

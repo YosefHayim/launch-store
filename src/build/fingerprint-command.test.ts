@@ -19,6 +19,7 @@ const INCREMENTAL_REPORT: FingerprintReport = {
 function describeFingerprintCommandPieceSchema() {
   function decodesTheCommanderPieceShape() {
     const decodeFingerprintCommand = decodeFingerprintCommandInput({ json: false });
+
     expect(decodeFingerprintCommand).toEqual({
       json: false,
     });
@@ -35,6 +36,7 @@ describe('FingerprintCommandInputSchema', describeFingerprintCommandPieceSchema)
 function describeFormatFingerprintReport() {
   function showsAnIncrementalDecisionAndPriorBuild() {
     const reportText = formatFingerprintReport(INCREMENTAL_REPORT);
+
     expect(reportText).toContain('demo (ios)');
     expect(reportText).toContain('Current fingerprint: abcdef012345');
     expect(reportText).toContain('2026-06-13T10:00:00.000Z, clean');
@@ -42,12 +44,14 @@ function describeFormatFingerprintReport() {
   }
 
   it('shows an incremental decision and prior build', showsAnIncrementalDecisionAndPriorBuild);
+
   function showsAColdHostCleanDecision() {
     const reportText = formatFingerprintReport({
       ...INCREMENTAL_REPORT,
       stored: null,
       decision: { clean: true, nativeChanged: true, reason: 'first build on this host' },
     });
+
     expect(reportText).toContain('Last build:          none on this host yet');
     expect(reportText).toContain('clean (from scratch) - first build on this host');
   }

@@ -55,12 +55,14 @@ function describePlatformsForUpdatesFilter() {
     'defaults to both platforms when the filter is omitted',
     defaultsToBothPlatformsWhenTheFilterIsOmitted,
   );
+
   function acceptsIosOrAndroidAlone() {
     expect(platformsForUpdatesFilter('ios')).toEqual(['ios']);
     expect(platformsForUpdatesFilter('android')).toEqual(['android']);
   }
 
   it('accepts ios or android alone', acceptsIosOrAndroidAlone);
+
   function rejectsAnUnknownPlatformWithATaggedFailure() {
     var thrown: unknown = null;
 
@@ -98,6 +100,7 @@ function describeFormatUpdatesTable() {
       }),
     ]);
     const [header, first, second] = table.split('\n');
+
     expect(header).toContain('UPDATE');
     expect(header).toContain('ACTIVE');
     expect(first).toContain('aaaaaaaa');
@@ -119,6 +122,7 @@ function describeFormatUpdateDetail() {
   function includesTheBundleURLAssetCountAndActiveSignedLabelsWhenPresent() {
     const makeUpdate = makeUpdateRow();
     const detail = formatUpdateDetail(makeUpdate, sampleManifest);
+
     expect(detail).toContain('https://cdn/bundle.hbc');
     expect(detail).toContain('assets:  1');
     expect(detail).toContain('active');
@@ -129,9 +133,11 @@ function describeFormatUpdateDetail() {
     'includes the bundle URL, asset count, and active/signed labels when present',
     includesTheBundleURLAssetCountAndActiveSignedLabelsWhenPresent,
   );
+
   function omitsManifestLinesAndActiveLabelWhenTheSnapshotAndActiveFlagAreAbsent() {
     const makeUpdate = makeUpdateRow({ active: false, signed: false });
     const detail = formatUpdateDetail(makeUpdate, null);
+
     expect(detail).not.toContain('bundle:');
     expect(detail).toContain('runtime 1.0.0');
     expect(detail).toContain('signed:  no');
@@ -142,6 +148,7 @@ function describeFormatUpdateDetail() {
     'omits manifest lines and active label when the snapshot and active flag are absent',
     omitsManifestLinesAndActiveLabelWhenTheSnapshotAndActiveFlagAreAbsent,
   );
+
   function labelsPriorRollbackHistoryRowsWithoutRewritingTheirKind() {
     const makeUpdate = makeUpdateRow({ active: false, kind: 'rollback' });
     const detail = formatUpdateDetail(makeUpdate, sampleManifest);

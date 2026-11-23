@@ -79,6 +79,7 @@ export class StoreCommand {
 
   sync = async (flags: SyncFlags): Promise<void> => {
     const loaded = await this.load();
+
     const isDryRun = flags.dryRun;
 
     if (isDryRun) {
@@ -145,6 +146,7 @@ export class StoreCommand {
     const launchFile = await new LoadLaunchFile().read(directory);
     const desired = { products: desiredProducts(launchFile) };
     const expoApp = await readExpoApp(directory);
+
     const isDesiredEmpty = desired.products.length == 0;
 
     if (isDesiredEmpty) {
@@ -198,6 +200,7 @@ function canReadStore(expoApp: ExpoApp): boolean {
 async function readLiveProducts(expoApp: ExpoApp): Promise<StoreProduct[]> {
   const liveProducts: StoreProduct[] = [];
   const packageName = expoApp.packageName;
+
   const hasPackage = packageName != null;
 
   if (hasPackage) {
@@ -218,6 +221,7 @@ async function readLiveProducts(expoApp: ExpoApp): Promise<StoreProduct[]> {
 
   const apple = new AppStoreConnect();
   const appId = await apple.findAppId(bundleId);
+
   const isMissing = appId == null;
 
   if (isMissing) {
@@ -232,6 +236,7 @@ async function readLiveProducts(expoApp: ExpoApp): Promise<StoreProduct[]> {
     }
 
     const already = liveProducts.find(isAlreadyListed);
+
     const isNew = already == null;
 
     if (isNew) {

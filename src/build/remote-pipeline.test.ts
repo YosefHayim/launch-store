@@ -60,16 +60,19 @@ function prepare() {
   originalCwd = process.cwd();
   fetchGuard.mockClear();
   vi.stubGlobal('fetch', fetchGuard);
+
   function mockImplementationPiece() {
     return undefined;
   }
 
   vi.spyOn(console, 'log').mockImplementation(mockImplementationPiece);
+
   function mockImplementationPiece2() {
     return undefined;
   }
 
   vi.spyOn(console, 'warn').mockImplementation(mockImplementationPiece2);
+
   function mockImplementationPiece3() {
     return undefined;
   }
@@ -90,10 +93,12 @@ function prepare() {
 beforeEach(prepare);
 function cleanup() {
   process.chdir(originalCwd);
+
   if (tempRepo) {
     rmSync(tempRepo, { recursive: true, force: true });
     tempRepo = '';
   }
+
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 }
@@ -107,7 +112,9 @@ function writeRepo(): string {
   const serialized = JSON.stringify({
     expo: { slug: 'hello', version: '1.0.0', ios: { bundleIdentifier: 'com.example.hello' } },
   });
+
   writeFileSync(appPath, serialized);
+
   return dir;
 }
 const base = {
@@ -123,24 +130,29 @@ function describeRemoteBuildDryRunRehearsesWithNoSSHAWSNetwork() {
   async function rehearsesTheAWSRemotePath() {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
+
     function runRemoteCoreTestPiece() {
       return runBuild({ ...base, remote: { kind: 'aws' } });
     }
 
     const remoteCoreTest = runRemoteCoreTest(runRemoteCoreTestPiece);
+
     await expect(remoteCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   }
 
   it('rehearses the AWS remote path', rehearsesTheAWSRemotePath);
+
   async function rehearsesTheSSHByoRemotePath() {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
+
     function runRemoteCoreTestPiece2() {
       return runBuild({ ...base, remote: { kind: 'ssh', target: 'ec2-user@1.2.3.4' } });
     }
 
     const remoteCoreTest = runRemoteCoreTest(runRemoteCoreTestPiece2);
+
     await expect(remoteCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   }
@@ -156,11 +168,13 @@ function describeEASHandoffDryRunRehearsesWithNoEasCliNetwork() {
   async function rehearsesTheEASPath() {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
+
     const remoteCoreTest = runRemoteCoreTest(async function rehearseEasBuild() {
       const preparedBuild = await prepareBuild(base);
 
       await runEasBuild(preparedBuild, base);
     });
+
     await expect(remoteCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
   }

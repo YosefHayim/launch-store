@@ -81,7 +81,9 @@ function artifact(
   }
 
   const matchingArtifact = migrationArtifacts.find(findPiece);
+
   expect(matchingArtifact, `expected artifact ${artifactPath}`).toBeDefined();
+
   return expectDefined(matchingArtifact, `artifact ${artifactPath}`);
 }
 /** Notes at a given level. */
@@ -109,6 +111,7 @@ function describeReadRubyString() {
   }
 
   it('reads bare and parenthesized string directives', readsBareAndParenthesizedStringDirectives);
+
   function treatsMissingAndEmptyDirectivesAsAbsent() {
     const rubyString = readRubyString('team_id "ABCD"', 'apple_id');
     expect(rubyString).toBeUndefined();
@@ -122,6 +125,7 @@ describe('readRubyString', describeReadRubyString);
 function describeParseAppfile() {
   function readsEveryIdentifierAndKeepsTeamIdDistinctFromItcTeamId() {
     const appfile = parseAppfile(SAMPLE_APPFILE);
+
     expect(appfile.appIdentifier).toBe('com.acme.alpha');
     expect(appfile.appleId).toBe('you@example.com');
     expect(appfile.teamId).toBe('ABCD1234');
@@ -133,12 +137,14 @@ function describeParseAppfile() {
     'reads every identifier and keeps team_id distinct from itc_team_id',
     readsEveryIdentifierAndKeepsTeamIdDistinctFromItcTeamId,
   );
+
   function returnsOnlyTheDirectivesPresent() {
     const appfile = parseAppfile('apple_id("solo@example.com")');
     expect(appfile).toEqual({ appleId: 'solo@example.com' });
   }
 
   it('returns only the directives present', returnsOnlyTheDirectivesPresent);
+
   function treatsAnEmptyPieceAsAbsent() {
     const appfile = parseAppfile('team_id ""');
     expect(appfile).toEqual({});
@@ -151,6 +157,7 @@ describe('parseAppfile', describeParseAppfile);
 function describeParseMatchfile() {
   function readsTheSigningStrategy() {
     const matchfile = parseMatchfile(SAMPLE_MATCHFILE);
+
     expect(matchfile).toEqual({
       gitUrl: 'https://github.com/acme/certs',
       type: 'appstore',
@@ -165,6 +172,7 @@ describe('parseMatchfile', describeParseMatchfile);
 function describeParseSupplyfile() {
   function readsThePlayUploadDefaults() {
     const supplyfile = parseSupplyfile(SAMPLE_SUPPLYFILE);
+
     expect(supplyfile).toEqual({
       packageName: 'com.acme.alpha',
       jsonKey: './play-key.json',
@@ -187,6 +195,7 @@ function describeParseFastfile() {
     }
 
     const names = parseFastfile(SAMPLE_FASTFILE).lanes.map(readName).sort();
+
     expect(names).toEqual(['beta', 'play', 'prepare', 'release']);
   }
 
@@ -194,8 +203,10 @@ function describeParseFastfile() {
     'collects lane names from both lane and private_lane',
     collectsLaneNamesFromBothLaneAndPrivateLane,
   );
+
   function attributesEachLaneToItsPlatformBlockAndScopesActionsToItsPiece() {
     const lanes = parseFastfile(SAMPLE_FASTFILE).lanes;
+
     function findLane(lane: {
       readonly name: string;
       readonly platform?: string;
@@ -205,14 +216,18 @@ function describeParseFastfile() {
     }
 
     const beta = lanes.find(findLane);
+
     expect(beta).toBeDefined();
+
     if (beta == null) return;
+
     expect(beta.platform).toBe('ios');
     expect([...beta.actions].sort()).toEqual(['gym', 'match', 'pilot']);
     expect(laneLaunchCommands(beta)).toEqual([
       'launch-store build',
       'launch-store release --track testing',
     ]);
+
     function findLane2(lane: {
       readonly name: string;
       readonly platform?: string;
@@ -222,10 +237,14 @@ function describeParseFastfile() {
     }
 
     const play = lanes.find(findLane2);
+
     expect(play).toBeDefined();
+
     if (play == null) return;
+
     expect(play.platform).toBe('android');
     expect(play.actions).toEqual(['supply']);
+
     function findLane3(lane: {
       readonly name: string;
       readonly platform?: string;
@@ -236,8 +255,11 @@ function describeParseFastfile() {
 
     // gym lives in :beta, not in :release - body scoping keeps them apart.
     const release = lanes.find(findLane3);
+
     expect(release).toBeDefined();
+
     if (release == null) return;
+
     expect(release.actions).toEqual(['deliver']);
   }
 
@@ -245,8 +267,10 @@ function describeParseFastfile() {
     'attributes each lane to its platform block and scopes actions to its body',
     attributesEachLaneToItsPlatformBlockAndScopesActionsToItsPiece,
   );
+
   function detectsTheRecognizedActionsUsedAnywhereInTheFile() {
     const { actions } = parseFastfile(SAMPLE_FASTFILE);
+
     expect(actions).toContain('match');
     expect(actions).toContain('gym');
     expect(actions).toContain('pilot');
@@ -282,34 +306,41 @@ function describeMigrationNotesFor() {
       [app({ packageName: 'com.acme.alpha' })],
       false,
     );
+
     function readMessage(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const mapped = notesAt(migrationNotes, 'mapped').map(readMessage);
+
     expect(mapped).toContain(
       'lane :beta (ios) -> launch-store build + launch-store release --track testing.',
     );
+
     function readMessage2(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const manual = notesAt(migrationNotes, 'manual').map(readMessage2);
+
     function someMessage(message: string) {
       return message.includes('match/cert/sigh');
     }
 
     expect(manual.some(someMessage)).toBe(true);
+
     function someMessage2(message: string) {
       return message.includes('Deliverfile');
     }
 
     expect(manual.some(someMessage2)).toBe(true);
+
     function readMessage3(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const informational = notesAt(migrationNotes, 'info').map(readMessage3);
+
     function someMessage3(message: string) {
       return message.includes('app_identifier');
     }
@@ -321,6 +352,7 @@ function describeMigrationNotesFor() {
     'maps lanes and surfaces signing as manual without filesystem access',
     mapsLanesAndSurfacesSigningAsManualWithoutFilesystemAccess,
   );
+
   function dropsTheDeliverfileFollowUpWhenMetadataWasImported() {
     const migrationNotes = migrationNotesFor(
       {
@@ -332,6 +364,7 @@ function describeMigrationNotesFor() {
       [],
       true,
     );
+
     function someNote(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message.includes('Deliverfile');
     }
@@ -348,6 +381,7 @@ function describeMigrationNotesFor() {
 describe('migrationNotesFor', describeMigrationNotesFor);
 function describeReadFastlaneSetup() {
   let dir: string;
+
   function prepareReadFastlaneSetup() {
     const systemTemporaryDirectory = tmpdir();
     const launchFastlanePath = join(systemTemporaryDirectory, 'launch-fastlane-');
@@ -355,11 +389,13 @@ function describeReadFastlaneSetup() {
   }
 
   beforeEach(prepareReadFastlaneSetup);
+
   function cleanupReadFastlaneSetup() {
     rmSync(dir, { recursive: true, force: true });
   }
 
   afterEach(cleanupReadFastlaneSetup);
+
   async function returnsNullWhenTheProjectHasNoFastlaneFiles() {
     expect(await runReadFastlaneSetup(dir)).toBeNull();
   }
@@ -368,15 +404,24 @@ function describeReadFastlaneSetup() {
     'returns null when the project has no fastlane files',
     returnsNullWhenTheProjectHasNoFastlaneFiles,
   );
+
   async function readsFilesFromTheConventionalFastlaneSubdirectory() {
     const fastlanePath = join(dir, 'fastlane');
+
     mkdirSync(fastlanePath);
+
     const appfilePath = join(dir, 'fastlane', 'Appfile');
+
     writeFileSync(appfilePath, SAMPLE_APPFILE);
+
     const fastfilePath = join(dir, 'fastlane', 'Fastfile');
+
     writeFileSync(fastfilePath, SAMPLE_FASTFILE);
+
     const fastlaneSetup = await runReadFastlaneSetup(dir);
+
     expect(fastlaneSetup?.appfile?.appIdentifier).toBe('com.acme.alpha');
+
     function readName2(lane: {
       readonly name: string;
       readonly platform?: string;
@@ -393,6 +438,7 @@ function describeReadFastlaneSetup() {
     'reads files from the conventional fastlane/ subdirectory',
     readsFilesFromTheConventionalFastlaneSubdirectory,
   );
+
   async function readsFilesPlacedAtTheProjectRoot() {
     const appfilePath = join(dir, 'Appfile');
     writeFileSync(appfilePath, SAMPLE_APPFILE);
@@ -405,32 +451,49 @@ function describeReadFastlaneSetup() {
 describe('readFastlaneSetup', describeReadFastlaneSetup);
 function describeMigrateFastlane() {
   let dir: string;
+
   function prepareMigrateFastlane() {
     const systemTemporaryDirectory = tmpdir();
     const launchFastlanePath = join(systemTemporaryDirectory, 'launch-fastlane-');
+
     dir = mkdtempSync(launchFastlanePath);
+
     const fastlanePath = join(dir, 'fastlane');
+
     mkdirSync(fastlanePath);
+
     const appfilePath = join(dir, 'fastlane', 'Appfile');
+
     writeFileSync(appfilePath, SAMPLE_APPFILE);
+
     const fastfilePath = join(dir, 'fastlane', 'Fastfile');
+
     writeFileSync(fastfilePath, SAMPLE_FASTFILE);
+
     const matchfilePath = join(dir, 'fastlane', 'Matchfile');
+
     writeFileSync(matchfilePath, SAMPLE_MATCHFILE);
+
     const supplyfilePath = join(dir, 'fastlane', 'Supplyfile');
+
     writeFileSync(supplyfilePath, SAMPLE_SUPPLYFILE);
+
     const deliverfilePath = join(dir, 'fastlane', 'Deliverfile');
+
     writeFileSync(deliverfilePath, 'app_identifier("com.acme.alpha")');
   }
 
   beforeEach(prepareMigrateFastlane);
+
   function cleanupMigrateFastlane() {
     rmSync(dir, { recursive: true, force: true });
   }
 
   afterEach(cleanupMigrateFastlane);
+
   async function returnsATaggedFailureWhenThereIsNoFastlaneSetup() {
     const fastlanePath = join(dir, 'fastlane');
+
     rmSync(fastlanePath, { recursive: true, force: true });
     await expect(migrateFastlane(dir, [app()])).rejects.toMatchObject({
       _tag: 'FastlaneMigrationFailure',
@@ -442,13 +505,16 @@ function describeMigrateFastlane() {
     'returns a tagged failure when there is no fastlane setup',
     returnsATaggedFailureWhenThereIsNoFastlaneSetup,
   );
+
   async function emitsTheStarterLaunchPieceTsPieceExampleAndStorePiecePiece() {
     const migration = await runMigrateFastlane(dir, [app()]);
+
     function readPath(entry: { readonly path: string; readonly contents: string }) {
       return entry.path;
     }
 
     const artifactPaths = migration.artifacts.map(readPath);
+
     expect(artifactPaths).toContain('launch.config.ts');
     expect(artifactPaths).toContain('.env.example');
     expect(artifactPaths).toContain('store.config.json');
@@ -459,23 +525,28 @@ function describeMigrateFastlane() {
     'emits the starter launch.config.ts, .env.example, and store.config.json',
     emitsTheStarterLaunchPieceTsPieceExampleAndStorePiecePiece,
   );
+
   async function mapsEachLaneToItsLaunchCommandsAndKeepsSigningAsAManualFollowUp() {
     const migrationNotes = (await runMigrateFastlane(dir, [app()])).notes;
+
     function readMessage4(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const mapped = notesAt(migrationNotes, 'mapped').map(readMessage4);
+
     expect(mapped).toContain(
       'lane :beta (ios) -> launch-store build + launch-store release --track testing.',
     );
     expect(mapped).toContain('lane :release (ios) -> launch-store release.');
     expect(mapped).toContain('lane :play (android) -> launch-store release (Android).');
+
     function readMessage5(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
 
     const manual = notesAt(migrationNotes, 'manual').map(readMessage5);
+
     function someMessage4(message: string) {
       return message.includes('match/cert/sigh');
     }
@@ -487,9 +558,12 @@ function describeMigrateFastlane() {
     'maps each lane to its Launch commands and keeps signing as a manual follow-up',
     mapsEachLaneToItsLaunchCommandsAndKeepsSigningAsAManualFollowUp,
   );
+
   async function reportsACustomLaneWithNoRecognizedActionsAsAManualFollowUp() {
     const fastfilePath = join(dir, 'fastlane', 'Fastfile');
+
     writeFileSync(fastfilePath, "lane :smoke do\n  sh('echo hi')\nend\n");
+
     function readMessage6(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
@@ -497,6 +571,7 @@ function describeMigrateFastlane() {
     const manual = notesAt((await runMigrateFastlane(dir, [app()])).notes, 'manual').map(
       readMessage6,
     );
+
     function someMessage5(message: string) {
       return message.includes('Custom lanes (smoke)');
     }
@@ -508,6 +583,7 @@ function describeMigrateFastlane() {
     'reports a custom lane with no recognized actions as a manual follow-up',
     reportsACustomLaneWithNoRecognizedActionsAsAManualFollowUp,
   );
+
   async function mapsGymPilotDeliverSupplyToLaunchCommands() {
     function readMessage7(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
@@ -516,16 +592,19 @@ function describeMigrateFastlane() {
     const mapped = notesAt((await runMigrateFastlane(dir, [app()])).notes, 'mapped').map(
       readMessage7,
     );
+
     function someMessage6(message: string) {
       return message.includes('launch-store build');
     }
 
     expect(mapped.some(someMessage6)).toBe(true);
+
     function someMessage7(message: string) {
       return message.includes('TestFlight');
     }
 
     expect(mapped.some(someMessage7)).toBe(true);
+
     function someMessage8(message: string) {
       return message.includes('deliver');
     }
@@ -534,6 +613,7 @@ function describeMigrateFastlane() {
   }
 
   it('maps gym/pilot/deliver/supply to Launch commands', mapsGymPilotDeliverSupplyToLaunchCommands);
+
   async function reportsTheSupplyfileTrackAndADeliverfileAsManual() {
     function readMessage8(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
@@ -542,11 +622,13 @@ function describeMigrateFastlane() {
     const manual = notesAt((await runMigrateFastlane(dir, [app()])).notes, 'manual').map(
       readMessage8,
     );
+
     function someMessage9(message: string) {
       return message.includes('Play track');
     }
 
     expect(manual.some(someMessage9)).toBe(true);
+
     function someMessage10(message: string) {
       return message.includes('Deliverfile');
     }
@@ -558,6 +640,7 @@ function describeMigrateFastlane() {
     'reports the Supplyfile track and a Deliverfile as manual',
     reportsTheSupplyfileTrackAndADeliverfileAsManual,
   );
+
   async function reportsTheAppfileAppIdentifierAndDetectedIdsAsPiece() {
     function readMessage9(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
@@ -567,16 +650,19 @@ function describeMigrateFastlane() {
       (await runMigrateFastlane(dir, [app({ packageName: 'com.acme.alpha' })])).notes,
       'info',
     ).map(readMessage9);
+
     function someMessage11(message: string) {
       return message.includes('app_identifier');
     }
 
     expect(informationalNotes.some(someMessage11)).toBe(true);
+
     function someMessage12(message: string) {
       return message.includes('bundle id');
     }
 
     expect(informationalNotes.some(someMessage12)).toBe(true);
+
     function someMessage13(message: string) {
       return message.includes('package');
     }
@@ -588,15 +674,20 @@ function describeMigrateFastlane() {
     'reports the Appfile app_identifier and detected ids as info',
     reportsTheAppfileAppIdentifierAndDetectedIdsAsPiece,
   );
+
   async function skipsStorePiecePieceWhenOneAlreadyExists() {
     const storePath = join(dir, 'store.config.json');
+
     writeFileSync(storePath, '{}');
+
     const migration = await runMigrateFastlane(dir, [app()]);
+
     function readPath2(entry: { readonly path: string; readonly contents: string }) {
       return entry.path;
     }
 
     expect(migration.artifacts.map(readPath2)).not.toContain('store.config.json');
+
     function someNote2(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message.includes('store.config.json');
     }
@@ -605,32 +696,48 @@ function describeMigrateFastlane() {
   }
 
   it('skips store.config.json when one already exists', skipsStorePiecePieceWhenOneAlreadyExists);
+
   async function importsTheFastlaneMetadataFolderIntoStorePiecePieceAndDropsTheDeliverfileFollowUp() {
     const appleLocale = join(dir, 'fastlane', 'metadata', 'en-US');
+
     mkdirSync(appleLocale, { recursive: true });
+
     const namePath = join(appleLocale, 'name.txt');
+
     writeFileSync(namePath, 'Alpha');
+
     const keywordsPath = join(appleLocale, 'keywords.txt');
+
     writeFileSync(keywordsPath, 'todo, tasks');
+
     const androidLocale = join(dir, 'fastlane', 'metadata', 'android', 'en-US');
+
     mkdirSync(androidLocale, { recursive: true });
+
     const titlePath = join(androidLocale, 'title.txt');
+
     writeFileSync(titlePath, 'Alpha');
+
     const fullDescriptionPath = join(androidLocale, 'full_description.txt');
+
     writeFileSync(fullDescriptionPath, 'The full description.');
+
     const migration = await runMigrateFastlane(dir, [app()]);
     const store = JSON.parse(artifact(migration.artifacts, 'store.config.json').contents) as {
       apple?: { info: Record<string, { title?: string; keywords?: string[] }> };
       android?: { info: Record<string, { title?: string }> };
     };
+
     expect(store.apple?.info['en-US']?.title).toBe('Alpha');
     expect(store.apple?.info['en-US']?.keywords).toEqual(['todo', 'tasks']);
     expect(store.android?.info['en-US']?.title).toBe('Alpha');
+
     function someNote3(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message.includes('Imported your fastlane metadata');
     }
 
     expect(notesAt(migration.notes, 'mapped').some(someNote3)).toBe(true);
+
     function someNote4(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message.includes('Deliverfile');
     }
@@ -642,13 +749,17 @@ function describeMigrateFastlane() {
     'imports the fastlane/metadata folder into store.config.json and drops the Deliverfile follow-up',
     importsTheFastlaneMetadataFolderIntoStorePiecePieceAndDropsTheDeliverfileFollowUp,
   );
+
   async function seedsPieceExampleWithKEYSDiscoveredInFastlaneDotenvFilesValuesDropped() {
     const joinedPath = join(dir, 'fastlane', '.env.default');
+
     writeFileSync(joinedPath, 'APP_STORE_KEY=secret\nexport SLACK_URL=https://hooks\n');
+
     const env = artifact(
       (await runMigrateFastlane(dir, [app()])).artifacts,
       '.env.example',
     ).contents;
+
     expect(env).toContain('APP_STORE_KEY=');
     expect(env).toContain('SLACK_URL=');
     expect(env).not.toContain('APP_STORE_KEY=secret');
@@ -659,9 +770,12 @@ function describeMigrateFastlane() {
     'seeds .env.example with KEYS discovered in fastlane dotenv files (values dropped)',
     seedsPieceExampleWithKEYSDiscoveredInFastlaneDotenvFilesValuesDropped,
   );
+
   async function surfacesANonGitPieceStorageBackendInTheSigningNote() {
     const matchfilePath = join(dir, 'fastlane', 'Matchfile');
+
     writeFileSync(matchfilePath, ['type("appstore")', 'storage_mode("google_cloud")'].join('\n'));
+
     function readMessage10(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
     }
@@ -669,6 +783,7 @@ function describeMigrateFastlane() {
     const informationalNotes = notesAt((await runMigrateFastlane(dir, [app()])).notes, 'info').map(
       readMessage10,
     );
+
     function someMessage14(message: string) {
       return message.includes('google_cloud');
     }

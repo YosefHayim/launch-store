@@ -10,19 +10,29 @@ import { pickAccessibilitySupport } from './shared.ts';
 export class ConnectAccessibility {
   constructor(private readonly client: AscHost) {}
 
+  /**
+   * Get a list of the accessibility declarations for a specific app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-accessibilitydeclarations
+   */
   async listAccessibilityDeclarations(appId: string): Promise<AccessibilityDeclarationResource[]> {
     const declarations = await this.client.requestAll<AccessibilityDeclarationAttributes>(
       `/apps/${appId}/accessibilityDeclarations?limit=200`,
     );
+
     function flatMapDeclaration(declaration: {
       id: string;
       attributes: AccessibilityDeclarationAttributes;
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
       const deviceFamily = declaration.attributes.deviceFamily;
+
       if (deviceFamily == null) return [];
+
       let state = declaration.attributes.state;
+
       if (state == null) state = 'DRAFT';
+
       return [
         {
           id: declaration.id,
@@ -36,6 +46,11 @@ export class ConnectAccessibility {
     return declarations.flatMap(flatMapDeclaration);
   }
 
+  /**
+   * Add an accessibility declaration for a specific app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-accessibilitydeclarations
+   */
   async createAccessibilityDeclaration(
     appId: string,
     deviceFamily: DeviceFamily,
@@ -54,9 +69,13 @@ export class ConnectAccessibility {
       },
     });
     let declarationAttributes = appleResources.attributes;
+
     if (declarationAttributes == null) declarationAttributes = {};
+
     let state = declarationAttributes.state;
+
     if (state == null) state = 'DRAFT';
+
     return {
       id: appleResources.id,
       deviceFamily,
@@ -65,6 +84,11 @@ export class ConnectAccessibility {
     };
   }
 
+  /**
+   * Update the attributes of a specific accessibility declaration.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-accessibilitydeclarations-_id_
+   */
   async updateAccessibilityDeclaration(
     declarationId: string,
     changes: AccessibilitySupport & {

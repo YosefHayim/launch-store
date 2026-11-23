@@ -45,7 +45,9 @@ class FakeOffersApi implements AscOffersApi {
   }
   listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
     let subscriptions: SubscriptionResource[] = [];
+
     if (this.subsByGroup[groupId] != null) subscriptions = this.subsByGroup[groupId];
+
     return Promise.resolve(subscriptions);
   }
   listInAppPurchases(): Promise<InAppPurchaseResource[]> {
@@ -57,7 +59,9 @@ class FakeOffersApi implements AscOffersApi {
     customerPrice: number,
   ): Promise<PricePointResource | null> {
     if (customerPrice == 999) return Promise.resolve(null);
+
     const asString = String(customerPrice);
+
     return Promise.resolve({
       id: `pp-${territory}-${customerPrice}`,
       customerPrice: asString,
@@ -76,6 +80,7 @@ class FakeOffersApi implements AscOffersApi {
   }
   createPromotionalOffer(input: PromotionalOfferCreate): Promise<PromotionalOfferResource> {
     this.createdPromotional.push(input);
+
     return Promise.resolve({
       id: `po-${input.offerCode}`,
       name: input.name,
@@ -101,10 +106,15 @@ class FakeOffersApi implements AscOffersApi {
   }
   createPromotedPurchase(input: PromotedPurchaseCreate): Promise<PromotedPurchaseResource> {
     this.createdPromoted.push(input);
+
     let inAppPurchaseId: string | null = null;
+
     if (input.inAppPurchaseId != null) inAppPurchaseId = input.inAppPurchaseId;
+
     let subscriptionId: string | null = null;
+
     if (input.subscriptionId != null) subscriptionId = input.subscriptionId;
+
     return Promise.resolve({
       id: `pp-new-${this.createdPromoted.length}`,
       inAppPurchaseId,
@@ -131,6 +141,7 @@ function productsWith(overrides: Partial<SubscriptionConfig>): AppProducts {
     localizations: [{ locale: 'en-US', name: 'Pro' }],
     ...overrides,
   };
+
   return {
     subscriptionGroups: [
       {
@@ -161,6 +172,7 @@ function describeReconcileOffersOfferCodes() {
         ],
       }),
     });
+
     expect(report.actions).toHaveLength(1);
     expect(report.actions[0]?.status).toBe('applied');
     expect(api.createdOfferCodes).toHaveLength(1);
@@ -173,9 +185,12 @@ function describeReconcileOffersOfferCodes() {
     'creates a missing offer code with its prices resolved to price points',
     createsAMissingOfferCodeWithItsPricesResolvedToPricePoints,
   );
+
   async function skipsAnOfferCodeThatAlreadyExistsMatchedByName() {
     const api = new FakeOffersApi();
+
     api.offerCodes = [{ id: 'oc-LAUNCH', name: 'LAUNCH', active: true }];
+
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
@@ -193,6 +208,7 @@ function describeReconcileOffersOfferCodes() {
         ],
       }),
     });
+
     expect(report.actions).toHaveLength(0);
     expect(api.createdOfferCodes).toHaveLength(0);
   }
@@ -201,6 +217,7 @@ function describeReconcileOffersOfferCodes() {
     'skips an offer code that already exists (matched by name)',
     skipsAnOfferCodeThatAlreadyExistsMatchedByName,
   );
+
   async function plansButDoesNotWriteOnADryRun() {
     const api = new FakeOffersApi();
     const report = await runReconcile(api, {
@@ -219,11 +236,13 @@ function describeReconcileOffersOfferCodes() {
         ],
       }),
     });
+
     expect(report.actions[0]?.status).toBe('planned');
     expect(api.createdOfferCodes).toHaveLength(0);
   }
 
   it('plans but does not write on a dry-run', plansButDoesNotWriteOnADryRun);
+
   async function skipsAFREETRIALOfferCodeThatWronglyCarriesAPrice() {
     const api = new FakeOffersApi();
     const report = await runReconcile(api, {
@@ -243,6 +262,7 @@ function describeReconcileOffersOfferCodes() {
         ],
       }),
     });
+
     expect(report.actions[0]?.status).toBe('skipped');
     expect(report.actions[0]?.description).toContain('FREE_TRIAL');
     expect(api.createdOfferCodes).toHaveLength(0);
@@ -252,6 +272,7 @@ function describeReconcileOffersOfferCodes() {
     'skips a FREE_TRIAL offer code that wrongly carries a price',
     skipsAFREETRIALOfferCodeThatWronglyCarriesAPrice,
   );
+
   async function failsTheActionNotTheRunWhenADeclaredPriceMatchesNoPricePoint() {
     const api = new FakeOffersApi();
     const report = await runReconcile(api, {
@@ -271,6 +292,7 @@ function describeReconcileOffersOfferCodes() {
         ],
       }),
     });
+
     expect(report.actions[0]?.status).toBe('failed');
     expect(report.actions[0]?.error).toContain('price point');
   }
@@ -315,6 +337,7 @@ function describeReconcileOffersPromotionalIntroductoryWinBack() {
         ],
       }),
     });
+
     function everyAction(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -331,6 +354,7 @@ function describeReconcileOffersPromotionalIntroductoryWinBack() {
   }
 
   it("creates each declared offer kind that's missing", createsEachDeclaredOfferKindThatSMissing);
+
   async function skipsAWinBackOfferWhoseEligibilityWindowIsInverted() {
     const api = new FakeOffersApi();
     const report = await runReconcile(api, {
@@ -352,6 +376,7 @@ function describeReconcileOffersPromotionalIntroductoryWinBack() {
         ],
       }),
     });
+
     expect(report.actions[0]?.status).toBe('skipped');
     expect(api.createdWinBack).toHaveLength(0);
   }
@@ -369,6 +394,7 @@ describe(
 function describeReconcileOffersPromotedPurchases() {
   async function promotesAMissingProductAndReordersToTheDeclaredOrder() {
     const api = new FakeOffersApi();
+
     api.iaps = [
       { id: 'iap-1', productId: 'com.acme.coins', name: 'Coins', inAppPurchaseType: 'CONSUMABLE' },
     ];
@@ -381,6 +407,7 @@ function describeReconcileOffersPromotedPurchases() {
         visibleForAllUsers: true,
       },
     ];
+
     const products: AppProducts = {
       ...productsWith({}),
       promotedPurchases: [{ productId: 'com.acme.pro' }, { productId: 'com.acme.coins' }],
@@ -390,9 +417,11 @@ function describeReconcileOffersPromotedPurchases() {
       dryRun: false,
       products,
     });
+
     // The subscription isn't promoted yet -> created; then a reorder puts pro (new) before coins (existing).
     expect(api.createdPromoted).toHaveLength(1);
     expect(api.createdPromoted[0]?.subscriptionId).toBe('sub-1');
+
     function someAction(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -409,6 +438,7 @@ function describeReconcileOffersPromotedPurchases() {
     'promotes a missing product and reorders to the declared order',
     promotesAMissingProductAndReordersToTheDeclaredOrder,
   );
+
   async function skipsAPromotedProductThatMapsToNoSubscriptionOrIAP() {
     const api = new FakeOffersApi();
     const products: AppProducts = {
@@ -420,6 +450,7 @@ function describeReconcileOffersPromotedPurchases() {
       dryRun: false,
       products,
     });
+
     expect(report.actions[0]?.status).toBe('skipped');
     expect(report.actions[0]?.description).toContain('com.acme.ghost');
     expect(api.createdPromoted).toHaveLength(0);
@@ -435,7 +466,9 @@ describe('reconcileOffers - promoted purchases', describeReconcileOffersPromoted
 function describeReconcileOffersPreconditions() {
   async function skipsASubscriptionThatIsnTInAppStoreConnectYet() {
     const api = new FakeOffersApi();
+
     api.subsByGroup = { 'grp-1': [] };
+
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
@@ -452,6 +485,7 @@ function describeReconcileOffersPreconditions() {
         ],
       }),
     });
+
     expect(report.actions[0]?.status).toBe('skipped');
     expect(report.actions[0]?.description).toContain('launch-store sync');
   }
@@ -460,14 +494,18 @@ function describeReconcileOffersPreconditions() {
     "skips a subscription that isn't in App Store Connect yet",
     skipsASubscriptionThatIsnTInAppStoreConnectYet,
   );
+
   async function throwsWhenTheAppHasNoAppStoreConnectPiece() {
     const api = new FakeOffersApi();
+
     api.appId = null;
+
     const reconcile = runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
       products: productsWith({}),
     });
+
     await expect(reconcile).rejects.toThrow(/No App Store Connect app record/);
   }
 
@@ -475,6 +513,7 @@ function describeReconcileOffersPreconditions() {
     'throws when the app has no App Store Connect record',
     throwsWhenTheAppHasNoAppStoreConnectPiece,
   );
+
   async function skipsANonFREETRIALOfferCodeWithNoPrices() {
     const api = new FakeOffersApi();
     const report = await runReconcile(api, {
@@ -493,15 +532,19 @@ function describeReconcileOffersPreconditions() {
         ],
       }),
     });
+
     expect(report.actions[0]?.status).toBe('skipped');
     expect(report.actions[0]?.description).toContain('need at least one price');
     expect(api.createdOfferCodes).toHaveLength(0);
   }
 
   it('skips a non-FREE_TRIAL offer code with no prices', skipsANonFREETRIALOfferCodeWithNoPrices);
+
   async function skipsAPromotionalOfferThatAlreadyExistsMatchedByOfferCode() {
     const api = new FakeOffersApi();
+
     api.promotionalOffers = [{ id: 'po-1', name: 'Loyalty', offerCode: 'loyalty10' }];
+
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
@@ -518,6 +561,7 @@ function describeReconcileOffersPreconditions() {
         ],
       }),
     });
+
     expect(report.actions).toHaveLength(0);
     expect(api.createdPromotional).toHaveLength(0);
   }
@@ -539,6 +583,7 @@ function describeAppDeclaresOffers() {
     'is false for empty catalogs and plain subscriptions',
     isFalseForEmptyCatalogsAndPlainSubscriptions,
   );
+
   function isTrueForAnySubscriptionOfferKindOrPromotedPurchaseOrdering() {
     expect(
       appDeclaresOffers(

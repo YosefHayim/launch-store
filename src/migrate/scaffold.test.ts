@@ -6,6 +6,7 @@ import { ENV_EXAMPLE_TEMPLATE } from '../config/config-scaffold.ts';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.ts';
 function describeScaffoldStorePiece() {
   let dir: string;
+
   function prepareScaffoldStorePiece() {
     const systemTemporaryDirectory = tmpdir();
     const launchScaffoldPath = join(systemTemporaryDirectory, 'launch-scaffold-');
@@ -13,11 +14,13 @@ function describeScaffoldStorePiece() {
   }
 
   beforeEach(prepareScaffoldStorePiece);
+
   function cleanupScaffoldStorePiece() {
     rmSync(dir, { recursive: true, force: true });
   }
 
   afterEach(cleanupScaffoldStorePiece);
+
   async function emitsASkeletonArtifactAndAManualNoteWhenNoneExists() {
     const { artifact, note } = await scaffoldStoreConfig(dir);
 
@@ -37,9 +40,12 @@ function describeScaffoldStorePiece() {
     'emits a skeleton artifact and a manual note when none exists',
     emitsASkeletonArtifactAndAManualNoteWhenNoneExists,
   );
+
   async function emitsNoArtifactAndASkippedNoteWhenOneIsAlreadyPresent() {
     const storePath = join(dir, 'store.config.json');
+
     writeFileSync(storePath, '{}');
+
     const { artifact, note } = await scaffoldStoreConfig(dir);
 
     expect(artifact).toBeNull();
@@ -63,6 +69,7 @@ function describeBuildPieceExample() {
     'returns the starter template when no keys were discovered',
     returnsTheStarterTemplateWhenNoKeysWereDiscovered,
   );
+
   function keepsOnlyTheTemplateCommentHeaderAndBlankValuedKeys() {
     const envExample = buildEnvExample(['APP_STORE_KEY', 'SLACK_URL']);
 

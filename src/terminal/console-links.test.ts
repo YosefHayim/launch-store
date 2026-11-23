@@ -35,6 +35,7 @@ function describeBuildConsoleUrlIOSDeepLinksWithAResolvedAppId() {
     ['agreements', 'https://appstoreconnect.apple.com/agreements/'],
     ['play', 'https://play.google.com/console'],
   ];
+
   function runTarget(
     target: 'testflight' | 'reviews' | 'play' | 'listing' | 'asc' | 'agreements' | 'app-record',
     expectedUrl: string,
@@ -52,6 +53,7 @@ describe(
 );
 function describeBuildConsoleUrlIOSWithoutAResolvedAppId() {
   const appTargets: OpenTarget[] = ['asc', 'app-record', 'testflight', 'listing', 'reviews'];
+
   function runTarget2(
     target: 'testflight' | 'reviews' | 'play' | 'listing' | 'asc' | 'agreements' | 'app-record',
   ) {
@@ -60,6 +62,7 @@ function describeBuildConsoleUrlIOSWithoutAResolvedAppId() {
   }
 
   it.each(appTargets)('%s falls back to the apps list', runTarget2);
+
   function keepsAgreementsAtAccountLevel() {
     const consoleUrl = buildConsoleUrl('agreements', 'ios', undefined);
     expect(consoleUrl).toBe('https://appstoreconnect.apple.com/agreements/');
@@ -82,17 +85,23 @@ function describeBuildConsoleUrlAndroid() {
     'agreements',
     'app-record',
   ];
+
   function runTarget3(
     target: 'testflight' | 'reviews' | 'play' | 'listing' | 'asc' | 'agreements' | 'app-record',
   ) {
     const consoleUrl = buildConsoleUrl(target, 'android', APP_ID);
+
     expect(consoleUrl).toBe('https://play.google.com/console');
     expect(buildConsoleUrl(target, 'android', undefined)).toBe('https://play.google.com/console');
+
     const playUsersAndPermissionsUrl = buildPlayUsersAndPermissionsUrl();
+
     expect(playUsersAndPermissionsUrl).toBe(
       'https://play.google.com/console/developers/users-and-permissions',
     );
+
     const playPaymentsProfileUrl = buildPlayPaymentsProfileUrl();
+
     expect(playPaymentsProfileUrl).toBe(
       'https://play.google.com/console/developers/paymentssettings',
     );
@@ -125,6 +134,7 @@ function describeParseOpenTarget() {
   }
 
   it('defaults to asc when no target is given', defaultsToAscWhenNoTargetIsGiven);
+
   function acceptsEveryDocumentedTarget() {
     for (const target of [
       'asc',
@@ -141,10 +151,12 @@ function describeParseOpenTarget() {
   }
 
   it('accepts every documented target', acceptsEveryDocumentedTarget);
+
   function rejectsAnUnknownTargetWithTheValidList() {
     const targetAttempt = thrownCause(function readTarget() {
       parseOpenTarget('dashboard');
     });
+
     expect(targetAttempt).toMatchObject({
       message: expect.stringMatching(/Unknown target "dashboard"/),
     });
@@ -162,12 +174,14 @@ function describeResolveOpenPlatform() {
   }
 
   it('honors an explicit platform flag', honorsAnExplicitPlatformFlag);
+
   function infersAndroidForThePlayTarget() {
     const openPlatform = resolveOpenPlatform('play', undefined);
     expect(openPlatform).toBe('android');
   }
 
   it('infers android for the play target', infersAndroidForThePlayTarget);
+
   function defaultsToIosForEveryOtherTarget() {
     const openPlatform = resolveOpenPlatform('asc', undefined);
     expect(openPlatform).toBe('ios');
@@ -175,10 +189,12 @@ function describeResolveOpenPlatform() {
   }
 
   it('defaults to ios for every other target', defaultsToIosForEveryOtherTarget);
+
   function rejectsAnInvalidPlatform() {
     const platformAttempt = thrownCause(function readPlatform() {
       resolveOpenPlatform('asc', 'web');
     });
+
     expect(platformAttempt).toMatchObject({
       message: expect.stringMatching(/Unknown platform "web"/),
     });
@@ -197,24 +213,28 @@ function describeSelectOpenApp() {
       packageName: 'com.acme.gamma',
     }),
   ];
+
   async function picksTheFirstIOSAppWithABundleId() {
     const selectedApp = await selectOpenApp(discoveredApps, 'ios', undefined);
     expect(selectedApp.name).toBe('alpha');
   }
 
   it('picks the first iOS app with a bundle id', picksTheFirstIOSAppWithABundleId);
+
   async function picksTheFirstAndroidAppWithAPackageName() {
     const selectedApp = await selectOpenApp(discoveredApps, 'android', undefined);
     expect(selectedApp.name).toBe('beta');
   }
 
   it('picks the first Android app with a package name', picksTheFirstAndroidAppWithAPackageName);
+
   async function narrowsToTheNamedApp() {
     const selectedApp = await selectOpenApp(discoveredApps, 'ios', 'gamma');
     expect(selectedApp.name).toBe('gamma');
   }
 
   it('narrows to the named app', narrowsToTheNamedApp);
+
   async function rejectsANamedAppWithoutThePlatformId() {
     const openApp = selectOpenApp(discoveredApps, 'ios', 'beta');
     await expect(openApp).rejects.toMatchObject({
@@ -223,12 +243,14 @@ function describeSelectOpenApp() {
   }
 
   it('rejects a named app without the platform id', rejectsANamedAppWithoutThePlatformId);
+
   async function rejectsACatalogWithoutAQualifyingApp() {
     const openApp = selectOpenApp(
       [appDescriptor('solo', { bundleId: 'com.acme.solo' })],
       'android',
       undefined,
     );
+
     await expect(openApp).rejects.toMatchObject({
       message: expect.stringMatching(/android\.package/),
     });

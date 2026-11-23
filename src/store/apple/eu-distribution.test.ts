@@ -30,6 +30,7 @@ function makeApi(existing: AlternativeDistributionDomainResource[]): {
       return Promise.resolve();
     },
   };
+
   return { api, created };
 }
 /** Execute the EU-distribution reconciler at the test boundary. */
@@ -52,27 +53,32 @@ function describeParseEuDistributionPiece() {
   }
 
   it('parses an array of domains', parsesAnArrayOfDomains);
+
   function rejectsANonObjectDocumentAnArrayAndAMissingEmptyDomainsList() {
     function callDecodeEuDistributionPiece() {
       return decodeEuDistributionConfig('nope');
     }
 
     expect(callDecodeEuDistributionPiece).toThrow(/must be a JSON object/);
+
     function callDecodeEuDistributionPiece2() {
       return decodeEuDistributionConfig([]);
     }
 
     expect(callDecodeEuDistributionPiece2).toThrow(/must be a JSON object/);
+
     function callDecodeEuDistributionPiece3() {
       return decodeEuDistributionConfig({});
     }
 
     expect(callDecodeEuDistributionPiece3).toThrow(/domains/);
+
     function callDecodeEuDistributionPiece4() {
       return decodeEuDistributionConfig({ domains: [] });
     }
 
     expect(callDecodeEuDistributionPiece4).toThrow(/non-empty/);
+
     function callDecodeEuDistributionPiece5() {
       return decodeEuDistributionConfig({ domains: {} });
     }
@@ -84,12 +90,14 @@ function describeParseEuDistributionPiece() {
     'rejects a non-object document, an array, and a missing/empty domains list',
     rejectsANonObjectDocumentAnArrayAndAMissingEmptyDomainsList,
   );
+
   function rejectsADomainPieceMissingDomainOrReferenceName() {
     function callDecodeEuDistributionPiece6() {
       return decodeEuDistributionConfig({ domains: [{ referenceName: 'x' }] });
     }
 
     expect(callDecodeEuDistributionPiece6).toThrow(/domain/);
+
     function callDecodeEuDistributionPiece7() {
       return decodeEuDistributionConfig({ domains: [{ domain: 'x' }] });
     }
@@ -108,6 +116,7 @@ function describeReconcileEuDistributionDomains() {
   async function createsOnlyTheDomainsAppleDoesnTAlreadyHave() {
     const { api, created } = makeApi([{ id: 'd1', domain: 'downloads.acme.com' }]);
     const actions = await runReconcile(api, CONFIG, false);
+
     expect(created).toEqual([{ domain: 'cdn.acme.com', referenceName: 'Acme CDN' }]);
     expect(summarize(actions)).toEqual({ applied: 1, failed: 0, skipped: 0 });
     expect(actions[0]?.description).toBe('authorize distribution domain cdn.acme.com (Acme CDN)');
@@ -117,12 +126,14 @@ function describeReconcileEuDistributionDomains() {
     "creates only the domains Apple doesn't already have",
     createsOnlyTheDomainsAppleDoesnTAlreadyHave,
   );
+
   async function makesNoChangesWhenEveryDomainIsAlreadyAuthorized() {
     const { api, created } = makeApi([
       { id: 'd1', domain: 'downloads.acme.com' },
       { id: 'd2', domain: 'cdn.acme.com' },
     ]);
     const actions = await runReconcile(api, CONFIG, false);
+
     expect(actions).toHaveLength(0);
     expect(created).toHaveLength(0);
   }
@@ -131,10 +142,13 @@ function describeReconcileEuDistributionDomains() {
     'makes no changes when every domain is already authorized',
     makesNoChangesWhenEveryDomainIsAlreadyAuthorized,
   );
+
   async function plansButDoesNotCreateOnADryRun() {
     const { api, created } = makeApi([]);
     const actions = await runReconcile(api, CONFIG, true);
+
     expect(created).toHaveLength(0);
+
     function readStatus(action: {
       readonly description: string;
       readonly destructive: boolean;
@@ -148,17 +162,23 @@ function describeReconcileEuDistributionDomains() {
   }
 
   it('plans but does not create on a dry-run', plansButDoesNotCreateOnADryRun);
+
   async function capturesAFailedCreateWithoutAbortingTheRestOfTheWalk() {
     const { api } = makeApi([]);
+
     function runDomain(domain: string) {
       if (domain == 'downloads.acme.com') return Promise.reject(new Error('invalid domain'));
+
       return Promise.resolve();
     }
 
     api.createAlternativeDistributionDomain = runDomain;
+
     const actions = await runReconcile(api, CONFIG, false);
     const summary = summarize(actions);
+
     expect(summary).toEqual({ applied: 1, failed: 1, skipped: 0 });
+
     function findAction(action: {
       readonly description: string;
       readonly destructive: boolean;

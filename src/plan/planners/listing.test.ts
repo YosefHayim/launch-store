@@ -49,6 +49,7 @@ function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
     createVersionLocalization: vi.fn().mockResolvedValue(undefined),
     updateVersionLocalization: vi.fn().mockResolvedValue(undefined),
   };
+
   return { ...base, ...overrides };
 }
 const tmpDirs: string[] = [];
@@ -57,10 +58,14 @@ function appDirWithListing(localeListing: AppleLocaleInfo): string {
   const systemTemporaryDirectory = tmpdir();
   const planListingTestPath = join(systemTemporaryDirectory, 'plan-listing-test-');
   const dir = mkdtempSync(planListingTestPath);
+
   tmpDirs.push(dir);
+
   const storePath = join(dir, 'store.config.json');
   const serialized = JSON.stringify({ apple: { info: { 'en-US': localeListing } } });
+
   writeFileSync(storePath, serialized);
+
   return dir;
 }
 function cleanup() {
@@ -82,6 +87,7 @@ function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
     configPath: join(appDir, 'app.json'),
     bundleId: 'com.acme.alpha',
   };
+
   return {
     config,
     apps: [app],
@@ -89,6 +95,7 @@ function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
     resolveAscApi() {
       if (api == null) return Promise.resolve(null);
+
       const ascApiFake = makeAscApiFake(api);
       return Promise.resolve(ascApiFake);
     },
@@ -108,13 +115,17 @@ function describeListingPlanner() {
     'omits itself when no app declares a store listing',
     omitsItselfWhenNoAppDeclaresAStoreListing,
   );
+
   async function skipsWithAnActionableHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(
       listingPlanner,
       makeCtx(null, appDirWithListing({ title: 'Acme' })),
     );
+
     expect(plan.state).toBe('skipped');
+
     if (plan.state != 'skipped') return;
+
     expect(plan.reason).toMatch(/Apple account/);
     expect(plan.hint).toMatch(/creds/);
   }
@@ -123,15 +134,21 @@ function describeListingPlanner() {
     'skips with an actionable hint when no Apple account is active',
     skipsWithAnActionableHintWhenNoAppleAccountIsActive,
   );
+
   async function reportsThePerAppDiffAFreshListingWouldCreate() {
     const dir = appDirWithListing({ title: 'Acme', description: 'The best acme app.' });
     const api = makeApi();
     const plan = await runPlanner(listingPlanner, makeCtx(api, dir));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
+
     function someA(a: {
       readonly description: string;
       readonly destructive: boolean;
@@ -142,6 +159,7 @@ function describeListingPlanner() {
     }
 
     expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+
     function someA2(a: {
       readonly description: string;
       readonly destructive: boolean;
@@ -158,15 +176,20 @@ function describeListingPlanner() {
     'reports the per-app diff a fresh listing would create',
     reportsThePerAppDiffAFreshListingWouldCreate,
   );
+
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(
       listingPlanner,
       makeCtx(api, appDirWithListing({ title: 'Acme' })),
     );
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   }
@@ -175,8 +198,10 @@ function describeListingPlanner() {
     'captures a missing app record as a per-app error, not a thrown plan',
     capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan,
   );
+
   async function isStrictlyReadOnlyNeverInvokesAListingWriteEndpoint() {
     const api = makeApi();
+
     await runPlanner(
       listingPlanner,
       makeCtx(api, appDirWithListing({ title: 'Acme', description: 'The best acme app.' })),

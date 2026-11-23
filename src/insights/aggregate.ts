@@ -18,7 +18,9 @@ function round1(numericAmount: number): number {
 /** Map a star rating to its sentiment bucket: 4-5 positive, 3 neutral, 1-2 negative. */
 export function sentimentOf(rating: StarRating): Sentiment {
   if (rating >= 4) return 'positive';
+
   if (rating == 3) return 'neutral';
+
   return 'negative';
 }
 /** Roll a set of reviews up into a {@link RatingSummary}. */
@@ -27,19 +29,24 @@ export function summarizeRatings(reviews: readonly ReviewDatum[]): RatingSummary
   const sentiment: Record<Sentiment, number> = { positive: 0, neutral: 0, negative: 0 };
   let ratingSum = 0;
   let answered = 0;
+
   for (const review of reviews) {
     distribution[review.rating] += 1;
     sentiment[sentimentOf(review.rating)] += 1;
     ratingSum += review.rating;
+
     if (review.answered) answered += 1;
   }
+
   const total = reviews.length;
   let average = 0;
   let answeredRate = 0;
+
   if (total > 0) {
     average = round1(ratingSum / total);
     answeredRate = answered / total;
   }
+
   return {
     total,
     average,
@@ -59,15 +66,20 @@ export function monthlyTrend(reviews: readonly ReviewDatum[]): MonthlyRatingPoin
       sum: number;
     }
   >();
+
   for (const review of reviews) {
     if (!review.date) continue;
+
     const month = review.date.slice(0, 7); // "YYYY-MM" from an ISO-8601 timestamp
     let bucket = byMonth.get(month);
+
     if (bucket == null) bucket = { count: 0, sum: 0 };
+
     bucket.count += 1;
     bucket.sum += review.rating;
     byMonth.set(month, bucket);
   }
+
   function sortPiece(
     [a]: [string, { count: number; sum: number }],
     [b]: [string, { count: number; sum: number }],
@@ -84,6 +96,7 @@ export function monthlyTrend(reviews: readonly ReviewDatum[]): MonthlyRatingPoin
 /** Assemble one app's insights from its normalized reviews */
 export function buildAppInsights(app: string, reviews: readonly ReviewDatum[]): AppInsights {
   const byStore: AppInsights['byStore'] = {};
+
   for (const store of ['appstore', 'play'] as const) {
     function filterReview(review: {
       readonly store: InsightsStore;
@@ -95,8 +108,10 @@ export function buildAppInsights(app: string, reviews: readonly ReviewDatum[]): 
     }
 
     const subset = reviews.filter(filterReview);
+
     if (subset.length > 0) byStore[store] = summarizeRatings(subset);
   }
+
   return {
     app,
     ratings: summarizeRatings(reviews),

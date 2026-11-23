@@ -90,6 +90,7 @@ function decodeWalletDocument(rawDocument: unknown): WalletConfig {
     merchantIds?: readonly WalletIdConfig[];
     passTypeIds?: readonly WalletIdConfig[];
   } = {};
+
   const hasMerchantIds = merchantIds != null;
 
   if (hasMerchantIds) {
@@ -153,6 +154,7 @@ async function reconcileFamily(
       reconcileContext,
       `register ${label} ${declaredIdentifier.identifier} (${declaredIdentifier.name})`,
     );
+
     const isDryRun = reconcileContext.dryRun == true;
 
     if (isDryRun) {
@@ -200,11 +202,13 @@ export async function reconcileWalletIds(
   dryRun: boolean,
 ): Promise<PlannedAction[]> {
   const reconcileContext: ReconcileContext = { actions: [], dryRun };
+
   const shouldReconcileMerchants = hasDeclaredFamily(config.merchantIds);
 
   if (shouldReconcileMerchants) {
     const merchantIds = await api.listMerchantIds();
     const existing = identifiersOf(merchantIds);
+
     await reconcileFamily(
       reconcileContext,
       'Apple Pay merchant id',
@@ -221,6 +225,7 @@ export async function reconcileWalletIds(
   if (shouldReconcilePasses) {
     const passTypeIds = await api.listPassTypeIds();
     const existing = identifiersOf(passTypeIds);
+
     await reconcileFamily(
       reconcileContext,
       'Wallet pass type id',

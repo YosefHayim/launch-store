@@ -131,7 +131,9 @@ export interface AnalyticsSummary {
 // A later instance overwrites an earlier one for the same Date, and ongoing data beats the snapshot.
 function rankBatch(accessType: AnalyticsAccessType, processingDate: string): string {
   const isOngoing = accessType == 'ONGOING';
+
   if (isOngoing) return `1|${processingDate}`;
+
   return `0|${processingDate}`;
 }
 
@@ -142,11 +144,17 @@ function readLineDate(line: ReportLine): string {
 
 function isLineWanted(line: ReportLine, request: AnalyticsReadRequest): boolean {
   const date = readLineDate(line);
+
   const isDateOutsideRange = date < request.range.from || date > request.range.to;
+
   if (isDateOutsideRange) return false;
+
   const appIdentifier = readCell(line, 'App Apple Identifier');
+
   const isAppIdentifierMissing = appIdentifier == '';
+
   if (isAppIdentifierMissing) return true;
+
   return appIdentifier == request.storeId;
 }
 
@@ -162,6 +170,7 @@ function pickLatestLines(
 ): readonly ReportLine[] {
   function flatMapBatch(batch: AnalyticsReportBatch): RankedLine[] {
     const rank = rankBatch(batch.accessType, batch.processingDate);
+
     function filterLine(line: { readonly [x: string]: string }) {
       return isLineWanted(line, request);
     }
@@ -175,15 +184,20 @@ function pickLatestLines(
 
   const rankedLines = batches.flatMap(flatMapBatch);
   const bestRankByDate = new Map<string, string>();
+
   for (const rankedLine of rankedLines) {
     const bestRank = bestRankByDate.get(rankedLine.date);
+
     if (bestRank == null) {
       bestRankByDate.set(rankedLine.date, rankedLine.rank);
       continue;
     }
+
     const isRankedLineNewer = rankedLine.rank > bestRank;
+
     if (isRankedLineNewer) bestRankByDate.set(rankedLine.date, rankedLine.rank);
   }
+
   function filterRankedLine(rankedLine: RankedLine) {
     return rankedLine.rank == bestRankByDate.get(rankedLine.date);
   }
@@ -197,6 +211,7 @@ function pickLatestLines(
 
 function isLineCounted(line: ReportLine, rule: AnalyticsMetricRule): boolean {
   if (rule.labelColumn == null) return true;
+
   return rule.labels.includes(readCell(line, rule.labelColumn).toLowerCase());
 }
 
@@ -204,6 +219,7 @@ function groupLinesByDate(
   lines: readonly ReportLine[],
 ): ReadonlyMap<string, readonly ReportLine[]> {
   const dates = new Set(lines.map(readLineDate));
+
   function mapDate(date: string): readonly [string, readonly ReportLine[]] {
     function filterLine3(line: ReportLine) {
       return readLineDate(line) == date;
@@ -224,11 +240,13 @@ function createRuleStats(
   }
 
   const linesByDate = groupLinesByDate(lines.filter(filterLine2));
+
   function mapPiece([date, dateLines]: [
     string,
     readonly Readonly<Record<string, string>>[],
   ]): DailyStat {
     const total = sumColumn(dateLines, rule.countColumn);
+
     return {
       date,
       feed: 'app-store',
@@ -243,9 +261,12 @@ function createRuleStats(
 
 function findLatestDate(lines: readonly ReportLine[]): string | null {
   const dates = lines.map(readLineDate);
+
   if (dates.length == 0) return null;
+
   function reduceLatestDate(latestDate: string, date: string) {
     if (date > latestDate) return date;
+
     return latestDate;
   }
 
@@ -263,6 +284,7 @@ export function summarizeAnalyticsBatches(
 
   const kinds = new Set(ANALYTICS_METRIC_RULES.map(readKind));
   const linesByKind = new Map<AnalyticsReportKind, readonly ReportLine[]>();
+
   for (const kind of kinds) {
     function filterBatch(batch: AnalyticsReportBatch) {
       return batch.kind == kind;
@@ -270,15 +292,20 @@ export function summarizeAnalyticsBatches(
 
     const kindBatches = batches.filter(filterBatch);
     const latestLines = pickLatestLines(kindBatches, request);
+
     linesByKind.set(kind, latestLines);
   }
+
   function flatMapRule(rule: AnalyticsMetricRule) {
     const kindLines = linesByKind.get(rule.kind);
+
     if (kindLines == null) return [];
+
     return createRuleStats(kindLines, rule);
   }
 
   const stats = ANALYTICS_METRIC_RULES.flatMap(flatMapRule);
   const allLines = [...linesByKind.values()].flat();
+
   return { stats, latestDate: findLatestDate(allLines) };
 }

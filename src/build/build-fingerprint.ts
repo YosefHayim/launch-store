@@ -80,6 +80,7 @@ function readNativeFields(parsedConfig: Record<string, unknown>): Record<string,
   }
 
   const expoFields = parsedConfig['expo'];
+
   const expoIsUndefined = typeof expoFields == 'undefined';
 
   if (expoIsUndefined) {
@@ -162,6 +163,7 @@ export function extractNativeConfigSlice(configText: string): string {
   }
 
   const nullableField = nullableConfigField(nativeSlice.plugins);
+
   return JSON.stringify({
     plugins: nullableField,
     newArchEnabled: nullableConfigField(nativeSlice.newArchEnabled),
@@ -189,6 +191,7 @@ export function resolveClean(
 ): CleanDecision {
   const storedFingerprint = storedBuild?.fingerprint;
   const nativeChanged = storedFingerprint != currentFingerprint;
+
   const isForced = forceClean == true;
 
   if (isForced) {
@@ -220,6 +223,7 @@ function buildStateDirectory(directoryOverride: string | undefined): string {
   }
 
   const launchHomeDirectory = resolveLaunchHomeDirectory();
+
   return join(launchHomeDirectory, 'build-state');
 }
 
@@ -352,7 +356,9 @@ export async function writeBuildState(
   const filePath = buildStatePath(appName, platform, directoryOverride);
 
   await ensureDirectoryExists(directoryPath);
+
   const serialized = JSON.stringify(buildState, null, 2);
+
   await writeFile(filePath, serialized);
 }
 

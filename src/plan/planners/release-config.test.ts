@@ -30,7 +30,9 @@ function makeCtx(
     submit: 'app-store-connect',
   };
   let config = baseConfig;
+
   if (releaseAttributes) config = { ...baseConfig, releaseAttributes };
+
   return {
     config,
     apps: [alpha],
@@ -53,10 +55,14 @@ function describeReleasePiecePlanner() {
     'omits itself when no app declares release attributes',
     omitsItselfWhenNoAppDeclaresReleaseAttributes,
   );
+
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(releaseConfigPlanner, makeCtx(null, PRICED));
+
     expect(plan.state).toBe('skipped');
+
     if (plan.state != 'skipped') return;
+
     expect(plan.hint).toMatch(/creds/);
   }
 
@@ -64,14 +70,20 @@ function describeReleasePiecePlanner() {
     'skips with a creds hint when no Apple account is active',
     skipsWithACredsHintWhenNoAppleAccountIsActive,
   );
+
   async function reportsThePerAppPriceChangeAFreshPieceWouldApplyTwoWay() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(releaseConfigPlanner, makeCtx(ascApiFake, PRICED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.direction).toBe('two-way');
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
+
     function someA(a: {
       readonly description: string;
       readonly destructive: boolean;
@@ -88,12 +100,17 @@ function describeReleasePiecePlanner() {
     'reports the per-app price change a fresh config would apply (two-way)',
     reportsThePerAppPriceChangeAFreshPieceWouldApplyTwoWay,
   );
+
   async function rendersInSyncWhenTheLivePriceAlreadyMatches() {
     const api = makeAscApiFake({ getCurrentAppPrice: vi.fn().mockResolvedValue('9.99') });
     const plan = await runPlanner(releaseConfigPlanner, makeCtx(api, PRICED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.actions).toHaveLength(0);
   }
 
@@ -101,12 +118,17 @@ function describeReleasePiecePlanner() {
     'renders in sync when the live price already matches',
     rendersInSyncWhenTheLivePriceAlreadyMatches,
   );
+
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(releaseConfigPlanner, makeCtx(api, PRICED));
+
     expect(plan.state).toBe('planned');
+
     if (plan.state != 'planned') return;
+
     if (plan.scope != 'app') return;
+
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
   }
 
@@ -114,6 +136,7 @@ function describeReleasePiecePlanner() {
     'captures a missing app record as a per-app error, not a thrown plan',
     capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan,
   );
+
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
     await runPlanner(releaseConfigPlanner, makeCtx(api, PRICED));

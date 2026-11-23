@@ -23,6 +23,7 @@ export class PlayProducts {
     }
 
     const found = productIds.find(isThisProduct);
+
     const isMissing = found == null;
 
     if (isMissing) {

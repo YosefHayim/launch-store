@@ -20,9 +20,11 @@ function readAppClipsCommand(
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
+
   if (commandOptions.app != null) {
     appClipsInput = { ...appClipsInput, app: commandOptions.app };
   }
+
   return appClipsInput;
 }
 

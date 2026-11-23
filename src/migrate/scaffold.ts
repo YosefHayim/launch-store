@@ -28,6 +28,7 @@ export async function scaffoldStoreConfig(
   workingDirectory: string,
 ): Promise<StoreScaffoldDecision> {
   const configPath = join(workingDirectory, 'store.config.json');
+
   const configExists = await pathExists(configPath);
 
   if (configExists) {

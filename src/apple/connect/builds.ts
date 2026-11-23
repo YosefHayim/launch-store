@@ -19,24 +19,43 @@ import {
 export class ConnectBuilds {
   constructor(private readonly client: AscHost) {}
 
+  /**
+   * Find and list builds for all apps in App Store Connect.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds
+   */
   async getLatestBuildNumber(bundleId: string): Promise<number> {
     const appId = await this.client.getAppId(bundleId);
+
     if (!appId) return 0;
+
     const { data: appleResources } = await this.client.request<
       ResourceList<{
         version: string;
       }>
     >('GET', `/builds?filter[app]=${appId}&sort=-version&limit=1&fields[builds]=version`);
     const latestBuild = appleResources[0];
+
     if (latestBuild == null) return 0;
+
     const parsedBuildNumber = Number.parseInt(latestBuild.attributes.version, 10);
+
     if (Number.isNaN(parsedBuildNumber)) return 0;
+
     return parsedBuildNumber;
   }
 
+  /**
+   * Get a list of all App Store versions of an app across all platforms.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appstoreversions
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-prereleaseversions
+   */
   async getLatestMarketingVersion(bundleId: string): Promise<string | null> {
     const appId = await this.client.getAppId(bundleId);
+
     if (!appId) return null;
+
     const [appStore, preRelease] = await Promise.all([
       this.client.requestAll<{
         versionString: string;
@@ -45,6 +64,7 @@ export class ConnectBuilds {
         version: string;
       }>(`/apps/${appId}/preReleaseVersions?fields[preReleaseVersions]=version&limit=200`),
     ]);
+
     function readVersionString(entry: {
       id: string;
       attributes: { versionString: string };
@@ -67,9 +87,16 @@ export class ConnectBuilds {
     ]);
   }
 
+  /**
+   * Find and list builds for all apps in App Store Connect.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds
+   */
   async getBuildProcessingState(bundleId: string, buildNumber: number): Promise<string | null> {
     const appId = await this.client.getAppId(bundleId);
+
     if (!appId) return null;
+
     const { data: appleResources } = await this.client.request<
       ResourceList<{
         processingState: string;
@@ -79,10 +106,17 @@ export class ConnectBuilds {
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=processingState`,
     );
     const matchingBuild = appleResources[0];
+
     if (matchingBuild == null) return null;
+
     return matchingBuild.attributes.processingState;
   }
 
+  /**
+   * Add a new build upload to an app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-builduploads
+   */
   async createBuildUpload(
     appId: string,
     version: string,
@@ -103,9 +137,15 @@ export class ConnectBuilds {
     const { data: buildUpload } = await this.client.request<
       components['schemas']['BuildUploadResponse']
     >('POST', '/buildUploads', requestDocument);
+
     return buildUpload.id;
   }
 
+  /**
+   * Commit a build upload file to a specific build upload.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-builduploadfiles-_id_
+   */
   async uploadBuildFile(
     buildUploadId: string,
     fileName: string,
@@ -113,7 +153,9 @@ export class ConnectBuilds {
   ): Promise<void> {
     const fileByteLength = await readTransportSize(binaryPath);
     let uti = 'com.apple.ipa';
+
     if (binaryPath.endsWith('.pkg')) uti = 'com.apple.pkg';
+
     const { id, operations } = await this.client.reserveAsset(
       'buildUploadFiles',
       { relationship: 'buildUpload', type: 'buildUploads', id: buildUploadId },
@@ -121,13 +163,21 @@ export class ConnectBuilds {
       fileByteLength,
       { assetType: 'ASSET', uti },
     );
+
     await putAssetFile(operations, binaryPath, fileByteLength);
+
     const commitDocument: components['schemas']['BuildUploadFileUpdateRequest'] = {
       data: { type: 'buildUploadFiles', id, attributes: { uploaded: true } },
     };
+
     await this.client.request<unknown>('PATCH', `/buildUploadFiles/${id}`, commitDocument);
   }
 
+  /**
+   * Get details about a specific build upload file for an app.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builduploads-_id_
+   */
   async getBuildUploadStatus(buildUploadId: string): Promise<BuildUploadStatus> {
     const { data: buildUpload, included } = await this.client.request<
       components['schemas']['BuildUploadResponse']
@@ -136,18 +186,26 @@ export class ConnectBuilds {
       `/buildUploads/${buildUploadId}?include=assetFile&fields[buildUploads]=state,assetFile&fields[buildUploadFiles]=assetDeliveryState`,
     );
     let uploadState = buildUpload.attributes?.state;
+
     if (uploadState == null) uploadState = {};
+
     const assetFile = included?.find(
       (includedResource) => includedResource.type == 'buildUploadFiles',
     );
     let deliveryState: components['schemas']['AppMediaAssetState'] = {};
+
     if (assetFile?.type == 'buildUploadFiles' && assetFile.attributes?.assetDeliveryState != null) {
       deliveryState = assetFile.attributes.assetDeliveryState;
     }
+
     let state: string | undefined = uploadState.state;
+
     if (state == null) state = 'AWAITING_UPLOAD';
+
     let fileState: string | undefined = deliveryState.state;
+
     if (fileState == null) fileState = '';
+
     return {
       state,
       fileState,
@@ -158,6 +216,11 @@ export class ConnectBuilds {
     };
   }
 
+  /**
+   * Find and list builds for all apps in App Store Connect.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds
+   */
   async findBuild(
     bundleId: string,
     buildNumber: number,
@@ -166,7 +229,9 @@ export class ConnectBuilds {
     usesNonExemptEncryption: boolean | null;
   } | null> {
     const appId = await this.client.getAppId(bundleId);
+
     if (!appId) return null;
+
     const { data: appleResources } = await this.client.request<
       ResourceList<{
         usesNonExemptEncryption: boolean | null;
@@ -176,12 +241,21 @@ export class ConnectBuilds {
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=usesNonExemptEncryption`,
     );
     const matchingBuild = appleResources[0];
+
     if (matchingBuild == null) return null;
+
     let usesNonExemptEncryption = matchingBuild.attributes.usesNonExemptEncryption;
+
     if (usesNonExemptEncryption == null) usesNonExemptEncryption = null;
+
     return { id: matchingBuild.id, usesNonExemptEncryption };
   }
 
+  /**
+   * Expire a build or change its encryption exemption setting.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-builds-_id_
+   */
   async setBuildUsesNonExemptEncryption(buildId: string, fieldValue: boolean): Promise<void> {
     await this.client.updateResource(`/builds/${buildId}`, {
       type: 'builds',
@@ -190,14 +264,22 @@ export class ConnectBuilds {
     });
   }
 
+  /**
+   * Find and list all available app encryption declarations.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appencryptiondeclarations
+   */
   async listEncryptionDeclarations(bundleId: string): Promise<EncryptionDeclarationResource[]> {
     const appId = await this.client.getAppId(bundleId);
+
     if (!appId) return [];
+
     const appleResources = await this.client.requestAll<{
       appEncryptionDeclarationState: string;
     }>(
       `/apps/${appId}/appEncryptionDeclarations?fields[appEncryptionDeclarations]=appEncryptionDeclarationState&limit=200`,
     );
+
     function mapPiece(entry: {
       id: string;
       attributes: { appEncryptionDeclarationState: string };
@@ -212,6 +294,11 @@ export class ConnectBuilds {
     return appleResources.map(mapPiece);
   }
 
+  /**
+   * Assign one or more builds to an app encryption declaration.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-appencryptiondeclarations-_id_-relationships-builds
+   */
   async linkBuildToDeclaration(declarationId: string, buildId: string): Promise<void> {
     await this.client.request<unknown>(
       'POST',
@@ -222,14 +309,25 @@ export class ConnectBuilds {
     );
   }
 
+  /**
+   * Find and list builds for all apps in App Store Connect.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds
+   */
   async listBuilds(appId: string, limit = 25): Promise<BuildResource[]> {
     const buildPage = await this.client.request<BuildPage>(
       'GET',
       `/builds?filter[app]=${appId}&sort=-uploadedDate&limit=${limit}&${BUILD_PAGE_QUERY}`,
     );
+
     return readBuildResources(buildPage);
   }
 
+  /**
+   * Find and list builds for all apps in App Store Connect.
+   *
+   * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds
+   */
   async findBuildByVersion(
     appId: string,
     buildNumber: number,
@@ -241,7 +339,9 @@ export class ConnectBuilds {
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}${versionFilter}&sort=-uploadedDate&limit=1&${BUILD_PAGE_QUERY}`,
     );
     const [firstBuild] = readBuildResources(buildPage);
+
     if (firstBuild == null) return null;
+
     return firstBuild;
   }
 }

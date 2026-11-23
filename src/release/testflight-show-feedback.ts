@@ -160,6 +160,7 @@ async function downloadRequestedAttachments(
   }
 
   const label = countLabel(downloadedAttachments.length, 'screenshot');
+
   logger.ok(`Downloaded ${label} to ${outputDirectory}.`);
 }
 
@@ -171,6 +172,7 @@ export async function showFeedback(commandInput: FeedbackCommandInput): Promise<
   const feedbackEntries = await listBetaFeedback(appleStore, selectedApp.bundleId, filters);
   const logger = createLogger(false);
   const wantsJson = commandInput.json == true;
+
   await downloadRequestedAttachments(
     appleStore,
     feedbackEntries,
@@ -193,7 +195,10 @@ export async function showFeedback(commandInput: FeedbackCommandInput): Promise<
   }
 
   const feedbackBlocks = feedbackEntries.map(renderFeedback);
+
   logger.line(feedbackBlocks.join('\n\n'));
+
   const label = countLabel(feedbackEntries.length, 'feedback item');
+
   logger.line(`\n${label}.`);
 }

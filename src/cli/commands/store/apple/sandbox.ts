@@ -7,11 +7,13 @@ export function registerSandboxCommand(program: Command): void {
   const sandbox = program
     .command('sandbox')
     .description('list StoreKit sandbox testers and clear their purchase history');
+
   function runList(options: { json?: boolean }) {
     const sandboxProgram = sandboxCommandProgram({
       operation: 'list',
       json: options.json == true,
     });
+
     return runCliProgram(sandboxProgram);
   }
 
@@ -20,6 +22,7 @@ export function registerSandboxCommand(program: Command): void {
     .description("list the account's sandbox testers")
     .option('--json', 'output machine-readable JSON', false)
     .action(runList);
+
   function runClear(
     emails: string[],
     options: {
@@ -33,6 +36,7 @@ export function registerSandboxCommand(program: Command): void {
       all: options.all == true,
       yes: options.yes == true,
     });
+
     return runCliProgram(sandboxProgram);
   }
 

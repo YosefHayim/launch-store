@@ -64,6 +64,7 @@ function describeCreateStatsReport() {
 
   function useTemporaryLaunchHome(): void {
     const workPath = join(homeDirectory, 'work');
+
     useLaunchDirectories({
       homeDirectory,
       workingDirectory: workPath,
@@ -72,9 +73,13 @@ function describeCreateStatsReport() {
   function prepareCreateStatsReport() {
     homeDirectory = createTemporaryHomeDirectory();
     useTemporaryLaunchHome();
+
     const serialized = JSON.stringify(STATS_PORTFOLIO_FILE);
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
+
     const dateDaysAgo = readDateDaysAgo(1);
+
     writeStatsMonthFiles(homeDirectory, 'ios-1', [
       {
         date: dateDaysAgo,
@@ -126,6 +131,7 @@ function describeCreateStatsReport() {
   }
 
   beforeEach(prepareCreateStatsReport);
+
   function cleanupCreateStatsReport() {
     useStatsCredentials(null);
     resetLaunchDirectories();
@@ -149,26 +155,34 @@ function describeCreateStatsReport() {
     const outcome = await createReport(ALL_APPS_REQUEST);
 
     if (outcome._tag == 'Left') throw new Error('expected a report');
+
     const report = outcome.right;
+
     expect(report.isStale).toBe(false);
     expect(report.days).toBe(7);
+
     function readName(app: AppStatsReport) {
       return app.name;
     }
 
     expect(report.apps.map(readName)).toEqual(['Cal Friend AI', 'Fit <Tracker>']);
+
     const iosApp = report.apps[0];
+
     expect(iosApp?.owner).toBe('mine');
+
     function findTotal(total: MetricTotal) {
       return total.metric == 'downloads';
     }
 
     expect(iosApp?.totals.find(findTotal)?.total).toBe(15);
+
     function filterTotal(total: MetricTotal) {
       return total.metric == 'proceeds';
     }
 
     const proceeds = iosApp?.totals.filter(filterTotal);
+
     function mapTotal(total: MetricTotal) {
       return [total.currency, total.total];
     }
@@ -177,11 +191,13 @@ function describeCreateStatsReport() {
       ['EUR', 2],
       ['USD', 3],
     ]);
+
     function findSeries(series: MetricSeries) {
       return series.metric == 'downloads';
     }
 
     const downloadSeries = iosApp?.series.find(findSeries);
+
     function readAmount(point: DailyPoint) {
       return point.amount;
     }
@@ -193,9 +209,11 @@ function describeCreateStatsReport() {
     'folds the saved numbers per app and ignores days outside the range',
     foldsTheSavedNumbersPerAppAndIgnoresDaysOutsideTheRange,
   );
+
   async function narrowsByPlatformAndOwner() {
     const androidOutcome = await createReport({ ...ALL_APPS_REQUEST, platform: 'android' });
     const clientOutcome = await createReport({ ...ALL_APPS_REQUEST, owner: 'client' });
+
     function readKey(app: AppStatsReport) {
       return app.key;
     }
@@ -207,8 +225,10 @@ function describeCreateStatsReport() {
   }
 
   test('narrows by platform and owner', narrowsByPlatformAndOwner);
+
   async function findsOneAppByPartOfItsName() {
     const outcome = await createReport({ ...ALL_APPS_REQUEST, appName: 'cal friend' });
+
     function readKey2(app: AppStatsReport) {
       return app.key;
     }
@@ -217,6 +237,7 @@ function describeCreateStatsReport() {
   }
 
   test('finds one app by part of its name', findsOneAppByPartOfItsName);
+
   async function failsWithTheKnownAppNamesWhenNoAppMatches() {
     const outcome = await createReport({ ...ALL_APPS_REQUEST, appName: 'nothing' });
 
@@ -233,12 +254,14 @@ function describeCreateStatsReport() {
     'fails with the known app names when no app matches',
     failsWithTheKnownAppNamesWhenNoAppMatches,
   );
+
   async function returnsTheSavedNumbersMarkedStaleWithTheSyncMessageWhenAFeedFailed() {
     fakeFeed.isFailing = true;
 
     const outcome = await createReport(ALL_APPS_REQUEST);
 
     if (outcome._tag == 'Left') throw new Error('expected a report');
+
     expect(outcome.right.isStale).toBe(true);
     expect(outcome.right.apps[0]?.isStale).toBe(true);
     expect(outcome.right.apps[0]?.messages).toEqual(['app-store: report not ready']);
@@ -250,6 +273,7 @@ function describeCreateStatsReport() {
     'returns the saved numbers marked stale with the sync message when a feed failed',
     returnsTheSavedNumbersMarkedStaleWithTheSyncMessageWhenAFeedFailed,
   );
+
   async function showsTheSavedSkipReasonWhenTheCacheIsFreshAndNoSyncRuns() {
     await createReport(ALL_APPS_REQUEST);
     fakeFeed.isFailing = true;
@@ -257,6 +281,7 @@ function describeCreateStatsReport() {
     const outcome = await createReport(ALL_APPS_REQUEST);
 
     if (outcome._tag == 'Left') throw new Error('expected a report');
+
     expect(outcome.right.isStale).toBe(false);
     expect(outcome.right.apps[0]?.messages).toEqual(['app-store: not built yet']);
     expect(outcome.right.apps[1]?.messages).toEqual([]);
@@ -266,16 +291,20 @@ function describeCreateStatsReport() {
     'shows the saved skip reason when the cache is fresh and no sync runs',
     showsTheSavedSkipReasonWhenTheCacheIsFreshAndNoSyncRuns,
   );
+
   async function givesEmptyTotalsForAnAppWithNoSavedNumbers() {
     removeTemporaryHomeDirectory(homeDirectory);
     homeDirectory = createTemporaryHomeDirectory();
     useTemporaryLaunchHome();
+
     const serialized = JSON.stringify(STATS_PORTFOLIO_FILE);
+
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
     const outcome = await createReport(ALL_APPS_REQUEST);
 
     if (outcome._tag == 'Left') throw new Error('expected a report');
+
     function readTotals(app: AppStatsReport) {
       return app.totals;
     }

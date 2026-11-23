@@ -53,6 +53,7 @@ function describeNotifyMessage() {
     'summarizes a success with build number and destination',
     summarizesASuccessWithBuildNumberAndDestination,
   );
+
   function summarizesAFailureWithTheError() {
     expect(notifyMessage(failure)).toBe(
       '[ERROR] Launch: acme 1.2.3 - build failed: gradle exited with code 1',
@@ -60,6 +61,7 @@ function describeNotifyMessage() {
   }
 
   it('summarizes a failure with the error', summarizesAFailureWithTheError);
+
   function summarizesAnApprovedReviewWithItsDetail() {
     expect(notifyMessage(approved)).toBe(
       '[OK] Launch: acme 1.2.3 - review approved: Live on the App Store',
@@ -67,6 +69,7 @@ function describeNotifyMessage() {
   }
 
   it('summarizes an approved review with its detail', summarizesAnApprovedReviewWithItsDetail);
+
   function summarizesARejectedReviewWithItsDetail() {
     expect(notifyMessage(rejected)).toBe(
       '[ERROR] Launch: acme 1.2.3 - review rejected: Rejected - open Resolution Center in App Store Connect',
@@ -74,6 +77,7 @@ function describeNotifyMessage() {
   }
 
   it('summarizes a rejected review with its detail', summarizesARejectedReviewWithItsDetail);
+
   function summarizesARolloutAdvanceWithThePhasedPiece() {
     expect(notifyMessage(advanced)).toBe(' Launch: acme 1.2.3 - rollout advanced (ACTIVE)');
   }
@@ -89,6 +93,7 @@ function describeNotificationDocument() {
   function setsBothPieceSlackAndPieceDiscordToTheMessageAndCarriesTheEventFields() {
     const notificationFields = notificationDocument(success);
     const message = notifyMessage(success);
+
     expect(notificationFields['text']).toBe(message);
     expect(notificationFields['content']).toBe(message);
     expect(notificationFields['status']).toBe('success');
@@ -99,8 +104,10 @@ function describeNotificationDocument() {
     'sets both text (Slack) and content (Discord) to the message and carries the event fields',
     setsBothPieceSlackAndPieceDiscordToTheMessageAndCarriesTheEventFields,
   );
+
   function carriesTheReviewEventFields() {
     const notificationFields = notificationDocument(approved);
+
     expect(notificationFields['text']).toBe(notifyMessage(approved));
     expect(notificationFields['event']).toBe('review');
     expect(notificationFields['status']).toBe('approved');
@@ -108,6 +115,7 @@ function describeNotificationDocument() {
   }
 
   it('carries the review event fields', carriesTheReviewEventFields);
+
   function carriesTheRolloutEventFields() {
     const notificationFields = notificationDocument(advanced);
     expect(notificationFields['event']).toBe('rollout');
@@ -122,6 +130,7 @@ describe('notificationDocument', describeNotificationDocument);
 function describeNotifyPiece() {
   function exposesTheCoreFieldsAsLAUNCHStrings() {
     const env = notifyEnv(success);
+
     expect(env).toMatchObject({
       LAUNCH_EVENT: 'submit',
       LAUNCH_STATUS: 'success',
@@ -134,8 +143,10 @@ function describeNotifyPiece() {
   }
 
   it('exposes the core fields as LAUNCH_* strings', exposesTheCoreFieldsAsLAUNCHStrings);
+
   function omitsAbsentOptionalFieldsAndIncludesTheErrorOnFailure() {
     const env = notifyEnv(failure);
+
     expect(env['LAUNCH_BUILD_NUMBER']).toBeUndefined();
     expect(env['LAUNCH_DESTINATION']).toBeUndefined();
     expect(env['LAUNCH_ERROR']).toBe('gradle exited with code 1');
@@ -146,8 +157,10 @@ function describeNotifyPiece() {
     'omits absent optional fields and includes the error on failure',
     omitsAbsentOptionalFieldsAndIncludesTheErrorOnFailure,
   );
+
   function exposesLAUNCHDETAILForAReviewEventAndNoCompletionOnlyFields() {
     const env = notifyEnv(approved);
+
     expect(env).toMatchObject({
       LAUNCH_EVENT: 'review',
       LAUNCH_STATUS: 'approved',
@@ -164,6 +177,7 @@ function describeNotifyPiece() {
     'exposes LAUNCH_DETAIL for a review event and no completion-only fields',
     exposesLAUNCHDETAILForAReviewEventAndNoCompletionOnlyFields,
   );
+
   function exposesLAUNCHDETAILForARolloutEvent() {
     const env = notifyEnv(advanced);
     expect(env['LAUNCH_EVENT']).toBe('rollout');
@@ -172,6 +186,7 @@ function describeNotifyPiece() {
   }
 
   it('exposes LAUNCH_DETAIL for a rollout event', exposesLAUNCHDETAILForARolloutEvent);
+
   function omitsLAUNCHDETAILOnACompletionEvent() {
     const notify = notifyEnv(success);
     expect(notify['LAUNCH_DETAIL']).toBeUndefined();

@@ -46,6 +46,7 @@ function describeListMonthsInRange() {
     'returns one month when the range stays inside it',
     returnsOneMonthWhenTheRangeStaysInsideIt,
   );
+
   function returnsEveryMonthARangeTouchesAcrossAYearEnd() {
     const monthsInRange = listMonthsInRange({ from: '2026-11-30', to: '2027-02-01' });
     expect(monthsInRange).toEqual(['2026-11', '2026-12', '2027-01', '2027-02']);
@@ -55,6 +56,7 @@ function describeListMonthsInRange() {
     'returns every month a range touches, across a year end',
     returnsEveryMonthARangeTouchesAcrossAYearEnd,
   );
+
   function returnsNothingWhenTheRangeEndsBeforeItStarts() {
     const monthsInRange = listMonthsInRange({ from: '2026-10-02', to: '2026-09-30' });
     expect(monthsInRange).toEqual([]);
@@ -76,6 +78,7 @@ function describeKeepStatsInRange() {
     const stats = ['2026-09-30', '2026-10-01', '2026-10-05', '2026-10-06'].map(mapDate);
 
     const kept = keepStatsInRange(stats, { from: '2026-10-01', to: '2026-10-05' });
+
     function readDate(keptStat: DailyStat) {
       return keptStat.date;
     }
@@ -84,6 +87,7 @@ function describeKeepStatsInRange() {
   }
 
   test('keeps both ends and drops days outside', keepsBothEndsAndDropsDaysOutside);
+
   function returnsAnEmptyListForNoStats() {
     expect(keepStatsInRange([], { from: '2026-10-01', to: '2026-10-05' })).toEqual([]);
   }
@@ -100,6 +104,7 @@ function describeFoldMetricStats() {
   }
 
   test('adds up a sum metric', addsUpASumMetric);
+
   function takesTheNewestDayForALatestMetricWhateverTheOrder() {
     const stats = [
       stat({ metric: 'ratingAverage', date: '2026-10-03', value: 4.5 }),
@@ -113,6 +118,7 @@ function describeFoldMetricStats() {
     'takes the newest day for a latest metric, whatever the order',
     takesTheNewestDayForALatestMetricWhateverTheOrder,
   );
+
   function averagesAnAverageMetric() {
     const stats = [
       stat({ metric: 'crashRate', value: 0.01 }),
@@ -123,6 +129,7 @@ function describeFoldMetricStats() {
   }
 
   test('averages an average metric', averagesAnAverageMetric);
+
   function givesZeroForNoStatsUnderEveryRule() {
     expect(foldMetricStats('downloads', [])).toBe(0);
     expect(foldMetricStats('ratingAverage', [])).toBe(0);
@@ -142,6 +149,7 @@ function describeFoldMetricTotals() {
     ];
 
     const totals = foldMetricTotals(stats);
+
     function mapOneTotal(oneTotal: MetricTotal) {
       return [oneTotal.currency, oneTotal.total];
     }
@@ -153,6 +161,7 @@ function describeFoldMetricTotals() {
   }
 
   test('keeps proceeds of different currencies apart', keepsProceedsOfDifferentCurrenciesApart);
+
   function keepsFeedsApartOrdersGroupsAndCountsDistinctDays() {
     const stats = [
       stat({ feed: 'ga4', metric: 'sessions', value: 2 }),
@@ -161,6 +170,7 @@ function describeFoldMetricTotals() {
     ];
 
     const totals = foldMetricTotals(stats);
+
     function mapOneTotal2(oneTotal: MetricTotal) {
       return `${oneTotal.feed}:${oneTotal.metric}`;
     }
@@ -173,6 +183,7 @@ function describeFoldMetricTotals() {
     'keeps feeds apart, orders groups and counts distinct days',
     keepsFeedsApartOrdersGroupsAndCountsDistinctDays,
   );
+
   function returnsNothingForNoStats() {
     expect(foldMetricTotals([])).toEqual([]);
   }
@@ -208,18 +219,21 @@ function describePickHeadlineTotalsAndReadHeadlineTotal() {
     total({ metric: 'installs', feed: 'app-store', total: 5 }),
     total({ metric: 'ratingAverage', aggregation: 'latest', total: 4.2 }),
   ];
+
   function usesTheFirstPreferredMetricThatHasTotals() {
     const headlineTotals = pickHeadlineTotals(totals, ['downloads', 'installs']);
     expect(headlineTotals).toHaveLength(2);
   }
 
   test('uses the first preferred metric that has totals', usesTheFirstPreferredMetricThatHasTotals);
+
   function addsASumMetricOverFeeds() {
     const headlineTotal = readHeadlineTotal(totals, ['downloads', 'installs']);
     expect(headlineTotal).toBe(12);
   }
 
   test('adds a sum metric over feeds', addsASumMetricOverFeeds);
+
   function takesTheFirstFeedForAMetricThatDoesNotAddUp() {
     const headlineTotal = readHeadlineTotal(totals, ['ratingAverage']);
     expect(headlineTotal).toBe(4.2);
@@ -229,6 +243,7 @@ function describePickHeadlineTotalsAndReadHeadlineTotal() {
     'takes the first feed for a metric that does not add up',
     takesTheFirstFeedForAMetricThatDoesNotAddUp,
   );
+
   function givesNullAndAnEmptyListWhenNoPreferredMetricExists() {
     const headlineTotal = readHeadlineTotal(totals, ['crashRate']);
     expect(headlineTotal).toBeNull();
@@ -265,8 +280,10 @@ function describeMergeHeadlinePoints() {
     },
     { feed: 'ga4', metric: 'sessions', currency: null, points: [] },
   ];
+
   function addsFeedsPerDayAndSortsByDay() {
     const headlinePoints = mergeHeadlinePoints(series, ['downloads']);
+
     expect(headlinePoints).toEqual([
       { date: '2026-10-01', amount: 1 },
       { date: '2026-10-02', amount: 7 },
@@ -274,6 +291,7 @@ function describeMergeHeadlinePoints() {
   }
 
   test('adds feeds per day and sorts by day', addsFeedsPerDayAndSortsByDay);
+
   function skipsAMetricWhoseSeriesAreEmptyAndMovesToTheNext() {
     const headlinePoints = mergeHeadlinePoints(series, ['sessions', 'downloads']);
     expect(headlinePoints).toHaveLength(2);
@@ -283,6 +301,7 @@ function describeMergeHeadlinePoints() {
     'skips a metric whose series are empty and moves to the next',
     skipsAMetricWhoseSeriesAreEmptyAndMovesToTheNext,
   );
+
   function givesAnEmptyListWhenNothingMatches() {
     const headlinePoints = mergeHeadlinePoints(series, ['crashRate']);
     expect(headlinePoints).toEqual([]);
@@ -312,11 +331,13 @@ function describeIsAppStaleAndListAppMessages() {
       },
     ],
   };
+
   function isNotStaleWhenTheFreshnessCheckWasClean() {
     expect(isAppStale({ isStale: false, report: null }, 'ios-1')).toBe(false);
   }
 
   test('is not stale when the freshness check was clean', isNotStaleWhenTheFreshnessCheckWasClean);
+
   function isStaleForEveryAppWhenTheSyncCouldNotRun() {
     expect(isAppStale({ isStale: true, report: null }, 'ios-2')).toBe(true);
   }
@@ -325,6 +346,7 @@ function describeIsAppStaleAndListAppMessages() {
     'is stale for every app when the sync could not run',
     isStaleForEveryAppWhenTheSyncCouldNotRun,
   );
+
   function isStaleOnlyForTheAppWhoseFeedFailed() {
     const freshness: StatsFreshness = { isStale: true, report };
 
@@ -333,6 +355,7 @@ function describeIsAppStaleAndListAppMessages() {
   }
 
   test('is stale only for the app whose feed failed', isStaleOnlyForTheAppWhoseFeedFailed);
+
   function listsTheSavedErrorAndNoteOfEveryFeedOfOneApp() {
     const feedCoverage = {
       lastSyncedAt: '2026-10-29T00:00:00.000Z',
@@ -352,6 +375,7 @@ function describeIsAppStaleAndListAppMessages() {
     };
 
     const appMessages = listAppMessages(appCoverage);
+
     expect(appMessages).toEqual(['app-store: Apple is preparing analytics', 'ga4: API disabled']);
   }
 
@@ -359,6 +383,7 @@ function describeIsAppStaleAndListAppMessages() {
     'lists the saved error and note of every feed of one app',
     listsTheSavedErrorAndNoteOfEveryFeedOfOneApp,
   );
+
   function listsNothingForAnAppThatWasNeverSynced() {
     const appMessages = listAppMessages({ version: 1, appKey: 'ios-1', feeds: {} });
     expect(appMessages).toEqual([]);

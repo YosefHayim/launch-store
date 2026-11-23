@@ -19,6 +19,7 @@ export function isNativeCar(car: Car): car is NativeCar {
 /** Whether a platform value is one the train can coordinate. */
 export function isTrainPlatform(platformCandidate: string): platformCandidate is TrainPlatform {
   if (platformCandidate == 'ios') return true;
+
   return platformCandidate == 'android';
 }
 
@@ -28,5 +29,6 @@ const terminalNativeStates = new Set<NativeCarState>(['released', 'failed']);
 /** Whether a car has reached a terminal state (released/failed native, or published OTA). */
 export function isCarTerminal(car: Car): boolean {
   if (isOtaCar(car)) return car.state == 'published';
+
   return terminalNativeStates.has(car.state);
 }

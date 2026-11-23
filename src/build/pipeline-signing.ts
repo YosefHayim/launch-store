@@ -75,7 +75,9 @@ export async function resolveIosAccount(
   });
 
   await setActiveKeyId(account.keyId);
+
   const accountSummary = formatAccountSummary(account);
+
   log.step('account', accountSummary);
 
   return account;
@@ -377,6 +379,7 @@ export async function resolveKeystore(
 ) {
   const launchPrompt = LaunchPrompt;
   const cachedKeystore = credentials.keystore;
+
   const hasKeystore = cachedKeystore != null;
 
   if (hasKeystore) {

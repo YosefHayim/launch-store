@@ -205,6 +205,7 @@ export function selectIosApps(
 
   for (const discoveredApp of discoveredApps) {
     const bundleId = discoveredApp.bundleId;
+
     const isIosApp = bundleId != null;
 
     if (isIosApp) {
@@ -241,6 +242,7 @@ export function selectIosApps(
 
   for (const requestedName of requestedNames) {
     const selectedApp = iosAppsByName.get(requestedName);
+
     const isAppFound = selectedApp != null;
 
     if (isAppFound) {
@@ -272,6 +274,7 @@ function describeAttachedBuild(releaseStatus: ReleaseStatus): string {
   }
 
   const processingState = releaseStatus.buildProcessingState;
+
   const hasProcessingState = processingState != null;
 
   if (hasProcessingState) {
@@ -383,6 +386,7 @@ function describeRecentBuilds(recentBuilds: readonly BuildResource[]): string {
       },
     },
   ];
+
   return alignTableColumns(recentBuildColumns, recentBuilds);
 }
 
@@ -442,6 +446,7 @@ function readSelectedStatuses(
 
 function printOneAppStatus(logger: Logger, appStatus: AppReleaseStatus): void {
   logger.step(appStatus.appName, describeReleaseStatus(appStatus.releaseStatus));
+
   const recentBuilds = appStatus.recentBuilds;
   const isBuildListPresent = recentBuilds != null;
 
@@ -488,6 +493,7 @@ async function watchReleaseStatuses(
 
   for (;;) {
     const appStatuses = await readStatuses();
+
     logger.gap();
     printStatusBatch(logger, appStatuses);
 
@@ -518,6 +524,7 @@ async function watchReleaseStatuses(
     }
 
     const watchIntervalMs = 30_000;
+
     await sleepMilliseconds(watchIntervalMs);
   }
 }
@@ -582,7 +589,9 @@ function reportValidBuild(buildWatchRequest: BuildWatchRequest, storeBuild: Buil
       processingState: storeBuild.processingState,
     };
     const serialized = JSON.stringify(validBuildReport, null, 2);
+
     logger.line(serialized);
+
     return;
   }
 
@@ -607,6 +616,7 @@ function reportFailedBuildWatch(
     error: watchFailure.message,
   };
   const serialized = JSON.stringify(failedBuildReport, null, 2);
+
   buildWatchRequest.logger.line(serialized);
 }
 
@@ -678,6 +688,7 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
     const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
     const selectedApps = selectIosApps(loadedConfiguration.apps, statusFlags.app);
     const usageProblem = findStatusUsageProblem(statusFlags, selectedApps.length);
+
     const isUsageProblemFound = usageProblem != null;
 
     if (isUsageProblemFound) {
@@ -685,6 +696,7 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
     }
 
     const isThereNoSelectedApp = selectedApps.length == 0;
+
     const isBuildWatchWithNoApp = isThereNoSelectedApp;
 
     if (isBuildWatchWithNoApp) {
@@ -699,6 +711,7 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
     }
 
     const ascKey = await loadAscKeyForAccount(statusFlags.account);
+
     const isThereNoAscKey = ascKey == null;
 
     if (isThereNoAscKey) {
@@ -712,6 +725,7 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
 
     const appleClient = AppleStoreClientService.createClient(ascKey);
     const onlySelectedApp = selectedApps[0];
+
     const hasNoSelectedApp = onlySelectedApp == null;
 
     if (hasNoSelectedApp) {
@@ -753,7 +767,9 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
           logger,
           loadedConfiguration.config,
         );
+
         completeCommand(watchExitCode);
+
         return;
       }
     }

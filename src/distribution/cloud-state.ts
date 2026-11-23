@@ -48,6 +48,7 @@ function readSshTarget(candidate: unknown): SshTarget | null {
 
   const host = optionalString(candidateObject, 'host');
   const user = optionalString(candidateObject, 'user');
+
   const isHostMissing = typeof host != 'string';
 
   if (isHostMissing) {
@@ -93,6 +94,7 @@ function readHostHandle(candidate: unknown): HostHandle | null {
 
   const provider = optionalString(candidateObject, 'provider');
   const allocatedAt = optionalString(candidateObject, 'allocatedAt');
+
   const isProviderMissing = typeof provider != 'string';
 
   if (isProviderMissing) {
@@ -237,8 +239,11 @@ export async function readCloudState(): Promise<CloudState> {
 async function writeCloudState(cloudState: CloudState): Promise<void> {
   const launchHomeDirectory = resolveLaunchHomeDirectory();
   const cloudStateFilePath = resolveCloudStateFilePath();
+
   await mkdir(launchHomeDirectory, { recursive: true });
+
   const serialized = JSON.stringify(cloudState, null, 2);
+
   await writeFile(cloudStateFilePath, `${serialized}\n`);
   await chmod(cloudStateFilePath, 0o600);
 }

@@ -7,6 +7,7 @@ function describeRenderAction() {
       destructive: false,
       status: 'planned',
     });
+
     expect(storeSurfaceAction).toBe('+ authorize distribution domain cdn.acme.com (Acme CDN)');
     expect(
       renderStoreSurfaceAction({
@@ -18,6 +19,7 @@ function describeRenderAction() {
   }
 
   it('marks a planned/applied authorization with +', marksAPlannedAppliedAuthorizationWith);
+
   function rendersAFailedAuthorizationWithXAndAppleSErrorDetail() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'authorize distribution domain bad..com (Bad)',
@@ -25,6 +27,7 @@ function describeRenderAction() {
       status: 'failed',
       error: 'is not a valid domain',
     });
+
     expect(storeSurfaceAction).toBe(
       'x authorize distribution domain bad..com (Bad) - is not a valid domain',
     );

@@ -39,6 +39,7 @@ export async function readAppleLocaleFields(
   function merge(localizations: readonly ListingLocalization[]): void {
     for (const localization of localizations) {
       const existingFields = byLocale.get(localization.locale);
+
       byLocale.set(localization.locale, {
         ...existingFields,
         ...localization.fields,
@@ -47,6 +48,7 @@ export async function readAppleLocaleFields(
   }
 
   const appInfoId = await api.getCurrentAppInfoId(appId);
+
   const isAppInfoMissing = appInfoId == null;
 
   if (isAppInfoMissing) {
@@ -57,6 +59,7 @@ export async function readAppleLocaleFields(
   }
 
   const versionId = await api.getCurrentVersionId(appId);
+
   const isVersionMissing = versionId == null;
 
   if (isVersionMissing) {
@@ -68,6 +71,7 @@ export async function readAppleLocaleFields(
 
   const localeEntries = [...byLocale.entries()];
   const sortedLocaleEntries = localeEntries.sort(compareLocaleNames);
+
   return sortedLocaleEntries.map(readLocaleFields);
 }
 
@@ -89,30 +93,49 @@ function fieldString(
 export function readLocaleInfo(fields: Readonly<{ [key: string]: JsonValue }>): AppleLocaleInfo {
   const localeInfo: AppleLocaleInfo = {};
   const title = fieldString(fields, 'name');
+
   if (title != null) localeInfo.title = title;
+
   const subtitle = fieldString(fields, 'subtitle');
+
   if (subtitle != null) localeInfo.subtitle = subtitle;
+
   const privacyPolicyUrl = fieldString(fields, 'privacyPolicyUrl');
+
   if (privacyPolicyUrl != null) localeInfo.privacyPolicyUrl = privacyPolicyUrl;
+
   const description = fieldString(fields, 'description');
+
   if (description != null) localeInfo.description = description;
+
   const keywords = fieldString(fields, 'keywords');
+
   if (keywords != null) {
     function mapKeyword(keyword: string) {
       return keyword.trim();
     }
 
     const list = keywords.split(',').map(mapKeyword).filter(Boolean);
+
     if (list.length > 0) localeInfo.keywords = list;
   }
+
   const releaseNotes = fieldString(fields, 'whatsNew');
+
   if (releaseNotes != null) localeInfo.releaseNotes = releaseNotes;
+
   const promotionalText = fieldString(fields, 'promotionalText');
+
   if (promotionalText != null) localeInfo.promotionalText = promotionalText;
+
   const supportUrl = fieldString(fields, 'supportUrl');
+
   if (supportUrl != null) localeInfo.supportUrl = supportUrl;
+
   const marketingUrl = fieldString(fields, 'marketingUrl');
+
   if (marketingUrl != null) localeInfo.marketingUrl = marketingUrl;
+
   return localeInfo;
 }
 
@@ -126,6 +149,7 @@ export async function readAppleListing(
 
   for (const { locale, fields } of localeFields) {
     const localeInfo = readLocaleInfo(fields);
+
     const hasLocaleFields = Object.keys(localeInfo).length > 0;
 
     if (hasLocaleFields) {

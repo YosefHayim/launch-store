@@ -9,7 +9,9 @@ const utf16LittleEndianBomSecondByte = 0xfe;
 export function decodePlayCsvBytes(csvBytes: Uint8Array): string {
   const isUtf16LittleEndian =
     csvBytes[0] == utf16LittleEndianBomFirstByte && csvBytes[1] == utf16LittleEndianBomSecondByte;
+
   if (isUtf16LittleEndian) return new TextDecoder('utf-16le').decode(csvBytes);
+
   return new TextDecoder('utf-8').decode(csvBytes);
 }
 
@@ -95,6 +97,7 @@ function readCsvRows(csvDocument: string): string[][] {
       pushRow(rows, row);
       row = [];
       index += 1;
+
       continue;
     }
 

@@ -124,6 +124,7 @@ function readAction(candidate: unknown): CredentialsAction {
   }
 
   const asString = String(candidate);
+
   throw new Error(`Unknown credentials action "${asString}".`);
 }
 

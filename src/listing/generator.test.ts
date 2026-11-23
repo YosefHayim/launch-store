@@ -22,6 +22,7 @@ function thrownBy(run: () => void): unknown {
 function describeBuildListingPrompt() {
   function namesTheAppAndLocaleAndStatesTheCharacterLimits() {
     const listingPrompt = buildListingPrompt({ locale: 'en-US', appName: 'Focus Timer' });
+
     expect(listingPrompt).toContain('Focus Timer');
     expect(listingPrompt).toContain('en-US');
     expect(listingPrompt).toContain('30 characters');
@@ -32,6 +33,7 @@ function describeBuildListingPrompt() {
     'names the app and locale and states the character limits',
     namesTheAppAndLocaleAndStatesTheCharacterLimits,
   );
+
   function includesTheSeedMaterialWhenPresent() {
     const listingPrompt = buildListingPrompt({
       locale: 'en-US',
@@ -40,6 +42,7 @@ function describeBuildListingPrompt() {
       keywords: ['focus', 'timer'],
       current: { subtitle: 'Old subtitle' },
     });
+
     expect(listingPrompt).toContain('A focus timer');
     expect(listingPrompt).toContain('focus, timer');
     expect(listingPrompt).toContain('Old subtitle');
@@ -56,24 +59,28 @@ function describeParseDraftListing() {
   }
 
   it('parses a plain JSON object', parsesAPlainJSONObject);
+
   function toleratesAJSONFence() {
     const listingDraft = parseDraftListing('```json\n{"subtitle":"Stay on task"}\n```');
     expect(listingDraft).toEqual({ subtitle: 'Stay on task' });
   }
 
   it('tolerates a JSON fence', toleratesAJSONFence);
+
   function acceptsCommaSeparatedKeywordsAsAString() {
     const listingDraft = parseDraftListing('{"keywords":"focus, timer , "}');
     expect(listingDraft.keywords).toEqual(['focus', 'timer']);
   }
 
   it('accepts comma-separated keywords as a string', acceptsCommaSeparatedKeywordsAsAString);
+
   function dropsBlankOptionalFields() {
     const listingDraft = parseDraftListing('{"title":"MyApp","description":"  "}');
     expect(listingDraft).toEqual({ title: 'MyApp' });
   }
 
   it('drops blank optional fields', dropsBlankOptionalFields);
+
   function failsOnInvalidJSON() {
     function parseInvalidJson(): void {
       parseDraftListing('not json');
@@ -86,6 +93,7 @@ function describeParseDraftListing() {
   }
 
   it('fails on invalid JSON', failsOnInvalidJSON);
+
   function failsWhenNoUsableFieldIsPresent() {
     function parseEmptyListing(): void {
       parseDraftListing('{"unknown":"x"}');
@@ -109,8 +117,10 @@ function describeCreateAnthropicListingGenerator() {
   }
 
   it('labels itself with the selected model', labelsItselfWithTheSelectedModel);
+
   async function failsWithAnActionableMessageWhenNoAPIKeyIsConfigured() {
     useLaunchEnvironment({});
+
     const listingGenerator = createAnthropicListingGenerator();
 
     await expect(

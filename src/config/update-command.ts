@@ -171,11 +171,13 @@ function renderAfterPublish(
   logger.note(`Worker source: ${workerUrl}`);
   logger.gap();
   logger.note('One-time app config (app.json):');
+
   const updatesAppSnippet = updatesAppConfigSnippet({
     updateUrl: '<your-worker-route>',
     runtimeVersion,
     signed,
   });
+
   logger.line(updatesAppSnippet);
 }
 
@@ -321,6 +323,7 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
   }
 
   const distributionDirectory = join(selectedApp.dir, 'dist');
+
   logger.run(`Exporting JS bundle - ${selectedApp.name}`);
 
   const excludedEnvironmentNames = loadedConfiguration.config.envExclude;

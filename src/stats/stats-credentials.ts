@@ -84,6 +84,7 @@ function makeStatsCredentialsFailure(fields: {
 
 function createCredentialsFailure(operation: string, cause: unknown): StatsCredentialsFailure {
   const failureMessage = errorMessage(cause);
+
   return makeStatsCredentialsFailure({
     message: `Could not ${operation}: ${failureMessage}`,
     cause,
@@ -92,6 +93,7 @@ function createCredentialsFailure(operation: string, cause: unknown): StatsCrede
 
 function decodeStoredServiceAccount(storedKey: string): string {
   const decodedKey = Buffer.from(storedKey, 'base64').toString('utf8');
+
   const isJson = decodedKey.trimStart().startsWith('{');
 
   if (isJson) {
@@ -244,6 +246,7 @@ function readConfiguredApps(launchConfiguration: unknown): readonly ConfiguredAp
 
 async function loadConfiguredApps(workingDirectory: string): Promise<readonly ConfiguredApp[]> {
   const loaded = loadConfig(workingDirectory);
+
   const isPromise = loaded instanceof Promise;
 
   if (isPromise) {

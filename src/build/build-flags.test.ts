@@ -35,6 +35,7 @@ function describeComputeParallelJobLimitRAMAwareParallelismCap() {
     'returns undefined (no cap) when floor(GB/2) meets or exceeds the core count',
     returnsUndefinedNoCapWhenFloorGB2MeetsOrExceedsTheCoreCount,
   );
+
   function capsBelowTheCoreCountOnRAMConstrainedMachines() {
     const parallelJobLimit = computeParallelJobLimit(8, 8 * GB);
     expect(parallelJobLimit).toBe(4); // floor(4) < 8
@@ -45,6 +46,7 @@ function describeComputeParallelJobLimitRAMAwareParallelismCap() {
     'caps below the core count on RAM-constrained machines',
     capsBelowTheCoreCountOnRAMConstrainedMachines,
   );
+
   function neverDropsBelow2EvenOnTinyRAM() {
     const parallelJobLimit = computeParallelJobLimit(4, 3 * GB);
     expect(parallelJobLimit).toBe(2); // floor(1.5)=1 -> floored to 2
@@ -68,6 +70,7 @@ function describeResolveCcacheEnvironmentWiresTheCompilerCacheOn() {
     'sets only USE_CCACHE (ccache uses its own default cache dir)',
     setsOnlyUSECCACHECcacheUsesItsOwnDefaultCacheDir,
   );
+
   function returnsEmptyWhenExplicitlyDisabledViaParameter() {
     useLaunchEnvironment({ USE_CCACHE: '0' });
     const ccacheEnvironment = resolveCcacheEnvironment(true);
@@ -78,6 +81,7 @@ function describeResolveCcacheEnvironmentWiresTheCompilerCacheOn() {
     'returns empty when explicitly disabled via parameter',
     returnsEmptyWhenExplicitlyDisabledViaParameter,
   );
+
   function returnsEmptyWhenUSECCACHE0IsSetInTheEnvironment() {
     useLaunchEnvironment({ USE_CCACHE: '0' });
     const ccacheEnvironment = resolveCcacheEnvironment();
@@ -121,15 +125,18 @@ function describeAssembleArchiveArgumentsTheXcodebuildArchiveArgv() {
     'emits the canonical iOS vector with the generic device destination',
     emitsTheCanonicalIOSVectorWithTheGenericDeviceDestination,
   );
+
   function omitsJobsWhenThereIsNoParallelCap() {
     const archiveArguments = assembleArchiveArguments({
       ...BASE_ARCHIVE,
       parallelJobLimit: undefined,
     });
+
     expect(archiveArguments).not.toContain('-jobs');
   }
 
   it('omits -jobs when there is no parallel cap', omitsJobsWhenThereIsNoParallelCap);
+
   function putsCleanRightBeforeArchiveForACleanBuild() {
     const archiveArguments = assembleArchiveArguments({ ...BASE_ARCHIVE, shouldCleanBuild: true });
     expect(archiveArguments.slice(-2)).toEqual(['clean', 'archive']);
@@ -139,12 +146,14 @@ function describeAssembleArchiveArgumentsTheXcodebuildArchiveArgv() {
     'puts clean right before archive for a clean build',
     putsCleanRightBeforeArchiveForACleanBuild,
   );
+
   function targetsTheGivenDestinationForTheOtherApplePlatforms() {
     const archiveArguments = assembleArchiveArguments({
       ...BASE_ARCHIVE,
       buildDestination: 'generic/platform=tvOS',
     });
     const destinationIndex = archiveArguments.indexOf('-destination');
+
     expect(archiveArguments[destinationIndex + 1]).toBe('generic/platform=tvOS');
   }
 
@@ -152,13 +161,16 @@ function describeAssembleArchiveArgumentsTheXcodebuildArchiveArgv() {
     'targets the given destination for the other Apple platforms',
     targetsTheGivenDestinationForTheOtherApplePlatforms,
   );
+
   function neverCarriesAGlobalProvisioningProfileSpecifierOrAnAutomaticProvisioningFlag() {
     const archiveArguments = assembleArchiveArguments({ ...BASE_ARCHIVE, shouldCleanBuild: true });
+
     function filterArgument(argument: string) {
       return argument.includes('PROVISIONING_PROFILE_SPECIFIER');
     }
 
     const specifiers = archiveArguments.filter(filterArgument);
+
     expect(specifiers).toEqual([]);
     expect(archiveArguments).not.toContain('-allowProvisioningUpdates');
   }

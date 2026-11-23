@@ -9,6 +9,7 @@ function describeGradleBuildArgumentsSignedReleaseBuild() {
     storePassword: 'store-secret',
     keyPassword: 'key-secret',
   };
+
   function reusesCachedTaskOutputsAndSignsWithTheUploadKey() {
     expect(gradleBuildArguments(':app:bundleRelease', false, keystore)).toEqual([
       ':app:bundleRelease',
@@ -22,8 +23,10 @@ function describeGradleBuildArgumentsSignedReleaseBuild() {
     'reuses cached task outputs and signs with the upload key',
     reusesCachedTaskOutputsAndSignsWithTheUploadKey,
   );
+
   function prependsTheCleanTaskForAFromScratchBuild() {
     const cleanArguments = gradleBuildArguments(':app:assembleRelease', true, keystore);
+
     expect(cleanArguments.slice(0, 3)).toEqual([
       ':app:clean',
       ':app:assembleRelease',
@@ -41,6 +44,7 @@ describe(
 function describeParseBundletoolSizeHonestWorstCaseDownloadFromGetSizeTotal() {
   function readsMINMAXFromASinglePieceTotal() {
     const bundletoolSize = parseBundletoolSize('MIN,MAX\n1048576,2097152');
+
     expect(bundletoolSize).toEqual({
       minBytes: 1048576,
       maxBytes: 2097152,
@@ -48,6 +52,7 @@ function describeParseBundletoolSizeHonestWorstCaseDownloadFromGetSizeTotal() {
   }
 
   it('reads MIN/MAX from a single-row total', readsMINMAXFromASinglePieceTotal);
+
   function takesTheLargestMAXAndSmallestMINAcrossDeviceDimensions() {
     const csv = [
       'SDK,ABI,SCREEN_DENSITY,LANGUAGE,MIN,MAX',
@@ -56,6 +61,7 @@ function describeParseBundletoolSizeHonestWorstCaseDownloadFromGetSizeTotal() {
       '29,arm64-v8a,XXHDPI,en,3200000,5500000',
     ].join('\n');
     const bundletoolSize = parseBundletoolSize(csv);
+
     expect(bundletoolSize).toEqual({ minBytes: 3000000, maxBytes: 6000000 });
   }
 
@@ -63,6 +69,7 @@ function describeParseBundletoolSizeHonestWorstCaseDownloadFromGetSizeTotal() {
     'takes the largest MAX and smallest MIN across device dimensions',
     takesTheLargestMAXAndSmallestMINAcrossDeviceDimensions,
   );
+
   function degradesToZerosOnUnrecognizedPieceRatherThanThrowing() {
     const bundletoolSize = parseBundletoolSize('totally unrelated');
     expect(bundletoolSize).toEqual({ minBytes: 0, maxBytes: 0 });
@@ -95,6 +102,7 @@ function describeGradleBuildEngineDryRunRehearsesWithoutBuildingOrSigning() {
     forceClean: false,
   } satisfies ResolvedBuildContext;
   const buildCredentials: BuildCredentials = { platform: 'android', serviceAccountJson: '' };
+
   async function returnsAZeroByteReportAndNeverTouchesTheKeystore() {
     const buildEngine = makeGradleBuildEngine();
     const builtArtifact = await buildEngine.buildArtifact(buildContext, buildCredentials);
@@ -106,9 +114,11 @@ function describeGradleBuildEngineDryRunRehearsesWithoutBuildingOrSigning() {
     'returns a zero-byte report and never touches the keystore',
     returnsAZeroByteReportAndNeverTouchesTheKeystore,
   );
+
   async function rejectsIOSCredentialsWrongPlatformOutsideDryRun() {
     const realBuildContext = { ...buildContext, dryRun: false };
     const buildEngine = makeGradleBuildEngine();
+
     await expect(
       buildEngine.buildArtifact(realBuildContext, {
         platform: 'ios',

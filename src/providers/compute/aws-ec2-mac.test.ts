@@ -19,6 +19,7 @@ function describePublicAddress() {
   }
 
   it('prefers a non-empty public DNS name', prefersANonEmptyPublicDNSName);
+
   function fallsBackToAPublicIPWhenDNSIsMissingOrEmpty() {
     expect(publicAddress(undefined, '1.2.3.4')).toBe('1.2.3.4');
     expect(publicAddress('', '9.9.9.9')).toBe('9.9.9.9');
@@ -28,6 +29,7 @@ function describePublicAddress() {
     'falls back to a public IP when DNS is missing or empty',
     fallsBackToAPublicIPWhenDNSIsMissingOrEmpty,
   );
+
   function returnsUndefinedWhenBothAddressesAreUnusable() {
     expect(publicAddress(undefined, undefined)).toBeUndefined();
     expect(publicAddress('', '')).toBeUndefined();
@@ -47,6 +49,7 @@ function describeConfiguredInstanceType() {
   }
 
   it('defaults to mac2.metal', defaultsToMac2Metal);
+
   function honorsAnExplicitInstanceType() {
     expect(configuredInstanceType({ instanceType: 'mac2-m2.metal' })).toBe('mac2-m2.metal');
   }
@@ -93,6 +96,7 @@ function describeDatedMacImagesNewestImageId() {
   }
 
   it('drops images without id or creation date', dropsImagesWithoutIdOrCreationDate);
+
   function selectsTheNewestCreationDate() {
     expect(
       newestImageId([
@@ -104,6 +108,7 @@ function describeDatedMacImagesNewestImageId() {
   }
 
   it('selects the newest creation date', selectsTheNewestCreationDate);
+
   function returnsUndefinedForAnEmptyCatalog() {
     expect(newestImageId([])).toBeUndefined();
   }
@@ -121,6 +126,7 @@ function describeCountLiveDedicatedHosts() {
       { State: 'released-permanent-failure' },
       {},
     ]);
+
     expect(liveDedicatedHosts).toBe(2);
   }
 
@@ -152,6 +158,7 @@ function describeReleaseFailureDetail() {
   }
 
   it('returns undefined when release fully succeeded', returnsUndefinedWhenReleaseFullySucceeded);
+
   function prefersTheAWSErrorMessageAndFallsBackToUnknown() {
     expect(releaseFailureDetail({ Error: { Message: 'minimum allocation period' } })).toBe(
       'minimum allocation period',
@@ -192,6 +199,7 @@ function describeAwsFailureRequireAws() {
     'tags failures and prefers an explicit detail message',
     tagsFailuresAndPrefersAnExplicitDetailMessage,
   );
+
   function requiresAnAwsPieceBlockOnAllocateRequests() {
     let failure: unknown = null;
 
@@ -216,6 +224,7 @@ function describeAwsFailureRequireAws() {
         return Promise.resolve(true);
       },
     });
+
     expect(present.region).toBe('us-east-1');
   }
 

@@ -63,6 +63,7 @@ async function packageManagerChecks(doctorContext: DoctorContext): Promise<Docto
 
   if (packageSetup.workspace != null) {
     const workspaceTitle = `Monorepo workspace root: ${packageSetup.workspace.root} (${packageSetup.workspace.kind})`;
+
     doctorChecks.push({
       status: 'ok',
       title: workspaceTitle,
@@ -175,6 +176,7 @@ async function androidToolchainChecks(doctorContext: DoctorContext): Promise<Doc
   }
 
   const androidSdkCheck = readAndroidSdkCheck(doctorContext.androidSdk);
+
   doctorChecks.push(androidSdkCheck);
 
   for (const app of doctorContext.apps) {
@@ -394,6 +396,7 @@ async function readAppConfigChecks(
   platform: DoctorPlatform,
 ): Promise<DoctorCheck[]> {
   const configFindings = await checkApp(app, platform);
+
   const isClean = configFindings.length == 0;
 
   if (isClean) {
@@ -404,6 +407,7 @@ async function readAppConfigChecks(
 
   for (const finding of configFindings) {
     const findingStatus = readFindingStatus(finding.severity);
+
     doctorChecks.push({
       status: findingStatus,
       title: `${app.name}: ${formatFinding(finding)}`,
@@ -429,6 +433,7 @@ async function configChecks(
 
 function complianceCheck(app: AppDescriptor): DoctorCheck {
   const exportCompliance = describeExportComplianceConfig(app.usesNonExemptEncryption);
+
   const isClean = exportCompliance.ok;
 
   if (isClean) {

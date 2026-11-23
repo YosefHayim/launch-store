@@ -47,11 +47,13 @@ function describeSummarizeAnalyticsBatches() {
     const summary = summarizeAnalyticsBatches([batch], { storeId: APP_ID, range: RANGE });
 
     const stat = makeStat('2026-10-02', 'impressions', 15);
+
     expect(summary.stats).toEqual([stat, makeStat('2026-10-02', 'productPageViews', 4)]);
     expect(summary.latestDate).toBe('2026-10-02');
   }
 
   test('sums counts per date over the app rows by event', sumsCountsPerDateOverTheAppRowsByEvent);
+
   function readsDownloadsRedownloadsAndUpdatesByDownloadType() {
     const batch = makeBatch({
       kind: 'downloads',
@@ -66,6 +68,7 @@ function describeSummarizeAnalyticsBatches() {
     const summary = summarizeAnalyticsBatches([batch], { storeId: APP_ID, range: RANGE });
 
     const stat = makeStat('2026-10-03', 'downloads', 6);
+
     expect(summary.stats).toEqual([
       stat,
       makeStat('2026-10-03', 'redownloads', 3),
@@ -77,6 +80,7 @@ function describeSummarizeAnalyticsBatches() {
     'reads downloads, redownloads and updates by download type',
     readsDownloadsRedownloadsAndUpdatesByDownloadType,
   );
+
   function readsSessionsDevicesCrashesInstallsUninstallsAndUSDProceeds() {
     const batch = makeBatch({
       kind: 'sessions',
@@ -102,6 +106,7 @@ function describeSummarizeAnalyticsBatches() {
     );
 
     const stat = makeStat('2026-10-04', 'sessions', 30);
+
     expect(summary.stats).toEqual([
       stat,
       makeStat('2026-10-04', 'activeDevices', 8),
@@ -116,6 +121,7 @@ function describeSummarizeAnalyticsBatches() {
     'reads sessions, devices, crashes, installs, uninstalls and USD proceeds',
     readsSessionsDevicesCrashesInstallsUninstallsAndUSDProceeds,
   );
+
   function dropsOtherAppsAndDatesOutsideTheRangeAndKeepsRowsWithoutAnAppId() {
     const batch = makeBatch({
       lines: [
@@ -138,6 +144,7 @@ function describeSummarizeAnalyticsBatches() {
     const summary = summarizeAnalyticsBatches([batch], { storeId: APP_ID, range: RANGE });
 
     const stat = makeStat('2026-10-05', 'impressions', 3);
+
     expect(summary.stats).toEqual([stat]);
   }
 
@@ -145,6 +152,7 @@ function describeSummarizeAnalyticsBatches() {
     'drops other apps and dates outside the range, and keeps rows without an app id',
     dropsOtherAppsAndDatesOutsideTheRangeAndKeepsRowsWithoutAnAppId,
   );
+
   function letsALaterInstanceOverwriteAnEarlierOneForTheSameDateWithoutAddingThem() {
     const batch = makeBatch({
       processingDate: '2026-10-06',
@@ -162,6 +170,7 @@ function describeSummarizeAnalyticsBatches() {
     );
 
     const stat = makeStat('2026-10-05', 'impressions', 12);
+
     expect(summary.stats).toEqual([stat]);
   }
 
@@ -169,6 +178,7 @@ function describeSummarizeAnalyticsBatches() {
     'lets a later instance overwrite an earlier one for the same date without adding them',
     letsALaterInstanceOverwriteAnEarlierOneForTheSameDateWithoutAddingThem,
   );
+
   function sumsTheSegmentsOfOneInstance() {
     const batch = makeBatch({ lines: [{ Date: '2026-10-05', Event: 'Impression', Counts: '10' }] });
     const summary = summarizeAnalyticsBatches(
@@ -177,10 +187,12 @@ function describeSummarizeAnalyticsBatches() {
     );
 
     const stat = makeStat('2026-10-05', 'impressions', 12);
+
     expect(summary.stats).toEqual([stat]);
   }
 
   test('sums the segments of one instance', sumsTheSegmentsOfOneInstance);
+
   function prefersOngoingPieceOverTheSnapshotAndFillsOlderDaysFromTheSnapshot() {
     const batch = makeBatch({
       accessType: 'ONE_TIME_SNAPSHOT',
@@ -202,6 +214,7 @@ function describeSummarizeAnalyticsBatches() {
     );
 
     const stat = makeStat('2026-10-02', 'impressions', 1);
+
     expect(summary.stats).toEqual([stat, makeStat('2026-10-05', 'impressions', 7)]);
     expect(summary.latestDate).toBe('2026-10-05');
   }
@@ -210,6 +223,7 @@ function describeSummarizeAnalyticsBatches() {
     'prefers ongoing data over the snapshot and fills older days from the snapshot',
     prefersOngoingPieceOverTheSnapshotAndFillsOlderDaysFromTheSnapshot,
   );
+
   function hasNoLatestDateWhenThereAreNoRows() {
     const summary = summarizeAnalyticsBatches([], { storeId: APP_ID, range: RANGE });
 

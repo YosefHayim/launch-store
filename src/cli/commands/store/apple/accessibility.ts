@@ -17,14 +17,17 @@ export function registerAccessibilityCommand(program: Command): void {
       dryRun: commandOptions.dryRun == true,
       yes: commandOptions.yes == true,
     };
+
     if (commandOptions.app == null) {
       const accessibilityProgram = accessibilityCommandProgram(requiredInput);
       return runCliProgram(accessibilityProgram);
     }
+
     const accessibilityProgram = accessibilityCommandProgram({
       ...requiredInput,
       app: commandOptions.app,
     });
+
     return runCliProgram(accessibilityProgram);
   }
 

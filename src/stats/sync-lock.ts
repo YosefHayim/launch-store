@@ -18,6 +18,7 @@ function makeSyncLockFailure(fields: { message: string; cause: unknown }): SyncL
 // A lock older than the limit belongs to a crashed sync.
 export function isSyncLockStale(lockedAt: string, nowMilliseconds: number): boolean {
   const lockedAtMilliseconds = Date.parse(lockedAt);
+
   const isTimeUnreadable = Number.isNaN(lockedAtMilliseconds);
 
   if (isTimeUnreadable) {
@@ -63,6 +64,7 @@ async function claimSyncLock(): Promise<string> {
   const nowMilliseconds = Date.now();
 
   await mkdir(statsDirectory, { recursive: true });
+
   const isLockClaimed = await claimLockFile(lockFilePath, nowMilliseconds);
 
   if (isLockClaimed) {
@@ -77,6 +79,7 @@ async function claimSyncLock(): Promise<string> {
   }
 
   await rm(lockFilePath, { force: true });
+
   const isStaleLockClaimed = await claimLockFile(lockFilePath, nowMilliseconds);
 
   if (isStaleLockClaimed == false) {
@@ -91,6 +94,7 @@ async function acquireSyncLock(): Promise<string> {
     return await claimSyncLock();
   } catch (cause) {
     const failureMessage = errorMessage(cause);
+
     throw makeSyncLockFailure({
       message: `Could not lock the stats sync: ${failureMessage}`,
       cause,

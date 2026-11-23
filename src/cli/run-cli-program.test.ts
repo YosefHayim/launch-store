@@ -10,6 +10,7 @@ const SUMMARY = { command: 'build', platform: 'ios', dryRun: true, profile: 'pro
 
 function captureStdoutLines() {
   const writtenText: string[] = [];
+
   function mockImplementationChunk(
     chunk: string | Uint8Array<ArrayBufferLike>,
     ...writeArguments: [
@@ -18,7 +19,9 @@ function captureStdoutLines() {
     ]
   ) {
     const asString = String(chunk);
+
     writtenText.push(asString);
+
     function findWriteArgument(
       writeArgument: BufferEncoding | ((err?: Error | null) => void) | undefined,
     ) {
@@ -26,11 +29,14 @@ function captureStdoutLines() {
     }
 
     const writeDone = writeArguments.find(findWriteArgument);
+
     writeDone?.();
+
     return true;
   }
 
   vi.spyOn(process.stdout, 'write').mockImplementation(mockImplementationChunk);
+
   function filterPieceLine(outputLine: string) {
     return outputLine.length > 0;
   }
@@ -42,6 +48,7 @@ function captureStdoutLines() {
   function readEvents() {
     return writtenText.join('').split('\n').filter(filterPieceLine).map(mapPieceLine);
   }
+
   return readEvents;
 }
 function cleanup() {
@@ -53,13 +60,16 @@ afterEach(cleanup);
 function describeRunPieceCliProgramThePiecePieceLine() {
   async function streamsEventsAndEndsWithAnOkPieceCarryingTheRunSummary() {
     const readEvents = captureStdoutLines();
+
     async function sampleStep(): Promise<void> {
       const logger = createLogger(false);
       logger.step('config', 'sampleapp');
     }
 
     await runJsonCliProgram(SUMMARY, sampleStep);
+
     const events = readEvents();
+
     expect(events).toEqual([
       { event: 'step', step: 'config', detail: 'sampleapp' },
       { event: 'result', ok: true, ...SUMMARY },
@@ -70,8 +80,10 @@ function describeRunPieceCliProgramThePiecePieceLine() {
     'streams events and ends with an ok result carrying the run summary',
     streamsEventsAndEndsWithAnOkPieceCarryingTheRunSummary,
   );
+
   async function endsATaggedFailureWithItsReadableMessageAndRejectsForANonZeroExit() {
     const readEvents = captureStdoutLines();
+
     async function failBuild(): Promise<void> {
       throw makeBuildCommandExecutionError({
         message: 'No build engine named "missing-engine".',
@@ -80,8 +92,11 @@ function describeRunPieceCliProgramThePiecePieceLine() {
     }
 
     const failedRun = runJsonCliProgram(SUMMARY, failBuild);
+
     await expect(failedRun).rejects.toThrow();
+
     const events = readEvents();
+
     expect(events).toEqual([
       {
         event: 'result',
@@ -96,6 +111,7 @@ function describeRunPieceCliProgramThePiecePieceLine() {
     'ends a tagged failure with its readable message and rejects for a non-zero exit',
     endsATaggedFailureWithItsReadableMessageAndRejectsForANonZeroExit,
   );
+
   async function reportsARequestedExitCodeInTheFailureMessage() {
     async function exitWithoutReason(): Promise<void> {
       throw makeCommandExit({ exitCode: 3 });
@@ -103,8 +119,11 @@ function describeRunPieceCliProgramThePiecePieceLine() {
 
     const readEvents = captureStdoutLines();
     const runCliProgram = runJsonCliProgram(SUMMARY, exitWithoutReason);
+
     await expect(runCliProgram).rejects.toThrow();
+
     const events = readEvents();
+
     expect(events).toEqual([
       { event: 'result', ok: false, ...SUMMARY, message: 'The command ended with exit code 3.' },
     ]);
@@ -114,6 +133,7 @@ function describeRunPieceCliProgramThePiecePieceLine() {
     'reports a requested exit code in the failure message',
     reportsARequestedExitCodeInTheFailureMessage,
   );
+
   async function reportsTheReasonACommandGaveForItsExitCode() {
     async function exitWithReason(): Promise<void> {
       completeCommand(1, 'No App Store Connect app record yet.');
@@ -121,8 +141,11 @@ function describeRunPieceCliProgramThePiecePieceLine() {
 
     const readEvents = captureStdoutLines();
     const runCliProgram = runJsonCliProgram(SUMMARY, exitWithReason);
+
     await expect(runCliProgram).rejects.toThrow();
+
     const events = readEvents();
+
     expect(events).toEqual([
       { event: 'result', ok: false, ...SUMMARY, message: 'No App Store Connect app record yet.' },
     ]);
@@ -132,15 +155,20 @@ function describeRunPieceCliProgramThePiecePieceLine() {
     'reports the reason a command gave for its exit code',
     reportsTheReasonACommandGaveForItsExitCode,
   );
+
   async function turnsAPromptIntoAFailureThatNamesTheFlagToPass() {
     const readEvents = captureStdoutLines();
+
     async function confirmUpload(): Promise<boolean> {
       return LaunchPrompt.confirm('Upload?');
     }
 
     const runCliProgram = runJsonCliProgram(SUMMARY, confirmUpload);
+
     await expect(runCliProgram).rejects.toThrow();
+
     const [resultEvent] = readEvents();
+
     expect(resultEvent.ok).toBe(false);
     expect(resultEvent.message).toContain('--yes');
   }

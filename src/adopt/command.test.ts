@@ -61,6 +61,7 @@ describe('selectAdoptApps', () => {
     const selectedApps = selectAdoptApps(apps, 'beta, alpha');
     expect(selectedApps.map((selectedApp) => selectedApp.name)).toEqual(['beta', 'alpha']);
   });
+
   async function failsWithTheDiscoveredHandlesWhenASelectorIsUnknown() {
     function callSelectAdoptApps() {
       return selectAdoptApps(apps, 'missing');
@@ -112,6 +113,7 @@ function describeCountAdoptMutations() {
         },
       ]),
     ]);
+
     expect(mutationCount).toBe(2);
   }
 
@@ -141,6 +143,7 @@ function describeDetectSharedAppRoot() {
     },
     sep: '/',
   };
+
   function returnsTheUniqueMonorepoSegmentWhenEveryAppSharesOneRootFolder() {
     const sharedRoot = detectSharedAppRoot(
       [
@@ -150,6 +153,7 @@ function describeDetectSharedAppRoot() {
       '/workspace',
       pathService,
     );
+
     expect(sharedRoot).toBe('./apps');
   }
 
@@ -157,12 +161,14 @@ function describeDetectSharedAppRoot() {
     'returns the unique monorepo segment when every app shares one root folder',
     returnsTheUniqueMonorepoSegmentWhenEveryAppSharesOneRootFolder,
   );
+
   function returnsNullWhenAppsSpanMultipleRootFolders() {
     const sharedRoot = detectSharedAppRoot(
       [discoveredApp('alpha', '/workspace/apps/alpha'), discoveredApp('solo', '/workspace/solo')],
       '/workspace',
       pathService,
     );
+
     expect(sharedRoot).toBeNull();
   }
 

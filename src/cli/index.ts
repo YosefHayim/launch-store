@@ -37,7 +37,9 @@ async function readVersion(): Promise<string> {
 
 async function main(): Promise<void> {
   const launchVersion = await readVersion();
+
   await registerBuiltins();
+
   let scriptPath = '';
 
   if (process.argv[1] != null) {
@@ -45,6 +47,7 @@ async function main(): Promise<void> {
   }
 
   const terminalIsInteractive = process.stdout.isTTY == true;
+
   await runAutoUpgrade(launchVersion, {
     executablePath: process.execPath,
     commandArguments: process.argv.slice(2),
@@ -69,6 +72,7 @@ main().catch(function reportBootFailure(runtimeFailure: unknown): void {
   }
 
   const failureMessage = errorMessage(runtimeFailure);
+
   createLogger(false).error(failureMessage);
   process.exitCode = 1;
 });

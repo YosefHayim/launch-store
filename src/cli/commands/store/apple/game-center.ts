@@ -20,9 +20,11 @@ function gameCenterInputFromOptions(
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
+
   if (commandOptions.app != null) {
     gameCenterInput = { ...gameCenterInput, app: commandOptions.app };
   }
+
   return gameCenterInput;
 }
 

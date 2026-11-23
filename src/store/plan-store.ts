@@ -27,6 +27,7 @@ export function planStore(desired: StoreSnapshot, live: StoreSnapshot): StoreCha
     }
 
     const liveProduct = live.products.find(isThisProduct);
+
     const isNew = liveProduct == null;
 
     if (isNew) {
@@ -39,6 +40,7 @@ export function planStore(desired: StoreSnapshot, live: StoreSnapshot): StoreCha
 
 export function desiredProducts(launchFile: LaunchConfig): StoreProduct[] {
   const products = launchFile.products;
+
   const isMissing = products == null;
 
   if (isMissing) {
@@ -50,6 +52,7 @@ export function desiredProducts(launchFile: LaunchConfig): StoreProduct[] {
 
   for (const appName of appNames) {
     const appProducts = products[appName];
+
     const isAppMissing = appProducts == null;
 
     if (isAppMissing) {

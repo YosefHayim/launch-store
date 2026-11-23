@@ -69,6 +69,7 @@ function describeSnapshotCommandPieceSchema() {
       app: 'demo',
       json: true,
     });
+
     expect(snapshotCommandSchema).toEqual({
       operation: 'create',
       name: 'before-release',
@@ -91,11 +92,13 @@ function describeSnapshotCommandPieceSchema() {
   }
 
   it('decodes capture and diff operations', decodesCaptureAndDiffOperations);
+
   function decodesPruneAndRestorePieceWithoutGenericRecords() {
     const snapshotCommandSchema = SnapshotCommandInputSchema({
       operation: 'prune',
       options: { keep: '3', yes: false, json: true },
     });
+
     expect(snapshotCommandSchema).toEqual({
       operation: 'prune',
       options: { keep: '3', yes: false, json: true },
@@ -121,6 +124,7 @@ function describeSnapshotCommandPieceSchema() {
     'decodes prune and restore options without generic records',
     decodesPruneAndRestorePieceWithoutGenericRecords,
   );
+
   function rejectsExplicitUndefinedExactOptionals() {
     function callSnapshotCommandPieceSchema() {
       return SnapshotCommandInputSchema({
@@ -158,6 +162,7 @@ function describeCountEntities() {
     'sums only captured surface entities and ignores skipped surfaces',
     sumsOnlyCapturedSurfaceEntitiesAndIgnoresSkippedSurfaces,
   );
+
   function returnsZeroWhenNothingWasCaptured() {
     const entities = countEntities(
       sampleSnapshot({
@@ -171,6 +176,7 @@ function describeCountEntities() {
         ],
       }),
     );
+
     expect(entities).toBe(0);
   }
 
@@ -186,12 +192,14 @@ function describeParsePruneCount() {
   }
 
   it('accepts non-negative integers', acceptsNonNegativeIntegers);
+
   function rejectsNonIntegersAndNegativeValuesWithAFlagSpecificMessage() {
     function callParsePruneCount() {
       return parsePruneCount('1.5', '--keep');
     }
 
     expect(callParsePruneCount).toThrow('--keep must be a non-negative integer.');
+
     function callParsePruneCount2() {
       return parsePruneCount('-1', '--older-than');
     }
@@ -215,6 +223,7 @@ describe('parsePruneCount', describeParsePruneCount);
 function describeSavedEntitiesFor() {
   function returnsEveryAppWhenNoSelectorIsSet() {
     const savedApps = savedEntitiesFor(sampleSnapshot(), 'apple-listing', undefined);
+
     function readApp(appEntities: {
       readonly app: string;
       readonly identifier: string;
@@ -227,8 +236,10 @@ function describeSavedEntitiesFor() {
   }
 
   it('returns every app when no selector is set', returnsEveryAppWhenNoSelectorIsSet);
+
   function narrowsByCommaSeparatedAppSelector() {
     const savedApps = savedEntitiesFor(sampleSnapshot(), 'apple-listing', ' beta , missing ');
+
     function readApp2(appEntities: {
       readonly app: string;
       readonly identifier: string;
@@ -241,6 +252,7 @@ function describeSavedEntitiesFor() {
   }
 
   it('narrows by comma-separated app selector', narrowsByCommaSeparatedAppSelector);
+
   function returnsEmptyForMissingOrNonCapturedSources() {
     expect(savedEntitiesFor(sampleSnapshot(), 'missing-source', undefined)).toEqual([]);
     expect(savedEntitiesFor(sampleSnapshot(), 'apple-capabilities', undefined)).toEqual([]);
@@ -268,6 +280,7 @@ function describePreviewOnlyTitles() {
     'lists captured surfaces that have no restore pass',
     listsCapturedSurfacesThatHaveNoRestorePass,
   );
+
   function honorsAPieceFilterAndSkipsNonCapturedSurfaces() {
     expect(previewOnlyTitles(sampleSnapshot(), [], 'apple-products')).toEqual([
       'App Store in-app purchases (apple-products)',

@@ -67,16 +67,20 @@ function makeStorageResolver(name: string) {
       }
 
       const storageProvider = makeStorageProvider(name, publicBaseUrl);
+
       return Promise.resolve(storageProvider);
     },
   };
 }
 function prepareAll() {
   const storageResolver = makeStorageResolver('local');
+
   registerStorageProviderResolver(storageResolver);
   registerStorageProviderResolver(makeStorageResolver('s3'));
   registerStorageProviderResolver(makeStorageResolver('supabase'));
+
   const storageProvider = makeStorageProvider('local');
+
   registerStorageProvider(storageProvider);
 }
 
@@ -110,12 +114,14 @@ function describeResolveStorageProvider() {
   }
 
   it('returns the local provider for `local`', returnsTheLocalProviderForLocal);
+
   async function buildsTheS3ProviderFromStoragePiece() {
     const storageProvider = await resolveStorageProvider(configWith('s3', r2Config));
     expect(storageProvider.name).toBe('s3');
   }
 
   it('builds the s3 provider from storageConfig', buildsTheS3ProviderFromStoragePiece);
+
   async function buildsTheSupabaseProviderWhenSupabaseUrlIsPresent() {
     const storageProvider = await resolveStorageProvider(
       configWith('supabase', {
@@ -124,6 +130,7 @@ function describeResolveStorageProvider() {
         supabaseUrl: 'https://x.supabase.co',
       }),
     );
+
     expect(storageProvider.name).toBe('supabase');
   }
 
@@ -131,6 +138,7 @@ function describeResolveStorageProvider() {
     'builds the supabase provider when supabaseUrl is present',
     buildsTheSupabaseProviderWhenSupabaseUrlIsPresent,
   );
+
   async function failsClearlyWhenACloudProviderHasNoStoragePieceBlock() {
     const storageProvider = resolveStorageProvider(configWith('s3'));
     await expect(storageProvider).rejects.toThrow(/needs a storageConfig block/i);
@@ -140,6 +148,7 @@ function describeResolveStorageProvider() {
     'fails clearly when a cloud provider has no storageConfig block',
     failsClearlyWhenACloudProviderHasNoStoragePieceBlock,
   );
+
   async function failsWhenSupabaseIsSelectedWithoutSupabaseUrl() {
     const storageProvider = resolveStorageProvider(configWith('supabase', r2Config));
     await expect(storageProvider).rejects.toThrow(/supabaseUrl/);
@@ -149,13 +158,16 @@ function describeResolveStorageProvider() {
     'fails when supabase is selected without supabaseUrl',
     failsWhenSupabaseIsSelectedWithoutSupabaseUrl,
   );
+
   async function resolvesACloudProviderTheRegistryCannotTheSubmitPathRegressionGuard() {
     function callGetStorageProvider() {
       return getStorageProvider('s3');
     }
 
     expect(callGetStorageProvider).toThrow();
+
     const storageProvider = await resolveStorageProvider(configWith('s3', r2Config));
+
     expect(storageProvider.name).toBe('s3');
   }
 
@@ -176,6 +188,7 @@ function describeResolveArtifactDir() {
     'falls back to the global ~/.launch/artifacts when unset (back-compat)',
     fallsBackToTheGlobalLaunchArtifactsWhenUnsetBackCompat,
   );
+
   function failsOnAnEmptyStringALikelyPieceTypo() {
     function callResolveArtifactDir() {
       return resolveArtifactDir('   ');
@@ -185,6 +198,7 @@ function describeResolveArtifactDir() {
   }
 
   it('fails on an empty string - a likely config typo', failsOnAnEmptyStringALikelyPieceTypo);
+
   function expandsALoneToTheHomeDirectory() {
     const artifactDir = resolveArtifactDir('~');
     const homeDirectory = homedir();
@@ -192,6 +206,7 @@ function describeResolveArtifactDir() {
   }
 
   it('expands a lone ~ to the home directory', expandsALoneToTheHomeDirectory);
+
   function expandsALeadingAgainstTheHomeDirectory() {
     const artifactDir = resolveArtifactDir('~/builds/out');
     const homeDirectory = homedir();
@@ -200,12 +215,14 @@ function describeResolveArtifactDir() {
   }
 
   it('expands a leading ~/ against the home directory', expandsALeadingAgainstTheHomeDirectory);
+
   function keepsAnAbsolutePathAsIs() {
     const artifactDir = resolveArtifactDir('/var/launch/artifacts');
     expect(artifactDir).toBe('/var/launch/artifacts');
   }
 
   it('keeps an absolute path as-is', keepsAnAbsolutePathAsIs);
+
   function resolvesARelativePathAgainstTheProjectRoot() {
     const artifactDir = resolveArtifactDir('./.launch/artifacts', '/repo');
     const absolutePath = resolve('/repo', '.launch/artifacts');
@@ -232,6 +249,7 @@ describe('isCloudStorage', describeIsCloudStorage);
 function describeS3PublicUrl() {
   async function joinsThePublicBaseURLAndKeyWithASingleSlashIgnoringStraySlashes() {
     const storageProvider = await resolveStorageProvider(configWith('s3', r2Config));
+
     expect(storageProvider.publicUrl('apps/hello/manifest.json')).toBe(
       'https://cdn.example.com/apps/hello/manifest.json',
     );
@@ -270,6 +288,7 @@ function describeEnsureArtifactPresent() {
     "passes when the artifact's binary is still on disk",
     passesWhenTheArtifactSBinaryIsStillOnDisk,
   );
+
   async function failsWhenTheArtifactWasPrunedToReclaimDisk() {
     const buildProgram = storedBuild({ prunedAt: '2026-01-02T00:00:00.000Z' });
     const artifactPresent = ensureArtifactPresent(buildProgram, 'Hello', 'android');
@@ -280,6 +299,7 @@ function describeEnsureArtifactPresent() {
     'fails when the artifact was pruned to reclaim disk',
     failsWhenTheArtifactWasPrunedToReclaimDisk,
   );
+
   async function failsWhenTheRecordedBinaryIsMissingFromDisk() {
     const buildProgram = storedBuild({ path: '/no/such/build.aab' });
     const artifactPresent = ensureArtifactPresent(buildProgram, 'Hello', 'android');

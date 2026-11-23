@@ -31,6 +31,7 @@ function describeParseSizeBudgetThePerRunSizeBudgetCLIBoundary() {
     'returns undefined when the flag is omitted (-> profile, then default)',
     returnsUndefinedWhenTheFlagIsOmittedProfileThenDefault,
   );
+
   function parsesAPositiveMBNumberIncludingFractionalValues() {
     const sizeBudget = parseSizeBudget('250');
     expect(sizeBudget).toBe(250);
@@ -41,6 +42,7 @@ function describeParseSizeBudgetThePerRunSizeBudgetCLIBoundary() {
     'parses a positive MB number, including fractional values',
     parsesAPositiveMBNumberIncludingFractionalValues,
   );
+
   function rejectsZeroAndNegativeBudgetsWithAClearMessage() {
     let zeroBudgetFailure: unknown = null;
     let negativeBudgetFailure: unknown = null;
@@ -69,6 +71,7 @@ function describeParseSizeBudgetThePerRunSizeBudgetCLIBoundary() {
     'rejects zero and negative budgets with a clear message',
     rejectsZeroAndNegativeBudgetsWithAClearMessage,
   );
+
   function rejectsNonNumericPieceWithAClearMessage() {
     let sizeBudgetFailure: unknown = null;
 
@@ -104,6 +107,7 @@ function describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece() {
       includeLocal: true,
       printEnv: true,
     });
+
     expect(buildInput).toMatchObject({
       platform: 'ios',
       profileName: 'production',
@@ -123,6 +127,7 @@ function describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece() {
     'decodes optional build flags into the BuildRunOptions contract',
     decodesOptionalBuildFlagsIntoTheBuildRunPieceContract,
   );
+
   function rejectsUnknownTracksBeforeThePipelineRuns() {
     let trackFailure: unknown = null;
 
@@ -138,6 +143,7 @@ function describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece() {
   }
 
   it('rejects unknown tracks before the pipeline runs', rejectsUnknownTracksBeforeThePipelineRuns);
+
   function decodesNoCcacheIntoTheBuildRunPieceContract() {
     const buildInput = parseBuildCommandInput('ios', { ...BASE_OPTIONS, ccache: false });
     expect(buildInput.ccache).toBe(false);
@@ -156,7 +162,9 @@ describe(
 function describeRegisterBuildCommandTheSizeBudgetFlagAndItsAlias() {
   function buildCommand() {
     const program = new Command();
+
     registerBuildCommand(program);
+
     function findCommand(command: Command) {
       return command.name() == 'build';
     }
@@ -165,25 +173,32 @@ function describeRegisterBuildCommandTheSizeBudgetFlagAndItsAlias() {
   }
   function exposesSizeBudgetAndItsBudgetAlias() {
     const storeBuild82 = buildCommand();
+
     expect(storeBuild82).toBeDefined();
+
     function readLong(option: CommandOption) {
       return option.long;
     }
 
     const flags = storeBuild82?.options.map(readLong);
+
     expect(flags).toContain('--size-budget');
     expect(flags).toContain('--budget');
   }
 
   it('exposes --size-budget and its --budget alias', exposesSizeBudgetAndItsBudgetAlias);
+
   function exposesNoCcacheForMonorepoExtensionBuildsThatCannotUseTheRNCcacheShim() {
     const storeBuild89 = buildCommand();
+
     expect(storeBuild89).toBeDefined();
+
     function readLong2(option: CommandOption) {
       return option.long;
     }
 
     const flags = storeBuild89?.options.map(readLong2);
+
     expect(flags).toContain('--no-ccache');
   }
 
@@ -191,13 +206,16 @@ function describeRegisterBuildCommandTheSizeBudgetFlagAndItsAlias() {
     'exposes --no-ccache for monorepo extension builds that cannot use the RN ccache shim',
     exposesNoCcacheForMonorepoExtensionBuildsThatCannotUseTheRNCcacheShim,
   );
+
   function exposesPieceOffByDefault() {
     const storeBuildJson = buildCommand();
+
     function findOption(option: CommandOption) {
       return option.long == '--json';
     }
 
     const jsonOption = storeBuildJson?.options.find(findOption);
+
     expect(jsonOption).toBeDefined();
     expect(jsonOption?.defaultValue).toBe(false);
   }

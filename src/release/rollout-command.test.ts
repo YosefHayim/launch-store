@@ -7,6 +7,7 @@ import {
 function describeRolloutActionMapping() {
   function mapsEveryActionToAppleAndNotificationStates() {
     const phasedForAction = phasedStateForAction('pause');
+
     expect(phasedForAction).toBe('PAUSE');
     expect(phasedStateForAction('resume')).toBe('ACTIVE');
     expect(phasedStateForAction('complete')).toBe('COMPLETE');
@@ -19,6 +20,7 @@ function describeRolloutActionMapping() {
     'maps every action to Apple and notification states',
     mapsEveryActionToAppleAndNotificationStates,
   );
+
   function rejectsUnsupportedActionsAtTheCommandBoundary() {
     function callDecodeRolloutCommandPiece() {
       return decodeRolloutCommandInput({ action: 'halt' });

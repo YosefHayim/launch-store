@@ -62,6 +62,7 @@ export function createPlayClientResolver(): (
     }
 
     const client = GoogleStoreClientService.createEffectClient(serviceAccountJson);
+
     clients.set(packageName, client);
 
     return client;

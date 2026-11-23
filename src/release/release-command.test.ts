@@ -63,6 +63,7 @@ function describeShouldNudgeReleaseSecondConfirmOnlyForIncrementalArtifacts() {
   }
 
   it('does not nudge a clean (from-scratch) artifact', doesNotNudgeACleanFromScratchArtifact);
+
   function nudgesAnIncrementallyBuiltArtifactBeforePublicRelease() {
     expect(shouldNudgeRelease({ clean: false })).toBe(true);
   }
@@ -86,6 +87,7 @@ function describeIsVerifiedStoreBuildNewestValidBuild() {
   }
 
   it('accepts only processed, non-expired builds', acceptsOnlyProcessedNonExpiredBuilds);
+
   function returnsTheFirstVerifiedBuildInListOrder() {
     const builds = [
       storeBuild({ id: 'processing', processingState: 'PROCESSING', version: '40' }),
@@ -94,10 +96,12 @@ function describeIsVerifiedStoreBuildNewestValidBuild() {
       storeBuild({ id: 'also-valid', version: '43' }),
     ];
     const buildProgram = newestValidBuild(builds);
+
     expect(buildProgram?.id).toBe('valid');
   }
 
   it('returns the first verified build in list order', returnsTheFirstVerifiedBuildInListOrder);
+
   function returnsNullWhenNothingIsPromotable() {
     const buildProgram = storeBuild({ processingState: 'FAILED' });
     expect(newestValidBuild([buildProgram])).toBeNull();
@@ -116,6 +120,7 @@ function describeParseAppStoreBuildSelector() {
   }
 
   it('parses latest and numeric selectors', parsesLatestAndNumericSelectors);
+
   function rejectsNonNumericSelectorsThatAreNotLatest() {
     const appStoreBuildSelector = parseAppStoreBuildSelector('main');
     expect(appStoreBuildSelector).toEqual({ kind: 'invalid', selector: 'main' });
@@ -141,6 +146,7 @@ function describeResolveVersionString() {
       return Promise.resolve('5.2');
     }),
   };
+
   async function usesAPromotedBuildSOwnMarketingVersionOverAppPiece() {
     const promotedBuild = storeBuild({ version: '591', marketingVersion: '6.11.77' });
     const versionString = await resolveVersionString(
@@ -149,6 +155,7 @@ function describeResolveVersionString() {
       'com.acme.app',
       promotedBuild,
     );
+
     expect(versionString).toBe('6.11.77');
   }
 
@@ -156,6 +163,7 @@ function describeResolveVersionString() {
     "uses a promoted build's own marketing version over app.json",
     usesAPromotedBuildSOwnMarketingVersionOverAppPiece,
   );
+
   async function fallsBackToAppPieceWhenTheBuildHasNoMarketingVersion() {
     const buildProgram = storeBuild();
     const versionString = await resolveVersionString(
@@ -164,6 +172,7 @@ function describeResolveVersionString() {
       'com.acme.app',
       buildProgram,
     );
+
     expect(versionString).toBe('6.11.78');
     expect(ascClient.getLatestMarketingVersion).not.toHaveBeenCalled();
   }
@@ -182,12 +191,14 @@ function describeResolveAndroidRollout() {
   }
 
   it('prefers the CLI flag over the profile default', prefersTheCLIFlagOverTheProfileDefault);
+
   function usesTheProfileFractionWhenNoFlagIsPassed() {
     const androidRollout = resolveAndroidRollout(0.1, undefined);
     expect(androidRollout).toBe(0.1);
   }
 
   it('uses the profile fraction when no flag is passed', usesTheProfileFractionWhenNoFlagIsPassed);
+
   function defaultsToAFullProductionRollout() {
     const androidRollout = resolveAndroidRollout(undefined, undefined);
     expect(androidRollout).toBe(1);
@@ -211,11 +222,13 @@ function describeAndroidReleasePlanLines() {
     'names the build, the production track and the rollout',
     namesTheBuildTheProductionTrackAndTheRollout,
   );
+
   function flagsAnIncrementalBuild() {
     const planLines = androidReleasePlanLines(
       { version: '1.2.0', buildNumber: 42, clean: false },
       1,
     );
+
     expect(planLines).toContain(
       'incremental build - run `launch-store build android --clean` first for a from-scratch artifact',
     );
@@ -231,19 +244,23 @@ function describeFormatReleaseActionLineCountFailedReleaseActions() {
       releaseAction({ status: 'skipped', note: 'already attached' }),
       'plan',
     );
+
     expect(releaseActionLine).toBe('- attach build 42 (already attached)');
   }
 
   it('renders plan lines with skipped notes', rendersPlanLinesWithSkippedNotes);
+
   function rendersReceiptFailuresWithAnErrorSuffix() {
     const releaseActionLine = formatReleaseActionLine(
       releaseAction({ status: 'failed', error: 'ASC 409' }),
       'receipt',
     );
+
     expect(releaseActionLine).toBe('x attach build 42 - ASC 409');
   }
 
   it('renders receipt failures with an error suffix', rendersReceiptFailuresWithAnErrorSuffix);
+
   function countsOnlyFailedStepsForTheExitCode() {
     const failedReleaseActions = countFailedReleaseActions(
       releaseReport([
@@ -253,6 +270,7 @@ function describeFormatReleaseActionLineCountFailedReleaseActions() {
         releaseAction({ status: 'failed' }),
       ]),
     );
+
     expect(failedReleaseActions).toBe(2);
     expect(countFailedReleaseActions(releaseReport([]))).toBe(0);
   }
@@ -271,6 +289,7 @@ function describeMakeReleaseCommandFailure() {
       message: 'network down',
       cause: new Error('network down'),
     });
+
     expect(failure._tag).toBe('ReleaseCommandFailure');
     expect(failure.operation).toBe('upload App Store build');
     expect(failure.message).toBe('network down');
@@ -412,8 +431,11 @@ async function runInTemporaryHome<Result>(
 
   try {
     const workDirectory = join(homeDirectory, 'work');
+
     mkdirSync(workDirectory, { recursive: true });
+
     const appPath = join(workDirectory, 'app.json');
+
     writeFileSync(appPath, appJsonText);
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFileText);
 
@@ -437,6 +459,7 @@ async function runReleaseCommand(commandRun: CommandRun): Promise<CommandOutcome
   };
 
   const workPath = join(commandRun.homeDirectory, 'work');
+
   useLaunchDirectories({
     homeDirectory: commandRun.homeDirectory,
     workingDirectory: workPath,
@@ -480,6 +503,7 @@ function describeReleaseCommandProgramAttachOnly() {
     const releaseApi = makeReleaseApiFake();
     const outcome = await runInTemporaryHome(function runAndroidAttach(homeDirectory) {
       const commandFor = commandOptionsFor({ attachOnly: true });
+
       return runReleaseCommand({
         homeDirectory,
         platformArgument: 'android',
@@ -495,10 +519,12 @@ function describeReleaseCommandProgramAttachOnly() {
   }
 
   it('fails on Android before any App Store call', failsOnAndroidBeforeAnyAppStoreCall);
+
   async function attachesTheBuildToTheEditableVersionAndNeverSubmitsIt() {
     const releaseApi = makeReleaseApiFake();
     const outcome = await runInTemporaryHome(function runAttach(homeDirectory) {
       const commandFor = commandOptionsFor({ build: '42', attachOnly: true });
+
       return runReleaseCommand({
         homeDirectory,
         platformArgument: 'ios',
@@ -519,6 +545,7 @@ function describeReleaseCommandProgramAttachOnly() {
     'attaches the build to the editable version and never submits it',
     attachesTheBuildToTheEditableVersionAndNeverSubmitsIt,
   );
+
   async function titlesTheReceiptWithTheFailedStepCountWhenAnAttachStepFails() {
     const releaseApi = makeReleaseApiFake({
       selectBuildForVersion: vi.fn(function rejectBuild() {
@@ -527,6 +554,7 @@ function describeReleaseCommandProgramAttachOnly() {
     });
     const outcome = await runInTemporaryHome(function runFailedAttach(homeDirectory) {
       const commandFor = commandOptionsFor({ build: '42', attachOnly: true });
+
       return runReleaseCommand({
         homeDirectory,
         platformArgument: 'ios',
@@ -544,10 +572,12 @@ function describeReleaseCommandProgramAttachOnly() {
     'titles the receipt with the failed step count when an attach step fails',
     titlesTheReceiptWithTheFailedStepCountWhenAnAttachStepFails,
   );
+
   async function asksToSubmitAndSubmitsForReviewWhenAttachOnlyIsOff() {
     const releaseApi = makeReleaseApiFake();
     const outcome = await runInTemporaryHome(function runSubmit(homeDirectory) {
       const commandFor = commandOptionsFor({ build: '42' });
+
       return runReleaseCommand({
         homeDirectory,
         platformArgument: 'ios',

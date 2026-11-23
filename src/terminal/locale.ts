@@ -16,22 +16,33 @@ export function mergeChildEnv(
 /** Whether the effective shell locale encodes as UTF-8 (`LC_ALL` -> `LANG` -> `LANGUAGE`). */
 export function isUtf8ShellLocale(env: ShellLocaleEnv): boolean {
   let effectiveLocale = env.LC_ALL;
+
   if (effectiveLocale == null) effectiveLocale = env.LANG;
+
   if (effectiveLocale == null) effectiveLocale = env.LANGUAGE;
+
   return typeof effectiveLocale == 'string' && /UTF-?8/i.test(effectiveLocale);
 }
 /** Doctor line grading the interactive shell locale (build subprocesses are fixed regardless). */
 export function shellLocaleDoctorCheck(env: ShellLocaleEnv): DoctorCheck {
   if (isUtf8ShellLocale(env)) {
     let localeLabel = env.LC_ALL;
+
     if (localeLabel == null) localeLabel = env.LANG;
+
     if (localeLabel == null) localeLabel = UTF8_LOCALE.LANG;
+
     return { status: 'ok', title: `Shell locale (${localeLabel})` };
   }
+
   let observedLocale = env.LC_ALL;
+
   if (observedLocale == null) observedLocale = env.LANG;
+
   if (observedLocale == null) observedLocale = env.LANGUAGE;
+
   if (observedLocale == null) observedLocale = 'unset';
+
   return {
     status: 'info',
     title: `Shell locale (${observedLocale})`,

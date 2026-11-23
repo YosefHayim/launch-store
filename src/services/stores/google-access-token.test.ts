@@ -29,6 +29,7 @@ function describeGoogleAccessToken() {
     'reads every key as the given service account and returns the given token',
     readsEveryKeyAsTheGivenServiceAccountAndReturnsTheGivenToken,
   );
+
   function turnsPieceThatIsNotAServiceAccountIntoAFailure() {
     let failure: unknown = null;
 
@@ -45,6 +46,7 @@ function describeGoogleAccessToken() {
     'turns text that is not a service account into a failure',
     turnsPieceThatIsNotAServiceAccountIntoAFailure,
   );
+
   async function turnsATokenRequestWithAnUnusableKeyIntoAFailure() {
     await expect(
       GoogleAccessToken.createAccessToken(SERVICE_ACCOUNT, ['scope']),

@@ -35,6 +35,7 @@ export function offersFailure(
   }
 
   const failureMessage = errorMessage(cause);
+
   return makeOffersCommandFailure({ operation, message: failureMessage, cause });
 }
 
@@ -81,6 +82,7 @@ function pickSubscriptionApp(
 
   for (const discoveredApp of apps) {
     const bundleId = discoveredApp.bundleId;
+
     const hasBundleId = bundleId != null;
 
     if (hasBundleId) {
@@ -102,6 +104,7 @@ function pickSubscriptionApp(
     }
 
     const chosenApp = selectedApp;
+
     const hasSelectedApp = chosenApp != null;
 
     if (hasSelectedApp) {
@@ -116,6 +119,7 @@ function pickSubscriptionApp(
   }
 
   const onlyApp = readOnlyAppleApp(appleApps);
+
   const hasOnlyApp = onlyApp != null;
 
   if (hasOnlyApp) {
@@ -161,6 +165,7 @@ export async function resolveSubscription(
   }
 
   const foundAppId = appId;
+
   const isAppMissing = foundAppId == null;
 
   if (isAppMissing) {
@@ -231,6 +236,7 @@ export async function findOfferCode(
   }
 
   const foundOfferCode = matchingOfferCode;
+
   const isOfferMissing = foundOfferCode == null;
 
   if (isOfferMissing) {

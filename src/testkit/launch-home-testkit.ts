@@ -20,6 +20,7 @@ export function writeLaunchHomeFile(
   const filePath = join(homeDirectory, '.launch', relativePath);
 
   const parentDirectory = dirname(filePath);
+
   mkdirSync(parentDirectory, { recursive: true });
   writeFileSync(filePath, fileText);
 }

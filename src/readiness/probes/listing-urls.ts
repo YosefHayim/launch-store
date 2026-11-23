@@ -42,6 +42,7 @@ async function loadAppleListing(appDirectory: string): Promise<AppleStoreConfig 
   try {
     const storeConfig = await loadStoreConfig(storeConfigPath);
     const appleListing = storeConfig.apple;
+
     const isMissing = appleListing == null;
 
     if (isMissing) {
@@ -62,6 +63,7 @@ async function loadAppleListing(appDirectory: string): Promise<AppleStoreConfig 
 
 async function collectListingUrls(appDescriptor: AppDescriptor): Promise<ListingUrl[]> {
   const appleListing = await loadAppleListing(appDescriptor.dir);
+
   const isMissing = appleListing == null;
 
   if (isMissing) {
@@ -107,6 +109,7 @@ async function requestListingUrlStatus(listingUrl: string): Promise<number> {
 
 async function readListingUrl(listingUrl: ListingUrl): Promise<AppReadiness> {
   const httpStatus = await requestListingUrlStatus(listingUrl.url);
+
   const isLive = isSuccessStatus(httpStatus);
 
   if (isLive) {
@@ -137,6 +140,7 @@ export const listingUrlsProbe = {
     const scopedApps = readinessContext.apps.filter(hasBundleId);
     const listingUrlsByApp = await Promise.all(scopedApps.map(collectListingUrls));
     const listingUrls = listingUrlsByApp.flat();
+
     const isNothingDeclared = listingUrls.length == 0;
 
     if (isNothingDeclared) {

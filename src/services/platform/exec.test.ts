@@ -15,28 +15,34 @@ function describeCommandExecution() {
       '-e',
       'process.stdout.write(`${process.env.LANG}|${process.env.LC_ALL}`)',
     ]);
+
     expect(localeText).toBe(`${UTF8_LOCALE.LANG}|${UTF8_LOCALE.LC_ALL}`);
   }
 
   it('passes the UTF-8 locale to spawned children', passesTheUTF8LocaleToSpawnedChildren);
+
   async function capturesTrimmedStdout() {
     const standardOutput = await captureCommandOutput(process.execPath, [
       '-e',
       'process.stdout.write("launch\\n")',
     ]);
+
     expect(standardOutput).toBe('launch');
   }
 
   it('captures trimmed stdout', capturesTrimmedStdout);
+
   async function closesStdinForCapturedCommands() {
     const standardOutput = await captureCommandOutput(process.execPath, [
       '-e',
       'process.stdin.on("end", () => process.stdout.write("closed")); process.stdin.resume()',
     ]);
+
     expect(standardOutput).toBe('closed');
   }
 
   it('closes stdin for captured commands', closesStdinForCapturedCommands);
+
   async function returnsATaggedErrorForANonZeroExit() {
     let failure: unknown = null;
 
@@ -50,6 +56,7 @@ function describeCommandExecution() {
   }
 
   it('returns a tagged error for a non-zero exit', returnsATaggedErrorForANonZeroExit);
+
   async function includesStdoutInCommandFailedWhenACapturedCommandFails() {
     let failure: unknown = null;
 
@@ -73,6 +80,7 @@ function describeCommandExecution() {
     'includes stdout in CommandFailed when a captured command fails',
     includesStdoutInCommandFailedWhenACapturedCommandFails,
   );
+
   async function includesBothStdoutAndStderrInCommandFailedDiagnostics() {
     let failure: unknown = null;
 
@@ -97,6 +105,7 @@ function describeCommandExecution() {
     'includes both stdout and stderr in CommandFailed diagnostics',
     includesBothStdoutAndStderrInCommandFailedDiagnostics,
   );
+
   async function checksPATHThroughWhich() {
     const commandExists = checkCommandExists('node');
     await expect(commandExists).resolves.toBe(true);
@@ -123,12 +132,15 @@ function describeRedactionBeforeLogPersistence() {
         endFence,
         '{"password":"dummy-json-password"}',
       ].join('\n');
+
       await executeCommandQuietly(
         process.execPath,
         ['-e', 'process.stdout.write(process.argv[1])', '--', secretOutput],
         { logFilePath },
       );
+
       const persistedLog = readFileSync(logFilePath, 'utf8');
+
       expect(persistedLog).not.toContain('ZHVtbXktcHJpdmF0ZS1rZXktYm9keQ==');
       expect(persistedLog).not.toContain('dummy-json-password');
       expect(persistedLog).toContain('[redacted-key-material]');
@@ -147,6 +159,7 @@ describe('redaction before log persistence', describeRedactionBeforeLogPersisten
 function describeChildEnvironmentExclusions() {
   async function dropsExcludedValuesInheritedFromTheParentProcess() {
     const previous = process.env['LAUNCH_AUDIT_TOKEN'];
+
     process.env['LAUNCH_AUDIT_TOKEN'] = 'dummy-private-value';
 
     try {
@@ -162,6 +175,7 @@ function describeChildEnvironmentExclusions() {
         },
       );
       const parsed = JSON.parse(standardOutput);
+
       expect(parsed).toEqual([null, 'safe']);
     } finally {
       if (previous == null) {

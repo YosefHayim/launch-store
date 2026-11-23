@@ -10,16 +10,19 @@ import { resetLaunchDirectories, useLaunchDirectories } from '../services/platfo
 import { isSyncLockStale, holdSyncLock } from './sync-lock.ts';
 function describeIsSyncLockStale() {
   const now = Date.parse('2026-10-29T12:00:00.000Z');
+
   function isFreshWithin5Minutes() {
     expect(isSyncLockStale('2026-10-29T11:56:00.000Z', now)).toBe(false);
   }
 
   test('is fresh within 5 minutes', isFreshWithin5Minutes);
+
   function isStaleAfter5Minutes() {
     expect(isSyncLockStale('2026-10-29T11:54:00.000Z', now)).toBe(true);
   }
 
   test('is stale after 5 minutes', isStaleAfter5Minutes);
+
   function isStaleWhenTheTimeCannotBeRead() {
     expect(isSyncLockStale('garbage', now)).toBe(true);
   }
@@ -30,9 +33,12 @@ function describeIsSyncLockStale() {
 describe('isSyncLockStale', describeIsSyncLockStale);
 function describeHoldSyncLock() {
   let homeDirectory: string;
+
   function prepareHoldSyncLock() {
     homeDirectory = createTemporaryHomeDirectory();
+
     const workPath = join(homeDirectory, 'work');
+
     useLaunchDirectories({
       homeDirectory,
       workingDirectory: workPath,
@@ -40,6 +46,7 @@ function describeHoldSyncLock() {
   }
 
   beforeEach(prepareHoldSyncLock);
+
   function cleanupHoldSyncLock() {
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
@@ -62,7 +69,9 @@ function describeHoldSyncLock() {
     const wasLockedDuring = await runLocked(wasLocked);
 
     expect(wasLockedDuring).toBe(true);
+
     const pathExists = existsSync(lockPath());
+
     expect(pathExists).toBe(false);
   }
 
@@ -70,21 +79,26 @@ function describeHoldSyncLock() {
     'holds the lock while the program runs and removes it after',
     holdsTheLockWhileTheProgramRunsAndRemovesItAfter,
   );
+
   async function removesTheLockWhenTheProgramFails() {
     async function failProgram(): Promise<void> {
       throw new Error('boom');
     }
 
     const locked = runLocked(failProgram);
+
     await expect(locked).rejects.toThrow('boom');
 
     const pathExists = existsSync(lockPath());
+
     expect(pathExists).toBe(false);
   }
 
   test('removes the lock when the program fails', removesTheLockWhenTheProgramFails);
+
   async function refusesToStartWhileAFreshLockExists() {
     const syncPath = join('stats', 'sync.lock');
+
     writeLaunchHomeFile(homeDirectory, syncPath, new Date().toISOString());
 
     async function unusedWork(): Promise<void> {
@@ -92,19 +106,23 @@ function describeHoldSyncLock() {
     }
 
     const locked = runLocked(unusedWork);
+
     await expect(locked).rejects.toMatchObject({
       _tag: 'SyncLockFailure',
       message: expect.stringContaining('Another stats sync is running'),
     });
 
     const pathExists = existsSync(lockPath());
+
     expect(pathExists).toBe(true);
   }
 
   test('refuses to start while a fresh lock exists', refusesToStartWhileAFreshLockExists);
+
   async function takesOverAStaleLockAndRemovesItAfter() {
     const staleLockStamp = '2020-01-01T00:00:00.000Z';
     const syncPath = join('stats', 'sync.lock');
+
     writeLaunchHomeFile(homeDirectory, syncPath, staleLockStamp);
 
     async function readLockStamp(): Promise<string> {
@@ -114,7 +132,9 @@ function describeHoldSyncLock() {
     const lockStampDuringSync = await runLocked(readLockStamp);
 
     expect(lockStampDuringSync).not.toBe(staleLockStamp);
+
     const pathExists = existsSync(lockPath());
+
     expect(pathExists).toBe(false);
   }
 

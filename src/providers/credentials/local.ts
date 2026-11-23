@@ -65,6 +65,7 @@ async function resolveAppleCredentials(
 
   const appleCredentials: BuildCredentials = { platform: 'ios', ascKey };
   const bundleId = buildContext.app.bundleId;
+
   const hasNoBundleId = bundleId == null;
 
   if (hasNoBundleId) {
@@ -235,6 +236,7 @@ export function makeLocalCredentialsProvider(): CredentialsProvider {
     name: 'local',
     async resolveBuildCredentials(buildContext): Promise<BuildCredentials> {
       const credentialStore = readCredentials();
+
       const isApple = isApplePlatform(buildContext.platform);
 
       if (isApple) {

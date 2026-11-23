@@ -17,6 +17,7 @@ function describeCreateStatsFromReport() {
   }
 
   test('returns nothing for a reply without rows', returnsNothingForAReplyWithoutRows);
+
   function skipsAPieceWithoutADateAndAMetricWithoutAPiece() {
     const dailyStats = createStatsFromReport({
       rows: [
