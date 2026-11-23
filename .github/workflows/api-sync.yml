@@ -1,0 +1,110 @@
+name: Store API sync
+
+on:
+  schedule:
+    # 06:17 UTC avoids the top of the hour, when GitHub delays scheduled runs.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-check:
+    name: Compare published store APIs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup workspace
+        uses: $/.github/actions/setup
+
+      - name: Regenerate App Store Connect types
+        run: pnpm gen:asc
+
+      - name: Compare Apple and Google APIs
+        id: sync
+        run: pnpm exec tsx scripts/check-store-apis.ts
+
+      - name: Open or update the api-sync issue
+        if: steps.sync.outputs.drift == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REPORT_PATH: store-api-sync.md
+        with:
+          script: |
+            const fs = require('node:fs');
+
+            const reportPath = process.env.REPORT_PATH;
+            if (reportPath == null) {
+              throw new Error('REPORT_PATH is missing');
+            }
+            if (reportPath === '') {
+              throw new Error('REPORT_PATH is missing');
+            }
+
+            const reportMarkdown = fs.readFileSync(reportPath, 'utf8');
+            const splitAt = reportMarkdown.indexOf('\n');
+            const title = reportMarkdown.slice(0, splitAt).trim();
+            const issueBody = reportMarkdown.slice(splitAt + 1).trim();
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const labelName = 'api-sync';
+
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: labelName });
+            } catch (error) {
+              const isMissingLabel = error.status === 404;
+              if (!isMissingLabel) {
+                throw error;
+              }
+              await github.rest.issues.createLabel({
+                owner,
+                repo,
+                name: labelName,
+                color: '1d76db',
+                description: 'Published Apple or Google API moved ahead of this repo',
+              });
+            }
+
+            const listed = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              labels: labelName,
+              per_page: 1,
+            });
+            const openIssue = listed.data[0];
+
+            if (openIssue == null) {
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body: issueBody,
+                labels: [labelName],
+              });
+              return;
+            }
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: openIssue.number,
+              title,
+            });
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: openIssue.number,
+              body: issueBody,
+            });
