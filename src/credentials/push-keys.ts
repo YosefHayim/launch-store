@@ -173,7 +173,7 @@ async function exportApnsKey(
   }
 
   if (canPrompt) {
-    const confirmed = await LaunchPrompt.confirm(
+    const confirmed = await new LaunchPrompt().confirm(
       `Write secret APNs key ${keyRecord.keyId} to ${displayPath(outputPath)}?`,
     );
 

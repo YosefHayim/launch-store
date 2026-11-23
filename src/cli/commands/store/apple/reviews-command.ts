@@ -198,7 +198,7 @@ async function confirmReviewWrite(
   let shouldWrite = false;
 
   try {
-    shouldWrite = await LaunchPrompt.confirm(confirmationMessage);
+    shouldWrite = await new LaunchPrompt().confirm(confirmationMessage);
   } catch (cause) {
     throw reviewsFailure(operation, cause);
   }
@@ -207,7 +207,7 @@ async function confirmReviewWrite(
     return true;
   }
 
-  LaunchPrompt.cancel('Aborted - nothing posted.');
+  new LaunchPrompt().cancel('Aborted - nothing posted.');
 
   return false;
 }

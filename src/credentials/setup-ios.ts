@@ -77,7 +77,7 @@ export async function setupIos(
       return Promise.resolve(true);
     }
 
-    return LaunchPrompt.confirm(message);
+    return new LaunchPrompt().confirm(message);
   }
 
   const signingAssets = await ensureSigningCredentials({

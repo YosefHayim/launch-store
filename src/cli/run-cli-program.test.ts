@@ -162,7 +162,7 @@ function describeRunPieceCliProgramThePiecePieceLine() {
     const readEvents = captureStdoutLines();
 
     async function confirmUpload(): Promise<boolean> {
-      return LaunchPrompt.confirm('Upload?');
+      return new LaunchPrompt().confirm('Upload?');
     }
 
     const runCliProgram = runJsonCliProgram(SUMMARY, confirmUpload);

@@ -36,7 +36,7 @@ export function resetGoogleAccessToken(): void {
   accessTokenFixture = null;
 }
 
-export const GoogleAccessToken = {
+export class GoogleAccessToken {
   readServiceAccount(savedServiceAccountKey: string): ServiceAccount {
     if (accessTokenFixture != null) {
       return accessTokenFixture.serviceAccount;
@@ -48,7 +48,8 @@ export const GoogleAccessToken = {
       const failureMessage = errorMessage(cause);
       throw makeGoogleAccessTokenFailure({ message: failureMessage, cause });
     }
-  },
+  }
+
   async createAccessToken(account: ServiceAccount, scopes: readonly string[]): Promise<string> {
     if (accessTokenFixture != null) {
       return accessTokenFixture.accessToken;
@@ -64,5 +65,5 @@ export const GoogleAccessToken = {
         cause,
       });
     }
-  },
-};
+  }
+}

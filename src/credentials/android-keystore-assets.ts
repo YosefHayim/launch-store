@@ -299,7 +299,7 @@ export async function storeServiceAccount(
 
   const encode = encodeJson(serviceAccountJson);
 
-  await LaunchSecretStore.storeSecret(
+  await new LaunchSecretStore().storeSecret(
     androidSecretAccount(SERVICE_ACCOUNT_SECRET, packageName),
     encode,
   );
@@ -355,7 +355,7 @@ export async function listStoredAndroidPackages(): Promise<string[]> {
 }
 
 async function readAccountAt(account: string): Promise<string | null> {
-  const stored = await LaunchSecretStore.readSecret(account);
+  const stored = await new LaunchSecretStore().readSecret(account);
 
   if (stored == null) {
     return null;
@@ -387,8 +387,8 @@ async function readKeystore(
     return null;
   }
 
-  const storePassword = await LaunchSecretStore.readSecret(storeAccount);
-  const keyPassword = await LaunchSecretStore.readSecret(keyAccount);
+  const storePassword = await new LaunchSecretStore().readSecret(storeAccount);
+  const keyPassword = await new LaunchSecretStore().readSecret(keyAccount);
 
   if (storePassword == null) {
     return null;
@@ -442,7 +442,7 @@ export async function describeStoredAndroidCredentials(packageName: string): Pro
 }> {
   const index = await readAndroidIndex(packageName);
   const keystoreAlias = await readStoredAlias(index.keystore);
-  const serviceAccountJson = await LaunchSecretStore.readSecret(
+  const serviceAccountJson = await new LaunchSecretStore().readSecret(
     androidSecretAccount(SERVICE_ACCOUNT_SECRET, packageName),
   );
   const hasServiceAccount = serviceAccountJson != null;
@@ -471,15 +471,15 @@ function hasLegacyPassword(storePassword: string | null, keyPassword: string | n
 }
 
 export async function describeMissingPlayServiceAccount(appName: string): Promise<string> {
-  const legacyAccount = await LaunchSecretStore.readSecret(SERVICE_ACCOUNT_SECRET);
+  const legacyAccount = await new LaunchSecretStore().readSecret(SERVICE_ACCOUNT_SECRET);
   const adopt = androidAdoptionCommand(appName);
 
   if (legacyAccount != null) {
     return `A legacy Play service account exists. Run \`${adopt}\`.`;
   }
 
-  const legacyStorePassword = await LaunchSecretStore.readSecret(KEYSTORE_STORE_PASSWORD);
-  const legacyKeyPassword = await LaunchSecretStore.readSecret(KEYSTORE_KEY_PASSWORD);
+  const legacyStorePassword = await new LaunchSecretStore().readSecret(KEYSTORE_STORE_PASSWORD);
+  const legacyKeyPassword = await new LaunchSecretStore().readSecret(KEYSTORE_KEY_PASSWORD);
   const appArgument = quoteAppName(appName);
 
   if (hasLegacyPassword(legacyStorePassword, legacyKeyPassword)) {
@@ -654,11 +654,11 @@ async function copyLegacyKeystore(
   await mkdir(credentialsDirectory, { recursive: true });
   await copyFile(legacyKeystore.path, destinationBackup);
   await chmod(destinationBackup, PRIVATE_FILE_MODE);
-  await LaunchSecretStore.storeSecret(
+  await new LaunchSecretStore().storeSecret(
     androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName),
     legacyKeystore.storePassword,
   );
-  await LaunchSecretStore.storeSecret(
+  await new LaunchSecretStore().storeSecret(
     androidSecretAccount(KEYSTORE_KEY_PASSWORD, packageName),
     legacyKeystore.keyPassword,
   );
@@ -708,10 +708,10 @@ export async function adoptLegacyAndroidCredentials(
   const destinationFileExists = await pathExists(destinationBackup);
   const androidCredentialsIndexPath = resolveAndroidCredentialsIndexPath(packageName);
   const destinationIndexExists = await pathExists(androidCredentialsIndexPath);
-  const destinationStorePassword = await LaunchSecretStore.readSecret(
+  const destinationStorePassword = await new LaunchSecretStore().readSecret(
     androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName),
   );
-  const destinationKeyPassword = await LaunchSecretStore.readSecret(
+  const destinationKeyPassword = await new LaunchSecretStore().readSecret(
     androidSecretAccount(KEYSTORE_KEY_PASSWORD, packageName),
   );
   const destinationHasMaterial = destinationHasKeystoreMaterial(
@@ -928,11 +928,11 @@ async function generateKeystore(
     },
   );
   await chmod(keystoreBackupPath, PRIVATE_FILE_MODE);
-  await LaunchSecretStore.storeSecret(
+  await new LaunchSecretStore().storeSecret(
     androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName),
     password,
   );
-  await LaunchSecretStore.storeSecret(
+  await new LaunchSecretStore().storeSecret(
     androidSecretAccount(KEYSTORE_KEY_PASSWORD, packageName),
     password,
   );
@@ -975,11 +975,11 @@ async function importKeystore(
   await mkdir(credentialsDirectory, { recursive: true });
   await copyFile(keystoreImport.path, keystoreBackupPath);
   await chmod(keystoreBackupPath, PRIVATE_FILE_MODE);
-  await LaunchSecretStore.storeSecret(
+  await new LaunchSecretStore().storeSecret(
     androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName),
     keystoreImport.storePassword,
   );
-  await LaunchSecretStore.storeSecret(
+  await new LaunchSecretStore().storeSecret(
     androidSecretAccount(KEYSTORE_KEY_PASSWORD, packageName),
     keystoreImport.keyPassword,
   );

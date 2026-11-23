@@ -38,7 +38,7 @@ function isStoredPasswordMissing(storedPassword: string | null): boolean {
 /** Get (or create + persist) the random password that protects one account's `.p12` backup. */
 async function p12Password(keyId: string): Promise<string> {
   const account = p12PasswordAccount(keyId);
-  const existing = await LaunchSecretStore.readSecret(account);
+  const existing = await new LaunchSecretStore().readSecret(account);
   const isMissing = isStoredPasswordMissing(existing);
 
   if (isMissing == false) {
@@ -47,7 +47,7 @@ async function p12Password(keyId: string): Promise<string> {
 
   const password = randomHexSecret(24);
 
-  await LaunchSecretStore.storeSecret(account, password);
+  await new LaunchSecretStore().storeSecret(account, password);
 
   return password;
 }

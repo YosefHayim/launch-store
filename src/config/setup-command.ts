@@ -371,7 +371,7 @@ function alwaysConfirm(): Promise<boolean> {
 }
 
 function confirmWithPrompt(message: string): Promise<boolean> {
-  return LaunchPrompt.confirm(message);
+  return new LaunchPrompt().confirm(message);
 }
 
 async function provisioningConfirmation(
@@ -440,7 +440,7 @@ function provisioningDevice(appleDevice: DeviceResource): ProvisioningDevice {
 }
 
 async function listEnabledCapabilities(
-  appleStore: ReturnType<typeof AppleStoreClientService.createClient>,
+  appleStore: ReturnType<AppleStoreClientService['createClient']>,
   bundleIdentifier: { id: string } | null,
 ): Promise<string[]> {
   if (bundleIdentifier == null) {
@@ -486,7 +486,7 @@ async function setupIosProgram(commandInput: IosSetupInput): Promise<void> {
     });
   }
 
-  const appleStore = AppleStoreClientService.createClient(setupAccount.ascKey);
+  const appleStore = new AppleStoreClientService().createClient(setupAccount.ascKey);
   const bundleIdentifier = await withAppleRole('App IDs', appleStore.findBundleId(bundleId));
   const capabilities = await listEnabledCapabilities(appleStore, bundleIdentifier);
 

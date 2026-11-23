@@ -16,8 +16,8 @@ function describeParseLaunchPiece() {
   it('fills provider defaults through Effect Schema', fillsProviderDefaultsThroughEffectSchema);
 
   function keepsAnExplicitProviderNameOverTheDefault() {
-    const parsed = parseLaunchConfig({ profiles: {}, storage: 's3', credentials: 'local' });
-    expect(parsed.storage).toBe('s3');
+    const parsed = parseLaunchConfig({ profiles: {}, storage: 'archive', credentials: 'local' });
+    expect(parsed.storage).toBe('archive');
     expect(parsed.credentials).toBe('local');
   }
 

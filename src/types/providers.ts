@@ -7,7 +7,7 @@ import type {
   SizeReport,
   StoredArtifact,
 } from './artifacts.ts';
-import type { ResolvedBuildContext, StorageConfig } from './config.ts';
+import type { ResolvedBuildContext } from './config.ts';
 import type { BuildCredentials } from './credentials.ts';
 import type {
   AllocateRequest,
@@ -128,7 +128,6 @@ export type StorageProvider = Readonly<{
 
 export type StorageProviderOptions = Readonly<{
   readonly artifactDirectory?: string;
-  readonly storageConfig?: StorageConfig;
 }>;
 
 export type StorageProviderResolver = Readonly<{

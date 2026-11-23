@@ -78,13 +78,13 @@ function describeDefinePiece() {
   function preservesExplicitOverridesAndAppRoots() {
     const config = defineConfig({
       credentials: 'team',
-      storage: 's3',
+      storage: 'archive',
       appRoots: ['./apps'],
       profiles: { preview: { name: 'preview' } },
     });
 
     expect(config.credentials).toBe('team');
-    expect(config.storage).toBe('s3');
+    expect(config.storage).toBe('archive');
     expect(config.appRoots).toEqual(['./apps']);
   }
 

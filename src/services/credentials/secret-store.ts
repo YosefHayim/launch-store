@@ -125,7 +125,7 @@ async function deleteNativeSecret(account: string): Promise<void> {
   }
 }
 
-export const LaunchSecretStore = {
+export class LaunchSecretStore {
   async readSecret(account: string): Promise<string | null> {
     if (secretFixture != null) {
       const secretText = secretFixture.get(account);
@@ -138,7 +138,8 @@ export const LaunchSecretStore = {
     }
 
     return readNativeSecret(account);
-  },
+  }
+
   async storeSecret(account: string, secretText: string): Promise<void> {
     if (secretFixture != null) {
       secretFixture.set(account, secretText);
@@ -146,7 +147,8 @@ export const LaunchSecretStore = {
     }
 
     await storeNativeSecret(account, secretText);
-  },
+  }
+
   async deleteSecret(account: string): Promise<void> {
     if (secretFixture != null) {
       secretFixture.delete(account);
@@ -154,5 +156,5 @@ export const LaunchSecretStore = {
     }
 
     await deleteNativeSecret(account);
-  },
-};
+  }
+}

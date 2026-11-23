@@ -57,7 +57,7 @@ export async function resolveIosAccount(
   log: Logger,
 ): Promise<AccountRecord> {
   const environment = readLaunchEnvironment();
-  const launchPrompt = LaunchPrompt;
+  const launchPrompt = new LaunchPrompt();
   let accountSelector = environment.values.appleAccount;
 
   if (buildOptions.account != null) {
@@ -247,7 +247,7 @@ export async function resolveSigning(
   isDryRun: boolean,
   distribution: Distribution | undefined,
 ): Promise<SigningAssets> {
-  const launchPrompt = LaunchPrompt;
+  const launchPrompt = new LaunchPrompt();
   const confirmCreate = confirmWith(launchPrompt);
   const bundleId = presentBundleId(app);
 
@@ -379,7 +379,7 @@ export async function resolveKeystore(
   log: Logger,
   isDryRun: boolean,
 ) {
-  const launchPrompt = LaunchPrompt;
+  const launchPrompt = new LaunchPrompt();
   const cachedKeystore = credentials.keystore;
 
   const hasKeystore = cachedKeystore != null;

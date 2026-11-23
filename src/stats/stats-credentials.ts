@@ -119,7 +119,7 @@ function decodeStoredServiceAccount(storedKey: string): string {
 }
 
 async function readSavedServiceAccountKey(packageName: string): Promise<string | null> {
-  const storedKey = await LaunchSecretStore.readSecret(`play-service-account:${packageName}`);
+  const storedKey = await new LaunchSecretStore().readSecret(`play-service-account:${packageName}`);
 
   if (storedKey == null) {
     return null;
@@ -150,7 +150,7 @@ async function ascClientForAccount(accountKeyId: string): Promise<AppStoreStatsC
       return null;
     }
 
-    return AppleStoreClientService.createClient(ascKey);
+    return new AppleStoreClientService().createClient(ascKey);
   } catch (cause) {
     if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;
@@ -342,7 +342,7 @@ async function playServiceAccount(packageName: string | null): Promise<ServiceAc
       return null;
     }
 
-    return GoogleAccessToken.readServiceAccount(savedServiceAccountKey);
+    return new GoogleAccessToken().readServiceAccount(savedServiceAccountKey);
   } catch (cause) {
     if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;
@@ -364,7 +364,7 @@ async function playReportingClient(packageName: string | null): Promise<PlayVita
       return null;
     }
 
-    return GoogleReportingClientService.createClient(savedServiceAccountKey);
+    return new GoogleReportingClientService().createClient(savedServiceAccountKey);
   } catch (cause) {
     if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;
@@ -420,7 +420,7 @@ async function googleAccessToken(
       return null;
     }
 
-    return await GoogleAccessToken.createAccessToken(serviceAccount, scopes);
+    return await new GoogleAccessToken().createAccessToken(serviceAccount, scopes);
   } catch (cause) {
     if (isFailureTag(cause, 'StatsCredentialsFailure')) {
       throw cause;

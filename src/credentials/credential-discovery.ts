@@ -63,7 +63,7 @@ export async function offerSourceRemoval(
     return;
   }
 
-  const shouldRemove = await LaunchPrompt.confirm(
+  const shouldRemove = await new LaunchPrompt().confirm(
     `Remove plaintext ${secretLabel} from ${shownPath}? It is now in the secret store.`,
   );
 

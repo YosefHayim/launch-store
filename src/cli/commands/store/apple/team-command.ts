@@ -234,7 +234,7 @@ async function confirmTeamWrite(confirmationMessage: string, assumeYes: boolean)
   let confirmed = false;
 
   try {
-    confirmed = await LaunchPrompt.confirm(confirmationMessage);
+    confirmed = await new LaunchPrompt().confirm(confirmationMessage);
   } catch (cause) {
     throw teamCommandFailure('invite', cause);
   }
@@ -243,7 +243,7 @@ async function confirmTeamWrite(confirmationMessage: string, assumeYes: boolean)
     return true;
   }
 
-  LaunchPrompt.cancel('Aborted - no team changes made.');
+  new LaunchPrompt().cancel('Aborted - no team changes made.');
 
   return false;
 }

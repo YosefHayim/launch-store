@@ -60,7 +60,7 @@ export async function loadActiveGoogleStore(
   }
 
   try {
-    return GoogleStoreClientService.createClient(serviceAccountJson);
+    return new GoogleStoreClientService().createClient(serviceAccountJson);
   } catch (cause) {
     throw makeActiveGoogleStoreFailure({
       message: 'Could not create the Google Play client.',
@@ -130,7 +130,7 @@ export async function confirmGoogleStoreWrite(
   let confirmed = false;
 
   try {
-    confirmed = await LaunchPrompt.confirm(confirmationMessageText);
+    confirmed = await new LaunchPrompt().confirm(confirmationMessageText);
   } catch (cause) {
     throw makeGoogleStoreConfirmationFailure({
       message: confirmationCauseMessage(cause),
@@ -142,7 +142,7 @@ export async function confirmGoogleStoreWrite(
     return true;
   }
 
-  LaunchPrompt.cancel(cancellationMessage);
+  new LaunchPrompt().cancel(cancellationMessage);
 
   return false;
 }

@@ -292,7 +292,7 @@ function appleBundleId(app: AppDescriptor): string | undefined {
 
 function checkAppleBundle(ascKey: AscKey) {
   return function checkBundle(bundleId: string): Promise<boolean> {
-    return SetupStoreReadiness.checkAppleApp(ascKey, bundleId);
+    return new SetupStoreReadiness().checkAppleApp(ascKey, bundleId);
   };
 }
 
@@ -320,7 +320,7 @@ async function appleAccountReadinessRows(apps: readonly AppDescriptor[]): Promis
   }
 
   try {
-    await SetupStoreReadiness.checkAppleAgreements(ascKey);
+    await new SetupStoreReadiness().checkAppleAgreements(ascKey);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
     const makeReadiness = makeReadinessRow('Apple agreements', 'todo', failureMessage);
@@ -381,7 +381,7 @@ function playAppLabel(packageName: string): string {
 
 function checkPlayPackage(serviceAccountJson: string) {
   return function checkPackage(packageName: string): Promise<void> {
-    return SetupStoreReadiness.checkPlayApp(serviceAccountJson, packageName);
+    return new SetupStoreReadiness().checkPlayApp(serviceAccountJson, packageName);
   };
 }
 

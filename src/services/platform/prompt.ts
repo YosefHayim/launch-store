@@ -191,12 +191,19 @@ async function askSecret(message: string): Promise<string> {
   }
 }
 
-export const LaunchPrompt = {
-  confirm: askConfirm,
+export class LaunchPrompt {
+  confirm(message: string): Promise<boolean> {
+    return askConfirm(message);
+  }
+
   requiredText(message: string): Promise<string> {
     return askText(message, 'The text prompt failed.');
-  },
-  requiredSecret: askSecret,
+  }
+
+  requiredSecret(message: string): Promise<string> {
+    return askSecret(message);
+  }
+
   async select<Selection>(request: PromptSelectionRequest<Selection>): Promise<Selection> {
     if (jsonPrompts) {
       failJsonPrompt();
@@ -235,7 +242,8 @@ export const LaunchPrompt = {
 
       throw makePromptSelectionFailure({ message: 'The selection prompt failed.', cause });
     }
-  },
+  }
+
   async selectMany<Selection>(
     request: PromptMultiSelectionRequest<Selection>,
   ): Promise<readonly Selection[] | null> {
@@ -272,7 +280,8 @@ export const LaunchPrompt = {
     } catch (cause) {
       throw makePromptSelectionFailure({ message: 'The multi-selection prompt failed.', cause });
     }
-  },
+  }
+
   cancel(message: string): void {
     if (jsonPrompts) {
       return;
@@ -283,16 +292,16 @@ export const LaunchPrompt = {
     }
 
     prompts.cancel(message);
-  },
-};
+  }
+}
 
-export type LaunchPromptService = typeof LaunchPrompt;
+export type LaunchPromptService = LaunchPrompt;
 
 export async function pickOne<Selection>(request: PickOneArgs<Selection>): Promise<Selection> {
   const isInteractive = request.canPrompt;
 
   if (isInteractive) {
-    return LaunchPrompt.select(request);
+    return new LaunchPrompt().select(request);
   }
 
   const policy = request.nonInteractive;

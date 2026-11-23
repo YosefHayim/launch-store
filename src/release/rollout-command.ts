@@ -150,7 +150,7 @@ type SelectedIosApp = {
 };
 
 async function updateAppRollout(
-  appleStore: ReturnType<typeof AppleStoreClientService.createClient>,
+  appleStore: ReturnType<AppleStoreClientService['createClient']>,
   selectedApp: SelectedIosApp,
   phasedReleaseState: 'PAUSE' | 'ACTIVE' | 'COMPLETE',
   notificationStatus: 'paused' | 'resumed' | 'completed',
@@ -233,7 +233,7 @@ export async function rolloutCommandProgram(rawCommandInput: unknown): Promise<v
       );
     }
 
-    const appleStore = AppleStoreClientService.createClient(ascKey);
+    const appleStore = new AppleStoreClientService().createClient(ascKey);
     const phasedReleaseState = phasedStateForAction(commandInput.action);
     const notificationStatus = rolloutNotifyStatus(commandInput.action);
     let commandFailed = false;

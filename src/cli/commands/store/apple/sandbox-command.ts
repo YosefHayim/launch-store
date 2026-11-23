@@ -116,7 +116,7 @@ async function confirmClear(targetLabel: string, confirmed: boolean): Promise<bo
   let shouldClear = false;
 
   try {
-    shouldClear = await LaunchPrompt.confirm(`Clear purchase history for ${targetLabel}?`);
+    shouldClear = await new LaunchPrompt().confirm(`Clear purchase history for ${targetLabel}?`);
   } catch (cause) {
     throw sandboxFailure('clear', cause);
   }
@@ -125,7 +125,7 @@ async function confirmClear(targetLabel: string, confirmed: boolean): Promise<bo
     return true;
   }
 
-  LaunchPrompt.cancel('Aborted - nothing cleared.');
+  new LaunchPrompt().cancel('Aborted - nothing cleared.');
 
   return false;
 }

@@ -281,44 +281,13 @@
           "additionalProperties": false,
           "description": "AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`."
         },
-        "storageConfig": {
-          "type": "object",
-          "properties": {
-            "endpoint": {
-              "type": "string",
-              "description": "S3-compatible endpoint, e.g. `https://<account>.r2.cloudflarestorage.com` (Cloudflare R2), a Backblaze B2 / MinIO endpoint, etc. Omit for AWS S3 (the SDK derives it from the region). Unused by the `supabase` provider."
-            },
-            "bucket": {
-              "type": "string",
-              "description": "Bucket name (S3-compatible) or storage bucket id (Supabase)."
-            },
-            "region": {
-              "type": "string",
-              "description": "Region for an S3-compatible provider. Defaults to `auto` (correct for R2) when omitted; unused by Supabase."
-            },
-            "publicBaseUrl": {
-              "type": "string",
-              "description": "Public base URL that maps to the bucket root - used to build install links and OTA manifest URLs. e.g. an R2 custom domain `https://cdn.example.com`, or a Supabase public object URL prefix `https://<project>.supabase.co/storage/v1/object/public/<bucket>`. No trailing slash required."
-            },
-            "supabaseUrl": {
-              "type": "string",
-              "description": "Supabase project URL (`https://<project>.supabase.co`). Required by `supabase`, unused by `s3`."
-            }
-          },
-          "required": [
-            "bucket",
-            "publicBaseUrl"
-          ],
-          "additionalProperties": false,
-          "description": "Bucket/endpoint settings for a cloud {@link StorageProvider} (`s3` / `supabase`). Required when `storage` names a cloud provider - it's where ad-hoc install links and OTA update manifests are hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here."
-        },
         "artifactDir": {
           "type": "string",
-          "description": "Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default - existing projects are unaffected). `launch-store init` and the no-args wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. Only the `local` provider observes it - cloud stores key off {@link StorageConfig}. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land."
+          "description": "Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default - existing projects are unaffected). `launch-store init` and the no-args wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land."
         },
         "artifactRetentionDays": {
           "type": "number",
-          "description": "How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic sweep entirely (`launch-store builds prune` still works on demand). Only the `local` provider observes this - cloud stores manage retention through their own bucket lifecycle rules."
+          "description": "How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic sweep entirely (`launch-store builds prune` still works on demand)."
         },
         "envExclude": {
           "type": "array",

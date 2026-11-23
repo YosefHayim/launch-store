@@ -35,8 +35,8 @@ function createGooglePlayClient(serviceAccountJson: string): GooglePlayClient {
   }
 }
 
-export const GoogleStoreClientService = {
-  createClient: createGooglePlayClient,
-};
-
-export type GoogleStoreClientService = typeof GoogleStoreClientService;
+export class GoogleStoreClientService {
+  createClient(serviceAccountJson: string): GooglePlayClient {
+    return createGooglePlayClient(serviceAccountJson);
+  }
+}

@@ -83,7 +83,7 @@ export async function confirmPlayCatalogWrite(
   let confirmed = false;
 
   try {
-    confirmed = await LaunchPrompt.confirm(confirmationMessageText);
+    confirmed = await new LaunchPrompt().confirm(confirmationMessageText);
   } catch (cause) {
     throw makePlayCatalogConfirmationFailure({ message: confirmationMessage(cause), cause });
   }
@@ -92,7 +92,7 @@ export async function confirmPlayCatalogWrite(
     return true;
   }
 
-  LaunchPrompt.cancel('Aborted - no changes made.');
+  new LaunchPrompt().cancel('Aborted - no changes made.');
 
   return false;
 }

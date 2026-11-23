@@ -131,7 +131,7 @@ export async function loadStoreAppContext(
   }
 
   try {
-    const selectedApp = await LaunchPrompt.select({
+    const selectedApp = await new LaunchPrompt().select({
       message: `Which app? (${loadedConfiguration.apps.length} found)`,
       choices: loadedConfiguration.apps.map(choiceFor),
     });

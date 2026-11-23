@@ -102,7 +102,7 @@ function describeLaunchPromptSelectManyTestAnswers() {
   async function returnsTheConfiguredDomainSelections() {
     usePromptAnswers({ selectionIndexes: [0, 2] });
 
-    const selectedAgents = await LaunchPrompt.selectMany({
+    const selectedAgents = await new LaunchPrompt().selectMany({
       message: 'Choose agents',
       choices: [
         { selection: 'claude', label: 'Claude' },
@@ -117,4 +117,4 @@ function describeLaunchPromptSelectManyTestAnswers() {
   it('returns the configured domain selections', returnsTheConfiguredDomainSelections);
 }
 
-describe('LaunchPrompt.selectMany test answers', describeLaunchPromptSelectManyTestAnswers);
+describe('LaunchPrompt selectMany test answers', describeLaunchPromptSelectManyTestAnswers);

@@ -150,7 +150,7 @@ async function confirmAvailabilityWrite(
   let confirmed = false;
 
   try {
-    confirmed = await LaunchPrompt.confirm(availabilityConfirmationMessage(plannedAction));
+    confirmed = await new LaunchPrompt().confirm(availabilityConfirmationMessage(plannedAction));
   } catch (cause) {
     throw commandFailure('confirm availability write', cause);
   }
@@ -159,7 +159,7 @@ async function confirmAvailabilityWrite(
     return true;
   }
 
-  LaunchPrompt.cancel('Aborted - no changes made.');
+  new LaunchPrompt().cancel('Aborted - no changes made.');
 
   return false;
 }

@@ -14,12 +14,6 @@ export default defineConfig({
     region: 'us-east-1',
   },
 
-  storageConfig: {
-    bucket: 'acme-launch-artifacts',
-    region: 'us-east-1',
-    publicBaseUrl: 'https://updates.example.com',
-  },
-
   notify: {
     webhookUrl: 'https://example.com/launch-hook',
     events: ['build', 'submit', 'review', 'rollout'],

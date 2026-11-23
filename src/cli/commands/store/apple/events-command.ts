@@ -248,12 +248,14 @@ async function deleteEventProgram(
         });
       }
 
-      const confirmed = await LaunchPrompt.confirm(`Delete in-app event ${commandInput.eventId}?`);
+      const confirmed = await new LaunchPrompt().confirm(
+        `Delete in-app event ${commandInput.eventId}?`,
+      );
 
       const declined = confirmed == false;
 
       if (declined) {
-        LaunchPrompt.cancel('Aborted - nothing deleted.');
+        new LaunchPrompt().cancel('Aborted - nothing deleted.');
         return;
       }
     }

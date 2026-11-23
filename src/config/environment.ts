@@ -15,9 +15,6 @@ export interface LaunchEnvironmentValues {
   ccacheSetting?: string;
   aiModel?: string;
   anthropicApiKey?: string;
-  s3AccessKeyId?: string;
-  s3SecretAccessKey?: string;
-  supabaseServiceKey?: string;
   continuousIntegration?: string;
   noColor?: string;
   colorTerminal?: string;
@@ -44,9 +41,6 @@ const ENVIRONMENT_FIELDS = {
   USE_CCACHE: 'ccacheSetting',
   LAUNCH_AI_MODEL: 'aiModel',
   ANTHROPIC_API_KEY: 'anthropicApiKey',
-  LAUNCH_S3_ACCESS_KEY_ID: 's3AccessKeyId',
-  LAUNCH_S3_SECRET_ACCESS_KEY: 's3SecretAccessKey',
-  LAUNCH_SUPABASE_SERVICE_KEY: 'supabaseServiceKey',
   CI: 'continuousIntegration',
   NO_COLOR: 'noColor',
   COLORTERM: 'colorTerminal',

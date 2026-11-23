@@ -103,8 +103,8 @@ function createAppleClient(ascKey: AscKey): AppStoreConnectClient {
   return wrapAppleClient(new AppStoreConnectClient(ascKey));
 }
 
-export const AppleStoreClientService = {
-  createClient: createAppleClient,
-};
-
-export type AppleStoreClientService = typeof AppleStoreClientService;
+export class AppleStoreClientService {
+  createClient(ascKey: AscKey): AppStoreConnectClient {
+    return createAppleClient(ascKey);
+  }
+}

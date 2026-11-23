@@ -175,7 +175,7 @@ async function confirmCloudTeardown(hostHandle: HostHandle, confirmed: boolean):
   let shouldTearDown = false;
 
   try {
-    shouldTearDown = await LaunchPrompt.confirm(`Tear down ${hostLabel(hostHandle)}?`);
+    shouldTearDown = await new LaunchPrompt().confirm(`Tear down ${hostLabel(hostHandle)}?`);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
 
@@ -190,7 +190,7 @@ async function confirmCloudTeardown(hostHandle: HostHandle, confirmed: boolean):
     return true;
   }
 
-  LaunchPrompt.cancel('Left the host running.');
+  new LaunchPrompt().cancel('Left the host running.');
 
   return false;
 }

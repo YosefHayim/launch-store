@@ -190,7 +190,10 @@ type ImportPushKeyRequest = {
 
 /** Import (or replace) an APNs key */
 export async function importPushKey(importRequest: ImportPushKeyRequest): Promise<ApnsKeyRecord> {
-  await LaunchSecretStore.storeSecret(apnsAccount(importRequest.keyId), encodeP8(importRequest.p8));
+  await new LaunchSecretStore().storeSecret(
+    apnsAccount(importRequest.keyId),
+    encodeP8(importRequest.p8),
+  );
 
   const keys = await listPushKeys();
 
@@ -239,7 +242,7 @@ export async function importPushKey(importRequest: ImportPushKeyRequest): Promis
 
 /** Load one APNs key's `.p8` PEM from the secret store, or null if absent - the export path. */
 export async function loadPushKey(keyId: string): Promise<string | null> {
-  const stored = await LaunchSecretStore.readSecret(apnsAccount(keyId));
+  const stored = await new LaunchSecretStore().readSecret(apnsAccount(keyId));
 
   if (stored == null) {
     return null;

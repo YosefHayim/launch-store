@@ -31,33 +31,6 @@ function describeCheckPieceSemantics() {
 
   it('returns nothing for a sound config', returnsNothingForASoundPiece);
 
-  function describeStorage() {
-    function flagsACloudProviderWithNoStoragePiece() {
-      expect(paths({ storage: 's3' })).toEqual(['storageConfig']);
-      expect(paths({ storage: 'supabase' })).toEqual(['storageConfig']);
-    }
-
-    it('flags a cloud provider with no storageConfig', flagsACloudProviderWithNoStoragePiece);
-
-    function acceptsACloudProviderOnceStoragePieceIsSet() {
-      const storageConfig = { bucket: 'artifacts', publicBaseUrl: 'https://cdn.example.com' };
-      expect(paths({ storage: 's3', storageConfig })).toEqual([]);
-    }
-
-    it(
-      'accepts a cloud provider once storageConfig is set',
-      acceptsACloudProviderOnceStoragePieceIsSet,
-    );
-
-    function neverRequiresStoragePieceForLocalStorage() {
-      expect(paths({ storage: 'local' })).toEqual([]);
-    }
-
-    it('never requires storageConfig for local storage', neverRequiresStoragePieceForLocalStorage);
-  }
-
-  describe('storage', describeStorage);
-
   function describeRelease() {
     function requiresEarliestReleaseDateForASCHEDULEDRelease() {
       expect(paths({ release: { releaseType: 'SCHEDULED' } })).toEqual([
@@ -184,16 +157,14 @@ function describeCheckPieceSemantics() {
 
   describe('retention', describeRetention);
 
-  function collectsMultipleFindingsInAStableOrderStorageReleaseProfilesRetention() {
+  function collectsMultipleFindingsInAStableOrder() {
     expect(
       paths({
-        storage: 's3',
         release: { releaseType: 'SCHEDULED' },
         profiles: { production: { name: 'production', rollout: 2 } },
         artifactRetentionDays: -5,
       }),
     ).toEqual([
-      'storageConfig',
       'release.earliestReleaseDate',
       'profiles.production.rollout',
       'artifactRetentionDays',
@@ -201,8 +172,8 @@ function describeCheckPieceSemantics() {
   }
 
   it(
-    'collects multiple findings in a stable order (storage, release, profiles, retention)',
-    collectsMultipleFindingsInAStableOrderStorageReleaseProfilesRetention,
+    'collects multiple findings in a stable order (release, profiles, retention)',
+    collectsMultipleFindingsInAStableOrder,
   );
 }
 

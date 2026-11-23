@@ -134,7 +134,7 @@ export async function nextBuildNumber(
     return 1;
   }
 
-  const appStoreClient = AppleStoreClientService.createClient(ascKey);
+  const appStoreClient = new AppleStoreClientService().createClient(ascKey);
   const latestBuildNumber = await appStoreClient.getLatestBuildNumber(bundleId);
 
   return latestBuildNumber + 1;
@@ -191,7 +191,7 @@ async function promptVersion(
   current: string,
   latest: string | null,
 ): Promise<PromptedVersion> {
-  const launchPrompt = LaunchPrompt;
+  const launchPrompt = new LaunchPrompt();
   const patchVersion = nextVersion(baseline, 'patch');
   const minorVersion = nextVersion(baseline, 'minor');
   const majorVersion = nextVersion(baseline, 'major');
@@ -387,7 +387,7 @@ async function readStoreMarketingVersion(
     return null;
   }
 
-  const appStoreClient = AppleStoreClientService.createClient(ascKey);
+  const appStoreClient = new AppleStoreClientService().createClient(ascKey);
 
   async function readLatest(): Promise<string | null> {
     const latest = await appStoreClient.getLatestMarketingVersion(bundleId);
@@ -421,7 +421,7 @@ export async function nextVersionCode(
     return nextCodeAboveFloor(floor);
   }
 
-  const playStoreClient = GoogleStoreClientService.createClient(serviceAccountJson);
+  const playStoreClient = new GoogleStoreClientService().createClient(serviceAccountJson);
   const latest = await playStoreClient.getLatestVersionCode(packageName);
 
   return Math.max(latest, floor) + 1;

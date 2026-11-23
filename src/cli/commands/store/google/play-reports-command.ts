@@ -214,7 +214,7 @@ export async function playReportsCommandProgram(rawCommandInput: unknown): Promi
       throw makePlayReportsCommandFailure({ message: missingMessage });
     }
 
-    const reportingClient = GoogleReportingClientService.createClient(serviceAccountJson);
+    const reportingClient = new GoogleReportingClientService().createClient(serviceAccountJson);
     const timelineReads = metrics.map(function readTimeline(metric: PlayVitalsMetric) {
       return reportingClient.vitalsTimeline(packageName, metric, historyDays);
     });

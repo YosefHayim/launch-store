@@ -54,30 +54,35 @@ function countApps(apps: readonly string[] | undefined): number {
   return apps.length;
 }
 
-export const LocalCredentialsStore = {
+export class LocalCredentialsStore {
   async loadAppleKey(keyId?: string): Promise<AscKey | null> {
     if (keyId != null) {
       return loadAscKeyById(keyId);
     }
 
     return loadActiveAscKey();
-  },
+  }
+
   loadAppleSigningAssets(
     keyId: string,
     bundleId: string,
     extensions?: readonly string[],
   ): Promise<SigningAssets | null> {
     return loadCachedSigningAssets(keyId, bundleId, extensions);
-  },
+  }
+
   describeMissingPlayServiceAccount(appName: string): Promise<string> {
     return describeMissingPlayServiceAccount(appName);
-  },
+  }
+
   loadPlayServiceAccount(packageName: string): Promise<string | null> {
     return loadServiceAccount(packageName);
-  },
+  }
+
   loadAndroidKeystore(packageName: string): Promise<KeystoreAssets | null> {
     return loadCachedKeystore(packageName);
-  },
+  }
+
   async listAppleAccountStatuses(): Promise<readonly AppleCredentialAccountStatus[]> {
     const appleAccounts = await listAccounts();
     const activeKeyId = await getActiveKeyId();
@@ -99,8 +104,9 @@ export const LocalCredentialsStore = {
     }
 
     return statuses;
-  },
+  }
+
   readAndroidCredentialStatus(packageName: string): Promise<AndroidCredentialStatus> {
     return describeStoredAndroidCredentials(packageName);
-  },
-};
+  }
+}

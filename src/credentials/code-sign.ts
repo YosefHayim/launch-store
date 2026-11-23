@@ -41,7 +41,7 @@ export async function ensureCodeSigner(dryRun: boolean, logger: Logger): Promise
     return { certPath: publicCertificatePath, sign: signDryRun };
   }
 
-  const existingPrivateKey = await LaunchSecretStore.readSecret(PRIVATE_KEY_ACCOUNT);
+  const existingPrivateKey = await new LaunchSecretStore().readSecret(PRIVATE_KEY_ACCOUNT);
 
   const hasPrivateKey = existingPrivateKey != null;
 
@@ -82,7 +82,7 @@ export async function ensureCodeSigner(dryRun: boolean, logger: Logger): Promise
     const privateKeyPem = await readFile(privateKeyPath, 'utf8');
     const certificateBytes = await readFile(stagedCertificatePath);
 
-    await LaunchSecretStore.storeSecret(PRIVATE_KEY_ACCOUNT, privateKeyPem);
+    await new LaunchSecretStore().storeSecret(PRIVATE_KEY_ACCOUNT, privateKeyPem);
     await mkdir(credentialsDirectory, { recursive: true });
     await writeFile(publicCertificatePath, certificateBytes);
     logger.step(

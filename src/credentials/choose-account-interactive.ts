@@ -34,7 +34,7 @@ export async function chooseAccountInteractive(
     return importedAccount;
   }
 
-  const chosenAccount = await LaunchPrompt.select({
+  const chosenAccount = await new LaunchPrompt().select({
     message: 'Choose an Apple account:',
     choices: accounts.map(function accountChoice(account: AccountRecord) {
       let accountLabel = account.label;

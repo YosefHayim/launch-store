@@ -33,7 +33,7 @@ import { commandCanPrompt } from './credentials-prompt.ts';
 import { selectConfiguredApp } from './select-configured-app.ts';
 
 async function verifyPlayAccess(serviceAccountJson: string, packageName: string): Promise<void> {
-  const playClient = GoogleStoreClientService.createClient(serviceAccountJson);
+  const playClient = new GoogleStoreClientService().createClient(serviceAccountJson);
 
   await playClient.listTracks(packageName);
 }
@@ -210,7 +210,7 @@ export async function removeAppleAccount(
   const canPrompt = commandCanPrompt(commandOptions);
 
   if (canPrompt) {
-    const confirmed = await LaunchPrompt.confirm(
+    const confirmed = await new LaunchPrompt().confirm(
       `Remove account "${matchedAccount.label}" and its signing assets?`,
     );
 
@@ -232,7 +232,7 @@ async function refreshOneAccount(account: AccountRecord, logger: Logger): Promis
     return;
   }
 
-  const identity = await AppStoreIdentityService.resolveIdentity(ascKey);
+  const identity = await new AppStoreIdentityService().resolveIdentity(ascKey);
 
   await updateAccountIdentity(account.keyId, identity.teamId, identity.apps);
   logger.ok(`Refreshed "${account.label}" (${identity.apps.length} apps).`);

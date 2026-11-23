@@ -25,8 +25,8 @@ function describeLaunchPieceParseBoundary() {
   );
 
   function keepsACallerSetProviderNameOverTheDefault() {
-    const parsed = parseLaunchConfig({ profiles: {}, storage: 's3' });
-    expect(parsed.storage).toBe('s3');
+    const parsed = parseLaunchConfig({ profiles: {}, storage: 'archive' });
+    expect(parsed.storage).toBe('archive');
   }
 
   it(

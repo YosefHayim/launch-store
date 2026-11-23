@@ -47,7 +47,7 @@ function describeAppStoreIdentityService() {
       },
     });
 
-    await expect(AppStoreIdentityService.verifyCredentials(ascKey)).resolves.toEqual({
+    await expect(new AppStoreIdentityService().verifyCredentials(ascKey)).resolves.toEqual({
       teamId: 'TEAM1',
       apps: ['One', 'Two'],
     });
@@ -72,7 +72,7 @@ function describeAppStoreIdentityService() {
       },
     });
 
-    await expect(AppStoreIdentityService.verifyCredentials(ascKey)).rejects.toMatchObject({
+    await expect(new AppStoreIdentityService().verifyCredentials(ascKey)).rejects.toMatchObject({
       _tag: 'AppleTransportFailure',
       status: 401,
     });
@@ -96,7 +96,7 @@ function describeAppStoreIdentityService() {
       },
     });
 
-    await expect(AppStoreIdentityService.verifyCredentials(ascKey)).resolves.toEqual({
+    await expect(new AppStoreIdentityService().verifyCredentials(ascKey)).resolves.toEqual({
       teamId: null,
       apps: [],
     });

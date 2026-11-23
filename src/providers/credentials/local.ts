@@ -13,15 +13,15 @@ type MissingCredentialsFailure = Readonly<{
 }>;
 
 type AppleAccountStatus = Awaited<
-  ReturnType<typeof LocalCredentialsStore.listAppleAccountStatuses>
+  ReturnType<LocalCredentialsStore['listAppleAccountStatuses']>
 >[number];
 
 type AndroidCredentialStatus = Awaited<
-  ReturnType<typeof LocalCredentialsStore.readAndroidCredentialStatus>
+  ReturnType<LocalCredentialsStore['readAndroidCredentialStatus']>
 >;
 
 type CredentialsReader = Pick<
-  typeof LocalCredentialsStore,
+  LocalCredentialsStore,
   | 'loadAppleKey'
   | 'loadAppleSigningAssets'
   | 'describeMissingPlayServiceAccount'
@@ -42,7 +42,7 @@ function readCredentials(): CredentialsReader {
     return credentialsReader;
   }
 
-  return LocalCredentialsStore;
+  return new LocalCredentialsStore();
 }
 
 function makeMissingCredentialsFailure(fields: {

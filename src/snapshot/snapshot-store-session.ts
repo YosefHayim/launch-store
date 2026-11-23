@@ -39,7 +39,7 @@ async function selectSnapshotApps(
 
 function createAscClient(ascKey: NonNullable<Awaited<ReturnType<typeof loadActiveAscKey>>>) {
   try {
-    return AppleStoreClientService.createClient(ascKey);
+    return new AppleStoreClientService().createClient(ascKey);
   } catch (cause) {
     throw snapshotFailure('create App Store client', cause);
   }

@@ -54,7 +54,7 @@ export async function requireText(
     failCommand('read credentials input', nonInteractiveMessage);
   }
 
-  const entered = await LaunchPrompt.requiredText(promptMessage);
+  const entered = await new LaunchPrompt().requiredText(promptMessage);
 
   return entered.trim();
 }

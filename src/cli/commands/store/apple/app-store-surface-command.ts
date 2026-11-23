@@ -110,7 +110,7 @@ export async function confirmStoreSurfaceWrite(
   let confirmed = false;
 
   try {
-    confirmed = await LaunchPrompt.confirm(confirmationMessage);
+    confirmed = await new LaunchPrompt().confirm(confirmationMessage);
   } catch (cause) {
     throw surfaceFailure('confirm store surface write', cause);
   }
@@ -119,7 +119,7 @@ export async function confirmStoreSurfaceWrite(
     return true;
   }
 
-  LaunchPrompt.cancel('Aborted - no changes made.');
+  new LaunchPrompt().cancel('Aborted - no changes made.');
 
   return false;
 }

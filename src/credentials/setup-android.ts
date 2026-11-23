@@ -27,7 +27,7 @@ async function requireSecret(
     failCommand('read credentials input', nonInteractiveMessage);
   }
 
-  return LaunchPrompt.requiredSecret(promptMessage);
+  return new LaunchPrompt().requiredSecret(promptMessage);
 }
 
 async function selectKeystoreImport(
@@ -102,7 +102,7 @@ export async function setupAndroid(commandOptions: CredentialsCommandOptions): P
       return Promise.resolve(true);
     }
 
-    return LaunchPrompt.confirm(message);
+    return new LaunchPrompt().confirm(message);
   }
 
   function confirmReplace(message: string): Promise<boolean> {
@@ -114,7 +114,7 @@ export async function setupAndroid(commandOptions: CredentialsCommandOptions): P
       return Promise.resolve(false);
     }
 
-    return LaunchPrompt.confirm(message);
+    return new LaunchPrompt().confirm(message);
   }
 
   const keystore = await provisionAndroidKeystore(

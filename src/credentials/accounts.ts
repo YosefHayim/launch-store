@@ -464,7 +464,7 @@ function hasSuppliedIdentity(addRequest: AddAccountRequest): boolean {
 
 /** Add (or replace) an account and make it active. */
 export async function addAccount(addRequest: AddAccountRequest): Promise<AccountRecord> {
-  await LaunchSecretStore.storeSecret(p8Account(addRequest.keyId), encodeP8(addRequest.p8));
+  await new LaunchSecretStore().storeSecret(p8Account(addRequest.keyId), encodeP8(addRequest.p8));
 
   const accountsFile = await readAccounts();
   const existing = accountsFile.accounts.find(accountWithKeyId(addRequest.keyId));
@@ -635,8 +635,8 @@ function nextActiveKeyId(
 
 /** Remove an account completely */
 export async function removeAccount(keyId: string): Promise<void> {
-  await LaunchSecretStore.deleteSecret(p8Account(keyId));
-  await LaunchSecretStore.deleteSecret(p12PasswordAccount(keyId));
+  await new LaunchSecretStore().deleteSecret(p8Account(keyId));
+  await new LaunchSecretStore().deleteSecret(p12PasswordAccount(keyId));
 
   const accountDirectory = resolveAccountCredentialsDirectory(keyId);
 
@@ -671,7 +671,7 @@ export async function loadAscKeyById(keyId: string): Promise<AscKey | null> {
     return null;
   }
 
-  const stored = await LaunchSecretStore.readSecret(p8Account(keyId));
+  const stored = await new LaunchSecretStore().readSecret(p8Account(keyId));
 
   if (stored == null) {
     return null;
@@ -852,7 +852,7 @@ export async function refreshIdentityIfStale(
   }
 
   try {
-    const identity = await AppStoreIdentityService.resolveIdentity(ascKey);
+    const identity = await new AppStoreIdentityService().resolveIdentity(ascKey);
     await updateAccountIdentity(account.keyId, identity.teamId, identity.apps);
   } catch (error) {
     const isAppleUnavailable = error != null;
@@ -873,9 +873,9 @@ export async function migrateLegacyAccounts(): Promise<void> {
     return;
   }
 
-  const keyId = await LaunchSecretStore.readSecret(LEGACY_KEY_ID);
-  const issuerId = await LaunchSecretStore.readSecret(LEGACY_ISSUER_ID);
-  const p8 = await LaunchSecretStore.readSecret(LEGACY_P8);
+  const keyId = await new LaunchSecretStore().readSecret(LEGACY_KEY_ID);
+  const issuerId = await new LaunchSecretStore().readSecret(LEGACY_ISSUER_ID);
+  const p8 = await new LaunchSecretStore().readSecret(LEGACY_P8);
 
   if (keyId == null) {
     return;
@@ -889,14 +889,14 @@ export async function migrateLegacyAccounts(): Promise<void> {
     return;
   }
 
-  await LaunchSecretStore.storeSecret(p8Account(keyId), encodeP8(decodeP8(p8)));
+  await new LaunchSecretStore().storeSecret(p8Account(keyId), encodeP8(decodeP8(p8)));
 
-  const legacyPassword = await LaunchSecretStore.readSecret(LEGACY_P12_PASSWORD);
+  const legacyPassword = await new LaunchSecretStore().readSecret(LEGACY_P12_PASSWORD);
 
   if (legacyPassword != null) {
     if (legacyPassword != '') {
-      await LaunchSecretStore.storeSecret(p12PasswordAccount(keyId), legacyPassword);
-      await LaunchSecretStore.deleteSecret(LEGACY_P12_PASSWORD);
+      await new LaunchSecretStore().storeSecret(p12PasswordAccount(keyId), legacyPassword);
+      await new LaunchSecretStore().deleteSecret(LEGACY_P12_PASSWORD);
     }
   }
 
@@ -917,7 +917,7 @@ export async function migrateLegacyAccounts(): Promise<void> {
     active: keyId,
     accounts: [{ keyId, issuerId, label: 'default', addedAt: timestamp }],
   });
-  await LaunchSecretStore.deleteSecret(LEGACY_KEY_ID);
-  await LaunchSecretStore.deleteSecret(LEGACY_ISSUER_ID);
-  await LaunchSecretStore.deleteSecret(LEGACY_P8);
+  await new LaunchSecretStore().deleteSecret(LEGACY_KEY_ID);
+  await new LaunchSecretStore().deleteSecret(LEGACY_ISSUER_ID);
+  await new LaunchSecretStore().deleteSecret(LEGACY_P8);
 }

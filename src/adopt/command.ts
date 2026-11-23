@@ -368,7 +368,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       );
     }
 
-    const appleCatalog: AdoptCatalogApi = AppleStoreClientService.createClient(ascKey);
+    const appleCatalog: AdoptCatalogApi = new AppleStoreClientService().createClient(ascKey);
     const launchConfigPath = join(launchPaths.workingDirectory, 'launch.config.ts');
     const hasLaunchConfig = await pathExists(launchConfigPath);
 
@@ -433,12 +433,12 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
         );
       }
 
-      const confirmed = await LaunchPrompt.confirm(
+      const confirmed = await new LaunchPrompt().confirm(
         `Import ${mutationCount} change(s) into your local config?`,
       );
 
       if (confirmed == false) {
-        LaunchPrompt.cancel('Aborted - nothing imported.');
+        new LaunchPrompt().cancel('Aborted - nothing imported.');
         return;
       }
     }

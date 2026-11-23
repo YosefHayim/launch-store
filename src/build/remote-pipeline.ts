@@ -281,7 +281,7 @@ export async function runRemoteBuild(
   const profile = prepared.profile;
   const environmentValues = prepared.env;
   const log = prepared.log;
-  const launchPrompt = LaunchPrompt;
+  const launchPrompt = new LaunchPrompt();
   const remote = buildOptions.remote;
 
   if (remote == null) {

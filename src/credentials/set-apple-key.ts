@@ -58,7 +58,7 @@ async function selectDiscoveredKey(
     return { selection: discoveredPath, label: displayPath(discoveredPath) };
   });
 
-  return LaunchPrompt.select({
+  return new LaunchPrompt().select({
     message: 'Multiple API keys found. Pick one:',
     choices,
   });
@@ -120,7 +120,7 @@ async function selectAccountLabel(
 
   if (needsPrompt) {
     if (canPrompt) {
-      accountLabel = await LaunchPrompt.requiredText('Label for this Apple account');
+      accountLabel = await new LaunchPrompt().requiredText('Label for this Apple account');
     }
   }
 
@@ -179,7 +179,7 @@ async function verifyAppleKey(ascKey: AscKey): Promise<AppStoreIdentity> {
   const logger = createLogger(false);
 
   try {
-    return await AppStoreIdentityService.verifyCredentials(ascKey);
+    return await new AppStoreIdentityService().verifyCredentials(ascKey);
   } catch (cause) {
     const status = readFailureStatus(cause);
 

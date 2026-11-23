@@ -20,8 +20,8 @@ function describeGoogleAccessToken() {
   async function readsEveryKeyAsTheGivenServiceAccountAndReturnsTheGivenToken() {
     useGoogleAccessTokenFixture(SERVICE_ACCOUNT, 'token-1');
 
-    const account = GoogleAccessToken.readServiceAccount('{}');
-    const token = await GoogleAccessToken.createAccessToken(account, ['scope']);
+    const account = new GoogleAccessToken().readServiceAccount('{}');
+    const token = await new GoogleAccessToken().createAccessToken(account, ['scope']);
 
     expect({ account, token }).toEqual({ account: SERVICE_ACCOUNT, token: 'token-1' });
   }
@@ -35,7 +35,7 @@ function describeGoogleAccessToken() {
     let failure: unknown = null;
 
     try {
-      GoogleAccessToken.readServiceAccount('not json');
+      new GoogleAccessToken().readServiceAccount('not json');
     } catch (caught) {
       failure = caught;
     }
@@ -50,7 +50,7 @@ function describeGoogleAccessToken() {
 
   async function turnsATokenRequestWithAnUnusableKeyIntoAFailure() {
     await expect(
-      GoogleAccessToken.createAccessToken(SERVICE_ACCOUNT, ['scope']),
+      new GoogleAccessToken().createAccessToken(SERVICE_ACCOUNT, ['scope']),
     ).rejects.toMatchObject({
       _tag: 'GoogleAccessTokenFailure',
       message: expect.stringContaining('Could not get a Google access token'),

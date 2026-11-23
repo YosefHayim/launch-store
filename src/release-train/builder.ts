@@ -188,7 +188,7 @@ export function createTrainRuntime(
     }
 
     try {
-      cachedAppleClient = AppleStoreClientService.createClient(activeAscKey);
+      cachedAppleClient = new AppleStoreClientService().createClient(activeAscKey);
     } catch (cause) {
       throw trainRuntimeFailure('create App Store client', cause);
     }
@@ -250,7 +250,7 @@ export function createTrainRuntime(
     }
 
     try {
-      cachedGoogleClient = GoogleStoreClientService.createClient(loadedServiceAccount);
+      cachedGoogleClient = new GoogleStoreClientService().createClient(loadedServiceAccount);
     } catch (cause) {
       throw trainRuntimeFailure('create Google Play client', cause);
     }
@@ -613,7 +613,7 @@ export function createTrainRuntime(
       throw trainRuntimeFailure(
         'resolve OTA storage',
         launchConfiguration.storage,
-        'OTA needs a cloud storage provider (s3 / supabase).',
+        'Over-the-air updates need a public artifact store, and that is not in this version.',
       );
     }
 

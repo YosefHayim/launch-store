@@ -300,14 +300,14 @@ async function requirePlayServiceAccount(packageName: string, appName: string): 
 async function createAppleClient(): Promise<AppStoreConnectClient> {
   const ascKey = await requireActiveAscKey();
 
-  return AppleStoreClientService.createClient(ascKey);
+  return new AppleStoreClientService().createClient(ascKey);
 }
 
 async function createPlayClient(packageName: string, appName: string): Promise<GooglePlayClient> {
   const serviceAccountJson = await requirePlayServiceAccount(packageName, appName);
 
   try {
-    return GoogleStoreClientService.createClient(serviceAccountJson);
+    return new GoogleStoreClientService().createClient(serviceAccountJson);
   } catch (cause) {
     throw metadataFailure('create Google Play client', cause);
   }

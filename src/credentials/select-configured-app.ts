@@ -44,7 +44,7 @@ export async function selectConfiguredApp(
     failCommand('select app', 'No applications were discovered.');
   }
 
-  return LaunchPrompt.select({
+  return new LaunchPrompt().select({
     message: 'Choose an app:',
     choices: apps.map(function appChoice(configuredApp: AppDescriptor) {
       return { selection: configuredApp, label: configuredApp.name };

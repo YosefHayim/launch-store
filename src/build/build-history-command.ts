@@ -494,7 +494,7 @@ function readBuildHistoryTools(): BuildHistoryTools {
 
   async function confirmDeletion(message: string): Promise<boolean> {
     try {
-      const confirmed = await LaunchPrompt.confirm(message);
+      const confirmed = await new LaunchPrompt().confirm(message);
 
       return confirmed;
     } catch (error) {
@@ -503,7 +503,7 @@ function readBuildHistoryTools(): BuildHistoryTools {
   }
 
   function cancelDeletion(): void {
-    LaunchPrompt.cancel('Nothing deleted.');
+    new LaunchPrompt().cancel('Nothing deleted.');
   }
 
   async function logFileExists(logPath: string): Promise<boolean> {

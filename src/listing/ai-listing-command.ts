@@ -285,7 +285,7 @@ async function selectNamedApp(request: {
   initialSelection?: AppDescriptor;
 }): Promise<AppDescriptor> {
   try {
-    return await LaunchPrompt.select(request);
+    return await new LaunchPrompt().select(request);
   } catch (cause) {
     throw listingFailure('select app', cause);
   }

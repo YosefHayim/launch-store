@@ -33,20 +33,6 @@ export const DEFAULT_SUBMITTER = 'app-store-connect';
 /** The multi-store form of {@link LaunchConfig.submit} */
 type SubmitByPlatform = Partial<Record<Platform, string[]>>;
 
-/** Bucket settings for `storage: "s3"` or `storage: "supabase"`. */
-export type StorageConfig = {
-  /** Address of an S3-compatible store that is not AWS. */
-  readonly endpoint?: string;
-  /** Bucket that holds the files. */
-  readonly bucket: string;
-  /** Region for an S3-compatible bucket. */
-  readonly region?: string;
-  /** Public web address of the bucket root, with no secret in it. */
-  readonly publicBaseUrl: string;
-  /** Supabase project address, such as `https://<project>.supabase.co`. */
-  readonly supabaseUrl?: string;
-};
-
 /** The object you pass to `defineConfig` in launch.config.ts. */
 export type LaunchConfigInput = {
   /** Named build settings, keyed by the name you pass to `--profile`. */
@@ -91,8 +77,6 @@ export type LaunchConfigInput = {
   readonly testFlight?: Record<string, TestFlightNotes>;
   /** AWS settings for an EC2 Mac */
   readonly aws?: AwsConfig;
-  /** Bucket address for `storage: "s3"` or `storage: "supabase"`. */
-  readonly storageConfig?: StorageConfig;
   /** Folder where `storage: "local"` writes build binaries. */
   readonly artifactDir?: string;
   /** How many days a local build binary is kept. */

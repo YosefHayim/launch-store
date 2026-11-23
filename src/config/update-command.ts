@@ -289,7 +289,7 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
     throw updateFailure(
       'resolve OTA storage',
       loadedConfiguration.config.storage,
-      'OTA updates need a cloud storage provider. Set storage to s3 or supabase and add storageConfig in launch.config.ts.',
+      'Over-the-air updates need a public artifact store, and that is not in this version.',
     );
   }
 

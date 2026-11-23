@@ -4,13 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { ARTIFACTS_DIR } from '../services/platform/paths.ts';
 import {
-  getStorageProvider,
   registerStorageProvider,
   registerStorageProviderResolver,
 } from '../services/provider-support/registry.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
-import type { LaunchConfig, StorageConfig } from '../types/config.ts';
-import type { StorageProvider, StorageProviderOptions } from '../types/providers.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import type { StorageProvider } from '../types/providers.ts';
 import {
   ensureArtifactPresent,
   isCloudStorage,
@@ -42,32 +41,11 @@ function makeStorageProvider(name: string, publicBaseUrl = 'file://test'): Stora
   };
 }
 
-function missingSupabaseUrl(name: string, providerOptions: StorageProviderOptions): boolean {
-  if (name != 'supabase') {
-    return false;
-  }
-
-  return providerOptions.storageConfig?.supabaseUrl == null;
-}
-
 function makeStorageResolver(name: string) {
   return {
     name,
-    resolveStorageProvider(providerOptions: StorageProviderOptions) {
-      const isMissingSupabaseUrl = missingSupabaseUrl(name, providerOptions);
-
-      if (isMissingSupabaseUrl) {
-        return Promise.reject(new Error('supabaseUrl is required'));
-      }
-
-      let publicBaseUrl = 'file://test';
-
-      if (providerOptions.storageConfig != null) {
-        publicBaseUrl = providerOptions.storageConfig.publicBaseUrl;
-      }
-
-      const storageProvider = makeStorageProvider(name, publicBaseUrl);
-
+    resolveStorageProvider() {
+      const storageProvider = makeStorageProvider(name);
       return Promise.resolve(storageProvider);
     },
   };
@@ -77,8 +55,6 @@ function prepareAll() {
   const storageResolver = makeStorageResolver('local');
 
   registerStorageProviderResolver(storageResolver);
-  registerStorageProviderResolver(makeStorageResolver('s3'));
-  registerStorageProviderResolver(makeStorageResolver('supabase'));
 
   const storageProvider = makeStorageProvider('local');
 
@@ -87,27 +63,15 @@ function prepareAll() {
 
 beforeAll(prepareAll);
 
-function configWith(storage: string, storageConfig?: StorageConfig): LaunchConfig {
-  const baseConfig: LaunchConfig = {
+function configWith(storage: string): LaunchConfig {
+  return {
     profiles: { production: { name: 'production' } },
     credentials: 'local',
     storage,
     buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
-
-  if (storageConfig == null) {
-    return baseConfig;
-  }
-
-  return { ...baseConfig, storageConfig };
 }
-
-const r2Config: StorageConfig = {
-  endpoint: 'https://acct.r2.cloudflarestorage.com',
-  bucket: 'builds',
-  publicBaseUrl: 'https://cdn.example.com/',
-};
 
 function describeResolveStorageProvider() {
   async function returnsTheLocalProviderForLocal() {
@@ -117,66 +81,12 @@ function describeResolveStorageProvider() {
 
   it('returns the local provider for `local`', returnsTheLocalProviderForLocal);
 
-  async function buildsTheS3ProviderFromStoragePiece() {
-    const storageProvider = await resolveStorageProvider(configWith('s3', r2Config));
-    expect(storageProvider.name).toBe('s3');
+  async function rejectsStorageOtherThanLocal() {
+    const storageProvider = resolveStorageProvider(configWith('other'));
+    await expect(storageProvider).rejects.toThrow(/only local artifact storage/i);
   }
 
-  it('builds the s3 provider from storageConfig', buildsTheS3ProviderFromStoragePiece);
-
-  async function buildsTheSupabaseProviderWhenSupabaseUrlIsPresent() {
-    const storageProvider = await resolveStorageProvider(
-      configWith('supabase', {
-        bucket: 'builds',
-        publicBaseUrl: 'https://x.supabase.co/p',
-        supabaseUrl: 'https://x.supabase.co',
-      }),
-    );
-
-    expect(storageProvider.name).toBe('supabase');
-  }
-
-  it(
-    'builds the supabase provider when supabaseUrl is present',
-    buildsTheSupabaseProviderWhenSupabaseUrlIsPresent,
-  );
-
-  async function failsClearlyWhenACloudProviderHasNoStoragePieceBlock() {
-    const storageProvider = resolveStorageProvider(configWith('s3'));
-    await expect(storageProvider).rejects.toThrow(/needs a storageConfig block/i);
-  }
-
-  it(
-    'fails clearly when a cloud provider has no storageConfig block',
-    failsClearlyWhenACloudProviderHasNoStoragePieceBlock,
-  );
-
-  async function failsWhenSupabaseIsSelectedWithoutSupabaseUrl() {
-    const storageProvider = resolveStorageProvider(configWith('supabase', r2Config));
-    await expect(storageProvider).rejects.toThrow(/supabaseUrl/);
-  }
-
-  it(
-    'fails when supabase is selected without supabaseUrl',
-    failsWhenSupabaseIsSelectedWithoutSupabaseUrl,
-  );
-
-  async function resolvesACloudProviderTheRegistryCannotTheSubmitPathRegressionGuard() {
-    function callGetStorageProvider() {
-      return getStorageProvider('s3');
-    }
-
-    expect(callGetStorageProvider).toThrow();
-
-    const storageProvider = await resolveStorageProvider(configWith('s3', r2Config));
-
-    expect(storageProvider.name).toBe('s3');
-  }
-
-  it(
-    'resolves a cloud provider the registry cannot - the submit-path regression guard',
-    resolvesACloudProviderTheRegistryCannotTheSubmitPathRegressionGuard,
-  );
+  it('rejects storage other than local', rejectsStorageOtherThanLocal);
 }
 
 describe('resolveStorageProvider', describeResolveStorageProvider);
@@ -241,33 +151,15 @@ function describeResolveArtifactDir() {
 describe('resolveArtifactDir', describeResolveArtifactDir);
 
 function describeIsCloudStorage() {
-  function isFalseForLocalTrueForCloudProviders() {
+  function isFalseOnlyForLocalStorage() {
     expect(isCloudStorage(configWith('local'))).toBe(false);
-    expect(isCloudStorage(configWith('s3', r2Config))).toBe(true);
+    expect(isCloudStorage(configWith('other'))).toBe(true);
   }
 
-  it('is false for local, true for cloud providers', isFalseForLocalTrueForCloudProviders);
+  it('is false only for local storage', isFalseOnlyForLocalStorage);
 }
 
 describe('isCloudStorage', describeIsCloudStorage);
-
-function describeS3PublicUrl() {
-  async function joinsThePublicBaseURLAndKeyWithASingleSlashIgnoringStraySlashes() {
-    const storageProvider = await resolveStorageProvider(configWith('s3', r2Config));
-
-    expect(storageProvider.publicUrl('apps/hello/manifest.json')).toBe(
-      'https://cdn.example.com/apps/hello/manifest.json',
-    );
-    expect(storageProvider.publicUrl('/leading')).toBe('https://cdn.example.com/leading');
-  }
-
-  it(
-    'joins the public base URL and key with a single slash, ignoring stray slashes',
-    joinsThePublicBaseURLAndKeyWithASingleSlashIgnoringStraySlashes,
-  );
-}
-
-describe('s3 publicUrl', describeS3PublicUrl);
 
 function describeEnsureArtifactPresent() {
   function storedBuild(overrides: Partial<BuildArtifact> = {}): BuildArtifact {

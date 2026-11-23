@@ -306,14 +306,14 @@ function ReleaseCommandServiceLive(): ReleaseCommandService {
 
   async function confirmRelease(message: string): Promise<boolean> {
     try {
-      return await LaunchPrompt.confirm(message);
+      return await new LaunchPrompt().confirm(message);
     } catch (error) {
       throw releaseFailure('confirm public release', error);
     }
   }
 
   function cancelRelease(): void {
-    LaunchPrompt.cancel('Cancelled - nothing submitted.');
+    new LaunchPrompt().cancel('Cancelled - nothing submitted.');
   }
 
   return { terminalIsInteractive, confirmRelease, cancelRelease };
@@ -911,7 +911,7 @@ async function releaseAppleBuild(
   var ascClient: AscReleaseApi;
 
   try {
-    ascClient = AppleStoreClientService.createClient(ascKey);
+    ascClient = new AppleStoreClientService().createClient(ascKey);
   } catch (error) {
     throw releaseFailure('create App Store client', error);
   }

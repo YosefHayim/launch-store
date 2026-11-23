@@ -29,13 +29,13 @@ function describeLaunchSecretStore() {
     const storedSecrets = new Map<string, string>();
 
     useSecretStore(storedSecrets);
-    await LaunchSecretStore.storeSecret('review-password', 'secret-text');
+    await new LaunchSecretStore().storeSecret('review-password', 'secret-text');
 
-    const storedSecret = await LaunchSecretStore.readSecret('review-password');
+    const storedSecret = await new LaunchSecretStore().readSecret('review-password');
 
-    await LaunchSecretStore.deleteSecret('review-password');
+    await new LaunchSecretStore().deleteSecret('review-password');
 
-    const deletedSecret = await LaunchSecretStore.readSecret('review-password');
+    const deletedSecret = await new LaunchSecretStore().readSecret('review-password');
 
     expect({ storedSecret, deletedSecret }).toEqual({
       storedSecret: 'secret-text',
@@ -61,7 +61,7 @@ function describeLaunchSecretStoreNativeKeyring() {
 
   async function readSecretReturnsNullWhenTheNativeKeyringHasNoPiece() {
     fakeKeyring.storedPassword = null;
-    const storedSecret = await LaunchSecretStore.readSecret('review-password');
+    const storedSecret = await new LaunchSecretStore().readSecret('review-password');
     expect(storedSecret).toBeNull();
   }
 
@@ -72,7 +72,7 @@ function describeLaunchSecretStoreNativeKeyring() {
 
   async function readSecretFailsWithAClearMessageWhenTheNativeKeyringThrows() {
     fakeKeyring.isBroken = true;
-    await expect(LaunchSecretStore.readSecret('review-password')).rejects.toThrow(
+    await expect(new LaunchSecretStore().readSecret('review-password')).rejects.toThrow(
       'Could not read review-password from the keychain',
     );
   }

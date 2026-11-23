@@ -315,7 +315,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'ad-hoc-distribution': [
     'Ad-hoc / internal distribution: an install link for your testers without TestFlight. iOS signs an',
     'ad-hoc .ipa valid only for devices whose UDID is on the profile (register them with `launch-store device add`)',
-    'and serves an itms-services manifest; Android serves the .apk directly. Both host on YOUR own bucket.',
+    'and serves an itms-services manifest; Android serves the .apk directly.',
   ].join('\n'),
   'sandbox-tester': [
     "Sandbox tester: a special Apple ID that buys your in-app purchases against StoreKit's TEST environment",
@@ -388,7 +388,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'ota-update': [
     'OTA update: ship a JS/asset-only change to installed apps without a new store build, using the Expo',
     'Updates protocol your app already embeds (expo-updates). `launch-store update` exports the bundle, writes a',
-    'signed manifest keyed by runtime version + channel to your bucket, and the app fetches it on launch.',
+    'signed manifest keyed by runtime version + channel, and the app fetches it on launch.',
   ].join('\n'),
   'runtime-version': [
     'Runtime version: the contract between a native build and the OTA updates it can accept. An update',

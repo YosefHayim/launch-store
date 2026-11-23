@@ -177,7 +177,7 @@ export async function selectBetaGroup(
     );
   }
 
-  return LaunchPrompt.select({
+  return new LaunchPrompt().select({
     message: 'Which beta group?',
     choices: eligibleGroups.map(betaGroupChoice),
   });
@@ -200,5 +200,5 @@ export async function confirmAction(
     );
   }
 
-  return LaunchPrompt.confirm(confirmationMessage);
+  return new LaunchPrompt().confirm(confirmationMessage);
 }

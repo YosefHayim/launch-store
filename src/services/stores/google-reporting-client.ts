@@ -26,8 +26,8 @@ function createPlayReportingClient(serviceAccountJson: string): PlayReportingCli
   }
 }
 
-export const GoogleReportingClientService = {
-  createClient: createPlayReportingClient,
-};
-
-export type GoogleReportingClientService = typeof GoogleReportingClientService;
+export class GoogleReportingClientService {
+  createClient(serviceAccountJson: string): PlayReportingClient {
+    return createPlayReportingClient(serviceAccountJson);
+  }
+}

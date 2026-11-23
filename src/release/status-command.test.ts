@@ -176,7 +176,9 @@ async function runStatusCommand(
     });
     setAppleStoreClient(function createClient() {
       return appleReleaseApi as ReturnType<
-        typeof import('../services/stores/apple-store-client.ts').AppleStoreClientService.createClient
+        InstanceType<
+          typeof import('../services/stores/apple-store-client.ts').AppleStoreClientService
+        >['createClient']
       >;
     });
 

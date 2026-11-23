@@ -269,7 +269,7 @@ async function readSecretText(commandInput: SecretSetInput): Promise<string> {
     throw makeSecretCommandFailure({ action: 'set', message: MISSING_SECRET_VALUE });
   }
 
-  const promptedSecret = await LaunchPrompt.requiredSecret(`Value for ${commandInput.name}`);
+  const promptedSecret = await new LaunchPrompt().requiredSecret(`Value for ${commandInput.name}`);
 
   return promptedSecret;
 }

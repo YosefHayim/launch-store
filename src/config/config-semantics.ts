@@ -7,26 +7,9 @@ type SemanticIssue = {
   path: string;
   message: string;
 };
-/** The cloud storage providers whose `storageConfig` (bucket/endpoint) is mandatory - `local` needs none. */
-const cloudStorage = new Set(['s3', 'supabase']);
-
 /** Whether a string parses as a real calendar instant (not just any string the schema accepted). */
 function isValidInstant(instantText: string): boolean {
   return !Number.isNaN(Date.parse(instantText));
-}
-
-/** A cloud storage provider must carry its bucket/endpoint settings, or uploads have nowhere to go. */
-function checkStorage(config: LaunchConfig): SemanticIssue[] {
-  if (!cloudStorage.has(config.storage)) return [];
-
-  if (config.storageConfig != null) return [];
-
-  return [
-    {
-      path: 'storageConfig',
-      message: `storage is "${config.storage}" but no storageConfig is set - a cloud store needs its bucket/endpoint. Add storageConfig, or use storage: "local".`,
-    },
-  ];
 }
 
 /** Release-policy invariants the schema can't express */
@@ -108,10 +91,5 @@ function checkRetention(config: LaunchConfig): SemanticIssue[] {
 
 /** Run every semantic check and return all findings. */
 export function checkConfigSemantics(config: LaunchConfig): SemanticIssue[] {
-  return [
-    ...checkStorage(config),
-    ...checkRelease(config),
-    ...checkProfiles(config),
-    ...checkRetention(config),
-  ];
+  return [...checkRelease(config), ...checkProfiles(config), ...checkRetention(config)];
 }

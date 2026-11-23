@@ -725,7 +725,7 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
       );
     }
 
-    const appleClient = AppleStoreClientService.createClient(ascKey);
+    const appleClient = new AppleStoreClientService().createClient(ascKey);
     const onlySelectedApp = selectedApps[0];
 
     const hasNoSelectedApp = onlySelectedApp == null;

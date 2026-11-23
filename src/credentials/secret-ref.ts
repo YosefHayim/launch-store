@@ -67,7 +67,7 @@ async function readKeychainSecret(secretReference: string, label: string): Promi
     );
   }
 
-  const resolvedSecret = await LaunchSecretStore.readSecret(account);
+  const resolvedSecret = await new LaunchSecretStore().readSecret(account);
 
   const isMissing = resolvedSecret == null;
 

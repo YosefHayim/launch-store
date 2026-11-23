@@ -77,7 +77,9 @@ async function submitAndroidBundle(
   }
 
   const release = playReleaseFor(rollout, buildContext.android?.releaseNotes);
-  const playClient = GoogleStoreClientService.createClient(buildCredentials.serviceAccountJson);
+  const playClient = new GoogleStoreClientService().createClient(
+    buildCredentials.serviceAccountJson,
+  );
   const bundleStream = createReadStream(artifact.path);
 
   try {

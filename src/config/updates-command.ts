@@ -401,7 +401,7 @@ function requireCloudStorage(storageName: string, cloudBacked: boolean): void {
   throw updatesFailure(
     'resolve update storage',
     storageName,
-    'OTA updates need a cloud storage provider. Set `storage: "s3"` (or `supabase`) in launch.config.ts.',
+    'Over-the-air updates need a public artifact store, and that is not in this version.',
   );
 }
 
@@ -443,14 +443,14 @@ async function loadUpdateRows(
 
 async function confirmRollback(message: string): Promise<boolean> {
   try {
-    return await LaunchPrompt.confirm(message);
+    return await new LaunchPrompt().confirm(message);
   } catch (cause) {
     wrapUpdatesFailure('confirm update rollback', cause);
   }
 }
 
 function cancelRollback(): void {
-  LaunchPrompt.cancel('Cancelled - nothing changed.');
+  new LaunchPrompt().cancel('Cancelled - nothing changed.');
 }
 
 function createUpdateId(): string {

@@ -187,7 +187,7 @@ export async function setBuildSecret(
   secretReference: SecretRef,
   secretText: string,
 ): Promise<void> {
-  await LaunchSecretStore.storeSecret(secretAccount(secretReference), secretText);
+  await new LaunchSecretStore().storeSecret(secretAccount(secretReference), secretText);
 
   const secretIndex = await readIndex();
 
@@ -208,7 +208,7 @@ function isDifferentSecret(secretReference: SecretRef): (existingReference: Secr
 
 /** Delete a secret value and remove its coordinates from the index. */
 export async function removeBuildSecret(secretReference: SecretRef): Promise<boolean> {
-  await LaunchSecretStore.deleteSecret(secretAccount(secretReference));
+  await new LaunchSecretStore().deleteSecret(secretAccount(secretReference));
 
   const secretIndex = await readIndex();
   const remainingReferences = secretIndex.secrets.filter(isDifferentSecret(secretReference));
@@ -252,7 +252,7 @@ export async function resolveBuildSecrets(
   const environmentValues: Record<string, string> = {};
 
   for (const secretReference of effectiveRefs(secretReferences, appName, profileName)) {
-    const secretText = await LaunchSecretStore.readSecret(secretAccount(secretReference));
+    const secretText = await new LaunchSecretStore().readSecret(secretAccount(secretReference));
 
     const hasSecret = secretText != null;
 

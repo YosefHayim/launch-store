@@ -219,7 +219,7 @@ async function confirmOffersWrite(mutationCount: number, assumeYes: boolean): Pr
   let confirmed = false;
 
   try {
-    confirmed = await LaunchPrompt.confirm(
+    confirmed = await new LaunchPrompt().confirm(
       `Apply ${mutationCount} offer change(s) to App Store Connect?`,
     );
   } catch (cause) {
@@ -230,7 +230,7 @@ async function confirmOffersWrite(mutationCount: number, assumeYes: boolean): Pr
     return true;
   }
 
-  LaunchPrompt.cancel('Aborted - no changes made.');
+  new LaunchPrompt().cancel('Aborted - no changes made.');
 
   return false;
 }

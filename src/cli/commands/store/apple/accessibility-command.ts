@@ -166,7 +166,7 @@ export async function accessibilityCommandProgram(
   }
 
   try {
-    var ascClient = AppleStoreClientService.createClient(loadedAscKey);
+    var ascClient = new AppleStoreClientService().createClient(loadedAscKey);
   } catch (cause) {
     throw accessibilityFailure('create App Store client', cause);
   }
@@ -221,7 +221,7 @@ export async function accessibilityCommandProgram(
     let confirmed = false;
 
     try {
-      confirmed = await LaunchPrompt.confirm(
+      confirmed = await new LaunchPrompt().confirm(
         `Apply ${plannedActions.length} accessibility change(s) to App Store Connect?`,
       );
     } catch (cause) {
@@ -231,7 +231,7 @@ export async function accessibilityCommandProgram(
     const declined = confirmed == false;
 
     if (declined) {
-      LaunchPrompt.cancel('Aborted - no changes made.');
+      new LaunchPrompt().cancel('Aborted - no changes made.');
       return;
     }
   }

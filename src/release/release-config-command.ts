@@ -139,7 +139,7 @@ async function confirmReleaseChanges(changeCount: number, yes: boolean): Promise
   }
 
   try {
-    return await LaunchPrompt.confirm(`Apply ${changeCount} change(s) to App Store Connect?`);
+    return await new LaunchPrompt().confirm(`Apply ${changeCount} change(s) to App Store Connect?`);
   } catch (cause) {
     throw releaseConfigFailure('confirm release attributes', cause);
   }
@@ -226,10 +226,10 @@ export async function releaseConfigCommandProgram(
     );
   }
 
-  let ascClient: ReturnType<typeof AppleStoreClientService.createClient>;
+  let ascClient: ReturnType<AppleStoreClientService['createClient']>;
 
   try {
-    ascClient = AppleStoreClientService.createClient(activeAscKey);
+    ascClient = new AppleStoreClientService().createClient(activeAscKey);
   } catch (cause) {
     throw releaseConfigFailure('create App Store client', cause);
   }
@@ -286,7 +286,7 @@ export async function releaseConfigCommandProgram(
   const isDeclined = confirmed == false;
 
   if (isDeclined) {
-    LaunchPrompt.cancel('Aborted - no changes made.');
+    new LaunchPrompt().cancel('Aborted - no changes made.');
     return;
   }
 

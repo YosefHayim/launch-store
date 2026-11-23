@@ -147,7 +147,7 @@ async function submitAppleBuild(
   }
 
   const ascPlatform = readConnectPlatform(buildContext.platform);
-  const appStoreClient = AppleStoreClientService.createClient(buildCredentials.ascKey);
+  const appStoreClient = new AppleStoreClientService().createClient(buildCredentials.ascKey);
   const appId = await appStoreClient.getAppId(bundleId);
 
   if (appId == null) {

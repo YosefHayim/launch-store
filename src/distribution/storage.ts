@@ -92,48 +92,21 @@ export async function resolveStorageProvider(
     }
   }
 
+  const isLocal = config.storage == 'local';
+
+  if (isLocal == false) {
+    throw makeProviderInputFailure({
+      provider: config.storage,
+      message: 'Only local artifact storage is available.',
+    });
+  }
+
   if (providerResolver == null) {
     return getStorageProvider(config.storage);
   }
 
-  if (config.storage == 'local') {
-    return providerResolver.resolveStorageProvider({
-      artifactDirectory: resolveArtifactDir(config.artifactDir, projectRoot),
-    });
-  }
-
-  const isS3 = config.storage == 's3';
-  const isSupabase = config.storage == 'supabase';
-
-  function isCloudStorageKind(isS3Storage: boolean, isSupabaseStorage: boolean): boolean {
-    if (isS3Storage) {
-      return true;
-    }
-
-    return isSupabaseStorage;
-  }
-
-  const isCloudBackend = isCloudStorageKind(isS3, isSupabase);
-
-  if (isCloudBackend) {
-    const storageConfig = config.storageConfig;
-
-    if (storageConfig == null) {
-      throw makeProviderInputFailure({
-        provider: config.storage,
-        message: `Storage "${config.storage}" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).`,
-      });
-    }
-
-    return providerResolver.resolveStorageProvider({ storageConfig });
-  }
-
-  if (config.storageConfig == null) {
-    return providerResolver.resolveStorageProvider({});
-  }
-
   return providerResolver.resolveStorageProvider({
-    storageConfig: config.storageConfig,
+    artifactDirectory: resolveArtifactDir(config.artifactDir, projectRoot),
   });
 }
 

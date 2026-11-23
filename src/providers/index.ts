@@ -11,8 +11,6 @@ import {
 } from '../services/provider-support/registry.ts';
 import { makeLocalCredentialsProvider } from './credentials/local.ts';
 import { makeLocalStorageProviderResolver } from './storage/local.ts';
-import { makeS3StorageProviderResolver } from './storage/s3.ts';
-import { makeSupabaseStorageProviderResolver } from './storage/supabase.ts';
 import { makeXcodeBuildEngine } from './build/xcode.ts';
 import { makeGradleBuildEngine } from './build/gradle.ts';
 import { easHostedBuildProvider } from './build/expo-application-services.ts';
@@ -35,14 +33,6 @@ export async function registerBuiltins(): Promise<void> {
   const localStorage = await localStorageResolver.resolveStorageProvider({});
 
   registerStorageProvider(localStorage);
-
-  const s3StorageProviderResolver = makeS3StorageProviderResolver();
-
-  registerStorageProviderResolver(s3StorageProviderResolver);
-
-  const supabaseStorageProviderResolver = makeSupabaseStorageProviderResolver();
-
-  registerStorageProviderResolver(supabaseStorageProviderResolver);
 
   const xcodeBuildEngine = makeXcodeBuildEngine();
 

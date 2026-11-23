@@ -54,10 +54,10 @@ vi.mock('@napi-rs/keyring', function mockKeyring() {
 
 function describeNativeSecretStoreWithAMockedBinding() {
   async function roundTripsAMultilineSecretAndReportsMissingEntries() {
-    await LaunchSecretStore.storeSecret('test', 'dummy\nkey');
-    expect(await LaunchSecretStore.readSecret('test')).toBe('dummy\nkey');
-    await LaunchSecretStore.deleteSecret('test');
-    expect(await LaunchSecretStore.readSecret('test')).toBeNull();
+    await new LaunchSecretStore().storeSecret('test', 'dummy\nkey');
+    expect(await new LaunchSecretStore().readSecret('test')).toBe('dummy\nkey');
+    await new LaunchSecretStore().deleteSecret('test');
+    expect(await new LaunchSecretStore().readSecret('test')).toBeNull();
   }
 
   it(
@@ -66,7 +66,7 @@ function describeNativeSecretStoreWithAMockedBinding() {
   );
 
   async function propagatesADeniedKeychainReadInsteadOfTreatingItAsMissing() {
-    await expect(LaunchSecretStore.readSecret('denied')).rejects.toThrow(
+    await expect(new LaunchSecretStore().readSecret('denied')).rejects.toThrow(
       'Could not read denied from the keychain',
     );
   }
@@ -77,7 +77,7 @@ function describeNativeSecretStoreWithAMockedBinding() {
   );
 
   async function treatsNullFromAnExistingMacOSPieceAsAFailedRead() {
-    await expect(LaunchSecretStore.readSecret('denied-null')).rejects.toThrow(
+    await expect(new LaunchSecretStore().readSecret('denied-null')).rejects.toThrow(
       'Could not read denied-null from the keychain',
     );
   }

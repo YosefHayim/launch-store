@@ -165,7 +165,7 @@ async function readArtifactDirectory(): Promise<string | null> {
   );
 
   if (enteredDirectory == null) {
-    LaunchPrompt.cancel('Left your launch.config.ts untouched.');
+    new LaunchPrompt().cancel('Left your launch.config.ts untouched.');
 
     return null;
   }
@@ -249,12 +249,12 @@ export async function runInitProgram(rawCommandInput: unknown): Promise<boolean>
     const configExists = await pathExists(configPath);
 
     if (configExists) {
-      const overwriteConfirmed = await LaunchPrompt.confirm(
+      const overwriteConfirmed = await new LaunchPrompt().confirm(
         'launch.config.ts already exists. Overwrite it?',
       );
 
       if (overwriteConfirmed == false) {
-        LaunchPrompt.cancel('Left your launch.config.ts untouched.');
+        new LaunchPrompt().cancel('Left your launch.config.ts untouched.');
 
         return false;
       }
