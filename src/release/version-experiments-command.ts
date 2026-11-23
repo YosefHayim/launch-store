@@ -1,5 +1,6 @@
 // Plans and applies App Store product-page experiments, including their screenshots.
 
+import { join } from 'node:path';
 import type { LocalScreenshot } from '../listing/screenshots/assets.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
@@ -7,15 +8,14 @@ import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
-  resolveStoreSurfaceSection,
 } from '../cli/commands/store/apple/app-store-surface-command.ts';
 import { loadActiveAppleStore } from '../cli/commands/store/apple/apple-store-command.ts';
+import { loadConfig, type LoadedConfig } from '../config/config.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import {
   discoverTreatmentScreenshots,
-  parseVersionExperimentsConfig,
   reconcileVersionExperiments,
   summarizeExperiments,
   type VersionExperimentsConfig,
@@ -24,7 +24,6 @@ import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export type VersionExperimentsCommandInput = {
   readonly app?: string;
-  readonly config: string;
   readonly submit: boolean;
   readonly start: boolean;
   readonly dryRun: boolean;
@@ -101,20 +100,8 @@ export function decodeVersionExperimentsCommandInput(
     });
   }
 
-  const configField = rawCommandInputObject['config'];
-  const isConfigText = typeof configField == 'string';
-
-  if (isConfigText == false) {
-    throw makeVersionExperimentsCommandFailure({
-      operation: 'decode experiments command input',
-      message: 'Experiments command config must be a string.',
-      cause: rawCommandInputObject,
-    });
-  }
-
   const app = readAppSelector(rawCommandInputObject);
   const decodedInput: VersionExperimentsCommandInput = {
-    config: configField,
     submit: readBoolean(rawCommandInputObject, 'submit'),
     start: readBoolean(rawCommandInputObject, 'start'),
     dryRun: readBoolean(rawCommandInputObject, 'dryRun'),
@@ -156,7 +143,32 @@ type ExperimentsTarget = Readonly<{
   treatmentScreenshots: ReadonlyMap<string, readonly LocalScreenshot[]>;
 }>;
 
-/** Resolve the selected bundle id, the required experiments sidecar, and its treatment screenshots. */
+type ScreenshotFileHome = Readonly<{
+  appLaunch: LoadedConfig['config'];
+  fallbackLaunch: LoadedConfig['config'];
+  appDirectory: string;
+  loadedDirectory: string | null;
+}>;
+
+function pickScreenshotDirectory(home: ScreenshotFileHome): string {
+  const cameFromAppFile = Object.is(home.appLaunch, home.fallbackLaunch) == false;
+
+  if (cameFromAppFile) {
+    return home.appDirectory;
+  }
+
+  const loadedDirectory = home.loadedDirectory;
+
+  const isLoadedDirectoryMissing = loadedDirectory == null;
+
+  if (isLoadedDirectoryMissing) {
+    return home.appDirectory;
+  }
+
+  return loadedDirectory;
+}
+
+/** Resolve the selected bundle, its experiments, and treatment screenshots. */
 async function resolveExperimentsTarget(
   commandInput: VersionExperimentsCommandInput,
 ): Promise<ExperimentsTarget> {
@@ -180,43 +192,45 @@ async function resolveExperimentsTarget(
     });
   }
 
-  let experimentsConfig: VersionExperimentsConfig | undefined;
+  const experimentsForBundle = storeAppContext.config.experiments?.[bundleId];
 
-  try {
-    experimentsConfig = await resolveStoreSurfaceSection(
-      undefined,
-      commandInput.config,
-      true,
-      parseVersionExperimentsConfig,
-    );
-  } catch (cause) {
-    throw experimentsFailure('resolve experiments config', cause);
-  }
+  const isExperimentsMissing = experimentsForBundle == null;
 
-  const loadedExperimentsConfig = experimentsConfig;
-
-  const isConfigMissing = loadedExperimentsConfig == null;
-
-  if (isConfigMissing) {
+  if (isExperimentsMissing) {
     throw makeVersionExperimentsCommandFailure({
       operation: 'resolve experiments config',
-      message: `No experiments config at ${commandInput.config}. Create one (see \`launch-store experiments --help\`) or pass --config.`,
-      cause: commandInput.config,
+      message: `No experiments for ${bundleId}. Add an experiments entry to launch.config.ts.`,
+      cause: bundleId,
     });
   }
 
+  let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;
+
+  try {
+    loadedConfiguration = await loadConfig();
+  } catch (cause) {
+    throw experimentsFailure('read treatment screenshots', cause);
+  }
+
+  const screenshotDirectory = pickScreenshotDirectory({
+    appLaunch: storeAppContext.config,
+    fallbackLaunch: loadedConfiguration.config,
+    appDirectory: storeAppContext.app.dir,
+    loadedDirectory: loadedConfiguration.directory,
+  });
+  const experimentsFilePath = join(screenshotDirectory, 'launch.config.ts');
   let treatmentScreenshots: ReadonlyMap<string, readonly LocalScreenshot[]>;
 
   try {
     treatmentScreenshots = await discoverTreatmentScreenshots(
-      commandInput.config,
-      loadedExperimentsConfig,
+      experimentsFilePath,
+      experimentsForBundle,
     );
   } catch (cause) {
     throw experimentsFailure('read treatment screenshots', cause);
   }
 
-  return { bundleId, experimentsConfig: loadedExperimentsConfig, treatmentScreenshots };
+  return { bundleId, experimentsConfig: experimentsForBundle, treatmentScreenshots };
 }
 
 function isPlannedAction(plannedAction: PlannedAction): boolean {

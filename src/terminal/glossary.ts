@@ -375,7 +375,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   adopt: [
     'Adopt: the reverse of reconcile - for an app that ALREADY ships. `launch-store adopt` reads your live App',
     'Store Connect setup (products, capabilities, signing, listing) and writes it back into a populated,',
-    'reviewable launch.config.ts (+ app.json entitlements + store.config.json), so an app built by hand or',
+    'reviewable launch.config.ts (+ app.json entitlements), so an app built by hand or',
     'via EAS comes under config-as-code in one command. From there you drive everything forward with `sync`.',
   ].join('\n'),
   migrate: [
@@ -403,24 +403,24 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   //  Store listing
   'store-metadata': [
     'Store metadata: your listing - name, subtitle, description, keywords, release notes, URLs. Launch syncs',
-    "it from a versioned store.config.json (Expo's schema for iOS, plus an android extension) through the",
+    'it from the listing field in launch.config.ts through the',
     'App Store Connect and Google Play APIs, so the listing lives in your repo and pushes deterministically.',
   ].join('\n'),
   'ai-store-assets': [
     'AI store assets: store listing material drafted by a model instead of by hand - listing copy today',
-    '(`launch-store ai listing`), with generated assets the concept extends to. It only fills the versioned files',
-    '(store.config.json), so the existing plan->confirm->apply loop is the safety rail - it never touches a store.',
+    '(`launch-store ai listing`), with generated assets the concept extends to. It prints a draft to paste under',
+    'listing in launch.config.ts, so the existing plan->confirm->apply loop is the safety rail.',
   ].join('\n'),
   //  App Store growth & merchandising
   'app-clip': [
     'App Clip: a tiny, install-free slice of your app that opens from a link, NFC tag, or QR code so a user',
     "can do one task (pay, park, order) without the full download. The 'App Clip card' is the sheet shown",
-    'first; `launch-store app-clips` reconciles its action + per-locale subtitle from appclips.config.json.',
+    'first; `launch-store app-clips` reconciles its action + per-locale subtitle from appClips in launch.config.ts.',
   ].join('\n'),
   'game-center': [
     "Game Center: Apple's gaming network - achievements, leaderboards, and multiplayer - layered onto your",
     'app as a trophy case and scoreboard. Both are configured per app on App Store Connect; `launch',
-    'game-center` reconciles your achievements and leaderboards from gamecenter.config.json over the API.',
+    'game-center` reconciles your achievements and leaderboards from gameCenter in launch.config.ts.',
   ].join('\n'),
   'in-app-event': [
     'In-app event: a timed, discoverable happening inside your app - a tournament, premiere, or live stream',
@@ -430,7 +430,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'custom-product-page': [
     'Custom product page: an alternate version of your App Store listing - its own screenshots and',
     'promotional text, reachable by a unique URL - so a campaign or audience lands on tailored copy. `launch',
-    'custom-pages` reconciles each page and its promotional text from custom-pages.config.json over the API.',
+    'custom-pages` reconciles each page and its promotional text from customPages in launch.config.ts.',
   ].join('\n'),
   'product-page-optimization': [
     "Product page optimization (PPO): Apple's built-in A/B test of your listing - up to three treatment",
@@ -440,7 +440,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'wallet-pass': [
     'Wallet pass type id / Apple Pay merchant id: team-level identifiers that authorize signing Wallet passes',
     'and processing Apple Pay; they gate the payment/pass certificates and are otherwise hand-registered in',
-    'Certificates, Identifiers & Profiles. `launch-store wallet` reconciles them from wallet.config.json over the API.',
+    'Certificates, Identifiers & Profiles. `launch-store wallet` reconciles them from wallet in launch.config.ts.',
   ].join('\n'),
   //  Privacy, compliance & accessibility
   'privacy-declarations': [
@@ -451,7 +451,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'accessibility-label': [
     "Accessibility Nutrition Labels: Apple's 2025 declarations of which accessibility features your app",
     'supports (VoiceOver, larger text, captions), shown on the product page. `launch-store accessibility`',
-    'reconciles them from accessibility.config.json over the API with the plan->confirm->apply flow.',
+    'reconciles them from accessibility in launch.config.ts with the plan->confirm->apply flow.',
   ].join('\n'),
   'eu-distribution': [
     "EU alternative distribution: under the EU's Digital Markets Act, iOS apps may ship from your own web",

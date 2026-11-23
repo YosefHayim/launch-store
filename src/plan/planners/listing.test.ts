@@ -1,6 +1,6 @@
 import { runPlanner } from './planner-testkit.ts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { listingPlanner } from './listing.ts';
@@ -54,18 +54,12 @@ function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
 }
 const tmpDirs: string[] = [];
 
-/** Create a temp app dir holding a `store.config.json` with the given en-US Apple listing, and return it. */
-function appDirWithListing(localeListing: AppleLocaleInfo): string {
+function appDirWithListing(): string {
   const systemTemporaryDirectory = tmpdir();
   const planListingTestPath = join(systemTemporaryDirectory, 'plan-listing-test-');
   const dir = mkdtempSync(planListingTestPath);
 
   tmpDirs.push(dir);
-
-  const storePath = join(dir, 'store.config.json');
-  const serialized = JSON.stringify({ apple: { info: { 'en-US': localeListing } } });
-
-  writeFileSync(storePath, serialized);
 
   return dir;
 }
@@ -76,14 +70,27 @@ function cleanup() {
 
 afterEach(cleanup);
 
-function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
-  const config: LaunchConfig = {
+function makeCtx(
+  api: AscCatalogApi | null,
+  appDir: string,
+  localeListing?: AppleLocaleInfo,
+): PlanContext {
+  let config: LaunchConfig = {
     profiles: {},
     credentials: 'local',
     storage: 'local',
     buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
+
+  if (localeListing != null) {
+    config = {
+      ...config,
+      listing: {
+        'com.acme.alpha': { apple: { info: { 'en-US': localeListing } } },
+      },
+    };
+  }
   const app: AppDescriptor = {
     name: 'alpha',
     dir: appDir,
@@ -123,7 +130,7 @@ function describeListingPlanner() {
   async function skipsWithAnActionableHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(
       listingPlanner,
-      makeCtx(null, appDirWithListing({ title: 'Acme' })),
+      makeCtx(null, appDirWithListing(), { title: 'Acme' }),
     );
 
     expect(plan.state).toBe('skipped');
@@ -140,9 +147,10 @@ function describeListingPlanner() {
   );
 
   async function reportsThePerAppDiffAFreshListingWouldCreate() {
-    const dir = appDirWithListing({ title: 'Acme', description: 'The best acme app.' });
+    const localeListing = { title: 'Acme', description: 'The best acme app.' };
+    const dir = appDirWithListing();
     const api = makeApi();
-    const plan = await runPlanner(listingPlanner, makeCtx(api, dir));
+    const plan = await runPlanner(listingPlanner, makeCtx(api, dir, localeListing));
 
     expect(plan.state).toBe('planned');
 
@@ -185,7 +193,7 @@ function describeListingPlanner() {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(
       listingPlanner,
-      makeCtx(api, appDirWithListing({ title: 'Acme' })),
+      makeCtx(api, appDirWithListing(), { title: 'Acme' }),
     );
 
     expect(plan.state).toBe('planned');
@@ -208,7 +216,7 @@ function describeListingPlanner() {
 
     await runPlanner(
       listingPlanner,
-      makeCtx(api, appDirWithListing({ title: 'Acme', description: 'The best acme app.' })),
+      makeCtx(api, appDirWithListing(), { title: 'Acme', description: 'The best acme app.' }),
     );
     expect(api.getEditableAppInfoId).toHaveBeenCalled();
     expect(api.listVersionLocalizations).toHaveBeenCalled();

@@ -5,17 +5,14 @@ import { euDistributionCommandProgram } from './eu-distribution-command.ts';
 import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type EuDistributionOptions = Readonly<{
-  config: string;
   dryRun: boolean;
   yes: boolean;
 }>;
 
 export function registerEuDistributionCommand(program: Command): void {
-  function runEuDistribution(commandOptions: EuDistributionOptions, command: Command) {
+  function runEuDistribution(commandOptions: EuDistributionOptions) {
     const euDistributionProgram = euDistributionCommandProgram({
       operation: 'reconcile',
-      configPath: commandOptions.config,
-      explicitConfig: command.getOptionValueSource('config') == 'cli',
       dryRun: commandOptions.dryRun,
       yes: commandOptions.yes,
     });
@@ -25,14 +22,7 @@ export function registerEuDistributionCommand(program: Command): void {
 
   const euDistributionCommand = program
     .command('eu-distribution')
-    .description(
-      'authorize EU alternative-distribution domains from eu-distribution.config.json (DMA)',
-    )
-    .option(
-      '--config <path>',
-      'path to the EU distribution config file',
-      'eu-distribution.config.json',
-    )
+    .description('authorize EU alternative-distribution domains from launch.config.ts (DMA)')
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runEuDistribution);

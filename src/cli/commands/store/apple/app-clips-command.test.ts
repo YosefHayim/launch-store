@@ -4,15 +4,11 @@ import { AppClipsCommandInputSchema } from './app-clips-command.ts';
 function describeAppClipsCommandPieceSchema() {
   function decodesTheCommanderBoundaryWithAnOmittedAppSelector() {
     const appClipsCommandSchema = AppClipsCommandInputSchema({
-      config: 'appclips.config.json',
-      explicitConfig: false,
       dryRun: true,
       yes: false,
     });
 
     expect(appClipsCommandSchema).toEqual({
-      config: 'appclips.config.json',
-      explicitConfig: false,
       dryRun: true,
       yes: false,
     });
@@ -27,8 +23,6 @@ function describeAppClipsCommandPieceSchema() {
     function callAppClipsCommandPieceSchema() {
       return AppClipsCommandInputSchema({
         app: undefined,
-        config: 'appclips.config.json',
-        explicitConfig: false,
         dryRun: false,
         yes: false,
       });

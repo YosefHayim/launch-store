@@ -1,4 +1,4 @@
-// Registers the command that syncs App Store custom product pages from a config file.
+// Registers the command that syncs App Store custom product pages from launch.config.ts.
 
 import type { Command } from '@/cli/command.js';
 import {
@@ -9,7 +9,6 @@ import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type CustomPagesOptions = Readonly<{
   readonly app?: string;
-  readonly config: string;
   readonly dryRun: boolean;
   readonly yes: boolean;
 }>;
@@ -19,7 +18,6 @@ function readCustomProductPages(
   commandOptions: CustomPagesOptions,
 ): CustomProductPagesCommandInput {
   let customPagesInput: CustomProductPagesCommandInput = {
-    config: commandOptions.config,
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
@@ -41,11 +39,8 @@ export function registerCustomPagesCommand(program: Command): void {
 
   program
     .command('custom-pages')
-    .description(
-      'reconcile custom product pages (alternate listings) from custom-pages.config.json',
-    )
+    .description('reconcile custom product pages (alternate listings) from launch.config.ts')
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
-    .option('--config <path>', 'path to the custom pages config file', 'custom-pages.config.json')
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runCustomPages);

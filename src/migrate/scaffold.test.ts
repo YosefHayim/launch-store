@@ -22,27 +22,20 @@ function describeScaffoldStorePiece() {
 
   afterEach(cleanupScaffoldStorePiece);
 
-  async function emitsASkeletonArtifactAndAManualNoteWhenNoneExists() {
+  async function notesThatTheListingBelongsInLaunchConfigWhenNoneExists() {
     const { artifact, note } = await scaffoldStoreConfig(dir);
 
-    expect(artifact).not.toBeNull();
-
-    if (artifact == null) {
-      return;
-    }
-
-    expect(artifact.path).toBe('store.config.json');
-    expect(artifact.contents).toContain('"configVersion"');
+    expect(artifact).toBeNull();
     expect(note.level).toBe('manual');
-    expect(note.message).toContain('store.config.json');
+    expect(note.message).toContain('launch.config.ts');
   }
 
   it(
-    'emits a skeleton artifact and a manual note when none exists',
-    emitsASkeletonArtifactAndAManualNoteWhenNoneExists,
+    'notes that the listing belongs in launch.config.ts when none exists',
+    notesThatTheListingBelongsInLaunchConfigWhenNoneExists,
   );
 
-  async function emitsNoArtifactAndASkippedNoteWhenOneIsAlreadyPresent() {
+  async function notesThatAnExistingStoreFileShouldMove() {
     const storePath = join(dir, 'store.config.json');
 
     writeFileSync(storePath, '{}');
@@ -51,11 +44,12 @@ function describeScaffoldStorePiece() {
 
     expect(artifact).toBeNull();
     expect(note.level).toBe('skipped');
+    expect(note.message).toContain('launch.config.ts');
   }
 
   it(
-    'emits no artifact and a skipped note when one is already present',
-    emitsNoArtifactAndASkippedNoteWhenOneIsAlreadyPresent,
+    'notes that an existing store.config.json should move into launch.config.ts',
+    notesThatAnExistingStoreFileShouldMove,
   );
 }
 

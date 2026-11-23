@@ -8,13 +8,11 @@ import {
 function describeAvailabilityCommandPieceSchema() {
   function decodesRequiredDefaultsAndRejectsExplicitUndefinedSelectors() {
     const availabilityCommandSchema = AvailabilityCommandInputSchema({
-      config: 'availability.config.json',
       dryRun: true,
       yes: false,
     });
 
     expect(availabilityCommandSchema).toEqual({
-      config: 'availability.config.json',
       dryRun: true,
       yes: false,
     });
@@ -22,7 +20,6 @@ function describeAvailabilityCommandPieceSchema() {
     function callAvailabilityCommandPieceSchema() {
       return AvailabilityCommandInputSchema({
         app: undefined,
-        config: 'availability.config.json',
         dryRun: false,
         yes: true,
       });

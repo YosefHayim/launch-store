@@ -85,6 +85,8 @@ export type SurfacePlan =
 export type PlanContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
+  /** Directory of the launch.config.ts that supplied `config`, when one was loaded. */
+  configDirectory?: string | null;
 
   resolveAscApi(): Promise<AscSurfacesApi | null>;
 

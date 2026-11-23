@@ -208,7 +208,6 @@ function describeTestflightCommandPieceSchema() {
     const testflightCommandSchema = TestflightCommandInputSchema({
       operation: 'release',
       locale: 'en-US',
-      config: 'testflight.config.json',
       review: true,
       dryRun: false,
       yes: true,

@@ -184,14 +184,8 @@ export type ReleaseAttributesConfig = {
   readonly reviewDetails?: ReviewDetailsConfig;
 };
 
-/** Paths to the JSON files for store surfaces that have no inline block in launch.config.ts. */
-export type SurfaceConfigFiles = {
-  /** Territories the app is sold in. */
-  readonly availability?: string;
-  /** Apple's accessibility nutrition labels. */
-  readonly accessibility?: string;
-  /** Product-page A/B tests (icon, screenshots, or text). */
-  readonly experiments?: string;
-  /** Extra App Store product pages, each with its own link. */
-  readonly customPages?: string;
+/** Localized TestFlight "What to Test" notes for one app. */
+export type TestFlightNotes = {
+  /** Notes testers see, keyed by locale such as `en-US`. */
+  readonly whatToTest: Record<string, string>;
 };

@@ -1,27 +1,22 @@
 // Syncs Apple Pay merchant ids and Wallet pass type ids on App Store Connect.
 
-import path from 'node:path';
-import { loadConfig } from '@/config/config.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';
-import { readLaunchDirectories } from '@/services/platform/paths.js';
 import { completeCommand, isCommandExit } from '@/terminal/command-exit.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
-  resolveStoreSurfaceSection,
 } from './app-store-surface-command.ts';
-import { parseWalletConfig, reconcileWalletIds } from '@/store/apple/wallet-ids.js';
+import { reconcileWalletIds } from '@/store/apple/wallet-ids.js';
+import { loadStoreAppContext } from '@/store/shared/select-store-app.js';
 import type { PlannedAction } from '@/types/reconcile.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 
 type WalletCommandInput =
   | Readonly<{
       operation: 'reconcile';
-      configPath: string;
-      explicitConfig: boolean;
       dryRun: boolean;
       yes: boolean;
     }>
@@ -40,17 +35,6 @@ function makeWalletCommandFailure(fields: {
   cause?: unknown;
 }): WalletCommandFailure {
   return { _tag: 'WalletCommandFailure', ...fields };
-}
-
-function readText(record: Record<string, unknown>, fieldName: string): string {
-  const field = record[fieldName];
-  const isText = typeof field == 'string';
-
-  if (isText == false) {
-    throw new Error(`Expected ${fieldName} to be a string.`);
-  }
-
-  return field;
 }
 
 function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
@@ -80,8 +64,6 @@ function decodeWalletCommandInput(rawCommandInput: unknown): WalletCommandInput 
   if (operation == 'reconcile') {
     return {
       operation: 'reconcile',
-      configPath: readText(rawCommandInputObject, 'configPath'),
-      explicitConfig: readFlag(rawCommandInputObject, 'explicitConfig'),
       dryRun: readFlag(rawCommandInputObject, 'dryRun'),
       yes: readFlag(rawCommandInputObject, 'yes'),
     };
@@ -96,18 +78,6 @@ function readWalletOperation(rawCommandInput: unknown): WalletCommandInput['oper
   } catch (cause) {
     return null;
   }
-}
-
-function projectPath(commandPath: string): string {
-  const launchPaths = readLaunchDirectories();
-
-  const isAbsolutePath = path.isAbsolute(commandPath);
-
-  if (isAbsolutePath) {
-    return commandPath;
-  }
-
-  return path.join(launchPaths.workingDirectory, commandPath);
 }
 
 function isFailedAction(plannedAction: PlannedAction): boolean {
@@ -125,28 +95,21 @@ function renderApplied(plannedAction: PlannedAction): string {
 async function reconcileWallet(
   commandInput: Extract<WalletCommandInput, { operation: 'reconcile' }>,
 ): Promise<void> {
-  const launchPaths = readLaunchDirectories();
   const logger = createLogger(false);
-  const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
-  const configPath = projectPath(commandInput.configPath);
-  const walletConfiguration = await resolveStoreSurfaceSection(
-    loadedConfiguration.config.wallet,
-    configPath,
-    commandInput.explicitConfig,
-    parseWalletConfig,
-  );
+  const storeAppContext = await loadStoreAppContext(undefined);
+  const walletSection = storeAppContext.config.wallet;
 
-  const isConfigMissing = walletConfiguration == null;
+  const isWalletMissing = walletSection == null;
 
-  if (isConfigMissing) {
+  if (isWalletMissing) {
     throw makeWalletCommandFailure({
       operation: 'reconcile',
-      message: `No wallet config. Add a \`wallet\` field to launch.config.ts or create ${commandInput.configPath}.`,
+      message: 'No wallet config. Add a wallet field to launch.config.ts.',
     });
   }
 
   const appleStore = await loadActiveAppleStore();
-  const plannedActions = await reconcileWalletIds(appleStore, walletConfiguration, true);
+  const plannedActions = await reconcileWalletIds(appleStore, walletSection, true);
 
   logger.gap();
 
@@ -179,7 +142,7 @@ async function reconcileWallet(
     return;
   }
 
-  const appliedActions = await reconcileWalletIds(appleStore, walletConfiguration, false);
+  const appliedActions = await reconcileWalletIds(appleStore, walletSection, false);
   const failedActionCount = appliedActions.filter(isFailedAction).length;
   let receiptTitle = 'Identifiers registered';
 

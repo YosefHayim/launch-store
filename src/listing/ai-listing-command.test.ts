@@ -1,9 +1,10 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import type { AppDescriptor } from '../types/app.ts';
+import type { LaunchConfig } from '../types/config.ts';
 import {
   parseListingTargets,
   readAiListingInput,
@@ -12,11 +13,19 @@ import {
 } from './ai-listing-command.ts';
 
 let selectedApp: AppDescriptor;
+let selectedLaunch: LaunchConfig;
 
 vi.mock('../config/config.ts', function mockPiece() {
   return {
     loadConfig: function loadConfig() {
-      return Promise.resolve({ config: {}, apps: [selectedApp] });
+      return Promise.resolve({
+        config: selectedLaunch,
+        apps: [selectedApp],
+        directory: null,
+      });
+    },
+    launchConfigForApp: function launchConfigForApp(fallbackConfig: LaunchConfig) {
+      return Promise.resolve(fallbackConfig);
     },
     readResolvedConfig: function readResolvedConfig() {
       return Promise.resolve({ expo: { name: 'Focus App' } });
@@ -37,15 +46,20 @@ const listingGenerator = {
 
 function describeAiListingCommand() {
   let workingDirectory: string;
-  let configPath: string;
 
   function prepareAiListingCommand() {
     const systemTemporaryDirectory = tmpdir();
     const launchAiListingPath = join(systemTemporaryDirectory, 'launch-ai-listing-');
 
     workingDirectory = mkdtempSync(launchAiListingPath);
-    configPath = join(workingDirectory, 'store.config.json');
     useLoggerSink(function discardLine() {});
+    selectedLaunch = {
+      profiles: {},
+      credentials: 'local',
+      storage: 'local',
+      buildEngine: 'xcode',
+      submit: 'app-store-connect',
+    };
     selectedApp = {
       name: 'focus',
       dir: workingDirectory,
@@ -78,49 +92,68 @@ function describeAiListingCommand() {
 
   it('decodes stable command defaults', decodesStableCommandDefaults);
 
-  async function writesGeneratedGooglePlayCopyWhenAndroidIsSelected() {
+  async function printsGeneratedGooglePlayCopyWhenAndroidIsSelected() {
     const terminalWrites = captureLogs();
 
     await runAiListing(
       {
         platform: 'android',
-        config: configPath,
         dryRun: false,
         yes: true,
       },
       listingGenerator,
     );
 
-    const loadedFile = readFileSync(configPath, 'utf8');
-    const writtenStoreConfig = JSON.parse(loadedFile);
+    function startsWithObject(text: string) {
+      return text.trimStart().startsWith('{');
+    }
 
-    expect(writtenStoreConfig.android.info['en-US']).toEqual({
+    const listingText = terminalWrites.find(startsWithObject);
+
+    if (listingText == null) {
+      throw new Error('expected a printed listing');
+    }
+
+    const listingDocument = JSON.parse(listingText) as {
+      'com.acme.focus': {
+        android: {
+          info: Record<
+            string,
+            { title: string; shortDescription: string; fullDescription: string }
+          >;
+        };
+      };
+    };
+    const focusListing = listingDocument['com.acme.focus'];
+    const storeConfigPath = join(workingDirectory, 'store.config.json');
+
+    expect(focusListing.android.info['en-US']).toEqual({
       title: 'Focus App',
       shortDescription: 'Stay focused',
       fullDescription: 'A calm focus timer.',
     });
-    expect(terminalWrites.join('')).toContain('[OK] ai listing - wrote 1 locale draft');
+    expect(existsSync(storeConfigPath)).toBe(false);
+    expect(terminalWrites.join('')).toContain('listing in launch.config.ts');
   }
 
   it(
-    'writes generated Google Play copy when Android is selected',
-    writesGeneratedGooglePlayCopyWhenAndroidIsSelected,
+    'prints generated Google Play copy when Android is selected',
+    printsGeneratedGooglePlayCopyWhenAndroidIsSelected,
   );
 
   async function previewsWithoutCreatingAFileDuringADryRun() {
     await runAiListing(
       {
         platform: 'ios',
-        config: configPath,
         dryRun: true,
         yes: false,
       },
       listingGenerator,
     );
 
-    const pathExists = existsSync(configPath);
+    const storeConfigPath = join(workingDirectory, 'store.config.json');
 
-    expect(pathExists).toBe(false);
+    expect(existsSync(storeConfigPath)).toBe(false);
   }
 
   it(

@@ -1,6 +1,6 @@
 // Loads the Launch project and picks the one app a store command should use.
 
-import { loadConfig } from '@/config/config.js';
+import { launchConfigForApp, loadConfig } from '@/config/config.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { readLaunchDirectories } from '@/services/platform/paths.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';
@@ -46,10 +46,19 @@ function choiceFor(discoveredApp: AppDescriptor) {
   return { selection: discoveredApp, label: discoveredApp.name, hint };
 }
 
-function oneDiscoveredApp(
-  config: LaunchConfig,
+async function withAppLaunch(
+  fallbackConfig: LaunchConfig,
+  selectedApp: AppDescriptor,
+): Promise<StoreAppContext> {
+  const appLaunch = await launchConfigForApp(fallbackConfig, selectedApp.dir);
+
+  return { config: appLaunch, app: selectedApp };
+}
+
+async function oneDiscoveredApp(
+  fallbackConfig: LaunchConfig,
   onlyApp: AppDescriptor | undefined,
-): StoreAppContext {
+): Promise<StoreAppContext> {
   if (onlyApp == null) {
     throw makeStoreAppSelectionFailure({
       message: 'No apps found. Run Launch from a repo containing at least one app.json.',
@@ -57,7 +66,7 @@ function oneDiscoveredApp(
     });
   }
 
-  return { config, app: onlyApp };
+  return withAppLaunch(fallbackConfig, onlyApp);
 }
 
 function matchesSelector(appSelector: string) {
@@ -95,7 +104,7 @@ export async function loadStoreAppContext(
     const selectedApp = loadedConfiguration.apps.find(matchesSelector(appSelector));
 
     if (selectedApp != null) {
-      return { config: loadedConfiguration.config, app: selectedApp };
+      return withAppLaunch(loadedConfiguration.config, selectedApp);
     }
 
     throw makeStoreAppSelectionFailure({
@@ -127,7 +136,7 @@ export async function loadStoreAppContext(
       choices: loadedConfiguration.apps.map(choiceFor),
     });
 
-    return { config: loadedConfiguration.config, app: selectedApp };
+    return withAppLaunch(loadedConfiguration.config, selectedApp);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
     throw makeStoreAppSelectionFailure({ message: failureMessage, cause });

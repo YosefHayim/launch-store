@@ -51,7 +51,7 @@ The dry run prints `Dry run` and changes nothing. A real iOS run leaves the sign
 
 ### Configuration
 
-App facts (bundle id, version) are read from each app's Expo config, `app.json` or `app.config.{ts,js}`. `launch.config.ts` holds Launch settings. The root [`launch.config.ts`](./launch.config.ts) is a full example of every field: profiles, products, offers, Game Center, App Clips, release, wallet, EU distribution, storage, AWS, notify, and the sidecar paths. `defineConfig` is the public helper. The published [JSON Schema](https://json-schema.org/) is `schema/launch.config.schema.json`. `launch-store config schema` prints it, and `launch-store config schema --out launch.config.schema.json` writes a copy for your editor.
+App facts (bundle id, version) are read from each app's Expo config, `app.json` or `app.config.{ts,js}`. `launch.config.ts` is the only Launch config. Put one in an app folder, or one at the repo root with sections keyed by bundle id. The nearest file wins: running inside an app folder uses that folder's file when it exists, and otherwise the file found by walking up. The two files are never merged. The root [`launch.config.ts`](./launch.config.ts) is a full example. `defineConfig` is the public helper. The published [JSON Schema](https://json-schema.org/) is `schema/launch.config.schema.json`. `launch-store config schema` prints it, and `launch-store config schema --out launch.config.schema.json` writes a copy for your editor.
 
 ```ts
 import { defineConfig } from 'launch-store';

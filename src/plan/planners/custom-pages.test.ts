@@ -1,10 +1,8 @@
 import { runPlanner } from './planner-testkit.ts';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { customPagesPlanner } from './custom-pages.ts';
 import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
+import type { CustomProductPagesConfig } from '@/store/apple/custom-product-pages.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
@@ -16,42 +14,10 @@ const alpha: AppDescriptor = {
   configPath: '/no/such/dir/alpha/app.json',
   bundleId: 'com.acme.alpha',
 };
-const tmpDirs: string[] = [];
 
-function cleanup() {
-  for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-}
-
-afterEach(cleanup);
-
-/** Write a sidecar config to a fresh temp file and return its path. */
-function writeConfig(json: unknown): string {
-  const systemTemporaryDirectory = tmpdir();
-  const launchPagesPath = join(systemTemporaryDirectory, 'launch-pages-');
-  const dir = mkdtempSync(launchPagesPath);
-
-  tmpDirs.push(dir);
-
-  const path = join(dir, 'custom-pages.config.json');
-  const serialized = JSON.stringify(json);
-
-  writeFileSync(path, serialized);
-
-  return path;
-}
-
-function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
-  const config: LaunchConfig = {
-    profiles: {},
-    credentials: 'local',
-    storage: 'local',
-    buildEngine: 'xcode',
-    submit: 'app-store-connect',
-    configFiles: { customPages: configPath },
-  };
-
+function contextFor(api: AscSurfacesApi | null, launchFile: LaunchConfig): PlanContext {
   return {
-    config,
+    config: launchFile,
     apps: [alpha],
     resolveAscApi() {
       return Promise.resolve(api);
@@ -61,15 +27,39 @@ function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
     },
   };
 }
-const DECLARED = { pages: [{ name: 'page1' }] };
+
+function makeCtx(
+  api: AscSurfacesApi | null,
+  customPagesSection: CustomProductPagesConfig | null,
+): PlanContext {
+  const fallbackLaunch: LaunchConfig = {
+    profiles: {},
+    credentials: 'local',
+    storage: 'local',
+    buildEngine: 'xcode',
+    submit: 'app-store-connect',
+  };
+
+  const isOmitted = customPagesSection == null;
+
+  if (isOmitted) {
+    return contextFor(api, fallbackLaunch);
+  }
+
+  const declaredLaunch: LaunchConfig = {
+    ...fallbackLaunch,
+    customPages: { 'com.acme.alpha': customPagesSection },
+  };
+
+  return contextFor(api, declaredLaunch);
+}
+
+const DECLARED: CustomProductPagesConfig = { pages: [{ name: 'page1' }] };
 
 function describeCustomPagesPlanner() {
   async function omitsItselfWhenNoCustomPagesSidecarIsPresent() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(
-      customPagesPlanner,
-      makeCtx(ascApiFake, '/no/such/custom-pages.config.json'),
-    );
+    const plan = await runPlanner(customPagesPlanner, makeCtx(ascApiFake, null));
 
     expect(plan.state).toBe('omitted');
   }
@@ -80,7 +70,7 @@ function describeCustomPagesPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(customPagesPlanner, makeCtx(null, writeConfig(DECLARED)));
+    const plan = await runPlanner(customPagesPlanner, makeCtx(null, DECLARED));
 
     expect(plan.state).toBe('skipped');
 
@@ -96,7 +86,7 @@ function describeCustomPagesPlanner() {
 
   async function reportsThePageAFreshPieceWouldCreateTwoWay() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(customPagesPlanner, makeCtx(ascApiFake, writeConfig(DECLARED)));
+    const plan = await runPlanner(customPagesPlanner, makeCtx(ascApiFake, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -127,7 +117,7 @@ function describeCustomPagesPlanner() {
     const api = makeAscApiFake({
       listCustomProductPages: vi.fn().mockResolvedValue([{ id: 'pg1', name: 'page1' }]),
     });
-    const plan = await runPlanner(customPagesPlanner, makeCtx(api, writeConfig(DECLARED)));
+    const plan = await runPlanner(customPagesPlanner, makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -145,7 +135,7 @@ function describeCustomPagesPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(customPagesPlanner, makeCtx(api, writeConfig(DECLARED)));
+    const plan = await runPlanner(customPagesPlanner, makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -163,7 +153,7 @@ function describeCustomPagesPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(customPagesPlanner, makeCtx(api, writeConfig(DECLARED)));
+    await runPlanner(customPagesPlanner, makeCtx(api, DECLARED));
     expect(api.createCustomProductPage).toHaveBeenCalledTimes(0);
     expect(api.createCustomProductPageLocalization).toHaveBeenCalledTimes(0);
   }

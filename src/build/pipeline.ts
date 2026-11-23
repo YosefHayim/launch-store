@@ -174,7 +174,7 @@ async function attachAndroidRelease(
   preparedAppName: string,
   launchConfig: PreparedBuild['config'],
   buildOptions: BuildRunOptions,
-  appDir: string,
+  app: Pick<AppDescriptor, 'dir' | 'bundleId' | 'packageName'>,
   buildContext: MutableDeep<ResolvedBuildContext>,
 ): Promise<MutableDeep<ResolvedBuildContext>> {
   const resolvedAndroidRelease = resolveAndroidRelease(buildOptions, buildContext.profile);
@@ -188,7 +188,7 @@ async function attachAndroidRelease(
   try {
     releaseNotes = await resolveAndroidSubmitReleaseNotes(
       launchConfig,
-      appDir,
+      app,
       buildOptions.notesPath,
     );
   } catch (error) {
@@ -319,7 +319,7 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
       app.name,
       launchConfig,
       buildOptions,
-      app.dir,
+      app,
       buildContext,
     );
   }

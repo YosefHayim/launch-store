@@ -9,6 +9,11 @@ import type {
 } from './app.ts';
 import type { AppProducts } from './catalog.ts';
 import type { AwsConfig } from './remote.ts';
+import type { VersionExperimentsConfig } from '../release/version-experiments.ts';
+import type { AvailabilityConfig } from '../store/apple/availability.ts';
+import type { AccessibilityConfig } from '../store/apple/accessibility.ts';
+import type { CustomProductPagesConfig } from '../store/apple/custom-product-pages.ts';
+import type { StoreConfig } from '../store/shared/store-config.ts';
 import type {
   AppClipsConfig,
   EuDistributionConfig,
@@ -16,7 +21,7 @@ import type {
   NotifyConfig,
   ReleaseAttributesConfig,
   ReleaseConfig,
-  SurfaceConfigFiles,
+  TestFlightNotes,
   WalletConfig,
 } from './store-surface.ts';
 /** Provider defaults filled when the user omits them */
@@ -72,8 +77,18 @@ export type LaunchConfigInput = {
   readonly wallet?: WalletConfig;
   /** Domains allowed to distribute the app in the EU under the DMA, for the whole team. */
   readonly euDistribution?: EuDistributionConfig;
-  /** Paths to the JSON files for store surfaces that are not written inline here. */
-  readonly configFiles?: SurfaceConfigFiles;
+  /** App Store and Play listing text, keyed by iOS bundle id, or by Android package name. */
+  readonly listing?: Record<string, StoreConfig>;
+  /** App Store territories the app sells in, keyed by iOS bundle id. */
+  readonly availability?: Record<string, AvailabilityConfig>;
+  /** Accessibility nutrition labels, keyed by iOS bundle id. */
+  readonly accessibility?: Record<string, AccessibilityConfig>;
+  /** Product-page A/B tests, keyed by iOS bundle id. Screenshot folders sit next to this file. */
+  readonly experiments?: Record<string, VersionExperimentsConfig>;
+  /** Extra App Store product pages, keyed by the parent app's iOS bundle id. */
+  readonly customPages?: Record<string, CustomProductPagesConfig>;
+  /** TestFlight "What to Test" notes, keyed by iOS bundle id. */
+  readonly testFlight?: Record<string, TestFlightNotes>;
   /** AWS settings for an EC2 Mac */
   readonly aws?: AwsConfig;
   /** Bucket address for `storage: "s3"` or `storage: "supabase"`. */

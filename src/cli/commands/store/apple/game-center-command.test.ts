@@ -4,15 +4,11 @@ import { GameCenterCommandInputSchema } from './game-center-command.ts';
 function describeGameCenterCommandPieceSchema() {
   function decodesTheCommanderBoundaryWithAnOmittedAppSelector() {
     const gameCenterCommandSchema = GameCenterCommandInputSchema({
-      config: 'gamecenter.config.json',
-      explicitConfig: false,
       dryRun: true,
       yes: false,
     });
 
     expect(gameCenterCommandSchema).toEqual({
-      config: 'gamecenter.config.json',
-      explicitConfig: false,
       dryRun: true,
       yes: false,
     });
@@ -27,8 +23,6 @@ function describeGameCenterCommandPieceSchema() {
     function callGameCenterCommandPieceSchema() {
       return GameCenterCommandInputSchema({
         app: undefined,
-        config: 'gamecenter.config.json',
-        explicitConfig: false,
         dryRun: false,
         yes: false,
       });

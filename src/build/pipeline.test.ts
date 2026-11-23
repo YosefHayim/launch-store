@@ -929,7 +929,7 @@ function describeAndroidReleaseNotesForSubmitIssue309() {
           buildEngine: 'gradle',
           submit: 'google-play',
         },
-        notesDirectory,
+        { dir: notesDirectory },
         notesPath,
       );
 
@@ -956,7 +956,7 @@ function describeAndroidReleaseNotesForSubmitIssue309() {
           submit: 'google-play',
           release: { releaseNotes: { 'en-US': 'From launch.config' }, primaryLocale: 'en-US' },
         },
-        appDirectory,
+        { dir: appDirectory },
         undefined,
       );
 

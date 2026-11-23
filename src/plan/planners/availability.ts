@@ -1,45 +1,53 @@
 // Compares App Store Connect territory availability with the local config.
 
-import { pathExists } from '@/path-exists.js';
-import { readAvailabilityConfig, reconcileAvailability } from '@/store/apple/availability.js';
+import { launchConfigForApp } from '@/config/config.js';
+import { reconcileAvailability, type AvailabilityConfig } from '@/store/apple/availability.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
-import type { SurfacePlanner } from '@/types/plan.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';
 
 const SURFACE = 'availability';
 
 export const availabilityPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  async plan(planContext) {
-    async function readAvailabilityConfigForApp() {
-      let configPath = planContext.config.configFiles?.availability;
-
-      if (configPath == null) {
-        configPath = 'availability.config.json';
+  plan(planContext) {
+    async function readAvailabilitySection(
+      bundleId: string,
+    ): Promise<AvailabilityConfig | undefined> {
+      function hasThisBundle(discoveredApp: AppDescriptor): boolean {
+        return discoveredApp.bundleId == bundleId;
       }
 
-      const configExists = await pathExists(configPath);
+      const discoveredApp = planContext.apps.find(hasThisBundle);
+      const isAppMissing = discoveredApp == null;
 
-      if (configExists == false) {
-        return undefined;
+      if (isAppMissing) {
+        return planContext.config.availability?.[bundleId];
       }
 
-      return readAvailabilityConfig(configPath);
+      const launchFile = await launchConfigForApp(planContext.config, discoveredApp.dir);
+
+      return launchFile.availability?.[bundleId];
     }
 
-    function reconcileAppAvailability(
-      api: Parameters<typeof reconcileAvailability>[0],
+    function reconcileAvailabilitySection(
+      api: AscSurfacesApi,
       bundleId: string,
-      config: Awaited<ReturnType<typeof readAvailabilityConfig>>,
+      availabilitySection: AvailabilityConfig,
     ) {
-      return reconcileAvailability(api, { bundleId, config, dryRun: true });
+      return reconcileAvailability(api, {
+        bundleId,
+        config: availabilitySection,
+        dryRun: true,
+      });
     }
 
     return planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'two-way',
-      configFor: readAvailabilityConfigForApp,
-      reconcile: reconcileAppAvailability,
+      configFor: readAvailabilitySection,
+      reconcile: reconcileAvailabilitySection,
     });
   },
 };

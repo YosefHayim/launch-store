@@ -1,10 +1,8 @@
 import { runPlanner } from './planner-testkit.ts';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { experimentsPlanner } from './experiments.ts';
 import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
+import type { VersionExperimentsConfig } from '@/release/version-experiments.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
@@ -16,42 +14,10 @@ const alpha: AppDescriptor = {
   configPath: '/no/such/dir/alpha/app.json',
   bundleId: 'com.acme.alpha',
 };
-const tmpDirs: string[] = [];
 
-function cleanup() {
-  for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-}
-
-afterEach(cleanup);
-
-/** Write a sidecar config to a fresh temp file and return its path. */
-function writeConfig(json: unknown): string {
-  const systemTemporaryDirectory = tmpdir();
-  const launchExpPath = join(systemTemporaryDirectory, 'launch-exp-');
-  const dir = mkdtempSync(launchExpPath);
-
-  tmpDirs.push(dir);
-
-  const path = join(dir, 'experiments.config.json');
-  const serialized = JSON.stringify(json);
-
-  writeFileSync(path, serialized);
-
-  return path;
-}
-
-function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
-  const config: LaunchConfig = {
-    profiles: {},
-    credentials: 'local',
-    storage: 'local',
-    buildEngine: 'xcode',
-    submit: 'app-store-connect',
-    configFiles: { experiments: configPath },
-  };
-
+function contextFor(api: AscSurfacesApi | null, launchFile: LaunchConfig): PlanContext {
   return {
-    config,
+    config: launchFile,
     apps: [alpha],
     resolveAscApi() {
       return Promise.resolve(api);
@@ -61,15 +27,41 @@ function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
     },
   };
 }
-const DECLARED = { experiments: [{ name: 'exp1', trafficProportion: 50 }] };
+
+function makeCtx(
+  api: AscSurfacesApi | null,
+  experimentsSection: VersionExperimentsConfig | null,
+): PlanContext {
+  const fallbackLaunch: LaunchConfig = {
+    profiles: {},
+    credentials: 'local',
+    storage: 'local',
+    buildEngine: 'xcode',
+    submit: 'app-store-connect',
+  };
+
+  const isOmitted = experimentsSection == null;
+
+  if (isOmitted) {
+    return contextFor(api, fallbackLaunch);
+  }
+
+  const declaredLaunch: LaunchConfig = {
+    ...fallbackLaunch,
+    experiments: { 'com.acme.alpha': experimentsSection },
+  };
+
+  return contextFor(api, declaredLaunch);
+}
+
+const DECLARED: VersionExperimentsConfig = {
+  experiments: [{ name: 'exp1', trafficProportion: 50 }],
+};
 
 function describeExperimentsPlanner() {
   async function omitsItselfWhenNoExperimentsSidecarIsPresent() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(
-      experimentsPlanner,
-      makeCtx(ascApiFake, '/no/such/experiments.config.json'),
-    );
+    const plan = await runPlanner(experimentsPlanner, makeCtx(ascApiFake, null));
 
     expect(plan.state).toBe('omitted');
   }
@@ -80,7 +72,7 @@ function describeExperimentsPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(experimentsPlanner, makeCtx(null, writeConfig(DECLARED)));
+    const plan = await runPlanner(experimentsPlanner, makeCtx(null, DECLARED));
 
     expect(plan.state).toBe('skipped');
 
@@ -96,7 +88,7 @@ function describeExperimentsPlanner() {
 
   async function reportsAnAdditivePlanWhenTheExperimentDoesnTExistYet() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(experimentsPlanner, makeCtx(ascApiFake, writeConfig(DECLARED)));
+    const plan = await runPlanner(experimentsPlanner, makeCtx(ascApiFake, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -129,7 +121,7 @@ function describeExperimentsPlanner() {
         .fn()
         .mockResolvedValue([{ id: 'ex1', name: 'exp1', state: 'DRAFT', trafficProportion: 50 }]),
     });
-    const plan = await runPlanner(experimentsPlanner, makeCtx(api, writeConfig(DECLARED)));
+    const plan = await runPlanner(experimentsPlanner, makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -147,7 +139,7 @@ function describeExperimentsPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(experimentsPlanner, makeCtx(api, writeConfig(DECLARED)));
+    const plan = await runPlanner(experimentsPlanner, makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -165,7 +157,7 @@ function describeExperimentsPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(experimentsPlanner, makeCtx(api, writeConfig(DECLARED)));
+    await runPlanner(experimentsPlanner, makeCtx(api, DECLARED));
     expect(api.createVersionExperiment).toHaveBeenCalledTimes(0);
     expect(api.createExperimentTreatment).toHaveBeenCalledTimes(0);
   }

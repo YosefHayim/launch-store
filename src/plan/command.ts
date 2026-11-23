@@ -279,7 +279,7 @@ function renderPlanOutcome(logger: Logger, planOutcome: PlanOutcome): void {
 
   if (isEmpty) {
     logger.note(
-      'Nothing declared to plan - add products, capabilities, or a store.config.json listing, then re-run.',
+      'Nothing declared to plan - add products, capabilities, or a listing in launch.config.ts, then re-run.',
     );
     return;
   }
@@ -405,6 +405,7 @@ export async function planCommandProgram(rawCommandInput: unknown): Promise<void
     const planContext: PlanContext = {
       config: loadedConfiguration.config,
       apps: selectedApps,
+      configDirectory: loadedConfiguration.directory,
       resolveAscApi: async function resolveAscApi() {
         return ascClient;
       },

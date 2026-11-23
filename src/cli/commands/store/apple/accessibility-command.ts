@@ -1,7 +1,5 @@
 // Syncs accessibility nutrition labels for one app to App Store Connect.
 
-import { selectApp } from '@/build/pipeline-environment.js';
-import { loadConfig } from '@/config/config.js';
 import { loadActiveAscKey } from '@/credentials/accounts.js';
 import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';
 import { createLogger } from '@/services/platform/logger.js';
@@ -9,17 +7,13 @@ import { LaunchPrompt } from '@/services/platform/prompt.js';
 import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
 import { completeCommand } from '@/terminal/command-exit.js';
 import type { PlannedAction } from '@/types/reconcile.js';
-import {
-  loadAccessibilityConfig,
-  reconcileAccessibility,
-  summarizeAccessibility,
-} from '@/store/apple/accessibility.js';
+import { reconcileAccessibility, summarizeAccessibility } from '@/store/apple/accessibility.js';
+import { loadStoreAppContext } from '@/store/shared/select-store-app.js';
 import { hasMessage } from '@/services/platform/error-message.js';
 
 /** Inputs accepted by the accessibility command. */
 type AccessibilityCommandInput = Readonly<{
   app?: string;
-  configPath: string;
   dryRun: boolean;
   yes: boolean;
 }>;
@@ -124,39 +118,33 @@ export async function accessibilityCommandProgram(
   const logger = createLogger(false);
 
   try {
-    var loadedConfiguration = await loadConfig();
+    var storeAppContext = await loadStoreAppContext(commandInput.app);
   } catch (cause) {
-    throw accessibilityFailure('load Launch configuration', cause);
+    throw accessibilityFailure('select app', cause);
   }
 
-  try {
-    var selectedApp = await selectApp(loadedConfiguration.apps, commandInput.app);
-  } catch (cause) {
-    let fallbackMessage: string | undefined;
-
-    if (hasMessage(cause)) {
-      fallbackMessage = cause.message;
-    }
-
-    throw accessibilityFailure('select app', cause, fallbackMessage);
-  }
-
-  const bundleId = selectedApp.bundleId;
+  const bundleId = storeAppContext.app.bundleId;
 
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
     throw accessibilityFailure(
       'resolve iOS bundle identifier',
-      selectedApp,
-      `No iOS bundle identifier for ${selectedApp.name} (set ios.bundleIdentifier in app.json).`,
+      storeAppContext.app,
+      `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
     );
   }
 
-  try {
-    var accessibilityConfig = await loadAccessibilityConfig(commandInput.configPath);
-  } catch (cause) {
-    throw accessibilityFailure('load accessibility configuration', cause);
+  const accessibilitySection = storeAppContext.config.accessibility?.[bundleId];
+
+  const isAccessibilityMissing = accessibilitySection == null;
+
+  if (isAccessibilityMissing) {
+    throw accessibilityFailure(
+      'resolve accessibility config',
+      bundleId,
+      `No accessibility config for ${bundleId}. Add an accessibility entry to launch.config.ts.`,
+    );
   }
 
   try {
@@ -186,7 +174,7 @@ export async function accessibilityCommandProgram(
   try {
     var accessibilityPlan = await reconcileAccessibility(ascClient, {
       bundleId,
-      config: accessibilityConfig,
+      config: accessibilitySection,
       dryRun: true,
     });
   } catch (cause) {
@@ -251,7 +239,7 @@ export async function accessibilityCommandProgram(
   try {
     var appliedAccessibility = await reconcileAccessibility(ascClient, {
       bundleId,
-      config: accessibilityConfig,
+      config: accessibilitySection,
       dryRun: false,
     });
   } catch (cause) {

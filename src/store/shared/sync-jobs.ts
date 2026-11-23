@@ -1,8 +1,6 @@
 // Selects apps and gathers the App Store Connect work each one should sync.
 
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { pathExists } from '@/path-exists.js';
+import { launchConfigForApp } from '@/config/config.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { AppProducts } from '@/types/catalog.js';
 import type { LaunchConfig } from '@/types/config.js';
@@ -16,7 +14,7 @@ import {
   type LocalPreview,
   type LocalScreenshot,
 } from '@/listing/screenshots/assets.js';
-import { parseStoreConfig, type AppleStoreConfig, type AppleLocaleInfo } from './store-config.ts';
+import type { AppleStoreConfig, AppleLocaleInfo } from './store-config.ts';
 
 /** One app's reconcile work: the resolved capabilities + products plus any entitlements we couldn't map. */
 export type SyncJob = {
@@ -34,24 +32,34 @@ export type SyncJob = {
   unmapped: string[];
 };
 
-/** Read an app's `store.config.json` `apple` listing, or undefined when absent. */
-async function loadListing(appDirectory: string): Promise<AppleStoreConfig | undefined> {
-  try {
-    const configPath = join(appDirectory, 'store.config.json');
-    const configExists = await pathExists(configPath);
+function loadListing(launchFile: LaunchConfig, app: AppDescriptor): AppleStoreConfig | undefined {
+  const listings = launchFile.listing;
 
-    if (configExists == false) {
-      return undefined;
-    }
-
-    const configText = await readFile(configPath, 'utf8');
-    const rawDocument: unknown = JSON.parse(configText);
-    const storeConfig = parseStoreConfig(rawDocument);
-
-    return storeConfig.apple;
-  } catch {
+  if (listings == null) {
     return undefined;
   }
+
+  let listingKey: string | null = null;
+
+  if (app.bundleId != null) {
+    listingKey = app.bundleId;
+  }
+
+  if (listingKey == null) {
+    listingKey = app.packageName ?? null;
+  }
+
+  if (listingKey == null) {
+    return undefined;
+  }
+
+  const storeListing = listings[listingKey];
+
+  if (storeListing == null) {
+    return undefined;
+  }
+
+  return storeListing.apple;
 }
 
 function localeHasFields(localeListing: AppleLocaleInfo): boolean {
@@ -224,7 +232,8 @@ export async function buildJobs(
       productCount += products.subscriptionGroups.length;
     }
 
-    const listing = await loadListing(app.dir);
+    const appLaunch = await launchConfigForApp(config, app.dir);
+    const listing = loadListing(appLaunch, app);
     const screenshots = [...(await discoverScreenshots(app.dir))];
     const previews = [...(await discoverPreviews(app.dir))];
     const subscriptionReviewScreenshots = collectSubscriptionReviewScreenshots(products);

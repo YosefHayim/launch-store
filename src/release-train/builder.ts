@@ -354,7 +354,7 @@ export function createTrainRuntime(
     const releaseTypeSettings = resolveReleaseType(launchConfiguration.release, {
       manual: holdReleases,
     });
-    const whatsNew = resolveWhatsNew(launchConfiguration.release, appDescriptor.dir);
+    const whatsNew = resolveWhatsNew(launchConfiguration, appDescriptor);
     const releaseNotes = await runTrainStep('read iOS release notes', whatsNew);
     let releaseInput: ReleaseInput = {
       bundleId,
@@ -442,7 +442,7 @@ export function createTrainRuntime(
     let androidRelease: AndroidReleaseOptions = { track: 'production', rollout };
     const androidSubmitReleaseNotes = resolveAndroidSubmitReleaseNotes(
       launchConfiguration,
-      appDescriptor.dir,
+      appDescriptor,
       undefined,
     );
     const releaseNotes = await runTrainStep(

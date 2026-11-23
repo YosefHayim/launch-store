@@ -92,17 +92,12 @@ function describeRegisterTestflightCommand() {
       return option.long;
     }
 
-    expect(releaseCommand?.options.map(readLong3)).toEqual(
-      expect.arrayContaining([
-        '--app',
-        '--build',
-        '--whats-new',
-        '--locale',
-        '--config',
-        '--dry-run',
-        '--yes',
-      ]),
+    const releaseFlags = releaseCommand?.options.map(readLong3);
+
+    expect(releaseFlags).toEqual(
+      expect.arrayContaining(['--app', '--build', '--whats-new', '--locale', '--dry-run', '--yes']),
     );
+    expect(releaseFlags).not.toContain('--config');
   }
 
   it('wires mutation flags for add, remove, and release', wiresMutationFlagsForAddRemoveAndRelease);

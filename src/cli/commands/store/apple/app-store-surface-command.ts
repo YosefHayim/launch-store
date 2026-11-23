@@ -1,10 +1,8 @@
 // Shows a planned App Store Connect change and asks before writing it.
 
-import { readFile } from 'node:fs/promises';
 import { LaunchPrompt } from '@/services/platform/prompt.js';
 import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
 import { hasMessage } from '@/services/platform/error-message.js';
-import { pathExists } from '@/path-exists.js';
 import type { PlannedAction } from '@/types/reconcile.js';
 
 /** Reading a sidecar or confirming an App Store surface write failed. */
@@ -84,89 +82,6 @@ export function renderAppliedStoreSurfaceAction(appliedAction: PlannedAction): s
   if (appliedAction.status == 'skipped') return `- ${appliedAction.description}`;
 
   return `OK ${appliedAction.description}`;
-}
-
-function shouldUseTypedSection<StoreSurfaceSection>(
-  explicitPath: boolean,
-  typedSection: StoreSurfaceSection | undefined,
-): boolean {
-  const isExplicitPath = explicitPath == true;
-
-  if (isExplicitPath) {
-    return false;
-  }
-
-  return typedSection != null;
-}
-
-function shouldSkipMissingSidecar(sidecarExists: boolean, explicitPath: boolean): boolean {
-  const isSidecarMissing = sidecarExists == false;
-
-  if (isSidecarMissing == false) {
-    return false;
-  }
-
-  return explicitPath == false;
-}
-
-/** Resolve a typed config section or its backward-compatible JSON sidecar. */
-export async function resolveStoreSurfaceSection<StoreSurfaceSection>(
-  typedSection: StoreSurfaceSection | undefined,
-  configPath: string,
-  explicitPath: boolean,
-  parseDocument: (parsedDocument: unknown) => StoreSurfaceSection | Promise<StoreSurfaceSection>,
-): Promise<StoreSurfaceSection | undefined> {
-  const useTypedSection = shouldUseTypedSection(explicitPath, typedSection);
-
-  if (useTypedSection) {
-    return typedSection;
-  }
-
-  let sidecarExists = false;
-
-  try {
-    sidecarExists = await pathExists(configPath);
-  } catch (cause) {
-    throw surfaceFailure('inspect store surface config', cause);
-  }
-
-  const skipMissingSidecar = shouldSkipMissingSidecar(sidecarExists, explicitPath);
-
-  if (skipMissingSidecar) {
-    return undefined;
-  }
-
-  const isSidecarMissing = sidecarExists == false;
-
-  if (isSidecarMissing) {
-    throw surfaceFailure(
-      'read store surface config',
-      configPath,
-      `No store surface config at ${configPath}.`,
-    );
-  }
-
-  let sidecarText = '';
-
-  try {
-    sidecarText = await readFile(configPath, 'utf8');
-  } catch (cause) {
-    throw surfaceFailure('read store surface config', cause);
-  }
-
-  let parsedDocument: unknown;
-
-  try {
-    parsedDocument = JSON.parse(sidecarText);
-  } catch (cause) {
-    throw surfaceFailure('parse store surface JSON', cause);
-  }
-
-  try {
-    return await parseDocument(parsedDocument);
-  } catch (cause) {
-    throw surfaceFailure('decode store surface config', cause);
-  }
 }
 
 /** Confirm a store-surface write unless the caller supplied --yes. */

@@ -16,9 +16,7 @@ export function registerAiListingCommand(program: Command): void {
 
   aiCommand
     .command('listing')
-    .description(
-      'draft App Store / Play listing copy with AI into store.config.json (review with `launch-store plan`)',
-    )
+    .description('draft App Store / Play listing copy to paste under listing in launch.config.ts')
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option(
       '--locale <list>',
@@ -27,8 +25,7 @@ export function registerAiListingCommand(program: Command): void {
     .option('--about <text>', 'a short description of the app to seed the copy')
     .option('--platform <p>', 'ios (default), android, or all', 'ios')
     .option('--model <id>', 'Anthropic model id (default: claude-sonnet-4-6 or $LAUNCH_AI_MODEL)')
-    .option('--config <path>', 'path to store.config.json (default: <app>/store.config.json)')
-    .option('--dry-run', 'generate and preview, but write nothing', false)
+    .option('--dry-run', 'generate and preview, but print no listing to paste', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runListing);
 }

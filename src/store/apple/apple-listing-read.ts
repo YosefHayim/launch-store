@@ -141,7 +141,7 @@ export function readLocaleInfo(fields: Readonly<{ [key: string]: JsonValue }>): 
   return localeInfo;
 }
 
-/** Read an app's live App Store listing as the `apple` section of store.config.json. */
+/** Read an app's live App Store listing as the `apple` section of `listing` in launch.config.ts. */
 export async function readAppleListing(
   api: AppleListingReadApi,
   appId: string,

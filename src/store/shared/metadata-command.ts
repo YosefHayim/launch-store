@@ -1,13 +1,10 @@
 // Pulls and pushes listing text for App Store Connect and Google Play.
 
-import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { loadActiveAscKey } from '@/credentials/accounts.js';
 import {
   describeMissingPlayServiceAccount,
   loadServiceAccount,
 } from '@/credentials/android-keystore-assets.js';
-import { pathExists } from '@/path-exists.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';
 import type { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
@@ -16,27 +13,24 @@ import { AppleStoreClientService } from '@/services/stores/apple-store-client.js
 import { GoogleStoreClientService } from '@/services/stores/google-store-client.js';
 import { isApplePlatform, parsePlatform, platformLabel } from '@/services/stores/platform.js';
 import type { AppDescriptor, Platform } from '@/types/app.js';
+import type { LaunchConfig } from '@/types/config.js';
 import type { AscKey } from '@/types/credentials.js';
 import type { PlayListing } from '@/types/google-play.js';
 import { readAppleListing } from '../apple/apple-listing-read.ts';
 import { reconcileAppListing } from '../apple/app-store-sync.ts';
 import { loadStoreAppContext } from './select-store-app.ts';
-import {
-  loadStoreConfig,
-  serializeStoreConfig,
-  type AndroidLocaleInfo,
-  type AndroidStoreConfig,
-  type AppleStoreConfig,
-  type StoreConfig,
+import type {
+  AndroidLocaleInfo,
+  AndroidStoreConfig,
+  AppleStoreConfig,
+  StoreConfig,
 } from './store-config.ts';
-import type { StoreSurfaceConfigFailure } from './surface-config.ts';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 
 export type MetadataCommandInput = {
   operation: 'pull' | 'push';
   platform?: string;
   app?: string;
-  config?: string;
   dryRun: boolean;
 };
 
@@ -50,7 +44,7 @@ export type MetadataCommandFailure = Readonly<{
 
 type MetadataTarget = Readonly<{
   readonly app: AppDescriptor;
-  readonly configPath: string;
+  readonly listing: StoreConfig | null;
 }>;
 
 type ListingAction = Readonly<{
@@ -121,60 +115,12 @@ function isMetadataCommandFailure(cause: unknown): cause is MetadataCommandFailu
   return true;
 }
 
-function isStoreSurfaceConfigFailure(cause: unknown): cause is StoreSurfaceConfigFailure {
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if (cause == null) {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  if (cause._tag != 'StoreSurfaceConfigFailure') {
-    return false;
-  }
-
-  if ('operation' in cause == false) {
-    return false;
-  }
-
-  if (typeof cause.operation != 'string') {
-    return false;
-  }
-
-  if ('message' in cause == false) {
-    return false;
-  }
-
-  if (typeof cause.message != 'string') {
-    return false;
-  }
-
-  if ('cause' in cause == false) {
-    return false;
-  }
-
-  return true;
-}
-
 function normalizeMetadataFailure(operation: string, cause: unknown): MetadataCommandFailure {
   if (isMetadataCommandFailure(cause)) {
     return cause;
   }
 
   return metadataFailure(operation, cause);
-}
-
-function metadataFailureFromStoreConfig(cause: unknown): MetadataCommandFailure {
-  if (isStoreSurfaceConfigFailure(cause) == false) {
-    return metadataFailure('read store metadata config', cause);
-  }
-
-  return metadataFailure(cause.operation, cause.cause, cause.message);
 }
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
@@ -231,7 +177,6 @@ function decodeMetadataCommandInput(rawCommandInput: unknown): MetadataCommandIn
   };
   const platform = readExactOptionalString(rawCommandInputObject, 'platform');
   const appName = readExactOptionalString(rawCommandInputObject, 'app');
-  const configPath = readExactOptionalString(rawCommandInputObject, 'config');
 
   if (platform != null) {
     commandInput.platform = platform;
@@ -239,10 +184,6 @@ function decodeMetadataCommandInput(rawCommandInput: unknown): MetadataCommandIn
 
   if (appName != null) {
     commandInput.app = appName;
-  }
-
-  if (configPath != null) {
-    commandInput.config = configPath;
   }
 
   return commandInput;
@@ -267,10 +208,38 @@ export function assertListingPlatform(platform: Platform): void {
   );
 }
 
-async function selectMetadataTarget(
-  appSelector: string | undefined,
-  configuredPath: string | undefined,
-): Promise<MetadataTarget> {
+function listingForKey(
+  listings: LaunchConfig['listing'],
+  listingKey: string | undefined,
+): StoreConfig | null {
+  if (listings == null) {
+    return null;
+  }
+
+  if (listingKey == null) {
+    return null;
+  }
+
+  const storeListing = listings[listingKey];
+
+  if (storeListing == null) {
+    return null;
+  }
+
+  return storeListing;
+}
+
+function declaredListing(launchFile: LaunchConfig, app: AppDescriptor): StoreConfig | null {
+  const bundleListing = listingForKey(launchFile.listing, app.bundleId);
+
+  if (bundleListing != null) {
+    return bundleListing;
+  }
+
+  return listingForKey(launchFile.listing, app.packageName);
+}
+
+async function selectMetadataTarget(appSelector: string | undefined): Promise<MetadataTarget> {
   let storeAppContext: Awaited<ReturnType<typeof loadStoreAppContext>>;
 
   try {
@@ -279,73 +248,9 @@ async function selectMetadataTarget(
     throw metadataFailure('select metadata app', cause);
   }
 
-  let configPath = join(storeAppContext.app.dir, 'store.config.json');
+  const listing = declaredListing(storeAppContext.config, storeAppContext.app);
 
-  if (configuredPath != null) {
-    configPath = configuredPath;
-  }
-
-  return { app: storeAppContext.app, configPath };
-}
-
-async function readExistingStoreConfig(configPath: string): Promise<StoreConfig> {
-  let configExists = false;
-
-  try {
-    configExists = await pathExists(configPath);
-  } catch (cause) {
-    throw metadataFailure('inspect store metadata config', cause);
-  }
-
-  if (configExists == false) {
-    return {};
-  }
-
-  try {
-    return await loadStoreConfig(configPath);
-  } catch (cause) {
-    throw metadataFailureFromStoreConfig(cause);
-  }
-}
-
-async function readRequiredStoreConfig(configPath: string): Promise<StoreConfig> {
-  try {
-    return await loadStoreConfig(configPath);
-  } catch (cause) {
-    throw metadataFailureFromStoreConfig(cause);
-  }
-}
-
-function mergeStoreConfig(
-  currentStoreConfig: StoreConfig,
-  storeConfigPatch: StoreConfig,
-): StoreConfig {
-  const mergedStoreConfig: StoreConfig = { ...currentStoreConfig, ...storeConfigPatch };
-
-  if (storeConfigPatch.apple != null) {
-    mergedStoreConfig.apple = { ...currentStoreConfig.apple, ...storeConfigPatch.apple };
-  }
-
-  if (storeConfigPatch.android != null) {
-    mergedStoreConfig.android = { ...currentStoreConfig.android, ...storeConfigPatch.android };
-  }
-
-  return mergedStoreConfig;
-}
-
-async function writeMergedStoreConfig(
-  configPath: string,
-  storeConfigPatch: StoreConfig,
-): Promise<void> {
-  const currentStoreConfig = await readExistingStoreConfig(configPath);
-  const mergedStoreConfig = mergeStoreConfig(currentStoreConfig, storeConfigPatch);
-
-  try {
-    const serializeStore = serializeStoreConfig(mergedStoreConfig);
-    await writeFile(configPath, serializeStore);
-  } catch (cause) {
-    throw metadataFailure('write store metadata config', cause);
-  }
+  return { app: storeAppContext.app, listing };
 }
 
 async function requireActiveAscKey(): Promise<AscKey> {
@@ -428,12 +333,8 @@ async function requireAppId(ascClient: AppStoreConnectClient, bundleId: string):
   return appId;
 }
 
-/** Pull the live App Store listing into store.config.json. */
-export async function pullAppleListing(
-  bundleId: string,
-  configPath: string,
-  dryRun: boolean,
-): Promise<void> {
+/** Print the live App Store listing so it can be pasted under `listing` in launch.config.ts. */
+export async function pullAppleListing(bundleId: string, dryRun: boolean): Promise<void> {
   try {
     const logger = createLogger(false);
     const ascClient = await createAppleClient();
@@ -447,18 +348,23 @@ export async function pullAppleListing(
     }
 
     const localeCount = Object.keys(appleListing.info).length;
+    const printedListing = JSON.stringify({ apple: appleListing }, null, 2);
+
+    logger.line(printedListing);
 
     if (dryRun) {
       logger.step(
         'metadata',
-        `would write ${localeCount} App Store locale(s) for ${bundleId} -> ${configPath}`,
+        `would add ${localeCount} App Store locale(s) for ${bundleId} under listing in launch.config.ts`,
       );
 
       return;
     }
 
-    await writeMergedStoreConfig(configPath, { apple: appleListing });
-    logger.step('metadata', `wrote App Store listing -> ${configPath}`);
+    logger.step(
+      'metadata',
+      `read ${localeCount} App Store locale(s) for ${bundleId}. Add them under listing.${bundleId} in launch.config.ts.`,
+    );
   } catch (cause) {
     throw normalizeMetadataFailure('pull App Store metadata', cause);
   }
@@ -483,7 +389,6 @@ function androidStoreConfigFromListings(listings: readonly PlayListing[]): Andro
 async function pullAndroidListing(
   packageName: string,
   appName: string,
-  configPath: string,
   dryRun: boolean,
 ): Promise<void> {
   try {
@@ -500,17 +405,23 @@ async function pullAndroidListing(
     const androidListing = androidStoreConfigFromListings(listings);
     const localeCount = Object.keys(androidListing.info).length;
 
+    const printedListing = JSON.stringify({ android: androidListing }, null, 2);
+
+    logger.line(printedListing);
+
     if (dryRun) {
       logger.step(
         'metadata',
-        `would write ${localeCount} Play locale(s) for ${packageName} -> ${configPath}`,
+        `would add ${localeCount} Play locale(s) for ${packageName} under listing in launch.config.ts`,
       );
 
       return;
     }
 
-    await writeMergedStoreConfig(configPath, { android: androidListing });
-    logger.step('metadata', `wrote Play listing -> ${configPath}`);
+    logger.step(
+      'metadata',
+      `read ${localeCount} Play locale(s) for ${packageName}. Add them under listing.${packageName} in launch.config.ts.`,
+    );
   } catch (cause) {
     throw normalizeMetadataFailure('pull Play metadata', cause);
   }
@@ -526,18 +437,18 @@ function describeFailedListingAction(action: ListingAction): string {
 
 async function pushAppleListing(
   bundleId: string,
-  configPath: string,
+  storeListing: StoreConfig | null,
   dryRun: boolean,
 ): Promise<void> {
   try {
     const logger = createLogger(false);
-    const storeConfig = await readRequiredStoreConfig(configPath);
+    const appleListing = storeListing?.apple;
 
-    if (storeConfig.apple == null) {
+    if (appleListing == null) {
       throw metadataFailure(
         'read App Store metadata',
-        configPath,
-        `${configPath} has no "apple" section to push.`,
+        bundleId,
+        `No App Store listing for ${bundleId}. Add a listing entry to launch.config.ts.`,
       );
     }
 
@@ -547,7 +458,7 @@ async function pushAppleListing(
     try {
       reconciliation = await reconcileAppListing(ascClient, {
         bundleId,
-        listing: storeConfig.apple,
+        listing: appleListing,
         dryRun,
       });
     } catch (cause) {
@@ -599,22 +510,22 @@ function isNotLanguage(fieldName: string): boolean {
 async function pushAndroidListing(
   packageName: string,
   appName: string,
-  configPath: string,
+  storeListing: StoreConfig | null,
   dryRun: boolean,
 ): Promise<void> {
   try {
     const logger = createLogger(false);
-    const storeConfig = await readRequiredStoreConfig(configPath);
+    const androidListing = storeListing?.android;
 
-    if (storeConfig.android == null) {
+    if (androidListing == null) {
       throw metadataFailure(
         'read Play metadata',
-        configPath,
-        `${configPath} has no "android" section to push.`,
+        packageName,
+        `No Play listing for ${packageName}. Add a listing entry to launch.config.ts.`,
       );
     }
 
-    const listings = listingsFromAndroidStoreConfig(storeConfig.android);
+    const listings = listingsFromAndroidStoreConfig(androidListing);
 
     if (dryRun) {
       for (const listing of listings) {
@@ -632,7 +543,7 @@ async function pushAndroidListing(
     }
 
     if (listings.length == 0) {
-      logger.note(`${configPath} has no Play locales to push.`);
+      logger.note(`${packageName} has no Play locales to push.`);
       return;
     }
 
@@ -665,11 +576,11 @@ async function runAppleMetadataCommand(
   }
 
   if (commandInput.operation == 'pull') {
-    await pullAppleListing(bundleId, metadataTarget.configPath, commandInput.dryRun);
+    await pullAppleListing(bundleId, commandInput.dryRun);
     return;
   }
 
-  await pushAppleListing(bundleId, metadataTarget.configPath, commandInput.dryRun);
+  await pushAppleListing(bundleId, metadataTarget.listing, commandInput.dryRun);
 }
 
 async function runAndroidMetadataCommand(
@@ -687,12 +598,7 @@ async function runAndroidMetadataCommand(
   }
 
   if (commandInput.operation == 'pull') {
-    await pullAndroidListing(
-      packageName,
-      metadataTarget.app.name,
-      metadataTarget.configPath,
-      commandInput.dryRun,
-    );
+    await pullAndroidListing(packageName, metadataTarget.app.name, commandInput.dryRun);
 
     return;
   }
@@ -700,7 +606,7 @@ async function runAndroidMetadataCommand(
   await pushAndroidListing(
     packageName,
     metadataTarget.app.name,
-    metadataTarget.configPath,
+    metadataTarget.listing,
     commandInput.dryRun,
   );
 }
@@ -731,7 +637,7 @@ export async function metadataCommandProgram(rawCommandInput: unknown): Promise<
 
   assertListingPlatform(platform);
 
-  const metadataTarget = await selectMetadataTarget(commandInput.app, commandInput.config);
+  const metadataTarget = await selectMetadataTarget(commandInput.app);
 
   if (isApplePlatform(platform)) {
     await runAppleMetadataCommand(commandInput, metadataTarget);

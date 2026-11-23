@@ -6,11 +6,9 @@ import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
-  resolveStoreSurfaceSection,
 } from './app-store-surface-command.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import {
-  parseCustomProductPagesConfig,
   reconcileCustomProductPages,
   summarizeCustomPages,
   type CustomProductPagesConfig,
@@ -22,7 +20,6 @@ import { readPlainObject } from '@/services/platform/plain-object.js';
 
 export type CustomProductPagesCommandInput = {
   app?: string;
-  config: string;
   dryRun: boolean;
   yes: boolean;
 };
@@ -41,17 +38,6 @@ function makeCustomProductPagesCommandFailure(fields: {
   cause: unknown;
 }): CustomProductPagesCommandFailure {
   return { _tag: 'CustomProductPagesCommandFailure', ...fields };
-}
-
-function readText(record: Record<string, unknown>, fieldName: string): string {
-  const field = record[fieldName];
-  const isText = typeof field == 'string';
-
-  if (isText == false) {
-    throw new Error(`Expected ${fieldName} to be a string.`);
-  }
-
-  return field;
 }
 
 function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
@@ -75,13 +61,12 @@ export function CustomProductPagesCommandInputSchema(
     throw new Error('Custom product pages command input must be an object.');
   }
 
-  const config = readText(rawCommandInputObject, 'config');
   const dryRun = readFlag(rawCommandInputObject, 'dryRun');
   const yes = readFlag(rawCommandInputObject, 'yes');
   const hasApp = Object.hasOwn(rawCommandInputObject, 'app');
 
   if (hasApp == false) {
-    return { config, dryRun, yes };
+    return { dryRun, yes };
   }
 
   const app = rawCommandInputObject['app'];
@@ -91,7 +76,7 @@ export function CustomProductPagesCommandInputSchema(
     throw new Error('Expected app to be a string.');
   }
 
-  return { app, config, dryRun, yes };
+  return { app, dryRun, yes };
 }
 
 /** Convert a dependency failure into the custom pages command channel. */
@@ -127,7 +112,7 @@ function renderApplied(plannedAction: PlannedAction): string {
   return renderAppliedStoreSurfaceAction(plannedAction);
 }
 
-/** Resolve the selected bundle id and required custom-pages sidecar. */
+/** Resolve the selected bundle id and its custom pages declaration. */
 async function resolveCustomPagesTarget(
   commandInput: CustomProductPagesCommandInput,
 ): Promise<Readonly<{ bundleId: string; customPagesConfig: CustomProductPagesConfig }>> {
@@ -149,32 +134,19 @@ async function resolveCustomPagesTarget(
     });
   }
 
-  let customPagesConfig: CustomProductPagesConfig | undefined;
+  const customPagesSection = storeAppContext.config.customPages?.[bundleId];
 
-  try {
-    customPagesConfig = await resolveStoreSurfaceSection(
-      undefined,
-      commandInput.config,
-      true,
-      parseCustomProductPagesConfig,
-    );
-  } catch (cause) {
-    throw customPagesFailure('resolve custom pages config', cause);
-  }
+  const isCustomPagesMissing = customPagesSection == null;
 
-  const loadedCustomPagesConfig = customPagesConfig;
-
-  const isConfigMissing = loadedCustomPagesConfig == null;
-
-  if (isConfigMissing) {
+  if (isCustomPagesMissing) {
     throw makeCustomProductPagesCommandFailure({
       operation: 'resolve custom pages config',
-      message: `No custom-pages config at ${commandInput.config}. Create one (see \`launch-store custom-pages --help\`) or pass --config.`,
-      cause: commandInput.config,
+      message: `No custom pages config for ${bundleId}. Add a customPages entry to launch.config.ts.`,
+      cause: bundleId,
     });
   }
 
-  return { bundleId, customPagesConfig: loadedCustomPagesConfig };
+  return { bundleId, customPagesConfig: customPagesSection };
 }
 
 /** Plan, confirm, and apply custom product page changes. */

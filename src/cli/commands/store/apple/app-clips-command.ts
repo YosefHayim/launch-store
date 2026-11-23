@@ -8,10 +8,9 @@ import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
-  resolveStoreSurfaceSection,
 } from './app-store-surface-command.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import { parseAppClipsConfig, reconcileAppClips } from '@/store/apple/app-clips.js';
+import { reconcileAppClips } from '@/store/apple/app-clips.js';
 import { summarize } from '@/store/shared/reconcile.js';
 import { loadStoreAppContext } from '@/store/shared/select-store-app.js';
 import { hasMessage } from '@/services/platform/error-message.js';
@@ -19,8 +18,6 @@ import { readPlainObject } from '@/services/platform/plain-object.js';
 
 export type AppClipsCommandInput = {
   app?: string;
-  config: string;
-  explicitConfig: boolean;
   dryRun: boolean;
   yes: boolean;
 };
@@ -39,17 +36,6 @@ function makeAppClipsCommandFailure(fields: {
   cause: unknown;
 }): AppClipsCommandFailure {
   return { _tag: 'AppClipsCommandFailure', ...fields };
-}
-
-function readText(record: Record<string, unknown>, fieldName: string): string {
-  const field = record[fieldName];
-  const isText = typeof field == 'string';
-
-  if (isText == false) {
-    throw new Error(`Expected ${fieldName} to be a string.`);
-  }
-
-  return field;
 }
 
 function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
@@ -71,14 +57,12 @@ export function AppClipsCommandInputSchema(rawCommandInput: unknown): AppClipsCo
     throw new Error('App Clips command input must be an object.');
   }
 
-  const config = readText(rawCommandInputObject, 'config');
-  const explicitConfig = readFlag(rawCommandInputObject, 'explicitConfig');
   const dryRun = readFlag(rawCommandInputObject, 'dryRun');
   const yes = readFlag(rawCommandInputObject, 'yes');
   const hasApp = Object.hasOwn(rawCommandInputObject, 'app');
 
   if (hasApp == false) {
-    return { config, explicitConfig, dryRun, yes };
+    return { dryRun, yes };
   }
 
   const app = rawCommandInputObject['app'];
@@ -88,7 +72,7 @@ export function AppClipsCommandInputSchema(rawCommandInput: unknown): AppClipsCo
     throw new Error('Expected app to be a string.');
   }
 
-  return { app, config, explicitConfig, dryRun, yes };
+  return { app, dryRun, yes };
 }
 
 /** Convert a dependency failure into the App Clips command channel. */
@@ -142,41 +126,19 @@ async function resolveAppClipsTarget(
     });
   }
 
-  let typedAppClipsConfig: AppClipsConfig | undefined;
-  const typedClips = storeAppContext.config.appClips;
+  const appClipsSection = storeAppContext.config.appClips?.[bundleId];
 
-  const hasTypedClips = typedClips != null;
+  const isAppClipsMissing = appClipsSection == null;
 
-  if (hasTypedClips) {
-    typedAppClipsConfig = typedClips[bundleId];
-  }
-
-  let appClipsConfig: AppClipsConfig | undefined;
-
-  try {
-    appClipsConfig = await resolveStoreSurfaceSection(
-      typedAppClipsConfig,
-      commandInput.config,
-      commandInput.explicitConfig,
-      parseAppClipsConfig,
-    );
-  } catch (cause) {
-    throw appClipsFailure('resolve App Clips config', cause);
-  }
-
-  const loadedAppClipsConfig = appClipsConfig;
-
-  const isConfigMissing = loadedAppClipsConfig == null;
-
-  if (isConfigMissing) {
+  if (isAppClipsMissing) {
     throw makeAppClipsCommandFailure({
       operation: 'resolve App Clips config',
-      message: `No App Clips config for ${bundleId}. Add an \`appClips\` entry to launch.config.ts or create ${commandInput.config}.`,
-      cause: commandInput.config,
+      message: `No App Clips config for ${bundleId}. Add an appClips entry to launch.config.ts.`,
+      cause: bundleId,
     });
   }
 
-  return { bundleId, appClipsConfig: loadedAppClipsConfig };
+  return { bundleId, appClipsConfig: appClipsSection };
 }
 
 /** Plan, confirm, and apply App Clip card changes. */

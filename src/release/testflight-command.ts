@@ -244,7 +244,6 @@ function decodeRelease(commandRecord: Record<string, unknown>): ReleaseCommandIn
   const releaseCommand: ReleaseCommandInput = {
     operation: 'release',
     locale: readRequiredString(commandRecord, 'locale'),
-    config: readRequiredString(commandRecord, 'config'),
     review: readRequiredBoolean(commandRecord, 'review'),
     dryRun: readRequiredBoolean(commandRecord, 'dryRun'),
     yes: readRequiredBoolean(commandRecord, 'yes'),

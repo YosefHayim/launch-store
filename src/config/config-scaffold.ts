@@ -103,9 +103,8 @@ ${appRootsLine}
 
 ${profilesBlock}
 
-  // App Store Connect config sections
-  // The single-config form of the *.config.json sidecars - each reconciled to App Store Connect by
-  // its own command. Uncomment and fill in what your app uses (the standalone JSON files still work too).
+  // App Store Connect sections live in this file, keyed by iOS bundle id.
+  // Uncomment and fill in what your app uses.
 
   // Game Center achievements & leaderboards, keyed by iOS bundle id -> \`launch-store game-center\`
   // gameCenter: {

@@ -4,13 +4,11 @@ import { CustomProductPagesCommandInputSchema } from './custom-product-pages-com
 function describeCustomProductPagesCommandPieceSchema() {
   function decodesTheCommanderBoundaryWithAnOmittedAppSelector() {
     const customProductPagesCommandSchema = CustomProductPagesCommandInputSchema({
-      config: 'custom-pages.config.json',
       dryRun: true,
       yes: false,
     });
 
     expect(customProductPagesCommandSchema).toEqual({
-      config: 'custom-pages.config.json',
       dryRun: true,
       yes: false,
     });
@@ -25,7 +23,6 @@ function describeCustomProductPagesCommandPieceSchema() {
     function callCustomProductPagesCommandPieceSchema() {
       return CustomProductPagesCommandInputSchema({
         app: undefined,
-        config: 'custom-pages.config.json',
         dryRun: false,
         yes: false,
       });

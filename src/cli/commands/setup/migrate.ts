@@ -28,9 +28,7 @@ export function registerMigrateCommand(program: Command): void {
 
   migrateCommand
     .command('eas')
-    .description(
-      'read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report',
-    )
+    .description('read eas.json/app.json and emit launch.config.ts, .env.example, and a report')
     .option('--force', 'overwrite files that already exist', false)
     .option('--dry-run', 'print what would be written without writing anything', false)
     .option(
@@ -53,7 +51,7 @@ export function registerMigrateCommand(program: Command): void {
   migrateCommand
     .command('fastlane')
     .description(
-      'read fastlane config (Appfile/Fastfile/Matchfile...) and emit launch.config.ts, .env.example, store.config.json + a report',
+      'read fastlane config (Appfile/Fastfile/Matchfile...) and emit launch.config.ts, .env.example, and a report',
     )
     .option('--force', 'overwrite files that already exist', false)
     .option('--dry-run', 'print what would be written without writing anything', false)

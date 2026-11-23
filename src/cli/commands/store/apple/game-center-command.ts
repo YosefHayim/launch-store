@@ -7,10 +7,9 @@ import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
-  resolveStoreSurfaceSection,
 } from './app-store-surface-command.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import { parseGameCenterConfig, reconcileGameCenter } from '@/store/apple/game-center.js';
+import { reconcileGameCenter } from '@/store/apple/game-center.js';
 import { summarize } from '@/store/shared/reconcile.js';
 import { loadStoreAppContext } from '@/store/shared/select-store-app.js';
 import { hasMessage } from '@/services/platform/error-message.js';
@@ -18,8 +17,6 @@ import { readPlainObject } from '@/services/platform/plain-object.js';
 
 export type GameCenterCommandInput = Readonly<{
   app?: string;
-  config: string;
-  explicitConfig: boolean;
   dryRun: boolean;
   yes: boolean;
 }>;
@@ -32,22 +29,8 @@ export function GameCenterCommandInputSchema(rawCommandInput: unknown): GameCent
     throw new Error('Game Center command input must be an object.');
   }
 
-  const config = commandRecord['config'];
-  const explicitConfig = commandRecord['explicitConfig'];
   const dryRun = commandRecord['dryRun'];
   const yes = commandRecord['yes'];
-  const isConfigText = typeof config == 'string';
-
-  if (isConfigText == false) {
-    throw new Error('Expected config to be a string.');
-  }
-
-  const isExplicitFlag = typeof explicitConfig == 'boolean';
-
-  if (isExplicitFlag == false) {
-    throw new Error('Expected explicitConfig to be a boolean.');
-  }
-
   const isDryRunFlag = typeof dryRun == 'boolean';
 
   if (isDryRunFlag == false) {
@@ -63,7 +46,7 @@ export function GameCenterCommandInputSchema(rawCommandInput: unknown): GameCent
   const hasApp = Object.hasOwn(commandRecord, 'app');
 
   if (hasApp == false) {
-    return { config, explicitConfig, dryRun, yes };
+    return { dryRun, yes };
   }
 
   const app = commandRecord['app'];
@@ -73,7 +56,7 @@ export function GameCenterCommandInputSchema(rawCommandInput: unknown): GameCent
     throw new Error('Expected app to be a string.');
   }
 
-  return { app, config, explicitConfig, dryRun, yes };
+  return { app, dryRun, yes };
 }
 
 /** A Game Center command step failed. */
@@ -146,41 +129,19 @@ async function resolveGameCenterTarget(
     });
   }
 
-  const gameCenterByBundle = storeAppContext.config.gameCenter;
-  let typedGameCenterConfig: GameCenterConfig | undefined;
+  const gameCenterSection = storeAppContext.config.gameCenter?.[bundleId];
 
-  const hasGameCenterByBundle = gameCenterByBundle != null;
+  const isGameCenterMissing = gameCenterSection == null;
 
-  if (hasGameCenterByBundle) {
-    typedGameCenterConfig = gameCenterByBundle[bundleId];
-  }
-
-  let gameCenterConfig: GameCenterConfig | undefined;
-
-  try {
-    gameCenterConfig = await resolveStoreSurfaceSection(
-      typedGameCenterConfig,
-      commandInput.config,
-      commandInput.explicitConfig,
-      parseGameCenterConfig,
-    );
-  } catch (cause) {
-    throw gameCenterFailure('resolve Game Center config', cause);
-  }
-
-  const loadedGameCenterConfig = gameCenterConfig;
-
-  const isConfigMissing = loadedGameCenterConfig == null;
-
-  if (isConfigMissing) {
+  if (isGameCenterMissing) {
     throw makeGameCenterCommandFailure({
       operation: 'resolve Game Center config',
-      message: `No Game Center config for ${bundleId}. Add a \`gameCenter\` entry to launch.config.ts or create ${commandInput.config}.`,
-      cause: commandInput.config,
+      message: `No Game Center config for ${bundleId}. Add a gameCenter entry to launch.config.ts.`,
+      cause: bundleId,
     });
   }
 
-  return { bundleId, gameCenterConfig: loadedGameCenterConfig };
+  return { bundleId, gameCenterConfig: gameCenterSection };
 }
 
 function isPlannedAction(plannedAction: { status: string }): boolean {

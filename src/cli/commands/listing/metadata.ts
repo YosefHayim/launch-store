@@ -10,7 +10,6 @@ import { runCliProgram } from '@/cli/run-cli-program.js';
 type MetadataOptions = Readonly<{
   readonly platform?: string;
   readonly app?: string;
-  readonly config?: string;
   readonly dryRun: boolean;
 }>;
 
@@ -29,10 +28,6 @@ function metadataInputFromOptions(
     metadataInput = { ...metadataInput, app: commandOptions.app };
   }
 
-  if (commandOptions.config != null) {
-    metadataInput = { ...metadataInput, config: commandOptions.config };
-  }
-
   return metadataInput;
 }
 
@@ -40,18 +35,17 @@ function metadataInputFromOptions(
 function attachMetadataSelectionOptions(command: Command): Command {
   return command
     .option('--platform <p>', 'ios (default) or android')
-    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
-    .option('--config <path>', 'path to store.config.json (default: <app>/store.config.json)');
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)");
 }
 
 /** Attach the metadata pull and push commands. */
 export function registerMetadataCommand(program: Command): void {
   const metadataCommand = program
     .command('metadata')
-    .description('sync the store listing (name, description, keywords) via store.config.json');
+    .description('sync the store listing (name, description, keywords) from launch.config.ts');
   const pullCommand = metadataCommand
     .command('pull')
-    .description('download the live store listing into store.config.json');
+    .description('print the live store listing to add under listing in launch.config.ts');
 
   function runCommand(commandOptions: MetadataOptions) {
     const metadataFrom = metadataInputFromOptions('pull', commandOptions);
@@ -65,7 +59,7 @@ export function registerMetadataCommand(program: Command): void {
 
   const pushCommand = metadataCommand
     .command('push')
-    .description('upload store.config.json to the store listing (metadata only; no binary)');
+    .description('upload the listing field from launch.config.ts (metadata only; no binary)');
 
   function runCommand2(commandOptions: MetadataOptions) {
     const metadataFrom = metadataInputFromOptions('push', commandOptions);

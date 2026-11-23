@@ -18,26 +18,10 @@ function describeRegisterAvailabilityCommand() {
       return commandOption.long;
     }
 
-    expect(availabilityCommand?.options.map(readLong)).toEqual([
-      '--app',
-      '--config',
-      '--dry-run',
-      '--yes',
-    ]);
-
-    function isSettingsFileOption(commandOption: CommandOption) {
-      return commandOption.long == '--config';
-    }
-
-    const configOption = availabilityCommand?.options.find(isSettingsFileOption);
-
-    expect(configOption?.defaultValue).toBe('availability.config.json');
+    expect(availabilityCommand?.options.map(readLong)).toEqual(['--app', '--dry-run', '--yes']);
   }
 
-  it(
-    'preserves the public availability options and config default',
-    preservesThePublicAvailabilityPieceAndPieceDefault,
-  );
+  it('lists the app, dry-run, and yes options', preservesThePublicAvailabilityPieceAndPieceDefault);
 }
 
 describe('registerAvailabilityCommand', describeRegisterAvailabilityCommand);

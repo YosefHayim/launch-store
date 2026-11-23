@@ -12,7 +12,7 @@ import { readPlainObject } from '@/services/platform/plain-object.js';
 /** How many territory codes to show inline before truncating the plan line. */
 const PREVIEW_LIMIT = 8;
 
-type AvailabilityConfig = {
+export type AvailabilityConfig = {
   availableInNewTerritories?: boolean;
   territories: string[];
 };

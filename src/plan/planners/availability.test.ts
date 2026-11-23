@@ -1,10 +1,8 @@
 import { runPlanner } from './planner-testkit.ts';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { availabilityPlanner } from './availability.ts';
 import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
+import type { AvailabilityConfig } from '@/store/apple/availability.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
@@ -16,42 +14,10 @@ const alpha: AppDescriptor = {
   configPath: '/no/such/dir/alpha/app.json',
   bundleId: 'com.acme.alpha',
 };
-const tmpDirs: string[] = [];
 
-function cleanup() {
-  for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-}
-
-afterEach(cleanup);
-
-/** Write a sidecar config to a fresh temp file and return its path. */
-function writeConfig(json: unknown): string {
-  const systemTemporaryDirectory = tmpdir();
-  const launchAvailPath = join(systemTemporaryDirectory, 'launch-avail-');
-  const dir = mkdtempSync(launchAvailPath);
-
-  tmpDirs.push(dir);
-
-  const path = join(dir, 'availability.config.json');
-  const serialized = JSON.stringify(json);
-
-  writeFileSync(path, serialized);
-
-  return path;
-}
-
-function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
-  const config: LaunchConfig = {
-    profiles: {},
-    credentials: 'local',
-    storage: 'local',
-    buildEngine: 'xcode',
-    submit: 'app-store-connect',
-    configFiles: { availability: configPath },
-  };
-
+function contextFor(api: AscSurfacesApi | null, launchFile: LaunchConfig): PlanContext {
   return {
-    config,
+    config: launchFile,
     apps: [alpha],
     resolveAscApi() {
       return Promise.resolve(api);
@@ -62,13 +28,36 @@ function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
   };
 }
 
+function makeCtx(
+  api: AscSurfacesApi | null,
+  availabilitySection: AvailabilityConfig | null,
+): PlanContext {
+  const fallbackLaunch: LaunchConfig = {
+    profiles: {},
+    credentials: 'local',
+    storage: 'local',
+    buildEngine: 'xcode',
+    submit: 'app-store-connect',
+  };
+
+  const isOmitted = availabilitySection == null;
+
+  if (isOmitted) {
+    return contextFor(api, fallbackLaunch);
+  }
+
+  const declaredLaunch: LaunchConfig = {
+    ...fallbackLaunch,
+    availability: { 'com.acme.alpha': availabilitySection },
+  };
+
+  return contextFor(api, declaredLaunch);
+}
+
 function describeAvailabilityPlanner() {
   async function omitsItselfWhenNoAvailabilitySidecarIsPresent() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(
-      availabilityPlanner,
-      makeCtx(ascApiFake, '/no/such/availability.config.json'),
-    );
+    const plan = await runPlanner(availabilityPlanner, makeCtx(ascApiFake, null));
 
     expect(plan.state).toBe('omitted');
   }
@@ -79,10 +68,7 @@ function describeAvailabilityPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(
-      availabilityPlanner,
-      makeCtx(null, writeConfig({ territories: ['USA'] })),
-    );
+    const plan = await runPlanner(availabilityPlanner, makeCtx(null, { territories: ['USA'] }));
 
     expect(plan.state).toBe('skipped');
 
@@ -100,7 +86,7 @@ function describeAvailabilityPlanner() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(
       availabilityPlanner,
-      makeCtx(ascApiFake, writeConfig({ territories: ['USA'] })),
+      makeCtx(ascApiFake, { territories: ['USA'] }),
     );
 
     expect(plan.state).toBe('planned');
@@ -138,7 +124,7 @@ function describeAvailabilityPlanner() {
     });
     const plan = await runPlanner(
       availabilityPlanner,
-      makeCtx(api, writeConfig({ territories: ['USA'], availableInNewTerritories: false })),
+      makeCtx(api, { territories: ['USA'], availableInNewTerritories: false }),
     );
 
     expect(plan.state).toBe('planned');
@@ -157,10 +143,7 @@ function describeAvailabilityPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(
-      availabilityPlanner,
-      makeCtx(api, writeConfig({ territories: ['USA'] })),
-    );
+    const plan = await runPlanner(availabilityPlanner, makeCtx(api, { territories: ['USA'] }));
 
     expect(plan.state).toBe('planned');
 
@@ -178,7 +161,7 @@ function describeAvailabilityPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(availabilityPlanner, makeCtx(api, writeConfig({ territories: ['USA'] })));
+    await runPlanner(availabilityPlanner, makeCtx(api, { territories: ['USA'] }));
     expect(api.createAppAvailability).toHaveBeenCalledTimes(0);
     expect(api.updateAppAvailabilityTerritories).toHaveBeenCalledTimes(0);
   }

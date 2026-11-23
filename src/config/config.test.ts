@@ -4,8 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { defineConfig } from '../define-launch-file.ts';
 import {
+  findLaunchConfig,
+  launchConfigForApp,
   loadConfig,
-  resolveSidecarConfig,
   writeAppEntitlements,
   writeAppVersion,
 } from './config.ts';
@@ -171,108 +172,92 @@ function describeDefinePiece() {
 
 describe('defineConfig', describeDefinePiece);
 
-function describeResolveSidecarPieceTypedFieldVsJSONSidecarPrecedenceIssue101() {
-  /** A loader that reads + JSON-parses the sidecar, like the real `load*Config` helpers. */
-  async function readJson(path: string): Promise<{ source: string }> {
-    const loadedFile = readFileSync(path, 'utf8');
-    return JSON.parse(loadedFile) as { source: string };
+function describeFindLaunchConfigNearestFile() {
+  function writeLaunchFile(directory: string, sizeBudgetMB: number): void {
+    const launchPath = join(directory, 'launch.config.ts');
+    const launchSource =
+      `import { defineConfig } from "launch-store";\n` +
+      `export default defineConfig({ profiles: { production: { name: "production", sizeBudgetMB: ${sizeBudgetMB} } } });\n`;
+
+    writeFileSync(launchPath, launchSource);
   }
 
-  async function usesTheTypedFieldWhenPresentAndPieceWasLeftAtItsDefault() {
-    const resolveSidecar = resolveSidecarConfig({
-      typed: { source: 'typed' },
-      configPath: '/nonexistent.config.json',
-      explicitPath: false,
-      async load() {
-        return { source: 'sidecar' };
-      },
-    });
-    const resolvedSidecar = await runConfigEffect(resolveSidecar);
-
-    expect(resolvedSidecar).toEqual({ source: 'typed' });
-  }
-
-  it(
-    'uses the typed field when present and --config was left at its default',
-    usesTheTypedFieldWhenPresentAndPieceWasLeftAtItsDefault,
-  );
-
-  async function fallsBackToTheDefaultPathSidecarWhenThereIsNoTypedField() {
+  async function walksUpToTheParentFileWhenTheWorkingDirectoryHasNone() {
     const repo = makeRepo();
-    const path = join(repo, 'x.config.json');
-    const serialized = JSON.stringify({ source: 'sidecar' });
+    const appDirectory = join(repo, 'apps', 'mobile');
 
-    writeFileSync(path, serialized);
+    mkdirSync(appDirectory, { recursive: true });
+    writeLaunchFile(repo, 111);
 
-    const resolveSidecar = resolveSidecarConfig({
-      typed: undefined,
-      configPath: path,
-      explicitPath: false,
-      load: readJson,
-    });
-    const runEffect = await runConfigEffect(resolveSidecar);
+    const foundConfig = await findLaunchConfig(appDirectory);
 
-    expect(runEffect).toEqual({
-      source: 'sidecar',
-    });
+    expect(foundConfig?.config.profiles['production']?.sizeBudgetMB).toBe(111);
+    expect(foundConfig?.path).toBe(join(repo, 'launch.config.ts'));
   }
 
   it(
-    'falls back to the default-path sidecar when there is no typed field',
-    fallsBackToTheDefaultPathSidecarWhenThereIsNoTypedField,
+    'walks up to the parent file when the working directory has none',
+    walksUpToTheParentFileWhenTheWorkingDirectoryHasNone,
   );
 
-  async function returnsUndefinedWhenNeitherATypedFieldNorADefaultPathSidecarExists() {
+  async function anAppDirectoryFileWinsOverTheParent() {
     const repo = makeRepo();
-    const path = join(repo, 'missing.config.json');
-    const resolveSidecar = resolveSidecarConfig({
-      typed: undefined,
-      configPath: path,
-      explicitPath: false,
-      async load() {
-        throw new Error('should not be called');
-      },
-    });
-    const runEffect = await runConfigEffect(resolveSidecar);
+    const appDirectory = join(repo, 'apps', 'mobile');
 
-    expect(runEffect).toBeUndefined();
+    mkdirSync(appDirectory, { recursive: true });
+    writeLaunchFile(repo, 111);
+    writeLaunchFile(appDirectory, 222);
+
+    const foundConfig = await findLaunchConfig(appDirectory);
+
+    expect(foundConfig?.config.profiles['production']?.sizeBudgetMB).toBe(222);
+    expect(foundConfig?.path).toBe(join(appDirectory, 'launch.config.ts'));
   }
 
-  it(
-    'returns undefined when neither a typed field nor a default-path sidecar exists',
-    returnsUndefinedWhenNeitherATypedFieldNorADefaultPathSidecarExists,
-  );
+  it('an app directory file wins over the parent', anAppDirectoryFileWinsOverTheParent);
 
-  async function anExplicitlyPassedPieceWinsEvenWhenATypedFieldIsPresent() {
+  async function anAppDirectoryWithoutAFileKeepsTheFallback() {
     const repo = makeRepo();
-    const path = join(repo, 'explicit.config.json');
-    const serialized = JSON.stringify({ source: 'sidecar' });
-
-    writeFileSync(path, serialized);
-
-    const resolveSidecar = resolveSidecarConfig({
-      typed: { source: 'typed' },
-      configPath: path,
-      explicitPath: true,
-      load: readJson,
+    const appDirectory = join(repo, 'apps', 'mobile');
+    const fallbackConfig = defineConfig({
+      profiles: { production: { name: 'production', sizeBudgetMB: 111 } },
+      artifactRetentionDays: 9,
     });
-    const runEffect = await runConfigEffect(resolveSidecar);
 
-    expect(runEffect).toEqual({
-      source: 'sidecar',
-    });
+    mkdirSync(appDirectory, { recursive: true });
+
+    const appLaunch = await launchConfigForApp(fallbackConfig, appDirectory);
+
+    expect(Object.is(appLaunch, fallbackConfig)).toBe(true);
   }
 
   it(
-    'an explicitly-passed --config wins even when a typed field is present',
-    anExplicitlyPassedPieceWinsEvenWhenATypedFieldIsPresent,
+    'an app directory without a file keeps the fallback',
+    anAppDirectoryWithoutAFileKeepsTheFallback,
   );
+
+  async function anAppDirectoryFileReplacesTheFallback() {
+    const repo = makeRepo();
+    const appDirectory = join(repo, 'apps', 'mobile');
+    const fallbackConfig = defineConfig({
+      profiles: { production: { name: 'production', sizeBudgetMB: 111 } },
+      artifactRetentionDays: 9,
+    });
+
+    mkdirSync(appDirectory, { recursive: true });
+    writeLaunchFile(appDirectory, 222);
+
+    const appLaunch = await launchConfigForApp(fallbackConfig, appDirectory);
+
+    expect(appLaunch.profiles['production']?.sizeBudgetMB).toBe(222);
+    expect(appLaunch.artifactRetentionDays).toBeUndefined();
+  }
+
+  it('an app directory file replaces the fallback', anAppDirectoryFileReplacesTheFallback);
 }
 
-describe(
-  'resolveSidecarConfig - typed field vs JSON sidecar precedence (issue #101)',
-  describeResolveSidecarPieceTypedFieldVsJSONSidecarPrecedenceIssue101,
-);
+describe('findLaunchConfig - the nearest launch.config.ts wins', describeFindLaunchConfigNearestFile);
+
 describe('loadConfig - auto-discovers apps, app.json stays the source of truth', () => {
   async function fallsBackToDefaultsAndDiscoversASingleAppSFactsFromAppPiece() {
     const repo = makeRepo();

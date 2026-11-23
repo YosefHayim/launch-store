@@ -1,7 +1,7 @@
 // Finds and loads the Launch config, and can write an app version or entitlements back into it.
 
 import { access, readFile, readdir, stat, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { importTypeScriptModule } from './import-typescript-module.ts';
@@ -34,33 +34,11 @@ async function entryExists(candidatePath: string): Promise<boolean> {
   }
 }
 
-/** Resolve a section declared on `launch.config.ts` or in a `*.config.json` sidecar. */
-export async function resolveSidecarConfig<Section>(sidecarRequest: {
-  typed: NoInfer<Section> | undefined;
-  configPath: string;
-  explicitPath: boolean;
-  load: (path: string) => Promise<Section>;
-}): Promise<Section | undefined> {
-  if (sidecarRequest.explicitPath) {
-    return sidecarRequest.load(sidecarRequest.configPath);
-  }
-
-  if (sidecarRequest.typed != null) {
-    return sidecarRequest.typed;
-  }
-
-  const sidecarExists = await entryExists(sidecarRequest.configPath);
-
-  if (sidecarExists) {
-    return sidecarRequest.load(sidecarRequest.configPath);
-  }
-
-  return undefined;
-}
-
 export type LoadedConfig = Readonly<{
   config: LaunchConfig;
   apps: AppDescriptor[];
+  /** Directory of the launch.config.ts that supplied `config`, when one was loaded. */
+  directory: string | null;
 }>;
 
 const skipDirs = new Set(['node_modules', '.git', 'ios', 'android', 'dist', '.expo', '.launch']);
@@ -90,15 +68,9 @@ function makeConfigLoadFailure(fields: {
   return { _tag: 'ConfigLoadFailure', ...fields };
 }
 
-export async function findLaunchConfig(requestedDirectory?: string): Promise<FoundConfig | null> {
-  let workingDirectory = readLaunchDirectories().workingDirectory;
-
-  if (requestedDirectory != null) {
-    workingDirectory = requestedDirectory;
-  }
-
+async function readLaunchConfigFile(directory: string): Promise<FoundConfig | null> {
   for (const fileName of ['launch.config.ts', 'launch.config.mjs', 'launch.config.js']) {
-    const configPath = join(workingDirectory, fileName);
+    const configPath = join(directory, fileName);
     const configExists = await entryExists(configPath);
 
     if (configExists == false) {
@@ -130,20 +102,68 @@ export async function findLaunchConfig(requestedDirectory?: string): Promise<Fou
   return null;
 }
 
-async function readLaunchConfig(root: string): Promise<LaunchConfig> {
+/** Walk up from the working directory. The nearest launch.config.ts wins. */
+export async function findLaunchConfig(requestedDirectory?: string): Promise<FoundConfig | null> {
+  let directory = readLaunchDirectories().workingDirectory;
+
+  if (requestedDirectory != null) {
+    directory = requestedDirectory;
+  }
+
+  let currentDirectory = resolve(directory);
+
+  while (true) {
+    const foundConfig = await readLaunchConfigFile(currentDirectory);
+
+    if (foundConfig != null) {
+      return foundConfig;
+    }
+
+    const parentDirectory = dirname(currentDirectory);
+    const isFilesystemRoot = parentDirectory == currentDirectory;
+
+    if (isFilesystemRoot) {
+      return null;
+    }
+
+    currentDirectory = parentDirectory;
+  }
+}
+
+/** An app folder's own launch.config.ts replaces the fallback. A folder without one keeps it. */
+export async function launchConfigForApp(
+  fallbackConfig: LaunchConfig,
+  appDirectory: string,
+): Promise<LaunchConfig> {
+  const appFile = await readLaunchConfigFile(appDirectory);
+
+  if (appFile == null) {
+    return fallbackConfig;
+  }
+
+  return appFile.config;
+}
+
+async function readLaunchConfig(root: string): Promise<{
+  config: LaunchConfig;
+  directory: string | null;
+}> {
   const foundConfig = await findLaunchConfig(root);
 
   if (foundConfig == null) {
     return {
-      credentials: DEFAULT_CREDENTIALS_PROVIDER,
-      storage: DEFAULT_STORAGE_PROVIDER,
-      buildEngine: DEFAULT_BUILD_ENGINE,
-      submit: DEFAULT_SUBMITTER,
-      profiles: { production: { name: 'production', sizeBudgetMB: 200 } },
+      config: {
+        credentials: DEFAULT_CREDENTIALS_PROVIDER,
+        storage: DEFAULT_STORAGE_PROVIDER,
+        buildEngine: DEFAULT_BUILD_ENGINE,
+        submit: DEFAULT_SUBMITTER,
+        profiles: { production: { name: 'production', sizeBudgetMB: 200 } },
+      },
+      directory: null,
     };
   }
 
-  return foundConfig.config;
+  return { config: foundConfig.config, directory: dirname(foundConfig.path) };
 }
 
 const staticConfigs = ['app.config.json', 'app.json'] as const;
@@ -651,15 +671,22 @@ export async function loadConfig(requestedDirectory?: string): Promise<LoadedCon
     workingDirectory = requestedDirectory;
   }
 
-  const config = await readLaunchConfig(workingDirectory);
+  const loadedLaunch = await readLaunchConfig(workingDirectory);
+  const config = loadedLaunch.config;
+  let rootDirectory = workingDirectory;
+
+  if (loadedLaunch.directory != null) {
+    rootDirectory = loadedLaunch.directory;
+  }
+
   let configuredRoots = config.appRoots;
 
   if (configuredRoots == null) {
-    configuredRoots = [workingDirectory];
+    configuredRoots = [rootDirectory];
   }
 
   function resolveRoot(appRoot: string): string {
-    return resolve(workingDirectory, appRoot);
+    return resolve(rootDirectory, appRoot);
   }
 
   const resolvedRoots = configuredRoots.map(resolveRoot);
@@ -671,5 +698,5 @@ export async function loadConfig(requestedDirectory?: string): Promise<LoadedCon
   const discoveredAppGroups = await Promise.all(resolvedRoots.map(discoverRoot));
   const apps = discoveredAppGroups.flat();
 
-  return { config, apps };
+  return { config, apps, directory: loadedLaunch.directory };
 }

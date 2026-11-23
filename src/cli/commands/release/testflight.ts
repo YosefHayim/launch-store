@@ -30,7 +30,6 @@ type ReleaseOptions = Readonly<{
   build?: string;
   whatsNew?: string;
   locale: string;
-  config: string;
   review: boolean;
   dryRun: boolean;
   yes: boolean;
@@ -167,13 +166,11 @@ export function registerTestflightCommand(program: Command): void {
       '--build <version>',
       'target build by CFBundleVersion (default: the latest valid build)',
     )
-    .option('--whats-new <text>', 'What to Test notes (for --locale); overrides the config file')
-    .option('--locale <locale>', 'locale for --whats-new', 'en-US')
     .option(
-      '--config <path>',
-      'path to testflight.config.json (localized whatToTest)',
-      'testflight.config.json',
+      '--whats-new <text>',
+      'What to Test notes (for --locale); overrides testFlight in launch.config.ts',
     )
+    .option('--locale <locale>', 'locale for --whats-new', 'en-US')
     .option('--no-review', "set the notes only; don't submit for Beta App Review")
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)

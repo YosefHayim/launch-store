@@ -618,7 +618,7 @@ function describeMigrateEas() {
       return migrationArtifact.path;
     }
 
-    expect(migration.artifacts.map(readPath)).toContain('store.config.json');
+    expect(migration.artifacts.map(readPath)).not.toContain('store.config.json');
 
     function readMessage6(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
@@ -626,15 +626,15 @@ function describeMigrateEas() {
 
     const manual = notesAt(migration.notes, 'manual').map(readMessage6);
 
-    function includesStoreFileMention(message: string) {
-      return message.includes('store.config.json');
+    function includesListingNote(message: string) {
+      return message.includes('launch.config.ts');
     }
 
-    expect(manual.some(includesStoreFileMention)).toBe(true);
+    expect(manual.some(includesListingNote)).toBe(true);
   }
 
   it(
-    'scaffolds store.config.json when absent and notes it as manual',
+    'notes that the listing belongs in launch.config.ts when no store file exists',
     scaffoldsStorePiecePieceWhenAbsentAndNotesItAsManual,
   );
 

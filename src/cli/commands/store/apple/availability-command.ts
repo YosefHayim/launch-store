@@ -1,4 +1,4 @@
-// Sets the App Store countries an app is sold in from a config file.
+// Sets the App Store countries an app is sold in from launch.config.ts.
 
 import { errorMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';
@@ -7,14 +7,13 @@ import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
 import { completeCommand, isCommandExit } from '@/terminal/command-exit.js';
 import type { PlannedAction } from '@/types/reconcile.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import { readAvailabilityConfig, reconcileAvailability } from '@/store/apple/availability.js';
-import { resolveStoreBundleId } from '@/store/shared/select-store-app.js';
+import { reconcileAvailability } from '@/store/apple/availability.js';
+import { loadStoreAppContext } from '@/store/shared/select-store-app.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 import { isFailureTag } from '@/services/platform/tagged-failure.js';
 
 export type AvailabilityCommandInput = {
   app?: string;
-  config: string;
   dryRun: boolean;
   yes: boolean;
 };
@@ -32,17 +31,6 @@ function makeAvailabilityCommandFailure(fields: {
   cause: unknown;
 }): AvailabilityCommandFailure {
   return { _tag: 'AvailabilityCommandFailure', ...fields };
-}
-
-function readText(record: Record<string, unknown>, fieldName: string): string {
-  const field = record[fieldName];
-  const isText = typeof field == 'string';
-
-  if (isText == false) {
-    throw new Error(`Expected ${fieldName} to be a string.`);
-  }
-
-  return field;
 }
 
 function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
@@ -64,13 +52,12 @@ export function AvailabilityCommandInputSchema(rawCommandInput: unknown): Availa
     throw new Error('Availability command input must be an object.');
   }
 
-  const config = readText(rawCommandInputObject, 'config');
   const dryRun = readFlag(rawCommandInputObject, 'dryRun');
   const yes = readFlag(rawCommandInputObject, 'yes');
   const hasApp = Object.hasOwn(rawCommandInputObject, 'app');
 
   if (hasApp == false) {
-    return { config, dryRun, yes };
+    return { dryRun, yes };
   }
 
   const app = rawCommandInputObject['app'];
@@ -80,7 +67,7 @@ export function AvailabilityCommandInputSchema(rawCommandInput: unknown): Availa
     throw new Error('Expected app to be a string.');
   }
 
-  return { app, config, dryRun, yes };
+  return { app, dryRun, yes };
 }
 
 function commandFailure(
@@ -181,12 +168,35 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
   try {
     const commandInput = AvailabilityCommandInputSchema(rawCommandInput);
     const logger = createLogger(false);
-    const availabilityConfig = await readAvailabilityConfig(commandInput.config);
-    const bundleId = await resolveStoreBundleId(commandInput.app);
+    const storeAppContext = await loadStoreAppContext(commandInput.app);
+    const bundleId = storeAppContext.app.bundleId;
+
+    const isBundleMissing = bundleId == null;
+
+    if (isBundleMissing) {
+      throw commandFailure(
+        'resolve availability bundle id',
+        storeAppContext.app,
+        `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
+      );
+    }
+
+    const availabilitySection = storeAppContext.config.availability?.[bundleId];
+
+    const isAvailabilityMissing = availabilitySection == null;
+
+    if (isAvailabilityMissing) {
+      throw commandFailure(
+        'resolve availability config',
+        bundleId,
+        `No availability config for ${bundleId}. Add an availability entry to launch.config.ts.`,
+      );
+    }
+
     const appleStore = await loadActiveAppleStore();
     const availabilityPlan = await reconcileAvailability(appleStore, {
       bundleId,
-      config: availabilityConfig,
+      config: availabilitySection,
       dryRun: true,
     });
 
@@ -219,7 +229,7 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
 
     const appliedAvailability = await reconcileAvailability(appleStore, {
       bundleId,
-      config: availabilityConfig,
+      config: availabilitySection,
       dryRun: false,
     });
     const appliedAction = appliedAvailability.actions[0];

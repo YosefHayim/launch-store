@@ -161,11 +161,4 @@ export default defineConfig({
   euDistribution: {
     domains: [{ domain: 'downloads.example.com', referenceName: 'Acme Downloads' }],
   },
-
-  configFiles: {
-    availability: 'availability.config.json',
-    accessibility: 'accessibility.config.json',
-    experiments: 'experiments.config.json',
-    customPages: 'custom-pages.config.json',
-  },
 });

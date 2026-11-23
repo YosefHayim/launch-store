@@ -1,9 +1,9 @@
 // Checks that declared App Store Connect listing URLs answer with a successful status.
 
-import { join } from 'node:path';
-import { errorMessage } from '@/services/platform/error-message.js';
-import { loadStoreConfig, type AppleStoreConfig } from '@/store/shared/store-config.js';
+import { launchConfigForApp } from '@/config/config.js';
+import type { AppleStoreConfig } from '@/store/shared/store-config.js';
 import type { AppDescriptor } from '@/types/app.js';
+import type { LaunchConfig } from '@/types/config.js';
 import type {
   AppReadiness,
   ProbeResult,
@@ -38,33 +38,51 @@ function isSuccessStatus(httpStatus: number): boolean {
   return true;
 }
 
-async function loadAppleListing(appDirectory: string): Promise<AppleStoreConfig | null> {
-  const storeConfigPath = join(appDirectory, 'store.config.json');
+async function loadAppleListing(
+  launchFile: LaunchConfig,
+  app: AppDescriptor,
+): Promise<AppleStoreConfig | null> {
+  const appLaunch = await launchConfigForApp(launchFile, app.dir);
+  const listings = appLaunch.listing;
 
-  try {
-    const storeConfig = await loadStoreConfig(storeConfigPath);
-    const appleListing = storeConfig.apple;
-
-    const isMissing = appleListing == null;
-
-    if (isMissing) {
-      return null;
-    }
-
-    return appleListing;
-  } catch (cause) {
-    const isUnreadable = errorMessage(cause) != '';
-
-    if (isUnreadable) {
-      return null;
-    }
-
+  if (listings == null) {
     return null;
   }
+
+  let listingKey: string | null = null;
+
+  if (app.bundleId != null) {
+    listingKey = app.bundleId;
+  }
+
+  if (listingKey == null) {
+    listingKey = app.packageName ?? null;
+  }
+
+  if (listingKey == null) {
+    return null;
+  }
+
+  const storeListing = listings[listingKey];
+
+  if (storeListing == null) {
+    return null;
+  }
+
+  const appleListing = storeListing.apple;
+
+  if (appleListing == null) {
+    return null;
+  }
+
+  return appleListing;
 }
 
-async function collectListingUrls(appDescriptor: AppDescriptor): Promise<ListingUrl[]> {
-  const appleListing = await loadAppleListing(appDescriptor.dir);
+async function collectListingUrls(
+  launchFile: LaunchConfig,
+  appDescriptor: AppDescriptor,
+): Promise<ListingUrl[]> {
+  const appleListing = await loadAppleListing(launchFile, appDescriptor);
 
   const isMissing = appleListing == null;
 
@@ -140,7 +158,12 @@ export const listingUrlsProbe = {
   categories: ['listing', 'submit'],
   async check(readinessContext: ReadinessContext): Promise<ProbeResult> {
     const scopedApps = readinessContext.apps.filter(hasBundleId);
-    const listingUrlsByApp = await Promise.all(scopedApps.map(collectListingUrls));
+
+    async function collectForApp(appDescriptor: AppDescriptor): Promise<ListingUrl[]> {
+      return collectListingUrls(readinessContext.config, appDescriptor);
+    }
+
+    const listingUrlsByApp = await Promise.all(scopedApps.map(collectForApp));
     const listingUrls = listingUrlsByApp.flat();
 
     const isNothingDeclared = listingUrls.length == 0;

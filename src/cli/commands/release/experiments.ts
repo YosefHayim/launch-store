@@ -1,4 +1,4 @@
-// Registers the command that syncs App Store product-page experiments from a config file.
+// Registers the command that syncs App Store product-page experiments from launch.config.ts.
 
 import type { Command } from '@/cli/command.js';
 import {
@@ -9,7 +9,6 @@ import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type ExperimentsOptions = Readonly<{
   readonly app?: string;
-  readonly config: string;
   readonly submit: boolean;
   readonly start: boolean;
   readonly dryRun: boolean;
@@ -21,7 +20,6 @@ function readVersionExperiments(
   commandOptions: ExperimentsOptions,
 ): VersionExperimentsCommandInput {
   let experimentsInput: VersionExperimentsCommandInput = {
-    config: commandOptions.config,
     submit: commandOptions.submit,
     start: commandOptions.start,
     dryRun: commandOptions.dryRun,
@@ -45,9 +43,8 @@ export function registerExperimentsCommand(program: Command): void {
 
   program
     .command('experiments')
-    .description('reconcile product-page A/B experiments from experiments.config.json')
+    .description('reconcile product-page A/B experiments from launch.config.ts')
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
-    .option('--config <path>', 'path to the experiments config file', 'experiments.config.json')
     .option(
       '--submit',
       'submit each experiment for App Review once its treatments are synced',

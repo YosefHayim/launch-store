@@ -1,10 +1,10 @@
 // Chooses the release type and the What's New text a store submission will write.
 
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { pathExists } from '../path-exists.ts';
-import type { ReleaseConfig, ReleaseType } from '../types/store-surface.ts';
+import { launchConfigForApp } from '../config/config.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import type { AppDescriptor } from '../types/app.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import type { ReleaseConfig, ReleaseType } from '../types/store-surface.ts';
 
 /** The per-run CLI flags that override the configured release type for a single `launch-store */
 type ReleaseTypeOverrides = {
@@ -114,54 +114,62 @@ function readLocaleReleaseNotes(localeListings: unknown): Record<string, string>
   return releaseNotesByLocale;
 }
 
-/** Per-locale `releaseNotes` from the app's `store.config.json` */
-export async function readStoreReleaseNotes(appDirectory: string): Promise<Record<string, string>> {
-  const configPath = join(appDirectory, 'store.config.json');
-  const isConfigPresent = await pathExists(configPath);
+function readListingReleaseNotes(
+  launchFile: LaunchConfig,
+  app: Pick<AppDescriptor, 'bundleId' | 'packageName'>,
+): Record<string, string> {
+  const listings = launchFile.listing;
 
-  if (isConfigPresent == false) {
+  if (listings == null) {
     return {};
   }
 
-  try {
-    var configText = await readFile(configPath, 'utf8');
-    var storeDocument: unknown = JSON.parse(configText);
-  } catch (error) {
-    throw new Error(`Could not read store.config.json at ${configPath}`, { cause: error });
+  let listingKey: string | null = null;
+
+  if (app.bundleId != null) {
+    listingKey = app.bundleId;
   }
 
-  const storeDocumentObject = readPlainObject(storeDocument);
-
-  if (storeDocumentObject == null) {
-    throw new Error(`Could not read store.config.json at ${configPath}`);
+  if (listingKey == null) {
+    listingKey = app.packageName ?? null;
   }
 
-  const appleListing = storeDocumentObject['apple'];
-
-  const appleListingObject = readPlainObject(appleListing);
-
-  if (appleListingObject == null) {
+  if (listingKey == null) {
     return {};
   }
 
-  return readLocaleReleaseNotes(appleListingObject['info']);
+  const storeListing = listings[listingKey];
+
+  if (storeListing == null) {
+    return {};
+  }
+
+  const appleListing = storeListing.apple;
+
+  if (appleListing == null) {
+    return {};
+  }
+
+  return readLocaleReleaseNotes(appleListing.info);
 }
 
-/** The "What's New" to write, merging both sources Launch supports */
+/** What's New for one app. Listing release notes override `release.releaseNotes` per locale. */
 export async function resolveWhatsNew(
-  release: ReleaseConfig | undefined,
-  appDirectory: string,
+  launchFile: LaunchConfig,
+  app: Pick<AppDescriptor, 'dir' | 'bundleId' | 'packageName'>,
 ): Promise<Record<string, string>> {
+  const appLaunch = await launchConfigForApp(launchFile, app.dir);
+  const release = appLaunch.release;
   let primaryLocale = 'en-US';
 
   if (release?.primaryLocale != null) {
     primaryLocale = release.primaryLocale;
   }
 
-  const storeReleaseNotes = await readStoreReleaseNotes(appDirectory);
+  const listingReleaseNotes = readListingReleaseNotes(appLaunch, app);
 
   return {
     ...resolveReleaseNotes(release, primaryLocale),
-    ...storeReleaseNotes,
+    ...listingReleaseNotes,
   };
 }

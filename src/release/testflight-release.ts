@@ -1,10 +1,11 @@
 // Submits one build to TestFlight Beta App Review and shows the planned steps.
 
 import { createLogger } from '../services/platform/logger.ts';
+import { hasMessage } from '../services/platform/error-message.ts';
 import { loadActiveAppleStore } from '../cli/commands/store/apple/apple-store-command.ts';
+import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import {
-  loadBetaReviewConfig,
   reconcileBetaReview,
   summarizeBetaReview,
   type BetaReviewReconcileInput,
@@ -17,7 +18,6 @@ export interface ReleaseCommandInput {
   build?: string;
   whatsNew?: string;
   locale: string;
-  config: string;
   review: boolean;
   dryRun: boolean;
   yes: boolean;
@@ -55,9 +55,45 @@ async function readLocalizedNotes(
     return { [commandInput.locale]: commandInput.whatsNew };
   }
 
-  const betaReviewConfig = await loadBetaReviewConfig(commandInput.config);
+  let storeAppContext: Awaited<ReturnType<typeof loadStoreAppContext>>;
 
-  return betaReviewConfig.whatToTest;
+  try {
+    storeAppContext = await loadStoreAppContext(commandInput.app);
+  } catch (cause) {
+    let message = 'Could not load the selected app.';
+
+    const causeHasMessage = hasMessage(cause);
+
+    if (causeHasMessage) {
+      message = cause.message;
+    }
+
+    throw testflightFailure('read TestFlight notes', message, cause);
+  }
+
+  const bundleId = storeAppContext.app.bundleId;
+
+  const isBundleMissing = bundleId == null;
+
+  if (isBundleMissing) {
+    throw testflightFailure(
+      'read TestFlight notes',
+      'Add a testFlight entry to launch.config.ts, or pass --whats-new.',
+    );
+  }
+
+  const notesForBundle = storeAppContext.config.testFlight?.[bundleId];
+
+  const isNotesMissing = notesForBundle == null;
+
+  if (isNotesMissing) {
+    throw testflightFailure(
+      'read TestFlight notes',
+      `No TestFlight notes for ${bundleId}. Add a testFlight entry to launch.config.ts, or pass --whats-new.`,
+    );
+  }
+
+  return notesForBundle.whatToTest;
 }
 
 function withBuildVersion(

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,7 @@ import { GoogleStoreClientService } from '@/services/stores/google-store-client.
 import type { AppDescriptor } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { PlayListing } from '@/types/google-play.js';
+import type { StoreConfig } from './store-config.ts';
 import {
   assertListingPlatform,
   metadataCommandProgram,
@@ -211,14 +212,32 @@ function describeMetadataCommandProgram() {
   let configPath = '';
   let terminalWrites: string[] = [];
 
-  function writeStoreConfig(storeConfig: unknown): void {
-    const serialized = JSON.stringify(storeConfig, null, 2);
-    writeFileSync(configPath, `${serialized}\n`);
+  function writeStoreConfig(storeConfig: StoreConfig): void {
+    vi.mocked(loadStoreAppContext).mockResolvedValue({
+      config: {
+        ...stubLaunchConfig,
+        listing: { 'com.demo.app': storeConfig },
+      },
+      app: makeApp({
+        dir: appDirectory,
+        bundleId: 'com.demo.app',
+        packageName: 'com.demo.app',
+      }),
+    });
   }
 
-  function readStoreConfig(): unknown {
-    const loadedFile = readFileSync(configPath, 'utf8');
-    return JSON.parse(loadedFile);
+  function printedListing(): unknown {
+    function startsWithObject(text: string) {
+      return text.trimStart().startsWith('{');
+    }
+
+    const listingText = terminalWrites.find(startsWithObject);
+
+    if (listingText == null) {
+      throw new Error('expected a printed listing');
+    }
+
+    return JSON.parse(listingText);
   }
 
   function runCommand(operation: 'pull' | 'push', platform: 'ios' | 'android', dryRun: boolean) {
@@ -396,13 +415,13 @@ function describeMetadataCommandProgram() {
 
     expect(commandFailure).toMatchObject({
       operation: 'read App Store metadata',
-      message: expect.stringMatching(/no "apple" section/),
+      message: expect.stringMatching(/No App Store listing for com\.demo\.app/),
     });
     expect(createEffectAppleClient).not.toHaveBeenCalled();
   }
 
   it(
-    'refuses App Store push when store.config.json has no apple section',
+    'refuses App Store push when launch.config.ts has no apple listing',
     refusesAppStorePushWhenStorePiecePieceHasNoAppleSection,
   );
 
@@ -413,13 +432,13 @@ function describeMetadataCommandProgram() {
 
     expect(commandFailure).toMatchObject({
       operation: 'read Play metadata',
-      message: expect.stringMatching(/no "android" section/),
+      message: expect.stringMatching(/No Play listing for com\.demo\.app/),
     });
     expect(createEffectPlayClient).not.toHaveBeenCalled();
   }
 
   it(
-    'refuses Play push when store.config.json has no android section',
+    'refuses Play push when launch.config.ts has no Play listing',
     refusesPlayPushWhenStorePiecePieceHasNoAndroidSection,
   );
 
@@ -427,14 +446,14 @@ function describeMetadataCommandProgram() {
     const commandFailure = await failCommand('push', 'ios', true);
 
     expect(commandFailure).toMatchObject({
-      message: expect.stringMatching(/No store\.config\.json/),
+      message: expect.stringMatching(/No App Store listing for com\.demo\.app/),
     });
     expect(commandFailure).toMatchObject({
-      message: expect.stringMatching(/launch-store metadata pull/),
+      message: expect.stringMatching(/launch\.config\.ts/),
     });
   }
 
-  it('refuses push when store.config.json is missing', refusesPushWhenStorePiecePieceIsMissing);
+  it('refuses push when launch.config.ts has no listing', refusesPushWhenStorePiecePieceIsMissing);
 
   function describeAppStorePull() {
     function prepareAppStorePull() {
@@ -454,14 +473,10 @@ function describeMetadataCommandProgram() {
     beforeEach(prepareAppStorePull);
 
     async function readsTheLiveListingAndMergesItIntoStorePiecePiece() {
-      writeStoreConfig({ android: { info: { 'en-US': { title: 'Droid' } } } });
       await runCommand('pull', 'ios', false);
       expect(createEffectAppleClient).toHaveBeenCalledWith(ascKey);
 
-      const readStore = readStoreConfig();
-
-      expect(readStore).toEqual({
-        android: { info: { 'en-US': { title: 'Droid' } } },
+      expect(printedListing()).toEqual({
         apple: {
           info: {
             'en-US': {
@@ -474,27 +489,25 @@ function describeMetadataCommandProgram() {
           },
         },
       });
-      expect(terminalWrites.join('')).toMatch(/wrote App Store listing/);
+      expect(existsSync(configPath)).toBe(false);
+      expect(terminalWrites.join('')).toMatch(/listing\.com\.demo\.app/);
     }
 
     it(
-      'reads the live listing and merges it into store.config.json',
+      'prints the live App Store listing to paste under listing',
       readsTheLiveListingAndMergesItIntoStorePiecePiece,
     );
 
     async function keepsTheConfiguredAppStoreCategoriesWhichAPullDoesNotRead() {
-      writeStoreConfig({ apple: { info: { 'en-US': { title: 'Old' } }, categories: ['GAMES'] } });
       await runCommand('pull', 'ios', false);
+      const printed = printedListing() as { apple?: { categories?: string[] } };
 
-      const readStore = readStoreConfig();
-
-      expect(readStore).toMatchObject({
-        apple: { info: { 'en-US': { title: 'Demo' } }, categories: ['GAMES'] },
-      });
+      expect(printed.apple?.categories).toBeUndefined();
+      expect(existsSync(configPath)).toBe(false);
     }
 
     it(
-      'keeps the configured App Store categories, which a pull does not read',
+      'prints the live listing without categories, which a pull does not read',
       keepsTheConfiguredAppStoreCategoriesWhichAPullDoesNotRead,
     );
 
@@ -502,7 +515,7 @@ function describeMetadataCommandProgram() {
       await runCommand('pull', 'ios', true);
       const pathExists = existsSync(configPath);
       expect(pathExists).toBe(false);
-      expect(terminalWrites.join('')).toMatch(/would write 1 App Store locale\(s\)/);
+      expect(terminalWrites.join('')).toMatch(/would add 1 App Store locale/);
     }
 
     it(
@@ -530,9 +543,13 @@ function describeMetadataCommandProgram() {
     );
 
     async function isCallableForAdoptStylePulls() {
-      await pullAppleListing('com.demo.app', configPath, false);
+      await pullAppleListing('com.demo.app', false);
       const pathExists = existsSync(configPath);
-      expect(pathExists).toBe(true);
+
+      expect(pathExists).toBe(false);
+      expect(printedListing()).toMatchObject({
+        apple: { info: { 'en-US': { title: 'Demo' } } },
+      });
     }
 
     it('is callable for adopt-style pulls', isCallableForAdoptStylePulls);
@@ -626,23 +643,20 @@ function describeMetadataCommandProgram() {
     beforeEach(preparePlayPull);
 
     async function readsTheLiveListingsAndMergesThemIntoStorePiecePiece() {
-      writeStoreConfig({ apple: { info: { 'en-US': { title: 'Demo' } } } });
       await runCommand('pull', 'android', false);
       expect(createEffectPlayClient).toHaveBeenCalledWith(serviceAccountJson);
       expect(playClientFake.listListings).toHaveBeenCalledWith('com.demo.app');
 
-      const readStore = readStoreConfig();
-
-      expect(readStore).toEqual({
-        apple: { info: { 'en-US': { title: 'Demo' } } },
+      expect(printedListing()).toEqual({
         android: {
           info: { 'en-US': { title: 'Demo', shortDescription: 'short', fullDescription: 'full' } },
         },
       });
+      expect(existsSync(configPath)).toBe(false);
     }
 
     it(
-      'reads the live listings and merges them into store.config.json',
+      'prints the live Play listing to paste under listing',
       readsTheLiveListingsAndMergesThemIntoStorePiecePiece,
     );
 
@@ -650,7 +664,7 @@ function describeMetadataCommandProgram() {
       await runCommand('pull', 'android', true);
       const pathExists = existsSync(configPath);
       expect(pathExists).toBe(false);
-      expect(terminalWrites.join('')).toMatch(/would write 1 Play locale\(s\)/);
+      expect(terminalWrites.join('')).toMatch(/would add 1 Play locale/);
     }
 
     it(

@@ -1,9 +1,6 @@
-// Drafts App Store Connect and Google Play listing copy, then writes the chosen text.
+// Drafts App Store Connect and Google Play listing copy to paste under listing.
 
-import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { loadConfig, readResolvedConfig } from '../config/config.ts';
-import { pathExists } from '../path-exists.ts';
+import { launchConfigForApp, loadConfig, readResolvedConfig } from '../config/config.ts';
 import { readLastApp } from '../distribution/last-run.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { isFailureTag } from '../services/platform/tagged-failure.ts';
@@ -11,14 +8,9 @@ import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
-import type {
-  AndroidLocaleInfo,
-  AndroidStoreConfig,
-  AppleLocaleInfo,
-  AppleStoreConfig,
-  StoreConfig,
-} from '../store/shared/store-config.ts';
+import type { AppleLocaleInfo, StoreConfig } from '../store/shared/store-config.ts';
 import type { AppDescriptor } from '../types/app.ts';
+import type { LaunchConfig } from '../types/config.ts';
 import type { DraftListing, ListingBrief, LocaleDraft } from '../types/listing.ts';
 import { applyDraft, briefFor, clampDraft, renderDraftPreview } from './apply.ts';
 import { createAnthropicListingGenerator } from './generator.ts';
@@ -30,7 +22,6 @@ export interface AiListingInput {
   about?: string;
   platform: string;
   model?: string;
-  config?: string;
   dryRun: boolean;
   yes: boolean;
 }
@@ -151,7 +142,6 @@ export function readAiListingInput(rawCommandInput: unknown): AiListingInput {
   const locale = readOptionalInputString(rawCommandInputObject, 'locale');
   const about = readOptionalInputString(rawCommandInputObject, 'about');
   const model = readOptionalInputString(rawCommandInputObject, 'model');
-  const config = readOptionalInputString(rawCommandInputObject, 'config');
 
   if (app != null) {
     commandInput.app = app;
@@ -167,10 +157,6 @@ export function readAiListingInput(rawCommandInput: unknown): AiListingInput {
 
   if (model != null) {
     commandInput.model = model;
-  }
-
-  if (config != null) {
-    commandInput.config = config;
   }
 
   return commandInput;
@@ -195,348 +181,6 @@ export function parseListingTargets(platformSelector: string): ListingTargets {
     platformSelector,
     `Unknown platform "${platformSelector}". Use ios, android, or all.`,
   );
-}
-
-function readConfigString(record: Record<string, unknown>, fieldName: string): string | undefined {
-  if (Object.hasOwn(record, fieldName) == false) {
-    return undefined;
-  }
-
-  const field = record[fieldName];
-
-  if (field == null) {
-    return undefined;
-  }
-
-  if (typeof field != 'string') {
-    throw listingFailure(
-      'decode listing config',
-      field,
-      `store.config.json field ${fieldName} must be a string.`,
-    );
-  }
-
-  return field;
-}
-
-function readConfigStringList(
-  record: Record<string, unknown>,
-  fieldName: string,
-): string[] | undefined {
-  if (Object.hasOwn(record, fieldName) == false) {
-    return undefined;
-  }
-
-  const field = record[fieldName];
-
-  if (field == null) {
-    return undefined;
-  }
-
-  if (Array.isArray(field) == false) {
-    throw listingFailure(
-      'decode listing config',
-      field,
-      `store.config.json field ${fieldName} must be a list of strings.`,
-    );
-  }
-
-  const texts: string[] = [];
-
-  for (const entry of field) {
-    if (typeof entry != 'string') {
-      throw listingFailure(
-        'decode listing config',
-        entry,
-        `store.config.json field ${fieldName} must be a list of strings.`,
-      );
-    }
-
-    texts.push(entry);
-  }
-
-  return texts;
-}
-
-function readOptionalNumber(
-  record: Record<string, unknown>,
-  fieldName: string,
-): number | undefined {
-  if (Object.hasOwn(record, fieldName) == false) {
-    return undefined;
-  }
-
-  const field = record[fieldName];
-
-  if (field == null) {
-    return undefined;
-  }
-
-  if (typeof field != 'number') {
-    throw listingFailure(
-      'decode listing config',
-      field,
-      `store.config.json field ${fieldName} must be a number.`,
-    );
-  }
-
-  return field;
-}
-
-function readAppleLocale(candidate: unknown): AppleLocaleInfo {
-  const candidateObject = readPlainObject(candidate);
-
-  if (candidateObject == null) {
-    throw listingFailure(
-      'decode listing config',
-      candidate,
-      'store.config.json locale must be an object.',
-    );
-  }
-
-  const locale: AppleLocaleInfo = {};
-  const title = readConfigString(candidateObject, 'title');
-  const subtitle = readConfigString(candidateObject, 'subtitle');
-  const description = readConfigString(candidateObject, 'description');
-  const releaseNotes = readConfigString(candidateObject, 'releaseNotes');
-  const promotionalText = readConfigString(candidateObject, 'promotionalText');
-  const marketingUrl = readConfigString(candidateObject, 'marketingUrl');
-  const supportUrl = readConfigString(candidateObject, 'supportUrl');
-  const privacyPolicyUrl = readConfigString(candidateObject, 'privacyPolicyUrl');
-  const keywords = readConfigStringList(candidateObject, 'keywords');
-
-  if (title != null) {
-    locale.title = title;
-  }
-
-  if (subtitle != null) {
-    locale.subtitle = subtitle;
-  }
-
-  if (description != null) {
-    locale.description = description;
-  }
-
-  if (releaseNotes != null) {
-    locale.releaseNotes = releaseNotes;
-  }
-
-  if (promotionalText != null) {
-    locale.promotionalText = promotionalText;
-  }
-
-  if (marketingUrl != null) {
-    locale.marketingUrl = marketingUrl;
-  }
-
-  if (supportUrl != null) {
-    locale.supportUrl = supportUrl;
-  }
-
-  if (privacyPolicyUrl != null) {
-    locale.privacyPolicyUrl = privacyPolicyUrl;
-  }
-
-  if (keywords != null) {
-    locale.keywords = keywords;
-  }
-
-  return locale;
-}
-
-function readAndroidLocale(candidate: unknown): AndroidLocaleInfo {
-  const candidateObject = readPlainObject(candidate);
-
-  if (candidateObject == null) {
-    throw listingFailure(
-      'decode listing config',
-      candidate,
-      'store.config.json locale must be an object.',
-    );
-  }
-
-  const locale: AndroidLocaleInfo = {};
-  const title = readConfigString(candidateObject, 'title');
-  const shortDescription = readConfigString(candidateObject, 'shortDescription');
-  const fullDescription = readConfigString(candidateObject, 'fullDescription');
-  const video = readConfigString(candidateObject, 'video');
-
-  if (title != null) {
-    locale.title = title;
-  }
-
-  if (shortDescription != null) {
-    locale.shortDescription = shortDescription;
-  }
-
-  if (fullDescription != null) {
-    locale.fullDescription = fullDescription;
-  }
-
-  if (video != null) {
-    locale.video = video;
-  }
-
-  return locale;
-}
-
-function readAppleLocales(candidate: unknown): Record<string, AppleLocaleInfo> {
-  const candidateObject = readPlainObject(candidate);
-
-  if (candidateObject == null) {
-    throw listingFailure(
-      'decode listing config',
-      candidate,
-      'store.config.json apple.info must be an object.',
-    );
-  }
-
-  const locales: Record<string, AppleLocaleInfo> = {};
-
-  for (const localeName of Object.keys(candidateObject)) {
-    locales[localeName] = readAppleLocale(candidateObject[localeName]);
-  }
-
-  return locales;
-}
-
-function readAndroidLocales(candidate: unknown): Record<string, AndroidLocaleInfo> {
-  const candidateObject = readPlainObject(candidate);
-
-  if (candidateObject == null) {
-    throw listingFailure(
-      'decode listing config',
-      candidate,
-      'store.config.json android.info must be an object.',
-    );
-  }
-
-  const locales: Record<string, AndroidLocaleInfo> = {};
-
-  for (const localeName of Object.keys(candidateObject)) {
-    locales[localeName] = readAndroidLocale(candidateObject[localeName]);
-  }
-
-  return locales;
-}
-
-function readAppleStore(candidate: unknown): AppleStoreConfig {
-  const candidateObject = readPlainObject(candidate);
-
-  if (candidateObject == null) {
-    throw listingFailure(
-      'decode listing config',
-      candidate,
-      'store.config.json apple must be an object.',
-    );
-  }
-
-  if (Object.hasOwn(candidateObject, 'info') == false) {
-    throw listingFailure(
-      'decode listing config',
-      candidateObject,
-      'store.config.json apple.info is required.',
-    );
-  }
-
-  const appleStore: NonNullable<StoreConfig['apple']> = {
-    info: readAppleLocales(candidateObject['info']),
-  };
-  const categories = readConfigStringList(candidateObject, 'categories');
-
-  if (categories != null) {
-    appleStore.categories = categories;
-  }
-
-  return appleStore;
-}
-
-function readAndroidStore(candidate: unknown): AndroidStoreConfig {
-  const candidateObject = readPlainObject(candidate);
-
-  if (candidateObject == null) {
-    throw listingFailure(
-      'decode listing config',
-      candidate,
-      'store.config.json android must be an object.',
-    );
-  }
-
-  if (Object.hasOwn(candidateObject, 'info') == false) {
-    throw listingFailure(
-      'decode listing config',
-      candidateObject,
-      'store.config.json android.info is required.',
-    );
-  }
-
-  return { info: readAndroidLocales(candidateObject['info']) };
-}
-
-function decodeStoreConfig(configText: string): StoreConfig {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(configText);
-  } catch (cause) {
-    throw listingFailure(
-      'decode listing config',
-      cause,
-      'store.config.json must be a JSON object.',
-    );
-  }
-
-  const parsedObject = readPlainObject(parsed);
-
-  if (parsedObject == null) {
-    throw listingFailure(
-      'decode listing config',
-      parsed,
-      'store.config.json must be a JSON object.',
-    );
-  }
-
-  const storeConfiguration: StoreConfig = {};
-  const configVersion = readOptionalNumber(parsedObject, 'configVersion');
-
-  if (configVersion != null) {
-    storeConfiguration.configVersion = configVersion;
-  }
-
-  if (Object.hasOwn(parsedObject, 'apple')) {
-    storeConfiguration.apple = readAppleStore(parsedObject['apple']);
-  }
-
-  if (Object.hasOwn(parsedObject, 'android')) {
-    storeConfiguration.android = readAndroidStore(parsedObject['android']);
-  }
-
-  return storeConfiguration;
-}
-
-/** Decode an existing store config or start an empty listing. */
-async function readListingConfig(configPath: string): Promise<StoreConfig> {
-  let configExists = false;
-
-  try {
-    configExists = await pathExists(configPath);
-  } catch (cause) {
-    throw listingFailure('inspect listing config', cause);
-  }
-
-  if (configExists == false) {
-    return {};
-  }
-
-  let configText: string;
-
-  try {
-    configText = await readFile(configPath, 'utf8');
-  } catch (cause) {
-    throw listingFailure('read listing config', cause);
-  }
-
-  return decodeStoreConfig(configText);
 }
 
 function trimLocale(localeName: string): string {
@@ -777,28 +421,6 @@ function readCurrentListing(
   return appleListing.info[localeName];
 }
 
-async function confirmListingWrite(configPath: string): Promise<boolean> {
-  const isInteractive = checkTerminalIsInteractive();
-
-  if (isInteractive == false) {
-    throw listingFailure(
-      'confirm listing write',
-      'confirmation-required',
-      'Refusing to write without confirmation. Re-run with --yes.',
-    );
-  }
-
-  const confirmed = await LaunchPrompt.confirm(`Write these draft(s) into ${configPath}?`);
-
-  if (confirmed) {
-    return true;
-  }
-
-  LaunchPrompt.cancel('Aborted - nothing written.');
-
-  return false;
-}
-
 async function draftLocales(
   locales: readonly string[],
   storeConfiguration: StoreConfig,
@@ -824,7 +446,43 @@ async function draftLocales(
   return localeDrafts;
 }
 
-/** Draft, preview, and optionally write listing copy with an injected generator. */
+function listingKeyFor(app: AppDescriptor): string | null {
+  let listingKey: string | null = null;
+
+  if (app.bundleId != null) {
+    listingKey = app.bundleId;
+  }
+
+  if (listingKey == null) {
+    listingKey = app.packageName ?? null;
+  }
+
+  return listingKey;
+}
+
+function declaredStoreListing(launchFile: LaunchConfig, app: AppDescriptor): StoreConfig {
+  const listings = launchFile.listing;
+
+  if (listings == null) {
+    return {};
+  }
+
+  const listingKey = listingKeyFor(app);
+
+  if (listingKey == null) {
+    return {};
+  }
+
+  const storeListing = listings[listingKey];
+
+  if (storeListing == null) {
+    return {};
+  }
+
+  return storeListing;
+}
+
+/** Draft listing copy and print it so it can be pasted under `listing`. */
 export async function runAiListing(
   commandInput: AiListingInput,
   listingGenerator: CopyGenerator,
@@ -836,13 +494,8 @@ export async function runAiListing(
     const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
     const selectedApp = await selectListingApp(loadedConfiguration.apps, commandInput.app);
     const displayName = await resolveDisplayName(selectedApp);
-    let configPath = join(selectedApp.dir, 'store.config.json');
-
-    if (commandInput.config != null) {
-      configPath = commandInput.config;
-    }
-
-    const storeConfiguration = await readListingConfig(configPath);
+    const appLaunch = await launchConfigForApp(loadedConfiguration.config, selectedApp.dir);
+    const storeConfiguration = declaredStoreListing(appLaunch, selectedApp);
     const locales = resolveListingLocales(commandInput.locale, storeConfiguration);
 
     logger.note(
@@ -856,22 +509,24 @@ export async function runAiListing(
       commandInput.about,
       listingGenerator,
     );
-
     const draftPreview = renderDraftPreview(localeDrafts, listingTargets);
 
     logger.line(draftPreview);
 
     if (commandInput.dryRun) {
-      logger.note('Dry run - nothing written. Drop --dry-run to save into store.config.json.');
+      logger.note('Dry run. Paste the draft under listing in launch.config.ts when you are ready.');
+
       return;
     }
 
-    if (commandInput.yes == false) {
-      const confirmed = await confirmListingWrite(configPath);
+    const listingKey = listingKeyFor(selectedApp);
 
-      if (confirmed == false) {
-        return;
-      }
+    if (listingKey == null) {
+      throw listingFailure(
+        'print listing draft',
+        selectedApp.name,
+        `${selectedApp.name} has no bundle id or package name, so the draft cannot be keyed under listing.`,
+      );
     }
 
     let updatedStoreConfiguration = storeConfiguration;
@@ -885,17 +540,11 @@ export async function runAiListing(
       );
     }
 
-    const configText = `${JSON.stringify(updatedStoreConfiguration, null, 2)}\n`;
+    const listingDocument = { [listingKey]: updatedStoreConfiguration };
 
-    try {
-      await writeFile(configPath, configText);
-    } catch (cause) {
-      throw listingFailure('run AI listing command', cause);
-    }
-
-    logger.ok(`ai listing - wrote ${localeDrafts.length} locale draft(s) -> ${configPath}`);
+    logger.line(JSON.stringify(listingDocument, null, 2));
     logger.note(
-      'Review with `launch-store plan`, then apply with `launch-store sync` or `launch-store metadata push`.',
+      `Add this under listing in launch.config.ts, then run \`launch-store metadata push\`.`,
     );
   } catch (cause) {
     if (isFailureTag(cause, 'AiListingFailure')) {

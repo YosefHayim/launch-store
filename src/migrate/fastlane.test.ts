@@ -533,12 +533,12 @@ function describeMigrateFastlane() {
 
     expect(artifactPaths).toContain('launch.config.ts');
     expect(artifactPaths).toContain('.env.example');
-    expect(artifactPaths).toContain('store.config.json');
+    expect(artifactPaths).not.toContain('store.config.json');
     expect(artifact(migration.artifacts, 'launch.config.ts').contents).toContain('defineConfig');
   }
 
   it(
-    'emits the starter launch.config.ts, .env.example, and store.config.json',
+    'emits the starter launch.config.ts and .env.example',
     emitsTheStarterLaunchPieceTsPieceExampleAndStorePiecePiece,
   );
 
@@ -742,14 +742,13 @@ function describeMigrateFastlane() {
     writeFileSync(fullDescriptionPath, 'The full description.');
 
     const migration = await runMigrateFastlane(dir, [app()]);
-    const store = JSON.parse(artifact(migration.artifacts, 'store.config.json').contents) as {
-      apple?: { info: Record<string, { title?: string; keywords?: string[] }> };
-      android?: { info: Record<string, { title?: string }> };
-    };
+    const launchConfigText = artifact(migration.artifacts, 'launch.config.ts').contents;
 
-    expect(store.apple?.info['en-US']?.title).toBe('Alpha');
-    expect(store.apple?.info['en-US']?.keywords).toEqual(['todo', 'tasks']);
-    expect(store.android?.info['en-US']?.title).toBe('Alpha');
+    expect(launchConfigText).toContain('listing:');
+    expect(launchConfigText).toContain('com.acme.alpha');
+    expect(launchConfigText).toContain('Alpha');
+    expect(launchConfigText).toContain('todo');
+    expect(launchConfigText).toContain('The full description.');
 
     function includesImportedListingNote(note: {
       readonly level: MigrationNoteLevel;
@@ -771,7 +770,7 @@ function describeMigrateFastlane() {
   }
 
   it(
-    'imports the fastlane/metadata folder into store.config.json and drops the Deliverfile follow-up',
+    'imports the fastlane/metadata folder into launch.config.ts and drops the Deliverfile follow-up',
     importsTheFastlaneMetadataFolderIntoStorePiecePieceAndDropsTheDeliverfileFollowUp,
   );
 

@@ -142,7 +142,7 @@
           "additionalProperties": {
             "$ref": "#/definitions/GameCenterConfig"
           },
-          "description": "Game Center achievements & leaderboards, keyed by iOS bundle id. Drives `launch-store game-center`. The single-config form of `gamecenter.config.json` (still accepted for back-compat). See {@link GameCenterConfig}."
+          "description": "Game Center achievements and leaderboards, keyed by iOS bundle id. Drives `launch-store game-center`. See {@link GameCenterConfig}."
         },
         "appClips": {
           "type": "object",
@@ -151,7 +151,7 @@
           "additionalProperties": {
             "$ref": "#/definitions/AppClipsConfig"
           },
-          "description": "App Clip card metadata, keyed by the parent app's iOS bundle id. Drives `launch-store app-clips`. The single-config form of `appclips.config.json` (still accepted for back-compat). See {@link AppClipsConfig}."
+          "description": "App Clip card metadata, keyed by the parent app's iOS bundle id. Drives `launch-store app-clips`. See {@link AppClipsConfig}."
         },
         "releaseAttributes": {
           "type": "object",
@@ -160,7 +160,7 @@
           "additionalProperties": {
             "$ref": "#/definitions/ReleaseAttributesConfig"
           },
-          "description": "App Store release attributes (age rating, categories, price, review details), keyed by iOS bundle id. Drives `launch-store release-config`. The single-config form of `release.config.json` (still accepted for back-compat). Distinct from {@link LaunchConfig.release} (the release policy). See {@link ReleaseAttributesConfig}."
+          "description": "App Store release attributes (age rating, categories, price, review details), keyed by iOS bundle id. Drives `launch-store release-config`. Distinct from {@link LaunchConfig.release} (the release policy). See {@link ReleaseAttributesConfig}."
         },
         "wallet": {
           "type": "object",
@@ -182,7 +182,7 @@
           },
           "required": [],
           "additionalProperties": false,
-          "description": "Team-level Apple Pay merchant ids & Wallet pass type ids. Drives `launch-store wallet`. The single-config form of `wallet.config.json` (still accepted for back-compat). See {@link WalletConfig}."
+          "description": "Team-level Apple Pay merchant ids and Wallet pass type ids. Drives `launch-store wallet`. See {@link WalletConfig}."
         },
         "euDistribution": {
           "type": "object",
@@ -199,27 +199,61 @@
             "domains"
           ],
           "additionalProperties": false,
-          "description": "Team-level EU alternative-distribution domains (DMA). Drives `launch-store eu-distribution`. The single-config form of `eu-distribution.config.json` (still accepted for back-compat). See {@link EuDistributionConfig}."
+          "description": "Team-level EU alternative-distribution domains (DMA). Drives `launch-store eu-distribution`. See {@link EuDistributionConfig}."
         },
-        "configFiles": {
+        "listing": {
           "type": "object",
-          "properties": {
-            "availability": {
-              "type": "string"
-            },
-            "accessibility": {
-              "type": "string"
-            },
-            "experiments": {
-              "type": "string"
-            },
-            "customPages": {
-              "type": "string"
-            }
-          },
+          "properties": {},
           "required": [],
-          "additionalProperties": false,
-          "description": "Optional non-default paths for the sidecar-only surfaces' `*.config.json` files (availability, accessibility, experiments, custom pages). Lets `launch-store plan` / `launch-store drift` find a sidecar that isn't at its default filename, since those surfaces have no typed field here. Omit to use defaults. See {@link SurfaceConfigFiles}."
+          "additionalProperties": {
+            "$ref": "#/definitions/StoreListing"
+          },
+          "description": "App Store and Play listing text, keyed by iOS bundle id, or by Android package name when the app has no bundle id. Drives `launch-store metadata` and the listing plan."
+        },
+        "availability": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": {
+            "$ref": "#/definitions/AvailabilityConfig"
+          },
+          "description": "App Store territories the app sells in, keyed by iOS bundle id. Drives `launch-store availability`."
+        },
+        "accessibility": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": {
+            "$ref": "#/definitions/AccessibilityConfig"
+          },
+          "description": "Accessibility nutrition labels, keyed by iOS bundle id. Drives `launch-store accessibility`."
+        },
+        "experiments": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": {
+            "$ref": "#/definitions/VersionExperimentsConfig"
+          },
+          "description": "Product-page A/B tests, keyed by iOS bundle id. Screenshot folders are relative to the launch.config.ts that declares them. Drives `launch-store experiments`."
+        },
+        "customPages": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": {
+            "$ref": "#/definitions/CustomProductPagesConfig"
+          },
+          "description": "Extra App Store product pages, keyed by the parent app's iOS bundle id. Drives `launch-store custom-pages`."
+        },
+        "testFlight": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": {
+            "$ref": "#/definitions/TestFlightNotes"
+          },
+          "description": "TestFlight What to Test notes, keyed by iOS bundle id. Drives `launch-store testflight release`."
         },
         "aws": {
           "type": "object",
@@ -1130,7 +1164,7 @@
       },
       "required": [],
       "additionalProperties": false,
-      "description": "An app's declared Game Center achievements and leaderboards - the `gamecenter.config.json` document, or one entry of {@link LaunchConfig.gameCenter} (keyed by iOS bundle id). Either list may be omitted. Reconciled additively by `launch-store game-center`."
+      "description": "An app's declared Game Center achievements and leaderboards, one entry of {@link LaunchConfig.gameCenter} (keyed by iOS bundle id). Either list may be omitted. Reconciled additively by `launch-store game-center`."
     },
     "AchievementConfig": {
       "type": "object",
@@ -1268,7 +1302,7 @@
         "clips"
       ],
       "additionalProperties": false,
-      "description": "An app's declared App Clips - the `appclips.config.json` document, or one entry of {@link LaunchConfig.appClips} (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its own bundle id (e.g. `com.acme.app.Clip`), which is how a config entry is matched to the clip the build produced. Reconciled by `launch-store app-clips`."
+      "description": "An app's declared App Clips, one entry of {@link LaunchConfig.appClips} (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its own bundle id (e.g. `com.acme.app.Clip`), which is how a config entry is matched to the clip the build produced. Reconciled by `launch-store app-clips`."
     },
     "AppClipConfig": {
       "type": "object",
@@ -1339,7 +1373,7 @@
       },
       "required": [],
       "additionalProperties": false,
-      "description": "An app's declared App Store *release attributes* - age rating, App Store categories, base price, and App Review details - the `release.config.json` document, or one entry of {@link LaunchConfig.releaseAttributes} (keyed by iOS bundle id). Every section is optional and reconciled independently by `launch-store release-config`, so a file may declare only the attribute(s) you manage as code (e.g. just `pricing`). Named to avoid colliding with {@link ReleaseConfig}, which is the distinct iOS *release policy* (when/how a version goes live)."
+      "description": "An app's declared App Store release attributes - age rating, App Store categories, base price, and App Review details - one entry of {@link LaunchConfig.releaseAttributes} (keyed by iOS bundle id). Every section is optional and reconciled independently by `launch-store release-config`, so you may declare only the attribute(s) you manage as code (e.g. just `pricing`). Named to avoid colliding with {@link ReleaseConfig}, which is the distinct iOS release policy (when/how a version goes live)."
     },
     "ReleaseCategories": {
       "type": "object",
@@ -1443,6 +1477,75 @@
       ],
       "additionalProperties": false,
       "description": "One authorized EU distribution domain: the host plus a human-readable reference name."
+    },
+    "StoreListing": {
+      "type": "object",
+      "properties": {
+        "configVersion": { "type": "number" },
+        "apple": { "type": "object" },
+        "android": { "type": "object" }
+      },
+      "required": [],
+      "additionalProperties": false,
+      "description": "One app's App Store and Play listing text."
+    },
+    "AvailabilityConfig": {
+      "type": "object",
+      "properties": {
+        "availableInNewTerritories": {
+          "type": "boolean",
+          "description": "Whether Apple may sell the app in territories added later."
+        },
+        "territories": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Territory codes such as USA."
+        }
+      },
+      "required": ["territories"],
+      "additionalProperties": false,
+      "description": "The territories where one app is sold."
+    },
+    "AccessibilityConfig": {
+      "type": "object",
+      "properties": {
+        "publish": { "type": "boolean" },
+        "declarations": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["declarations"],
+      "additionalProperties": false,
+      "description": "Accessibility nutrition labels for one app."
+    },
+    "VersionExperimentsConfig": {
+      "type": "object",
+      "properties": {
+        "experiments": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["experiments"],
+      "additionalProperties": false,
+      "description": "Product-page experiments for one app."
+    },
+    "CustomProductPagesConfig": {
+      "type": "object",
+      "properties": {
+        "pages": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["pages"],
+      "additionalProperties": false,
+      "description": "Custom product pages for one app."
+    },
+    "TestFlightNotes": {
+      "type": "object",
+      "properties": {
+        "whatToTest": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "What to Test notes, keyed by locale."
+        }
+      },
+      "required": ["whatToTest"],
+      "additionalProperties": false,
+      "description": "Localized TestFlight What to Test notes for one app."
     }
   }
 }

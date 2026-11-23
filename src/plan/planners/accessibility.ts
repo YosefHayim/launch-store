@@ -1,33 +1,54 @@
 // Compares App Store Connect accessibility declarations with the local config.
 
-import { resolveSidecarConfig } from '@/config/config.js';
-import { loadAccessibilityConfig, reconcileAccessibility } from '@/store/apple/accessibility.js';
+import { launchConfigForApp } from '@/config/config.js';
+import { reconcileAccessibility, type AccessibilityConfig } from '@/store/apple/accessibility.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
-import type { SurfacePlanner } from '@/types/plan.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';
+
 /** Surface id - also the value users pass as `launch-store plan accessibility`. */
 const SURFACE = 'accessibility';
+
 export const accessibilityPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
   plan(planContext) {
+    async function readAccessibilitySection(
+      bundleId: string,
+    ): Promise<AccessibilityConfig | undefined> {
+      function hasThisBundle(discoveredApp: AppDescriptor): boolean {
+        return discoveredApp.bundleId == bundleId;
+      }
+
+      const discoveredApp = planContext.apps.find(hasThisBundle);
+      const isAppMissing = discoveredApp == null;
+
+      if (isAppMissing) {
+        return planContext.config.accessibility?.[bundleId];
+      }
+
+      const launchFile = await launchConfigForApp(planContext.config, discoveredApp.dir);
+
+      return launchFile.accessibility?.[bundleId];
+    }
+
+    function reconcileAccessibilitySection(
+      api: AscSurfacesApi,
+      bundleId: string,
+      accessibilitySection: AccessibilityConfig,
+    ) {
+      return reconcileAccessibility(api, {
+        bundleId,
+        config: accessibilitySection,
+        dryRun: true,
+      });
+    }
+
     return planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'additive',
-      configFor() {
-        let configPath = planContext.config.configFiles?.accessibility;
-
-        if (configPath == null) configPath = 'accessibility.config.json';
-
-        return resolveSidecarConfig({
-          typed: undefined,
-          configPath,
-          explicitPath: false,
-          load: loadAccessibilityConfig,
-        });
-      },
-      reconcile(api, bundleId, config) {
-        return reconcileAccessibility(api, { bundleId, config, dryRun: true });
-      },
+      configFor: readAccessibilitySection,
+      reconcile: reconcileAccessibilitySection,
     });
   },
 };

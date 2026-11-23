@@ -75,6 +75,7 @@ describe('buildDoctorContext', function describeBuildDoctorContext() {
     vi.mocked(loadConfig).mockResolvedValue({
       config: launchConfig,
       apps,
+      directory: null,
     });
 
     const doctorContext = await runBuildDoctorContext('alpha');
@@ -88,6 +89,7 @@ describe('buildDoctorContext', function describeBuildDoctorContext() {
     vi.mocked(loadConfig).mockResolvedValue({
       config: launchConfig,
       apps,
+      directory: null,
     });
 
     const doctorContext = await runBuildDoctorContext();

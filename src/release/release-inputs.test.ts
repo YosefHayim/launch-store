@@ -1,13 +1,32 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-  readStoreReleaseNotes,
-  resolveReleaseNotes,
-  resolveReleaseType,
-  resolveWhatsNew,
-} from './release-inputs.ts';
+import type { LaunchConfig } from '../types/config.ts';
+import { resolveReleaseNotes, resolveReleaseType, resolveWhatsNew } from './release-inputs.ts';
+
+function launchFile(
+  listing?: LaunchConfig['listing'],
+  release?: LaunchConfig['release'],
+): LaunchConfig {
+  const launchConfig: LaunchConfig = {
+    profiles: {},
+    credentials: 'local',
+    storage: 'local',
+    buildEngine: 'xcode',
+    submit: 'app-store-connect',
+  };
+  let withSections = launchConfig;
+
+  if (release != null) {
+    withSections = { ...withSections, release };
+  }
+
+  if (listing != null) {
+    withSections = { ...withSections, listing };
+  }
+
+  return withSections;
+}
+
+const releaseApp = { dir: '/no/such/app', bundleId: 'com.acme.app' };
 
 function describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault() {
   function defaultsToAFTERAPPROVALWithNoPieceAndNoOverrides() {
@@ -109,92 +128,76 @@ describe(
   describeResolveReleaseNotesPieceNotesPerLocaleMap,
 );
 
-function describeReadStoreReleaseNotesPerLocaleReleaseNotesFromStorePiecePiece() {
-  async function returnsWhenTheAppHasNoStorePiecePiece() {
-    const systemTemporaryDirectory = tmpdir();
-    const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
-    const appDirectory = mkdtempSync(launchReleasePath);
+function describeListingReleaseNotes() {
+  async function returnsAnEmptyMapWhenTheListingHasNoReleaseNotes() {
+    const whatsNew = await resolveWhatsNew(launchFile(), releaseApp);
 
-    const storeReleaseNotes = await readStoreReleaseNotes(appDirectory);
-
-    expect(storeReleaseNotes).toEqual({});
-  }
-
-  it('returns {} when the app has no store.config.json', returnsWhenTheAppHasNoStorePiecePiece);
-
-  async function readsEachLocaleSReleaseNotesAndSkipsLocalesWithoutThem() {
-    const systemTemporaryDirectory = tmpdir();
-    const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
-    const appDirectory = mkdtempSync(launchReleasePath);
-    const storePath = join(appDirectory, 'store.config.json');
-    const serialized = JSON.stringify({
-      apple: {
-        info: { 'en-US': { releaseNotes: 'Hello' }, 'de-DE': { title: 'no notes here' } },
-      },
-    });
-
-    writeFileSync(storePath, serialized);
-
-    const storeReleaseNotes = await readStoreReleaseNotes(appDirectory);
-
-    expect(storeReleaseNotes).toEqual({ 'en-US': 'Hello' });
+    expect(whatsNew).toEqual({});
   }
 
   it(
-    "reads each locale's releaseNotes and skips locales without them",
-    readsEachLocaleSReleaseNotesAndSkipsLocalesWithoutThem,
+    'returns an empty map when the listing has no release notes',
+    returnsAnEmptyMapWhenTheListingHasNoReleaseNotes,
   );
-}
 
-describe(
-  'readStoreReleaseNotes - per-locale releaseNotes from store.config.json',
-  describeReadStoreReleaseNotesPerLocaleReleaseNotesFromStorePiecePiece,
-);
-
-function describeResolveWhatsNewStorePiecePieceOverridesReleaseReleaseNotesPerLocale() {
-  async function mergesBothSourcesStorePiecePieceWinningForASharedLocale() {
-    const systemTemporaryDirectory = tmpdir();
-    const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
-    const appDirectory = mkdtempSync(launchReleasePath);
-    const storePath = join(appDirectory, 'store.config.json');
-    const serialized = JSON.stringify({
-      apple: { info: { 'en-US': { releaseNotes: 'From the store config' } } },
-    });
-
-    writeFileSync(storePath, serialized);
-
-    const merged = await resolveWhatsNew(
-      { releaseNotes: { 'en-US': 'From launch.config', 'fr-FR': 'Config only' } },
-      appDirectory,
+  async function readsEachLocaleAndSkipsLocalesWithoutReleaseNotes() {
+    const whatsNew = await resolveWhatsNew(
+      launchFile({
+        'com.acme.app': {
+          apple: {
+            info: { 'en-US': { releaseNotes: 'Hello' }, 'de-DE': { title: 'no notes here' } },
+          },
+        },
+      }),
+      releaseApp,
     );
 
-    expect(merged).toEqual({ 'en-US': 'From the store config', 'fr-FR': 'Config only' });
+    expect(whatsNew).toEqual({ 'en-US': 'Hello' });
   }
 
   it(
-    'merges both sources, store.config.json winning for a shared locale',
-    mergesBothSourcesStorePiecePieceWinningForASharedLocale,
-  );
-
-  async function fallsBackToReleaseReleaseNotesWhenThereSNoStorePiecePiece() {
-    const systemTemporaryDirectory = tmpdir();
-    const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
-    const appDirectory = mkdtempSync(launchReleasePath);
-
-    const whatsNew = await resolveWhatsNew({ releaseNotes: 'Just the config.' }, appDirectory);
-
-    expect(whatsNew).toEqual({
-      'en-US': 'Just the config.',
-    });
-  }
-
-  it(
-    "falls back to release.releaseNotes when there's no store.config.json",
-    fallsBackToReleaseReleaseNotesWhenThereSNoStorePiecePiece,
+    'reads each locale and skips locales without release notes',
+    readsEachLocaleAndSkipsLocalesWithoutReleaseNotes,
   );
 }
 
-describe(
-  'resolveWhatsNew - store.config.json overrides release.releaseNotes per locale',
-  describeResolveWhatsNewStorePiecePieceOverridesReleaseReleaseNotesPerLocale,
-);
+describe('listing release notes', describeListingReleaseNotes);
+
+function describeResolveWhatsNew() {
+  async function letsListingReleaseNotesOverrideReleaseReleaseNotesPerLocale() {
+    const merged = await resolveWhatsNew(
+      launchFile(
+        {
+          'com.acme.app': {
+            apple: { info: { 'en-US': { releaseNotes: 'From the listing' } } },
+          },
+        },
+        { releaseNotes: { 'en-US': 'From release', 'fr-FR': 'Release only' } },
+      ),
+      releaseApp,
+    );
+
+    expect(merged).toEqual({ 'en-US': 'From the listing', 'fr-FR': 'Release only' });
+  }
+
+  it(
+    'lets listing release notes override release.releaseNotes per locale',
+    letsListingReleaseNotesOverrideReleaseReleaseNotesPerLocale,
+  );
+
+  async function usesReleaseReleaseNotesWhenTheListingHasNone() {
+    const whatsNew = await resolveWhatsNew(
+      launchFile(undefined, { releaseNotes: 'Just the config.' }),
+      releaseApp,
+    );
+
+    expect(whatsNew).toEqual({ 'en-US': 'Just the config.' });
+  }
+
+  it(
+    'uses release.releaseNotes when the listing has none',
+    usesReleaseReleaseNotesWhenTheListingHasNone,
+  );
+}
+
+describe('resolveWhatsNew', describeResolveWhatsNew);

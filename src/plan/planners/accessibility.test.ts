@@ -1,10 +1,8 @@
 import { runPlanner } from './planner-testkit.ts';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { accessibilityPlanner } from './accessibility.ts';
 import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
+import type { AccessibilityConfig } from '@/store/apple/accessibility.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
@@ -16,42 +14,10 @@ const alpha: AppDescriptor = {
   configPath: '/no/such/dir/alpha/app.json',
   bundleId: 'com.acme.alpha',
 };
-const tmpDirs: string[] = [];
 
-function cleanup() {
-  for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-}
-
-afterEach(cleanup);
-
-/** Write a sidecar config to a fresh temp file and return its path. */
-function writeConfig(json: unknown): string {
-  const systemTemporaryDirectory = tmpdir();
-  const launchA11yPath = join(systemTemporaryDirectory, 'launch-a11y-');
-  const dir = mkdtempSync(launchA11yPath);
-
-  tmpDirs.push(dir);
-
-  const path = join(dir, 'accessibility.config.json');
-  const serialized = JSON.stringify(json);
-
-  writeFileSync(path, serialized);
-
-  return path;
-}
-
-function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
-  const config: LaunchConfig = {
-    profiles: {},
-    credentials: 'local',
-    storage: 'local',
-    buildEngine: 'xcode',
-    submit: 'app-store-connect',
-    configFiles: { accessibility: configPath },
-  };
-
+function contextFor(api: AscSurfacesApi | null, launchFile: LaunchConfig): PlanContext {
   return {
-    config,
+    config: launchFile,
     apps: [alpha],
     resolveAscApi() {
       return Promise.resolve(api);
@@ -61,7 +27,34 @@ function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
     },
   };
 }
-const DECLARED = { declarations: [{ deviceFamily: 'IPHONE' }] };
+
+function makeCtx(
+  api: AscSurfacesApi | null,
+  accessibilitySection: AccessibilityConfig | null,
+): PlanContext {
+  const fallbackLaunch: LaunchConfig = {
+    profiles: {},
+    credentials: 'local',
+    storage: 'local',
+    buildEngine: 'xcode',
+    submit: 'app-store-connect',
+  };
+
+  const isOmitted = accessibilitySection == null;
+
+  if (isOmitted) {
+    return contextFor(api, fallbackLaunch);
+  }
+
+  const declaredLaunch: LaunchConfig = {
+    ...fallbackLaunch,
+    accessibility: { 'com.acme.alpha': accessibilitySection },
+  };
+
+  return contextFor(api, declaredLaunch);
+}
+
+const DECLARED: AccessibilityConfig = { declarations: [{ deviceFamily: 'IPHONE' }] };
 const publishedIphone = {
   id: 'decl1',
   deviceFamily: 'IPHONE',
@@ -82,10 +75,7 @@ const publishedIphone = {
 function describeAccessibilityPlanner() {
   async function omitsItselfWhenNoAccessibilitySidecarIsPresent() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(
-      accessibilityPlanner,
-      makeCtx(ascApiFake, '/no/such/accessibility.config.json'),
-    );
+    const plan = await runPlanner(accessibilityPlanner, makeCtx(ascApiFake, null));
 
     expect(plan.state).toBe('omitted');
   }
@@ -96,7 +86,7 @@ function describeAccessibilityPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(accessibilityPlanner, makeCtx(null, writeConfig(DECLARED)));
+    const plan = await runPlanner(accessibilityPlanner, makeCtx(null, DECLARED));
 
     expect(plan.state).toBe('skipped');
 
@@ -112,7 +102,7 @@ function describeAccessibilityPlanner() {
 
   async function reportsAnAdditivePlanWhenADeclarationDoesnTExistYet() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(accessibilityPlanner, makeCtx(ascApiFake, writeConfig(DECLARED)));
+    const plan = await runPlanner(accessibilityPlanner, makeCtx(ascApiFake, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -143,7 +133,7 @@ function describeAccessibilityPlanner() {
     const api = makeAscApiFake({
       listAccessibilityDeclarations: vi.fn().mockResolvedValue([publishedIphone]),
     });
-    const plan = await runPlanner(accessibilityPlanner, makeCtx(api, writeConfig(DECLARED)));
+    const plan = await runPlanner(accessibilityPlanner, makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -161,7 +151,7 @@ function describeAccessibilityPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(accessibilityPlanner, makeCtx(api, writeConfig(DECLARED)));
+    const plan = await runPlanner(accessibilityPlanner, makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -179,7 +169,7 @@ function describeAccessibilityPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(accessibilityPlanner, makeCtx(api, writeConfig(DECLARED)));
+    await runPlanner(accessibilityPlanner, makeCtx(api, DECLARED));
     expect(api.createAccessibilityDeclaration).toHaveBeenCalledTimes(0);
     expect(api.updateAccessibilityDeclaration).toHaveBeenCalledTimes(0);
   }

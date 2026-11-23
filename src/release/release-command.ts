@@ -930,13 +930,13 @@ async function releaseAppleBuild(
     return;
   }
 
-  const whatsNew = await readWhatsNew(launchConfig, appDescriptor.dir);
+  const whatsNew = await readWhatsNew(launchConfig, appDescriptor);
 
   const whatsNewIsEmpty = Object.keys(whatsNew).length == 0;
 
   if (whatsNewIsEmpty) {
     logger.warn(
-      "No release notes configured (release.releaseNotes or store.config.json) - keeps the existing What's New.",
+      "No release notes configured (release.releaseNotes or listing in launch.config.ts) - keeps the existing What's New.",
     );
   }
 
@@ -1068,9 +1068,9 @@ async function readAscKey(keyId: string, accountLabel: string) {
   return ascKey;
 }
 
-async function readWhatsNew(launchConfig: LaunchConfig, appDirectory: string) {
+async function readWhatsNew(launchConfig: LaunchConfig, app: AppDescriptor) {
   try {
-    return await resolveWhatsNew(launchConfig.release, appDirectory);
+    return await resolveWhatsNew(launchConfig, app);
   } catch (error) {
     throw releaseFailure('read release notes', error);
   }

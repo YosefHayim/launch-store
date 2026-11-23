@@ -12,7 +12,7 @@ const RESULT: MigrationResult = {
   notes: [
     { level: 'mapped', message: 'Build profile mapped.' },
     { level: 'manual', message: 'Configure your Apple key.' },
-    { level: 'skipped', message: 'store.config.json kept.' },
+    { level: 'skipped', message: 'An old listing file was left in place.' },
     { level: 'info', message: 'Detected bundle id.' },
   ],
 };

@@ -25,13 +25,12 @@ function describeRegisterGameCenterCommand() {
     const optionFlags = gameCenterCommand.options.map(readLong);
 
     expect(optionFlags).toContain('--app');
-    expect(optionFlags).toContain('--config');
     expect(optionFlags).toContain('--dry-run');
     expect(optionFlags).toContain('--yes');
   }
 
   it(
-    'attaches a `game-center` command with app, config, dry-run, and yes options',
+    'attaches a `game-center` command with app, dry-run, and yes options',
     attachesAGameCenterCommandWithAppPieceDryRunAndYesPiece,
   );
 }

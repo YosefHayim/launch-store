@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import type {
   AndroidReleaseNote,
   AndroidReleaseOptions,
+  AppDescriptor,
   BuildProfile,
   Platform,
 } from '../types/app.ts';
@@ -212,7 +213,7 @@ export function androidReleaseNotesFromLocaleMap(
 /** Resolve Play release notes for an Android ship */
 export async function resolveAndroidSubmitReleaseNotes(
   launchConfig: LaunchConfig,
-  appDirectory: string,
+  app: Pick<AppDescriptor, 'dir' | 'bundleId' | 'packageName'>,
   notesPath: string | undefined,
 ): Promise<readonly AndroidReleaseNote[]> {
   const hasNotesPath = notesPath != null;
@@ -226,7 +227,7 @@ export async function resolveAndroidSubmitReleaseNotes(
     });
   }
 
-  const releaseNotesByLocale = await resolveWhatsNew(launchConfig.release, appDirectory);
+  const releaseNotesByLocale = await resolveWhatsNew(launchConfig, app);
 
   return androidReleaseNotesFromLocaleMap(releaseNotesByLocale);
 }

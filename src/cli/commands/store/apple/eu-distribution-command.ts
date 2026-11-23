@@ -2,7 +2,6 @@
 
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { loadConfig } from '@/config/config.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';
 import { readLaunchDirectories } from '@/services/platform/paths.js';
@@ -12,20 +11,15 @@ import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
-  resolveStoreSurfaceSection,
 } from './app-store-surface-command.ts';
-import {
-  parseEuDistributionConfig,
-  reconcileEuDistributionDomains,
-} from '@/store/apple/eu-distribution.js';
+import { reconcileEuDistributionDomains } from '@/store/apple/eu-distribution.js';
+import { loadStoreAppContext } from '@/store/shared/select-store-app.js';
 import type { PlannedAction } from '@/types/reconcile.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 
 type EuDistributionCommandInput =
   | Readonly<{
       operation: 'reconcile';
-      configPath: string;
-      explicitConfig: boolean;
       dryRun: boolean;
       yes: boolean;
     }>
@@ -89,8 +83,6 @@ function decodeEuDistributionCommandInput(rawCommandInput: unknown): EuDistribut
   if (operation == 'reconcile') {
     return {
       operation: 'reconcile',
-      configPath: readText(rawCommandInputObject, 'configPath'),
-      explicitConfig: readFlag(rawCommandInputObject, 'explicitConfig'),
       dryRun: readFlag(rawCommandInputObject, 'dryRun'),
       yes: readFlag(rawCommandInputObject, 'yes'),
     };
@@ -136,30 +128,23 @@ function renderApplied(plannedAction: PlannedAction): string {
 async function reconcileDomains(
   commandInput: Extract<EuDistributionCommandInput, { operation: 'reconcile' }>,
 ): Promise<void> {
-  const launchPaths = readLaunchDirectories();
   const logger = createLogger(false);
-  const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
-  const configPath = projectPath(commandInput.configPath);
-  const euDistributionConfiguration = await resolveStoreSurfaceSection(
-    loadedConfiguration.config.euDistribution,
-    configPath,
-    commandInput.explicitConfig,
-    parseEuDistributionConfig,
-  );
+  const storeAppContext = await loadStoreAppContext(undefined);
+  const euDistributionSection = storeAppContext.config.euDistribution;
 
-  const isConfigMissing = euDistributionConfiguration == null;
+  const isEuDistributionMissing = euDistributionSection == null;
 
-  if (isConfigMissing) {
+  if (isEuDistributionMissing) {
     throw makeEuDistributionCommandFailure({
       operation: 'reconcile',
-      message: `No EU distribution config. Add an \`euDistribution\` field to launch.config.ts or create ${commandInput.configPath}.`,
+      message: 'No EU distribution config. Add an euDistribution field to launch.config.ts.',
     });
   }
 
   const appleStore = await loadActiveAppleStore();
   const plannedActions = await reconcileEuDistributionDomains(
     appleStore,
-    euDistributionConfiguration,
+    euDistributionSection,
     true,
   );
 
@@ -198,7 +183,7 @@ async function reconcileDomains(
 
   const appliedActions = await reconcileEuDistributionDomains(
     appleStore,
-    euDistributionConfiguration,
+    euDistributionSection,
     false,
   );
   const failedActionCount = appliedActions.filter(isFailedAction).length;

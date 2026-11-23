@@ -302,7 +302,9 @@ function printAdoptReceipt(
   }
 
   for (const pulledListing of adoptionSummary.listingsPulled) {
-    receiptLines.push(`OK ${pulledListing}: pulled App Store listing -> store.config.json`);
+    receiptLines.push(
+      `OK ${pulledListing}: printed the App Store listing. Add it under listing in launch.config.ts.`,
+    );
   }
 
   for (const failedListing of adoptionSummary.listingErrors) {
@@ -449,8 +451,8 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       cwd: launchPaths.workingDirectory,
       hasLaunchConfig,
       appRoot: sharedAppRoot,
-      pullListing(bundleId, configPath) {
-        return pullAppleListing(bundleId, configPath, false);
+      pullListing(bundleId) {
+        return pullAppleListing(bundleId, false);
       },
     });
 

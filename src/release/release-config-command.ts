@@ -2,23 +2,20 @@
 
 import { stdout } from 'node:process';
 import { selectApp } from '../build/pipeline-environment.ts';
-import { loadConfig } from '../config/config.ts';
+import { launchConfigForApp, loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
-import { resolveStoreSurfaceSection } from '../cli/commands/store/apple/app-store-surface-command.ts';
 import { summarize } from '../store/shared/reconcile.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
-import { parseReleaseConfig, reconcileRelease } from './release-attributes.ts';
+import { reconcileRelease } from './release-attributes.ts';
 
 /** Inputs resolved from Commander for App Store release-attribute reconciliation. */
 type ReleaseConfigCommandInput = Readonly<{
   app?: string;
-  configPath: string;
-  explicitConfigPath: boolean;
   dryRun: boolean;
   yes: boolean;
 }>;
@@ -189,28 +186,23 @@ export async function releaseConfigCommandProgram(
     );
   }
 
-  let releaseAttributes: ReturnType<typeof parseReleaseConfig> | undefined;
+  let appLaunch: Awaited<ReturnType<typeof launchConfigForApp>>;
 
   try {
-    releaseAttributes = await resolveStoreSurfaceSection(
-      loadedConfiguration.config.releaseAttributes?.[bundleId],
-      commandInput.configPath,
-      commandInput.explicitConfigPath,
-      parseReleaseConfig,
-    );
+    appLaunch = await launchConfigForApp(loadedConfiguration.config, selectedApp.dir);
   } catch (cause) {
     throw releaseConfigFailure('load release attributes', cause);
   }
 
-  const loadedReleaseAttributes = releaseAttributes;
+  const releaseAttributes = appLaunch.releaseAttributes?.[bundleId];
 
-  const isReleaseAttributesMissing = loadedReleaseAttributes == null;
+  const isReleaseAttributesMissing = releaseAttributes == null;
 
   if (isReleaseAttributesMissing) {
     throw releaseConfigFailure(
       'load release attributes',
-      commandInput.configPath,
-      `No release attributes for ${bundleId}. Add a releaseAttributes entry to launch.config.ts or create ${commandInput.configPath}.`,
+      bundleId,
+      `No release attributes for ${bundleId}. Add a releaseAttributes entry to launch.config.ts.`,
     );
   }
 
@@ -247,7 +239,7 @@ export async function releaseConfigCommandProgram(
   try {
     releasePlan = await reconcileRelease(ascClient, {
       bundleId,
-      config: loadedReleaseAttributes,
+      config: releaseAttributes,
       dryRun: true,
     });
   } catch (cause) {
@@ -303,7 +295,7 @@ export async function releaseConfigCommandProgram(
   try {
     appliedRelease = await reconcileRelease(ascClient, {
       bundleId,
-      config: loadedReleaseAttributes,
+      config: releaseAttributes,
       dryRun: false,
     });
   } catch (cause) {

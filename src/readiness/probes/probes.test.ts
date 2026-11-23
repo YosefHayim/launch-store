@@ -37,7 +37,10 @@ import type {
 } from '@/types/readiness.js';
 
 /** A minimal valid config; pass `products` to exercise the subscription-group scope. */
-function config(products?: LaunchConfig['products']): LaunchConfig {
+function config(
+  products?: LaunchConfig['products'],
+  listing?: LaunchConfig['listing'],
+): LaunchConfig {
   const launchConfig: LaunchConfig = {
     profiles: {},
     credentials: 'local',
@@ -45,10 +48,17 @@ function config(products?: LaunchConfig['products']): LaunchConfig {
     buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
+  let withSections = launchConfig;
 
-  if (products == null) return launchConfig;
+  if (products != null) {
+    withSections = { ...withSections, products };
+  }
 
-  return { ...launchConfig, products };
+  if (listing != null) {
+    withSections = { ...withSections, listing };
+  }
+
+  return withSections;
 }
 
 /** A discovered app; override `bundleId`/`packageName` to scope it to a store. */
@@ -198,6 +208,7 @@ function createReadinessContext(args: {
   asc?: AscReadinessApi | null;
   play?: PlayReadinessApi | null;
   products?: LaunchConfig['products'];
+  listing?: LaunchConfig['listing'];
 }): ReadinessContext {
   let appleStore: AscReadinessApi | null = null;
 
@@ -208,7 +219,7 @@ function createReadinessContext(args: {
   if (args.play != null) googleStore = args.play;
 
   return {
-    config: config(args.products),
+    config: config(args.products, args.listing),
     apps: args.apps,
     resolveAscApi() {
       return Promise.resolve(appleStore);
@@ -1964,88 +1975,63 @@ function describeScreenshotsProbe() {
 describe('screenshotsProbe', describeScreenshotsProbe);
 
 function describeListingUrlsProbe() {
-  /** Write a minimal `store.config.json` declaring one Apple privacy-policy URL, and return its dir. */
-  function appDirWithPrivacyUrl(url: string): string {
-    const systemTemporaryDirectory = tmpdir();
-    const listingUrlsPath = join(systemTemporaryDirectory, 'listing-urls-');
-    const dir = mkdtempSync(listingUrlsPath);
-    const storePath = join(dir, 'store.config.json');
-    const serialized = JSON.stringify({ apple: { info: { 'en-US': { privacyPolicyUrl: url } } } });
-
-    writeFileSync(storePath, serialized);
-
-    return dir;
+  function privacyListing(url: string): LaunchConfig['listing'] {
+    return {
+      'com.x': { apple: { info: { 'en-US': { privacyPolicyUrl: url } } } },
+    };
   }
 
   async function omitsWhenNoInScopeAppDeclaresAListingURL() {
-    const systemTemporaryDirectory = tmpdir();
-    const listingUrlsPath = join(systemTemporaryDirectory, 'listing-urls-');
-    const dir = mkdtempSync(listingUrlsPath);
+    const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x' })] });
+    const probe = await checkProbe(listingUrlsProbe, createReadiness);
 
-    try {
-      const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x', dir })] });
-      const probe = await checkProbe(listingUrlsProbe, createReadiness);
-      expect(probe.state).toBe('omitted');
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    expect(probe.state).toBe('omitted');
   }
 
   it('omits when no in-scope app declares a listing URL', omitsWhenNoInScopeAppDeclaresAListingURL);
 
   async function passesA2xxURLAndBlocksANon2xxOne() {
-    const dir = appDirWithPrivacyUrl('https://x.example/privacy');
+    stubFetchStatus(200);
 
-    try {
-      stubFetchStatus(200);
+    const createReadiness = createReadinessContext({
+      apps: [app({ bundleId: 'com.x' })],
+      listing: privacyListing('https://x.example/privacy'),
+    });
+    const ok = await checkProbe(listingUrlsProbe, createReadiness);
+    const listedFindings = findings(ok);
 
-      const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x', dir })] });
-      const ok = await checkProbe(listingUrlsProbe, createReadiness);
-      const listedFindings = findings(ok);
+    expect(listedFindings).toEqual([{ status: 'ok', identifier: 'https://x.example/privacy' }]);
+    vi.unstubAllGlobals();
+    stubFetchStatus(404);
 
-      expect(listedFindings).toEqual([{ status: 'ok', identifier: 'https://x.example/privacy' }]);
-    } finally {
-      vi.unstubAllGlobals();
-      rmSync(dir, { recursive: true, force: true });
-    }
+    const blockedReadiness = createReadinessContext({
+      apps: [app({ bundleId: 'com.x' })],
+      listing: privacyListing('https://x.example/gone'),
+    });
+    const blocked = await checkProbe(listingUrlsProbe, blockedReadiness);
+    const blockedFindings = findings(blocked);
 
-    const dir2 = appDirWithPrivacyUrl('https://x.example/gone');
-
-    try {
-      stubFetchStatus(404);
-
-      const createReadiness = createReadinessContext({
-        apps: [app({ bundleId: 'com.x', dir: dir2 })],
-      });
-      const blocked = await checkProbe(listingUrlsProbe, createReadiness);
-      const listedFindings = findings(blocked);
-
-      expect(listedFindings).toEqual([{ status: 'blocker', identifier: 'https://x.example/gone' }]);
-    } finally {
-      vi.unstubAllGlobals();
-      rmSync(dir2, { recursive: true, force: true });
-    }
+    expect(blockedFindings).toEqual([{ status: 'blocker', identifier: 'https://x.example/gone' }]);
+    vi.unstubAllGlobals();
   }
 
   it('passes a 2xx URL and blocks a non-2xx one', passesA2xxURLAndBlocksANon2xxOne);
 
   async function propagatesAFetchFailureSoTheOrchestratorRecordsItAsErrored() {
-    const dir = appDirWithPrivacyUrl('https://x.example/privacy');
-
     async function failFetch(): Promise<Response> {
       throw new Error('ENOTFOUND');
     }
 
     vi.stubGlobal('fetch', vi.fn(failFetch));
 
-    try {
-      const createReadiness = createReadinessContext({ apps: [app({ bundleId: 'com.x', dir })] });
-      const probe = checkProbe(listingUrlsProbe, createReadiness);
-      await expect(probe).rejects.toThrow('ENOTFOUND');
-    } finally {
-      vi.unstubAllGlobals();
-      rmSync(dir, { recursive: true, force: true });
-    }
+    const createReadiness = createReadinessContext({
+      apps: [app({ bundleId: 'com.x' })],
+      listing: privacyListing('https://x.example/privacy'),
+    });
+    const probe = checkProbe(listingUrlsProbe, createReadiness);
+
+    await expect(probe).rejects.toThrow('ENOTFOUND');
+    vi.unstubAllGlobals();
   }
 
   it(

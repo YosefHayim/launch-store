@@ -4,7 +4,6 @@ import { decodeVersionExperimentsCommandInput } from './version-experiments-comm
 function describeDecodeVersionExperimentsCommandPiece() {
   function decodesTheCommanderBoundaryWithAnOmittedAppSelector() {
     const decodeVersionExperimentsCommand = decodeVersionExperimentsCommandInput({
-      config: 'experiments.config.json',
       submit: true,
       start: false,
       dryRun: true,
@@ -12,7 +11,6 @@ function describeDecodeVersionExperimentsCommandPiece() {
     });
 
     expect(decodeVersionExperimentsCommand).toEqual({
-      config: 'experiments.config.json',
       submit: true,
       start: false,
       dryRun: true,
@@ -29,7 +27,6 @@ function describeDecodeVersionExperimentsCommandPiece() {
     function callDecodeVersionExperimentsCommandPiece() {
       return decodeVersionExperimentsCommandInput({
         app: undefined,
-        config: 'experiments.config.json',
         submit: false,
         start: false,
         dryRun: false,

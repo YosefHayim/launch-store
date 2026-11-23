@@ -7,7 +7,6 @@ import { pathExists } from '../path-exists.ts';
 import {
   readAndroidMetadataDir,
   readAppleMetadataDir,
-  serializeStoreConfig,
   type StoreConfig,
 } from '../store/shared/store-config.ts';
 import type { AppDescriptor } from '../types/app.ts';
@@ -638,18 +637,48 @@ export function migrationNotesFor(
   return migrationNotes;
 }
 
-type StoreScaffoldOutcome = Readonly<{
-  artifact: MigrationArtifact | null;
+type ListingPlan = Readonly<{
+  extraSection?: string;
   note: MigrationNote;
+  importedMetadata: boolean;
 }>;
 
 function isZeroCount(localeCount: number): boolean {
   return localeCount == 0;
 }
 
+function listingKeyFor(apps: readonly AppDescriptor[]): string | null {
+  const firstApp = apps[0];
+
+  if (firstApp == null) {
+    return null;
+  }
+
+  let listingKey: string | null = null;
+
+  if (firstApp.bundleId != null) {
+    listingKey = firstApp.bundleId;
+  }
+
+  if (listingKey == null) {
+    listingKey = firstApp.packageName ?? null;
+  }
+
+  return listingKey;
+}
+
+function listingSection(listingKey: string, storeConfiguration: StoreConfig): string {
+  const listingDocument = { [listingKey]: storeConfiguration };
+  const serializedListing = JSON.stringify(listingDocument, null, 2);
+  const indentedListing = serializedListing.replaceAll('\n', '\n  ');
+
+  return `  listing: ${indentedListing},`;
+}
+
 async function importFastlaneMetadata(
   workingDirectory: string,
-): Promise<StoreScaffoldOutcome | null> {
+  apps: readonly AppDescriptor[],
+): Promise<ListingPlan | null> {
   const appleMetadataDirectory = join(workingDirectory, 'fastlane', 'metadata');
   const androidMetadataDirectory = join(appleMetadataDirectory, 'android');
   const appleListingPromise = readAppleMetadataDir(appleMetadataDirectory);
@@ -658,7 +687,6 @@ async function importFastlaneMetadata(
   const androidListing = await androidListingPromise;
   const appleLocaleCount = Object.keys(appleListing.info).length;
   const androidLocaleCount = Object.keys(androidListing.info).length;
-
   const hasNoImportedLocales = [appleLocaleCount, androidLocaleCount].every(isZeroCount);
 
   if (hasNoImportedLocales) {
@@ -678,42 +706,52 @@ async function importFastlaneMetadata(
     importedListingLabels.push(`${androidLocaleCount} Play locale(s)`);
   }
 
+  const listingKey = listingKeyFor(apps);
+
+  if (listingKey == null) {
+    return {
+      note: {
+        level: 'manual',
+        message:
+          'Fastlane metadata was found, but this app has no bundle id or package name. Add a listing entry to launch.config.ts.',
+      },
+      importedMetadata: false,
+    };
+  }
+
   return {
-    artifact: {
-      path: 'store.config.json',
-      contents: serializeStoreConfig(storeConfiguration),
-    },
+    extraSection: listingSection(listingKey, storeConfiguration),
     note: {
       level: 'mapped',
-      message: `Imported your fastlane metadata (${importedListingLabels.join(', ')}) into store.config.json - review it, then push with \`launch-store metadata push\`.`,
+      message: `Imported your fastlane metadata (${importedListingLabels.join(', ')}) into launch.config.ts under listing - review it, then push with \`launch-store metadata push\`.`,
     },
+    importedMetadata: true,
   };
 }
 
-/** Resolve store.config.json: reuse existing, import metadata, or scaffold. */
-async function storeScaffoldFor(workingDirectory: string): Promise<{
-  storeScaffold: StoreScaffoldOutcome;
-  importedMetadata: boolean;
-}> {
+/** Put imported Fastlane metadata under listing, or say where a listing belongs. */
+async function listingPlanFor(
+  workingDirectory: string,
+  apps: readonly AppDescriptor[],
+): Promise<ListingPlan> {
   const storeConfigPath = join(workingDirectory, 'store.config.json');
-
   const storeConfigExists = await pathExists(storeConfigPath);
 
   if (storeConfigExists) {
     const existingScaffold = await scaffoldStoreConfig(workingDirectory);
 
-    return { storeScaffold: existingScaffold, importedMetadata: false };
+    return { note: existingScaffold.note, importedMetadata: false };
   }
 
-  const importedStoreConfig = await importFastlaneMetadata(workingDirectory);
+  const importedListing = await importFastlaneMetadata(workingDirectory, apps);
 
-  if (importedStoreConfig == null) {
+  if (importedListing == null) {
     const scaffoldedStoreConfig = await scaffoldStoreConfig(workingDirectory);
 
-    return { storeScaffold: scaffoldedStoreConfig, importedMetadata: false };
+    return { note: scaffoldedStoreConfig.note, importedMetadata: false };
   }
 
-  return { storeScaffold: importedStoreConfig, importedMetadata: true };
+  return importedListing;
 }
 
 /** Read a Fastlane project and return Launch artifacts without writing them. */
@@ -731,24 +769,26 @@ export async function migrateFastlane(
   }
 
   const appRoot = detectAppRoot(apps, workingDirectory);
+  const listingPlan = await listingPlanFor(workingDirectory, apps);
+  let extraSections: string | undefined;
+
+  if (listingPlan.extraSection != null) {
+    extraSections = listingPlan.extraSection;
+  }
+
   const migrationArtifacts: MigrationArtifact[] = [
     {
       path: 'launch.config.ts',
-      contents: configTemplate(appRoot),
+      contents: configTemplate(appRoot, extraSections),
     },
     {
       path: '.env.example',
       contents: buildEnvExample(fastlaneSetup.envKeys),
     },
   ];
-  const storeScaffoldPlan = await storeScaffoldFor(workingDirectory);
-  const migrationNotes = migrationNotesFor(fastlaneSetup, apps, storeScaffoldPlan.importedMetadata);
+  const migrationNotes = migrationNotesFor(fastlaneSetup, apps, listingPlan.importedMetadata);
 
-  if (storeScaffoldPlan.storeScaffold.artifact != null) {
-    migrationArtifacts.push(storeScaffoldPlan.storeScaffold.artifact);
-  }
-
-  migrationNotes.push(storeScaffoldPlan.storeScaffold.note);
+  migrationNotes.push(listingPlan.note);
 
   return { source: 'fastlane', artifacts: migrationArtifacts, notes: migrationNotes };
 }
