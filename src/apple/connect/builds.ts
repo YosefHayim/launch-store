@@ -20,7 +20,8 @@ import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './li
 function withAskedPageLimit(askedLimit: number, listQuery: AppleListQuery | null): AppleListQuery {
   if (listQuery == null) return { limit: askedLimit };
 
-  const callerSetTheLimit = listQuery.limit != null;
+  const callerLimit = listQuery['limit'];
+  const callerSetTheLimit = callerLimit != null;
 
   if (callerSetTheLimit) return listQuery;
 
