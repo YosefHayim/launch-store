@@ -7,7 +7,7 @@ import {
 } from '@/credentials/android-keystore-assets.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';
-import type { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
+import type { AppStoreConnect } from '@/apple/app-store-connect.js';
 import type { GooglePlayClient } from '@/google/play-client.js';
 import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';
 import { GoogleStoreClientService } from '@/services/stores/google-store-client.js';
@@ -297,7 +297,7 @@ async function requirePlayServiceAccount(packageName: string, appName: string): 
   throw metadataFailure('load Play service account', 'missing-service-account', missingMessage);
 }
 
-async function createAppleClient(): Promise<AppStoreConnectClient> {
+async function createAppleClient(): Promise<AppStoreConnect> {
   const ascKey = await requireActiveAscKey();
 
   return new AppleStoreClientService().createClient(ascKey);
@@ -313,7 +313,7 @@ async function createPlayClient(packageName: string, appName: string): Promise<G
   }
 }
 
-async function requireAppId(ascClient: AppStoreConnectClient, bundleId: string): Promise<string> {
+async function requireAppId(ascClient: AppStoreConnect, bundleId: string): Promise<string> {
   let appId: string | null = null;
 
   try {

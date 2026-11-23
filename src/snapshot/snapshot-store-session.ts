@@ -2,7 +2,7 @@
 
 import { loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
-import type { AppStoreConnectClient } from '../apple/app-store-connect-client.ts';
+import type { AppStoreConnect } from '../apple/app-store-connect.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import { createPlayClientResolver } from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
@@ -18,7 +18,7 @@ export type PlayClientResolver = ReturnType<typeof createPlayClientResolver>;
 export type SnapshotStoreSession = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
-  ascClient: AppStoreConnectClient | null;
+  ascClient: AppStoreConnect | null;
   playClient: PlayClientResolver;
 }>;
 
@@ -64,7 +64,7 @@ export async function loadSnapshotStoreSession(
     throw snapshotFailure('load active Apple account', cause);
   }
 
-  let ascClient: AppStoreConnectClient | null = null;
+  let ascClient: AppStoreConnect | null = null;
 
   if (ascKey != null) {
     ascClient = createAscClient(ascKey);

@@ -1,7 +1,7 @@
 // Syncs subscription offers and promoted-purchase order to App Store Connect.
 
 import { loadConfig } from '@/config/config.js';
-import type { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
+import type { AppStoreConnect } from '@/apple/app-store-connect.js';
 import { createLogger } from '@/services/platform/logger.js';
 import { readLaunchDirectories } from '@/services/platform/paths.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';
@@ -177,7 +177,7 @@ async function resolveOffersJobs(appSelector: string | undefined): Promise<Offer
 
 /** Reconcile one app while keeping its failure isolated from concurrent jobs. */
 async function reconcileOffersJob(
-  appleStore: AppStoreConnectClient,
+  appleStore: AppStoreConnect,
   offersJob: OffersJob,
   dryRun: boolean,
 ): Promise<OffersJobOutcome> {
@@ -315,7 +315,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
       return 0;
     }
 
-    let appleStore: AppStoreConnectClient;
+    let appleStore: AppStoreConnect;
 
     try {
       appleStore = await loadActiveAppleStore();

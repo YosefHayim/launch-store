@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
+import { AppStoreConnect } from '@/apple/app-store-connect.js';
 import { makeAppleTransportFailure, setAppleStoreClient } from './apple-store-client.ts';
 import { AppStoreIdentityService } from './app-store-identity.ts';
 
@@ -21,7 +21,7 @@ function installClient(methods: {
   listAppNames: () => Promise<string[]>;
 }): void {
   setAppleStoreClient(function createClient() {
-    const client = Object.create(AppStoreConnectClient.prototype);
+    const client = Object.create(AppStoreConnect.prototype);
 
     client.assertReady = methods.assertReady;
     client.resolveTeamId = methods.resolveTeamId;

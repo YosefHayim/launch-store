@@ -71,7 +71,7 @@ function readPromise(listedApps: unknown): Promise<unknown> {
   throw new Error('Store client listApps did not return a promise.');
 }
 
-async function readStoreList(client: object): Promise<readonly unknown[]> {
+async function readStoreList(client: object): Promise<unknown> {
   if ('listApps' in client == false) {
     throw new Error('Store client cannot list apps.');
   }
@@ -85,11 +85,69 @@ async function readStoreList(client: object): Promise<readonly unknown[]> {
   const listedAppsPromise = listApps.call(client);
   const listedApps = await readPromise(listedAppsPromise);
 
-  if (Array.isArray(listedApps) == false) {
-    throw new Error('Store client did not return an app list.');
+  return listedApps;
+}
+
+function appleRowsFrom(listedApps: unknown): readonly unknown[] | null {
+  if (Array.isArray(listedApps)) {
+    return listedApps;
   }
 
-  return listedApps;
+  const document = readPlainObject(listedApps);
+
+  if (document == null) {
+    return null;
+  }
+
+  const rows = document['data'];
+
+  if (Array.isArray(rows) == false) {
+    return null;
+  }
+
+  return rows;
+}
+
+function listedAppleAppFrom(candidate: unknown): ListedAppleApp | null {
+  if (isListedAppleApp(candidate)) {
+    return candidate;
+  }
+
+  const appRecord = readPlainObject(candidate);
+
+  if (appRecord == null) {
+    return null;
+  }
+
+  const appId = appRecord['id'];
+
+  if (typeof appId != 'string') {
+    return null;
+  }
+
+  const attributes = readPlainObject(appRecord['attributes']);
+
+  if (attributes == null) {
+    return null;
+  }
+
+  const name = attributes['name'];
+
+  if (typeof name != 'string') {
+    return null;
+  }
+
+  const bundleId = attributes['bundleId'];
+
+  if (bundleId == null) {
+    return { id: appId, name, bundleId: null };
+  }
+
+  if (typeof bundleId != 'string') {
+    return null;
+  }
+
+  return { id: appId, name, bundleId };
 }
 
 function isListedAppleApp(candidate: unknown): candidate is ListedAppleApp {
@@ -130,14 +188,22 @@ function isListedPlayApp(candidate: unknown): candidate is ListedPlayApp {
 
 async function listAppleApps(ascClient: object): Promise<readonly ListedAppleApp[]> {
   const listedApps = await readStoreList(ascClient);
+  const listedRows = appleRowsFrom(listedApps);
+
+  if (listedRows == null) {
+    throw new Error('Store client did not return an app list.');
+  }
+
   const appleApps: ListedAppleApp[] = [];
 
-  for (const listedApp of listedApps) {
-    if (isListedAppleApp(listedApp) == false) {
+  for (const listedApp of listedRows) {
+    const appleApp = listedAppleAppFrom(listedApp);
+
+    if (appleApp == null) {
       throw new Error('App Store client returned an app list discovery cannot read.');
     }
 
-    appleApps.push(listedApp);
+    appleApps.push(appleApp);
   }
 
   return appleApps;
@@ -145,6 +211,11 @@ async function listAppleApps(ascClient: object): Promise<readonly ListedAppleApp
 
 async function listPlayApps(reportingClient: object): Promise<readonly ListedPlayApp[]> {
   const listedApps = await readStoreList(reportingClient);
+
+  if (Array.isArray(listedApps) == false) {
+    throw new Error('Store client did not return an app list.');
+  }
+
   const playApps: ListedPlayApp[] = [];
 
   for (const listedApp of listedApps) {

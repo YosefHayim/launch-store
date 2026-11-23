@@ -230,9 +230,10 @@ async function readLiveProducts(expoApp: ExpoApp): Promise<StoreProduct[]> {
     return liveProducts;
   }
 
-  const productIds = await apple.listInAppPurchases(appId);
+  const purchases = await apple.listInAppPurchases(appId);
 
-  for (const productId of productIds) {
+  for (const purchase of purchases) {
+    const productId = purchase.productId;
     function isAlreadyListed(product: StoreProduct): boolean {
       return product.productId == productId;
     }

@@ -15,7 +15,7 @@ import {
   appRecordMissingMessage,
 } from '@/services/stores/apple-store-client.js';
 import { readConnectPlatform } from '@/services/stores/platform.js';
-import type { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
+import type { AppStoreConnect } from '@/apple/app-store-connect.js';
 
 const PROVIDER = 'app-store-connect';
 const buildUploadWaitMilliseconds = 30 * 60 * 1000;
@@ -81,7 +81,7 @@ function sleep(milliseconds: number): Promise<void> {
 }
 
 async function waitForBuildUpload(
-  appStoreClient: AppStoreConnectClient,
+  appStoreClient: AppStoreConnect,
   buildUploadId: string,
   version: string,
   pollIntervalMilliseconds: number,
@@ -162,12 +162,12 @@ async function submitAppleBuild(
     });
   }
 
-  const buildUploadId = await appStoreClient.createBuildUpload(
+  const buildUploadId = await appStoreClient.createBuildUpload({
     appId,
-    artifact.version,
-    artifact.buildNumber,
-    ascPlatform,
-  );
+    version: artifact.version,
+    buildNumber: artifact.buildNumber,
+    platform: ascPlatform,
+  });
   const fileName = basename(artifact.path);
 
   await appStoreClient.uploadBuildFile(buildUploadId, fileName, artifact.path);

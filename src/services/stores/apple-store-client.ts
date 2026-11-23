@@ -1,6 +1,6 @@
 // Opens an App Store Connect client and turns a transport failure into a named error.
 
-import { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
+import { AppStoreConnect } from '@/apple/app-store-connect.js';
 import type { AscKey } from '@/types/credentials.js';
 import { hasMessage } from '../platform/error-message.ts';
 
@@ -67,7 +67,7 @@ export function appRecordMissingMessage(
   );
 }
 
-function wrapAppleClient(client: AppStoreConnectClient): AppStoreConnectClient {
+function wrapAppleClient(client: AppStoreConnect): AppStoreConnect {
   return new Proxy(client, {
     get(target, property, receiver) {
       const member = Reflect.get(target, property, receiver);
@@ -87,7 +87,7 @@ function wrapAppleClient(client: AppStoreConnectClient): AppStoreConnectClient {
   });
 }
 
-type CreateAppleStoreClient = (ascKey: AscKey) => AppStoreConnectClient;
+type CreateAppleStoreClient = (ascKey: AscKey) => AppStoreConnect;
 
 let appleStoreClient: CreateAppleStoreClient | null = null;
 
@@ -95,16 +95,16 @@ export function setAppleStoreClient(createClient: CreateAppleStoreClient | null)
   appleStoreClient = createClient;
 }
 
-function createAppleClient(ascKey: AscKey): AppStoreConnectClient {
+function createAppleClient(ascKey: AscKey): AppStoreConnect {
   if (appleStoreClient != null) {
     return appleStoreClient(ascKey);
   }
 
-  return wrapAppleClient(new AppStoreConnectClient(ascKey));
+  return wrapAppleClient(new AppStoreConnect(ascKey));
 }
 
 export class AppleStoreClientService {
-  createClient(ascKey: AscKey): AppStoreConnectClient {
+  createClient(ascKey: AscKey): AppStoreConnect {
     return createAppleClient(ascKey);
   }
 }

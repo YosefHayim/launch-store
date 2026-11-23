@@ -9,7 +9,12 @@ const ascFake = vi.hoisted(function hoistAscFake() {
     getAppId: vi.fn<(bundleId: string) => Promise<string | null>>(),
     createBuildUpload:
       vi.fn<
-        (appId: string, version: string, buildNumber: number, platform: string) => Promise<string>
+        (buildUpload: {
+          appId: string;
+          version: string;
+          buildNumber: number;
+          platform: string;
+        }) => Promise<string>
       >(),
     uploadBuildFile:
       vi.fn<(buildUploadId: string, fileName: string, binaryPath: string) => Promise<void>>(),
@@ -17,9 +22,9 @@ const ascFake = vi.hoisted(function hoistAscFake() {
   };
 });
 
-vi.mock('@/apple/app-store-connect-client.js', function mockAscClient() {
+vi.mock('@/apple/app-store-connect.js', function mockAppStoreConnect() {
   return {
-    AppStoreConnectClient: class {
+    AppStoreConnect: class {
       getAppId = ascFake.getAppId;
       createBuildUpload = ascFake.createBuildUpload;
       uploadBuildFile = ascFake.uploadBuildFile;
@@ -83,7 +88,12 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
 
     await submitter.submit(artifact, IOS_CREDENTIALS, ios);
     expect(ascFake.getAppId).toHaveBeenCalledWith('com.example.hello');
-    expect(ascFake.createBuildUpload).toHaveBeenCalledWith('app-1', '1.4.0', 42, 'IOS');
+    expect(ascFake.createBuildUpload).toHaveBeenCalledWith({
+      appId: 'app-1',
+      version: '1.4.0',
+      buildNumber: 42,
+      platform: 'IOS',
+    });
     expect(ascFake.uploadBuildFile).toHaveBeenCalledWith(
       'upload-1',
       'app-store-connect.test.ts',
@@ -104,7 +114,12 @@ function describeAppStoreConnectSubmitterBuildUploadAPI() {
     const ios = iosContext('tvos');
 
     await submitter.submit(artifact, IOS_CREDENTIALS, ios);
-    expect(ascFake.createBuildUpload).toHaveBeenCalledWith('app-1', '1.4.0', 42, 'TV_OS');
+    expect(ascFake.createBuildUpload).toHaveBeenCalledWith({
+      appId: 'app-1',
+      version: '1.4.0',
+      buildNumber: 42,
+      platform: 'TV_OS',
+    });
   }
 
   it('uploads a tvOS build for the TV_OS platform', uploadsATvOSBuildForTheTVOSPlatform);

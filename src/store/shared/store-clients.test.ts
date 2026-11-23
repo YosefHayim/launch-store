@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
+import { AppStoreConnect } from '@/apple/app-store-connect.js';
 import { GooglePlayClient, type GooglePlayTransport } from '@/google/play-client.js';
 import { loadActiveAscKey } from '@/credentials/accounts.js';
 import { loadServiceAccount } from '@/credentials/android-keystore-assets.js';
@@ -54,7 +54,7 @@ function playTransport(): GooglePlayTransport {
   };
 }
 
-const appStoreClient = new AppStoreConnectClient({
+const appStoreClient = new AppStoreConnect({
   keyId: 'K',
   issuerId: 'I',
   p8: 'pem',

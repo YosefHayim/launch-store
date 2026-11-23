@@ -20,6 +20,10 @@ export class AppStoreToken {
     return signAppStoreConnectToken(key, issuedAt);
   }
 
+  async accountKey(): Promise<AscKey> {
+    return this.readKey();
+  }
+
   private async readKey(): Promise<AscKey> {
     const saved = await readSavedAccounts();
 

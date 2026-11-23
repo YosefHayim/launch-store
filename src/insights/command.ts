@@ -3,7 +3,7 @@
 import { loadConfig } from '../config/config.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
-import type { AppStoreConnectClient } from '../apple/app-store-connect-client.ts';
+import type { AppStoreConnect } from '../apple/app-store-connect.ts';
 import type { GooglePlayClient } from '../google/play-client.ts';
 import { listReviews } from '../store/apple/reviews.ts';
 import {
@@ -231,7 +231,7 @@ function reviewFailureMessage(readFailure: unknown): string {
 /** Read App Store reviews and degrade an unavailable store to a warning. */
 async function readAscInsights(
   appDescriptor: AppDescriptor,
-  ascClient: AppStoreConnectClient | null,
+  ascClient: AppStoreConnect | null,
   logger: Logger,
 ): Promise<ReviewDatum[]> {
   const bundleId = appDescriptor.bundleId;
@@ -293,7 +293,7 @@ async function readPlayInsights(
 /** Collect both stores' reviews for one app. */
 async function gatherAppReviews(
   appDescriptor: AppDescriptor,
-  ascClient: AppStoreConnectClient | null,
+  ascClient: AppStoreConnect | null,
   playClient: GooglePlayClient | null,
   logger: Logger,
 ): Promise<ReviewDatum[]> {

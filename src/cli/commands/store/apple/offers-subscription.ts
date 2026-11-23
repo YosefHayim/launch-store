@@ -1,7 +1,7 @@
 // Finds the App Store Connect subscription and offer-code campaign an offer action needs.
 
 import { loadConfig } from '@/config/config.js';
-import type { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
+import type { AppStoreConnect } from '@/apple/app-store-connect.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { readLaunchDirectories } from '@/services/platform/paths.js';
 import type { AppDescriptor } from '@/types/app.js';
@@ -42,7 +42,7 @@ export function offersFailure(
 }
 
 type ResolvedSubscription = Readonly<{
-  readonly appleStore: AppStoreConnectClient;
+  readonly appleStore: AppStoreConnect;
   readonly appName: string;
   readonly subscriptionId: string;
 }>;
@@ -150,7 +150,7 @@ export async function resolveSubscription(
   }
 
   const selectedApp = pickSubscriptionApp(loadedConfiguration.apps, appSelector);
-  let appleStore: AppStoreConnectClient;
+  let appleStore: AppStoreConnect;
 
   try {
     appleStore = await loadActiveAppleStore();

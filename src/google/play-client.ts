@@ -1263,7 +1263,14 @@ export class GooglePlayClient {
     return this.withReadEdit(packageName, readCountryAvailability);
   }
 
-  /** Confirm the service account can reach the app's Play record */
+  /**
+   * Confirms this account can open the app in Play Console.
+   *
+   * Launch inserts an edit and then deletes it. Play has no separate call that only
+   * checks the app exists.
+   *
+   * @see {@link https://developers.google.com/android-publisher/api-ref/rest/v3/edits/insert}
+   */
   async assertAppExists(packageName: string, fields: string | null = null): Promise<void> {
     let editId: string;
 
