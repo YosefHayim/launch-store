@@ -1,7 +1,7 @@
 import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { catalogPlanner } from './catalog.ts';
-import { makeAscApiFake } from '@/testkit/asc-api-fake-testkit.js';
+import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
 import type { AscCatalogApi } from '@/store/apple/app-store-sync.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { AppProducts } from '@/types/catalog.js';

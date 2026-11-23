@@ -1,7 +1,7 @@
 import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { euDistributionPlanner } from './eu-distribution.ts';
-import { makeAscApiFake } from '@/testkit/asc-api-fake-testkit.js';
+import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
 import type { EuDistributionConfig } from '@/types/store-surface.js';

@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { experimentsPlanner } from './experiments.ts';
-import { makeAscApiFake } from '@/testkit/asc-api-fake-testkit.js';
+import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
