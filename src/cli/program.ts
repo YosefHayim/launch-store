@@ -50,8 +50,6 @@ import { registerUpdatesCommand } from './commands/release/updates.ts';
 import { registerCloudCommand } from './commands/build/cloud.ts';
 import { registerBuildsCommand } from './commands/build/builds.ts';
 import { registerCiCommand } from './commands/setup/ci.ts';
-import { registerAgentsCommand } from './commands/agents/agents.ts';
-import { registerMcpCommand } from './commands/agents/mcp.ts';
 import { registerRunCommand } from './commands/build/run.ts';
 import { registerFingerprintCommand } from './commands/build/fingerprint.ts';
 import { registerDiagnoseCommand } from './commands/build/diagnose.ts';
@@ -128,8 +126,6 @@ export const buildProgram = (launchVersion = '0.0.0'): Command => {
   registerCloudCommand(program);
   registerBuildsCommand(program);
   registerCiCommand(program);
-  registerAgentsCommand(program);
-  registerMcpCommand(program);
   registerRunCommand(program);
   registerFingerprintCommand(program);
   registerDiagnoseCommand(program);

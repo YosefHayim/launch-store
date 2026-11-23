@@ -354,19 +354,3 @@ export type SurfaceConfigFiles = {
    */
   readonly customPages?: string;
 };
-/**
- * What an agent using `launch-store mcp` is allowed to do.
- * A higher tier does not include the ones below it. List every tier you want.
- */
-export type McpCapability = 'read' | 'dryRun' | 'write' | 'dangerous';
-/** The `mcp` block of launch.config.ts. Leave the whole block out for read-only. */
-export type McpConfig = {
-  /**
-   * Tools the MCP server may expose.
-   * `read` looks at the project and the store and changes nothing. That is the default.
-   * `dryRun` shows what a change would do and still changes nothing.
-   * `write` applies a reconcile. `dangerous` includes a sync that can delete store records.
-   * An empty list is treated the same as leaving this out: read only.
-   */
-  readonly capabilities?: readonly McpCapability[];
-};

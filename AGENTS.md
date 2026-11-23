@@ -7,7 +7,7 @@ This is the only agent instructions file. [Claude Code](https://code.claude.com/
 ## Branching And PRs
 
 - **Do not commit to `main`.** Branch as `feat|fix|refactor|chore|docs/<domain>/<slug>`, open a PR, label `domain:<domain>`, keep the gate green, delete the branch after merge.
-- Domains: `foundation`, `config`, `credentials`, `build`, `apple`, `google`, `store`, `release`, `testflight`, `readiness`, `agents`, `cli`, `docs`.
+- Domains: `foundation`, `config`, `credentials`, `build`, `apple`, `google`, `store`, `release`, `testflight`, `readiness`, `cli`, `docs`.
 
 ## Agent Skills
 
@@ -30,18 +30,18 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 | `src/listing`, `src/readiness`, `src/release`, `src/release-train`, `src/plan`, `src/build`, `src/credentials` | The bridge. Launch's own product. These call the clients and decide what Launch does. |
 | `src/store` | Store sync. `store/apple` and `store/google` are the store programs, not the CLI. The HTTP clients stay in `src/apple` and `src/google`. |
 | `src/adopt`, `src/config`, `src/distribution`, `src/doctor`, `src/insights`, `src/migrate`, `src/portfolio`, `src/privacy`, `src/snapshot`, `src/stats` | The rest of the bridge. |
-| `src/agents`, `src/mcp`, `src/terminal`, `src/docs` | Agent skills, the MCP server, glossary, and the config reference. |
+| `src/terminal`, `src/docs` | Glossary and the config reference. |
 | `src/services` | Paths, exec, logger, prompts, secrets, and the store client adapters. `services/stores` is the only door into `src/apple` and `src/google`. |
 | `src/types` | Shared domain shapes. |
 | `src/providers` | Swappable backends for build, storage, credentials, submit, and compute. |
 | `src/testkit` | Shared test fakes. |
-| `schema/` | Published `launch.config.schema.json`. `launch-store config` and the MCP tools read it. It ships in the npm package. Do not delete it. |
+| `schema/` | Published `launch.config.schema.json`. `launch-store config` reads it. It ships in the npm package. Do not delete it. |
 
 A file that performs one documented Apple or Google request belongs in `src/apple` or `src/google`. A file that decides something for Launch belongs in the job folder. Do not add `src/core` back.
 
 `init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` are plain TypeScript. Their classes live in `src/build`, `src/credentials`, `src/launch-file`, and `src/store`. `src/release-command.ts` and `src/app-release.ts` stay in `src/` until that command is folded into its job.
 
-`src/cli/commands/` registers each job and holds the App Store and Play command programs: `setup/`, `build/`, `credentials/`, `release/`, `store/` (with `apple/` and `google/`), `listing/`, `readiness/`, `insights/`, `agents/`, `terminal/`. Store sync stays in `src/store`. The Apple type generator stays in `scripts` and writes `src/apple-api-types.ts`.
+`src/cli/commands/` registers each job and holds the App Store and Play command programs: `setup/`, `build/`, `credentials/`, `release/`, `store/` (with `apple/` and `google/`), `listing/`, `readiness/`, `insights/`, `terminal/`. Store sync stays in `src/store`. The Apple type generator stays in `scripts` and writes `src/apple-api-types.ts`.
 
 ## Conventions A Linter Can't Infer
 

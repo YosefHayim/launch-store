@@ -300,27 +300,6 @@
             "always"
           ],
           "description": "When to run `expo prebuild --clean` for an Expo app. `missing` (default) only generates ios/ or android/ when the directory is absent; `always` regenerates it on every build so app.json plugin changes can never ship from a stale native directory. Applies to local and remote (`--remote`) builds. Only iOS and Android are regenerated - tvOS, macOS and visionOS keep their committed native projects."
-        },
-        "mcp": {
-          "type": "object",
-          "properties": {
-            "capabilities": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "read",
-                  "dryRun",
-                  "write",
-                  "dangerous"
-                ]
-              },
-              "description": "Which capability tiers the MCP server may expose. Each enabled tier unlocks the tools tagged at that tier; omit (or `[]`) for `[\"read\"]` - read-only. Listing a higher tier does not imply the lower ones, so `[\"read\", \"write\"]` is the usual \"let agents read everything and run reconciles\" posture."
-            }
-          },
-          "required": [],
-          "additionalProperties": false,
-          "description": "How `launch-store mcp` exposes Launch to AI agents - chiefly which capability tiers it may offer. Absent = least privilege (read-only tools). See {@link McpConfig}."
         }
       },
       "required": [

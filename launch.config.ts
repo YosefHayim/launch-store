@@ -25,10 +25,6 @@ export default defineConfig({
     events: ['build', 'submit', 'review', 'rollout'],
   },
 
-  mcp: {
-    capabilities: ['read', 'dryRun'],
-  },
-
   release: {
     releaseType: 'MANUAL',
     phasedRelease: true,

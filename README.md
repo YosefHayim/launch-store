@@ -49,8 +49,6 @@ The dry run prints `Dry run` and changes nothing. A real iOS run leaves the sign
 
 `launch-store --help` lists every command. Every field is set in the root [`launch.config.ts`](./launch.config.ts). Hover a name to read what it does.
 
-`launch-store agents init` writes [Claude Code](https://code.claude.com/docs/en/overview) skills, [Cursor rules](https://cursor.com/docs/rules), and a Launch section in `AGENTS.md` for [Codex](https://developers.openai.com/codex/guides/agents-md). `launch-store agents check` keeps them in sync. `claude mcp add --scope user launch-store -- launch-store mcp` registers the MCP server.
-
 ### Configuration
 
 App facts (bundle id, version) are read from each app's Expo config, `app.json` or `app.config.{ts,js}`. `launch.config.ts` holds Launch settings. The root [`launch.config.ts`](./launch.config.ts) is a full example of every field: profiles, products, offers, Game Center, App Clips, release, wallet, EU distribution, storage, AWS, notify, and the sidecar paths. `defineConfig` is the public helper. The published [JSON Schema](https://json-schema.org/) is `schema/launch.config.schema.json`. `launch-store config schema` prints it, and `launch-store config schema --out launch.config.schema.json` writes a copy for your editor.

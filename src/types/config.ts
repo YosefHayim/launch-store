@@ -11,7 +11,6 @@ import type {
   AppClipsConfig,
   EuDistributionConfig,
   GameCenterConfig,
-  McpConfig,
   NotifyConfig,
   ReleaseAttributesConfig,
   ReleaseConfig,
@@ -201,11 +200,6 @@ export type LaunchConfigInput = {
    * tvOS, macOS, and visionOS keep the native project you committed.
    */
   readonly prebuild?: PrebuildMode;
-  /**
-   * What `launch-store mcp` is allowed to do for an AI agent.
-   * Leave it out and the agent can only read.
-   */
-  readonly mcp?: McpConfig;
 };
 
 /** When a build runs `expo prebuild --clean`: only for a missing native dir, or on every build. */
