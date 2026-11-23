@@ -4387,6 +4387,7 @@ function describeAppStoreConnectClientAppStoreReleaseLifecycle() {
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
 
     expect(arrayElement[0]).toContain('/builds?filter[app]=app1&sort=-uploadedDate');
+    expect(arrayElement[0]).toContain('limit=25');
   }
 
   it(

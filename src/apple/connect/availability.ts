@@ -72,7 +72,7 @@ export class ConnectAvailability {
       `/appAvailabilities/${availabilityId}/territoryAvailabilities`,
     );
     let next: string | undefined = applyAppleListQuery(
-      `${availabilityPath}?include=territory&limit=200`,
+      `${availabilityPath}?include=territory`,
       listQuery,
       APPLE_PAGE_LIMIT,
     );

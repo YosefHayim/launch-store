@@ -22,7 +22,7 @@ export class ConnectTeam {
       roles?: string[];
     }>(
       applyAppleListQuery(
-        '/users?limit=200&fields[users]=username,firstName,lastName,roles',
+        '/users?fields[users]=username,firstName,lastName,roles',
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -71,7 +71,7 @@ export class ConnectTeam {
       expirationDate?: string;
     }>(
       applyAppleListQuery(
-        '/userInvitations?limit=200&fields[userInvitations]=email,firstName,lastName,roles,expirationDate',
+        '/userInvitations?fields[userInvitations]=email,firstName,lastName,roles,expirationDate',
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

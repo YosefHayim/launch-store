@@ -17,6 +17,16 @@ import {
 } from './shared.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
+function withAskedPageLimit(askedLimit: number, listQuery: AppleListQuery | null): AppleListQuery {
+  if (listQuery == null) return { limit: askedLimit };
+
+  const callerSetTheLimit = listQuery.limit != null;
+
+  if (callerSetTheLimit) return listQuery;
+
+  return { ...listQuery, limit: askedLimit };
+}
+
 export class ConnectBuilds {
   constructor(private readonly client: AscHost) {}
 
@@ -65,7 +75,7 @@ export class ConnectBuilds {
         versionString: string;
       }>(
         applyAppleListQuery(
-          `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=versionString&limit=200`,
+          `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=versionString`,
           listQuery,
           APPLE_PAGE_LIMIT,
         ),
@@ -74,7 +84,7 @@ export class ConnectBuilds {
         version: string;
       }>(
         applyAppleListQuery(
-          `/apps/${appId}/preReleaseVersions?fields[preReleaseVersions]=version&limit=200`,
+          `/apps/${appId}/preReleaseVersions?fields[preReleaseVersions]=version`,
           listQuery,
           APPLE_PAGE_LIMIT,
         ),
@@ -297,7 +307,7 @@ export class ConnectBuilds {
       appEncryptionDeclarationState: string;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/appEncryptionDeclarations?fields[appEncryptionDeclarations]=appEncryptionDeclarationState&limit=200`,
+        `/apps/${appId}/appEncryptionDeclarations?fields[appEncryptionDeclarations]=appEncryptionDeclarationState`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -345,8 +355,8 @@ export class ConnectBuilds {
     const buildPage = await this.client.request<BuildPage>(
       'GET',
       applyAppleListQuery(
-        `/builds?filter[app]=${appId}&sort=-uploadedDate&limit=${limit}&${BUILD_PAGE_QUERY}`,
-        listQuery,
+        `/builds?filter[app]=${appId}&sort=-uploadedDate&${BUILD_PAGE_QUERY}`,
+        withAskedPageLimit(limit, listQuery),
         APPLE_PAGE_LIMIT,
       ),
     );

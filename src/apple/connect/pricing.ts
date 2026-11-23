@@ -23,7 +23,7 @@ export class ConnectPricing {
       territory?: string;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/appPricePoints?filter[territory]=${uRIComponent}&limit=8000`,
+        `/apps/${appId}/appPricePoints?filter[territory]=${uRIComponent}`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -63,7 +63,7 @@ export class ConnectPricing {
       this.client.request(
         'GET',
         applyAppleListQuery(
-          `/apps/${appId}/appPriceSchedule/manualPrices?include=appPricePoint&limit=200`,
+          `/apps/${appId}/appPriceSchedule/manualPrices?include=appPricePoint`,
           listQuery,
           APPLE_PAGE_LIMIT,
         ),

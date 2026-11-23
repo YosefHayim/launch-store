@@ -65,7 +65,7 @@ export class ConnectReports {
       stoppedDueToInactivity?: boolean;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/analyticsReportRequests?filter[accessType]=${accessType}&limit=200`,
+        `/apps/${appId}/analyticsReportRequests?filter[accessType]=${accessType}`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -117,7 +117,7 @@ export class ConnectReports {
     listQuery: AppleListQuery | null = null,
   ): Promise<AnalyticsReportResource[]> {
     let path = applyAppleListQuery(
-      `/analyticsReportRequests/${requestId}/reports?limit=200`,
+      `/analyticsReportRequests/${requestId}/reports`,
       listQuery,
       APPLE_PAGE_LIMIT,
     );
@@ -165,7 +165,7 @@ export class ConnectReports {
     listQuery: AppleListQuery | null = null,
   ): Promise<AnalyticsReportInstanceResource[]> {
     let path = applyAppleListQuery(
-      `/analyticsReports/${reportId}/instances?limit=200`,
+      `/analyticsReports/${reportId}/instances`,
       listQuery,
       APPLE_PAGE_LIMIT,
     );
@@ -214,7 +214,7 @@ export class ConnectReports {
       sizeInBytes?: number;
     }>(
       applyAppleListQuery(
-        `/analyticsReportInstances/${instanceId}/segments?limit=200`,
+        `/analyticsReportInstances/${instanceId}/segments`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

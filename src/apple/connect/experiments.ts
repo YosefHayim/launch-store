@@ -25,7 +25,7 @@ export class ConnectExperiments {
       startDate?: string;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion,startDate`,
+        `/apps/${appId}/appStoreVersionExperimentsV2?fields[appStoreVersionExperiments]=name,state,trafficProportion,startDate`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -112,7 +112,7 @@ export class ConnectExperiments {
     }>(
       this.client.v2(
         applyAppleListQuery(
-          `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
+          `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?fields[appStoreVersionExperimentTreatments]=name`,
           listQuery,
           APPLE_PAGE_LIMIT,
         ),
@@ -199,7 +199,7 @@ export class ConnectExperiments {
       locale?: string;
     }>(
       applyAppleListQuery(
-        `/appStoreVersionExperimentTreatments/${treatmentId}/appStoreVersionExperimentTreatmentLocalizations?limit=200&fields[appStoreVersionExperimentTreatmentLocalizations]=locale`,
+        `/appStoreVersionExperimentTreatments/${treatmentId}/appStoreVersionExperimentTreatmentLocalizations?fields[appStoreVersionExperimentTreatmentLocalizations]=locale`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

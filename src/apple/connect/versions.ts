@@ -49,7 +49,7 @@ export class ConnectVersions {
     const { data: versions } = await this.client.request<ResourceList<VersionStates>>(
       'GET',
       applyAppleListQuery(
-        `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=appStoreState&limit=20`,
+        `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=appStoreState`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -69,7 +69,7 @@ export class ConnectVersions {
   ): Promise<ListingLocalization[]> {
     const appleResources = await this.client.requestAll<Record<string, unknown>>(
       applyAppleListQuery(
-        `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200`,
+        `/appStoreVersions/${versionId}/appStoreVersionLocalizations`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -147,7 +147,7 @@ export class ConnectVersions {
       copyright?: string | null;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=50&fields[appStoreVersions]=appVersionState,appStoreState,copyright`,
+        `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&fields[appStoreVersions]=appVersionState,appStoreState,copyright`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -252,7 +252,7 @@ export class ConnectVersions {
   ): Promise<AppStoreVersionResource[]> {
     const versionPages = await this.client.requestPages<AppStoreVersionPage>(
       applyAppleListQuery(
-        `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType,build&include=build&fields[builds]=version,processingState`,
+        `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&fields[appStoreVersions]=versionString,appStoreState,releaseType,build&include=build&fields[builds]=version,processingState`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -362,7 +362,7 @@ export class ConnectVersions {
       whatsNew?: string;
     }>(
       applyAppleListQuery(
-        `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200&fields[appStoreVersionLocalizations]=locale,whatsNew`,
+        `/appStoreVersions/${versionId}/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale,whatsNew`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -516,7 +516,7 @@ export class ConnectVersions {
       state?: string;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/reviewSubmissions?filter[platform]=${platform}&limit=200&fields[reviewSubmissions]=state`,
+        `/apps/${appId}/reviewSubmissions?filter[platform]=${platform}&fields[reviewSubmissions]=state`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

@@ -2,21 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery } from './list-query.ts';
 
 function describeApplyAppleListQuery() {
-  function keepsThePathWhenNoCallerQueryIsGiven() {
-    const path = applyAppleListQuery(
-      '/apps?fields[apps]=name,bundleId&limit=200',
-      null,
-      APPLE_PAGE_LIMIT,
-    );
+  function addsTheDocumentedMaximumWhenTheCallerOmitsLimit() {
+    const path = applyAppleListQuery('/apps?fields[apps]=name,bundleId', null, APPLE_PAGE_LIMIT);
 
     expect(path).toBe('/apps?fields[apps]=name,bundleId&limit=200');
   }
 
-  it('keeps the path when no caller query is given', keepsThePathWhenNoCallerQueryIsGiven);
+  it(
+    'adds the documented maximum when the caller omits limit',
+    addsTheDocumentedMaximumWhenTheCallerOmitsLimit,
+  );
 
   function usesTheCallerLimitAndAppendsTheCallerKeys() {
     const path = applyAppleListQuery(
-      '/apps?fields[apps]=name&limit=200',
+      '/apps?fields[apps]=name',
       { limit: 10, 'filter[name]': 'Launch' },
       APPLE_PAGE_LIMIT,
     );
@@ -30,10 +29,10 @@ function describeApplyAppleListQuery() {
   );
 
   function clampsThePageLimitToThatRequest() {
-    const aboveTheMax = applyAppleListQuery('/devices?limit=200', { limit: 500 }, APPLE_PAGE_LIMIT);
-    const belowTheMin = applyAppleListQuery('/devices?limit=200', { limit: -4 }, APPLE_PAGE_LIMIT);
+    const aboveTheMax = applyAppleListQuery('/devices', { limit: 500 }, APPLE_PAGE_LIMIT);
+    const belowTheMin = applyAppleListQuery('/devices', { limit: -4 }, APPLE_PAGE_LIMIT);
     const pricePoints = applyAppleListQuery(
-      '/apps/app1/appPricePoints?filter[territory]=USA&limit=8000',
+      '/apps/app1/appPricePoints?filter[territory]=USA',
       null,
       APPLE_PAGE_LIMIT,
     );
@@ -47,19 +46,19 @@ function describeApplyAppleListQuery() {
 
   function clampsAnIncludedResourceLimitToFifty() {
     const path = applyAppleListQuery(
-      '/apps?fields[apps]=name&limit=200',
+      '/apps?fields[apps]=name',
       { 'limit[builds]': 90 },
       APPLE_PAGE_LIMIT,
     );
 
-    expect(path).toBe('/apps?fields[apps]=name&limit=200&limit[builds]=50');
+    expect(path).toBe('/apps?fields[apps]=name&limit[builds]=50&limit=200');
   }
 
   it('clamps an included resource limit to fifty', clampsAnIncludedResourceLimitToFifty);
 
   function replacesAKeyThePathAlreadyHas() {
     const path = applyAppleListQuery(
-      '/apps/app1/appStoreVersions?filter[platform]=IOS&limit=50',
+      '/apps/app1/appStoreVersions?filter[platform]=IOS',
       { 'filter[platform]': 'MAC_OS', limit: 20 },
       APPLE_PAGE_LIMIT,
     );

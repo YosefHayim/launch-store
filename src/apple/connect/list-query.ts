@@ -1,4 +1,5 @@
-// Apple documents a collection `limit` as 0 to 200, and each `limit[resource]` as 50.
+// The path carries filters and fields. This writes `limit`, clamped to the documented range:
+// a collection limit is 0 to 200, and each `limit[resource]` is 50.
 // https://developer.apple.com/documentation/appstoreconnectapi/paginginformation/paging-data.dictionary
 // https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps
 

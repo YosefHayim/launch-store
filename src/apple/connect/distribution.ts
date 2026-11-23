@@ -23,9 +23,7 @@ export class ConnectDistribution {
     const appleResources = await this.client.requestAll<{
       domain?: string;
       referenceName?: string;
-    }>(
-      applyAppleListQuery('/alternativeDistributionDomains?limit=200', listQuery, APPLE_PAGE_LIMIT),
-    );
+    }>(applyAppleListQuery('/alternativeDistributionDomains', listQuery, APPLE_PAGE_LIMIT));
 
     function copyDistributionDomain(domain: {
       id: string;
@@ -68,7 +66,7 @@ export class ConnectDistribution {
   ): Promise<AlternativeDistributionKeyResource[]> {
     const appleResources = await this.client.requestAll<{
       publicKey?: string;
-    }>(applyAppleListQuery('/alternativeDistributionKeys?limit=200', listQuery, APPLE_PAGE_LIMIT));
+    }>(applyAppleListQuery('/alternativeDistributionKeys', listQuery, APPLE_PAGE_LIMIT));
 
     function copyDistributionKey(distributionKey: {
       id: string;
@@ -115,7 +113,7 @@ export class ConnectDistribution {
     const appleResources = await this.client.requestAll<{
       identifier?: string;
       name?: string;
-    }>(applyAppleListQuery('/merchantIds?limit=200', listQuery, APPLE_PAGE_LIMIT));
+    }>(applyAppleListQuery('/merchantIds', listQuery, APPLE_PAGE_LIMIT));
 
     function copyMerchantId(merchant: {
       id: string;
@@ -157,7 +155,7 @@ export class ConnectDistribution {
     const appleResources = await this.client.requestAll<{
       identifier?: string;
       name?: string;
-    }>(applyAppleListQuery('/passTypeIds?limit=200', listQuery, APPLE_PAGE_LIMIT));
+    }>(applyAppleListQuery('/passTypeIds', listQuery, APPLE_PAGE_LIMIT));
 
     function copyPassTypeId(passType: {
       id: string;

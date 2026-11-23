@@ -55,7 +55,7 @@ export class ConnectPurchases {
       state?: string;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/inAppPurchasesV2?limit=200&fields[inAppPurchases]=productId,name,inAppPurchaseType,state`,
+        `/apps/${appId}/inAppPurchasesV2?fields[inAppPurchases]=productId,name,inAppPurchaseType,state`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -165,7 +165,7 @@ export class ConnectPurchases {
       referenceName?: string;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/subscriptionGroups?limit=200&fields[subscriptionGroups]=referenceName`,
+        `/apps/${appId}/subscriptionGroups?fields[subscriptionGroups]=referenceName`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -236,7 +236,7 @@ export class ConnectPurchases {
       state?: string;
     }>(
       applyAppleListQuery(
-        `/subscriptionGroups/${groupId}/subscriptions?limit=200&fields[subscriptions]=productId,name,subscriptionPeriod,state`,
+        `/subscriptionGroups/${groupId}/subscriptions?fields[subscriptions]=productId,name,subscriptionPeriod,state`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -360,7 +360,7 @@ export class ConnectPurchases {
       territory?: string;
     }>(
       applyAppleListQuery(
-        `/subscriptions/${subscriptionId}/pricePoints?filter[territory]=${uRIComponent}&limit=8000`,
+        `/subscriptions/${subscriptionId}/pricePoints?filter[territory]=${uRIComponent}`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -399,7 +399,7 @@ export class ConnectPurchases {
       active?: boolean;
     }>(
       applyAppleListQuery(
-        `/subscriptions/${subscriptionId}/offerCodes?limit=200`,
+        `/subscriptions/${subscriptionId}/offerCodes`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -582,7 +582,7 @@ export class ConnectPurchases {
       offerCode?: string;
     }>(
       applyAppleListQuery(
-        `/subscriptions/${subscriptionId}/promotionalOffers?limit=200`,
+        `/subscriptions/${subscriptionId}/promotionalOffers`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -698,7 +698,7 @@ export class ConnectPurchases {
     }>(
       'GET',
       applyAppleListQuery(
-        `/subscriptions/${subscriptionId}/introductoryOffers?include=territory&limit=200`,
+        `/subscriptions/${subscriptionId}/introductoryOffers?include=territory`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -777,7 +777,7 @@ export class ConnectPurchases {
       offerId?: string;
     }>(
       applyAppleListQuery(
-        `/subscriptions/${subscriptionId}/winBackOffers?limit=200`,
+        `/subscriptions/${subscriptionId}/winBackOffers`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -884,7 +884,7 @@ export class ConnectPurchases {
   ): Promise<PromotedPurchaseResource[]> {
     const all: PromotedPurchaseResource[] = [];
     let next: string | undefined = applyAppleListQuery(
-      `/apps/${appId}/promotedPurchases?limit=200`,
+      `/apps/${appId}/promotedPurchases`,
       listQuery,
       APPLE_PAGE_LIMIT,
     );
@@ -1041,7 +1041,7 @@ export class ConnectPurchases {
     }>(
       this.client.v2(
         applyAppleListQuery(
-          `/inAppPurchases/${iapId}/pricePoints?filter[territory]=${uRIComponent}&limit=8000`,
+          `/inAppPurchases/${iapId}/pricePoints?filter[territory]=${uRIComponent}`,
           listQuery,
           APPLE_PAGE_LIMIT,
         ),
@@ -1131,11 +1131,7 @@ export class ConnectPurchases {
     listQuery: AppleListQuery | null = null,
   ): Promise<ProductVersion[]> {
     return this.client.requestAll<{ state?: string; version?: number }>(
-      applyAppleListQuery(
-        `${resources.versionsUrl(parentId)}?limit=200`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`${resources.versionsUrl(parentId)}`, listQuery, APPLE_PAGE_LIMIT),
     );
   }
 
@@ -1146,7 +1142,7 @@ export class ConnectPurchases {
   ): Promise<LocalizationResource[]> {
     return this.localizationsFrom(
       applyAppleListQuery(
-        `/${resources.versionType}/${versionId}/localizations?limit=200`,
+        `/${resources.versionType}/${versionId}/localizations`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

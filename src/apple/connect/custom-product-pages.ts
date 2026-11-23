@@ -22,7 +22,7 @@ export class ConnectCustomProductPages {
       name?: string;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/appCustomProductPages?limit=200&fields[appCustomProductPages]=name`,
+        `/apps/${appId}/appCustomProductPages?fields[appCustomProductPages]=name`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -74,7 +74,7 @@ export class ConnectCustomProductPages {
       state?: string;
     }>(
       applyAppleListQuery(
-        `/appCustomProductPages/${pageId}/appCustomProductPageVersions?limit=200&fields[appCustomProductPageVersions]=state`,
+        `/appCustomProductPages/${pageId}/appCustomProductPageVersions?fields[appCustomProductPageVersions]=state`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -109,7 +109,7 @@ export class ConnectCustomProductPages {
       promotionalText?: string | null;
     }>(
       applyAppleListQuery(
-        `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?limit=200&fields[appCustomProductPageLocalizations]=locale,promotionalText`,
+        `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?fields[appCustomProductPageLocalizations]=locale,promotionalText`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

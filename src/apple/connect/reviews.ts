@@ -24,7 +24,7 @@ export class ConnectReviews {
     listQuery: AppleListQuery | null = null,
   ): Promise<CustomerReviewResource[]> {
     let path = applyAppleListQuery(
-      `/apps/${appId}/customerReviews?include=response&sort=-createdDate&limit=200`,
+      `/apps/${appId}/customerReviews?include=response&sort=-createdDate`,
       listQuery,
       APPLE_PAGE_LIMIT,
     );

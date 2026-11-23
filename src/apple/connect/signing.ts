@@ -38,7 +38,7 @@ export class ConnectSigning {
     >(
       'GET',
       applyAppleListQuery(
-        `/bundleIds?filter[identifier]=${uRIComponent}&limit=200`,
+        `/bundleIds?filter[identifier]=${uRIComponent}`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -101,7 +101,7 @@ export class ConnectSigning {
       expirationDate?: string;
     }>(
       applyAppleListQuery(
-        `/certificates?filter[certificateType]=${DISTRIBUTION_CERT_TYPE}&limit=200`,
+        `/certificates?filter[certificateType]=${DISTRIBUTION_CERT_TYPE}`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -224,7 +224,7 @@ export class ConnectSigning {
       udid: string;
       name: string;
       status?: string;
-    }>(applyAppleListQuery('/devices?limit=200', listQuery, APPLE_PAGE_LIMIT));
+    }>(applyAppleListQuery('/devices', listQuery, APPLE_PAGE_LIMIT));
 
     function copyDevice(entry: {
       id: string;
@@ -377,7 +377,7 @@ export class ConnectSigning {
       profileContent?: string;
     }>(
       applyAppleListQuery(
-        `/bundleIds/${bundleIdResourceId}/profiles?limit=200&fields[profiles]=name,uuid,profileContent`,
+        `/bundleIds/${bundleIdResourceId}/profiles?fields[profiles]=name,uuid,profileContent`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

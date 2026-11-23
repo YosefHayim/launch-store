@@ -68,7 +68,7 @@ export class ConnectApps {
     const { data: appInfos } = await this.client.request<ResourceList<AppInfoStates>>(
       'GET',
       applyAppleListQuery(
-        `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState&limit=20`,
+        `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -88,7 +88,7 @@ export class ConnectApps {
   ): Promise<ListingLocalization[]> {
     const appleResources = await this.client.requestAll<Record<string, unknown>>(
       applyAppleListQuery(
-        `/appInfos/${appInfoId}/appInfoLocalizations?limit=200`,
+        `/appInfos/${appInfoId}/appInfoLocalizations`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -133,7 +133,7 @@ export class ConnectApps {
       privacyChoicesUrl?: string | null;
     }>(
       applyAppleListQuery(
-        `/appInfos/${appInfoId}/appInfoLocalizations?limit=200&fields[appInfoLocalizations]=locale,privacyChoicesUrl`,
+        `/appInfos/${appInfoId}/appInfoLocalizations?fields[appInfoLocalizations]=locale,privacyChoicesUrl`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -256,7 +256,7 @@ export class ConnectApps {
   async listAppNames(listQuery: AppleListQuery | null = null): Promise<string[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
-    }>(applyAppleListQuery('/apps?fields[apps]=name&limit=200', listQuery, APPLE_PAGE_LIMIT));
+    }>(applyAppleListQuery('/apps?fields[apps]=name', listQuery, APPLE_PAGE_LIMIT));
 
     function readName(entry: {
       id: string;
@@ -284,13 +284,7 @@ export class ConnectApps {
     const appleResources = await this.client.requestAll<{
       name?: string;
       bundleId?: string;
-    }>(
-      applyAppleListQuery(
-        '/apps?fields[apps]=name,bundleId&limit=200',
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
-    );
+    }>(applyAppleListQuery('/apps?fields[apps]=name,bundleId', listQuery, APPLE_PAGE_LIMIT));
 
     return appleResources.map(summarizeAppleApp);
   }
@@ -328,7 +322,7 @@ export class ConnectApps {
     }>(
       'GET',
       applyAppleListQuery(
-        `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory&limit=200`,
+        `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

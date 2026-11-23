@@ -37,7 +37,7 @@ export class ConnectTestflight {
       publicLink?: string | null;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/betaGroups?limit=200&fields[betaGroups]=name,isInternalGroup,publicLink`,
+        `/apps/${appId}/betaGroups?fields[betaGroups]=name,isInternalGroup,publicLink`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -111,7 +111,7 @@ export class ConnectTestflight {
   ): Promise<BetaTesterResource[]> {
     return this.betaTestersFrom(
       applyAppleListQuery(
-        `/betaGroups/${groupId}/betaTesters?limit=200&fields[betaTesters]=email,firstName,lastName,state`,
+        `/betaGroups/${groupId}/betaTesters?fields[betaTesters]=email,firstName,lastName,state`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -320,7 +320,7 @@ export class ConnectTestflight {
     listQuery: AppleListQuery | null = null,
   ): Promise<BetaFeedbackRow[]> {
     let path = applyAppleListQuery(
-      `${relatedPath}?include=build&sort=-createdDate&limit=200`,
+      `${relatedPath}?include=build&sort=-createdDate`,
       listQuery,
       APPLE_PAGE_LIMIT,
     );
@@ -413,7 +413,7 @@ export class ConnectTestflight {
       whatsNew?: string | null;
     }>(
       applyAppleListQuery(
-        `/builds/${buildId}/betaBuildLocalizations?limit=200&fields[betaBuildLocalizations]=locale,whatsNew`,
+        `/builds/${buildId}/betaBuildLocalizations?fields[betaBuildLocalizations]=locale,whatsNew`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

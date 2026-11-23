@@ -58,7 +58,7 @@ export class ConnectScreenshots {
       screenshotDisplayType?: string;
     }>(
       applyAppleListQuery(
-        `/${ownerType}/${ownerId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
+        `/${ownerType}/${ownerId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -122,7 +122,7 @@ export class ConnectScreenshots {
       };
     }>(
       applyAppleListQuery(
-        `/appScreenshotSets/${setId}/appScreenshots?fields[appScreenshots]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
+        `/appScreenshotSets/${setId}/appScreenshots?fields[appScreenshots]=fileName,sourceFileChecksum,assetDeliveryState`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -274,7 +274,7 @@ export class ConnectScreenshots {
       previewType?: string;
     }>(
       applyAppleListQuery(
-        `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets?fields[appPreviewSets]=previewType&limit=200`,
+        `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets?fields[appPreviewSets]=previewType`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -340,7 +340,7 @@ export class ConnectScreenshots {
       };
     }>(
       applyAppleListQuery(
-        `/appPreviewSets/${setId}/appPreviews?fields[appPreviews]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
+        `/appPreviewSets/${setId}/appPreviews?fields[appPreviews]=fileName,sourceFileChecksum,assetDeliveryState`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

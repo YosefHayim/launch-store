@@ -24,7 +24,7 @@ export class ConnectAppClips {
   ): Promise<AppClipResource[]> {
     const appleResources = await this.client.requestAll<{
       bundleId?: string;
-    }>(applyAppleListQuery(`/apps/${appId}/appClips?limit=200`, listQuery, APPLE_PAGE_LIMIT));
+    }>(applyAppleListQuery(`/apps/${appId}/appClips`, listQuery, APPLE_PAGE_LIMIT));
 
     function copyAppClip(clip: {
       id: string;
@@ -50,7 +50,7 @@ export class ConnectAppClips {
     let next: string | undefined =
       `/appClips/${appClipId}/appClipDefaultExperiences` +
       applyAppleListQuery(
-        `?include=releaseWithAppStoreVersion&fields[appClipDefaultExperiences]=action,releaseWithAppStoreVersion&limit=200`,
+        `?include=releaseWithAppStoreVersion&fields[appClipDefaultExperiences]=action,releaseWithAppStoreVersion`,
         listQuery,
         APPLE_PAGE_LIMIT,
       );
@@ -150,7 +150,7 @@ export class ConnectAppClips {
       subtitle?: string;
     }>(
       applyAppleListQuery(
-        `/appClipDefaultExperiences/${experienceId}/appClipDefaultExperienceLocalizations?limit=200`,
+        `/appClipDefaultExperiences/${experienceId}/appClipDefaultExperienceLocalizations`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

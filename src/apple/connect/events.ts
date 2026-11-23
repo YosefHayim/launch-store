@@ -27,7 +27,7 @@ export class ConnectEvents {
   ): Promise<AppEventResource[]> {
     const appleResources = await this.client.requestAll<AppEventAttributes>(
       applyAppleListQuery(
-        `/apps/${appId}/appEvents?limit=200&fields[appEvents]=referenceName,badge,eventState,primaryLocale,deepLink,priority,purpose`,
+        `/apps/${appId}/appEvents?fields[appEvents]=referenceName,badge,eventState,primaryLocale,deepLink,priority,purpose`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),
@@ -55,7 +55,7 @@ export class ConnectEvents {
   ): Promise<AppEventLocalizationResource[]> {
     const appleResources = await this.client.requestAll<AppEventLocalizationAttributes>(
       applyAppleListQuery(
-        `/appEvents/${eventId}/localizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
+        `/appEvents/${eventId}/localizations?fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
         listQuery,
         APPLE_PAGE_LIMIT,
       ),

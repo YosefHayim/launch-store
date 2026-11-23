@@ -21,11 +21,7 @@ export class ConnectAccessibility {
     listQuery: AppleListQuery | null = null,
   ): Promise<AccessibilityDeclarationResource[]> {
     const declarations = await this.client.requestAll<AccessibilityDeclarationAttributes>(
-      applyAppleListQuery(
-        `/apps/${appId}/accessibilityDeclarations?limit=200`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/apps/${appId}/accessibilityDeclarations`, listQuery, APPLE_PAGE_LIMIT),
     );
 
     function readAccessibilityDeclaration(declaration: {

@@ -21,9 +21,7 @@ export class ConnectSandbox {
       applePayCompatible?: boolean;
       interruptPurchases?: boolean;
       subscriptionRenewalRate?: string;
-    }>(
-      this.client.v2(applyAppleListQuery('/sandboxTesters?limit=200', listQuery, APPLE_PAGE_LIMIT)),
-    );
+    }>(this.client.v2(applyAppleListQuery('/sandboxTesters', listQuery, APPLE_PAGE_LIMIT)));
 
     return appleResources.map((tester) => {
       let accountName = tester.attributes.acAccountName;
