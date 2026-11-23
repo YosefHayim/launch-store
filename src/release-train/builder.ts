@@ -24,7 +24,10 @@ import {
 } from '../release/app-store-release.ts';
 import { resolveReleaseType, resolveWhatsNew } from '../release/release-inputs.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { executeCommand, type CommandExecutionOptions } from '../services/platform/execute-command.ts';
+import {
+  executeCommand,
+  type CommandExecutionOptions,
+} from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { getCredentialsProvider } from '../services/provider-support/registry.ts';
 import {

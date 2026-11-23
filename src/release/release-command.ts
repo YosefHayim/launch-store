@@ -2,7 +2,11 @@
 
 import { parseBuildRollout } from '../build/build-command-input.ts';
 import { worstDownloadBytes } from '../build/pipeline-artifact.ts';
-import { applyBuildEnvironment, resolveCommandEnv, selectApp } from '../build/pipeline-environment.ts';
+import {
+  applyBuildEnvironment,
+  resolveCommandEnv,
+  selectApp,
+} from '../build/pipeline-environment.ts';
 import { mb, submitToStores } from '../build/pipeline-providers.ts';
 import { resolveIosAccount } from '../build/pipeline-signing.ts';
 import { loadConfig } from '../config/config.ts';

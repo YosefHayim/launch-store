@@ -2,13 +2,23 @@
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { resolveCommandEnv, selectApp, validateResolvedEnv } from '../build/pipeline-environment.ts';
+import {
+  resolveCommandEnv,
+  selectApp,
+  validateResolvedEnv,
+} from '../build/pipeline-environment.ts';
 import { ensureCodeSigner } from '../credentials/code-sign.ts';
 import { publishOtaPlatform, readExportMetadata } from '../distribution/over-the-air-publish.ts';
-import { updatesAppConfigSnippet, updatesWorkerScript } from '../distribution/over-the-air-manifest.ts';
+import {
+  updatesAppConfigSnippet,
+  updatesWorkerScript,
+} from '../distribution/over-the-air-manifest.ts';
 import { isCloudStorage, resolveStorageProvider } from '../distribution/storage.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
-import { executeCommand, type CommandExecutionOptions } from '../services/platform/execute-command.ts';
+import {
+  executeCommand,
+  type CommandExecutionOptions,
+} from '../services/platform/execute-command.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import { loadConfig } from './config.ts';

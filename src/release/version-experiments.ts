@@ -11,7 +11,12 @@ import {
   type ScreenshotSetApi,
   type ScreenshotSetOwner,
 } from '../store/apple/app-store-screenshots.ts';
-import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from '../store/apple/app-store-sync.ts';
+import {
+  act,
+  DRY_RUN_ID,
+  succeededOrPlanned,
+  type ActionLog,
+} from '../store/apple/app-store-sync.ts';
 import { appRecordMissing, plan } from '../store/shared/reconcile.ts';
 import type {
   ExperimentTreatmentLocalizationResource,

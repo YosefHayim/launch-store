@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { captureCommandOutput, type CommandFailed } from '../src/services/platform/execute-command.ts';
+import {
+  captureCommandOutput,
+  type CommandFailed,
+} from '../src/services/platform/execute-command.ts';
 /** Absolute path to the built CLI this suite exercises - `<root>/dist/cli/index.js`. */
 const fileUrltoPath = fileURLToPath(import.meta.url);
 const parentDirectory = dirname(fileUrltoPath);

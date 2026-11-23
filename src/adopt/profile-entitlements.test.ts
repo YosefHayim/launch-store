@@ -8,7 +8,8 @@ vi.mock('../services/platform/host-operating-system.ts', function mockOs() {
 vi.mock(
   '../services/platform/execute-command.ts',
   async function mockExec(importOriginal: <T = unknown>() => Promise<T>) {
-    const commandServices = await importOriginal<typeof import('../services/platform/execute-command.ts')>();
+    const commandServices =
+      await importOriginal<typeof import('../services/platform/execute-command.ts')>();
     return { ...commandServices, captureCommandOutput: vi.fn() };
   },
 );

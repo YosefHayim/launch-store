@@ -4,7 +4,12 @@ import type { AppDescriptor, BuildProfile } from '../types/app.ts';
 import { pickOne, type PickOneArgs } from '../services/platform/prompt.ts';
 import { readLastApp } from '../distribution/last-run.ts';
 import { resolveBuildSecrets } from './build-secrets.ts';
-import { keepBuildEnvironment, missingKeys, resolveEnv, type ResolvedEnv } from '../config/environment-file.ts';
+import {
+  keepBuildEnvironment,
+  missingKeys,
+  resolveEnv,
+  type ResolvedEnv,
+} from '../config/environment-file.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { hasMessage } from '../services/platform/error-message.ts';

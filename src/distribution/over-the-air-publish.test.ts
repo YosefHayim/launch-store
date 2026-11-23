@@ -11,7 +11,11 @@ import {
   manifestKey,
   manifestSignatureKey,
 } from './over-the-air-manifest.ts';
-import { type ExportMetadata, publishOtaPlatform, readExportMetadata } from './over-the-air-publish.ts';
+import {
+  type ExportMetadata,
+  publishOtaPlatform,
+  readExportMetadata,
+} from './over-the-air-publish.ts';
 
 type MemoryStorage = StorageProvider &
   Readonly<{

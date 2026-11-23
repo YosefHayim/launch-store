@@ -11,7 +11,10 @@ import {
 } from '../credentials/signing-preflight.ts';
 import { appPrivacyChecklist } from '../privacy/privacy-nutrition-label.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { formatPermissionLine, probeKeyPermissions } from '../store/apple/app-store-connect-permissions.ts';
+import {
+  formatPermissionLine,
+  probeKeyPermissions,
+} from '../store/apple/app-store-connect-permissions.ts';
 import { describeExportComplianceConfig } from '../store/apple/export-compliance.ts';
 import { buildConsoleUrl } from '../terminal/console-links.ts';
 import { shellLocaleDoctorCheck, type ShellLocaleEnv } from '../terminal/locale.ts';
