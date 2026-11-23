@@ -53,35 +53,6 @@
           },
           "description": "Declarative App Store Connect product catalog, keyed by iOS bundle id. Bundle identifiers may contain hyphens, but nested Apple subscription and in-app purchase `productId` values may contain only letters, digits, underscores, and periods. Drives `launch-store sync`, which reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match this. Absent for apps that sell nothing. See {@link AppProducts}."
         },
-        "notify": {
-          "type": "object",
-          "properties": {
-            "webhookUrl": {
-              "type": "string",
-              "description": "Incoming-webhook URL posted a JSON body on each transition. The payload carries both `text` (Slack) and `content` (Discord) set to a human summary, plus the structured event fields, so a Slack or Discord webhook renders it directly and a custom endpoint can read the typed data."
-            },
-            "command": {
-              "type": "string",
-              "description": "Shell command run on each transition with the event in its environment as `LAUNCH_*` vars (`LAUNCH_EVENT`, `LAUNCH_STATUS`, `LAUNCH_APP`, `LAUNCH_VERSION`; plus `LAUNCH_BUILD_NUMBER`, `LAUNCH_DESTINATION`, `LAUNCH_ERROR` on build/submit, or `LAUNCH_DETAIL` on review/rollout). Runs under `/bin/sh -c`, like a git hook."
-            },
-            "events": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "build",
-                  "submit",
-                  "review",
-                  "rollout"
-                ]
-              },
-              "description": "Which transitions fire a notification. Absent = all."
-            }
-          },
-          "required": [],
-          "additionalProperties": false,
-          "description": "Build/submit completion notifications (webhook + shell hook). Absent = no notifications. See {@link NotifyConfig}."
-        },
         "release": {
           "type": "object",
           "properties": {
@@ -254,32 +225,6 @@
             "$ref": "#/definitions/TestFlightNotes"
           },
           "description": "TestFlight What to Test notes, keyed by iOS bundle id. Drives `launch-store testflight release`."
-        },
-        "aws": {
-          "type": "object",
-          "properties": {
-            "region": {
-              "type": "string",
-              "description": "AWS region to allocate the Dedicated Host in (e.g. `us-east-1`)."
-            },
-            "profile": {
-              "type": "string",
-              "description": "Named profile in `~/.aws` to resolve via the credential chain. Omit to use the default chain."
-            },
-            "amiId": {
-              "type": "string",
-              "description": "BYO golden AMI id. Omit to bootstrap + snapshot one into your own account on first use."
-            },
-            "instanceType": {
-              "type": "string",
-              "description": "EC2 Mac instance type. Defaults to `mac2.metal` (cheapest M-series in most regions)."
-            }
-          },
-          "required": [
-            "region"
-          ],
-          "additionalProperties": false,
-          "description": "AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`."
         },
         "artifactDir": {
           "type": "string",

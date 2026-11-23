@@ -4,14 +4,12 @@ import { loadConfig } from '../config/config.ts';
 import { loadAscKeyForAccount } from '../credentials/accounts.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
-import { notify } from '../services/platform/notify.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import { completeCommand, isCommandExit, makeCommandExit } from '../terminal/command-exit.ts';
 import { alignTableColumns, type Column } from '../terminal/table.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { BuildResource } from '../types/apple-catalog.ts';
-import type { LaunchConfig } from '../types/config.ts';
 import {
   IOS_PLATFORM,
   readAppStoreAppId,
@@ -20,7 +18,6 @@ import {
   type ReleaseStatus,
   waitForValidBuild,
 } from './app-store-release.ts';
-import { createTransitionTracker, planTransitionNotifications } from './release-notify.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
@@ -489,27 +486,12 @@ function sleepMilliseconds(milliseconds: number): Promise<void> {
 async function watchReleaseStatuses(
   readStatuses: () => Promise<AppReleaseStatus[]>,
   logger: Logger,
-  launchConfiguration: LaunchConfig,
 ): Promise<number> {
-  const transitionTracker = createTransitionTracker();
-
   for (;;) {
     const appStatuses = await readStatuses();
 
     logger.gap();
     printStatusBatch(logger, appStatuses);
-
-    for (const appStatus of appStatuses) {
-      const notificationEvents = planTransitionNotifications(
-        appStatus.appName,
-        appStatus.releaseStatus,
-        transitionTracker,
-      );
-
-      for (const notificationEvent of notificationEvents) {
-        await notify(launchConfiguration, notificationEvent);
-      }
-    }
 
     function isDone(appStatus: AppReleaseStatus): boolean {
       return appStatus.releaseStatus.verdict.done;
@@ -762,13 +744,9 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
 
     if (isWatchingInTerminal) {
       if (statusFlags.json == false) {
-        const watchExitCode = await watchReleaseStatuses(
-          function readStatuses() {
-            return readSelectedStatuses(appleClient, selectedApps, false);
-          },
-          logger,
-          loadedConfiguration.config,
-        );
+        const watchExitCode = await watchReleaseStatuses(function readStatuses() {
+          return readSelectedStatuses(appleClient, selectedApps, false);
+        }, logger);
 
         completeCommand(watchExitCode);
 

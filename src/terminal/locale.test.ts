@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UTF8_LOCALE, isUtf8ShellLocale, mergeChildEnv, shellLocaleDoctorCheck } from './locale.ts';
+import { UTF8_LOCALE, isUtf8ShellLocale, mergeChildEnv } from './locale.ts';
 
 function describeMergeChildPiece() {
   function forcesUTF8LocaleOverBrokenShellDefaults() {
@@ -50,28 +50,3 @@ function describeIsUtf8ShellLocale() {
 }
 
 describe('isUtf8ShellLocale', describeIsUtf8ShellLocale);
-
-function describeShellLocaleDoctorCheck() {
-  function reportsOkWhenTheShellIsUTF8() {
-    expect(shellLocaleDoctorCheck({ LANG: 'en_US.UTF-8' })).toEqual({
-      status: 'ok',
-      title: 'Shell locale (en_US.UTF-8)',
-    });
-  }
-
-  it('reports ok when the shell is UTF-8', reportsOkWhenTheShellIsUTF8);
-
-  function reportsPieceWithAFixHintWhenTheShellIsNotUTF8() {
-    const check = shellLocaleDoctorCheck({ LANG: 'C' });
-    expect(check.status).toBe('info');
-    expect(check.title).toBe('Shell locale (C)');
-    expect(check.hint).toContain('Launch sets UTF-8');
-  }
-
-  it(
-    'reports info with a fix hint when the shell is not UTF-8',
-    reportsPieceWithAFixHintWhenTheShellIsNotUTF8,
-  );
-}
-
-describe('shellLocaleDoctorCheck', describeShellLocaleDoctorCheck);

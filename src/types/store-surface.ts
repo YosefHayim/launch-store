@@ -28,16 +28,6 @@ export type ReleaseConfig = {
   readonly primaryLocale?: string;
 };
 
-/** A ping Launch sends after a build, a submit, a review verdict, or a rollout change. */
-export type NotifyConfig = {
-  /** Webhook posted on each selected event. */
-  readonly webhookUrl?: string;
-  /** Shell command run on each selected event, the same way a git hook runs. */
-  readonly command?: string;
-  /** Which events send a ping. */
-  readonly events?: Array<'build' | 'submit' | 'review' | 'rollout'>;
-};
-
 /** One Game Center achievement. `launch-store game-center` creates it if Apple does not have it yet. */
 export type AchievementConfig = {
   /** Stable id you choose, such as `first_win`. */

@@ -4,7 +4,6 @@ import { loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
-import { notify } from '../services/platform/notify.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import {
   AppleStoreClientService,
@@ -132,18 +131,6 @@ export function phasedStateForAction(action: RolloutAction): 'PAUSE' | 'ACTIVE' 
   }
 }
 
-/** Map a public rollout action to the notification contract. */
-export function rolloutNotifyStatus(action: RolloutAction): 'paused' | 'resumed' | 'completed' {
-  switch (action) {
-    case 'pause':
-      return 'paused';
-    case 'resume':
-      return 'resumed';
-    case 'complete':
-      return 'completed';
-  }
-}
-
 type SelectedIosApp = {
   readonly name: string;
   readonly bundleId: string;
@@ -153,8 +140,6 @@ async function updateAppRollout(
   appleStore: ReturnType<AppleStoreClientService['createClient']>,
   selectedApp: SelectedIosApp,
   phasedReleaseState: 'PAUSE' | 'ACTIVE' | 'COMPLETE',
-  notificationStatus: 'paused' | 'resumed' | 'completed',
-  loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>,
 ): Promise<boolean> {
   const logger = createLogger(false);
   const appId = await appleStore.getAppId(selectedApp.bundleId);
@@ -193,14 +178,6 @@ async function updateAppRollout(
     selectedApp.name,
     `phased release -> ${phasedReleaseState} (was ${phasedRelease.phasedReleaseState})`,
   );
-  await notify(loadedConfiguration.config, {
-    event: 'rollout',
-    status: notificationStatus,
-    app: selectedApp.name,
-    platform: 'ios',
-    version: currentVersion.versionString,
-    detail: phasedReleaseState,
-  });
 
   return false;
 }
@@ -235,17 +212,10 @@ export async function rolloutCommandProgram(rawCommandInput: unknown): Promise<v
 
     const appleStore = new AppleStoreClientService().createClient(ascKey);
     const phasedReleaseState = phasedStateForAction(commandInput.action);
-    const notificationStatus = rolloutNotifyStatus(commandInput.action);
     let commandFailed = false;
 
     for (const selectedApp of selectedApps) {
-      const appFailed = await updateAppRollout(
-        appleStore,
-        selectedApp,
-        phasedReleaseState,
-        notificationStatus,
-        loadedConfiguration,
-      );
+      const appFailed = await updateAppRollout(appleStore, selectedApp, phasedReleaseState);
 
       if (appFailed) {
         commandFailed = true;

@@ -485,7 +485,9 @@ function describeResolveBuildTransportWhichForkARunTakes() {
   function alwaysBuildsAndroidLocallyNoOffMacForkAppliesEvenWithAStrayRemote() {
     const transport = resolveTransport('android', 'gradle', undefined);
     expect(transport).toEqual({ kind: 'local' });
-    expect(resolveTransport('android', 'gradle', { kind: 'aws' })).toEqual({ kind: 'local' });
+    expect(resolveTransport('android', 'gradle', { kind: 'ssh', target: 'builder@mac' })).toEqual({
+      kind: 'local',
+    });
   }
 
   it(
@@ -501,12 +503,6 @@ function describeResolveBuildTransportWhichForkARunTakes() {
   it('builds iOS locally by default', buildsIOSLocallyByDefault);
 
   function routesIOSToTheRemotePipelineOnRemoteCarryingTheTarget() {
-    const transport = resolveTransport('ios', 'xcode', { kind: 'aws' });
-
-    expect(transport).toEqual({
-      kind: 'remote',
-      remote: { kind: 'aws' },
-    });
     expect(resolveTransport('ios', 'xcode', { kind: 'ssh', target: 'ec2-user@host' })).toEqual({
       kind: 'remote',
       remote: { kind: 'ssh', target: 'ec2-user@host' },
@@ -518,18 +514,15 @@ function describeResolveBuildTransportWhichForkARunTakes() {
     routesIOSToTheRemotePipelineOnRemoteCarryingTheTarget,
   );
 
-  function defaultsABuildEngineRemoteMacPieceToAnAWSRemoteWhenNoRemoteIsPassed() {
-    const transport = resolveTransport('ios', 'remote-mac', undefined);
-
-    expect(transport).toEqual({
-      kind: 'remote',
-      remote: { kind: 'aws' },
+  function refusesRemoteMacWithoutAnSshTarget() {
+    expect(thrownTransportFailure('ios', 'remote-mac', undefined)).toMatchObject({
+      message: 'A remote Mac build needs --remote user@host.',
     });
   }
 
   it(
-    "defaults a buildEngine: 'remote-mac' config to an AWS remote when no --remote is passed",
-    defaultsABuildEngineRemoteMacPieceToAnAWSRemoteWhenNoRemoteIsPassed,
+    'refuses buildEngine remote-mac when --remote user@host is missing',
+    refusesRemoteMacWithoutAnSshTarget,
   );
 
   function handsIOSOffToEASWhenBuildEngineIsEas() {
@@ -540,12 +533,6 @@ function describeResolveBuildTransportWhichForkARunTakes() {
   it("hands iOS off to EAS when buildEngine is 'eas'", handsIOSOffToEASWhenBuildEngineIsEas);
 
   function letsRemoteWinOverAnEasRemoteMacPieceTheFlagIsTheOverride() {
-    const transport = resolveTransport('ios', 'eas', { kind: 'aws' });
-
-    expect(transport).toEqual({
-      kind: 'remote',
-      remote: { kind: 'aws' },
-    });
     expect(resolveTransport('ios', 'remote-mac', { kind: 'ssh', target: 'u@h' })).toEqual({
       kind: 'remote',
       remote: { kind: 'ssh', target: 'u@h' },
@@ -584,7 +571,9 @@ function describeResolveBuildTransportWhichForkARunTakes() {
   }
 
   function failsFastWhenAnOffMacForkIsExplicitlyRequestedForANonIOSApplePlatform() {
-    expect(thrownTransportFailure('tvos', 'xcode', { kind: 'aws' })).toMatchObject({
+    expect(
+      thrownTransportFailure('tvos', 'xcode', { kind: 'ssh', target: 'builder@mac' }),
+    ).toMatchObject({
       message: expect.stringMatching(/Remote builds are iOS-only/),
     });
     expect(thrownTransportFailure('macos', 'remote-mac', undefined)).toMatchObject({

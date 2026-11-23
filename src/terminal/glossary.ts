@@ -90,8 +90,6 @@ export type GlossaryTopic =
   | 'build-fingerprint'
   // Remote & cloud builds
   | 'remote-build'
-  | 'ec2-mac'
-  | 'golden-ami'
   | 'eas-handoff'
   // Android / Google Play
   | 'gradle'
@@ -150,8 +148,8 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   //  Apple - program, portal & toolchain
   'apple-developer-program': [
     'Apple Developer Program: the paid ($99/yr) membership that lets you create certificates, sign apps,',
-    'and publish to the App Store. Everything Launch does on the Apple side needs an active membership;',
-    '`launch-store doctor` surfaces account problems (lapsed membership, unsigned agreements) before a build.',
+    'and publish to the App Store. Everything Launch does on the Apple side needs an active membership.',
+    'A failed signing or upload call reports a lapsed membership or an unsigned agreement.',
   ].join('\n'),
   'app-store-connect': [
     "App Store Connect (ASC): Apple's web portal + API for managing apps, builds, TestFlight, and your",
@@ -180,8 +178,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
   agreements: [
     "Agreements: Apple's paid-apps and developer agreements. When a new one is unsigned or expired,",
-    'every signing/upload call fails with a 403. Launch probes for this in `doctor` so you fix it in',
-    'the UI up front, rather than discovering it halfway through a build.',
+    'every signing or upload call fails with a 403. Fix the agreement in App Store Connect, then retry.',
   ].join('\n'),
   'team-role': [
     'Team & roles: the people with access to your App Store Connect account and what each is allowed to do',
@@ -495,7 +492,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ccache: [
     'ccache: a compiler cache keyed by file content. The first build fills it; later builds reuse the',
     'cached object for any unchanged source - cutting a from-scratch iOS compile 50-70%. Launch wires it',
-    'in at `pod install` (USE_CCACHE) and turns it on by default; `launch-store doctor` installs and sizes it.',
+    'in at `pod install` (USE_CCACHE) and turns it on by default.',
   ].join('\n'),
   'incremental-build': [
     'Incremental build: reusing the warm compiler caches and DerivedData from your last build instead of',
@@ -513,18 +510,8 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     'Launch syncs your project over SSH, uploads a transient copy of your signing keys into a throwaway',
     'keychain on the host, runs the same xcodebuild build there, pulls the .ipa home, and shreds the host.',
   ].join('\n'),
-  'ec2-mac': [
-    'EC2 Mac: a Mac instance you rent in your OWN AWS account. It runs on a Dedicated Host with a hard',
-    "24-hour minimum (Apple's license) at ~$0.65/hr - about $16 minimum per session, whether you run 1",
-    'build or 50. Stopping the instance does NOT stop the bill; only releasing the host does, after 24h.',
-  ].join('\n'),
-  'golden-ami': [
-    'Golden AMI: a snapshot of a Mac instance with the toolchain (Xcode/node) already installed,',
-    "kept in your own account because Xcode can't be redistributed. Launch bootstraps one on first use and",
-    'reuses it so later sessions boot ready to build, wasting less of the paid 24-hour window.',
-  ].join('\n'),
   'eas-handoff': [
-    "EAS handoff: if you have no Mac and no AWS, Launch can orchestrate Expo's eas-cli for you - it drives",
+    "EAS handoff: if you have no Mac, Launch can orchestrate Expo's eas-cli for you - it drives",
     "`eas build` in Expo's cloud, downloads the .ipa, and can run `eas submit`. It's the one place Launch",
     "leans on the tool it replaces; you're on Expo's free-tier caps, but it costs nothing and needs no Mac.",
   ].join('\n'),
@@ -591,9 +578,9 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     'any OS with Gradle. Either way the same prepare -> build -> size -> submit spine runs, so the flow matches.',
   ].join('\n'),
   'build-location': [
-    "Build location: where the iOS compile actually runs. 'This Mac' uses your local Xcode (free, fastest);",
-    "'AWS cloud Mac' rents one in your own AWS account (~$16 min per 24h); 'a Mac over SSH' reuses a Mac you",
-    "already reach; 'Expo EAS' hands off to Expo's cloud (free-tier caps). The same signed .ipa comes back.",
+    "Build location: where the iOS compile actually runs. 'This Mac' uses your local Xcode.",
+    "'A Mac over SSH' reuses a Mac you already reach with `--remote user@host`. 'Expo EAS' hands off to",
+    "Expo's cloud. The same signed .ipa comes back.",
   ].join('\n'),
   'apple-account': [
     'Apple account: an App Store Connect API key belongs to exactly one Apple team, so each key IS an',

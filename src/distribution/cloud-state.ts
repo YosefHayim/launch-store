@@ -1,4 +1,4 @@
-// Remembers the live remote-build machine and its saved machine image.
+// Remembers the live remote Mac so the next SSH build can reuse it.
 
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
@@ -11,7 +11,6 @@ import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type CloudState = {
   host?: HostHandle;
-  amiId?: string;
 };
 
 function emptyCloudState(): CloudState {
@@ -159,14 +158,6 @@ function readCloudDocument(candidate: unknown): CloudState | null {
     return null;
   }
 
-  const amiId = optionalString(candidateObject, 'amiId');
-
-  const amiIdIsInvalid = isNull(amiId);
-
-  if (amiIdIsInvalid) {
-    return null;
-  }
-
   const hasHost = 'host' in candidateObject;
   let host: HostHandle | undefined;
 
@@ -184,10 +175,6 @@ function readCloudDocument(candidate: unknown): CloudState | null {
 
   if (host != null) {
     cloudState.host = host;
-  }
-
-  if (amiId != null) {
-    cloudState.amiId = amiId;
   }
 
   return cloudState;
@@ -266,28 +253,5 @@ export async function setLiveHost(hostHandle: HostHandle): Promise<void> {
 }
 
 export async function clearLiveHost(): Promise<void> {
-  const cloudState = await readCloudState();
-
-  if (cloudState.amiId == null) {
-    const emptyCloud = emptyCloudState();
-    await writeCloudState(emptyCloud);
-    return;
-  }
-
-  await writeCloudState({ amiId: cloudState.amiId });
-}
-
-export async function getAmiId(): Promise<string | null> {
-  const cloudState = await readCloudState();
-
-  if (cloudState.amiId == null) {
-    return null;
-  }
-
-  return cloudState.amiId;
-}
-
-export async function setAmiId(amiId: string): Promise<void> {
-  const cloudState = await readCloudState();
-  await writeCloudState({ ...cloudState, amiId });
+  await writeCloudState(emptyCloudState());
 }

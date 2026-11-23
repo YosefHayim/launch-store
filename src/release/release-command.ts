@@ -15,7 +15,6 @@ import { loadAscKeyById } from '../credentials/accounts.ts';
 import { ensureArtifactPresent, resolveStorageProvider } from '../distribution/storage.ts';
 import { errorMessage, hasMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
-import { notify, type NotifyEvent } from '../services/platform/notify.ts';
 import { LaunchPrompt, pickOne } from '../services/platform/prompt.ts';
 import { getCredentialsProvider } from '../services/provider-support/registry.ts';
 import {
@@ -1002,13 +1001,7 @@ async function releaseAppleBuild(
     build: selectedBuild.storeBuild,
     dryRun: false,
   };
-  const notifyEvent = readAppleNotifyEvent(appDescriptor.name, platform, selectedBuild);
-  const releaseReport = await submitAppleRelease(
-    launchConfig,
-    ascClient,
-    releaseInput,
-    notifyEvent,
-  );
+  const releaseReport = await submitAppleRelease(ascClient, releaseInput);
   const failureCount = renderReleaseReport(
     releaseReport,
     {
@@ -1024,9 +1017,6 @@ async function releaseAppleBuild(
   if (hasFailedSteps) {
     const failureMessage = `${failureCount} release step(s) failed`;
 
-    const failedSubmitEvent = readFailedSubmitEvent(notifyEvent, failureMessage);
-
-    await sendReleaseNotification(launchConfig, failedSubmitEvent);
     completeCommand(1, failureMessage);
 
     return;
@@ -1036,7 +1026,6 @@ async function releaseAppleBuild(
     return;
   }
 
-  await sendReleaseNotification(launchConfig, notifyEvent);
   logger.note(`Track the review with \`launch-store status -a ${appDescriptor.name} --watch\`.`);
 }
 
@@ -1134,87 +1123,9 @@ async function planAppleRelease(
   renderReleasePlan(releaseReport, appDescriptor.name, logger);
 }
 
-type ReleaseSubmitEvent = {
-  event: 'submit';
-  status: 'success' | 'failure';
-  app: string;
-  platform: Platform;
-  version: string;
-  buildNumber?: number;
-  sizeBytes?: number;
-  destination?: string;
-  error?: string;
-};
-
-function readFailedSubmitEvent(
-  notifyEvent: ReleaseSubmitEvent,
-  failureMessage: string,
-): ReleaseSubmitEvent {
-  const failedEvent: ReleaseSubmitEvent = {
-    event: 'submit',
-    status: 'failure',
-    app: notifyEvent.app,
-    platform: notifyEvent.platform,
-    version: notifyEvent.version,
-    error: failureMessage,
-  };
-
-  const buildNumber = notifyEvent.buildNumber;
-
-  const hasBuildNumber = buildNumber != null;
-
-  if (hasBuildNumber) {
-    failedEvent.buildNumber = buildNumber;
-  }
-
-  const sizeBytes = notifyEvent.sizeBytes;
-
-  const hasSizeBytes = sizeBytes != null;
-
-  if (hasSizeBytes) {
-    failedEvent.sizeBytes = sizeBytes;
-  }
-
-  const destination = notifyEvent.destination;
-
-  const hasDestination = destination != null;
-
-  if (hasDestination) {
-    failedEvent.destination = destination;
-  }
-
-  return failedEvent;
-}
-
-function readAppleNotifyEvent(
-  appName: string,
-  platform: Platform,
-  selectedBuild: SelectedStoreBuild,
-): ReleaseSubmitEvent {
-  const notifyEvent: ReleaseSubmitEvent = {
-    event: 'submit',
-    status: 'success',
-    app: appName,
-    platform,
-    version: selectedBuild.versionString,
-    destination: 'App Store review',
-  };
-  const parsedBuildNumber = Number.parseInt(selectedBuild.storeBuild.version, 10);
-
-  const hasBuildNumber = Number.isNaN(parsedBuildNumber) == false;
-
-  if (hasBuildNumber) {
-    notifyEvent.buildNumber = parsedBuildNumber;
-  }
-
-  return notifyEvent;
-}
-
 async function submitAppleRelease(
-  launchConfig: LaunchConfig,
   ascClient: AscReleaseApi,
   releaseInput: ReleaseInput,
-  notifyEvent: ReleaseSubmitEvent,
 ): Promise<ReleaseReport> {
   try {
     return await releaseApp(ascClient, releaseInput);
@@ -1223,27 +1134,7 @@ async function submitAppleRelease(
       throw error;
     }
 
-    const submitFailure = releaseFailure('submit App Store release', error);
-
-    try {
-      const failedSubmitEvent = readFailedSubmitEvent(notifyEvent, submitFailure.message);
-      await notify(launchConfig, failedSubmitEvent);
-    } catch (notifyFailure) {
-      throw releaseFailure('send release failure notification', notifyFailure);
-    }
-
-    throw submitFailure;
-  }
-}
-
-async function sendReleaseNotification(
-  launchConfig: LaunchConfig,
-  notifyEvent: NotifyEvent,
-): Promise<void> {
-  try {
-    await notify(launchConfig, notifyEvent);
-  } catch (error) {
-    throw releaseFailure('send release notification', error);
+    throw releaseFailure('submit App Store release', error);
   }
 }
 
@@ -1319,7 +1210,6 @@ async function releaseAndroidBuild(
     android,
   };
   const buildCredentials = await readBuildCredentials(launchConfig, buildContext);
-  const notifyEvent = readAndroidNotifyEvent(appDescriptor.name, latestBuild);
 
   try {
     await submitToStores(launchConfig, 'android', latestBuild, buildCredentials, buildContext);
@@ -1328,22 +1218,12 @@ async function releaseAndroidBuild(
       throw error;
     }
 
-    const submitFailure = releaseFailure('submit Android release', error);
-
-    try {
-      const failedSubmitEvent = readFailedSubmitEvent(notifyEvent, submitFailure.message);
-      await notify(launchConfig, failedSubmitEvent);
-    } catch (notifyFailure) {
-      throw releaseFailure('send release failure notification', notifyFailure);
-    }
-
-    throw submitFailure;
+    throw releaseFailure('submit Android release', error);
   }
 
   logger.line(
     `Submitted ${appDescriptor.name} ${latestBuild.version} (${latestBuild.buildNumber}) to the Play production track.`,
   );
-  await sendReleaseNotification(launchConfig, notifyEvent);
 }
 
 function readRolloutFlag(rollout: string | undefined): number | undefined {
@@ -1353,27 +1233,6 @@ function readRolloutFlag(rollout: string | undefined): number | undefined {
     const failureMessage = errorMessage(error);
     throw releaseFailure('parse --rollout', error, failureMessage);
   }
-}
-
-function readAndroidNotifyEvent(appName: string, latestBuild: BuildArtifact): ReleaseSubmitEvent {
-  const notifyEvent: ReleaseSubmitEvent = {
-    event: 'submit',
-    status: 'success',
-    app: appName,
-    platform: 'android',
-    version: latestBuild.version,
-    buildNumber: latestBuild.buildNumber,
-    destination: 'the Play production track',
-  };
-  const downloadBytes = worstDownloadBytes(latestBuild.sizeReport);
-
-  const hasDownloadSize = downloadBytes > 0;
-
-  if (hasDownloadSize) {
-    notifyEvent.sizeBytes = downloadBytes;
-  }
-
-  return notifyEvent;
 }
 
 function readBuildProfile(

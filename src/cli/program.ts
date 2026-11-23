@@ -39,7 +39,6 @@ import { registerPlayPricingCommand } from './commands/store/google/play-pricing
 import { registerDeviceCommand } from './commands/credentials/device.ts';
 import { registerTestflightCommand } from './commands/release/testflight.ts';
 import { registerEventsCommand } from './commands/store/apple/events.ts';
-import { registerDoctorCommand } from './commands/setup/doctor.ts';
 import { registerStoreCommand } from './commands/readiness/store-doctor.ts';
 import { registerAuditCommand } from './commands/readiness/audit.ts';
 import { registerPrivacyCommand } from './commands/readiness/privacy.ts';
@@ -49,7 +48,6 @@ import { registerExplainCommand } from './commands/terminal/explain.ts';
 import { registerCompletionCommand } from './commands/terminal/completion.ts';
 import { registerUpdateCommand } from './commands/release/update.ts';
 import { registerUpdatesCommand } from './commands/release/updates.ts';
-import { registerCloudCommand } from './commands/build/cloud.ts';
 import { registerBuildsCommand } from './commands/build/builds.ts';
 import { registerCiCommand } from './commands/setup/continuous-integration.ts';
 import { registerRunCommand } from './commands/build/run.ts';
@@ -113,7 +111,6 @@ export function buildProgram(launchVersion: string = '0.0.0'): Command {
   registerSandboxCommand(program);
   registerAppsCommand(program);
   registerStatsCommand(program);
-  registerDoctorCommand(program);
   registerStoreCommand(program);
   registerAuditCommand(program);
   registerPrivacyCommand(program);
@@ -123,7 +120,6 @@ export function buildProgram(launchVersion: string = '0.0.0'): Command {
   registerCompletionCommand(program);
   registerUpdateCommand(program);
   registerUpdatesCommand(program);
-  registerCloudCommand(program);
   registerBuildsCommand(program);
   registerCiCommand(program);
   registerRunCommand(program);

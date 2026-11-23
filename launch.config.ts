@@ -10,15 +10,6 @@ export default defineConfig({
   artifactRetentionDays: 30,
   envExclude: ['ASC_PRIVATE_KEY'],
 
-  aws: {
-    region: 'us-east-1',
-  },
-
-  notify: {
-    webhookUrl: 'https://example.com/launch-hook',
-    events: ['build', 'submit', 'review', 'rollout'],
-  },
-
   release: {
     releaseType: 'MANUAL',
     phasedRelease: true,

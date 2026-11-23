@@ -17,7 +17,6 @@ import { easHostedBuildProvider } from './build/expo-application-services.ts';
 import { appStoreConnectSubmitter } from './submit/app-store-connect.ts';
 import { googlePlaySubmitter } from './submit/google-play.ts';
 import { easSubmitter } from './submit/expo-application-services.ts';
-import { makeAwsEc2MacComputeHost } from './compute/aws-ec2-mac.ts';
 import { byoSshComputeHost } from './compute/byo-ssh.ts';
 
 /** Register every provider that ships with Launch. */
@@ -46,8 +45,5 @@ export async function registerBuiltins(): Promise<void> {
   registerSubmitter(googlePlaySubmitter);
   registerSubmitter(easSubmitter);
 
-  const awsEc2MacComputeHost = makeAwsEc2MacComputeHost();
-
-  registerComputeHost(awsEc2MacComputeHost);
   registerComputeHost(byoSshComputeHost);
 }

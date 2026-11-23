@@ -4,15 +4,10 @@ import { setCommandEnvironmentExclusions } from '../services/platform/execute-co
 import type { AppDescriptor } from '../types/app.ts';
 import type { ResolvedBuildContext } from '../types/config.ts';
 import type { MutableDeep } from '../types/mutable.ts';
-import type { NotifyEvent } from '../services/platform/notify.ts';
-import { notify } from '../services/platform/notify.ts';
 import { loadConfig } from '../config/config.ts';
 import { checkApp, formatFinding } from '../config/config-check.ts';
 import { ENV_SOURCE } from '../config/environment-file.ts';
 import { createLogger } from '../services/platform/logger.ts';
-import { resolveStorageProvider } from '../distribution/storage.ts';
-import type { BuildArtifact } from '../types/artifacts.ts';
-import type { Platform } from '../types/app.ts';
 import type { BuildRunOptions, PreparedBuild } from './pipeline-types.ts';
 import {
   resolveAndroidRelease,
@@ -20,7 +15,6 @@ import {
   resolveBuildTransport,
 } from './pipeline-providers.ts';
 import { resolveCommandEnv, selectApp, validateResolvedEnv } from './pipeline-environment.ts';
-import { receiptDestination, worstDownloadBytes } from './pipeline-artifact.ts';
 import { runIosBuild } from './pipeline-ios.ts';
 import { runAndroidBuild } from './pipeline-android.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
@@ -159,12 +153,6 @@ function remoteSuffixFor(buildOptions: BuildRunOptions): string {
 
   if (hasRemote == false) {
     return '';
-  }
-
-  const isAws = buildOptions.remote?.kind == 'aws';
-
-  if (isAws) {
-    return ' - remote(aws)';
   }
 
   return ' - remote(ssh)';
@@ -342,172 +330,6 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
   };
 }
 
-function wantsStoreEvent(shouldSubmit: boolean, isInternal: boolean): boolean {
-  if (shouldSubmit == false) {
-    return false;
-  }
-
-  return isInternal == false;
-}
-
-function isStoredForApp(appName: string, platform: Platform) {
-  return function matches(artifact: BuildArtifact): boolean {
-    const isSameApp = artifact.appName == appName;
-
-    if (isSameApp == false) {
-      return false;
-    }
-
-    return artifact.platform == platform;
-  };
-}
-
-async function buildSuccessEvent(
-  prepared: PreparedBuild,
-  buildOptions: BuildRunOptions,
-): Promise<NotifyEvent> {
-  const launchConfig = prepared.config;
-  const app = prepared.app;
-  const buildContext = prepared.buildContext;
-  const isInternal = buildContext.distribution == 'internal';
-  const storageProvider = await resolveStorageProvider(launchConfig);
-  const storedArtifacts = await storageProvider.list();
-  const latest = storedArtifacts.find(isStoredForApp(app.name, buildOptions.platform));
-  let eventName: NotifyEvent['event'] = 'build';
-
-  const shouldNameSubmit = wantsStoreEvent(buildOptions.submit, isInternal);
-
-  if (shouldNameSubmit) {
-    eventName = 'submit';
-  }
-
-  let eventVersion = app.version;
-  const storedVersion = latest?.version;
-
-  if (storedVersion != null) {
-    eventVersion = storedVersion;
-  }
-
-  if (eventVersion == null) {
-    eventVersion = '0.0.0';
-  }
-
-  let destination = receiptDestination(
-    buildOptions.platform,
-    buildOptions,
-    buildContext.android?.track,
-  );
-
-  if (isInternal) {
-    destination = 'internal install link';
-  }
-
-  const notificationEvent: NotifyEvent = {
-    event: eventName,
-    status: 'success',
-    app: app.name,
-    platform: buildOptions.platform,
-    version: eventVersion,
-    destination,
-    ...storedBuildFields(latest),
-  };
-
-  return notificationEvent;
-}
-
-function isStoredArtifact(latest: BuildArtifact | undefined): latest is BuildArtifact {
-  return latest != null;
-}
-
-function fieldsFromArtifact(latest: BuildArtifact): { buildNumber: number; sizeBytes?: number } {
-  const size = worstDownloadBytes(latest.sizeReport);
-  const hasSize = size > 0;
-
-  if (hasSize == false) {
-    return { buildNumber: latest.buildNumber };
-  }
-
-  return { buildNumber: latest.buildNumber, sizeBytes: size };
-}
-
-function storedBuildFields(latest: BuildArtifact | undefined): {
-  buildNumber?: number;
-  sizeBytes?: number;
-} {
-  if (isStoredArtifact(latest)) {
-    return fieldsFromArtifact(latest);
-  }
-
-  return {};
-}
-
-function buildFailureEvent(
-  prepared: PreparedBuild,
-  buildOptions: BuildRunOptions,
-  error: unknown,
-): NotifyEvent {
-  const isInternal = prepared.buildContext.distribution == 'internal';
-  let eventName: NotifyEvent['event'] = 'build';
-
-  const shouldNameSubmit = wantsStoreEvent(buildOptions.submit, isInternal);
-
-  if (shouldNameSubmit) {
-    eventName = 'submit';
-  }
-
-  let appVersion = prepared.app.version;
-
-  if (appVersion == null) {
-    appVersion = '0.0.0';
-  }
-
-  let failureText = String(error);
-
-  if (hasMessage(error)) {
-    failureText = error.message;
-  }
-
-  return {
-    event: eventName,
-    status: 'failure',
-    app: prepared.app.name,
-    platform: buildOptions.platform,
-    version: appVersion,
-    error: failureText,
-  };
-}
-
-async function notifyBuildSuccess(
-  prepared: PreparedBuild,
-  buildOptions: BuildRunOptions,
-): Promise<void> {
-  const isDryRun = buildOptions.dryRun == true;
-
-  if (isDryRun) {
-    return;
-  }
-
-  const notificationEvent = await buildSuccessEvent(prepared, buildOptions);
-
-  await notify(prepared.config, notificationEvent);
-}
-
-async function notifyBuildFailure(
-  prepared: PreparedBuild,
-  buildOptions: BuildRunOptions,
-  error: unknown,
-): Promise<void> {
-  const isDryRun = buildOptions.dryRun == true;
-
-  if (isDryRun) {
-    return;
-  }
-
-  const failureEvent = buildFailureEvent(prepared, buildOptions, error);
-
-  await notify(prepared.config, failureEvent);
-}
-
 async function runLocalBuild(
   prepared: PreparedBuild,
   buildOptions: BuildRunOptions,
@@ -551,7 +373,7 @@ async function dispatchBuild(
   }
 }
 
-/** Run a build, then notify success. */
+/** Run one prepared build. */
 export async function runBuild(buildOptions: BuildRunOptions): Promise<void> {
   const prepared = await prepareBuild(buildOptions);
   let exclusions: readonly string[] = [];
@@ -564,13 +386,7 @@ export async function runBuild(buildOptions: BuildRunOptions): Promise<void> {
   setCommandEnvironmentExclusions(exclusions);
 
   try {
-    try {
-      await dispatchBuild(prepared, buildOptions);
-      await notifyBuildSuccess(prepared, buildOptions);
-    } catch (error) {
-      await notifyBuildFailure(prepared, buildOptions, error);
-      throw error;
-    }
+    await dispatchBuild(prepared, buildOptions);
   } finally {
     setCommandEnvironmentExclusions([]);
   }

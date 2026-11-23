@@ -77,7 +77,7 @@ const signatures: DiagnosticSignature[] = [
   {
     title: 'Android SDK location not found',
     cause: "Gradle can't find the Android SDK - ANDROID_HOME / ANDROID_SDK_ROOT isn't set.",
-    fix: 'Install the SDK (Android Studio or command-line tools) and export `ANDROID_HOME`. `launch-store doctor --platform android` checks this.',
+    fix: 'Install the SDK (Android Studio or command-line tools) and export `ANDROID_HOME`.',
     match: [/SDK location not found/i, /ANDROID_HOME is not set/i, /ANDROID_SDK_ROOT/i],
   },
   {
@@ -134,7 +134,7 @@ const signatures: DiagnosticSignature[] = [
   {
     title: 'A required build tool is missing',
     cause: "A command the build depends on (CocoaPods, bundletool) isn't installed or on PATH.",
-    fix: 'Install the missing toolchain: `launch-store doctor --fix` (iOS) or `launch-store doctor --platform android`.',
+    fix: 'Install the missing toolchain (`pod` or `bundletool`) and make sure it is on PATH.',
     match: [/command not found: (?:pod|bundletool)/i, /(?:pod|bundletool): command not found/i],
   },
 ];

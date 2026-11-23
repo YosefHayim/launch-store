@@ -152,7 +152,7 @@ export async function reconcileExportCompliance(
   }
 }
 
-/** A doctor/preflight verdict derived from the app's Expo config alone - no network. */
+/** Export-compliance posture from the app config alone, with no network. */
 type ExportComplianceConfigStatus = {
   ok: boolean;
   message: string;
@@ -184,7 +184,7 @@ export function describeExportComplianceConfig(
   }
 }
 
-/** Render a {@link reconcileExportCompliance} outcome as one human line for `launch-store doctor --fix`. */
+/** Render a {@link reconcileExportCompliance} outcome as one human line. */
 export function summarizeExportComplianceResult(complianceOutcome: ExportComplianceResult): string {
   switch (complianceOutcome.status) {
     case 'undeclared':

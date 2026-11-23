@@ -12,7 +12,7 @@ Launch is an end-to-end release tool: it owns the path from source to store for 
 
 ## Quick start
 
-**Node.js 24+** ([nodejs.org](https://nodejs.org/en)). **iOS needs a Mac** with [Xcode](https://developer.apple.com/xcode/), [CocoaPods](https://cocoapods.org/), an [Apple Developer Program](https://developer.apple.com/programs/enroll/) membership, and an [App Store Connect API key](https://appstoreconnect.apple.com/access/integrations/api). **Android** needs a [JDK](https://openjdk.org/), the [Android SDK](https://developer.android.com/studio) with `ANDROID_HOME` set, and a [Google Play Developer](https://play.google.com/console/signup) account. **iOS on another Mac** uses `launch-store build ios --remote aws` or `launch-store build ios --remote user@host`.
+**Node.js 24+** ([nodejs.org](https://nodejs.org/en)). **iOS needs a Mac** with [Xcode](https://developer.apple.com/xcode/), [CocoaPods](https://cocoapods.org/), an [Apple Developer Program](https://developer.apple.com/programs/enroll/) membership, and an [App Store Connect API key](https://appstoreconnect.apple.com/access/integrations/api). **Android** needs a [JDK](https://openjdk.org/), the [Android SDK](https://developer.android.com/studio) with `ANDROID_HOME` set, and a [Google Play Developer](https://play.google.com/console/signup) account. **iOS on another Mac** uses `launch-store build ios --remote user@host`.
 
 Install from [npm](https://www.npmjs.com/package/launch-store):
 
@@ -45,7 +45,6 @@ The dry run prints `Dry run` and changes nothing. A real iOS run leaves the sign
 | `launch-store adopt` | Import a live App Store Connect setup into `launch.config.ts`. |
 | `launch-store creds` | Inspect credentials, import the API key, and switch Apple accounts. |
 | `launch-store plan` | Show what `sync` would change. `launch-store drift --check` exits 2 when the store has drifted. |
-| `launch-store doctor` | Check that the local toolchain and store account are ready. |
 
 `launch-store --help` lists every command. Every field is set in the root [`launch.config.ts`](./launch.config.ts). Hover a name to read what it does.
 
@@ -80,7 +79,7 @@ Unknown keys are kept so `launch-store config validate` can flag them.
 
 `launch.config.ts` is the desired state. `launch-store plan` diffs it against the live store and changes nothing. `launch-store sync` applies that diff after you confirm. `launch-store adopt` reads a live App Store Connect setup back into the file.
 
-`launch-store build` accepts `ios`, `android`, `tvos`, `macos`, and `visionos`. Android upload goes through the Play API. The iOS path stops once the signed archive is on disk. `--remote aws` and `--remote user@host` run that iOS build on another Mac. `launch-store cloud` sets up the EC2 Mac. Android does not need a Mac.
+`launch-store build` accepts `ios`, `android`, `tvos`, `macos`, and `visionos`. Android upload goes through the Play API. The iOS path stops once the signed archive is on disk. `--remote user@host` runs that iOS build on another Mac. Android does not need a Mac.
 
 `launch-store update` publishes a code-signed JS update. `launch-store release` is the confirmed public ship.
 
@@ -96,7 +95,7 @@ Launch is active, MIT-licensed, and published as [`launch-store`](https://www.np
 
 ## Help
 
-`launch-store doctor` checks the toolchain and the store account. `launch-store --help` lists the commands. `launch-store explain <topic>` and `--explain` expand a step in plain English.
+`launch-store --help` lists the commands. `launch-store explain <topic>` and `--explain` expand a step in plain English.
 
 Bugs and questions go to [GitHub issues](https://github.com/YosefHayim/launch-store/issues).
 

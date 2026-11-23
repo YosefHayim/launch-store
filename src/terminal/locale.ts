@@ -1,6 +1,5 @@
-// Sets a UTF-8 locale for child tools and grades the shell locale during doctor.
+// Sets a UTF-8 locale for child tools such as xcodebuild and CocoaPods.
 
-import type { DoctorCheck } from '../types/doctor.ts';
 /** Locale variables xcodebuild and CocoaPods need to run with UTF-8. */
 export const UTF8_LOCALE = {
   LANG: 'en_US.UTF-8',
@@ -27,31 +26,4 @@ export function isUtf8ShellLocale(env: ShellLocaleEnv): boolean {
   if (effectiveLocale == null) effectiveLocale = env.LANGUAGE;
 
   return typeof effectiveLocale == 'string' && /UTF-?8/i.test(effectiveLocale);
-}
-
-/** Doctor line grading the interactive shell locale (build subprocesses are fixed regardless). */
-export function shellLocaleDoctorCheck(env: ShellLocaleEnv): DoctorCheck {
-  if (isUtf8ShellLocale(env)) {
-    let localeLabel = env.LC_ALL;
-
-    if (localeLabel == null) localeLabel = env.LANG;
-
-    if (localeLabel == null) localeLabel = UTF8_LOCALE.LANG;
-
-    return { status: 'ok', title: `Shell locale (${localeLabel})` };
-  }
-
-  let observedLocale = env.LC_ALL;
-
-  if (observedLocale == null) observedLocale = env.LANG;
-
-  if (observedLocale == null) observedLocale = env.LANGUAGE;
-
-  if (observedLocale == null) observedLocale = 'unset';
-
-  return {
-    status: 'info',
-    title: `Shell locale (${observedLocale})`,
-    hint: 'Launch sets UTF-8 for xcodebuild/CocoaPods. Add `export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8` to ~/.zshrc to fix your shell too.',
-  };
 }

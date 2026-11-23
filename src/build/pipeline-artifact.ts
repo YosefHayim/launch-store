@@ -210,7 +210,7 @@ export async function storeArtifact(
 
 function warnNoCcache(log: Logger): void {
   log.warn(
-    "ccache isn't installed - this build runs uncached. `launch-store doctor --fix` (or brew install ccache) speeds up repeat builds.",
+    "ccache isn't installed - this build runs uncached. `brew install ccache` speeds up repeat builds.",
   );
 }
 

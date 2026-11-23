@@ -29,7 +29,7 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 | `src/google` | Google Play. The client. Types come from `@googleapis`. |
 | `src/listing`, `src/readiness`, `src/release`, `src/release-train`, `src/plan`, `src/build`, `src/credentials` | The bridge. Launch's own product. These call the clients and decide what Launch does. |
 | `src/store` | Store sync. `store/apple` and `store/google` are the store programs, not the CLI. The HTTP clients stay in `src/apple` and `src/google`. |
-| `src/adopt`, `src/config`, `src/distribution`, `src/doctor`, `src/insights`, `src/migrate`, `src/portfolio`, `src/privacy`, `src/snapshot`, `src/stats` | The rest of the bridge. |
+| `src/adopt`, `src/config`, `src/distribution`, `src/insights`, `src/migrate`, `src/portfolio`, `src/privacy`, `src/snapshot`, `src/stats` | The rest of the bridge. |
 | `src/terminal`, `src/docs` | Glossary and the config reference. |
 | `src/services` | Paths, exec, logger, prompts, secrets, and the store client adapters. `services/stores` is the only door into `src/apple` and `src/google`. |
 | `src/types` | Shared domain shapes. |

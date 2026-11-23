@@ -96,10 +96,9 @@ ${appRootsLine}
   credentials: "local", // macOS Keychain + ~/.launch (your own keys, cached locally)
   storage: "local", // ~/.launch/artifacts${artifactDirLine}
   // artifactRetentionDays: 30, // auto-prune local build binaries older than this (0 = keep forever; newest per app is always kept)
-  buildEngine: "xcode", // "xcode" (local) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
+  buildEngine: "xcode", // "xcode" (local) - "remote-mac" (needs --remote user@host) - "eas" (Expo cloud)
 
-  // No Mac? Build remotely. Run \`launch-store cloud doctor\`.
-  // aws: { region: "us-east-1" }, // for \`launch-store build ios --remote aws\`
+  // No Mac? Build on one you can SSH to: launch-store build ios --remote user@host
 
 ${profilesBlock}
 

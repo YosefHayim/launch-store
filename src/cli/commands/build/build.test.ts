@@ -100,7 +100,7 @@ function describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece() {
       ...BASE_OPTIONS,
       app: 'demo',
       account: 'team-a',
-      remote: 'aws',
+      remote: 'builder@mac.example',
       distribution: 'internal',
       bump: 'patch',
       sizeBudget: '250',
@@ -112,7 +112,7 @@ function describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece() {
       platform: 'ios',
       profileName: 'production',
       appName: 'demo',
-      remote: { kind: 'aws' },
+      remote: { kind: 'ssh', target: 'builder@mac.example' },
       distribution: 'internal',
       bump: 'patch',
       sizeBudgetMB: 250,
@@ -142,6 +142,34 @@ function describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece() {
   }
 
   it('rejects unknown tracks before the pipeline runs', rejectsUnknownTracksBeforeThePipelineRuns);
+
+  function rejectsAwsAndABareRemoteFlag() {
+    let remoteFailure: unknown = null;
+
+    try {
+      parseBuildCommandInput('ios', { ...BASE_OPTIONS, remote: 'aws' });
+    } catch (caught) {
+      remoteFailure = caught;
+    }
+
+    expect(remoteFailure).toMatchObject({
+      message: 'Pass --remote user@host to build on another Mac.',
+    });
+
+    let bareRemoteFailure: unknown = null;
+
+    try {
+      parseBuildCommandInput('ios', { ...BASE_OPTIONS, remote: true });
+    } catch (caught) {
+      bareRemoteFailure = caught;
+    }
+
+    expect(bareRemoteFailure).toMatchObject({
+      message: 'Pass --remote user@host to build on another Mac.',
+    });
+  }
+
+  it('rejects aws and a bare --remote flag', rejectsAwsAndABareRemoteFlag);
 
   function decodesNoCcacheIntoTheBuildRunPieceContract() {
     const buildInput = parseBuildCommandInput('ios', { ...BASE_OPTIONS, ccache: false });

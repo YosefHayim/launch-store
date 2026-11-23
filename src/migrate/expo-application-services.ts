@@ -749,7 +749,7 @@ export function notesFromEasConfiguration(
     {
       level: 'manual',
       message:
-        'EAS built in the cloud; Launch builds locally by default (`buildEngine: "xcode"`). No Mac? Set `buildEngine: "eas"` or run `launch-store build --remote` (see `launch-store explain eas-handoff`).',
+        'EAS built in the cloud; Launch builds locally by default (`buildEngine: "xcode"`). No Mac? Set `buildEngine: "eas"` or run `launch-store build ios --remote user@host` (see `launch-store explain eas-handoff`).',
     },
     ...notesFromAppIdentifiers(apps),
   ];

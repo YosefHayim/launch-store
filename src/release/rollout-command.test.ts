@@ -1,25 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import {
-  decodeRolloutCommandInput,
-  phasedStateForAction,
-  rolloutNotifyStatus,
-} from './rollout-command.ts';
+import { decodeRolloutCommandInput, phasedStateForAction } from './rollout-command.ts';
 
 function describeRolloutActionMapping() {
-  function mapsEveryActionToAppleAndNotificationStates() {
+  function mapsEveryActionToAnApplePhasedReleaseState() {
     const phasedForAction = phasedStateForAction('pause');
 
     expect(phasedForAction).toBe('PAUSE');
     expect(phasedStateForAction('resume')).toBe('ACTIVE');
     expect(phasedStateForAction('complete')).toBe('COMPLETE');
-    expect(rolloutNotifyStatus('pause')).toBe('paused');
-    expect(rolloutNotifyStatus('resume')).toBe('resumed');
-    expect(rolloutNotifyStatus('complete')).toBe('completed');
   }
 
   it(
-    'maps every action to Apple and notification states',
-    mapsEveryActionToAppleAndNotificationStates,
+    'maps every action to an Apple phased-release state',
+    mapsEveryActionToAnApplePhasedReleaseState,
   );
 
   function rejectsUnsupportedActionsAtTheCommandBoundary() {

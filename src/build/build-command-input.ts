@@ -138,7 +138,11 @@ function resolveBuildRemoteTarget(remote: string | boolean | undefined): RemoteT
       return undefined;
     case true:
     case 'aws':
-      return { kind: 'aws' };
+      throw buildCommandInputError(
+        'remote',
+        remote,
+        'Pass --remote user@host to build on another Mac.',
+      );
     default:
       return { kind: 'ssh', target: remote };
   }

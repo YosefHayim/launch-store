@@ -12,10 +12,7 @@ function addAppleBuildOptions(command: Command): Command {
       '--account <name>',
       'iOS only - Apple account to build with: label or Key ID (default: active)',
     )
-    .option(
-      '--remote [target]',
-      "iOS only - build on a remote Mac: 'aws' (default) or user@host over SSH",
-    )
+    .option('--remote [target]', 'iOS only - build on another Mac over SSH, as user@host')
     .option(
       '--bump <kind>',
       "iOS only - version bump: patch|minor|major|keep (default: last used, else prompt) or 'ask' to force the prompt",

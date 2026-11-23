@@ -131,23 +131,7 @@ const base = {
   dryRun: true,
 };
 
-function describeRemoteBuildDryRunRehearsesWithNoSSHAWSNetwork() {
-  async function rehearsesTheAWSRemotePath() {
-    tempRepo = writeRepo();
-    process.chdir(tempRepo);
-
-    function runRemoteCoreTestPiece() {
-      return runBuild({ ...base, remote: { kind: 'aws' } });
-    }
-
-    const remoteCoreTest = runRemoteCoreTest(runRemoteCoreTestPiece);
-
-    await expect(remoteCoreTest).resolves.toBeUndefined();
-    expect(fetchGuard).not.toHaveBeenCalled();
-  }
-
-  it('rehearses the AWS remote path', rehearsesTheAWSRemotePath);
-
+function describeRemoteBuildDryRunRehearsesWithNoSshNetwork() {
   async function rehearsesTheSSHByoRemotePath() {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
@@ -166,8 +150,8 @@ function describeRemoteBuildDryRunRehearsesWithNoSSHAWSNetwork() {
 }
 
 describe(
-  'remote build --dry-run rehearses with no SSH/AWS/network',
-  describeRemoteBuildDryRunRehearsesWithNoSSHAWSNetwork,
+  'remote build --dry-run rehearses with no SSH or network',
+  describeRemoteBuildDryRunRehearsesWithNoSshNetwork,
 );
 
 function describeEASHandoffDryRunRehearsesWithNoEasCliNetwork() {

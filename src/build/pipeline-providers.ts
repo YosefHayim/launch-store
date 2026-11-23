@@ -260,30 +260,19 @@ export function mb(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function defaultRemoteTarget(
-  remoteFlag: RemoteTarget | undefined,
-  buildEngine: string,
-): RemoteTarget | undefined {
-  const hasRemoteFlag = remoteFlag != null;
-
-  if (hasRemoteFlag) {
-    return remoteFlag;
-  }
-
-  const isRemoteMacEngine = buildEngine == 'remote-mac';
-
-  if (isRemoteMacEngine) {
-    return { kind: 'aws' };
-  }
-
-  return undefined;
-}
-
 function iosTransport(remote: RemoteTarget | undefined, buildEngine: string): BuildTransportChoice {
   const hasRemote = remote != null;
 
   if (hasRemote) {
     return { kind: 'remote', remote };
+  }
+
+  const isRemoteMacEngine = buildEngine == 'remote-mac';
+
+  if (isRemoteMacEngine) {
+    throw makeBuildTransportFailure({
+      message: 'A remote Mac build needs --remote user@host.',
+    });
   }
 
   const isEas = buildEngine == 'eas';
@@ -300,12 +289,17 @@ function localAppleTransport(
   remote: RemoteTarget | undefined,
   buildEngine: string,
 ): BuildTransportChoice {
+  const offMacMessage = `Remote builds are iOS-only - build ${platformLabel(platform)} on a local Mac (drop \`--remote\` / \`buildEngine: "remote-mac"\`).`;
   const hasRemote = remote != null;
 
   if (hasRemote) {
-    throw makeBuildTransportFailure({
-      message: `Remote builds are iOS-only - build ${platformLabel(platform)} on a local Mac (drop \`--remote\` / \`buildEngine: "remote-mac"\`).`,
-    });
+    throw makeBuildTransportFailure({ message: offMacMessage });
+  }
+
+  const isRemoteMacEngine = buildEngine == 'remote-mac';
+
+  if (isRemoteMacEngine) {
+    throw makeBuildTransportFailure({ message: offMacMessage });
   }
 
   const isEas = buildEngine == 'eas';
@@ -331,13 +325,11 @@ export function resolveBuildTransport(
     return { kind: 'local' };
   }
 
-  const remote = defaultRemoteTarget(remoteFlag, buildEngine);
-
   const isIos = platform == 'ios';
 
   if (isIos) {
-    return iosTransport(remote, buildEngine);
+    return iosTransport(remoteFlag, buildEngine);
   }
 
-  return localAppleTransport(platform, remote, buildEngine);
+  return localAppleTransport(platform, remoteFlag, buildEngine);
 }

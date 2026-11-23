@@ -8,7 +8,6 @@ function describeWorkflowYaml() {
     expect(workflow).toContain('runs-on: macos-latest');
     expect(workflow).toContain('launch-store creds set-key --yes');
     expect(workflow).toContain('launch-store creds setup --yes');
-    expect(workflow).toContain('launch-store doctor --yes');
     expect(workflow).toContain('launch-store build ios --yes');
   }
 

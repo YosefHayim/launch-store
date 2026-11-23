@@ -522,7 +522,7 @@ function describeEnsureCcacheInstalledTheInlineBuildTimeCcacheOffer() {
   }
 
   it(
-    'skips (pointing at doctor) when Homebrew is missing - no brew bootstrap inside a build',
+    'skips when Homebrew is missing - no brew bootstrap inside a build',
     skipsPointingAtDoctorWhenHomebrewIsMissingNoBrewBootstrapInsideABuild,
   );
 }

@@ -66,7 +66,6 @@ function describeDefinePiece() {
     expect(config.buildEngine).toBe('xcode');
     expect(config.submit).toBe('app-store-connect');
     expect(config.appRoots).toBeUndefined();
-    expect(config.aws).toBeUndefined();
     expect(config.release).toBeUndefined();
   }
 

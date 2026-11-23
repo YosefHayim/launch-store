@@ -7,7 +7,6 @@ import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,
   resolveExtensionBundleIdsForApp,
-  signingPreflightDoctorChecks,
   signingPreflightWarnings,
 } from './signing-preflight.ts';
 
@@ -221,77 +220,4 @@ function describeSigningPreflightWarnings() {
 
 describe('signingPreflightWarnings', describeSigningPreflightWarnings);
 
-function describeSigningPreflightDoctorChecks() {
-  function emitsAnPieceCheckForAppGroupsAndFailChecksForNotReadyTargets() {
-    const checks = signingPreflightDoctorChecks(
-      [
-        {
-          bundleId: 'com.example.sampleapp',
-          registered: true,
-          missingCapabilities: ['APP_GROUPS'],
-        },
-        { bundleId: 'com.example.sampleapp.widget', registered: false, missingCapabilities: [] },
-      ],
-      'Create group.com.example.sampleapp in the portal.',
-    );
-
-    expect(checks).toHaveLength(3);
-    expect(checks[0]).toMatchObject({
-      status: 'info',
-      title: 'App Groups require portal setup',
-    });
-
-    function isFailingCheck(check: {
-      readonly status: 'ok' | 'info' | 'fail';
-      readonly title: string;
-      readonly detail?: string;
-      readonly hint?: string;
-    }) {
-      return check.status == 'fail';
-    }
-
-    expect(checks.filter(isFailingCheck)).toHaveLength(2);
-
-    function mentionsAppGroups(check: {
-      readonly status: 'ok' | 'info' | 'fail';
-      readonly title: string;
-      readonly detail?: string;
-      readonly hint?: string;
-    }) {
-      return check.detail?.includes('APP_GROUPS');
-    }
-
-    expect(checks.some(mentionsAppGroups)).toBe(true);
-
-    function mentionsUnregistered(check: {
-      readonly status: 'ok' | 'info' | 'fail';
-      readonly title: string;
-      readonly detail?: string;
-      readonly hint?: string;
-    }) {
-      return check.detail?.includes('not registered');
-    }
-
-    expect(checks.some(mentionsUnregistered)).toBe(true);
-  }
-
-  it(
-    'emits an info check for App Groups and fail checks for not-ready targets',
-    emitsAnPieceCheckForAppGroupsAndFailChecksForNotReadyTargets,
-  );
-
-  function isSilentWhenEveryTargetIsReadyAndNoAppGroupsAreDeclared() {
-    expect(
-      signingPreflightDoctorChecks([
-        { bundleId: 'com.example.sampleapp', registered: true, missingCapabilities: [] },
-      ]),
-    ).toEqual([]);
-  }
-
-  it(
-    'is silent when every target is ready and no App Groups are declared',
-    isSilentWhenEveryTargetIsReadyAndNoAppGroupsAreDeclared,
-  );
-}
-
-describe('signingPreflightDoctorChecks', describeSigningPreflightDoctorChecks);
+describe('signingPreflightWarnings', describeSigningPreflightWarnings);

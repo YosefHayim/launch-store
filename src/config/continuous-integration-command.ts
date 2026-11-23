@@ -98,7 +98,6 @@ const IOS_JOB = `
         run: |
           launch-store creds set-key --yes
           launch-store creds setup --yes
-          launch-store doctor --yes
           launch-store build ios --yes
         env:
           ASC_KEY_ID: \${{ secrets.ASC_KEY_ID }}

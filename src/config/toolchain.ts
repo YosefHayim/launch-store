@@ -387,7 +387,7 @@ async function installBrewTools(
   const homebrewReady = await ensureHomebrew(io, assumeYes);
 
   if (homebrewReady == false) {
-    await io.log("Homebrew isn't available - install it, then re-run `launch-store doctor --fix`:");
+    await io.log("Homebrew isn't available - install it, then install the missing tools:");
 
     for (const tool of brewTools) {
       await io.log(`  ${fixHint(tool)}`);

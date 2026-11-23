@@ -25,52 +25,20 @@ export type HostHandle = Readonly<{
   instanceType?: string;
 }>;
 
-/** A live host's status, for `launch-store cloud status` and the per-command cost banner. */
+/** Whether a remembered remote Mac is still reachable. */
 export type HostStatus = Readonly<{
   handle: HostHandle;
   ageMs: number;
-  estimatedCostUsd: number;
-  releasableAt: string;
 }>;
 
-/** AWS settings for a remote Mac, under `aws` in launch.config.ts. */
-export type AwsConfig = {
-  /** Region the Mac is started in, such as `us-east-1`. */
-  readonly region: string;
-  /** Named profile in ~/.aws to use. */
-  readonly profile?: string;
-  /** AMI id of a Mac image you already built. */
-  readonly amiId?: string;
-  /** EC2 Mac machine size. */
-  readonly instanceType?: string;
-};
-
-/** One read-only AWS readiness probe shown by `launch-store cloud doctor`. */
-export type CloudCheck = Readonly<{
-  label: string;
-  ok: boolean;
-  detail: string;
+/** Where a remote iOS build runs. Pass `--remote user@host`. */
+export type RemoteTarget = Readonly<{
+  kind: 'ssh';
+  target: string;
 }>;
-
-/** Aggregate AWS readiness state returned without allocating billable infrastructure. */
-export type CloudDoctorReport = Readonly<{
-  ok: boolean;
-  checks: readonly CloudCheck[];
-}>;
-
-/** Where a remote build should run, resolved from `--remote [aws|user@host]`. */
-export type RemoteTarget =
-  | Readonly<{
-      kind: 'aws';
-    }>
-  | Readonly<{
-      kind: 'ssh';
-      target: string;
-    }>;
 
 /** Request passed to {@link ComputeHost.allocate}. */
 export type AllocateRequest = Readonly<{
-  aws?: AwsConfig;
   sshTarget?: string;
 
   confirm(message: string): Promise<boolean>;

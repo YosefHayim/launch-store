@@ -9,13 +9,7 @@ import type {
 } from './artifacts.ts';
 import type { ResolvedBuildContext } from './config.ts';
 import type { BuildCredentials } from './credentials.ts';
-import type {
-  AllocateRequest,
-  AwsConfig,
-  CloudDoctorReport,
-  HostHandle,
-  HostStatus,
-} from './remote.ts';
+import type { AllocateRequest, HostHandle, HostStatus } from './remote.ts';
 
 export type ProviderInputFailure = Readonly<{
   readonly _tag: 'ProviderInputFailure';
@@ -161,6 +155,4 @@ export type ComputeHost = Readonly<{
   status(handle: HostHandle): Promise<HostStatus | null>;
 
   teardown(handle: HostHandle): Promise<void>;
-
-  doctor?(awsConfiguration: AwsConfig): Promise<CloudDoctorReport>;
 }>;

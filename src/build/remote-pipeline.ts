@@ -1,10 +1,9 @@
 // Allocates a remote Mac, builds iOS there, and uploads the binary to App Store Connect.
 
 import type { BuildArtifact, SizeReport } from '../types/artifacts.ts';
-import type { LaunchConfig } from '../types/config.ts';
 import type { AccountRecord, AscKey, BuildCredentials } from '../types/credentials.ts';
 import type { ComputeHost } from '../types/providers.ts';
-import type { AllocateRequest, AwsConfig, HostHandle, RemoteTarget } from '../types/remote.ts';
+import type { AllocateRequest, HostHandle, RemoteTarget } from '../types/remote.ts';
 import {
   receiptDestination,
   renderReceipt,
@@ -24,10 +23,8 @@ import { resolveStorageProvider } from '../distribution/storage.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.ts';
 import { resolveArtifactsDirectory } from '../services/platform/paths.ts';
-import { autoReleaseAt, costBanner } from './cost.ts';
 import { clearLiveHost, getLiveHost, setLiveHost } from '../distribution/cloud-state.ts';
 import { ensureRemoteSigningAssets } from '../credentials/apple-signing-assets.ts';
-import type { MutableDeep } from '../types/mutable.ts';
 import {
   type RemoteBuildInputs,
   openRemoteSession,
@@ -39,14 +36,8 @@ import {
   uploadSigningMaterial,
 } from './remote-build.ts';
 
-function hostFor(remote: RemoteTarget): ComputeHost {
-  let hostName = 'byo-ssh';
-
-  if (remote.kind == 'aws') {
-    hostName = 'aws-ec2-mac';
-  }
-
-  return getComputeHost(hostName);
+function hostFor(): ComputeHost {
+  return getComputeHost('byo-ssh');
 }
 
 type RemotePipelineFailure = Readonly<{
@@ -56,22 +47,6 @@ type RemotePipelineFailure = Readonly<{
 
 function makeRemotePipelineFailure(fields: { message: string }): RemotePipelineFailure {
   return { _tag: 'RemotePipelineFailure', message: fields.message };
-}
-
-function isAwsMissingConfig(remote: RemoteTarget, launchConfig: LaunchConfig): boolean {
-  if (remote.kind != 'aws') {
-    return false;
-  }
-
-  return launchConfig.aws == null;
-}
-
-function awsSettings(remote: RemoteTarget, launchConfig: LaunchConfig): AwsConfig | undefined {
-  if (remote.kind != 'aws') {
-    return undefined;
-  }
-
-  return launchConfig.aws;
 }
 
 function isCcacheEnabled(ccache: boolean | undefined): boolean {
@@ -92,7 +67,7 @@ async function reuseLiveHost(host: ComputeHost, log: Logger): Promise<HostHandle
   const status = await host.status(live);
 
   if (status != null) {
-    log.step('acquire host', `reusing live host - ${costBanner(live)}`);
+    log.step('acquire host', 'reusing live host');
     return live;
   }
 
@@ -110,7 +85,6 @@ function noteHostProgress(log: Logger): (message: string) => void {
 async function acquireHost(
   host: ComputeHost,
   remote: RemoteTarget,
-  launchConfig: LaunchConfig,
   log: Logger,
   launchPrompt: LaunchPromptService,
 ): Promise<HostHandle> {
@@ -120,36 +94,21 @@ async function acquireHost(
     return reused;
   }
 
-  if (isAwsMissingConfig(remote, launchConfig)) {
-    throw makeRemotePipelineFailure({
-      message:
-        'AWS remote builds need an `aws: { region: ... }` block in launch.config.ts. Run `launch-store cloud setup`.',
-    });
-  }
-
   function confirmSpend(message: string): Promise<boolean> {
     return interactiveConfirm(launchPrompt, message);
   }
 
-  const request: MutableDeep<AllocateRequest> = {
+  const request: AllocateRequest = {
+    sshTarget: remote.target,
     confirm: confirmSpend,
     onProgress: noteHostProgress(log),
   };
-  const aws = awsSettings(remote, launchConfig);
-
-  if (aws != null) {
-    request.aws = aws;
-  }
-
-  if (remote.kind == 'ssh') {
-    request.sshTarget = remote.target;
-  }
 
   const handle = await host.allocate(request);
 
   await setLiveHost(handle);
 
-  log.step('acquire host', acquiredHostDescription(host, handle), 'ec2-mac');
+  log.step('acquire host', 'connected');
 
   return handle;
 }
@@ -162,10 +121,7 @@ async function rehearse(
   const app = prepared.app;
   const log = prepared.log;
 
-  log.step(
-    'acquire host',
-    'would reuse the live paid-window host, or allocate one (typed cost consent first)',
-  );
+  log.step('acquire host', 'would connect to the Mac from --remote user@host');
   log.step(
     'sync',
     "would sync the project into the host's persistent work tree (warm node_modules/ios/Pods)",
@@ -188,7 +144,7 @@ async function rehearse(
     log.step('submit', 'would upload the pulled .ipa to TestFlight', 'testflight');
   }
 
-  log.step('host', 'would keep the host for the paid window; auto-release scheduled near 23.5h');
+  log.step('host', 'would leave that Mac running');
   log.gap();
 
   let appVersion = app.version;
@@ -201,33 +157,7 @@ async function rehearse(
 }
 
 function remoteDescriptionFor(remote: RemoteTarget): string {
-  if (remote.kind == 'ssh') {
-    return `SSH ${remote.target}`;
-  }
-
-  return 'AWS EC2 Mac (your account)';
-}
-
-function acquiredHostDescription(host: ComputeHost, handle: HostHandle): string {
-  if (host.name != 'aws-ec2-mac') {
-    return 'connected';
-  }
-
-  let instanceId = 'instance';
-
-  if (handle.instanceId != null) {
-    instanceId = handle.instanceId;
-  }
-
-  return `allocated ${instanceId}`;
-}
-
-function doctorPlan(remote: RemoteTarget): { mode: 'install' | 'assert'; description: string } {
-  if (remote.kind == 'aws') {
-    return { mode: 'install', description: 'host toolchain verified (gaps installed)' };
-  }
-
-  return { mode: 'assert', description: 'host toolchain verified' };
+  return `SSH ${remote.target}`;
 }
 
 async function loadLiveAscKey(
@@ -349,11 +279,8 @@ export async function runRemoteBuild(
     return;
   }
 
-  const host = hostFor(remote);
-  const handle = await acquireHost(host, remote, launchConfig, log, launchPrompt);
-
-  log.note(costBanner(handle));
-
+  const host = hostFor();
+  const handle = await acquireHost(host, remote, log, launchPrompt);
   const inputs: RemoteBuildInputs = {
     appName: app.name,
     bundleId,
@@ -379,10 +306,8 @@ export async function runRemoteBuild(
     log.step('sync', "project synced to the host's warm work tree");
     log.note('Checking the host toolchain...');
 
-    const doctor = doctorPlan(remote);
-
-    await runDoctorOnHost(session, doctor.mode);
-    log.step('doctor', doctor.description);
+    await runDoctorOnHost(session, 'assert');
+    log.step('toolchain', 'host toolchain verified');
     await uploadSigningMaterial(session, inputs);
     log.step('upload creds', 'uploaded into an ephemeral keychain on the host');
     log.note('Building on the host (archive + sign + export; this can take a while)...');
@@ -444,13 +369,6 @@ export async function runRemoteBuild(
 
     await uploadIosBuild(prepared, buildOptions, submitArtifact, pulled.sizeReport, credentials);
     await reportProcessing(ascKey, bundleId, buildNumber, log);
-  }
-
-  if (handle.provider == 'aws-ec2-mac') {
-    log.note(
-      `Host kept alive for the paid window (run \`launch-store cloud teardown\` when done; ` +
-        `it auto-releases near ${new Date(autoReleaseAt(handle.allocatedAt)).toLocaleTimeString()}).`,
-    );
   }
 
   if (account != null) {

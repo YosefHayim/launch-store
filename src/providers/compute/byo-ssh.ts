@@ -92,8 +92,6 @@ function readByoStatus(handle: HostHandle): HostStatus {
   return {
     handle,
     ageMs: ageMilliseconds,
-    estimatedCostUsd: 0,
-    releasableAt: handle.allocatedAt,
   };
 }
 

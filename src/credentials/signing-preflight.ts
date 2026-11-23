@@ -15,7 +15,6 @@ import {
   readCapabilitiesFromEntitlements,
 } from './capabilities.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import type { DoctorCheck } from '../types/doctor.ts';
 
 /** The read-only App Store Connect surface the signing preflight needs. */
 type SigningPreflightAscApi = {
@@ -154,50 +153,4 @@ export async function gatherTargetSigningReadiness(
 /** Turn readiness facts into build-time warning strings (best-effort - never throws). */
 export function signingPreflightWarnings(readiness: readonly TargetSigningReadiness[]): string[] {
   return multiTargetSigningWarnings(readiness);
-}
-
-function hasAppGroupNotice(notice: string | null | undefined): notice is string {
-  if (notice == null) {
-    return false;
-  }
-
-  return notice != '';
-}
-
-/** Turn readiness facts into doctor checks - unregistered/missing-capability targets fail the run. */
-export function signingPreflightDoctorChecks(
-  readiness: TargetSigningReadiness[],
-  appGroupNotice?: string | null,
-): DoctorCheck[] {
-  const checks: DoctorCheck[] = [];
-
-  if (hasAppGroupNotice(appGroupNotice)) {
-    checks.push({
-      status: 'info',
-      title: 'App Groups require portal setup',
-      detail: appGroupNotice,
-    });
-  }
-
-  for (const warning of multiTargetSigningWarnings(readiness)) {
-    function warningMentionsTarget(target: TargetSigningReadiness): boolean {
-      return warning.includes(target.bundleId);
-    }
-
-    const matchedTarget = readiness.find(warningMentionsTarget);
-    let targetLabel = 'target';
-
-    if (matchedTarget != null) {
-      targetLabel = matchedTarget.bundleId;
-    }
-
-    checks.push({
-      status: 'fail',
-      title: `Signing preflight: ${targetLabel}`,
-      detail: warning,
-      hint: 'Run `launch-store creds setup --app <name>` to register and provision each target',
-    });
-  }
-
-  return checks;
 }

@@ -8,7 +8,6 @@ import type {
   Platform,
 } from './app.ts';
 import type { AppProducts } from './catalog.ts';
-import type { AwsConfig } from './remote.ts';
 import type { VersionExperimentsConfig } from '../release/version-experiments.ts';
 import type { AvailabilityConfig } from '../store/apple/availability.ts';
 import type { AccessibilityConfig } from '../store/apple/accessibility.ts';
@@ -18,7 +17,6 @@ import type {
   AppClipsConfig,
   EuDistributionConfig,
   GameCenterConfig,
-  NotifyConfig,
   ReleaseAttributesConfig,
   ReleaseConfig,
   TestFlightNotes,
@@ -49,8 +47,6 @@ export type LaunchConfigInput = {
   readonly appRoots?: readonly string[];
   /** In-app purchases and subscriptions, keyed by the iOS bundle id (`com.acme.app`). */
   readonly products?: Record<string, AppProducts>;
-  /** Where Launch posts after a build, a submit, a review verdict, or a rollout change. */
-  readonly notify?: NotifyConfig;
   /** How an approved iOS version reaches the public App Store */
   readonly release?: ReleaseConfig;
   /** Game Center achievements and leaderboards, keyed by the iOS bundle id. */
@@ -75,8 +71,6 @@ export type LaunchConfigInput = {
   readonly customPages?: Record<string, CustomProductPagesConfig>;
   /** TestFlight "What to Test" notes, keyed by iOS bundle id. */
   readonly testFlight?: Record<string, TestFlightNotes>;
-  /** AWS settings for an EC2 Mac */
-  readonly aws?: AwsConfig;
   /** Folder where `storage: "local"` writes build binaries. */
   readonly artifactDir?: string;
   /** How many days a local build binary is kept. */
