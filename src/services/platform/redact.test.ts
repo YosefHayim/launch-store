@@ -71,7 +71,7 @@ function describeMakeLogRedactor() {
   function showsTheErrorLinesThatFollowAPEMBlockThatNeverCloses() {
     const redactOutputLine = makeLogRedactor();
 
-    function mapLine(line: string) {
+    function redactLine(line: string) {
       return redactOutputLine(line);
     }
 
@@ -80,7 +80,7 @@ function describeMakeLogRedactor() {
       'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC',
       'a1b2c3d4e5f6',
       'error: signing failed',
-    ].map(mapLine);
+    ].map(redactLine);
 
     expect(redactedLines).toEqual([
       '[redacted-key-material]',

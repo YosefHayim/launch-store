@@ -282,7 +282,7 @@ function describeReconcileBetaReview() {
     expect(calls.created).toHaveLength(0);
     expect(calls.submitted).toHaveLength(0);
 
-    function everyAction(action: {
+    function isPlannedStep(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -291,7 +291,7 @@ function describeReconcileBetaReview() {
       return action.status == 'planned';
     }
 
-    expect(report.actions.every(everyAction)).toBe(true);
+    expect(report.actions.every(isPlannedStep)).toBe(true);
     expect(report.actions).toHaveLength(2);
   }
 
@@ -309,7 +309,7 @@ function describeReconcileBetaReview() {
 
     expect(betaReview).toEqual({ applied: 1, failed: 1, skipped: 0 });
 
-    function findAction(action: {
+    function isFailedStep(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -318,7 +318,7 @@ function describeReconcileBetaReview() {
       return action.status == 'failed';
     }
 
-    expect(report.actions.find(findAction)?.error).toBe('build is still processing');
+    expect(report.actions.find(isFailedStep)?.error).toBe('build is still processing');
   }
 
   it(

@@ -284,7 +284,7 @@ function describePlanPrune() {
   );
 
   function sortsByCapturedAtBeforeApplyingKeepRegardlessOfPieceOrder() {
-    function filterSaved(
+    function isSnapshotDefined(
       saved:
         | Readonly<{
             version: number;
@@ -297,7 +297,7 @@ function describePlanPrune() {
       return saved != null;
     }
 
-    const shuffled = [snaps[1], snaps[2], snaps[0]].filter(filterSaved);
+    const shuffled = [snaps[1], snaps[2], snaps[0]].filter(isSnapshotDefined);
 
     function readName7(saved: {
       readonly version: number;

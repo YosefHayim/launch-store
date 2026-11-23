@@ -1,5 +1,6 @@
 import type { AscHost } from './host.ts';
 import type { SandboxTesterResource } from '@/types/apple-catalog.js';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectSandbox {
   constructor(private readonly client: AscHost) {}
@@ -9,7 +10,9 @@ export class ConnectSandbox {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v2-sandboxtesters
    */
-  async listSandboxTesters(): Promise<SandboxTesterResource[]> {
+  async listSandboxTesters(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<SandboxTesterResource[]> {
     const appleResources = await this.client.requestAll<{
       acAccountName?: string;
       firstName?: string;
@@ -18,7 +21,9 @@ export class ConnectSandbox {
       applePayCompatible?: boolean;
       interruptPurchases?: boolean;
       subscriptionRenewalRate?: string;
-    }>(this.client.v2('/sandboxTesters?limit=200'));
+    }>(
+      this.client.v2(applyAppleListQuery('/sandboxTesters?limit=200', listQuery, APPLE_PAGE_LIMIT)),
+    );
 
     return appleResources.map((tester) => {
       let accountName = tester.attributes.acAccountName;
@@ -57,14 +62,14 @@ export class ConnectSandbox {
    * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v2-sandboxtestersclearpurchasehistoryrequest
    */
   async clearSandboxTesterPurchaseHistory(testerIds: readonly string[]): Promise<void> {
-    function mapId(id: string) {
+    function writeSandboxTesterLink(id: string) {
       return { type: 'sandboxTesters', id };
     }
 
     await this.client.createResource(this.client.v2('/sandboxTestersClearPurchaseHistoryRequest'), {
       type: 'sandboxTestersClearPurchaseHistoryRequest',
       relationships: {
-        sandboxTesters: { data: testerIds.map(mapId) },
+        sandboxTesters: { data: testerIds.map(writeSandboxTesterLink) },
       },
     });
   }

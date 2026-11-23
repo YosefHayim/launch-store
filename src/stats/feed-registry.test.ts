@@ -40,11 +40,11 @@ function describeSTATSFEEDPLUGINS() {
     }
 
     function applicable(platform: 'ios' | 'android') {
-      function filterPlugin(plugin: StatsFeedPlugin) {
+      function isApplicableToPlatform(plugin: StatsFeedPlugin) {
         return plugin.isApplicable(makeApp(platform));
       }
 
-      return STATS_FEED_PLUGINS.filter(filterPlugin).map(readFeed2);
+      return STATS_FEED_PLUGINS.filter(isApplicableToPlatform).map(readFeed2);
     }
 
     expect(applicable('ios')).toEqual(['app-store', 'ga4']);

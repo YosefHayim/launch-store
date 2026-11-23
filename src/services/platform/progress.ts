@@ -116,11 +116,11 @@ export function xcodeProgressStep(line: string): string | undefined {
     return truncateStep(`${verb} ${scriptMatch[1].replace(/\\ /g, ' ')}`);
   }
 
-  function findToken(token: string) {
+  function hasPathSeparator(token: string) {
     return token.includes('/');
   }
 
-  const pathToken = detail.split(' ').find(findToken);
+  const pathToken = detail.split(' ').find(hasPathSeparator);
 
   if (pathToken == null) return truncateStep(verb);
 

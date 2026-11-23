@@ -7,12 +7,12 @@ import {
   entitlementForCapability,
   isCapabilityEntitlement,
   isCapabilityType,
-  mapEntitlementsToCapabilities,
+  readCapabilitiesFromEntitlements,
   staleProfileCapabilities,
 } from './capabilities.ts';
 function describeMapEntitlementsToCapabilities() {
   function mapsKnownEntitlementKeysToTheirCapabilityTypes() {
-    const { enable } = mapEntitlementsToCapabilities({
+    const { enable } = readCapabilitiesFromEntitlements({
       'aps-environment': 'production',
       'com.apple.developer.applesignin': ['Default'],
       'com.apple.security.application-groups': ['group.com.acme'],
@@ -28,7 +28,7 @@ function describeMapEntitlementsToCapabilities() {
   );
 
   function collapsesTheSeveralICloudEntitlementsOntoASingleICLOUDCapability() {
-    const { enable } = mapEntitlementsToCapabilities({
+    const { enable } = readCapabilitiesFromEntitlements({
       'com.apple.developer.icloud-container-identifiers': ['iCloud.com.acme'],
       'com.apple.developer.icloud-services': ['CloudKit'],
       'com.apple.developer.ubiquity-kvstore-identifier': 'X.com.acme',
@@ -43,7 +43,7 @@ function describeMapEntitlementsToCapabilities() {
   );
 
   function ignoresSigningPlumbingEntitlementsWithoutFlaggingThemAsUnmapped() {
-    const { enable, unmapped } = mapEntitlementsToCapabilities({
+    const { enable, unmapped } = readCapabilitiesFromEntitlements({
       'application-identifier': 'ABCDE.com.acme',
       'com.apple.developer.team-identifier': 'ABCDE',
       'keychain-access-groups': ['ABCDE.com.acme'],
@@ -60,7 +60,7 @@ function describeMapEntitlementsToCapabilities() {
   );
 
   function surfacesAGenuinelyUnrecognizedEntitlementKeyAsUnmapped() {
-    const { enable, unmapped } = mapEntitlementsToCapabilities({
+    const { enable, unmapped } = readCapabilitiesFromEntitlements({
       'com.apple.developer.healthkit': true,
       'com.apple.developer.some-future-thing': true,
     });
@@ -75,8 +75,8 @@ function describeMapEntitlementsToCapabilities() {
   );
 
   function returnsEmptyPieceForMissingOrEmptyEntitlements() {
-    expect(mapEntitlementsToCapabilities(undefined)).toEqual({ enable: [], unmapped: [] });
-    expect(mapEntitlementsToCapabilities({})).toEqual({ enable: [], unmapped: [] });
+    expect(readCapabilitiesFromEntitlements(undefined)).toEqual({ enable: [], unmapped: [] });
+    expect(readCapabilitiesFromEntitlements({})).toEqual({ enable: [], unmapped: [] });
   }
 
   it(
@@ -85,12 +85,12 @@ function describeMapEntitlementsToCapabilities() {
   );
 
   function returnsAStablySortedEnableListRegardlessOfKeyOrder() {
-    const a = mapEntitlementsToCapabilities({
+    const a = readCapabilitiesFromEntitlements({
       'com.apple.developer.siri': true,
       'aps-environment': 'production',
       'com.apple.developer.homekit': true,
     });
-    const b = mapEntitlementsToCapabilities({
+    const b = readCapabilitiesFromEntitlements({
       'com.apple.developer.homekit': true,
       'com.apple.developer.siri': true,
       'aps-environment': 'production',
@@ -106,7 +106,7 @@ function describeMapEntitlementsToCapabilities() {
   );
 }
 
-describe('mapEntitlementsToCapabilities', describeMapEntitlementsToCapabilities);
+describe('readCapabilitiesFromEntitlements', describeMapEntitlementsToCapabilities);
 function describeEntitlementForCapabilityReverseMapForLaunchStoreAdopt() {
   function resolvesACapabilityTypeToItsCanonicalEntitlementKey() {
     expect(entitlementForCapability('APP_GROUPS')).toBe('com.apple.security.application-groups');

@@ -9,6 +9,7 @@ import type {
 } from '@/types/apple-catalog.js';
 import type { ResourceSingle } from './shared.ts';
 import type { components } from '@/apple-api-types.js';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectGameCenter {
   constructor(private readonly client: AscHost) {}
@@ -56,14 +57,21 @@ export class ConnectGameCenter {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-gamecenterdetails-_id_-gamecenterachievementsv2
    */
-  async listGameCenterAchievements(detailId: string): Promise<GameCenterAchievementResource[]> {
+  async listGameCenterAchievements(
+    detailId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<GameCenterAchievementResource[]> {
     const appleResources = await this.client.requestAll<{
       vendorIdentifier?: string;
     }>(
-      `/gameCenterDetails/${detailId}/gameCenterAchievementsV2?fields[gameCenterAchievements]=vendorIdentifier&limit=200`,
+      applyAppleListQuery(
+        `/gameCenterDetails/${detailId}/gameCenterAchievementsV2?fields[gameCenterAchievements]=vendorIdentifier&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapAchievement(achievement: {
+    function copyGameCenterAchievement(achievement: {
       id: string;
       attributes: { vendorIdentifier?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -78,7 +86,7 @@ export class ConnectGameCenter {
       return achievementResource;
     }
 
-    return appleResources.map(mapAchievement);
+    return appleResources.map(copyGameCenterAchievement);
   }
 
   /**
@@ -161,14 +169,21 @@ export class ConnectGameCenter {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-gamecenterdetails-_id_-gamecenterleaderboardsv2
    */
-  async listGameCenterLeaderboards(detailId: string): Promise<GameCenterLeaderboardResource[]> {
+  async listGameCenterLeaderboards(
+    detailId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<GameCenterLeaderboardResource[]> {
     const appleResources = await this.client.requestAll<{
       vendorIdentifier?: string;
     }>(
-      `/gameCenterDetails/${detailId}/gameCenterLeaderboardsV2?fields[gameCenterLeaderboards]=vendorIdentifier&limit=200`,
+      applyAppleListQuery(
+        `/gameCenterDetails/${detailId}/gameCenterLeaderboardsV2?fields[gameCenterLeaderboards]=vendorIdentifier&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapLeaderboard(leaderboard: {
+    function copyGameCenterLeaderboard(leaderboard: {
       id: string;
       attributes: { vendorIdentifier?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -183,7 +198,7 @@ export class ConnectGameCenter {
       return leaderboardResource;
     }
 
-    return appleResources.map(mapLeaderboard);
+    return appleResources.map(copyGameCenterLeaderboard);
   }
 
   /**

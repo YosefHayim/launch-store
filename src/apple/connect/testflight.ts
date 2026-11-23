@@ -17,6 +17,7 @@ import {
   readFeedbackScreenshots,
 } from './shared.ts';
 import { retryAppleTransportRequest } from '../transport-helpers.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectTestflight {
   constructor(private readonly client: AscHost) {}
@@ -26,14 +27,23 @@ export class ConnectTestflight {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-betagroups
    */
-  async listBetaGroups(appId: string): Promise<BetaGroupResource[]> {
+  async listBetaGroups(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BetaGroupResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
       isInternalGroup?: boolean;
       publicLink?: string | null;
-    }>(`/apps/${appId}/betaGroups?limit=200&fields[betaGroups]=name,isInternalGroup,publicLink`);
+    }>(
+      applyAppleListQuery(
+        `/apps/${appId}/betaGroups?limit=200&fields[betaGroups]=name,isInternalGroup,publicLink`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function flatMapGroup(group: {
+    function readBetaGroup(group: {
       id: string;
       attributes: { name?: string; isInternalGroup?: boolean; publicLink?: string | null };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -53,13 +63,13 @@ export class ConnectTestflight {
       return [betaGroup];
     }
 
-    return appleResources.flatMap(flatMapGroup);
+    return appleResources.flatMap(readBetaGroup);
   }
 
   async findBetaGroupByName(appId: string, name: string): Promise<BetaGroupResource | null> {
     const wanted = name.toLowerCase();
 
-    function findGroup(group: {
+    function hasSameGroupName(group: {
       readonly id: string;
       readonly name: string;
       readonly isInternal?: boolean;
@@ -68,7 +78,7 @@ export class ConnectTestflight {
       return group.name.toLowerCase() == wanted;
     }
 
-    const matchingGroup = (await this.listBetaGroups(appId)).find(findGroup);
+    const matchingGroup = (await this.listBetaGroups(appId)).find(hasSameGroupName);
 
     if (matchingGroup == null) return null;
 
@@ -95,9 +105,16 @@ export class ConnectTestflight {
     return { id: appleResources.id, name: createdGroupName };
   }
 
-  async listBetaTestersInGroup(groupId: string): Promise<BetaTesterResource[]> {
+  async listBetaTestersInGroup(
+    groupId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BetaTesterResource[]> {
     return this.betaTestersFrom(
-      `/betaGroups/${groupId}/betaTesters?limit=200&fields[betaTesters]=email,firstName,lastName,state`,
+      applyAppleListQuery(
+        `/betaGroups/${groupId}/betaTesters?limit=200&fields[betaTesters]=email,firstName,lastName,state`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
   }
 
@@ -108,7 +125,7 @@ export class ConnectTestflight {
       `/betaTesters?filter[email]=${uRIComponent}&limit=1&fields[betaTesters]=email,firstName,lastName,state`,
     );
 
-    function findTester(tester: {
+    function hasSameTesterEmail(tester: {
       readonly id: string;
       readonly email: string;
       readonly firstName?: string;
@@ -118,7 +135,7 @@ export class ConnectTestflight {
       return tester.email.toLowerCase() == wanted;
     }
 
-    const matchingTester = appleResources.find(findTester);
+    const matchingTester = appleResources.find(hasSameTesterEmail);
 
     if (matchingTester != null) return matchingTester;
 
@@ -182,12 +199,12 @@ export class ConnectTestflight {
    * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-betagroups-_id_-relationships-betatesters
    */
   async addTestersToGroup(groupId: string, testerIds: readonly string[]): Promise<void> {
-    function mapId(id: string) {
+    function writeAddedTesterLink(id: string) {
       return { type: 'betaTesters', id };
     }
 
     await this.client.request<unknown>('POST', `/betaGroups/${groupId}/relationships/betaTesters`, {
-      data: testerIds.map(mapId),
+      data: testerIds.map(writeAddedTesterLink),
     });
   }
 
@@ -198,7 +215,7 @@ export class ConnectTestflight {
    * @see https://developer.apple.com/documentation/appstoreconnectapi/delete-v1-betagroups-_id_-relationships-betatesters
    */
   async removeTestersFromGroup(groupId: string, testerIds: readonly string[]): Promise<void> {
-    function mapId2(id: string) {
+    function writeRemovedTesterLink(id: string) {
       return { type: 'betaTesters', id };
     }
 
@@ -206,7 +223,7 @@ export class ConnectTestflight {
       'DELETE',
       `/betaGroups/${groupId}/relationships/betaTesters`,
       {
-        data: testerIds.map(mapId2),
+        data: testerIds.map(writeRemovedTesterLink),
       },
     );
   }
@@ -219,7 +236,7 @@ export class ConnectTestflight {
       state?: string;
     }>(path);
 
-    function flatMapTester(tester: {
+    function readBetaTester(tester: {
       id: string;
       attributes: {
         email?: string | null;
@@ -251,7 +268,7 @@ export class ConnectTestflight {
       return [betaTester];
     }
 
-    return appleResources.flatMap(flatMapTester);
+    return appleResources.flatMap(readBetaTester);
   }
 
   async listBetaFeedbackCrashSubmissions(
@@ -283,7 +300,7 @@ export class ConnectTestflight {
       true,
     );
 
-    function mapSubmission(submission: {
+    function copyScreenshotSubmission(submission: {
       base: BetaFeedbackSubmissionResource;
       screenshots: { url: string; width?: number; height?: number }[];
     }) {
@@ -293,15 +310,20 @@ export class ConnectTestflight {
       };
     }
 
-    return submissions.map(mapSubmission);
+    return submissions.map(copyScreenshotSubmission);
   }
 
   private async listBetaFeedback(
     relatedPath: string,
     query: BetaFeedbackQuery,
     withScreenshots = false,
+    listQuery: AppleListQuery | null = null,
   ): Promise<BetaFeedbackRow[]> {
-    let path = `${relatedPath}?include=build&sort=-createdDate&limit=200`;
+    let path = applyAppleListQuery(
+      `${relatedPath}?include=build&sort=-createdDate&limit=200`,
+      listQuery,
+      APPLE_PAGE_LIMIT,
+    );
 
     if (query.buildId) path += `&filter[build]=${encodeURIComponent(query.buildId)}`;
 
@@ -382,15 +404,22 @@ export class ConnectTestflight {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds-_id_-betabuildlocalizations
    */
-  async listBetaBuildLocalizations(buildId: string): Promise<BetaBuildLocalizationResource[]> {
+  async listBetaBuildLocalizations(
+    buildId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BetaBuildLocalizationResource[]> {
     const appleResources = await this.client.requestAll<{
       locale?: string;
       whatsNew?: string | null;
     }>(
-      `/builds/${buildId}/betaBuildLocalizations?limit=200&fields[betaBuildLocalizations]=locale,whatsNew`,
+      applyAppleListQuery(
+        `/builds/${buildId}/betaBuildLocalizations?limit=200&fields[betaBuildLocalizations]=locale,whatsNew`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function flatMapLocalization(localization: {
+    function readBetaBuildLocalization(localization: {
       id: string;
       attributes: { locale?: string; whatsNew?: string | null };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -407,7 +436,7 @@ export class ConnectTestflight {
       return [betaLocalization];
     }
 
-    return appleResources.flatMap(flatMapLocalization);
+    return appleResources.flatMap(readBetaBuildLocalization);
   }
 
   /**

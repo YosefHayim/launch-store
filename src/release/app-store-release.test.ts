@@ -255,7 +255,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     expect(api.createAppStoreVersionLocalization).not.toHaveBeenCalled();
     expect(api.updateAppStoreVersionLocalization).not.toHaveBeenCalled();
 
-    function findAction(action: {
+    function startsWithReleaseNotes(action: {
       description: string;
       status: 'skipped' | 'planned' | 'applied' | 'failed';
       error?: string;
@@ -264,7 +264,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       return action.description.startsWith('set release notes');
     }
 
-    const notesAction = report.actions.find(findAction);
+    const notesAction = report.actions.find(startsWithReleaseNotes);
 
     expect(notesAction).toMatchObject({
       status: 'skipped',
@@ -555,7 +555,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     expect(report.submitted).toBe(false);
     expect(report.actions.length).toBeGreaterThan(0);
 
-    function everyAction(action: {
+    function isPlannedStep(action: {
       description: string;
       status: 'skipped' | 'planned' | 'applied' | 'failed';
       error?: string;
@@ -564,7 +564,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       return action.status == 'planned';
     }
 
-    expect(report.actions.every(everyAction)).toBe(true);
+    expect(report.actions.every(isPlannedStep)).toBe(true);
 
     function readDescription2(action: {
       description: string;
@@ -598,7 +598,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
     });
     const report = await runRelease(api, releaseInput());
 
-    function findAction2(action: {
+    function startsWithAttachBuild(action: {
       description: string;
       status: 'skipped' | 'planned' | 'applied' | 'failed';
       error?: string;
@@ -607,7 +607,7 @@ function describeReleaseAppSubmitAnUpdateOverTheAPI() {
       return action.description.startsWith('attach build');
     }
 
-    const attach = report.actions.find(findAction2);
+    const attach = report.actions.find(startsWithAttachBuild);
 
     expect(attach).toMatchObject({ status: 'failed', error: expect.stringContaining('boom') });
     // The walk continued past the failure all the way to submit.

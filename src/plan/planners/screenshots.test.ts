@@ -127,16 +127,21 @@ function describeScreenshotsPlanner() {
 
     expect(plan.direction).toBe('additive');
 
-    function someA(a: {
+    function isEnglishScreenshotUpload(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('upload screenshot') && a.description.includes('[en-US]');
+      const isScreenshotUpload = plannedAction.description.includes('upload screenshot');
+      const isNotAScreenshotUpload = isScreenshotUpload == false;
+
+      if (isNotAScreenshotUpload) return false;
+
+      return plannedAction.description.includes('[en-US]');
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isEnglishScreenshotUpload)).toBe(true);
   }
 
   it(
@@ -168,16 +173,16 @@ function describeScreenshotsPlanner() {
 
     if (plan.scope != 'app') return;
 
-    function findA(a: {
+    function isOffSpecScreenshot(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('off-spec screenshot');
+      return plannedAction.description.includes('off-spec screenshot');
     }
 
-    const advisory = plan.apps[0]?.actions.find(findA);
+    const advisory = plan.apps[0]?.actions.find(isOffSpecScreenshot);
 
     expect(advisory).toBeDefined();
     expect(advisory?.status).toBe('skipped');
@@ -202,16 +207,16 @@ function describeScreenshotsPlanner() {
 
       if (plan.scope != 'app') throw new Error('expected an app-scoped plan');
 
-      function someA2(a: {
+      function isOffSpecScreenshot(plannedAction: {
         readonly description: string;
         readonly destructive: boolean;
         status: ActionStatus;
         error?: string;
       }) {
-        return a.description.includes('off-spec screenshot');
+        return plannedAction.description.includes('off-spec screenshot');
       }
 
-      expect(plan.apps[0]?.actions.some(someA2)).toBe(false);
+      expect(plan.apps[0]?.actions.some(isOffSpecScreenshot)).toBe(false);
     }
   }
 

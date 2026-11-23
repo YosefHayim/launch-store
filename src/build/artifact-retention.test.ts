@@ -384,17 +384,17 @@ function describeRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries() {
 
     const writtenArtifacts = await runArtifactEffect(readArtifactIndex(indexPath));
 
-    function findBuildArtifact(buildArtifact: BuildArtifact) {
+    function isBuildSeven(buildArtifact: BuildArtifact) {
       return buildArtifact.buildNumber == 7;
     }
 
-    expect(writtenArtifacts.find(findBuildArtifact)?.prunedAt).toBe(new Date(NOW).toISOString());
+    expect(writtenArtifacts.find(isBuildSeven)?.prunedAt).toBe(new Date(NOW).toISOString());
 
-    function findBuildArtifact2(buildArtifact: BuildArtifact) {
+    function isBuildNine(buildArtifact: BuildArtifact) {
       return buildArtifact.buildNumber == 9;
     }
 
-    expect(writtenArtifacts.find(findBuildArtifact2)?.prunedAt).toBeUndefined();
+    expect(writtenArtifacts.find(isBuildNine)?.prunedAt).toBeUndefined();
   }
 
   it(
@@ -488,11 +488,11 @@ function describeRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries() {
 
     const writtenArtifacts = await runArtifactEffect(readArtifactIndex(indexPath));
 
-    function findBuildArtifact3(buildArtifact: BuildArtifact) {
+    function isAlsoBuildSeven(buildArtifact: BuildArtifact) {
       return buildArtifact.buildNumber == 7;
     }
 
-    expect(writtenArtifacts.find(findBuildArtifact3)?.prunedAt).toBeDefined();
+    expect(writtenArtifacts.find(isAlsoBuildSeven)?.prunedAt).toBeDefined();
   }
 
   it(

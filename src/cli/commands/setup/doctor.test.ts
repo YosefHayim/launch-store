@@ -7,11 +7,11 @@ function describeRegisterDoctorCommand() {
 
     registerDoctorCommand(program);
 
-    function findCommand(command: Command) {
+    function isDoctorCommand(command: Command) {
       return command.name() == 'doctor';
     }
 
-    const doctor = program.commands.find(findCommand);
+    const doctor = program.commands.find(isDoctorCommand);
 
     expect(doctor).toBeDefined();
 

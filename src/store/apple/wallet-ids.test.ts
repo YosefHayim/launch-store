@@ -184,7 +184,7 @@ function describeReconcileWalletIds() {
     expect(created.merchant).toHaveLength(0);
     expect(created.passType).toHaveLength(0);
 
-    function everyAction(action: {
+    function isPlannedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -193,7 +193,7 @@ function describeReconcileWalletIds() {
       return action.status == 'planned';
     }
 
-    expect(actions.every(everyAction)).toBe(true);
+    expect(actions.every(isPlannedAction)).toBe(true);
     expect(actions).toHaveLength(3);
   }
 
@@ -217,7 +217,7 @@ function describeReconcileWalletIds() {
 
     expect(summary).toEqual({ applied: 2, failed: 1, skipped: 0 });
 
-    function findAction(action: {
+    function isFailedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -226,7 +226,7 @@ function describeReconcileWalletIds() {
       return action.status == 'failed';
     }
 
-    expect(actions.find(findAction)?.error).toBe('already taken');
+    expect(actions.find(isFailedAction)?.error).toBe('already taken');
   }
 
   it(

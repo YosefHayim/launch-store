@@ -249,17 +249,17 @@ describe('AppStoreConnectClient - auth + request building', () => {
 
     const urls = fetchMock.mock.calls.map((call) => String(call[0]));
 
-    function somePath(path: string) {
+    function hasAppStoreVersionsPath(path: string) {
       return path.includes('/apps/app1/appStoreVersions');
     }
 
-    expect(urls.some(somePath)).toBe(true);
+    expect(urls.some(hasAppStoreVersionsPath)).toBe(true);
 
-    function somePath2(path: string) {
+    function hasPreReleaseVersionsPath(path: string) {
       return path.includes('/apps/app1/preReleaseVersions');
     }
 
-    expect(urls.some(somePath2)).toBe(true);
+    expect(urls.some(hasPreReleaseVersionsPath)).toBe(true);
   });
 
   async function returnsNullForMarketingVersionWhenTheAppPieceIsMissing() {

@@ -7,11 +7,11 @@ function describeRegisterCloudCommand() {
 
     registerCloudCommand(program);
 
-    function findRegisteredCommand(registeredCommand: Command) {
+    function isCloudCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'cloud';
     }
 
-    const cloudCommand = program.commands.find(findRegisteredCommand);
+    const cloudCommand = program.commands.find(isCloudCommand);
 
     expect(cloudCommand).toBeDefined();
     expect(cloudCommand?.registeredArguments[0]?.defaultValue).toBe('status');

@@ -326,6 +326,21 @@ function describePlayReportingClientListApps() {
     pagesThroughEverySearchPageAndKeepsThePackageNames,
   );
 
+  async function sendsTheCallerPageSizeAndClampsItToTheDocumentedMaximum() {
+    searchApps.mockResolvedValue({ data: { apps: [] } });
+
+    await client.listApps(20);
+    await client.listApps(5000);
+
+    expect(searchApps).toHaveBeenNthCalledWith(1, { pageSize: 20 });
+    expect(searchApps).toHaveBeenNthCalledWith(2, { pageSize: 1000 });
+  }
+
+  it(
+    'sends the caller page size and clamps it to the documented maximum',
+    sendsTheCallerPageSizeAndClampsItToTheDocumentedMaximum,
+  );
+
   async function returnsAnEmptyListWhenAPageHasNoApps() {
     searchApps.mockResolvedValueOnce({ data: {} });
 

@@ -11,11 +11,11 @@ function describeRegisterPlanCommand() {
   function keepsThePlanCommandAndDriftAliasWithOptionalSurfaceArguments() {
     const planCommands = registeredPlanCommands();
 
-    function mapRegisteredCommand(registeredCommand: Command) {
+    function copyRegisteredCommand(registeredCommand: Command) {
       return registeredCommand.name();
     }
 
-    expect(planCommands.map(mapRegisteredCommand)).toEqual(['plan', 'drift']);
+    expect(planCommands.map(copyRegisteredCommand)).toEqual(['plan', 'drift']);
 
     for (const registeredCommand of planCommands) {
       expect(registeredCommand.registeredArguments).toHaveLength(1);
@@ -31,17 +31,17 @@ function describeRegisterPlanCommand() {
   function preservesAppCheckAndJSONPieceOnTheirPublicCommands() {
     const planCommands = registeredPlanCommands();
 
-    function findRegisteredCommand(registeredCommand: Command) {
+    function isPlanCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'plan';
     }
 
-    const planCommand = planCommands.find(findRegisteredCommand);
+    const planCommand = planCommands.find(isPlanCommand);
 
-    function findRegisteredCommand2(registeredCommand: Command) {
+    function isDriftCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'drift';
     }
 
-    const driftCommand = planCommands.find(findRegisteredCommand2);
+    const driftCommand = planCommands.find(isDriftCommand);
 
     function readLong(commandOption: CommandOption) {
       return commandOption.long;

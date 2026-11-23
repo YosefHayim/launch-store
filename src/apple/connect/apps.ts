@@ -17,6 +17,7 @@ import {
   EDITABLE_METADATA_STATES,
   summarizeAppleApp,
 } from './shared.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectApps {
   constructor(private readonly client: AscHost) {}
@@ -60,10 +61,17 @@ export class ConnectApps {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appinfos
    */
-  async listAppInfoStates(appId: string): Promise<ResourceList<AppInfoStates>['data']> {
+  async listAppInfoStates(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ResourceList<AppInfoStates>['data']> {
     const { data: appInfos } = await this.client.request<ResourceList<AppInfoStates>>(
       'GET',
-      `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState&limit=20`,
+      applyAppleListQuery(
+        `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState&limit=20`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
     return appInfos;
@@ -74,12 +82,19 @@ export class ConnectApps {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appinfos-_id_-appinfolocalizations
    */
-  async listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]> {
+  async listAppInfoLocalizations(
+    appInfoId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ListingLocalization[]> {
     const appleResources = await this.client.requestAll<Record<string, unknown>>(
-      `/appInfos/${appInfoId}/appInfoLocalizations?limit=200`,
+      applyAppleListQuery(
+        `/appInfos/${appInfoId}/appInfoLocalizations?limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapLocalization(localization: {
+    function copyAppInfoLocalization(localization: {
       id: string;
       attributes: Record<string, unknown>;
       relationships?: { build?: { data?: { id: string } | null } };
@@ -96,7 +111,7 @@ export class ConnectApps {
       };
     }
 
-    return appleResources.map(mapLocalization);
+    return appleResources.map(copyAppInfoLocalization);
   }
 
   /**
@@ -104,7 +119,10 @@ export class ConnectApps {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appinfos-_id_-appinfolocalizations
    */
-  async listAccountDeletionUrls(appInfoId: string): Promise<
+  async listAccountDeletionUrls(
+    appInfoId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<
     {
       locale: string;
       url: string;
@@ -114,10 +132,14 @@ export class ConnectApps {
       locale?: string;
       privacyChoicesUrl?: string | null;
     }>(
-      `/appInfos/${appInfoId}/appInfoLocalizations?limit=200&fields[appInfoLocalizations]=locale,privacyChoicesUrl`,
+      applyAppleListQuery(
+        `/appInfos/${appInfoId}/appInfoLocalizations?limit=200&fields[appInfoLocalizations]=locale,privacyChoicesUrl`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapLocalization2(localization: {
+    function copyAccountDeletionUrl(localization: {
       id: string;
       attributes: { locale?: string; privacyChoicesUrl?: string | null };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -133,7 +155,7 @@ export class ConnectApps {
       return { locale, url: accountDeletionUrl };
     }
 
-    return appleResources.map(mapLocalization2);
+    return appleResources.map(copyAccountDeletionUrl);
   }
 
   /**
@@ -188,11 +210,15 @@ export class ConnectApps {
       await this.client.request<ResourceList<unknown>>('GET', '/bundleIds?limit=1');
       return true;
     } catch (error) {
-      function someCode(code: string) {
+      function hasRequiredAgreementsCode(code: string) {
         return code.includes(REQUIRED_AGREEMENTS_ERROR_CODE);
       }
 
-      if (error instanceof AscRequestError && error.status == 403 && error.codes.some(someCode)) {
+      if (
+        error instanceof AscRequestError &&
+        error.status == 403 &&
+        error.codes.some(hasRequiredAgreementsCode)
+      ) {
         return false;
       }
 
@@ -227,10 +253,10 @@ export class ConnectApps {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps
    */
-  async listAppNames(): Promise<string[]> {
+  async listAppNames(listQuery: AppleListQuery | null = null): Promise<string[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
-    }>('/apps?fields[apps]=name&limit=200');
+    }>(applyAppleListQuery('/apps?fields[apps]=name&limit=200', listQuery, APPLE_PAGE_LIMIT));
 
     function readName(entry: {
       id: string;
@@ -240,11 +266,11 @@ export class ConnectApps {
       return entry.attributes.name;
     }
 
-    function filterName(name: string | undefined): name is string {
+    function isPresentAppName(name: string | undefined): name is string {
       return Boolean(name);
     }
 
-    return appleResources.map(readName).filter(filterName);
+    return appleResources.map(readName).filter(isPresentAppName);
   }
 
   /**
@@ -252,11 +278,19 @@ export class ConnectApps {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps
    */
-  async listApps(): Promise<{ id: string; name: string; bundleId: string | null }[]> {
+  async listApps(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<{ id: string; name: string; bundleId: string | null }[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
       bundleId?: string;
-    }>('/apps?fields[apps]=name,bundleId&limit=200');
+    }>(
+      applyAppleListQuery(
+        '/apps?fields[apps]=name,bundleId&limit=200',
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
     return appleResources.map(summarizeAppleApp);
   }
@@ -267,7 +301,10 @@ export class ConnectApps {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appinfos
    */
-  async getAppInfo(appId: string): Promise<AppInfoResource | null> {
+  async getAppInfo(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppInfoResource | null> {
     const { data: appleResources } = await this.client.request<{
       data: {
         id: string;
@@ -288,11 +325,18 @@ export class ConnectApps {
           };
         };
       }[];
-    }>('GET', `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory&limit=200`);
+    }>(
+      'GET',
+      applyAppleListQuery(
+        `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
     if (appleResources.length == 0) return null;
 
-    function findAppInformation(appInformation: {
+    function readReadyAppInfo(appInformation: {
       id: string;
       attributes?: { state?: string; appStoreState?: string };
       relationships?: {
@@ -310,7 +354,7 @@ export class ConnectApps {
       return EDITABLE_METADATA_STATES.has(appInformationState);
     }
 
-    const editable = appleResources.find(findAppInformation);
+    const editable = appleResources.find(readReadyAppInfo);
     let selectedAppInformation = editable;
 
     if (selectedAppInformation == null) selectedAppInformation = appleResources[0];

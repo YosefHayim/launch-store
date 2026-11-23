@@ -404,7 +404,7 @@ function describeReconcileGameCenter() {
     expect(writes.achievements).toHaveLength(0);
     expect(writes.leaderboards).toHaveLength(0);
 
-    function everyAction(action: {
+    function isPlannedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -413,7 +413,7 @@ function describeReconcileGameCenter() {
       return action.status == 'planned';
     }
 
-    expect(report.actions.every(everyAction)).toBe(true);
+    expect(report.actions.every(isPlannedAction)).toBe(true);
     // 2 creates + 2 localizations planned (detail already exists, so no enable action)
     expect(report.actions).toHaveLength(4);
   }
@@ -451,7 +451,7 @@ function describeReconcileGameCenter() {
       'set leaderboard high_score localization (en-US)',
     ]);
 
-    function everyAction2(action: {
+    function isPlannedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -460,7 +460,7 @@ function describeReconcileGameCenter() {
       return action.status == 'planned';
     }
 
-    expect(report.actions.every(everyAction2)).toBe(true);
+    expect(report.actions.every(isPlannedAction)).toBe(true);
   }
 
   it(
@@ -508,7 +508,7 @@ function describeReconcileGameCenter() {
     expect(summary.skipped).toBe(1);
     expect(writes.leaderboardLocales).toHaveLength(0);
 
-    function findAction(action: {
+    function isFailedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -517,7 +517,7 @@ function describeReconcileGameCenter() {
       return action.status == 'failed';
     }
 
-    const failedAction = report.actions.find(findAction);
+    const failedAction = report.actions.find(isFailedAction);
 
     expect(failedAction).toBeDefined();
 
@@ -547,7 +547,7 @@ function describeReconcileGameCenter() {
     expect(writes.leaderboards).toHaveLength(0);
     expect(summarize(report.actions)).toEqual({ applied: 0, failed: 1, skipped: 1 });
 
-    function findAction2(action: {
+    function isFailedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -556,7 +556,7 @@ function describeReconcileGameCenter() {
       return action.status == 'failed';
     }
 
-    const failedEnable = report.actions.find(findAction2);
+    const failedEnable = report.actions.find(isFailedAction);
 
     expect(failedEnable).toBeDefined();
 
@@ -636,7 +636,7 @@ function describeReconcileGameCenter() {
     expect(writes.achievementLocales).toHaveLength(0);
     expect(summarize(report.actions)).toEqual({ applied: 1, failed: 1, skipped: 0 });
 
-    function findAction3(action: {
+    function isFailedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -645,7 +645,7 @@ function describeReconcileGameCenter() {
       return action.status == 'failed';
     }
 
-    const failedLocalization = report.actions.find(findAction3);
+    const failedLocalization = report.actions.find(isFailedAction);
 
     expect(failedLocalization).toBeDefined();
 

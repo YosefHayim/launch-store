@@ -60,10 +60,10 @@ function failureMessage(failure: unknown): string {
   return String(failure);
 }
 
-async function mapWithConcurrency<Item, Mapped>(
+async function runWithConcurrency<Item, Mapped>(
   items: readonly Item[],
   concurrency: number,
-  mapItem: (item: Item) => Promise<Mapped>,
+  convertItem: (item: Item) => Promise<Mapped>,
 ): Promise<Mapped[]> {
   const mapped: Mapped[] = [];
   let nextIndex = 0;
@@ -79,7 +79,7 @@ async function mapWithConcurrency<Item, Mapped>(
       return;
     }
 
-    mapped[currentIndex] = await mapItem(item);
+    mapped[currentIndex] = await convertItem(item);
     await takeNext();
   }
 
@@ -346,7 +346,7 @@ export async function runSyncBatch(
     return reconcileJob(client, job, false, allowDestructive);
   }
 
-  const plans = await mapWithConcurrency(jobs, SYNC_CONCURRENCY, planJob);
+  const plans = await runWithConcurrency(jobs, SYNC_CONCURRENCY, planJob);
   const jobsToApply: SyncJob[] = [];
 
   for (const planOutcome of plans) {
@@ -355,7 +355,7 @@ export async function runSyncBatch(
     }
   }
 
-  const applied = await mapWithConcurrency(jobsToApply, SYNC_CONCURRENCY, applyJob);
+  const applied = await runWithConcurrency(jobsToApply, SYNC_CONCURRENCY, applyJob);
 
   const outcomes = mergeOutcomes(plans, applied);
 

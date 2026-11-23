@@ -102,16 +102,16 @@ function describeCustomPagesPlanner() {
 
     expect(plan.direction).toBe('two-way');
 
-    function someA(a: {
+    function isCustomProductPage(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('custom product page');
+      return plannedAction.description.includes('custom product page');
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isCustomProductPage)).toBe(true);
   }
 
   it(

@@ -409,7 +409,7 @@ function describeReconcileAppClips() {
     expect(summary.skipped).toBe(1);
     expect(calls.createdLocalizations).toHaveLength(0);
 
-    function findAction(action: {
+    function isFailedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -418,7 +418,7 @@ function describeReconcileAppClips() {
       return action.status == 'failed';
     }
 
-    expect(report.actions.find(findAction)?.error).toBe('boom');
+    expect(report.actions.find(isFailedAction)?.error).toBe('boom');
   }
 
   it(

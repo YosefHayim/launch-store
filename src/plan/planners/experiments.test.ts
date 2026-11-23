@@ -102,16 +102,16 @@ function describeExperimentsPlanner() {
 
     expect(plan.direction).toBe('additive');
 
-    function someA(a: {
+    function isExperimentAction(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('experiment');
+      return plannedAction.description.includes('experiment');
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isExperimentAction)).toBe(true);
   }
 
   it(

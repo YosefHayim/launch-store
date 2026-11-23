@@ -611,7 +611,7 @@ describe('reconcilePlaySubscriptions', () => {
       dryRun: true,
     });
 
-    function everyAction(action: {
+    function isPlannedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -620,7 +620,7 @@ describe('reconcilePlaySubscriptions', () => {
       return action.status == 'planned';
     }
 
-    expect(subscriptionsOutcome.actions.every(everyAction)).toBe(true);
+    expect(subscriptionsOutcome.actions.every(isPlannedAction)).toBe(true);
 
     function readDescription(action: {
       readonly description: string;
@@ -663,7 +663,7 @@ describe('reconcilePlaySubscriptions', () => {
       dryRun: false,
     });
 
-    function findAction(action: {
+    function isFailedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -672,7 +672,7 @@ describe('reconcilePlaySubscriptions', () => {
       return action.status == 'failed';
     }
 
-    const failedAction = subscriptionsOutcome.actions.find(findAction);
+    const failedAction = subscriptionsOutcome.actions.find(isFailedAction);
 
     expect(failedAction?.error).toMatch(/neither a free trial nor intro/);
     expect(calls.created).toHaveLength(1);
@@ -717,7 +717,7 @@ describe('reconcilePlaySubscriptions', () => {
       dryRun: false,
     });
 
-    function findAction2(action: {
+    function isFailedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -726,7 +726,7 @@ describe('reconcilePlaySubscriptions', () => {
       return action.status == 'failed';
     }
 
-    const permissionFailureAction = permissionFailureOutcome.actions.find(findAction2);
+    const permissionFailureAction = permissionFailureOutcome.actions.find(isFailedAction);
 
     expect(permissionFailureAction?.error).toContain('launch-catalog@proj.iam.gserviceaccount.com');
     expect(permissionFailureAction?.error).toContain('Manage store presence');
@@ -750,7 +750,7 @@ describe('reconcilePlaySubscriptions', () => {
       dryRun: false,
     });
 
-    function findAction3(action: {
+    function hasFailedStatus(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -759,7 +759,7 @@ describe('reconcilePlaySubscriptions', () => {
       return action.status == 'failed';
     }
 
-    const paymentsFailureAction = paymentsFailureOutcome.actions.find(findAction3);
+    const paymentsFailureAction = paymentsFailureOutcome.actions.find(hasFailedStatus);
 
     expect(paymentsFailureAction?.error).toContain('Setup > Payments profile');
     expect(paymentsFailureAction?.error).toContain(

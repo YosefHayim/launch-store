@@ -135,12 +135,12 @@ export const SUBSCRIPTION_GROUP_VERSION_RESOURCES: VersionedLocalizationResource
   parentType: 'subscriptionGroups',
   localizationType: 'subscriptionGroupLocalizations',
 };
-function findVersion(version: ProductVersion) {
+function isDraftVersion(version: ProductVersion) {
   return version.attributes.state == 'PREPARE_FOR_SUBMISSION';
 }
 
 export function pickDraftVersion(versions: ProductVersion[]): ProductVersion | null {
-  return versions.find(findVersion) ?? null;
+  return versions.find(isDraftVersion) ?? null;
 }
 
 export function pickNewestVersion(versions: ProductVersion[]): ProductVersion | null {
@@ -240,7 +240,7 @@ export function findAppInfoId(
   appInfos: ResourceList<AppInfoStates>['data'],
   states: ReadonlySet<string>,
 ): string | null {
-  function findCandidate(candidate: { id: string; attributes: AppInfoStates }) {
+  function isListedAppInfo(candidate: { id: string; attributes: AppInfoStates }) {
     let state = candidate.attributes.state;
 
     if (state == null) state = candidate.attributes.appStoreState;
@@ -248,7 +248,7 @@ export function findAppInfoId(
     return state != null && states.has(state);
   }
 
-  const appInformation = appInfos.find(findCandidate);
+  const appInformation = appInfos.find(isListedAppInfo);
 
   if (appInformation == null) return null;
 
@@ -259,11 +259,11 @@ export function findVersionId(
   versions: ResourceList<VersionStates>['data'],
   states: ReadonlySet<string>,
 ): string | null {
-  function findCandidate2(candidate: { id: string; attributes: VersionStates }) {
+  function isListedVersion(candidate: { id: string; attributes: VersionStates }) {
     return states.has(candidate.attributes.appStoreState);
   }
 
-  const version = versions.find(findCandidate2);
+  const version = versions.find(isListedVersion);
 
   if (version == null) return null;
 
@@ -688,7 +688,7 @@ export function buildUploadProblems(
 ): BuildUploadProblem[] {
   if (stateDetails == null) return [];
 
-  function mapPieceDetail(stateDetail: { code?: string; description?: string }) {
+  function copyUploadProblem(stateDetail: { code?: string; description?: string }) {
     let code = stateDetail.code;
 
     if (code == null) code = '';
@@ -700,7 +700,7 @@ export function buildUploadProblems(
     return { code, description };
   }
 
-  return stateDetails.map(mapPieceDetail);
+  return stateDetails.map(copyUploadProblem);
 }
 
 export async function putAssetFile(
@@ -711,7 +711,7 @@ export async function putAssetFile(
   for (let batchStart = 0; batchStart < operations.length; batchStart += ASSET_UPLOAD_CONCURRENCY) {
     const operationBatch = operations.slice(batchStart, batchStart + ASSET_UPLOAD_CONCURRENCY);
 
-    function mapOperation(operation: {
+    function sendAssetChunk(operation: {
       method?: string;
       url: string;
       length?: number;
@@ -721,17 +721,17 @@ export async function putAssetFile(
       return putAssetChunk(operation, filePath, fileByteLength);
     }
 
-    const chunkUploads = operationBatch.map(mapOperation);
+    const chunkUploads = operationBatch.map(sendAssetChunk);
     // biome-ignore lint/performance/noAwaitInLoops: bounded batches - each part is its own byte range, so a batch uploads in parallel without flooding Apple's CDN
     const settledChunkUploads = await Promise.allSettled(chunkUploads);
 
-    function findChunkUpload(
+    function isRejectedChunkUpload(
       chunkUpload: PromiseRejectedResult | PromiseFulfilledResult<void>,
     ): chunkUpload is PromiseRejectedResult {
       return chunkUpload.status == 'rejected';
     }
 
-    const failedChunkUpload = settledChunkUploads.find(findChunkUpload);
+    const failedChunkUpload = settledChunkUploads.find(isRejectedChunkUpload);
 
     if (failedChunkUpload != null) return Promise.reject(failedChunkUpload.reason);
   }
@@ -793,7 +793,7 @@ function readBuildResource(
 
   const preReleaseVersionId = entry.relationships?.preReleaseVersion?.data?.id;
 
-  function findIncludedResource(includedResource: {
+  function isAttachedPreReleaseVersion(includedResource: {
     type: string;
     id: string;
     attributes?: { version?: string; processingState?: string };
@@ -803,7 +803,7 @@ function readBuildResource(
     );
   }
 
-  const preReleaseVersion = preReleaseVersions.find(findIncludedResource);
+  const preReleaseVersion = preReleaseVersions.find(isAttachedPreReleaseVersion);
   const marketingVersion = preReleaseVersion?.attributes?.version;
 
   if (marketingVersion != null) Object.assign(buildResource, { marketingVersion });
@@ -811,7 +811,7 @@ function readBuildResource(
   return buildResource;
 }
 export function readBuildResources({ data: builds, included = [] }: BuildPage): BuildResource[] {
-  function mapPiece(entry: {
+  function copyBuildResource(entry: {
     id: string;
     attributes: {
       version?: string;
@@ -824,7 +824,7 @@ export function readBuildResources({ data: builds, included = [] }: BuildPage): 
     return readBuildResource(entry, included);
   }
 
-  return builds.map(mapPiece);
+  return builds.map(copyBuildResource);
 }
 
 export function readVersionResource(
@@ -848,7 +848,7 @@ export function readVersionResource(
   const attachedBuildId = entry.relationships?.build?.data?.id;
   const isBuildAttached = attachedBuildId != null;
 
-  function findIncludedBuild(includedBuild: {
+  function isAttachedBuild(includedBuild: {
     type: string;
     id: string;
     attributes?: { version?: string; processingState?: string };
@@ -856,7 +856,7 @@ export function readVersionResource(
     return includedBuild.type == 'builds' && includedBuild.id == attachedBuildId;
   }
 
-  const attachedBuild = includedBuilds.find(findIncludedBuild);
+  const attachedBuild = includedBuilds.find(isAttachedBuild);
   const attachedBuildNumber = attachedBuild?.attributes?.version;
   const attachedBuildProcessingState = attachedBuild?.attributes?.processingState;
   const version: AppStoreVersionResource = {
@@ -939,7 +939,7 @@ export function readFeedbackScreenshots(
 }[] {
   if (!raw) return [];
 
-  function flatMapScreenshot(screenshot: { url?: string; width?: number; height?: number }) {
+  function readFeedbackScreenshot(screenshot: { url?: string; width?: number; height?: number }) {
     const screenshotUrl = screenshot.url;
 
     if (screenshotUrl == null) return [];
@@ -955,7 +955,7 @@ export function readFeedbackScreenshots(
     return [feedbackScreenshot];
   }
 
-  return raw.flatMap(flatMapScreenshot);
+  return raw.flatMap(readFeedbackScreenshot);
 }
 
 export function readReviewResponse(appleResources: {
@@ -1438,8 +1438,8 @@ function describeAssociatedErrors(
 ): string[] {
   if (!associatedErrors) return [];
 
-  function flatMapPiece([resource, errors]: [string, readonly AscError[]]) {
-    function mapError(error: {
+  function readAssociatedErrors([resource, errors]: [string, readonly AscError[]]) {
+    function describeAssociatedError(error: {
       status?: string;
       code?: string;
       title?: string;
@@ -1450,10 +1450,10 @@ function describeAssociatedErrors(
       return `associated ${resource}: ${describeAscError(error)}`;
     }
 
-    return errors.map(mapError);
+    return errors.map(describeAssociatedError);
   }
 
-  return Object.entries(associatedErrors).flatMap(flatMapPiece);
+  return Object.entries(associatedErrors).flatMap(readAssociatedErrors);
 }
 
 export function describeErrors(responseText: string): string {

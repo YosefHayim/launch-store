@@ -7,11 +7,11 @@ function describeRegisterAdoptCommand() {
 
     registerAdoptCommand(program);
 
-    function findCommand(command: Command) {
+    function isAdoptCommand(command: Command) {
       return command.name() == 'adopt';
     }
 
-    const adoptCommand = program.commands.find(findCommand);
+    const adoptCommand = program.commands.find(isAdoptCommand);
 
     expect(adoptCommand).toBeDefined();
 

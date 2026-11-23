@@ -204,16 +204,16 @@ function describePlaySubscriptionsPlanner() {
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
 
-    function someA(a: {
+    function isCreateMonthlySubscription(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description == 'create Play subscription com.acme.pro.monthly';
+      return plannedAction.description == 'create Play subscription com.acme.pro.monthly';
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isCreateMonthlySubscription)).toBe(true);
   }
 
   it(

@@ -33,7 +33,7 @@ function describeReconcilePrivacy() {
       surface({ usageDescriptions: { NSCameraUsageDescription: '' } }),
     );
 
-    function findFinding(finding: {
+    function isEmptyUsageFinding(finding: {
       readonly app: string;
       readonly platform: 'ios' | 'android';
       readonly severity: 'info' | 'blocker' | 'warning';
@@ -43,7 +43,7 @@ function describeReconcilePrivacy() {
       return finding.code == 'ios.usage.empty';
     }
 
-    const empty = findings.find(findFinding);
+    const empty = findings.find(isEmptyUsageFinding);
 
     expect(empty?.severity).toBe('blocker');
   }
@@ -56,7 +56,7 @@ function describeReconcilePrivacy() {
       surface({ usageDescriptions: { NSCameraUsageDescription: 'Scan' }, collectedDataTypes: [] }),
     );
 
-    function findFinding2(finding: {
+    function isUndeclaredCollectionFinding(finding: {
       readonly app: string;
       readonly platform: 'ios' | 'android';
       readonly severity: 'info' | 'blocker' | 'warning';
@@ -66,7 +66,7 @@ function describeReconcilePrivacy() {
       return finding.code == 'ios.collection.undeclared';
     }
 
-    const undeclared = findings.find(findFinding2);
+    const undeclared = findings.find(isUndeclaredCollectionFinding);
 
     expect(undeclared?.severity).toBe('blocker');
     expect(undeclared?.message).toContain('NSPrivacyCollectedDataTypePhotosorVideos');
@@ -100,7 +100,7 @@ function describeReconcilePrivacy() {
       surface({ collectedDataTypes: ['NSPrivacyCollectedDataTypeContacts'] }),
     );
 
-    function findFinding3(finding: {
+    function isOverdeclaredCollectionFinding(finding: {
       readonly app: string;
       readonly platform: 'ios' | 'android';
       readonly severity: 'info' | 'blocker' | 'warning';
@@ -110,7 +110,7 @@ function describeReconcilePrivacy() {
       return finding.code == 'ios.collection.overdeclared';
     }
 
-    const over = findings.find(findFinding3);
+    const over = findings.find(isOverdeclaredCollectionFinding);
 
     expect(over?.severity).toBe('warning');
   }
@@ -156,7 +156,7 @@ function describeReconcilePrivacy() {
       surface({ usageDescriptions: { NSUserTrackingUsageDescription: 'Ads' }, tracking: false }),
     );
 
-    function findFinding4(finding: {
+    function isTrackingFlagConflict(finding: {
       readonly app: string;
       readonly platform: 'ios' | 'android';
       readonly severity: 'info' | 'blocker' | 'warning';
@@ -166,7 +166,7 @@ function describeReconcilePrivacy() {
       return finding.code == 'ios.tracking.mismatch';
     }
 
-    expect(findings.find(findFinding4)?.severity).toBe('blocker');
+    expect(findings.find(isTrackingFlagConflict)?.severity).toBe('blocker');
   }
 
   it('flags a tracking-flag mismatch as a blocker', flagsATrackingFlagMismatchAsABlocker);
@@ -177,7 +177,7 @@ function describeReconcilePrivacy() {
       surface({ androidPermissions: ['android.permission.CAMERA'] }),
     );
 
-    function findFinding5(finding: {
+    function isAndroidSafetyReminder(finding: {
       readonly app: string;
       readonly platform: 'ios' | 'android';
       readonly severity: 'info' | 'blocker' | 'warning';
@@ -187,7 +187,7 @@ function describeReconcilePrivacy() {
       return finding.code == 'android.datasafety.reminder';
     }
 
-    const reminder = findings.find(findFinding5);
+    const reminder = findings.find(isAndroidSafetyReminder);
 
     expect(reminder?.severity).toBe('info');
     expect(reminder?.platform).toBe('android');

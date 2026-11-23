@@ -7,19 +7,19 @@ function subcommand(name: string) {
 
   registerConfigCommand(program);
 
-  function findCommand(command: Command) {
+  function isLaunchFileCommand(command: Command) {
     return command.name() == 'config';
   }
 
-  const config = program.commands.find(findCommand);
+  const config = program.commands.find(isLaunchFileCommand);
 
   expect(config).toBeDefined();
 
-  function findCommand2(command: Command) {
+  function hasSubcommandName(command: Command) {
     return command.name() == name;
   }
 
-  return config?.commands.find(findCommand2);
+  return config?.commands.find(hasSubcommandName);
 }
 function describeRegisterPieceCommand() {
   function attachesAPieceGroupWithSchemaValidateAndDocsSubcommands() {
@@ -27,17 +27,17 @@ function describeRegisterPieceCommand() {
 
     registerConfigCommand(program);
 
-    function findCommand3(command: Command) {
+    function isLaunchFileCommand(command: Command) {
       return command.name() == 'config';
     }
 
-    const config = program.commands.find(findCommand3);
+    const config = program.commands.find(isLaunchFileCommand);
 
-    function mapCommand(command: Command) {
+    function readCommandName(command: Command) {
       return command.name();
     }
 
-    expect(config?.commands.map(mapCommand)).toEqual(['schema', 'validate', 'docs']);
+    expect(config?.commands.map(readCommandName)).toEqual(['schema', 'validate', 'docs']);
   }
 
   it(

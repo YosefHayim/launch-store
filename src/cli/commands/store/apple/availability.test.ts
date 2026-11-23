@@ -7,11 +7,11 @@ function describeRegisterAvailabilityCommand() {
 
     registerAvailabilityCommand(program);
 
-    function findRegisteredCommand(registeredCommand: Command) {
+    function isAvailabilityCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'availability';
     }
 
-    const availabilityCommand = program.commands.find(findRegisteredCommand);
+    const availabilityCommand = program.commands.find(isAvailabilityCommand);
 
     function readLong(commandOption: CommandOption) {
       return commandOption.long;
@@ -24,11 +24,11 @@ function describeRegisterAvailabilityCommand() {
       '--yes',
     ]);
 
-    function findCommandOption(commandOption: CommandOption) {
+    function isSettingsFileOption(commandOption: CommandOption) {
       return commandOption.long == '--config';
     }
 
-    const configOption = availabilityCommand?.options.find(findCommandOption);
+    const configOption = availabilityCommand?.options.find(isSettingsFileOption);
 
     expect(configOption?.defaultValue).toBe('availability.config.json');
   }

@@ -272,11 +272,11 @@ function describeSetVendorNumberAction() {
 
     expect(failed).toBeNull();
 
-    function someLine(line: string) {
+    function includesAlphaLabel(line: string) {
       return line.includes('alpha');
     }
 
-    expect(lines.some(someLine)).toBe(true);
+    expect(lines.some(includesAlphaLabel)).toBe(true);
 
     const accountsPath = join(homeDirectory, '.launch', 'accounts.json');
     const loadedFile = readFileSync(accountsPath, 'utf8');
@@ -354,11 +354,11 @@ function describeSetPlayReportsBucketAction() {
 
     expect(failed).toBeNull();
 
-    function someLine2(line: string) {
+    function includesPlayRevSite(line: string) {
       return line.includes('pubsite_prod_rev_123');
     }
 
-    expect(lines.some(someLine2)).toBe(true);
+    expect(lines.some(includesPlayRevSite)).toBe(true);
 
     const savedPortfolio = readSavedPortfolio();
 

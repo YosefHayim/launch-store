@@ -91,15 +91,15 @@ function describeParseDaysFlag() {
     const invalidDaysFlags = ['0', '366', '2.5', '-3', 'abc', ''];
     const failures = invalidDaysFlags.map(readDaysFailure);
 
-    function mapFailure(failure: unknown) {
+    function readFailureMessage(failure: unknown) {
       return (failure as { message: string }).message;
     }
 
-    function mapPiece() {
+    function readExpectedDaysError() {
       return '--days must be a whole number from 1 to 365.';
     }
 
-    expect(failures.map(mapFailure)).toEqual(invalidDaysFlags.map(mapPiece));
+    expect(failures.map(readFailureMessage)).toEqual(invalidDaysFlags.map(readExpectedDaysError));
   }
 
   test(

@@ -76,11 +76,11 @@ function artifact(
   migrationArtifacts: readonly MigrationArtifact[],
   artifactPath: string,
 ): MigrationArtifact {
-  function findPiece(entry: { readonly path: string; readonly contents: string }) {
+  function isArtifactAtPath(entry: { readonly path: string; readonly contents: string }) {
     return entry.path == artifactPath;
   }
 
-  const matchingArtifact = migrationArtifacts.find(findPiece);
+  const matchingArtifact = migrationArtifacts.find(isArtifactAtPath);
 
   expect(matchingArtifact, `expected artifact ${artifactPath}`).toBeDefined();
 
@@ -91,11 +91,11 @@ function notesAt(
   migrationNotes: readonly MigrationNote[],
   level: MigrationNoteLevel,
 ): MigrationNote[] {
-  function filterNote(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
+  function isNoteAtLevel(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
     return note.level == level;
   }
 
-  return migrationNotes.filter(filterNote);
+  return migrationNotes.filter(isNoteAtLevel);
 }
 function runReadFastlaneSetup(workingDirectory: string) {
   return readFastlaneSetup(workingDirectory);
@@ -207,7 +207,7 @@ function describeParseFastfile() {
   function attributesEachLaneToItsPlatformBlockAndScopesActionsToItsPiece() {
     const lanes = parseFastfile(SAMPLE_FASTFILE).lanes;
 
-    function findLane(lane: {
+    function isBetaLane(lane: {
       readonly name: string;
       readonly platform?: string;
       readonly actions: readonly string[];
@@ -215,7 +215,7 @@ function describeParseFastfile() {
       return lane.name == 'beta';
     }
 
-    const beta = lanes.find(findLane);
+    const beta = lanes.find(isBetaLane);
 
     expect(beta).toBeDefined();
 
@@ -228,7 +228,7 @@ function describeParseFastfile() {
       'launch-store release --track testing',
     ]);
 
-    function findLane2(lane: {
+    function isPlayLane(lane: {
       readonly name: string;
       readonly platform?: string;
       readonly actions: readonly string[];
@@ -236,7 +236,7 @@ function describeParseFastfile() {
       return lane.name == 'play';
     }
 
-    const play = lanes.find(findLane2);
+    const play = lanes.find(isPlayLane);
 
     expect(play).toBeDefined();
 
@@ -245,7 +245,7 @@ function describeParseFastfile() {
     expect(play.platform).toBe('android');
     expect(play.actions).toEqual(['supply']);
 
-    function findLane3(lane: {
+    function isReleaseLane(lane: {
       readonly name: string;
       readonly platform?: string;
       readonly actions: readonly string[];
@@ -254,7 +254,7 @@ function describeParseFastfile() {
     }
 
     // gym lives in :beta, not in :release - body scoping keeps them apart.
-    const release = lanes.find(findLane3);
+    const release = lanes.find(isReleaseLane);
 
     expect(release).toBeDefined();
 
@@ -323,17 +323,17 @@ function describeMigrationNotesFor() {
 
     const manual = notesAt(migrationNotes, 'manual').map(readMessage2);
 
-    function someMessage(message: string) {
+    function includesSigningLane(message: string) {
       return message.includes('match/cert/sigh');
     }
 
-    expect(manual.some(someMessage)).toBe(true);
+    expect(manual.some(includesSigningLane)).toBe(true);
 
-    function someMessage2(message: string) {
+    function includesDeliverfileFollowUp(message: string) {
       return message.includes('Deliverfile');
     }
 
-    expect(manual.some(someMessage2)).toBe(true);
+    expect(manual.some(includesDeliverfileFollowUp)).toBe(true);
 
     function readMessage3(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
@@ -341,11 +341,11 @@ function describeMigrationNotesFor() {
 
     const informational = notesAt(migrationNotes, 'info').map(readMessage3);
 
-    function someMessage3(message: string) {
+    function includesAppIdentifierKey(message: string) {
       return message.includes('app_identifier');
     }
 
-    expect(informational.some(someMessage3)).toBe(true);
+    expect(informational.some(includesAppIdentifierKey)).toBe(true);
   }
 
   it(
@@ -365,11 +365,14 @@ function describeMigrationNotesFor() {
       true,
     );
 
-    function someNote(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
+    function includesDeliverfileNote(note: {
+      readonly level: MigrationNoteLevel;
+      readonly message: string;
+    }) {
       return note.message.includes('Deliverfile');
     }
 
-    expect(notesAt(migrationNotes, 'manual').some(someNote)).toBe(false);
+    expect(notesAt(migrationNotes, 'manual').some(includesDeliverfileNote)).toBe(false);
   }
 
   it(
@@ -547,11 +550,11 @@ function describeMigrateFastlane() {
 
     const manual = notesAt(migrationNotes, 'manual').map(readMessage5);
 
-    function someMessage4(message: string) {
+    function includesSigningLaneCopy(message: string) {
       return message.includes('match/cert/sigh');
     }
 
-    expect(manual.some(someMessage4)).toBe(true);
+    expect(manual.some(includesSigningLaneCopy)).toBe(true);
   }
 
   it(
@@ -572,11 +575,11 @@ function describeMigrateFastlane() {
       readMessage6,
     );
 
-    function someMessage5(message: string) {
+    function includesCustomSmokeLanes(message: string) {
       return message.includes('Custom lanes (smoke)');
     }
 
-    expect(manual.some(someMessage5)).toBe(true);
+    expect(manual.some(includesCustomSmokeLanes)).toBe(true);
   }
 
   it(
@@ -593,23 +596,23 @@ function describeMigrateFastlane() {
       readMessage7,
     );
 
-    function someMessage6(message: string) {
+    function includesLaunchBuildCommand(message: string) {
       return message.includes('launch-store build');
     }
 
-    expect(mapped.some(someMessage6)).toBe(true);
+    expect(mapped.some(includesLaunchBuildCommand)).toBe(true);
 
-    function someMessage7(message: string) {
+    function includesTestFlightUpload(message: string) {
       return message.includes('TestFlight');
     }
 
-    expect(mapped.some(someMessage7)).toBe(true);
+    expect(mapped.some(includesTestFlightUpload)).toBe(true);
 
-    function someMessage8(message: string) {
+    function includesDeliverAction(message: string) {
       return message.includes('deliver');
     }
 
-    expect(mapped.some(someMessage8)).toBe(true);
+    expect(mapped.some(includesDeliverAction)).toBe(true);
   }
 
   it('maps gym/pilot/deliver/supply to Launch commands', mapsGymPilotDeliverSupplyToLaunchCommands);
@@ -623,17 +626,17 @@ function describeMigrateFastlane() {
       readMessage8,
     );
 
-    function someMessage9(message: string) {
+    function includesPlayTrackNote(message: string) {
       return message.includes('Play track');
     }
 
-    expect(manual.some(someMessage9)).toBe(true);
+    expect(manual.some(includesPlayTrackNote)).toBe(true);
 
-    function someMessage10(message: string) {
+    function includesDeliverfileManual(message: string) {
       return message.includes('Deliverfile');
     }
 
-    expect(manual.some(someMessage10)).toBe(true);
+    expect(manual.some(includesDeliverfileManual)).toBe(true);
   }
 
   it(
@@ -651,23 +654,23 @@ function describeMigrateFastlane() {
       'info',
     ).map(readMessage9);
 
-    function someMessage11(message: string) {
+    function includesAppIdentifierField(message: string) {
       return message.includes('app_identifier');
     }
 
-    expect(informationalNotes.some(someMessage11)).toBe(true);
+    expect(informationalNotes.some(includesAppIdentifierField)).toBe(true);
 
-    function someMessage12(message: string) {
+    function includesBundleIdField(message: string) {
       return message.includes('bundle id');
     }
 
-    expect(informationalNotes.some(someMessage12)).toBe(true);
+    expect(informationalNotes.some(includesBundleIdField)).toBe(true);
 
-    function someMessage13(message: string) {
+    function includesPackageField(message: string) {
       return message.includes('package');
     }
 
-    expect(informationalNotes.some(someMessage13)).toBe(true);
+    expect(informationalNotes.some(includesPackageField)).toBe(true);
   }
 
   it(
@@ -688,11 +691,14 @@ function describeMigrateFastlane() {
 
     expect(migration.artifacts.map(readPath2)).not.toContain('store.config.json');
 
-    function someNote2(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
+    function includesExistingStoreFile(note: {
+      readonly level: MigrationNoteLevel;
+      readonly message: string;
+    }) {
       return note.message.includes('store.config.json');
     }
 
-    expect(notesAt(migration.notes, 'skipped').some(someNote2)).toBe(true);
+    expect(notesAt(migration.notes, 'skipped').some(includesExistingStoreFile)).toBe(true);
   }
 
   it('skips store.config.json when one already exists', skipsStorePiecePieceWhenOneAlreadyExists);
@@ -732,17 +738,23 @@ function describeMigrateFastlane() {
     expect(store.apple?.info['en-US']?.keywords).toEqual(['todo', 'tasks']);
     expect(store.android?.info['en-US']?.title).toBe('Alpha');
 
-    function someNote3(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
+    function includesImportedListingNote(note: {
+      readonly level: MigrationNoteLevel;
+      readonly message: string;
+    }) {
       return note.message.includes('Imported your fastlane metadata');
     }
 
-    expect(notesAt(migration.notes, 'mapped').some(someNote3)).toBe(true);
+    expect(notesAt(migration.notes, 'mapped').some(includesImportedListingNote)).toBe(true);
 
-    function someNote4(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
+    function includesDeliverfileAbsence(note: {
+      readonly level: MigrationNoteLevel;
+      readonly message: string;
+    }) {
       return note.message.includes('Deliverfile');
     }
 
-    expect(notesAt(migration.notes, 'manual').some(someNote4)).toBe(false);
+    expect(notesAt(migration.notes, 'manual').some(includesDeliverfileAbsence)).toBe(false);
   }
 
   it(
@@ -784,11 +796,11 @@ function describeMigrateFastlane() {
       readMessage10,
     );
 
-    function someMessage14(message: string) {
+    function includesGoogleCloudKey(message: string) {
       return message.includes('google_cloud');
     }
 
-    expect(informationalNotes.some(someMessage14)).toBe(true);
+    expect(informationalNotes.some(includesGoogleCloudKey)).toBe(true);
   }
 
   it(

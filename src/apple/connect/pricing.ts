@@ -1,6 +1,7 @@
 import type { AscHost } from './host.ts';
 import type { PricePointResource } from '@/types/apple-catalog.js';
 import { matchPricePoint } from './shared.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectPricing {
   constructor(private readonly client: AscHost) {}
@@ -14,17 +15,28 @@ export class ConnectPricing {
     appId: string,
     territory: string,
     customerPrice: number,
+    listQuery: AppleListQuery | null = null,
   ): Promise<PricePointResource | null> {
     const uRIComponent = encodeURIComponent(territory);
     const points = await this.client.requestAll<{
       customerPrice?: string;
       territory?: string;
-    }>(`/apps/${appId}/appPricePoints?filter[territory]=${uRIComponent}&limit=8000`);
+    }>(
+      applyAppleListQuery(
+        `/apps/${appId}/appPricePoints?filter[territory]=${uRIComponent}&limit=8000`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
     return matchPricePoint(points, territory, customerPrice);
   }
 
-  async getCurrentAppPrice(appId: string, territory: string): Promise<string | null> {
+  async getCurrentAppPrice(
+    appId: string,
+    territory: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<string | null> {
     const requestDocument = await this.client.getOptional<{
       data: {
         attributes?: {
@@ -50,7 +62,11 @@ export class ConnectPricing {
     }>(() =>
       this.client.request(
         'GET',
-        `/apps/${appId}/appPriceSchedule/manualPrices?include=appPricePoint&limit=200`,
+        applyAppleListQuery(
+          `/apps/${appId}/appPriceSchedule/manualPrices?include=appPricePoint&limit=200`,
+          listQuery,
+          APPLE_PAGE_LIMIT,
+        ),
       ),
     );
 
@@ -60,7 +76,7 @@ export class ConnectPricing {
 
     if (includedPricePoints == null) includedPricePoints = [];
 
-    function filterPiece(entry: {
+    function isAppPricePoint(entry: {
       type: string;
       id: string;
       attributes?: { customerPrice?: string; territory?: string };
@@ -68,7 +84,7 @@ export class ConnectPricing {
       return entry.type == 'appPricePoints';
     }
 
-    function mapPiece(entry: {
+    function pairPricePoint(entry: {
       type: string;
       id: string;
       attributes?: { customerPrice?: string; territory?: string };
@@ -76,7 +92,7 @@ export class ConnectPricing {
       return [entry.id, entry.attributes] as const;
     }
 
-    const pointsById = new Map(includedPricePoints.filter(filterPiece).map(mapPiece));
+    const pointsById = new Map(includedPricePoints.filter(isAppPricePoint).map(pairPricePoint));
 
     for (const price of requestDocument.data) {
       if (price.attributes?.startDate != null) continue;

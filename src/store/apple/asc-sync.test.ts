@@ -297,7 +297,7 @@ function describeReconcileApp() {
       'set subscription price com.acme.pro.monthly = 9.99 (USA)',
     ]);
 
-    function everyAction(action: {
+    function isPlannedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -306,7 +306,7 @@ function describeReconcileApp() {
       return action.status == 'planned';
     }
 
-    expect(report.actions.every(everyAction)).toBe(true);
+    expect(report.actions.every(isPlannedAction)).toBe(true);
     expect(api.enableCapability).not.toHaveBeenCalled();
     expect(api.createInAppPurchase).not.toHaveBeenCalled();
     expect(api.createSubscription).not.toHaveBeenCalled();
@@ -321,7 +321,7 @@ function describeReconcileApp() {
     const api = makeApi();
     const report = await runReconcile(api, input());
 
-    function everyAction2(action: {
+    function isAppliedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -330,7 +330,7 @@ function describeReconcileApp() {
       return action.status == 'applied';
     }
 
-    expect(report.actions.every(everyAction2)).toBe(true);
+    expect(report.actions.every(isAppliedAction)).toBe(true);
     expect(api.enableCapability).toHaveBeenCalledWith('bundle1', 'PUSH_NOTIFICATIONS');
     expect(api.createInAppPurchase).toHaveBeenCalledWith('app1', {
       productId: 'com.acme.coins',
@@ -408,7 +408,7 @@ function describeReconcileApp() {
     const guarded = makeApi(withExtra);
     const guardedReport = await runReconcile(guarded, input());
 
-    function findAction(action: {
+    function isHealthKitDisable(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -417,7 +417,7 @@ function describeReconcileApp() {
       return action.description == 'disable capability HEALTHKIT';
     }
 
-    const disable = guardedReport.actions.find(findAction);
+    const disable = guardedReport.actions.find(isHealthKitDisable);
 
     expect(disable).toMatchObject({ destructive: true, status: 'skipped' });
     expect(guarded.disableCapability).not.toHaveBeenCalled();
@@ -497,7 +497,7 @@ function describeReconcileApp() {
       input({ capabilities: [], products: { inAppPurchases: IAPS } }),
     );
 
-    function findAction2(action: {
+    function isIapPriceAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -506,7 +506,7 @@ function describeReconcileApp() {
       return action.description.startsWith('set IAP price');
     }
 
-    const priceAction = report.actions.find(findAction2);
+    const priceAction = report.actions.find(isIapPriceAction);
 
     expect(priceAction).toMatchObject({ status: 'failed' });
     expect(priceAction?.error).toMatch(/No USA price point matches 4.99/);
@@ -530,7 +530,7 @@ function describeReconcileApp() {
       input({ capabilities: [], products: { inAppPurchases: IAPS } }),
     );
 
-    function mapAction(action: {
+    function readActionBrief(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -539,7 +539,7 @@ function describeReconcileApp() {
       return { d: action.description, s: action.status };
     }
 
-    expect(report.actions.map(mapAction)).toEqual([
+    expect(report.actions.map(readActionBrief)).toEqual([
       { d: 'create in-app purchase com.acme.coins (CONSUMABLE)', s: 'failed' },
     ]);
     expect(api.createInAppPurchaseLocalization).not.toHaveBeenCalled();
@@ -753,7 +753,7 @@ function describeReconcileAppStoreListingLocalizations() {
     };
     const report = await runReconcile(api, listingViaFullReconcile(listing));
 
-    function findAction3(action: {
+    function isSkippedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -762,7 +762,7 @@ function describeReconcileAppStoreListingLocalizations() {
       return action.status == 'skipped';
     }
 
-    expect(report.actions.find(findAction3)?.description).toContain(
+    expect(report.actions.find(isSkippedAction)?.description).toContain(
       'keywords is 120 chars (max 100)',
     );
     expect(api.createVersionLocalization).toHaveBeenCalledWith('version1', 'en-US', {
@@ -817,7 +817,7 @@ function describeReconcileAppListing() {
       dryRun: true,
     });
 
-    function everyAction3(action: {
+    function isPlannedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -826,7 +826,7 @@ function describeReconcileAppListing() {
       return action.status == 'planned';
     }
 
-    expect(report.actions.every(everyAction3)).toBe(true);
+    expect(report.actions.every(isPlannedAction)).toBe(true);
 
     function readDescription3(action: {
       readonly description: string;
@@ -874,7 +874,7 @@ function describeReconcileAppListing() {
       dryRun: false,
     });
 
-    function everyAction4(action: {
+    function isAppliedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -883,7 +883,7 @@ function describeReconcileAppListing() {
       return action.status == 'applied';
     }
 
-    expect(report.actions.every(everyAction4)).toBe(true);
+    expect(report.actions.every(isAppliedAction)).toBe(true);
     expect(api.createAppInfoLocalization).toHaveBeenCalledWith('appinfo1', 'en-US', {
       name: 'Acme',
     });

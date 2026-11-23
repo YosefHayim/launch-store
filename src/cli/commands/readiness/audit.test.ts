@@ -7,11 +7,11 @@ function describeRegisterAuditCommand() {
 
     registerAuditCommand(program);
 
-    function findCommand(command: Command) {
+    function isAuditCommand(command: Command) {
       return command.name() == 'audit';
     }
 
-    const audit = program.commands.find(findCommand);
+    const audit = program.commands.find(isAuditCommand);
 
     expect(audit).toBeDefined();
 

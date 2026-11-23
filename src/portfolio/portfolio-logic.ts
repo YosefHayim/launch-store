@@ -40,22 +40,22 @@ export function keepCachedAppsOfFailedAccounts(
   cachedApps: readonly DiscoveredApp[],
   failedAccountLabels: readonly string[],
 ): DiscoveredApp[] {
-  function filterCachedApp(cachedApp: DiscoveredApp) {
+  function belongsToFailedAccount(cachedApp: DiscoveredApp) {
     return failedAccountLabels.includes(cachedApp.accountLabel);
   }
 
-  const cachedAppsOfFailedAccounts = cachedApps.filter(filterCachedApp);
+  const cachedAppsOfFailedAccounts = cachedApps.filter(belongsToFailedAccount);
 
   return mergeDiscoveredApps([discoveredApps, cachedAppsOfFailedAccounts]);
 }
 
 export function joinTags(apps: readonly DiscoveredApp[], tags: readonly AppTag[]): PortfolioApp[] {
-  function mapApp(app: DiscoveredApp) {
-    function findTag(tag: AppTag) {
+  function attachTagToApp(app: DiscoveredApp) {
+    function isTagOfApp(tag: AppTag) {
       return tag.appKey == app.key;
     }
 
-    const appTag = tags.find(findTag);
+    const appTag = tags.find(isTagOfApp);
 
     const isAppUntagged = appTag == null;
 
@@ -64,7 +64,7 @@ export function joinTags(apps: readonly DiscoveredApp[], tags: readonly AppTag[]
     return { ...app, owner: appTag.owner, ga4PropertyId: appTag.ga4PropertyId };
   }
 
-  return apps.map(mapApp);
+  return apps.map(attachTagToApp);
 }
 
 export function findAppsByName<FoundApp extends DiscoveredApp>(
@@ -77,10 +77,10 @@ export function findAppsByName<FoundApp extends DiscoveredApp>(
 
   if (isNeedleEmpty) return [];
 
-  function filterApp2(app: FoundApp) {
+  function includesQuery(app: FoundApp) {
     const searchableNames = [app.name, app.bundleId, app.packageName];
 
-    function someSearchableName(searchableName: string | null) {
+    function fieldIncludesNeedle(searchableName: string | null) {
       const isNameMissing = searchableName == null;
 
       if (isNameMissing) return false;
@@ -88,10 +88,10 @@ export function findAppsByName<FoundApp extends DiscoveredApp>(
       return searchableName.toLowerCase().includes(needle);
     }
 
-    return searchableNames.some(someSearchableName);
+    return searchableNames.some(fieldIncludesNeedle);
   }
 
-  return apps.filter(filterApp2);
+  return apps.filter(includesQuery);
 }
 
 export function findAppsByAccount<FoundApp extends DiscoveredApp>(
@@ -100,11 +100,11 @@ export function findAppsByAccount<FoundApp extends DiscoveredApp>(
 ): FoundApp[] {
   const wantedLabel = accountLabel.trim().toLowerCase();
 
-  function filterApp(app: FoundApp) {
+  function hasWantedAccount(app: FoundApp) {
     return app.accountLabel.toLowerCase() == wantedLabel;
   }
 
-  return apps.filter(filterApp);
+  return apps.filter(hasWantedAccount);
 }
 
 interface PortfolioFilter {
@@ -116,7 +116,7 @@ export function filterPortfolioApps(
   apps: readonly PortfolioApp[],
   filter: PortfolioFilter,
 ): PortfolioApp[] {
-  function filterApp3(app: PortfolioApp) {
+  function passesOwnerAndPlatform(app: PortfolioApp) {
     const isPlatformWrong = filter.platform != null && app.platform != filter.platform;
 
     if (isPlatformWrong) return false;
@@ -128,7 +128,7 @@ export function filterPortfolioApps(
     return true;
   }
 
-  return apps.filter(filterApp3);
+  return apps.filter(passesOwnerAndPlatform);
 }
 
 function keepWhenNull<Field>(newField: Field | null, currentField: Field | null): Field | null {
@@ -144,18 +144,18 @@ export function applyTagChange(
   appKeys: readonly string[],
   change: AppTagChange,
 ): AppTag[] {
-  function filterTag(tag: AppTag) {
+  function keepsUntouchedTag(tag: AppTag) {
     return !appKeys.includes(tag.appKey);
   }
 
-  const untouchedTags = tags.filter(filterTag);
+  const untouchedTags = tags.filter(keepsUntouchedTag);
 
-  function mapAppKey(appKey: string): AppTag {
-    function findTag2(tag: AppTag) {
+  function writeChangedTag(appKey: string): AppTag {
+    function isTagOfKey(tag: AppTag) {
       return tag.appKey == appKey;
     }
 
-    const currentTag = tags.find(findTag2);
+    const currentTag = tags.find(isTagOfKey);
 
     const isAppUntagged = currentTag == null;
 
@@ -168,7 +168,7 @@ export function applyTagChange(
     };
   }
 
-  const changedTags = appKeys.map(mapAppKey);
+  const changedTags = appKeys.map(writeChangedTag);
 
   return [...untouchedTags, ...changedTags];
 }

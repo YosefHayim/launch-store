@@ -106,11 +106,11 @@ function describeDiscoverApps() {
 
     const report = await discoverApps();
 
-    function mapApp(app: DiscoveredApp) {
+    function listAppKeyAndAccount(app: DiscoveredApp) {
       return [app.key, app.accountLabel];
     }
 
-    expect(report.apps.map(mapApp)).toEqual([
+    expect(report.apps.map(listAppKeyAndAccount)).toEqual([
       ['ios-1', 'alpha'],
       ['ios-2', 'beta'],
       ['android-com.play', 'google-play'],

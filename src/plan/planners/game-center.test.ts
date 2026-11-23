@@ -79,16 +79,16 @@ function describeGameCenterPlanner() {
     expect(plan.direction).toBe('additive');
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
 
-    function someA(a: {
+    function isGameCenterAction(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return /Game Center/i.test(a.description);
+      return /Game Center/i.test(plannedAction.description);
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isGameCenterAction)).toBe(true);
   }
 
   it(

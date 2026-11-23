@@ -165,11 +165,11 @@ function describeAssembleArchiveArgumentsTheXcodebuildArchiveArgv() {
   function neverCarriesAGlobalProvisioningProfileSpecifierOrAnAutomaticProvisioningFlag() {
     const archiveArguments = assembleArchiveArguments({ ...BASE_ARCHIVE, shouldCleanBuild: true });
 
-    function filterArgument(argument: string) {
+    function mentionsProfileSpecifier(argument: string) {
       return argument.includes('PROVISIONING_PROFILE_SPECIFIER');
     }
 
-    const specifiers = archiveArguments.filter(filterArgument);
+    const specifiers = archiveArguments.filter(mentionsProfileSpecifier);
 
     expect(specifiers).toEqual([]);
     expect(archiveArguments).not.toContain('-allowProvisioningUpdates');

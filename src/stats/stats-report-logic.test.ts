@@ -71,11 +71,11 @@ function describeListMonthsInRange() {
 describe('listMonthsInRange', describeListMonthsInRange);
 function describeKeepStatsInRange() {
   function keepsBothEndsAndDropsDaysOutside() {
-    function mapDate(date: string) {
+    function createDatedStat(date: string) {
       return stat({ date });
     }
 
-    const stats = ['2026-09-30', '2026-10-01', '2026-10-05', '2026-10-06'].map(mapDate);
+    const stats = ['2026-09-30', '2026-10-01', '2026-10-05', '2026-10-06'].map(createDatedStat);
 
     const kept = keepStatsInRange(stats, { from: '2026-10-01', to: '2026-10-05' });
 
@@ -150,11 +150,11 @@ function describeFoldMetricTotals() {
 
     const totals = foldMetricTotals(stats);
 
-    function mapOneTotal(oneTotal: MetricTotal) {
+    function readCurrencyTotal(oneTotal: MetricTotal) {
       return [oneTotal.currency, oneTotal.total];
     }
 
-    expect(totals.map(mapOneTotal)).toEqual([
+    expect(totals.map(readCurrencyTotal)).toEqual([
       ['EUR', 3],
       ['USD', 12],
     ]);
@@ -171,11 +171,11 @@ function describeFoldMetricTotals() {
 
     const totals = foldMetricTotals(stats);
 
-    function mapOneTotal2(oneTotal: MetricTotal) {
+    function readFeedMetric(oneTotal: MetricTotal) {
       return `${oneTotal.feed}:${oneTotal.metric}`;
     }
 
-    expect(totals.map(mapOneTotal2)).toEqual(['app-store:downloads', 'ga4:sessions']);
+    expect(totals.map(readFeedMetric)).toEqual(['app-store:downloads', 'ga4:sessions']);
     expect(totals[0]).toMatchObject({ aggregation: 'sum', total: 2, dayCount: 1 });
   }
 

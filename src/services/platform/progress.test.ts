@@ -235,11 +235,11 @@ function describeWithSpinnerProgressEventsUnderPiece() {
 
     await withSpinner('looking up', lookup);
 
-    function mapEventLine(eventLine: string) {
+    function parseEventLine(eventLine: string) {
       return JSON.parse(eventLine);
     }
 
-    const events = eventLines.map(mapEventLine);
+    const events = eventLines.map(parseEventLine);
 
     expect(events[0]).toEqual({ event: 'progress', label: 'looking up', status: 'start' });
     expect(events[1]).toMatchObject({ event: 'progress', label: 'looking up', status: 'done' });
@@ -265,11 +265,11 @@ function describeWithSpinnerProgressEventsUnderPiece() {
 
     await expect(withSpinner('looking up', failLookup)).rejects.toThrow('boom');
 
-    function mapEventLine2(eventLine: string) {
+    function parseEventLine(eventLine: string) {
       return JSON.parse(eventLine);
     }
 
-    const events = eventLines.map(mapEventLine2);
+    const events = eventLines.map(parseEventLine);
 
     expect(events).toEqual([
       { event: 'progress', label: 'looking up', status: 'start' },

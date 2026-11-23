@@ -48,7 +48,7 @@ function permissionFor(
   permissions: readonly AscPermissionResult[],
   feature: string,
 ): AscPermissionResult {
-  function findCandidate(candidate: {
+  function isRequestedFeature(candidate: {
     readonly feature: string;
     readonly label: string;
     readonly roles: readonly string[];
@@ -58,7 +58,7 @@ function permissionFor(
     return candidate.feature == feature;
   }
 
-  const permission = permissions.find(findCandidate);
+  const permission = permissions.find(isRequestedFeature);
 
   if (!permission) throw new Error(`no permission verdict for ${feature}`);
 
@@ -79,7 +79,7 @@ function describeProbeKeyPermissions() {
 
     expect(permissions).toHaveLength(6);
 
-    function everyPermission(permission: {
+    function isAvailablePermission(permission: {
       readonly feature: string;
       readonly label: string;
       readonly roles: readonly string[];
@@ -89,7 +89,7 @@ function describeProbeKeyPermissions() {
       return permission.status == 'available';
     }
 
-    expect(permissions.every(everyPermission)).toBe(true);
+    expect(permissions.every(isAvailablePermission)).toBe(true);
   }
 
   it(

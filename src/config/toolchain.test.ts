@@ -10,7 +10,7 @@ import {
   type ToolchainIo,
 } from './toolchain.ts';
 import { expectDefined } from '../testkit/assertions-testkit.ts';
-function flatMapTool(tool: {
+function listBrewPair(tool: {
   label: string;
   command: string;
   tier: 'required' | 'recommended';
@@ -22,7 +22,7 @@ function flatMapTool(tool: {
 }
 
 /** Map each brew formula back to the command it provides, so the fake can mark it present after install. */
-const formulaToCommand = new Map(REQUIRED_TOOLS.flatMap(flatMapTool));
+const formulaToCommand = new Map(REQUIRED_TOOLS.flatMap(listBrewPair));
 /** Build a fake IO over a mutable "present on PATH" set, recording prompts/runs for assertions. */
 function makeIo(toolchainOptions: {
   present: string[];
@@ -102,7 +102,7 @@ function readCommand(tool: {
 const ALL_COMMANDS = REQUIRED_TOOLS.map(readCommand);
 function describeFixHint() {
   function rendersABrewToolAsBrewInstallFormula() {
-    function findTool(tool: {
+    function isPodCommand(tool: {
       label: string;
       command: string;
       tier: 'required' | 'recommended';
@@ -111,7 +111,7 @@ function describeFixHint() {
       return tool.command == 'pod';
     }
 
-    const cocoapods = expectDefined(REQUIRED_TOOLS.find(findTool), 'pod tool');
+    const cocoapods = expectDefined(REQUIRED_TOOLS.find(isPodCommand), 'pod tool');
 
     expect(fixHint(cocoapods)).toBe('brew install cocoapods');
   }
@@ -119,7 +119,7 @@ function describeFixHint() {
   it('renders a brew tool as `brew install <formula>`', rendersABrewToolAsBrewInstallFormula);
 
   function rendersAGuidedToolAsItsGuidePiece() {
-    function findTool2(tool: {
+    function isXcodebuildCommand(tool: {
       label: string;
       command: string;
       tier: 'required' | 'recommended';
@@ -128,7 +128,7 @@ function describeFixHint() {
       return tool.command == 'xcodebuild';
     }
 
-    const xcode = expectDefined(REQUIRED_TOOLS.find(findTool2), 'xcodebuild tool');
+    const xcode = expectDefined(REQUIRED_TOOLS.find(isXcodebuildCommand), 'xcodebuild tool');
 
     expect(fixHint(xcode)).toMatch(/App Store/);
   }
@@ -181,11 +181,11 @@ function describeMissingRequiredToolsTheIsAHomebrewInstallEvenRelevantSignalIssu
   it('is empty when every required tool is present', isEmptyWhenEveryRequiredToolIsPresent);
 
   async function ignoresAMissingRecommendedToolCcacheAbsentIsNotAnInstallPromptGap() {
-    function filterCommand(command: string) {
+    function dropsCcache(command: string) {
       return command != 'ccache';
     }
 
-    const { io } = makeIo({ present: ALL_COMMANDS.filter(filterCommand) });
+    const { io } = makeIo({ present: ALL_COMMANDS.filter(dropsCcache) });
     const toolchainEffect = await runToolchainEffect(missingRequiredTools(io));
 
     expect(toolchainEffect).toEqual([]);
@@ -306,11 +306,11 @@ function describeEnsureToolchain() {
   );
 
   async function installsTheMissingBrewToolsAsOneBatchThenReVerifiesGreen() {
-    function filterCommand2(command: string) {
+    function dropsOpenSslAndPod(command: string) {
       return command != 'openssl' && command != 'pod';
     }
 
-    const present = ALL_COMMANDS.filter(filterCommand2);
+    const present = ALL_COMMANDS.filter(dropsOpenSslAndPod);
     const { io, runs } = makeIo({ present: [...present, 'brew'] });
     const toolchain = ensureToolchain({ io, platform: 'darwin', assumeYes: true });
     const toolchainEffect = await runToolchainEffect(toolchain);
@@ -325,11 +325,11 @@ function describeEnsureToolchain() {
   );
 
   async function bootstrapsHomebrewFirstWhenItSMissingThenInstalls() {
-    function filterCommand3(command: string) {
+    function dropsPodOnly(command: string) {
       return command != 'pod';
     }
 
-    const present = ALL_COMMANDS.filter(filterCommand3); // no pod, no brew
+    const present = ALL_COMMANDS.filter(dropsPodOnly); // no pod, no brew
     const { io, runs } = makeIo({ present });
     const toolchain = ensureToolchain({ io, platform: 'darwin', assumeYes: true });
     const toolchainEffect = await runToolchainEffect(toolchain);
@@ -345,11 +345,11 @@ function describeEnsureToolchain() {
   );
 
   async function returnsFalseAndInstallsNothingWhenTheUserDeclinesTheHomebrewInstaller() {
-    function filterCommand4(command: string) {
+    function dropsPodCommand(command: string) {
       return command != 'pod';
     }
 
-    const present = ALL_COMMANDS.filter(filterCommand4); // no pod, no brew
+    const present = ALL_COMMANDS.filter(dropsPodCommand); // no pod, no brew
     const { io, runs, logs } = makeIo({ present, confirmText: false });
     const toolchain = ensureToolchain({ io, platform: 'darwin' });
     const toolchainEffect = await runToolchainEffect(toolchain);
@@ -365,11 +365,11 @@ function describeEnsureToolchain() {
   );
 
   async function returnsFalseAndInstallsNothingWhenTheUserDeclinesTheBrewBatch() {
-    function filterCommand5(command: string) {
+    function skipsPodBinary(command: string) {
       return command != 'pod';
     }
 
-    const present = ALL_COMMANDS.filter(filterCommand5);
+    const present = ALL_COMMANDS.filter(skipsPodBinary);
     const { io, runs, logs } = makeIo({ present: [...present, 'brew'], confirm: false });
     const toolchain = ensureToolchain({ io, platform: 'darwin' });
     const toolchainEffect = await runToolchainEffect(toolchain);
@@ -385,11 +385,11 @@ function describeEnsureToolchain() {
   );
 
   async function onlyGuidesNeverAutoInstallsWhenTheLoneGapIsXcode() {
-    function filterCommand6(command: string) {
+    function dropsXcodebuild(command: string) {
       return command != 'xcodebuild';
     }
 
-    const present = ALL_COMMANDS.filter(filterCommand6);
+    const present = ALL_COMMANDS.filter(dropsXcodebuild);
     const { io, runs, logs } = makeIo({ present: [...present, 'brew'], confirm: true });
     const toolchain = ensureToolchain({ io, platform: 'darwin', assumeYes: true });
     const toolchainEffect = await runToolchainEffect(toolchain);
@@ -405,11 +405,11 @@ function describeEnsureToolchain() {
   );
 
   async function installsANDConfiguresCcacheWhenItSTheLoneRecommendedGapStillSucceeding() {
-    function filterCommand7(command: string) {
+    function skipsCcacheBinary(command: string) {
       return command != 'ccache';
     }
 
-    const present = ALL_COMMANDS.filter(filterCommand7);
+    const present = ALL_COMMANDS.filter(skipsCcacheBinary);
     const { io, runs } = makeIo({ present: [...present, 'brew'], confirm: true });
     const toolchain = ensureToolchain({ io, platform: 'darwin', assumeYes: true });
     const toolchainEffect = await runToolchainEffect(toolchain);
@@ -418,11 +418,11 @@ function describeEnsureToolchain() {
     expect(runs).toContainEqual(['brew', 'install', 'ccache']);
     expect(runs).toContainEqual(['ccache', '--max-size', '10G']);
 
-    function someR(r: string[]) {
+    function runsCcacheSet(r: string[]) {
       return r[0] == 'ccache' && r[1] == '--set-config';
     }
 
-    expect(runs.some(someR)).toBe(true);
+    expect(runs.some(runsCcacheSet)).toBe(true);
   }
 
   it(
@@ -431,12 +431,12 @@ function describeEnsureToolchain() {
   );
 
   async function stillSucceedsOnlyWarnsWhenCcacheStaysMissingRecommendedNeverFailsTheToolchain() {
-    function filterCommand8(command: string) {
+    function omitsCcacheBinary(command: string) {
       return command != 'ccache';
     }
 
     // brew batch declined, so ccache is never installed; the required tools are all present.
-    const present = ALL_COMMANDS.filter(filterCommand8);
+    const present = ALL_COMMANDS.filter(omitsCcacheBinary);
     const { io, logs } = makeIo({ present: [...present, 'brew'], confirm: false });
     const toolchain = ensureToolchain({ io, platform: 'darwin' });
     const toolchainEffect = await runToolchainEffect(toolchain);
@@ -462,11 +462,11 @@ function describeEnsureCcacheInstalledTheInlineBuildTimeCcacheOffer() {
     expect(runs).toContainEqual(['brew', 'install', 'ccache']);
     expect(runs).toContainEqual(['ccache', '--max-size', '10G']);
 
-    function someR2(r: string[]) {
+    function runsCcacheSetAgain(r: string[]) {
       return r[0] == 'ccache' && r[1] == '--set-config';
     }
 
-    expect(runs.some(someR2)).toBe(true);
+    expect(runs.some(runsCcacheSetAgain)).toBe(true);
   }
 
   it(

@@ -149,27 +149,27 @@ function describeListingPlanner() {
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
 
-    function someA(a: {
+    function isEnglishAppInfoListing(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.startsWith('create listing [en-US] App Info');
+      return plannedAction.description.startsWith('create listing [en-US] App Info');
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isEnglishAppInfoListing)).toBe(true);
 
-    function someA2(a: {
+    function isEnglishVersionListing(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.startsWith('create listing [en-US] App Store version');
+      return plannedAction.description.startsWith('create listing [en-US] App Store version');
     }
 
-    expect(plan.apps[0]?.actions.some(someA2)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isEnglishVersionListing)).toBe(true);
   }
 
   it(

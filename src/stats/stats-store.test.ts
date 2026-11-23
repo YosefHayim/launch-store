@@ -72,11 +72,11 @@ function describeSaveDailyStats() {
     const loadedFile = readFileSync(joinedPath, 'utf8');
     const monthFile = JSON.parse(loadedFile);
 
-    function mapStat(stat: DailyStat) {
+    function readDayFigure(stat: DailyStat) {
       return [stat.date, stat.value];
     }
 
-    expect(monthFile.stats.map(mapStat)).toEqual([
+    expect(monthFile.stats.map(readDayFigure)).toEqual([
       ['2026-10-01', 1],
       ['2026-10-02', 9],
       ['2026-10-03', 3],

@@ -245,11 +245,11 @@ export function parseFastfile(fastfileSource: string): {
 
     const laneSource = fastfileSource.slice(laneSourceStart, laneSourceEnd);
 
-    function filterActionName(actionName: string) {
+    function isKnownActionInLane(actionName: string) {
       return containsAction(laneSource, actionName);
     }
 
-    const laneActions = KNOWN_ACTIONS.filter(filterActionName);
+    const laneActions = KNOWN_ACTIONS.filter(isKnownActionInLane);
     const lanePlatform = findLanePlatform(fastfileSource, laneStartIndex);
     const fastlaneLane: MutableDeep<FastlaneLane> = { name: laneName, actions: laneActions };
 
@@ -258,13 +258,13 @@ export function parseFastfile(fastfileSource: string): {
     fastlaneLanes.push(fastlaneLane);
   }
 
-  function filterActionName2(actionName: string) {
+  function isKnownActionInFile(actionName: string) {
     return containsAction(fastfileSource, actionName);
   }
 
   return {
     lanes: fastlaneLanes,
-    actions: KNOWN_ACTIONS.filter(filterActionName2),
+    actions: KNOWN_ACTIONS.filter(isKnownActionInFile),
   };
 }
 
@@ -598,11 +598,11 @@ export function migrationNotesFor(
   const migrationNotes = laneNotes(fastlaneSetup.lanes);
 
   for (const actionGroup of FASTLANE_ACTION_GROUPS) {
-    function someActionName(actionName: string) {
+    function isActionListed(actionName: string) {
       return fastlaneSetup.actions.includes(actionName);
     }
 
-    const groupPresent = actionGroup.actions.some(someActionName);
+    const groupPresent = actionGroup.actions.some(isActionListed);
 
     if (!groupPresent) continue;
 

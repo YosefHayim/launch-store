@@ -556,19 +556,19 @@ function describeAppleListingPieceRestore() {
 
     const descriptions = report.actions.map(readDescription);
 
-    function someLine(line: string) {
+    function includesListingName(line: string) {
       return line.includes('App Info') && line.includes('name');
     }
 
-    expect(descriptions.some(someLine)).toBe(true);
+    expect(descriptions.some(includesListingName)).toBe(true);
 
-    function someLine2(line: string) {
+    function includesVersionDescription(line: string) {
       return line.includes('App Store version') && line.includes('description');
     }
 
-    expect(descriptions.some(someLine2)).toBe(true);
+    expect(descriptions.some(includesVersionDescription)).toBe(true);
 
-    function everyAction(action: {
+    function isPlannedStep(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -577,7 +577,7 @@ function describeAppleListingPieceRestore() {
       return action.status == 'planned';
     }
 
-    expect(report.actions.every(everyAction)).toBe(true);
+    expect(report.actions.every(isPlannedStep)).toBe(true);
     expect(api.createAppInfoLocalization).toHaveBeenCalledTimes(0);
     expect(api.createVersionLocalization).toHaveBeenCalledTimes(0);
   }
@@ -621,7 +621,7 @@ function describeAppleListingPieceRestore() {
       }),
     );
 
-    function everyAction2(action: {
+    function isAppliedStep(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -630,7 +630,7 @@ function describeAppleListingPieceRestore() {
       return action.status == 'applied';
     }
 
-    expect(report.actions.every(everyAction2)).toBe(true);
+    expect(report.actions.every(isAppliedStep)).toBe(true);
   }
 
   it(
@@ -807,7 +807,7 @@ function describePlayProductsPieceRestore() {
       }),
     );
 
-    function everyAction3(action: {
+    function isAppliedCreate(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -816,7 +816,7 @@ function describePlayProductsPieceRestore() {
       return action.status == 'applied';
     }
 
-    expect(report.actions.every(everyAction3)).toBe(true);
+    expect(report.actions.every(isAppliedCreate)).toBe(true);
   }
 
   it(
@@ -939,7 +939,7 @@ function describePlaySubscriptionsPieceRestore() {
       'activate base plan monthly',
     ]);
 
-    function everyAction4(action: {
+    function isPlannedCreate(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -948,7 +948,7 @@ function describePlaySubscriptionsPieceRestore() {
       return action.status == 'planned';
     }
 
-    expect(report.actions.every(everyAction4)).toBe(true);
+    expect(report.actions.every(isPlannedCreate)).toBe(true);
     expect(api.createSubscription).toHaveBeenCalledTimes(0);
   }
 

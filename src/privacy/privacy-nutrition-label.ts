@@ -12,13 +12,13 @@ export const APP_PRIVACY_STEPS: readonly string[] = [
 ];
 /** Render the App Privacy checklist as printable lines */
 export function appPrivacyChecklist(): string[] {
-  function mapStep(step: string, index: number) {
+  function writeStepLine(step: string, index: number) {
     return `  ${index + 1}. ${step}`;
   }
 
   return [
     "App Privacy 'nutrition label' is UI-only - App Store Connect has no API for it; complete it once per app:",
-    ...APP_PRIVACY_STEPS.map(mapStep),
+    ...APP_PRIVACY_STEPS.map(writeStepLine),
     `  Reference: ${APP_PRIVACY_HELP_URL}`,
   ];
 }

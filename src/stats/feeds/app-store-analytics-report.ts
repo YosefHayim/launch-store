@@ -168,21 +168,21 @@ function pickLatestLines(
   batches: readonly AnalyticsReportBatch[],
   request: AnalyticsReadRequest,
 ): readonly ReportLine[] {
-  function flatMapBatch(batch: AnalyticsReportBatch): RankedLine[] {
+  function rankBatchLines(batch: AnalyticsReportBatch): RankedLine[] {
     const rank = rankBatch(batch.accessType, batch.processingDate);
 
-    function filterLine(line: { readonly [x: string]: string }) {
+    function isWantedLine(line: { readonly [x: string]: string }) {
       return isLineWanted(line, request);
     }
 
-    function mapLine(line: { readonly [x: string]: string }) {
+    function createRankedLine(line: { readonly [x: string]: string }) {
       return { line, date: readLineDate(line), rank };
     }
 
-    return batch.lines.filter(filterLine).map(mapLine);
+    return batch.lines.filter(isWantedLine).map(createRankedLine);
   }
 
-  const rankedLines = batches.flatMap(flatMapBatch);
+  const rankedLines = batches.flatMap(rankBatchLines);
   const bestRankByDate = new Map<string, string>();
 
   for (const rankedLine of rankedLines) {
@@ -198,7 +198,7 @@ function pickLatestLines(
     if (isRankedLineNewer) bestRankByDate.set(rankedLine.date, rankedLine.rank);
   }
 
-  function filterRankedLine(rankedLine: RankedLine) {
+  function isBestRank(rankedLine: RankedLine) {
     return rankedLine.rank == bestRankByDate.get(rankedLine.date);
   }
 
@@ -206,7 +206,7 @@ function pickLatestLines(
     return rankedLine.line;
   }
 
-  return rankedLines.filter(filterRankedLine).map(readLine);
+  return rankedLines.filter(isBestRank).map(readLine);
 }
 
 function isLineCounted(line: ReportLine, rule: AnalyticsMetricRule): boolean {
@@ -220,28 +220,28 @@ function groupLinesByDate(
 ): ReadonlyMap<string, readonly ReportLine[]> {
   const dates = new Set(lines.map(readLineDate));
 
-  function mapDate(date: string): readonly [string, readonly ReportLine[]] {
-    function filterLine3(line: ReportLine) {
+  function pairDateLines(date: string): readonly [string, readonly ReportLine[]] {
+    function isLineOnDate(line: ReportLine) {
       return readLineDate(line) == date;
     }
 
-    return [date, lines.filter(filterLine3)];
+    return [date, lines.filter(isLineOnDate)];
   }
 
-  return new Map([...dates].map(mapDate));
+  return new Map([...dates].map(pairDateLines));
 }
 
 function createRuleStats(
   lines: readonly ReportLine[],
   rule: AnalyticsMetricRule,
 ): readonly DailyStat[] {
-  function filterLine2(line: { readonly [x: string]: string }) {
+  function isCountedLine(line: { readonly [x: string]: string }) {
     return isLineCounted(line, rule);
   }
 
-  const linesByDate = groupLinesByDate(lines.filter(filterLine2));
+  const linesByDate = groupLinesByDate(lines.filter(isCountedLine));
 
-  function mapPiece([date, dateLines]: [
+  function createDailyStat([date, dateLines]: [
     string,
     readonly Readonly<Record<string, string>>[],
   ]): DailyStat {
@@ -256,7 +256,7 @@ function createRuleStats(
     };
   }
 
-  return [...linesByDate.entries()].map(mapPiece);
+  return [...linesByDate.entries()].map(createDailyStat);
 }
 
 function findLatestDate(lines: readonly ReportLine[]): string | null {
@@ -264,13 +264,13 @@ function findLatestDate(lines: readonly ReportLine[]): string | null {
 
   if (dates.length == 0) return null;
 
-  function reduceLatestDate(latestDate: string, date: string) {
+  function pickLaterDate(latestDate: string, date: string) {
     if (date > latestDate) return date;
 
     return latestDate;
   }
 
-  return dates.reduce(reduceLatestDate);
+  return dates.reduce(pickLaterDate);
 }
 
 /** Daily stats of one app from downloaded analytics segments; counts of the app's lines are summed per date. */
@@ -286,17 +286,17 @@ export function summarizeAnalyticsBatches(
   const linesByKind = new Map<AnalyticsReportKind, readonly ReportLine[]>();
 
   for (const kind of kinds) {
-    function filterBatch(batch: AnalyticsReportBatch) {
+    function isSameKind(batch: AnalyticsReportBatch) {
       return batch.kind == kind;
     }
 
-    const kindBatches = batches.filter(filterBatch);
+    const kindBatches = batches.filter(isSameKind);
     const latestLines = pickLatestLines(kindBatches, request);
 
     linesByKind.set(kind, latestLines);
   }
 
-  function flatMapRule(rule: AnalyticsMetricRule) {
+  function readRuleStats(rule: AnalyticsMetricRule) {
     const kindLines = linesByKind.get(rule.kind);
 
     if (kindLines == null) return [];
@@ -304,7 +304,7 @@ export function summarizeAnalyticsBatches(
     return createRuleStats(kindLines, rule);
   }
 
-  const stats = ANALYTICS_METRIC_RULES.flatMap(flatMapRule);
+  const stats = ANALYTICS_METRIC_RULES.flatMap(readRuleStats);
   const allLines = [...linesByKind.values()].flat();
 
   return { stats, latestDate: findLatestDate(allLines) };

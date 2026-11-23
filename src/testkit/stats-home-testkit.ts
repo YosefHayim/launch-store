@@ -44,18 +44,18 @@ export function writeStatsMonthFiles(
   appKey: string,
   stats: readonly DailyStat[],
 ): void {
-  function mapDailyStat(dailyStat: DailyStat) {
+  function readStatMonth(dailyStat: DailyStat) {
     return dailyStat.date.slice(0, 7);
   }
 
-  const months = [...new Set(stats.map(mapDailyStat))];
+  const months = [...new Set(stats.map(readStatMonth))];
 
   for (const month of months) {
-    function filterDailyStat(dailyStat: DailyStat) {
+    function isStatInMonth(dailyStat: DailyStat) {
       return dailyStat.date.startsWith(month);
     }
 
-    const monthStats = stats.filter(filterDailyStat);
+    const monthStats = stats.filter(isStatInMonth);
     const serialized = JSON.stringify({ version: 1, appKey, month, stats: monthStats });
 
     writeLaunchHomeFile(homeDirectory, `stats/${appKey}/${month}.json`, serialized);

@@ -118,16 +118,16 @@ function describeAccessibilityPlanner() {
 
     expect(plan.direction).toBe('additive');
 
-    function someA(a: {
+    function isAccessibilityDeclaration(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('accessibility declaration');
+      return plannedAction.description.includes('accessibility declaration');
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isAccessibilityDeclaration)).toBe(true);
   }
 
   it(

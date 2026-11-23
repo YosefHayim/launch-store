@@ -7,11 +7,11 @@ function credsCommand() {
 
   registerCredsCommand(program);
 
-  function findCommand(command: Command) {
+  function isCredsCommand(command: Command) {
     return command.name() == 'creds';
   }
 
-  const creds = program.commands.find(findCommand);
+  const creds = program.commands.find(isCredsCommand);
 
   expect(creds).toBeDefined();
 

@@ -156,7 +156,7 @@ function describeCaptureSnapshot() {
       source('boom', 'play', piecePiece8),
     ]);
 
-    function findReport(report: {
+    function hasBoomId(report: {
       readonly id: string;
       readonly title: string;
       readonly store: SnapshotStore;
@@ -165,7 +165,7 @@ function describeCaptureSnapshot() {
       return report.id == 'boom';
     }
 
-    const errored = captureResult.snapshot.reports.find(findReport);
+    const errored = captureResult.snapshot.reports.find(hasBoomId);
 
     expect(errored?.outcome).toEqual({ state: 'errored', error: 'network down' });
     expect(captureResult.errorCount).toBe(1);

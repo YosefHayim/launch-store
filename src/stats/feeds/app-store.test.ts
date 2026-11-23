@@ -275,11 +275,11 @@ function readFetched(reply: FeedOutcome) {
 }
 
 function findStat(stats: readonly DailyStat[], metric: string, date: string) {
-  function findStat2(stat: DailyStat) {
+  function isAskedStat(stat: DailyStat) {
     return stat.metric == metric && stat.date == date;
   }
 
-  return stats.find(findStat2);
+  return stats.find(isAskedStat);
 }
 function describePickStatsPath() {
   function picksSalesReportsWhenTheAccountHasAVendorNumber() {
@@ -589,11 +589,11 @@ function describeAppStoreFeed() {
       currency: 'ILS',
     });
 
-    function filterStat(stat: DailyStat) {
+    function isOctoberEighth(stat: DailyStat) {
       return stat.date == '2026-10-08';
     }
 
-    expect(fetched.stats.filter(filterStat)).toEqual([]);
+    expect(fetched.stats.filter(isOctoberEighth)).toEqual([]);
     expect(fetched.coveredThrough).toBe('2026-10-07');
     expect(calls.getSalesReport).toHaveBeenCalledTimes(3);
   }
@@ -703,12 +703,12 @@ function describeAppStoreFeed() {
       findStat(readFetched(shortRange.reply).stats, 'impressions', '2026-09-02'),
     ).toBeUndefined();
 
-    function mapCall(call: [_appId: string, accessType: string]) {
+    function readAccessType(call: [_appId: string, accessType: string]) {
       return call[1];
     }
 
     const shortRangeAccessTypes = new Set(
-      shortRange.calls.listAnalyticsReportRequests.mock.calls.map(mapCall),
+      shortRange.calls.listAnalyticsReportRequests.mock.calls.map(readAccessType),
     );
 
     expect([...shortRangeAccessTypes]).toEqual(['ONGOING']);

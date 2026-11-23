@@ -341,7 +341,7 @@ function describeReconcileAccessibility() {
     expect(calls.created).toHaveLength(0);
     expect(calls.updated).toHaveLength(0);
 
-    function everyAction(action: {
+    function isPlannedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -350,7 +350,7 @@ function describeReconcileAccessibility() {
       return action.status == 'planned';
     }
 
-    expect(report.actions.every(everyAction)).toBe(true);
+    expect(report.actions.every(isPlannedAction)).toBe(true);
     expect(report.actions).toHaveLength(2); // create + publish, both planned
   }
 
@@ -374,7 +374,7 @@ function describeReconcileAccessibility() {
 
     expect(summary).toEqual({ applied: 0, failed: 1, skipped: 1 });
 
-    function findAction(action: {
+    function isFailedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -383,7 +383,7 @@ function describeReconcileAccessibility() {
       return action.status == 'failed';
     }
 
-    expect(report.actions.find(findAction)?.error).toBe('device family not eligible');
+    expect(report.actions.find(isFailedAction)?.error).toBe('device family not eligible');
   }
 
   it(

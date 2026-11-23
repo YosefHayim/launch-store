@@ -165,7 +165,7 @@ function describePiecePublish() {
 
     expect(historyEntries.map(readId)).toEqual(['second', 'first']);
 
-    function findHistoryPiece(historyEntry: {
+    function isSecondEntry(historyEntry: {
       id: string;
       runtimeVersion: string;
       createdAt: string;
@@ -176,9 +176,9 @@ function describePiecePublish() {
       return historyEntry.id == 'second';
     }
 
-    expect(historyEntries.find(findHistoryPiece)?.active).toBe(true);
+    expect(historyEntries.find(isSecondEntry)?.active).toBe(true);
 
-    function findHistoryPiece2(historyEntry: {
+    function isFirstEntry(historyEntry: {
       id: string;
       runtimeVersion: string;
       createdAt: string;
@@ -189,7 +189,7 @@ function describePiecePublish() {
       return historyEntry.id == 'first';
     }
 
-    expect(historyEntries.find(findHistoryPiece2)?.active).toBe(false);
+    expect(historyEntries.find(isFirstEntry)?.active).toBe(false);
   }
 
   it(
@@ -321,7 +321,7 @@ function describeRepublishUpdate() {
 
     expect(historyEntries[0]?.id).toBe('rollback-id');
 
-    function findHistoryPiece3(historyEntry: {
+    function isMissingEntry(historyEntry: {
       id: string;
       runtimeVersion: string;
       createdAt: string;
@@ -332,7 +332,7 @@ function describeRepublishUpdate() {
       return historyEntry.id == 'bad-id';
     }
 
-    expect(historyEntries.find(findHistoryPiece3)?.active).toBe(false);
+    expect(historyEntries.find(isMissingEntry)?.active).toBe(false);
   }
 
   it(

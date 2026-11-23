@@ -7,20 +7,20 @@ export function alignTableColumns<TableEntry>(
   columns: readonly Column<TableEntry>[],
   tableEntries: readonly TableEntry[],
 ): string {
-  function mapColumn(column: {
+  function readColumnWidth(column: {
     readonly header: string;
     readonly cell: (tableEntry: TableEntry) => string;
   }) {
-    function mapTablePiece2(tableEntry: TableEntry) {
+    function readCellLength(tableEntry: TableEntry) {
       return column.cell(tableEntry).length;
     }
 
-    return Math.max(column.header.length, ...tableEntries.map(mapTablePiece2));
+    return Math.max(column.header.length, ...tableEntries.map(readCellLength));
   }
 
-  const widths = columns.map(mapColumn);
+  const widths = columns.map(readColumnWidth);
 
-  function mapCell(cell: string, columnIndex: number) {
+  function padCell(cell: string, columnIndex: number) {
     const columnWidth = widths[columnIndex];
 
     const isColumnWidthMissing = columnWidth == null;
@@ -31,7 +31,7 @@ export function alignTableColumns<TableEntry>(
   }
 
   function joinCellsIntoLine(cells: readonly string[]): string {
-    return cells.map(mapCell).join('  ').trimEnd();
+    return cells.map(padCell).join('  ').trimEnd();
   }
   function readHeader(column: {
     readonly header: string;
@@ -40,18 +40,18 @@ export function alignTableColumns<TableEntry>(
     return column.header;
   }
 
-  function mapTablePiece(tableEntry: TableEntry) {
-    function mapColumn2(column: {
+  function writeTableLine(tableEntry: TableEntry) {
+    function readColumnCell(column: {
       readonly header: string;
       readonly cell: (tableEntry: TableEntry) => string;
     }) {
       return column.cell(tableEntry);
     }
 
-    return joinCellsIntoLine(columns.map(mapColumn2));
+    return joinCellsIntoLine(columns.map(readColumnCell));
   }
 
-  return [joinCellsIntoLine(columns.map(readHeader)), ...tableEntries.map(mapTablePiece)].join(
+  return [joinCellsIntoLine(columns.map(readHeader)), ...tableEntries.map(writeTableLine)].join(
     '\n',
   );
 }

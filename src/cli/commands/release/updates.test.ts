@@ -7,21 +7,21 @@ function describeRegisterUpdatesCommand() {
 
     registerUpdatesCommand(program);
 
-    function findCommand(command: Command) {
+    function isUpdatesCommand(command: Command) {
       return command.name() == 'updates';
     }
 
-    const updatesCommand = program.commands.find(findCommand);
+    const updatesCommand = program.commands.find(isUpdatesCommand);
 
     expect(updatesCommand).toBeDefined();
 
     if (updatesCommand == null) return;
 
-    function mapCommand(command: Command) {
+    function readCommandName(command: Command) {
       return command.name();
     }
 
-    const subcommandNames = updatesCommand.commands.map(mapCommand);
+    const subcommandNames = updatesCommand.commands.map(readCommandName);
 
     expect(subcommandNames).toEqual(['list', 'view', 'rollback']);
   }
@@ -36,27 +36,27 @@ function describeRegisterUpdatesCommand() {
 
     registerUpdatesCommand(program);
 
-    function findCommand2(command: Command) {
+    function isUpdatesCommand(command: Command) {
       return command.name() == 'updates';
     }
 
-    const updatesCommand = program.commands.find(findCommand2);
+    const updatesCommand = program.commands.find(isUpdatesCommand);
 
     expect(updatesCommand).toBeDefined();
 
     if (updatesCommand == null) return;
 
-    function findCommand3(command: Command) {
+    function isListCommand(command: Command) {
       return command.name() == 'list';
     }
 
-    const listCommand = updatesCommand.commands.find(findCommand3);
+    const listCommand = updatesCommand.commands.find(isListCommand);
 
-    function findCommand4(command: Command) {
+    function isRollbackCommand(command: Command) {
       return command.name() == 'rollback';
     }
 
-    const rollbackCommand = updatesCommand.commands.find(findCommand4);
+    const rollbackCommand = updatesCommand.commands.find(isRollbackCommand);
 
     expect(listCommand).toBeDefined();
     expect(rollbackCommand).toBeDefined();

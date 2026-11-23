@@ -262,7 +262,7 @@ export function renderDraftPreview(
     android: boolean;
   },
 ): string {
-  function mapPiece({
+  function writeLocaleDraft({
     locale,
     draft,
     warnings,
@@ -342,7 +342,7 @@ export function renderDraftPreview(
     return lines.join('\n');
   }
 
-  const localePreviews = listingDrafts.map(mapPiece);
+  const localePreviews = listingDrafts.map(writeLocaleDraft);
 
   return ['listing draft (nothing is written until you confirm):', '', ...localePreviews].join(
     '\n',

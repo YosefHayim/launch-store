@@ -179,7 +179,7 @@ function describeReconcileEuDistributionDomains() {
 
     expect(summary).toEqual({ applied: 1, failed: 1, skipped: 0 });
 
-    function findAction(action: {
+    function isFailedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -188,7 +188,7 @@ function describeReconcileEuDistributionDomains() {
       return action.status == 'failed';
     }
 
-    expect(actions.find(findAction)?.error).toBe('invalid domain');
+    expect(actions.find(isFailedAction)?.error).toBe('invalid domain');
   }
 
   it(

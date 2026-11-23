@@ -90,10 +90,10 @@ export function groupBy<Member>(
   return groups;
 }
 
-async function mapWithConcurrency<Member, Mapped>(
+async function runWithConcurrency<Member, Mapped>(
   members: readonly Member[],
   concurrency: number,
-  mapMember: (member: Member) => Promise<Mapped>,
+  convertItem: (member: Member) => Promise<Mapped>,
 ): Promise<Mapped[]> {
   const mappedMembers: Mapped[] = new Array(members.length);
   let nextIndex = 0;
@@ -112,7 +112,7 @@ async function mapWithConcurrency<Member, Mapped>(
         continue;
       }
 
-      mappedMembers[memberIndex] = await mapMember(member);
+      mappedMembers[memberIndex] = await convertItem(member);
     }
   }
 
@@ -148,7 +148,7 @@ async function reconcileSetsInOrder<SetMember>(
     return setLog;
   }
 
-  const setLogs = await mapWithConcurrency(setGroupsList, setUploadConcurrency, reconcileSetGroup);
+  const setLogs = await runWithConcurrency(setGroupsList, setUploadConcurrency, reconcileSetGroup);
 
   for (const setLog of setLogs) {
     log.actions.push(...setLog.actions);

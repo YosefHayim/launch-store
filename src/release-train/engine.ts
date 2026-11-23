@@ -67,7 +67,7 @@ export function planTrainCars(planInput: TrainCarPlanInput): TrainCarPlan {
   let ota: OtaCarSpec[] = [];
 
   if (!planInput.noOta && planInput.hasCloudStorage) {
-    function mapPlatform(platform: 'ios' | 'android') {
+    function createPlatformUpdate(platform: 'ios' | 'android') {
       return {
         platform,
         channel: planInput.channel,
@@ -75,7 +75,7 @@ export function planTrainCars(planInput: TrainCarPlanInput): TrainCarPlan {
       };
     }
 
-    ota = platforms.map(mapPlatform);
+    ota = platforms.map(createPlatformUpdate);
   }
 
   return { platforms, ota };

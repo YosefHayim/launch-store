@@ -151,17 +151,15 @@ function normalizeGeneratedKeywords(
   if (typeof generatedKeywords == 'string') keywordCandidates = generatedKeywords.split(',');
   else keywordCandidates = generatedKeywords;
 
-  function mapKeywordCandidate(keywordCandidate: string) {
+  function trimKeyword(keywordCandidate: string) {
     return keywordCandidate.trim();
   }
 
-  function filterKeywordCandidate(keywordCandidate: string) {
+  function isKeywordNonEmpty(keywordCandidate: string) {
     return keywordCandidate.length > 0;
   }
 
-  const normalizedKeywords = keywordCandidates
-    .map(mapKeywordCandidate)
-    .filter(filterKeywordCandidate);
+  const normalizedKeywords = keywordCandidates.map(trimKeyword).filter(isKeywordNonEmpty);
 
   if (normalizedKeywords.length == 0) return undefined;
 

@@ -7,11 +7,11 @@ function registeredTestflight(): Command {
 
   registerTestflightCommand(program);
 
-  function findRegisteredCommand(registeredCommand: Command) {
+  function isTestflightCommand(registeredCommand: Command) {
     return registeredCommand.name() == 'testflight';
   }
 
-  const testflightCommand = program.commands.find(findRegisteredCommand);
+  const testflightCommand = program.commands.find(isTestflightCommand);
 
   if (testflightCommand == null) {
     throw new Error('expected testflight command to be registered');
@@ -23,11 +23,11 @@ function describeRegisterTestflightCommand() {
   function attachesTheTestFlightSubcommandTree() {
     const testflightCommand = registeredTestflight();
 
-    function mapRegisteredCommand(registeredCommand: Command) {
+    function copyRegisteredCommand(registeredCommand: Command) {
       return registeredCommand.name();
     }
 
-    const subcommandNames = testflightCommand.commands.map(mapRegisteredCommand);
+    const subcommandNames = testflightCommand.commands.map(copyRegisteredCommand);
 
     expect(subcommandNames).toEqual([
       'groups',
@@ -45,23 +45,23 @@ function describeRegisterTestflightCommand() {
   function wiresMutationFlagsForAddRemoveAndRelease() {
     const testflightCommand = registeredTestflight();
 
-    function findRegisteredCommand2(registeredCommand: Command) {
+    function isAddCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'add';
     }
 
-    const addCommand = testflightCommand.commands.find(findRegisteredCommand2);
+    const addCommand = testflightCommand.commands.find(isAddCommand);
 
-    function findRegisteredCommand3(registeredCommand: Command) {
+    function isRemoveCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'rm';
     }
 
-    const removeCommand = testflightCommand.commands.find(findRegisteredCommand3);
+    const removeCommand = testflightCommand.commands.find(isRemoveCommand);
 
-    function findRegisteredCommand4(registeredCommand: Command) {
+    function isReleaseCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'release';
     }
 
-    const releaseCommand = testflightCommand.commands.find(findRegisteredCommand4);
+    const releaseCommand = testflightCommand.commands.find(isReleaseCommand);
 
     function readLong(option: CommandOption) {
       return option.long;
@@ -109,11 +109,11 @@ function describeRegisterTestflightCommand() {
   function wiresFeedbackFiltersWithoutWriteFlags() {
     const testflightCommand = registeredTestflight();
 
-    function findRegisteredCommand5(registeredCommand: Command) {
+    function isFeedbackCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'feedback';
     }
 
-    const feedbackCommand = testflightCommand.commands.find(findRegisteredCommand5);
+    const feedbackCommand = testflightCommand.commands.find(isFeedbackCommand);
 
     function readLong4(option: CommandOption) {
       return option.long;

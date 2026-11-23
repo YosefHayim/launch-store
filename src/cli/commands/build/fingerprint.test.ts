@@ -7,11 +7,11 @@ function describeRegisterFingerprintCommand() {
 
     registerFingerprintCommand(program);
 
-    function findRegisteredCommand(registeredCommand: Command) {
+    function isFingerprintCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'fingerprint';
     }
 
-    const fingerprintCommand = program.commands.find(findRegisteredCommand);
+    const fingerprintCommand = program.commands.find(isFingerprintCommand);
 
     expect(fingerprintCommand).toBeDefined();
 

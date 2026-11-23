@@ -338,11 +338,11 @@ describe('ga4Feed', () => {
       credentials: credentials,
     });
 
-    function findSent(sent: SentRequest) {
+    function isRunReport(sent: SentRequest) {
       return sent.url == RUN_REPORT_URL;
     }
 
-    const reportRequest = sentRequests.find(findSent);
+    const reportRequest = sentRequests.find(isRunReport);
     const reportQuery = readSentQuery(reportRequest);
 
     expect(reply).toEqual({
@@ -395,11 +395,11 @@ describe('ga4Feed', () => {
       stats: [],
     });
 
-    function someSent(sent: SentRequest) {
+    function isSecondPropertyReport(sent: SentRequest) {
       return sent.url.includes('properties/222:runReport');
     }
 
-    expect(sentRequests.some(someSent)).toBe(true);
+    expect(sentRequests.some(isSecondPropertyReport)).toBe(true);
   }
 
   test('finds the property by Android package name', findsThePropertyByAndroidPackageName);
@@ -440,19 +440,19 @@ describe('ga4Feed', () => {
       credentials: credentials,
     });
 
-    function findSent2(sent: SentRequest) {
+    function isRunReport(sent: SentRequest) {
       return sent.url == RUN_REPORT_URL;
     }
 
-    const reportRequest = sentRequests.find(findSent2);
+    const reportRequest = sentRequests.find(isRunReport);
 
     expect(reply.status).toBe('fetched');
 
-    function someSent2(sent: SentRequest) {
+    function isAccountSummariesRequest(sent: SentRequest) {
       return sent.url == ACCOUNT_SUMMARIES_URL;
     }
 
-    expect(sentRequests.some(someSent2)).toBe(false);
+    expect(sentRequests.some(isAccountSummariesRequest)).toBe(false);
 
     const sentQuery = readSentQuery(reportRequest);
 
@@ -475,11 +475,11 @@ describe('ga4Feed', () => {
       credentials: credentials,
     });
 
-    function findSent3(sent: SentRequest) {
+    function isRunReport(sent: SentRequest) {
       return sent.url == RUN_REPORT_URL;
     }
 
-    const reportRequest = sentRequests.find(findSent3);
+    const reportRequest = sentRequests.find(isRunReport);
 
     expect(reply.status == 'fetched' && reply.notes).toEqual([
       'GA4 property 111 has no stream for this app, so the numbers cover the whole property',
@@ -545,11 +545,11 @@ describe('ga4Feed', () => {
 
     expect(reply.status).toBe('fetched');
 
-    function someSent3(sent: SentRequest) {
+    function isSecondStreamsPage(sent: SentRequest) {
       return sent.url.endsWith('pageToken=streams-2');
     }
 
-    expect(sentRequests.some(someSent3)).toBe(true);
+    expect(sentRequests.some(isSecondStreamsPage)).toBe(true);
   }
 
   test('pages the account summaries and data streams', pagesTheAccountSummariesAndPieceStreams);
@@ -568,16 +568,16 @@ describe('ga4Feed', () => {
       credentials: credentials,
     });
 
-    function filterSent(sent: SentRequest) {
+    function isRunReport(sent: SentRequest) {
       return sent.url == RUN_REPORT_URL;
     }
 
-    function mapSent(sent: SentRequest) {
+    function readSentDocument(sent: SentRequest) {
       const asString = String(sent.sentDocument);
       return JSON.parse(asString);
     }
 
-    const reportQueries = sentRequests.filter(filterSent).map(mapSent);
+    const reportQueries = sentRequests.filter(isRunReport).map(readSentDocument);
 
     expect(reportQueries.map((reportQuery) => reportQuery.offset)).toEqual(['0', '1']);
     expect(reply.status == 'fetched' && reply.stats).toHaveLength(6);

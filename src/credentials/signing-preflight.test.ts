@@ -236,7 +236,7 @@ function describeSigningPreflightDoctorChecks() {
       title: 'App Groups require portal setup',
     });
 
-    function filterCheck(check: {
+    function isFailingCheck(check: {
       readonly status: 'ok' | 'info' | 'fail';
       readonly title: string;
       readonly detail?: string;
@@ -245,9 +245,9 @@ function describeSigningPreflightDoctorChecks() {
       return check.status == 'fail';
     }
 
-    expect(checks.filter(filterCheck)).toHaveLength(2);
+    expect(checks.filter(isFailingCheck)).toHaveLength(2);
 
-    function someCheck(check: {
+    function mentionsAppGroups(check: {
       readonly status: 'ok' | 'info' | 'fail';
       readonly title: string;
       readonly detail?: string;
@@ -256,9 +256,9 @@ function describeSigningPreflightDoctorChecks() {
       return check.detail?.includes('APP_GROUPS');
     }
 
-    expect(checks.some(someCheck)).toBe(true);
+    expect(checks.some(mentionsAppGroups)).toBe(true);
 
-    function someCheck2(check: {
+    function mentionsUnregistered(check: {
       readonly status: 'ok' | 'info' | 'fail';
       readonly title: string;
       readonly detail?: string;
@@ -267,7 +267,7 @@ function describeSigningPreflightDoctorChecks() {
       return check.detail?.includes('not registered');
     }
 
-    expect(checks.some(someCheck2)).toBe(true);
+    expect(checks.some(mentionsUnregistered)).toBe(true);
   }
 
   it(

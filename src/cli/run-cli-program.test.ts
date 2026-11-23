@@ -22,13 +22,13 @@ function captureStdoutLines() {
 
     writtenText.push(asString);
 
-    function findWriteArgument(
+    function isWriteCallback(
       writeArgument: BufferEncoding | ((err?: Error | null) => void) | undefined,
     ) {
       return typeof writeArgument == 'function';
     }
 
-    const writeDone = writeArguments.find(findWriteArgument);
+    const writeDone = writeArguments.find(isWriteCallback);
 
     writeDone?.();
 
@@ -37,16 +37,16 @@ function captureStdoutLines() {
 
   vi.spyOn(process.stdout, 'write').mockImplementation(mockImplementationChunk);
 
-  function filterPieceLine(outputLine: string) {
+  function isFilledLine(outputLine: string) {
     return outputLine.length > 0;
   }
 
-  function mapPieceLine(outputLine: string) {
+  function parseOutputLine(outputLine: string) {
     return JSON.parse(outputLine);
   }
 
   function readEvents() {
-    return writtenText.join('').split('\n').filter(filterPieceLine).map(mapPieceLine);
+    return writtenText.join('').split('\n').filter(isFilledLine).map(parseOutputLine);
   }
 
   return readEvents;

@@ -29,11 +29,11 @@ export function readNumberCell(line: ReportLine, column: string): number {
 }
 
 export function sumColumn(lines: readonly ReportLine[], column: string): number {
-  function reduceTotal(total: number, line: { readonly [x: string]: string }) {
+  function addCellNumber(total: number, line: { readonly [x: string]: string }) {
     return total + readNumberCell(line, column);
   }
 
-  return lines.reduce(reduceTotal, 0);
+  return lines.reduce(addCellNumber, 0);
 }
 
 export function readTotal<Key>(totals: ReadonlyMap<Key, number>, key: Key): number {

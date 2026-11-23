@@ -84,16 +84,16 @@ function describeReleasePiecePlanner() {
     expect(plan.direction).toBe('two-way');
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
 
-    function someA(a: {
+    function isSetAppPrice(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('set app price');
+      return plannedAction.description.includes('set app price');
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isSetAppPrice)).toBe(true);
   }
 
   it(

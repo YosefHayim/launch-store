@@ -150,11 +150,11 @@ function describeDefinePiece() {
     const define = defineConfig(input);
     const violations = validateConfig(define);
 
-    function someViolation(violation: { path: string; message: string }) {
+    function isUnknownProfileProperty(violation: { path: string; message: string }) {
       return violation.path == 'profile' && violation.message.includes('unknown property');
     }
 
-    expect(violations.some(someViolation)).toBe(true);
+    expect(violations.some(isUnknownProfileProperty)).toBe(true);
   }
 
   it(

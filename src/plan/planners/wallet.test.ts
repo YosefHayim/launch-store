@@ -69,16 +69,16 @@ function describeWalletPlanner() {
 
     expect(plan.direction).toBe('additive');
 
-    function someA(a: {
+    function isMerchantIdAction(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('merchant id');
+      return plannedAction.description.includes('merchant id');
     }
 
-    expect(plan.actions.some(someA)).toBe(true);
+    expect(plan.actions.some(isMerchantIdAction)).toBe(true);
   }
 
   it(

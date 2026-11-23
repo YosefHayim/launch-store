@@ -216,11 +216,11 @@ function describeReadinessCommandProgram() {
 
     await runReadinessCommand({ category: 'submit', labels: LABELS }, terminalWrites);
 
-    function someLine(line: string) {
+    function includesAllClearLine(line: string) {
       return line.includes('Test readiness: all clear');
     }
 
-    expect(terminalWrites.some(someLine)).toBe(true);
+    expect(terminalWrites.some(includesAllClearLine)).toBe(true);
   }
 
   it(

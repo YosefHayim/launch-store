@@ -7,11 +7,11 @@ function describeRegisterGameCenterCommand() {
 
     registerGameCenterCommand(program);
 
-    function findRegisteredCommand(registeredCommand: Command) {
+    function isGameCenterCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'game-center';
     }
 
-    const gameCenterCommand = program.commands.find(findRegisteredCommand);
+    const gameCenterCommand = program.commands.find(isGameCenterCommand);
 
     expect(gameCenterCommand).toBeDefined();
 

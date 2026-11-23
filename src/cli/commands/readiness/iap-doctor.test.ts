@@ -7,19 +7,19 @@ function describeRegisterIapCommand() {
 
     registerIapCommand(program);
 
-    function findCommand(command: Command) {
+    function isIapCommand(command: Command) {
       return command.name() == 'iap';
     }
 
-    const iap = program.commands.find(findCommand);
+    const iap = program.commands.find(isIapCommand);
 
     expect(iap).toBeDefined();
 
-    function findCommand2(command: Command) {
+    function isDoctorCommand(command: Command) {
       return command.name() == 'doctor';
     }
 
-    const doctor = iap?.commands.find(findCommand2);
+    const doctor = iap?.commands.find(isDoctorCommand);
 
     expect(doctor).toBeDefined();
 

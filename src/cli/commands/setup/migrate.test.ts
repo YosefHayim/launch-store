@@ -7,19 +7,19 @@ function subcommand(name: string) {
 
   registerMigrateCommand(program);
 
-  function findCommand(command: Command) {
+  function isMigrateCommand(command: Command) {
     return command.name() == 'migrate';
   }
 
-  const migrate = program.commands.find(findCommand);
+  const migrate = program.commands.find(isMigrateCommand);
 
   expect(migrate).toBeDefined();
 
-  function findCommand2(command: Command) {
+  function hasSubcommandName(command: Command) {
     return command.name() == name;
   }
 
-  return migrate?.commands.find(findCommand2);
+  return migrate?.commands.find(hasSubcommandName);
 }
 function describeRegisterMigrateCommand() {
   function attachesAMigrateGroupWithEasAndFastlaneSubcommands() {
@@ -27,17 +27,17 @@ function describeRegisterMigrateCommand() {
 
     registerMigrateCommand(program);
 
-    function findCommand3(command: Command) {
+    function isMigrateCommand(command: Command) {
       return command.name() == 'migrate';
     }
 
-    const migrate = program.commands.find(findCommand3);
+    const migrate = program.commands.find(isMigrateCommand);
 
-    function mapCommand(command: Command) {
+    function readCommandName(command: Command) {
       return command.name();
     }
 
-    expect(migrate?.commands.map(mapCommand)).toEqual(['eas', 'fastlane']);
+    expect(migrate?.commands.map(readCommandName)).toEqual(['eas', 'fastlane']);
   }
 
   it(

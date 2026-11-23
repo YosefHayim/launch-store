@@ -107,16 +107,16 @@ function describeAvailabilityPlanner() {
 
     expect(plan.direction).toBe('two-way');
 
-    function someA(a: {
+    function isStoreAvailability(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('store availability');
+      return plannedAction.description.includes('store availability');
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isStoreAvailability)).toBe(true);
   }
 
   it(

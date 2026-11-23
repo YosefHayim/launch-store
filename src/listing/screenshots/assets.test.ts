@@ -128,7 +128,7 @@ function describeDiscoverScreenshots() {
 
     const shots = await discoverScreenshots(appDir);
 
-    function mapS(
+    function listShotIdentity(
       s: LocalAsset & {
         readonly locale: string;
         readonly displayType: string;
@@ -137,14 +137,14 @@ function describeDiscoverScreenshots() {
       return [s.locale, s.displayType, s.fileName];
     }
 
-    expect(shots.map(mapS)).toEqual([
+    expect(shots.map(listShotIdentity)).toEqual([
       ['de-DE', 'APP_IPHONE_67', '01.png'],
       ['en-US', 'APP_DESKTOP', 'mac.jpg'],
       ['en-US', 'APP_IPHONE_67', '01.png'],
       ['en-US', 'APP_IPHONE_67', '02.png'],
     ]);
 
-    function findS(
+    function isEnglishShot(
       s: LocalAsset & {
         readonly locale: string;
         readonly displayType: string;
@@ -153,7 +153,7 @@ function describeDiscoverScreenshots() {
       return s.locale == 'en-US' && s.fileName == '01.png';
     }
 
-    const iphone01 = shots.find(findS);
+    const iphone01 = shots.find(isEnglishShot);
 
     expect(iphone01?.checksum).toBe(md5('one'));
     expect(iphone01?.size).toBe(3);
@@ -226,7 +226,7 @@ function describeDiscoverPreviews() {
 
     const previews = await discoverPreviews(appDir);
 
-    function mapP(
+    function listPreviewIdentity(
       p: LocalAsset & {
         readonly locale: string;
         readonly previewType: string;
@@ -235,14 +235,14 @@ function describeDiscoverPreviews() {
       return [p.locale, p.previewType, p.fileName];
     }
 
-    expect(previews.map(mapP)).toEqual([
+    expect(previews.map(listPreviewIdentity)).toEqual([
       ['de-DE', 'IPHONE_67', '01.mp4'],
       ['en-US', 'DESKTOP', 'mac.m4v'],
       ['en-US', 'IPHONE_67', '01.mov'],
       ['en-US', 'IPHONE_67', '02.mp4'],
     ]);
 
-    function findP(
+    function isEnglishPreview(
       p: LocalAsset & {
         readonly locale: string;
         readonly previewType: string;
@@ -251,7 +251,7 @@ function describeDiscoverPreviews() {
       return p.locale == 'en-US' && p.fileName == '01.mov';
     }
 
-    const iphone01 = previews.find(findP);
+    const iphone01 = previews.find(isEnglishPreview);
 
     expect(iphone01?.checksum).toBe(md5('one'));
     expect(iphone01?.size).toBe(3);

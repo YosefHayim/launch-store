@@ -182,16 +182,16 @@ function describeCatalogPlanner() {
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
 
-    function someA(a: {
+    function isCreateCoinsPurchase(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('create in-app purchase com.acme.coins');
+      return plannedAction.description.includes('create in-app purchase com.acme.coins');
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isCreateCoinsPurchase)).toBe(true);
   }
 
   it(

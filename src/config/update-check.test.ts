@@ -222,11 +222,11 @@ function describeMaybeAutoUpgrade() {
     await maybeAutoUpgrade(deps);
     expect(calls.reexec).toBe(0);
 
-    function someNote(note: string) {
+    function includesGlobalInstall(note: string) {
       return note.includes('sudo npm install -g');
     }
 
-    expect(calls.notes.some(someNote)).toBe(true);
+    expect(calls.notes.some(includesGlobalInstall)).toBe(true);
   }
 
   it(

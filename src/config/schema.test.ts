@@ -180,11 +180,11 @@ function describeValidateLaunchPiece() {
   function flagsAMissingProfilesFieldAtItsOwnPath() {
     const violations = validateLaunchConfig({});
 
-    function someViolation(violation: { path: string; message: string }) {
+    function isProfilesPath(violation: { path: string; message: string }) {
       return violation.path == 'profiles';
     }
 
-    expect(violations.some(someViolation)).toBe(true);
+    expect(violations.some(isProfilesPath)).toBe(true);
   }
 
   it('flags a missing profiles field at its own path', flagsAMissingProfilesFieldAtItsOwnPath);
@@ -195,17 +195,17 @@ function describeValidateLaunchPiece() {
       release: { releaseType: 'WHENEVER' },
     });
 
-    function someViolation2(violation: { path: string; message: string }) {
+    function isSizeBudgetPath(violation: { path: string; message: string }) {
       return violation.path == 'profiles.production.sizeBudgetMB';
     }
 
-    expect(violations.some(someViolation2)).toBe(true);
+    expect(violations.some(isSizeBudgetPath)).toBe(true);
 
-    function someViolation3(violation: { path: string; message: string }) {
+    function isReleaseTypePath(violation: { path: string; message: string }) {
       return violation.path == 'release.releaseType';
     }
 
-    expect(violations.some(someViolation3)).toBe(true);
+    expect(violations.some(isReleaseTypePath)).toBe(true);
   }
 
   it('flags malformed nested fields at dotted paths', flagsMalformedNestedFieldsAtDottedPaths);
@@ -218,11 +218,11 @@ function describeValidateLaunchPiece() {
 
     expect(violations).toContainEqual({ path: 'submit.windows', message: 'unknown property' });
 
-    function someViolation4(violation: { path: string; message: string }) {
+    function isSubmitIosPath(violation: { path: string; message: string }) {
       return violation.path == 'submit.ios';
     }
 
-    expect(violations.some(someViolation4)).toBe(false);
+    expect(violations.some(isSubmitIosPath)).toBe(false);
   }
 
   it(
@@ -277,11 +277,11 @@ function describeValidateLaunchPiece() {
       },
     });
 
-    function someViolation5(violation: { path: string; message: string }) {
+    function includesPromotionalOffers(violation: { path: string; message: string }) {
       return violation.path.includes('promotionalOffers');
     }
 
-    expect(violations.some(someViolation5)).toBe(true);
+    expect(violations.some(includesPromotionalOffers)).toBe(true);
   }
 
   it(
@@ -326,11 +326,11 @@ function describeValidateLaunchPiece() {
       },
     });
 
-    function someViolation6(violation: { path: string; message: string }) {
+    function includesPriorityField(violation: { path: string; message: string }) {
       return violation.path.includes('priority');
     }
 
-    expect(violations.some(someViolation6)).toBe(true);
+    expect(violations.some(includesPriorityField)).toBe(true);
   }
 
   it(

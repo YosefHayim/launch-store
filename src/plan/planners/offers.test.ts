@@ -131,16 +131,16 @@ function describeOffersPlanner() {
 
     expect(plan.direction).toBe('additive');
 
-    function someA(a: {
+    function isCreateLaunchOfferCode(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('create offer code "Launch" on com.acme.pro');
+      return plannedAction.description.includes('create offer code "Launch" on com.acme.pro');
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isCreateLaunchOfferCode)).toBe(true);
   }
 
   it(

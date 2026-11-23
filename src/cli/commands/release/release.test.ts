@@ -7,17 +7,17 @@ function describeRegisterReleaseCommandThePieceFlag() {
 
     registerReleaseCommand(program);
 
-    function findCommand(command: Command) {
+    function isReleaseCommand(command: Command) {
       return command.name() == 'release';
     }
 
-    const releaseCommand = program.commands.find(findCommand);
+    const releaseCommand = program.commands.find(isReleaseCommand);
 
-    function findOption(option: CommandOption) {
+    function isJsonOption(option: CommandOption) {
       return option.long == '--json';
     }
 
-    const jsonOption = releaseCommand?.options.find(findOption);
+    const jsonOption = releaseCommand?.options.find(isJsonOption);
 
     expect(jsonOption).toBeDefined();
     expect(jsonOption?.defaultValue).toBe(false);

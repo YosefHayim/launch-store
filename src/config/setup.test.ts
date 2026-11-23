@@ -34,7 +34,7 @@ function describeToolchainReadinessRows() {
   const readinessRows = toolchainReadinessRows(tools, new Set(['pod']));
 
   function marksAPresentToolOkWithNoFixHint() {
-    function findReadinessPiece(readinessRow: {
+    function isPodRow(readinessRow: {
       readonly label: string;
       readonly status: 'todo' | 'ok' | 'info';
       readonly detail?: string;
@@ -42,7 +42,7 @@ function describeToolchainReadinessRows() {
       return readinessRow.label == 'pod';
     }
 
-    expect(readinessRows.find(findReadinessPiece)).toEqual({
+    expect(readinessRows.find(isPodRow)).toEqual({
       label: 'pod',
       status: 'ok',
     });
@@ -51,7 +51,7 @@ function describeToolchainReadinessRows() {
   it('marks a present tool ok with no fix hint', marksAPresentToolOkWithNoFixHint);
 
   function marksAMissingRequiredToolATodoCarryingItsInstallHint() {
-    function findReadinessPiece2(readinessRow: {
+    function isXcodeRow(readinessRow: {
       readonly label: string;
       readonly status: 'todo' | 'ok' | 'info';
       readonly detail?: string;
@@ -59,7 +59,7 @@ function describeToolchainReadinessRows() {
       return readinessRow.label.startsWith('Xcode');
     }
 
-    expect(readinessRows.find(findReadinessPiece2)).toEqual({
+    expect(readinessRows.find(isXcodeRow)).toEqual({
       label: 'Xcode (xcodebuild)',
       status: 'todo',
       detail: 'Install Xcode from the App Store.',
@@ -72,7 +72,7 @@ function describeToolchainReadinessRows() {
   );
 
   function marksAMissingRecommendedToolAdvisoryPieceNeverAGap() {
-    function findReadinessPiece3(readinessRow: {
+    function isCcacheRow(readinessRow: {
       readonly label: string;
       readonly status: 'todo' | 'ok' | 'info';
       readonly detail?: string;
@@ -80,7 +80,7 @@ function describeToolchainReadinessRows() {
       return readinessRow.label == 'ccache';
     }
 
-    const ccacheRow = readinessRows.find(findReadinessPiece3);
+    const ccacheRow = readinessRows.find(isCcacheRow);
 
     expect(ccacheRow?.status).toBe('info');
     expect(ccacheRow?.detail).toContain('brew install ccache');

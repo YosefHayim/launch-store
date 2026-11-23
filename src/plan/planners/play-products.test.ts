@@ -195,16 +195,16 @@ function describePlayProductsPlanner() {
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
 
-    function someA(a: {
+    function isCreateCoinsProduct(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description == 'create Play product com.acme.coins';
+      return plannedAction.description == 'create Play product com.acme.coins';
     }
 
-    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    expect(plan.apps[0]?.actions.some(isCreateCoinsProduct)).toBe(true);
   }
 
   it(

@@ -62,11 +62,11 @@ function describeValidatePiece() {
   function flagsAMissingProfilesAtItsOwnPath() {
     const violations = validateConfig({});
 
-    function someViolation(violation: { path: string; message: string }) {
+    function isProfilesPath(violation: { path: string; message: string }) {
       return violation.path == 'profiles';
     }
 
-    expect(violations.some(someViolation)).toBe(true);
+    expect(violations.some(isProfilesPath)).toBe(true);
   }
 
   it('flags a missing `profiles` at its own path', flagsAMissingProfilesAtItsOwnPath);
@@ -77,11 +77,11 @@ function describeValidatePiece() {
       release: { releaseType: 'WHENEVER' },
     });
 
-    function someViolation2(violation: { path: string; message: string }) {
+    function isReleaseTypePath(violation: { path: string; message: string }) {
       return violation.path == 'release.releaseType';
     }
 
-    expect(violations.some(someViolation2)).toBe(true);
+    expect(violations.some(isReleaseTypePath)).toBe(true);
   }
 
   it('rejects a bad enum value at its field path', rejectsABadEnumPieceAtItsFieldPath);
@@ -91,11 +91,11 @@ function describeValidatePiece() {
       profiles: { production: { name: 'production', sizeBudgetMB: 'big' } },
     });
 
-    function someViolation3(violation: { path: string; message: string }) {
+    function isSizeBudgetPath(violation: { path: string; message: string }) {
       return violation.path == 'profiles.production.sizeBudgetMB';
     }
 
-    expect(violations.some(someViolation3)).toBe(true);
+    expect(violations.some(isSizeBudgetPath)).toBe(true);
   }
 
   it(

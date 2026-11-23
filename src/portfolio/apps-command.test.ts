@@ -277,23 +277,23 @@ function describeAppsListProgramAndAppsTagProgram() {
       return appsListProgram({ platform: 'android', owner: undefined, isJson: false });
     });
 
-    function someLine(line: string) {
+    function mentionsRevokedBeta(line: string) {
       return line.includes('beta: 401 revoked');
     }
 
-    expect(lines.some(someLine)).toBe(true);
+    expect(lines.some(mentionsRevokedBeta)).toBe(true);
 
-    function filterLine(line: string) {
+    function mentionsFitOnPlay(line: string) {
       return line.includes('Fit (com.jts.fit) - Google Play');
     }
 
-    expect(lines.filter(filterLine)).toHaveLength(1);
+    expect(lines.filter(mentionsFitOnPlay)).toHaveLength(1);
 
-    function someLine2(line: string) {
+    function mentionsCalFriend(line: string) {
       return line.includes('Cal Friend AI');
     }
 
-    expect(lines.some(someLine2)).toBe(false);
+    expect(lines.some(mentionsCalFriend)).toBe(false);
   }
 
   test(
@@ -306,11 +306,11 @@ function describeAppsListProgramAndAppsTagProgram() {
       return appsListProgram({ platform: undefined, owner: 'client', isJson: false });
     });
 
-    function someLine3(line: string) {
+    function mentionsNoApps(line: string) {
       return line.includes('No apps found.');
     }
 
-    expect(lines.some(someLine3)).toBe(true);
+    expect(lines.some(mentionsNoApps)).toBe(true);
   }
 
   test('apps list says so when no app matches the filter', appsListSaysSoWhenNoAppMatchesTheFilter);
@@ -340,11 +340,11 @@ function describeAppsListProgramAndAppsTagProgram() {
       return appsTagProgram(TAG_BASE);
     });
 
-    function someLine4(line: string) {
+    function mentionsTaggedCalFriend(line: string) {
       return line.includes('Tagged Cal Friend AI');
     }
 
-    expect(tagged.lines.some(someLine4)).toBe(true);
+    expect(tagged.lines.some(mentionsTaggedCalFriend)).toBe(true);
 
     const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
     const loadedFile = readFileSync(portfolioPath, 'utf8');
@@ -416,11 +416,11 @@ function describeAppsListProgramAndAppsTagProgram() {
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
 
-    function someLine5(line: string) {
+    function mentionsKnownApps(line: string) {
       return line.includes('Known apps: Cal Friend AI, Fit');
     }
 
-    expect(lines.some(someLine5)).toBe(true);
+    expect(lines.some(mentionsKnownApps)).toBe(true);
   }
 
   test(

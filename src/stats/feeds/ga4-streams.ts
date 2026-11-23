@@ -75,6 +75,27 @@ export function findAppStream(
   return appStream;
 }
 
+// Analytics Admin list methods document a maximum pageSize of 200.
+// https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1beta/accountSummaries/list
+const GA4_ADMIN_PAGE_SIZE_MIN = 1;
+const GA4_ADMIN_PAGE_SIZE_MAX = 200;
+
+function clampGa4PageSize(asked: number | null): number {
+  if (asked == null) {
+    return GA4_ADMIN_PAGE_SIZE_MAX;
+  }
+
+  if (asked < GA4_ADMIN_PAGE_SIZE_MIN) {
+    return GA4_ADMIN_PAGE_SIZE_MIN;
+  }
+
+  if (asked > GA4_ADMIN_PAGE_SIZE_MAX) {
+    return GA4_ADMIN_PAGE_SIZE_MAX;
+  }
+
+  return asked;
+}
+
 function createPageUrl(listUrl: string, pageSize: number, pageToken: string | null): string {
   const pageUrl = new URL(listUrl);
   const asString = String(pageSize);
@@ -295,12 +316,20 @@ function streamFromDataStream(
 export async function listAppStreams(
   session: Ga4Session,
   propertyId: string,
+  pageSize?: number,
 ): Promise<readonly Ga4AppStream[]> {
+  let askedPageSize: number | null = null;
+
+  if (pageSize != null) {
+    askedPageSize = pageSize;
+  }
+
+  const searchPageSize = clampGa4PageSize(askedPageSize);
   const pages = await listPages(
     session,
     {
       url: `${ANALYTICS_ADMIN_URL}/properties/${propertyId}/dataStreams`,
-      pageSize: 200,
+      pageSize: searchPageSize,
       propertyId,
     },
     null,
@@ -325,12 +354,12 @@ export async function listAppStreams(
   return streams;
 }
 
-async function listPropertyIds(session: Ga4Session): Promise<readonly string[]> {
+async function listPropertyIds(session: Ga4Session, pageSize: number): Promise<readonly string[]> {
   const pages = await listPages(
     session,
     {
       url: `${ANALYTICS_ADMIN_URL}/accountSummaries`,
-      pageSize: 200,
+      pageSize,
       propertyId: null,
     },
     null,
@@ -361,11 +390,21 @@ async function listPropertyIds(session: Ga4Session): Promise<readonly string[]> 
 }
 
 /** Every app stream of every property the service account can see. */
-export async function listAllAppStreams(session: Ga4Session): Promise<readonly Ga4AppStream[]> {
-  const propertyIds = await listPropertyIds(session);
+export async function listAllAppStreams(
+  session: Ga4Session,
+  pageSize?: number,
+): Promise<readonly Ga4AppStream[]> {
+  let askedPageSize: number | null = null;
+
+  if (pageSize != null) {
+    askedPageSize = pageSize;
+  }
+
+  const searchPageSize = clampGa4PageSize(askedPageSize);
+  const propertyIds = await listPropertyIds(session, searchPageSize);
 
   async function listPropertyStreams(propertyId: string): Promise<readonly Ga4AppStream[]> {
-    return listAppStreams(session, propertyId);
+    return listAppStreams(session, propertyId, searchPageSize);
   }
 
   const streamsPerProperty = await Promise.all(propertyIds.map(listPropertyStreams));

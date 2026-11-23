@@ -140,11 +140,11 @@ export function diagnoseBuildLog(log: string): BuildDiagnosis[] {
   const matched: BuildDiagnosis[] = [];
 
   for (const signature of signatures) {
-    function somePattern(pattern: RegExp) {
+    function patternHitsLog(pattern: RegExp) {
       return pattern.test(log);
     }
 
-    if (signature.match.some(somePattern)) {
+    if (signature.match.some(patternHitsLog)) {
       matched.push({ title: signature.title, cause: signature.cause, fix: signature.fix });
     }
   }
@@ -159,11 +159,11 @@ export function formatDiagnoses(diagnoses: readonly BuildDiagnosis[]): string {
 
   if (diagnoses.length == 1) header = 'Likely cause:';
 
-  function mapDiagnosis(diagnosis: { title: string; cause: string; fix: string }) {
+  function writeDiagnosisBlock(diagnosis: { title: string; cause: string; fix: string }) {
     return `  - ${diagnosis.title}\n    Why: ${diagnosis.cause}\n    Fix: ${diagnosis.fix}`;
   }
 
-  const blocks = diagnoses.map(mapDiagnosis);
+  const blocks = diagnoses.map(writeDiagnosisBlock);
 
   return [header, ...blocks].join('\n');
 }

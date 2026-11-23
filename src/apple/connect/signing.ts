@@ -15,6 +15,7 @@ import {
   AD_HOC_PROFILE_TYPE,
   IOS_DEVICE_PLATFORM,
 } from './shared.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectSigning {
   constructor(private readonly client: AscHost) {}
@@ -24,20 +25,33 @@ export class ConnectSigning {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids
    */
-  async findBundleId(identifier: string): Promise<BundleIdResource | null> {
+  async findBundleId(
+    identifier: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BundleIdResource | null> {
     const uRIComponent = encodeURIComponent(identifier);
     const { data: appleResources } = await this.client.request<
       ResourceList<{
         identifier: string;
         seedId?: string;
       }>
-    >('GET', `/bundleIds?filter[identifier]=${uRIComponent}&limit=200`);
+    >(
+      'GET',
+      applyAppleListQuery(
+        `/bundleIds?filter[identifier]=${uRIComponent}&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function findPiece(entry: { id: string; attributes: { identifier: string; seedId?: string } }) {
+    function hasSameIdentifier(entry: {
+      id: string;
+      attributes: { identifier: string; seedId?: string };
+    }) {
       return entry.attributes.identifier == identifier;
     }
 
-    const exact = appleResources.find(findPiece);
+    const exact = appleResources.find(hasSameIdentifier);
 
     if (!exact) return null;
 
@@ -78,14 +92,22 @@ export class ConnectSigning {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-certificates
    */
-  async listDistributionCertificates(): Promise<CertificateResource[]> {
+  async listDistributionCertificates(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<CertificateResource[]> {
     const appleResources = await this.client.requestAll<{
       serialNumber: string;
       certificateContent: string;
       expirationDate?: string;
-    }>(`/certificates?filter[certificateType]=${DISTRIBUTION_CERT_TYPE}&limit=200`);
+    }>(
+      applyAppleListQuery(
+        `/certificates?filter[certificateType]=${DISTRIBUTION_CERT_TYPE}&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function mapPiece(entry: {
+    function copyDistributionCertificate(entry: {
       id: string;
       attributes: { serialNumber: string; certificateContent: string; expirationDate?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -98,7 +120,7 @@ export class ConnectSigning {
       };
     }
 
-    return appleResources.map(mapPiece);
+    return appleResources.map(copyDistributionCertificate);
   }
 
   /**
@@ -197,14 +219,14 @@ export class ConnectSigning {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-devices
    */
-  async listDevices(): Promise<DeviceResource[]> {
+  async listDevices(listQuery: AppleListQuery | null = null): Promise<DeviceResource[]> {
     const appleResources = await this.client.requestAll<{
       udid: string;
       name: string;
       status?: string;
-    }>('/devices?limit=200');
+    }>(applyAppleListQuery('/devices?limit=200', listQuery, APPLE_PAGE_LIMIT));
 
-    function mapPiece2(entry: {
+    function copyDevice(entry: {
       id: string;
       attributes: { udid: string; name: string; status?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -217,13 +239,13 @@ export class ConnectSigning {
       };
     }
 
-    return appleResources.map(mapPiece2);
+    return appleResources.map(copyDevice);
   }
 
   async findDeviceByUdid(udid: string): Promise<DeviceResource | null> {
     const wanted = udid.toLowerCase();
 
-    function findDevice(device: {
+    function hasSameUdid(device: {
       readonly id: string;
       readonly udid: string;
       readonly name: string;
@@ -232,7 +254,7 @@ export class ConnectSigning {
       return device.udid.toLowerCase() == wanted;
     }
 
-    const matchingDevice = (await this.listDevices()).find(findDevice);
+    const matchingDevice = (await this.listDevices()).find(hasSameUdid);
 
     if (matchingDevice == null) return null;
 
@@ -274,7 +296,7 @@ export class ConnectSigning {
     deviceIds: readonly string[],
     profileType: ProvisioningProfileType = AD_HOC_PROFILE_TYPE,
   ): Promise<ProfileResource> {
-    function mapId(id: string) {
+    function writeDeviceLink(id: string) {
       return { type: 'devices', id };
     }
 
@@ -288,7 +310,7 @@ export class ConnectSigning {
       relationships: {
         bundleId: { data: { type: 'bundleIds', id: bundleIdResourceId } },
         certificates: { data: [{ type: 'certificates', id: certificateId }] },
-        devices: { data: deviceIds.map(mapId) },
+        devices: { data: deviceIds.map(writeDeviceLink) },
       },
     });
 
@@ -317,7 +339,7 @@ export class ConnectSigning {
       `/bundleIds/${bundleIdResourceId}/bundleIdCapabilities?fields[bundleIdCapabilities]=capabilityType,settings`,
     );
 
-    function flatMapCapability(capability: {
+    function readBundleCapability(capability: {
       id: string;
       attributes: { capabilityType?: string; settings?: CapabilitySetting[] | null };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -337,7 +359,7 @@ export class ConnectSigning {
       return [enabledCapability];
     }
 
-    return appleResources.flatMap(flatMapCapability);
+    return appleResources.flatMap(readBundleCapability);
   }
 
   /**
@@ -345,16 +367,23 @@ export class ConnectSigning {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids-_id_-profiles
    */
-  async listProfilesForBundleId(bundleIdResourceId: string): Promise<ProfileResource[]> {
+  async listProfilesForBundleId(
+    bundleIdResourceId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ProfileResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
       uuid?: string;
       profileContent?: string;
     }>(
-      `/bundleIds/${bundleIdResourceId}/profiles?limit=200&fields[profiles]=name,uuid,profileContent`,
+      applyAppleListQuery(
+        `/bundleIds/${bundleIdResourceId}/profiles?limit=200&fields[profiles]=name,uuid,profileContent`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function flatMapProfile(profile: {
+    function readProvisioningProfile(profile: {
       id: string;
       attributes: { name?: string; uuid?: string; profileContent?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -374,7 +403,7 @@ export class ConnectSigning {
       return [{ id: profile.id, name: profileName, uuid: profileUuid, profileContent }];
     }
 
-    return appleResources.flatMap(flatMapProfile);
+    return appleResources.flatMap(readProvisioningProfile);
   }
 
   /**

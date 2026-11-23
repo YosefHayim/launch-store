@@ -153,7 +153,7 @@ export function parsePbxprojTargets(pbxproj: string): DiscoveredTarget[] {
   const configLists = parseConfigurationLists(lines);
   const bundleIdsByConfig = parseBundleIdsByConfig(lines);
 
-  function flatMapTarget(target: {
+  function listTargetWithBundle(target: {
     name: string;
     buildConfigurationListId: string;
     productType: string;
@@ -163,22 +163,22 @@ export function parsePbxprojTargets(pbxproj: string): DiscoveredTarget[] {
 
     if (configuredIds != null) configIds = configuredIds;
 
-    function mapId(id: string) {
+    function readBundleFromSetting(id: string) {
       return bundleIdsByConfig.get(id);
     }
 
-    function findId(id: string | undefined) {
+    function isSettingPresent(id: string | undefined) {
       return id != null;
     }
 
-    const bundleId = configIds.map(mapId).find(findId);
+    const bundleId = configIds.map(readBundleFromSetting).find(isSettingPresent);
 
     if (bundleId == null) return [];
 
     return [{ name: target.name, bundleId, productType: target.productType }];
   }
 
-  return parseNativeTargets(lines).flatMap(flatMapTarget);
+  return parseNativeTargets(lines).flatMap(listTargetWithBundle);
 }
 export function splitMainAndExtensions(
   targets: DiscoveredTarget[],
@@ -187,7 +187,7 @@ export function splitMainAndExtensions(
   main: string | undefined;
   extensions: string[];
 } {
-  function findTarget(target: {
+  function hasMainBundle(target: {
     readonly name: string;
     readonly bundleId: string;
     readonly productType: string;
@@ -195,10 +195,10 @@ export function splitMainAndExtensions(
     return target.bundleId == mainBundleId;
   }
 
-  let main = targets.find(findTarget)?.bundleId;
+  let main = targets.find(hasMainBundle)?.bundleId;
 
   if (main == null) {
-    function findTarget2(target: {
+    function isAppProduct(target: {
       readonly name: string;
       readonly bundleId: string;
       readonly productType: string;
@@ -207,10 +207,10 @@ export function splitMainAndExtensions(
     }
 
     /** The Xcode product type marking the primary app target (everything else is an embedded extension). */
-    main = targets.find(findTarget2)?.bundleId;
+    main = targets.find(isAppProduct)?.bundleId;
   }
 
-  function filterTarget(target: {
+  function isNotMainTarget(target: {
     readonly name: string;
     readonly bundleId: string;
     readonly productType: string;
@@ -226,7 +226,7 @@ export function splitMainAndExtensions(
     return target.bundleId;
   }
 
-  const extensions = targets.filter(filterTarget).map(readBundleId);
+  const extensions = targets.filter(isNotMainTarget).map(readBundleId);
 
   // De-dupe in case Debug/Release configs surfaced the same extension twice, preserving first-seen order.
   return { main, extensions: [...new Set(extensions)] };
@@ -360,21 +360,21 @@ function releaseConfigProfiles(
 
     if (configuredIds != null) configIds = configuredIds;
 
-    function findId2(id: string) {
+    function isReleaseSetting(id: string) {
       return configNames.get(id) == 'Release';
     }
 
-    const releaseConfigId = configIds.find(findId2);
+    const releaseConfigId = configIds.find(isReleaseSetting);
 
-    function mapId2(id: string) {
+    function readBundleFromSetting(id: string) {
       return bundleIdsByConfig.get(id);
     }
 
-    function findId3(id: string | undefined) {
+    function isSettingPresent(id: string | undefined) {
       return id != null;
     }
 
-    const bundleId = configIds.map(mapId2).find(findId3);
+    const bundleId = configIds.map(readBundleFromSetting).find(isSettingPresent);
     let profileName: string | undefined;
 
     if (bundleId != null) profileName = profileByBundleId[bundleId];

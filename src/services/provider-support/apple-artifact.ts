@@ -101,11 +101,11 @@ export function exportOptionsPlist(
     ...signing.extensionProfiles,
   };
 
-  function mapPiece([bundleId, profileName]: [string, string]) {
+  function writeProfilePair([bundleId, profileName]: [string, string]) {
     return `<key>${bundleId}</key><string>${profileName}</string>`;
   }
 
-  const profileEntries = Object.entries(profiles).map(mapPiece);
+  const profileEntries = Object.entries(profiles).map(writeProfilePair);
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',

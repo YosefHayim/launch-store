@@ -33,11 +33,11 @@ export function listMonthsInRange(range: DateRange): string[] {
 
 /** Keep the stats whose day is inside the range, both ends included. */
 export function keepStatsInRange(stats: readonly DailyStat[], range: DateRange): DailyStat[] {
-  function filterStat(stat: DailyStat) {
+  function isStatInRange(stat: DailyStat) {
     return stat.date >= range.from && stat.date <= range.to;
   }
 
-  return stats.filter(filterStat);
+  return stats.filter(isStatInRange);
 }
 
 interface StatGroup {
@@ -66,18 +66,18 @@ function groupByKey<Member>(
 
   const keys = [...new Set(members.map(readKey))].sort(sortFirst);
 
-  function mapKey(key: string) {
-    function filterMember(member: Member) {
+  function readKeyedMembers(key: string) {
+    function hasGroupKey(member: Member) {
       return readKey(member) == key;
     }
 
-    return { key, members: members.filter(filterMember) };
+    return { key, members: members.filter(hasGroupKey) };
   }
 
-  return keys.map(mapKey);
+  return keys.map(readKeyedMembers);
 }
-function flatMapIdentityGroup(identityGroup: KeyedMembers<DailyStat>) {
-  function mapFirstStat(firstStat: DailyStat) {
+function readStatGroup(identityGroup: KeyedMembers<DailyStat>) {
+  function copyStatGroup(firstStat: DailyStat) {
     return {
       feed: firstStat.feed,
       metric: firstStat.metric,
@@ -86,11 +86,11 @@ function flatMapIdentityGroup(identityGroup: KeyedMembers<DailyStat>) {
     };
   }
 
-  return identityGroup.members.slice(0, 1).map(mapFirstStat);
+  return identityGroup.members.slice(0, 1).map(copyStatGroup);
 }
 
 function groupStats(stats: readonly DailyStat[]): StatGroup[] {
-  return groupByKey(stats, createGroupIdentity).flatMap(flatMapIdentityGroup);
+  return groupByKey(stats, createGroupIdentity).flatMap(readStatGroup);
 }
 function sortFirst2(first: DailyStat, second: DailyStat) {
   return first.date.localeCompare(second.date);
@@ -99,12 +99,12 @@ function sortFirst2(first: DailyStat, second: DailyStat) {
 function sortByDate(stats: readonly DailyStat[]): DailyStat[] {
   return [...stats].sort(sortFirst2);
 }
-function reduceRunningTotal(runningTotal: number, stat: DailyStat) {
+function addStatValue(runningTotal: number, stat: DailyStat) {
   return runningTotal + stat.value;
 }
 
 function sumAmounts(stats: readonly DailyStat[]): number {
-  return stats.reduce(reduceRunningTotal, 0);
+  return stats.reduce(addStatValue, 0);
 }
 
 /** Fold the stats of one metric into a single number by the metric's rule: sum, latest or average. */
@@ -126,7 +126,7 @@ export function foldMetricStats(metric: StatsMetric, stats: readonly DailyStat[]
 function readDate(stat: DailyStat) {
   return stat.date;
 }
-function mapGroup(group: StatGroup) {
+function createMetricTotal(group: StatGroup) {
   return {
     feed: group.feed,
     metric: group.metric,
@@ -139,23 +139,23 @@ function mapGroup(group: StatGroup) {
 
 /** One total per feed, metric and currency. Proceeds of different currencies are never mixed. */
 export function foldMetricTotals(stats: readonly DailyStat[]): MetricTotal[] {
-  return groupStats(stats).map(mapGroup);
+  return groupStats(stats).map(createMetricTotal);
 }
-function mapStat(stat: DailyStat) {
+function createDailyPoint(stat: DailyStat) {
   return { date: stat.date, amount: stat.value };
 }
-function mapGroup2(group: StatGroup) {
+function readSeriesFromGroup(group: StatGroup) {
   return {
     feed: group.feed,
     metric: group.metric,
     currency: group.currency,
-    points: sortByDate(group.stats).map(mapStat),
+    points: sortByDate(group.stats).map(createDailyPoint),
   };
 }
 
 /** One daily series per feed, metric and currency, oldest day first. */
 export function createMetricSeries(stats: readonly DailyStat[]): MetricSeries[] {
-  return groupStats(stats).map(mapGroup2);
+  return groupStats(stats).map(readSeriesFromGroup);
 }
 
 /** The totals of the first metric in the list that has any, so Android installs stand in for downloads. */
@@ -164,11 +164,11 @@ export function pickHeadlineTotals(
   preferredMetrics: readonly StatsMetric[],
 ): MetricTotal[] {
   for (const metric of preferredMetrics) {
-    function filterTotal(total: MetricTotal) {
+    function isChosenMetric(total: MetricTotal) {
       return total.metric == metric;
     }
 
-    const metricTotals = totals.filter(filterTotal);
+    const metricTotals = totals.filter(isChosenMetric);
 
     const hasMetricTotals = metricTotals.length > 0;
 
@@ -190,19 +190,19 @@ export function readHeadlineTotal(
 
   if (firstTotal.aggregation != 'sum') return firstTotal.total;
 
-  function reduceRunningTotal2(runningTotal: number, total: MetricTotal) {
+  function addMetricTotal(runningTotal: number, total: MetricTotal) {
     return runningTotal + total.total;
   }
 
-  return headlineTotals.reduce(reduceRunningTotal2, 0);
+  return headlineTotals.reduce(addMetricTotal, 0);
 }
-function filterTotal2(total: MetricTotal) {
+function isProceedsTotal(total: MetricTotal) {
   return total.metric == 'proceeds';
 }
 
 /** The proceeds totals, one per currency. */
 export function listProceedsTotals(totals: readonly MetricTotal[]): MetricTotal[] {
-  return totals.filter(filterTotal2);
+  return totals.filter(isProceedsTotal);
 }
 
 /** One daily series for a headline: the first preferred metric that has points, feeds added per day. */
@@ -211,11 +211,11 @@ export function mergeHeadlinePoints(
   preferredMetrics: readonly StatsMetric[],
 ): DailyPoint[] {
   for (const metric of preferredMetrics) {
-    function filterOneSeries(oneSeries: MetricSeries) {
+    function hasMetricPoints(oneSeries: MetricSeries) {
       return oneSeries.metric == metric && oneSeries.points.length > 0;
     }
 
-    const metricSeries = series.filter(filterOneSeries);
+    const metricSeries = series.filter(hasMetricPoints);
 
     const hasMetricSeries = metricSeries.length > 0;
 
@@ -231,17 +231,17 @@ export function mergeHeadlinePoints(
       return point.date;
     }
 
-    function reduceRunningTotal3(runningTotal: number, point: DailyPoint) {
+    function addPointAmount(runningTotal: number, point: DailyPoint) {
       return runningTotal + point.amount;
     }
-    function mapDateGroup(dateGroup: KeyedMembers<DailyPoint>) {
+    function sumPointsOnDate(dateGroup: KeyedMembers<DailyPoint>) {
       return {
         date: dateGroup.key,
-        amount: dateGroup.members.reduce(reduceRunningTotal3, 0),
+        amount: dateGroup.members.reduce(addPointAmount, 0),
       };
     }
 
-    return groupByKey(allPoints, groupByKeyPoint).map(mapDateGroup);
+    return groupByKey(allPoints, groupByKeyPoint).map(sumPointsOnDate);
   }
 
   return [];
@@ -253,32 +253,34 @@ export function isAppStale(freshness: StatsFreshness, appKey: string): boolean {
 
   if (freshness.report == null) return true;
 
-  function someAppFeed(appFeed: AppFeedSyncReport) {
+  function isAppFeedFailed(appFeed: AppFeedSyncReport) {
     return appFeed.appKey == appKey && appFeed.status == 'failed';
   }
 
-  return freshness.report.appFeeds.some(someAppFeed);
+  return freshness.report.appFeeds.some(isAppFeedFailed);
 }
 
 /** The error and note every feed saved at its last sync for one app, so a fresh cache still explains empty numbers. */
 export function listAppMessages(appCoverage: AppCoverage): string[] {
-  function flatMapFeed(feed: 'app-store' | 'google-play' | 'ga4') {
+  function listFeedMessages(feed: 'app-store' | 'google-play' | 'ga4') {
     const feedCoverage = findFeedCoverage(appCoverage, feed);
 
     const isFeedNeverSynced = feedCoverage == null;
 
     if (isFeedNeverSynced) return [];
 
-    function filterMessage(message: string | null) {
+    function isMessagePresent(message: string | null) {
       return message != null;
     }
 
-    function mapMessage(message: string) {
+    function readFeedMessage(message: string) {
       return `${feed}: ${message}`;
     }
 
-    return [feedCoverage.lastError, feedCoverage.lastNote].filter(filterMessage).map(mapMessage);
+    return [feedCoverage.lastError, feedCoverage.lastNote]
+      .filter(isMessagePresent)
+      .map(readFeedMessage);
   }
 
-  return STATS_FEEDS.flatMap(flatMapFeed);
+  return STATS_FEEDS.flatMap(listFeedMessages);
 }

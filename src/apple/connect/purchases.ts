@@ -34,6 +34,7 @@ import {
   inlinePriceId,
   matchPricePoint,
 } from './shared.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectPurchases {
   constructor(private readonly client: AscHost) {}
@@ -43,17 +44,24 @@ export class ConnectPurchases {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-inapppurchasesv2
    */
-  async listInAppPurchases(appId: string): Promise<InAppPurchaseResource[]> {
+  async listInAppPurchases(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<InAppPurchaseResource[]> {
     const appleResources = await this.client.requestAll<{
       productId?: string;
       name?: string;
       inAppPurchaseType?: string;
       state?: string;
     }>(
-      `/apps/${appId}/inAppPurchasesV2?limit=200&fields[inAppPurchases]=productId,name,inAppPurchaseType,state`,
+      applyAppleListQuery(
+        `/apps/${appId}/inAppPurchasesV2?limit=200&fields[inAppPurchases]=productId,name,inAppPurchaseType,state`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapPurchase(purchase: {
+    function copyInAppPurchase(purchase: {
       id: string;
       attributes: { productId?: string; name?: string; inAppPurchaseType?: string; state?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -83,7 +91,7 @@ export class ConnectPurchases {
       return inAppPurchase;
     }
 
-    return appleResources.map(mapPurchase);
+    return appleResources.map(copyInAppPurchase);
   }
 
   /**
@@ -149,12 +157,21 @@ export class ConnectPurchases {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-subscriptiongroups
    */
-  async listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]> {
+  async listSubscriptionGroups(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<SubscriptionGroupResource[]> {
     const appleResources = await this.client.requestAll<{
       referenceName?: string;
-    }>(`/apps/${appId}/subscriptionGroups?limit=200&fields[subscriptionGroups]=referenceName`);
+    }>(
+      applyAppleListQuery(
+        `/apps/${appId}/subscriptionGroups?limit=200&fields[subscriptionGroups]=referenceName`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function flatMapGroup(group: {
+    function readSubscriptionGroup(group: {
       id: string;
       attributes: { referenceName?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -166,7 +183,7 @@ export class ConnectPurchases {
       return [{ id: group.id, referenceName }];
     }
 
-    return appleResources.flatMap(flatMapGroup);
+    return appleResources.flatMap(readSubscriptionGroup);
   }
 
   /**
@@ -208,17 +225,24 @@ export class ConnectPurchases {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptiongroups-_id_-subscriptions
    */
-  async listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
+  async listSubscriptions(
+    groupId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<SubscriptionResource[]> {
     const appleResources = await this.client.requestAll<{
       productId?: string;
       name?: string;
       subscriptionPeriod?: string;
       state?: string;
     }>(
-      `/subscriptionGroups/${groupId}/subscriptions?limit=200&fields[subscriptions]=productId,name,subscriptionPeriod,state`,
+      applyAppleListQuery(
+        `/subscriptionGroups/${groupId}/subscriptions?limit=200&fields[subscriptions]=productId,name,subscriptionPeriod,state`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapSubscription(subscription: {
+    function copySubscription(subscription: {
       id: string;
       attributes: {
         productId?: string;
@@ -253,7 +277,7 @@ export class ConnectPurchases {
       return subscriptionResource;
     }
 
-    return appleResources.map(mapSubscription);
+    return appleResources.map(copySubscription);
   }
 
   /**
@@ -328,12 +352,19 @@ export class ConnectPurchases {
     subscriptionId: string,
     territory: string,
     customerPrice: number,
+    listQuery: AppleListQuery | null = null,
   ): Promise<PricePointResource | null> {
     const uRIComponent = encodeURIComponent(territory);
     const points = await this.client.requestAll<{
       customerPrice?: string;
       territory?: string;
-    }>(`/subscriptions/${subscriptionId}/pricePoints?filter[territory]=${uRIComponent}&limit=8000`);
+    }>(
+      applyAppleListQuery(
+        `/subscriptions/${subscriptionId}/pricePoints?filter[territory]=${uRIComponent}&limit=8000`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
     return matchPricePoint(points, territory, customerPrice);
   }
@@ -359,13 +390,22 @@ export class ConnectPurchases {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-offercodes
    */
-  async listSubscriptionOfferCodes(subscriptionId: string): Promise<OfferCodeResource[]> {
+  async listSubscriptionOfferCodes(
+    subscriptionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<OfferCodeResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
       active?: boolean;
-    }>(`/subscriptions/${subscriptionId}/offerCodes?limit=200`);
+    }>(
+      applyAppleListQuery(
+        `/subscriptions/${subscriptionId}/offerCodes?limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function mapOfferCode(offerCode: {
+    function copyOfferCode(offerCode: {
       id: string;
       attributes: { name?: string; active?: boolean };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -381,7 +421,7 @@ export class ConnectPurchases {
       return { id: offerCode.id, name: offerName, active };
     }
 
-    return appleResources.map(mapOfferCode);
+    return appleResources.map(copyOfferCode);
   }
 
   /**
@@ -390,7 +430,7 @@ export class ConnectPurchases {
    * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-subscriptionoffercodes
    */
   async createSubscriptionOfferCode(input: OfferCodeCreate): Promise<OfferCodeResource> {
-    function mapPiece(
+    function writeOfferCodePriceLink(
       _: { readonly territory: string; readonly pricePointId: string },
       index: number,
     ) {
@@ -400,7 +440,7 @@ export class ConnectPurchases {
       } as const;
     }
 
-    function mapPrice(
+    function writeOfferCodePrice(
       price: { readonly territory: string; readonly pricePointId: string },
       index: number,
     ) {
@@ -430,11 +470,11 @@ export class ConnectPurchases {
         relationships: {
           subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
           prices: {
-            data: input.prices.map(mapPiece),
+            data: input.prices.map(writeOfferCodePriceLink),
           },
         },
       },
-      included: input.prices.map(mapPrice),
+      included: input.prices.map(writeOfferCodePrice),
     };
     const { data: appleResources } = await this.client.request<
       ResourceSingle<{
@@ -533,13 +573,22 @@ export class ConnectPurchases {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-promotionaloffers
    */
-  async listPromotionalOffers(subscriptionId: string): Promise<PromotionalOfferResource[]> {
+  async listPromotionalOffers(
+    subscriptionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<PromotionalOfferResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
       offerCode?: string;
-    }>(`/subscriptions/${subscriptionId}/promotionalOffers?limit=200`);
+    }>(
+      applyAppleListQuery(
+        `/subscriptions/${subscriptionId}/promotionalOffers?limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function mapOffer(offer: {
+    function copyPromotionalOffer(offer: {
       id: string;
       attributes: { name?: string; offerCode?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -555,7 +604,7 @@ export class ConnectPurchases {
       return { id: offer.id, name: offerName, offerCode };
     }
 
-    return appleResources.map(mapOffer);
+    return appleResources.map(copyPromotionalOffer);
   }
 
   /**
@@ -564,7 +613,7 @@ export class ConnectPurchases {
    * @see https://developer.apple.com/documentation/appstoreconnectapi/post-v1-subscriptionpromotionaloffers
    */
   async createPromotionalOffer(input: PromotionalOfferCreate): Promise<PromotionalOfferResource> {
-    function mapPiece2(
+    function writePromotionalPriceLink(
       _: { readonly territory: string; readonly pricePointId: string },
       index: number,
     ) {
@@ -574,7 +623,7 @@ export class ConnectPurchases {
       } as const;
     }
 
-    function mapPrice2(
+    function writePromotionalPrice(
       price: { readonly territory: string; readonly pricePointId: string },
       index: number,
     ) {
@@ -603,11 +652,11 @@ export class ConnectPurchases {
         relationships: {
           subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
           prices: {
-            data: input.prices.map(mapPiece2),
+            data: input.prices.map(writePromotionalPriceLink),
           },
         },
       },
-      included: input.prices.map(mapPrice2),
+      included: input.prices.map(writePromotionalPrice),
     };
     const { data: appleResources } = await this.client.request<
       ResourceSingle<{
@@ -631,7 +680,10 @@ export class ConnectPurchases {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-introductoryoffers
    */
-  async listIntroductoryOffers(subscriptionId: string): Promise<IntroductoryOfferResource[]> {
+  async listIntroductoryOffers(
+    subscriptionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<IntroductoryOfferResource[]> {
     const { data: appleResources } = await this.client.request<{
       data: {
         id: string;
@@ -643,9 +695,16 @@ export class ConnectPurchases {
           };
         };
       }[];
-    }>('GET', `/subscriptions/${subscriptionId}/introductoryOffers?include=territory&limit=200`);
+    }>(
+      'GET',
+      applyAppleListQuery(
+        `/subscriptions/${subscriptionId}/introductoryOffers?include=territory&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function mapOffer2(offer: {
+    function copyIntroductoryOffer(offer: {
       id: string;
       relationships?: { territory?: { data?: { id: string } | null } };
     }) {
@@ -657,7 +716,7 @@ export class ConnectPurchases {
       return { id: offer.id, territory: territoryId };
     }
 
-    return appleResources.map(mapOffer2);
+    return appleResources.map(copyIntroductoryOffer);
   }
 
   /**
@@ -710,12 +769,21 @@ export class ConnectPurchases {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-subscriptions-_id_-winbackoffers
    */
-  async listWinBackOffers(subscriptionId: string): Promise<WinBackOfferResource[]> {
+  async listWinBackOffers(
+    subscriptionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<WinBackOfferResource[]> {
     const appleResources = await this.client.requestAll<{
       offerId?: string;
-    }>(`/subscriptions/${subscriptionId}/winBackOffers?limit=200`);
+    }>(
+      applyAppleListQuery(
+        `/subscriptions/${subscriptionId}/winBackOffers?limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function mapOffer3(offer: {
+    function copyWinBackOffer(offer: {
       id: string;
       attributes: { offerId?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -727,7 +795,7 @@ export class ConnectPurchases {
       return { id: offer.id, offerId };
     }
 
-    return appleResources.map(mapOffer3);
+    return appleResources.map(copyWinBackOffer);
   }
 
   /**
@@ -761,7 +829,7 @@ export class ConnectPurchases {
     if (input.promotionIntent != null)
       Object.assign(winBackAttributes, { promotionIntent: input.promotionIntent });
 
-    function mapPiece3(
+    function writeWinBackPriceLink(
       _: { readonly territory: string; readonly pricePointId: string },
       index: number,
     ) {
@@ -771,7 +839,7 @@ export class ConnectPurchases {
       } as const;
     }
 
-    function mapPrice3(
+    function writeWinBackPrice(
       price: { readonly territory: string; readonly pricePointId: string },
       index: number,
     ) {
@@ -794,11 +862,11 @@ export class ConnectPurchases {
         relationships: {
           subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
           prices: {
-            data: input.prices.map(mapPiece3),
+            data: input.prices.map(writeWinBackPriceLink),
           },
         },
       },
-      included: input.prices.map(mapPrice3),
+      included: input.prices.map(writeWinBackPrice),
     };
 
     await this.client.request<unknown>('POST', '/winBackOffers', requestDocument);
@@ -810,9 +878,16 @@ export class ConnectPurchases {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-promotedpurchases
    */
-  async listPromotedPurchases(appId: string): Promise<PromotedPurchaseResource[]> {
+  async listPromotedPurchases(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<PromotedPurchaseResource[]> {
     const all: PromotedPurchaseResource[] = [];
-    let next: string | undefined = `/apps/${appId}/promotedPurchases?limit=200`;
+    let next: string | undefined = applyAppleListQuery(
+      `/apps/${appId}/promotedPurchases?limit=200`,
+      listQuery,
+      APPLE_PAGE_LIMIT,
+    );
 
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential
@@ -914,12 +989,12 @@ export class ConnectPurchases {
    * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-apps-_id_-relationships-promotedpurchases
    */
   async reorderPromotedPurchases(appId: string, orderedIds: readonly string[]): Promise<void> {
-    function mapId(id: string) {
+    function writePromotedPurchaseLink(id: string) {
       return { type: 'promotedPurchases', id } as const;
     }
 
     const requestDocument: components['schemas']['AppPromotedPurchasesLinkagesRequest'] = {
-      data: orderedIds.map(mapId),
+      data: orderedIds.map(writePromotedPurchaseLink),
     };
 
     await this.client.request<unknown>(
@@ -957,6 +1032,7 @@ export class ConnectPurchases {
     iapId: string,
     territory: string,
     customerPrice: number,
+    listQuery: AppleListQuery | null = null,
   ): Promise<PricePointResource | null> {
     const uRIComponent = encodeURIComponent(territory);
     const points = await this.client.requestAll<{
@@ -964,7 +1040,11 @@ export class ConnectPurchases {
       territory?: string;
     }>(
       this.client.v2(
-        `/inAppPurchases/${iapId}/pricePoints?filter[territory]=${uRIComponent}&limit=8000`,
+        applyAppleListQuery(
+          `/inAppPurchases/${iapId}/pricePoints?filter[territory]=${uRIComponent}&limit=8000`,
+          listQuery,
+          APPLE_PAGE_LIMIT,
+        ),
       ),
     );
 
@@ -1017,7 +1097,7 @@ export class ConnectPurchases {
       description?: string | null;
     }>(path);
 
-    function flatMapLocalization(localization: {
+    function readProductLocalization(localization: {
       id: string;
       attributes: { locale?: string; name?: string; description?: string | null };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -1042,23 +1122,35 @@ export class ConnectPurchases {
       return [localizedProduct];
     }
 
-    return appleResources.flatMap(flatMapLocalization);
+    return appleResources.flatMap(readProductLocalization);
   }
 
   private async listProductVersions(
     resources: VersionedLocalizationResources,
     parentId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<ProductVersion[]> {
     return this.client.requestAll<{ state?: string; version?: number }>(
-      `${resources.versionsUrl(parentId)}?limit=200`,
+      applyAppleListQuery(
+        `${resources.versionsUrl(parentId)}?limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
   }
 
   private async localizationsOnVersion(
     resources: VersionedLocalizationResources,
     versionId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<LocalizationResource[]> {
-    return this.localizationsFrom(`/${resources.versionType}/${versionId}/localizations?limit=200`);
+    return this.localizationsFrom(
+      applyAppleListQuery(
+        `/${resources.versionType}/${versionId}/localizations?limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
   }
 
   private async findOrCreateDraftVersionId(

@@ -34,14 +34,14 @@ function createVitalsTimeline(
   endDate: string,
   rates: Readonly<Record<string, number | undefined>>,
 ): VitalsTimeline {
-  function mapPiece([date, rate]: [string, number | undefined]) {
+  function readVitalsRow([date, rate]: [string, number | undefined]) {
     return rate == null ? { metric, date } : { metric, date, rate };
   }
 
   return {
     metric,
     window: { startDate: '2026-09-01', endDate },
-    rows: Object.entries(rates).map(mapPiece),
+    rows: Object.entries(rates).map(readVitalsRow),
   };
 }
 
@@ -145,7 +145,7 @@ function createBucketRoutes(
   reportMonths: readonly string[],
   foundObjects: Readonly<Record<string, Uint8Array | 403>>,
 ): HttpRoute[] {
-  function flatMapReportMonth(reportMonth: string) {
+  function listMonthObjectNames(reportMonth: string) {
     return [
       installsObjectName(reportMonth),
       `stats/ratings/ratings_com.fit_${reportMonth}_overview.csv`,
@@ -154,15 +154,15 @@ function createBucketRoutes(
     ];
   }
 
-  const reportObjectNames = reportMonths.flatMap(flatMapReportMonth);
+  const reportObjectNames = reportMonths.flatMap(listMonthObjectNames);
 
-  function filterObjectName(objectName: string) {
+  function isEarningsObject(objectName: string) {
     return objectName.startsWith('earnings/');
   }
 
-  const earningsObjectNames = Object.keys(foundObjects).filter(filterObjectName);
+  const earningsObjectNames = Object.keys(foundObjects).filter(isEarningsObject);
 
-  function mapObjectName(objectName: string) {
+  function createObjectRoute(objectName: string) {
     const found = foundObjects[objectName];
 
     if (found == null) {
@@ -176,9 +176,9 @@ function createBucketRoutes(
     return { method: 'GET', url: objectUrl(objectName), status: 200, body: found };
   }
 
-  return [...reportObjectNames, ...earningsObjectNames].map(mapObjectName);
+  return [...reportObjectNames, ...earningsObjectNames].map(createObjectRoute);
 }
-function mapName(name: string) {
+function createNamedObject(name: string) {
   return { name };
 }
 
@@ -187,7 +187,7 @@ function createEarningsListRoute(objectNames: readonly string[]): HttpRoute {
     method: 'GET',
     url: EARNINGS_LIST_URL,
     status: 200,
-    body: { items: objectNames.map(mapName) },
+    body: { items: objectNames.map(createNamedObject) },
   };
 }
 
@@ -307,11 +307,11 @@ function cleanup() {
 afterEach(cleanup);
 
 function statsOfMetric(stats: readonly DailyStat[], metric: DailyStat['metric']): DailyStat[] {
-  function filterStat(stat: DailyStat) {
+  function isSameMetric(stat: DailyStat) {
     return stat.metric == metric;
   }
 
-  return stats.filter(filterStat);
+  return stats.filter(isSameMetric);
 }
 function describeGooglePlayFeedIsApplicable() {
   function appliesToAndroidAppsOnly() {
@@ -608,11 +608,11 @@ function describeGooglePlayFeedFetchDays() {
   async function notesTheMissingPermissionWhenACSVAnswers403() {
     const routes = createBucketRoutes(['202610'], {});
 
-    function mapRoute(route: HttpRoute) {
+    function markRouteForbidden(route: HttpRoute) {
       return { ...route, status: 403 };
     }
 
-    const forbiddenRoutes = routes.map(mapRoute);
+    const forbiddenRoutes = routes.map(markRouteForbidden);
 
     const reply = await fetchDays(withBucket(), forbiddenRoutes);
 

@@ -58,7 +58,7 @@ export function validateAppleDimensions(
 
   const foundTarget = assetTarget;
 
-  function somePiece([expectedWidth, expectedHeight]: readonly [number, number]) {
+  function acceptsPixelSize([expectedWidth, expectedHeight]: readonly [number, number]) {
     if (width == expectedWidth && height == expectedHeight) return true;
 
     if (foundTarget.dimensions.orientation != 'both') return false;
@@ -66,7 +66,7 @@ export function validateAppleDimensions(
     return width == expectedHeight && height == expectedWidth;
   }
 
-  const dimensionsMatch = foundTarget.dimensions.accepted.some(somePiece);
+  const dimensionsMatch = foundTarget.dimensions.accepted.some(acceptsPixelSize);
 
   if (dimensionsMatch) return { ok: true };
 

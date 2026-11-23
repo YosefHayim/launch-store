@@ -60,11 +60,11 @@ function app(over: Partial<AppDescriptor> = {}): AppDescriptor {
 
 /** The artifact at `path`, asserting it was emitted. */
 function artifact(artifacts: readonly MigrationArtifact[], path: string): MigrationArtifact {
-  function findPiece(entry: { readonly path: string; readonly contents: string }) {
+  function isArtifactAtPath(entry: { readonly path: string; readonly contents: string }) {
     return entry.path == path;
   }
 
-  const found = artifacts.find(findPiece);
+  const found = artifacts.find(isArtifactAtPath);
 
   expect(found, `expected artifact ${path}`).toBeDefined();
 
@@ -73,11 +73,11 @@ function artifact(artifacts: readonly MigrationArtifact[], path: string): Migrat
 
 /** Notes at a given level. */
 function notesAt(notes: readonly MigrationNote[], level: MigrationNoteLevel): MigrationNote[] {
-  function filterNote(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
+  function isNoteAtLevel(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
     return note.level == level;
   }
 
-  return notes.filter(filterNote);
+  return notes.filter(isNoteAtLevel);
 }
 
 function sampleEasConfiguration(): EasJson {
@@ -237,47 +237,47 @@ function describeNotesFromEasConfiguration() {
 
     const informational = notesAt(notes, 'info').map(readMessage3);
 
-    function someMessage(message: string) {
+    function includesProductionProfile(message: string) {
       return message.includes('Build profile "production"');
     }
 
-    expect(mapped.some(someMessage)).toBe(true);
+    expect(mapped.some(includesProductionProfile)).toBe(true);
 
-    function someMessage2(message: string) {
+    function includesAppVersionSetting(message: string) {
       return message.includes('appVersionSource');
     }
 
-    expect(mapped.some(someMessage2)).toBe(true);
+    expect(mapped.some(includesAppVersionSetting)).toBe(true);
 
-    function someMessage3(message: string) {
+    function includesChannelSetting(message: string) {
       return message.includes('channel');
     }
 
-    expect(manual.some(someMessage3)).toBe(true);
+    expect(manual.some(includesChannelSetting)).toBe(true);
 
-    function someMessage4(message: string) {
+    function includesAdHocDistribution(message: string) {
       return message.includes('internal (ad-hoc) distribution');
     }
 
-    expect(manual.some(someMessage4)).toBe(true);
+    expect(manual.some(includesAdHocDistribution)).toBe(true);
 
-    function someMessage5(message: string) {
+    function includesAppleAccountDetails(message: string) {
       return message.includes('Apple account details');
     }
 
-    expect(manual.some(someMessage5)).toBe(true);
+    expect(manual.some(includesAppleAccountDetails)).toBe(true);
 
-    function someMessage6(message: string) {
+    function includesPlayServiceAccount(message: string) {
       return message.includes('Play service account');
     }
 
-    expect(manual.some(someMessage6)).toBe(true);
+    expect(manual.some(includesPlayServiceAccount)).toBe(true);
 
-    function someMessage7(message: string) {
+    function includesAcmePackageName(message: string) {
       return message.includes('com.acme.alpha') && message.includes('package');
     }
 
-    expect(informational.some(someMessage7)).toBe(true);
+    expect(informational.some(includesAcmePackageName)).toBe(true);
   }
 
   it(
@@ -294,11 +294,14 @@ function describeNotesFromEasConfiguration() {
       [],
     );
 
-    function someNote(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
+    function includesUnrecognizedPlayTrack(note: {
+      readonly level: MigrationNoteLevel;
+      readonly message: string;
+    }) {
       return note.message.includes('unrecognized Play track');
     }
 
-    expect(notesAt(notes, 'manual').some(someNote)).toBe(true);
+    expect(notesAt(notes, 'manual').some(includesUnrecognizedPlayTrack)).toBe(true);
   }
 
   it(
@@ -377,23 +380,23 @@ function describeCredentialsSummaryFromPieceNotesFromCredentialsSummary() {
 
     const messages = notes.map(readMessage4);
 
-    function someMessage8(message: string) {
+    function includesDistCertificatePath(message: string) {
       return message.includes('ios/certs/dist.p12');
     }
 
-    expect(messages.some(someMessage8)).toBe(true);
+    expect(messages.some(includesDistCertificatePath)).toBe(true);
 
-    function someMessage9(message: string) {
+    function includesReleaseKeystorePath(message: string) {
       return message.includes('android/release.keystore');
     }
 
-    expect(messages.some(someMessage9)).toBe(true);
+    expect(messages.some(includesReleaseKeystorePath)).toBe(true);
 
-    function someMessage10(message: string) {
+    function includesUploadKeyAlias(message: string) {
       return message.includes('"upload"');
     }
 
-    expect(messages.some(someMessage10)).toBe(true);
+    expect(messages.some(includesUploadKeyAlias)).toBe(true);
 
     const serialized = JSON.stringify(notes);
 
@@ -437,29 +440,29 @@ function describeExpoFactsFromResolvedPieceNotesFromExpoFacts() {
 
     const informational = notesFromExpoFacts('alpha', expoFacts).map(readMessage5);
 
-    function someMessage11(message: string) {
+    function includesEasProjectUuid(message: string) {
       return message.includes('11111111-2222-3333-4444-555555555555');
     }
 
-    expect(informational.some(someMessage11)).toBe(true);
+    expect(informational.some(includesEasProjectUuid)).toBe(true);
 
-    function someMessage12(message: string) {
+    function includesAcmeOrganization(message: string) {
       return message.includes('acme-org');
     }
 
-    expect(informational.some(someMessage12)).toBe(true);
+    expect(informational.some(includesAcmeOrganization)).toBe(true);
 
-    function someMessage13(message: string) {
+    function includesSdkVersionField(message: string) {
       return message.includes('sdkVersion');
     }
 
-    expect(informational.some(someMessage13)).toBe(true);
+    expect(informational.some(includesSdkVersionField)).toBe(true);
 
-    function someMessage14(message: string) {
+    function includesExpoUpdatesBlock(message: string) {
       return message.includes('expo.updates');
     }
 
-    expect(informational.some(someMessage14)).toBe(true);
+    expect(informational.some(includesExpoUpdatesBlock)).toBe(true);
   }
 
   it(
@@ -585,11 +588,14 @@ function describeMigrateEas() {
     expect(prod).toContain('SENTRY_DSN=');
     expect(prod).not.toContain('https://prod');
 
-    function someNote2(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
+    function includesProductionProfileFile(note: {
+      readonly level: MigrationNoteLevel;
+      readonly message: string;
+    }) {
       return note.message.includes('.env.production');
     }
 
-    expect(notesAt(migration.notes, 'mapped').some(someNote2)).toBe(true);
+    expect(notesAt(migration.notes, 'mapped').some(includesProductionProfileFile)).toBe(true);
   }
 
   it(
@@ -612,11 +618,11 @@ function describeMigrateEas() {
 
     const manual = notesAt(migration.notes, 'manual').map(readMessage6);
 
-    function someMessage15(message: string) {
+    function includesStoreFileMention(message: string) {
       return message.includes('store.config.json');
     }
 
-    expect(manual.some(someMessage15)).toBe(true);
+    expect(manual.some(includesStoreFileMention)).toBe(true);
   }
 
   it(
@@ -637,11 +643,14 @@ function describeMigrateEas() {
 
     expect(migration.artifacts.map(readPath2)).not.toContain('store.config.json');
 
-    function someNote3(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
+    function includesSkippedStoreFile(note: {
+      readonly level: MigrationNoteLevel;
+      readonly message: string;
+    }) {
       return note.message.includes('store.config.json');
     }
 
-    expect(notesAt(migration.notes, 'skipped').some(someNote3)).toBe(true);
+    expect(notesAt(migration.notes, 'skipped').some(includesSkippedStoreFile)).toBe(true);
   }
 
   it('skips store.config.json when one already exists', skipsStorePiecePieceWhenOneAlreadyExists);
@@ -653,29 +662,29 @@ function describeMigrateEas() {
 
     const manual = notesAt((await runMigrateEas(dir, [app()])).notes, 'manual').map(readMessage7);
 
-    function someMessage16(message: string) {
+    function includesChannelFollowUp(message: string) {
       return message.includes('channel');
     }
 
-    expect(manual.some(someMessage16)).toBe(true);
+    expect(manual.some(includesChannelFollowUp)).toBe(true);
 
-    function someMessage17(message: string) {
+    function includesAdHocFollowUp(message: string) {
       return message.includes('internal (ad-hoc) distribution');
     }
 
-    expect(manual.some(someMessage17)).toBe(true);
+    expect(manual.some(includesAdHocFollowUp)).toBe(true);
 
-    function someMessage18(message: string) {
+    function includesAppleAccountFollowUp(message: string) {
       return message.includes('Apple account details');
     }
 
-    expect(manual.some(someMessage18)).toBe(true);
+    expect(manual.some(includesAppleAccountFollowUp)).toBe(true);
 
-    function someMessage19(message: string) {
+    function includesPlayAccountFollowUp(message: string) {
       return message.includes('Play service account');
     }
 
-    expect(manual.some(someMessage19)).toBe(true);
+    expect(manual.some(includesPlayAccountFollowUp)).toBe(true);
   }
 
   it(
@@ -710,17 +719,17 @@ function describeMigrateEas() {
 
     const manual = notesAt(migration.notes, 'manual').map(readMessage8);
 
-    function someMessage20(message: string) {
+    function includesCertificateAndCreds(message: string) {
       return message.includes('ios/certs/dist.p12') && message.includes('launch-store creds');
     }
 
-    expect(manual.some(someMessage20)).toBe(true);
+    expect(manual.some(includesCertificateAndCreds)).toBe(true);
 
-    function someMessage21(message: string) {
+    function includesKeystoreAndUpload(message: string) {
       return message.includes('android/release.keystore') && message.includes('"upload"');
     }
 
-    expect(manual.some(someMessage21)).toBe(true);
+    expect(manual.some(includesKeystoreAndUpload)).toBe(true);
 
     const migrationJson = JSON.stringify(migration);
 
@@ -737,11 +746,14 @@ function describeMigrateEas() {
   async function reportsRemoteAppVersionPieceAndDetectedIdsAsNonManual() {
     const migration = await runMigrateEas(dir, [app({ packageName: 'com.acme.alpha' })]);
 
-    function someNote4(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
+    function includesMappedVersionSetting(note: {
+      readonly level: MigrationNoteLevel;
+      readonly message: string;
+    }) {
       return note.message.includes('appVersionSource');
     }
 
-    expect(notesAt(migration.notes, 'mapped').some(someNote4)).toBe(true);
+    expect(notesAt(migration.notes, 'mapped').some(includesMappedVersionSetting)).toBe(true);
 
     function readMessage9(note: { readonly level: MigrationNoteLevel; readonly message: string }) {
       return note.message;
@@ -749,17 +761,17 @@ function describeMigrateEas() {
 
     const informationalNotes = notesAt(migration.notes, 'info').map(readMessage9);
 
-    function someMessage22(message: string) {
+    function includesAcmeBundleId(message: string) {
       return message.includes('com.acme.alpha') && message.includes('bundle id');
     }
 
-    expect(informationalNotes.some(someMessage22)).toBe(true);
+    expect(informationalNotes.some(includesAcmeBundleId)).toBe(true);
 
-    function someMessage23(message: string) {
+    function includesAcmeAndroidPackage(message: string) {
       return message.includes('com.acme.alpha') && message.includes('package');
     }
 
-    expect(informationalNotes.some(someMessage23)).toBe(true);
+    expect(informationalNotes.some(includesAcmeAndroidPackage)).toBe(true);
   }
 
   it(
@@ -802,29 +814,29 @@ function describeMigrateEas() {
 
       const informationalNotes = notesAt(migration.notes, 'info').map(readMessage10);
 
-      function someMessage24(message: string) {
+      function includesRepeatedProjectUuid(message: string) {
         return message.includes('11111111-2222-3333-4444-555555555555');
       }
 
-      expect(informationalNotes.some(someMessage24)).toBe(true);
+      expect(informationalNotes.some(includesRepeatedProjectUuid)).toBe(true);
 
-      function someMessage25(message: string) {
+      function includesRepeatedAcmeOrg(message: string) {
         return message.includes('acme-org');
       }
 
-      expect(informationalNotes.some(someMessage25)).toBe(true);
+      expect(informationalNotes.some(includesRepeatedAcmeOrg)).toBe(true);
 
-      function someMessage26(message: string) {
+      function includesRepeatedSdkVersion(message: string) {
         return message.includes('sdkVersion');
       }
 
-      expect(informationalNotes.some(someMessage26)).toBe(true);
+      expect(informationalNotes.some(includesRepeatedSdkVersion)).toBe(true);
 
-      function someMessage27(message: string) {
+      function includesRepeatedExpoUpdates(message: string) {
         return message.includes('expo.updates');
       }
 
-      expect(informationalNotes.some(someMessage27)).toBe(true);
+      expect(informationalNotes.some(includesRepeatedExpoUpdates)).toBe(true);
     } finally {
       rmSync(appDir, { recursive: true, force: true });
     }

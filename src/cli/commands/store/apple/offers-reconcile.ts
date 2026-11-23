@@ -233,10 +233,10 @@ async function confirmOffersWrite(mutationCount: number, assumeYes: boolean): Pr
   return false;
 }
 
-async function mapWithConcurrency<Member, Mapped>(
+async function runWithConcurrency<Member, Mapped>(
   members: readonly Member[],
   concurrency: number,
-  mapMember: (member: Member) => Promise<Mapped>,
+  convertItem: (member: Member) => Promise<Mapped>,
 ): Promise<Mapped[]> {
   const mappedMembers: Mapped[] = new Array(members.length);
   let nextIndex = 0;
@@ -255,7 +255,7 @@ async function mapWithConcurrency<Member, Mapped>(
         continue;
       }
 
-      mappedMembers[memberIndex] = await mapMember(member);
+      mappedMembers[memberIndex] = await convertItem(member);
     }
   }
 
@@ -327,7 +327,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
       return reconcileOffersJob(appleStore, offersJob, true);
     }
 
-    const planOutcomes = await mapWithConcurrency(offersJobs, offerJobConcurrency, planOffersJob);
+    const planOutcomes = await runWithConcurrency(offersJobs, offerJobConcurrency, planOffersJob);
     let mutationCount = 0;
     let planFailureCount = 0;
 
@@ -419,7 +419,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
       return reconcileOffersJob(appleStore, offersJob, false);
     }
 
-    const applyOutcomes = await mapWithConcurrency(
+    const applyOutcomes = await runWithConcurrency(
       jobsToApply,
       offerJobConcurrency,
       applyOffersJob,

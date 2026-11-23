@@ -171,32 +171,32 @@ function describeCreateStatsReport() {
 
     expect(iosApp?.owner).toBe('mine');
 
-    function findTotal(total: MetricTotal) {
+    function isDownloadsTotal(total: MetricTotal) {
       return total.metric == 'downloads';
     }
 
-    expect(iosApp?.totals.find(findTotal)?.total).toBe(15);
+    expect(iosApp?.totals.find(isDownloadsTotal)?.total).toBe(15);
 
-    function filterTotal(total: MetricTotal) {
+    function isProceedsTotal(total: MetricTotal) {
       return total.metric == 'proceeds';
     }
 
-    const proceeds = iosApp?.totals.filter(filterTotal);
+    const proceeds = iosApp?.totals.filter(isProceedsTotal);
 
-    function mapTotal(total: MetricTotal) {
+    function readCurrencyTotal(total: MetricTotal) {
       return [total.currency, total.total];
     }
 
-    expect(proceeds?.map(mapTotal)).toEqual([
+    expect(proceeds?.map(readCurrencyTotal)).toEqual([
       ['EUR', 2],
       ['USD', 3],
     ]);
 
-    function findSeries(series: MetricSeries) {
+    function isDownloadsSeries(series: MetricSeries) {
       return series.metric == 'downloads';
     }
 
-    const downloadSeries = iosApp?.series.find(findSeries);
+    const downloadSeries = iosApp?.series.find(isDownloadsSeries);
 
     function readAmount(point: DailyPoint) {
       return point.amount;

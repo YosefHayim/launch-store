@@ -11,6 +11,7 @@ import type {
 } from '@/types/apple-catalog.js';
 import type { AscHost } from './host.ts';
 import { readAppEvent, readAppEventLocalization } from './shared.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectEvents {
   constructor(private readonly client: AscHost) {}
@@ -20,12 +21,19 @@ export class ConnectEvents {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appevents
    */
-  async listAppEvents(appId: string): Promise<AppEventResource[]> {
+  async listAppEvents(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppEventResource[]> {
     const appleResources = await this.client.requestAll<AppEventAttributes>(
-      `/apps/${appId}/appEvents?limit=200&fields[appEvents]=referenceName,badge,eventState,primaryLocale,deepLink,priority,purpose`,
+      applyAppleListQuery(
+        `/apps/${appId}/appEvents?limit=200&fields[appEvents]=referenceName,badge,eventState,primaryLocale,deepLink,priority,purpose`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapAppleEvent(appleEvent: {
+    function copyAppEvent(appleEvent: {
       id: string;
       attributes: AppEventAttributes;
       relationships?: { build?: { data?: { id: string } | null } };
@@ -33,7 +41,7 @@ export class ConnectEvents {
       return readAppEvent(appleEvent, '');
     }
 
-    return appleResources.map(mapAppleEvent);
+    return appleResources.map(copyAppEvent);
   }
 
   /**
@@ -41,12 +49,19 @@ export class ConnectEvents {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appevents-_id_-localizations
    */
-  async listAppEventLocalizations(eventId: string): Promise<AppEventLocalizationResource[]> {
+  async listAppEventLocalizations(
+    eventId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppEventLocalizationResource[]> {
     const appleResources = await this.client.requestAll<AppEventLocalizationAttributes>(
-      `/appEvents/${eventId}/localizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
+      applyAppleListQuery(
+        `/appEvents/${eventId}/localizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapLocalization(localization: {
+    function copyAppEventLocalization(localization: {
       id: string;
       attributes: AppEventLocalizationAttributes;
       relationships?: { build?: { data?: { id: string } | null } };
@@ -54,7 +69,7 @@ export class ConnectEvents {
       return readAppEventLocalization(localization, '');
     }
 
-    return appleResources.map(mapLocalization);
+    return appleResources.map(copyAppEventLocalization);
   }
 
   /**

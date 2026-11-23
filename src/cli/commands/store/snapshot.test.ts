@@ -8,19 +8,19 @@ function snapshotSubcommand(commandName: string) {
 
   registerSnapshotCommand(program);
 
-  function findRegisteredCommand(registeredCommand: Command) {
+  function isSnapshotCommand(registeredCommand: Command) {
     return registeredCommand.name() == 'snapshot';
   }
 
-  const snapshotCommand = program.commands.find(findRegisteredCommand);
+  const snapshotCommand = program.commands.find(isSnapshotCommand);
 
   expect(snapshotCommand).toBeDefined();
 
-  function findRegisteredCommand2(registeredCommand: Command) {
+  function isNamedSnapshotCommand(registeredCommand: Command) {
     return registeredCommand.name() == commandName;
   }
 
-  return snapshotCommand?.commands.find(findRegisteredCommand2);
+  return snapshotCommand?.commands.find(isNamedSnapshotCommand);
 }
 function describeRegisterSnapshotCommand() {
   function registersEverySnapshotOperation() {
@@ -28,17 +28,17 @@ function describeRegisterSnapshotCommand() {
 
     registerSnapshotCommand(program);
 
-    function findRegisteredCommand3(registeredCommand: Command) {
+    function isSnapshotCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'snapshot';
     }
 
-    const snapshotCommand = program.commands.find(findRegisteredCommand3);
+    const snapshotCommand = program.commands.find(isSnapshotCommand);
 
-    function mapRegisteredCommand(registeredCommand: Command) {
+    function copyRegisteredCommand(registeredCommand: Command) {
       return registeredCommand.name();
     }
 
-    const operationNames = snapshotCommand?.commands.map(mapRegisteredCommand).sort();
+    const operationNames = snapshotCommand?.commands.map(copyRegisteredCommand).sort();
 
     expect(operationNames).toEqual([
       'create',

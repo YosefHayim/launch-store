@@ -55,10 +55,10 @@ interface CsvDownload {
   readonly reply: Awaited<ReturnType<typeof downloadBucketObject>>;
 }
 
-async function mapInChunks<Piece, MappedPiece>(
+async function runInChunks<Piece, MappedPiece>(
   pieces: readonly Piece[],
   chunkSize: number,
-  mapPiece: (piece: Piece) => Promise<MappedPiece>,
+  convertItem: (piece: Piece) => Promise<MappedPiece>,
 ): Promise<MappedPiece[]> {
   const isDone = pieces.length == 0;
 
@@ -67,9 +67,9 @@ async function mapInChunks<Piece, MappedPiece>(
   }
 
   const chunk = pieces.slice(0, chunkSize);
-  const mappedChunk = await Promise.all(chunk.map(mapPiece));
+  const mappedChunk = await Promise.all(chunk.map(convertItem));
   const laterPieces = pieces.slice(chunkSize);
-  const laterMapped = await mapInChunks(laterPieces, chunkSize, mapPiece);
+  const laterMapped = await runInChunks(laterPieces, chunkSize, convertItem);
 
   return [...mappedChunk, ...laterMapped];
 }
@@ -136,7 +136,7 @@ async function readMonthlyCsvReports(request: BucketReportsRequest): Promise<Buc
     return { report: reportFile.report, reply };
   }
 
-  const downloads = await mapInChunks(reportFiles, DOWNLOAD_CONCURRENCY, downloadReportFile);
+  const downloads = await runInChunks(reportFiles, DOWNLOAD_CONCURRENCY, downloadReportFile);
 
   function isForbiddenDownload(download: CsvDownload): boolean {
     return download.reply.status == 'forbidden';
@@ -239,7 +239,7 @@ async function readEarningsReports(request: BucketReportsRequest): Promise<
     return downloadBucketObject(bucket, objectName, accessToken);
   }
 
-  const downloads = await mapInChunks(touchedObjectNames, DOWNLOAD_CONCURRENCY, downloadEarnings);
+  const downloads = await runInChunks(touchedObjectNames, DOWNLOAD_CONCURRENCY, downloadEarnings);
 
   function isForbiddenDownload(download: (typeof downloads)[number]): boolean {
     return download.status == 'forbidden';

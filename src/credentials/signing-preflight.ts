@@ -10,7 +10,7 @@ import {
 import {
   appGroupContainers,
   appGroupPortalNotice,
-  mapEntitlementsToCapabilities,
+  readCapabilitiesFromEntitlements,
 } from './capabilities.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { DoctorCheck } from '../types/doctor.ts';
@@ -106,7 +106,7 @@ export async function gatherTargetSigningReadiness(
   extensions: readonly string[],
   entitlements: Record<string, unknown> | undefined,
 ): Promise<TargetSigningReadiness[]> {
-  const required = mapEntitlementsToCapabilities(entitlements).enable;
+  const required = readCapabilitiesFromEntitlements(entitlements).enable;
 
   function extensionRequirement(extensionId: string): TargetRequirement {
     return { id: extensionId, required: [] };

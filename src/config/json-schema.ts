@@ -94,11 +94,11 @@ function joinPath(path: string, key: string): string {
 /** Render a schema's accepted types/enum for an error message, e.g. `string` or `"a" | "b"`. */
 function describeExpected(schema: JsonSchema): string {
   if (schema.enum) {
-    function mapPiece(entry: unknown) {
+    function quoteSchemaMember(entry: unknown) {
       return JSON.stringify(entry);
     }
 
-    return schema.enum.map(mapPiece).join(' | ');
+    return schema.enum.map(quoteSchemaMember).join(' | ');
   }
 
   if (Array.isArray(schema.type)) {
@@ -174,11 +174,11 @@ const validateCombinator = (
 ): SchemaViolation[] => {
   const branchViolations = branches.map((branch) => validate(candidateValue, branch, root, path));
 
-  function filterViolations(violations: SchemaViolation[]) {
+  function isBranchClean(violations: SchemaViolation[]) {
     return violations.length == 0;
   }
 
-  const matchCount = branchViolations.filter(filterViolations).length;
+  const matchCount = branchViolations.filter(isBranchClean).length;
   let matchesExpectedCount = matchCount == 1;
 
   if (kind == 'anyOf') {
@@ -266,11 +266,11 @@ export const validate = (
   if (schema.type) {
     const expectedTypes = typeNames(schema.type);
 
-    function someTypeName(typeName: string) {
+    function acceptsListedType(typeName: string) {
       return matchesType(candidateValue, typeName);
     }
 
-    if (!expectedTypes.some(someTypeName)) {
+    if (!expectedTypes.some(acceptsListedType)) {
       const typeOf = jsonTypeOf(candidateValue);
 
       violations.push({
@@ -283,11 +283,11 @@ export const validate = (
     }
   }
 
-  function someAllowed(allowed: unknown) {
+  function isListedMember(allowed: unknown) {
     return Object.is(allowed, candidateValue);
   }
 
-  if (schema.enum && !schema.enum.some(someAllowed)) {
+  if (schema.enum && !schema.enum.some(isListedMember)) {
     const expected = describeExpected(schema);
     const serialized = JSON.stringify(candidateValue);
 

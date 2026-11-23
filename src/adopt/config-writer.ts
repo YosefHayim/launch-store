@@ -37,14 +37,14 @@ export function serializeProductsSection(
 ): string {
   const productsJson = JSON.stringify(productsByBundleId, null, 2);
 
-  function mapLine(line: string, index: number) {
+  function indentWrappedLine(line: string, index: number) {
     if (index == 0) return line;
 
     return `  ${line}`;
   }
 
   // Shift every line but the first right by two spaces so the block nests under `products:` cleanly.
-  const indented = productsJson.split('\n').map(mapLine).join('\n');
+  const indented = productsJson.split('\n').map(indentWrappedLine).join('\n');
 
   return [
     '  // Imported from App Store Connect by `launch-store adopt` - review, then commit.',

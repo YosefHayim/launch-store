@@ -8,6 +8,7 @@ import type { AscHost } from './host.ts';
 import type { MutableDeep } from '@/types/mutable.js';
 import type { ResourceSingle, AppClipExperiencePage } from './shared.ts';
 import type { components } from '@/apple-api-types.js';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectAppClips {
   constructor(private readonly client: AscHost) {}
@@ -17,12 +18,15 @@ export class ConnectAppClips {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appclips
    */
-  async listAppClips(appId: string): Promise<AppClipResource[]> {
+  async listAppClips(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppClipResource[]> {
     const appleResources = await this.client.requestAll<{
       bundleId?: string;
-    }>(`/apps/${appId}/appClips?limit=200`);
+    }>(applyAppleListQuery(`/apps/${appId}/appClips?limit=200`, listQuery, APPLE_PAGE_LIMIT));
 
-    function mapClip(clip: {
+    function copyAppClip(clip: {
       id: string;
       attributes: { bundleId?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -35,16 +39,21 @@ export class ConnectAppClips {
       return appClip;
     }
 
-    return appleResources.map(mapClip);
+    return appleResources.map(copyAppClip);
   }
 
   async listAppClipDefaultExperiences(
     appClipId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<AppClipDefaultExperienceResource[]> {
     const all: AppClipDefaultExperienceResource[] = [];
     let next: string | undefined =
       `/appClips/${appClipId}/appClipDefaultExperiences` +
-      `?include=releaseWithAppStoreVersion&fields[appClipDefaultExperiences]=action,releaseWithAppStoreVersion&limit=200`;
+      applyAppleListQuery(
+        `?include=releaseWithAppStoreVersion&fields[appClipDefaultExperiences]=action,releaseWithAppStoreVersion&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      );
 
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential
@@ -134,15 +143,20 @@ export class ConnectAppClips {
    */
   async listAppClipDefaultExperienceLocalizations(
     experienceId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<AppClipLocalizationResource[]> {
     const appleResources = await this.client.requestAll<{
       locale?: string;
       subtitle?: string;
     }>(
-      `/appClipDefaultExperiences/${experienceId}/appClipDefaultExperienceLocalizations?limit=200`,
+      applyAppleListQuery(
+        `/appClipDefaultExperiences/${experienceId}/appClipDefaultExperienceLocalizations?limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapLocalization(localization: {
+    function copyAppClipLocalization(localization: {
       id: string;
       attributes: { locale?: string; subtitle?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -162,7 +176,7 @@ export class ConnectAppClips {
       return localizedExperience;
     }
 
-    return appleResources.map(mapLocalization);
+    return appleResources.map(copyAppClipLocalization);
   }
 
   /**

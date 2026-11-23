@@ -3,6 +3,7 @@ import type { AscHost } from './host.ts';
 import type { TerritoryAvailabilityRow, TerritoryAvailabilityPage } from './shared.ts';
 import type { components } from '@/apple-api-types.js';
 import { AscAvailabilityUpdateError, TERRITORY_AVAILABILITY_UPDATE_CONCURRENCY } from './shared.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectAvailability {
   constructor(private readonly client: AscHost) {}
@@ -12,7 +13,10 @@ export class ConnectAvailability {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appavailabilityv2
    */
-  async getAppAvailability(appId: string): Promise<AppAvailabilityResource | null> {
+  async getAppAvailability(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppAvailabilityResource | null> {
     const head = await this.client.getOptional<{
       data: {
         id: string;
@@ -24,9 +28,12 @@ export class ConnectAvailability {
 
     if (!head?.data) return null;
 
-    const territoryAvailabilities = await this.listAppTerritoryAvailabilities(head.data.id);
+    const territoryAvailabilities = await this.listAppTerritoryAvailabilities(
+      head.data.id,
+      listQuery,
+    );
 
-    function flatMapTerritoryAvailability(territoryAvailability: {
+    function readAvailableTerritoryCode(territoryAvailability: {
       id: string;
       attributes?: { available?: boolean };
       relationships?: { territory?: { data?: { id: string } | null } };
@@ -40,7 +47,7 @@ export class ConnectAvailability {
       return [territoryCode];
     }
 
-    const availableTerritories = territoryAvailabilities.flatMap(flatMapTerritoryAvailability);
+    const availableTerritories = territoryAvailabilities.flatMap(readAvailableTerritoryCode);
     let availableInNewTerritories = head.data.attributes?.availableInNewTerritories;
 
     if (availableInNewTerritories == null) availableInNewTerritories = false;
@@ -54,14 +61,21 @@ export class ConnectAvailability {
 
   private async listAppTerritoryAvailabilities(
     availabilityId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<TerritoryAvailabilityRow[]> {
     const territoryAvailabilities: TerritoryAvailabilityRow[] = [];
     // `include=territory` is required for Apple to populate each row's territory relationship
     // linkage. Sparse `fields[territoryAvailabilities]=available,territory` alone returns rows
     // without `relationships.territory.data`, which made live reads report zero storefronts while
     // every row was still available.
-    let next: string | undefined =
-      `${this.client.v2(`/appAvailabilities/${availabilityId}/territoryAvailabilities`)}?include=territory&limit=200`;
+    const availabilityPath = this.client.v2(
+      `/appAvailabilities/${availabilityId}/territoryAvailabilities`,
+    );
+    let next: string | undefined = applyAppleListQuery(
+      `${availabilityPath}?include=territory&limit=200`,
+      listQuery,
+      APPLE_PAGE_LIMIT,
+    );
 
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential
@@ -85,7 +99,7 @@ export class ConnectAvailability {
       territories: string[];
     },
   ): Promise<void> {
-    function mapCode(code: string) {
+    function writeTerritoryAvailability(code: string) {
       return {
         type: 'territoryAvailabilities',
         id: code,
@@ -96,7 +110,7 @@ export class ConnectAvailability {
 
     const included: (components['schemas']['TerritoryAvailabilityInlineCreate'] & {
       id: string;
-    })[] = input.territories.map(mapCode);
+    })[] = input.territories.map(writeTerritoryAvailability);
     const requestDocument: components['schemas']['AppAvailabilityV2CreateRequest'] = {
       data: {
         type: 'appAvailabilities',
@@ -130,7 +144,7 @@ export class ConnectAvailability {
     const desired = new Set(territories);
     const territoryAvailabilities = await this.listAppTerritoryAvailabilities(availabilityId);
 
-    function flatMapTerritoryAvailability2(territoryAvailability: {
+    function readTerritoryCode(territoryAvailability: {
       id: string;
       attributes?: { available?: boolean };
       relationships?: { territory?: { data?: { id: string } | null } };
@@ -142,13 +156,13 @@ export class ConnectAvailability {
       return [territoryCode];
     }
 
-    const returnedCodes = new Set(territoryAvailabilities.flatMap(flatMapTerritoryAvailability2));
+    const returnedCodes = new Set(territoryAvailabilities.flatMap(readTerritoryCode));
 
-    function filterCode(code: string) {
+    function isMissingTerritoryCode(code: string) {
       return !returnedCodes.has(code);
     }
 
-    const missingTerritories = [...desired].filter(filterCode).sort();
+    const missingTerritories = [...desired].filter(isMissingTerritoryCode).sort();
 
     if (missingTerritories.length > 0) {
       throw new AscAvailabilityUpdateError({
@@ -157,7 +171,7 @@ export class ConnectAvailability {
       });
     }
 
-    function flatMapTerritoryAvailability3(territoryAvailability: {
+    function readTerritoryAvailabilityChange(territoryAvailability: {
       id: string;
       attributes?: { available?: boolean };
       relationships?: { territory?: { data?: { id: string } | null } };
@@ -173,7 +187,7 @@ export class ConnectAvailability {
       return [{ id: territoryAvailability.id, available }];
     }
 
-    const changes = territoryAvailabilities.flatMap(flatMapTerritoryAvailability3);
+    const changes = territoryAvailabilities.flatMap(readTerritoryAvailabilityChange);
 
     for (
       let offset = 0;

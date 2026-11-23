@@ -159,11 +159,11 @@ export function renderInsights(insightsReport: InsightsReport): string {
   const descendingStars: readonly StarRating[] = [5, 4, 3, 2, 1];
 
   for (const appInsights of insightsReport.apps) {
-    function mapStarRating(starRating: 2 | 1 | 3 | 5 | 4) {
+    function readStarCount(starRating: 2 | 1 | 3 | 5 | 4) {
       return appInsights.ratings.distribution[starRating];
     }
 
-    const maximumCount = Math.max(...STARS.map(mapStarRating));
+    const maximumCount = Math.max(...STARS.map(readStarCount));
 
     reportLines.push('', appInsights.app, `  ${ratingSummaryLine(appInsights.ratings)}`);
 
@@ -181,11 +181,11 @@ export function renderInsights(insightsReport: InsightsReport): string {
 
     const stores: readonly InsightsStore[] = ['appstore', 'play'];
 
-    function filterStore(store: 'appstore' | 'play') {
+    function hasStoreRatings(store: 'appstore' | 'play') {
       return appInsights.byStore[store] != null;
     }
 
-    const presentStores = stores.filter(filterStore);
+    const presentStores = stores.filter(hasStoreRatings);
 
     if (presentStores.length > 1) {
       for (const store of presentStores) {
@@ -198,7 +198,7 @@ export function renderInsights(insightsReport: InsightsReport): string {
     }
 
     if (appInsights.trend.length > 0) {
-      function mapTrendPoint(trendPoint: {
+      function writeTrendLine(trendPoint: {
         readonly month: string;
         readonly count: number;
         readonly average: number;
@@ -206,7 +206,7 @@ export function renderInsights(insightsReport: InsightsReport): string {
         return `${trendPoint.month} ${trendPoint.average.toFixed(1)} (${trendPoint.count})`;
       }
 
-      const trendPoints = appInsights.trend.map(mapTrendPoint);
+      const trendPoints = appInsights.trend.map(writeTrendLine);
 
       reportLines.push(`  trend: ${trendPoints.join(' - ')}`);
     }

@@ -119,11 +119,11 @@ function describePieceLoggerNDJSONEvents() {
     logger.note('using cache');
     logger.tip('pass --clean');
 
-    function mapEventLine(eventLine: string) {
+    function parseEventLine(eventLine: string) {
       return JSON.parse(eventLine);
     }
 
-    expect(captured.eventLines.map(mapEventLine)).toEqual([
+    expect(captured.eventLines.map(parseEventLine)).toEqual([
       { event: 'step', step: 'config', detail: 'sampleapp - production' },
       { event: 'step', step: 'upload' },
       { event: 'warn', message: 'low disk' },
@@ -146,11 +146,11 @@ function describePieceLoggerNDJSONEvents() {
     logger.progressDone('Archiving', 1500);
     logger.progressFail('Exporting', 'Exporting failed. Last lines: boom');
 
-    function mapEventLine2(eventLine: string) {
+    function parseEventLine(eventLine: string) {
       return JSON.parse(eventLine);
     }
 
-    expect(captured.eventLines.map(mapEventLine2)).toEqual([
+    expect(captured.eventLines.map(parseEventLine)).toEqual([
       { event: 'progress', label: 'Archiving', status: 'start' },
       { event: 'progress', label: 'Archiving', status: 'done', elapsedMs: 1500 },
       { event: 'progress', label: 'Exporting', status: 'fail' },
@@ -166,11 +166,11 @@ function describePieceLoggerNDJSONEvents() {
     logger.box('Synced', ['3 apps']);
     logger.line('plain');
 
-    function mapEventLine3(eventLine: string) {
+    function parseEventLine(eventLine: string) {
       return JSON.parse(eventLine);
     }
 
-    expect(captured.eventLines.map(mapEventLine3)).toEqual([
+    expect(captured.eventLines.map(parseEventLine)).toEqual([
       { event: 'box', title: 'Synced', lines: ['3 apps'] },
     ]);
     expect(captured.humanLines.join('')).toBe('plain\n');

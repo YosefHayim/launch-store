@@ -80,7 +80,7 @@ type DatedAmiImage = Readonly<{
   readonly id: string;
   readonly date: string;
 }>;
-function flatMapImageDescription(imageDescription: {
+function readDatedAmiImage(imageDescription: {
   ImageId?: string | undefined;
   CreationDate?: string | undefined;
 }) {
@@ -97,7 +97,7 @@ export function datedMacImages(
     CreationDate?: string | undefined;
   }>,
 ): DatedAmiImage[] {
-  return catalogImages.flatMap(flatMapImageDescription);
+  return catalogImages.flatMap(readDatedAmiImage);
 }
 
 /** Newest by CreationDate; stable for equal dates. */
@@ -119,7 +119,7 @@ export function newestImageId(datedImages: readonly DatedAmiImage[]): string | u
 
   return sortedImages[0]?.id;
 }
-function filterDescribedHost(describedHost: { State?: string | undefined }) {
+function isHostStillHeld(describedHost: { State?: string | undefined }) {
   if (describedHost.State == null) return false;
 
   return !describedHost.State.startsWith('released');
@@ -128,7 +128,7 @@ function filterDescribedHost(describedHost: { State?: string | undefined }) {
 export function countLiveDedicatedHosts(
   describedHosts: ReadonlyArray<{ State?: string | undefined }>,
 ): number {
-  return describedHosts.filter(filterDescribedHost).length;
+  return describedHosts.filter(isHostStillHeld).length;
 }
 
 /** Missing or already-released hosts are not billable status targets. */
@@ -580,7 +580,7 @@ async function waitForSsh(
 
   throw awsFailure('wait for SSH', message, message);
 }
-function flatMapRequiredTool(requiredTool: {
+function readBrewInstallLine(requiredTool: {
   label: string;
   command: string;
   tier: 'required' | 'recommended';
@@ -593,7 +593,7 @@ function flatMapRequiredTool(requiredTool: {
   ];
 }
 
-const bootstrapBrewLines = AWS_BOOTSTRAP_TOOLS.flatMap(flatMapRequiredTool);
+const bootstrapBrewLines = AWS_BOOTSTRAP_TOOLS.flatMap(readBrewInstallLine);
 
 const bootstrapScript = [
   'set -e',

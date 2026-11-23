@@ -7,11 +7,11 @@ function completionGroup(): Command {
 
   registerCompletionCommand(program);
 
-  function findCommand(command: Command) {
+  function isCompletionCommand(command: Command) {
     return command.name() == 'completion';
   }
 
-  const completion = program.commands.find(findCommand);
+  const completion = program.commands.find(isCompletionCommand);
 
   expect(completion).toBeDefined();
 
@@ -21,11 +21,11 @@ function completionGroup(): Command {
 }
 function describeRegisterCompletionCommand() {
   function attachesACompletionGroupWithInstallAndTheHiddenCompleteSubcommand() {
-    function mapCommand(command: Command) {
+    function readCommandName(command: Command) {
       return command.name();
     }
 
-    const names = completionGroup().commands.map(mapCommand).sort();
+    const names = completionGroup().commands.map(readCommandName).sort();
 
     expect(names).toEqual(['__complete', 'install']);
   }
@@ -36,11 +36,11 @@ function describeRegisterCompletionCommand() {
   );
 
   function takesAnOptionalShellArgumentForPrintingTheScript() {
-    function mapArgument(argument: CommandArgument) {
+    function readArgumentName(argument: CommandArgument) {
       return argument.name();
     }
 
-    const args = completionGroup().registeredArguments.map(mapArgument);
+    const args = completionGroup().registeredArguments.map(readArgumentName);
 
     expect(args).toEqual(['shell']);
   }
@@ -51,11 +51,11 @@ function describeRegisterCompletionCommand() {
   );
 
   function installTakesSShell() {
-    function findCommand2(command: Command) {
+    function isInstallCommand(command: Command) {
       return command.name() == 'install';
     }
 
-    const install = completionGroup().commands.find(findCommand2);
+    const install = completionGroup().commands.find(isInstallCommand);
 
     function readLong(option: CommandOption) {
       return option.long;
@@ -71,19 +71,19 @@ function describeRegisterCompletionCommand() {
   function keepsTheCompleteSubcommandOutOfHelpWhileStillRegisteringIt() {
     const group = completionGroup();
 
-    function someCommand(command: Command) {
+    function isCompleteCommand(command: Command) {
       return command.name() == '__complete';
     }
 
-    expect(group.commands.some(someCommand)).toBe(true);
+    expect(group.commands.some(isCompleteCommand)).toBe(true);
 
     const visible = group.createHelp().visibleCommands(group);
 
-    function someCommand2(command: Command) {
+    function hasCompleteName(command: Command) {
       return command.name() == '__complete';
     }
 
-    expect(visible.some(someCommand2)).toBe(false);
+    expect(visible.some(hasCompleteName)).toBe(false);
   }
 
   it(

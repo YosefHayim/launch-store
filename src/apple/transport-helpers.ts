@@ -61,11 +61,11 @@ function parseNumericVersion(marketingVersion: string): NumericVersion | null {
 
   if (!/^\d+(\.\d+){0,2}$/.test(versionCore)) return null;
 
-  function mapVersionPart(versionPart: string) {
+  function parseVersionPart(versionPart: string) {
     return Number.parseInt(versionPart, 10);
   }
 
-  const versionParts = versionCore.split('.').map(mapVersionPart);
+  const versionParts = versionCore.split('.').map(parseVersionPart);
   let major = 0;
 
   if (versionParts[0] != null) major = versionParts[0];
@@ -104,19 +104,19 @@ function compareNumericVersions(leftVersion: string, rightVersion: string): numb
 }
 
 export function highestAppleMarketingVersion(marketingVersions: readonly string[]): string | null {
-  function filterMarketingVersion(marketingVersion: string) {
+  function isParseableMarketingVersion(marketingVersion: string) {
     return parseNumericVersion(marketingVersion) != null;
   }
 
-  const parseableVersions = marketingVersions.filter(filterMarketingVersion);
+  const parseableVersions = marketingVersions.filter(isParseableMarketingVersion);
 
   if (parseableVersions.length == 0) return null;
 
-  function reduceHighestVersion(highestVersion: string, marketingVersion: string) {
+  function pickHigherMarketingVersion(highestVersion: string, marketingVersion: string) {
     if (compareNumericVersions(marketingVersion, highestVersion) > 0) return marketingVersion;
 
     return highestVersion;
   }
 
-  return parseableVersions.reduce(reduceHighestVersion);
+  return parseableVersions.reduce(pickHigherMarketingVersion);
 }

@@ -87,18 +87,18 @@ export function monthlyTrend(reviews: readonly ReviewDatum[]): MonthlyRatingPoin
     return a.localeCompare(b);
   }
 
-  function mapPiece([month, { count, sum }]: [string, { count: number; sum: number }]) {
+  function readMonthAverage([month, { count, sum }]: [string, { count: number; sum: number }]) {
     return { month, count, average: round1(sum / count) };
   }
 
-  return [...byMonth.entries()].sort(sortPiece).map(mapPiece);
+  return [...byMonth.entries()].sort(sortPiece).map(readMonthAverage);
 }
 /** Assemble one app's insights from its normalized reviews */
 export function buildAppInsights(app: string, reviews: readonly ReviewDatum[]): AppInsights {
   const byStore: AppInsights['byStore'] = {};
 
   for (const store of ['appstore', 'play'] as const) {
-    function filterReview(review: {
+    function isReviewForStore(review: {
       readonly store: InsightsStore;
       readonly rating: StarRating;
       readonly answered: boolean;
@@ -107,7 +107,7 @@ export function buildAppInsights(app: string, reviews: readonly ReviewDatum[]): 
       return review.store == store;
     }
 
-    const subset = reviews.filter(filterReview);
+    const subset = reviews.filter(isReviewForStore);
 
     if (subset.length > 0) byStore[store] = summarizeRatings(subset);
   }
@@ -126,17 +126,17 @@ export function buildInsightsReport(
     reviews: readonly ReviewDatum[];
   }[],
 ): InsightsReport {
-  function mapPiece2({ app, reviews }: { app: string; reviews: readonly ReviewDatum[] }) {
+  function readAppInsights({ app, reviews }: { app: string; reviews: readonly ReviewDatum[] }) {
     return buildAppInsights(app, reviews);
   }
 
-  function flatMapPiece({ reviews }: { app: string; reviews: readonly ReviewDatum[] }) {
+  function listReviews({ reviews }: { app: string; reviews: readonly ReviewDatum[] }) {
     return reviews;
   }
 
   return {
-    apps: perApp.map(mapPiece2),
-    overall: summarizeRatings(perApp.flatMap(flatMapPiece)),
+    apps: perApp.map(readAppInsights),
+    overall: summarizeRatings(perApp.flatMap(listReviews)),
   };
 }
 /** Re-export so callers can iterate the canonical star order without re-declaring it. */

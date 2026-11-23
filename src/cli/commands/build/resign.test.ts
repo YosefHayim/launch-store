@@ -7,11 +7,11 @@ function describeRegisterResignCommand() {
 
     registerResignCommand(program);
 
-    function findRegisteredCommand(registeredCommand: Command) {
+    function isBuildResignCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'build:resign';
     }
 
-    const resignCommand = program.commands.find(findRegisteredCommand);
+    const resignCommand = program.commands.find(isBuildResignCommand);
 
     expect(resignCommand).toBeDefined();
 

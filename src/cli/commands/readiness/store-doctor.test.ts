@@ -7,19 +7,19 @@ function describeRegisterStoreCommand() {
 
     registerStoreCommand(program);
 
-    function findCommand(command: Command) {
+    function isStoreCommand(command: Command) {
       return command.name() == 'store';
     }
 
-    const store = program.commands.find(findCommand);
+    const store = program.commands.find(isStoreCommand);
 
     expect(store).toBeDefined();
 
-    function findCommand2(command: Command) {
+    function isDoctorCommand(command: Command) {
       return command.name() == 'doctor';
     }
 
-    const doctor = store?.commands.find(findCommand2);
+    const doctor = store?.commands.find(isDoctorCommand);
 
     expect(doctor).toBeDefined();
 

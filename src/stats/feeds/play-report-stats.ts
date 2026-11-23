@@ -39,11 +39,11 @@ function readFirstColumn(
   line: Readonly<Record<string, string>>,
   columnNames: readonly string[],
 ): string | undefined {
-  function findColumnName(columnName: string) {
+  function isColumnPresent(columnName: string) {
     return line[columnName] != null;
   }
 
-  const presentColumnName = columnNames.find(findColumnName);
+  const presentColumnName = columnNames.find(isColumnPresent);
 
   if (presentColumnName == null) return undefined;
 
@@ -67,7 +67,7 @@ function readMappedStats(
   range: DateRange,
   mappings: readonly PlayColumnMapping[],
 ): DailyStat[] {
-  function flatMapLine3(line: { readonly [x: string]: string }) {
+  function readOverviewLine(line: { readonly [x: string]: string }) {
     const date = readDateOfLine(line);
 
     if (date == null) return [];
@@ -76,7 +76,7 @@ function readMappedStats(
 
     const statDate = date;
 
-    function flatMapMapping(mapping: PlayColumnMapping) {
+    function readColumnStat(mapping: PlayColumnMapping) {
       const firstColumn = readFirstColumn(line, mapping.columnNames);
       const cellNumber = readNumber(firstColumn);
 
@@ -93,10 +93,10 @@ function readMappedStats(
       ];
     }
 
-    return mappings.flatMap(flatMapMapping);
+    return mappings.flatMap(readColumnStat);
   }
 
-  return table.lines.flatMap(flatMapLine3);
+  return table.lines.flatMap(readOverviewLine);
 }
 
 function sumStatsByIdentity(stats: readonly DailyStat[]): DailyStat[] {
@@ -152,7 +152,7 @@ export function readStorePerformanceStats(table: PlayCsvTable, range: DateRange)
 
 /** The newest day that has a line, whatever the range, so a half-published month is covered only as far as it goes. */
 export function findLatestCsvDate(table: PlayCsvTable): string | null {
-  function flatMapLine(line: { readonly [x: string]: string }) {
+  function listLineDate(line: { readonly [x: string]: string }) {
     const date = readDateOfLine(line);
 
     if (date == null) return [];
@@ -160,13 +160,13 @@ export function findLatestCsvDate(table: PlayCsvTable): string | null {
     return [date];
   }
 
-  const dates = table.lines.flatMap(flatMapLine);
+  const dates = table.lines.flatMap(listLineDate);
 
-  function reduceLatestDate(latestDate: string | null, date: string) {
+  function pickLaterDate(latestDate: string | null, date: string) {
     return pickLaterKnownDate(latestDate, date);
   }
 
-  return dates.reduce<string | null>(reduceLatestDate, null);
+  return dates.reduce<string | null>(pickLaterDate, null);
 }
 
 /** `Nov 30, 2016` (Pacific Time, as the earnings report writes it) as `2016-11-30`. */
@@ -215,7 +215,7 @@ export function readEarningsStats(
   packageName: string,
   range: DateRange,
 ): DailyStat[] {
-  function flatMapLine2(line: { readonly [x: string]: string }) {
+  function readEarningsLine(line: { readonly [x: string]: string }) {
     const isOtherPackage = line['package id'] != packageName;
 
     if (isOtherPackage) return [];
@@ -253,7 +253,7 @@ export function readEarningsStats(
     ];
   }
 
-  const proceeds = table.lines.flatMap(flatMapLine2);
+  const proceeds = table.lines.flatMap(readEarningsLine);
 
   return sumStatsByIdentity(proceeds);
 }

@@ -76,7 +76,7 @@ export function planInstall(missing: Tool[]): {
   brew: Tool[];
   guided: Tool[];
 } {
-  function filterTool(tool: {
+  function isBrewInstalled(tool: {
     label: string;
     command: string;
     tier: 'required' | 'recommended';
@@ -85,7 +85,7 @@ export function planInstall(missing: Tool[]): {
     return tool.install.kind == 'brew';
   }
 
-  function filterTool2(tool: {
+  function isGuideInstalled(tool: {
     label: string;
     command: string;
     tier: 'required' | 'recommended';
@@ -95,8 +95,8 @@ export function planInstall(missing: Tool[]): {
   }
 
   return {
-    brew: missing.filter(filterTool),
-    guided: missing.filter(filterTool2),
+    brew: missing.filter(isBrewInstalled),
+    guided: missing.filter(isGuideInstalled),
   };
 }
 /** The *required* iOS build tools currently absent from `PATH` */

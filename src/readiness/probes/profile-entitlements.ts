@@ -6,7 +6,7 @@ import type {
   ReadinessContext,
   ReadinessProbe,
 } from '@/types/readiness.js';
-import { mapEntitlementsToCapabilities } from '@/credentials/capabilities.js';
+import { readCapabilitiesFromEntitlements } from '@/credentials/capabilities.js';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 
 /** An in-scope app: declares a bundle id and at least one entitlement that maps to a portal capability. */
@@ -31,7 +31,7 @@ function hasBundleId(app: AppDescriptor): app is AppDescriptor & { bundleId: str
 }
 
 function requiredCapabilities(app: AppDescriptor & { bundleId: string }): EntitledApp | null {
-  const required = mapEntitlementsToCapabilities(app.iosEntitlements).enable;
+  const required = readCapabilitiesFromEntitlements(app.iosEntitlements).enable;
   const hasRequired = required.length > 0;
 
   if (hasRequired == false) {

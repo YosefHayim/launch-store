@@ -143,11 +143,11 @@ function describeDetectTargets() {
 
     expect(detectedApp.signal).toBe('v2.1 live - 12 builds');
 
-    function mapSkipped(skipped: { readonly app: AppDescriptor; readonly reason: string }) {
+    function writeSkippedLine(skipped: { readonly app: AppDescriptor; readonly reason: string }) {
       return `${skipped.app.name}: ${skipped.reason}`;
     }
 
-    expect(detection.skipped.map(mapSkipped)).toEqual([
+    expect(detection.skipped.map(writeSkippedLine)).toEqual([
       'android: no iOS bundle id',
       'norec: no App Store Connect record (create the app once in App Store Connect)',
     ]);

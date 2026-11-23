@@ -17,15 +17,15 @@ export type ParsedReport = {
 };
 /** Parse an Apple tab-separated report, filling missing cells with empty text. */
 export function parseTsv(text: string): ParsedReport {
-  function mapLine(line: string) {
+  function stripCarriageReturn(line: string) {
     return line.replace(/\r$/, '');
   }
 
-  function filterLine(line: string) {
+  function isNonEmptyLine(line: string) {
     return line.length > 0;
   }
 
-  const lines = text.split('\n').map(mapLine).filter(filterLine);
+  const lines = text.split('\n').map(stripCarriageReturn).filter(isNonEmptyLine);
 
   const headerLine = lines.shift();
 
@@ -33,11 +33,11 @@ export function parseTsv(text: string): ParsedReport {
 
   const headers = headerLine.split('\t');
 
-  function mapLine2(line: string) {
+  function readReportFields(line: string) {
     const cells = line.split('\t');
     const reportFields: Record<string, string> = {};
 
-    function forEachHeader(header: string, index: number) {
+    function writeHeaderCell(header: string, index: number) {
       let cellText = '';
 
       if (cells[index] != null) cellText = cells[index];
@@ -45,12 +45,12 @@ export function parseTsv(text: string): ParsedReport {
       reportFields[header] = cellText;
     }
 
-    headers.forEach(forEachHeader);
+    headers.forEach(writeHeaderCell);
 
     return reportFields;
   }
 
-  const rows = lines.map(mapLine2);
+  const rows = lines.map(readReportFields);
 
   return { headers, rows };
 }

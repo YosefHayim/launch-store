@@ -155,7 +155,7 @@ function makeExperimentsApi(
       experimentWrites.removedScreenshots.push(screenshotId);
 
       for (const [setId, setScreenshots] of Object.entries(experimentStore.screenshotsBySet)) {
-        function filterScreenshot(screenshot: {
+        function keepsRemainingShot(screenshot: {
           readonly id: string;
           readonly fileName: string;
           readonly sourceFileChecksum?: string;
@@ -164,7 +164,7 @@ function makeExperimentsApi(
           return screenshot.id != screenshotId;
         }
 
-        experimentStore.screenshotsBySet[setId] = setScreenshots.filter(filterScreenshot);
+        experimentStore.screenshotsBySet[setId] = setScreenshots.filter(keepsRemainingShot);
       }
 
       return Promise.resolve();
@@ -319,7 +319,7 @@ function descriptionsWithStatus(
   reconciliationReport: Awaited<ReturnType<typeof reconcileMediaExperiments>>,
   status: string,
 ): string[] {
-  function filterPlannedAction(plannedAction: {
+  function hasChosenStatus(plannedAction: {
     readonly description: string;
     readonly destructive: boolean;
     status: ActionStatus;
@@ -328,7 +328,7 @@ function descriptionsWithStatus(
     return plannedAction.status == status;
   }
 
-  return reconciliationReport.actions.filter(filterPlannedAction).map(readDescription);
+  return reconciliationReport.actions.filter(hasChosenStatus).map(readDescription);
 }
 function describeVersionExperimentsSchema() {
   async function decodesExperimentsWithTreatments() {
@@ -400,7 +400,7 @@ function describeVersionExperimentsSchema() {
 
       const discoveredScreenshots = await discoverTreatmentScreenshots(configPath, mediaConfig);
 
-      function mapScreenshot(
+      function listShotIdentity(
         screenshot: LocalAsset & {
           readonly locale: string;
           readonly displayType: string;
@@ -409,7 +409,7 @@ function describeVersionExperimentsSchema() {
         return [screenshot.locale, screenshot.displayType, screenshot.fileName];
       }
 
-      expect(discoveredScreenshots.get('treatment')?.map(mapScreenshot)).toEqual([
+      expect(discoveredScreenshots.get('treatment')?.map(listShotIdentity)).toEqual([
         ['he', 'APP_IPHONE_67', '01.png'],
       ]);
 
@@ -512,7 +512,7 @@ function describeVersionExperimentReconciliation() {
     expect(experimentWrites.createdExperiments).toHaveLength(0);
     expect(experimentWrites.createdTreatments).toHaveLength(0);
 
-    function everyPlannedAction(plannedAction: {
+    function isPlannedStep(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -521,7 +521,7 @@ function describeVersionExperimentReconciliation() {
       return plannedAction.status == 'planned';
     }
 
-    expect(reconciliationReport.actions.every(everyPlannedAction)).toBe(true);
+    expect(reconciliationReport.actions.every(isPlannedStep)).toBe(true);
     expect(reconciliationReport.actions).toHaveLength(3);
   }
 
@@ -545,7 +545,7 @@ function describeVersionExperimentReconciliation() {
       skipped: 2,
     });
 
-    function findPlannedAction(plannedAction: {
+    function isFailedStep(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -554,7 +554,7 @@ function describeVersionExperimentReconciliation() {
       return plannedAction.status == 'failed';
     }
 
-    expect(reconciliationReport.actions.find(findPlannedAction)?.error).toBe('name already in use');
+    expect(reconciliationReport.actions.find(isFailedStep)?.error).toBe('name already in use');
   }
 
   it('skips treatments when experiment creation fails', skipsTreatmentsWhenExperimentCreationFails);

@@ -42,10 +42,10 @@ function listings(
     }
   >,
 ): JsonValue {
-  function mapPiece([locale, listing]: [string, { title?: string; description?: string }]): [
+  function pairLocaleListing([locale, listing]: [
     string,
-    JsonValue,
-  ] {
+    { title?: string; description?: string },
+  ]): [string, JsonValue] {
     const listingFields: Record<string, JsonValue> = {};
 
     if (listing.title) listingFields['title'] = listing.title;
@@ -55,7 +55,7 @@ function listings(
     return [locale, listingFields];
   }
 
-  return Object.fromEntries(Object.entries(map).map(mapPiece));
+  return Object.fromEntries(Object.entries(map).map(pairLocaleListing));
 }
 /** One captured managed product -> a snapshot entity keyed by its SKU. */
 function readSnapshotEntity(product: InAppProductResource): SnapshotEntity {

@@ -4,6 +4,7 @@ import type {
   UserInvitationResource,
   UserResource,
 } from '@/types/apple-catalog.js';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectTeam {
   constructor(private readonly client: AscHost) {}
@@ -13,15 +14,21 @@ export class ConnectTeam {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-users
    */
-  async listUsers(): Promise<UserResource[]> {
+  async listUsers(listQuery: AppleListQuery | null = null): Promise<UserResource[]> {
     const appleResources = await this.client.requestAll<{
       username?: string;
       firstName?: string;
       lastName?: string;
       roles?: string[];
-    }>('/users?limit=200&fields[users]=username,firstName,lastName,roles');
+    }>(
+      applyAppleListQuery(
+        '/users?limit=200&fields[users]=username,firstName,lastName,roles',
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function mapUser(user: {
+    function copyTeamUser(user: {
       id: string;
       attributes: { username?: string; firstName?: string; lastName?: string; roles?: string[] };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -45,7 +52,7 @@ export class ConnectTeam {
       return teamUser;
     }
 
-    return appleResources.map(mapUser);
+    return appleResources.map(copyTeamUser);
   }
 
   /**
@@ -53,7 +60,9 @@ export class ConnectTeam {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-userinvitations
    */
-  async listUserInvitations(): Promise<UserInvitationResource[]> {
+  async listUserInvitations(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<UserInvitationResource[]> {
     const appleResources = await this.client.requestAll<{
       email?: string;
       firstName?: string;
@@ -61,10 +70,14 @@ export class ConnectTeam {
       roles?: string[];
       expirationDate?: string;
     }>(
-      '/userInvitations?limit=200&fields[userInvitations]=email,firstName,lastName,roles,expirationDate',
+      applyAppleListQuery(
+        '/userInvitations?limit=200&fields[userInvitations]=email,firstName,lastName,roles,expirationDate',
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapInvitation(invitation: {
+    function copyUserInvitation(invitation: {
       id: string;
       attributes: {
         email?: string;
@@ -97,7 +110,7 @@ export class ConnectTeam {
       return pendingInvitation;
     }
 
-    return appleResources.map(mapInvitation);
+    return appleResources.map(copyUserInvitation);
   }
 
   /**

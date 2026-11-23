@@ -181,11 +181,11 @@ function describeSyncStats() {
   async function syncsEveryAppWhenNoNameIsGivenAndReportsTheSkippedFeed() {
     const report = await sync(null, 5);
 
-    function mapAppFeed(appFeed: AppFeedSyncReport) {
+    function readAppKeyAndStatus(appFeed: AppFeedSyncReport) {
       return [appFeed.appKey, appFeed.status];
     }
 
-    expect(report.appFeeds.map(mapAppFeed)).toEqual([
+    expect(report.appFeeds.map(readAppKeyAndStatus)).toEqual([
       ['ios-1', 'synced'],
       ['android-com.fit', 'skipped'],
     ]);

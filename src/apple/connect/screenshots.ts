@@ -7,6 +7,7 @@ import type {
   ScreenshotSetResource,
 } from '@/types/apple-catalog.js';
 import { readTransportFile, putAssetFile } from './shared.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectScreenshots {
   constructor(private readonly client: AscHost) {}
@@ -51,14 +52,19 @@ export class ConnectScreenshots {
   private async listScreenshotSetsOf(
     ownerType: string,
     ownerId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<ScreenshotSetResource[]> {
     const appleResources = await this.client.requestAll<{
       screenshotDisplayType?: string;
     }>(
-      `/${ownerType}/${ownerId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
+      applyAppleListQuery(
+        `/${ownerType}/${ownerId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapScreenshotSet(screenshotSet: {
+    function copyScreenshotSet(screenshotSet: {
       id: string;
       attributes: { screenshotDisplayType?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -70,7 +76,7 @@ export class ConnectScreenshots {
       return { id: screenshotSet.id, screenshotDisplayType };
     }
 
-    return appleResources.map(mapScreenshotSet);
+    return appleResources.map(copyScreenshotSet);
   }
 
   /**
@@ -104,7 +110,10 @@ export class ConnectScreenshots {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appscreenshotsets-_id_-appscreenshots
    */
-  async listScreenshots(setId: string): Promise<ScreenshotResource[]> {
+  async listScreenshots(
+    setId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ScreenshotResource[]> {
     const appleResources = await this.client.requestAll<{
       fileName?: string;
       sourceFileChecksum?: string;
@@ -112,10 +121,14 @@ export class ConnectScreenshots {
         state?: string;
       };
     }>(
-      `/appScreenshotSets/${setId}/appScreenshots?fields[appScreenshots]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
+      applyAppleListQuery(
+        `/appScreenshotSets/${setId}/appScreenshots?fields[appScreenshots]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapScreenshot(screenshot: {
+    function copyScreenshot(screenshot: {
       id: string;
       attributes: {
         fileName?: string;
@@ -143,7 +156,7 @@ export class ConnectScreenshots {
       return screenshotResource;
     }
 
-    return appleResources.map(mapScreenshot);
+    return appleResources.map(copyScreenshot);
   }
 
   /**
@@ -163,7 +176,7 @@ export class ConnectScreenshots {
    * @see https://developer.apple.com/documentation/appstoreconnectapi/patch-v1-appscreenshotsets-_id_-relationships-appscreenshots
    */
   async reorderScreenshots(setId: string, screenshotIds: readonly string[]): Promise<void> {
-    function mapScreenshotId(screenshotId: string) {
+    function writeScreenshotLink(screenshotId: string) {
       return { type: 'appScreenshots', id: screenshotId };
     }
 
@@ -171,7 +184,7 @@ export class ConnectScreenshots {
       'PATCH',
       `/appScreenshotSets/${setId}/relationships/appScreenshots`,
       {
-        data: screenshotIds.map(mapScreenshotId),
+        data: screenshotIds.map(writeScreenshotLink),
       },
     );
   }
@@ -253,14 +266,21 @@ export class ConnectScreenshots {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appstoreversionlocalizations-_id_-apppreviewsets
    */
-  async listPreviewSets(versionLocalizationId: string): Promise<PreviewSetResource[]> {
+  async listPreviewSets(
+    versionLocalizationId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<PreviewSetResource[]> {
     const appleResources = await this.client.requestAll<{
       previewType?: string;
     }>(
-      `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets?fields[appPreviewSets]=previewType&limit=200`,
+      applyAppleListQuery(
+        `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets?fields[appPreviewSets]=previewType&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapPreviewSet(previewSet: {
+    function copyPreviewSet(previewSet: {
       id: string;
       attributes: { previewType?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -272,7 +292,7 @@ export class ConnectScreenshots {
       return { id: previewSet.id, previewType };
     }
 
-    return appleResources.map(mapPreviewSet);
+    return appleResources.map(copyPreviewSet);
   }
 
   /**
@@ -308,7 +328,10 @@ export class ConnectScreenshots {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apppreviewsets-_id_-apppreviews
    */
-  async listPreviews(setId: string): Promise<PreviewResource[]> {
+  async listPreviews(
+    setId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<PreviewResource[]> {
     const appleResources = await this.client.requestAll<{
       fileName?: string;
       sourceFileChecksum?: string;
@@ -316,10 +339,14 @@ export class ConnectScreenshots {
         state?: string;
       };
     }>(
-      `/appPreviewSets/${setId}/appPreviews?fields[appPreviews]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
+      applyAppleListQuery(
+        `/appPreviewSets/${setId}/appPreviews?fields[appPreviews]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapPreview(preview: {
+    function copyPreview(preview: {
       id: string;
       attributes: {
         fileName?: string;
@@ -347,7 +374,7 @@ export class ConnectScreenshots {
       return previewResource;
     }
 
-    return appleResources.map(mapPreview);
+    return appleResources.map(copyPreview);
   }
 
   async uploadPreview(setId: string, fileName: string, filePath: string): Promise<void> {

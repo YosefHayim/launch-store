@@ -162,11 +162,11 @@ function describeRegisterBuildCommandTheSizeBudgetFlagAndItsAlias() {
 
     registerBuildCommand(program);
 
-    function findCommand(command: Command) {
+    function isBuildCommand(command: Command) {
       return command.name() == 'build';
     }
 
-    return program.commands.find(findCommand);
+    return program.commands.find(isBuildCommand);
   }
   function exposesSizeBudgetAndItsBudgetAlias() {
     const storeBuild82 = buildCommand();
@@ -207,11 +207,11 @@ function describeRegisterBuildCommandTheSizeBudgetFlagAndItsAlias() {
   function exposesPieceOffByDefault() {
     const storeBuildJson = buildCommand();
 
-    function findOption(option: CommandOption) {
+    function isJsonOption(option: CommandOption) {
       return option.long == '--json';
     }
 
-    const jsonOption = storeBuildJson?.options.find(findOption);
+    const jsonOption = storeBuildJson?.options.find(isJsonOption);
 
     expect(jsonOption).toBeDefined();
     expect(jsonOption?.defaultValue).toBe(false);

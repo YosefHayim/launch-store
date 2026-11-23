@@ -16,6 +16,7 @@ import {
   parseErrorCodes,
 } from './shared.ts';
 import { retryAppleTransportRequest } from '../transport-helpers.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectReports {
   constructor(private readonly client: AscHost) {}
@@ -57,13 +58,20 @@ export class ConnectReports {
   async listAnalyticsReportRequests(
     appId: string,
     accessType: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<AnalyticsReportRequestResource[]> {
     const appleResources = await this.client.requestAll<{
       accessType?: string;
       stoppedDueToInactivity?: boolean;
-    }>(`/apps/${appId}/analyticsReportRequests?filter[accessType]=${accessType}&limit=200`);
+    }>(
+      applyAppleListQuery(
+        `/apps/${appId}/analyticsReportRequests?filter[accessType]=${accessType}&limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function mapPiece(entry: {
+    function copyAnalyticsReportRequest(entry: {
       id: string;
       attributes: { accessType?: string; stoppedDueToInactivity?: boolean };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -71,7 +79,7 @@ export class ConnectReports {
       return readReportRequest(entry, accessType);
     }
 
-    return appleResources.map(mapPiece);
+    return appleResources.map(copyAnalyticsReportRequest);
   }
 
   /**
@@ -106,8 +114,13 @@ export class ConnectReports {
       category?: string;
       name?: string;
     } = {},
+    listQuery: AppleListQuery | null = null,
   ): Promise<AnalyticsReportResource[]> {
-    let path = `/analyticsReportRequests/${requestId}/reports?limit=200`;
+    let path = applyAppleListQuery(
+      `/analyticsReportRequests/${requestId}/reports?limit=200`,
+      listQuery,
+      APPLE_PAGE_LIMIT,
+    );
 
     if (filters.category) path += `&filter[category]=${filters.category}`;
 
@@ -118,7 +131,7 @@ export class ConnectReports {
       category?: string;
     }>(path);
 
-    function mapReport(report: {
+    function copyAnalyticsReport(report: {
       id: string;
       attributes: { name?: string; category?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -135,7 +148,7 @@ export class ConnectReports {
       return analyticsReport;
     }
 
-    return appleResources.map(mapReport);
+    return appleResources.map(copyAnalyticsReport);
   }
 
   /**
@@ -149,8 +162,13 @@ export class ConnectReports {
       granularity?: string;
       processingDate?: string;
     } = {},
+    listQuery: AppleListQuery | null = null,
   ): Promise<AnalyticsReportInstanceResource[]> {
-    let path = `/analyticsReports/${reportId}/instances?limit=200`;
+    let path = applyAppleListQuery(
+      `/analyticsReports/${reportId}/instances?limit=200`,
+      listQuery,
+      APPLE_PAGE_LIMIT,
+    );
 
     if (filters.granularity) path += `&filter[granularity]=${filters.granularity}`;
 
@@ -161,7 +179,7 @@ export class ConnectReports {
       processingDate?: string;
     }>(path);
 
-    function mapInstance(instance: {
+    function copyAnalyticsReportInstance(instance: {
       id: string;
       attributes: { granularity?: string; processingDate?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -178,7 +196,7 @@ export class ConnectReports {
       return reportInstance;
     }
 
-    return appleResources.map(mapInstance);
+    return appleResources.map(copyAnalyticsReportInstance);
   }
 
   /**
@@ -186,14 +204,23 @@ export class ConnectReports {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-analyticsreportinstances-_id_-segments
    */
-  async listAnalyticsReportSegments(instanceId: string): Promise<AnalyticsReportSegmentResource[]> {
+  async listAnalyticsReportSegments(
+    instanceId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AnalyticsReportSegmentResource[]> {
     const appleResources = await this.client.requestAll<{
       url?: string;
       checksum?: string;
       sizeInBytes?: number;
-    }>(`/analyticsReportInstances/${instanceId}/segments?limit=200`);
+    }>(
+      applyAppleListQuery(
+        `/analyticsReportInstances/${instanceId}/segments?limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function flatMapSegment(segment: {
+    function readAnalyticsReportSegment(segment: {
       id: string;
       attributes: { url?: string; checksum?: string; sizeInBytes?: number };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -213,7 +240,7 @@ export class ConnectReports {
       return [reportSegment];
     }
 
-    return appleResources.flatMap(flatMapSegment);
+    return appleResources.flatMap(readAnalyticsReportSegment);
   }
 
   async downloadAnalyticsSegment(url: string): Promise<Buffer> {

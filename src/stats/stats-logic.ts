@@ -24,11 +24,11 @@ export function mergeStats(
     return firstIdentity.localeCompare(secondIdentity);
   }
 
-  function mapPiece([, stat]: [string, DailyStat]) {
+  function copyDailyStat([, stat]: [string, DailyStat]) {
     return stat;
   }
 
-  return [...statsByIdentity.entries()].sort(sortPiece).map(mapPiece);
+  return [...statsByIdentity.entries()].sort(sortPiece).map(copyDailyStat);
 }
 
 export function groupStatsByMonth(stats: readonly DailyStat[]): Map<string, DailyStat[]> {

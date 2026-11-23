@@ -137,6 +137,7 @@ import type {
   UploadOperation,
   AssetReservation,
 } from './connect/shared.ts';
+import type { AppleListQuery } from './connect/list-query.ts';
 
 export class AppStoreConnectClient implements AscHost {
   private readonly apps: ConnectApps;
@@ -392,21 +393,30 @@ export class AppStoreConnectClient implements AscHost {
     return this.apps.getCurrentAppInfoId(appId);
   }
 
-  async listAppInfoStates(appId: string): Promise<ResourceList<AppInfoStates>['data']> {
-    return this.apps.listAppInfoStates(appId);
+  async listAppInfoStates(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ResourceList<AppInfoStates>['data']> {
+    return this.apps.listAppInfoStates(appId, listQuery);
   }
 
-  async listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]> {
-    return this.apps.listAppInfoLocalizations(appInfoId);
+  async listAppInfoLocalizations(
+    appInfoId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ListingLocalization[]> {
+    return this.apps.listAppInfoLocalizations(appInfoId, listQuery);
   }
 
-  async listAccountDeletionUrls(appInfoId: string): Promise<
+  async listAccountDeletionUrls(
+    appInfoId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<
     {
       locale: string;
       url: string;
     }[]
   > {
-    return this.apps.listAccountDeletionUrls(appInfoId);
+    return this.apps.listAccountDeletionUrls(appInfoId, listQuery);
   }
 
   async createAppInfoLocalization(
@@ -436,16 +446,21 @@ export class AppStoreConnectClient implements AscHost {
     return this.apps.resolveTeamId();
   }
 
-  async listAppNames(): Promise<string[]> {
-    return this.apps.listAppNames();
+  async listAppNames(listQuery: AppleListQuery | null = null): Promise<string[]> {
+    return this.apps.listAppNames(listQuery);
   }
 
-  async listApps(): Promise<{ id: string; name: string; bundleId: string | null }[]> {
-    return this.apps.listApps();
+  async listApps(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<{ id: string; name: string; bundleId: string | null }[]> {
+    return this.apps.listApps(listQuery);
   }
 
-  async getAppInfo(appId: string): Promise<AppInfoResource | null> {
-    return this.apps.getAppInfo(appId);
+  async getAppInfo(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppInfoResource | null> {
+    return this.apps.getAppInfo(appId, listQuery);
   }
 
   async updateAppInfoCategories(
@@ -473,8 +488,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.builds.getLatestBuildNumber(bundleId);
   }
 
-  async getLatestMarketingVersion(bundleId: string): Promise<string | null> {
-    return this.builds.getLatestMarketingVersion(bundleId);
+  async getLatestMarketingVersion(
+    bundleId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<string | null> {
+    return this.builds.getLatestMarketingVersion(bundleId, listQuery);
   }
 
   async getBuildProcessingState(bundleId: string, buildNumber: number): Promise<string | null> {
@@ -516,16 +534,23 @@ export class AppStoreConnectClient implements AscHost {
     return this.builds.setBuildUsesNonExemptEncryption(buildId, fieldValue);
   }
 
-  async listEncryptionDeclarations(bundleId: string): Promise<EncryptionDeclarationResource[]> {
-    return this.builds.listEncryptionDeclarations(bundleId);
+  async listEncryptionDeclarations(
+    bundleId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<EncryptionDeclarationResource[]> {
+    return this.builds.listEncryptionDeclarations(bundleId, listQuery);
   }
 
   async linkBuildToDeclaration(declarationId: string, buildId: string): Promise<void> {
     return this.builds.linkBuildToDeclaration(declarationId, buildId);
   }
 
-  async listBuilds(appId: string, limit = 25): Promise<BuildResource[]> {
-    return this.builds.listBuilds(appId, limit);
+  async listBuilds(
+    appId: string,
+    limit = 25,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BuildResource[]> {
+    return this.builds.listBuilds(appId, limit, listQuery);
   }
 
   async findBuildByVersion(
@@ -544,12 +569,18 @@ export class AppStoreConnectClient implements AscHost {
     return this.versions.getCurrentVersionId(appId);
   }
 
-  async listVersionStates(appId: string): Promise<ResourceList<VersionStates>['data']> {
-    return this.versions.listVersionStates(appId);
+  async listVersionStates(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ResourceList<VersionStates>['data']> {
+    return this.versions.listVersionStates(appId, listQuery);
   }
 
-  async listVersionLocalizations(versionId: string): Promise<ListingLocalization[]> {
-    return this.versions.listVersionLocalizations(versionId);
+  async listVersionLocalizations(
+    versionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ListingLocalization[]> {
+    return this.versions.listVersionLocalizations(versionId, listQuery);
   }
 
   async createVersionLocalization(
@@ -570,11 +601,12 @@ export class AppStoreConnectClient implements AscHost {
   async findEditableAppStoreVersion(
     appId: string,
     platform: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<{
     id: string;
     copyright: string;
   } | null> {
-    return this.versions.findEditableAppStoreVersion(appId, platform);
+    return this.versions.findEditableAppStoreVersion(appId, platform, listQuery);
   }
 
   async getAppStoreReviewDetail(versionId: string): Promise<AppStoreReviewDetailResource | null> {
@@ -597,8 +629,12 @@ export class AppStoreConnectClient implements AscHost {
     return this.versions.updateAppStoreReviewDetail(detailId, attributes);
   }
 
-  async listAppStoreVersions(appId: string, platform: string): Promise<AppStoreVersionResource[]> {
-    return this.versions.listAppStoreVersions(appId, platform);
+  async listAppStoreVersions(
+    appId: string,
+    platform: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppStoreVersionResource[]> {
+    return this.versions.listAppStoreVersions(appId, platform, listQuery);
   }
 
   async createAppStoreVersion(
@@ -631,8 +667,9 @@ export class AppStoreConnectClient implements AscHost {
 
   async listAppStoreVersionLocalizations(
     versionId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<AppStoreVersionLocalizationResource[]> {
-    return this.versions.listAppStoreVersionLocalizations(versionId);
+    return this.versions.listAppStoreVersionLocalizations(versionId, listQuery);
   }
 
   async createAppStoreVersionLocalization(
@@ -668,8 +705,9 @@ export class AppStoreConnectClient implements AscHost {
   async listReviewSubmissions(
     appId: string,
     platform: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<ReviewSubmissionResource[]> {
-    return this.versions.listReviewSubmissions(appId, platform);
+    return this.versions.listReviewSubmissions(appId, platform, listQuery);
   }
 
   async createReviewSubmission(appId: string, platform: string): Promise<ReviewSubmissionResource> {
@@ -703,14 +741,18 @@ export class AppStoreConnectClient implements AscHost {
     return this.versions.getReviewSubmission(submissionId);
   }
 
-  async listAppClips(appId: string): Promise<AppClipResource[]> {
-    return this.appClips.listAppClips(appId);
+  async listAppClips(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppClipResource[]> {
+    return this.appClips.listAppClips(appId, listQuery);
   }
 
   async listAppClipDefaultExperiences(
     appClipId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<AppClipDefaultExperienceResource[]> {
-    return this.appClips.listAppClipDefaultExperiences(appClipId);
+    return this.appClips.listAppClipDefaultExperiences(appClipId, listQuery);
   }
 
   async createAppClipDefaultExperience(
@@ -732,8 +774,9 @@ export class AppStoreConnectClient implements AscHost {
 
   async listAppClipDefaultExperienceLocalizations(
     experienceId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<AppClipLocalizationResource[]> {
-    return this.appClips.listAppClipDefaultExperienceLocalizations(experienceId);
+    return this.appClips.listAppClipDefaultExperienceLocalizations(experienceId, listQuery);
   }
 
   async createAppClipDefaultExperienceLocalization(
@@ -751,8 +794,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.appClips.updateAppClipDefaultExperienceLocalization(localizationId, subtitle);
   }
 
-  async findBundleId(identifier: string): Promise<BundleIdResource | null> {
-    return this.signing.findBundleId(identifier);
+  async findBundleId(
+    identifier: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BundleIdResource | null> {
+    return this.signing.findBundleId(identifier, listQuery);
   }
 
   async createBundleId(
@@ -763,8 +809,10 @@ export class AppStoreConnectClient implements AscHost {
     return this.signing.createBundleId(identifier, name, bundleIdPlatform);
   }
 
-  async listDistributionCertificates(): Promise<CertificateResource[]> {
-    return this.signing.listDistributionCertificates();
+  async listDistributionCertificates(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<CertificateResource[]> {
+    return this.signing.listDistributionCertificates(listQuery);
   }
 
   async createCertificate(csrContent: string): Promise<CertificateResource> {
@@ -788,8 +836,8 @@ export class AppStoreConnectClient implements AscHost {
     return this.signing.deleteProfile(id);
   }
 
-  async listDevices(): Promise<DeviceResource[]> {
-    return this.signing.listDevices();
+  async listDevices(listQuery: AppleListQuery | null = null): Promise<DeviceResource[]> {
+    return this.signing.listDevices(listQuery);
   }
 
   async findDeviceByUdid(udid: string): Promise<DeviceResource | null> {
@@ -822,8 +870,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.signing.listBundleIdCapabilities(bundleIdResourceId);
   }
 
-  async listProfilesForBundleId(bundleIdResourceId: string): Promise<ProfileResource[]> {
-    return this.signing.listProfilesForBundleId(bundleIdResourceId);
+  async listProfilesForBundleId(
+    bundleIdResourceId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ProfileResource[]> {
+    return this.signing.listProfilesForBundleId(bundleIdResourceId, listQuery);
   }
 
   async enableCapability(
@@ -837,16 +888,21 @@ export class AppStoreConnectClient implements AscHost {
     return this.signing.disableCapability(capabilityId);
   }
 
-  async listSandboxTesters(): Promise<SandboxTesterResource[]> {
-    return this.sandbox.listSandboxTesters();
+  async listSandboxTesters(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<SandboxTesterResource[]> {
+    return this.sandbox.listSandboxTesters(listQuery);
   }
 
   async clearSandboxTesterPurchaseHistory(testerIds: readonly string[]): Promise<void> {
     return this.sandbox.clearSandboxTesterPurchaseHistory(testerIds);
   }
 
-  async listInAppPurchases(appId: string): Promise<InAppPurchaseResource[]> {
-    return this.purchases.listInAppPurchases(appId);
+  async listInAppPurchases(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<InAppPurchaseResource[]> {
+    return this.purchases.listInAppPurchases(appId, listQuery);
   }
 
   async createInAppPurchase(
@@ -871,8 +927,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.purchases.createInAppPurchaseLocalization(iapId, copy);
   }
 
-  async listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]> {
-    return this.purchases.listSubscriptionGroups(appId);
+  async listSubscriptionGroups(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<SubscriptionGroupResource[]> {
+    return this.purchases.listSubscriptionGroups(appId, listQuery);
   }
 
   async createSubscriptionGroup(
@@ -893,8 +952,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.purchases.createSubscriptionGroupLocalization(groupId, copy);
   }
 
-  async listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
-    return this.purchases.listSubscriptions(groupId);
+  async listSubscriptions(
+    groupId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<SubscriptionResource[]> {
+    return this.purchases.listSubscriptions(groupId, listQuery);
   }
 
   async createSubscription(
@@ -928,16 +990,25 @@ export class AppStoreConnectClient implements AscHost {
     subscriptionId: string,
     territory: string,
     customerPrice: number,
+    listQuery: AppleListQuery | null = null,
   ): Promise<PricePointResource | null> {
-    return this.purchases.findSubscriptionPricePoint(subscriptionId, territory, customerPrice);
+    return this.purchases.findSubscriptionPricePoint(
+      subscriptionId,
+      territory,
+      customerPrice,
+      listQuery,
+    );
   }
 
   async createSubscriptionPrice(subscriptionId: string, pricePointId: string): Promise<void> {
     return this.purchases.createSubscriptionPrice(subscriptionId, pricePointId);
   }
 
-  async listSubscriptionOfferCodes(subscriptionId: string): Promise<OfferCodeResource[]> {
-    return this.purchases.listSubscriptionOfferCodes(subscriptionId);
+  async listSubscriptionOfferCodes(
+    subscriptionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<OfferCodeResource[]> {
+    return this.purchases.listSubscriptionOfferCodes(subscriptionId, listQuery);
   }
 
   async createSubscriptionOfferCode(input: OfferCodeCreate): Promise<OfferCodeResource> {
@@ -974,32 +1045,44 @@ export class AppStoreConnectClient implements AscHost {
     );
   }
 
-  async listPromotionalOffers(subscriptionId: string): Promise<PromotionalOfferResource[]> {
-    return this.purchases.listPromotionalOffers(subscriptionId);
+  async listPromotionalOffers(
+    subscriptionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<PromotionalOfferResource[]> {
+    return this.purchases.listPromotionalOffers(subscriptionId, listQuery);
   }
 
   async createPromotionalOffer(input: PromotionalOfferCreate): Promise<PromotionalOfferResource> {
     return this.purchases.createPromotionalOffer(input);
   }
 
-  async listIntroductoryOffers(subscriptionId: string): Promise<IntroductoryOfferResource[]> {
-    return this.purchases.listIntroductoryOffers(subscriptionId);
+  async listIntroductoryOffers(
+    subscriptionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<IntroductoryOfferResource[]> {
+    return this.purchases.listIntroductoryOffers(subscriptionId, listQuery);
   }
 
   async createIntroductoryOffer(input: IntroductoryOfferCreate): Promise<void> {
     return this.purchases.createIntroductoryOffer(input);
   }
 
-  async listWinBackOffers(subscriptionId: string): Promise<WinBackOfferResource[]> {
-    return this.purchases.listWinBackOffers(subscriptionId);
+  async listWinBackOffers(
+    subscriptionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<WinBackOfferResource[]> {
+    return this.purchases.listWinBackOffers(subscriptionId, listQuery);
   }
 
   async createWinBackOffer(input: WinBackOfferCreate): Promise<void> {
     return this.purchases.createWinBackOffer(input);
   }
 
-  async listPromotedPurchases(appId: string): Promise<PromotedPurchaseResource[]> {
-    return this.purchases.listPromotedPurchases(appId);
+  async listPromotedPurchases(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<PromotedPurchaseResource[]> {
+    return this.purchases.listPromotedPurchases(appId, listQuery);
   }
 
   async createPromotedPurchase(input: PromotedPurchaseCreate): Promise<PromotedPurchaseResource> {
@@ -1018,8 +1101,9 @@ export class AppStoreConnectClient implements AscHost {
     iapId: string,
     territory: string,
     customerPrice: number,
+    listQuery: AppleListQuery | null = null,
   ): Promise<PricePointResource | null> {
-    return this.purchases.findInAppPurchasePricePoint(iapId, territory, customerPrice);
+    return this.purchases.findInAppPurchasePricePoint(iapId, territory, customerPrice, listQuery);
   }
 
   async createInAppPurchasePriceSchedule(
@@ -1030,8 +1114,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.purchases.createInAppPurchasePriceSchedule(iapId, baseTerritory, pricePointId);
   }
 
-  async listBetaGroups(appId: string): Promise<BetaGroupResource[]> {
-    return this.testflight.listBetaGroups(appId);
+  async listBetaGroups(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BetaGroupResource[]> {
+    return this.testflight.listBetaGroups(appId, listQuery);
   }
 
   async findBetaGroupByName(appId: string, name: string): Promise<BetaGroupResource | null> {
@@ -1042,8 +1129,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.testflight.createBetaGroup(appId, name);
   }
 
-  async listBetaTestersInGroup(groupId: string): Promise<BetaTesterResource[]> {
-    return this.testflight.listBetaTestersInGroup(groupId);
+  async listBetaTestersInGroup(
+    groupId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BetaTesterResource[]> {
+    return this.testflight.listBetaTestersInGroup(groupId, listQuery);
   }
 
   async findBetaTesterByEmail(email: string): Promise<BetaTesterResource | null> {
@@ -1087,8 +1177,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.testflight.downloadBetaFeedbackScreenshot(url);
   }
 
-  async listBetaBuildLocalizations(buildId: string): Promise<BetaBuildLocalizationResource[]> {
-    return this.testflight.listBetaBuildLocalizations(buildId);
+  async listBetaBuildLocalizations(
+    buildId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BetaBuildLocalizationResource[]> {
+    return this.testflight.listBetaBuildLocalizations(buildId, listQuery);
   }
 
   async createBetaBuildLocalization(
@@ -1113,8 +1206,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.testflight.createBetaAppReviewSubmission(buildId);
   }
 
-  async listAccessibilityDeclarations(appId: string): Promise<AccessibilityDeclarationResource[]> {
-    return this.accessibility.listAccessibilityDeclarations(appId);
+  async listAccessibilityDeclarations(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AccessibilityDeclarationResource[]> {
+    return this.accessibility.listAccessibilityDeclarations(appId, listQuery);
   }
 
   async createAccessibilityDeclaration(
@@ -1134,8 +1230,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.accessibility.updateAccessibilityDeclaration(declarationId, changes);
   }
 
-  async getAppAvailability(appId: string): Promise<AppAvailabilityResource | null> {
-    return this.availability.getAppAvailability(appId);
+  async getAppAvailability(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppAvailabilityResource | null> {
+    return this.availability.getAppAvailability(appId, listQuery);
   }
 
   async createAppAvailability(
@@ -1155,22 +1254,29 @@ export class AppStoreConnectClient implements AscHost {
     return this.availability.updateAppAvailabilityTerritories(availabilityId, territories);
   }
 
-  async listCustomProductPages(appId: string): Promise<CustomProductPageResource[]> {
-    return this.customProductPages.listCustomProductPages(appId);
+  async listCustomProductPages(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<CustomProductPageResource[]> {
+    return this.customProductPages.listCustomProductPages(appId, listQuery);
   }
 
   async createCustomProductPage(appId: string, name: string): Promise<CustomProductPageResource> {
     return this.customProductPages.createCustomProductPage(appId, name);
   }
 
-  async listCustomProductPageVersions(pageId: string): Promise<CustomProductPageVersionResource[]> {
-    return this.customProductPages.listCustomProductPageVersions(pageId);
+  async listCustomProductPageVersions(
+    pageId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<CustomProductPageVersionResource[]> {
+    return this.customProductPages.listCustomProductPageVersions(pageId, listQuery);
   }
 
   async listCustomProductPageLocalizations(
     versionId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<CustomProductPageLocalizationResource[]> {
-    return this.customProductPages.listCustomProductPageLocalizations(versionId);
+    return this.customProductPages.listCustomProductPageLocalizations(versionId, listQuery);
   }
 
   async createCustomProductPageLocalization(
@@ -1195,8 +1301,11 @@ export class AppStoreConnectClient implements AscHost {
     );
   }
 
-  async listVersionExperiments(appId: string): Promise<VersionExperimentResource[]> {
-    return this.experiments.listVersionExperiments(appId);
+  async listVersionExperiments(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<VersionExperimentResource[]> {
+    return this.experiments.listVersionExperiments(appId, listQuery);
   }
 
   async createVersionExperiment(
@@ -1210,8 +1319,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.experiments.createVersionExperiment(appId, input);
   }
 
-  async listExperimentTreatments(experimentId: string): Promise<ExperimentTreatmentResource[]> {
-    return this.experiments.listExperimentTreatments(experimentId);
+  async listExperimentTreatments(
+    experimentId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ExperimentTreatmentResource[]> {
+    return this.experiments.listExperimentTreatments(experimentId, listQuery);
   }
 
   async createExperimentTreatment(
@@ -1230,8 +1342,9 @@ export class AppStoreConnectClient implements AscHost {
 
   async listExperimentTreatmentLocalizations(
     treatmentId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<ExperimentTreatmentLocalizationResource[]> {
-    return this.experiments.listExperimentTreatmentLocalizations(treatmentId);
+    return this.experiments.listExperimentTreatmentLocalizations(treatmentId, listQuery);
   }
 
   async createExperimentTreatmentLocalization(
@@ -1245,12 +1358,17 @@ export class AppStoreConnectClient implements AscHost {
     appId: string,
     territory: string,
     customerPrice: number,
+    listQuery: AppleListQuery | null = null,
   ): Promise<PricePointResource | null> {
-    return this.pricing.findAppPricePoint(appId, territory, customerPrice);
+    return this.pricing.findAppPricePoint(appId, territory, customerPrice, listQuery);
   }
 
-  async getCurrentAppPrice(appId: string, territory: string): Promise<string | null> {
-    return this.pricing.getCurrentAppPrice(appId, territory);
+  async getCurrentAppPrice(
+    appId: string,
+    territory: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<string | null> {
+    return this.pricing.getCurrentAppPrice(appId, territory, listQuery);
   }
 
   async createAppPriceSchedule(
@@ -1267,8 +1385,9 @@ export class AppStoreConnectClient implements AscHost {
       rating?: number;
       territory?: string;
     } = {},
+    listQuery: AppleListQuery | null = null,
   ): Promise<CustomerReviewResource[]> {
-    return this.reviews.listCustomerReviews(appId, filters);
+    return this.reviews.listCustomerReviews(appId, filters, listQuery);
   }
 
   async getCustomerReviewResponse(
@@ -1288,12 +1407,14 @@ export class AppStoreConnectClient implements AscHost {
     return this.reviews.deleteCustomerReviewResponse(responseId);
   }
 
-  async listUsers(): Promise<UserResource[]> {
-    return this.team.listUsers();
+  async listUsers(listQuery: AppleListQuery | null = null): Promise<UserResource[]> {
+    return this.team.listUsers(listQuery);
   }
 
-  async listUserInvitations(): Promise<UserInvitationResource[]> {
-    return this.team.listUserInvitations();
+  async listUserInvitations(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<UserInvitationResource[]> {
+    return this.team.listUserInvitations(listQuery);
   }
 
   async inviteUser(invite: NewUserInvitation): Promise<UserInvitationResource> {
@@ -1319,8 +1440,9 @@ export class AppStoreConnectClient implements AscHost {
   async listAnalyticsReportRequests(
     appId: string,
     accessType: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<AnalyticsReportRequestResource[]> {
-    return this.reports.listAnalyticsReportRequests(appId, accessType);
+    return this.reports.listAnalyticsReportRequests(appId, accessType, listQuery);
   }
 
   async createAnalyticsReportRequest(
@@ -1336,8 +1458,9 @@ export class AppStoreConnectClient implements AscHost {
       category?: string;
       name?: string;
     } = {},
+    listQuery: AppleListQuery | null = null,
   ): Promise<AnalyticsReportResource[]> {
-    return this.reports.listAnalyticsReports(requestId, filters);
+    return this.reports.listAnalyticsReports(requestId, filters, listQuery);
   }
 
   async listAnalyticsReportInstances(
@@ -1346,24 +1469,34 @@ export class AppStoreConnectClient implements AscHost {
       granularity?: string;
       processingDate?: string;
     } = {},
+    listQuery: AppleListQuery | null = null,
   ): Promise<AnalyticsReportInstanceResource[]> {
-    return this.reports.listAnalyticsReportInstances(reportId, filters);
+    return this.reports.listAnalyticsReportInstances(reportId, filters, listQuery);
   }
 
-  async listAnalyticsReportSegments(instanceId: string): Promise<AnalyticsReportSegmentResource[]> {
-    return this.reports.listAnalyticsReportSegments(instanceId);
+  async listAnalyticsReportSegments(
+    instanceId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AnalyticsReportSegmentResource[]> {
+    return this.reports.listAnalyticsReportSegments(instanceId, listQuery);
   }
 
   async downloadAnalyticsSegment(url: string): Promise<Buffer> {
     return this.reports.downloadAnalyticsSegment(url);
   }
 
-  async listAppEvents(appId: string): Promise<AppEventResource[]> {
-    return this.events.listAppEvents(appId);
+  async listAppEvents(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppEventResource[]> {
+    return this.events.listAppEvents(appId, listQuery);
   }
 
-  async listAppEventLocalizations(eventId: string): Promise<AppEventLocalizationResource[]> {
-    return this.events.listAppEventLocalizations(eventId);
+  async listAppEventLocalizations(
+    eventId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppEventLocalizationResource[]> {
+    return this.events.listAppEventLocalizations(eventId, listQuery);
   }
 
   async createAppEvent(appId: string, attributes: NewAppEvent): Promise<AppEventResource> {
@@ -1413,8 +1546,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.screenshots.createTreatmentScreenshotSet(treatmentLocalizationId, displayType);
   }
 
-  async listScreenshots(setId: string): Promise<ScreenshotResource[]> {
-    return this.screenshots.listScreenshots(setId);
+  async listScreenshots(
+    setId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ScreenshotResource[]> {
+    return this.screenshots.listScreenshots(setId, listQuery);
   }
 
   async deleteScreenshot(screenshotId: string): Promise<void> {
@@ -1443,8 +1579,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.screenshots.uploadSubscriptionReviewScreenshot(subscriptionId, fileName, filePath);
   }
 
-  async listPreviewSets(versionLocalizationId: string): Promise<PreviewSetResource[]> {
-    return this.screenshots.listPreviewSets(versionLocalizationId);
+  async listPreviewSets(
+    versionLocalizationId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<PreviewSetResource[]> {
+    return this.screenshots.listPreviewSets(versionLocalizationId, listQuery);
   }
 
   async createPreviewSet(
@@ -1454,24 +1593,31 @@ export class AppStoreConnectClient implements AscHost {
     return this.screenshots.createPreviewSet(versionLocalizationId, previewType);
   }
 
-  async listPreviews(setId: string): Promise<PreviewResource[]> {
-    return this.screenshots.listPreviews(setId);
+  async listPreviews(
+    setId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<PreviewResource[]> {
+    return this.screenshots.listPreviews(setId, listQuery);
   }
 
   async uploadPreview(setId: string, fileName: string, filePath: string): Promise<void> {
     return this.screenshots.uploadPreview(setId, fileName, filePath);
   }
 
-  async listAlternativeDistributionDomains(): Promise<AlternativeDistributionDomainResource[]> {
-    return this.distribution.listAlternativeDistributionDomains();
+  async listAlternativeDistributionDomains(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AlternativeDistributionDomainResource[]> {
+    return this.distribution.listAlternativeDistributionDomains(listQuery);
   }
 
   async createAlternativeDistributionDomain(domain: string, referenceName: string): Promise<void> {
     return this.distribution.createAlternativeDistributionDomain(domain, referenceName);
   }
 
-  async listAlternativeDistributionKeys(): Promise<AlternativeDistributionKeyResource[]> {
-    return this.distribution.listAlternativeDistributionKeys();
+  async listAlternativeDistributionKeys(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AlternativeDistributionKeyResource[]> {
+    return this.distribution.listAlternativeDistributionKeys(listQuery);
   }
 
   async createAlternativeDistributionKey(publicKey: string): Promise<{
@@ -1480,16 +1626,16 @@ export class AppStoreConnectClient implements AscHost {
     return this.distribution.createAlternativeDistributionKey(publicKey);
   }
 
-  async listMerchantIds(): Promise<MerchantIdResource[]> {
-    return this.distribution.listMerchantIds();
+  async listMerchantIds(listQuery: AppleListQuery | null = null): Promise<MerchantIdResource[]> {
+    return this.distribution.listMerchantIds(listQuery);
   }
 
   async createMerchantId(identifier: string, name: string): Promise<void> {
     return this.distribution.createMerchantId(identifier, name);
   }
 
-  async listPassTypeIds(): Promise<PassTypeIdResource[]> {
-    return this.distribution.listPassTypeIds();
+  async listPassTypeIds(listQuery: AppleListQuery | null = null): Promise<PassTypeIdResource[]> {
+    return this.distribution.listPassTypeIds(listQuery);
   }
 
   async createPassTypeId(identifier: string, name: string): Promise<void> {
@@ -1504,8 +1650,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.gameCenter.createGameCenterDetail(appId);
   }
 
-  async listGameCenterAchievements(detailId: string): Promise<GameCenterAchievementResource[]> {
-    return this.gameCenter.listGameCenterAchievements(detailId);
+  async listGameCenterAchievements(
+    detailId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<GameCenterAchievementResource[]> {
+    return this.gameCenter.listGameCenterAchievements(detailId, listQuery);
   }
 
   async createGameCenterAchievement(
@@ -1530,8 +1679,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.gameCenter.createGameCenterAchievementLocalization(versionId, fields);
   }
 
-  async listGameCenterLeaderboards(detailId: string): Promise<GameCenterLeaderboardResource[]> {
-    return this.gameCenter.listGameCenterLeaderboards(detailId);
+  async listGameCenterLeaderboards(
+    detailId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<GameCenterLeaderboardResource[]> {
+    return this.gameCenter.listGameCenterLeaderboards(detailId, listQuery);
   }
 
   async createGameCenterLeaderboard(

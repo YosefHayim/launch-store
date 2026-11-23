@@ -10,15 +10,15 @@ function describeAppPrivacyChecklist() {
 
     expect(lines[0]).toContain('UI-only');
 
-    function forEachStep(step: string, index: number) {
-      function someLine(line: string) {
+    function expectNumberedStep(step: string, index: number) {
+      function includesStepLine(line: string) {
         return line.includes(`${index + 1}. ${step}`);
       }
 
-      expect(lines.some(someLine)).toBe(true);
+      expect(lines.some(includesStepLine)).toBe(true);
     }
 
-    APP_PRIVACY_STEPS.forEach(forEachStep);
+    APP_PRIVACY_STEPS.forEach(expectNumberedStep);
     expect(lines.at(-1)).toContain(APP_PRIVACY_HELP_URL);
   }
 

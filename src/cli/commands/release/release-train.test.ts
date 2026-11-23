@@ -7,19 +7,22 @@ function describeRegisterReleaseTrainCommand() {
 
     registerReleaseTrainCommand(program);
 
-    function findRegisteredCommand(registeredCommand: Command) {
+    function isReleaseTrainCommand(registeredCommand: Command) {
       return registeredCommand.name() == 'release-train';
     }
 
-    const releaseTrainCommand = program.commands.find(findRegisteredCommand);
+    const releaseTrainCommand = program.commands.find(isReleaseTrainCommand);
 
     expect(releaseTrainCommand).toBeDefined();
 
-    function mapArgument(argument: CommandArgument) {
+    function readArgumentName(argument: CommandArgument) {
       return argument.name();
     }
 
-    expect(releaseTrainCommand?.registeredArguments.map(mapArgument)).toEqual(['action', 'id']);
+    expect(releaseTrainCommand?.registeredArguments.map(readArgumentName)).toEqual([
+      'action',
+      'id',
+    ]);
 
     function readLong(commandOption: CommandOption) {
       return commandOption.long;

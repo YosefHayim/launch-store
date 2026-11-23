@@ -7,6 +7,7 @@ import type {
 import type { AscHost } from './host.ts';
 import type { ResourceSingle } from './shared.ts';
 import type { components } from '@/apple-api-types.js';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectDistribution {
   constructor(private readonly client: AscHost) {}
@@ -16,13 +17,17 @@ export class ConnectDistribution {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-alternativedistributiondomains
    */
-  async listAlternativeDistributionDomains(): Promise<AlternativeDistributionDomainResource[]> {
+  async listAlternativeDistributionDomains(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AlternativeDistributionDomainResource[]> {
     const appleResources = await this.client.requestAll<{
       domain?: string;
       referenceName?: string;
-    }>('/alternativeDistributionDomains?limit=200');
+    }>(
+      applyAppleListQuery('/alternativeDistributionDomains?limit=200', listQuery, APPLE_PAGE_LIMIT),
+    );
 
-    function mapDomain(domain: {
+    function copyDistributionDomain(domain: {
       id: string;
       attributes: { domain?: string; referenceName?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -38,7 +43,7 @@ export class ConnectDistribution {
       return distributionDomain;
     }
 
-    return appleResources.map(mapDomain);
+    return appleResources.map(copyDistributionDomain);
   }
 
   /**
@@ -58,12 +63,14 @@ export class ConnectDistribution {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-alternativedistributionkeys
    */
-  async listAlternativeDistributionKeys(): Promise<AlternativeDistributionKeyResource[]> {
+  async listAlternativeDistributionKeys(
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AlternativeDistributionKeyResource[]> {
     const appleResources = await this.client.requestAll<{
       publicKey?: string;
-    }>('/alternativeDistributionKeys?limit=200');
+    }>(applyAppleListQuery('/alternativeDistributionKeys?limit=200', listQuery, APPLE_PAGE_LIMIT));
 
-    function mapDistributionKey(distributionKey: {
+    function copyDistributionKey(distributionKey: {
       id: string;
       attributes: { publicKey?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -76,7 +83,7 @@ export class ConnectDistribution {
       return keyResource;
     }
 
-    return appleResources.map(mapDistributionKey);
+    return appleResources.map(copyDistributionKey);
   }
 
   /**
@@ -104,13 +111,13 @@ export class ConnectDistribution {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-merchantids
    */
-  async listMerchantIds(): Promise<MerchantIdResource[]> {
+  async listMerchantIds(listQuery: AppleListQuery | null = null): Promise<MerchantIdResource[]> {
     const appleResources = await this.client.requestAll<{
       identifier?: string;
       name?: string;
-    }>('/merchantIds?limit=200');
+    }>(applyAppleListQuery('/merchantIds?limit=200', listQuery, APPLE_PAGE_LIMIT));
 
-    function mapMerchant(merchant: {
+    function copyMerchantId(merchant: {
       id: string;
       attributes: { identifier?: string; name?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -126,7 +133,7 @@ export class ConnectDistribution {
       return merchantId;
     }
 
-    return appleResources.map(mapMerchant);
+    return appleResources.map(copyMerchantId);
   }
 
   /**
@@ -146,13 +153,13 @@ export class ConnectDistribution {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-passtypeids
    */
-  async listPassTypeIds(): Promise<PassTypeIdResource[]> {
+  async listPassTypeIds(listQuery: AppleListQuery | null = null): Promise<PassTypeIdResource[]> {
     const appleResources = await this.client.requestAll<{
       identifier?: string;
       name?: string;
-    }>('/passTypeIds?limit=200');
+    }>(applyAppleListQuery('/passTypeIds?limit=200', listQuery, APPLE_PAGE_LIMIT));
 
-    function mapPassType(passType: {
+    function copyPassTypeId(passType: {
       id: string;
       attributes: { identifier?: string; name?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -168,7 +175,7 @@ export class ConnectDistribution {
       return passTypeId;
     }
 
-    return appleResources.map(mapPassType);
+    return appleResources.map(copyPassTypeId);
   }
 
   /**

@@ -23,15 +23,17 @@ function unique(strings: readonly string[]): string[] {
 }
 /** Collect every `<string>...</string>` inside an XML fragment. */
 function stringTags(xml: string): string[] {
-  function mapPiece(match: RegExpExecArray) {
+  function readCapturedGroup(match: RegExpExecArray) {
     return match[1];
   }
 
-  function filterV(v: string | undefined): v is string {
+  function isCapturedGroupPresent(v: string | undefined): v is string {
     return Boolean(v);
   }
 
-  return [...xml.matchAll(/<string>([^<]+)<\/string>/g)].map(mapPiece).filter(filterV);
+  return [...xml.matchAll(/<string>([^<]+)<\/string>/g)]
+    .map(readCapturedGroup)
+    .filter(isCapturedGroupPresent);
 }
 /** Parse `NS*UsageDescription` keys (and their purpose strings) out of an `Info.plist`. */
 export function parseUsageDescriptions(plistXml: string): Record<string, string> {
@@ -59,19 +61,19 @@ export function parsePrivacyManifest(xml: string): {
   tracking: boolean;
   trackingDomains: string[];
 } {
-  function mapPiece2(match: RegExpExecArray) {
+  function readCollectedType(match: RegExpExecArray) {
     return match[1];
   }
 
-  function filterV2(v: string | undefined): v is string {
+  function isCollectedTypePresent(v: string | undefined): v is string {
     return Boolean(v);
   }
 
   const collectedDataTypes = [
     ...xml.matchAll(/<key>NSPrivacyCollectedDataType<\/key>\s*<string>([^<]+)<\/string>/g),
   ]
-    .map(mapPiece2)
-    .filter(filterV2);
+    .map(readCollectedType)
+    .filter(isCollectedTypePresent);
   const tracking = /<key>NSPrivacyTracking<\/key>\s*<true\s*\/>/.test(xml);
   const domainsBlock = /<key>NSPrivacyTrackingDomains<\/key>\s*<array>([\s\S]*?)<\/array>/.exec(
     xml,
@@ -88,18 +90,18 @@ export function parsePrivacyManifest(xml: string): {
 }
 /** Parse `<uses-permission android:name="...">` names out of an `AndroidManifest.xml`. */
 export function parseAndroidPermissions(manifestXml: string): string[] {
-  function mapPiece3(match: RegExpExecArray) {
+  function readDeclaredPermission(match: RegExpExecArray) {
     return match[1];
   }
 
-  function filterV3(v: string | undefined): v is string {
+  function isDeclaredPermissionPresent(v: string | undefined): v is string {
     return Boolean(v);
   }
 
   return unique(
     [...manifestXml.matchAll(/<uses-permission[^>]*android:name="([^"]+)"/g)]
-      .map(mapPiece3)
-      .filter(filterV3),
+      .map(readDeclaredPermission)
+      .filter(isDeclaredPermissionPresent),
   );
 }
 /** Read a string-array field, dropping non-strings; `[]` when absent or the wrong type. */

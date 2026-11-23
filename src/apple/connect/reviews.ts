@@ -5,6 +5,7 @@ import type {
   CustomerReviewResponseResource,
 } from '@/types/apple-catalog.js';
 import { readReviewResponse } from './shared.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectReviews {
   constructor(private readonly client: AscHost) {}
@@ -20,8 +21,13 @@ export class ConnectReviews {
       rating?: number;
       territory?: string;
     } = {},
+    listQuery: AppleListQuery | null = null,
   ): Promise<CustomerReviewResource[]> {
-    let path = `/apps/${appId}/customerReviews?include=response&sort=-createdDate&limit=200`;
+    let path = applyAppleListQuery(
+      `/apps/${appId}/customerReviews?include=response&sort=-createdDate&limit=200`,
+      listQuery,
+      APPLE_PAGE_LIMIT,
+    );
 
     if (filters.rating != null) path += `&filter[rating]=${filters.rating}`;
 

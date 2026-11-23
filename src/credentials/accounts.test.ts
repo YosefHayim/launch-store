@@ -61,7 +61,7 @@ const PEM = [
   '-----END PRIVATE KEY-----',
 ].join('\n');
 function file(active: string | null, ...labels: [string, string][]): AccountsFile {
-  function mapPiece([keyId, label]: [string, string]) {
+  function createSavedAccount([keyId, label]: [string, string]) {
     return {
       keyId,
       label,
@@ -72,7 +72,7 @@ function file(active: string | null, ...labels: [string, string][]): AccountsFil
 
   return {
     active,
-    accounts: labels.map(mapPiece),
+    accounts: labels.map(createSavedAccount),
   };
 }
 function prepare() {

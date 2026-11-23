@@ -4,6 +4,7 @@ import type {
   CustomProductPageResource,
   CustomProductPageVersionResource,
 } from '@/types/apple-catalog.js';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectCustomProductPages {
   constructor(private readonly client: AscHost) {}
@@ -13,12 +14,21 @@ export class ConnectCustomProductPages {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appcustomproductpages
    */
-  async listCustomProductPages(appId: string): Promise<CustomProductPageResource[]> {
+  async listCustomProductPages(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<CustomProductPageResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
-    }>(`/apps/${appId}/appCustomProductPages?limit=200&fields[appCustomProductPages]=name`);
+    }>(
+      applyAppleListQuery(
+        `/apps/${appId}/appCustomProductPages?limit=200&fields[appCustomProductPages]=name`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
+    );
 
-    function flatMapCustomPage(customPage: {
+    function readCustomProductPage(customPage: {
       id: string;
       attributes: { name?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -30,7 +40,7 @@ export class ConnectCustomProductPages {
       return [{ id: customPage.id, name: pageName }];
     }
 
-    return appleResources.flatMap(flatMapCustomPage);
+    return appleResources.flatMap(readCustomProductPage);
   }
 
   /**
@@ -56,14 +66,21 @@ export class ConnectCustomProductPages {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appcustomproductpages-_id_-appcustomproductpageversions
    */
-  async listCustomProductPageVersions(pageId: string): Promise<CustomProductPageVersionResource[]> {
+  async listCustomProductPageVersions(
+    pageId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<CustomProductPageVersionResource[]> {
     const appleResources = await this.client.requestAll<{
       state?: string;
     }>(
-      `/appCustomProductPages/${pageId}/appCustomProductPageVersions?limit=200&fields[appCustomProductPageVersions]=state`,
+      applyAppleListQuery(
+        `/appCustomProductPages/${pageId}/appCustomProductPageVersions?limit=200&fields[appCustomProductPageVersions]=state`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapVersion(version: {
+    function copyCustomPageVersion(version: {
       id: string;
       attributes: { state?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -75,7 +92,7 @@ export class ConnectCustomProductPages {
       return { id: version.id, state };
     }
 
-    return appleResources.map(mapVersion);
+    return appleResources.map(copyCustomPageVersion);
   }
 
   /**
@@ -85,15 +102,20 @@ export class ConnectCustomProductPages {
    */
   async listCustomProductPageLocalizations(
     versionId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<CustomProductPageLocalizationResource[]> {
     const appleResources = await this.client.requestAll<{
       locale?: string;
       promotionalText?: string | null;
     }>(
-      `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?limit=200&fields[appCustomProductPageLocalizations]=locale,promotionalText`,
+      applyAppleListQuery(
+        `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?limit=200&fields[appCustomProductPageLocalizations]=locale,promotionalText`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function flatMapLocalization(localization: {
+    function readCustomPageLocalization(localization: {
       id: string;
       attributes: { locale?: string; promotionalText?: string | null };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -115,7 +137,7 @@ export class ConnectCustomProductPages {
       return [customPageLocalization];
     }
 
-    return appleResources.flatMap(flatMapLocalization);
+    return appleResources.flatMap(readCustomPageLocalization);
   }
 
   /**

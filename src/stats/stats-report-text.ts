@@ -23,11 +23,11 @@ export function describeProceeds(totals: readonly MetricTotal[]): string {
 
   const moneyDecimals = 2;
 
-  function mapTotal(total: MetricTotal) {
+  function readProceedsLabel(total: MetricTotal) {
     return `${total.currency} ${total.total.toFixed(moneyDecimals)}`;
   }
 
-  return proceedsTotals.map(mapTotal).join(', ');
+  return proceedsTotals.map(readProceedsLabel).join(', ');
 }
 
 /** A stored crash rate (a fraction) as a percent, or a dash. */
@@ -56,11 +56,11 @@ export function describeOwner(owner: string | null): string {
 }
 
 function readUsageLabel(usageTotals: readonly MetricTotal[]): string {
-  function someTotal(total: MetricTotal) {
+  function isActiveUsersTotal(total: MetricTotal) {
     return total.metric == 'activeUsers';
   }
 
-  const isActiveUsers = usageTotals.some(someTotal);
+  const isActiveUsers = usageTotals.some(isActiveUsersTotal);
 
   if (isActiveUsers) return 'active users';
 
@@ -78,7 +78,7 @@ export function describeAppStats(appReport: AppStatsReport): string[] {
   const rating = readHeadlineTotal(appReport.totals, ['ratingAverage']);
   const labelWidth = 14;
 
-  function mapLine(line: { label: string; figure: string }) {
+  function padStatLine(line: { label: string; figure: string }) {
     return `  ${line.label.padEnd(labelWidth)}${line.figure}`;
   }
 
@@ -88,13 +88,13 @@ export function describeAppStats(appReport: AppStatsReport): string[] {
     { label: usageLabel, figure: describeCount(usage) },
     { label: 'crash rate', figure: describeCrashRate(crashRate) },
     { label: 'rating', figure: describeRating(rating) },
-  ].map(mapLine);
+  ].map(padStatLine);
 
-  function mapMessage(message: string) {
+  function readNoteLine(message: string) {
     return `  note: ${message}`;
   }
 
-  const messageLines = appReport.messages.map(mapMessage);
+  const messageLines = appReport.messages.map(readNoteLine);
 
   return [
     `${appReport.name} (${appReport.platform}, ${owner}, ${appReport.accountLabel})`,

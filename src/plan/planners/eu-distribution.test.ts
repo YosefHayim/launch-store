@@ -72,16 +72,16 @@ function describeEuDistributionPlanner() {
 
     expect(plan.direction).toBe('additive');
 
-    function someA(a: {
+    function isDistributionDomain(plannedAction: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
       error?: string;
     }) {
-      return a.description.includes('distribution domain');
+      return plannedAction.description.includes('distribution domain');
     }
 
-    expect(plan.actions.some(someA)).toBe(true);
+    expect(plan.actions.some(isDistributionDomain)).toBe(true);
   }
 
   it(

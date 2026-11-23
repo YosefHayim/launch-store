@@ -321,13 +321,13 @@ const appleTargetsWithPreviews = APPLE_ASSET_TARGETS.filter(
   (assetTarget): assetTarget is AppleAssetTarget & { readonly previewType: string } =>
     assetTarget.previewType != null,
 );
-function mapAssetTarget(
+function pairPreviewTarget(
   assetTarget: AppleAssetTarget & { readonly previewType: string },
 ): readonly [string, AppleAssetTarget & { readonly previewType: string }] {
   return [assetTarget.previewType, assetTarget];
 }
 
-const appleTargetByPreviewType = new Map(appleTargetsWithPreviews.map(mapAssetTarget));
+const appleTargetByPreviewType = new Map(appleTargetsWithPreviews.map(pairPreviewTarget));
 /** Find an Apple asset target by its stable Launch key. */
 export function findAppleAssetTarget(targetKey: string): AppleAssetTarget | undefined {
   return appleTargetByKey.get(targetKey);

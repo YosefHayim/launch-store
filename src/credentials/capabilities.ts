@@ -117,7 +117,7 @@ type CapabilityMapping = {
   unmapped: string[];
 };
 /** Map an app's `ios.entitlements` to the capabilities Launch should enable on its bundle id. */
-export function mapEntitlementsToCapabilities(
+export function readCapabilitiesFromEntitlements(
   entitlements: Record<string, unknown> | undefined,
 ): CapabilityMapping {
   const enable = new Set<CapabilityType>();
@@ -144,7 +144,7 @@ export function staleProfileCapabilities(
 ): CapabilityType[] {
   if (!profileEntitlements) return [];
 
-  const profileCapabilities = new Set(mapEntitlementsToCapabilities(profileEntitlements).enable);
+  const profileCapabilities = new Set(readCapabilitiesFromEntitlements(profileEntitlements).enable);
   const missing = new Set<CapabilityType>();
 
   for (const capabilityType of enabledOnAppId) {
@@ -186,11 +186,11 @@ export const APP_GROUP_PORTAL_URL =
 export function appGroupPortalNotice(containers: readonly string[]): string | null {
   if (containers.length == 0) return null;
 
-  function mapId(id: string) {
+  function quoteGroupId(id: string) {
     return `"${id}"`;
   }
 
-  const groups = containers.map(mapId).join(', ');
+  const groups = containers.map(quoteGroupId).join(', ');
   let plural = 'App Groups';
 
   if (containers.length == 1) plural = 'App Group';

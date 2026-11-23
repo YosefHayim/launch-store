@@ -6,6 +6,7 @@ import type {
 } from '@/types/apple-catalog.js';
 import type { AscHost } from './host.ts';
 import { pickAccessibilitySupport } from './shared.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectAccessibility {
   constructor(private readonly client: AscHost) {}
@@ -15,12 +16,19 @@ export class ConnectAccessibility {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-accessibilitydeclarations
    */
-  async listAccessibilityDeclarations(appId: string): Promise<AccessibilityDeclarationResource[]> {
+  async listAccessibilityDeclarations(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AccessibilityDeclarationResource[]> {
     const declarations = await this.client.requestAll<AccessibilityDeclarationAttributes>(
-      `/apps/${appId}/accessibilityDeclarations?limit=200`,
+      applyAppleListQuery(
+        `/apps/${appId}/accessibilityDeclarations?limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function flatMapDeclaration(declaration: {
+    function readAccessibilityDeclaration(declaration: {
       id: string;
       attributes: AccessibilityDeclarationAttributes;
       relationships?: { build?: { data?: { id: string } | null } };
@@ -43,7 +51,7 @@ export class ConnectAccessibility {
       ];
     }
 
-    return declarations.flatMap(flatMapDeclaration);
+    return declarations.flatMap(readAccessibilityDeclaration);
   }
 
   /**

@@ -84,7 +84,7 @@ const basePlans = (plans: readonly BasePlan[]): JsonValue => {
 };
 /** A subscription's listings, normalized to language + title pairs. */
 function listings(items: readonly SubscriptionListing[]): JsonValue {
-  function mapListing(listing: {
+  function keepLanguageAndTitle(listing: {
     readonly languageCode: string;
     readonly title: string;
     readonly description: string;
@@ -93,7 +93,7 @@ function listings(items: readonly SubscriptionListing[]): JsonValue {
     return { languageCode: listing.languageCode, title: listing.title };
   }
 
-  return items.map(mapListing);
+  return items.map(keepLanguageAndTitle);
 }
 /** One captured subscription -> a snapshot entity keyed by its product id. */
 function readSnapshotEntity(subscription: SubscriptionResource): SnapshotEntity {

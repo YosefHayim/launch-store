@@ -111,11 +111,11 @@ export function readLocaleInfo(fields: Readonly<{ [key: string]: JsonValue }>): 
   const keywords = fieldString(fields, 'keywords');
 
   if (keywords != null) {
-    function mapKeyword(keyword: string) {
+    function trimKeyword(keyword: string) {
       return keyword.trim();
     }
 
-    const list = keywords.split(',').map(mapKeyword).filter(Boolean);
+    const list = keywords.split(',').map(trimKeyword).filter(Boolean);
 
     if (list.length > 0) localeInfo.keywords = list;
   }

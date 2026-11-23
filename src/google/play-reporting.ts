@@ -91,13 +91,13 @@ function metricNumber(
   metricEntry: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1MetricsRow,
   name: string,
 ): number | undefined {
-  function findMetric(
+  function hasMetricName(
     metric: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1MetricValue,
   ) {
     return metric.metric == name;
   }
 
-  const encodedValue = metricEntry.metrics?.find(findMetric)?.decimalValue?.value;
+  const encodedValue = metricEntry.metrics?.find(hasMetricName)?.decimalValue?.value;
 
   if (typeof encodedValue != 'string') return;
 
@@ -130,16 +130,36 @@ function makePlayReportingApiError(fields: {
     cause: fields.cause,
   };
 }
-const PLAY_APPS_PAGE_SIZE = 1000;
+// apps.search documents a maximum pageSize of 1000.
+// https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/apps/search
+const PLAY_APPS_PAGE_SIZE_MIN = 1;
+const PLAY_APPS_PAGE_SIZE_MAX = 1000;
 export type PlayReportingApp = Readonly<{ packageName: string; displayName: string }>;
+function clampPlayPageSize(asked: number | null): number {
+  if (asked == null) {
+    return PLAY_APPS_PAGE_SIZE_MAX;
+  }
+
+  if (asked < PLAY_APPS_PAGE_SIZE_MIN) {
+    return PLAY_APPS_PAGE_SIZE_MIN;
+  }
+
+  if (asked > PLAY_APPS_PAGE_SIZE_MAX) {
+    return PLAY_APPS_PAGE_SIZE_MAX;
+  }
+
+  return asked;
+}
+
 function createAppsSearchRequest(
   pageToken: string | undefined,
+  pageSize: number,
 ): playdeveloperreporting_v1beta1.Params$Resource$Apps$Search {
   const isFirstPage = pageToken == null;
 
-  if (isFirstPage) return { pageSize: PLAY_APPS_PAGE_SIZE };
+  if (isFirstPage) return { pageSize };
 
-  return { pageSize: PLAY_APPS_PAGE_SIZE, pageToken };
+  return { pageSize, pageToken };
 }
 
 function readDisplayName(
@@ -239,12 +259,19 @@ export class PlayReportingClient {
    *
    * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/apps/search
    */
-  async listApps(): Promise<PlayReportingApp[]> {
+  async listApps(pageSize?: number): Promise<PlayReportingApp[]> {
     const apps: PlayReportingApp[] = [];
     let pageToken: string | undefined;
+    let askedPageSize: number | null = null;
+
+    if (pageSize != null) {
+      askedPageSize = pageSize;
+    }
+
+    const searchPageSize = clampPlayPageSize(askedPageSize);
 
     do {
-      const searchRequest = createAppsSearchRequest(pageToken);
+      const searchRequest = createAppsSearchRequest(pageToken, searchPageSize);
       const appsPage = await this.executeGeneratedRequest('search accessible apps', () =>
         this.reporting.apps.search(searchRequest),
       );
@@ -288,13 +315,13 @@ export class PlayReportingClient {
         break;
     }
 
-    function findFreshness(
+    function isDailyFreshness(
       freshness: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1FreshnessInfoFreshness,
     ) {
       return freshness.aggregationPeriod == 'DAILY';
     }
 
-    const dailyFreshness = metricSet.freshnessInfo?.freshnesses?.find(findFreshness);
+    const dailyFreshness = metricSet.freshnessInfo?.freshnesses?.find(isDailyFreshness);
     const latestDate = dateTimeToIso(dailyFreshness?.latestEndTime);
 
     if (latestDate != null) {

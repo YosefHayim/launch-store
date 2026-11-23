@@ -174,11 +174,11 @@ function describeLoadPortfolioApps() {
 
     expect(portfolioLoad.isFromCache).toBe(false);
 
-    function mapApp(app: PortfolioApp) {
+    function listAppNameAndOwner(app: PortfolioApp) {
       return [app.name, app.owner];
     }
 
-    expect(portfolioLoad.apps.map(mapApp)).toEqual([
+    expect(portfolioLoad.apps.map(listAppNameAndOwner)).toEqual([
       ['Fresh KEYA', 'mine'],
       ['Fresh KEYB', null],
     ]);

@@ -76,16 +76,16 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
     }
   }
 
-  function mapKey(key: string) {
+  function readUsageType(key: string) {
     return USAGE_TO_DATA_TYPE[key];
   }
 
-  function filterT(t: string | undefined): t is string {
+  function isUsageTypeDefined(t: string | undefined): t is string {
     return Boolean(t);
   }
 
   // 4. Over-declaration - the manifest claims a data type no permission/usage string backs.
-  const backed = new Set(usageKeys.map(mapKey).filter(filterT));
+  const backed = new Set(usageKeys.map(readUsageType).filter(isUsageTypeDefined));
 
   for (const dataType of surface.collectedDataTypes) {
     if (reconcilableDataTypes.has(dataType) && !backed.has(dataType)) {
@@ -159,7 +159,7 @@ export function buildPrivacyReport(
 ): PrivacyReport {
   let exitCode: PrivacyReport['exitCode'] = READINESS_EXIT.ok;
 
-  function someFinding(finding: {
+  function isBlockerSeverity(finding: {
     readonly app: string;
     readonly platform: 'ios' | 'android';
     readonly severity: 'info' | 'blocker' | 'warning';
@@ -169,7 +169,7 @@ export function buildPrivacyReport(
     return finding.severity == 'blocker';
   }
 
-  if (findings.some(someFinding)) exitCode = READINESS_EXIT.blocker;
+  if (findings.some(isBlockerSeverity)) exitCode = READINESS_EXIT.blocker;
 
   if (scanned.length == 0) exitCode = READINESS_EXIT.error;
 
@@ -188,7 +188,7 @@ export function renderPrivacyReport(report: PrivacyReport): string {
   const lines: string[] = [];
 
   for (const app of report.scanned) {
-    function filterFinding(finding: {
+    function belongsToScannedApp(finding: {
       readonly app: string;
       readonly platform: 'ios' | 'android';
       readonly severity: 'info' | 'blocker' | 'warning';
@@ -198,7 +198,7 @@ export function renderPrivacyReport(report: PrivacyReport): string {
       return finding.app == app;
     }
 
-    const appFindings = report.findings.filter(filterFinding);
+    const appFindings = report.findings.filter(belongsToScannedApp);
 
     lines.push(app);
 
@@ -220,7 +220,7 @@ export function renderPrivacyReport(report: PrivacyReport): string {
     }
   }
 
-  function filterFinding2(finding: {
+  function isBlockerSeverity(finding: {
     readonly app: string;
     readonly platform: 'ios' | 'android';
     readonly severity: 'info' | 'blocker' | 'warning';
@@ -230,9 +230,9 @@ export function renderPrivacyReport(report: PrivacyReport): string {
     return finding.severity == 'blocker';
   }
 
-  const blockers = report.findings.filter(filterFinding2).length;
+  const blockers = report.findings.filter(isBlockerSeverity).length;
 
-  function filterFinding3(finding: {
+  function isWarningSeverity(finding: {
     readonly app: string;
     readonly platform: 'ios' | 'android';
     readonly severity: 'info' | 'blocker' | 'warning';
@@ -242,7 +242,7 @@ export function renderPrivacyReport(report: PrivacyReport): string {
     return finding.severity == 'warning';
   }
 
-  const warnings = report.findings.filter(filterFinding3).length;
+  const warnings = report.findings.filter(isWarningSeverity).length;
 
   lines.push('', `${blockers} blocker(s), ${warnings} warning(s).`);
 

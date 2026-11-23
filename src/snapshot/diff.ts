@@ -69,11 +69,11 @@ export function stableStringify(jsonNode: JsonValue): string {
     return leftKey.localeCompare(rightKey);
   }
 
-  function mapPiece([key, fieldValue]: [string, JsonValue]) {
+  function writeSortedField([key, fieldValue]: [string, JsonValue]) {
     return `${JSON.stringify(key)}:${stableStringify(fieldValue)}`;
   }
 
-  const serializedFields = Object.entries(jsonNode).sort(sortPiece).map(mapPiece).join(',');
+  const serializedFields = Object.entries(jsonNode).sort(sortPiece).map(writeSortedField).join(',');
 
   return `{${serializedFields}}`;
 }
@@ -139,7 +139,7 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
     }
   }
 
-  function filterPiece(entry: {
+  function isAddedDiff(entry: {
     store: SnapshotStore;
     sourceId: string;
     sourceTitle: string;
@@ -151,7 +151,7 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
     return entry.change == 'added';
   }
 
-  function filterPiece2(entry: {
+  function isRemovedDiff(entry: {
     store: SnapshotStore;
     sourceId: string;
     sourceTitle: string;
@@ -163,7 +163,7 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
     return entry.change == 'removed';
   }
 
-  function filterPiece3(entry: {
+  function isChangedDiff(entry: {
     store: SnapshotStore;
     sourceId: string;
     sourceTitle: string;
@@ -177,9 +177,9 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
 
   return {
     entries,
-    addedCount: entries.filter(filterPiece).length,
-    removedCount: entries.filter(filterPiece2).length,
-    changedCount: entries.filter(filterPiece3).length,
+    addedCount: entries.filter(isAddedDiff).length,
+    removedCount: entries.filter(isRemovedDiff).length,
+    changedCount: entries.filter(isChangedDiff).length,
   };
 }
 /** Project a flattened entity to a diff entry under the given change kind. */

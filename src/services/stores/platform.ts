@@ -51,11 +51,11 @@ export function platformLabel(platform: Platform): string {
 }
 /** Parse a user-supplied `<platform>` argument into a {@link Platform} */
 export function parsePlatform(platformText: string) {
-  function findPlatform(platform: 'ios' | 'android' | 'tvos' | 'macos' | 'visionos') {
+  function isRequestedPlatform(platform: 'ios' | 'android' | 'tvos' | 'macos' | 'visionos') {
     return platform == platformText;
   }
 
-  const match = PLATFORMS.find(findPlatform);
+  const match = PLATFORMS.find(isRequestedPlatform);
 
   if (!match)
     return unsupportedPlatform(

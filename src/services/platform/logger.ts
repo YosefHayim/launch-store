@@ -113,31 +113,31 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
       return display(statusLine);
     },
     notice(lead, ...details) {
-      function mapDetail(detail: string) {
+      function indentNoticeLine(detail: string) {
         return `  ${detail}\n`;
       }
 
-      const detailLines = details.map(mapDetail).join('');
+      const detailLines = details.map(indentNoticeLine).join('');
       const statusLine = statusText('RUN', lead);
 
       display(`${statusLine}${detailLines}`);
     },
     box(title, receiptLines) {
-      function mapReceiptLine(receiptLine: string) {
+      function indentReceiptLine(receiptLine: string) {
         return `  ${receiptLine}\n`;
       }
 
-      const receipt = receiptLines.map(mapReceiptLine).join('');
+      const receipt = receiptLines.map(indentReceiptLine).join('');
       const statusLine = statusText('OK', title);
 
       display(`${statusLine}${receipt}`);
     },
     shipped(receiptLines) {
-      function mapReceiptLine2(receiptLine: string) {
+      function indentReceiptLine(receiptLine: string) {
         return `  ${receiptLine}\n`;
       }
 
-      const receipt = receiptLines.map(mapReceiptLine2).join('');
+      const receipt = receiptLines.map(indentReceiptLine).join('');
       const statusLine = statusText('OK', 'Shipped');
 
       display(`${statusLine}${receipt}`);

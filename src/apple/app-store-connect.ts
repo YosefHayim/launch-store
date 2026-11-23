@@ -1,5 +1,10 @@
 import type { components } from '../apple-api-types.ts';
 import { AppStoreToken } from './app-store-token.ts';
+import {
+  APPLE_PAGE_LIMIT,
+  applyAppleListQuery,
+  type AppleListQuery,
+} from './connect/list-query.ts';
 
 type AppList = components['schemas']['AppsResponse'];
 type BuildUploadResponse = components['schemas']['BuildUploadResponse'];
@@ -33,8 +38,9 @@ export class AppStoreConnect {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps
    */
-  async listApps(): Promise<AppList> {
-    const page = await this.send('GET', '/v1/apps', null);
+  async listApps(listQuery: AppleListQuery | null = null): Promise<AppList> {
+    const path = applyAppleListQuery('/v1/apps', listQuery, APPLE_PAGE_LIMIT);
+    const page = await this.send('GET', path, null);
 
     return page as AppList;
   }

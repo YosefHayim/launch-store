@@ -101,7 +101,7 @@ function readDomainCapability(
   if (capability.settings == null)
     return { id: capability.id, capabilityType: capability.capabilityType };
 
-  function mapSetting(setting: {
+  function copyCapabilitySetting(setting: {
     readonly key: string;
     readonly options?: Readonly<{ key: string }>[];
   }) {
@@ -113,7 +113,7 @@ function readDomainCapability(
   return {
     id: capability.id,
     capabilityType: capability.capabilityType,
-    settings: capability.settings.map(mapSetting),
+    settings: capability.settings.map(copyCapabilitySetting),
   };
 }
 

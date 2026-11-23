@@ -4,6 +4,7 @@ import type {
   ExperimentTreatmentResource,
   VersionExperimentResource,
 } from '@/types/apple-catalog.js';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectExperiments {
   constructor(private readonly client: AscHost) {}
@@ -13,17 +14,24 @@ export class ConnectExperiments {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appstoreversionexperimentsv2
    */
-  async listVersionExperiments(appId: string): Promise<VersionExperimentResource[]> {
+  async listVersionExperiments(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<VersionExperimentResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
       state?: string;
       trafficProportion?: number;
       startDate?: string;
     }>(
-      `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion,startDate`,
+      applyAppleListQuery(
+        `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion,startDate`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function flatMapExperiment(experiment: {
+    function readVersionExperiment(experiment: {
       id: string;
       attributes: { name?: string; state?: string; trafficProportion?: number; startDate?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -53,7 +61,7 @@ export class ConnectExperiments {
       return [versionExperiment];
     }
 
-    return appleResources.flatMap(flatMapExperiment);
+    return appleResources.flatMap(readVersionExperiment);
   }
 
   /**
@@ -95,16 +103,23 @@ export class ConnectExperiments {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v2-appstoreversionexperiments-_id_-appstoreversionexperimenttreatments
    */
-  async listExperimentTreatments(experimentId: string): Promise<ExperimentTreatmentResource[]> {
+  async listExperimentTreatments(
+    experimentId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ExperimentTreatmentResource[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
     }>(
       this.client.v2(
-        `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
+        applyAppleListQuery(
+          `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
+          listQuery,
+          APPLE_PAGE_LIMIT,
+        ),
       ),
     );
 
-    function flatMapTreatment(treatment: {
+    function readExperimentTreatment(treatment: {
       id: string;
       attributes: { name?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -116,7 +131,7 @@ export class ConnectExperiments {
       return [{ id: treatment.id, name: treatmentName }];
     }
 
-    return appleResources.flatMap(flatMapTreatment);
+    return appleResources.flatMap(readExperimentTreatment);
   }
 
   /**
@@ -178,14 +193,19 @@ export class ConnectExperiments {
    */
   async listExperimentTreatmentLocalizations(
     treatmentId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<ExperimentTreatmentLocalizationResource[]> {
     const appleResources = await this.client.requestAll<{
       locale?: string;
     }>(
-      `/appStoreVersionExperimentTreatments/${treatmentId}/appStoreVersionExperimentTreatmentLocalizations?limit=200&fields[appStoreVersionExperimentTreatmentLocalizations]=locale`,
+      applyAppleListQuery(
+        `/appStoreVersionExperimentTreatments/${treatmentId}/appStoreVersionExperimentTreatmentLocalizations?limit=200&fields[appStoreVersionExperimentTreatmentLocalizations]=locale`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function flatMapLocalization(localization: {
+    function readTreatmentLocalization(localization: {
       id: string;
       attributes: { locale?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -197,7 +217,7 @@ export class ConnectExperiments {
       return [{ id: localization.id, locale }];
     }
 
-    return appleResources.flatMap(flatMapLocalization);
+    return appleResources.flatMap(readTreatmentLocalization);
   }
 
   /**

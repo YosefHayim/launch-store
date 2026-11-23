@@ -58,11 +58,11 @@ export function detectShell(
 
   const shellName = shellPath.slice(shellPath.lastIndexOf('/') + 1);
 
-  function findShell(shell: 'bash' | 'zsh' | 'fish') {
+  function isNamedShell(shell: 'bash' | 'zsh' | 'fish') {
     return shellName == shell;
   }
 
-  return SHELLS.find(findShell);
+  return SHELLS.find(isNamedShell);
 }
 /** The bash completion script. */
 export function bashCompletionScript(): string {
@@ -164,14 +164,14 @@ const argumentSources: ReadonlyMap<string, CompletionCandidateSource> = new Map(
 ]);
 /** Every option spelling a command accepts (short and long, e.g. `-a`, `--app`), for flag-name completion. */
 function optionFlags(command: Command): string[] {
-  function filterFlag(flag: string | undefined): flag is string {
+  function isFlagDefined(flag: string | undefined): flag is string {
     return !!flag;
   }
-  function flatMapOption(option: CommandOption) {
-    return [option.short, option.long].filter(filterFlag);
+  function listShortAndLongFlags(option: CommandOption) {
+    return [option.short, option.long].filter(isFlagDefined);
   }
 
-  return command.options.flatMap(flatMapOption);
+  return command.options.flatMap(listShortAndLongFlags);
 }
 /** Descend the commander tree to the deepest subcommand named by `words` */
 function descendCommandTree(
@@ -185,11 +185,11 @@ function descendCommandTree(
   const commandPath: string[] = [];
 
   for (const word of words) {
-    function findCandidate(candidate: Command) {
+    function isNamedCommand(candidate: Command) {
       return candidate.name() == word;
     }
 
-    const matchingSubcommand = command.commands.find(findCandidate);
+    const matchingSubcommand = command.commands.find(isNamedCommand);
 
     if (!matchingSubcommand) break;
 

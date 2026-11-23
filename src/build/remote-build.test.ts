@@ -62,11 +62,11 @@ function describeRemoteBuildEnvironment() {
   function keepsTheAppStoreConnectKeyOffTheHost() {
     const environment = remoteBuildEnvironment(remoteInputs(), 'keychain');
 
-    function filterName(name: string) {
+    function startsWithAscPrefix(name: string) {
       return name.startsWith('ASC_');
     }
 
-    expect(Object.keys(environment).filter(filterName)).toEqual([]);
+    expect(Object.keys(environment).filter(startsWithAscPrefix)).toEqual([]);
   }
 
   it('keeps the App Store Connect key off the host', keepsTheAppStoreConnectKeyOffTheHost);

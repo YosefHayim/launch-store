@@ -27,21 +27,21 @@ export function findAppSkus(
   reportLines: readonly ReportLine[],
   storeId: string,
 ): ReadonlySet<string> {
-  function filterLine(line: { readonly [x: string]: string }) {
+  function isAppLine(line: { readonly [x: string]: string }) {
     return readCell(line, APPLE_IDENTIFIER_COLUMN) == storeId;
   }
 
-  const appLines = reportLines.filter(filterLine);
+  const appLines = reportLines.filter(isAppLine);
 
-  function mapLine(line: { readonly [x: string]: string }) {
+  function readSku(line: { readonly [x: string]: string }) {
     return readCell(line, 'SKU');
   }
 
-  function filterSku(sku: string) {
+  function isSkuFilled(sku: string) {
     return sku != '';
   }
 
-  const skus = appLines.map(mapLine).filter(filterSku);
+  const skus = appLines.map(readSku).filter(isSkuFilled);
 
   return new Set(skus);
 }
@@ -86,7 +86,7 @@ export function summarizeSalesLines(
     proceedsByCurrency.set(currency, readTotal(proceedsByCurrency, currency) + lineProceeds);
   }
 
-  function flatMapPiece({ kind, metric }: SalesCountMetric): DailyStat[] {
+  function readCountStat({ kind, metric }: SalesCountMetric): DailyStat[] {
     const units = unitsByKind.get(kind);
 
     if (units == null) return [];
@@ -94,9 +94,9 @@ export function summarizeSalesLines(
     return [{ date: day.date, feed: 'app-store', metric, value: units, currency: null }];
   }
 
-  const countStats = salesCountMetrics.flatMap(flatMapPiece);
+  const countStats = salesCountMetrics.flatMap(readCountStat);
 
-  function flatMapPiece2([currency, proceeds]: [string, number]): DailyStat[] {
+  function readCurrencyProceeds([currency, proceeds]: [string, number]): DailyStat[] {
     const roundedProceeds = roundMoney(proceeds);
 
     const isProceedsZero = roundedProceeds == 0;
@@ -118,7 +118,7 @@ export function summarizeSalesLines(
     ];
   }
 
-  const proceedsStats = [...proceedsByCurrency.entries()].flatMap(flatMapPiece2);
+  const proceedsStats = [...proceedsByCurrency.entries()].flatMap(readCurrencyProceeds);
 
   return [...countStats, ...proceedsStats];
 }

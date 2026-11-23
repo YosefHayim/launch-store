@@ -140,18 +140,18 @@ function readReportLines(report: ParsedReport | null): readonly ReportLine[] {
   return report.rows;
 }
 
-async function mapInChunks<Piece, MappedPiece>(
+async function runInChunks<Piece, MappedPiece>(
   pieces: readonly Piece[],
   chunkSize: number,
-  mapPiece: (piece: Piece) => Promise<MappedPiece>,
+  convertItem: (piece: Piece) => Promise<MappedPiece>,
 ): Promise<MappedPiece[]> {
   if (pieces.length == 0) {
     return [];
   }
 
   const chunk = pieces.slice(0, chunkSize);
-  const mappedChunk = await Promise.all(chunk.map(mapPiece));
-  const laterMapped = await mapInChunks(pieces.slice(chunkSize), chunkSize, mapPiece);
+  const mappedChunk = await Promise.all(chunk.map(convertItem));
+  const laterMapped = await runInChunks(pieces.slice(chunkSize), chunkSize, convertItem);
 
   return [...mappedChunk, ...laterMapped];
 }
@@ -239,7 +239,7 @@ async function loadSalesStats(
     return { date, report };
   }
 
-  const dailyReports = await mapInChunks(dates, 4, readDatedReport);
+  const dailyReports = await runInChunks(dates, 4, readDatedReport);
   const allLines = dailyReports.flatMap(function readLines(datedReport: DatedReport) {
     return readReportLines(datedReport.report);
   });
@@ -311,7 +311,7 @@ async function loadAnalyticsBatches(
       return readAnalyticsSegment(client, segment, kind, accessType);
     }
 
-    const kindBatches = await mapInChunks(wantedSegments, 4, readSegment);
+    const kindBatches = await runInChunks(wantedSegments, 4, readSegment);
 
     batches.push(...kindBatches);
   }

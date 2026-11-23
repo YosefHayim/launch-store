@@ -338,7 +338,7 @@ function describeReconcileOffersPromotionalIntroductoryWinBack() {
       }),
     });
 
-    function everyAction(action: {
+    function isAppliedAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -347,7 +347,7 @@ function describeReconcileOffersPromotionalIntroductoryWinBack() {
       return action.status == 'applied';
     }
 
-    expect(report.actions.every(everyAction)).toBe(true);
+    expect(report.actions.every(isAppliedAction)).toBe(true);
     expect(api.createdPromotional).toHaveLength(1);
     expect(api.introCreateCount).toBe(1);
     expect(api.createdWinBack).toHaveLength(1);
@@ -422,7 +422,7 @@ function describeReconcileOffersPromotedPurchases() {
     expect(api.createdPromoted).toHaveLength(1);
     expect(api.createdPromoted[0]?.subscriptionId).toBe('sub-1');
 
-    function someAction(action: {
+    function isReorderAction(action: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -431,7 +431,7 @@ function describeReconcileOffersPromotedPurchases() {
       return action.description.startsWith('reorder promoted purchases');
     }
 
-    expect(report.actions.some(someAction)).toBe(true);
+    expect(report.actions.some(isReorderAction)).toBe(true);
   }
 
   it(

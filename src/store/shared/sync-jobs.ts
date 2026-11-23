@@ -4,7 +4,10 @@ import { pathExists } from '@/path-exists.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { AppProducts } from '@/types/catalog.js';
 import type { LaunchConfig } from '@/types/config.js';
-import { mapEntitlementsToCapabilities, type CapabilityType } from '@/credentials/capabilities.js';
+import {
+  readCapabilitiesFromEntitlements,
+  type CapabilityType,
+} from '@/credentials/capabilities.js';
 import {
   discoverPreviews,
   discoverScreenshots,
@@ -201,7 +204,7 @@ export async function buildJobs(
       continue;
     }
 
-    const { enable, unmapped } = mapEntitlementsToCapabilities(app.iosEntitlements);
+    const { enable, unmapped } = readCapabilitiesFromEntitlements(app.iosEntitlements);
     let products: AppProducts = {};
     const configuredProducts = config.products?.[app.bundleId];
 

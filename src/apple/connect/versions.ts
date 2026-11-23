@@ -18,6 +18,7 @@ import {
   readVersionResource,
   readPhasedRelease,
 } from './shared.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectVersions {
   constructor(private readonly client: AscHost) {}
@@ -41,10 +42,17 @@ export class ConnectVersions {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appstoreversions
    */
-  async listVersionStates(appId: string): Promise<ResourceList<VersionStates>['data']> {
+  async listVersionStates(
+    appId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ResourceList<VersionStates>['data']> {
     const { data: versions } = await this.client.request<ResourceList<VersionStates>>(
       'GET',
-      `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=appStoreState&limit=20`,
+      applyAppleListQuery(
+        `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=appStoreState&limit=20`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
     return versions;
@@ -55,12 +63,19 @@ export class ConnectVersions {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-appstoreversions-_id_-appstoreversionlocalizations
    */
-  async listVersionLocalizations(versionId: string): Promise<ListingLocalization[]> {
+  async listVersionLocalizations(
+    versionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ListingLocalization[]> {
     const appleResources = await this.client.requestAll<Record<string, unknown>>(
-      `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200`,
+      applyAppleListQuery(
+        `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapLocalization(localization: {
+    function copyVersionLocalization(localization: {
       id: string;
       attributes: Record<string, unknown>;
       relationships?: { build?: { data?: { id: string } | null } };
@@ -77,7 +92,7 @@ export class ConnectVersions {
       };
     }
 
-    return appleResources.map(mapLocalization);
+    return appleResources.map(copyVersionLocalization);
   }
 
   /**
@@ -121,6 +136,7 @@ export class ConnectVersions {
   async findEditableAppStoreVersion(
     appId: string,
     platform: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<{
     id: string;
     copyright: string;
@@ -130,10 +146,14 @@ export class ConnectVersions {
       appStoreState?: string;
       copyright?: string | null;
     }>(
-      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=50&fields[appStoreVersions]=appVersionState,appStoreState,copyright`,
+      applyAppleListQuery(
+        `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=50&fields[appStoreVersions]=appVersionState,appStoreState,copyright`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function findVersion(version: {
+    function isEditableVersion(version: {
       id: string;
       attributes: { appVersionState?: string; appStoreState?: string; copyright?: string | null };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -147,7 +167,7 @@ export class ConnectVersions {
       return EDITABLE_METADATA_STATES.has(versionState);
     }
 
-    const editable = appleResources.find(findVersion);
+    const editable = appleResources.find(isEditableVersion);
 
     if (editable == null) return null;
 
@@ -225,9 +245,17 @@ export class ConnectVersions {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps-_id_-appstoreversions
    */
-  async listAppStoreVersions(appId: string, platform: string): Promise<AppStoreVersionResource[]> {
+  async listAppStoreVersions(
+    appId: string,
+    platform: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<AppStoreVersionResource[]> {
     const versionPages = await this.client.requestPages<AppStoreVersionPage>(
-      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType,build&include=build&fields[builds]=version,processingState`,
+      applyAppleListQuery(
+        `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType,build&include=build&fields[builds]=version,processingState`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
     return versionPages.flatMap(({ data: entries, included = [] }) =>
@@ -327,15 +355,20 @@ export class ConnectVersions {
    */
   async listAppStoreVersionLocalizations(
     versionId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<AppStoreVersionLocalizationResource[]> {
     const appleResources = await this.client.requestAll<{
       locale?: string;
       whatsNew?: string;
     }>(
-      `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200&fields[appStoreVersionLocalizations]=locale,whatsNew`,
+      applyAppleListQuery(
+        `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200&fields[appStoreVersionLocalizations]=locale,whatsNew`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function flatMapLocalization(localization: {
+    function readVersionLocalization(localization: {
       id: string;
       attributes: { locale?: string; whatsNew?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -355,7 +388,7 @@ export class ConnectVersions {
       return [versionLocalization];
     }
 
-    return appleResources.flatMap(flatMapLocalization);
+    return appleResources.flatMap(readVersionLocalization);
   }
 
   /**
@@ -477,14 +510,19 @@ export class ConnectVersions {
   async listReviewSubmissions(
     appId: string,
     platform: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<ReviewSubmissionResource[]> {
     const appleResources = await this.client.requestAll<{
       state?: string;
     }>(
-      `/apps/${appId}/reviewSubmissions?filter[platform]=${platform}&limit=200&fields[reviewSubmissions]=state`,
+      applyAppleListQuery(
+        `/apps/${appId}/reviewSubmissions?filter[platform]=${platform}&limit=200&fields[reviewSubmissions]=state`,
+        listQuery,
+        APPLE_PAGE_LIMIT,
+      ),
     );
 
-    function mapSubmission(submission: {
+    function copyReviewSubmission(submission: {
       id: string;
       attributes: { state?: string };
       relationships?: { build?: { data?: { id: string } | null } };
@@ -496,7 +534,7 @@ export class ConnectVersions {
       return { id: submission.id, state };
     }
 
-    return appleResources.map(mapSubmission);
+    return appleResources.map(copyReviewSubmission);
   }
 
   /**

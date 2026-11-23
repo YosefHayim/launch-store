@@ -121,7 +121,7 @@ function describeReconcileScreenshotsAppScreenshots() {
       'upload screenshot iPhone 6.7" [en-US] 01.png',
     ]);
 
-    function everyA(a: {
+    function isPlannedAction(a: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -130,7 +130,7 @@ function describeReconcileScreenshotsAppScreenshots() {
       return a.status == 'planned';
     }
 
-    expect(actions.every(everyA)).toBe(true);
+    expect(actions.every(isPlannedAction)).toBe(true);
     expect(api.createScreenshotSet).not.toHaveBeenCalled();
     expect(api.uploadScreenshot).not.toHaveBeenCalled();
   }
@@ -144,7 +144,7 @@ function describeReconcileScreenshotsAppScreenshots() {
     const api = makeApi();
     const actions = await runScreenshots(api, input({ screenshots: [shot()] }));
 
-    function everyA2(a: {
+    function isAppliedAction(a: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -153,7 +153,7 @@ function describeReconcileScreenshotsAppScreenshots() {
       return a.status == 'applied';
     }
 
-    expect(actions.every(everyA2)).toBe(true);
+    expect(actions.every(isAppliedAction)).toBe(true);
     expect(api.createScreenshotSet).toHaveBeenCalledWith('loc-en', 'APP_IPHONE_67');
     expect(api.uploadScreenshot).toHaveBeenCalledWith('set-new', '01.png', '/tmp/01.png');
   }
@@ -572,7 +572,7 @@ function describeReconcilePreviews() {
       'upload preview iPhone 6.7" [en-US] 01.mp4',
     ]);
 
-    function everyA3(a: {
+    function isPlannedAction(a: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -581,7 +581,7 @@ function describeReconcilePreviews() {
       return a.status == 'planned';
     }
 
-    expect(actions.every(everyA3)).toBe(true);
+    expect(actions.every(isPlannedAction)).toBe(true);
     expect(api.createPreviewSet).not.toHaveBeenCalled();
     expect(api.uploadPreview).not.toHaveBeenCalled();
   }
@@ -595,7 +595,7 @@ function describeReconcilePreviews() {
     const api = makePreviewsApi();
     const actions = await runPreviews(api, previewInput({ previews: [preview()] }));
 
-    function everyA4(a: {
+    function isAppliedAction(a: {
       readonly description: string;
       readonly destructive: boolean;
       status: ActionStatus;
@@ -604,7 +604,7 @@ function describeReconcilePreviews() {
       return a.status == 'applied';
     }
 
-    expect(actions.every(everyA4)).toBe(true);
+    expect(actions.every(isAppliedAction)).toBe(true);
     expect(api.createPreviewSet).toHaveBeenCalledWith('loc-en', 'IPHONE_67');
     expect(api.uploadPreview).toHaveBeenCalledWith('set-new', '01.mp4', '/tmp/01.mp4');
   }

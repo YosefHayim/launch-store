@@ -17,11 +17,11 @@ export function parseVersion(input: string): SemVer | null {
 
   if (!/^\d+(\.\d+){0,2}$/.test(core)) return null;
 
-  function mapPart(part: string) {
+  function readNumericPart(part: string) {
     return Number.parseInt(part, 10);
   }
 
-  const [major = 0, minor = 0, patch = 0] = core.split('.').map(mapPart);
+  const [major = 0, minor = 0, patch = 0] = core.split('.').map(readNumericPart);
 
   return { major, minor, patch };
 }
@@ -70,19 +70,19 @@ export function compareVersions(a: string, b: string): number {
 }
 /** The highest parseable version in a list, returned in its original form */
 export function highestVersion(versions: readonly string[]): string | null {
-  function filterVersion(version: string) {
+  function isVersionParseable(version: string) {
     return parseVersion(version) != null;
   }
 
-  const parseable = versions.filter(filterVersion);
+  const parseable = versions.filter(isVersionParseable);
 
   if (parseable.length == 0) return null;
 
-  function reduceHighest(highest: string, version: string) {
+  function pickHigherVersion(highest: string, version: string) {
     if (compareVersions(version, highest) > 0) return version;
 
     return highest;
   }
 
-  return parseable.reduce(reduceHighest);
+  return parseable.reduce(pickHigherVersion);
 }

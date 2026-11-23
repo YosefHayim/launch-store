@@ -220,7 +220,7 @@ function findings(probeResult: ProbeResult): {
 }[] {
   if (probeResult.state != 'checked') return [];
 
-  function mapPiece({
+  function readProbeRow({
     status,
     identifier,
   }: {
@@ -233,7 +233,7 @@ function findings(probeResult: ProbeResult): {
     return { status, identifier };
   }
 
-  return probeResult.apps.map(mapPiece);
+  return probeResult.apps.map(readProbeRow);
 }
 
 /** Run a readiness probe. */

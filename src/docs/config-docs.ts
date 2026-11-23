@@ -55,11 +55,11 @@ function cleanDescription(description: string | undefined): string {
 function renderType(schema: JsonSchema): string {
   if (schema.$ref) return refName(schema.$ref);
 
-  function mapEnumMember(enumMember: unknown) {
+  function quoteEnumMember(enumMember: unknown) {
     return JSON.stringify(enumMember);
   }
 
-  if (schema.enum) return schema.enum.map(mapEnumMember).join(' | ');
+  if (schema.enum) return schema.enum.map(quoteEnumMember).join(' | ');
 
   if ('const' in schema) return JSON.stringify(schema.const);
 
@@ -107,7 +107,7 @@ function renderPropertiesTable(object: JsonSchema): string {
 
   const required = new Set(requiredFields);
 
-  function mapPiece([name, property]: [string, JsonSchema]) {
+  function writePropertyRow([name, property]: [string, JsonSchema]) {
     const type = `\`${escapeCell(renderType(property))}\``;
     let need = 'No';
 
@@ -116,7 +116,7 @@ function renderPropertiesTable(object: JsonSchema): string {
     return `| \`${name}\` | ${type} | ${need} | ${escapeCell(cleanDescription(property.description))} |`;
   }
 
-  const rows = properties.map(mapPiece);
+  const rows = properties.map(writePropertyRow);
 
   return ['| Field | Type | Required | Description |', '| --- | --- | --- | --- |', ...rows].join(
     '\n',
@@ -156,7 +156,7 @@ export function renderConfigDocs(schema: JsonSchema): string {
     'Run `launch-store config validate` to check a config against this schema (it also reports cross-field semantic warnings, which never fail the command); pass a `.json` file to validate it verbatim, including unknown top-level keys.',
   ].join(' ');
 
-  function filterPiece([name, definition]: [string, JsonSchema]) {
+  function isNestedDefinition([name, definition]: [string, JsonSchema]) {
     return name != rootName && definition.properties != null;
   }
 
@@ -164,14 +164,14 @@ export function renderConfigDocs(schema: JsonSchema): string {
     return a.localeCompare(b);
   }
 
-  function mapPiece2([name, definition]: [string, JsonSchema]) {
+  function writeTypeSection([name, definition]: [string, JsonSchema]) {
     return renderTypeSection(name, definition);
   }
 
   const nestedTypes = Object.entries(definitions)
-    .filter(filterPiece)
+    .filter(isNestedDefinition)
     .sort(sortPiece)
-    .map(mapPiece2);
+    .map(writeTypeSection);
   const parts = [
     header,
     '',

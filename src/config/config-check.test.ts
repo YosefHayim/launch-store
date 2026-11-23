@@ -77,7 +77,7 @@ function describeCheckAppPiece() {
     const config = { expo: { ...clean.expo, splash: { image: './assets/splash.png' } } };
     const android = checkAppConfig(config, 'app.json', 'android');
 
-    function someF(f: {
+    function isSplashError(f: {
       severity: 'error' | 'warn';
       file: string;
       key: string;
@@ -87,7 +87,7 @@ function describeCheckAppPiece() {
       return f.key == 'splash' && f.severity == 'error';
     }
 
-    expect(android.some(someF)).toBe(true);
+    expect(android.some(isSplashError)).toBe(true);
 
     const ownKeys = keys(config, 'ios');
 
